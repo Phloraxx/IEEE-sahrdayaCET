@@ -169,7 +169,7 @@ const Footer: React.FC = () => {
             {/* Large watermark text */}
             <div className="absolute bottom-0 left-0 right-0 overflow-hidden pointer-events-none select-none" aria-hidden="true">
                 <div className="font-pixel text-[8vw] md:text-[6vw] text-white/[0.05] whitespace-nowrap tracking-tighter leading-none translate-y-[30%]">
-                    IEEE SAHRDAYA — ADVANCING TECHNOLOGY FOR HUMANITY
+                    IEEE SAHRDAYA — Advancing Technology for Humanity
                 </div>
             </div>
         </footer>
