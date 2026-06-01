@@ -10,6 +10,9 @@ import { handleError } from '@/lib/errorHandler';
 
 export const runtime = 'nodejs';
 
+const moduleLog = createLogger({ action: 'event-export' });
+const eventLog = createLogger({ action: 'event-export-handler' });
+
 interface RouteParams {
     params: Promise<{ eventId: string }>;
 }
@@ -20,6 +23,7 @@ function parseFormResponses(formResponses: string | null | undefined): Record<st
     try {
         return JSON.parse(formResponses);
     } catch {
+        moduleLog.warn('Failed to parse form responses JSON during export');
         return {};
     }
 }
@@ -51,15 +55,16 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         const databases = getDatabases();
 
         // Get event details
-        let event;
-        try {
-            event = await databases.getDocument(DATABASE_ID, EVENTS_COLLECTION_ID, eventId);
-        } catch {
-            return NextResponse.json(
-                { error: 'NOT_FOUND', message: 'Event not found' },
-                { status: 404 }
-            );
-        }
+    let event;
+    try {
+      event = await databases.getDocument(DATABASE_ID, EVENTS_COLLECTION_ID, eventId);
+    } catch {
+      moduleLog.warn('Event not found for export', { eventId });
+      return NextResponse.json(
+        { error: 'NOT_FOUND', message: 'Event not found' },
+        { status: 404 }
+      );
+    }
 
         // Authorization - check if user is chair of this event
         const isEventChair = await isUserChairOfEvent(user.$id, eventId);

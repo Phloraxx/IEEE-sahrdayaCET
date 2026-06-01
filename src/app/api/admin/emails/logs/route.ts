@@ -159,7 +159,9 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    validateCSRF(req);
+    if (!validateCSRF(req)) {
+      return NextResponse.json({ success: false, error: 'CSRF validation failed' }, { status: 403 });
+    }
     const user = await getSignedInUserFromRequest(req);
     if (!user) {
       return NextResponse.json(

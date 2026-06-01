@@ -16,6 +16,8 @@ import { isUserChairOfEvent } from '@/lib/api/auth-check';
 
 export const runtime = 'nodejs';
 
+const moduleLog = createLogger({ action: 'checkin-search' });
+
 interface RouteParams {
   params: Promise<{ eventId: string }>;
 }
@@ -44,6 +46,7 @@ function parseJsonObject(value: unknown): Record<string, unknown> {
       ? (parsed as Record<string, unknown>)
       : {};
   } catch {
+    moduleLog.warn('Failed to parse JSON object in search');
     return {};
   }
 }

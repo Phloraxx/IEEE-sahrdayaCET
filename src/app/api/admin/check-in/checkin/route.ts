@@ -36,7 +36,9 @@ export async function POST(req: NextRequest) {
   const log = createLogger({ action: 'checkin' });
 
   try {
-    validateCSRF(req);
+    if (!validateCSRF(req)) {
+      return NextResponse.json({ success: false, error: 'CSRF validation failed' }, { status: 403 });
+    }
     const user = await getSignedInUserFromRequest(req);
     if (!user) {
       log.warn('Unauthorized check-in attempt');
@@ -185,6 +187,7 @@ export async function POST(req: NextRequest) {
         : {};
       userName = formResponses.name || registration.user_name || 'Unknown';
     } catch {
+      log.warn('Failed to parse form responses for user name, using fallback');
       userName = registration.user_name || 'Unknown';
     }
 

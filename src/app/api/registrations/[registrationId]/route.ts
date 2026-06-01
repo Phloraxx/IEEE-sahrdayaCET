@@ -68,7 +68,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     try {
       formData = JSON.parse(registration.form_data || '{}');
     } catch {
-      // Keep empty object
+      log.warn('Failed to parse form data for registration', { registrationId: registration.$id });
     }
 
     log.info('Registration fetched successfully', { userId, isOwner, isAdmin });
@@ -188,7 +188,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       try {
         existingFormData = JSON.parse(registration.form_data || '{}');
       } catch {
-        // Keep empty object
+        log.warn('Failed to parse existing form data for merge', { registrationId: registration.$id });
       }
       updateData.form_data = { ...existingFormData, ...parsed.data.form_data };
     }

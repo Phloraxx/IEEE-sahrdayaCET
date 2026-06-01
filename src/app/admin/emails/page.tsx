@@ -132,6 +132,7 @@ export default function EmailDashboardPage() {
         Authorization: `Bearer ${jwt.jwt}`,
       };
     } catch {
+      console.error('[ERROR] Failed to create JWT for auth headers');
       return {
         'Content-Type': 'application/json',
         Authorization: '',
@@ -263,6 +264,7 @@ export default function EmailDashboardPage() {
         toast.error(data.message || 'Retry failed');
       }
     } catch {
+      console.error('[ERROR] Failed to retry email');
       toast.error('Failed to retry email');
     } finally {
       setRetryLoading(false);
@@ -298,6 +300,7 @@ export default function EmailDashboardPage() {
         toast.error(data.message || 'Retry failed');
       }
     } catch {
+      console.error('[ERROR] Failed to retry selected emails');
       toast.error('Failed to retry emails');
     } finally {
       setRetryLoading(false);
@@ -334,6 +337,7 @@ export default function EmailDashboardPage() {
         toast.error(data.message || 'Retry failed');
       }
     } catch {
+      console.error('[ERROR] Failed to retry all failed emails');
       toast.error('Failed to retry emails');
     } finally {
       setRetryLoading(false);

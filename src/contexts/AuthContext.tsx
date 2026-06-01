@@ -44,11 +44,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Check if user is already logged in on mount
     useEffect(() => {
-        refresh();
+        const init = async () => {
+            try {
+                await refresh();
+            } catch (err) {
+                console.error('Failed to initialize auth:', err);
+            }
+        };
+        init();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const refresh = async () => {
+    const refresh = useCallback(async () => {
         try {
             const currentUser = await account.get();
             setUser(currentUser as unknown as User);
@@ -60,16 +67,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // Check if profile exists
             await checkProfile(currentUser.$id);
         } catch {
-            // Session cookie present but invalid/expired — clear it gracefully
+            log.error('Session expired', new Error('Session cookie invalid/expired'));
             setUser(null);
             setUserTeams([]);
             toast.error('Session expired. Please log in again.');
         } finally {
             setLoading(false);
         }
-    };
+    }, [checkProfile]);
 
-    const login = async () => {
+    const login = useCallback(async () => {
         try {
             // Trigger Google OAuth
             const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
@@ -86,9 +93,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             log.error('Login failed', error instanceof Error ? error : new Error(String(error)));
             throw error;
         }
-    };
+    }, []);
 
-    const logout = async () => {
+    const logout = useCallback(async () => {
         try {
             await account.deleteSession('current');
             setUser(null);
@@ -98,9 +105,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             log.error('Logout failed', error instanceof Error ? error : new Error(String(error)));
             throw error;
         }
-    };
+    }, []);
 
-    const isChairOf = (societySlug: string): boolean => {
+    const isChairOf = useCallback((societySlug: string): boolean => {
         if (!user || !userTeams.length) return false;
 
         // Check if user is member of chair_{societySlug} team
@@ -108,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return userTeams.some(
             (team) => team.$id === chairTeamName || team.name?.toLowerCase().includes(chairTeamName)
         );
-    };
+    }, [user, userTeams]);
 
     // Get JWT for API calls - creates one if needed, uses cache otherwise
     const getJWT = useCallback(async (): Promise<string | null> => {
@@ -142,8 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const contextValue = useMemo(
         () => ({ user, loading, profileCompleted, profileLoading, login, logout, refresh, isChairOf, userTeams, getJWT }),
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [user, loading, profileCompleted, profileLoading, userTeams, getJWT]
+        [user, loading, profileCompleted, profileLoading, login, logout, refresh, isChairOf, userTeams, getJWT]
     );
 
     return (

@@ -1,5 +1,5 @@
 import { Client, Account, Databases, Storage, Teams } from 'appwrite';
-import { COLLECTIONS } from '@/lib/constants/collections';
+import { DATABASE_ID, COLLECTIONS } from '@/lib/constants/collections';
 
 // Environment variables with fallbacks
 const APPWRITE_ENDPOINT = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT || '';
@@ -24,7 +24,6 @@ export const storage = new Storage(client);
 export const teams = new Teams(client);
 
 // Collection IDs (will be set after Appwrite setup)
-export const DATABASE_ID = process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID || '';
 export const SOCIETIES_COLLECTION_ID = COLLECTIONS.SOCIETIES;
 export const EVENTS_COLLECTION_ID = COLLECTIONS.EVENTS;
 export const EXECOM_COLLECTION_ID = COLLECTIONS.EXECOM;

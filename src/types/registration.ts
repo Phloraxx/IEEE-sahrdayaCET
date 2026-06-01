@@ -1,39 +1,15 @@
 // Registration Types
 
-export interface FormField {
-    id: string;
-    type: 'text' | 'email' | 'phone' | 'number' | 'select' | 'textarea' | 'checkbox' | 'radio';
-    label: string;
-    placeholder?: string;
-    required: boolean;
-    options?: string[];
-    validation?: {
-        min?: number;
-        max?: number;
-        pattern?: string;
-        message?: string;
-    };
-}
+import { z } from 'zod';
+import {
+  formTemplateSchema,
+  customFieldSchema
+} from '@/lib/validation/schemas';
 
-export interface FormTemplate {
-    eventId: string;
-    title: string;
-    description?: string;
-    fields: FormField[];
-    standardFields: {
-        name: boolean;
-        email: boolean;
-        phone: boolean;
-        semester: boolean;
-        department: boolean;
-        section: boolean;
-        rollNumber: boolean;
-    };
-    customQuestions: FormField[];
-}
+export type FormField = z.infer<typeof customFieldSchema>;
+export type FormTemplate = z.infer<typeof formTemplateSchema>;
 
 export interface RegistrationData {
-    // Standard fields
     name?: string;
     email?: string;
     phone?: string;
@@ -41,7 +17,6 @@ export interface RegistrationData {
     department?: string;
     section?: string;
     rollNumber?: string;
-    // Custom fields stored as key-value pairs
     customFields?: Record<string, string | number | boolean>;
 }
 

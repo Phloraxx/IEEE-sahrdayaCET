@@ -60,7 +60,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       try {
         qrData = JSON.parse(ticket.qr_data);
       } catch {
-        // keep null
+        log.warn('Failed to parse ticket QR data');
       }
 
       log.info('Ticket fetched successfully (authenticated)');

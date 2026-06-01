@@ -31,6 +31,7 @@ function parseFormResponses(formResponses: string | null | undefined): Record<st
   try {
     return JSON.parse(formResponses);
   } catch {
+    logger.warn('Failed to parse form responses JSON in bulk operation');
     return {};
   }
 }
@@ -41,7 +42,9 @@ function parseFormResponses(formResponses: string | null | undefined): Record<st
  */
 export async function POST(req: NextRequest) {
   try {
-    validateCSRF(req);
+    if (!validateCSRF(req)) {
+      return NextResponse.json({ success: false, error: 'CSRF validation failed' }, { status: 403 });
+    }
     // Authentication
     const user = await getSignedInUserFromRequest(req);
     if (!user) {
@@ -92,6 +95,7 @@ export async function POST(req: NextRequest) {
     try {
       await db.getDocument(DATABASE_ID, EVENTS_COLLECTION_ID, eventId);
     } catch {
+      logger.warn('Event not found for bulk operation', { eventId });
       return NextResponse.json(
         { error: 'NOT_FOUND', message: 'Event not found' },
         { status: 404 }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -70,7 +70,7 @@ const STATUS_STYLES = {
 type SortField = 'user_name' | 'registration_date';
 type SortDirection = 'asc' | 'desc';
 
-export default function RegistrationsPage() {
+function RegistrationsPageContent() {
     const params = useParams();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -1211,5 +1211,13 @@ export default function RegistrationsPage() {
                 </AnimatePresence>
             </div>
         </div>
+    );
+}
+
+export default function Page() {
+    return (
+        <Suspense fallback={<div className="p-12 text-center"><div className="w-8 h-8 mx-auto text-ieee-blue animate-spin mb-4 border-4 border-gray-200 border-t-ieee-blue rounded-full" /><p className="text-gray-600">Loading...</p></div>}>
+            <RegistrationsPageContent />
+        </Suspense>
     );
 }

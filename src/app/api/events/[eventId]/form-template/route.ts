@@ -45,7 +45,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       try {
         formTemplate = JSON.parse(event.form_template);
       } catch {
-        // Invalid JSON - return default template
+        log.warn('Invalid form template JSON on event, using default');
         formTemplate = getDefaultFormTemplate();
       }
     } else {

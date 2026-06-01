@@ -25,7 +25,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   const log = createLogger({ action: 'admin-resend-ticket-email', registrationId });
 
   try {
-    validateCSRF(req);
+    if (!validateCSRF(req)) {
+      return NextResponse.json({ success: false, error: 'CSRF validation failed' }, { status: 403 });
+    }
     // 1. Check authentication
     const user = await getSignedInUserFromRequest(req);
     if (!user) {

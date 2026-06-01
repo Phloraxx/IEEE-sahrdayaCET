@@ -104,7 +104,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
           const formResponses = reg.form_responses ? JSON.parse(reg.form_responses) : {};
           studentName = formResponses.name || studentName;
         } catch {
-          // ignore
+          log.warn('Failed to parse form responses for student name');
         }
         
         // Get location history for the check-in timeline

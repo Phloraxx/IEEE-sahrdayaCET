@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
         try {
           formData = JSON.parse(registration.form_responses || registration.form_data || '{}');
         } catch {
-          // Keep empty object
+          log.warn('Failed to parse form data for registration', { registrationId: registration.$id });
         }
 
         return {

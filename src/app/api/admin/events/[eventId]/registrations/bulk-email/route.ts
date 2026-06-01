@@ -16,6 +16,8 @@ import { isUserChairOfEvent } from '@/lib/api/auth-check';
 
 export const runtime = 'nodejs';
 
+const moduleLog = createLogger({ action: 'bulk-email' });
+
 interface RouteParams {
   params: Promise<{ eventId: string }>;
 }
@@ -61,7 +63,7 @@ async function logEmailAttempt(
     );
     return doc.$id;
   } catch (error) {
-    // Collection might not exist - don't fail the operation
+    moduleLog.warn('Failed to log email attempt (collection may not exist)');
     return null;
   }
 }
@@ -71,7 +73,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   const log = createLogger({ action: 'bulk-send-registration-email', eventId });
 
   try {
-    validateCSRF(req);
+    if (!validateCSRF(req)) {
+      return NextResponse.json({ success: false, error: 'CSRF validation failed' }, { status: 403 });
+    }
     const user = await getSignedInUserFromRequest(req);
     if (!user) {
       return NextResponse.json(
@@ -130,6 +134,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
           if (reg.event_id !== eventId) return null;
           return reg;
         } catch {
+          moduleLog.warn('Failed to fetch registration for bulk email', { registrationId });
           return null;
         }
       })

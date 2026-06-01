@@ -181,7 +181,7 @@ export async function GET(req: NextRequest) {
           studentName = formResponses.name || studentName;
           email = formResponses.email || email;
         } catch {
-          // ignore
+          log.warn('Failed to parse form responses in overview');
         }
         
         const checkedInAt = reg.check_in_time || reg.checked_in_at || reg.$updatedAt;

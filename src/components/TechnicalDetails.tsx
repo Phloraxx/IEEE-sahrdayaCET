@@ -26,7 +26,7 @@ function statusClass(s: ConnStatus): string | undefined {
 }
 
 export const TechnicalDetails: React.FC = () => {
-    const [platform, setPlatform] = useState('WEB_OS');
+    const [platform, setPlatform] = useState<string | null>(null);
     const [terminal, setTerminal] = useState<ConnStatus>('CHECKING');
 
     useEffect(() => {
@@ -72,7 +72,7 @@ export const TechnicalDetails: React.FC = () => {
                     className="font-mono text-[10px] text-gray-400 leading-tight"
                 >
                     <p>BUILD_VER: {version}</p>
-                    <p>PLATFORM: {platform}</p>
+                    {platform && <p>PLATFORM: {platform}</p>}
                 </motion.div>
             </motion.div>
 

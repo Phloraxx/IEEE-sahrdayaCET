@@ -171,7 +171,7 @@ export async function GET(req: NextRequest) {
             matches = true;
           }
         } catch {
-          // Ignore parse errors
+          log.warn('Failed to parse form responses during search');
         }
       }
 
@@ -199,7 +199,7 @@ export async function GET(req: NextRequest) {
         studentName = formResponses.name || studentName;
         email = formResponses.email || email;
       } catch {
-        // Ignore
+        log.warn('Failed to parse form responses for student identity');
       }
 
       // Get location history for checked-in registrations

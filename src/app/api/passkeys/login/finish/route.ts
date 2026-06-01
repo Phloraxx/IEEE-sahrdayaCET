@@ -56,6 +56,7 @@ function parseChallenge(challengeId: string): SignedChallenge | null {
   try {
     payload = Buffer.from(payloadBase64, 'base64url').toString('utf8');
   } catch {
+    log.warn('Failed to decode challenge payload from base64url');
     return null;
   }
 
@@ -69,6 +70,7 @@ function parseChallenge(challengeId: string): SignedChallenge | null {
   try {
     parsed = JSON.parse(payload) as SignedChallenge;
   } catch {
+    log.warn('Failed to parse challenge payload JSON');
     return null;
   }
 
@@ -99,6 +101,7 @@ function userHandleToUserId(userHandle?: string | null) {
   try {
     return Buffer.from(userHandle, 'base64url').toString('utf8');
   } catch {
+    log.warn('Failed to decode user handle from base64url');
     return null;
   }
 }

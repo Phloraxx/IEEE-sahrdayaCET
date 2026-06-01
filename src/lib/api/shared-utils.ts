@@ -12,7 +12,7 @@ export function formatDate(date: string | Date | null | undefined): string {
       timeZone: 'Asia/Kolkata',
     });
   } catch (e) {
-    console.error('Failed to fetch user societies', e);
+    console.error('[ERROR] Failed to format date', e);
     return '-';
   }
 }
@@ -41,7 +41,7 @@ export function parseFormResponses(raw: unknown): Record<string, unknown> {
   if (raw && typeof raw === 'object') return raw as Record<string, unknown>;
   try {
     if (typeof raw === 'string') return JSON.parse(raw);
-  } catch (e) { console.error('Failed to fetch user teams', e); }
+  } catch (e) { console.error('[ERROR] Failed to parse form responses', e); }
   return {};
 }
 

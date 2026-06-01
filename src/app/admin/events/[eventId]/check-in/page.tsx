@@ -134,6 +134,7 @@ export default function CheckInPage({ params }: PageProps) {
             try {
                 parsed = JSON.parse(raw);
             } catch {
+                console.error('[ERROR] Failed to parse location history JSON');
                 return [];
             }
         }
@@ -261,7 +262,7 @@ export default function CheckInPage({ params }: PageProps) {
                             studentName = formData.name || studentName;
                         }
                     } catch {
-                        // ignore parse errors
+                        log.warn('Failed to parse form responses for real-time check-in entry');
                     }
                     
                     const newEntry: CheckInEntry = {
@@ -345,6 +346,7 @@ export default function CheckInPage({ params }: PageProps) {
                 const parsed = JSON.parse(qrData);
                 ticketId = parsed.ticket_id || parsed.ticketId || qrData;
             } catch {
+                log.warn('QR data is not JSON, using raw value as ticket ID');
                 ticketId = qrData;
             }
 
@@ -358,7 +360,7 @@ export default function CheckInPage({ params }: PageProps) {
                         ticketId = segments[ticketIndex + 1];
                     }
                 } catch {
-                    // keep original ticketId if URL parsing fails
+                    log.warn('Failed to parse URL-encoded ticket ID, using original value');
                 }
             }
 

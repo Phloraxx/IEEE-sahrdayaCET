@@ -15,6 +15,8 @@ import { isUserChairOfEvent } from '@/lib/api/auth-check';
 
 export const runtime = 'nodejs';
 
+const moduleLog = createLogger({ action: 'checkin-export' });
+
 interface RouteParams {
   params: Promise<{ eventId: string }>;
 }
@@ -44,6 +46,7 @@ function formatDateTime(isoString: string | undefined): string {
       hour12: true,
     });
   } catch {
+    moduleLog.warn('Failed to format date in export', { isoString });
     return isoString;
   }
 }
@@ -135,7 +138,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         studentName = formResponses.name || studentName;
         email = formResponses.email || email;
       } catch {
-        // Ignore
+        log.warn('Failed to parse form responses in export');
       }
 
       // Get check-in details

@@ -33,7 +33,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   const log = createLogger({ action: 'complete-payment', registrationId });
 
   try {
-    validateCSRF(req);
+    if (!validateCSRF(req)) {
+      return NextResponse.json({ success: false, error: 'CSRF validation failed' }, { status: 403 });
+    }
     // 1. Check authentication
     const user = await getSignedInUserFromRequest(req);
     if (!user) {

@@ -15,6 +15,14 @@ import { databases } from '@/lib/appwrite';
 import { DATABASE_ID, EVENTS_COLLECTION_ID, SOCIETIES_COLLECTION_ID } from '@/lib/constants/collections';
 import { Query } from 'appwrite';
 import { Event, Society } from '@/types';
+import { Caveat } from 'next/font/google';
+
+const caveat = Caveat({
+    subsets: ['latin'],
+    weight: ['600', '700'],
+    display: 'swap',
+    variable: '--font-caveat',
+});
 
 const EventRegistrationModal = dynamic(
     () => import('@/components/EventRegistrationModal'),
@@ -188,11 +196,11 @@ export default function Events1Page() {
     }, [events]);
 
     return (
-        <main className="min-h-screen text-slate-800 font-sans selection:bg-[#00629B] selection:text-white overflow-x-hidden relative bg-[#F8F9FA]">
+        <main className={`min-h-screen text-slate-800 font-sans selection:bg-[#00629B] selection:text-white overflow-x-hidden relative bg-[#F8F9FA] ${caveat.variable}`}>
             {/* Custom Styles */}
             <style jsx global>{`
-                @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&display=swap');
-                .font-handwriting { font-family: 'Caveat', cursive; }
+                :root { --font-caveat: 'Caveat', cursive; }
+                .font-handwriting { font-family: var(--font-caveat); }
                 .custom-scrollbar::-webkit-scrollbar { width: 6px; }
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
                 @keyframes marquee {

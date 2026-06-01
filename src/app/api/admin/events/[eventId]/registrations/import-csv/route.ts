@@ -59,7 +59,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   const log = createLogger({ action: 'import_csv_registrations', eventId });
 
   try {
-    validateCSRF(req);
+    if (!validateCSRF(req)) {
+      return NextResponse.json({ success: false, error: 'CSRF validation failed' }, { status: 403 });
+    }
     const user = await getSignedInUserFromRequest(req);
     if (!user) {
       return NextResponse.json(
@@ -159,6 +161,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
                 targetUserId = newUser.$id;
               }
             } catch {
+              log.warn('Failed to find user by phone, creating new user with phone', { email, phone: phoneE164 });
               const newUser = await users.create(
                 ID.unique(),
                 email,

@@ -323,7 +323,7 @@ export default function EventRegistrationModal({
                                 const qrData = JSON.parse(data.ticket.qr_data);
                                 ticketId = qrData.ticket_id || data.ticket.$id || data.ticket.id || ticketId;
                             } catch {
-                                // Use available ticket ID
+                                log.error('Failed to parse QR data from existing ticket', new Error('Parse failed'));
                             }
                         }
 
@@ -459,7 +459,7 @@ export default function EventRegistrationModal({
                                         const qrData = JSON.parse(existingData.ticket.qr_data);
                                         ticketId = qrData.ticket_id || ticketId;
                                     } catch {
-                                        // Use existing ticket ID
+                                        log.error('Failed to parse QR data from existing registration', new Error('Parse failed'));
                                     }
                                 }
 

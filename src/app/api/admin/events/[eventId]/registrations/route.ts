@@ -16,6 +16,8 @@ import { handleError } from '@/lib/errorHandler';
 
 export const runtime = 'nodejs';
 
+const moduleLog = createLogger({ action: 'event-registrations' });
+
 // Simple in-memory cache for user lookups (TTL: 5 minutes)
 const userCache = new Map<string, { data: { name: string; email: string }; expires: number }>();
 const USER_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -84,7 +86,7 @@ function parseRegistrationFormPayload(reg: Record<string, unknown>): Record<stri
         return parsed as Record<string, unknown>;
       }
     } catch {
-      // Fall through to legacy shape
+      moduleLog.warn('Failed to parse form_responses JSON, falling through to legacy shape');
     }
   } else if (fromFormResponses && typeof fromFormResponses === 'object' && !Array.isArray(fromFormResponses)) {
     return fromFormResponses as Record<string, unknown>;
@@ -98,6 +100,7 @@ function parseRegistrationFormPayload(reg: Record<string, unknown>): Record<stri
         return parsed as Record<string, unknown>;
       }
     } catch {
+      moduleLog.warn('Failed to parse form_data JSON, returning empty object');
       return {};
     }
   } else if (fromFormData && typeof fromFormData === 'object' && !Array.isArray(fromFormData)) {
@@ -267,7 +270,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
           setCachedUser(userId, userData);
           return { userId, ...userData };
         } catch {
-          // User not found - return placeholder
+          moduleLog.warn('User not found for ID', { userId });
           return { userId, name: '', email: '' };
         }
       });
@@ -369,7 +372,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   const log = createLogger({ action: 'manual_registration', eventId });
 
   try {
-    validateCSRF(req);
+    if (!validateCSRF(req)) {
+      return NextResponse.json({ success: false, error: 'CSRF validation failed' }, { status: 403 });
+    }
     // Authentication
     const user = await getSignedInUserFromRequest(req);
     if (!user) {

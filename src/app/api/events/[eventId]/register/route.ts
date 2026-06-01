@@ -34,7 +34,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   const log = createLogger({ action: 'register', eventId });
 
   try {
-    validateCSRF(req);
+    if (!validateCSRF(req)) {
+      return NextResponse.json({ success: false, error: 'CSRF validation failed' }, { status: 403 });
+    }
     // 1. Check authentication
     const user = await getSignedInUserFromRequest(req);
     const userId = user?.$id;
@@ -54,7 +56,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     try {
       body = await req.json();
     } catch {
-      // Empty body is OK for events without custom forms
+      log.warn('Empty or invalid request body');
     }
 
     // 3. Check rate limits

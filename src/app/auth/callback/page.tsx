@@ -79,6 +79,7 @@ export default function AuthCallback() {
             try {
                 await account.get();
             } catch {
+                console.error('[ERROR] User not authenticated in auth callback');
                 goBack();
                 return;
             }
