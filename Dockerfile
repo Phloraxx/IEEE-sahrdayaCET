@@ -2,16 +2,15 @@ FROM node:22-alpine AS deps
 WORKDIR /app
 RUN apk add --no-cache libc6-compat
 COPY package.json package-lock.json .npmrc ./
-RUN --mount=type=cache,target=/root/.npm \
+RUN --mount=type=cache,target=/root/.npm,id=npm-deps \
     npm ci
 
 FROM node:22-alpine AS deps-prod
 WORKDIR /app
 RUN apk add --no-cache libc6-compat
 COPY package.json package-lock.json .npmrc ./
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci --omit=dev && \
-    npm cache clean --force
+RUN --mount=type=cache,target=/root/.npm,id=npm-deps-prod \
+    npm ci --omit=dev
 
 FROM node:22-alpine AS builder
 WORKDIR /app
