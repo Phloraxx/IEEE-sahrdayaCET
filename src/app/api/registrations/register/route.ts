@@ -85,6 +85,7 @@ export async function POST(req: Request) {
     const ddmResp = order.ddmResponse as Record<string, unknown> | undefined
     const ticketId = ddmResp?.ticketId as string || ''
 
+    const upiId = process.env.NEXT_PUBLIC_UPI_ID || ''
     return Response.json({
       registration,
       payment_required: true,
@@ -92,7 +93,7 @@ export async function POST(req: Request) {
         orderId: order.id,
         amount: discountedAmount,
         ticketId,
-        upiString: `upi://pay?pa=souravpbijoy-2@okicici&pn=IEEE%20Sahrdaya%20SB&am=${discountedAmount}&tn=${ticketId}&cu=INR`,
+        upiString: `upi://pay?pa=${upiId}&pn=IEEE%20Sahrdaya%20SB&am=${discountedAmount}&tn=${ticketId}&cu=INR`,
       },
     })
   } catch (error) {

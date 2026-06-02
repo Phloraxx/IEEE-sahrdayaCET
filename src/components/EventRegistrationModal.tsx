@@ -42,7 +42,8 @@ interface Event {
 interface Society {
     $id: string;
     name: string;
-    logo_url?: string;
+    slug: string;
+    logo_url: string;
 }
 
 // Step indicator component

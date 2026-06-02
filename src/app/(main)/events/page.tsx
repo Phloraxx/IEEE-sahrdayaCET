@@ -40,7 +40,8 @@ interface EventWithSociety {
     society?: {
         $id: string;
         name: string;
-        logo_url?: string;
+        slug: string;
+        logo_url: string;
     };
 }
 

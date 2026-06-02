@@ -63,3 +63,7 @@ data/
 # Migration artifacts
 media/
 societies/
+execom/
+
+# Database dumps and SQL files
+*.sql

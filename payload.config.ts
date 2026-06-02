@@ -37,6 +37,41 @@ export default buildConfig({
   cors: ['http://localhost:3000', 'https://ieeesahrdaya.com'],
   csrf: ['http://localhost:3000', 'https://ieeesahrdaya.com'],
   maxDepth: 2,
+  admin: {
+    meta: {
+      titleSuffix: ' - IEEE Sahrdaya SB',
+      icons: [
+        {
+          rel: 'icon',
+          url: '/favicon.ico',
+        },
+      ],
+      openGraph: {
+        images: [
+          {
+            url: '/web.png',
+          },
+        ],
+      },
+    },
+    dashboard: {
+      widgets: [
+        {
+          slug: 'dashboard-overview',
+          label: 'Overview',
+          Component: '/src/payload/admin/DashboardWidget',
+        },
+      ],
+    },
+    components: {
+      views: {
+        Billing: {
+          Component: '/src/payload/admin/BillingView',
+          path: '/billing',
+        },
+      },
+    },
+  },
   plugins: [
     authjsPlugin({
       authjsConfig: authConfig,

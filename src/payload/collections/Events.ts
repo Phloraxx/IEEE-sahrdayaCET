@@ -1,4 +1,9 @@
-import type { CollectionConfig } from 'payload'
+import type { Access, CollectionConfig } from 'payload'
+
+const isAdminOrSocietyChair: Access = ({ req: { user } }) => {
+  if (user?.role === 'admin') return true
+  return user?.teams?.some(t => t?.team?.startsWith('chair_')) || false
+}
 
 export const Events: CollectionConfig = {
   slug: 'events',
@@ -8,9 +13,22 @@ export const Events: CollectionConfig = {
   },
   access: {
     read: () => true,
-    create: ({ req: { user } }) => user?.role === 'admin',
-    update: ({ req: { user } }) => user?.role === 'admin',
+    create: isAdminOrSocietyChair,
+    update: isAdminOrSocietyChair,
     delete: ({ req: { user } }) => user?.role === 'admin',
+  },
+  hooks: {
+    beforeValidate: [
+      ({ data, req: { user } }) => {
+        if (!data || user?.role === 'admin') return data
+        const chairTeam = user?.teams?.find(t => t?.team?.startsWith('chair_'))
+        if (chairTeam?.team) {
+          const societySlug = chairTeam.team.replace('chair_', '')
+          return { ...data, society: societySlug }
+        }
+        return data
+      },
+    ],
   },
   fields: [
     { name: 'title', type: 'text', required: true },

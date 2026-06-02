@@ -3,6 +3,13 @@
 @theme {
   --color-ieee-blue: #00629B;
   --color-ieee-light-blue: #0099D6;
-  --font-pixel: var(--font-pixel-loaded), "Courier New", monospace;
-  --font-sans: var(--font-inter-loaded), system-ui, sans-serif;
+}
+
+@layer utilities {
+  .font-pixel {
+    font-family: var(--font-pixel-loaded), "Courier New", monospace;
+  }
+  .font-sans {
+    font-family: var(--font-inter-loaded), system-ui, sans-serif;
+  }
 }

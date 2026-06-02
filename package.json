@@ -46,7 +46,6 @@
     "dotenv": "^17.4.2",
     "eslint": "^9.0.0",
     "eslint-config-next": "16.0.0-canary.16",
-    "node-appwrite": "^26.0.0",
     "postcss": "^8.4.49",
     "prettier": "^3.4.0",
     "tailwindcss": "^4.1.0",

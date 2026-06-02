@@ -1,292 +1,671 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { motion, useInView } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
-import { Users, ArrowUpRight, Linkedin, Mail, Phone, Loader2, Search, X } from 'lucide-react';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, Users, Cpu, Zap, Radio, Atom, GraduationCap, Activity, Bolt, Heart, Cog, Wrench, Sparkles, Camera, FileText, MessageSquare, Palette, X, Linkedin, Instagram, Mail, Phone } from 'lucide-react';
+import TransitionLink from '@/components/PageTransition/TransitionLink';
 
+// ===== TYPES =====
 interface Member {
+    slNo: number;
     name: string;
-    role: string;
-    tagline: string;
-    image: string;
+    department: string;
+    semester: string;
+    position: string;
+    photoUrl?: string;
     linkedin?: string;
+    instagram?: string;
     email?: string;
     phone?: string;
 }
 
-const execomMembers: Member[] = [
-    {
-        name: 'Anil Antony',
-        role: 'Branch Counselor',
-        tagline: 'GUIDING LIGHT',
-        image: '/Execom/anilantony.jpg',
-    },
-    {
-        name: 'Sneha Prasanth',
-        role: 'Chairperson',
-        tagline: 'LEADING THE CHARGE',
-        image: '/Execom/Sneha Prasanth/Sneha Prasanth.JPG',
-    },
-    {
-        name: 'Irene Anto',
-        role: 'Vice Chairperson',
-        tagline: 'VISION & STRATEGY',
-        image: '/Execom/Irene Anto/Irene_anto.jpg',
-    },
-    {
-        name: 'Ameenul Irfan',
-        role: 'Secretary',
-        tagline: 'KEEPING IT TOGETHER',
-        image: '/Execom/Ameenul Irfan_/Ameenul_irfan.jpg',
-    },
-    {
-        name: 'Binu Ashik',
-        role: 'Joint Secretary',
-        tagline: 'BRIDGING THE GAP',
-        image: '/Execom/Binu Ashik K/Binu_ashik.jpg',
-    },
-    {
-        name: 'Aaron Stanphen',
-        role: 'Treasurer',
-        tagline: 'NUMBERS & BEYOND',
-        image: '/Execom/Aaron Stanphen_/Aaron_stanphen.jpg',
-    },
-    {
-        name: 'Sourav P Bijoy',
-        role: 'Webmaster',
-        tagline: 'DIGITAL ARCHITECT',
-        image: '/Execom/Sourav P Bijoy/SouravPBijoy.jpg',
-    },
-    {
-        name: 'Akhila Thomas',
-        role: 'MDC',
-        tagline: 'MEMBERSHIP DRIV',
-        image: '/Execom/Akhila Thomas/Screenshot_20240811_185346_Gallery.jpg',
-    },
-    {
-        name: 'Alfin Joshi P',
-        role: 'ECC',
-        tagline: 'ELECTRONIC & COMM',
-        image: '/Execom/alfin_joshi.jpeg',
-    },
-    {
-        name: 'Midhun P M',
-        role: 'Technical Coordinator',
-        tagline: 'TECH WIZARD',
-        image: '/Execom/Midhun P M/IMG_20240701_173337.jpg',
-    },
-    {
-        name: 'Angelina Victor',
-        role: 'Link Rep',
-        tagline: 'LINKING MINDS',
-        image: '/Execom/Angelina Victor Varghese/eb65501f-0ea7-4a50-be56-0fd854318583.jpg',
-    },
-];
+interface ExecomMemberDoc {
+    $id: string;
+    slNo: number;
+    name: string;
+    department: string;
+    semester: string;
+    position: string;
+    category: string;
+    section: string;
+    sectionId: string;
+    photoUrl?: string;
+    linkedin?: string;
+    instagram?: string;
+    email?: string;
+    phone?: string;
+}
 
-export default function ExecomClient() {
-    const [members, setMembers] = useState<Member[]>(execomMembers);
-    const [loading, setLoading] = useState(true);
-    const [searchQuery, setSearchQuery] = useState('');
+interface Section {
+    id: string;
+    title: string;
+    shortTitle: string;
+    icon: React.ReactNode;
+    members: Member[];
+}
 
-    useEffect(() => {
-        const fetchContacts = async () => {
-            try {
-                const response = await fetch('/api/execom?limit=100');
-                if (response.ok) {
-                    const data = await response.json();
-                    const dbDocs = (data.docs || data.execom || []) as Array<{
-                        id?: string;
-                        name: string;
-                        linkedin?: string;
-                        email?: string;
-                        phone?: string;
-                    }>;
-                    const dbDocsMap = new Map(dbDocs.map(doc => [doc.name.toLowerCase(), doc]));
+// ===== SECTION CONFIGURATION =====
+const getSectionIcon = (sectionId: string): React.ReactNode => {
+    const iconMap: { [key: string]: React.ReactNode } = {
+        'core': <Users className="w-4 h-4" />,
+        'cs': <Cpu className="w-4 h-4" />,
+        'ias': <Cog className="w-4 h-4" />,
+        'ies': <Zap className="w-4 h-4" />,
+        'sight': <Sparkles className="w-4 h-4" />,
+        'sps': <Radio className="w-4 h-4" />,
+        'npss': <Atom className="w-4 h-4" />,
+        'edsoc': <GraduationCap className="w-4 h-4" />,
+        'css': <Activity className="w-4 h-4" />,
+        'embs': <Heart className="w-4 h-4" />,
+        'pes': <Bolt className="w-4 h-4" />,
+        'wie': <Users className="w-4 h-4" />,
+        'cass': <Wrench className="w-4 h-4" />,
+        'ras': <Cog className="w-4 h-4" />,
+        'tech': <Cpu className="w-4 h-4" />,
+        'epd': <FileText className="w-4 h-4" />,
+        'media': <Camera className="w-4 h-4" />,
+        'ec': <Users className="w-4 h-4" />,
+        'design': <Palette className="w-4 h-4" />,
+        'content': <MessageSquare className="w-4 h-4" />,
+        'qrt': <Zap className="w-4 h-4" />,
+    };
+    return iconMap[sectionId] || <Users className="w-4 h-4" />;
+};
 
-                    const updatedMembers = execomMembers.map(member => {
-                        const dbMatch = dbDocsMap.get(member.name.toLowerCase());
-                        if (dbMatch) {
-                            return {
-                                ...member,
-                                linkedin: dbMatch.linkedin || member.linkedin,
-                                email: dbMatch.email || member.email,
-                                phone: dbMatch.phone || member.phone,
-                            };
-                        }
-                        return member;
-                    });
-                    setMembers(updatedMembers);
-                }
-            } catch (err) {
-                console.error('Failed to fetch execom contacts:', err);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchContacts();
-    }, []);
+const getShortTitle = (sectionId: string, fullTitle: string): string => {
+    const shortMap: { [key: string]: string } = {
+        'core': 'Core',
+        'cs': 'CS',
+        'ias': 'IAS',
+        'ies': 'IES',
+        'sight': 'SIGHT',
+        'sps': 'SPS',
+        'npss': 'NPSS',
+        'edsoc': 'EdSoc',
+        'css': 'CSS',
+        'embs': 'EMBS',
+        'pes': 'PES',
+        'wie': 'WIE',
+        'cass': 'CASS',
+        'ras': 'RAS',
+        'tech': 'Tech',
+        'epd': 'EPD',
+        'media': 'Media',
+        'ec': 'Event',
+        'design': 'Design',
+        'content': 'Content',
+        'qrt': 'QRT',
+    };
+    return shortMap[sectionId] || fullTitle;
+};
 
-    const filteredMembers = searchQuery
-        ? members.filter(m =>
-            m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            m.role.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-        : members;
+// Transform Appwrite documents to sections array
+const transformToSections = (documents: ExecomMemberDoc[]): Section[] => {
+    const groupedBySectionId: { [key: string]: { title: string; members: Member[] } } = {};
+    
+    documents.forEach((doc) => {
+        if (!groupedBySectionId[doc.sectionId]) {
+            groupedBySectionId[doc.sectionId] = {
+                title: doc.section,
+                members: []
+            };
+        }
+        
+        groupedBySectionId[doc.sectionId].members.push({
+            slNo: doc.slNo,
+            name: doc.name,
+            department: doc.department,
+            semester: doc.semester,
+            position: doc.position,
+            photoUrl: doc.photoUrl,
+            linkedin: doc.linkedin,
+            instagram: doc.instagram,
+            email: doc.email,
+            phone: doc.phone,
+        });
+    });
+    
+    // Define section order
+    const sectionOrder = ['core', 'cs', 'ias', 'ies', 'sight', 'sps', 'npss', 'edsoc', 'css', 'embs', 'pes', 'wie', 'cass', 'ras', 'tech', 'epd', 'media', 'ec', 'design', 'content', 'qrt'];
+    
+    return sectionOrder
+        .filter(sectionId => groupedBySectionId[sectionId])
+        .map(sectionId => ({
+            id: sectionId,
+            title: groupedBySectionId[sectionId].title,
+            shortTitle: getShortTitle(sectionId, groupedBySectionId[sectionId].title),
+            icon: getSectionIcon(sectionId),
+            members: groupedBySectionId[sectionId].members.sort((a, b) => a.slNo - b.slNo)
+        }));
+};
+
+// ===== COMPONENTS =====
+const MemberDetailModal: React.FC<{ member: Member; onClose: () => void }> = ({ member, onClose }) => {
+    const [imgError, setImgError] = useState(false);
+    const imageSrc = member.photoUrl || '';
+    const hasContactInfo = !!(member.linkedin || member.instagram || member.email || member.phone);
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            <Navbar />
-
-            <main className="pt-32 pb-20 px-4">
-                <div className="max-w-7xl mx-auto">
-                    {/* Header */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 30 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="text-center mb-16"
+        <AnimatePresence>
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+                onClick={onClose}
+            >
+                <motion.div
+                    initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                    exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                    transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                    className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden relative my-4"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    {/* Close Button */}
+                    <button
+                        onClick={onClose}
+                        className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm shadow-lg flex items-center justify-center hover:bg-white transition-all hover:scale-110"
                     >
-                        <div className="inline-flex items-center gap-2 px-4 py-2 bg-ieee-blue/5 rounded-full mb-6">
-                            <Users className="w-4 h-4 text-ieee-blue" />
-                            <span className="text-xs font-semibold text-ieee-blue uppercase tracking-wider">EXECOM 2026-2027</span>
-                        </div>
-                        <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-4 tracking-tight">
-                            Full <span className="text-ieee-blue">Execom</span> Directory
-                        </h1>
-                        <p className="text-gray-500 max-w-2xl mx-auto text-lg">
-                            Browse the complete IEEE Sahrdaya executive committee — 80+ student leaders across all societies.
-                        </p>
-                    </motion.div>
+                        <X className="w-5 h-5 text-gray-600" />
+                    </button>
 
-                    {/* Search */}
-                    <div className="max-w-md mx-auto mb-12">
-                        <div className="relative">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Search by name or role..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full pl-12 pr-10 py-3.5 bg-white border border-gray-200 rounded-2xl text-sm font-medium text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-ieee-blue focus:ring-2 focus:ring-ieee-blue/10 transition-all"
+                    {/* Image */}
+                    <div className="relative h-72 sm:h-96 bg-gray-50 overflow-hidden flex-shrink-0">
+                        {imageSrc && !imgError ? (
+                            <Image
+                                src={imageSrc}
+                                alt={member.name}
+                                onError={() => setImgError(true)}
+                                className="object-contain w-full h-full"
+                                fill
+                                sizes="(max-width: 768px) 100vw, 500px"
+                                priority
                             />
-                            {searchQuery && (
-                                <button
-                                    onClick={() => setSearchQuery('')}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                >
-                                    <X className="w-4 h-4" />
-                                </button>
-                            )}
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+                                <span className="text-6xl font-light text-gray-400">
+                                    {member.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                                </span>
+                            </div>
+                        )}
+                        
+                        {/* Number Badge */}
+                        <div className="absolute top-4 left-4">
+                            <span className="text-xs font-mono text-white bg-black/40 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                                #{String(member.slNo).padStart(2, '0')}
+                            </span>
                         </div>
                     </div>
 
-                    {/* Stats */}
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="grid grid-cols-3 gap-4 mb-16 border-y border-gray-200 py-8 max-w-lg mx-auto"
-                    >
-                        <div className="text-center">
-                            <div className="font-mono text-[10px] tracking-[0.3em] text-gray-400 uppercase mb-1">Roster</div>
-                            <div className="font-bold text-2xl md:text-4xl text-gray-900">{loading ? '...' : members.length}</div>
+                    {/* Details */}
+                    <div className="p-6">
+                        <div className="mb-4">
+                            <div className="text-xs font-semibold text-[#00629B] uppercase tracking-wider mb-2">
+                                {member.position}
+                            </div>
+                            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                                {member.name}
+                            </h2>
+                            <div className="flex items-center gap-3 text-sm text-gray-500">
+                                <span className="font-medium">{member.department}</span>
+                                <span className="w-1.5 h-1.5 rounded-full bg-gray-300" />
+                                <span className="font-medium">{member.semester}</span>
+                            </div>
                         </div>
-                        <div className="text-center">
-                            <div className="font-mono text-[10px] tracking-[0.3em] text-gray-400 uppercase mb-1">Events Led</div>
-                            <div className="font-bold text-2xl md:text-4xl text-gray-900">100+</div>
-                        </div>
-                        <div className="text-center">
-                            <div className="font-mono text-[10px] tracking-[0.3em] text-gray-400 uppercase mb-1">Societies</div>
-                            <div className="font-bold text-2xl md:text-4xl text-gray-900">14</div>
-                        </div>
-                    </motion.div>
 
-                    {/* Member Grid */}
-                    {loading ? (
-                        <div className="flex justify-center py-20">
-                            <Loader2 className="w-10 h-10 text-ieee-blue animate-spin" />
-                        </div>
-                    ) : (
-                        <motion.div
-                            initial="hidden"
-                            animate="show"
-                            variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05 } } }}
-                            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6"
-                        >
-                            {filteredMembers.map((member, index) => (
-                                <motion.div
-                                    key={member.name}
-                                    variants={{
-                                        hidden: { opacity: 0, y: 20 },
-                                        show: { opacity: 1, y: 0 },
-                                    }}
-                                    className="group"
-                                >
-                                    <div className="relative overflow-hidden rounded-xl aspect-[3/4] mb-3 bg-gray-100">
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                                        <Image
-                                            src={member.image}
-                                            alt={member.name}
-                                            fill
-                                            sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
-                                            className="object-cover transition-transform duration-[600ms] group-hover:scale-105"
-                                        />
-                                        <div className="absolute top-2 left-2 z-20">
-                                            <span className="px-2 py-0.5 bg-white/90 backdrop-blur-sm text-[8px] font-mono tracking-[0.15em] text-gray-700 rounded-sm uppercase">
-                                                {member.role}
-                                            </span>
-                                        </div>
-                                        <div className="absolute bottom-2 right-2 z-20 opacity-20 group-hover:opacity-0 transition-opacity">
-                                            <span className="font-pixel text-xl md:text-2xl text-white font-bold">
-                                                {String(index + 1).padStart(2, '0')}
-                                            </span>
-                                        </div>
-                                        <motion.div
-                                            initial={{ opacity: 0, y: 10 }}
-                                            whileHover={{ opacity: 1, y: 0 }}
-                                            className="absolute bottom-2 left-2 right-2 z-20 flex gap-1.5"
+                        {/* Contact Links */}
+                        {hasContactInfo && (
+                            <div className="space-y-2 pt-4 border-t border-gray-100">
+                                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                                    Connect
+                                </p>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {member.linkedin && (
+                                        <a
+                                            href={member.linkedin}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0077B5] text-white hover:bg-[#006399] transition-all hover:scale-105"
                                         >
-                                            {member.linkedin && (
-                                                <a href={member.linkedin} target="_blank" rel="noopener noreferrer" className="w-7 h-7 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/40 transition-colors">
-                                                    <Linkedin className="w-3 h-3 text-white" />
-                                                </a>
-                                            )}
-                                            {member.email && (
-                                                <a href={`mailto:${member.email}`} className="w-7 h-7 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/40 transition-colors">
-                                                    <Mail className="w-3 h-3 text-white" />
-                                                </a>
-                                            )}
-                                            {member.phone && (
-                                                <a href={`tel:${member.phone}`} className="w-7 h-7 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/40 transition-colors">
-                                                    <Phone className="w-3 h-3 text-white" />
-                                                </a>
-                                            )}
-                                        </motion.div>
-                                    </div>
-                                    <h4 className="font-sans font-bold text-sm md:text-base text-gray-900 tracking-tight leading-tight group-hover:text-ieee-blue transition-colors">
-                                        {member.name}
-                                    </h4>
-                                    <p className="text-[10px] md:text-xs font-mono text-gray-500 mt-0.5 tracking-wider uppercase truncate">
-                                        {member.tagline}
-                                    </p>
-                                </motion.div>
-                            ))}
-                        </motion.div>
-                    )}
+                                            <Linkedin className="w-4 h-4" />
+                                            <span className="text-sm font-medium">LinkedIn</span>
+                                        </a>
+                                    )}
+                                    {member.instagram && (
+                                        <a
+                                            href={member.instagram}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-br from-[#833AB4] via-[#E1306C] to-[#F77737] text-white hover:opacity-90 transition-all hover:scale-105"
+                                        >
+                                            <Instagram className="w-4 h-4" />
+                                            <span className="text-sm font-medium">Instagram</span>
+                                        </a>
+                                    )}
+                                    {member.email && (
+                                        <a
+                                            href={`mailto:${member.email}`}
+                                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all hover:scale-105"
+                                        >
+                                            <Mail className="w-4 h-4" />
+                                            <span className="text-sm font-medium">Email</span>
+                                        </a>
+                                    )}
+                                    {member.phone && (
+                                        <a
+                                            href={`tel:${member.phone}`}
+                                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all hover:scale-105"
+                                        >
+                                            <Phone className="w-4 h-4" />
+                                            <span className="text-sm font-medium">Call</span>
+                                        </a>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </motion.div>
+            </motion.div>
+        </AnimatePresence>
+    );
+};
 
-                    {!loading && filteredMembers.length === 0 && (
-                        <div className="text-center py-20">
-                            <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                            <h3 className="text-xl font-semibold text-gray-700 mb-2">No Members Found</h3>
-                            <p className="text-gray-500">Try a different search term.</p>
+const MemberCard: React.FC<{ member: Member; index: number; onClick: () => void }> = React.memo(({ member, index, onClick }) => {
+    const [imgError, setImgError] = useState(false);
+    const imageSrc = member.photoUrl || '';
+    const hasContactInfo = !!(member.linkedin || member.instagram || member.email || member.phone);
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: index * 0.03 }}
+            className="group cursor-pointer"
+            onClick={onClick}
+        >
+            <div className="relative bg-white border border-gray-100 rounded-2xl overflow-hidden hover:border-gray-200 hover:shadow-xl transition-all duration-500 hover:scale-105">
+                {/* Image */}
+                <div className="relative aspect-[3/4] bg-gray-50 overflow-hidden">
+                    {imageSrc && !imgError ? (
+                        <Image
+                            src={imageSrc}
+                            alt={member.name}
+                            onError={() => setImgError(true)}
+                            className="object-cover object-top transition-transform duration-700 group-hover:scale-105"
+                            fill
+                            sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                        />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                            <span className="text-4xl font-light text-gray-300">
+                                {member.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                            </span>
+                        </div>
+                    )}
+                    
+                    {/* Number */}
+                    <div className="absolute top-3 left-3">
+                        <span className="text-[10px] font-mono text-white/80 bg-black/30 backdrop-blur-sm px-2 py-1 rounded-full">
+                            {String(member.slNo).padStart(2, '0')}
+                        </span>
+                    </div>
+
+                    {/* Contact Indicator */}
+                    {hasContactInfo && (
+                        <div className="absolute bottom-3 right-3 transition-all group-hover:scale-110">
+                            <div className="w-8 h-8 rounded-full bg-[#00629B]/70 backdrop-blur-sm flex items-center justify-center shadow-lg group-hover:bg-[#00629B]">
+                                <Linkedin className="w-4 h-4 text-white" />
+                            </div>
                         </div>
                     )}
                 </div>
+
+                {/* Info */}
+                <div className="p-4">
+                    <div className="text-[10px] font-medium text-[#00629B] uppercase tracking-wider mb-1">
+                        {member.position}
+                    </div>
+                    <h3 className="font-semibold text-gray-900 text-sm leading-tight mb-2">
+                        {member.name}
+                    </h3>
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-gray-400 font-medium">{member.department}</span>
+                        <span className="w-1 h-1 rounded-full bg-gray-300" />
+                        <span className="text-[10px] text-gray-400 font-medium">{member.semester}</span>
+                    </div>
+                </div>
+            </div>
+        </motion.div>
+    );
+});
+MemberCard.displayName = 'MemberCard';
+
+
+
+const FullExecom: React.FC = () => {
+    const [sections, setSections] = useState<Section[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [activeSection, setActiveSection] = useState('core');
+    const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+    const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+
+    // Fetch execom members from API
+    useEffect(() => {
+        async function fetchExecomMembers() {
+            try {
+                setLoading(true);
+                const res = await fetch('/api/execom?limit=100').then(r => r.json());
+                const docs = res.docs || res.execom || [];
+                
+                const transformedSections = transformToSections(docs as unknown as ExecomMemberDoc[]);
+                setSections(transformedSections);
+                setError(null);
+            } catch (err: unknown) {
+                console.error('Failed to fetch execom members:', err);
+                setError(err instanceof Error ? err.message : 'Failed to load execom members');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        fetchExecomMembers();
+    }, []);
+
+    const currentSection = sections.find(s => s.id === activeSection) || sections[0];
+
+    const scrollToSection = (id: string) => {
+        setActiveSection(id);
+        setIsMobileNavOpen(false);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleMemberClick = (member: Member) => {
+        setSelectedMember(member);
+    };
+
+    const handleCloseModal = () => {
+        setSelectedMember(null);
+    };
+
+    // Loading State
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-[#FAFAFA]">
+                {/* Sidebar skeleton */}
+                <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-20 bg-white border-r border-gray-100 flex-col z-50">
+                    <div className="h-16 border-b border-gray-100" />
+                    <div className="flex-1 py-4 px-2 space-y-2">
+                        {Array.from({ length: 8 }).map((_, i) => (
+                            <div key={i} className="h-12 rounded-xl bg-gray-100 animate-pulse" />
+                        ))}
+                    </div>
+                </aside>
+                {/* Mobile header skeleton */}
+                <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-100">
+                    <div className="flex items-center justify-between px-4 py-3">
+                        <div className="w-8 h-8 rounded-lg bg-gray-100 animate-pulse" />
+                        <div className="w-32 h-5 rounded bg-gray-100 animate-pulse" />
+                        <div className="w-8 h-8 rounded-lg bg-gray-100 animate-pulse" />
+                    </div>
+                </div>
+                {/* Content skeleton */}
+                <main className="lg:ml-20 pt-16 lg:pt-0">
+                    <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-gray-100">
+                        <div className="max-w-6xl mx-auto px-6 py-6 lg:py-8">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-gray-100 animate-pulse" />
+                                <div>
+                                    <div className="w-40 h-7 rounded bg-gray-100 animate-pulse mb-2" />
+                                    <div className="w-20 h-4 rounded bg-gray-100 animate-pulse" />
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+                    <div className="max-w-6xl mx-auto px-6 py-8 lg:py-12">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 lg:gap-6">
+                            {Array.from({ length: 15 }).map((_, i) => (
+                                <div key={i} className="bg-white border border-gray-100 rounded-2xl overflow-hidden animate-pulse">
+                                    <div className="aspect-[3/4] bg-gray-100" />
+                                    <div className="p-4 space-y-2">
+                                        <div className="h-3 bg-gray-100 rounded w-1/2" />
+                                        <div className="h-4 bg-gray-100 rounded w-4/5" />
+                                        <div className="h-3 bg-gray-100 rounded w-2/3" />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </main>
+            </div>
+        );
+    }
+
+    // Error State
+    if (error) {
+        return (
+            <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
+                <div className="text-center max-w-md px-6">
+                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <X className="w-8 h-8 text-red-600" />
+                    </div>
+                    <h2 className="text-xl font-semibold text-gray-900 mb-2">Failed to Load</h2>
+                    <p className="text-gray-500 mb-4">{error}</p>
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="px-6 py-2 bg-[#00629B] text-white rounded-lg hover:bg-[#00527f] transition-colors"
+                    >
+                        Retry
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // Empty State
+    if (!sections.length) {
+        return (
+            <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
+                <div className="text-center">
+                    <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500">No execom members found</p>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="min-h-screen bg-[#FAFAFA]">
+            {/* Member Detail Modal */}
+            {selectedMember && (
+                <MemberDetailModal 
+                    member={selectedMember} 
+                    onClose={handleCloseModal} 
+                />
+            )}
+
+            {/* Mobile Header */}
+            <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-100">
+                <div className="flex items-center justify-between px-4 py-3">
+                    <TransitionLink href="/" className="p-2 -ml-2 text-gray-500 hover:text-gray-900">
+                        <ArrowLeft className="w-5 h-5" />
+                    </TransitionLink>
+                    <span className="font-semibold text-gray-900">EXECOM &apos;26</span>
+                    <button 
+                        onClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
+                        className="p-2 -mr-2 text-gray-500"
+                    >
+                        <Users className="w-5 h-5" />
+                    </button>
+                </div>
+            </div>
+
+            {/* Mobile Nav Dropdown */}
+            <AnimatePresence>
+                {isMobileNavOpen && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="lg:hidden fixed top-14 left-0 right-0 z-40 bg-white border-b border-gray-100 max-h-[60vh] overflow-y-auto"
+                    >
+                        <div className="p-4 grid grid-cols-3 gap-2">
+                            {sections.map((section) => (
+                                <button
+                                    key={section.id}
+                                    onClick={() => scrollToSection(section.id)}
+                                    className={`p-3 rounded-xl text-center transition-all ${
+                                        activeSection === section.id
+                                            ? 'bg-[#00629B] text-white'
+                                            : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                                    }`}
+                                >
+                                    <div className="flex justify-center mb-1">{section.icon}</div>
+                                    <span className="text-[10px] font-medium">{section.shortTitle}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Desktop Sidebar */}
+            <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-20 bg-white border-r border-gray-100 flex-col z-50">
+                {/* Back Button */}
+                <TransitionLink 
+                    href="/" 
+                    className="flex items-center justify-center h-16 border-b border-gray-100 text-gray-400 hover:text-[#00629B] transition-colors"
+                >
+                    <ArrowLeft className="w-5 h-5" />
+                </TransitionLink>
+
+                {/* Nav Items */}
+                <nav className="flex-1 overflow-y-auto py-4 scrollbar-hide">
+                    <div className="space-y-1 px-2">
+                        {sections.map((section) => (
+                            <button
+                                key={section.id}
+                                onClick={() => scrollToSection(section.id)}
+                                className={`group relative w-full flex flex-col items-center py-3 px-1 rounded-xl transition-all duration-300 ${
+                                    activeSection === section.id
+                                        ? 'bg-[#00629B] text-white'
+                                        : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                                }`}
+                            >
+                                {section.icon}
+                                <span className="text-[8px] font-medium mt-1 text-center leading-tight">
+                                    {section.shortTitle}
+                                </span>
+                                
+                                {/* Tooltip */}
+                                <div className="absolute left-full ml-3 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50">
+                                    {section.title}
+                                    <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 border-4 border-transparent border-r-gray-900" />
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                </nav>
+
+                {/* Logo */}
+                <div className="h-16 flex items-center justify-center border-t border-gray-100">
+                    <span className="text-[10px] font-bold text-[#00629B]">IEEE</span>
+                </div>
+            </aside>
+
+            {/* Main Content */}
+            <main className="lg:ml-20 pt-16 lg:pt-0">
+                {/* Header */}
+                <header className="sticky top-0 lg:top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-gray-100">
+                    <div className="max-w-6xl mx-auto px-6 py-6 lg:py-8">
+                        <div className="flex items-start justify-between">
+                            <div>
+                                <motion.div
+                                    key={activeSection}
+                                    initial={{ opacity: 0, x: -20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    className="flex items-center gap-3 mb-2"
+                                >
+                                    <div className="w-10 h-10 rounded-xl bg-[#00629B] text-white flex items-center justify-center">
+                                        {currentSection?.icon}
+                                    </div>
+                                    <div>
+                                        <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">
+                                            {currentSection?.title}
+                                        </h1>
+                                        <p className="text-sm text-gray-400 mt-0.5">
+                                            {currentSection?.members.length} members
+                                        </p>
+                                    </div>
+                                </motion.div>
+                            </div>
+                            
+                            <div className="hidden lg:block text-right">
+                                <p className="text-xs text-gray-400 uppercase tracking-wider">IEEE SB Sahrdaya</p>
+                                <p className="text-lg font-semibold text-gray-900">EXECOM 2026-2027</p>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+
+                {/* Content */}
+                <div className="max-w-6xl mx-auto px-6 py-8 lg:py-12">
+                    <AnimatePresence mode="wait">
+                        <motion.div
+                            key={activeSection}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
+                            transition={{ duration: 0.3 }}
+                        >
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 lg:gap-6">
+                                {currentSection?.members.map((member, idx) => (
+                                    <MemberCard 
+                                        key={member.slNo} 
+                                        member={member} 
+                                        index={idx}
+                                        onClick={() => handleMemberClick(member)}
+                                    />
+                                ))}
+                            </div>
+                        </motion.div>
+                    </AnimatePresence>
+
+                    {/* Quick Navigation */}
+                    <div className="mt-16 pt-8 border-t border-gray-100">
+                        <p className="text-xs text-gray-400 uppercase tracking-wider mb-4">Quick Navigation</p>
+                        <div className="flex flex-wrap gap-2">
+                            {sections.map((section) => (
+                                <button
+                                    key={section.id}
+                                    onClick={() => scrollToSection(section.id)}
+                                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                                        activeSection === section.id
+                                            ? 'bg-[#00629B] text-white'
+                                            : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                                    }`}
+                                >
+                                    {section.shortTitle}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
             </main>
 
-            <Footer />
+            <style>{`
+                .scrollbar-hide::-webkit-scrollbar {
+                    display: none;
+                }
+                .scrollbar-hide {
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
+                }
+            `}</style>
         </div>
     );
-}
+};
+
+export { FullExecom as default };

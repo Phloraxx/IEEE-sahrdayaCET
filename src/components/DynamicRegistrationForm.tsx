@@ -2,7 +2,7 @@
 
 import React, { useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useForm, Controller, FieldErrors, FieldValues, UseFormRegister } from 'react-hook-form';
+import { useForm, UseFormRegister } from 'react-hook-form';
 import { z } from 'zod';
 import { Loader2, User, Mail, Phone, BookOpen, Building2, Users, Hash, AlertCircle } from 'lucide-react';
 import { Event, Society } from '@/types';
