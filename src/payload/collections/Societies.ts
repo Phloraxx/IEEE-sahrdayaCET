@@ -6,6 +6,12 @@ export const Societies: CollectionConfig = {
     useAsTitle: 'name',
     group: 'Content',
   },
+  access: {
+    read: () => true,
+    create: ({ req: { user } }) => user?.role === 'admin',
+    update: ({ req: { user } }) => user?.role === 'admin',
+    delete: ({ req: { user } }) => user?.role === 'admin',
+  },
   upload: {
     mimeTypes: ['image/*'],
     imageSizes: [

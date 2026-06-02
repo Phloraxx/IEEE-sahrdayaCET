@@ -132,7 +132,11 @@ export interface UserAuthOperations {
  * via the `definition` "users".
  */
 export interface User {
-  id: number;
+  id: string;
+  email: string;
+  emailVerified?: string | null;
+  name?: string | null;
+  image?: string | null;
   phone?: string | null;
   sahrdayaEmail?: string | null;
   semester?: ('S1' | 'S2' | 'S3' | 'S4' | 'S5' | 'S6' | 'S7' | 'S8') | null;
@@ -150,23 +154,16 @@ export interface User {
       }[]
     | null;
   appwriteUserId?: string | null;
-  updatedAt: string;
-  createdAt: string;
-  email: string;
-  resetPasswordToken?: string | null;
-  resetPasswordExpiration?: string | null;
-  salt?: string | null;
-  hash?: string | null;
-  loginAttempts?: number | null;
-  lockUntil?: string | null;
-  sessions?:
+  accounts?:
     | {
-        id: string;
-        createdAt?: string | null;
-        expiresAt: string;
+        provider: string;
+        providerAccountId: string;
+        type: 'oidc' | 'oauth' | 'email' | 'webauthn';
+        id?: string | null;
       }[]
     | null;
-  password?: string | null;
+  updatedAt: string;
+  createdAt: string;
   collection: 'users';
 }
 /**
@@ -178,7 +175,7 @@ export interface Society {
   name: string;
   slug: string;
   bio?: string | null;
-  chairs?: (number | User)[] | null;
+  chairs?: (string | User)[] | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -377,7 +374,7 @@ export interface Event {
  */
 export interface Registration {
   id: number;
-  user: number | User;
+  user: string | User;
   event: number | Event;
   userName?: string | null;
   userEmail?: string | null;
@@ -410,7 +407,7 @@ export interface Registration {
     | null;
   checkedIn?: boolean | null;
   checkedInAt?: string | null;
-  checkedInBy?: (number | null) | User;
+  checkedInBy?: (string | null) | User;
   lastCheckInLocation?: string | null;
   /**
    * Multi-location check-in timeline
@@ -433,7 +430,7 @@ export interface Registration {
  */
 export interface Order {
   id: number;
-  user: number | User;
+  user: string | User;
   registration: number | Registration;
   amount: number;
   paymentMethod?: ('upi' | 'cash') | null;
@@ -496,7 +493,7 @@ export interface PayloadLockedDocument {
   document?:
     | ({
         relationTo: 'users';
-        value: number | User;
+        value: string | User;
       } | null)
     | ({
         relationTo: 'societies';
@@ -525,7 +522,7 @@ export interface PayloadLockedDocument {
   globalSlug?: string | null;
   user: {
     relationTo: 'users';
-    value: number | User;
+    value: string | User;
   };
   updatedAt: string;
   createdAt: string;
@@ -538,7 +535,7 @@ export interface PayloadPreference {
   id: number;
   user: {
     relationTo: 'users';
-    value: number | User;
+    value: string | User;
   };
   key?: string | null;
   value?:
@@ -569,6 +566,11 @@ export interface PayloadMigration {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  id?: T;
+  email?: T;
+  emailVerified?: T;
+  name?: T;
+  image?: T;
   phone?: T;
   sahrdayaEmail?: T;
   semester?: T;
@@ -586,22 +588,16 @@ export interface UsersSelect<T extends boolean = true> {
         id?: T;
       };
   appwriteUserId?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  email?: T;
-  resetPasswordToken?: T;
-  resetPasswordExpiration?: T;
-  salt?: T;
-  hash?: T;
-  loginAttempts?: T;
-  lockUntil?: T;
-  sessions?:
+  accounts?:
     | T
     | {
+        provider?: T;
+        providerAccountId?: T;
+        type?: T;
         id?: T;
-        createdAt?: T;
-        expiresAt?: T;
       };
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

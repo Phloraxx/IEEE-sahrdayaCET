@@ -6,6 +6,12 @@ export const Events: CollectionConfig = {
     useAsTitle: 'title',
     group: 'Events',
   },
+  access: {
+    read: () => true,
+    create: ({ req: { user } }) => user?.role === 'admin',
+    update: ({ req: { user } }) => user?.role === 'admin',
+    delete: ({ req: { user } }) => user?.role === 'admin',
+  },
   upload: {
     mimeTypes: ['image/*'],
     imageSizes: [

@@ -11,13 +11,13 @@ import { auth } from "@/auth";
 const pressStart2P = Press_Start_2P({ 
   weight: "400",
   subsets: ["latin"],
-  variable: "--font-pixel",
+  variable: "--font-pixel-loaded",
   display: "swap",
 });
 
 const inter = Inter({ 
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-inter-loaded",
   display: "swap",
 });
 
@@ -79,7 +79,7 @@ export default async function MainLayout({
         <link rel="preconnect" href="https://res.cloudinary.com" />
         <link rel="preconnect" href="https://lh3.googleusercontent.com" />
       </head>
-      <body className={`${pressStart2P.variable} ${inter.variable} antialiased`}>
+      <body className={`${pressStart2P.variable} ${inter.variable} font-sans antialiased`}>
         <SessionProvider session={session}>
           <JsonLd schema={organizationSchema} />
           <JsonLd schema={websiteSchema} />
