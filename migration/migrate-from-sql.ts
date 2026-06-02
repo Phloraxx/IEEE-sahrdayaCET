@@ -31,7 +31,7 @@ async function uploadMedia(
   payload: Awaited<ReturnType<typeof getPayload>>,
   filePath: string,
   alt: string
-): Promise<string | null> {
+): Promise<number | null> {
   if (!filePath || !existsSync(filePath)) return null
   try {
     const buffer = readFileSync(filePath)
@@ -44,7 +44,7 @@ async function uploadMedia(
       file: { data: buffer, name: fileName, mimetype: mime[ext] || 'image/jpeg', size: buffer.length },
       overrideAccess: true,
     })
-    return String(result.id)
+    return result.id as number
   } catch (e) {
     console.error(`\n  [upload fail] ${filePath.slice(-40)}: ${String(e).slice(0, 100)}`)
     return null
@@ -189,7 +189,7 @@ async function main() {
       continue
     }
 
-    let logoId: string | null = null
+    let logoId: number | null = null
     if (row.logo_url) {
       const filePath = findFile(publicDir, row.logo_url)
       if (filePath) {
@@ -233,7 +233,7 @@ async function main() {
     const email = extractEmail(row.email)
 
     // Upload photo if file exists
-    let photoId: string | null = null
+    let photoId: number | null = null
     if (row.photoUrl) {
       const filePath = findFile(publicDir, row.photoUrl)
       if (filePath) photoId = await uploadMedia(payload, filePath, name)
@@ -286,7 +286,7 @@ async function main() {
     const price = Number(row.price) || 0
 
     // Upload banner if file exists locally
-    let bannerId: string | null = null
+    let bannerId: number | null = null
     const bannerUrl = row.banner_url || ''
     if (bannerUrl && !bannerUrl.startsWith('http')) {
       const filePath = findFile(publicDir, bannerUrl)
