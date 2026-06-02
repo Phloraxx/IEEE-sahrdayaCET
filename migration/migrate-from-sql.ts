@@ -106,10 +106,12 @@ function parseSQLValues(sql: string, tableSuffix: string): Record<string, string
         const fields: string[] = []
         let current = ''
         let inString = false
+        let prevChar = ''
         for (const ch2 of rowText) {
-          if (ch2 === "'") { inString = !inString; current += ch2; continue }
-          if (ch2 === ',' && !inString) { fields.push(current); current = ''; continue }
+          if (ch2 === "'" && prevChar !== '\\') { inString = !inString; current += ch2; prevChar = ch2; continue }
+          if (ch2 === ',' && !inString) { fields.push(current); current = ''; prevChar = ch2; continue }
           current += ch2
+          prevChar = ch2
         }
         fields.push(current)
 
@@ -119,7 +121,8 @@ function parseSQLValues(sql: string, tableSuffix: string): Record<string, string
           const name = names[colIdx] || `col${colIdx}`
           const val = field.startsWith("'") && field.endsWith("'") ? field.slice(1, -1) : field
           if (!name.startsWith('_') || name === '_uid') {
-            row[name] = val.replace(/''/g, "'").replace(/\\n/g, '\n')
+            const cleaned = val.replace(/''/g, "'").replace(/\\n/g, '\n').trim()
+            row[name] = cleaned === 'NULL' || cleaned === '' ? '' : cleaned
           }
           colIdx++
         }
@@ -169,8 +172,8 @@ async function main() {
   // ============================
   console.log('\n📋 Migrating societies...')
   const societyRows = parseSQLValues(sql, '5')
-  const appwriteUidToPayloadId: Record<string, string> = {}
-  const slugToPayloadId: Record<string, string> = {}
+const appwriteUidToPayloadId: Record<string, number> = {}
+const slugToPayloadId: Record<string, number> = {}
   let societyCount = 0
 
   for (const row of societyRows) {
@@ -208,7 +211,7 @@ async function main() {
         data,
         overrideAccess: true,
       })
-      const pid = String(c.id)
+      const pid = c.id as number
       appwriteUidToPayloadId[uid] = pid
       slugToPayloadId[slug] = pid
       societyCount++
@@ -299,12 +302,18 @@ async function main() {
     const endDateVal = row.end_date ? row.end_date : undefined
     const email = extractEmail(row.contact_email)
 
+    if (!societyPid) {
+      console.log(`\n  ⏭  ${title.slice(0, 30)} (no society mapping)`)
+      continue
+    }
+
     const eventData: Record<string, unknown> = {
       title,
       slug,
       date: row.date || new Date().toISOString(),
-      venue: row.venue || '',
+      venue: row.venue || 'TBA',
       price,
+      society: societyPid,
       status,
       maxCapacity: Number(row.max_capacity) || 0,
       registeredCount: Number(row.current_registrations) || 0,
@@ -315,11 +324,10 @@ async function main() {
       checkInEnabled: row.check_in_enabled !== '0',
       isDeleted: row.is_deleted === '1',
     }
-    if (endDateVal) eventData.endDate = endDateVal
-    if (societyPid) eventData.society = societyPid
+    if (endDateVal && endDateVal !== 'NULL') eventData.endDate = endDateVal
     if (bannerId) eventData.banner = bannerId
     if (email) eventData.contactEmail = email
-    if (row.category) eventData.category = row.category
+    if (row.category && row.category !== 'NULL') eventData.category = row.category
 
     try {
       await payload.create({ collection: 'events', data: eventData, overrideAccess: true })
@@ -328,9 +336,8 @@ async function main() {
     } catch (e) {
       const msg = String(e).slice(0, 150)
       process.stdout.write('x')
-      if (eventCount === 0 && msg.includes('Society')) {
-        // Society mapping issue — show what UIDs we have
-        console.log(`\n  ❌ ${title.slice(0, 40)}: society_id=${row.society_id} | mapped=${societyPid} | available UIDs: ${Object.keys(appwriteUidToPayloadId).slice(0, 5).join(',')}...`)
+      if (eventCount < 3) {
+        console.log(`\n  ❌ ${title.slice(0, 30)}: ${msg}`)
       }
     }
   }
