@@ -258,8 +258,8 @@ const slugToPayloadId: Record<string, number> = {}
       execomCount++
       process.stdout.write('.')
     } catch (e) {
-      const msg = String(e).slice(0, 80)
-      if (msg.includes('email')) {
+      const msg = String(e).slice(0, 200)
+      if (msg.includes('email') || msg.includes('Email')) {
         delete execomData.email
         try {
           await payload.create({ collection: 'execom', data: execomData, overrideAccess: true })
