@@ -8,7 +8,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "payload": "payload"
+    "payload": "payload",
+    "migrate": "npx tsx migration/migrate-from-sql.ts",
+    "migrate:safe": "npx payload migrate && npx tsx migration/migrate-from-sql.ts"
   },
   "dependencies": {
     "@payloadcms/db-sqlite": "latest",

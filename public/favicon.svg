@@ -1,0 +1,22 @@
+<svg width="100" height="100" viewBox="110 330 100 1" fill="none" xmlns="http://www.w3.org/2000/svg">
+   <style>
+    @media (prefers-color-scheme: light) {
+      :root {
+        filter: invert(100%);
+      }
+    }
+  </style>
+<path d="M208.638 331.358L208.982 331.721L209.707 331.032L209.362 330.669L209 331.014L208.638 331.358ZM190 311.014L189.638 311.358L208.638 331.358L209 331.014L209.362 330.669L190.362 310.669L190 311.014Z" fill="white"/>
+<circle cx="188.5" cy="308.514" r="3" stroke="white"/>
+<path d="M208.639 330.669L208.984 330.307L209.708 330.997L209.363 331.359L209.001 331.014L208.639 330.669ZM189.949 351.014L189.587 350.669L208.639 330.669L209.001 331.014L209.363 331.359L190.311 351.359L189.949 351.014Z" fill="white"/>
+<path d="M188.464 356.514C190.096 356.514 191.428 355.176 191.428 353.514C191.428 351.852 190.096 350.514 188.464 350.514C186.832 350.514 185.5 351.852 185.5 353.514C185.5 355.176 186.832 356.514 188.464 356.514Z" stroke="white"/>
+<rect x="114.012" y="330.46" width="58.614" height="8" transform="rotate(-45 114.012 330.46)" fill="white"/>
+<rect x="119.985" y="324.524" width="58.7164" height="8.46392" transform="rotate(45 119.985 324.524)" fill="white"/>
+<rect x="149.551" y="366.006" width="58.6166" height="8.4476" transform="rotate(-45 149.551 366.006)" fill="white"/>
+<rect x="148.534" y="347.029" width="22.3083" height="9.91175" transform="rotate(-45 148.534 347.029)" fill="white"/>
+<rect x="131.547" y="330.055" width="13.4293" height="19.755" transform="rotate(-45 131.547 330.055)" fill="white"/>
+<rect width="8.46344" height="4.26124" transform="matrix(0.707107 -0.707107 -0.707107 -0.707107 148.534 347.02)" fill="white"/>
+<rect x="164.006" y="297.542" width="46.6486" height="11.26" transform="rotate(45 164.006 297.542)" fill="white"/>
+<rect x="148.536" y="304.03" width="26.191" height="12.7302" transform="rotate(45 148.536 304.03)" fill="white"/>
+<rect x="166.895" y="322.401" width="14.2813" height="8.4858" transform="rotate(45 166.895 322.401)" fill="white"/>>
+</svg>

@@ -1,0 +1,23 @@
+{
+  "name": "IEEE Sahrdaya Student Branch",
+  "short_name": "IEEE Sahrdaya",
+  "description": "Official website of IEEE Sahrdaya Student Branch — events, societies, and execom directory.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#00629B",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/emblem.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

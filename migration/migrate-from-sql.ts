@@ -6,29 +6,19 @@
  *
  * Expects:
  *   - ieee_export.sql in project root (MariaDB dump from Appwrite)
- *   - public/Societies/, public/Execom/, public/Events/ (restored from git)
+ *   - public/Societies/, public/Execom/, public/Events/ with image files
  */
 
-import { execSync } from 'child_process'
 import { readFileSync, existsSync, readdirSync } from 'fs'
-import { join, dirname, extname } from 'path'
+import { join, dirname, extname, basename } from 'path'
 import { fileURLToPath } from 'url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = join(__dirname, '..')
 const publicDir = join(root, 'public')
 
-// Mark: Restore public/ from git
-try {
-  execSync('git checkout main -- public/Societies/ public/Execom/ public/Events/', { stdio: 'pipe', cwd: root })
-  console.log('✅ Restored public/ from git history')
-} catch {
-  console.log('⚠️  Could not restore public/ from git — images may be missing')
-}
-
-// Mark: Upload image to Payload media collection
 async function uploadMedia(
-  payload: Awaited<ReturnType<typeof getPayload>>,
+  payload: any,
   filePath: string,
   alt: string
 ): Promise<number | null> {
@@ -37,11 +27,11 @@ async function uploadMedia(
     const buffer = readFileSync(filePath)
     const ext = extname(filePath).toLowerCase()
     const mime: Record<string, string> = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.gif': 'image/gif' }
-    const fileName = `migrate-${Date.now()}-${Math.random().toString(36).slice(2, 6)}${ext}`
+    const originalName = basename(filePath).replace(/[^a-zA-Z0-9._-]/g, '_').toLowerCase()
     const result = await payload.create({
       collection: 'media',
       data: { alt },
-      file: { data: buffer, name: fileName, mimetype: mime[ext] || 'image/jpeg', size: buffer.length },
+      file: { data: buffer, name: originalName, mimetype: mime[ext] || 'image/jpeg', size: buffer.length },
       overrideAccess: true,
     })
     return result.id as number
@@ -51,7 +41,6 @@ async function uploadMedia(
   }
 }
 
-// Mark: Find file case-insensitively
 function findFile(baseDir: string, relativePath: string): string | null {
   if (!relativePath) return null
   const full = join(baseDir, relativePath.replace(/^\//, ''))
@@ -71,7 +60,6 @@ function findFile(baseDir: string, relativePath: string): string | null {
   return existsSync(current) ? current : null
 }
 
-// Mark: Extract email from messy string
 function extractEmail(raw: string | null | undefined): string | undefined {
   if (!raw || typeof raw !== 'string') return undefined
   const match = raw.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)
@@ -80,7 +68,6 @@ function extractEmail(raw: string | null | undefined): string | undefined {
   return undefined
 }
 
-// Mark: Parse INSERT rows from SQL text
 function parseSQLValues(sql: string, tableSuffix: string): Record<string, string>[] {
   const rows: Record<string, string>[] = []
   const tableName = `_3_database_1_collection_${tableSuffix}`
@@ -91,7 +78,6 @@ function parseSQLValues(sql: string, tableSuffix: string): Record<string, string
   const allValuesText = match[1].trim()
   const names = getColumnNames(sql, tableSuffix)
 
-  // Split into individual row tuples: (val1,val2,...)
   let depth = 0
   let start = 0
   for (let i = 0; i < allValuesText.length; i++) {
@@ -148,7 +134,6 @@ function getColumnNames(sql: string, tableSuffix: string): string[] {
 }
 
 async function main() {
-  // Load .env.local if it exists
   const envPath = join(root, '.env.local')
   if (existsSync(envPath)) {
     const { config: dotenv } = await import('dotenv')
@@ -168,12 +153,34 @@ async function main() {
   const payload = await getPayload({ config: payloadConfig })
 
   // ============================
+  // 0. SB SOCIETY (first entry)
+  // ============================
+  console.log('\n📋 Creating SB society...')
+  const appwriteUidToPayloadId: Record<string, number> = {}
+  const slugToPayloadId: Record<string, number> = {}
+
+  const sbExisting = await payload.find({ collection: 'societies', where: { slug: { equals: 'sb' } }, depth: 0 })
+  let sbPid: number
+  if (sbExisting.docs.length > 0) {
+    sbPid = sbExisting.docs[0].id as number
+    console.log('  ⏭  IEEE Sahrdaya SB (already exists)')
+  } else {
+    const sb = await payload.create({
+      collection: 'societies',
+      data: { name: 'IEEE Sahrdaya SB', slug: 'sb', bio: 'IEEE Sahrdaya Student Branch Core' },
+      overrideAccess: true,
+    })
+    sbPid = sb.id as number
+    console.log('  ✅ IEEE Sahrdaya SB')
+  }
+  appwriteUidToPayloadId['SB'] = sbPid
+  slugToPayloadId['core'] = sbPid
+
+  // ============================
   // 1. SOCIETIES
   // ============================
   console.log('\n📋 Migrating societies...')
   const societyRows = parseSQLValues(sql, '5')
-const appwriteUidToPayloadId: Record<string, number> = {}
-const slugToPayloadId: Record<string, number> = {}
   let societyCount = 0
 
   for (const row of societyRows) {
@@ -184,7 +191,7 @@ const slugToPayloadId: Record<string, number> = {}
 
     const existing = await payload.find({ collection: 'societies', where: { slug: { equals: slug } }, depth: 0 })
     if (existing.docs.length > 0) {
-      const pid = String(existing.docs[0].id)
+      const pid = existing.docs[0].id as number
       appwriteUidToPayloadId[uid] = pid
       slugToPayloadId[slug] = pid
       console.log(`  ⏭  ${name} (already exists)`)
@@ -195,22 +202,14 @@ const slugToPayloadId: Record<string, number> = {}
     let logoId: number | null = null
     if (row.logo_url) {
       const filePath = findFile(publicDir, row.logo_url)
-      if (filePath) {
-        logoId = await uploadMedia(payload, filePath, `${name} logo`)
-      } else {
-        console.log(`\n  [no file] logo_url=${row.logo_url}`)
-      }
+      if (filePath) logoId = await uploadMedia(payload, filePath, `${name} logo`)
     }
 
     const data: Record<string, unknown> = { name, slug, bio: row.bio || '' }
     if (logoId) data.logo = logoId
 
     try {
-      const c = await payload.create({
-        collection: 'societies',
-        data,
-        overrideAccess: true,
-      })
+      const c = await payload.create({ collection: 'societies', data, overrideAccess: true })
       const pid = c.id as number
       appwriteUidToPayloadId[uid] = pid
       slugToPayloadId[slug] = pid
@@ -235,7 +234,6 @@ const slugToPayloadId: Record<string, number> = {}
     const societyPid = slugToPayloadId[sectionId] || undefined
     const email = extractEmail(row.email)
 
-    // Upload photo if file exists
     let photoId: number | null = null
     if (row.photoUrl) {
       const filePath = findFile(publicDir, row.photoUrl)
@@ -288,7 +286,6 @@ const slugToPayloadId: Record<string, number> = {}
     const societyPid = appwriteUidToPayloadId[row.society_id || ''] || undefined
     const price = Number(row.price) || 0
 
-    // Upload banner if file exists locally
     let bannerId: number | null = null
     const bannerUrl = row.banner_url || ''
     if (bannerUrl && !bannerUrl.startsWith('http')) {
@@ -343,11 +340,8 @@ const slugToPayloadId: Record<string, number> = {}
   }
   console.log(`\n  ${eventCount}/${eventRows.length} events`)
 
-  // ============================
-  // SUMMARY
-  // ============================
   console.log('\n═══════════════════════════════')
-  console.log(`  Societies:     ${societyCount}`)
+  console.log(`  Societies:     ${societyCount + 1}`)
   console.log(`  Execom:        ${execomCount}`)
   console.log(`  Events:        ${eventCount}`)
   console.log('═══════════════════════════════\n')
