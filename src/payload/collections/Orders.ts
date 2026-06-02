@@ -1,10 +1,14 @@
 import type { CollectionConfig } from 'payload'
+import { createDdmTicket } from '../hooks/orders'
 
 export const Orders: CollectionConfig = {
   slug: 'orders',
   admin: {
     useAsTitle: 'id',
     group: 'Events',
+  },
+  hooks: {
+    beforeChange: [createDdmTicket],
   },
   fields: [
     { name: 'user', type: 'relationship', relationTo: 'users', required: true },

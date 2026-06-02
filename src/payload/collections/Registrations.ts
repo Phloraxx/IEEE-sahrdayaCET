@@ -1,10 +1,14 @@
 import type { CollectionConfig } from 'payload'
+import { sendConfirmation } from '../hooks/registrations'
 
 export const Registrations: CollectionConfig = {
   slug: 'registrations',
   admin: {
     useAsTitle: 'id',
     group: 'Events',
+  },
+  hooks: {
+    afterChange: [sendConfirmation],
   },
   fields: [
     { name: 'user', type: 'relationship', relationTo: 'users', required: true },
