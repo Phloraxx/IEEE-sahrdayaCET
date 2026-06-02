@@ -89,39 +89,53 @@ npm install next-auth/providers/google
 
 ## Phase 1: Collections
 
-**Goal:** Payload collections that mirror Appwrite's data model. Appwrite stays primary; Payload is populated via migration script later.
+**Goal:** Payload collections that mirror Appwrite's actual data model (reverse-engineered from codebase). Appwrite stays primary; Payload is populated via migration script later.
 
 ### Collection: `users` (created by payload-authjs plugin, extended)
 
-| Field | Type | Notes |
-|---|---|---|
-| `email` | Email (unique) | Provided by Google OAuth |
-| `name` | Text | Provided by Google OAuth |
-| `image` | Upload | Avatar from Google |
-| `phone` | Text | Optional |
-| `college` | Text | Optional |
-| `department` | Select | Optional |
-| `semester` | Select | Optional |
-| `rollNumber` | Text | Optional |
-| `role` | Select | `user` or `admin` |
+Merges Appwrite `users` + `members` collections into a single Payload `users` collection.
+
+| Field | Type | Source (Appwrite) | Notes |
+|---|---|---|---|
+| `email` | Email (unique) | `users.email` | Provided by Google OAuth |
+| `name` | Text | `users.name` / `members.fullName` | Provided by Google OAuth |
+| `image` | Upload | Google avatar | Avatar from Google |
+| `phone` | Text | `members.phone` | Optional |
+| `personalEmail` | Text | `members.personalEmail` | Optional |
+| `sahrdayaEmail` | Text | `members.sahrdayaEmail` | Optional, ends with @sahrdaya.ac.in |
+| `semester` | Select | `members.semester` | S1–S8 |
+| `department` | Select | `members.course` | CSE, ECE, EEE, ME, CE, IT, AEI, Other |
+| `section` | Select | `members.class` | A, B, C, D |
+| `rollNumber` | Text | — | New field, not in current members |
+| `foodPreference` | Text | `members.foodPreference` | Optional |
+| `residence` | Text | `members.residence` | Optional |
+| `profileCompleted` | Checkbox | `members.profileCompleted` | Default false |
+| `role` | Select | — | `user` or `admin` — new for Payload access control |
+| `teams` | Array of Text | `members.teams` | Appwrite team IDs for admin/chair permissions |
+| `passkeyCredentials` | JSON | `members.passkeyCredentials` | Reserved for future passkey support |
+| `userID` | Text | `members.userID` | Original Appwrite user ID (for migration mapping) |
 
 ### Collection: `societies`
+
+Mirrors Appwrite `societies` collection.
 
 | Field | Type | Notes |
 |---|---|---|
 | `name` | Text | Required, unique |
 | `slug` | Text | Auto-generated from name |
-| `bio` | Rich Text | Optional |
+| `bio` | Text | Optional |
 | `logo_url` | Upload | Local disk volume (Cloudinary later) |
 | `banner_url` | Upload | Local disk volume (Cloudinary later) |
 
 ### Collection: `execom`
 
+Mirrors Appwrite `execom_members` collection.
+
 | Field | Type | Notes |
 |---|---|---|
 | `name` | Text | Required |
 | `position` | Text | Required |
-| `society` | Relationship → `societies` | Optional |
+| `society_id` | Relationship → `societies` | Field name matches Appwrite |
 | `photo_url` | Upload | Local disk volume (Cloudinary later) |
 | `order` | Number | Display order |
 | `batch` | Text | e.g., "2024-25" |
@@ -130,54 +144,85 @@ npm install next-auth/providers/google
 
 ### Collection: `events`
 
+Mirrors Appwrite `events` collection (merged with `event_metadata`). Full field list:
+
 | Field | Type | Notes |
 |---|---|---|
 | `title` | Text | Required |
 | `slug` | Text | Auto-generated |
 | `description` | Rich Text | Optional |
-| `date` | Date | Required |
+| `date` | Date | Required (single date or start) |
+| `end_date` | Date | Optional |
 | `venue` | Text | Required |
-| `price` | Number | Required, default 0 |
-| `society` | Relationship → `societies` | Optional |
-| `max_capacity` | Number | Required |
-| `banner` | Upload | Local disk volume (Cloudinary later) |
-| `status` | Select | `draft`, `published`, `cancelled` |
-| `registrationOpen` | Checkbox | Default true |
-| `checkInEnabled` | Checkbox | Default true |
-| `contactEmail` | Text | Optional |
-| `tags` | Array | Optional |
+| `price` | Number | Default 0 |
+| `society_id` | Relationship → `societies` | Required |
+| `banner_url` | Upload | Local disk volume (Cloudinary later) |
+| `status` | Select | `draft`, `published`, `archived`, `completed`, `cancelled` |
+| `max_capacity` | Number | Required, 0 = unlimited |
+| `registered_count` | Number | Denormalized counter |
+| `checked_in_count` | Number | Denormalized counter |
+| `registration_open` | Checkbox | Default true |
+| `registration_start` | Date | Optional |
+| `registration_deadline` | Date | Optional |
+| `form_template_id` | Relationship → `form-templates` | Optional |
+| **Waitlist** | | |
+| `enable_waitlist` | Checkbox | Default false |
+| `waitlist_limit` | Number | Optional |
+| `waitlist_count` | Number | Denormalized counter |
+| **Pricing tiers** | | |
+| `is_paid` | Checkbox | Whether payment is required |
+| `ieee_member_price` | Number | Optional |
+| `non_member_price` | Number | Optional |
+| `early_bird_price` | Number | Optional |
+| `early_bird_deadline` | Date | Optional |
+| `pricing_tiers` | JSON | Optional (custom tiers) |
+| `currency` | Text | Default "INR" |
+| **Check-in settings** | | |
+| `check_in_enabled` | Checkbox | Default true |
+| `self_check_in` | Checkbox | Default false |
+| **Contact** | | |
+| `contact_email` | Text | Optional |
+| `contact_phone` | Text | Optional |
+| `external_link` | Text | Optional |
+| **Content** | | |
+| `tags` | Text | Comma-separated |
 | `category` | Select | Optional |
-| `speakers` | Array | Optional |
-| `formTemplate` | JSON | Dynamic registration form fields |
-| `isDeleted` | Checkbox | Soft delete |
+| `speakers` | JSON | Array of speaker objects |
+| `schedule` | JSON | Array of schedule items |
+| `faqs` | JSON | Array of Q&A items |
+| **Soft delete** | | |
+| `is_deleted` | Checkbox | Default false |
+| `deleted_at` | Date | Optional |
+| **Permissions** | | |
+| `team_id` | Text | Appwrite team ID for chair access |
 
 ### Collection: `registrations`
 
-| Field | Type | Notes |
-|---|---|---|
-| `user` | Relationship → `users` | Required |
-| `event` | Relationship → `events` | Required |
-| `formData` | JSON | Custom form responses |
-| `paymentStatus` | Select | `pending`, `paid`, `failed`, `refunded` |
-| `paymentAmount` | Number | Optional |
-| `paymentTransactionId` | Text | DDM transaction reference |
-| `paymentTicketId` | Text | DDM ticket ID |
-| `registrationStatus` | Select | `pending`, `confirmed`, `cancelled` |
-| `ticketCode` | Text | Unique QR code data |
-| `checkedIn` | Checkbox | Default false |
-| `checkedInAt` | Date | Optional |
-| `checkedInBy` | Relationship → `users` | Optional |
-
-### Collection: `check-ins`
+Mirrors Appwrite `event_registrations` collection. **Check-in state is stored directly on the registration** (not a separate collection), matching current Appwrite schema.
 
 | Field | Type | Notes |
 |---|---|---|
-| `registration` | Relationship → `registrations` | Required |
-| `event` | Relationship → `events` | Required |
-| `checkedInBy` | Relationship → `users` | Required |
-| `checkedInAt` | Date | Auto-set |
-| `location` | Text | Optional (multi-location support) |
-| `method` | Select | `qr_scan`, `manual_search`, `bulk` |
+| `user_id` | Relationship → `users` | Required |
+| `event_id` | Relationship → `events` | Required |
+| `user_name` | Text | Denormalized |
+| `user_email` | Text | Denormalized |
+| `user_phone` | Text | Denormalized |
+| `form_responses` | JSON | Custom registration form answers |
+| `payment_status` | Select | `pending`, `paid`, `completed`, `failed`, `refunded`, `not_required` |
+| `payment_amount` | Number | Optional |
+| `payment_ticket_id` | Text | DDM ticket ID |
+| `payment_reference` | Text | DDM payment reference |
+| `registration_status` | Select | `pending`, `confirmed`, `cancelled`, `expired`, `waitlisted` |
+| `registration_date` | Date | Auto-set |
+| `ticket` | JSON | Embedded ticket object (ticket_id, ticket_code, qr_code, is_scanned, etc.) |
+| `ticket_id` | Text | Legacy ticket ID (denormalized) |
+| **Check-in fields** | | *All check-in state stored here* |
+| `checked_in` | Checkbox | Default false |
+| `checked_in_at` | Date | Optional |
+| `checked_in_by` | Relationship → `users` | Optional |
+| `check_in_time` | Date | Legacy timestamp |
+| `last_check_in_location` | Text | e.g., "entrance", "food-court-1" |
+| `check_in_history` | JSON | Multi-location timeline: `[{ location, checked_in_at, checked_in_by }]` |
 
 ### Collection: `coupons`
 
@@ -226,13 +271,15 @@ npm install next-auth/providers/google
 **Goal:** Export all existing Appwrite data (~500 records total) and import into Payload.
 
 **Data to migrate:**
-- Societies (~10)
-- Execom members (~30)
-- Users (~200)
-- Events (~20)
-- Registrations (~200)
-- Check-in logs (~50)
-- Email logs (~50)
+- `societies` (~10) — no dependencies
+- `execom_members` (~30) — depends on societies
+- `members` (~200) — user profiles, becomes Payload `users`
+- Appwrite `users` (~200) — merged with members into Payload `users`
+- `events` (~20) — depends on societies
+- `event_registrations` (~200) — depends on users + events
+- `email_logs` (~50) — depends on registrations
+
+**Note:** Check-in state is embedded in registrations (`checked_in`, `check_in_history` JSON). No separate check-in collection exists in Appwrite — no separate migration needed.
 
 ### Migration Script (`migration/migrate-from-appwrite.ts`)
 
@@ -248,11 +295,10 @@ npm install next-auth/providers/google
 ### Migration order:
 1. `societies` (no dependencies)
 2. `execom` (depends on societies)
-3. `users` (no dependencies)
+3. `users` — merge Appwrite `users` + `members` collections (no dependencies)
 4. `events` (depends on societies)
 5. `registrations` (depends on users + events)
-6. `check-ins` (depends on registrations)
-7. `email-logs` (depends on registrations)
+6. `email-logs` (depends on registrations)
 
 ---
 
@@ -347,8 +393,8 @@ Each route: remove Appwrite SDK → use `payload.find()`, `payload.create()`, `p
 ## Phase 7: Admin Views (Custom)
 
 ### Built-in (free from Payload):
-- All 9 collections get full CRUD admin UI automatically
-- User management, society/execom editing, event management, registration viewer, coupon admin, order viewer, email log viewer
+- All 8 collections get full CRUD admin UI automatically
+- User management (with profile fields), society/execom editing, event management (all 35+ fields), registration viewer (with embedded ticket JSON + check-in history JSON), coupon admin, order viewer, email log viewer
 
 ### Custom views needed:
 1. **Check-in scanner** — Custom React admin view with QR scanner (`@zxing/browser`), manual search, check-in stats, CSV export. Location: `/admin/custom/check-in`
@@ -412,6 +458,8 @@ NEXT_PUBLIC_APPWRITE_ENDPOINT
 NEXT_PUBLIC_APPWRITE_PROJECT_ID
 NEXT_PUBLIC_APPWRITE_DATABASE_ID
 APPWRITE_API_KEY
+
+# Collection IDs
 NEXT_PUBLIC_APPWRITE_SOCIETIES_COLLECTION_ID
 NEXT_PUBLIC_APPWRITE_EVENTS_COLLECTION_ID
 NEXT_PUBLIC_APPWRITE_EXECOM_COLLECTION_ID
@@ -421,9 +469,12 @@ NEXT_PUBLIC_APPWRITE_EVENT_FORM_TEMPLATES_COLLECTION_ID
 NEXT_PUBLIC_APPWRITE_EVENT_TICKETS_COLLECTION_ID
 NEXT_PUBLIC_APPWRITE_CHECK_IN_SESSIONS_COLLECTION_ID
 NEXT_PUBLIC_APPWRITE_CHECK_IN_LOGS_COLLECTION_ID
+NEXT_PUBLIC_APPWRITE_EMAIL_LOGS_COLLECTION_ID
 NEXT_PUBLIC_APPWRITE_EMAIL_TEMPLATES_COLLECTION_ID
 NEXT_PUBLIC_APPWRITE_EVENT_METADATA_COLLECTION_ID
 NEXT_PUBLIC_APPWRITE_SOCIETY_IMAGES_BUCKET_ID
+
+# Passkey/WebAuthn
 WEBAUTHN_RP_ID
 WEBAUTHN_RP_NAME
 PASSKEY_HMAC_SECRET
@@ -436,7 +487,7 @@ PASSKEY_HMAC_SECRET
 | Phase | Description | Est. Time |
 |---|---|---|
 | 0 | Install Payload + Auth.js, verify admin renders | 2-3 hours |
-| 1 | Create all 9 collections, test in admin UI | 4-6 hours |
+| 1 | Create all 8 collections (+ form-templates), test in admin UI | 4-6 hours |
 | 2 | Migration script, migrate all data (~500 records) | 2-3 hours |
 | 3 | Auth — Google OAuth via payload-authjs | 3-4 hours |
 | 4 | Rewrite API routes (Appwrite → Payload Local API) | 8-12 hours |
