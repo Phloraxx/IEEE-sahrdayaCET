@@ -20,6 +20,9 @@
  *   APPWRITE_REGISTRATIONS_COLLECTION_ID, APPWRITE_EMAIL_LOGS_COLLECTION_ID
  */
 
+import { config } from 'dotenv'
+config({ path: '.env.local' })
+
 import { Client, Databases, Users as AppwriteUsers, Query } from 'node-appwrite'
 
 const requiredEnv = (name: string): string => {
