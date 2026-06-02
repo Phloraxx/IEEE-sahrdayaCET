@@ -3,31 +3,16 @@ node_modules
 /.pnp
 .pnp.js
 
-
 # Testing
 /coverage
-~/*
-/~/
+
 # Next.js
 /.next/
 /out/
 
-.agent*
-
-*.pdf
-
-/docs/*
-/docs
-/scripts
-/scripts/*
-
-*.md
-!README.md
-
 # Production
 /build
 /dist
-dist-ssr
 
 # Misc
 .DS_Store
@@ -35,16 +20,12 @@ dist-ssr
 
 # Debug
 npm-debug.log*
-pnpm-debug.log*
-lerna-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Local env files
 .env*.local
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
 
 # Vercel
 .vercel
@@ -73,24 +54,8 @@ next-env.d.ts
 *.temp
 *.log
 
-# CSV data files
-*.csv
+# SQLite database (runtime)
+data/
 
-# Document files (personal)
-*.docx
-*.doc
-
-# Apple raw photos (JPG versions preferred)
-*.HEIC
-*.heic
-
-certificates
-backups/
-diagnose-collections.js
-mcp-server-appwrite/
-opencode.json
-test-client-sdk.ts
-test-collections.js
-test-mcp.js
-.wrangler*
-/.open-next/*
+# Payload
+.importMap.json
