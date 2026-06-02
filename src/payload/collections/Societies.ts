@@ -12,18 +12,12 @@ export const Societies: CollectionConfig = {
     update: ({ req: { user } }) => user?.role === 'admin',
     delete: ({ req: { user } }) => user?.role === 'admin',
   },
-  upload: {
-    mimeTypes: ['image/*'],
-    imageSizes: [
-      { name: 'thumbnail', width: 400, height: 300, position: 'centre' },
-      { name: 'card', width: 768, height: 1024, position: 'centre' },
-    ],
-    adminThumbnail: 'thumbnail',
-  },
   fields: [
     { name: 'name', type: 'text', required: true, unique: true },
-    { name: 'slug', type: 'text', required: true, unique: true, admin: { readOnly: true } },
+    { name: 'slug', type: 'text', required: true, unique: true },
     { name: 'bio', type: 'textarea' },
+    { name: 'logo', type: 'upload', relationTo: 'media' },
+    { name: 'banner', type: 'upload', relationTo: 'media' },
     { name: 'chairs', type: 'relationship', relationTo: 'users', hasMany: true },
   ],
 }

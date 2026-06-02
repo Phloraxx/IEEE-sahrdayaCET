@@ -1,3 +1,4 @@
+import { Media } from './Media'
 import { Users } from './Users'
 import { Societies } from './Societies'
 import { Execom } from './Execom'
@@ -7,6 +8,7 @@ import { Orders } from './Orders'
 import { Coupons } from './Coupons'
 
 export const collections = [
+  Media,
   Users,
   Societies,
   Execom,

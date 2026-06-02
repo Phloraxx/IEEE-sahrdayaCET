@@ -12,14 +12,6 @@ export const Events: CollectionConfig = {
     update: ({ req: { user } }) => user?.role === 'admin',
     delete: ({ req: { user } }) => user?.role === 'admin',
   },
-  upload: {
-    mimeTypes: ['image/*'],
-    imageSizes: [
-      { name: 'thumbnail', width: 400, height: 300, position: 'centre' },
-      { name: 'card', width: 768, height: 1024, position: 'centre' },
-    ],
-    adminThumbnail: 'thumbnail',
-  },
   fields: [
     { name: 'title', type: 'text', required: true },
     { name: 'slug', type: 'text', required: true, unique: true },
@@ -29,6 +21,7 @@ export const Events: CollectionConfig = {
     { name: 'venue', type: 'text', required: true },
     { name: 'price', type: 'number', defaultValue: 0, required: true },
     { name: 'society', type: 'relationship', relationTo: 'societies', required: true },
+    { name: 'banner', type: 'upload', relationTo: 'media' },
     { name: 'status', type: 'select', defaultValue: 'draft', options: [{ label: 'Draft', value: 'draft' }, { label: 'Published', value: 'published' }, { label: 'Archived', value: 'archived' }, { label: 'Completed', value: 'completed' }, { label: 'Cancelled', value: 'cancelled' }] },
     { name: 'maxCapacity', type: 'number', defaultValue: 0 },
     { name: 'registeredCount', type: 'number', defaultValue: 0, admin: { readOnly: true } },
