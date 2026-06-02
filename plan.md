@@ -5,21 +5,23 @@
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                  Dokploy VPS (single host)                     │
-│                                                                │
+│                          Domain: ieeesahrdaya.com              │
 │  ┌─────────────────────────────────────┐   ┌──────────────┐   │
 │  │  Container: ieee-app                │   │  Container:   │   │
 │  │  (Next.js 15 + Payload CMS v3)      │   │  ddm-api      │   │
 │  │                                     │   │  (Fastify)    │   │
 │  │  / → Public pages (events, tickets) │   │              │   │
 │  │  /admin → Payload admin dashboard   │   │  POST /ticket │   │
-│  │  /api/payload → Payload REST API    │   │  GET /status  │   │
-│  │  /api/webhook/ddm → DDM callback    │   │  POST /webhook│   │
-│  │                                     │   │              │   │
-│  │  Storage: SQLite (persistent volume)│   │  SQLite       │   │
-│  │  Uploads: Cloudinary adapter        │   │  (volume)     │   │
+│  │  /api/auth → Auth.js OAuth routes   │   │  GET /status  │   │
+│  │  /api/payload → Payload REST API    │   │  POST /webhook│   │
+│  │  /api/webhook/ddm → DDM callback    │   │              │   │
+│  │                                     │   │  SQLite       │   │
+│  │  Storage: SQLite (persistent volume)│   │  (volume)     │   │
+│  │  Uploads: Local disk (volume)       │   │              │   │
+│  │           Cloudinary (later)        │   │              │   │
 │  └─────────────────────────────────────┘   └──────────────┘   │
 │                                     ↑ calls                    │
-│                                     DDM API                    │
+│                              pay.mulearnscet.in                │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -41,37 +43,47 @@ Work in this branch until cutover. Production stays on `main` (Appwrite). When P
 
 1. **Install Payload packages:**
 ```bash
-npm install payload @payloadcms/next @payloadcms/db-sqlite @payloadcms/richtext-lexical @payloadcms/plugin-cloud-storage
+npm install payload @payloadcms/next @payloadcms/db-sqlite @payloadcms/richtext-lexical
+npm install payload-authjs next-auth@beta @auth/payload-adapter
+npm install next-auth/providers/google
 ```
 
 2. **Create `payload.config.ts`** in project root:
    - Database: SQLite (`@payloadcms/db-sqlite`)
    - Admin route: `/admin`
-   - Collections: start with `users`, `execom`, `societies`
-   - Local API: enabled (for server components)
-   - No auth strategies beyond email/password for now
+   - Collections: all 9 collections
+   - Plugins: `authjsPlugin({ authjsConfig })`
+   - Local API: enabled
 
-3. **Update `next.config.mjs`** to add Payload plugin:
-   - Import and wrap with `withPayload()`
+3. **Create `auth.config.ts`** — Auth.js config with Google OAuth provider
 
-4. **Create `src/payload-collections/`** directory — all Payload collections go here
+4. **Create `auth.ts`** — Auth.js instance using `getAuthjsInstance(payload)`
 
-5. **Create `crypto-polyfill.ts`** or configure webpack for Payload's Node.js crypto dependency
+5. **Add Auth.js route handler** at `app/api/auth/[...nextauth]/route.ts`
 
-6. **Verify:** Payload admin at `localhost:3000/admin` renders with SQLite
+6. **Update `next.config.mjs`** — add `withPayload()` plugin
+
+7. **Create `src/payload-collections/`** directory
+
+8. **Verify:** Payload admin at `localhost:3000/admin` renders with SQLite
 
 ### Files created:
 - `payload.config.ts`
-- `src/payload-collections/Users.ts`
-- `src/payload-collections/Execom.ts`
-- `src/payload-collections/Societies.ts`
-- `crypto-polyfill.ts` (if needed)
+- `auth.config.ts`
+- `auth.ts`
+- `src/app/api/auth/[...nextauth]/route.ts`
+- `src/payload-collections/` (all collection files)
+- `src/payload-collections/hooks/createDdmTicket.ts`
 - `src/lib/payload.ts` — Payload client helper
+- `src/lib/api/payload-admin.ts` — Payload data access layer
+- `migration/migrate-from-appwrite.ts` — migration script
 
 ### Files modified:
 - `next.config.mjs` — add `withPayload()`
-- `tsconfig.json` — add path aliases if needed
+- `tsconfig.json` — add path aliases
 - `package.json` — new dependencies
+- `.gitignore` — allow `plan.md`
+- `Dockerfile` — standard Node.js for Dokploy
 
 ---
 
@@ -79,19 +91,19 @@ npm install payload @payloadcms/next @payloadcms/db-sqlite @payloadcms/richtext-
 
 **Goal:** Payload collections that mirror Appwrite's data model. Appwrite stays primary; Payload is populated via migration script later.
 
-### Collection: `users` (built-in, extended)
+### Collection: `users` (created by payload-authjs plugin, extended)
 
 | Field | Type | Notes |
 |---|---|---|
-| `email` | Email (unique) | Required |
-| `password` | Password | Required |
-| `name` | Text | Required |
+| `email` | Email (unique) | Provided by Google OAuth |
+| `name` | Text | Provided by Google OAuth |
+| `image` | Upload | Avatar from Google |
 | `phone` | Text | Optional |
 | `college` | Text | Optional |
 | `department` | Select | Optional |
 | `semester` | Select | Optional |
 | `rollNumber` | Text | Optional |
-| `role` | Select | `user` or `admin` — controls admin access |
+| `role` | Select | `user` or `admin` |
 
 ### Collection: `societies`
 
@@ -100,8 +112,8 @@ npm install payload @payloadcms/next @payloadcms/db-sqlite @payloadcms/richtext-
 | `name` | Text | Required, unique |
 | `slug` | Text | Auto-generated from name |
 | `bio` | Rich Text | Optional |
-| `logo_url` | Upload | Cloudinary adapter |
-| `banner_url` | Upload | Cloudinary adapter |
+| `logo_url` | Upload | Local disk volume (Cloudinary later) |
+| `banner_url` | Upload | Local disk volume (Cloudinary later) |
 
 ### Collection: `execom`
 
@@ -110,7 +122,7 @@ npm install payload @payloadcms/next @payloadcms/db-sqlite @payloadcms/richtext-
 | `name` | Text | Required |
 | `position` | Text | Required |
 | `society` | Relationship → `societies` | Optional |
-| `photo_url` | Upload | Cloudinary adapter |
+| `photo_url` | Upload | Local disk volume (Cloudinary later) |
 | `order` | Number | Display order |
 | `batch` | Text | e.g., "2024-25" |
 | `linkedin` | Text | Optional |
@@ -128,7 +140,7 @@ npm install payload @payloadcms/next @payloadcms/db-sqlite @payloadcms/richtext-
 | `price` | Number | Required, default 0 |
 | `society` | Relationship → `societies` | Optional |
 | `max_capacity` | Number | Required |
-| `banner` | Upload | Cloudinary adapter |
+| `banner` | Upload | Local disk volume (Cloudinary later) |
 | `status` | Select | `draft`, `published`, `cancelled` |
 | `registrationOpen` | Checkbox | Default true |
 | `checkInEnabled` | Checkbox | Default true |
@@ -209,142 +221,213 @@ npm install payload @payloadcms/next @payloadcms/db-sqlite @payloadcms/richtext-
 
 ---
 
-## Phase 2: Data Migration (Execom + Societies)
+## Phase 2: Data Migration
 
-**Goal:** Export existing Appwrite data and import into Payload. Appwrite stays untouched.
+**Goal:** Export all existing Appwrite data (~500 records total) and import into Payload.
 
-### Step 2a: Migration Script (`scripts/migrate-from-appwrite.ts`)
+**Data to migrate:**
+- Societies (~10)
+- Execom members (~30)
+- Users (~200)
+- Events (~20)
+- Registrations (~200)
+- Check-in logs (~50)
+- Email logs (~50)
+
+### Migration Script (`migration/migrate-from-appwrite.ts`)
 
 ```typescript
-// Run with: npx tsx scripts/migrate-from-appwrite.ts
+// Run: npx tsx migration/migrate-from-appwrite.ts
 // 1. Connect to Appwrite using existing env vars
-// 2. Query all societies
-// 3. Query all execom
-// 4. Transform documents to match Payload collection schemas
-// 5. Connect to Payload via REST API
-// 6. Create each document in Payload
-// 7. Log any failures
+// 2. Query all documents from each collection
+// 3. Transform to match Payload schemas
+// 4. Create in Payload via REST API
+// 5. Log results
 ```
 
-**Execution:** `npx tsx scripts/migrate-from-appwrite.ts`
-
 ### Migration order:
-1. `societies` first (no dependencies)
-2. `execom` second (depends on societies for relationship)
-3. `users` (if migrating — can be deferred)
+1. `societies` (no dependencies)
+2. `execom` (depends on societies)
+3. `users` (no dependencies)
 4. `events` (depends on societies)
 5. `registrations` (depends on users + events)
 6. `check-ins` (depends on registrations)
+7. `email-logs` (depends on registrations)
 
 ---
 
-## Phase 3: API Route Rewrite (Appwrite → Payload)
+## Phase 3: Auth — Google OAuth via payload-authjs
 
-**Goal:** Replace every `appwrite.databases.*` and `account.*` call with Payload Local API (server) or REST API (client).
+**Goal:** Replace Appwrite Google OAuth with Auth.js (NextAuth.js) v5 via `payload-authjs` plugin.
 
-### Layer 1: Data access layer (`src/lib/api/appwrite-admin.ts`)
-- Create `src/lib/api/payload-admin.ts` with equivalent functions using Payload's Local API
-- Same function signatures, different implementation
+### How it works:
+1. User clicks "Sign in with Google" → Auth.js initiates Google OAuth flow
+2. Google redirects to `/api/auth/callback/google`
+3. Auth.js creates/updates user in Payload's `users` collection via database adapter
+4. `payload-authjs` creates a Payload session from the Auth.js session
+5. Frontend uses `usePayloadSession()` hook (client) or `getPayloadSession()` (server)
 
-### Layer 2: Auth context (`src/contexts/AuthContext.tsx`)
-- `account.get()` → `fetch('/api/users/me')`
-- `account.createOAuth2Session()` → custom Google OAuth flow or Payload's auth
-- `account.deleteSession()` → Payload logout endpoint
-- `account.createJWT()` → Payload JWT endpoint
+### Files:
+- `auth.config.ts` — Auth.js config with Google provider
+- `auth.ts` — Auth.js instance via `getAuthjsInstance(payload)`
+- `src/app/api/auth/[...nextauth]/route.ts` — Auth.js route handler
+- `middleware.ts` — Auth.js proxy to keep session alive
 
-### Layer 3: Individual API routes (~27 route files)
-Each route file needs Appwrite SDK calls replaced with Payload Local API calls.
+### Auth context changes:
+```
+Before (Appwrite):           After (Auth.js + Payload):
+account.get()                getPayloadSession()
+account.createOAuth2Session  signIn("google")
+account.deleteSession()       signOut()
+account.createJWT()          Built into Auth.js session
+```
+
+### Notes:
+- No passkeys — users re-authenticate via Google
+- Google OAuth is the only auth method (no email/password)
 
 ---
 
-## Phase 4: Frontend Data Layer Swap
+## Phase 4: API Route Rewrite (Appwrite → Payload)
 
-**Goal:** Client components that call Appwrite SDK directly → call Payload REST API or use server components with Local API.
+**Goal:** Replace every `appwrite.databases.*` and `appwrite.storage.*` call with Payload Local API (server) or REST API (client).
 
-Files to modify: `AuthContext.tsx`, `LoginModal.tsx`, admin pages, event pages, society pages, execom pages.
+### Layer 1: Data access layer
+- Replace `src/lib/api/appwrite-admin.ts` with `src/lib/api/payload-admin.ts`
+- Same function signatures, Payload Local API underneath
+
+### Layer 2: Individual API routes (~27 route files)
+Each route: remove Appwrite SDK → use `payload.find()`, `payload.create()`, `payload.update()`, `payload.delete()`
+
+### Key routes to rewrite:
+- Event registration (DDM payment flow)
+- Check-in (QR verify, search, overview)
+- Admin CRUD (events, registrations, email logs)
+- Webhook handler
 
 ---
 
-## Phase 5: DDM Payment Integration
+## Phase 5: Frontend Data Layer Swap
 
-**Goal:** Replace direct DDM API calls in the frontend with Payload-managed orders.
+**Goal:** Client components calling Appwrite SDK → call Payload REST API.
+
+| Component | Old (Appwrite) | New (Payload) |
+|---|---|---|
+| `AuthContext.tsx` | `account.*`, `teams.*` | `usePayloadSession()`, `signIn/signOut` |
+| `LoginModal.tsx` | `account.createSession` | `signIn("google")` |
+| Event pages | `databases.listDocuments` | `payload.find()` (server) or fetch |
+| Society/Execom pages | `databases.listDocuments` | `payload.find()` (server) or fetch |
+| Admin pages | `databases.*` + `account.createJWT` | Payload admin UI (built-in) |
+| Event creation | `storage.createFile` | Payload upload (local disk volume) |
+
+---
+
+## Phase 6: DDM Payment Integration
+
+**Goal:** Payload manages DDM ticket creation via collection hooks.
 
 ### Flow:
-1. Frontend creates a Payload `order` document
-2. `beforeChange` hook on `orders` collection calls DDM `POST /ticket`
-3. Hook stores `ddmTicketId` on the order
-4. Frontend polls Payload order status (Payload internally polls DDM)
-5. DDM webhook callback hits Payload API route → updates order
+1. Frontend creates a Payload `order` (with registration reference)
+2. `beforeChange` hook on `orders` collection calls DDM `POST /ticket` at `pay.mulearnscet.in`
+3. Hook stores `ddmTicketId` and raw response on the order
+4. Frontend polls Payload order status every 2s
+5. DDM webhook callback hits `POST /api/webhook/ddm` → updates order → confirms registration
 
 ### Key files:
 - `src/payload-collections/hooks/createDdmTicket.ts` — DDM API hook
 - `src/app/api/webhook/ddm/route.ts` — DDM webhook receiver
 
----
-
-## Phase 6: Auth (Simplified — Email/Password Only)
-
-**Goal:** Replace Appwrite auth with Payload's built-in email/password auth.
-
-### Auth flow:
-1. Login: Email + password → `POST /api/users/login`
-2. Signup: Email + password + profile → `POST /api/users`
-3. Session: Cookies (Payload uses `next/headers`)
-4. Logout: `POST /api/users/logout`
-5. Middleware: Check Payload session cookie
-
-### Google OAuth can be added later via Payload passport strategies.
+### DDM webhook URL update:
+- Current: points to Appwrite-based endpoint
+- After cutover: point DDM API to `https://ieeesahrdaya.com/api/webhook/ddm`
+- Can be updated later in DDM config (no urgency)
 
 ---
 
 ## Phase 7: Admin Views (Custom)
 
-### Built-in (free):
-- All collections get CRUD admin UI automatically
+### Built-in (free from Payload):
+- All 9 collections get full CRUD admin UI automatically
+- User management, society/execom editing, event management, registration viewer, coupon admin, order viewer, email log viewer
 
 ### Custom views needed:
-1. **Check-in scanner** — Custom React admin view with QR scanner (`@zxing/browser`), manual search, stats, CSV export. Location: `/admin/custom/check-in`
-2. **Dashboard stats widget** — Payload admin dashboard component with totals, charts, recent activity
+1. **Check-in scanner** — Custom React admin view with QR scanner (`@zxing/browser`), manual search, check-in stats, CSV export. Location: `/admin/custom/check-in`
+2. **Dashboard stats widget** — Payload admin dashboard component with totals, charts, recent registrations
 
 ---
 
 ## Phase 8: Cutover
 
 ### Pre-cutover:
-- All new data flowing through Payload (dual-write to Appwrite for safety)
-- Monitor error rates
+- All new data flowing through Payload
+- Monitor error rates for 48 hours
 - Test all flows: registration, payment, check-in, admin
 
-### Cutover day:
-1. Final data sync: `npx tsx scripts/migrate-from-appwrite.ts --final`
-2. Update env vars in Dokploy: `APPWRITE_ENABLED=false`
-3. Rebuild and deploy
-4. Verify all flows
+### Cutover steps:
+1. Run final migration: `npx tsx migration/migrate-from-appwrite.ts --final`
+2. Update DDM webhook URL to point to Payload
+3. Point domain `ieeesahrdaya.com` to Dokploy container
+4. Verify all flows on production domain
+5. Turn off Appwrite project (no backup period — Dokploy handles SQLite backups)
 
 ### Post-cutover:
 - Monitor logs for 48 hours
-- Keep Appwrite running (read-only) for 1 week as backup
-- Delete Appwrite project after 1 week
+- Dokploy volume backups cover SQLite data
+- Add Cloudinary integration later as a separate task
 
 ---
 
 ## Deployment Configuration (Dokploy)
 
-### Dockerfile — update for Payload build (SQLite volume)
-### Single container: Next.js + Payload + SQLite
-### Separate container: DDM API (unchanged)
+### Containers:
+| Container | Image | Port | Volume |
+|---|---|---|---|
+| `ieee-app` | Next.js + Payload (single Dockerfile) | 3000 | `payload-data:/app/data` (SQLite + uploads) |
+| `ddm-api` | Fastify (unchanged, existing) | 3001 | `ddm-data:/app/data` |
+
+### Dockerfile:
+- Standard Node.js multi-stage build
+- No Cloudflare/OpenNext config
+- CMD: `node .next/standalone/server.js`
 
 ### New env vars:
-- `PAYLOAD_SECRET` — encryption key
-- `DATABASE_URI` — `file:./data/payload.db`
-- `CLOUDINARY_CLOUD_NAME`
-- `CLOUDINARY_API_KEY`
-- `CLOUDINARY_API_SECRET`
+```
+PAYLOAD_SECRET=<random-secret>
+DATABASE_URI=file:./data/payload.db
+AUTH_SECRET=<nextauth-secret>
+AUTH_GOOGLE_ID=<google-oauth-client-id>
+AUTH_GOOGLE_SECRET=<google-oauth-client-secret>
+AUTH_URL=https://ieeesahrdaya.com
+```
+
+### Changed env vars:
+```
+PAYMENT_API_URL=http://ddm-api:3001  (internal Docker network)
+PAYMENT_WEBHOOK_SECRET=...  (unchanged)
+```
 
 ### Removed env vars:
-- All `NEXT_PUBLIC_APPWRITE_*` variables
-- `APPWRITE_API_KEY`
-- `WEBAUTHN_RP_ID`, `WEBAUTHN_RP_NAME`, `PASSKEY_HMAC_SECRET`
+```
+NEXT_PUBLIC_APPWRITE_ENDPOINT
+NEXT_PUBLIC_APPWRITE_PROJECT_ID
+NEXT_PUBLIC_APPWRITE_DATABASE_ID
+APPWRITE_API_KEY
+NEXT_PUBLIC_APPWRITE_SOCIETIES_COLLECTION_ID
+NEXT_PUBLIC_APPWRITE_EVENTS_COLLECTION_ID
+NEXT_PUBLIC_APPWRITE_EXECOM_COLLECTION_ID
+NEXT_PUBLIC_APPWRITE_MEMBERS_COLLECTION_ID
+NEXT_PUBLIC_APPWRITE_EVENT_REGISTRATIONS_COLLECTION_ID
+NEXT_PUBLIC_APPWRITE_EVENT_FORM_TEMPLATES_COLLECTION_ID
+NEXT_PUBLIC_APPWRITE_EVENT_TICKETS_COLLECTION_ID
+NEXT_PUBLIC_APPWRITE_CHECK_IN_SESSIONS_COLLECTION_ID
+NEXT_PUBLIC_APPWRITE_CHECK_IN_LOGS_COLLECTION_ID
+NEXT_PUBLIC_APPWRITE_EMAIL_TEMPLATES_COLLECTION_ID
+NEXT_PUBLIC_APPWRITE_EVENT_METADATA_COLLECTION_ID
+NEXT_PUBLIC_APPWRITE_SOCIETY_IMAGES_BUCKET_ID
+WEBAUTHN_RP_ID
+WEBAUTHN_RP_NAME
+PASSKEY_HMAC_SECRET
+```
 
 ---
 
@@ -352,15 +435,15 @@ Files to modify: `AuthContext.tsx`, `LoginModal.tsx`, admin pages, event pages, 
 
 | Phase | Description | Est. Time |
 |---|---|---|
-| 0 | Install Payload, verify admin renders | 2-3 hours |
-| 1 | Create all collections, test in admin UI | 4-6 hours |
-| 2 | Migration script, migrate execom + societies | 2-3 hours |
-| 3 | Rewrite API routes | 8-12 hours |
-| 4 | Rewrite frontend data layer | 4-6 hours |
-| 5 | DDM payment integration | 4-6 hours |
-| 6 | Auth swap (email/password) | 3-4 hours |
-| 7 | Custom admin views | 6-8 hours |
-| 8 | Cutover | 2-3 hours |
+| 0 | Install Payload + Auth.js, verify admin renders | 2-3 hours |
+| 1 | Create all 9 collections, test in admin UI | 4-6 hours |
+| 2 | Migration script, migrate all data (~500 records) | 2-3 hours |
+| 3 | Auth — Google OAuth via payload-authjs | 3-4 hours |
+| 4 | Rewrite API routes (Appwrite → Payload Local API) | 8-12 hours |
+| 5 | Rewrite frontend data layer (components/pages) | 4-6 hours |
+| 6 | DDM payment integration (order hooks + webhook) | 4-6 hours |
+| 7 | Custom admin views (check-in scanner, dashboard) | 6-8 hours |
+| 8 | Cutover (deploy to Dokploy, turn off Appwrite) | 2-3 hours |
 | **Total** | | **~5-7 days** |
 
 ---
@@ -369,9 +452,11 @@ Files to modify: `AuthContext.tsx`, `LoginModal.tsx`, admin pages, event pages, 
 
 | Risk | Mitigation |
 |---|---|
-| Payload v3 production bugs | Keep Appwrite running, test before cutover |
+| Payload v3 production bugs | Pin version, test all flows before cutover |
 | SQLite concurrent write contention | Single container = single process = no contention |
-| Custom admin views complexity | Check-in scanner can stay in existing frontend |
-| Data migration gaps | Test migration script on staging DB first |
-| DDM payment hook failure | Add retry logic to hook, admin manual override |
-| Cloudinary adapter issues | Fall back to Payload's local upload |
+| `payload-authjs` beta stability | Auth.js 5 is beta but widely used; keep Appwrite running during testing |
+| Custom admin views complexity | Check-in scanner can stay in existing frontend initially |
+| Data migration gaps | Test migration script on staging DB first, verify counts |
+| DDM payment hook failure | Add retry logic to hook, admin manual override available |
+| Local file uploads lost on redeploy | Persistent Docker volume mounted at `/app/data` |
+| Google OAuth configuration | Need to set up Google Cloud Console OAuth credentials for `ieeesahrdaya.com` |
