@@ -96,7 +96,7 @@ export default function SocietiesClient() {
 
     const fetchSocieties = async () => {
         try {
-            const res = await fetch('/api/societies?limit=50&depth=1&sort=-id');
+            const res = await fetch('/api/societies?limit=50&depth=1&sort=id&where[isHidden][not_equals]=true');
             const data = await res.json();
             const docs = (data.docs || []).map((d: Record<string, unknown>) => ({
                 ...d,
