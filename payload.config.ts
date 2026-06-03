@@ -39,7 +39,7 @@ export default buildConfig({
   csrf: ['http://localhost:3000', 'https://ieeesahrdaya.com'],
   maxDepth: 2,
   admin: {
-    theme: 'light',
+    theme: 'dark',
     meta: {
       titleSuffix: ' - IEEE Sahrdaya SB',
       icons: [
