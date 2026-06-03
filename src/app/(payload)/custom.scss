@@ -763,20 +763,11 @@ html[data-theme='dark'] .nav__link:hover {
   content: '';
 }
 
-/* ─── Search Filter Fix ─── */
-.search-filter {
-  position: relative;
-}
-.search-filter__input {
-  padding-left: 2.5rem !important;
-}
-.search-filter__icon {
-  position: absolute;
-  left: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none;
-  z-index: 1;
+/* ─── Search Bar ─── */
+html[data-theme='dark'] .search-bar {
+  --search-bg: var(--theme-elevation-50);
+  border: 1px solid var(--theme-elevation-200);
+  border-radius: var(--style-radius-m);
 }
 
 /* ─── Checkbox Visibility ─── */
@@ -815,10 +806,16 @@ input[type='password'],
 input[type='number'],
 input[type='url'],
 input[type='tel'],
-input[type='search'],
 textarea,
 select {
-  padding: 0.625rem 0.75rem !important;
+  padding: 0.625rem 0.75rem;
+}
+/* Don't override padding on search inputs (uses grid layout with icon) */
+.search-bar .search-filter input[type='text'] {
+  padding-top: calc(var(--base) * 0.5);
+  padding-bottom: calc(var(--base) * 0.5);
+  padding-inline-start: var(--icon-width);
+  padding-inline-end: var(--base);
 }
 
 /* ─── Auth/Accounts Section ─── */
@@ -832,14 +829,28 @@ html[data-theme='dark'] .collapsible__toggle {
   margin-top: 0.5rem;
 }
 
-/* ─── Tab Spacing ─── */
-.doc-tab {
-  padding: 0.75rem 1.25rem;
-  margin-right: 0.5rem;
+/* ─── Tabs ─── */
+.tabs-field {
+  margin-top: 1.5rem;
 }
-.doc-tabs {
+.tabs-field__tabs-wrap {
+  margin-bottom: 1rem;
+}
+.tabs-field__content-wrap {
+  padding-top: 0.5rem;
+}
+
+/* ─── Collapsible ─── */
+.collapsible {
+  margin-bottom: 0.75rem;
+}
+.collapsible__content {
+  padding: 1.25rem;
+}
+.collapsible-field__row-label-wrap {
+  padding: 0.5rem 0.75rem;
+  display: flex;
   gap: 0.5rem;
-  padding: 1rem var(--gutter-h) 0;
 }
 
 /* ─── Edit Section Spacing ─── */
