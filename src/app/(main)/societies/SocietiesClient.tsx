@@ -36,10 +36,10 @@ const MemberCard = React.memo(({ member, idx }: { member: ExecomMember; idx: num
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: idx * 0.05 }}
-            className="group bg-white border-2 border-gray-200 rounded-xl overflow-hidden hover:border-ieee-blue hover:shadow-lg transition-all duration-300"
+            className="group bg-white border border-gray-200 rounded-lg overflow-hidden hover:border-ieee-blue hover:shadow transition-all duration-200"
         >
             {/* Member Photo */}
-            <div className="relative aspect-[4/5] bg-gray-100 overflow-hidden">
+            <div className="relative aspect-[3/4] bg-gray-100 overflow-hidden">
                 {imageSrc && !imgError ? (
                     <img src={imageSrc} alt={member.name} className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300" onError={() => setImgError(true)} />
                 ) : (
@@ -51,19 +51,19 @@ const MemberCard = React.memo(({ member, idx }: { member: ExecomMember; idx: num
                 )}
                 
                 {/* Position Badge */}
-                <div className="absolute top-2 left-2">
-                    <span className="text-[10px] font-bold text-white bg-ieee-blue px-2 py-1 rounded-full shadow-lg">
+                <div className="absolute top-1 left-1">
+                    <span className="text-[8px] font-bold text-white bg-ieee-blue px-1.5 py-0.5 rounded-full shadow">
                         {member.position}
                     </span>
                 </div>
             </div>
 
             {/* Member Info */}
-            <div className="p-3">
-                <h4 className="font-bold text-gray-900 text-sm mb-1 line-clamp-2">
+            <div className="p-2">
+                <h4 className="font-bold text-gray-900 text-[11px] leading-tight line-clamp-2">
                     {member.name}
                 </h4>
-                <div className="flex items-center gap-2 text-xs text-gray-600">
+                <div className="flex items-center gap-2 text-[10px] text-gray-500 mt-0.5">
                     <span className="font-medium">{member.department}</span>
                     <span>•</span>
                     <span>{member.semester}</span>
@@ -271,14 +271,14 @@ export default function SocietiesClient() {
 
                     {/* Character Selection Grid */}
                     {loading ? (
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3 md:gap-4">
                             {Array.from({ length: 10 }).map((_, i) => (
                                 <div key={i} className="bg-white border-2 border-gray-100 rounded-xl overflow-hidden animate-pulse">
-                                    <div className="aspect-square p-6">
+                                    <div className="aspect-square p-4">
                                         <div className="w-full h-full bg-gray-100 rounded-lg" />
                                     </div>
-                                    <div className="p-4 pt-2">
-                                        <div className="h-4 bg-gray-100 rounded w-3/4 mx-auto" />
+                                    <div className="p-2">
+                                        <div className="h-3 bg-gray-100 rounded w-3/4 mx-auto" />
                                     </div>
                                 </div>
                             ))}
@@ -290,7 +290,7 @@ export default function SocietiesClient() {
                         </div>
                     ) : (
                         <motion.div 
-                            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6"
+                            className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3 md:gap-4"
                             initial="hidden"
                             animate="visible"
                             variants={{
@@ -333,7 +333,7 @@ export default function SocietiesClient() {
                                         <div className="absolute inset-0 bg-gradient-to-br from-ieee-blue/0 to-purple-600/0 group-hover:from-ieee-blue/10 group-hover:to-purple-600/10 transition-all duration-300 z-0" />
                                         
                                         {/* Logo Container */}
-                                        <div className="relative aspect-square p-6 flex items-center justify-center">
+                                        <div className="relative aspect-square p-3 md:p-4 flex items-center justify-center">
                                             <motion.div
                                                 className="relative w-full h-full drop-shadow-lg"
                                                 whileHover={{ rotate: [0, -5, 5, 0] }}
@@ -355,8 +355,8 @@ export default function SocietiesClient() {
                                         </div>
 
                                         {/* Society Name */}
-                                        <div className="relative p-4 pt-2 bg-gradient-to-b from-transparent to-gray-50/50">
-                                            <h3 className="text-center text-xs md:text-sm font-bold text-gray-800 line-clamp-2 group-hover:text-ieee-blue transition-colors">
+                                        <div className="relative p-2 md:p-3 bg-gradient-to-b from-transparent to-gray-50/50">
+                                            <h3 className="text-center text-[10px] md:text-xs font-bold text-gray-800 line-clamp-2 group-hover:text-ieee-blue transition-colors">
                                                 {society.name}
                                             </h3>
                                         </div>
@@ -511,7 +511,7 @@ export default function SocietiesClient() {
                                             <Loader2 className="w-8 h-8 text-ieee-blue animate-spin" />
                                         </div>
                                     ) : societyMembers.length > 0 ? (
-                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 md:gap-3">
                                             {societyMembers.map((member, idx) => (
                                                 <MemberCard key={member.slNo} member={member} idx={idx} />
                                             ))}
