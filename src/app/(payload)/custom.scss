@@ -144,6 +144,9 @@ html[data-theme='dark'] .nav__link:hover {
 }
 
 /* ─── Buttons ─── */
+html[data-theme='dark'] .btn--style-primary {
+  --color: #fff;
+}
 .btn--style-primary.btn--disabled {
   --bg-color: var(--theme-elevation-100);
 }
