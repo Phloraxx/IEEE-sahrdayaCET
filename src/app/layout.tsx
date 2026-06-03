@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Press_Start_2P, Inter } from "next/font/google";
-import "./globals.css";
 
 const pressStart2P = Press_Start_2P({ 
   weight: "400",
