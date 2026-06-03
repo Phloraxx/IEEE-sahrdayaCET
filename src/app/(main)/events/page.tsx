@@ -8,7 +8,6 @@ import {
     CalendarDays, ChevronRight, MapPin, X, Ticket, ArrowRight,
     BarChart3, Zap, TrendingUp
 } from 'lucide-react';
-import Image from 'next/image';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 
@@ -435,11 +434,10 @@ export default function Events1Page() {
                                     <div className="relative rounded-[2rem] overflow-hidden shrink-0 h-64">
                                         <div className="absolute inset-0 bg-slate-900/5 z-10 group-hover:bg-transparent transition-colors duration-500"></div>
                                         {event.banner_url ? (
-                                            <Image
+                                            <img
                                                 src={event.banner_url}
                                                 alt={event.title}
-                                                fill
-                                                className="object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                                             />
                                         ) : (
                                             <div className="w-full h-full bg-gradient-to-br from-[#00629B] to-[#4285F4] flex items-center justify-center">

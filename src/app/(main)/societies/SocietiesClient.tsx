@@ -335,9 +335,9 @@ export default function SocietiesClient() {
                                         <div className="absolute inset-0 bg-gradient-to-br from-ieee-blue/0 to-purple-600/0 group-hover:from-ieee-blue/10 group-hover:to-purple-600/10 transition-all duration-300 z-0" />
 
                                         {/* Logo Container */}
-                                        <div className="relative w-full h-48 flex items-center justify-center p-6">
+                                        <div className="w-full aspect-square overflow-hidden p-6">
                                             <motion.div
-                                                className="relative w-full h-full"
+                                                className="relative w-full h-full flex items-center justify-center"
                                                 whileHover={{ rotate: [0, -5, 5, 0] }}
                                                 transition={{ duration: 0.5 }}
                                             >

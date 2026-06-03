@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Image from 'next/image';
 import TransitionLink from '@/components/PageTransition/TransitionLink';
 import {
     Grid,
@@ -90,13 +89,10 @@ export const WhatsHappening: React.FC = () => {
                         {loading ? (
                             <div className="w-full h-full bg-gray-200 animate-pulse" />
                         ) : (
-                            <Image
+                            <img
                                 alt={latestEvent?.title || "Upcoming Event"}
                                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                                 src="/AGM.webp"
-                                fill
-                                sizes="(max-width: 768px) 100vw, 75vw"
-                                priority
                             />
                         )}
                     </div>
