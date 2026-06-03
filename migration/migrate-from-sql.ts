@@ -21,7 +21,7 @@ async function uploadMedia(
   payload: any,
   filePath: string,
   alt: string
-): Promise<number | null> {
+): Promise<{ id: number; url: string } | null> {
   if (!filePath || !existsSync(filePath)) return null
   try {
     const buffer = readFileSync(filePath)
@@ -34,7 +34,7 @@ async function uploadMedia(
       file: { data: buffer, name: originalName, mimetype: mime[ext] || 'image/jpeg', size: buffer.length },
       overrideAccess: true,
     })
-    return result.id as number
+    return { id: result.id as number, url: result.url as string }
   } catch (e) {
     console.error(`\n  [upload fail] ${filePath.slice(-40)}: ${String(e).slice(0, 100)}`)
     return null
@@ -206,7 +206,7 @@ async function main() {
     }
 
     const data: Record<string, unknown> = { name, slug, bio: row.bio || '' }
-    if (logoId) data.logo = logoId
+    if (logoResult) { data.logo = logoResult.id; data.logoUrl = logoResult.url; }
 
     try {
       const c = await payload.create({ collection: 'societies', data, overrideAccess: true })
@@ -234,10 +234,10 @@ async function main() {
     const societyPid = slugToPayloadId[sectionId] || undefined
     const email = extractEmail(row.email)
 
-    let photoId: number | null = null
+    let photoResult: { id: number; url: string } | null = null
     if (row.photoUrl) {
       const filePath = findFile(publicDir, row.photoUrl)
-      if (filePath) photoId = await uploadMedia(payload, filePath, name)
+      if (filePath) photoResult = await uploadMedia(payload, filePath, name)
     }
 
     const execomData: Record<string, unknown> = {
@@ -246,11 +246,12 @@ async function main() {
       sectionId: row.sectionId || '',
       order: Number(row.slNo) || 0,
       batch: row.semester || '',
+      department: row.department || '',
       linkedin: row.linkedin || '',
       phone: row.phone || '',
     }
     if (societyPid) execomData.society = societyPid
-    if (photoId) execomData.photo = photoId
+    if (photoResult) { execomData.photo = photoResult.id; execomData.photoUrl = photoResult.url; }
     if (email) execomData.email = email
 
     try {
@@ -288,11 +289,11 @@ async function main() {
     const societyPid = appwriteUidToPayloadId[row.society_id || ''] || undefined
     const price = Number(row.price) || 0
 
-    let bannerId: number | null = null
+    let bannerResult: { id: number; url: string } | null = null
     const bannerUrl = row.banner_url || ''
     if (bannerUrl && !bannerUrl.startsWith('http')) {
       const filePath = findFile(publicDir, bannerUrl)
-      if (filePath) bannerId = await uploadMedia(payload, filePath, title)
+      if (filePath) bannerResult = await uploadMedia(payload, filePath, title)
     }
 
     const validStatuses = ['draft', 'published', 'archived', 'completed', 'cancelled']
@@ -324,7 +325,7 @@ async function main() {
       isDeleted: row.is_deleted === '1',
     }
     if (endDateVal && endDateVal !== 'NULL') eventData.endDate = endDateVal
-    if (bannerId) eventData.banner = bannerId
+    if (bannerResult) { eventData.banner = bannerResult.id; eventData.bannerUrl = bannerResult.url; }
     if (email) eventData.contactEmail = email
     if (row.category && row.category !== 'NULL') eventData.category = row.category
 

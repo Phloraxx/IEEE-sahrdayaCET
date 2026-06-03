@@ -148,7 +148,7 @@ export default function Events1Page() {
                         date: doc.date as string,
                         venue: doc.venue as string,
                         price: (doc.price as number) || 0,
-                        banner_url: ((doc.banner as Record<string, unknown>)?.url as string) || (doc.banner_url as string),
+                        banner_url: (doc.bannerUrl as string) || ((doc.banner as Record<string, unknown>)?.url as string),
                         society_id,
                         status: (doc.status as string) || 'published',
                         registration_open: doc.registration_open as boolean,

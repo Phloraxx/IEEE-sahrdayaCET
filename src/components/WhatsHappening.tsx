@@ -47,7 +47,7 @@ export const WhatsHappening: React.FC = () => {
                         shortTitle: (event.short_title as string) || undefined,
                         description: (event.description as string) || 'Join us for this exciting IEEE event!',
                         date: event.date as string,
-                        banner_url: ((event.banner as Record<string, unknown>)?.url as string) || (event.banner_url as string) || undefined,
+                        banner_url: (event.bannerUrl as string) || ((event.banner as Record<string, unknown>)?.url as string) || undefined,
                         tag: (event.event_type as string) || 'UPCOMING EVENT'
                     });
                 }

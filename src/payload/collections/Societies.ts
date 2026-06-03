@@ -17,7 +17,9 @@ export const Societies: CollectionConfig = {
     { name: 'slug', type: 'text', required: true, unique: true },
     { name: 'bio', type: 'textarea' },
     { name: 'logo', type: 'upload', relationTo: 'media' },
+    { name: 'logoUrl', type: 'text', admin: { hidden: true } },
     { name: 'banner', type: 'upload', relationTo: 'media' },
+    { name: 'bannerUrl', type: 'text', admin: { hidden: true } },
     { name: 'chairs', type: 'relationship', relationTo: 'users', hasMany: true },
   ],
 }

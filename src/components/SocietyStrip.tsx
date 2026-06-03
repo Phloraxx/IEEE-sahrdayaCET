@@ -73,7 +73,7 @@ export const SocietyStrip: React.FC = () => {
             const list = (data.docs || data.societies || []).map((doc: Record<string, unknown>) => ({
                 $id: (doc.id || doc.$id) as string,
                 name: doc.name as string,
-                logo_url: ((doc.logo as Record<string, unknown>)?.url as string) || (doc.logo_url as string),
+                logo_url: (doc.logoUrl as string) || ((doc.logo as Record<string, unknown>)?.url as string),
             }));
             setSocieties(list);
         } catch (error) {

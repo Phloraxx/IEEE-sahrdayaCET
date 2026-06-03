@@ -361,10 +361,10 @@ const FullExecom: React.FC = () => {
                 const docs = (res.docs || res.execom || []).map((d: Record<string, unknown>) => ({
                     ...d,
                     $id: (d.id || d.$id) as string,
-                    slNo: d.order || d.slNo,
+                    slNo: (d.order !== undefined ? d.order : d.slNo) ?? 0,
                     semester: d.batch || d.semester || '',
                     sectionId: d.sectionId || '',
-                    photoUrl: ((d.photo as Record<string, unknown>)?.url as string) || (d.photoUrl as string),
+                    photoUrl: (d.photoUrl as string) || ((d.photo as Record<string, unknown>)?.url as string),
                 }));
                 
                 const transformedSections = transformToSections(docs as unknown as ExecomMemberDoc[]);

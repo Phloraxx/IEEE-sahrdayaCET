@@ -109,8 +109,8 @@ export default function SocietiesClient() {
             const docs = (data.docs || []).map((d: Record<string, unknown>) => ({
                 ...d,
                 $id: d.id,
-                logo_url: ((d.logo as Record<string, unknown>)?.url as string) || (d.logo_url as string),
-                banner_url: ((d.banner as Record<string, unknown>)?.url as string) || (d.banner_url as string),
+                logo_url: (d.logoUrl as string) || ((d.logo as Record<string, unknown>)?.url as string),
+                banner_url: (d.bannerUrl as string) || ((d.banner as Record<string, unknown>)?.url as string),
             }));
             setSocieties(docs as unknown as Society[]);
         } catch (err: unknown) {
@@ -130,7 +130,7 @@ export default function SocietiesClient() {
             const docs = (data.docs || []).map((d: Record<string, unknown>) => ({
                 ...d,
                 $id: d.id,
-                banner_url: ((d.banner as Record<string, unknown>)?.url as string) || (d.banner_url as string),
+                banner_url: (d.bannerUrl as string) || ((d.banner as Record<string, unknown>)?.url as string),
             }));
             const events = (docs as unknown as Event[]).filter(event =>
                 event.status === 'published' || event.status === 'completed'
@@ -155,7 +155,7 @@ export default function SocietiesClient() {
                 department: d.department || '',
                 semester: d.batch || d.semester || '',
                 position: d.position,
-                photoUrl: ((d.photo as Record<string, unknown>)?.url as string) || (d.photoUrl as string),
+                photoUrl: (d.photoUrl as string) || ((d.photo as Record<string, unknown>)?.url as string),
                 linkedin: d.linkedin,
                 instagram: d.instagram,
                 email: d.email,

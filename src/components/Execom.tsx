@@ -391,7 +391,7 @@ export const Execom: React.FC = () => {
                     const dbDocs: DbDoc[] = (data.docs || data.execom || []).map((doc: Record<string, unknown>) => ({
                         id: doc.id as string | undefined,
                         name: doc.name as string,
-                        photoUrl: ((doc.photo as Record<string, unknown>)?.url as string) || (doc.photoUrl as string),
+                        photoUrl: (doc.photoUrl as string) || ((doc.photo as Record<string, unknown>)?.url as string),
                         linkedin: doc.linkedin as string | undefined,
                         email: doc.email as string | undefined,
                         phone: doc.phone as string | undefined,
