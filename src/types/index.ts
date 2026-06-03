@@ -20,7 +20,7 @@ export interface Society {
     name: string;
     slug: string;
     bio?: string;
-    logo_url?: string;
+    logo_url: string;
     banner_url?: string;
 }
 
@@ -33,8 +33,9 @@ export interface Event {
     venue?: string;
     price: number;
     banner_url?: string;
+    registration_url?: string;
     society_id?: string;
-    status?: string;
+    status: string;
     max_capacity?: number;
 }
 
