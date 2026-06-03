@@ -34,7 +34,9 @@ async function uploadMedia(
       file: { data: buffer, name: originalName, mimetype: mime[ext] || 'image/jpeg', size: buffer.length },
       overrideAccess: true,
     })
-    return { id: result.id as number, url: result.url as string }
+    const fullUrl = result.url as string
+    const url = fullUrl ? fullUrl.replace(/^https?:\/\/[^\/]+/, '') : fullUrl
+    return { id: result.id as number, url }
   } catch (e) {
     console.error(`\n  [upload fail] ${filePath.slice(-40)}: ${String(e).slice(0, 100)}`)
     return null
