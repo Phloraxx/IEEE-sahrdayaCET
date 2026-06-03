@@ -21,5 +21,6 @@ export const Execom: CollectionConfig = {
     { name: 'batch', type: 'text' },
     { name: 'linkedin', type: 'text' },
     { name: 'email', type: 'email' },
+    { name: 'phone', type: 'text' },
   ],
 }

@@ -246,6 +246,7 @@ async function main() {
       order: Number(row.slNo) || 0,
       batch: row.semester || '',
       linkedin: row.linkedin || '',
+      phone: row.phone || '',
     }
     if (societyPid) execomData.society = societyPid
     if (photoId) execomData.photo = photoId

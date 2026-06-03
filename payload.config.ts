@@ -10,6 +10,7 @@ import { authConfig } from './auth.config'
 export default buildConfig({
   editor: lexicalEditor(),
   collections,
+  serverURL: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
   secret: process.env.PAYLOAD_SECRET || '',
   db: sqliteAdapter({
     client: {
