@@ -795,6 +795,21 @@ html[data-theme='dark'] .checkbox-input__checkbox--checked .checkbox-input__chec
   color: #fff;
 }
 
+/* ─── Edit Section Spacing ─── */
+.group-field {
+  margin-bottom: 0;
+}
+.group-field--top-level {
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+}
+.field-type {
+  margin-bottom: 1.25rem;
+}
+.group-field .field-type:last-child {
+  margin-bottom: 0;
+}
+
 /* ─── Primary Button Text ─── */
 html[data-theme='dark'] .btn--style-primary {
   --color: #fff;
