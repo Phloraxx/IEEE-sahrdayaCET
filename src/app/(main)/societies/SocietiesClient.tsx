@@ -271,7 +271,7 @@ export default function SocietiesClient() {
 
                     {/* Character Selection Grid */}
                     {loading ? (
-                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3 md:gap-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
                             {Array.from({ length: 10 }).map((_, i) => (
                                 <div key={i} className="bg-white border-2 border-gray-100 rounded-xl overflow-hidden animate-pulse">
                                     <div className="aspect-square p-4">
@@ -290,7 +290,7 @@ export default function SocietiesClient() {
                         </div>
                     ) : (
                         <motion.div 
-                            className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3 md:gap-4"
+                            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4"
                             initial="hidden"
                             animate="visible"
                             variants={{
@@ -328,7 +328,7 @@ export default function SocietiesClient() {
                                     className="cursor-pointer group relative"
                                 >
                                     {/* Card Container */}
-                                    <div className="relative bg-white border-2 border-gray-200 rounded-xl overflow-hidden shadow-lg hover:shadow-2xl hover:border-ieee-blue transition-all duration-300">
+                                    <div className="relative bg-white border-2 border-gray-200 rounded-xl overflow-hidden shadow-lg hover:shadow-2xl hover:border-ieee-blue transition-all duration-300 h-full">
                                         {/* Gradient Overlay on Hover */}
                                         <div className="absolute inset-0 bg-gradient-to-br from-ieee-blue/0 to-purple-600/0 group-hover:from-ieee-blue/10 group-hover:to-purple-600/10 transition-all duration-300 z-0" />
                                         
@@ -511,7 +511,7 @@ export default function SocietiesClient() {
                                             <Loader2 className="w-8 h-8 text-ieee-blue animate-spin" />
                                         </div>
                                     ) : societyMembers.length > 0 ? (
-                                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 md:gap-3">
+                                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 md:gap-3">
                                             {societyMembers.map((member, idx) => (
                                                 <MemberCard key={member.slNo} member={member} idx={idx} />
                                             ))}
