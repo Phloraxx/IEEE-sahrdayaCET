@@ -32,7 +32,7 @@ export const WhatsHappening: React.FC = () => {
         async function fetchLatestEvent() {
             try {
                 const now = new Date().toISOString();
-                const response = await fetch(`/api/events?where[status][equals]=published&where[date][greater_than]=${now}&sort=date&limit=1`);
+                const response = await fetch(`/api/events?where[status][equals]=published&sort=date&limit=1&depth=1`);
                 
                 if (!response.ok) throw new Error('Failed to fetch events');
                 
@@ -47,7 +47,7 @@ export const WhatsHappening: React.FC = () => {
                         shortTitle: (event.short_title as string) || undefined,
                         description: (event.description as string) || 'Join us for this exciting IEEE event!',
                         date: event.date as string,
-                        banner_url: (event.banner_url as string) || undefined,
+                        banner_url: ((event.banner as Record<string, unknown>)?.url as string) || (event.banner_url as string) || undefined,
                         tag: (event.event_type as string) || 'UPCOMING EVENT'
                     });
                 }

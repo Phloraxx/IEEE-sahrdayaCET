@@ -357,8 +357,11 @@ const FullExecom: React.FC = () => {
         async function fetchExecomMembers() {
             try {
                 setLoading(true);
-                const res = await fetch('/api/execom?limit=100').then(r => r.json());
-                const docs = res.docs || res.execom || [];
+                const res = await fetch('/api/execom?limit=100&depth=1').then(r => r.json());
+                const docs = (res.docs || res.execom || []).map((d: Record<string, unknown>) => ({
+                    ...d,
+                    photoUrl: ((d.photo as Record<string, unknown>)?.url as string) || (d.photoUrl as string),
+                }));
                 
                 const transformedSections = transformToSections(docs as unknown as ExecomMemberDoc[]);
                 setSections(transformedSections);

@@ -103,6 +103,7 @@ export interface Config {
   globalsSelect: {};
   locale: null;
   widgets: {
+    'dashboard-overview': DashboardOverviewWidget;
     collections: CollectionsWidget;
   };
   user: User;
@@ -788,6 +789,16 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
   batch?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "dashboard-overview_widget".
+ */
+export interface DashboardOverviewWidget {
+  data?: {
+    [k: string]: unknown;
+  };
+  width: 'x-small' | 'small' | 'medium' | 'large' | 'x-large' | 'full';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

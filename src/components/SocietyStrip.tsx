@@ -67,13 +67,13 @@ export const SocietyStrip: React.FC = () => {
 
     const fetchSocieties = async () => {
         try {
-            const response = await fetch('/api/societies?limit=50');
+            const response = await fetch('/api/societies?limit=50&depth=1');
             if (!response.ok) throw new Error('Failed to fetch societies');
             const data = await response.json();
             const list = (data.docs || data.societies || []).map((doc: Record<string, unknown>) => ({
                 $id: (doc.id || doc.$id) as string,
                 name: doc.name as string,
-                logo_url: doc.logo_url as string,
+                logo_url: ((doc.logo as Record<string, unknown>)?.url as string) || (doc.logo_url as string),
             }));
             setSocieties(list);
         } catch (error) {

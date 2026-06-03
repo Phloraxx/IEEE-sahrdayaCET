@@ -129,7 +129,7 @@ export default function Events1Page() {
             setError(null);
 
             const now = new Date().toISOString();
-            const response = await fetch(`/api/events?where[status][equals]=published&where[date][greater_than]=${now}&sort=date&limit=20`);
+            const response = await fetch(`/api/events?where[status][equals]=published&where[date][greater_than]=${now}&sort=date&limit=20&depth=1`);
             
             if (!response.ok) throw new Error('Failed to fetch events');
             
@@ -148,7 +148,7 @@ export default function Events1Page() {
                         date: doc.date as string,
                         venue: doc.venue as string,
                         price: (doc.price as number) || 0,
-                        banner_url: doc.banner_url as string,
+                        banner_url: ((doc.banner as Record<string, unknown>)?.url as string) || (doc.banner_url as string),
                         society_id,
                         status: (doc.status as string) || 'published',
                         registration_open: doc.registration_open as boolean,

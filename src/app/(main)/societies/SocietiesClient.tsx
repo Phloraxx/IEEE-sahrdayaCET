@@ -58,11 +58,15 @@ export default function SocietiesClient() {
     async function fetchSocieties() {
         try {
             setLoading(true);
-            const res = await fetch('/api/societies?limit=50');
+            const res = await fetch('/api/societies?limit=50&depth=1');
             if (!res.ok) throw new Error('Failed to fetch societies');
             const data = await res.json();
             const raw = data.docs || data.societies || [];
-            const docs = raw.map((d: Record<string, unknown>) => ({ ...d, $id: d.id }));
+            const docs = raw.map((d: Record<string, unknown>) => ({ 
+                ...d, 
+                $id: d.id,
+                logo_url: ((d.logo as Record<string, unknown>)?.url as string) || (d.logo_url as string),
+            }));
             setSocieties(docs);
 
             // Fetch events per society

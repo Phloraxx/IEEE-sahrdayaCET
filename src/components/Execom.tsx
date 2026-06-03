@@ -384,16 +384,18 @@ export const Execom: React.FC = () => {
     useEffect(() => {
         const fetchContacts = async () => {
             try {
-                const response = await fetch('/api/execom?limit=100');
+                const response = await fetch('/api/execom?limit=100&depth=1');
                 if (response.ok) {
                     const data = await response.json();
-                    const dbDocs = (data.docs || data.execom || []) as Array<{
-                        id?: string;
-                        name: string;
-                        linkedin?: string;
-                        email?: string;
-                        phone?: string;
-                    }>;
+                    interface DbDoc { id?: string; name: string; photoUrl?: string; linkedin?: string; email?: string; phone?: string; }
+                    const dbDocs: DbDoc[] = (data.docs || data.execom || []).map((doc: Record<string, unknown>) => ({
+                        id: doc.id as string | undefined,
+                        name: doc.name as string,
+                        photoUrl: ((doc.photo as Record<string, unknown>)?.url as string) || (doc.photoUrl as string),
+                        linkedin: doc.linkedin as string | undefined,
+                        email: doc.email as string | undefined,
+                        phone: doc.phone as string | undefined,
+                    }));
                     const dbDocsMap = new Map(dbDocs.map(doc => [doc.name.toLowerCase(), doc]));
 
                     const updatedMembers = execomMembers.map(member => {
