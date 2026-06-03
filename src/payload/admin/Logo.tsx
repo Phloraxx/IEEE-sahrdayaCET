@@ -4,18 +4,19 @@ const Logo: React.FC = () => {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
       <img
-        src="/emblem.png"
+        src="/Ieee.svg"
         alt="IEEE"
-        style={{ height: 28, width: 'auto', objectFit: 'contain' }}
+        style={{ height: 24, width: 'auto', objectFit: 'contain' }}
       />
-      <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--theme-color)' }}>
-          IEEE
-        </span>
-        <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--theme-elevation-650)' }}>
-          Sahrdaya SB
-        </span>
-      </div>
+      <span style={{
+        fontSize: 13,
+        fontWeight: 600,
+        color: 'var(--theme-elevation-700)',
+        letterSpacing: '-0.01em',
+        whiteSpace: 'nowrap',
+      }}>
+        Sahrdaya SB
+      </span>
     </div>
   )
 }

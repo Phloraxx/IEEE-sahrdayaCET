@@ -253,13 +253,69 @@ html[data-theme='dark'] .nav__link:hover {
 }
 
 /* ─── Checkbox ─── */
+html[data-theme='dark'] .checkbox-input__input {
+  background-color: var(--theme-elevation-100);
+  border-color: var(--theme-elevation-400);
+}
+html[data-theme='dark'] .checkbox-input:not(.checkbox-input--read-only):hover .checkbox-input__input {
+  border-color: var(--theme-color);
+}
+html[data-theme='dark'] .checkbox-input__checkbox--checked {
+  background-color: var(--theme-color);
+  border-color: var(--theme-color);
+}
+
 .checkbox-input:not(.checkbox-input--read-only):active .checkbox-input__input,
 .checkbox-input:not(.checkbox-input--read-only):active input[type='checkbox'],
 .checkbox-input:not(.checkbox-input--read-only):focus-within .checkbox-input__input,
 .checkbox-input:not(.checkbox-input--read-only):focus-within input[type='checkbox'],
 .checkbox-input:not(.checkbox-input--read-only):focus .checkbox-input__input,
 .checkbox-input:not(.checkbox-input--read-only):focus input[type='checkbox'] {
-  box-shadow: 0 0 0 2px var(--theme-text) !important;
+  box-shadow: 0 0 0 2px var(--theme-color) !important;
+}
+
+/* ─── Text Contrast ─── */
+html[data-theme='dark'] body {
+  color: var(--theme-elevation-850);
+}
+html[data-theme='dark'] .nav__link {
+  color: var(--theme-elevation-750);
+}
+html[data-theme='dark'] .nav__link:hover {
+  color: var(--theme-elevation-950);
+}
+html[data-theme='dark'] .nav__link.active {
+  color: var(--theme-color);
+}
+html[data-theme='dark'] th {
+  color: var(--theme-elevation-700);
+}
+html[data-theme='dark'] .field-type label {
+  color: var(--theme-elevation-800);
+}
+
+/* ─── Search Filter ─── */
+html[data-theme='dark'] .search-filter {
+  position: relative;
+}
+html[data-theme='dark'] .search-filter__input {
+  padding-left: 2.5rem;
+  background-color: var(--theme-elevation-50);
+  border-color: var(--theme-elevation-200);
+  color: var(--theme-elevation-900);
+}
+html[data-theme='dark'] .search-filter__input::placeholder {
+  color: var(--theme-elevation-500);
+}
+html[data-theme='dark'] .search-filter__input:focus {
+  border-color: var(--theme-color);
+}
+html[data-theme='dark'] .search-filter__icon {
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  position: absolute;
+  pointer-events: none;
 }
 
 /* ─── Field Inputs ─── */
