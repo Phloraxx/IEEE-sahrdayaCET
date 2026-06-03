@@ -88,6 +88,12 @@ export default function Navbar() {
                 className="fixed top-6 left-0 right-0 z-[100] flex justify-center pointer-events-none px-4"
             >
                 <div className="pointer-events-auto bg-white/70 backdrop-blur-md border border-white/20 shadow-lg shadow-black/5 rounded-full px-2 py-1.5 flex items-center gap-1 max-w-[95vw]">
+                    {/* Logos */}
+                    <div className="flex items-center gap-1.5 md:gap-2 pl-0.5 flex-shrink-0">
+                        <img src="/emblem.png" alt="IEEE" className="h-6 md:h-7 w-auto" />
+                        <img src="/sahrdaya.jpg" alt="Sahrdaya" className="h-5 md:h-6 w-auto rounded" />
+                    </div>
+                    <div className="w-px h-4 bg-gray-300 mx-0.5 flex-shrink-0" />
                     <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
                          {/* Nav Links */}
                          {navItems.map((item) => {
