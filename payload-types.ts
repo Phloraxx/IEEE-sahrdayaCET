@@ -231,6 +231,7 @@ export interface Execom {
   position: string;
   society?: (number | null) | Society;
   photo?: (number | null) | Media;
+  sectionId?: string | null;
   order?: number | null;
   batch?: string | null;
   linkedin?: string | null;
@@ -640,6 +641,7 @@ export interface ExecomSelect<T extends boolean = true> {
   position?: T;
   society?: T;
   photo?: T;
+  sectionId?: T;
   order?: T;
   batch?: T;
   linkedin?: T;
