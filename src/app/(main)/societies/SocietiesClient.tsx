@@ -333,14 +333,14 @@ export default function SocietiesClient() {
                                         <div className="absolute inset-0 bg-gradient-to-br from-ieee-blue/0 to-purple-600/0 group-hover:from-ieee-blue/10 group-hover:to-purple-600/10 transition-all duration-300 z-0" />
                                         
                                         {/* Logo Container */}
-                                        <div className="relative aspect-square p-3 md:p-4 flex items-center justify-center">
+                                         <div className="relative aspect-square p-3 md:p-4">
                                             <motion.div
-                                                className="relative w-full h-full drop-shadow-lg"
+                                                className="w-full h-full flex items-center justify-center"
                                                 whileHover={{ rotate: [0, -5, 5, 0] }}
                                                 transition={{ duration: 0.5 }}
                                             >
                                                 {society.logo_url ? (
-                                                <img src={society.logo_url} alt={society.name} className="w-full h-full object-contain" />
+                                                <img src={society.logo_url} alt={society.name} className="max-w-full max-h-full object-contain" />
                                             ) : (
                                                 <div className="w-full h-full flex items-center justify-center">
                                                     <span className="text-4xl font-bold text-gray-300">
