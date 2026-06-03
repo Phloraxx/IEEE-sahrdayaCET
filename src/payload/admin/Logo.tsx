@@ -12,7 +12,6 @@ const Logo: React.FC = () => {
         fontSize: 13,
         fontWeight: 600,
         color: 'var(--theme-elevation-700)',
-        letterSpacing: '-0.01em',
         whiteSpace: 'nowrap',
       }}>
         Sahrdaya SB

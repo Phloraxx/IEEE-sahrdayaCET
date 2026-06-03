@@ -1,1 +1,47 @@
-/* Empty — testing vanilla Payload admin */
+/* ─── IEEE Brand Colors ─── */
+:root {
+  --theme-color: #00629B;
+  --theme-color-hover: #0099D6;
+}
+
+/* ─── Nav Icons ─── */
+.nav__link::before {
+  content: '';
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+}
+.nav__link[id*='societies']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/building-2.svg');
+}
+.nav__link[id*='execom']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/users-round.svg');
+}
+.nav__link[id*='registrations']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/clipboard-list.svg');
+}
+.nav__link[id*='coupons']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/ticket.svg');
+}
+
+/* ─── Subtle Animations ─── */
+.nav__link {
+  transition: background-color 200ms;
+}
+.nav-group__indicator {
+  transition: transform 200ms ease-in-out;
+}
+.popup__content {
+  transform-origin: top right;
+  transition: all 150ms ease-in-out;
+  transform: translateY(-0.5rem) scale(0.98);
+}
+.popup--active .popup__content {
+  transform: translateY(0) scale(1);
+}
+.btn--style-secondary {
+  transition: all 150ms ease-in-out;
+}
