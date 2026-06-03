@@ -1,58 +1,570 @@
-/* ─── Payload Admin Dark Theme — IEEE Sahrdaya SB ─── */
-
+/* 1. General UI Elements */
 :root {
-  --theme-color: #00629B;
-  --theme-color-hover: #0099D6;
-  --theme-color-400: #0080B3;
-  --theme-color-500: #00629B;
-  --theme-color-600: #004D7A;
-  --theme-color-800: #002D52;
   --nav-trans-time: 200ms;
+  --app-header-height: 4.5rem;
   --default-transition: all 150ms ease-in-out;
   --style-radius-s: 5px;
 }
 
+html[data-theme='light'] {
+  --theme-bg: oklch(0.967 0.001 286.375);
+  --theme-main-content: #fff;
+}
+
 html[data-theme='dark'] {
-  --theme-bg: #0b0d10;
-  --theme-main-content: #111316;
-  --theme-color: #00629B;
-  --theme-color-hover: #0099D6;
-  --theme-color-400: #0080B3;
-  --theme-color-500: #00629B;
-  --theme-color-600: #004D7A;
-  --theme-color-800: #002D52;
-  --theme-elevation-0: #0b0d10;
-  --theme-elevation-50: #111316;
-  --theme-elevation-100: #181b20;
-  --theme-elevation-150: #1f2329;
-  --theme-elevation-200: #262b32;
-  --theme-elevation-250: #2d333b;
-  --theme-elevation-300: #343b44;
-  --theme-elevation-350: #3b434d;
-  --theme-elevation-400: #424b56;
-  --theme-elevation-450: #49535f;
-  --theme-elevation-500: #505b68;
-  --theme-elevation-550: #576371;
-  --theme-elevation-600: #5e6b7a;
-  --theme-elevation-650: #657383;
-  --theme-elevation-700: #6c7b8c;
-  --theme-elevation-750: #738395;
-  --theme-elevation-800: #7a8b9e;
-  --theme-elevation-850: #8193a7;
-  --theme-elevation-900: #889bb0;
-  --theme-elevation-950: #8fa3b9;
-  --theme-elevation-1000: #96abc2;
-  --theme-border-color: var(--theme-elevation-150);
-  --theme-input-bg: var(--theme-elevation-50);
-  --theme-text: var(--theme-elevation-800);
+  --theme-bg: oklch(0.147 0.004 49.25);
+  --theme-main-content: oklch(0.205 0 0);
+  --color-white: #fff;
 }
 
-/* ─── Nav ─── */
-html[data-theme='dark'] .nav {
-  background: var(--theme-elevation-0);
-  border-right: 1px solid var(--theme-elevation-100);
+.field-type.text:not(.has-many) input {
+  &:disabled {
+    background: var(--theme-elevation-100);
+    color: white;
+    border-color: var(--theme-elevation-200);
+    opacity: 0.3;
+  }
+  &:focus {
+    border-color: var(--theme-elevation-400);
+  }
 }
 
+@layer payload-default {
+  .checkbox-input:not(.checkbox-input--read-only):active .checkbox-input__input,
+  .checkbox-input:not(.checkbox-input--read-only):active input[type='checkbox'],
+  .checkbox-input:not(.checkbox-input--read-only):focus-within .checkbox-input__input,
+  .checkbox-input:not(.checkbox-input--read-only):focus-within input[type='checkbox'],
+  .checkbox-input:not(.checkbox-input--read-only):focus .checkbox-input__input,
+  .checkbox-input:not(.checkbox-input--read-only):focus input[type='checkbox'] {
+    box-shadow: 0 0 0 2px var(--theme-text) !important;
+  }
+}
+
+.btn--style-primary.btn--disabled {
+  --bg-color: var(--theme-elevation-100);
+}
+
+.btn--style-secondary {
+  --color: var(--theme-text);
+  --bg-color: transparent;
+  --box-shadow: none;
+  --hover-color: var(--theme-elevation-600);
+  --hover-box-shadow: none;
+  border: 1px solid var(--theme-elevation-200);
+  border-radius: var(--style-radius-s);
+  &:hover {
+    border-color: var(--theme-elevation-200);
+    background-color: var(--theme-elevation-100);
+    color: var(--color-white);
+  }
+}
+
+.btn--size-small {
+  padding-block: 3px;
+}
+
+.doc-controls__dots {
+  width: 34px;
+  height: 34px;
+  border-color: var(--theme-elevation-200);
+}
+
+.react-select .rs__option {
+  padding-left: 2.5rem;
+  position: relative;
+}
+
+.react-select .rs__option--is-selected {
+  background-color: var(--theme-elevation-100);
+  &:before {
+    --size: 1rem;
+    content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' class='lucide lucide-check'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-55%);
+    display: flex;
+    width: var(--size);
+    height: var(--size);
+  }
+}
+
+/* 2. Header & Navigation */
+.hamburger {
+  --hamburger-size: 2rem;
+  box-shadow: none;
+  transition: var(--default-transition);
+  &:hover {
+    box-shadow: none;
+  }
+}
+
+.localizer-button {
+  padding-block: 4px;
+  margin-right: calc(var(--base) / 2);
+}
+
+.app-header__localizer .popup__caret {
+  right: 19px;
+}
+
+.localizer-button__label {
+  display: none;
+}
+
+.localizer-button .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:before {
+  content: '';
+  display: block;
+  width: 1.3rem;
+  height: 1.3rem;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.localizer .popup__content .popup-button-list__button:before {
+  margin-right: 0.6rem;
+}
+
+.localizer-button[data-locale^='en'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale^='en']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/language/en.svg');
+}
+
+.localizer-button[data-locale^='sv'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale^='sv']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/language/sv.svg');
+}
+
+.localizer-button[data-locale^='es'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale^='es']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/language/es.svg');
+}
+
+.localizer-button[data-locale^='fr'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale^='fr']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/language/fr.svg');
+}
+
+.localizer-button[data-locale^='de'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale^='de']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/language/de.svg');
+}
+
+.localizer-button[data-locale^='it'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale^='it']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/language/it.svg');
+}
+
+.localizer-button[data-locale^='pt'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale^='pt']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/language/pt.svg');
+}
+
+.localizer-button[data-locale^='nl'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale^='nl']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/language/nl.svg');
+}
+
+.localizer-button[data-locale^='ru'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale^='ru']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/language/ru.svg');
+}
+
+.localizer-button[data-locale^='zh'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale^='zh']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/language/zh.svg');
+}
+
+.localizer-button[data-locale^='ja'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale^='ja']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/language/ja.svg');
+}
+
+.localizer-button[data-locale^='ko'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale^='ko']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/language/ko.svg');
+}
+
+.localizer-button[data-locale^='ar'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale^='ar']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/language/ar.svg');
+}
+
+.localizer-button[data-locale^='da'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale^='da']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/language/da.svg');
+}
+
+.localizer-button[data-locale^='no'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale^='no']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/language/no.svg');
+}
+
+.localizer-button[data-locale^='fi'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale^='fi']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/language/fi.svg');
+}
+
+.localizer-button[data-locale^='pl'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale^='pl']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/language/pl.svg');
+}
+
+.localizer-button[data-locale^='cs'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale^='cs']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/language/cs.svg');
+}
+
+.localizer-button[data-locale^='sk'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale^='sk']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/language/sk.svg');
+}
+
+.localizer-button[data-locale^='hu'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale^='hu']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/language/hu.svg');
+}
+
+.localizer-button[data-locale^='ro'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale^='ro']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/language/ro.svg');
+}
+
+.localizer-button[data-locale^='bg'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale^='bg']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/language/bg.svg');
+}
+
+.localizer-button[data-locale^='tr'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale^='tr']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/language/tr.svg');
+}
+
+.localizer-button[data-locale^='el'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale^='el']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/language/el.svg');
+}
+
+.localizer-button[data-locale^='he'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale^='he']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/language/he.svg');
+}
+
+.localizer-button[data-locale^='id'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale^='id']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/language/id.svg');
+}
+
+.localizer-button[data-locale^='ms'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale^='ms']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/language/ms.svg');
+}
+
+.localizer-button[data-locale^='th'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale^='th']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/language/th.svg');
+}
+
+.localizer-button[data-locale^='vi'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale^='vi']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/language/vi.svg');
+}
+
+/* Country Flags */
+.localizer-button[data-locale$='-us'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale$='-us']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/us.svg');
+}
+
+.localizer-button[data-locale$='-au'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale$='-au']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/au.svg');
+}
+
+.localizer-button[data-locale$='-gb'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale$='-gb']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/gb.svg');
+}
+
+.localizer-button[data-locale$='-nz'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale$='-nz']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/nz.svg');
+}
+
+.localizer-button[data-locale$='-ie'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale$='-ie']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/ie.svg');
+}
+
+.localizer-button[data-locale$='-jm'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale$='-jm']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/jm.svg');
+}
+
+.localizer-button[data-locale$='-mx'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale$='-mx']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/mx.svg');
+}
+
+.localizer-button[data-locale$='-br'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale$='-br']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/br.svg');
+}
+
+.localizer-button[data-locale$='-ca'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale$='-ca']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/ca.svg');
+}
+
+.localizer-button[data-locale$='-at'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale$='-at']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/at.svg');
+}
+
+.localizer-button[data-locale$='-eg'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale$='-eg']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/eg.svg');
+}
+
+.localizer-button[data-locale$='-ch'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale$='-ch']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/ch.svg');
+}
+
+.localizer-button[data-locale$='-za'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale$='-za']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/za.svg');
+}
+
+.localizer-button[data-locale$='-cl'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale$='-cl']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/cl.svg');
+}
+
+.localizer-button[data-locale$='-sa'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale$='-sa']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/sa.svg');
+}
+
+.localizer-button[data-locale$='-in'] .localizer-button__current:before,
+.localizer .popup__content .popup-button-list__button:has(span[data-locale$='-in']):before {
+  background-image: url('https://hatscripts.github.io/circle-flags/flags/in.svg');
+}
+
+.app-header__account:has(img[src*='default=mp']) {
+  width: 2.3rem;
+  height: 2.3rem;
+  flex-shrink: 0;
+  background-color: var(--theme-elevation-100);
+  border-radius: 50%;
+  background-size: contain;
+  background-position: center bottom;
+  background-repeat: no-repeat;
+  background-size: 1.45rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 448 512'%3E%3Cpath fill='%23aaa' d='M224 256A128 128 0 1 0 224 0a128 128 0 1 0 0 256zm-45.7 48C79.8 304 0 383.8 0 482.3C0 498.7 13.3 512 29.7 512l388.6 0c16.4 0 29.7-13.3 29.7-29.7C448 383.8 368.2 304 269.7 304l-91.4 0z'/%3E%3C/svg%3E");
+  img {
+    display: none;
+  }
+}
+
+.nav-group__indicator {
+  transition: transform var(--nav-trans-time) ease-in-out;
+}
+
+.nav-group__content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.doc-tab:before {
+  transition: var(--default-transition);
+  background-color: var(--theme-elevation-100);
+}
+
+.doc-tab__count {
+  background-color: transparent;
+}
+
+/* 3. Main Content */
+.template-default__wrap {
+  background-color: var(--theme-main-content);
+}
+
+.list-header .btn--size-small {
+  margin-bottom: 0;
+}
+
+@media (max-width: 1024px) {
+  .doc-header {
+    padding-inline: var(--gutter-h);
+  }
+}
+
+@media (max-width: 768px) {
+  .template-default .template-default__wrap {
+    min-width: 100vw;
+  }
+}
+
+/* 4. Popups & Toasts */
+.popup__content {
+  transform-origin: top right;
+  transition: var(--default-transition);
+  transform: translateY(-0.5rem) scale(0.98);
+  border: 1px solid var(--theme-elevation-200);
+}
+
+.popup--active .popup__content {
+  transform: translateY(0) scale(1);
+}
+
+.popup--v-align-bottom .popup__caret:after {
+  top: -13px;
+  border-bottom-color: var(--theme-elevation-200);
+}
+.popup--h-align-right .popup__caret:after {
+  right: -11px;
+}
+
+.popup__caret:after {
+  content: '';
+  isolation: isolate;
+  border: calc(var(--popup-caret-size) + 1px) solid transparent;
+  position: absolute;
+  z-index: -1;
+}
+
+.popup-button-list__button {
+  padding-block: 5px;
+  display: flex;
+  align-items: center;
+  transition: var(--default-transition);
+  &:hover {
+    background-color: var(--theme-elevation-100);
+  }
+  &:hover:before {
+    opacity: 1;
+  }
+}
+
+#action-create.popup-button-list__button,
+#action-duplicate.popup-button-list__button,
+#action-delete.popup-button-list__button,
+#copy-locale-data__button.popup-button-list__button,
+#schedule-publish.popup-button-list__button,
+#action-save + .popup .popup-button-list__button:not([id]) {
+  padding-left: 2.7rem;
+  &:hover:before {
+    opacity: 1;
+  }
+}
+
+#action-create.popup-button-list__button:before,
+#action-duplicate.popup-button-list__button:before,
+#action-delete.popup-button-list__button:before,
+#copy-locale-data__button.popup-button-list__button:before,
+#schedule-publish.popup-button-list__button:before,
+#action-save + .popup .popup-button-list__button:not([id]):before {
+  --icon-color: #fff;
+  position: absolute;
+  left: 1.5rem;
+  transition: opacity var(--nav-trans-time);
+  opacity: 0.5;
+  width: 1.3rem;
+  height: 1.3rem;
+  background-color: currentColor;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+}
+#action-create.popup-button-list__button:before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/circle-plus.svg');
+  content: '';
+}
+
+#action-duplicate.popup-button-list__button:before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/copy.svg');
+  content: '';
+}
+
+#action-delete.popup-button-list__button:before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/trash-2.svg');
+  content: '';
+}
+
+#copy-locale-data__button.popup-button-list__button:before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/clipboard-paste.svg');
+  content: '';
+}
+
+#schedule-publish.popup-button-list__button:before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/calendar-clock.svg');
+  content: '';
+}
+
+#action-save + .popup .popup-button-list__button:not([id]):before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/save.svg');
+  content: '';
+}
+
+.doc-controls__popup {
+  --button-size-offset: -5px;
+}
+
+.popup--v-align-bottom .popup__content {
+  top: calc(100% + var(--popup-caret-size) + 2px);
+}
+
+.doc-controls__popup .popup--v-align-bottom .popup__content {
+  top: calc(100% + var(--popup-caret-size) + 2px);
+}
+
+.payload-toast-item.toast-success {
+  --theme-success-500: rgb(74 222 128);
+  background-color: #052e16;
+  border-color: #14532d;
+  color: rgb(74 222 128);
+  .payload-toast-close-button {
+    color: rgb(74 222 128);
+  }
+}
+
+html[data-theme='light'] .payload-toast-item.toast-success {
+  --theme-success-500: #16a34a;
+  background-color: #bbf7d0;
+  color: #16a34a;
+  border-color: #86efac;
+  .payload-toast-close-button {
+    color: #16a34a;
+  }
+}
+
+.payload-toast-close-button {
+  border: none;
+  background-color: transparent !important;
+  left: auto;
+  right: -4px;
+  top: 10px;
+  transition: var(--default-transition);
+  &:hover {
+    background-color: color-mix(in oklch, rgb(34, 197, 94) 100%, transparent);
+    color: color-mix(in oklch, rgb(34, 197, 94) 70%, transparent);
+  }
+}
+
+.nav-group__toggle {
+  margin-bottom: 4px;
+  padding-block: 4px;
+}
+
+/* 5. Navigation Icons */
+/* Admin Navigation Icons */
 html[data-theme='dark'] .nav__link:hover {
   background-color: var(--theme-elevation-50);
 }
@@ -62,15 +574,17 @@ html[data-theme='dark'] .nav__link:hover {
   padding: 0.5rem;
   border-radius: 0.25rem;
   transition: background-color var(--nav-trans-time);
-}
-.nav__link:hover {
-  text-decoration: none;
-  background-color: var(--theme-elevation-100);
+  &:hover {
+    text-decoration: none;
+    background-color: var(--theme-elevation-100);
+  }
+  /* padding-left: 2.5rem !important; */
 }
 .nav__link.active::before {
   opacity: 1;
 }
 .nav__link::before {
+  --icon-color: #fff;
   transition: opacity var(--nav-trans-time);
   opacity: 0.5;
   margin-right: 0.75rem;
@@ -88,246 +602,191 @@ html[data-theme='dark'] .nav__link:hover {
   opacity: 1;
 }
 
-.nav-group__indicator {
-  transition: transform var(--nav-trans-time) ease-in-out;
-}
-
-.nav-group__content {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-}
-
-/* ─── Nav Icons ─── */
-.nav__link::before {
+/* Fallback Icon */
+.nav-group[id*='Collections'] .nav__link::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/layers-2.svg');
   content: '';
 }
-.nav__link[id*='users']::before {
-  mask-image: url('https://cdn.jsdelivr.net/npm/[email protected]/icons/users.svg');
+
+.nav-group .nav__link[id*='page']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/file.svg');
+  content: '';
 }
-.nav__link[id*='media']::before {
-  mask-image: url('https://cdn.jsdelivr.net/npm/[email protected]/icons/image.svg');
+
+.nav-group .nav__link[id*='post']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/pencil-line.svg');
+  content: '';
 }
+
+.nav-group .nav__link[id*='categor']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/folder-tree.svg');
+  content: '';
+}
+
+.nav-group .nav__link[id*='order']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/package.svg');
+  content: '';
+}
+
+.nav-group .nav__link[id*='product']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/shopping-cart.svg');
+  content: '';
+}
+
+.nav-group .nav__link[id*='media']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/image.svg');
+  content: '';
+}
+
+.nav-group .nav__link[id*='upload']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/upload.svg');
+  content: '';
+}
+
+.nav-group .nav__link[id*='form']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/file-text.svg');
+  content: '';
+}
+
+.nav-group .nav__link[id*='submission']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/message-square.svg');
+  content: '';
+}
+
+.nav-group .nav__link[id*='block']::before,
+.nav-group .nav__link[id*='lock']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/boxes.svg');
+  content: '';
+}
+
+.nav-group .nav__link[id*='redirect']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/route.svg');
+  content: '';
+}
+
+.nav-group .nav__link[id*='settings']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/settings.svg');
+  content: '';
+}
+
+.nav-group .nav__link[id*='user']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/users.svg');
+  content: '';
+}
+
+.nav-group .nav__link[id*='session']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/key.svg');
+  content: '';
+}
+
+.nav-group .nav__link[id*='verification']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/rectangle-ellipsis.svg');
+  content: '';
+}
+
+.nav-group .nav__link[id*='account']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/shield-user.svg');
+  content: '';
+}
+
+.nav-group .nav__link[id*='signup-invite']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/user-plus.svg');
+  content: '';
+}
+
+.nav-group .nav__link[id*='twoFactor']::before,
+.nav-group .nav__link[id*='two-factor']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/shield-check.svg');
+  content: '';
+}
+
+.nav-group .nav__link[id*='nav-apikey']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/key-round.svg');
+  content: '';
+}
+
+.nav-group .nav__link[id*='nav-invitation']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/mail-plus.svg');
+  content: '';
+}
+
+.nav-group .nav__link[id*='nav-organization']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/building-2.svg');
+  content: '';
+}
+
+.nav-group .nav__link[id*='nav-team']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/users-round.svg');
+  content: '';
+}
+
+.nav-group .nav__link[id*='nav-member']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/circle-user-round.svg');
+  content: '';
+}
+
+.nav-group .nav__link[id*='comment']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/message-circle.svg');
+  content: '';
+}
+
+.nav-group .nav__link[id*='nav-passkey']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/fingerprint-pattern.svg');
+  content: '';
+}
+
+.nav-group .nav__link[id*='review']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/star.svg');
+  content: '';
+}
+
+.nav-group .nav__link[id*='search']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/search.svg');
+  content: '';
+}
+
+.nav-group .nav__link[id*='tag']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/tags.svg');
+  content: '';
+}
+
+.nav-group .nav__link[id*='analytics']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/bar-chart.svg');
+  content: '';
+}
+
+.nav-group .nav__link[id*='appointment']::before,
+.nav-group .nav__link[id*='booking']::before,
+.nav-group .nav__link[id*='event']::before,
+.nav-group .nav__link[id*='calendar']::before {
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/calendar-clock.svg');
+  content: '';
+}
+
+/* ─── IEEE Brand Overrides ─── */
+:root {
+  --theme-color: #00629B;
+  --theme-color-hover: #0099D6;
+  --theme-color-400: #0080B3;
+  --theme-color-500: #00629B;
+  --theme-color-600: #004D7A;
+  --theme-color-800: #002D52;
+}
+
+/* Our collection nav icons */
 .nav__link[id*='societies']::before {
-  mask-image: url('https://cdn.jsdelivr.net/npm/[email protected]/icons/building-2.svg');
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/building-2.svg');
+  content: '';
 }
 .nav__link[id*='execom']::before {
-  mask-image: url('https://cdn.jsdelivr.net/npm/[email protected]/icons/users-round.svg');
-}
-.nav__link[id*='events']::before {
-  mask-image: url('https://cdn.jsdelivr.net/npm/[email protected]/icons/calendar-clock.svg');
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/users-round.svg');
+  content: '';
 }
 .nav__link[id*='registrations']::before {
-  mask-image: url('https://cdn.jsdelivr.net/npm/[email protected]/icons/clipboard-list.svg');
-}
-.nav__link[id*='orders']::before {
-  mask-image: url('https://cdn.jsdelivr.net/npm/[email protected]/icons/package.svg');
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/clipboard-list.svg');
+  content: '';
 }
 .nav__link[id*='coupons']::before {
-  mask-image: url('https://cdn.jsdelivr.net/npm/[email protected]/icons/ticket.svg');
-}
-.nav__link[id*='billing']::before {
-  mask-image: url('https://cdn.jsdelivr.net/npm/[email protected]/icons/credit-card.svg');
-}
-.nav__link[id*='account']::before {
-  mask-image: url('https://cdn.jsdelivr.net/npm/[email protected]/icons/shield-user.svg');
-}
-
-/* ─── Main Content ─── */
-.template-default__wrap {
-  background-color: var(--theme-main-content);
-}
-
-.doc-tab:before {
-  transition: var(--default-transition);
-  background-color: var(--theme-elevation-100);
-}
-
-/* ─── Buttons ─── */
-html[data-theme='dark'] .btn--style-primary {
-  --color: #fff;
-}
-.btn--style-primary.btn--disabled {
-  --bg-color: var(--theme-elevation-100);
-}
-
-.btn--style-secondary {
-  --color: var(--theme-text);
-  --bg-color: transparent;
-  --box-shadow: none;
-  --hover-color: var(--theme-elevation-600);
-  --hover-box-shadow: none;
-  border: 1px solid var(--theme-elevation-200);
-  border-radius: var(--style-radius-s);
-}
-.btn--style-secondary:hover {
-  border-color: var(--theme-elevation-200);
-  background-color: var(--theme-elevation-100);
-}
-
-.btn--size-small {
-  padding-block: 3px;
-}
-
-.doc-controls__dots {
-  width: 34px;
-  height: 34px;
-  border-color: var(--theme-elevation-200);
-}
-
-/* ─── Popups ─── */
-.popup__content {
-  transform-origin: top right;
-  transition: var(--default-transition);
-  transform: translateY(-0.5rem) scale(0.98);
-  border: 1px solid var(--theme-elevation-200);
-}
-
-.popup--active .popup__content {
-  transform: translateY(0) scale(1);
-}
-
-.popup-button-list__button {
-  padding-block: 5px;
-  display: flex;
-  align-items: center;
-  transition: var(--default-transition);
-}
-.popup-button-list__button:hover {
-  background-color: var(--theme-elevation-100);
-}
-
-/* ─── Header ─── */
-.app-header__account:has(img[src*='default=mp']) {
-  width: 2.3rem;
-  height: 2.3rem;
-  flex-shrink: 0;
-  background-color: var(--theme-elevation-100);
-  border-radius: 50%;
-  background-size: contain;
-  background-position: center bottom;
-  background-repeat: no-repeat;
-  background-size: 1.45rem;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 448 512'%3E%3Cpath fill='%23aaa' d='M224 256A128 128 0 1 0 224 0a128 128 0 1 0 0 256zm-45.7 48C79.8 304 0 383.8 0 482.3C0 498.7 13.3 512 29.7 512l388.6 0c16.4 0 29.7-13.3 29.7-29.7C448 383.8 368.2 304 269.7 304l-91.4 0z'/%3E%3C/svg%3E");
-}
-.app-header__account:has(img[src*='default=mp']) img {
-  display: none;
-}
-
-/* ─── Select / React-Select ─── */
-.react-select .rs__option {
-  padding-left: 2.5rem;
-  position: relative;
-}
-
-.react-select .rs__option--is-selected {
-  background-color: var(--theme-elevation-100);
-}
-.react-select .rs__option--is-selected:before {
-  --size: 1rem;
-  content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' class='lucide lucide-check'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
-  position: absolute;
-  left: 0.75rem;
-  top: 50%;
-  transform: translateY(-55%);
-  display: flex;
-  width: var(--size);
-  height: var(--size);
-}
-
-/* ─── Toasts ─── */
-.payload-toast-item.toast-success {
-  --theme-success-500: rgb(74 222 128);
-  background-color: #052e16;
-  border-color: #14532d;
-  color: rgb(74 222 128);
-}
-.payload-toast-item.toast-success .payload-toast-close-button {
-  color: rgb(74 222 128);
-}
-
-.payload-toast-close-button {
-  border: none;
-  background-color: transparent !important;
-  left: auto;
-  right: -4px;
-  top: 10px;
-  transition: var(--default-transition);
-}
-
-/* ─── Checkbox ─── */
-html[data-theme='dark'] .checkbox-input__input {
-  background-color: var(--theme-elevation-100);
-  border-color: var(--theme-elevation-400);
-}
-html[data-theme='dark'] .checkbox-input:not(.checkbox-input--read-only):hover .checkbox-input__input {
-  border-color: var(--theme-color);
-}
-html[data-theme='dark'] .checkbox-input__checkbox--checked {
-  background-color: var(--theme-color);
-  border-color: var(--theme-color);
-}
-
-.checkbox-input:not(.checkbox-input--read-only):active .checkbox-input__input,
-.checkbox-input:not(.checkbox-input--read-only):active input[type='checkbox'],
-.checkbox-input:not(.checkbox-input--read-only):focus-within .checkbox-input__input,
-.checkbox-input:not(.checkbox-input--read-only):focus-within input[type='checkbox'],
-.checkbox-input:not(.checkbox-input--read-only):focus .checkbox-input__input,
-.checkbox-input:not(.checkbox-input--read-only):focus input[type='checkbox'] {
-  box-shadow: 0 0 0 2px var(--theme-color) !important;
-}
-
-/* ─── Text Contrast ─── */
-html[data-theme='dark'] body {
-  color: var(--theme-elevation-850);
-}
-html[data-theme='dark'] .nav__link {
-  color: var(--theme-elevation-750);
-}
-html[data-theme='dark'] .nav__link:hover {
-  color: var(--theme-elevation-950);
-}
-html[data-theme='dark'] .nav__link.active {
-  color: var(--theme-color);
-}
-html[data-theme='dark'] th {
-  color: var(--theme-elevation-700);
-}
-html[data-theme='dark'] .field-type label {
-  color: var(--theme-elevation-800);
-}
-
-/* ─── Search Filter ─── */
-html[data-theme='dark'] .search-filter {
-  position: relative;
-}
-html[data-theme='dark'] .search-filter__input {
-  padding-left: 2.5rem;
-  background-color: var(--theme-elevation-50);
-  border-color: var(--theme-elevation-200);
-  color: var(--theme-elevation-900);
-}
-html[data-theme='dark'] .search-filter__input::placeholder {
-  color: var(--theme-elevation-500);
-}
-html[data-theme='dark'] .search-filter__input:focus {
-  border-color: var(--theme-color);
-}
-html[data-theme='dark'] .search-filter__icon {
-  left: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
-  position: absolute;
-  pointer-events: none;
-}
-
-/* ─── Field Inputs ─── */
-.field-type.text:not(.has-many) input:disabled {
-  background: var(--theme-elevation-100);
-  color: white;
-  border-color: var(--theme-elevation-200);
-  opacity: 0.3;
-}
-.field-type.text:not(.has-many) input:focus {
-  border-color: var(--theme-elevation-400);
+  mask-image: url('https://cdn.jsdelivr.net/npm/lucide-static@0.562.0/icons/ticket.svg');
+  content: '';
 }
