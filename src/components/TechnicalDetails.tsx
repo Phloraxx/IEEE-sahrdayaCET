@@ -3,6 +3,8 @@
 import React from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
+import pkg from '../../package.json';
+const { version } = pkg;
 
 export const TechnicalDetails: React.FC = () => {
     return (
@@ -37,6 +39,16 @@ export const TechnicalDetails: React.FC = () => {
                     height={64}
                     className="opacity-80"
                 />
+            </motion.div>
+
+            {/* Bottom Right - BUILD_VER */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1.2, duration: 0.8 }}
+                className="absolute bottom-6 right-6 z-10 hidden md:block text-right"
+            >
+                <p className="font-mono text-[10px] text-gray-400">BUILD_VER: {version}</p>
             </motion.div>
 
             {/* Bottom Left - Copyright */}
