@@ -4,9 +4,9 @@ const Logo: React.FC = () => {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
       <img
-        src="/Ieee.svg"
+        src="/emblem.png"
         alt="IEEE"
-        style={{ height: 24, width: 'auto', objectFit: 'contain' }}
+        style={{ height: 28, width: 'auto', objectFit: 'contain' }}
       />
       <span style={{
         fontSize: 13,
