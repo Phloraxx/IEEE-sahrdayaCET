@@ -6,6 +6,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import JsonLd from "@/components/JsonLd";
 import PageTransitionOverlay from "@/components/PageTransition";
+import TerminalIntro from "@/components/TerminalIntro";
 import { auth } from "@/auth";
 
 const pressStart2P = Press_Start_2P({ 
@@ -80,6 +81,7 @@ export default async function MainLayout({
         <link rel="preconnect" href="https://lh3.googleusercontent.com" />
       </head>
       <body className={`${pressStart2P.variable} ${inter.variable} font-sans antialiased`}>
+        <TerminalIntro />
         <SessionProvider session={session}>
           <JsonLd schema={organizationSchema} />
           <JsonLd schema={websiteSchema} />
