@@ -105,7 +105,12 @@ export default function SocietiesClient() {
         try {
             const res = await fetch('/api/societies?limit=50&depth=1&sort=-id');
             const data = await res.json();
-            const docs = data.docs || [];
+            const docs = (data.docs || []).map((d: Record<string, unknown>) => ({
+                ...d,
+                $id: d.id as string,
+                id: d.id as number,
+                logo_url: (d.logoUrl as string) || ((d.logo as Record<string, unknown>)?.url as string) || (d.logo_url as string),
+            }));
             setSocieties(docs as unknown as Society[]);
         } catch (err: unknown) {
             console.error('Error fetching societies:', err);
@@ -120,7 +125,11 @@ export default function SocietiesClient() {
         try {
             const eventsRes = await fetch(`/api/events?where[society][equals]=${societyId}&sort=-date&limit=10`);
             const eventsData = await eventsRes.json();
-            const eventsDocs = eventsData.docs || [];
+            const eventsDocs = (eventsData.docs || []).map((e: Record<string, unknown>) => ({
+                ...e,
+                $id: e.id as string,
+                banner_url: (e.bannerUrl as string) || ((e.banner as Record<string, unknown>)?.url as string) || (e.banner_url as string),
+            }));
             const events = (eventsDocs as unknown as Event[])
                 .filter(event => 
                     event.status === 'published' || event.status === 'completed'
@@ -140,16 +149,16 @@ export default function SocietiesClient() {
             const membersData = await membersRes.json();
             const membersDocs = membersData.docs || [];
             const members = membersDocs.map((doc: any) => ({
-                slNo: doc.slNo,
-                name: doc.name,
-                department: doc.department,
-                semester: doc.semester,
-                position: doc.position,
-                photoUrl: doc.photoUrl,
-                linkedin: doc.linkedin,
-                instagram: doc.instagram,
-                email: doc.email,
-                phone: doc.phone,
+                slNo: doc.order ?? doc.slNo ?? 0,
+                name: doc.name || '',
+                department: doc.department || '',
+                semester: doc.batch || doc.semester || '',
+                position: doc.position || '',
+                photoUrl: (doc.photoUrl as string) || '',
+                linkedin: doc.linkedin || '',
+                instagram: doc.instagram || '',
+                email: doc.email || '',
+                phone: doc.phone || '',
             }));
             setSocietyMembers(members);
         } catch (err: unknown) {
@@ -337,13 +346,21 @@ export default function SocietiesClient() {
                                                 whileHover={{ rotate: [0, -5, 5, 0] }}
                                                 transition={{ duration: 0.5 }}
                                             >
+                                                {society.logo_url ? (
                                                 <Image
                                                     src={society.logo_url}
                                                     alt={society.name}
                                                     fill
-                                                sizes="(max-width: 640px) 40vw, (max-width: 1024px) 20vw, 12vw"
-                                                className="object-contain"
-                                            />
+                                                    sizes="(max-width: 640px) 40vw, (max-width: 1024px) 20vw, 12vw"
+                                                    className="object-contain"
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center">
+                                                    <span className="text-4xl font-bold text-gray-300">
+                                                        {society.name?.charAt(0) || '?'}
+                                                    </span>
+                                                </div>
+                                            )}
                                             </motion.div>
                                             
                                             {/* Glow Effect */}
@@ -424,13 +441,19 @@ export default function SocietiesClient() {
                                 ) : (
                                     <div className="absolute inset-0 flex items-center justify-center">
                                         <div className="relative w-32 h-32 opacity-20">
-                                            <Image
-                                                src={selectedSociety.logo_url}
-                                                alt={selectedSociety.name}
-                                                fill
-                                                sizes="128px"
-                                                className="object-contain"
-                                            />
+                                            {selectedSociety.logo_url ? (
+                                                <Image
+                                                    src={selectedSociety.logo_url}
+                                                    alt={selectedSociety.name}
+                                                    fill
+                                                    sizes="128px"
+                                                    className="object-contain"
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-white/30">
+                                                    {selectedSociety.name?.charAt(0) || '?'}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 )}
@@ -449,13 +472,19 @@ export default function SocietiesClient() {
                                     className="inline-block bg-white rounded-2xl p-4 shadow-2xl border-4 border-white mb-6"
                                 >
                                     <div className="relative w-24 h-24">
-                                        <Image
-                                            src={selectedSociety.logo_url}
-                                            alt={selectedSociety.name}
-                                            fill
-                                            sizes="96px"
-                                            className="object-contain"
-                                        />
+                                        {selectedSociety.logo_url ? (
+                                            <Image
+                                                src={selectedSociety.logo_url}
+                                                alt={selectedSociety.name}
+                                                fill
+                                                sizes="96px"
+                                                className="object-contain"
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-gray-300">
+                                                {selectedSociety.name?.charAt(0) || '?'}
+                                            </div>
+                                        )}
                                     </div>
                                 </motion.div>
 
