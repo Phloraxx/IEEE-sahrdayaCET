@@ -795,6 +795,11 @@ html[data-theme='dark'] .checkbox-input__checkbox--checked .checkbox-input__chec
   color: #fff;
 }
 
+/* ─── Primary Button Text ─── */
+html[data-theme='dark'] .btn--style-primary {
+  --color: #fff;
+}
+
 /* ─── IEEE Brand Overrides ─── */
 :root {
   --theme-color: #00629B;
