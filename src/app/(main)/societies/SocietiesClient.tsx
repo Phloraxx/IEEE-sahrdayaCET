@@ -39,16 +39,13 @@ const MemberCard = React.memo(({ member, idx }: { member: ExecomMember; idx: num
             className="group bg-white border-2 border-gray-200 rounded-xl overflow-hidden hover:border-ieee-blue hover:shadow-lg transition-all duration-300"
         >
             {/* Member Photo */}
-            <div className="relative aspect-[4/5] bg-gray-100 overflow-hidden">
+            <div className="relative w-full h-60 bg-gray-100 overflow-hidden">
                 {imageSrc && !imgError ? (
-                    <Image
+                    <img
                         src={imageSrc}
                         alt={member.name}
-                        fill
-                        className="object-cover object-top group-hover:scale-105 transition-transform duration-300"
-                        onError={() => setImgError(true)}
-                        sizes="(max-width: 768px) 50vw, 33vw"
-                    />
+                        className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
+                        onError={() => setImgError(true)} />
                 ) : (
                     <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
                         <span className="text-3xl font-bold text-gray-300">
@@ -338,20 +335,17 @@ export default function SocietiesClient() {
                                         <div className="absolute inset-0 bg-gradient-to-br from-ieee-blue/0 to-purple-600/0 group-hover:from-ieee-blue/10 group-hover:to-purple-600/10 transition-all duration-300 z-0" />
 
                                         {/* Logo Container */}
-                                        <div className="relative aspect-square p-6 flex items-center justify-center">
+                                        <div className="relative w-full h-48 flex items-center justify-center p-6">
                                             <motion.div
-                                                className="relative w-full h-full drop-shadow-lg"
+                                                className="relative w-full h-full"
                                                 whileHover={{ rotate: [0, -5, 5, 0] }}
                                                 transition={{ duration: 0.5 }}
                                             >
                                                 {society.logo_url ? (
-                                                    <Image
+                                                    <img
                                                         src={society.logo_url}
                                                         alt={society.name}
-                                                        fill
-                                                        sizes="(max-width: 640px) 40vw, (max-width: 1024px) 20vw, 12vw"
-                                                        className="object-contain"
-                                                    />
+                                                        className="w-full h-full object-contain" />
                                                 ) : (
                                                     <div className="w-full h-full flex items-center justify-center">
                                                         <span className="text-4xl font-bold text-gray-300">
