@@ -818,17 +818,6 @@ select {
   padding-inline-end: var(--base);
 }
 
-/* ─── Auth/Accounts Section ─── */
-html[data-theme='dark'] .collapsible__toggle {
-  padding: 0.75rem 1rem;
-}
-.collapsible__content {
-  padding: 1rem 0;
-}
-.collapsible + .collapsible {
-  margin-top: 0.5rem;
-}
-
 /* ─── Tabs ─── */
 .tabs-field {
   margin-top: 1.5rem;
@@ -880,10 +869,17 @@ html[data-theme='dark'] .collapsible__toggle {
   border-bottom: none;
 }
 
-/* ─── Primary Button Text ─── */
-[data-theme='dark'] .btn--style-primary,
-[data-theme='dark'] .btn--style-primary:not(.btn--disabled) {
-  color: #fff !important;
+/* ─── Primary Button ─── */
+.btn--style-primary {
+  --color: #fff;
+  --bg-color: #00629B;
+}
+.btn--style-primary:hover {
+  --hover-bg: #004D7A;
+}
+.btn--style-primary.btn--disabled {
+  --bg-color: var(--theme-elevation-200);
+  --color: var(--theme-elevation-600);
 }
 
 /* ─── IEEE Brand Overrides ─── */
