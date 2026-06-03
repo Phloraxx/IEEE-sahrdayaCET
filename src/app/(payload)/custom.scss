@@ -823,10 +823,14 @@ select {
   margin-top: 1.5rem;
 }
 .tabs-field__tabs-wrap {
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
 }
 .tabs-field__content-wrap {
-  padding-top: 0.5rem;
+  padding: 1rem 0;
+}
+.tabs-field__tab-button {
+  padding-bottom: 0.75rem;
+  margin-right: 1rem;
 }
 
 /* ─── Collapsible ─── */
@@ -836,16 +840,8 @@ select {
 .collapsible__content {
   padding: 1.25rem;
 }
-.collapsible-field__row-label-wrap {
-  padding: 0.5rem 0.75rem;
-  display: flex;
-  gap: 0.5rem;
-}
 
 /* ─── Edit Section Spacing ─── */
-.group-field {
-  margin-bottom: 0;
-}
 .group-field--top-level {
   padding-top: 1.5rem;
   padding-bottom: 1.5rem;
@@ -857,16 +853,13 @@ select {
   margin-bottom: 1rem;
 }
 .field-type {
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
 }
 .group-field .field-type:last-child {
   margin-bottom: 0;
 }
 .group-field:first-of-type {
   padding-top: 0;
-}
-.group-field:last-of-type {
-  border-bottom: none;
 }
 
 /* ─── Primary Button ─── */
