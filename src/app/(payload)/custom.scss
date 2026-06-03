@@ -795,19 +795,44 @@ html[data-theme='dark'] .checkbox-input__checkbox--checked .checkbox-input__chec
   color: #fff;
 }
 
+/* ─── Input Text Visibility ─── */
+html[data-theme='dark'] input,
+html[data-theme='dark'] textarea,
+html[data-theme='dark'] select,
+html[data-theme='dark'] .field-type input,
+html[data-theme='dark'] .field-type textarea {
+  color: var(--theme-elevation-900);
+}
+html[data-theme='dark'] input::placeholder,
+html[data-theme='dark'] textarea::placeholder {
+  color: var(--theme-elevation-500);
+}
+
 /* ─── Edit Section Spacing ─── */
 .group-field {
   margin-bottom: 0;
 }
 .group-field--top-level {
-  padding-top: 2rem;
-  padding-bottom: 2rem;
+  padding-top: 1.5rem;
+  padding-bottom: 1.5rem;
+}
+.group-field + .group-field {
+  border-top: 1px solid var(--theme-elevation-150);
+}
+.group-field__header {
+  margin-bottom: 1rem;
 }
 .field-type {
-  margin-bottom: 1.25rem;
+  margin-bottom: 1rem;
 }
 .group-field .field-type:last-child {
   margin-bottom: 0;
+}
+.group-field:first-of-type {
+  padding-top: 0;
+}
+.group-field:last-of-type {
+  border-bottom: none;
 }
 
 /* ─── Primary Button Text ─── */
