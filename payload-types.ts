@@ -216,7 +216,9 @@ export interface Society {
   slug: string;
   bio?: string | null;
   logo?: (number | null) | Media;
+  logoUrl?: string | null;
   banner?: (number | null) | Media;
+  bannerUrl?: string | null;
   chairs?: (string | User)[] | null;
   updatedAt: string;
   createdAt: string;
@@ -231,9 +233,11 @@ export interface Execom {
   position: string;
   society?: (number | null) | Society;
   photo?: (number | null) | Media;
+  photoUrl?: string | null;
   sectionId?: string | null;
   order?: number | null;
   batch?: string | null;
+  department?: string | null;
   linkedin?: string | null;
   email?: string | null;
   phone?: string | null;
@@ -269,6 +273,7 @@ export interface Event {
   price: number;
   society: number | Society;
   banner?: (number | null) | Media;
+  bannerUrl?: string | null;
   status?: ('draft' | 'published' | 'archived' | 'completed' | 'cancelled') | null;
   maxCapacity?: number | null;
   registeredCount?: number | null;
@@ -627,7 +632,9 @@ export interface SocietiesSelect<T extends boolean = true> {
   slug?: T;
   bio?: T;
   logo?: T;
+  logoUrl?: T;
   banner?: T;
+  bannerUrl?: T;
   chairs?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -641,9 +648,11 @@ export interface ExecomSelect<T extends boolean = true> {
   position?: T;
   society?: T;
   photo?: T;
+  photoUrl?: T;
   sectionId?: T;
   order?: T;
   batch?: T;
+  department?: T;
   linkedin?: T;
   email?: T;
   phone?: T;
@@ -664,6 +673,7 @@ export interface EventsSelect<T extends boolean = true> {
   price?: T;
   society?: T;
   banner?: T;
+  bannerUrl?: T;
   status?: T;
   maxCapacity?: T;
   registeredCount?: T;

@@ -199,10 +199,10 @@ async function main() {
       continue
     }
 
-    let logoId: number | null = null
+    let logoResult: { id: number; url: string } | null = null
     if (row.logo_url) {
       const filePath = findFile(publicDir, row.logo_url)
-      if (filePath) logoId = await uploadMedia(payload, filePath, `${name} logo`)
+      if (filePath) logoResult = await uploadMedia(payload, filePath, `${name} logo`)
     }
 
     const data: Record<string, unknown> = { name, slug, bio: row.bio || '' }
@@ -214,7 +214,7 @@ async function main() {
       appwriteUidToPayloadId[uid] = pid
       slugToPayloadId[slug] = pid
       societyCount++
-      console.log(`  ✅ ${name}${logoId ? ' +logo' : ''}`)
+      console.log(`  ✅ ${name}${logoResult ? ' +logo' : ''}`)
     } catch (e) {
       console.error(`  ❌ ${name}: ${String(e).slice(0, 400)}`)
     }
