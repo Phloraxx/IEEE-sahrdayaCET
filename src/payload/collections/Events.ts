@@ -15,7 +15,7 @@ export const Events: CollectionConfig = {
   fields: [
     { name: 'title', type: 'text', required: true },
     { name: 'slug', type: 'text', required: true, unique: true },
-    { name: 'description', type: 'richText' },
+    { name: 'description', type: 'textarea' },
     { name: 'date', type: 'date', required: true },
     { name: 'endDate', type: 'date' },
     { name: 'venue', type: 'text', required: true },
