@@ -1,6 +1,10 @@
-:root {
-  --theme-color: #00629B;
-  --theme-color-hover: #0099D6;
-  --theme-bg: #ffffff;
-  --theme-elevation-150: #003B6F;
+@layer payload-default {
+  :root {
+    --theme-color: #00629B;
+    --theme-color-hover: #0099D6;
+    --theme-color-400: #0080B3;
+    --theme-color-500: #00629B;
+    --theme-color-600: #004D7A;
+    --theme-color-800: #002D52;
+  }
 }

@@ -39,6 +39,7 @@ export default buildConfig({
   csrf: ['http://localhost:3000', 'https://ieeesahrdaya.com'],
   maxDepth: 2,
   admin: {
+    theme: 'light',
     meta: {
       titleSuffix: ' - IEEE Sahrdaya SB',
       icons: [
@@ -65,6 +66,10 @@ export default buildConfig({
       ],
     },
     components: {
+      graphics: {
+        Logo: '/src/payload/admin/Logo',
+        Icon: '/src/payload/admin/Icon',
+      },
       views: {
         Billing: {
           Component: '/src/payload/admin/BillingView',
