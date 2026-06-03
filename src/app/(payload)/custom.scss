@@ -763,6 +763,38 @@ html[data-theme='dark'] .nav__link:hover {
   content: '';
 }
 
+/* ─── Search Filter Fix ─── */
+.search-filter {
+  position: relative;
+}
+.search-filter__input {
+  padding-left: 2.5rem !important;
+}
+.search-filter__icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ─── Checkbox Visibility ─── */
+html[data-theme='dark'] .checkbox-input__input {
+  background-color: var(--theme-elevation-100);
+  border-color: var(--theme-elevation-450);
+}
+html[data-theme='dark'] .checkbox-input:not(.checkbox-input--read-only):hover .checkbox-input__input {
+  border-color: var(--theme-elevation-600);
+}
+html[data-theme='dark'] .checkbox-input__checkbox--checked {
+  background-color: var(--theme-color);
+  border-color: var(--theme-color);
+}
+html[data-theme='dark'] .checkbox-input__checkbox--checked .checkbox-input__checkbox-check {
+  color: #fff;
+}
+
 /* ─── IEEE Brand Overrides ─── */
 :root {
   --theme-color: #00629B;
