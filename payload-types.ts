@@ -235,6 +235,7 @@ export interface Execom {
   batch?: string | null;
   linkedin?: string | null;
   email?: string | null;
+  phone?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -643,6 +644,7 @@ export interface ExecomSelect<T extends boolean = true> {
   batch?: T;
   linkedin?: T;
   email?: T;
+  phone?: T;
   updatedAt?: T;
   createdAt?: T;
 }

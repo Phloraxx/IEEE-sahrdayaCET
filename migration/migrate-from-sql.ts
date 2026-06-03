@@ -243,6 +243,7 @@ async function main() {
     const execomData: Record<string, unknown> = {
       name,
       position: row.position || '',
+      sectionId: row.sectionId || '',
       order: Number(row.slNo) || 0,
       batch: row.semester || '',
       linkedin: row.linkedin || '',

@@ -146,14 +146,14 @@ export default function SocietiesClient() {
     const fetchSocietyMembers = async (societySlug: string) => {
         setLoadingMembers(true);
         try {
-            const res = await fetch(`/api/execom?where[sectionId][equals]=${societySlug}&sort=slNo&limit=50&depth=1`);
+            const res = await fetch(`/api/execom?where[sectionId][equals]=${societySlug}&sort=order&limit=50&depth=1`);
             if (!res.ok) throw new Error('Failed to fetch members');
             const data = await res.json();
             const docs = (data.docs || []).map((d: Record<string, unknown>) => ({
-                slNo: d.slNo,
+                slNo: d.order || d.slNo,
                 name: d.name,
-                department: d.department,
-                semester: d.semester,
+                department: d.department || '',
+                semester: d.batch || d.semester || '',
                 position: d.position,
                 photoUrl: ((d.photo as Record<string, unknown>)?.url as string) || (d.photoUrl as string),
                 linkedin: d.linkedin,

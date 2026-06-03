@@ -17,6 +17,7 @@ export const Execom: CollectionConfig = {
     { name: 'position', type: 'text', required: true },
     { name: 'society', type: 'relationship', relationTo: 'societies' },
     { name: 'photo', type: 'upload', relationTo: 'media' },
+    { name: 'sectionId', type: 'text', index: true },
     { name: 'order', type: 'number' },
     { name: 'batch', type: 'text' },
     { name: 'linkedin', type: 'text' },
