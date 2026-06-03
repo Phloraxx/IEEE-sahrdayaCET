@@ -5,6 +5,9 @@ export const Media: CollectionConfig = {
   admin: {
     group: 'System',
   },
+  access: {
+    read: () => true,
+  },
   upload: {
     mimeTypes: ['image/*'],
     imageSizes: [
