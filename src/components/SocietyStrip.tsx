@@ -67,7 +67,7 @@ export const SocietyStrip: React.FC = () => {
 
     const fetchSocieties = async () => {
         try {
-            const response = await fetch('/api/societies?limit=50&depth=1');
+            const response = await fetch('/api/societies?limit=50&depth=1&where[isHidden][not_equals]=true');
             if (!response.ok) throw new Error('Failed to fetch societies');
             const data = await response.json();
             const list = (data.docs || data.societies || []).map((doc: Record<string, unknown>) => ({

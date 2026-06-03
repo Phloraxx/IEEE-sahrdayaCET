@@ -20,6 +20,8 @@ export const Societies: CollectionConfig = {
     { name: 'logoUrl', type: 'text', admin: { hidden: true } },
     { name: 'banner', type: 'upload', relationTo: 'media' },
     { name: 'bannerUrl', type: 'text', admin: { hidden: true } },
+    { name: 'isHidden', type: 'checkbox', defaultValue: false, admin: { position: 'sidebar' } },
+    { name: 'displayOrder', type: 'number', admin: { position: 'sidebar' } },
     { name: 'chairs', type: 'relationship', relationTo: 'users', hasMany: true },
   ],
 }

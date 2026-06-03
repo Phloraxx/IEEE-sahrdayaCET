@@ -219,6 +219,8 @@ export interface Society {
   logoUrl?: string | null;
   banner?: (number | null) | Media;
   bannerUrl?: string | null;
+  isHidden?: boolean | null;
+  displayOrder?: number | null;
   chairs?: (string | User)[] | null;
   updatedAt: string;
   createdAt: string;
@@ -635,6 +637,8 @@ export interface SocietiesSelect<T extends boolean = true> {
   logoUrl?: T;
   banner?: T;
   bannerUrl?: T;
+  isHidden?: T;
+  displayOrder?: T;
   chairs?: T;
   updatedAt?: T;
   createdAt?: T;
