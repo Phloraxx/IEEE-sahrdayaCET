@@ -808,6 +808,40 @@ html[data-theme='dark'] textarea::placeholder {
   color: var(--theme-elevation-500);
 }
 
+/* ─── Input Field Padding ─── */
+input[type='text'],
+input[type='email'],
+input[type='password'],
+input[type='number'],
+input[type='url'],
+input[type='tel'],
+input[type='search'],
+textarea,
+select {
+  padding: 0.625rem 0.75rem !important;
+}
+
+/* ─── Auth/Accounts Section ─── */
+html[data-theme='dark'] .collapsible__toggle {
+  padding: 0.75rem 1rem;
+}
+.collapsible__content {
+  padding: 1rem 0;
+}
+.collapsible + .collapsible {
+  margin-top: 0.5rem;
+}
+
+/* ─── Tab Spacing ─── */
+.doc-tab {
+  padding: 0.75rem 1.25rem;
+  margin-right: 0.5rem;
+}
+.doc-tabs {
+  gap: 0.5rem;
+  padding: 1rem var(--gutter-h) 0;
+}
+
 /* ─── Edit Section Spacing ─── */
 .group-field {
   margin-bottom: 0;
@@ -836,8 +870,9 @@ html[data-theme='dark'] textarea::placeholder {
 }
 
 /* ─── Primary Button Text ─── */
-html[data-theme='dark'] .btn--style-primary {
-  --color: #fff;
+[data-theme='dark'] .btn--style-primary,
+[data-theme='dark'] .btn--style-primary:not(.btn--disabled) {
+  color: #fff !important;
 }
 
 /* ─── IEEE Brand Overrides ─── */
