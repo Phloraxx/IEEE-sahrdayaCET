@@ -29,10 +29,10 @@ export const Hero: React.FC = () => {
         <section className="relative h-[100dvh] flex flex-col items-center justify-center z-10 px-4 overflow-hidden">
             {/* Corner Logos */}
             <div className="absolute top-6 left-6 md:top-10 md:left-10 z-20">
-                <img src="/emblem.png" alt="IEEE" className="h-10 md:h-14 w-auto opacity-80" />
+                <img src="/Ieee.svg" alt="IEEE" className="h-8 md:h-12 w-auto" />
             </div>
             <div className="absolute top-6 right-6 md:top-10 md:right-10 z-20">
-                <img src="/sahrdaya.jpg" alt="Sahrdaya" className="h-8 md:h-12 w-auto opacity-80 rounded" />
+                <img src="/sahrdaya_footer.png" alt="Sahrdaya" className="h-8 md:h-12 w-auto" />
             </div>
 
             <motion.div
