@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import Image from 'next/image';
+
 import { Society, Event } from '@/types';
 import Navbar from '@/components/Navbar';
 import { GridBackground } from '@/components/GridBackground';
@@ -41,14 +41,7 @@ const MemberCard = React.memo(({ member, idx }: { member: ExecomMember; idx: num
             {/* Member Photo */}
             <div className="relative aspect-[4/5] bg-gray-100 overflow-hidden">
                 {imageSrc && !imgError ? (
-                    <Image
-                        src={imageSrc}
-                        alt={member.name}
-                        fill
-                        className="object-cover object-top group-hover:scale-105 transition-transform duration-300"
-                        onError={() => setImgError(true)}
-                        sizes="(max-width: 768px) 50vw, 33vw"
-                    />
+                    <img src={imageSrc} alt={member.name} className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300" onError={() => setImgError(true)} />
                 ) : (
                     <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
                         <span className="text-3xl font-bold text-gray-300">
@@ -347,13 +340,7 @@ export default function SocietiesClient() {
                                                 transition={{ duration: 0.5 }}
                                             >
                                                 {society.logo_url ? (
-                                                <Image
-                                                    src={society.logo_url}
-                                                    alt={society.name}
-                                                    fill
-                                                    sizes="(max-width: 640px) 40vw, (max-width: 1024px) 20vw, 12vw"
-                                                    className="object-contain"
-                                                />
+                                                <img src={society.logo_url} alt={society.name} className="w-full h-full object-contain" />
                                             ) : (
                                                 <div className="w-full h-full flex items-center justify-center">
                                                     <span className="text-4xl font-bold text-gray-300">
@@ -431,24 +418,12 @@ export default function SocietiesClient() {
                             {/* Banner */}
                             <div className="relative h-64 bg-gradient-to-br from-ieee-blue to-purple-600 overflow-hidden">
                                 {selectedSociety.banner_url ? (
-                                    <Image
-                                        src={selectedSociety.banner_url}
-                                        alt={selectedSociety.name}
-                                        fill
-                                        sizes="(max-width: 768px) 100vw, 50vw"
-                                        className="object-cover"
-                                    />
+                                    <img src={selectedSociety.banner_url} alt={selectedSociety.name} className="w-full h-full object-cover" />
                                 ) : (
                                     <div className="absolute inset-0 flex items-center justify-center">
                                         <div className="relative w-32 h-32 opacity-20">
                                             {selectedSociety.logo_url ? (
-                                                <Image
-                                                    src={selectedSociety.logo_url}
-                                                    alt={selectedSociety.name}
-                                                    fill
-                                                    sizes="128px"
-                                                    className="object-contain"
-                                                />
+                                                <img src={selectedSociety.logo_url} alt={selectedSociety.name} className="w-full h-full object-contain" />
                                             ) : (
                                                 <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-white/30">
                                                     {selectedSociety.name?.charAt(0) || '?'}
@@ -473,13 +448,7 @@ export default function SocietiesClient() {
                                 >
                                     <div className="relative w-24 h-24">
                                         {selectedSociety.logo_url ? (
-                                            <Image
-                                                src={selectedSociety.logo_url}
-                                                alt={selectedSociety.name}
-                                                fill
-                                                sizes="96px"
-                                                className="object-contain"
-                                            />
+                                            <img src={selectedSociety.logo_url} alt={selectedSociety.name} className="w-full h-full object-contain" />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-gray-300">
                                                 {selectedSociety.name?.charAt(0) || '?'}
@@ -667,12 +636,10 @@ export default function SocietiesClient() {
                                 <div className="overflow-y-auto h-full">
                                     {/* Event Banner - 9:16 aspect ratio */}
                                     <div className="relative bg-gradient-to-br from-ieee-blue to-purple-600">{selectedEvent.banner_url ? (
-                                            <Image
+                                            <img
                                                 src={selectedEvent.banner_url}
                                                 alt={selectedEvent.title}
-                                                fill
-                                                sizes="(max-width: 768px) 100vw, 50vw"
-                                                className="object-cover object-top"
+                                                className="w-full h-full object-cover object-top"
                                             />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center">
