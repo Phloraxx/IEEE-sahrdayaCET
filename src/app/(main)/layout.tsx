@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Press_Start_2P, Inter } from "next/font/google";
+import { Press_Start_2P, Inter, Caveat } from "next/font/google";
 import "../globals.css";
 import { SessionProvider } from "next-auth/react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import JsonLd from "@/components/JsonLd";
+import PageTransitionOverlay from "@/components/PageTransition";
 import { auth } from "@/auth";
 
 const pressStart2P = Press_Start_2P({ 
@@ -17,6 +18,12 @@ const pressStart2P = Press_Start_2P({
 const inter = Inter({ 
   subsets: ["latin"],
   variable: "--font-inter-loaded",
+  display: "swap",
+});
+
+const caveat = Caveat({ 
+  subsets: ["latin"],
+  variable: "--font-caveat-loaded",
   display: "swap",
 });
 
@@ -78,8 +85,9 @@ export default async function MainLayout({
         <link rel="preconnect" href="https://res.cloudinary.com" />
         <link rel="preconnect" href="https://lh3.googleusercontent.com" />
       </head>
-      <body className={`${pressStart2P.variable} ${inter.variable} font-sans antialiased`}>
+      <body className={`${pressStart2P.variable} ${inter.variable} ${caveat.variable} font-sans antialiased`}>
         <SessionProvider session={session}>
+          <PageTransitionOverlay />
           <JsonLd schema={organizationSchema} />
           <JsonLd schema={websiteSchema} />
           {children}

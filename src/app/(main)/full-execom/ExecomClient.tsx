@@ -21,7 +21,7 @@ interface Member {
 }
 
 interface ExecomMemberDoc {
-    $id: string;
+    id: string;
     slNo: number;
     name: string;
     department: string;
@@ -100,7 +100,7 @@ const getShortTitle = (sectionId: string, fullTitle: string): string => {
     return shortMap[sectionId] || fullTitle;
 };
 
-// Transform Appwrite documents to sections array
+    // Transform documents to sections array
 const transformToSections = (documents: ExecomMemberDoc[]): Section[] => {
     const groupedBySectionId: { [key: string]: { title: string; members: Member[] } } = {};
     
@@ -166,6 +166,7 @@ const MemberDetailModal: React.FC<{ member: Member; onClose: () => void }> = ({ 
                     {/* Close Button */}
                     <button
                         onClick={onClose}
+                        aria-label="Close"
                         className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm shadow-lg flex items-center justify-center hover:bg-white transition-all hover:scale-110"
                     >
                         <X className="w-5 h-5 text-gray-600" />
@@ -284,6 +285,9 @@ const MemberCard: React.FC<{ member: Member; index: number; onClick: () => void 
             transition={{ duration: 0.4, delay: index * 0.03 }}
             className="group cursor-pointer"
             onClick={onClick}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
+            role="button"
+            tabIndex={0}
         >
             <div className="relative bg-white border border-gray-100 rounded-2xl overflow-hidden hover:border-gray-200 hover:shadow-xl transition-all duration-500 hover:scale-105">
                 {/* Image */}
@@ -360,7 +364,7 @@ const FullExecom: React.FC = () => {
                 const res = await fetch('/api/execom?limit=100&depth=1').then(r => r.json());
                 const docs = (res.docs || res.execom || []).map((d: Record<string, unknown>) => ({
                     ...d,
-                    $id: (d.id || d.$id) as string,
+                    id: d.id as string,
                     slNo: (d.order !== undefined ? d.order : d.slNo) ?? 0,
                     semester: d.batch || d.semester || '',
                     sectionId: d.sectionId || '',

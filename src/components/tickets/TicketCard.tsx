@@ -2,15 +2,10 @@
 
 import React, { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { 
-    Calendar, 
-    MapPin, 
-    Clock, 
-    Download, 
-    CheckCircle2, 
-    AlertCircle,
-    Ticket
-} from 'lucide-react';
+import { Calendar, MapPin, Clock, Download, Ticket } from 'lucide-react';
+import { generateQRDataUrl, downloadQR as downloadQRFile } from '@/lib/qr';
+import { getTicketStatusInfo } from '@/lib/ticketStatus';
+import { formatDateShort, formatTime } from '@/lib/dates';
 
 interface TicketCardProps {
     ticket: {
@@ -20,16 +15,16 @@ interface TicketCardProps {
         scanned_at?: string;
     } | null;
     event: {
-        id: string;
+        id: string | number;
         title: string;
         date: string;
         venue?: string;
-        banner_url?: string;
+        bannerUrl?: string;
     } | null;
     registration: {
         id: string;
-        payment_status: string;
-        registration_status: string;
+        paymentStatus: string;
+        registrationStatus: string;
     };
     variant?: 'compact' | 'full';
     onViewTicket?: () => void;
@@ -40,20 +35,12 @@ export function TicketCard({ ticket, event, registration, variant = 'compact', o
     const [isGeneratingQR, setIsGeneratingQR] = useState(false);
 
     // Generate QR code
-    const generateQRCode = useCallback(async () => {
+    const generateQR = useCallback(async () => {
         if (!ticket?.id || qrDataUrl) return;
         
         setIsGeneratingQR(true);
         try {
-            const { default: QRCode } = await import('qrcode');
-            const dataUrl = await QRCode.toDataURL(ticket.id, {
-                width: 300,
-                margin: 2,
-                color: {
-                    dark: '#000000',
-                    light: '#FFFFFF',
-                },
-            });
+            const dataUrl = await generateQRDataUrl(ticket.id, { width: 300 });
             setQrDataUrl(dataUrl);
         } catch (error) {
             console.error('Failed to generate QR code:', error);
@@ -65,17 +52,13 @@ export function TicketCard({ ticket, event, registration, variant = 'compact', o
     // Generate QR on mount
     React.useEffect(() => {
         if (ticket?.id) {
-            generateQRCode();
+            generateQR();
         }
-    }, [ticket?.id, generateQRCode]);
+    }, [ticket?.id, generateQR]);
 
-    const downloadQR = () => {
+    const handleDownloadQR = () => {
         if (!qrDataUrl || !event) return;
-        
-        const link = document.createElement('a');
-        link.download = `ticket-${event.title.replace(/\s+/g, '-').toLowerCase()}.png`;
-        link.href = qrDataUrl;
-        link.click();
+        downloadQRFile(qrDataUrl, `ticket-${event.title.replace(/\s+/g, '-').toLowerCase()}.png`);
     };
 
     if (!event) {
@@ -88,43 +71,17 @@ export function TicketCard({ ticket, event, registration, variant = 'compact', o
 
     const eventDate = new Date(event.date);
     const isPast = eventDate < new Date();
-    const isConfirmed = registration.registration_status === 'confirmed';
-    const isCheckedIn = ticket?.is_scanned;
-    const isPending = registration.payment_status === 'pending';
+    const statusKey = ticket?.is_scanned ? 'checked_in' : registration.registrationStatus || registration.paymentStatus;
+    const statusInfo = getTicketStatusInfo(statusKey, isPast);
 
     const getStatusBadge = () => {
-        if (isCheckedIn) {
-            return (
-                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700">
-                    <CheckCircle2 className="w-4 h-4" />
-                    Checked In
-                </span>
-            );
-        }
-        if (isPast) {
-            return (
-                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
-                    Past Event
-                </span>
-            );
-        }
-        if (isPending) {
-            return (
-                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-700">
-                    <AlertCircle className="w-4 h-4" />
-                    Payment Pending
-                </span>
-            );
-        }
-        if (isConfirmed) {
-            return (
-                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-ieee-blue/10 text-ieee-blue">
-                    <Ticket className="w-4 h-4" />
-                    Confirmed
-                </span>
-            );
-        }
-        return null;
+        const StatusIcon = statusInfo.icon;
+        return (
+            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${statusInfo.color}`}>
+                <StatusIcon className="w-4 h-4" />
+                {statusInfo.text}
+            </span>
+        );
     };
 
     if (variant === 'compact') {
@@ -149,7 +106,7 @@ export function TicketCard({ ticket, event, registration, variant = 'compact', o
                                     className="w-24 h-24 rounded-lg bg-white p-1"
                                 />
                                 <button
-                                    onClick={downloadQR}
+                                    onClick={handleDownloadQR}
                                     className="absolute inset-0 bg-black/50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
                                 >
                                     <Download className="w-6 h-6 text-white" />
@@ -175,21 +132,13 @@ export function TicketCard({ ticket, event, registration, variant = 'compact', o
                             <div className="flex items-center gap-2">
                                 <Calendar className="w-4 h-4 text-gray-400" />
                                 <span>
-                                    {eventDate.toLocaleDateString('en-IN', {
-                                        weekday: 'short',
-                                        day: 'numeric',
-                                        month: 'short',
-                                        year: 'numeric',
-                                    })}
+                                    {formatDateShort(event.date)}
                                 </span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <Clock className="w-4 h-4 text-gray-400" />
                                 <span>
-                                    {eventDate.toLocaleTimeString('en-IN', {
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                    })}
+                                    {formatTime(event.date)}
                                 </span>
                             </div>
                             {event.venue && (
@@ -211,7 +160,7 @@ export function TicketCard({ ticket, event, registration, variant = 'compact', o
                             </button>
                             {qrDataUrl && (
                                 <button
-                                    onClick={downloadQR}
+                                    onClick={handleDownloadQR}
                                     className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
                                 >
                                     <Download className="w-4 h-4" />
@@ -292,11 +241,7 @@ export function TicketCard({ ticket, event, registration, variant = 'compact', o
                             <span>Date</span>
                         </div>
                         <p className="font-semibold text-gray-900">
-                            {eventDate.toLocaleDateString('en-IN', {
-                                day: 'numeric',
-                                month: 'short',
-                                year: 'numeric',
-                            })}
+                            {formatDateShort(event.date)}
                         </p>
                     </div>
                     <div className="bg-gray-50 rounded-xl p-4">
@@ -305,10 +250,7 @@ export function TicketCard({ ticket, event, registration, variant = 'compact', o
                             <span>Time</span>
                         </div>
                         <p className="font-semibold text-gray-900">
-                            {eventDate.toLocaleTimeString('en-IN', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                            })}
+                            {formatTime(event.date)}
                         </p>
                     </div>
                 </div>
@@ -326,7 +268,7 @@ export function TicketCard({ ticket, event, registration, variant = 'compact', o
                 {/* Actions */}
                 {qrDataUrl && (
                     <button
-                        onClick={downloadQR}
+                        onClick={handleDownloadQR}
                         className="w-full flex items-center justify-center gap-2 bg-ieee-blue text-white py-3 rounded-xl font-semibold hover:bg-ieee-blue/90 transition-colors"
                     >
                         <Download className="w-5 h-5" />

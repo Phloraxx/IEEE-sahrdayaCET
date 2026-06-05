@@ -2,7 +2,7 @@ import React from 'react'
 
 const Icon: React.FC = () => {
   return (
-    <div style={{ color: 'var(--theme-elevation-800)', height: 24, width: 24 }}>
+    <div style={{ color: '#635bff', height: 24, width: 24 }}>
       <svg width="100%" height="100%" viewBox="110 290 105 80" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M208.638 331.358L208.982 331.721L209.707 331.032L209.362 330.669L209 331.014L208.638 331.358ZM190 311.014L189.638 311.358L208.638 331.358L209 331.014L209.362 330.669L190.362 310.669L190 311.014Z" fill="currentColor"/>
         <circle cx="188.5" cy="308.514" r="3" stroke="currentColor" fill="none"/>

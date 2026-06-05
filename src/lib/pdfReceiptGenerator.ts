@@ -120,9 +120,3 @@ export async function generatePaymentReceipt(data: ReceiptData): Promise<string>
 
   return doc.output('datauristring').split(',')[1]
 }
-
-export function getReceiptFilename(ticketId: string, eventTitle: string): string {
-  const sanitizedTitle = eventTitle.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_').substring(0, 30)
-  const date = new Date().toISOString().split('T')[0]
-  return `Receipt_${sanitizedTitle}_${ticketId}_${date}.pdf`
-}

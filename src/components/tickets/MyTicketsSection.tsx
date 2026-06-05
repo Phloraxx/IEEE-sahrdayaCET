@@ -23,40 +23,35 @@ interface TicketData {
         qr_data?: string;
         is_scanned?: boolean;
         scanned_at?: string;
-        created_at: string;
+        createdAt: string;
     } | null;
     event: {
-        id: string;
+        id: number | string;
         title: string;
         description?: string;
         date: string;
         venue?: string;
         price?: number;
-        banner_url?: string;
-        society_id?: string;
+        bannerUrl?: string;
         status?: string;
     } | null;
     registration: {
         id: string;
-        event_id: string;
-        payment_status: string;
-        registration_status: string;
-        form_data?: Record<string, unknown>;
-        created_at: string;
-        updated_at: string;
+        eventId: string;
+        paymentStatus: string;
+        registrationStatus: string;
+        formResponses?: Record<string, unknown>;
+        createdAt: string;
+        updatedAt: string;
     };
 }
 
 interface MyTicketsResponse {
-    success: boolean;
-    user_id: string;
-    total: number;
-    registrations: {
-        upcoming: TicketData[];
-        pending: TicketData[];
-        past: TicketData[];
-        all: TicketData[];
-    };
+    docs: TicketData[];
+    totalDocs: number;
+    limit: number;
+    page: number;
+    totalPages: number;
 }
 
 type TabType = 'upcoming' | 'pending' | 'past';
@@ -72,15 +67,16 @@ export function MyTicketsSection() {
     const [error, setError] = useState<string | null>(null);
     const [selectedTicket, setSelectedTicket] = useState<TicketData | null>(null);
 
-    const fetchTickets = useCallback(async () => {
+    const fetchTickets = useCallback(async (signal?: AbortSignal) => {
         if (!user) return;
         
         setLoading(true);
         setError(null);
         
         try {
-            const response = await fetch('/api/registrations/my-tickets', {
+            const response = await fetch('/api/registrations?where[user][equals]=me&depth=2&sort=-createdAt', {
                 credentials: 'include',
+                signal,
             });
             
             if (!response.ok) {
@@ -92,28 +88,58 @@ export function MyTicketsSection() {
             }
             
             const data = await response.json();
-            setTickets(data);
+            if (!signal?.aborted) {
+                setTickets(data);
+            }
         } catch (err) {
+            if (err instanceof DOMException && err.name === 'AbortError') return;
             console.error('Failed to fetch tickets:', err);
-            setError('Failed to load your tickets');
+            if (!signal?.aborted) {
+                setError('Failed to load your tickets');
+            }
         } finally {
-            setLoading(false);
+            if (!signal?.aborted) {
+                setLoading(false);
+            }
         }
     }, [user]);
 
     useEffect(() => {
         if (isOpen && user) {
-            fetchTickets();
+            const controller = new AbortController();
+            fetchTickets(controller.signal);
+            return () => controller.abort();
         }
     }, [isOpen, user, fetchTickets]);
 
+    // Categorize tickets from flat docs array
+    const categorizeTickets = (docs: TicketData[]) => {
+        const now = new Date();
+        const upcoming: TicketData[] = [];
+        const pending: TicketData[] = [];
+        const past: TicketData[] = [];
+        for (const item of docs) {
+            const eventDate = item.event ? new Date(item.event.date) : new Date();
+            if (item.registration.paymentStatus === 'pending') {
+                pending.push(item);
+            } else if (eventDate >= now) {
+                upcoming.push(item);
+            } else {
+                past.push(item);
+            }
+        }
+        return { upcoming, pending, past, all: docs };
+    };
+
+    const categorized = categorizeTickets(tickets?.docs || []);
+
     const tabs: { key: TabType; label: string; count: number }[] = [
-        { key: 'upcoming', label: 'Upcoming', count: tickets?.registrations.upcoming.length || 0 },
-        { key: 'pending', label: 'Pending', count: tickets?.registrations.pending.length || 0 },
-        { key: 'past', label: 'Past', count: tickets?.registrations.past.length || 0 },
+        { key: 'upcoming', label: 'Upcoming', count: categorized.upcoming.length },
+        { key: 'pending', label: 'Pending', count: categorized.pending.length },
+        { key: 'past', label: 'Past', count: categorized.past.length },
     ];
 
-    const currentTickets = tickets?.registrations[activeTab] || [];
+    const currentTickets = categorized[activeTab] || [];
 
     // Don't show button if not logged in
     if (authLoading || !user) {
@@ -134,9 +160,9 @@ export function MyTicketsSection() {
             >
                 <Ticket className="w-6 h-6" />
                 <span className="font-semibold">My Tickets</span>
-                {tickets && tickets.total > 0 && (
+                {tickets && tickets.totalDocs > 0 && (
                     <span className="bg-white/20 px-2 py-0.5 rounded-full text-sm">
-                        {tickets.total}
+                        {tickets.totalDocs}
                     </span>
                 )}
             </motion.button>
@@ -179,6 +205,7 @@ export function MyTicketsSection() {
                                     </div>
                                     <button
                                         onClick={() => setIsOpen(false)}
+                                        aria-label="Close tickets panel"
                                         className="p-2.5 hover:bg-white/20 active:bg-white/30 rounded-[14px] transition-all duration-200 hover:scale-105 active:scale-95"
                                     >
                                         <X className="w-5 h-5" />
@@ -223,7 +250,7 @@ export function MyTicketsSection() {
                                         <AlertCircle className="w-12 h-12 text-red-400 mb-4" />
                                         <p className="text-gray-600">{error}</p>
                                         <button
-                                            onClick={fetchTickets}
+                                            onClick={() => fetchTickets()}
                                             className="mt-4 px-4 py-2 bg-ieee-blue text-white rounded-lg text-sm font-medium hover:bg-ieee-blue/90 transition-colors"
                                         >
                                             Try Again
@@ -286,10 +313,10 @@ export function MyTicketsSection() {
                             </div>
 
                             {/* Footer */}
-                            {tickets && tickets.total > 0 && (
+                            {tickets && tickets.totalDocs > 0 && (
                                 <div className="shrink-0 p-4 border-t border-gray-200 bg-gray-50">
                                     <div className="flex items-center justify-between text-sm text-gray-600">
-                                        <span>Total registrations: {tickets.total}</span>
+                                        <span>Total registrations: {tickets.totalDocs}</span>
                                         <Link
                                             href="/profile/tickets"
                                             className="flex items-center gap-1 text-ieee-blue font-medium hover:underline"
@@ -355,21 +382,20 @@ export function MyTicketsSection() {
                                         userName: user?.name || '',
                                         userEmail: user?.email || '',
                                         registrationId: selectedTicket.registration.id,
-                                        status: selectedTicket.registration.registration_status as RegistrationTicket['status'],
+                                        status: selectedTicket.registration.registrationStatus as RegistrationTicket['status'],
                                         qrCodeData: selectedTicket.ticket?.id || selectedTicket.registration.id,
-                                        createdAt: selectedTicket.ticket?.created_at || selectedTicket.registration.created_at,
+                                        createdAt: selectedTicket.ticket?.createdAt || selectedTicket.registration.createdAt,
                                     }}
                                     event={{
-                                        $id: selectedTicket.event.id,
-                                        $createdAt: selectedTicket.registration.created_at,
-                                        $updatedAt: selectedTicket.registration.updated_at,
+                                        id: Number(selectedTicket.event.id),
+                                        createdAt: selectedTicket.registration.createdAt,
+                                        updatedAt: selectedTicket.registration.updatedAt,
                                         title: selectedTicket.event.title,
                                         description: selectedTicket.event.description,
                                         date: selectedTicket.event.date,
                                         venue: selectedTicket.event.venue,
                                         price: selectedTicket.event.price || 0,
-                                        banner_url: selectedTicket.event.banner_url,
-                                        society_id: selectedTicket.event.society_id || '',
+                                        bannerUrl: selectedTicket.event.bannerUrl,
                                         status: (selectedTicket.event.status as AppEvent['status']) || 'published',
                                     }}
                                     onClose={() => setSelectedTicket(null)}

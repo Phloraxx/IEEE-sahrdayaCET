@@ -185,14 +185,13 @@ export interface User {
   foodPreference?: string | null;
   residence?: string | null;
   profileCompleted?: boolean | null;
-  role: 'user' | 'admin';
+  role: 'user' | 'chair' | 'admin';
   teams?:
     | {
         team?: string | null;
         id?: string | null;
       }[]
     | null;
-  appwriteUserId?: string | null;
   accounts?:
     | {
         provider: string;
@@ -215,9 +214,7 @@ export interface Society {
   slug: string;
   bio?: string | null;
   logo?: (number | null) | Media;
-  logoUrl?: string | null;
   banner?: (number | null) | Media;
-  bannerUrl?: string | null;
   isHidden?: boolean | null;
   displayOrder?: number | null;
   chairs?: (string | User)[] | null;
@@ -234,7 +231,6 @@ export interface Execom {
   position: string;
   society?: (number | null) | Society;
   photo?: (number | null) | Media;
-  photoUrl?: string | null;
   sectionId?: string | null;
   order?: number | null;
   batch?: string | null;
@@ -260,6 +256,9 @@ export interface Event {
   price: number;
   society: number | Society;
   banner?: (number | null) | Media;
+  /**
+   * External URL for banner (used if no upload)
+   */
   bannerUrl?: string | null;
   status?: ('draft' | 'published' | 'archived' | 'completed' | 'cancelled') | null;
   maxCapacity?: number | null;
@@ -353,13 +352,13 @@ export interface Registration {
     | number
     | boolean
     | null;
-  paymentStatus?: ('pending' | 'paid' | 'completed' | 'failed' | 'refunded' | 'not_required') | null;
+  paymentStatus?: ('pending' | 'paid' | 'failed' | 'refunded' | 'not_required') | null;
   paymentAmount?: number | null;
   paymentTicketId?: string | null;
   registrationStatus?: ('pending' | 'confirmed' | 'cancelled' | 'expired') | null;
   registrationDate?: string | null;
   /**
-   * Embedded ticket data: { ticket_id, ticket_code, qr_code, is_scanned, issued_at }
+   * Embedded ticket data: { ticket_id, ticket_code, qr_code, is_scanned }
    */
   ticket?:
     | {
@@ -598,7 +597,6 @@ export interface UsersSelect<T extends boolean = true> {
         team?: T;
         id?: T;
       };
-  appwriteUserId?: T;
   accounts?:
     | T
     | {
@@ -619,9 +617,7 @@ export interface SocietiesSelect<T extends boolean = true> {
   slug?: T;
   bio?: T;
   logo?: T;
-  logoUrl?: T;
   banner?: T;
-  bannerUrl?: T;
   isHidden?: T;
   displayOrder?: T;
   chairs?: T;
@@ -637,7 +633,6 @@ export interface ExecomSelect<T extends boolean = true> {
   position?: T;
   society?: T;
   photo?: T;
-  photoUrl?: T;
   sectionId?: T;
   order?: T;
   batch?: T;

@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useForm, UseFormRegister } from 'react-hook-form';
 import { z } from 'zod';
 import { Loader2, User, Mail, Phone, BookOpen, Building2, Users, Hash, AlertCircle } from 'lucide-react';
-import { Event, Society } from '@/types';
+import { Event } from '@/types';
+import { formatDateShort } from '@/lib/dates';
 import { 
     FormTemplate,
     RegistrationData, 
@@ -15,7 +16,7 @@ import {
 } from '@/types/registration';
 
 interface DynamicRegistrationFormProps {
-    event: Event & { society?: Society };
+    event: Event;
     template: FormTemplate | null;
     onSubmit: (data: RegistrationData) => void;
     isLoading: boolean;
@@ -378,7 +379,6 @@ export default function DynamicRegistrationForm({
         register: _register,
         handleSubmit,
         formState: { errors },
-        control,
     } = useForm({
         defaultValues: {
             name: initialData?.name || '',
@@ -446,11 +446,7 @@ export default function DynamicRegistrationForm({
                         </h3>
                         <p className="text-[13px] text-gray-300 mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                             <span className="flex items-center gap-1 relative before:absolute before:-left-1.5 before:top-1/2 before:-translate-y-1/2 before:w-1 before:h-1 before:bg-ieee-light-blue before:rounded-full pl-2">
-                                {new Date(event.date).toLocaleDateString('en-US', {
-                                    weekday: 'short',
-                                    month: 'short',
-                                    day: 'numeric',
-                                })}
+                                {formatDateShort(event.date)}
                             </span>
                             {event.venue && (
                                 <span className="flex items-center gap-1 relative before:absolute before:-left-1.5 before:top-1/2 before:-translate-y-1/2 before:w-1 before:h-1 before:bg-gray-500 before:rounded-full pl-2 text-gray-400">
@@ -705,9 +701,9 @@ export default function DynamicRegistrationForm({
             </motion.button>
 
             {/* Capacity Warning */}
-            {event.max_capacity && (
+            {event.maxCapacity && (
                 <p className="text-[12px] font-medium text-center text-gray-400 uppercase tracking-wider mt-4">
-                    Limited spots: {event.max_capacity} participants max
+                    Limited spots: {event.maxCapacity} participants max
                 </p>
             )}
         </form>

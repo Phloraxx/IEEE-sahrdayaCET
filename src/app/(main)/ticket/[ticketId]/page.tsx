@@ -2,20 +2,13 @@
 
 import React, { useState, useEffect, use } from 'react';
 import { motion } from 'framer-motion';
-import { 
-    Calendar, 
-    MapPin, 
-    Clock, 
-    Download,
-    AlertCircle,
-    Ticket,
-    ArrowLeft,
-    Loader2,
-    ExternalLink
-} from 'lucide-react';
+import { Calendar, MapPin, Clock, Download, ArrowLeft, Loader2, ExternalLink, AlertCircle, Ticket } from 'lucide-react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import { generateQRDataUrl, downloadQR as downloadQRFile } from '@/lib/qr';
+import { getTicketStatusInfo } from '@/lib/ticketStatus';
+import { formatDateShort, formatTime } from '@/lib/dates';
 
 interface TicketData {
     ticket: {
@@ -23,7 +16,7 @@ interface TicketData {
         qr_data?: string;
         is_scanned: boolean;
         scanned_at?: string;
-        created_at: string;
+        createdAt: string;
     } | null;
     event: {
         id: string;
@@ -31,14 +24,13 @@ interface TicketData {
         description?: string;
         date: string;
         venue?: string;
-        banner_url?: string;
-        society_id?: string;
+        bannerUrl?: string;
     } | null;
     registration: {
         id: string;
-        payment_status: string;
-        registration_status: string;
-        form_data?: Record<string, unknown>;
+        paymentStatus: string;
+        registrationStatus: string;
+        formResponses?: Record<string, unknown>;
     };
 }
 
@@ -59,31 +51,43 @@ export default function TicketPage({ params }: PageProps) {
                 setLoading(true);
                 setError(null);
 
-                const response = await fetch(`/api/ticket/${ticketId}`);
+                const response = await fetch(`/api/registrations?where[ticket][ticket_id][equals]=${ticketId}&depth=2&limit=1`);
                 
                 if (!response.ok) {
-                    if (response.status === 404) {
-                        setError('Ticket not found');
-                    } else {
-                        setError('Failed to load ticket');
-                    }
+                    setError('Failed to load ticket');
                     return;
                 }
 
                 const data = await response.json();
-                setTicketData(data);
+                const reg = data.docs?.[0];
+                if (!reg) {
+                    setError('Ticket not found');
+                    return;
+                }
+
+                const eventData = typeof reg.event === 'object' ? reg.event : null;
+
+                setTicketData({
+                    ticket: reg.ticket || null,
+                    event: eventData ? {
+                        id: String(eventData.id),
+                        title: eventData.title,
+                        description: eventData.description,
+                        date: eventData.date,
+                        venue: eventData.venue,
+                        bannerUrl: eventData.bannerUrl || (typeof eventData.banner === 'object' ? eventData.banner?.url : undefined),
+                    } : null,
+                    registration: {
+                        id: String(reg.id),
+                        paymentStatus: reg.paymentStatus || 'pending',
+                        registrationStatus: reg.registrationStatus || 'pending',
+                        formResponses: reg.formResponses,
+                    },
+                });
 
                 // Generate QR code
                 const ticketUrl = `${window.location.origin}/ticket/${ticketId}`;
-                const QRCode = await import('qrcode').then(m => m.default);
-                const qr = await QRCode.toDataURL(ticketUrl, {
-                    width: 400,
-                    margin: 2,
-                    color: {
-                        dark: '#000000',
-                        light: '#FFFFFF',
-                    },
-                });
+                const qr = await generateQRDataUrl(ticketUrl);
                 setQrDataUrl(qr);
             } catch (err) {
                 console.error('Failed to fetch ticket:', err);
@@ -96,12 +100,9 @@ export default function TicketPage({ params }: PageProps) {
         fetchTicket();
     }, [ticketId]);
 
-    const downloadQR = () => {
+    const handleDownloadQR = () => {
         if (!qrDataUrl || !event) return;
-        const link = document.createElement('a');
-        link.download = `ticket-${event.title.replace(/\s+/g, '-').toLowerCase()}.png`;
-        link.href = qrDataUrl;
-        link.click();
+        downloadQRFile(qrDataUrl, `ticket-${event.title.replace(/\s+/g, '-').toLowerCase()}.png`);
     };
 
     const downloadCalendarFile = () => {
@@ -191,43 +192,9 @@ export default function TicketPage({ params }: PageProps) {
     const { ticket, event, registration } = ticketData;
     const eventDate = event ? new Date(event.date) : new Date();
     const isPast = eventDate < new Date();
-    const isConfirmed = registration.registration_status === 'confirmed';
-    const isPending = registration.payment_status === 'pending';
-
-    const getStatusInfo = () => {
-        if (isPast) {
-            return {
-                icon: Clock,
-                text: 'Past Event',
-                color: 'bg-gray-100 text-gray-600 border-gray-200',
-                description: 'This event has already concluded',
-            };
-        }
-        if (isPending) {
-            return {
-                icon: AlertCircle,
-                text: 'Payment Pending',
-                color: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-                description: 'Complete your payment to confirm registration',
-            };
-        }
-        if (isConfirmed) {
-            return {
-                icon: Ticket,
-                text: 'Confirmed',
-                color: 'bg-ieee-blue/10 text-ieee-blue border-ieee-blue/20',
-                description: 'Use this QR at each check-in point during the event',
-            };
-        }
-        return {
-            icon: AlertCircle,
-            text: 'Unknown Status',
-            color: 'bg-gray-100 text-gray-600 border-gray-200',
-            description: '',
-        };
-    };
-
-    const status = getStatusInfo();
+    const isConfirmed = registration.registrationStatus === 'confirmed';
+    const isPending = registration.paymentStatus === 'pending';
+    const status = getTicketStatusInfo(registration.registrationStatus || registration.paymentStatus, isPast);
     const StatusIcon = status.icon;
 
     return (
@@ -318,12 +285,7 @@ export default function TicketPage({ params }: PageProps) {
                                         <span>Date</span>
                                     </div>
                                     <p className="font-semibold text-gray-900">
-                                        {eventDate.toLocaleDateString('en-IN', {
-                                            weekday: 'short',
-                                            day: 'numeric',
-                                            month: 'short',
-                                            year: 'numeric',
-                                        })}
+                                        {event && formatDateShort(event.date)}
                                     </p>
                                 </div>
                                 <div className="bg-gray-50 rounded-xl p-4">
@@ -332,10 +294,7 @@ export default function TicketPage({ params }: PageProps) {
                                         <span>Time</span>
                                     </div>
                                     <p className="font-semibold text-gray-900">
-                                        {eventDate.toLocaleTimeString('en-IN', {
-                                            hour: '2-digit',
-                                            minute: '2-digit',
-                                        })}
+                                        {event && formatTime(event.date)}
                                     </p>
                                 </div>
                             </div>
@@ -353,7 +312,7 @@ export default function TicketPage({ params }: PageProps) {
                             {/* Action Buttons */}
                             <div className="grid grid-cols-2 gap-3 pt-2">
                                 <button
-                                    onClick={downloadQR}
+                                    onClick={handleDownloadQR}
                                     disabled={!qrDataUrl || !isConfirmed || isPending}
                                     className="flex items-center justify-center gap-2 bg-ieee-blue text-white py-3.5 rounded-xl font-semibold hover:bg-ieee-blue/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >

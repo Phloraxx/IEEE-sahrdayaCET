@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import TransitionLink from '@/components/PageTransition/TransitionLink';
 import {
     Grid,
@@ -12,16 +13,8 @@ import {
     Loader2
 } from 'lucide-react';
 import { SocietyStrip } from './SocietyStrip';
-
-interface LatestEvent {
-    id: string;
-    title: string;
-    shortTitle?: string;
-    description: string;
-    date: string;
-    banner_url?: string;
-    tag?: string;
-}
+import type { LatestEvent } from '@/types';
+import { formatDay, formatMonth, formatHour12, formatAMPM } from '@/lib/dates';
 
 export const WhatsHappening: React.FC = () => {
     const [latestEvent, setLatestEvent] = useState<LatestEvent | null>(null);
@@ -30,7 +23,6 @@ export const WhatsHappening: React.FC = () => {
     useEffect(() => {
         async function fetchLatestEvent() {
             try {
-                const now = new Date().toISOString();
                 const response = await fetch(`/api/events?where[status][equals]=published&sort=date&limit=1&depth=1`);
                 
                 if (!response.ok) throw new Error('Failed to fetch events');
@@ -41,12 +33,12 @@ export const WhatsHappening: React.FC = () => {
                 if (docs.length > 0) {
                     const event = docs[0];
                     setLatestEvent({
-                        id: event.id || event.$id,
+                        id: Number(event.id),
                         title: event.title as string,
                         shortTitle: (event.short_title as string) || undefined,
                         description: (event.description as string) || 'Join us for this exciting IEEE event!',
                         date: event.date as string,
-                        banner_url: (event.bannerUrl as string) || ((event.banner as Record<string, unknown>)?.url as string) || undefined,
+                        bannerUrl: (event.bannerUrl as string) || ((event.banner as Record<string, unknown>)?.url as string) || undefined,
                         tag: (event.event_type as string) || 'UPCOMING EVENT'
                     });
                 }
@@ -62,12 +54,11 @@ export const WhatsHappening: React.FC = () => {
 
     // Format date parts for display
     const getDateParts = (dateString: string) => {
-        const date = new Date(dateString);
         return {
-            day: date.getDate().toString().padStart(2, '0'),
-            month: date.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(),
-            hour: date.toLocaleTimeString('en-US', { hour: '2-digit', hour12: true }).split(' ')[0],
-            ampm: date.toLocaleTimeString('en-US', { hour: '2-digit', hour12: true }).split(' ')[1]
+            day: formatDay(dateString),
+            month: formatMonth(dateString),
+            hour: formatHour12(dateString),
+            ampm: formatAMPM(dateString)
         };
     };
 
@@ -89,10 +80,13 @@ export const WhatsHappening: React.FC = () => {
                         {loading ? (
                             <div className="w-full h-full bg-gray-200 animate-pulse" />
                         ) : (
-                            <img
+                            <Image
                                 alt={latestEvent?.title || "Upcoming Event"}
-                                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                                src="/AGM.webp"
+                                className="object-cover transition-transform duration-700 group-hover:scale-105"
+                                src={latestEvent?.bannerUrl || "/AGM.webp"}
+                                fill
+                                sizes="(max-width: 768px) 100vw, 50vw"
+                                unoptimized
                             />
                         )}
                     </div>
@@ -111,7 +105,7 @@ export const WhatsHappening: React.FC = () => {
                                     {latestEvent.shortTitle || latestEvent.title.split(' ').slice(0, 4).join(' ')}
                                 </h2>
                                 <p className="text-gray-200 text-sm md:text-base mb-6 max-w-md line-clamp-3">
-                                    {latestEvent.description}
+                                    {latestEvent.description || 'Join us for this exciting IEEE event!'}
                                 </p>
 
                                 <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-6">

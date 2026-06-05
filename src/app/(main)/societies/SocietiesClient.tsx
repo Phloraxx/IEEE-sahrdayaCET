@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Image from 'next/image';
 
 import { Society, Event } from '@/types';
 import Navbar from '@/components/Navbar';
@@ -12,6 +13,12 @@ import { Loader2, X, Edit, Calendar, Users, Award, LogIn } from 'lucide-react';
 import { useSession, signIn } from 'next-auth/react';
 import EventCard from '@/components/EventCard';
 import Footer from '@/components/Footer';
+import dynamic from 'next/dynamic';
+
+const EventRegistrationModal = dynamic(
+    () => import('@/components/EventRegistrationModal'),
+    { ssr: false, loading: () => null }
+);
 
 interface ExecomMember {
     slNo: number;
@@ -41,11 +48,13 @@ const MemberCard = React.memo(({ member, idx }: { member: ExecomMember; idx: num
             {/* Member Photo */}
             <div className="relative aspect-[4/5] bg-gray-100 overflow-hidden">
                 {imageSrc && !imgError ? (
-                    <img
+                    <Image
                         src={imageSrc}
                         alt={member.name}
-                        className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
+                        fill
+                        className="object-cover object-top group-hover:scale-105 transition-transform duration-300"
                         onError={() => setImgError(true)}
+                        unoptimized
                     />
                 ) : (
                     <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
@@ -92,6 +101,8 @@ export default function SocietiesClient() {
     const [isRegisteringEvent, setIsRegisteringEvent] = useState(false);
     const [eventActionError, setEventActionError] = useState<string | null>(null);
     const [scrollPosition, setScrollPosition] = useState(0);
+    const [registrationEvent, setRegistrationEvent] = useState<Event | null>(null);
+    const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false);
     const { data: session } = useSession();
     const user = session?.user;
 
@@ -105,9 +116,8 @@ export default function SocietiesClient() {
             const data = await res.json();
             const docs = (data.docs || []).map((d: Record<string, unknown>) => ({
                 ...d,
-                $id: d.id as string,
-                id: d.id as number,
-                logo_url: (d.logoUrl as string) || ((d.logo as Record<string, unknown>)?.url as string) || (d.logo_url as string),
+                id: d.id as string,
+                logoUrl: (d.logoUrl as string) || ((d.logo as Record<string, unknown>)?.url as string),
             }));
             setSocieties(docs as unknown as Society[]);
         } catch (err: unknown) {
@@ -121,12 +131,12 @@ export default function SocietiesClient() {
     const fetchSocietyEvents = async (societyId: string) => {
         setLoadingEvents(true);
         try {
-            const eventsRes = await fetch(`/api/events?where[society][equals]=${societyId}&sort=-date&limit=10`);
+            const eventsRes = await fetch(`/api/events?where[society][equals]=${societyId}&sort=-date&limit=10&depth=1`);
             const eventsData = await eventsRes.json();
             const eventsDocs = (eventsData.docs || []).map((e: Record<string, unknown>) => ({
                 ...e,
-                $id: e.id as string,
-                banner_url: (e.bannerUrl as string) || ((e.banner as Record<string, unknown>)?.url as string) || (e.banner_url as string),
+                id: e.id as string,
+                bannerUrl: (e.bannerUrl as string) || ((e.banner as Record<string, unknown>)?.url as string),
             }));
             const events = (eventsDocs as unknown as Event[])
                 .filter(event => 
@@ -143,7 +153,7 @@ export default function SocietiesClient() {
     const fetchSocietyMembers = async (societySlug: string) => {
         setLoadingMembers(true);
         try {
-            const membersRes = await fetch(`/api/execom?where[sectionId][equals]=${societySlug}&sort=order&limit=50`);
+            const membersRes = await fetch(`/api/execom?where[sectionId][equals]=${societySlug}&sort=order&limit=50&depth=1`);
             const membersData = await membersRes.json();
             const membersDocs = membersData.docs || [];
             const members = membersDocs.map((doc: any) => ({
@@ -152,7 +162,7 @@ export default function SocietiesClient() {
                 department: doc.department || '',
                 semester: doc.batch || doc.semester || '',
                 position: doc.position || '',
-                photoUrl: (doc.photoUrl as string) || '',
+                photoUrl: (doc.photoUrl as string) || ((doc.photo as Record<string, unknown>)?.url as string) || '',
                 linkedin: doc.linkedin || '',
                 instagram: doc.instagram || '',
                 email: doc.email || '',
@@ -170,7 +180,7 @@ export default function SocietiesClient() {
     const handleSocietyClick = (society: Society) => {
         setSelectedSociety(society);
         setEventActionError(null);
-        fetchSocietyEvents(String(society.id ?? society.$id));
+        fetchSocietyEvents(String(society.id));
         fetchSocietyMembers(society.slug);
     };
 
@@ -182,26 +192,13 @@ export default function SocietiesClient() {
         if (!selectedEvent) return;
         setEventActionError(null);
 
-        if (!selectedEvent.registration_url) {
-            setEventActionError('Registration link will be added soon.');
-            return;
-        }
-
         if (!user) {
             signIn('google');
             return;
         }
 
-        setIsRegisteringEvent(true);
-
-        try {
-            window.open(selectedEvent.registration_url, '_blank', 'noopener,noreferrer');
-        } catch (err) {
-            console.error('Event registration failed:', err);
-            setEventActionError('Could not complete registration. Please try again.');
-        } finally {
-            setIsRegisteringEvent(false);
-        }
+        setRegistrationEvent(selectedEvent);
+        setIsRegistrationModalOpen(true);
     };
 
     const isChair = false;
@@ -309,7 +306,7 @@ export default function SocietiesClient() {
                         >
                             {societies.map((society) => (
                                 <motion.div
-                                    key={society.id ?? society.$id}
+                                    key={society.id}
                                     variants={{
                                         hidden: { opacity: 0, scale: 0.8, y: 20 },
                                         visible: { 
@@ -340,12 +337,12 @@ export default function SocietiesClient() {
                                         {/* Logo Container */}
                                          <div className="relative aspect-square p-6">
                                             <motion.div
-                                                className="w-full h-full flex items-center justify-center"
+                                                className="relative w-full h-full flex items-center justify-center"
                                                 whileHover={{ rotate: [0, -5, 5, 0] }}
                                                 transition={{ duration: 0.5 }}
                                             >
-                                                {society.logo_url ? (
-                                                <img src={society.logo_url} alt={society.name} className="max-w-full max-h-full object-contain" />
+                                                {society.logoUrl ? (
+                                                <Image src={society.logoUrl} alt={society.name} fill className="object-contain" unoptimized />
                                             ) : (
                                                 <div className="w-full h-full flex items-center justify-center">
                                                     <span className="text-4xl font-bold text-gray-300">
@@ -422,13 +419,13 @@ export default function SocietiesClient() {
 
                             {/* Banner */}
                             <div className="relative h-64 bg-gradient-to-br from-ieee-blue to-purple-600 overflow-hidden">
-                                {selectedSociety.banner_url ? (
-                                    <img src={selectedSociety.banner_url} alt={selectedSociety.name} className="w-full h-full object-cover" />
+                                {selectedSociety.bannerUrl ? (
+                                    <Image src={selectedSociety.bannerUrl} alt={selectedSociety.name} fill className="object-cover" unoptimized />
                                 ) : (
                                     <div className="absolute inset-0 flex items-center justify-center">
                                         <div className="relative w-32 h-32 opacity-20">
-                                            {selectedSociety.logo_url ? (
-                                                <img src={selectedSociety.logo_url} alt={selectedSociety.name} className="w-full h-full object-contain" />
+                                            {selectedSociety.logoUrl ? (
+                                                <Image src={selectedSociety.logoUrl} alt={selectedSociety.name} fill className="object-contain" unoptimized />
                                             ) : (
                                                 <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-white/30">
                                                     {selectedSociety.name?.charAt(0) || '?'}
@@ -452,8 +449,8 @@ export default function SocietiesClient() {
                                     className="inline-block bg-white rounded-2xl p-4 shadow-2xl border-4 border-white mb-6"
                                 >
                                     <div className="relative w-24 h-24">
-                                        {selectedSociety.logo_url ? (
-                                            <img src={selectedSociety.logo_url} alt={selectedSociety.name} className="w-full h-full object-contain" />
+                                        {selectedSociety.logoUrl ? (
+                                            <Image src={selectedSociety.logoUrl} alt={selectedSociety.name} fill className="object-contain" unoptimized />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-gray-300">
                                                 {selectedSociety.name?.charAt(0) || '?'}
@@ -556,7 +553,7 @@ export default function SocietiesClient() {
                                                 >
                                                     {societyEvents.map((event, idx) => (
                                                         <EventCard 
-                                                            key={event.id ?? event.$id}
+                                                            key={event.id}
                                                             event={event}
                                                             variant="compact"
                                                             onClick={(selected) => {
@@ -640,11 +637,13 @@ export default function SocietiesClient() {
                                 {/* Scrollable Content */}
                                 <div className="overflow-y-auto h-full">
                                     {/* Event Banner - 9:16 aspect ratio */}
-                                    <div className="relative bg-gradient-to-br from-ieee-blue to-purple-600">{selectedEvent.banner_url ? (
-                                            <img
-                                                src={selectedEvent.banner_url}
+                                    <div className="relative bg-gradient-to-br from-ieee-blue to-purple-600">{selectedEvent.bannerUrl ? (
+                                            <Image
+                                                src={selectedEvent.bannerUrl}
                                                 alt={selectedEvent.title}
-                                                className="w-full h-full object-cover object-top"
+                                                fill
+                                                className="object-cover object-top"
+                                                unoptimized
                                             />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center">
@@ -662,7 +661,7 @@ export default function SocietiesClient() {
                                                 selectedEvent.status === 'published' ? 'bg-blue-500 text-white' :
                                                 'bg-gray-500 text-white'
                                             }`}>
-                                                {selectedEvent.status.toUpperCase()}
+                                                {(selectedEvent.status || 'draft').toUpperCase()}
                                             </span>
                                         </div>
                                     </div>
@@ -702,10 +701,10 @@ export default function SocietiesClient() {
                                                 </div>
                                             )}
 
-                                            {selectedEvent.max_capacity !== undefined && selectedEvent.max_capacity > 0 && (
+                                            {selectedEvent.maxCapacity !== undefined && selectedEvent.maxCapacity > 0 && (
                                                 <div className="flex items-center gap-2 text-gray-700">
                                                     <Users className="w-5 h-5 text-ieee-blue" />
-                                                    <span className="font-semibold">{selectedEvent.max_capacity} seats</span>
+                                                    <span className="font-semibold">{selectedEvent.maxCapacity} seats</span>
                                                 </div>
                                             )}
                                         </div>
@@ -746,6 +745,18 @@ export default function SocietiesClient() {
                     </>
                 )}
             </AnimatePresence>
+
+            {/* Event Registration Modal */}
+            {registrationEvent && (
+                <EventRegistrationModal
+                    isOpen={isRegistrationModalOpen}
+                    onClose={() => {
+                        setIsRegistrationModalOpen(false);
+                        setRegistrationEvent(null);
+                    }}
+                    event={registrationEvent}
+                />
+            )}
         </div>
     );
 }

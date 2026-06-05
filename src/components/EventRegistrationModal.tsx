@@ -12,38 +12,18 @@ import {
     FormTemplate,
     RegistrationData
 } from '@/types/registration';
+import type { Event as AppEvent } from '@/types';
+import { apiFetch, buildPayloadQuery } from '@/lib/api';
 import DynamicRegistrationForm from './DynamicRegistrationForm';
 import PaymentModal, { PaymentData } from './PaymentModal';
 import TicketDisplay from './TicketDisplay';
+import GoogleLoginButton from './GoogleLoginButton';
 import toast from 'react-hot-toast';
 
 interface EventRegistrationModalProps {
-    event: (Event & { society?: Society }) | null;
+    event: AppEvent | null;
     isOpen: boolean;
     onClose: () => void;
-}
-
-interface Event {
-    $id: string;
-    $createdAt: string;
-    $updatedAt: string;
-    title: string;
-    description?: string;
-    date: string;
-    venue?: string;
-    price: number;
-    banner_url?: string;
-    society_id?: string;
-    status: string;
-    registration_open?: boolean;
-    max_capacity?: number;
-}
-
-interface Society {
-    $id: string;
-    name: string;
-    slug: string;
-    logo_url: string;
 }
 
 // Step indicator component
@@ -167,26 +147,11 @@ const AuthStep: React.FC<{
                 Sign in with your Google account to secure your spot for this event.
             </p>
 
-            <button
-                onClick={onLogin}
-                disabled={isLoading}
-                className="group relative w-full max-w-[320px] bg-white text-gray-700 font-medium py-4 px-6 rounded-[24px] transition-all duration-300 flex items-center justify-center gap-4 disabled:opacity-60 disabled:cursor-not-allowed shadow-[0_2px_12px_-4px_rgba(0,0,0,0.08),0_1px_3px_0_rgba(0,0,0,0.04)] hover:shadow-[0_12px_24px_-8px_rgba(0,0,0,0.12),0_4px_8px_-2px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 border border-gray-100 overflow-hidden"
-            >
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-gray-50/50 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out" />
-                {isLoading ? (
-                    <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
-                ) : (
-                    <>
-                        <svg className="w-[22px] h-[22px] flex-shrink-0" viewBox="0 0 24 24">
-                            <path fill="#EA4335" d="M12.0001 4.75C13.7711 4.75 15.3551 5.36002 16.6061 6.54998L20.0301 3.126C17.9501 1.19 15.2341 0 12.0001 0C7.30907 0 3.25507 2.69 1.23907 6.65002L5.26607 9.765C6.20807 6.75 9.04907 4.75 12.0001 4.75Z" />
-                            <path fill="#34A853" d="M23.4901 12.275C23.4901 11.411 23.4151 10.525 23.2651 9.67505H12.0001V14.4H18.4351C18.1581 15.939 17.2651 17.258 15.9001 18.175V21.192H19.7701C22.0351 19.106 23.4901 15.968 23.4901 12.275Z" />
-                            <path fill="#4A90E2" d="M5.26508 14.235C5.02508 13.504 4.88208 12.721 4.88208 11.906C4.88208 11.091 5.02508 10.308 5.26508 9.57703L1.23908 6.462C0.450085 8.046 0.00012207 9.87103 0.00012207 11.906C0.00012207 13.941 0.450085 15.766 1.23908 17.35L5.26508 14.235Z" />
-                            <path fill="#FBBC05" d="M12.0001 24.0001C15.2391 24.0001 17.9651 22.935 19.7701 21.192L15.9001 18.175C14.9251 18.828 13.5851 19.2501 12.0001 19.2501C9.04907 19.2501 6.20807 17.25 5.26607 14.235L1.23907 17.35C3.25507 21.31 7.30907 24.0001 12.0001 24.0001Z" />
-                        </svg>
-                        <span className="font-semibold text-[15px] tracking-tight">Continue with Google</span>
-                    </>
-                )}
-            </button>
+            <GoogleLoginButton
+                variant="full-width"
+                className="max-w-[320px]"
+                onLogin={onLogin}
+            />
             <p className="mt-8 text-[12px] text-gray-400 font-medium tracking-wide">
                 Secured by IEEE Student Branch
             </p>
@@ -216,7 +181,7 @@ export default function EventRegistrationModal({
 
     const isPaidEvent = event ? event.price > 0 : false;
 
-    const getDefaultTemplate = (eventId: string): FormTemplate => ({
+    const getDefaultTemplate = (eventId: number): FormTemplate => ({
         eventId,
         title: 'Registration Form',
         fields: [],
@@ -232,79 +197,94 @@ export default function EventRegistrationModal({
         customQuestions: [],
     });
 
+    const buildFormTemplate = useCallback((apiTemplate: Record<string, unknown>, eventTitle?: string): FormTemplate => {
+        const questions = (apiTemplate.questions || []) as {
+            id: string;
+            type: string;
+            label: string;
+            placeholder?: string;
+            required?: boolean;
+            options?: string[];
+            validation?: {
+                min?: number;
+                max?: number;
+                pattern?: string;
+                message?: string;
+            };
+        }[];
+
+        return {
+            eventId: event!.id,
+            title: eventTitle || 'Registration Form',
+            fields: [],
+            standardFields: {
+                name: true,
+                email: true,
+                phone: true,
+                semester: true,
+                department: true,
+                section: false,
+                rollNumber: false,
+            },
+            customQuestions: questions.map((q) => ({
+                id: q.id,
+                type: q.type as 'text' | 'email' | 'phone' | 'number' | 'select' | 'textarea' | 'checkbox' | 'radio',
+                label: q.label,
+                placeholder: q.placeholder,
+                required: q.required || false,
+                options: q.options,
+                validation: q.validation,
+            })),
+        };
+    }, [event]);
+
     const fetchFormTemplate = useCallback(async () => {
         if (!event) return;
 
+        // Use formTemplate already present on the event prop (no network hop)
+        const propTemplate = event.formTemplate as Record<string, unknown> | undefined;
+        if (propTemplate && propTemplate.questions) {
+            setFormTemplate(buildFormTemplate(propTemplate, event.title));
+            return;
+        }
+
+        // Fallback: fetch from API only when the prop lacks formTemplate
         try {
-            const response = await fetch(`/api/events/${event.$id}/form-template`);
-            if (response.ok) {
-                const data = await response.json();
-                const apiTemplate = data.form_template;
-                if (apiTemplate) {
-                    const template: FormTemplate = {
-                        eventId: event.$id,
-                        title: data.event_title || 'Registration Form',
-                        fields: [],
-                        standardFields: {
-                            name: true,
-                            email: true,
-                            phone: true,
-                            semester: true,
-                            department: true,
-                            section: false,
-                            rollNumber: false,
-                        },
-                        customQuestions: (apiTemplate.questions || []).map((q: {
-                            id: string;
-                            type: string;
-                            label: string;
-                            placeholder?: string;
-                            required?: boolean;
-                            options?: string[];
-                            validation?: {
-                                min?: number;
-                                max?: number;
-                                pattern?: string;
-                                message?: string;
-                            };
-                        }) => ({
-                            id: q.id,
-                            type: q.type as 'text' | 'email' | 'phone' | 'number' | 'select' | 'textarea' | 'checkbox' | 'radio',
-                            label: q.label,
-                            placeholder: q.placeholder,
-                            required: q.required || false,
-                            options: q.options,
-                            validation: q.validation,
-                        })),
-                    };
-                    setFormTemplate(template);
-                } else {
-                    setFormTemplate(getDefaultTemplate(event.$id));
-                }
+            const data = await apiFetch<{ formTemplate?: Record<string, unknown>; event_title?: string }>(
+                `/api/events/${event.id}?depth=0`
+            );
+            if (data.formTemplate) {
+                setFormTemplate(buildFormTemplate(data.formTemplate, data.event_title));
             } else {
-                setFormTemplate(getDefaultTemplate(event.$id));
+                setFormTemplate(getDefaultTemplate(event.id));
             }
         } catch {
-            console.error('Failed to fetch form template, using default');
-            setFormTemplate(getDefaultTemplate(event.$id));
+            setFormTemplate(getDefaultTemplate(event.id));
         }
-    }, [event]);
+    }, [event, buildFormTemplate]);
 
     // Check existing registration and determine initial step
     useEffect(() => {
         if (!isOpen || !event) return;
 
+        let cancelled = false;
+
         const checkExistingRegistration = async () => {
-            if (event.registration_open === false) {
-                setCurrentStep('form');
-                setError('Registrations are currently closed for this event.');
+            if (event.registrationOpen === false) {
+                if (!cancelled) {
+                    setCurrentStep('form');
+                    setError('Registrations are currently closed for this event.');
+                }
                 return;
             }
             if (!user) {
-                setCurrentStep('auth');
+                if (!cancelled) {
+                    setCurrentStep('auth');
+                }
                 return;
             }
 
+            if (cancelled) return;
             setIsLoading(true);
             try {
                 // Guard: Check if user is logged in
@@ -316,34 +296,25 @@ export default function EventRegistrationModal({
                 }
 
                 // Check if user already registered
-                const response = await fetch(`/api/events/${event.$id}/registration?userId=${user.id}`, {
+                const response = await fetch(`/api/registrations?where[event][equals]=${event.id}&where[user][equals]=${user.id}&depth=0`, {
                     credentials: 'include',
                 });
 
                 if (response.ok) {
                     const data = await response.json();
-                    if (data.registration) {
-                        setExistingRegistration(data.registration);
+                    if (data.docs && data.docs.length > 0) {
+                        if (cancelled) return;
+                        const registrationDoc = data.docs[0];
+                        setExistingRegistration(registrationDoc);
 
-                        const registrationId = data.registration.$id || data.registration.id;
-                        let ticketId = data.registration.ticket_id || '';
-                        let ticketCreatedAt = data.registration.$createdAt || data.registration.created_at || new Date().toISOString();
-
-                        if (data.ticket) {
-                            ticketId = data.ticket.$id || data.ticket.id || ticketId;
-                            ticketCreatedAt = data.ticket.$createdAt || data.ticket.created_at || ticketCreatedAt;
-                            try {
-                                const qrData = JSON.parse(data.ticket.qr_data);
-                                ticketId = qrData.ticket_id || data.ticket.$id || data.ticket.id || ticketId;
-                            } catch {
-                                // Use available ticket ID
-                            }
-                        }
+                        const registrationId = registrationDoc.id;
+                        let ticketId = (typeof registrationDoc.ticket === 'object' ? (registrationDoc.ticket as Record<string, unknown>)?.id : registrationDoc.ticket) as string || '';
+                        let ticketCreatedAt = (registrationDoc.createdAt as string) || new Date().toISOString();
 
                         if (registrationId && ticketId) {
                             const ticketData: Ticket = {
                                 ticketId,
-                                eventId: event.$id,
+                                eventId: event.id,
                                 eventTitle: event.title,
                                 eventDate: event.date,
                                 eventVenue: event.venue,
@@ -356,6 +327,7 @@ export default function EventRegistrationModal({
                                 createdAt: ticketCreatedAt,
                             };
 
+                            if (cancelled) return;
                             setTicket(ticketData);
                             setCurrentStep('success');
                             return;
@@ -364,19 +336,25 @@ export default function EventRegistrationModal({
                 }
 
                 // Fetch form template
+                if (cancelled) return;
                 await fetchFormTemplate();
                 setCurrentStep('form');
             } catch (err) {
                 console.error('Error checking registration', err);
                 // Proceed to form anyway
-                await fetchFormTemplate();
-                setCurrentStep('form');
+                if (!cancelled) {
+                    await fetchFormTemplate();
+                    setCurrentStep('form');
+                }
             } finally {
+                if (cancelled) return;
                 setIsLoading(false);
             }
         };
 
         checkExistingRegistration();
+
+        return () => { cancelled = true; };
     }, [isOpen, event, user, fetchFormTemplate]);
 
     const handleLogin = async () => {
@@ -393,7 +371,7 @@ export default function EventRegistrationModal({
 
     const handleFormSubmit = async (data: RegistrationData) => {
         if (!event || !user) return;
-        if (event.registration_open === false) {
+        if (event.registrationOpen === false) {
             toast.error('Registrations are currently closed for this event.');
             return;
         }
@@ -411,119 +389,60 @@ export default function EventRegistrationModal({
         }
 
         try {
-            // Submit registration via the custom API
-            const response = await fetch('/api/registrations/register', {
+            // Submit registration. Validation, capacity, dedupe, and free-event
+            // auto-confirm are handled by the beforeChange hook on Registrations.
+            const response = await fetch('/api/registrations', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 credentials: 'include',
                 body: JSON.stringify({
-                    eventId: event.$id,
+                    eventId: event.id,
                     ...data,
                 }),
             });
 
             if (!response.ok) {
                 const errorData = await response.json();
-                if (response.status === 409 && errorData?.details?.registration_id) {
-                    try {
-                        const existingResponse = await fetch(`/api/registrations/${errorData.details.registration_id}`, {
-                            credentials: 'include',
-                        });
-                        if (existingResponse.ok) {
-                            const existingData = await existingResponse.json();
-                            if (existingData.registration) {
-                                const existingRegistrationId = existingData.registration.id || existingData.registration.$id;
-                                const existingTicketId = existingData.ticket?.id || existingData.registration.ticket_id || '';
-                                const existingReg: Registration = {
-                                    $id: existingRegistrationId,
-                                    $createdAt: existingData.registration.created_at || existingData.registration.$createdAt || new Date().toISOString(),
-                                    $updatedAt: existingData.registration.updated_at || existingData.registration.$updatedAt || new Date().toISOString(),
-                                    eventId: existingData.registration.event_id,
-                                    userId: existingData.registration.user_id,
-                                    ticketId: existingTicketId,
-                                    status: existingData.registration.registration_status,
-                                    paymentStatus: existingData.registration.payment_status,
-                                    formData: (existingData.registration.form_data || {}) as Record<string, unknown>,
-                                };
-                                setExistingRegistration(existingReg);
-                                setRegistration(existingReg);
-
-                                let ticketId = existingTicketId;
-                                if (existingData.ticket?.qr_data) {
-                                    try {
-                                        const qrData = JSON.parse(existingData.ticket.qr_data);
-                                        ticketId = qrData.ticket_id || ticketId;
-                                    } catch {
-                                        // Use existing ticket ID
-                                    }
-                                }
-
-                                if (existingRegistrationId && ticketId) {
-                                    const existingTicket: Ticket = {
-                                        ticketId,
-                                        eventId: event.$id,
-                                        eventTitle: event.title,
-                                        eventDate: event.date,
-                                        eventVenue: event.venue,
-                                        userId: user.id || '',
-                                        userName: user.name || data.name || '',
-                                        userEmail: user.email || data.email || '',
-                                        registrationId: existingRegistrationId,
-                                        status: 'confirmed',
-                                        qrCodeData: ticketId,
-                                        createdAt: existingData.ticket?.created_at || existingData.registration.created_at || new Date().toISOString(),
-                                    };
-                                    setTicket(existingTicket);
-                                    setCurrentStep('success');
-                                    toast.success('You are already registered. Showing your ticket.');
-                                    return;
-                                }
-                            }
-                        }
-                    } catch (fetchExistingError) {
-                        console.error('Failed to fetch existing registration after duplicate', fetchExistingError);
-                    }
-                }
-                throw new Error(errorData.message || 'Registration failed');
+                throw new Error(errorData.error || 'Registration failed');
             }
 
             const result = await response.json();
 
             // Construct Registration object from API response
             const registrationData: Registration = {
-                $id: result.registration_id,
-                $createdAt: new Date().toISOString(),
-                $updatedAt: new Date().toISOString(),
-                eventId: event.$id,
+                id: result.registrationId,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                eventId: event.id,
                 userId: user.id || '',
-                ticketId: result.ticket_id || '',
-                status: result.payment_required ? 'pending' : 'confirmed',
-                paymentStatus: result.payment_required ? 'pending' : 'not_required',
+                ticketId: result.ticketId || '',
+                status: result.paymentRequired ? 'pending' : 'confirmed',
+                paymentStatus: result.paymentRequired ? 'pending' : 'not_required',
                 paymentAmount: result.amount,
                 formData: data as Record<string, unknown>,
             };
             setRegistration(registrationData);
 
             // For paid events, store payment data for PaymentModal and advance to payment step
-            if (result.payment_required && result.payment) {
+            if (result.paymentRequired && result.payment) {
                 setPaymentData(result.payment);
                 setCurrentStep('payment');
-            } else if (!result.payment_required && result.ticket_id) {
+            } else if (!result.paymentRequired && result.ticketId) {
                 // For free events, construct Ticket object
                 const ticketData: Ticket = {
-                    ticketId: result.ticket_id,
-                    eventId: event.$id,
+                    ticketId: result.ticketId,
+                    eventId: event.id,
                     eventTitle: event.title,
                     eventDate: event.date,
                     eventVenue: event.venue,
                     userId: user.id || '',
                     userName: user.name || data.name || '',
                     userEmail: user.email || data.email || '',
-                    registrationId: result.registration_id,
+                    registrationId: result.registrationId,
                     status: 'confirmed',
-                    qrCodeData: result.ticket_id,
+                    qrCodeData: result.ticketId,
                     createdAt: new Date().toISOString(),
                 };
                 setTicket(ticketData);
@@ -539,56 +458,58 @@ export default function EventRegistrationModal({
         }
     };
 
-    const handlePaymentComplete = useCallback(async (transactionId: string) => {
-        if (registration) {
+    const handlePaymentComplete = useCallback(async (transactionId: string | number) => {
+        if (registration && event) {
             setRegistration({
                 ...registration,
-                paymentStatus: 'completed',
+                paymentStatus: 'paid',
                 paymentTransactionId: transactionId,
                 status: 'confirmed',
             });
 
-            // Mark payment as completed on backend and create ticket
+            // PATCH the registration: the chair access control + sendConfirmation
+            // hook will auto-generate the ticket and email.
             try {
-                const completeResponse = await fetch(`/api/admin/registrations/${registration.$id}/complete-payment`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    credentials: 'include',
-                });
+                const updated = await apiFetch<{
+                    id: string | number;
+                    ticket?: { ticket_id?: string };
+                    errors?: Array<{ message: string }>;
+                }>(
+                    `/api/registrations/${registration.id}`,
+                    {
+                        method: 'PATCH',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            paymentStatus: 'paid',
+                            registrationStatus: 'confirmed',
+                            paymentAmount: registration.paymentAmount,
+                            paymentTicketId: String(transactionId),
+                        }),
+                    }
+                );
 
-                if (!completeResponse.ok) {
-                    throw new Error('Failed to complete payment on backend');
+                if (updated.errors?.length) {
+                    throw new Error(updated.errors[0].message);
                 }
 
-                const completeData = await completeResponse.json();
-                const ticketId = completeData.ticket_id;
-
-                // Fetch full ticket details
-                const ticketResponse = await fetch(`/api/registrations/${registration.$id}`, {
-                    credentials: 'include',
-                });
-                
-                if (ticketResponse.ok) {
-                    const data = await ticketResponse.json();
-                    if (data.event) {
-                        const ticketData: Ticket = {
-                            ticketId,
-                            eventId: data.event.id,
-                            eventTitle: data.event.title,
-                            eventDate: data.event.date,
-                            eventVenue: data.event.venue,
-                            userId: user?.id || '',
-                            userName: user?.name || '',
-                            userEmail: user?.email || '',
-                            registrationId: registration.$id,
-                            status: 'confirmed',
-                            qrCodeData: ticketId,
-                            createdAt: data.ticket?.created_at || new Date().toISOString(),
-                        };
-                        setTicket(ticketData);
-                    }
+                const ticketId = updated.ticket?.ticket_id || registration.ticketId || '';
+                if (ticketId) {
+                    const ticketData: Ticket = {
+                        ticketId,
+                        eventId: event.id,
+                        eventTitle: event.title,
+                        eventDate: event.date,
+                        eventVenue: event.venue,
+                        userId: user?.id || '',
+                        userName: user?.name || '',
+                        userEmail: user?.email || '',
+                        registrationId: registration.id,
+                        status: 'confirmed',
+                        qrCodeData: ticketId,
+                        createdAt: new Date().toISOString(),
+                    };
+                    setTicket(ticketData);
                 }
             } catch (err) {
                 console.error('Failed to complete payment', err);
@@ -597,7 +518,7 @@ export default function EventRegistrationModal({
         }
         setCurrentStep('success');
         toast.success('Payment successful! Your ticket is ready.');
-    }, [registration, user]);
+    }, [registration, event, user]);
 
     const handlePaymentError = useCallback((errorMessage: string) => {
         setError(errorMessage);

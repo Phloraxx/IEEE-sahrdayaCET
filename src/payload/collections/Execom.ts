@@ -1,15 +1,16 @@
 import type { CollectionConfig } from 'payload'
+import { isChairOfSociety } from '../access'
 
 export const Execom: CollectionConfig = {
   slug: 'execom',
   admin: {
     useAsTitle: 'name',
-    group: 'Content',
+    group: 'Team',
   },
   access: {
     read: () => true,
     create: ({ req: { user } }) => user?.role === 'admin',
-    update: ({ req: { user } }) => user?.role === 'admin',
+    update: isChairOfSociety,
     delete: ({ req: { user } }) => user?.role === 'admin',
   },
   fields: [
@@ -17,7 +18,6 @@ export const Execom: CollectionConfig = {
     { name: 'position', type: 'text', required: true },
     { name: 'society', type: 'relationship', relationTo: 'societies' },
     { name: 'photo', type: 'upload', relationTo: 'media' },
-    { name: 'photoUrl', type: 'text', admin: { hidden: true } },
     { name: 'sectionId', type: 'text', index: true },
     { name: 'order', type: 'number' },
     { name: 'batch', type: 'text' },

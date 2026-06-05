@@ -1,10 +1,17 @@
 import type { CollectionConfig } from 'payload'
+import { isAdmin, isChairOrAdmin, isChairOfSocietyForEventDoc } from '../access'
 
 export const Coupons: CollectionConfig = {
   slug: 'coupons',
   admin: {
     useAsTitle: 'code',
     group: 'Events',
+  },
+  access: {
+    read: isChairOrAdmin,
+    create: isChairOrAdmin,
+    update: isChairOfSocietyForEventDoc,
+    delete: isChairOfSocietyForEventDoc,
   },
   fields: [
     { name: 'code', type: 'text', required: true, unique: true },

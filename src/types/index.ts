@@ -15,37 +15,92 @@ export interface FloatingIconProps {
 }
 
 export interface Society {
-    id?: number;
-    $id?: string;
+    id: number;
+    createdAt?: string;
+    updatedAt?: string;
     name: string;
     slug: string;
     bio?: string;
-    logo_url: string;
-    banner_url?: string;
+    logoUrl?: string;
+    bannerUrl?: string;
+    logo?: { url?: string } | string | number | null;
+    banner?: { url?: string } | string | number | null;
+    isHidden?: boolean;
+    displayOrder?: number;
+    chairs?: string[];
 }
 
 export interface Event {
-    $id?: string;
-    id?: number;
+    id: number;
+    createdAt?: string;
+    updatedAt?: string;
     title: string;
+    slug?: string;
     description?: string;
     date: string;
+    endDate?: string;
     venue?: string;
     price: number;
-    banner_url?: string;
-    registration_url?: string;
-    society_id?: string;
-    status: string;
-    max_capacity?: number;
+    bannerUrl?: string;
+    banner?: { url?: string } | string | number | null;
+    society?: Society | string;
+    status?: string;
+    maxCapacity?: number;
+    registeredCount?: number;
+    checkedInCount?: number;
+    registrationOpen?: boolean;
+    registrationStart?: string;
+    registrationDeadline?: string;
+    formTemplate?: unknown;
+    enableWaitlist?: boolean;
+    waitlistCount?: number;
+    isPaid?: boolean;
+    ieeeMemberPrice?: number;
+    nonMemberPrice?: number;
+    earlyBirdPrice?: number;
+    earlyBirdDeadline?: string;
+    currency?: string;
+    checkInEnabled?: boolean;
+    selfCheckIn?: boolean;
+    contactEmail?: string;
+    contactPhone?: string;
+    externalLink?: string;
+    category?: string;
+    speakers?: unknown;
+    schedule?: unknown;
+    faqs?: unknown;
+    isDeleted?: boolean;
 }
 
-export interface EventField {
-    id: string;
-    type: 'text' | 'email' | 'phone' | 'number' | 'select' | 'textarea' | 'checkbox' | 'radio';
-    label: string;
-    placeholder?: string;
-    required: boolean;
-    options?: string[];
+export interface EventWithSociety extends Event {
+    society?: {
+        id: number;
+        name: string;
+        slug: string;
+        logoUrl: string;
+    };
 }
 
-export type RegistrationStep = 'auth' | 'form' | 'payment' | 'success';
+export interface ExtendedEvent extends EventWithSociety {
+    about?: string;
+    agenda?: AgendaItem[];
+    tags?: string[];
+    color?: string;
+    textColor?: string;
+}
+
+export interface AgendaItem {
+    time: string;
+    title: string;
+}
+
+export interface LatestEvent {
+    id: number;
+    title: string;
+    shortTitle?: string;
+    description?: string;
+    date: string;
+    bannerUrl?: string;
+    banner?: { url?: string } | string | number | null;
+    tag?: string;
+}

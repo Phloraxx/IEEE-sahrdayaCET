@@ -136,12 +136,6 @@ function getColumnNames(sql: string, tableSuffix: string): string[] {
 }
 
 async function main() {
-  const envPath = join(root, '.env.local')
-  if (existsSync(envPath)) {
-    const { config: dotenv } = await import('dotenv')
-    dotenv({ path: envPath })
-  }
-
   const sqlPath = join(root, 'ieee_export.sql')
   if (!existsSync(sqlPath)) {
     console.error('❌ ieee_export.sql not found in project root')
@@ -208,7 +202,7 @@ async function main() {
     }
 
     const data: Record<string, unknown> = { name, slug, bio: row.bio || '' }
-    if (logoResult) { data.logo = logoResult.id; data.logoUrl = logoResult.url; }
+    if (logoResult) { data.logo = logoResult.id; }
 
     try {
       const c = await payload.create({ collection: 'societies', data, overrideAccess: true })
@@ -253,7 +247,7 @@ async function main() {
       phone: row.phone || '',
     }
     if (societyPid) execomData.society = societyPid
-    if (photoResult) { execomData.photo = photoResult.id; execomData.photoUrl = photoResult.url; }
+    if (photoResult) { execomData.photo = photoResult.id; }
     if (email) execomData.email = email
 
     try {
@@ -327,7 +321,7 @@ async function main() {
       isDeleted: row.is_deleted === '1',
     }
     if (endDateVal && endDateVal !== 'NULL') eventData.endDate = endDateVal
-    if (bannerResult) { eventData.banner = bannerResult.id; eventData.bannerUrl = bannerResult.url; }
+    if (bannerResult) { eventData.banner = bannerResult.id; }
     if (email) eventData.contactEmail = email
     if (row.category && row.category !== 'NULL') eventData.category = row.category
 

@@ -67,3 +67,17 @@ execom/
 
 # Database dumps and SQL files
 *.sql
+
+# Playwright local artifacts
+.pwerr
+.pwlog
+.pwout
+test-results/
+playwright-report/
+
+# opencode AI tool state
+.opencode/
+.devlog
+
+# Local visual verification artifacts
+tmp/

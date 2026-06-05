@@ -14,103 +14,77 @@ import {
     QrCode,
     ExternalLink
 } from 'lucide-react';
+import { generateQRDataUrl } from '@/lib/qr';
+import type { Event } from '@/types';
+import type { Registration } from '@/types/registration';
 
 // Payment data returned from the registration API
 export interface PaymentData {
-    ticket_id: string;
+    ticketId: string;
     amount: number;
     status: string;
-    created_at: string;
-    upi_string: string;
-    upi_id: string;
-    merchant_name: string;
-    status_url: string;
+    createdAt: string;
+    upiString: string;
+    upiId: string;
+    merchantName: string;
+    statusUrl: string;
 }
 
 interface PaymentModalProps {
-    event: {
-        $id: string;
-        $createdAt?: string;
-        $updatedAt?: string;
-        title: string;
-        description?: string;
-        date: string;
-        venue?: string;
-        price: number;
-        banner_url?: string;
-        society_id?: string;
-        status: string;
-    };
-    registration: {
-        $id: string;
-        $createdAt: string;
-        $updatedAt: string;
-        eventId: string;
-        userId: string;
-        ticketId?: string;
-        status: string;
-        paymentStatus?: string;
-        paymentAmount?: number;
-        paymentTransactionId?: string;
-        formData?: Record<string, unknown>;
-    };
+    event: Event;
+    registration: Registration;
     paymentData?: PaymentData;
-    onPaymentComplete: (transactionId: string) => void;
+    onPaymentComplete: (transactionId: string | number) => void;
     onError: (message: string) => void;
 }
 
-// Simple QR Code generator using canvas
+// Simple QR Code generator using shared utility
 const QRCodeCanvas: React.FC<{
     data: string;
     size?: number;
 }> = ({ data, size = 200 }) => {
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const [loaded, setLoaded] = useState(false);
+    const [dataUrl, setDataUrl] = useState<string | null>(null);
+    const [error, setError] = useState(false);
 
     useEffect(() => {
-        const generateQR = async () => {
-            if (!canvasRef.current || !data) return;
-            
-            try {
-                const QRCode = (await import('qrcode')).default;
-                await QRCode.toCanvas(canvasRef.current, data, {
-                    width: size,
-                    margin: 2,
-                    color: {
-                        dark: '#000000',
-                        light: '#FFFFFF',
-                    },
-                });
-                setLoaded(true);
-            } catch (err) {
-                console.error('QR generation error', err);
-                const img = new Image();
-                img.crossOrigin = 'anonymous';
-                img.onload = () => {
-                    const ctx = canvasRef.current?.getContext('2d');
-                    if (ctx) {
-                        ctx.drawImage(img, 0, 0, size, size);
-                        setLoaded(true);
-                    }
-                };
-                img.src = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}`;
-            }
-        };
+        if (!data) return;
 
-        generateQR();
+        generateQRDataUrl(data, {
+            width: size,
+            margin: 2,
+            color: {
+                dark: '#000000',
+                light: '#FFFFFF',
+            },
+        })
+            .then(setDataUrl)
+            .catch((err) => {
+                console.error('QR generation error', err);
+                setError(true);
+            });
     }, [data, size]);
 
     return (
         <div className="relative">
-            <canvas 
-                ref={canvasRef} 
-                width={size} 
-                height={size}
-                className="rounded-xl"
-            />
-            {!loaded && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-xl">
+            {dataUrl ? (
+                <img
+                    src={dataUrl}
+                    width={size}
+                    height={size}
+                    alt="UPI QR Code"
+                    className="rounded-xl"
+                />
+            ) : (
+                <div
+                    className="rounded-xl bg-gray-100 flex items-center justify-center"
+                    style={{ width: size, height: size }}
+                >
                     <Loader2 className="w-8 h-8 text-ieee-blue animate-spin" />
+                </div>
+            )}
+            {error && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-xl">
+                    <span className="text-xs text-gray-500">Failed to generate QR</span>
                 </div>
             )}
         </div>
@@ -171,28 +145,31 @@ export default function PaymentModal({
     const [retryCount, setRetryCount] = useState(0);
     const pollingRef = useRef<NodeJS.Timeout | null>(null);
     
-    const UPI_ID = paymentData?.upi_id || process.env.NEXT_PUBLIC_UPI_ID || 'ieee.sahrdaya@upi';
-    const MERCHANT_NAME = paymentData?.merchant_name || process.env.NEXT_PUBLIC_MERCHANT_NAME || 'IEEE Sahrdaya SB';
+    const UPI_ID = paymentData?.upiId || process.env.NEXT_PUBLIC_UPI_ID || 'ieee.sahrdaya@upi';
+    const MERCHANT_NAME = paymentData?.merchantName || process.env.NEXT_PUBLIC_MERCHANT_NAME || 'IEEE Sahrdaya SB';
     const PAYMENT_TIMEOUT = 5 * 60 * 1000;
     
-    const paymentCreatedAt = paymentData?.created_at ? new Date(paymentData.created_at).getTime() : Date.now();
+    const paymentCreatedAt = paymentData?.createdAt ? new Date(paymentData.createdAt).getTime() : Date.now();
     
     const expiresAtRef = useRef<number>(paymentCreatedAt + PAYMENT_TIMEOUT);
     const expiresAt = expiresAtRef.current;
 
-    const paymentTicketId = paymentData?.ticket_id;
-    const paymentRef = paymentTicketId || `IEEE-${registration.$id.slice(-8).toUpperCase()}`;
+    const paymentTicketId = paymentData?.ticketId;
+    const paymentRef = paymentTicketId || `IEEE-${String(registration.id).slice(-8).toUpperCase()}`;
     
     const paymentAmount = paymentData?.amount ?? event.price;
 
-    const upiString = paymentData?.upi_string || 
+    const upiString = paymentData?.upiString || 
         `upi://pay?pa=${UPI_ID}&pn=${encodeURIComponent(MERCHANT_NAME)}&am=${paymentAmount}&tn=${paymentRef}&cu=INR`;
+
+    const copiedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const handleCopyUPI = async () => {
         try {
             await navigator.clipboard.writeText(UPI_ID);
             setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
+            if (copiedTimeoutRef.current) clearTimeout(copiedTimeoutRef.current);
+            copiedTimeoutRef.current = setTimeout(() => setCopied(false), 2000);
         } catch (err) {
             console.error('Failed to copy to clipboard', err);
         }
@@ -209,13 +186,13 @@ export default function PaymentModal({
 
         try {
             // First, try the payment gateway status endpoint if we have a ticket ID
-            if (paymentData?.status_url) {
-                const paymentResponse = await fetch(paymentData.status_url);
+            if (paymentData?.statusUrl) {
+                const paymentResponse = await fetch(paymentData.statusUrl);
                 if (paymentResponse.ok) {
                     const data = await paymentResponse.json();
                     if (data.status === 'paid' || data.paidAt) {
                         setPaymentStatus('completed');
-                        onPaymentComplete(paymentTicketId || registration.$id);
+                        onPaymentComplete(paymentTicketId || registration.id);
                         if (pollingRef.current) {
                             clearInterval(pollingRef.current);
                         }
@@ -232,7 +209,7 @@ export default function PaymentModal({
             }
 
             // Fallback: Check local registration status
-            const response = await fetch(`/api/registrations/${registration.$id}`, {
+            const response = await fetch(`/api/registrations/${registration.id}`, {
                 credentials: 'include',
             });
             
@@ -241,11 +218,11 @@ export default function PaymentModal({
             }
 
             const data = await response.json();
-            const regPaymentStatus = data.registration?.payment_status;
+            const regPaymentStatus = data.registration?.paymentStatus;
 
             if (regPaymentStatus === 'completed') {
                 setPaymentStatus('completed');
-                onPaymentComplete(data.ticket?.id || registration.$id);
+                onPaymentComplete(data.ticket?.id || registration.id);
                 if (pollingRef.current) {
                     clearInterval(pollingRef.current);
                 }
@@ -262,7 +239,7 @@ export default function PaymentModal({
             console.error('Error checking payment', err);
             setPaymentStatus('pending');
         }
-    }, [registration.$id, paymentStatus, paymentData?.status_url, paymentTicketId, onPaymentComplete, onError]);
+    }, [registration.id, paymentStatus, paymentData?.statusUrl, paymentTicketId, onPaymentComplete, onError]);
 
     // Use ref to avoid stale closure in polling effect
     const checkPaymentStatusRef = useRef(checkPaymentStatus);
@@ -275,6 +252,9 @@ export default function PaymentModal({
         return () => {
             if (pollingRef.current) {
                 clearInterval(pollingRef.current);
+            }
+            if (copiedTimeoutRef.current) {
+                clearTimeout(copiedTimeoutRef.current);
             }
         };
     }, []);
@@ -294,7 +274,7 @@ export default function PaymentModal({
         if (pollingRef.current) {
             clearInterval(pollingRef.current);
         }
-        pollingRef.current = setInterval(checkPaymentStatus, 5000);
+        pollingRef.current = setInterval(() => checkPaymentStatusRef.current(), 5000);
     };
 
     if (paymentStatus === 'completed') {

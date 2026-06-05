@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import PixelGrid from './PixelGrid';
 
 const PIXEL = 3; // smaller pixel size — background character
 
@@ -32,22 +33,6 @@ const BODY: string[][] = [
 ];
 
 type IdleAction = 'idle' | 'walking' | 'jumping' | 'looking' | 'crouching' | 'headBob';
-
-const PixelGrid: React.FC<{ grid: string[][]; size: number }> = ({ grid, size }) => (
-    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${grid[0].length}, ${size}px)`, lineHeight: 0 }}>
-        {grid.flat().map((color, i) => (
-            <div
-                key={i}
-                style={{
-                    width: size,
-                    height: size,
-                    backgroundColor: color,
-                    imageRendering: 'pixelated',
-                }}
-            />
-        ))}
-    </div>
-);
 
 export const FloatingAction: React.FC = () => {
     const [posX, setPosX] = useState(80); // percentage from left of viewport
@@ -212,6 +197,7 @@ export const FloatingAction: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 3, duration: 0.8 }}
             className="fixed bottom-2 z-30 pointer-events-none select-none"
+            aria-hidden="true"
             style={{
                 left: `${posX}%`,
                 transform: 'translateX(-50%)',

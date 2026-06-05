@@ -1,7 +1,7 @@
 export type RegistrationStep = 'auth' | 'form' | 'payment' | 'success';
 
 export interface FormTemplate {
-  eventId: string;
+  eventId: number;
   title: string;
   fields: unknown[];
   standardFields: {
@@ -41,29 +41,29 @@ export interface RegistrationData {
 }
 
 export interface Registration {
-  $id: string;
-  $createdAt: string;
-  $updatedAt: string;
-  eventId: string;
+  id: string | number;
+  createdAt: string;
+  updatedAt: string;
+  eventId: number;
   userId: string;
   ticketId?: string;
   status: string;
   paymentStatus?: string;
   paymentAmount?: number;
-  paymentTransactionId?: string;
+  paymentTransactionId?: string | number;
   formData?: Record<string, unknown>;
 }
 
 export interface Ticket {
   ticketId: string;
-  eventId: string;
+  eventId: number;
   eventTitle: string;
   eventDate: string;
   eventVenue?: string;
   userId: string;
   userName: string;
   userEmail: string;
-  registrationId: string;
+  registrationId: string | number;
   status: 'confirmed' | 'pending' | 'cancelled' | 'checked_in';
   qrCodeData: string;
   createdAt: string;
@@ -81,4 +81,4 @@ export const DEPARTMENTS = [
 
 export const SEMESTERS = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8'] as const;
 
-export const SECTIONS = ['A', 'B', 'C'] as const;
+export const SECTIONS = ['A', 'B', 'C', 'D'] as const;

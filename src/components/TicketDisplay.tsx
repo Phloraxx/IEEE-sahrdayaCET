@@ -2,40 +2,29 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, MapPin, Clock, Download, CheckCircle2, AlertCircle, Ticket } from 'lucide-react';
+import { Calendar, MapPin, Clock, Download, Ticket } from 'lucide-react';
+import { generateQRDataUrl, downloadQR as downloadQRFile } from '@/lib/qr';
+import { getTicketStatusInfo } from '@/lib/ticketStatus';
+import type { Event } from '@/types';
 
 interface TicketData {
     ticketId: string;
-    eventId: string;
+    eventId: string | number;
     eventTitle: string;
     eventDate: string;
     eventVenue?: string;
     userId: string;
     userName: string;
     userEmail: string;
-    registrationId: string;
+    registrationId: string | number;
     status: 'confirmed' | 'pending' | 'cancelled' | 'checked_in';
     qrCodeData: string;
     createdAt: string;
 }
 
-interface EventData {
-    $id: string;
-    $createdAt?: string;
-    $updatedAt?: string;
-    title: string;
-    description?: string;
-    date: string;
-    venue?: string;
-    price: number;
-    banner_url?: string;
-    society_id?: string;
-    status: string;
-}
-
 interface TicketDisplayProps {
     ticket: TicketData;
-    event: EventData;
+    event: Event;
     onClose?: () => void;
 }
 
@@ -46,12 +35,7 @@ export default function TicketDisplay({ ticket, event, onClose }: TicketDisplayP
     useEffect(() => {
         const generateQR = async () => {
             try {
-                const QRCode = (await import('qrcode')).default;
-                const dataUrl = await QRCode.toDataURL(ticket.qrCodeData, {
-                    width: 400,
-                    margin: 2,
-                    color: { dark: '#000000', light: '#FFFFFF' },
-                });
+                const dataUrl = await generateQRDataUrl(ticket.qrCodeData);
                 setQrDataUrl(dataUrl);
             } catch (err) {
                 console.error('Failed to generate QR:', err);
@@ -62,35 +46,15 @@ export default function TicketDisplay({ ticket, event, onClose }: TicketDisplayP
         generateQR();
     }, [ticket.qrCodeData]);
 
-    const downloadQR = useCallback(() => {
+    const handleDownloadQR = useCallback(() => {
         if (!qrDataUrl) return;
-        const link = document.createElement('a');
-        link.download = `ticket-${event.title.replace(/\s+/g, '-').toLowerCase()}.png`;
-        link.href = qrDataUrl;
-        link.click();
+        downloadQRFile(qrDataUrl, `ticket-${event.title.replace(/\s+/g, '-').toLowerCase()}.png`);
     }, [qrDataUrl, event.title]);
 
     const eventDate = new Date(event.date);
     const isPast = eventDate < new Date();
-    const isConfirmed = ticket.status === 'confirmed' || ticket.status === 'checked_in';
 
-    const getStatusDisplay = () => {
-        if (ticket.status === 'checked_in') {
-            return { icon: CheckCircle2, text: 'Checked In', color: 'bg-green-100 text-green-700 border-green-200' };
-        }
-        if (isPast) {
-            return { icon: Clock, text: 'Past Event', color: 'bg-gray-100 text-gray-600 border-gray-200' };
-        }
-        if (ticket.status === 'pending') {
-            return { icon: AlertCircle, text: 'Payment Pending', color: 'bg-yellow-100 text-yellow-700 border-yellow-200' };
-        }
-        if (isConfirmed) {
-            return { icon: Ticket, text: 'Confirmed', color: 'bg-ieee-blue/10 text-ieee-blue border-ieee-blue/20' };
-        }
-        return { icon: AlertCircle, text: ticket.status, color: 'bg-gray-100 text-gray-600 border-gray-200' };
-    };
-
-    const status = getStatusDisplay();
+    const status = getTicketStatusInfo(ticket.status, isPast);
     const StatusIcon = status.icon;
 
     return (
@@ -171,7 +135,7 @@ export default function TicketDisplay({ ticket, event, onClose }: TicketDisplayP
                 {/* Download Button */}
                 {qrDataUrl && (
                     <button
-                        onClick={downloadQR}
+                        onClick={handleDownloadQR}
                         className="w-full flex items-center justify-center gap-2 bg-ieee-blue text-white py-3.5 rounded-xl font-semibold hover:bg-ieee-blue/90 transition-colors"
                     >
                         <Download className="w-5 h-5" />

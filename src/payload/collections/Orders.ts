@@ -1,5 +1,6 @@
 import type { CollectionConfig } from 'payload'
-import { createDdmTicket } from '../hooks/orders'
+import { createDdmTicket, propagatePaymentToRegistration } from '../hooks/orders'
+import { isAdmin, isAuthenticated } from '../access'
 
 export const Orders: CollectionConfig = {
   slug: 'orders',
@@ -7,8 +8,15 @@ export const Orders: CollectionConfig = {
     useAsTitle: 'id',
     group: 'Events',
   },
+  access: {
+    read: isAdmin,
+    create: isAuthenticated,
+    update: isAdmin,
+    delete: isAdmin,
+  },
   hooks: {
     beforeChange: [createDdmTicket],
+    afterChange: [propagatePaymentToRegistration],
   },
   fields: [
     { name: 'user', type: 'relationship', relationTo: 'users', required: true },

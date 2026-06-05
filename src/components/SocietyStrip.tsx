@@ -4,12 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import TransitionLink from '@/components/PageTransition/TransitionLink';
 import { motion } from 'framer-motion';
-
-interface Society {
-    $id: string;
-    name: string;
-    logo_url?: string;
-}
+import type { Society } from '@/types';
 
 // Helper to validate and fix logo URLs
 const getValidLogoUrl = (logoUrl: string | undefined | null): string | null => {
@@ -25,7 +20,7 @@ const getValidLogoUrl = (logoUrl: string | undefined | null): string | null => {
 };
 
 const LogoItem: React.FC<{ society: Society }> = ({ society }) => {
-    const validLogoUrl = getValidLogoUrl(society.logo_url);
+    const validLogoUrl = getValidLogoUrl(society.logoUrl);
     
     // Skip rendering if no valid logo URL
     if (!validLogoUrl) {
@@ -71,9 +66,9 @@ export const SocietyStrip: React.FC = () => {
             if (!response.ok) throw new Error('Failed to fetch societies');
             const data = await response.json();
             const list = (data.docs || data.societies || []).map((doc: Record<string, unknown>) => ({
-                $id: (doc.id || doc.$id) as string,
+                id: doc.id as string,
                 name: doc.name as string,
-                logo_url: (doc.logoUrl as string) || ((doc.logo as Record<string, unknown>)?.url as string),
+                logoUrl: (doc.logoUrl as string) || ((doc.logo as Record<string, unknown>)?.url as string),
             }));
             setSocieties(list);
         } catch (error) {
@@ -142,7 +137,7 @@ export const SocietyStrip: React.FC = () => {
                     }}
                 >
                     {repeated.map((society, i) => (
-                        <LogoItem key={`${society.$id}-${i}`} society={society} />
+                        <LogoItem key={`${society.id}-${i}`} society={society} />
                     ))}
                 </motion.div>
             </div>

@@ -1,15 +1,24 @@
 import type { CollectionConfig } from 'payload'
+import { isAdmin, isSelfOrAdmin } from '../access'
 
 export const Users: CollectionConfig = {
   slug: 'users',
+  auth: true,
   admin: {
     useAsTitle: 'email',
-    group: 'System',
+    group: 'Users',
+  },
+  access: {
+    read: isSelfOrAdmin,
+    create: () => true,
+    update: isAdmin,
+    delete: isAdmin,
   },
   hooks: {
     beforeChange: [
       ({ data }) => {
-        if (data?.email === 'sourav223929@sahrdaya.ac.in') {
+        const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean)
+        if (data?.email && adminEmails.includes(data.email)) {
           return { ...data, role: 'admin' }
         }
         return data
@@ -66,12 +75,12 @@ export const Users: CollectionConfig = {
       type: 'select',
       options: [
         { label: 'User', value: 'user' },
+        { label: 'Chair', value: 'chair' },
         { label: 'Admin', value: 'admin' },
       ],
       defaultValue: 'user',
       required: true,
     },
     { name: 'teams', type: 'array', fields: [{ name: 'team', type: 'text' }], admin: { initCollapsed: true } },
-    { name: 'appwriteUserId', type: 'text', admin: { hidden: true } },
   ],
 }

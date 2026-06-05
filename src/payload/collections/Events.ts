@@ -1,16 +1,20 @@
 import type { CollectionConfig } from 'payload'
+import { isChairOrAdmin, isChairOfSociety } from '../access'
 
 export const Events: CollectionConfig = {
   slug: 'events',
   admin: {
     useAsTitle: 'title',
     group: 'Events',
+    components: {
+      afterList: ['@/payload/admin/components/EventDashboardCard#default'],
+    },
   },
   access: {
     read: () => true,
-    create: ({ req: { user } }) => user?.role === 'admin',
-    update: ({ req: { user } }) => user?.role === 'admin',
-    delete: ({ req: { user } }) => user?.role === 'admin',
+    create: isChairOrAdmin,
+    update: isChairOfSociety,
+    delete: isChairOfSociety,
   },
   fields: [
     { name: 'title', type: 'text', required: true },
@@ -22,7 +26,7 @@ export const Events: CollectionConfig = {
     { name: 'price', type: 'number', defaultValue: 0, required: true },
     { name: 'society', type: 'relationship', relationTo: 'societies', required: true },
     { name: 'banner', type: 'upload', relationTo: 'media' },
-    { name: 'bannerUrl', type: 'text', admin: { hidden: true } },
+    { name: 'bannerUrl', type: 'text', admin: { description: 'External URL for banner (used if no upload)' } },
     { name: 'status', type: 'select', defaultValue: 'draft', options: [{ label: 'Draft', value: 'draft' }, { label: 'Published', value: 'published' }, { label: 'Archived', value: 'archived' }, { label: 'Completed', value: 'completed' }, { label: 'Cancelled', value: 'cancelled' }] },
     { name: 'maxCapacity', type: 'number', defaultValue: 0 },
     { name: 'registeredCount', type: 'number', defaultValue: 0, admin: { readOnly: true } },
@@ -40,6 +44,10 @@ export const Events: CollectionConfig = {
     { name: 'earlyBirdPrice', type: 'number' },
     { name: 'earlyBirdDeadline', type: 'date' },
     { name: 'pricingTiers', type: 'json' },
+    // TODO: planned for future pricing model — currently not read by any code path.
+    // When implementing, the registration hook (validateRegistration) should
+    // resolve the effective price from isPaid + these fields + earlyBirdDeadline
+    // instead of always using event.price.
     { name: 'currency', type: 'text', defaultValue: 'INR' },
     { name: 'checkInEnabled', type: 'checkbox', defaultValue: true },
     { name: 'selfCheckIn', type: 'checkbox', defaultValue: false },

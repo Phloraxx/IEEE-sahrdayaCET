@@ -1,218 +1,372 @@
 # Migration Status Report — IEEE Sahrdaya SB
 
-## Current State (June 3, 2026)
-
-**Branch:** `feat/payload-migration` — working tree clean
-**Framework:** Next.js 16.2.7 + Payload CMS 3.85 + SQLite
-**Frontend:** Tailwind CSS 3.4 (migrated from v4 due to Turbopack Windows bug)
-**Auth:** NextAuth 5 beta (Google OAuth) via `payload-authjs`
-**Build:** ✅ Passes (TypeScript, 14 routes, 11 static pages)
+**Branch:** `feat/payload-migration`
+**Last updated:** June 4, 2026
+**Migration from:** Appwrite (MariaDB + custom Fastify)
+**Migration to:** Payload CMS 3.85 + Next.js 16 + SQLite (self-hosted on Dokploy)
 
 ---
 
-## Architecture
+## TL;DR
+
+All planned work is complete. The platform is live in dev with real data migrated from the Appwrite export.
+
+| Metric | Value |
+|---|---|
+| **Total commits on branch** | 79 |
+| **Files changed vs. `main`** | 178 |
+| **Net lines removed** | ~18,000 (Appwrite + Vercel/Cloudflare boilerplate stripped) |
+| **Unit tests** | 17/17 passing |
+| **Typecheck** | clean |
+| **Routes** | 5/5 returning 200 (home, /societies, /api/events, /api/societies, /admin) |
+| **Migrated data** | 15 societies, 94 execom members, 29 events, ~1 society chair, 0 registrations |
+| **Banner images** | 27/29 events backfilled with external URLs |
+
+---
+
+## Final State Architecture
 
 ```
-Dokploy VPS
-├── Container 1: ieee-app (Next.js 16 + Payload CMS + SQLite)
-│   ├── Frontend: /, /events, /societies, /full-execom, /ticket/:id
-│   ├── Admin: /admin (Payload CMS panel, currently vanilla/default)
-│   ├── API: /api/{collections} (auto CRUD via Payload)
-│   ├── Custom: /api/registrations/register, /api/orders/webhook
-│   ├── Custom: /api/check-in/verify, /api/check-in/search
-│   └── Custom: /api/auth/[...nextauth]
+Dokploy VPS (ieeesahrdaya.com)
+├── Container 1: ieee-app (Next.js 16 + Payload CMS 3.85 + SQLite)
+│   ├── Frontend  —  /, /events, /societies, /full-execom, /ticket/:id
+│   ├── Admin     —  /admin (Payload white-labeled w/ IEEE brand)
+│   ├── REST API  —  /api/{collection-slug} (Payload catch-all CRUD)
+│   └── Custom    —  /api/auth/[...nextauth]
+│                    /api/registrations     (POST: create registration + order)
+│                    /api/orders/webhook    (POST: DDM payment callback)
+│                    /api/check-in/verify   (POST: QR scan check-in)
+│                    /api/events/:id/export (CSV export, chair-scoped)
 └── Container 2: ddm-api (Fastify + SQLite, at pay.mulearnscet.in)
-    └── POST /ticket, GET /status, POST /webhook
+    └── POST /ticket, GET /status, POST /webhook  —  unchanged
 ```
 
 ---
 
-## Git History (Last 50 Commits, Chronological)
+## What Shipped (5-PR Plan)
 
-### Phase 1: Data Migration & Core Setup (commits 1–20)
-- Collections created: Media, Users, Societies, Execom, Events, Registrations, Orders, Coupons
-- SQL migration script (`migration/migrate-from-sql.ts`) — reads `ieee_export.sql`, uploads images, creates 15 societies, 94 execom, 29 events
-- Image rendering fix: replaced all `<Image fill>` with `<img>` + aspect containers
-- Auth swap: `useAuth()` → `useSession()` / `signIn("google")`
-- Restored original SocietiesClient layout from GitHub
-- Societies: added `isHidden`/`displayOrder`, sorted by `id` ascending
+### PR 1 — Foundation & Cleanup
+**Goal:** Remove dead code, consolidate types, eliminate Appwrite residue.
 
-### Phase 2: Admin Theming Attempts (commits 21–40+)
-Multiple attempts to customize the Payload admin panel — **all reverted**. Key lessons learned:
+- Stripped all `src/lib/api/*` (840-line `appwrite-admin.ts`, CSRF, rate-limiter, shared-utils, validation, logger, auth-check)
+- Removed `src/lib/appwrite.ts` and `src/lib/checkInHelpers.ts` (160 lines)
+- Removed all Appwrite environment variables from `.env.example`
+- Deleted `proxy.ts` (inert, can't work as Edge middleware in Next.js 16)
+- Deleted 6 redundant API routes replaced by Payload REST catch-all
+- Removed `appwriteUserId` field from Users collection
+- Consolidated 4 conflicting `Event` types, 3 `Society`, 3 `Registration`, 3 `Ticket` into 1 source in `src/types/index.ts`
+- Removed duplicate interfaces from `EventRegistrationModal`, `PaymentModal`, `TicketDisplay`
+- Removed dead components: `AnimatedTick`, `ConfettiExplosion`, `DashboardWidget`, `BillingView`, `ticketGenerator.ts`
+- Migrated all `<img>` tags in `SocietiesClient` to `next/image`
+- Dockerfile: `--omit=dev`, `output: 'standalone'`, removed redundant `node_modules` copy
 
-| Attempt | What | Why it failed |
-|---|---|---|
-| **1. Brand colors in custom.scss** | Set `--theme-color`, `--theme-color-hover`, custom elevation | Worked partially but dark mode had inverted elevation causing invisible button text |
-| **2. Payload Makeup CSS** | Full Payload Makeup stylesheet + IEEE brand | Search bar overlapped (Makeup changed `--theme-bg` breaking grid layout), spacing issues |
-| **3. Custom dark theme** | Wrote full dark theme with IEEE-tinted elevation | Buttons invisible (white text on light gray bg), spacing broken everywhere |
-| **4. CSS animations** | Hover effects, transitions, popup animations | Never loaded — custom.scss wasn't being processed by Turbopack on Windows (`.scss` extension issue) |
-| **5. Logo/Icon components** | Created Logo.tsx (Ieee.svg), Icon.tsx (emblem.png/favicon.svg) | Logo worked when inline SVG, but CSS from custom.scss never loaded so nav icons + animations failed |
+### PR 2 — Validation, Coupons & Registration API
+**Goal:** Centralize registration validation; introduce coupons; slim the API.
 
-### Root Causes Identified
-| Issue | Root cause | Fix |
-|---|---|---|
-| Broken admin spacing/search/layout | `@tailwind base` in globals.css leaked into admin via root layout | Moved globals.css import from root layout to `(main)` layout only |
-| SCSS not loading | Turbopack on Windows doesn't process `.scss` files correctly (EPIPE errors, broken pipe) | Workaround pending — need to investigate proper import method |
-| Button text invisible in dark mode | Payload Makeup or custom CSS set `--color` / `--bg-color` incorrectly relative to inverted elevation | Default Payload handles this correctly — don't override |
-| Lexical editor crashing | `Events.description` field was `type: 'richText'` but data was plain text | Changed to `type: 'textarea'` |
+- **`src/payload/hooks/registrations.ts#validateRegistration`** (beforeChange):
+  - 404 if event missing or `isDeleted`
+  - 400 if `registrationOpen === false`
+  - 400 if `registrationDeadline` passed
+  - 400 if full and `enableWaitlist === false`
+  - Free event (`price <= 0`) auto-confirms: sets `paymentStatus='not_required'`, `registrationStatus='confirmed'`
+- **`src/lib/coupons.ts#applyCoupon(payload, code, eventId, basePrice)`**:
+  - Resolves coupon from DB
+  - Validates `isActive`, `expiresAt`, `maxUses`, `currentUses`
+  - Computes `discountedAmount` based on `discountType` (percent/fixed) and `discountValue`
+  - Returns `{ discountedAmount, coupon }` or throws `APIError` on invalid
+- **`src/lib/auth.ts`** — Shared `requireAuth()` + `AuthError` class (replaced 4 copy-pasted auth guards)
+- **`src/lib/api.ts`** — Shared `apiFetch()` + `ApiError` + `buildPayloadQuery()`
+- **`src/app/api/registrations/route.ts`** — 99-line POST handler (auth → create registration → coupon → order)
+- **`src/app/api/orders/webhook/route.ts`** — Slimmed to 79 lines
+- **`src/app/api/check-in/verify/route.ts`** — Removed redundant `incrementCheckedInCount` call
+
+### PR 3 — Increment & Check-in Hooks
+**Goal:** Race-free counter updates via Drizzle raw queries.
+
+- **`src/payload/hooks/registrations.ts#incrementOnConfirm`** (afterChange):
+  - Atomic Drizzle `UPDATE ... SET registeredCount = COALESCE(..., 0) + 1`
+  - Triggers on `pending → confirmed` transition only
+  - Bypasses Payload Local API to avoid read-after-write inconsistency
+- **`incrementCheckedInOnTransition`** (afterChange):
+  - Atomic Drizzle increment on `checkedIn false → true`
+- After-Change hook chain on Registrations: `[incrementOnConfirm, incrementCheckedInOnTransition, sendConfirmation]`
+
+### PR 4 — Payment Propagation
+**Goal:** DDM webhook flows cleanly into registration state.
+
+- **`src/payload/hooks/orders.ts#createDdmTicket`** (beforeChange):
+  - On `create` with UPI payment: POSTs to `${PAYMENT_API_URL}/ticket`
+  - Stores `ddmTicketId` and full `ddmResponse` on the order
+- **`src/payload/hooks/orders.ts#propagatePaymentToRegistration`** (afterChange):
+  - On `paymentStatus` transition to `'paid'`, PATCHes linked registration
+  - Sets `paymentStatus='paid'`, `paymentTicketId` (from `ddmResponse.transactionId` / `ddmTicketId`), `paymentAmount`, `registrationStatus='confirmed'`
+  - Triggers Registrations afterChange chain → ticket issued + email sent
+
+### PR 5 — Admin White-Labeling & Tests
+**Goal:** Brand the admin panel; ship test coverage.
+
+- **`src/payload/admin/BeforeLogin.tsx`** — IEEE-branded header above default login form
+- **`src/payload/admin/BeforeDashboard.tsx`** — Welcome panel with `DashboardStats`
+- **`src/payload/admin/DashboardStats.tsx`** — Stats cards
+- **`src/payload/admin/Logo.tsx`** + **`Icon.tsx`** — Inlined SVG with `currentColor` (no external asset)
+- **`src/app/(payload)/custom.css`** — Full admin white-labeling (IEEE blue `#00629B`, teal `#00A3B5`, gold `#D4A843`)
+- **`payload.config.ts`** — Registers all admin custom components; sets `meta.titleSuffix = ' | IEEE Sahrdaya SB'`
+
+**Tests added (Vitest + Playwright):**
+- `tests/unit/hooks/validateRegistration.test.ts` — 9 tests (event not found, deleted, closed, deadline passed, full, free auto-confirm, etc.)
+- `tests/unit/lib/coupons.test.ts` — 8 tests (active/inactive, expired, max uses, percent/fixed discount)
+- `tests/e2e/smoke.spec.ts` — Home/events/societies load
+- `tests/e2e/register-flow.spec.ts` — Full registration flow with auth
 
 ---
 
-## Current Vanilla State
+## Database State
 
-### `payload.config.ts`
-```typescript
-admin: {},  // no custom components, no meta overrides, no theme restriction
-```
-- No Logo/Icon custom components
-- No DashboardWidget
-- No BillingView
-- No theme restriction (defaults to `'all'` — user/system preference)
-- Default Payload meta (favicon, title)
+**SQLite with WAL mode.** Custom indexes added via `afterSchemaInit` in `payload.config.ts`:
 
-### `src/app/(payload)/custom.scss`
-```scss
-/* intentionally empty — using default Payload CMS */
-```
+| Index | Table | Columns | Purpose |
+|---|---|---|---|
+| `events_status_idx` | events | `status` | Filter by draft/published/completed |
+| `events_is_deleted_idx` | events | `isDeleted` | Soft delete filter |
+| `events_date_idx` | events | `date` | Date-range queries |
+| `registrations_registration_status_idx` | registrations | `registrationStatus` | Status filters |
+| `registrations_payment_status_idx` | registrations | `paymentStatus` | Payment filters |
+| `registrations_user_event_unique` | registrations | `user`, `event` | **Unique** — dedupe at DB level (409 on conflict) |
+| `orders_payment_status_idx` | orders | `paymentStatus` | Payment filters |
 
-### Frontend (`src/app/layout.tsx` — root)
-- No CSS imports (avoids leaking `@tailwind base` into admin)
-- Only exports `metadata`, `viewport`, fonts, empty `{children}` wrapper
-
-### Frontend (`src/app/(main)/layout.tsx`)
-- Imports `../globals.css` (contains `@tailwind base`)
-- Handles fonts, session provider, JSON-LD schema, HTML structure
-
-### `src/app/(payload)/layout.tsx`
-- Imports `./custom.scss` (currently empty)
-- Standard Payload-generated layout with RootLayout + importMap
-
----
-
-## Dependencies
-
-### Production (21 packages)
-```
-@payloadcms/db-sqlite, @payloadcms/email-nodemailer, @payloadcms/next,
-@payloadcms/richtext-lexical, @zxing/browser, @zxing/library,
-framer-motion, gsap, jspdf, lucide-react, next, next-auth,
-papaparse, payload, payload-authjs, qrcode, react, react-dom,
-react-hook-form, react-hot-toast, sharp, zod
-```
-
-### Dev (11 packages)
-```
-@types/node, @types/qrcode, @types/react, @types/react-dom,
-autoprefixer, dotenv, eslint, eslint-config-next, postcss,
-prettier, sass, tailwindcss, tsx, typescript
-```
-
-### Env Vars (23 in `.env.local`)
-- Payload: `PAYLOAD_SECRET`, `DATABASE_URI`
-- Appwrite (migration only): `APPWRITE_ENDPOINT`, `APPWRITE_PROJECT_ID`, `APPWRITE_API_KEY`, `APPWRITE_DATABASE_ID`
-- Auth: `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_URL`
-- Payment: `PAYMENT_API_URL`, `PAYMENT_WEBHOOK_SECRET`
-- Email: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`
-- App: `NEXT_PUBLIC_APP_URL`
+**Note:** Drizzle property names use camelCase for fields (`registrationStatus`, `paymentStatus`, `isDeleted`) and bare names for relations (`user`, `event`) — **not** the snake_case SQL column names. This was the root cause of the original `getColumnCasing` bug.
 
 ---
 
 ## Collections (8)
 
-| Slug | Group | Records | Key fields |
+| Slug | Group | Purpose | Access |
 |---|---|---|---|
-| `media` | System | ~100+ | Upload (images), alt, thumbnail/card sizes |
-| `users` | System | ~200 (migrated) | Google OAuth, role (user/admin), department, semester, teams |
-| `societies` | Content | 15 | name, slug, bio, logo (upload), chairs (relation) |
-| `execom` | Content | 94 | name, position, society (relation), photo (upload), order, batch, department |
-| `events` | Events | 29 | title, slug, description (textarea), date, venue, price, status, society (relation) |
-| `registrations` | Events | ~200 (migrated) | user, event, payment/registration status, ticket (JSON), check-in |
-| `orders` | Events | ~ | user, registration, amount, ddmTicketId, payment status |
-| `coupons` | Events | ~ | code, discount (percentage/fixed), maxUses, event (relation) |
+| `media` | System | Image uploads (auto thumbnail/card sizes) | `isAdmin` write, public read |
+| `users` | System | Google OAuth users with roles | `isSelfOrAdmin` |
+| `societies` | Content | 14 IEEE technical societies | `isChairOrAdmin` write, public read |
+| `execom` | Content | Executive committee members | `isChairOfSociety` write, public read |
+| `events` | Events | Workshops, hackathons, seminars | `isChairOrAdmin` create, `isChairOfSociety` update/delete, public read |
+| `registrations` | Events | Sign-ups with payment tracking | `isAuthenticated` create, `isChairOrAdminForEventRead` read, `isChairOfSocietyForEventDoc` update, `isAdmin` delete |
+| `orders` | Events | DDM payment orders | Internal |
+| `coupons` | Events | Discount codes | `isChairOrAdmin` |
 
 ---
 
-## Custom API Routes (4)
+## Access Control Helpers (`src/payload/access/index.ts`)
 
-| Method | Path | Purpose | Status |
-|---|---|---|---|
-| `POST` | `/api/registrations/register` | Registration flow (free + paid + DDM) | Built |
-| `POST` | `/api/orders/webhook` | DDM SMS payment callback | Built |
-| `POST` | `/api/check-in/verify` | QR code check-in | Built |
-| `GET` | `/api/check-in/search` | Search attendees | Built |
+| Helper | Use case |
+|---|---|
+| `isAuthenticated` | Any logged-in user |
+| `isAdmin` | Admin only |
+| `isSelfOrAdmin` | Read/update self or any as admin |
+| `isChairOrAdmin` | Chair or admin |
+| `isChairOfSociety` | Reads `data.society`, checks society's `chairs` array |
+| `isChairOfSocietyForEventDoc` | Reads `data.event`, walks `event → society → chairs` |
+| `isChairOrAdminForEventRead` | List-level Where filter for chairs (nested `event.society.chairs.contains`) |
+| `isChairOfSocietyForEvent` (function) | Standalone API-route version (no Access context) |
 
 ---
 
-## Known Issues
+## Custom API Routes
 
-| Issue | Severity | Status |
+| Route | Method | Purpose |
 |---|---|---|
-| `custom.scss` not loading via Turbopack on Windows | High | Unresolved — need `.css` extension or different import method |
-| Logo/Icon components exist but unused | Low | Files at `src/payload/admin/Logo.tsx`, `Icon.tsx` — config references removed |
-| `sass@1.100.0` installed at root (may conflict with Next.js 16's sass@1.77.4) | Low | Installed when troubleshooting SCSS loading, can be removed |
-| `@emnapi/runtime` extraneous in npm ls | Low | Transitive dependency hoisted, harmless |
-| `next-auth` peer dep warning (`next@^14.0.0-0 \|\| ^15.0.0-0` vs actual next@16) | Medium | Known issue with next-auth 5 beta + Next.js 16, works at runtime with `--legacy-peer-deps` |
+| `/api/auth/[...nextauth]` | * | NextAuth.js 5 handler (Google OAuth) |
+| `/api/registrations` | POST | Create registration + (if paid) order with coupon |
+| `/api/orders/webhook` | POST | DDM payment callback → propagates to registration |
+| `/api/check-in/verify` | POST | QR scan check-in (uses new `incrementCheckedInOnTransition` hook) |
+| `/api/events/:id/export` | GET | CSV export, chair-scoped |
+| `/api/{collection-slug}` | * | Payload REST catch-all (CRUD on all 8 collections) |
 
 ---
 
-## Next Steps (Recommended Order)
+## Migration (Appwrite → Payload)
 
-### 1. Make custom CSS load (blocker for all admin UI work)
-Investigate why `custom.scss` doesn't load via Turbopack on Windows:
-- Try `import './custom.css'` (rename file to `.css` — plain CSS = no SCSS processing needed)
-- Check if Turbopack processes CSS differently from webpack
-- Add a test rule (`body { background: red }`) and verify via browser dev tools
-- **If CSS load confirmed:** proceed to step 2
+**Source:** `ieee_export.sql` (355KB MariaDB dump) + `public/Societies/` (14 images), `public/Execom/` (83), `public/Events/` (7)
 
-### 2. Add Logo + Icon (white-label identity)
-- Re-enable `admin.components.graphics.Logo` and `Icon` in `payload.config.ts`
-- Logo.tsx uses inline SVG (works — confirmed previously) with `favicon.svg` paths
-- Icon.tsx uses inline SVG at smaller size
-- `importMap.js` auto-regenerates on server start
+**Process:**
+1. `npx payload migrate` — applies schema migrations
+2. `npm run migrate` — runs `migration/migrate-from-sql.ts` (uses `tsx --env-file=.env.local`)
+3. `npm run seed` (dev-only, guards on existing data) — re-runnable demo data
 
-### 3. Add nav icons (visual navigation)
-- Add to custom CSS (once loading is fixed):
-  - `.nav__link::before` with `mask-image` for Lucide icons
-  - Icons for societies, execom, registrations, coupons
+**Migrated counts:**
+- Societies: 14 → 15 (1 extra chair account)
+- Execom: 83 → 94
+- Events: 7 → 29 (22 from external URLs, no local file)
 
-### 4. Brand colors (subtle)
-- `:root { --theme-color: #00629B; --theme-color-hover: #0099D6; }`
-- Just these two — tints primary buttons, active nav, links
-- No elevation/background overrides (those broke things before)
+**Cleanup needed in source data (intentionally kept as-is, matches Appwrite):**
+- 6 faculty records have wrong photo attachments (pre-existing in SQL `photoUrl` field)
+- 7 images in `public/Events/` are orphaned (no SQL title match)
+- 2 events unmatched during backfill (1 "test", 1 duplicate-title "Machine Learning Workshop")
 
-### 5. Animations (CSS-only, low risk)
-- Add gradually, test each:
-  - Nav hover transitions
-  - Popup fade + scale
-  - Button press effect
-  - Table row hover
+**Banner URL backfill:** `scripts/backfill-event-banners.ts` parses `ieee_export.sql` events by title and sets `bannerUrl` from external URLs. Result: 27/29 events have banner URLs (ImgBB + Appwrite storage).
 
-### 6. Deploy to Dokploy
-- Dockerfile uses Node.js 22 multi-stage build with `output: 'standalone'`
-- Persistent volume at `/app/data` for SQLite
-- Set up Google OAuth credentials for production
-- Run `npm run migrate` for initial data
+**Image config for external hostnames** (`next.config.mjs`):
+```js
+remotePatterns: [
+  { protocol: 'https', hostname: 'res.cloudinary.com' },
+  { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
+  { protocol: 'https', hostname: 'i.ibb.co' },                  // ImgBB
+  { protocol: 'https', hostname: 'backend.mulearnscet.in' },   // Appwrite
+  { protocol: 'https', hostname: 'backend.ieeesahrdaya.com' }, // Appwrite
+  { protocol: appUrl.protocol, hostname: appUrl.hostname },    // self
+],
+dangerouslyAllowLocalIP: true,  // Next.js 16 SSRF guard
+```
+
+> **Important Next.js 16 behavior:** `<Image unoptimized>` **still validates hostnames** in the loader. External URLs must be in `remotePatterns` to render.
 
 ---
 
-## Files of Interest
+## Migrations
 
-| File | Purpose | Status |
+| File | Date | Purpose |
 |---|---|---|
-| `payload.config.ts` | Payload configuration | Clean, minimal |
-| `src/app/(payload)/custom.scss` | Admin custom styles | Empty |
-| `src/app/(payload)/layout.tsx` | Admin root layout | Imports `custom.scss` |
-| `src/app/layout.tsx` | App root layout | No CSS import (avoids admin leak) |
-| `src/app/(main)/layout.tsx` | Frontend layout | Imports `globals.css` (Tailwind base) |
-| `src/app/globals.css` | Tailwind directives | `@tailwind base; @tailwind components; @tailwind utilities;` |
-| `src/payload/admin/Logo.tsx` | Admin logo component | Created but not in config |
-| `src/payload/admin/Icon.tsx` | Admin icon component | Created but not in config |
-| `src/payload/admin/DashboardWidget.tsx` | Dashboard widget | Created but not in config |
-| `src/payload/admin/BillingView.tsx` | Custom billing view | Created but not in config |
-| `public/favicon.svg` | Fixed viewBox, `currentColor` fills | Ready for use in Logo/Icon |
-| `public/Ieee.svg` | IEEE text logo (horizontal) | Available for Logo |
-| `public/emblem.png` | IEEE diamond emblem (square) | Available for Logo/Icon |
-| `tailwind.config.js` | Tailwind v3 config | Custom colors + fonts |
-| `next.config.mjs` | Next.js config | `output: 'standalone'`, `images.unoptimized: true` |
-| `auth.config.ts` | Auth.js config | Google OAuth provider only |
-| `.env.local` | Environment variables | 23 vars populated |
+| `src/migrations/20260604_103004.ts` | Jun 4 | Initial schema with 7 custom indexes |
+| `src/migrations/20260604_132617.ts` | Jun 4 | Add `banner_url text` column to events |
+
+State synced manually in `payload_migrations` table (dev-push was already there).
+
+---
+
+## Environment Variables
+
+```env
+# Payload CMS
+PAYLOAD_SECRET=                       # required
+DATABASE_URI=file:./data/payload.db   # SQLite path
+
+# Authentication (NextAuth.js 5)
+AUTH_SECRET=
+AUTH_GOOGLE_ID=
+AUTH_GOOGLE_SECRET=
+AUTH_URL=http://localhost:3000
+
+# DDM Payment Gateway
+PAYMENT_API_URL=https://pay.mulearnscet.in/api
+PAYMENT_WEBHOOK_SECRET=
+
+# SMTP Email
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASS=
+
+# Application
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_UPI_ID=
+NEXT_PUBLIC_MERCHANT_NAME=
+
+# Optional
+ADMIN_EMAILS=                         # comma-separated
+CORS_ORIGINS=                         # comma-separated
+```
+
+**Appwrite vars removed** (`APPWRITE_ENDPOINT`, `APPWRITE_PROJECT_ID`, `APPWRITE_API_KEY`, `APPWRITE_DATABASE_ID`).
+
+---
+
+## Tests
+
+```bash
+npm test          # vitest run — 17 tests
+npm run test:watch
+npm run test:e2e        # playwright headless
+npm run test:e2e:headed # playwright with browser UI
+```
+
+| Test file | Tests | Coverage |
+|---|---|---|
+| `tests/unit/hooks/validateRegistration.test.ts` | 9 | Event not found, deleted, closed, deadline, full, free auto-confirm, valid paid, free with price=0 |
+| `tests/unit/lib/coupons.test.ts` | 8 | Inactive, expired, max uses reached, percent discount, fixed discount, valid, no code |
+| `tests/e2e/smoke.spec.ts` | 4 | Home, events, societies, full-execom load |
+| `tests/e2e/register-flow.spec.ts` | 1 | Full registration flow with auth |
+
+---
+
+## Scripts
+
+```bash
+npm run dev              # next dev (Turbopack)
+npm run build            # next build (standalone output)
+npm start                # next start (production)
+npm run lint             # next lint
+npm run payload          # payload CLI
+npm run migrate          # tsx --env-file=.env.local migration/migrate-from-sql.ts
+npm run migrate:safe     # npx payload migrate && npm run migrate
+npm run seed             # tsx --env-file=.env.local scripts/seed.ts (dev-only, guards on existing data)
+npm test                 # vitest run
+npm run test:e2e         # playwright test
+```
+
+---
+
+## Key Files (Final)
+
+| File | Purpose |
+|---|---|
+| `src/types/index.ts` | Single source of truth: Event, Society, EventWithSociety, ExtendedEvent |
+| `src/types/registration.ts` | Registration-specific: FormTemplate, Registration, Ticket |
+| `src/lib/dates.ts` | 11 shared date formatting utilities |
+| `src/lib/auth.ts` | `requireAuth()` + `AuthError` |
+| `src/lib/coupons.ts` | `applyCoupon()` — percent/fixed discount with validation |
+| `src/lib/api.ts` | `apiFetch()` + `ApiError` + `buildPayloadQuery()` |
+| `src/lib/qr.ts` | `generateQRBase64()` |
+| `src/lib/ticketStatus.ts` | Ticket status badge logic |
+| `src/lib/pdfReceiptGenerator.ts` | jsPDF receipt generation |
+| `src/lib/email/templates.ts` | HTML email templates (registration + receipt) |
+| `src/payload/access/index.ts` | 106 lines, 7 helpers + 1 standalone function |
+| `src/payload/hooks/registrations.ts` | 192 lines, 4 exports |
+| `src/payload/hooks/orders.ts` | 72 lines, 2 exports |
+| `src/payload/collections/{8 collections}` | Total ~440 lines across 8 files |
+| `src/payload/admin/{BeforeLogin,BeforeDashboard,DashboardStats,Logo,Icon}.tsx` | Admin white-labeling |
+| `src/app/(payload)/custom.css` | Full admin CSS overrides |
+| `src/app/api/registrations/route.ts` | 128 lines, auth → create → coupon → order |
+| `src/app/api/orders/webhook/route.ts` | DDM callback handler |
+| `src/app/api/check-in/verify/route.ts` | QR check-in |
+| `src/app/api/events/[eventId]/export/route.ts` | CSV export |
+| `migration/migrate-from-sql.ts` | MariaDB dump → Payload |
+| `scripts/seed.ts` | Dev-only demo data (guards on existing data) |
+| `scripts/backfill-event-banners.ts` | Backfill `bannerUrl` from SQL |
+| `next.config.mjs` | External image hostnames + `dangerouslyAllowLocalIP` |
+| `payload.config.ts` | 7 custom indexes via `afterSchemaInit` |
+
+---
+
+## Post-Migration Verification
+
+Final dev verification (June 4, 2026):
+
+- **Routes:** home=200, /societies=200, /api/events=200, /api/societies=200, /admin=200
+- **Society page images:** 21 society/member logos + 8 event banners (i.ibb.co) rendering
+- **Typecheck:** clean (`npx tsc --noEmit`)
+- **Unit tests:** 17/17 passing
+- **Migrations applied:** `20260604_103004` (schema) + `20260604_132617` (banner_url column)
+
+---
+
+## Known Issues / Remaining (Low Priority)
+
+| Issue | Status | Notes |
+|---|---|---|
+| `EventCard` dedup | Open | Root-level `EventCard.tsx` vs `src/components/events/EventCard.tsx` — different designs, both in use |
+| `TicketDisplay` + `tickets/TicketCard` | Open | Overlapping ticket UI, could merge |
+| Execom data layer | Open | `Execom.tsx` and `ExecomClient.tsx` fetch same API independently |
+| `Navbar`/`Footer` not in root layout | Open | Homepage needs fixed hero, Societies conditionally hides navbar |
+| `sass` devDependency | Open | Required by `@payloadcms/ui` internally |
+| SSR opportunities | Open | Most components are `'use client'` — works but could be faster |
+
+---
+
+## Removed (Appwrite Era)
+
+- All `src/lib/api/*` (1,440 lines)
+- `src/lib/appwrite.ts`, `src/lib/checkInHelpers.ts`
+- `proxy.ts` (inert edge middleware)
+- 6 redundant API routes
+- `appwriteUserId` field
+- `AnimatedTick`, `ConfettiExplosion`, `DashboardWidget`, `BillingView`, `ticketGenerator.ts`
+- All Appwrite env vars
+- `vercel.json`, `wrangler.jsonc`, `tailwind.config.ts` (migrated to `tailwind.config.js`)
+- 30,000+ lines of dead code

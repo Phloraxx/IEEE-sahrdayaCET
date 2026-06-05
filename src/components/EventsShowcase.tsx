@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
+import Image from 'next/image';
 import TransitionLink from '@/components/PageTransition/TransitionLink';
 
 const eventImages = [
@@ -63,10 +64,12 @@ const ImageStrip = () => {
                         key={i}
                         className="relative flex-shrink-0 w-[260px] h-[360px] rounded-2xl overflow-hidden shadow-lg"
                     >
-                        <img
+                        <Image
                             src={src}
                             alt={`IEEE Event ${(i % eventImages.length) + 1}`}
-                            className="w-full h-full object-cover hover:scale-105 transition-transform duration-700"
+                            fill
+                            sizes="260px"
+                            className="object-cover hover:scale-105 transition-transform duration-700"
                         />
                     </div>
                 ))}

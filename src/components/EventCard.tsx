@@ -6,11 +6,12 @@ import { Event, Society } from '@/types';
 import { Calendar, MapPin, IndianRupee, ChevronRight, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { UrgencyTag } from './UrgencyTag';
+import { formatDateCompact, formatTime } from '@/lib/dates';
 
 type UrgencyType = 'early-bird' | 'last-chance' | 'hot-event' | null;
 
 interface EventCardProps {
-    event: Event & { society?: Society };
+    event: Event & { society?: Society | string };
     variant?: 'default' | 'compact';
     onClick?: (event: Event) => void;
     index?: number;
@@ -24,16 +25,9 @@ const EventCard = memo(function EventCard({
     index = 0,
     urgencyType = null,
 }: EventCardProps) {
-    const eventDate = new Date(event.date);
-    const formattedDate = eventDate.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-    });
-    const formattedTime = eventDate.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-    });
-    const year = eventDate.getFullYear();
+    const formattedDate = formatDateCompact(event.date);
+    const formattedTime = formatTime(event.date);
+    const year = new Date(event.date).getFullYear();
 
     const isCompleted = event.status === 'completed';
     const isClickable = !!onClick;
@@ -52,9 +46,9 @@ const EventCard = memo(function EventCard({
             >
                 {/* Event Image - 9:16 aspect ratio */}
                 <div className="relative aspect-[9/16] bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
-                    {event.banner_url ? (
+                    {event.bannerUrl ? (
                         <Image
-                            src={event.banner_url}
+                            src={event.bannerUrl}
                             alt={event.title}
                             fill
                             sizes="240px"
@@ -121,9 +115,9 @@ const EventCard = memo(function EventCard({
         >
             {/* Banner Image - 9:16 aspect ratio */}
             <div className="relative bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
-                {event.banner_url ? (
+                {event.bannerUrl ? (
                     <Image
-                        src={event.banner_url}
+                        src={event.bannerUrl}
                         alt={event.title}
                         fill
                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
@@ -150,11 +144,11 @@ const EventCard = memo(function EventCard({
                 )}
 
                 {/* Society Logo Overlay */}
-                {event.society?.logo_url && (
+                {event.society && typeof event.society === 'object' && event.society.logoUrl && (
                     <div className="absolute bottom-3 left-3 bg-white p-2 rounded-lg shadow-lg border border-gray-200">
                         <div className="relative w-8 h-8">
                             <Image
-                                src={event.society.logo_url}
+                                src={event.society.logoUrl}
                                 alt={event.society.name}
                                 fill
                                 sizes="32px"
@@ -168,7 +162,7 @@ const EventCard = memo(function EventCard({
             {/* Content */}
             <div className="p-5 bg-white">
                 {/* Society Name */}
-                {event.society && (
+                {event.society && typeof event.society === 'object' && (
                     <p className="text-ieee-blue text-xs font-bold mb-2 uppercase tracking-widest">
                         {event.society.name}
                     </p>

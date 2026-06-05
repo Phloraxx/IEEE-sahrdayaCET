@@ -1,11 +1,12 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { ArrowUpRight, Mail, MapPin, Phone } from 'lucide-react';
 
 const Footer: React.FC = () => {
-    const currentYear = new Date().getFullYear();
+    const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+    useEffect(() => { setCurrentYear(new Date().getFullYear()); }, []);
 
     return (
         <footer className="relative z-20 bg-gray-950 text-white overflow-hidden">

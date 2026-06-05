@@ -3,8 +3,12 @@ import React from 'react'
 const Logo: React.FC = () => {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <div style={{ color: 'var(--theme-elevation-800)', height: 26, width: 34 }}>
-        <svg width="100%" height="100%" viewBox="110 290 105 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <div style={{
+        color: '#635bff',
+        height: 24,
+        width: 30,
+      }}>
+        <svg width="100%" height="100%" viewBox="80 280 160 110" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M208.638 331.358L208.982 331.721L209.707 331.032L209.362 330.669L209 331.014L208.638 331.358ZM190 311.014L189.638 311.358L208.638 331.358L209 331.014L209.362 330.669L190.362 310.669L190 311.014Z" fill="currentColor"/>
           <circle cx="188.5" cy="308.514" r="3" stroke="currentColor" fill="none"/>
           <path d="M208.639 330.669L208.984 330.307L209.708 330.997L209.363 331.359L209.001 331.014L208.639 330.669ZM189.949 351.014L189.587 350.669L208.639 330.669L209.001 331.014L209.363 331.359L190.311 351.359L189.949 351.014Z" fill="currentColor"/>
@@ -22,8 +26,8 @@ const Logo: React.FC = () => {
       </div>
       <span style={{
         fontSize: 13,
-        fontWeight: 700,
-        color: 'var(--theme-elevation-800)',
+        fontWeight: 600,
+        color: '#0a2540',
         letterSpacing: '-0.01em',
         whiteSpace: 'nowrap',
       }}>

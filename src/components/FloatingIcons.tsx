@@ -15,7 +15,7 @@ const icons: FloatingIconProps[] = [
 
 export const FloatingIcons: React.FC = () => {
     return (
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
             {icons.map((item, index) => (
                 <motion.div
                     key={index}
