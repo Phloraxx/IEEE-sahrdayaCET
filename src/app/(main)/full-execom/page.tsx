@@ -1,5 +1,11 @@
-import type { Metadata } from 'next';
-import ExecomClient from './ExecomClient';
+import type { Metadata } from 'next'
+import { createPB } from '@/lib/pb'
+import { APP_URL } from '@/lib/constants'
+import ExecomClient, { ExecomMemberDoc } from './ExecomClient'
+
+export const dynamic = 'force-dynamic'
+
+const EXECOM_URL = `${APP_URL}/full-execom`
 
 export const metadata: Metadata = {
   title: 'Execom Directory',
@@ -9,7 +15,7 @@ export const metadata: Metadata = {
     title: 'Execom Directory | IEEE Sahrdaya',
     description:
       'Browse the full IEEE Sahrdaya EXECOM 2026-2027 directory — 60+ student leaders across all technical societies.',
-    url: 'https://ieeesahrdaya.com/full-execom',
+    url: EXECOM_URL,
     images: [
       {
         url: '/web.png',
@@ -20,10 +26,41 @@ export const metadata: Metadata = {
     ],
   },
   alternates: {
-    canonical: 'https://ieeesahrdaya.com/full-execom',
+    canonical: EXECOM_URL,
   },
 };
 
-export default function FullExecomPage() {
-  return <ExecomClient />;
+export default async function FullExecomPage() {
+  let docs: ExecomMemberDoc[] = []
+
+  try {
+    const pb = createPB()
+    const result = await pb.collection('execom').getList(1, 100, { sort: 'order' })
+    docs = (result.items || []).map((raw: Record<string, unknown>, i: number) => {
+      const doc = raw as { id: string; order?: number; name?: string; department?: string; batch?: string; position?: string; category?: string; section?: string; sectionId?: string; photo?: string; linkedin?: string; instagram?: string; email?: string; phone?: string }
+      return {
+        id: doc.id,
+        order: doc.order || 0,
+        slNo: doc.order || (i + 1),
+        name: doc.name || '',
+        department: doc.department || '',
+        semester: doc.batch || '',
+        position: doc.position || '',
+        category: doc.category || '',
+        section: doc.section || '',
+        sectionId: doc.sectionId || '',
+        photoUrl: doc.photo
+          ? `${process.env.POCKETBASE_URL}/api/files/execom/${doc.id}/${doc.photo}`
+          : '',
+        linkedin: doc.linkedin,
+        instagram: doc.instagram,
+        email: doc.email,
+        phone: doc.phone,
+      }
+    })
+  } catch (e) {
+    console.error('Execom fetch failed (known Windows ECONNRESET):', e instanceof Error ? e.message : e)
+  }
+
+  return <ExecomClient initialDocs={docs} />;
 }

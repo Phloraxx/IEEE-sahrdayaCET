@@ -1,12 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import { Press_Start_2P, Inter, Caveat } from "next/font/google";
 import "../globals.css";
-import { SessionProvider } from "next-auth/react";
+import { AuthProvider } from "@/lib/auth-context";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import JsonLd from "@/components/JsonLd";
-import PageTransitionOverlay from "@/components/PageTransition";
-import { auth } from "@/auth";
+import { APP_URL } from "@/lib/constants";
 
 const pressStart2P = Press_Start_2P({ 
   weight: "400",
@@ -27,7 +26,7 @@ const caveat = Caveat({
   display: "swap",
 });
 
-const BASE_URL = "https://ieeesahrdaya.com";
+const BASE_URL = APP_URL;
 
 const organizationSchema = {
   "@context": "https://schema.org",
@@ -77,8 +76,6 @@ export default async function MainLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
-
   return (
     <html lang="en">
       <head>
@@ -86,12 +83,11 @@ export default async function MainLayout({
         <link rel="preconnect" href="https://lh3.googleusercontent.com" />
       </head>
       <body className={`${pressStart2P.variable} ${inter.variable} ${caveat.variable} font-sans antialiased`}>
-        <SessionProvider session={session}>
-          <PageTransitionOverlay />
+        <AuthProvider>
           <JsonLd schema={organizationSchema} />
           <JsonLd schema={websiteSchema} />
           {children}
-        </SessionProvider>
+        </AuthProvider>
       </body>
     </html>
   );

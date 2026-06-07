@@ -1,7 +1,8 @@
 import { MetadataRoute } from 'next';
+import { APP_URL } from '@/lib/constants';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = 'https://ieeesahrdaya.com';
+  const baseUrl = APP_URL;
 
   return [
     {

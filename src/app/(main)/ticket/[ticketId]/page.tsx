@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, use } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, MapPin, Clock, Download, ArrowLeft, Loader2, ExternalLink, AlertCircle, Ticket } from 'lucide-react';
+import { Calendar, MapPin, Clock, Download, ArrowLeft, Loader2, AlertCircle, Ticket } from 'lucide-react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -51,7 +51,7 @@ export default function TicketPage({ params }: PageProps) {
                 setLoading(true);
                 setError(null);
 
-                const response = await fetch(`/api/registrations?where[ticket][ticket_id][equals]=${ticketId}&depth=2&limit=1`);
+                const response = await fetch(`/api/registrations?ticketId=${ticketId}`);
                 
                 if (!response.ok) {
                     setError('Failed to load ticket');
@@ -59,7 +59,7 @@ export default function TicketPage({ params }: PageProps) {
                 }
 
                 const data = await response.json();
-                const reg = data.docs?.[0];
+                const reg = data.items?.[0];
                 if (!reg) {
                     setError('Ticket not found');
                     return;
@@ -101,52 +101,9 @@ export default function TicketPage({ params }: PageProps) {
     }, [ticketId]);
 
     const handleDownloadQR = () => {
-        if (!qrDataUrl || !event) return;
-        downloadQRFile(qrDataUrl, `ticket-${event.title.replace(/\s+/g, '-').toLowerCase()}.png`);
-    };
-
-    const downloadCalendarFile = () => {
-        if (!event) return;
-        const start = new Date(event.date);
-        const end = new Date(start.getTime() + (2 * 60 * 60 * 1000));
-        const formatICSDate = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
-        const details = [
-            'BEGIN:VCALENDAR',
-            'VERSION:2.0',
-            'PRODID:-//IEEE Sahrdaya//Event Ticket//EN',
-            'BEGIN:VEVENT',
-            `UID:${ticket?.id || registration.id}@ieeesahrdaya.com`,
-            `DTSTAMP:${formatICSDate(new Date())}`,
-            `DTSTART:${formatICSDate(start)}`,
-            `DTEND:${formatICSDate(end)}`,
-            `SUMMARY:${event.title}`,
-            `DESCRIPTION:Ticket ID: ${ticket?.id || registration.id} | Open ticket: ${window.location.href}`,
-            `LOCATION:${event.venue || 'TBA'}`,
-            'END:VEVENT',
-            'END:VCALENDAR',
-        ].join('\r\n');
-
-        const blob = new Blob([details], { type: 'text/calendar;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `${event.title.replace(/\s+/g, '-').toLowerCase()}.ics`;
-        link.click();
-        URL.revokeObjectURL(url);
-    };
-
-    const openGoogleCalendar = () => {
-        if (!event) return;
-        const start = new Date(event.date);
-        const end = new Date(start.getTime() + (2 * 60 * 60 * 1000));
-        const gDate = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
-        const url = new URL('https://calendar.google.com/calendar/render');
-        url.searchParams.set('action', 'TEMPLATE');
-        url.searchParams.set('text', event.title);
-        url.searchParams.set('dates', `${gDate(start)}/${gDate(end)}`);
-        url.searchParams.set('details', `Ticket ID: ${ticket?.id || registration.id}\n${window.location.href}`);
-        url.searchParams.set('location', event.venue || 'TBA');
-        window.open(url.toString(), '_blank', 'noopener,noreferrer');
+        const ev = ticketData?.event;
+        if (!qrDataUrl || !ev) return;
+        downloadQRFile(qrDataUrl, `ticket-${ev.title.replace(/\s+/g, '-').toLowerCase()}.png`);
     };
 
     if (loading) {
@@ -310,28 +267,14 @@ export default function TicketPage({ params }: PageProps) {
                             )}
 
                             {/* Action Buttons */}
-                            <div className="grid grid-cols-2 gap-3 pt-2">
+                            <div className="pt-2">
                                 <button
                                     onClick={handleDownloadQR}
                                     disabled={!qrDataUrl || !isConfirmed || isPending}
-                                    className="flex items-center justify-center gap-2 bg-ieee-blue text-white py-3.5 rounded-xl font-semibold hover:bg-ieee-blue/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="w-full flex items-center justify-center gap-2 bg-ieee-blue text-white py-3.5 rounded-xl font-semibold hover:bg-ieee-blue/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <Download className="w-5 h-5" />
                                     Download QR
-                                </button>
-                                <button
-                                    onClick={openGoogleCalendar}
-                                    className="flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-700 py-3.5 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
-                                >
-                                    <ExternalLink className="w-5 h-5" />
-                                    Google Calendar
-                                </button>
-                                <button
-                                    onClick={downloadCalendarFile}
-                                    className="flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-700 py-3.5 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
-                                >
-                                    <Calendar className="w-5 h-5" />
-                                    Apple/ICS
                                 </button>
                             </div>
                         </div>

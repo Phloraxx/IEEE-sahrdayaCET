@@ -57,9 +57,6 @@ next-env.d.ts
 # SQLite database (runtime)
 data/
 
-# Payload
-.importMap.json
-
 # Migration artifacts
 media/
 societies/
@@ -81,3 +78,6 @@ playwright-report/
 
 # Local visual verification artifacts
 tmp/
+
+# Plaintext credentials (one-time scripts)
+tmp_login.json
