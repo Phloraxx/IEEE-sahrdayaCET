@@ -10,7 +10,7 @@ import { GridBackground } from '@/components/GridBackground';
 import { FloatingIcons } from '@/components/FloatingIcons';
 import { TechnicalDetails } from '@/components/TechnicalDetails';
 import { Loader2, X, Edit, Calendar, Users, Award, LogIn } from 'lucide-react';
-import { useSession, signIn } from 'next-auth/react';
+import { useAuth } from '@/lib/auth-context';
 import EventCard from '@/components/EventCard';
 import Footer from '@/components/Footer';
 import dynamic from 'next/dynamic';
@@ -88,9 +88,13 @@ const MemberCard = React.memo(({ member, idx }: { member: ExecomMember; idx: num
 });
 MemberCard.displayName = 'MemberCard';
 
-export default function SocietiesClient() {
-    const [societies, setSocieties] = useState<Society[]>([]);
-    const [loading, setLoading] = useState(true);
+interface SocietiesClientProps {
+    societies: Society[];
+}
+
+export default function SocietiesClient({ societies: initialSocieties }: SocietiesClientProps) {
+    const [societies] = useState<Society[]>(initialSocieties);
+    const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [selectedSociety, setSelectedSociety] = useState<Society | null>(null);
     const [societyEvents, setSocietyEvents] = useState<Event[]>([]);
@@ -103,89 +107,35 @@ export default function SocietiesClient() {
     const [scrollPosition, setScrollPosition] = useState(0);
     const [registrationEvent, setRegistrationEvent] = useState<Event | null>(null);
     const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false);
-    const { data: session } = useSession();
-    const user = session?.user;
+    const { user, signIn } = useAuth();
 
-    useEffect(() => {
-        fetchSocieties();
-    }, []);
-
-    const fetchSocieties = async () => {
-        try {
-            const res = await fetch('/api/societies?limit=50&depth=1&sort=id&where[isHidden][not_equals]=true');
-            const data = await res.json();
-            const docs = (data.docs || []).map((d: Record<string, unknown>) => ({
-                ...d,
-                id: d.id as string,
-                logoUrl: (d.logoUrl as string) || ((d.logo as Record<string, unknown>)?.url as string),
-            }));
-            setSocieties(docs as unknown as Society[]);
-        } catch (err: unknown) {
-            console.error('Error fetching societies:', err);
-            setError('Failed to load societies. Please try again later.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const fetchSocietyEvents = async (societyId: string) => {
+    const fetchSocietyData = async (slug: string) => {
         setLoadingEvents(true);
-        try {
-            const eventsRes = await fetch(`/api/events?where[society][equals]=${societyId}&sort=-date&limit=10&depth=1`);
-            const eventsData = await eventsRes.json();
-            const eventsDocs = (eventsData.docs || []).map((e: Record<string, unknown>) => ({
-                ...e,
-                id: e.id as string,
-                bannerUrl: (e.bannerUrl as string) || ((e.banner as Record<string, unknown>)?.url as string),
-            }));
-            const events = (eventsDocs as unknown as Event[])
-                .filter(event => 
-                    event.status === 'published' || event.status === 'completed'
-                );
-            setSocietyEvents(events);
-        } catch (err: unknown) {
-            console.error('Error fetching events:', err);
-        } finally {
-            setLoadingEvents(false);
-        }
-    };
-
-    const fetchSocietyMembers = async (societySlug: string) => {
         setLoadingMembers(true);
         try {
-            const membersRes = await fetch(`/api/execom?where[sectionId][equals]=${societySlug}&sort=order&limit=50&depth=1`);
-            const membersData = await membersRes.json();
-            const membersDocs = membersData.docs || [];
-            const members = membersDocs.map((doc: any) => ({
-                slNo: doc.order ?? doc.slNo ?? 0,
-                name: doc.name || '',
-                department: doc.department || '',
-                semester: doc.batch || doc.semester || '',
-                position: doc.position || '',
-                photoUrl: (doc.photoUrl as string) || ((doc.photo as Record<string, unknown>)?.url as string) || '',
-                linkedin: doc.linkedin || '',
-                instagram: doc.instagram || '',
-                email: doc.email || '',
-                phone: doc.phone || '',
-            }));
-            setSocietyMembers(members);
+            const res = await fetch(`/api/society/${slug}`)
+            if (!res.ok) throw new Error('Failed to fetch society data')
+            const data = await res.json()
+            setSocietyEvents((data.events || []).filter((e: Event) =>
+                e.status === 'published' || e.status === 'completed'
+            ))
+            setSocietyMembers(data.members || [])
         } catch (err: unknown) {
-            console.error('Error fetching members:', err);
-            setSocietyMembers([]);
+            console.error('Error fetching society data:', err)
         } finally {
-            setLoadingMembers(false);
+            setLoadingEvents(false)
+            setLoadingMembers(false)
         }
     };
 
     const handleSocietyClick = (society: Society) => {
         setSelectedSociety(society);
         setEventActionError(null);
-        fetchSocietyEvents(String(society.id));
-        fetchSocietyMembers(society.slug);
+        fetchSocietyData(society.slug);
     };
 
     const handleEditClick = () => {
-        signIn('google');
+        signIn();
     };
 
     const handleRegisterForEvent = async () => {
@@ -193,7 +143,7 @@ export default function SocietiesClient() {
         setEventActionError(null);
 
         if (!user) {
-            signIn('google');
+        signIn();
             return;
         }
 
@@ -239,7 +189,7 @@ export default function SocietiesClient() {
                     className="fixed top-24 right-6 z-20"
                 >
                     <button
-                        onClick={() => signIn('google')}
+                        onClick={() => signIn()}
                         className="bg-white/80 backdrop-blur-sm hover:bg-white border border-gray-200 hover:border-ieee-blue text-gray-700 hover:text-ieee-blue font-semibold py-2 px-4 rounded-lg transition-all shadow-md hover:shadow-lg flex items-center gap-2 text-sm"
                     >
                         <LogIn className="w-4 h-4" />

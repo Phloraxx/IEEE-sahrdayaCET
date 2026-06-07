@@ -34,7 +34,7 @@ interface PaymentModalProps {
     event: Event;
     registration: Registration;
     paymentData?: PaymentData;
-    onPaymentComplete: (transactionId: string | number) => void;
+    onPaymentComplete: (transactionId: string) => void;
     onError: (message: string) => void;
 }
 
@@ -145,8 +145,8 @@ export default function PaymentModal({
     const [retryCount, setRetryCount] = useState(0);
     const pollingRef = useRef<NodeJS.Timeout | null>(null);
     
-    const UPI_ID = paymentData?.upiId || process.env.NEXT_PUBLIC_UPI_ID || 'ieee.sahrdaya@upi';
-    const MERCHANT_NAME = paymentData?.merchantName || process.env.NEXT_PUBLIC_MERCHANT_NAME || 'IEEE Sahrdaya SB';
+    const UPI_ID = paymentData?.upiId || process.env.NEXT_PUBLIC_UPI_ID || '';
+    const MERCHANT_NAME = paymentData?.merchantName || process.env.NEXT_PUBLIC_MERCHANT_NAME || '';
     const PAYMENT_TIMEOUT = 5 * 60 * 1000;
     
     const paymentCreatedAt = paymentData?.createdAt ? new Date(paymentData.createdAt).getTime() : Date.now();

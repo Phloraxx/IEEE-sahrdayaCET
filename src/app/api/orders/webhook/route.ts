@@ -1,5 +1,4 @@
-import { getPayload } from 'payload'
-import config from '@payload-config'
+import { createPB } from '@/lib/pb'
 import crypto from 'crypto'
 
 export async function POST(req: Request) {
@@ -14,11 +13,15 @@ export async function POST(req: Request) {
   }
   const expected = Buffer.from(webhookSecret)
   const received = Buffer.from(headerSecret)
-  if (expected.length !== received.length || !crypto.timingSafeEqual(expected, received)) {
+  if (expected.length !== received.length) {
+    return Response.json({ error: 'Invalid webhook secret' }, { status: 401 })
+  }
+  if (!crypto.timingSafeEqual(expected, received)) {
     return Response.json({ error: 'Invalid webhook secret' }, { status: 401 })
   }
 
-  const payload = await getPayload({ config })
+  const pb = createPB()
+
   try {
     const body = (await req.json()) as {
       ticketId?: string
@@ -30,47 +33,32 @@ export async function POST(req: Request) {
     if (!ticketId || !status) {
       return Response.json({ error: 'Missing required fields' }, { status: 400 })
     }
-    if (amount === undefined || amount === null) {
-      return Response.json({ error: 'Missing amount field' }, { status: 400 })
-    }
 
-    const { docs } = await payload.find({
-      collection: 'orders',
-      where: { ddmTicketId: { equals: ticketId } },
-      depth: 0,
-      limit: 1,
+    const registrations = await pb.collection('registrations').getFullList({
+      filter: `paymentTicketId = '${ticketId}'`,
     })
-    if (docs.length === 0) {
-      payload.logger.warn(`No order found for DDM ticket: ${ticketId}`)
-      return Response.json({ error: 'Order not found' }, { status: 404 })
+    if (registrations.length === 0) {
+      return Response.json({ error: 'Registration not found' }, { status: 404 })
     }
 
-    const order = docs[0] as { id: string | number; amount: number; paymentStatus: string }
-    if (Number(amount) !== Number(order.amount)) {
-      payload.logger.warn(`Amount mismatch for order ${order.id}: expected ${order.amount}, got ${amount}`)
+    const registration = registrations[0]
+    if (Number(amount) !== Number(registration.amount)) {
       return Response.json({ error: 'Amount mismatch' }, { status: 400 })
     }
 
     const isSuccess = status === 'success' || status === 'completed' || status === 'paid'
-    if (isSuccess && order.paymentStatus === 'paid') {
+    if (isSuccess && registration.paymentStatus === 'paid') {
       return Response.json({ success: true, message: 'Already processed' })
     }
 
-    // The afterChange hook `propagatePaymentToRegistration` will then update
-    // the linked registration → which triggers incrementOnConfirm and
-    // sendConfirmation on Registrations.
-    await payload.update({
-      collection: 'orders',
-      id: order.id,
-      data: {
-        paymentStatus: isSuccess ? 'paid' : 'failed',
-        ddmResponse: body,
-      },
+    await pb.collection('registrations').update(registration.id, {
+      paymentStatus: isSuccess ? 'paid' : 'failed',
+      registrationStatus: isSuccess ? 'confirmed' : 'pending',
+      paymentData: body,
     })
 
     return Response.json({ success: true })
   } catch (error) {
-    payload.logger.error(`Webhook error: ${error}`)
     return Response.json({ error: 'Webhook processing failed' }, { status: 500 })
   }
 }

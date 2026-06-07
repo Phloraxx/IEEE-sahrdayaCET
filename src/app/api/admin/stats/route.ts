@@ -1,20 +1,11 @@
-import { getPayload } from 'payload'
-import config from '@payload-config'
-import { requireAuth, AuthError } from '@/lib/auth'
+import { createPB } from '@/lib/pb'
+import { requireAdmin } from '@/lib/auth'
+import { iso } from '@/lib/dates'
 
-const iso = (d: Date) => d.toISOString()
+export async function GET(req: Request) {
+  const pb = createPB(req.headers.get('cookie') || undefined)
+  await requireAdmin()
 
-export async function GET() {
-  try {
-    await requireAuth()
-  } catch (e) {
-    if (e instanceof AuthError) {
-      return Response.json({ error: e.message }, { status: e.status })
-    }
-    return Response.json({ error: 'Authentication failed' }, { status: 401 })
-  }
-
-  const payload = await getPayload({ config })
   const now = new Date()
   const nowIso = iso(now)
   const futureIso = iso(new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000))
@@ -37,79 +28,56 @@ export async function GET() {
       societiesTotal,
       societiesActive,
     ] = await Promise.all([
-      payload.count({ collection: 'events', where: { isDeleted: { not_equals: true } } }),
-      payload.count({
-        collection: 'events',
-        where: { status: { equals: 'published' }, isDeleted: { not_equals: true } },
+      pb.collection('events').getFullList({ fields: 'id' }),
+      pb.collection('events').getFullList({ fields: 'id', filter: `status = 'published'` }),
+      pb.collection('events').getFullList({
+        fields: 'id',
+        filter: `date > '${nowIso}' && date <= '${futureIso}' && status = 'published'`,
       }),
-      payload.count({
-        collection: 'events',
-        where: {
-          date: { greater_than: nowIso, less_than_equal: futureIso },
-          status: { equals: 'published' },
-          isDeleted: { not_equals: true },
-        },
+      pb.collection('events').getFullList({
+        fields: 'id',
+        filter: `date <= '${nowIso}' && endDate >= '${nowIso}' && status = 'published'`,
       }),
-      payload.count({
-        collection: 'events',
-        where: {
-          and: [
-            { date: { less_than_equal: nowIso } },
-            { endDate: { greater_than_equal: nowIso } },
-            { status: { equals: 'published' } },
-            { isDeleted: { not_equals: true } },
-          ],
-        },
+      pb.collection('events').getFullList({
+        fields: 'id',
+        filter: `endDate > '${pastIso}' && endDate < '${nowIso}'`,
       }),
-      payload.count({
-        collection: 'events',
-        where: {
-          endDate: { greater_than: pastIso, less_than: nowIso },
-          isDeleted: { not_equals: true },
-        },
+      pb.collection('registrations').getFullList({ fields: 'id' }),
+      pb.collection('registrations').getFullList({
+        fields: 'id',
+        filter: `registrationStatus = 'confirmed'`,
       }),
-      payload.count({ collection: 'registrations' }),
-      payload.count({
-        collection: 'registrations',
-        where: { registrationStatus: { equals: 'confirmed' } },
+      pb.collection('registrations').getFullList({
+        fields: 'id',
+        filter: `registrationStatus = 'pending'`,
       }),
-      payload.count({
-        collection: 'registrations',
-        where: { registrationStatus: { equals: 'pending' } },
+      pb.collection('registrations').getFullList({
+        fields: 'id',
+        filter: `registrationDate >= '${startOfToday}' && registrationDate < '${endOfToday}'`,
       }),
-      payload.count({
-        collection: 'registrations',
-        where: {
-          registrationDate: { greater_than_equal: startOfToday, less_than: endOfToday },
-        },
-      }),
-      payload.count({ collection: 'execom' }),
-      payload.count({ collection: 'societies' }),
-      payload.count({
-        collection: 'societies',
-        where: { isHidden: { not_equals: true } },
-      }),
+      pb.collection('execom').getFullList({ fields: 'id' }),
+      pb.collection('societies').getFullList({ fields: 'id' }),
+      pb.collection('societies').getFullList({ fields: 'id', filter: `isHidden != true` }),
     ])
 
     return Response.json({
       events: {
-        total: eventsTotal.totalDocs,
-        published: eventsPublished.totalDocs,
-        upcoming: eventsUpcoming.totalDocs,
-        live: eventsLive.totalDocs,
-        recentlyCompleted: eventsRecentlyCompleted.totalDocs,
+        total: eventsTotal.length,
+        published: eventsPublished.length,
+        upcoming: eventsUpcoming.length,
+        live: eventsLive.length,
+        recentlyCompleted: eventsRecentlyCompleted.length,
       },
       registrations: {
-        total: regsTotal.totalDocs,
-        confirmed: regsConfirmed.totalDocs,
-        pending: regsPending.totalDocs,
-        today: regsToday.totalDocs,
+        total: regsTotal.length,
+        confirmed: regsConfirmed.length,
+        pending: regsPending.length,
+        today: regsToday.length,
       },
-      execom: { total: execomTotal.totalDocs },
-      societies: { total: societiesTotal.totalDocs, active: societiesActive.totalDocs },
+      execom: { total: execomTotal.length },
+      societies: { total: societiesTotal.length, active: societiesActive.length },
     })
   } catch (error) {
-    payload.logger.error(`Admin stats error: ${error}`)
     return Response.json({ error: 'Failed to fetch stats' }, { status: 500 })
   }
 }

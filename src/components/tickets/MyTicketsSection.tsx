@@ -10,7 +10,7 @@ import {
     X,
     QrCode
 } from 'lucide-react';
-import { useSession } from 'next-auth/react';
+import { useAuth } from '@/lib/auth-context';
 import { TicketCard } from './TicketCard';
 import Link from 'next/link';
 import TicketDisplay from '@/components/TicketDisplay';
@@ -26,7 +26,7 @@ interface TicketData {
         createdAt: string;
     } | null;
     event: {
-        id: number | string;
+        id: string;
         title: string;
         description?: string;
         date: string;
@@ -57,8 +57,7 @@ interface MyTicketsResponse {
 type TabType = 'upcoming' | 'pending' | 'past';
 
 export function MyTicketsSection() {
-    const { data: session, status: authStatus } = useSession();
-    const user = session?.user;
+    const { user, status: authStatus } = useAuth();
     const authLoading = authStatus === 'loading';
     const [isOpen, setIsOpen] = useState(false);
     const [activeTab, setActiveTab] = useState<TabType>('upcoming');
@@ -74,7 +73,7 @@ export function MyTicketsSection() {
         setError(null);
         
         try {
-            const response = await fetch('/api/registrations?where[user][equals]=me&depth=2&sort=-createdAt', {
+            const response = await fetch('/api/registrations', {
                 credentials: 'include',
                 signal,
             });
@@ -387,7 +386,7 @@ export function MyTicketsSection() {
                                         createdAt: selectedTicket.ticket?.createdAt || selectedTicket.registration.createdAt,
                                     }}
                                     event={{
-                                        id: Number(selectedTicket.event.id),
+                                        id: selectedTicket.event.id,
                                         createdAt: selectedTicket.registration.createdAt,
                                         updatedAt: selectedTicket.registration.updatedAt,
                                         title: selectedTicket.event.title,

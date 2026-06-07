@@ -30,10 +30,6 @@ export function formatTime(dateString: string): string {
     });
 }
 
-export function formatDateTime(dateString: string): string {
-    return `${formatDateShort(dateString)} at ${formatTime(dateString)}`;
-}
-
 export function formatDay(dateString: string): string {
     return new Date(dateString).getDate().toString().padStart(2, '0');
 }
@@ -52,10 +48,6 @@ export function formatAMPM(dateString: string): string {
     return t.split(' ')[1];
 }
 
-export function isEventPast(dateString: string): boolean {
-    return new Date(dateString) < new Date();
-}
-
-export function isEventUpcoming(dateString: string): boolean {
-    return new Date(dateString) >= new Date();
+export function iso(d: Date): string {
+  return d.toISOString()
 }

@@ -1,7 +1,7 @@
 export type RegistrationStep = 'auth' | 'form' | 'payment' | 'success';
 
 export interface FormTemplate {
-  eventId: number;
+  eventId: string;
   title: string;
   fields: unknown[];
   standardFields: {
@@ -41,29 +41,29 @@ export interface RegistrationData {
 }
 
 export interface Registration {
-  id: string | number;
+  id: string;
   createdAt: string;
   updatedAt: string;
-  eventId: number;
+  eventId: string;
   userId: string;
   ticketId?: string;
   status: string;
   paymentStatus?: string;
   paymentAmount?: number;
-  paymentTransactionId?: string | number;
+  paymentTransactionId?: string;
   formData?: Record<string, unknown>;
 }
 
 export interface Ticket {
   ticketId: string;
-  eventId: number;
+  eventId: string;
   eventTitle: string;
   eventDate: string;
   eventVenue?: string;
   userId: string;
   userName: string;
   userEmail: string;
-  registrationId: string | number;
+  registrationId: string;
   status: 'confirmed' | 'pending' | 'cancelled' | 'checked_in';
   qrCodeData: string;
   createdAt: string;

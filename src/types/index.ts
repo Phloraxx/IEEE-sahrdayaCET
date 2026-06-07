@@ -15,7 +15,7 @@ export interface FloatingIconProps {
 }
 
 export interface Society {
-    id: number;
+    id: string;
     createdAt?: string;
     updatedAt?: string;
     name: string;
@@ -31,7 +31,7 @@ export interface Society {
 }
 
 export interface Event {
-    id: number;
+    id: string;
     createdAt?: string;
     updatedAt?: string;
     title: string;
@@ -74,7 +74,7 @@ export interface Event {
 
 export interface EventWithSociety extends Event {
     society?: {
-        id: number;
+        id: string;
         name: string;
         slug: string;
         logoUrl: string;
@@ -94,8 +94,25 @@ export interface AgendaItem {
     title: string;
 }
 
+export interface AuthUser {
+    id: string
+    email?: string | null
+    name?: string | null
+    role?: string
+}
+
+export interface Member {
+    name: string;
+    role: string;
+    tagline: string;
+    image: string;
+    linkedin?: string;
+    email?: string;
+    phone?: string;
+}
+
 export interface LatestEvent {
-    id: number;
+    id: string;
     title: string;
     shortTitle?: string;
     description?: string;

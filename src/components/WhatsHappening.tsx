@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import Image from 'next/image';
 import TransitionLink from '@/components/PageTransition/TransitionLink';
 import {
@@ -9,50 +9,18 @@ import {
     Newspaper,
     Users,
     Code,
-    ArrowUpRight,
-    Loader2
+    ArrowUpRight
 } from 'lucide-react';
 import { SocietyStrip } from './SocietyStrip';
-import type { LatestEvent } from '@/types';
+import type { LatestEvent, Society } from '@/types';
 import { formatDay, formatMonth, formatHour12, formatAMPM } from '@/lib/dates';
 
-export const WhatsHappening: React.FC = () => {
-    const [latestEvent, setLatestEvent] = useState<LatestEvent | null>(null);
-    const [loading, setLoading] = useState(true);
+interface WhatsHappeningProps {
+    latestEvent: LatestEvent | null;
+    societies: Society[];
+}
 
-    useEffect(() => {
-        async function fetchLatestEvent() {
-            try {
-                const response = await fetch(`/api/events?where[status][equals]=published&sort=date&limit=1&depth=1`);
-                
-                if (!response.ok) throw new Error('Failed to fetch events');
-                
-                const data = await response.json();
-                const docs = data.docs || data.events || [];
-                
-                if (docs.length > 0) {
-                    const event = docs[0];
-                    setLatestEvent({
-                        id: Number(event.id),
-                        title: event.title as string,
-                        shortTitle: (event.short_title as string) || undefined,
-                        description: (event.description as string) || 'Join us for this exciting IEEE event!',
-                        date: event.date as string,
-                        bannerUrl: (event.bannerUrl as string) || ((event.banner as Record<string, unknown>)?.url as string) || undefined,
-                        tag: (event.event_type as string) || 'UPCOMING EVENT'
-                    });
-                }
-            } catch (err) {
-                console.error('Failed to fetch latest event:', err);
-            } finally {
-                setLoading(false);
-            }
-        }
-
-        fetchLatestEvent();
-    }, []);
-
-    // Format date parts for display
+export const WhatsHappening: React.FC<WhatsHappeningProps> = ({ latestEvent, societies }) => {
     const getDateParts = (dateString: string) => {
         return {
             day: formatDay(dateString),
@@ -73,30 +41,20 @@ export const WhatsHappening: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 auto-rows-min md:grid-rows-[300px_200px] gap-4">
-                {/* Latest Event Card */}
                 <div className="col-span-1 md:col-span-3 row-span-1 md:row-span-1 bento-card bg-white rounded-xl overflow-hidden border border-gray-200 relative group shadow-sm transition-all hover:shadow-md hover:border-ieee-blue/30 min-h-[400px] md:min-h-0">
                     <div className="absolute inset-0 bg-gradient-to-r from-gray-900 via-transparent to-transparent z-10 opacity-90"></div>
                     <div className="absolute inset-0 bg-blue-900 bg-opacity-20 z-0">
-                        {loading ? (
-                            <div className="w-full h-full bg-gray-200 animate-pulse" />
-                        ) : (
-                            <Image
-                                alt={latestEvent?.title || "Upcoming Event"}
-                                className="object-cover transition-transform duration-700 group-hover:scale-105"
-                                src={latestEvent?.bannerUrl || "/AGM.webp"}
-                                fill
-                                sizes="(max-width: 768px) 100vw, 50vw"
-                                unoptimized
-                            />
-                        )}
+                        <Image
+                            alt={latestEvent?.title || "Upcoming Event"}
+                            className="object-cover transition-transform duration-700 group-hover:scale-105"
+                            src={latestEvent?.bannerUrl || "/AGM.webp"}
+                            fill
+                            sizes="(max-width: 768px) 100vw, 50vw"
+                            unoptimized
+                        />
                     </div>
                     <div className="relative z-20 p-6 md:p-8 h-full flex flex-col justify-center text-white">
-                        {loading ? (
-                            <div className="flex items-center gap-2">
-                                <Loader2 className="w-5 h-5 animate-spin" />
-                                <span className="text-sm">Loading latest event...</span>
-                            </div>
-                        ) : latestEvent ? (
+                        {latestEvent ? (
                             <>
                                 <div className="inline-block px-3 py-1 bg-ieee-blue text-white text-[10px] font-mono tracking-wider rounded-sm mb-3 w-max uppercase">
                                     {latestEvent.tag}
@@ -145,7 +103,6 @@ export const WhatsHappening: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Latest News Card */}
                 <div className="col-span-1 md:col-span-1 row-span-1 bento-card bg-white rounded-xl border border-gray-200 p-5 flex flex-col shadow-sm transition-all hover:shadow-md hover:border-ieee-blue/30 max-h-[300px] md:max-h-none min-h-[250px] md:min-h-0">
                     <div className="flex justify-between items-center mb-4 border-b border-gray-100 pb-2">
                         <h4 className="font-bold text-sm text-gray-800 flex items-center gap-2">
@@ -186,7 +143,6 @@ export const WhatsHappening: React.FC = () => {
                     </TransitionLink>
                 </div>
 
-                {/* Society Spotlight Card */}
                 <TransitionLink href="/societies" className="col-span-1 md:col-span-1 row-span-1 bento-card bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-200 p-5 flex flex-col justify-between shadow-sm relative overflow-hidden group transition-all hover:shadow-md hover:border-ieee-blue/30 min-h-[250px] md:min-h-0">
                     <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-ieee-blue opacity-5 rounded-full z-0 group-hover:scale-150 transition-transform duration-500"></div>
                     <div>
@@ -204,10 +160,8 @@ export const WhatsHappening: React.FC = () => {
                     </div>
                 </TransitionLink>
 
-                {/* IEEE By The Numbers */}
                 <div className="col-span-1 md:col-span-2 row-span-1 bento-card bg-white rounded-xl border border-gray-200 p-5 flex flex-col shadow-sm transition-all hover:shadow-md hover:border-ieee-blue/30 relative overflow-hidden group">
                     <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-ieee-blue opacity-[0.03] rounded-full z-0 group-hover:scale-150 transition-transform duration-500"></div>
-                    
                     <div className="flex justify-between items-center mb-4 border-b border-gray-100 pb-2">
                         <h4 className="font-bold text-sm text-gray-800 flex items-center gap-2">
                             <Users className="w-4 h-4 text-ieee-blue" />
@@ -215,25 +169,17 @@ export const WhatsHappening: React.FC = () => {
                         </h4>
                         <span className="text-[10px] font-mono text-gray-400">EST. 2012</span>
                     </div>
-
                     <div className="flex items-center justify-between h-full relative z-10">
-                        {/* Stat 1 */}
                         <div className="flex-1 flex flex-col items-center text-center">
-                            <div className="font-pixel text-2xl md:text-4xl text-gray-900  leading-none">1000<span className="text-ieee-blue">+</span></div>
+                            <div className="font-pixel text-2xl md:text-4xl text-gray-900 leading-none">1000<span className="text-ieee-blue">+</span></div>
                             <span className="text-[9px] font-mono text-gray-400 mt-2 tracking-[0.2em] uppercase">Members</span>
                         </div>
-
                         <div className="w-px h-12 bg-gray-200"></div>
-
-                        {/* Stat 2 */}
                         <div className="flex-1 flex flex-col items-center text-center">
                             <span className="font-pixel text-2xl md:text-4xl text-gray-900 leading-none">22<span className="text-ieee-blue">+</span></span>
                             <span className="text-[9px] font-mono text-gray-400 mt-2 tracking-[0.2em] uppercase">Professionals</span>
                         </div>
-
                         <div className="w-px h-12 bg-gray-200"></div>
-
-                        {/* Stat 3 */}
                         <div className="flex-1 flex flex-col items-center text-center">
                             <span className="font-pixel text-2xl md:text-4xl text-gray-900 leading-none">14</span>
                             <span className="text-[9px] font-mono text-gray-400 mt-2 tracking-[0.2em] uppercase">Years</span>
@@ -241,7 +187,6 @@ export const WhatsHappening: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Join Card */}
                 <div className="col-span-1 md:col-span-1 row-span-1 bento-card bg-ieee-blue rounded-xl border border-blue-800 p-6 flex flex-col items-center justify-center shadow-lg relative overflow-hidden group text-center min-h-[250px] md:min-h-0">
                     <div className="absolute w-40 h-40 bg-white opacity-10 rounded-full blur-2xl -top-10 -right-10 group-hover:scale-125 transition-transform duration-700"></div>
                     <Users className="w-10 h-10 text-white mb-3 animate-bounce" />
@@ -253,8 +198,7 @@ export const WhatsHappening: React.FC = () => {
                 </div>
             </div>
 
-            {/* Society Logos Marquee */}
-            <SocietyStrip />
+            <SocietyStrip societies={societies} />
         </section>
     );
 };

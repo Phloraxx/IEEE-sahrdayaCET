@@ -1,8 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
-import TransitionLink from '@/components/PageTransition/TransitionLink';
 import { motion } from 'framer-motion';
 import type { Society } from '@/types';
 
@@ -22,22 +20,21 @@ const getValidLogoUrl = (logoUrl: string | undefined | null): string | null => {
 const LogoItem: React.FC<{ society: Society }> = ({ society }) => {
     const validLogoUrl = getValidLogoUrl(society.logoUrl);
     
-    // Skip rendering if no valid logo URL
     if (!validLogoUrl) {
         return (
-            <TransitionLink href="/societies" className="flex-shrink-0 flex items-center justify-center group mx-6 md:mx-10">
-                <div className="relative flex items-center justify-center h-10 md:h-12 w-auto transition-all duration-300 group-hover:scale-110 cursor-pointer">
+            <div className="flex-shrink-0 flex items-center justify-center group mx-6 md:mx-10">
+                <div className="relative flex items-center justify-center h-10 md:h-12 w-auto transition-all duration-300 group-hover:scale-110">
                     <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center text-gray-500 text-xs font-bold">
                         {society.name?.charAt(0) || '?'}
                     </div>
                 </div>
-            </TransitionLink>
+            </div>
         );
     }
     
     return (
-        <TransitionLink href="/societies" className="flex-shrink-0 flex items-center justify-center group mx-6 md:mx-10">
-            <div className="relative flex items-center justify-center h-10 md:h-12 w-auto transition-all duration-300 group-hover:scale-110 cursor-pointer">
+        <div className="flex-shrink-0 flex items-center justify-center group mx-6 md:mx-10">
+            <div className="relative flex items-center justify-center h-10 md:h-12 w-auto transition-all duration-300 group-hover:scale-110">
                 <Image
                     src={validLogoUrl}
                     alt={society.name}
@@ -48,55 +45,15 @@ const LogoItem: React.FC<{ society: Society }> = ({ society }) => {
                     draggable={false}
                 />
             </div>
-        </TransitionLink>
+        </div>
     );
 };
 
-export const SocietyStrip: React.FC = () => {
-    const [societies, setSocieties] = useState<Society[]>([]);
-    const [loading, setLoading] = useState(true);
+interface SocietyStripProps {
+    societies: Society[];
+}
 
-    useEffect(() => {
-        fetchSocieties();
-    }, []);
-
-    const fetchSocieties = async () => {
-        try {
-            const response = await fetch('/api/societies?limit=50&depth=1&where[isHidden][not_equals]=true');
-            if (!response.ok) throw new Error('Failed to fetch societies');
-            const data = await response.json();
-            const list = (data.docs || data.societies || []).map((doc: Record<string, unknown>) => ({
-                id: doc.id as string,
-                name: doc.name as string,
-                logoUrl: (doc.logoUrl as string) || ((doc.logo as Record<string, unknown>)?.url as string),
-            }));
-            setSocieties(list);
-        } catch (error) {
-            console.error('Error fetching societies:', error);
-            // Fallback to some default societies if fetch fails
-            setSocieties([]);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // If loading or no societies, show placeholder
-    if (loading) {
-        return (
-            <div className="relative mt-12 md:mt-16">
-                <div className="flex items-center gap-3 mb-5 px-4 md:px-0">
-                    <div className="font-mono text-[10px] tracking-[0.3em] text-gray-400 uppercase whitespace-nowrap">
-                        OUR SOCIETIES
-                    </div>
-                    <div className="h-px flex-grow bg-gray-200" />
-                </div>
-                <div className="py-8 text-center text-gray-400 text-sm">
-                    Loading societies...
-                </div>
-            </div>
-        );
-    }
-
+export const SocietyStrip: React.FC<SocietyStripProps> = ({ societies }) => {
     if (societies.length === 0) {
         return null; // Don't show section if no societies
     }

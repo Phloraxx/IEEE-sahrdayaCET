@@ -1,12 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Users, Cpu, Zap, Radio, Atom, GraduationCap, Activity, Bolt, Heart, Cog, Wrench, Sparkles, Camera, FileText, MessageSquare, Palette, X, Linkedin, Instagram, Mail, Phone } from 'lucide-react';
 import TransitionLink from '@/components/PageTransition/TransitionLink';
 
-// ===== TYPES =====
 interface Member {
     slNo: number;
     name: string;
@@ -20,8 +19,9 @@ interface Member {
     phone?: string;
 }
 
-interface ExecomMemberDoc {
+export interface ExecomMemberDoc {
     id: string;
+    order?: number;
     slNo: number;
     name: string;
     department: string;
@@ -45,7 +45,10 @@ interface Section {
     members: Member[];
 }
 
-// ===== SECTION CONFIGURATION =====
+interface ExecomClientProps {
+    initialDocs: ExecomMemberDoc[];
+}
+
 const getSectionIcon = (sectionId: string): React.ReactNode => {
     const iconMap: { [key: string]: React.ReactNode } = {
         'core': <Users className="w-4 h-4" />,
@@ -75,32 +78,14 @@ const getSectionIcon = (sectionId: string): React.ReactNode => {
 
 const getShortTitle = (sectionId: string, fullTitle: string): string => {
     const shortMap: { [key: string]: string } = {
-        'core': 'Core',
-        'cs': 'CS',
-        'ias': 'IAS',
-        'ies': 'IES',
-        'sight': 'SIGHT',
-        'sps': 'SPS',
-        'npss': 'NPSS',
-        'edsoc': 'EdSoc',
-        'css': 'CSS',
-        'embs': 'EMBS',
-        'pes': 'PES',
-        'wie': 'WIE',
-        'cass': 'CASS',
-        'ras': 'RAS',
-        'tech': 'Tech',
-        'epd': 'EPD',
-        'media': 'Media',
-        'ec': 'Event',
-        'design': 'Design',
-        'content': 'Content',
-        'qrt': 'QRT',
+        'core': 'Core', 'cs': 'CS', 'ias': 'IAS', 'ies': 'IES', 'sight': 'SIGHT',
+        'sps': 'SPS', 'npss': 'NPSS', 'edsoc': 'EdSoc', 'css': 'CSS', 'embs': 'EMBS',
+        'pes': 'PES', 'wie': 'WIE', 'cass': 'CASS', 'ras': 'RAS', 'tech': 'Tech',
+        'epd': 'EPD', 'media': 'Media', 'ec': 'Event', 'design': 'Design', 'content': 'Content', 'qrt': 'QRT',
     };
     return shortMap[sectionId] || fullTitle;
 };
 
-    // Transform documents to sections array
 const transformToSections = (documents: ExecomMemberDoc[]): Section[] => {
     const groupedBySectionId: { [key: string]: { title: string; members: Member[] } } = {};
     
@@ -111,7 +96,6 @@ const transformToSections = (documents: ExecomMemberDoc[]): Section[] => {
                 members: []
             };
         }
-        
         groupedBySectionId[doc.sectionId].members.push({
             slNo: doc.slNo,
             name: doc.name,
@@ -126,7 +110,6 @@ const transformToSections = (documents: ExecomMemberDoc[]): Section[] => {
         });
     });
     
-    // Define section order
     const sectionOrder = ['core', 'cs', 'ias', 'ies', 'sight', 'sps', 'npss', 'edsoc', 'css', 'embs', 'pes', 'wie', 'cass', 'ras', 'tech', 'epd', 'media', 'ec', 'design', 'content', 'qrt'];
     
     return sectionOrder
@@ -140,7 +123,6 @@ const transformToSections = (documents: ExecomMemberDoc[]): Section[] => {
         }));
 };
 
-// ===== COMPONENTS =====
 const MemberDetailModal: React.FC<{ member: Member; onClose: () => void }> = ({ member, onClose }) => {
     const [imgError, setImgError] = useState(false);
     const imageSrc = member.photoUrl || '';
@@ -163,7 +145,6 @@ const MemberDetailModal: React.FC<{ member: Member; onClose: () => void }> = ({ 
                     className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden relative my-4"
                     onClick={(e) => e.stopPropagation()}
                 >
-                    {/* Close Button */}
                     <button
                         onClick={onClose}
                         aria-label="Close"
@@ -172,7 +153,6 @@ const MemberDetailModal: React.FC<{ member: Member; onClose: () => void }> = ({ 
                         <X className="w-5 h-5 text-gray-600" />
                     </button>
 
-                    {/* Image */}
                     <div className="relative h-72 sm:h-96 bg-gray-50 overflow-hidden flex-shrink-0">
                         {imageSrc && !imgError ? (
                             <Image
@@ -191,8 +171,6 @@ const MemberDetailModal: React.FC<{ member: Member; onClose: () => void }> = ({ 
                                 </span>
                             </div>
                         )}
-                        
-                        {/* Number Badge */}
                         <div className="absolute top-4 left-4">
                             <span className="text-xs font-mono text-white bg-black/40 backdrop-blur-sm px-3 py-1.5 rounded-full">
                                 #{String(member.slNo).padStart(2, '0')}
@@ -200,15 +178,10 @@ const MemberDetailModal: React.FC<{ member: Member; onClose: () => void }> = ({ 
                         </div>
                     </div>
 
-                    {/* Details */}
                     <div className="p-6">
                         <div className="mb-4">
-                            <div className="text-xs font-semibold text-[#00629B] uppercase tracking-wider mb-2">
-                                {member.position}
-                            </div>
-                            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                                {member.name}
-                            </h2>
+                            <div className="text-xs font-semibold text-[#00629B] uppercase tracking-wider mb-2">{member.position}</div>
+                            <h2 className="text-2xl font-bold text-gray-900 mb-2">{member.name}</h2>
                             <div className="flex items-center gap-3 text-sm text-gray-500">
                                 <span className="font-medium">{member.department}</span>
                                 <span className="w-1.5 h-1.5 rounded-full bg-gray-300" />
@@ -216,51 +189,28 @@ const MemberDetailModal: React.FC<{ member: Member; onClose: () => void }> = ({ 
                             </div>
                         </div>
 
-                        {/* Contact Links */}
                         {hasContactInfo && (
                             <div className="space-y-2 pt-4 border-t border-gray-100">
-                                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                                    Connect
-                                </p>
+                                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Connect</p>
                                 <div className="grid grid-cols-2 gap-2">
                                     {member.linkedin && (
-                                        <a
-                                            href={member.linkedin}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0077B5] text-white hover:bg-[#006399] transition-all hover:scale-105"
-                                        >
-                                            <Linkedin className="w-4 h-4" />
-                                            <span className="text-sm font-medium">LinkedIn</span>
+                                        <a href={member.linkedin} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0077B5] text-white hover:bg-[#006399] transition-all hover:scale-105">
+                                            <Linkedin className="w-4 h-4" /><span className="text-sm font-medium">LinkedIn</span>
                                         </a>
                                     )}
                                     {member.instagram && (
-                                        <a
-                                            href={member.instagram}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-br from-[#833AB4] via-[#E1306C] to-[#F77737] text-white hover:opacity-90 transition-all hover:scale-105"
-                                        >
-                                            <Instagram className="w-4 h-4" />
-                                            <span className="text-sm font-medium">Instagram</span>
+                                        <a href={member.instagram} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-br from-[#833AB4] via-[#E1306C] to-[#F77737] text-white hover:opacity-90 transition-all hover:scale-105">
+                                            <Instagram className="w-4 h-4" /><span className="text-sm font-medium">Instagram</span>
                                         </a>
                                     )}
                                     {member.email && (
-                                        <a
-                                            href={`mailto:${member.email}`}
-                                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all hover:scale-105"
-                                        >
-                                            <Mail className="w-4 h-4" />
-                                            <span className="text-sm font-medium">Email</span>
+                                        <a href={`mailto:${member.email}`} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all hover:scale-105">
+                                            <Mail className="w-4 h-4" /><span className="text-sm font-medium">Email</span>
                                         </a>
                                     )}
                                     {member.phone && (
-                                        <a
-                                            href={`tel:${member.phone}`}
-                                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all hover:scale-105"
-                                        >
-                                            <Phone className="w-4 h-4" />
-                                            <span className="text-sm font-medium">Call</span>
+                                        <a href={`tel:${member.phone}`} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all hover:scale-105">
+                                            <Phone className="w-4 h-4" /><span className="text-sm font-medium">Call</span>
                                         </a>
                                     )}
                                 </div>
@@ -290,7 +240,6 @@ const MemberCard: React.FC<{ member: Member; index: number; onClick: () => void 
             tabIndex={0}
         >
             <div className="relative bg-white border border-gray-100 rounded-2xl overflow-hidden hover:border-gray-200 hover:shadow-xl transition-all duration-500 hover:scale-105">
-                {/* Image */}
                 <div className="relative aspect-[3/4] bg-gray-50 overflow-hidden">
                     {imageSrc && !imgError ? (
                         <Image
@@ -308,15 +257,11 @@ const MemberCard: React.FC<{ member: Member; index: number; onClick: () => void 
                             </span>
                         </div>
                     )}
-                    
-                    {/* Number */}
                     <div className="absolute top-3 left-3">
                         <span className="text-[10px] font-mono text-white/80 bg-black/30 backdrop-blur-sm px-2 py-1 rounded-full">
                             {String(member.slNo).padStart(2, '0')}
                         </span>
                     </div>
-
-                    {/* Contact Indicator */}
                     {hasContactInfo && (
                         <div className="absolute bottom-3 right-3 transition-all group-hover:scale-110">
                             <div className="w-8 h-8 rounded-full bg-[#00629B]/70 backdrop-blur-sm flex items-center justify-center shadow-lg group-hover:bg-[#00629B]">
@@ -325,15 +270,9 @@ const MemberCard: React.FC<{ member: Member; index: number; onClick: () => void 
                         </div>
                     )}
                 </div>
-
-                {/* Info */}
                 <div className="p-4">
-                    <div className="text-[10px] font-medium text-[#00629B] uppercase tracking-wider mb-1">
-                        {member.position}
-                    </div>
-                    <h3 className="font-semibold text-gray-900 text-sm leading-tight mb-2">
-                        {member.name}
-                    </h3>
+                    <div className="text-[10px] font-medium text-[#00629B] uppercase tracking-wider mb-1">{member.position}</div>
+                    <h3 className="font-semibold text-gray-900 text-sm leading-tight mb-2">{member.name}</h3>
                     <div className="flex items-center gap-2">
                         <span className="text-[10px] text-gray-400 font-medium">{member.department}</span>
                         <span className="w-1 h-1 rounded-full bg-gray-300" />
@@ -346,44 +285,11 @@ const MemberCard: React.FC<{ member: Member; index: number; onClick: () => void 
 });
 MemberCard.displayName = 'MemberCard';
 
-
-
-const FullExecom: React.FC = () => {
-    const [sections, setSections] = useState<Section[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
+    const sections = useMemo(() => transformToSections(initialDocs), [initialDocs])
     const [activeSection, setActiveSection] = useState('core');
     const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
     const [selectedMember, setSelectedMember] = useState<Member | null>(null);
-
-    // Fetch execom members from API
-    useEffect(() => {
-        async function fetchExecomMembers() {
-            try {
-                setLoading(true);
-                const res = await fetch('/api/execom?limit=100&depth=1').then(r => r.json());
-                const docs = (res.docs || res.execom || []).map((d: Record<string, unknown>) => ({
-                    ...d,
-                    id: d.id as string,
-                    slNo: (d.order !== undefined ? d.order : d.slNo) ?? 0,
-                    semester: d.batch || d.semester || '',
-                    sectionId: d.sectionId || '',
-                    photoUrl: (d.photoUrl as string) || ((d.photo as Record<string, unknown>)?.url as string),
-                }));
-                
-                const transformedSections = transformToSections(docs as unknown as ExecomMemberDoc[]);
-                setSections(transformedSections);
-                setError(null);
-            } catch (err: unknown) {
-                console.error('Failed to fetch execom members:', err);
-                setError(err instanceof Error ? err.message : 'Failed to load execom members');
-            } finally {
-                setLoading(false);
-            }
-        }
-
-        fetchExecomMembers();
-    }, []);
 
     const currentSection = sections.find(s => s.id === activeSection) || sections[0];
 
@@ -393,89 +299,6 @@ const FullExecom: React.FC = () => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    const handleMemberClick = (member: Member) => {
-        setSelectedMember(member);
-    };
-
-    const handleCloseModal = () => {
-        setSelectedMember(null);
-    };
-
-    // Loading State
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-[#FAFAFA]">
-                {/* Sidebar skeleton */}
-                <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-20 bg-white border-r border-gray-100 flex-col z-50">
-                    <div className="h-16 border-b border-gray-100" />
-                    <div className="flex-1 py-4 px-2 space-y-2">
-                        {Array.from({ length: 8 }).map((_, i) => (
-                            <div key={i} className="h-12 rounded-xl bg-gray-100 animate-pulse" />
-                        ))}
-                    </div>
-                </aside>
-                {/* Mobile header skeleton */}
-                <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-100">
-                    <div className="flex items-center justify-between px-4 py-3">
-                        <div className="w-8 h-8 rounded-lg bg-gray-100 animate-pulse" />
-                        <div className="w-32 h-5 rounded bg-gray-100 animate-pulse" />
-                        <div className="w-8 h-8 rounded-lg bg-gray-100 animate-pulse" />
-                    </div>
-                </div>
-                {/* Content skeleton */}
-                <main className="lg:ml-20 pt-16 lg:pt-0">
-                    <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-gray-100">
-                        <div className="max-w-6xl mx-auto px-6 py-6 lg:py-8">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-gray-100 animate-pulse" />
-                                <div>
-                                    <div className="w-40 h-7 rounded bg-gray-100 animate-pulse mb-2" />
-                                    <div className="w-20 h-4 rounded bg-gray-100 animate-pulse" />
-                                </div>
-                            </div>
-                        </div>
-                    </header>
-                    <div className="max-w-6xl mx-auto px-6 py-8 lg:py-12">
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 lg:gap-6">
-                            {Array.from({ length: 15 }).map((_, i) => (
-                                <div key={i} className="bg-white border border-gray-100 rounded-2xl overflow-hidden animate-pulse">
-                                    <div className="aspect-[3/4] bg-gray-100" />
-                                    <div className="p-4 space-y-2">
-                                        <div className="h-3 bg-gray-100 rounded w-1/2" />
-                                        <div className="h-4 bg-gray-100 rounded w-4/5" />
-                                        <div className="h-3 bg-gray-100 rounded w-2/3" />
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </main>
-            </div>
-        );
-    }
-
-    // Error State
-    if (error) {
-        return (
-            <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
-                <div className="text-center max-w-md px-6">
-                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <X className="w-8 h-8 text-red-600" />
-                    </div>
-                    <h2 className="text-xl font-semibold text-gray-900 mb-2">Failed to Load</h2>
-                    <p className="text-gray-500 mb-4">{error}</p>
-                    <button
-                        onClick={() => window.location.reload()}
-                        className="px-6 py-2 bg-[#00629B] text-white rounded-lg hover:bg-[#00527f] transition-colors"
-                    >
-                        Retry
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
-    // Empty State
     if (!sections.length) {
         return (
             <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
@@ -489,31 +312,22 @@ const FullExecom: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-[#FAFAFA]">
-            {/* Member Detail Modal */}
             {selectedMember && (
-                <MemberDetailModal 
-                    member={selectedMember} 
-                    onClose={handleCloseModal} 
-                />
+                <MemberDetailModal member={selectedMember} onClose={() => setSelectedMember(null)} />
             )}
 
-            {/* Mobile Header */}
             <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-100">
                 <div className="flex items-center justify-between px-4 py-3">
                     <TransitionLink href="/" className="p-2 -ml-2 text-gray-500 hover:text-gray-900">
                         <ArrowLeft className="w-5 h-5" />
                     </TransitionLink>
                     <span className="font-semibold text-gray-900">EXECOM &apos;26</span>
-                    <button 
-                        onClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
-                        className="p-2 -mr-2 text-gray-500"
-                    >
+                    <button onClick={() => setIsMobileNavOpen(!isMobileNavOpen)} className="p-2 -mr-2 text-gray-500">
                         <Users className="w-5 h-5" />
                     </button>
                 </div>
             </div>
 
-            {/* Mobile Nav Dropdown */}
             <AnimatePresence>
                 {isMobileNavOpen && (
                     <motion.div
@@ -527,11 +341,7 @@ const FullExecom: React.FC = () => {
                                 <button
                                     key={section.id}
                                     onClick={() => scrollToSection(section.id)}
-                                    className={`p-3 rounded-xl text-center transition-all ${
-                                        activeSection === section.id
-                                            ? 'bg-[#00629B] text-white'
-                                            : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
-                                    }`}
+                                    className={`p-3 rounded-xl text-center transition-all ${activeSection === section.id ? 'bg-[#00629B] text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
                                 >
                                     <div className="flex justify-center mb-1">{section.icon}</div>
                                     <span className="text-[10px] font-medium">{section.shortTitle}</span>
@@ -542,35 +352,20 @@ const FullExecom: React.FC = () => {
                 )}
             </AnimatePresence>
 
-            {/* Desktop Sidebar */}
             <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-20 bg-white border-r border-gray-100 flex-col z-50">
-                {/* Back Button */}
-                <TransitionLink 
-                    href="/" 
-                    className="flex items-center justify-center h-16 border-b border-gray-100 text-gray-400 hover:text-[#00629B] transition-colors"
-                >
+                <TransitionLink href="/" className="flex items-center justify-center h-16 border-b border-gray-100 text-gray-400 hover:text-[#00629B] transition-colors">
                     <ArrowLeft className="w-5 h-5" />
                 </TransitionLink>
-
-                {/* Nav Items */}
                 <nav className="flex-1 overflow-y-auto py-4 scrollbar-hide">
                     <div className="space-y-1 px-2">
                         {sections.map((section) => (
                             <button
                                 key={section.id}
                                 onClick={() => scrollToSection(section.id)}
-                                className={`group relative w-full flex flex-col items-center py-3 px-1 rounded-xl transition-all duration-300 ${
-                                    activeSection === section.id
-                                        ? 'bg-[#00629B] text-white'
-                                        : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
-                                }`}
+                                className={`group relative w-full flex flex-col items-center py-3 px-1 rounded-xl transition-all duration-300 ${activeSection === section.id ? 'bg-[#00629B] text-white' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}
                             >
                                 {section.icon}
-                                <span className="text-[8px] font-medium mt-1 text-center leading-tight">
-                                    {section.shortTitle}
-                                </span>
-                                
-                                {/* Tooltip */}
+                                <span className="text-[8px] font-medium mt-1 text-center leading-tight">{section.shortTitle}</span>
                                 <div className="absolute left-full ml-3 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50">
                                     {section.title}
                                     <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 border-4 border-transparent border-r-gray-900" />
@@ -579,40 +374,24 @@ const FullExecom: React.FC = () => {
                         ))}
                     </div>
                 </nav>
-
-                {/* Logo */}
                 <div className="h-16 flex items-center justify-center border-t border-gray-100">
                     <span className="text-[10px] font-bold text-[#00629B]">IEEE</span>
                 </div>
             </aside>
 
-            {/* Main Content */}
             <main className="lg:ml-20 pt-16 lg:pt-0">
-                {/* Header */}
                 <header className="sticky top-0 lg:top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-gray-100">
                     <div className="max-w-6xl mx-auto px-6 py-6 lg:py-8">
                         <div className="flex items-start justify-between">
                             <div>
-                                <motion.div
-                                    key={activeSection}
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    className="flex items-center gap-3 mb-2"
-                                >
-                                    <div className="w-10 h-10 rounded-xl bg-[#00629B] text-white flex items-center justify-center">
-                                        {currentSection?.icon}
-                                    </div>
+                                <motion.div key={activeSection} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3 mb-2">
+                                    <div className="w-10 h-10 rounded-xl bg-[#00629B] text-white flex items-center justify-center">{currentSection?.icon}</div>
                                     <div>
-                                        <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">
-                                            {currentSection?.title}
-                                        </h1>
-                                        <p className="text-sm text-gray-400 mt-0.5">
-                                            {currentSection?.members.length} members
-                                        </p>
+                                        <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">{currentSection?.title}</h1>
+                                        <p className="text-sm text-gray-400 mt-0.5">{currentSection?.members.length} members</p>
                                     </div>
                                 </motion.div>
                             </div>
-                            
                             <div className="hidden lg:block text-right">
                                 <p className="text-xs text-gray-400 uppercase tracking-wider">IEEE SB Sahrdaya</p>
                                 <p className="text-lg font-semibold text-gray-900">EXECOM 2026-2027</p>
@@ -621,30 +400,17 @@ const FullExecom: React.FC = () => {
                     </div>
                 </header>
 
-                {/* Content */}
                 <div className="max-w-6xl mx-auto px-6 py-8 lg:py-12">
                     <AnimatePresence mode="wait">
-                        <motion.div
-                            key={activeSection}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -20 }}
-                            transition={{ duration: 0.3 }}
-                        >
+                        <motion.div key={activeSection} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 lg:gap-6">
                                 {currentSection?.members.map((member, idx) => (
-                                    <MemberCard 
-                                        key={`${activeSection}-${idx}`} 
-                                        member={member} 
-                                        index={idx}
-                                        onClick={() => handleMemberClick(member)}
-                                    />
+                                    <MemberCard key={`${activeSection}-${idx}`} member={member} index={idx} onClick={() => setSelectedMember(member)} />
                                 ))}
                             </div>
                         </motion.div>
                     </AnimatePresence>
 
-                    {/* Quick Navigation */}
                     <div className="mt-16 pt-8 border-t border-gray-100">
                         <p className="text-xs text-gray-400 uppercase tracking-wider mb-4">Quick Navigation</p>
                         <div className="flex flex-wrap gap-2">
@@ -652,11 +418,7 @@ const FullExecom: React.FC = () => {
                                 <button
                                     key={section.id}
                                     onClick={() => scrollToSection(section.id)}
-                                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                                        activeSection === section.id
-                                            ? 'bg-[#00629B] text-white'
-                                            : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
-                                    }`}
+                                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${activeSection === section.id ? 'bg-[#00629B] text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}`}
                                 >
                                     {section.shortTitle}
                                 </button>
@@ -667,13 +429,8 @@ const FullExecom: React.FC = () => {
             </main>
 
             <style>{`
-                .scrollbar-hide::-webkit-scrollbar {
-                    display: none;
-                }
-                .scrollbar-hide {
-                    -ms-overflow-style: none;
-                    scrollbar-width: none;
-                }
+                .scrollbar-hide::-webkit-scrollbar { display: none; }
+                .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
             `}</style>
         </div>
     );

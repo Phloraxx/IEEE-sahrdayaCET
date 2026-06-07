@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+
 import { X } from 'lucide-react';
 import PixelGrid from './PixelGrid';
 import GoogleLoginButton from './GoogleLoginButton';

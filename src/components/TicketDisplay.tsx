@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, MapPin, Clock, Download, Ticket } from 'lucide-react';
 import { generateQRDataUrl, downloadQR as downloadQRFile } from '@/lib/qr';
@@ -9,14 +9,14 @@ import type { Event } from '@/types';
 
 interface TicketData {
     ticketId: string;
-    eventId: string | number;
+    eventId: string;
     eventTitle: string;
     eventDate: string;
     eventVenue?: string;
     userId: string;
     userName: string;
     userEmail: string;
-    registrationId: string | number;
+    registrationId: string;
     status: 'confirmed' | 'pending' | 'cancelled' | 'checked_in';
     qrCodeData: string;
     createdAt: string;

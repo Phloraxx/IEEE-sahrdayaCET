@@ -1,5 +1,3 @@
-import { withPayload } from '@payloadcms/next/withPayload'
-
 const appUrl = new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000')
 
 /** @type {import('next').NextConfig} */
@@ -13,9 +11,9 @@ const nextConfig = {
       { protocol: 'https', hostname: 'i.ibb.co' },
       { protocol: 'https', hostname: 'backend.mulearnscet.in' },
       { protocol: 'https', hostname: 'backend.ieeesahrdaya.com' },
+      { protocol: 'https', hostname: 'db.phloraxx.us.to' },
       { protocol: appUrl.protocol.replace(':', ''), hostname: appUrl.hostname },
     ],
-    dangerouslyAllowLocalIP: true,
   },
   reactStrictMode: true,
   poweredByHeader: false,
@@ -24,4 +22,4 @@ const nextConfig = {
   },
 }
 
-export default withPayload(nextConfig)
+export default nextConfig

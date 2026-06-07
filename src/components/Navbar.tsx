@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { NavItem } from '@/types';
 import { motion } from 'framer-motion';
 import { usePathname } from 'next/navigation';
-import { useSession, signOut } from 'next-auth/react';
+import { useAuth } from '@/lib/auth-context';
 import TransitionLink from './PageTransition/TransitionLink';
 import { LogOut, User } from 'lucide-react';
 import LoginModal from './LoginModal';
@@ -24,8 +24,7 @@ export default function Navbar() {
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
     const userMenuRef = useRef<HTMLDivElement>(null);
     const pathname = usePathname();
-    const { data: session, status } = useSession();
-    const user = session?.user;
+    const { user, status, signOut } = useAuth();
     const loading = status === 'loading';
 
     useEffect(() => {
@@ -67,13 +66,9 @@ export default function Navbar() {
         };
     }, []);
 
-    const handleLogout = async () => {
-        try {
-            await signOut();
-            setShowUserMenu(false);
-        } catch (error) {
-            console.error('Logout failed:', error);
-        }
+    const handleLogout = () => {
+        signOut();
+        setShowUserMenu(false);
     };
 
     return (

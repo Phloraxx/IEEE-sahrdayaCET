@@ -1,128 +1,144 @@
-import { getPayload } from 'payload'
-import config from '@payload-config'
-import { APIError } from 'payload'
-import { requireAuth, AuthError } from '@/lib/auth'
-import { applyCoupon } from '@/lib/coupons'
+import { createPB } from '@/lib/pb'
+import { requireAuth } from '@/lib/auth'
+import crypto from 'crypto'
 
-export async function POST(req: Request) {
-  let user: { id: string; email?: string | null; name?: string | null; role?: string }
+export async function GET(req: Request) {
+  const pb = createPB(req.headers.get('cookie') || undefined)
+  let user
   try {
-    ;({ user } = await requireAuth())
-  } catch (e) {
-    if (e instanceof AuthError) {
-      return Response.json({ error: e.message }, { status: e.status })
-    }
-    return Response.json({ error: 'Authentication failed' }, { status: 401 })
+    const auth = await requireAuth()
+    user = auth.user
+  } catch {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const payload = await getPayload({ config })
+  const url = new URL(req.url)
+  const eventId = url.searchParams.get('eventId')
+
+  const filter = eventId
+    ? `user = '${user.id}' && event = '${eventId}'`
+    : `user = '${user.id}'`
 
   try {
-    const { eventId, formResponses, couponCode } = (await req.json()) as {
+    const result = await pb.collection('registrations').getList(1, 50, {
+      filter,
+      sort: '-created',
+      expand: 'event',
+    })
+
+    const docs = await Promise.all((result.items || []).map(async (reg: Record<string, unknown>) => {
+      const evt = (reg as any).expand?.event as Record<string, unknown> | undefined
+      return {
+        ticket: (reg as any).ticketId
+          ? {
+              id: (reg as any).ticketId,
+              qr_data: (reg as any).ticketId,
+              is_scanned: (reg as any).checkedIn || false,
+              scanned_at: (reg as any).checkedInAt || null,
+              createdAt: (reg as any).created || (reg as any).registrationDate,
+            }
+          : null,
+        event: evt
+          ? {
+              id: evt.id,
+              title: evt.title,
+              description: evt.description,
+              date: evt.date,
+              venue: evt.venue,
+              price: (evt.price as number) || 0,
+              bannerUrl: evt.banner
+                ? `${process.env.POCKETBASE_URL}/api/files/events/${evt.id}/${evt.banner}`
+                : '',
+              status: evt.status || 'published',
+            }
+          : null,
+        registration: {
+          id: (reg as any).id,
+          eventId: (reg as any).event,
+          paymentStatus: (reg as any).paymentStatus || 'pending',
+          registrationStatus: (reg as any).registrationStatus || 'pending',
+          formResponses: (reg as any).formResponses || {},
+          createdAt: (reg as any).created || (reg as any).registrationDate,
+          updatedAt: (reg as any).updated || (reg as any).registrationDate,
+        },
+      }
+    }))
+
+    return Response.json({
+      docs,
+      totalDocs: result.totalItems,
+      limit: result.perPage,
+      page: result.page,
+      totalPages: result.totalPages,
+    })
+  } catch (error) {
+    return Response.json({ error: 'Failed to fetch registrations' }, { status: 500 })
+  }
+}
+
+export async function POST(req: Request) {
+  const pb = createPB(req.headers.get('cookie') || undefined)
+  const { user } = await requireAuth()
+
+  try {
+    const { eventId, formResponses } = (await req.json()) as {
       eventId?: string
       formResponses?: Record<string, unknown>
-      couponCode?: string
     }
     if (!eventId || !formResponses) {
       return Response.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    // 1. Create the registration — the beforeChange hook validates the event,
-    //    enforces capacity/deadline/closure, and auto-confirms free events.
-    let registration
-    try {
-      registration = await payload.create({
-        collection: 'registrations',
-        data: {
-          user: user.id,
-          event: Number(eventId),
-          userName: (formResponses.name as string) || user.name || '',
-          userEmail: (formResponses.email as string) || user.email || '',
-          userPhone: (formResponses.phone as string) || '',
-          formResponses,
-          registrationDate: new Date().toISOString(),
-        },
-      })
-    } catch (e) {
-      if (e instanceof APIError) {
-        const status = e.status
-        if (status === 404) {
-          return Response.json({ error: 'Event not found' }, { status: 404 })
-        }
-        return Response.json({ error: e.message }, { status })
-      }
-      // Surface unique-index conflict as 409 so the client can show the
-      // "already registered" message.
-      const code = (e as { code?: string } | null)?.code
-      if (code === 'SQLITE_CONSTRAINT_UNIQUE') {
-        return Response.json(
-          { error: 'Already registered for this event' },
-          { status: 409 },
-        )
-      }
-      throw e
+    const event = await pb.collection('events').getOne(eventId).catch(() => null)
+    if (!event) {
+      return Response.json({ error: 'Event not found' }, { status: 404 })
     }
 
-    // 2. Free event: the hook has already set paymentStatus='not_required' and
-    //    registrationStatus='confirmed', and sendConfirmation has issued the
-    //    ticket. Just return the result.
+    const now = new Date().toISOString()
+
+    const existing = await pb.collection('registrations').getFullList({
+      filter: `user = '${user.id}' && event = '${eventId}'`,
+      fields: 'id',
+    })
+    if (existing.length > 0) {
+      return Response.json({ error: 'Already registered for this event' }, { status: 409 })
+    }
+
+    const registration = await pb.collection('registrations').create({
+      user: user.id,
+      event: eventId,
+      userName: (formResponses.name as string) || '',
+      userEmail: (formResponses.email as string) || '',
+      userPhone: (formResponses.phone as string) || '',
+      formResponses,
+      registrationDate: now,
+    })
+
     if (registration.paymentStatus === 'not_required') {
-      const ticketId =
-        ((registration.ticket as Record<string, unknown> | null)?.ticket_id as string) || ''
       return Response.json({
         registrationId: registration.id,
-        ticketId,
+        ticketId: registration.ticketId || '',
         paymentRequired: false,
         amount: 0,
       })
     }
 
-    // 3. Paid event: resolve final amount (apply coupon if any), then create order.
-    const event = await payload.findByID({ collection: 'events', id: eventId, depth: 0 })
-    let finalAmount = Number(event?.price) || 0
+    const finalAmount = Number(event.price) || 0
+    const paymentTicketId = crypto.randomUUID()
 
-    if (couponCode) {
-      try {
-        const { discountedAmount } = await applyCoupon(payload, couponCode, eventId, finalAmount)
-        finalAmount = discountedAmount
-      } catch (e) {
-        if (e instanceof APIError) {
-          return Response.json({ error: e.message }, { status: e.status })
-        }
-        throw e
-      }
-    }
-
-    const order = await payload.create({
-      collection: 'orders',
-      data: {
-        user: user.id,
-        registration: registration.id,
-        amount: finalAmount,
-        paymentMethod: 'upi',
-        paymentStatus: 'pending',
-        discountedAmount: couponCode ? finalAmount : undefined,
-      },
+    await pb.collection('registrations').update(registration.id, {
+      paymentStatus: 'pending',
+      paymentTicketId,
+      amount: finalAmount,
     })
-
-    const ddmResp = order.ddmResponse as Record<string, unknown> | undefined
-    const ddmTicketId = (ddmResp?.ticketId as string) || ''
-    const upiId = process.env.NEXT_PUBLIC_UPI_ID || ''
 
     return Response.json({
       registrationId: registration.id,
-      ticketId: '',
+      ticketId: paymentTicketId,
       paymentRequired: true,
       amount: finalAmount,
-      payment: {
-        orderId: order.id,
-        amount: finalAmount,
-        ticketId: ddmTicketId,
-        upiString: `upi://pay?pa=${upiId}&pn=IEEE%20Sahrdaya%20SB&am=${finalAmount}&tn=${ddmTicketId}&cu=INR`,
-      },
     })
   } catch (error) {
-    payload.logger.error(`Registration error: ${error}`)
     return Response.json({ error: 'Registration failed' }, { status: 500 })
   }
 }

@@ -19,14 +19,6 @@ export async function generateQRDataUrl(
     })
 }
 
-export async function generateQRBase64(
-    text: string,
-    options?: QRCodeOptions
-): Promise<string> {
-    const dataUrl = await generateQRDataUrl(text, options)
-    return dataUrl.replace(/^data:image\/png;base64,/, '')
-}
-
 export function downloadQR(dataUrl: string, filename: string): void {
     const link = document.createElement('a')
     link.download = filename

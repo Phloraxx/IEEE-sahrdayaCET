@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { signIn } from 'next-auth/react';
+import { useState } from 'react';
+import { useAuth } from '@/lib/auth-context';
 
 interface GoogleLoginButtonProps {
     variant?: 'default' | 'full-width';
@@ -15,18 +15,14 @@ export default function GoogleLoginButton({
     onLogin,
 }: GoogleLoginButtonProps) {
     const [isLoading, setIsLoading] = useState(false);
+    const { signIn } = useAuth();
 
-    const handleClick = async () => {
+    const handleClick = () => {
         setIsLoading(true);
-        try {
-            if (onLogin) {
-                onLogin();
-            } else {
-                await signIn('google', { callbackUrl: window.location.href });
-            }
-        } catch (error) {
-            console.error('Login error:', error);
-            setIsLoading(false);
+        if (onLogin) {
+            onLogin();
+        } else {
+            signIn();
         }
     };
 

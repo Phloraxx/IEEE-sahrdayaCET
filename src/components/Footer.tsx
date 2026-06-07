@@ -108,15 +108,15 @@ const Footer: React.FC = () => {
                 <div className="py-10 border-b border-white/10">
                     <div className="flex items-center justify-center gap-8 md:gap-16">
                         <a href="https://ieee-link.org/" target="_blank" rel="noopener noreferrer" className="opacity-70 hover:opacity-100 transition-opacity duration-300">
-                            <Image src="/IEEELink_footer.png" alt="IEEE" width={120} height={48} className="h-10 md:h-12 w-auto object-contain brightness-0 invert" />
+                            <Image src="/IEEELink_footer.png" alt="IEEE" width={120} height={48} style={{ width: 'auto', height: 'auto' }} className="h-10 md:h-12 w-auto object-contain brightness-0 invert" />
                         </a>
                         <div className="w-px h-10 bg-white/50" />
                         <a href="https://www.sahrdaya.ac.in" target="_blank" rel="noopener noreferrer" className="opacity-70 hover:opacity-100 transition-opacity duration-300">
-                            <Image src="/sahrdaya_footer.png" alt="Sahrdaya" width={120} height={48} className="h-10 md:h-12 w-auto object-contain brightness-0 invert" />
+                            <Image src="/sahrdaya_footer.png" alt="Sahrdaya" width={120} height={48} style={{ width: 'auto', height: 'auto' }} className="h-10 md:h-12 w-auto object-contain brightness-0 invert" />
                         </a>
                         <div className="w-px h-10 bg-white/50" />
                         <a href="https://ieeekerala.org" target="_blank" rel="noopener noreferrer" className="opacity-80 hover:opacity-100 transition-opacity duration-300">
-                            <Image src="/keralaSection_footer.png" alt="IEEE Kerala Section" width={120} height={48} className="h-10 md:h-12 w-auto object-contain brightness-100" />
+                            <Image src="/keralaSection_footer.png" alt="IEEE Kerala Section" width={120} height={48} style={{ width: 'auto', height: 'auto' }} className="h-10 md:h-12 w-auto object-contain brightness-100" />
                         </a>
                     </div>
                 </div>

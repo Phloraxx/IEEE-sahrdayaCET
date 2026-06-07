@@ -1,3 +1,30 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer utilities {
+  .animate-marquee-images {
+    animation: marquee-images 54s linear infinite;
+  }
+  .animate-marquee-text {
+    animation: marquee-text 39s linear infinite;
+  }
+  .animate-marquee-images-reverse {
+    animation: marquee-images-reverse 25s linear infinite;
+  }
+}
+
+@keyframes marquee-images {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-1960px); }
+}
+
+@keyframes marquee-text {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-2800px); }
+}
+
+@keyframes marquee-images-reverse {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(1960px); }
+}

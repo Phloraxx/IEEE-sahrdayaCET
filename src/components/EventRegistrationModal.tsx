@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
-import { useSession, signIn } from 'next-auth/react';
+import { useAuth } from '@/lib/auth-context';
 import { useScrollLock } from '@/hooks/useScrollLock';
 import {
     RegistrationStep,
@@ -13,7 +13,7 @@ import {
     RegistrationData
 } from '@/types/registration';
 import type { Event as AppEvent } from '@/types';
-import { apiFetch, buildPayloadQuery } from '@/lib/api';
+import { apiFetch } from '@/lib/api';
 import DynamicRegistrationForm from './DynamicRegistrationForm';
 import PaymentModal, { PaymentData } from './PaymentModal';
 import TicketDisplay from './TicketDisplay';
@@ -164,8 +164,7 @@ export default function EventRegistrationModal({
     isOpen,
     onClose,
 }: EventRegistrationModalProps) {
-    const { data: session, status: authStatus } = useSession();
-    const user = session?.user;
+    const { user, status: authStatus, signIn } = useAuth();
     const authLoading = authStatus === 'loading';
     const [currentStep, setCurrentStep] = useState<RegistrationStep>('auth');
     const [formTemplate, setFormTemplate] = useState<FormTemplate | null>(null);
@@ -181,7 +180,7 @@ export default function EventRegistrationModal({
 
     const isPaidEvent = event ? event.price > 0 : false;
 
-    const getDefaultTemplate = (eventId: number): FormTemplate => ({
+    const getDefaultTemplate = (eventId: string): FormTemplate => ({
         eventId,
         title: 'Registration Form',
         fields: [],
@@ -241,26 +240,13 @@ export default function EventRegistrationModal({
     const fetchFormTemplate = useCallback(async () => {
         if (!event) return;
 
-        // Use formTemplate already present on the event prop (no network hop)
         const propTemplate = event.formTemplate as Record<string, unknown> | undefined;
         if (propTemplate && propTemplate.questions) {
             setFormTemplate(buildFormTemplate(propTemplate, event.title));
             return;
         }
 
-        // Fallback: fetch from API only when the prop lacks formTemplate
-        try {
-            const data = await apiFetch<{ formTemplate?: Record<string, unknown>; event_title?: string }>(
-                `/api/events/${event.id}?depth=0`
-            );
-            if (data.formTemplate) {
-                setFormTemplate(buildFormTemplate(data.formTemplate, data.event_title));
-            } else {
-                setFormTemplate(getDefaultTemplate(event.id));
-            }
-        } catch {
-            setFormTemplate(getDefaultTemplate(event.id));
-        }
+        setFormTemplate(getDefaultTemplate(event.id));
     }, [event, buildFormTemplate]);
 
     // Check existing registration and determine initial step
@@ -296,7 +282,7 @@ export default function EventRegistrationModal({
                 }
 
                 // Check if user already registered
-                const response = await fetch(`/api/registrations?where[event][equals]=${event.id}&where[user][equals]=${user.id}&depth=0`, {
+                const response = await fetch(`/api/registrations?eventId=${event.id}`, {
                     credentials: 'include',
                 });
 
@@ -308,7 +294,7 @@ export default function EventRegistrationModal({
                         setExistingRegistration(registrationDoc);
 
                         const registrationId = registrationDoc.id;
-                        let ticketId = (typeof registrationDoc.ticket === 'object' ? (registrationDoc.ticket as Record<string, unknown>)?.id : registrationDoc.ticket) as string || '';
+                        let ticketId = registrationDoc.ticket?.id || '';
                         let ticketCreatedAt = (registrationDoc.createdAt as string) || new Date().toISOString();
 
                         if (registrationId && ticketId) {
@@ -359,14 +345,7 @@ export default function EventRegistrationModal({
 
     const handleLogin = async () => {
         setIsLoading(true);
-        try {
-            await signIn('google', { callbackUrl: window.location.href });
-        } catch (err) {
-            console.error('Login failed', err);
-            toast.error('Login failed. Please try again.');
-        } finally {
-            setIsLoading(false);
-        }
+        signIn();
     };
 
     const handleFormSubmit = async (data: RegistrationData) => {
@@ -458,7 +437,7 @@ export default function EventRegistrationModal({
         }
     };
 
-    const handlePaymentComplete = useCallback(async (transactionId: string | number) => {
+    const handlePaymentComplete = useCallback(async (transactionId: string) => {
         if (registration && event) {
             setRegistration({
                 ...registration,
@@ -471,7 +450,7 @@ export default function EventRegistrationModal({
             // hook will auto-generate the ticket and email.
             try {
                 const updated = await apiFetch<{
-                    id: string | number;
+                    id: string;
                     ticket?: { ticket_id?: string };
                     errors?: Array<{ message: string }>;
                 }>(
