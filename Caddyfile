@@ -1,0 +1,61 @@
+# ─────────────────────────────────────────────────────────────
+#  IEEE Sahrdaya — Caddyfile
+#  Reverse proxy for Next.js cluster (3 replicas)
+#  Automatic HTTPS via Let's Encrypt
+# ─────────────────────────────────────────────────────────────
+
+{$DOMAIN:ieeesahrdaya.com} {
+    # ─── Compression ───────────────────────────────────────
+    encode gzip zstd
+
+    # ─── Security Headers ──────────────────────────────────
+    header {
+        Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+        -Server
+    }
+
+    # ─── Static asset caching ──────────────────────────────
+    @static {
+        path *.ico *.svg *.png *.jpg *.jpeg *.webp *.gif *.avif
+        path *.css *.js *.woff *.woff2 *.ttf *.eot
+        path /_next/static/*
+    }
+    header @static {
+        Cache-Control "public, max-age=31536000, immutable"
+    }
+
+    # ─── HTML caching (short TTL) ──────────────────────────
+    @html {
+        header Accept text/html
+    }
+    header @html {
+        Cache-Control "public, max-age=0, must-revalidate"
+    }
+
+    # ─── Reverse proxy to Next.js cluster ──────────────────
+    reverse_proxy app:3000 {
+        lb_policy round_robin
+        health_uri /
+        health_interval 30s
+        health_timeout 3s
+
+        # Forward real IP
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    # ─── Logs ──────────────────────────────────────────────
+    log {
+        output file /data/logs/access.log {
+            roll_size 100mb
+            roll_keep 5
+        }
+        format json
+    }
+}
