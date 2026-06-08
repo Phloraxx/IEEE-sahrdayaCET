@@ -15,6 +15,20 @@
   .animate-shimmer {
     animation: shimmer 2s infinite;
   }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .sm\:scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .sm\:scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }
 
 @keyframes marquee-images {
@@ -36,4 +50,3 @@
   0% { transform: translateX(-100%); }
   100% { transform: translateX(100%); }
 }
-

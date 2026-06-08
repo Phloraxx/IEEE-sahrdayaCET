@@ -23,7 +23,6 @@ export const TechnicalDetails: React.FC = () => {
                     height={128}
                     loading="eager"
                     className="opacity-80"
-                    style={{ width: 'auto', height: 'auto' }}
                 />
             </motion.div>
 
@@ -41,7 +40,6 @@ export const TechnicalDetails: React.FC = () => {
                     height={64}
                     loading="eager"
                     className="opacity-80"
-                    style={{ width: 'auto', height: 'auto' }}
                 />
             </motion.div>
 
@@ -62,7 +60,7 @@ export const TechnicalDetails: React.FC = () => {
                 transition={{ delay: 1.2, duration: 0.8 }}
                 className="absolute bottom-6 left-6 z-10 hidden md:block"
             >
-                <p className="font-mono text-[10px] text-gray-400">© 2026 IEEE SAHRDAYA SB</p>
+                <p className="font-mono text-[10px] text-gray-400">&copy; 2026 IEEE SAHRDAYA SB</p>
             </motion.div>
         </>
     );
