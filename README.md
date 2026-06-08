@@ -2,7 +2,7 @@
 
 <img width="1200" height="475" alt="IEEE Sahrdaya" src="./public/web.png" />
 
-# IEEE Sahrdaya Event Management System
+# IEEE Sahrdaya Student Branch
 
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![PocketBase](https://img.shields.io/badge/PocketBase-0.39.1-BB2B2B?style=flat-square&logo=pocketbase)](https://pocketbase.io/)
@@ -10,7 +10,7 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.x-38B2AC?style=flat-square&logo=tailwind-css)](https://tailwindcss.com/)
 [![License](https://img.shields.io/badge/License-Proprietary-red?style=flat-square)]()
 
-**IEEE Sahrdaya Student Branch**
+**Event management platform for the 14 IEEE technical societies of Sahrdaya College of Engineering & Technology.**
 
 [Live Site](https://ieeesahrdaya.com)
 
