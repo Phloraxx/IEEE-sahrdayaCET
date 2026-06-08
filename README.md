@@ -43,7 +43,6 @@ src/
 └── hooks/                    # React hooks
 
 pb_hooks/                     # PocketBase JS hooks (registration validation, ticketing)
-scripts/                      # Migration scripts (SQL dump → PB)
 ```
 
 ### Key `src/lib/` utilities
