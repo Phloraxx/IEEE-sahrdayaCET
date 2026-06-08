@@ -107,19 +107,19 @@ const Footer: React.FC = () => {
                     <div className="flex items-center justify-center gap-8 md:gap-16">
                         <a href="https://ieee-link.org/" target="_blank" rel="noopener noreferrer" className="opacity-70 hover:opacity-100 transition-opacity duration-300 inline-flex items-center">
                             <div className="relative h-10 md:h-12 w-auto aspect-[5/2]">
-                                <Image src="/IEEELink_footer.png" alt="IEEE" fill className="object-contain brightness-0 invert" />
+                                <Image src="/IEEELink_footer.png" alt="IEEE" fill sizes="96px" className="object-contain brightness-0 invert" />
                             </div>
                         </a>
                         <div className="w-px h-10 bg-white/50" />
                         <a href="https://www.sahrdaya.ac.in" target="_blank" rel="noopener noreferrer" className="opacity-70 hover:opacity-100 transition-opacity duration-300 inline-flex items-center">
                             <div className="relative h-10 md:h-12 w-auto aspect-[5/2]">
-                                <Image src="/sahrdaya_footer.png" alt="Sahrdaya" fill className="object-contain brightness-0 invert" />
+                                <Image src="/sahrdaya_footer.png" alt="Sahrdaya" fill sizes="96px" className="object-contain brightness-0 invert" />
                             </div>
                         </a>
                         <div className="w-px h-10 bg-white/50" />
                         <a href="https://ieeekerala.org" target="_blank" rel="noopener noreferrer" className="opacity-80 hover:opacity-100 transition-opacity duration-300 inline-flex items-center">
                             <div className="relative h-10 md:h-12 w-auto aspect-[5/2]">
-                                <Image src="/keralaSection_footer.png" alt="IEEE Kerala Section" fill className="object-contain brightness-100" />
+                                <Image src="/keralaSection_footer.png" alt="IEEE Kerala Section" fill sizes="96px" className="object-contain brightness-100" />
                             </div>
                         </a>
                     </div>

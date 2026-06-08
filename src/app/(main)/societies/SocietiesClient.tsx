@@ -52,6 +52,7 @@ function MemberCard({ member, idx }: { member: ExecomMember; idx: number }) {
                         src={imageSrc}
                         alt={member.name}
                         fill
+                        sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                         className="object-cover object-top group-hover:scale-105 transition-transform duration-300"
                         onError={() => setImgError(true)}
                         unoptimized
@@ -287,7 +288,7 @@ export default function SocietiesClient({ societies: initialSocieties }: Societi
                                                 transition={{ duration: 0.5 }}
                                             >
                                                 {society.logoUrl ? (
-                                                <Image src={society.logoUrl} alt={society.name} fill className="object-contain" unoptimized />
+                                                <Image src={society.logoUrl} alt={society.name} fill sizes="96px" className="object-contain" unoptimized />
                                             ) : (
                                                 <div className="w-full h-full flex items-center justify-center">
                                                     <span className="text-4xl font-bold text-gray-300">
@@ -365,12 +366,12 @@ export default function SocietiesClient({ societies: initialSocieties }: Societi
                             {/* Banner */}
                             <div className="relative h-64 bg-gradient-to-br from-ieee-blue to-purple-600 overflow-hidden">
                                 {selectedSociety.bannerUrl ? (
-                                    <Image src={selectedSociety.bannerUrl} alt={selectedSociety.name} fill className="object-cover" unoptimized />
+                                    <Image src={selectedSociety.bannerUrl} alt={selectedSociety.name} fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" unoptimized />
                                 ) : (
                                     <div className="absolute inset-0 flex items-center justify-center">
                                         <div className="relative w-32 h-32 opacity-20">
                                             {selectedSociety.logoUrl ? (
-                                                <Image src={selectedSociety.logoUrl} alt={selectedSociety.name} fill className="object-contain" unoptimized />
+                                                <Image src={selectedSociety.logoUrl} alt={selectedSociety.name} fill sizes="128px" className="object-contain" unoptimized />
                                             ) : (
                                                 <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-white/30">
                                                     {selectedSociety.name?.charAt(0) || '?'}
@@ -395,7 +396,7 @@ export default function SocietiesClient({ societies: initialSocieties }: Societi
                                 >
                                     <div className="relative w-24 h-24">
                                         {selectedSociety.logoUrl ? (
-                                            <Image src={selectedSociety.logoUrl} alt={selectedSociety.name} fill className="object-contain" unoptimized />
+                                            <Image src={selectedSociety.logoUrl} alt={selectedSociety.name} fill sizes="96px" className="object-contain" unoptimized />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-gray-300">
                                                 {selectedSociety.name?.charAt(0) || '?'}
@@ -587,6 +588,7 @@ export default function SocietiesClient({ societies: initialSocieties }: Societi
                                                 src={selectedEvent.bannerUrl}
                                                 alt={selectedEvent.title}
                                                 fill
+                                                sizes="(max-width: 768px) 100vw, 50vw"
                                                 className="object-cover object-top"
                                                 unoptimized
                                             />

@@ -35,7 +35,6 @@ export interface Event {
     createdAt?: string;
     updatedAt?: string;
     title: string;
-    slug?: string;
     description?: string;
     date: string;
     endDate?: string;

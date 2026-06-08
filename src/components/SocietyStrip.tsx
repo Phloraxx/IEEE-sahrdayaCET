@@ -39,6 +39,7 @@ const LogoItem: React.FC<{ society: Society }> = ({ society }) => {
                     src={validLogoUrl}
                     alt={society.name}
                     fill
+                    sizes="64px"
                     className="object-contain opacity-40 group-hover:opacity-90 transition-opacity duration-500 grayscale group-hover:grayscale-0"
                     draggable={false}
                 />

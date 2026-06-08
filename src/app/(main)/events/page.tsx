@@ -44,7 +44,6 @@ export default async function EventsPage() {
       registrationOpen?: boolean
       maxCapacity?: number
       registeredCount?: number
-      slug?: string
       society?: Record<string, unknown> | string | null
       expand?: { society?: Record<string, unknown> }
     }
@@ -83,7 +82,6 @@ export default async function EventsPage() {
       registrationOpen: !!doc.registrationOpen,
       maxCapacity: doc.maxCapacity || 0,
       registeredCount: doc.registeredCount || 0,
-      slug: doc.slug || '',
       society,
     }
   })

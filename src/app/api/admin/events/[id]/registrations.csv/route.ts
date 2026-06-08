@@ -28,7 +28,7 @@ export async function GET(
   }
 
   const csv = await generateRegistrationsCSV(pb, eventId, { adminFormat: true })
-  const filename = `registrations-${(event.slug as string) || eventId}.csv`
+  const filename = `registrations-${eventId}.csv`
 
   return new Response(csv, {
     status: 200,

@@ -59,11 +59,29 @@ data/
 
 # Migration artifacts
 /media/
-/societies/
-/execom/
+
+# One-time migration scripts
+/scripts/
+
+# Image artifacts (migrated to PocketBase file storage)
+/public/Events/
+/public/Execom/
+/public/Societies/
 
 # Database dumps and SQL files
 *.sql
+
+# Old migration artifacts
+ieee_export.sql
+society-cs.png
+
+# Dev planning
+plan.md
+
+# Unused public assets
+/public/sahrdaya.jpg
+/public/pdf.min.js
+/public/pdf.worker.min.js
 
 # Playwright local artifacts
 .pwerr
