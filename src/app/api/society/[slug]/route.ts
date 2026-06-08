@@ -18,7 +18,7 @@ export async function GET(
     if (!society) return Response.json({ error: 'Society not found' }, { status: 404 })
 
     const [eventsRes, membersRes] = await Promise.all([
-      fetch(`${PB_URL}/api/collections/events/records?perPage=50&filter=${encodeURIComponent(`society='${society.id}'`)}&sort=-created&skipTotal=1&fields=id,title,description,date,venue,price,status,maxCapacity,banner`).then(r => r.ok ? r.json() : null),
+      fetch(`${PB_URL}/api/collections/events/records?perPage=50&filter=${encodeURIComponent(`society='${society.id}'`)}&sort=-date&skipTotal=1&fields=id,title,description,date,venue,price,status,maxCapacity,banner`).then(r => r.ok ? r.json() : null),
       fetch(`${PB_URL}/api/collections/execom/records?perPage=50&filter=${encodeURIComponent(`sectionId='${slug}'`)}&sort=order&skipTotal=1&fields=id,order,name,department,batch,position,photo,linkedin,instagram,email,phone`).then(r => r.ok ? r.json() : null),
     ])
 

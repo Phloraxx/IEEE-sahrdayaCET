@@ -22,13 +22,22 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-  .sm\:scrollbar-hide::-webkit-scrollbar {
+  .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
-  .sm\:scrollbar-hide {
+  .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+@media (min-width: 640px) {
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
 }
 
 @keyframes marquee-images {
