@@ -42,18 +42,8 @@ Built on **Next.js 16** with **PocketBase** as the backend (embedded SQLite, sin
 | Feature | Description |
 |---------|-------------|
 | **Event Discovery** | Browse upcoming events filtered by society, date, and category |
-| **Online Registration** | Custom JSON form builder per event with validation |
-| **Digital Tickets** | QR code-based tickets delivered via email with PDF receipts |
-| **Payment Integration** | UPI payment via DDM gateway with 2s polling |
-| **Coupon Codes** | Percent or fixed discounts with usage limits and expiry |
-| **Check-in Scanner** | QR scanning with mobile-friendly interface |
-| **Email Automation** | Confirmation, receipts, and status updates via SMTP |
-| **Society Chair Roles** | Society chairs manage their own events/registrations from admin |
-| **Admin Dashboard** | Custom `/admin` Bento-style home with live stats, quick actions, live/upcoming/recent events |
-| **Per-Event Dashboard** | `/admin/event-dashboard/:id` view with inline check-in + status changes + CSV export |
 | **Google Auth** | Sign in with Google via PB OAuth2 — no passwords |
 | **Multi-Society Support** | 14 societies with independent management via chair roles |
-| **PB Hook Validation** | Server-side registration validation (capacity, dedupe, deadlines) via PocketBase hooks |
 
 ---
 
@@ -93,26 +83,6 @@ Built on **Next.js 16** with **PocketBase** as the backend (embedded SQLite, sin
   │  /status      │
   │  /webhook     │
   └───────────────┘
-```
-
-### Payment Flow
-
-```
-User registers → POST /api/registrations
-  │
-  ├── Free event (price <= 0)
-  │   └── beforeChange hook auto-confirms: paymentStatus='not_required', registrationStatus='confirmed'
-  │       └── afterChange chain: incrementOnConfirm → sendConfirmation (QR + email)
-  │
-  └── Paid event
-      ├── API route applies coupon (if any) → finalAmount
-      ├── Order created → beforeChange hook → POST pay.mulearnscet.in/ticket (UPI QR)
-      ├── User scans QR and pays via UPI app
-      ├── Frontend polls GET /api/orders/:id every 2s
-      └── DDM confirms → POST /api/orders/webhook
-          └── propagatePaymentToRegistration hook:
-              - sets registration.paymentStatus='paid', registrationStatus='confirmed'
-              - afterChange chain → incrementOnConfirm → sendConfirmation (QR + email + PDF receipt)
 ```
 
 ---
@@ -204,43 +174,42 @@ ieee-sahrdaya/
 │   │   │   ├── error.tsx                    # Error page
 │   │   │   └── not-found.tsx                # 404 page
 │   │   ├── api/                             # Custom API routes
-│   │   │   ├── auth/[...nextauth]/          # Auth.js handler
-│   │   │   ├── registrations/               # POST: create registration + order
-│   │   │   ├── orders/webhook/              # POST: DDM payment callback
-│   │   │   ├── check-in/verify/             # POST: QR scan check-in
-│   │   │   ├── events/[eventId]/export      # GET: CSV export
+│   │   │   ├── auth/                        # OAuth2 init, callback, me, logout
+│   │   │   ├── society/[slug]/              # GET: society detail + events + execom
 │   │   │   └── admin/                       # Admin-only API
-│   │   │       ├── stats/                   # GET: 12 parallel counts
-│   │   │       ├── events/dashboard/        # GET: live + upcoming + recent
-│   │   │       └── events/[id]/registrations.csv/  # GET: per-event CSV
+│   │   │       ├── stats/                   # GET: aggregate queries
+│   │   │       └── events/dashboard/        # GET: live + upcoming + recent
 │   │   ├── globals.css                      # Tailwind directives
 │   │   └── layout.tsx                       # Root layout (metadata only)
 │   │
 │   ├── components/                          # React components
 │   │   ├── Hero, Navbar, Footer, EventCard, Execom, EventsShowcase
 │   │   ├── SocietiesClient, ExecomClient
-│   │   ├── EventRegistrationModal, PaymentModal, LoginModal
-│   │   ├── DynamicRegistrationForm, TicketDisplay
-│   │   ├── GoogleLoginButton, WhatsHappening
-│   │   ├── JsonLd, FloatingAction, FloatingIcons
-│   │   ├── SocietyStrip, TechnicalDetails, UrgencyTag, GridBackground
-│   │   ├── PageTransition/                  # Transition wrapper
-│   │   ├── events/                          # EventCard variant, EventDetailModal
-│   │   └── tickets/                         # TicketCard, MyTicketsSection
+│   │   ├── LoginModal, GoogleLoginButton, WhatsHappening
+│   │   ├── FloatingAction, FloatingIcons, GridBackground
+│   │   ├── ErrorBoundary, SocietyStrip, TechnicalDetails
+│   │   ├── events/                          # EventHeroSection, EventListSection, EventDetailModal
 │   │
 │   ├── lib/                                 # Shared utilities
 │   │   ├── api.ts                           # apiFetch() + ApiError + buildQueryString()
 │   │   ├── auth.ts                          # requireAuth() + AuthError
 │   │   ├── coupons.ts                       # applyCoupon()
-│   │   ├── dates.ts                         # 11 date formatters
-│   │   ├── qr.ts                            # generateQRBase64()
-│   │   ├── pdfReceiptGenerator.ts           # jsPDF receipts
+│   │   ├── api.ts                           # apiFetch() + ApiError
+│   │   ├── auth.ts                          # requireAuth() + AuthError
+│   │   ├── constants.ts                     # APP_URL
+│   │   ├── dates.ts                         # Date formatting utilities
+│   │   ├── logger.ts                        # Structured error logging
+│   │   ├── pb.ts                            # PocketBase client factories
+│   │   ├── pb-filter.ts                     # Filter value escaper
+│   │   ├── qr.ts                            # QR code generation
+│   │   ├── csv.ts                           # CSV escaping
+│   │   ├── csv-export.ts                    # CSV generation
+│   │   ├── auth-context.tsx                 # Client-side auth context
 │   │   ├── ticketStatus.ts                  # Ticket badge logic
-│   │   └── email/templates.ts               # HTML email templates
+│   │   └── dates.ts                         # 11 date formatters
 │   │
 │   ├── types/                               # Single source of truth for types
-│   │   ├── index.ts                         # Event, Society, EventWithSociety, etc.
-│   │   └── registration.ts                  # FormTemplate, Registration, Ticket
+│   │   └── index.ts                         # Event, Society, AuthUser, Member, etc.
 │   │
 │   └── hooks/                               # React hooks
 │       ├── useEvents.ts                     # Event fetching with roundToMinute
@@ -288,12 +257,11 @@ ieee-sahrdaya/
 PocketBase provides the REST API for all collections. Managed via PB Admin UI or the migration script (`scripts/migrate-to-pb.ts`).
 
 | Collection | Type | Purpose |
-|---|---|---|
+|---|---|---|---|
 | **users** | Auth | Built-in auth collection — Google OAuth, roles (admin/chair/user) |
 | **societies** | Base | 14 IEEE technical societies with logos/banners, display ordering |
 | **execom** | Base | Executive committee members per society, photos, social links |
-| **events** | Base | Workshops, hackathons, seminars — with registration windows, pricing, PB hooks for auto-close on delete |
-| **registrations** | Base | Event sign-ups with payment tracking, ticket IDs, PB hooks for validation (capacity, dedupe, deadlines) + ticket generation |
+| **events** | Base | Workshops, hackathons, seminars — with dynamic JSON form templates |
 
 ---
 
@@ -305,15 +273,9 @@ PocketBase provides the REST API for all collections. Managed via PB Admin UI or
 | GET | `/api/auth/callback/google` | — | OAuth2 callback — manual code exchange, sets PB auth cookie |
 | GET | `/api/auth/me` | cookie | Returns current user from PB |
 | POST | `/api/auth/logout` | cookie | Clears PB auth cookie |
-| POST | `/api/registrations` | cookie | Create registration, generates DDM order, applies coupon (free/paid) |
-| GET | `/api/registrations` | cookie | List user's registrations (with optional `?eventId=X` filter) |
-| POST | `/api/orders/webhook` | webhook secret | DDM payment callback, propagates to registration |
-| POST | `/api/check-in/verify` | cookie | QR scan check-in |
-| GET | `/api/events/[eventId]/export` | chair/admin | CSV export of registrations for an event |
 | GET | `/api/society/[slug]` | — | Society detail + events + execom members (one round-trip) |
 | GET | `/api/admin/stats` | admin | PB aggregate queries (dashboard KPIs) |
 | GET | `/api/admin/events/dashboard` | admin | Live/upcoming/recent events for dashboard |
-| GET | `/api/admin/events/[id]/registrations.csv` | chair/admin | Per-event CSV |
 
 ---
 
@@ -403,9 +365,8 @@ Roles are stored on the PocketBase user record in a `role` field.
 ### Chair Access Matrix
 
 | Collection | Create | Read | Update | Delete |
-|---|---|---|---|---|---|
+|---|---|---|---|---|---|---|
 | **Events** | chair/admin | public | chair-of-society | chair-of-society |
-| **Registrations** | — (auto on user submit) | chair/admin (filtered) | chair-of-society | admin only |
 | **Execom** | admin only | public | chair-of-society | admin only |
 | **Societies** | admin only | public | admin only | admin only |
 
@@ -458,15 +419,13 @@ PocketBase runs separately at `db.phloraxx.us.to` (external to the compose stack
 ## Known Issues
 
 | Issue | Status | Notes |
-|---|---|---|---|---|
+|---|---|---|---|---|---|
 | `EventCard` dedup | Open | `src/components/EventCard.tsx` vs `components/events/EventCard.tsx` — different designs |
-| `TicketDisplay` + `tickets/TicketCard` overlap | Open | Could merge into single component with variants |
-| Overly large files | Open | `EventRegistrationModal.tsx` (719 lines), `DynamicRegistrationForm.tsx` (711 lines), `PaymentModal.tsx` (457 lines) |
-| CSV export routes duplicated | Open | `api/events/[eventId]/export/route.ts` and `api/admin/events/[id]/registrations.csv/route.ts` — 80% overlap |
 | `console.error` in production code | Open | 7+ catch blocks log to console; should use structured logging |
 | `src/lib/pb.ts` superuser fallback | Open | `createPB()` falls back to superuser token when no cookie; read-only SSR pages only, but needs audit |
 | Filter injection (7+ routes) | Deferred | String interpolation in PB filter params — single quote breaks filter |
 | Node.js ECONNRESET on Windows | Known | Node.js fetch to PB server fails on Windows; `NODE_OPTIONS=--no-network-family-autoselection` workaround |
+| Registration UI removed | Resolved | Frontend registration flow (forms, payment, tickets) removed for redesign |
 | Payload CMS artifacts | Resolved | `data/payload.db*`, `scripts/fix-admin.ts`, `scripts/check-user.mjs`, `DATABASE_URL` in `.env.example` — all cleaned |
 | `tmp_login.json` credentials | Resolved | Removed, added to `.gitignore` |
 | Hardcoded `BASE_URL` | Resolved | Consolidated into `src/lib/constants.ts` |
