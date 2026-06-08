@@ -18,6 +18,24 @@
 
 ---
 
+## Overview
+
+The IEEE Sahrdaya Event Management System is a comprehensive platform for managing technical events, workshops, hackathons, and symposiums organized by the IEEE Sahrdaya Student Branch and its 14 technical societies.
+
+### Key Capabilities
+
+| Feature | Description |
+|---------|-------------|
+| **Event Discovery** | Browse upcoming events with filters by society and date |
+| **Online Registration** | Custom registration forms per event |
+| **Digital Tickets** | QR code-based tickets |
+| **Check-in System** | Real-time QR scanning with status tracking |
+| **Email Automation** | Confirmations and updates |
+| **Analytics Dashboard** | Registration stats and revenue tracking |
+| **Multi-Society Support** | 14 societies with independent chair management |
+
+---
+
 ## Stack
 
 | Layer | Technology |
