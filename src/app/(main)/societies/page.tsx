@@ -15,7 +15,7 @@ export default async function SocietiesPage() {
 
   try {
     const res = await fetch(
-      `${process.env.POCKETBASE_URL}/api/collections/societies/records?sort=displayOrder&skipTotal=1&fields=id,name,slug,bio,logo`,
+      `${process.env.POCKETBASE_URL}/api/collections/societies/records?skipTotal=1&fields=id,name,slug,bio,logo`,
     )
     if (res.ok) {
       const data = await res.json()

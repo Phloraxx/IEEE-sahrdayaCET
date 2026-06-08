@@ -26,7 +26,6 @@ export interface Society {
     logo?: { url?: string } | string | number | null;
     banner?: { url?: string } | string | number | null;
     isHidden?: boolean;
-    displayOrder?: number;
     chairs?: string[];
 }
 

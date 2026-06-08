@@ -36,7 +36,7 @@ export default async function Home() {
   const [eventsResult, execomResult, societiesRes] = await Promise.allSettled([
     pb.collection('events').getList(1, 1, { filter: 'status="published"', sort: 'date', expand: 'society' }),
     pb.collection('execom').getList(1, 20, { filter: 'sectionId="core"', sort: 'order' }),
-    fetch(`${process.env.POCKETBASE_URL}/api/collections/societies/records?sort=displayOrder&skipTotal=1&fields=id,name,slug,logo`).then(r => r.json()),
+    fetch(`${process.env.POCKETBASE_URL}/api/collections/societies/records?skipTotal=1&fields=id,name,slug,logo`).then(r => r.json()),
   ])
 
   const societies: Society[] = societiesRes.status === 'fulfilled'
