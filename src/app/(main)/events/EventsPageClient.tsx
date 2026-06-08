@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useCallback } from 'react';
-import dynamic from 'next/dynamic';
+import React, { useState, useMemo } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -11,16 +10,6 @@ import {
     EventDetailModal,
 } from '@/components/events';
 import type { EventWithSociety, ExtendedEvent } from '@/types';
-
-const EventRegistrationModal = dynamic(
-    () => import('@/components/EventRegistrationModal'),
-    { ssr: false, loading: () => null }
-);
-
-const MyTicketsSection = dynamic(
-    () => import('@/components/tickets/MyTicketsSection').then((mod) => mod.MyTicketsSection),
-    { ssr: false, loading: () => null }
-);
 
 const getEventColor = (index: number): { color: string; textColor: string } => {
     const colors = [
@@ -39,8 +28,6 @@ interface EventsPageClientProps {
 
 export default function EventsPageClient({ initialEvents }: EventsPageClientProps) {
     const [selectedEvent, setSelectedEvent] = useState<ExtendedEvent | null>(null);
-    const [registrationEvent, setRegistrationEvent] = useState<EventWithSociety | null>(null);
-    const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false);
 
     const extendedEvents: ExtendedEvent[] = useMemo(() => {
         return initialEvents.map((event, index) => ({
@@ -56,14 +43,9 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
         }));
     }, [initialEvents]);
 
-    const handleSelectEvent = useCallback((event: ExtendedEvent) => {
+    const handleSelectEvent = (event: ExtendedEvent) => {
         setSelectedEvent(event);
-    }, []);
-
-    const handleRegister = useCallback((event: EventWithSociety) => {
-        setRegistrationEvent(event);
-        setIsRegistrationModalOpen(true);
-    }, []);
+    };
 
     return (
         <main className="min-h-screen text-slate-800 font-sans selection:bg-[#00629B] selection:text-white overflow-x-hidden relative bg-[#F8F9FA]">
@@ -105,20 +87,9 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
                     <EventDetailModal
                         event={selectedEvent}
                         onClose={() => setSelectedEvent(null)}
-                        onRegister={handleRegister}
                     />
                 )}
             </AnimatePresence>
-
-            {registrationEvent && (
-                <EventRegistrationModal
-                    isOpen={isRegistrationModalOpen}
-                    onClose={() => { setIsRegistrationModalOpen(false); setRegistrationEvent(null); }}
-                    event={registrationEvent}
-                />
-            )}
-
-            <MyTicketsSection />
         </main>
     );
 }

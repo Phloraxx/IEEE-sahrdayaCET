@@ -14,12 +14,6 @@ import { useAuth } from '@/lib/auth-context';
 import EventCard from '@/components/EventCard';
 import Footer from '@/components/Footer';
 import { logError } from '@/lib/logger';
-import dynamic from 'next/dynamic';
-
-const EventRegistrationModal = dynamic(
-    () => import('@/components/EventRegistrationModal'),
-    { ssr: false, loading: () => null }
-);
 
 interface ExecomMember {
     slNo: number;
@@ -98,11 +92,8 @@ export default function SocietiesClient({ societies: initialSocieties }: Societi
     const [loadingEvents, setLoadingEvents] = useState(false);
     const [loadingMembers, setLoadingMembers] = useState(false);
     const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-    const [isRegisteringEvent, setIsRegisteringEvent] = useState(false);
     const [eventActionError, setEventActionError] = useState<string | null>(null);
     const [scrollPosition, setScrollPosition] = useState(0);
-    const [registrationEvent, setRegistrationEvent] = useState<Event | null>(null);
-    const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false);
     const { user, signIn } = useAuth();
 
     const fetchSocietyData = async (slug: string) => {
@@ -132,19 +123,6 @@ export default function SocietiesClient({ societies: initialSocieties }: Societi
 
     const handleEditClick = () => {
         signIn();
-    };
-
-    const handleRegisterForEvent = async () => {
-        if (!selectedEvent) return;
-        setEventActionError(null);
-
-        if (!user) {
-        signIn();
-            return;
-        }
-
-        setRegistrationEvent(selectedEvent);
-        setIsRegistrationModalOpen(true);
     };
 
     const isChair = false;
@@ -664,26 +642,10 @@ export default function SocietiesClient({ societies: initialSocieties }: Societi
                                             </p>
                                         </div>
 
-                                        {/* Action Button */}
-                                        {selectedEvent.status === 'published' && (
-                                            <>
-                                                <button
-                                                    onClick={() => void handleRegisterForEvent()}
-                                                    disabled={isRegisteringEvent}
-                                                    className="w-full bg-gradient-to-r from-ieee-blue to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg hover:shadow-xl disabled:opacity-70 disabled:cursor-not-allowed"
-                                                >
-                                                    {isRegisteringEvent
-                                                        ? 'Verifying passkey...'
-                                                        : (selectedEvent.price ?? 0) > 0
-                                                            ? 'Pay & Register'
-                                                            : 'Register for Event'}
-                                                </button>
-                                                {eventActionError && (
-                                                    <p className="mt-3 text-xs text-red-600" role="alert">
-                                                        {eventActionError}
-                                                    </p>
-                                                )}
-                                            </>
+                                        {eventActionError && (
+                                            <p className="mt-3 text-xs text-red-600" role="alert">
+                                                {eventActionError}
+                                            </p>
                                         )}
                                     </div>
                                 </div>
@@ -693,17 +655,6 @@ export default function SocietiesClient({ societies: initialSocieties }: Societi
                 )}
             </AnimatePresence>
 
-            {/* Event Registration Modal */}
-            {registrationEvent && (
-                <EventRegistrationModal
-                    isOpen={isRegistrationModalOpen}
-                    onClose={() => {
-                        setIsRegistrationModalOpen(false);
-                        setRegistrationEvent(null);
-                    }}
-                    event={registrationEvent}
-                />
-            )}
         </div>
     );
 }
