@@ -9,7 +9,7 @@ import { formatDate, formatTime } from '@/lib/dates';
 interface EventDetailModalProps {
     event: ExtendedEvent;
     onClose: () => void;
-    onRegister: (event: EventWithSociety) => void;
+    onRegister?: (event: EventWithSociety) => void;
 }
 
 export function EventDetailModal({ event, onClose, onRegister }: EventDetailModalProps) {
@@ -100,7 +100,7 @@ export function EventDetailModal({ event, onClose, onRegister }: EventDetailModa
                     )}
                 </div>
 
-                {/* Modal Footer */}
+                {onRegister && (
                 <div className="p-6 border-t border-slate-100 bg-white/80 backdrop-blur-md shrink-0">
                     <button
                         onClick={() => {
@@ -118,6 +118,7 @@ export function EventDetailModal({ event, onClose, onRegister }: EventDetailModa
                                 : `Get Tickets • ₹${event.price}`}
                     </button>
                 </div>
+                )}
             </motion.div>
         </>
     );

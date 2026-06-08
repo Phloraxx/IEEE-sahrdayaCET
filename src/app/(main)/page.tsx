@@ -12,6 +12,7 @@ import { WhatsHappening } from '@/components/WhatsHappening';
 import { Execom } from '@/components/Execom';
 import { EventsShowcase } from '@/components/EventsShowcase';
 import Footer from '@/components/Footer';
+import { FloatingAction } from '@/components/FloatingAction';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 interface ExecomDoc extends Record<string, unknown> { photo?: string; linkedin?: string; email?: string; phone?: string }
@@ -99,6 +100,7 @@ export default async function Home() {
           <Footer />
         </div>
       </ErrorBoundary>
+      <FloatingAction />
     </div>
   );
 }

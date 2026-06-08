@@ -106,21 +106,15 @@ const Footer: React.FC = () => {
                 <div className="py-10 border-b border-white/10">
                     <div className="flex items-center justify-center gap-8 md:gap-16">
                         <a href="https://ieee-link.org/" target="_blank" rel="noopener noreferrer" className="opacity-70 hover:opacity-100 transition-opacity duration-300 inline-flex items-center">
-                            <div className="relative h-10 md:h-12 w-auto aspect-[5/2]">
-                                <Image src="/IEEELink_footer.png" alt="IEEE" fill sizes="96px" className="object-contain brightness-0 invert" />
-                            </div>
+                            <Image src="/IEEELink_footer.png" alt="IEEE" width={314} height={76} className="h-14 md:h-16 w-auto object-contain brightness-0 invert" />
                         </a>
-                        <div className="w-px h-10 bg-white/50" />
+                        <div className="w-px h-14 bg-white/50" />
                         <a href="https://www.sahrdaya.ac.in" target="_blank" rel="noopener noreferrer" className="opacity-70 hover:opacity-100 transition-opacity duration-300 inline-flex items-center">
-                            <div className="relative h-10 md:h-12 w-auto aspect-[5/2]">
-                                <Image src="/sahrdaya_footer.png" alt="Sahrdaya" fill sizes="96px" className="object-contain brightness-0 invert" />
-                            </div>
+                            <Image src="/sahrdaya_footer.png" alt="Sahrdaya" width={1623} height={531} className="h-14 md:h-16 w-auto object-contain brightness-0 invert" />
                         </a>
-                        <div className="w-px h-10 bg-white/50" />
+                        <div className="w-px h-14 bg-white/50" />
                         <a href="https://ieeekerala.org" target="_blank" rel="noopener noreferrer" className="opacity-80 hover:opacity-100 transition-opacity duration-300 inline-flex items-center">
-                            <div className="relative h-10 md:h-12 w-auto aspect-[5/2]">
-                                <Image src="/keralaSection_footer.png" alt="IEEE Kerala Section" fill sizes="96px" className="object-contain brightness-100" />
-                            </div>
+                            <Image src="/keralaSection_footer.png" alt="IEEE Kerala Section" width={557} height={135} className="h-14 md:h-16 w-auto object-contain brightness-100" />
                         </a>
                     </div>
                 </div>

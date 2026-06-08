@@ -159,11 +159,9 @@ const MemberDetailModal: React.FC<{ member: Member; onClose: () => void }> = ({ 
                                 src={imageSrc}
                                 alt={member.name}
                                 onError={() => setImgError(true)}
-                                className="object-contain w-full h-full"
                                 fill
                                 sizes="(max-width: 768px) 100vw, 500px"
                                 priority
-                                style={{ width: 'auto', height: 'auto' }}
                             />
                         ) : (
                             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
