@@ -1,5 +1,7 @@
 <div align="center">
 
+<img width="1200" height="475" alt="IEEE Sahrdaya" src="./public/web.png" />
+
 # IEEE Sahrdaya Event Management System
 
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js)](https://nextjs.org/)
