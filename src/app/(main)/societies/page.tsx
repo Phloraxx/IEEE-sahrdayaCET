@@ -3,7 +3,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
 import SocietiesClient from './SocietiesClient'
 import type { Society } from '@/types'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 300
 
 export const metadata = {
   title: 'Societies | IEEE Sahrdaya Student Branch',
@@ -14,9 +14,13 @@ export default async function SocietiesPage() {
   let societies: Society[] = []
 
   try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 8000)
     const res = await fetch(
       `${process.env.POCKETBASE_URL}/api/collections/societies/records?skipTotal=1&fields=id,name,slug,bio,logo`,
+      { signal: controller.signal },
     )
+    clearTimeout(timeout)
     if (res.ok) {
       const data = await res.json()
       societies = (data.items || []).map((s: Record<string, unknown>) => ({

@@ -3,6 +3,13 @@ import { APP_URL } from '@/lib/constants'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import EventsPageClient from './EventsPageClient'
 
+interface EventItem {
+  id: string; createdAt: string; updatedAt: string; title: string; description: string
+  date: string; endDate: string; venue: string; price: number; isPaid: boolean
+  bannerUrl: string; status: string; registrationOpen: boolean; maxCapacity: number
+  registeredCount: number; society?: { id: string; name: string; slug: string; logoUrl: string }
+}
+
 export const dynamic = 'force-dynamic'
 
 const PB_URL = process.env.POCKETBASE_URL
@@ -24,10 +31,16 @@ export default async function EventsPage() {
   if (!PB_URL) throw new Error('Missing POCKETBASE_URL')
   const fileUrl = (col: string, id: string, name: string) => `${PB_URL}/api/files/${col}/${id}/${name}`
 
-  const res = await fetch(`${PB_URL}/api/collections/events/records?perPage=20&filter=${encodeURIComponent('status="published"')}&sort=date&expand=society&skipTotal=1&fields=id,title,description,date,endDate,venue,price,banner,status,registrationOpen,maxCapacity,registeredCount`)
-  const result = await res.json()
+  let events: EventItem[] = []
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 8000)
+    const res = await fetch(`${PB_URL}/api/collections/events/records?perPage=20&filter=${encodeURIComponent('status="published"')}&sort=date&expand=society&skipTotal=1&fields=id,title,description,date,endDate,venue,price,banner,status,registrationOpen,maxCapacity,registeredCount`, { signal: controller.signal })
+    clearTimeout(timeout)
+    if (!res.ok) throw new Error(`PocketBase returned ${res.status}`)
+    const result = await res.json()
 
-  const events = ((result as any).items || []).map((raw: Record<string, unknown>) => {
+  events = ((result as any).items || []).map((raw: Record<string, unknown>) => {
     const doc = raw as Record<string, unknown>
     const expand = doc.expand as Record<string, unknown> | undefined
     const societyData = (doc.society && typeof doc.society === 'object' ? doc.society : expand?.society) as Record<string, unknown> | undefined
@@ -54,6 +67,9 @@ export default async function EventsPage() {
       society,
     }
   })
+  } catch (e) {
+    console.error('Failed to fetch events:', e)
+  }
 
   return (
     <ErrorBoundary>

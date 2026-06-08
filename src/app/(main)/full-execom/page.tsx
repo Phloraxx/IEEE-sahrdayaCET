@@ -4,7 +4,7 @@ import { logError } from '@/lib/logger'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import ExecomClient, { ExecomMemberDoc } from './ExecomClient'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 300
 
 const PB_URL = process.env.POCKETBASE_URL
 const EXECOM_URL = `${APP_URL}/full-execom`
@@ -39,7 +39,10 @@ export default async function FullExecomPage() {
     if (!PB_URL) throw new Error('Missing POCKETBASE_URL')
     const fileUrl = (col: string, id: string, name: string) => `${PB_URL}/api/files/${col}/${id}/${name}`
 
-    const res = await fetch(`${PB_URL}/api/collections/execom/records?perPage=100&sort=order&skipTotal=1&fields=id,order,name,department,batch,position,category,section,sectionId,photo,linkedin,instagram,email,phone`)
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 8000)
+    const res = await fetch(`${PB_URL}/api/collections/execom/records?perPage=100&sort=order&skipTotal=1&fields=id,order,name,department,batch,position,category,section,sectionId,photo,linkedin,instagram,email,phone`, { signal: controller.signal })
+    clearTimeout(timeout)
     if (!res.ok) throw new Error(`PB ${res.status}`)
     const data = await res.json()
     docs = ((data as any).items || []).map((raw: Record<string, unknown>, i: number) => {
