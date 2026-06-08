@@ -8,10 +8,9 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.x-38B2AC?style=flat-square&logo=tailwind-css)](https://tailwindcss.com/)
 [![License](https://img.shields.io/badge/License-Proprietary-red?style=flat-square)]()
 
-**Event management platform for IEEE Sahrdaya Student Branch**  
-Next.js 16 frontend + PocketBase 0.39.1 backend, self-hosted on Dokploy.
+**IEEE Sahrdaya Student Branch**
 
-[Live Site](https://ieeesahrdaya.com) • [Quick Start](#quick-start)
+[Live Site](https://ieeesahrdaya.com)
 
 </div>
 
@@ -25,8 +24,6 @@ Next.js 16 frontend + PocketBase 0.39.1 backend, self-hosted on Dokploy.
 | UI | React 19, Tailwind CSS 3, Framer Motion, Lucide |
 | Backend | PocketBase 0.39.1 (embedded SQLite, built-in auth, file storage, REST API) |
 | Auth | Google OAuth2 via PocketBase |
-| Payments | DDM API (`pay.mulearnscet.in`) |
-| Hosting | Dokploy VPS (Docker Compose with Caddy reverse proxy) |
 
 ---
 
@@ -63,15 +60,62 @@ scripts/                      # Migration scripts (SQL dump → PB)
 
 ---
 
-## Collections (PocketBase 0.39.1)
+## Collections
 
-| Collection | Type | Purpose |
-|------------|------|---------|
-| **users** | Auth | Google OAuth, roles (admin/chair/user) |
-| **societies** | Base | 14 IEEE technical societies with logos/banners |
-| **execom** | Base | Executive committee members per society |
-| **events** | Base | Workshops, hackathons, seminars |
-| **registrations** | Base | Event registrations with check-in status |
+### `users` (Auth)
+Google OAuth, roles (admin/chair/user).
+
+### `societies` (Base)
+| Field | Type |
+|-------|------|
+| `name` | text |
+| `slug` | text (unique) |
+| `bio` | text |
+| `logo` | file |
+| `banner` | file |
+| `order` | number |
+
+### `execom` (Base)
+| Field | Type |
+|-------|------|
+| `order` | number |
+| `name` | text |
+| `department` | text |
+| `batch` | text |
+| `position` | text |
+| `category` | text |
+| `section` | text |
+| `sectionId` | text |
+| `photo` | file |
+| `linkedin` | url |
+| `instagram` | url |
+| `email` | email |
+| `phone` | text |
+
+### `events` (Base)
+| Field | Type |
+|-------|------|
+| `title` | text |
+| `description` | text (rich) |
+| `date` | date |
+| `endDate` | date |
+| `venue` | text |
+| `price` | number |
+| `status` | select (draft/published/completed/cancelled) |
+| `banner` | file |
+| `registrationOpen` | bool |
+| `maxCapacity` | number |
+| `registeredCount` | number |
+| `society` | relation → societies |
+
+### `registrations` (Base)
+| Field | Type |
+|-------|------|
+| `user` | relation → users |
+| `event` | relation → events |
+| `status` | select (pending/confirmed/cancelled/checked-in) |
+| `ticketId` | text |
+| `checkedInAt` | datetime |
 
 ---
 
@@ -89,45 +133,6 @@ scripts/                      # Migration scripts (SQL dump → PB)
 
 ---
 
-## Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `POCKETBASE_URL` | Yes | PB server URL (e.g. `https://db.phloraxx.us.to`) |
-| `POCKETBASE_SUPERUSER_TOKEN` | Yes | PB superuser token for admin API calls |
-| `NEXT_PUBLIC_APP_URL` | Yes | Public URL (e.g. `https://ieeesahrdaya.com`) |
-| `PAYMENT_API_URL` | Yes | DDM payment gateway URL |
-| `PAYMENT_WEBHOOK_SECRET` | Yes | Webhook shared secret |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | No | Transactional email (SMTP) |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | For OAuth | Google OAuth credentials |
-| `PB_ADMIN_EMAIL` / `PB_ADMIN_PASSWORD` | For migration | PB admin credentials for migration scripts |
-
-See `.env.example` for defaults.
-
----
-
-## Quick Start
-
-```bash
-git clone <repo-url> && cd ieee-sahrdaya
-npm install
-cp .env.example .env.local   # edit with your values
-npm run dev                   # http://localhost:3000
-```
-
-### Scripts
-
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Dev server (Turbopack) |
-| `npm run build` | Production build (standalone) |
-| `npm run lint` | ESLint |
-| `npm test` | Vitest unit tests |
-| `npm run migrate:pb` | Migrate societies + execom from SQL dump |
-| `npm run migrate:events` | Migrate events with banner downloads |
-
----
-
 ## Auth & Roles
 
 Google OAuth only (no email/password). Roles stored in PB user `role` field.
@@ -138,22 +143,6 @@ Google OAuth only (no email/password). Roles stored in PB user `role` field.
 | User | Register for events, view tickets |
 | Chair | Manage own society's events and registrations |
 | Admin | Full admin dashboard |
-
----
-
-## Deployment
-
-```bash
-docker compose up -d --build
-```
-
-Three containers: Next.js app (3 replicas, Caddy reverse proxy), PocketBase at `db.phloraxx.us.to`, DDM API at `pay.mulearnscet.in`.
-
-Domains:
-- Frontend + Admin: `https://ieeesahrdaya.com`
-- PocketBase: `https://db.phloraxx.us.to`
-- DDM API: `https://pay.mulearnscet.in`
-- Google OAuth redirect: `https://ieeesahrdaya.com/api/auth/callback/google`
 
 ---
 
@@ -173,12 +162,16 @@ Domains:
 
 ## License
 
-© 2024-2026 IEEE Sahrdaya Student Branch. Proprietary — all rights reserved.
+<div align="center">
+
+© 2025-2026 IEEE Sahrdaya Student Branch. Proprietary — all rights reserved.
+
+</div>
 
 ---
 
 <div align="center">
 
-[Website](https://ieeesahrdaya.com) • [Instagram](https://instagram.com/ieee-sahrdaya) • [LinkedIn](https://linkedin.com/company/ieee-sahrdaya)
+[Website](https://ieeesahrdaya.com) • [Instagram](https://www.instagram.com/ieeesahrdaya/) • [LinkedIn](https://www.linkedin.com/company/ieeesahrdaya)
 
 </div>
