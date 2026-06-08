@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
-import { createAdminPB } from '@/lib/pb'
 import { APP_URL } from '@/lib/constants'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import EventsPageClient from './EventsPageClient'
 
 export const dynamic = 'force-dynamic'
 
+const PB_URL = process.env.POCKETBASE_URL
 const EVENTS_URL = `${APP_URL}/events`
 
 export const metadata: Metadata = {
@@ -21,67 +21,36 @@ export const metadata: Metadata = {
 }
 
 export default async function EventsPage() {
-  const pb = createAdminPB()
-  const result = await pb.collection('events').getList(1, 20, {
-    filter: 'status="published"',
-    sort: 'date',
-    expand: 'society',
-  })
+  if (!PB_URL) throw new Error('Missing POCKETBASE_URL')
+  const fileUrl = (col: string, id: string, name: string) => `${PB_URL}/api/files/${col}/${id}/${name}`
 
-  const events = (result.items || []).map((raw: Record<string, unknown>) => {
-    const doc = raw as {
-      id: string
-      created?: string
-      updated?: string
-      title?: string
-      description?: string
-      date?: string
-      endDate?: string
-      venue?: string
-      price?: number
-      banner?: string
-      status?: string
-      registrationOpen?: boolean
-      maxCapacity?: number
-      registeredCount?: number
-      society?: Record<string, unknown> | string | null
-      expand?: { society?: Record<string, unknown> }
-    }
+  const res = await fetch(`${PB_URL}/api/collections/events/records?perPage=20&filter=${encodeURIComponent('status="published"')}&sort=date&expand=society&skipTotal=1&fields=id,title,description,date,endDate,venue,price,banner,status,registrationOpen,maxCapacity,registeredCount`)
+  const result = await res.json()
 
-    const societyRaw = doc.society
-    const societyExpand = doc.expand?.society
-    const societyData = typeof societyRaw === 'object' && societyRaw !== null ? societyRaw : societyExpand
+  const events = ((result as any).items || []).map((raw: Record<string, unknown>) => {
+    const doc = raw as Record<string, unknown>
+    const expand = doc.expand as Record<string, unknown> | undefined
+    const societyData = (doc.society && typeof doc.society === 'object' ? doc.society : expand?.society) as Record<string, unknown> | undefined
     const society = societyData
-      ? {
-          id: societyData.id as string,
-          name: societyData.name as string,
-          slug: societyData.slug as string,
-          logoUrl: societyData.logo
-            ? `${process.env.POCKETBASE_URL}/api/files/societies/${societyData.id}/${societyData.logo}`
-            : '',
-        }
+      ? { id: societyData.id as string, name: societyData.name as string, slug: societyData.slug as string, logoUrl: societyData.logo ? fileUrl('societies', societyData.id as string, societyData.logo as string) : '' }
       : undefined
-
     const price = Number(doc.price) || 0
-
     return {
-      id: doc.id,
-      createdAt: doc.created || '',
-      updatedAt: doc.updated || '',
-      title: doc.title || '',
-      description: doc.description || '',
-      date: doc.date || '',
-      endDate: doc.endDate || '',
-      venue: doc.venue || '',
+      id: doc.id as string,
+      createdAt: (doc.created as string) || '',
+      updatedAt: (doc.updated as string) || '',
+      title: (doc.title as string) || '',
+      description: (doc.description as string) || '',
+      date: (doc.date as string) || '',
+      endDate: (doc.endDate as string) || '',
+      venue: (doc.venue as string) || '',
       price,
       isPaid: price > 0,
-      bannerUrl: doc.banner
-        ? `${process.env.POCKETBASE_URL}/api/files/events/${doc.id}/${doc.banner}`
-        : '',
-      status: doc.status || 'published',
+      bannerUrl: doc.banner ? fileUrl('events', doc.id as string, doc.banner as string) : '',
+      status: (doc.status as string) || 'published',
       registrationOpen: !!doc.registrationOpen,
-      maxCapacity: doc.maxCapacity || 0,
-      registeredCount: doc.registeredCount || 0,
+      maxCapacity: (doc.maxCapacity as number) || 0,
+      registeredCount: (doc.registeredCount as number) || 0,
       society,
     }
   })

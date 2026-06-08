@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import { createAdminPB } from '@/lib/pb'
 import { APP_URL } from '@/lib/constants'
 import { logError } from '@/lib/logger'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
@@ -7,6 +6,7 @@ import ExecomClient, { ExecomMemberDoc } from './ExecomClient'
 
 export const dynamic = 'force-dynamic'
 
+const PB_URL = process.env.POCKETBASE_URL
 const EXECOM_URL = `${APP_URL}/full-execom`
 
 export const metadata: Metadata = {
@@ -36,9 +36,13 @@ export default async function FullExecomPage() {
   let docs: ExecomMemberDoc[] = []
 
   try {
-    const pb = createAdminPB()
-    const result = await pb.collection('execom').getList(1, 100, { sort: 'order' })
-    docs = (result.items || []).map((raw: Record<string, unknown>, i: number) => {
+    if (!PB_URL) throw new Error('Missing POCKETBASE_URL')
+    const fileUrl = (col: string, id: string, name: string) => `${PB_URL}/api/files/${col}/${id}/${name}`
+
+    const res = await fetch(`${PB_URL}/api/collections/execom/records?perPage=100&sort=order&skipTotal=1&fields=id,order,name,department,batch,position,category,section,sectionId,photo,linkedin,instagram,email,phone`)
+    if (!res.ok) throw new Error(`PB ${res.status}`)
+    const data = await res.json()
+    docs = ((data as any).items || []).map((raw: Record<string, unknown>, i: number) => {
       const doc = raw as { id: string; order?: number; name?: string; department?: string; batch?: string; position?: string; category?: string; section?: string; sectionId?: string; photo?: string; linkedin?: string; instagram?: string; email?: string; phone?: string }
       return {
         id: doc.id,
@@ -51,9 +55,7 @@ export default async function FullExecomPage() {
         category: doc.category || '',
         section: doc.section || '',
         sectionId: doc.sectionId || '',
-        photoUrl: doc.photo
-          ? `${process.env.POCKETBASE_URL}/api/files/execom/${doc.id}/${doc.photo}`
-          : '',
+        photoUrl: doc.photo ? fileUrl('execom', doc.id, doc.photo) : '',
         linkedin: doc.linkedin,
         instagram: doc.instagram,
         email: doc.email,

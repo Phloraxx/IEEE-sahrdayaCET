@@ -14,68 +14,37 @@ export async function GET(req: Request) {
   const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString()
 
   try {
+    const count = async (col: string, filter?: string) => {
+      const r = await (filter
+        ? pb.collection(col).getList(1, 1, { filter, fields: 'id' })
+        : pb.collection(col).getList(1, 1, { fields: 'id' }))
+      return r.totalItems
+    }
+
     const [
-      eventsTotal,
-      eventsPublished,
-      eventsUpcoming,
-      eventsLive,
-      eventsRecentlyCompleted,
-      regsTotal,
-      regsConfirmed,
-      regsPending,
-      regsToday,
-      execomTotal,
-      societiesTotal,
-      societiesActive,
+      eventsTotal, eventsPublished, eventsUpcoming, eventsLive, eventsRecentlyCompleted,
+      regsTotal, regsConfirmed, regsPending, regsToday,
+      execomTotal, societiesTotal, societiesActive,
     ] = await Promise.all([
-      pb.collection('events').getFullList({ fields: 'id' }),
-      pb.collection('events').getFullList({ fields: 'id', filter: `status = 'published'` }),
-      pb.collection('events').getFullList({
-        fields: 'id',
-        filter: `date > '${nowIso}' && date <= '${futureIso}' && status = 'published'`,
-      }),
-      pb.collection('events').getFullList({
-        fields: 'id',
-        filter: `date <= '${nowIso}' && endDate >= '${nowIso}' && status = 'published'`,
-      }),
-      pb.collection('events').getFullList({
-        fields: 'id',
-        filter: `endDate > '${pastIso}' && endDate < '${nowIso}'`,
-      }),
-      pb.collection('registrations').getFullList({ fields: 'id' }),
-      pb.collection('registrations').getFullList({
-        fields: 'id',
-        filter: `registrationStatus = 'confirmed'`,
-      }),
-      pb.collection('registrations').getFullList({
-        fields: 'id',
-        filter: `registrationStatus = 'pending'`,
-      }),
-      pb.collection('registrations').getFullList({
-        fields: 'id',
-        filter: `registrationDate >= '${startOfToday}' && registrationDate < '${endOfToday}'`,
-      }),
-      pb.collection('execom').getFullList({ fields: 'id' }),
-      pb.collection('societies').getFullList({ fields: 'id' }),
-      pb.collection('societies').getFullList({ fields: 'id', filter: `isHidden != true` }),
+      count('events'),
+      count('events', `status = 'published'`),
+      count('events', `date > '${nowIso}' && date <= '${futureIso}' && status = 'published'`),
+      count('events', `date <= '${nowIso}' && endDate >= '${nowIso}' && status = 'published'`),
+      count('events', `endDate > '${pastIso}' && endDate < '${nowIso}'`),
+      count('registrations'),
+      count('registrations', `registrationStatus = 'confirmed'`),
+      count('registrations', `registrationStatus = 'pending'`),
+      count('registrations', `registrationDate >= '${startOfToday}' && registrationDate < '${endOfToday}'`),
+      count('execom'),
+      count('societies'),
+      count('societies', `isHidden != true`),
     ])
 
     return Response.json({
-      events: {
-        total: eventsTotal.length,
-        published: eventsPublished.length,
-        upcoming: eventsUpcoming.length,
-        live: eventsLive.length,
-        recentlyCompleted: eventsRecentlyCompleted.length,
-      },
-      registrations: {
-        total: regsTotal.length,
-        confirmed: regsConfirmed.length,
-        pending: regsPending.length,
-        today: regsToday.length,
-      },
-      execom: { total: execomTotal.length },
-      societies: { total: societiesTotal.length, active: societiesActive.length },
+      events: { total: eventsTotal, published: eventsPublished, upcoming: eventsUpcoming, live: eventsLive, recentlyCompleted: eventsRecentlyCompleted },
+      registrations: { total: regsTotal, confirmed: regsConfirmed, pending: regsPending, today: regsToday },
+      execom: { total: execomTotal },
+      societies: { total: societiesTotal, active: societiesActive },
     })
   } catch (error) {
     return Response.json({ error: 'Failed to fetch stats' }, { status: 500 })

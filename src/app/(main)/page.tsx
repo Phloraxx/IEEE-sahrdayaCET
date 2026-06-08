@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import type { Member, Society } from '@/types'
-import { createAdminPB } from '@/lib/pb'
+import { logError } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
 import Navbar from '@/components/Navbar';
@@ -31,43 +31,41 @@ const POSITION_TAGLINES: Record<string, string> = {
 }
 
 export default async function Home() {
-  const pb = createAdminPB()
+  const PB_URL = process.env.POCKETBASE_URL
+  if (!PB_URL) throw new Error('Missing POCKETBASE_URL')
+  const fileUrl = (col: string, id: string, name: string) => `${PB_URL}/api/files/${col}/${id}/${name}`
 
   const [eventsResult, execomResult, societiesRes] = await Promise.allSettled([
-    pb.collection('events').getList(1, 1, { filter: 'status="published"', sort: 'date', expand: 'society' }),
-    pb.collection('execom').getList(1, 20, { filter: 'sectionId="core"', sort: 'order' }),
-    fetch(`${process.env.POCKETBASE_URL}/api/collections/societies/records?skipTotal=1&fields=id,name,slug,logo`).then(r => r.json()),
+    fetch(`${PB_URL}/api/collections/events/records?perPage=1&filter=${encodeURIComponent('status="published"')}&sort=date&expand=society&skipTotal=1&fields=id,title,description,date,short_title,banner,event_type`).then(r => r.ok ? r.json() : null),
+    fetch(`${PB_URL}/api/collections/execom/records?perPage=20&filter=${encodeURIComponent('sectionId="core"')}&sort=order&skipTotal=1&fields=id,order,name,position,photo,linkedin,email,phone`).then(r => r.ok ? r.json() : null),
+    fetch(`${PB_URL}/api/collections/societies/records?skipTotal=1&fields=id,name,slug,logo`).then(r => r.json()),
   ])
 
   const societies: Society[] = societiesRes.status === 'fulfilled'
-    ? (societiesRes.value.items || []).map((s: Record<string, unknown>) => {
-        const logoFileName = s.logo as string | undefined
-        return {
-          id: s.id as string,
-          name: s.name as string,
-          slug: s.slug as string,
-          logoUrl: logoFileName
-            ? `${process.env.POCKETBASE_URL}/api/files/societies/${s.id}/${logoFileName}`
-            : undefined,
-        }
-      })
+    ? (societiesRes.value.items || []).map((s: Record<string, unknown>) => ({
+        id: s.id as string,
+        name: s.name as string,
+        slug: s.slug as string,
+        logoUrl: s.logo ? fileUrl('societies', s.id as string, s.logo as string) : undefined,
+      }))
     : []
 
-  const latestEvent = eventsResult.status === 'fulfilled' && eventsResult.value.items[0]
-    ? {
-        id: eventsResult.value.items[0].id,
-        title: eventsResult.value.items[0].title,
-        shortTitle: eventsResult.value.items[0].short_title as string | undefined,
-        description: eventsResult.value.items[0].description || 'Join us for this exciting IEEE event!',
-        date: eventsResult.value.items[0].date,
-        bannerUrl: eventsResult.value.items[0].banner
-          ? `${process.env.POCKETBASE_URL}/api/files/events/${eventsResult.value.items[0].id}/${eventsResult.value.items[0].banner}`
-          : '',
-        tag: eventsResult.value.items[0].event_type || 'UPCOMING EVENT',
-      }
+  const latestEvent = eventsResult.status === 'fulfilled' && eventsResult.value?.items?.[0]
+    ? (() => {
+        const ev = eventsResult.value.items[0] as Record<string, unknown>
+        return {
+          id: ev.id as string,
+          title: ev.title as string,
+          shortTitle: ev.short_title as string | undefined,
+          description: (ev.description as string) || 'Join us for this exciting IEEE event!',
+          date: ev.date as string,
+          bannerUrl: ev.banner ? fileUrl('events', ev.id as string, ev.banner as string) : '',
+          tag: (ev.event_type as string) || 'UPCOMING EVENT',
+        }
+      })()
     : null
 
-  const coreMembers: Member[] = execomResult.status === 'fulfilled'
+  const coreMembers: Member[] = execomResult.status === 'fulfilled' && execomResult.value
     ? (execomResult.value.items || []).map((raw: Record<string, unknown>) => {
         const doc = raw as ExecomDoc
         const pos = (doc.position as string) || ''
@@ -75,9 +73,7 @@ export default async function Home() {
           name: doc.name as string,
           role: pos,
           tagline: (POSITION_TAGLINES as Record<string, string>)[pos] || pos.toUpperCase(),
-          image: doc.photo
-            ? `${process.env.POCKETBASE_URL}/api/files/execom/${doc.id}/${doc.photo}`
-            : '/placeholder-person.jpg',
+          image: doc.photo ? fileUrl('execom', doc.id as string, doc.photo) : '/placeholder-person.jpg',
           linkedin: doc.linkedin,
           email: doc.email,
           phone: doc.phone,

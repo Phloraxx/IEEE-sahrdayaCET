@@ -19,7 +19,7 @@ export async function generateRegistrationsCSV(
   options?: { adminFormat?: boolean }
 ): Promise<string> {
   const registrations = await pb.collection('registrations').getFullList({
-    filter: `event = '${eventId}'`,
+    filter: `event = ${escapeFilterValue(eventId)}`,
     sort: '-registrationDate',
   })
 
