@@ -1,6 +1,5 @@
 export { EventHeroSection } from './EventHeroSection';
-export { EventCard } from './EventCard';
+export { AnnotatedEventCard as EventCard } from './AnnotatedEventCard';
 export { EventDetailModal } from './EventDetailModal';
 export { EventListSection } from './EventListSection';
-export { TechnicalCuratorSection } from './TechnicalCuratorSection';
-export * from './types';
+export type { EventWithSociety, ExtendedEvent } from '@/types';

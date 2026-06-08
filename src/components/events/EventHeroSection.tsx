@@ -2,7 +2,16 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { FADE_UP, STAGGER } from './animations';
+
+const FADE_UP = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.6 } },
+};
+
+const STAGGER = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.12 } },
+};
 
 export function EventHeroSection() {
     return (

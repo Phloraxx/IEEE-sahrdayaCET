@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
-import TransitionLink from '@/components/PageTransition/TransitionLink';
+import Link from 'next/link';
 import { Users, ArrowUpRight, Linkedin, Mail, Phone } from 'lucide-react';
 import type { Member } from '@/types';
 
@@ -35,7 +35,7 @@ const MarqueeText: React.FC<{ text: string }> = ({ text }) => {
     );
 };
 
-const MemberCard: React.FC<{ member: Member; index: number }> = React.memo(({ member, index }) => {
+const MemberCard: React.FC<{ member: Member; index: number }> = ({ member, index }) => {
     const [isHovered, setIsHovered] = useState(false);
 
     return (
@@ -119,8 +119,7 @@ const MemberCard: React.FC<{ member: Member; index: number }> = React.memo(({ me
             </div>
         </motion.div>
     );
-});
-MemberCard.displayName = 'MemberCard';
+};
 
 const CARD_WIDTH = 270;
 const GAP = 30;
@@ -339,13 +338,13 @@ export const Execom: React.FC<ExecomProps> = ({ members }) => {
                 <DragCarousel members={members} />
 
                 <div className="mt-12 flex justify-center">
-                    <TransitionLink
+                    <Link
                         href="/full-execom"
                         className="group relative inline-flex items-center justify-center px-8 py-3 font-mono text-sm uppercase tracking-widest text-white transition-all duration-300 bg-ieee-blue/90 hover:bg-ieee-blue rounded-full"
                     >
                         <span>View Full Execom</span>
                         <ArrowUpRight className="ml-2 w-4 h-4 transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1" />
-                    </TransitionLink>
+                    </Link>
                 </div>
 
                 <motion.div

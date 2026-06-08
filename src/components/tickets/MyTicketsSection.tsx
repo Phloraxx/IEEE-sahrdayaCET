@@ -14,6 +14,7 @@ import { useAuth } from '@/lib/auth-context';
 import { TicketCard } from './TicketCard';
 import Link from 'next/link';
 import TicketDisplay from '@/components/TicketDisplay';
+import { logError } from '@/lib/logger';
 import type { Event as AppEvent } from '@/types';
 import type { Ticket as RegistrationTicket } from '@/types/registration';
 
@@ -92,7 +93,7 @@ export function MyTicketsSection() {
             }
         } catch (err) {
             if (err instanceof DOMException && err.name === 'AbortError') return;
-            console.error('Failed to fetch tickets:', err);
+            logError('my-tickets', err);
             if (!signal?.aborted) {
                 setError('Failed to load your tickets');
             }

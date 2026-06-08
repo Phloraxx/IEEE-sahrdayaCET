@@ -1,25 +1,26 @@
-import { createPB } from '@/lib/pb'
+import { createAdminPB } from '@/lib/pb'
+import { escapeFilterValue } from '@/lib/pb-filter'
 
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params
-  const pb = createPB()
+  const pb = createAdminPB()
 
   try {
-    const society = await pb.collection('societies').getFirstListItem(`slug="${slug}"`, {
+    const society = await pb.collection('societies').getFirstListItem(`slug=${escapeFilterValue(slug)}`, {
       fields: 'id,name,slug,bio,logo,banner',
     })
 
     const [eventsResult, membersResult] = await Promise.allSettled([
       pb.collection('events').getFullList({
-        filter: `society="${society.id}"`,
+        filter: `society=${escapeFilterValue(society.id)}`,
         sort: '-date',
         fields: 'id,title,description,date,venue,price,status,maxCapacity,banner',
       }),
       pb.collection('execom').getFullList({
-        filter: `sectionId="${slug}"`,
+        filter: `sectionId=${escapeFilterValue(slug)}`,
         sort: 'order',
         fields: 'id,order,name,department,batch,position,photo,linkedin,instagram,email,phone',
       }),

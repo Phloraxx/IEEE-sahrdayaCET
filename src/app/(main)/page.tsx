@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import type { Member, Society } from '@/types'
-import { createPB } from '@/lib/pb'
+import { createAdminPB } from '@/lib/pb'
 
 export const dynamic = 'force-dynamic'
 import Navbar from '@/components/Navbar';
@@ -12,6 +12,7 @@ import { WhatsHappening } from '@/components/WhatsHappening';
 import { Execom } from '@/components/Execom';
 import { EventsShowcase } from '@/components/EventsShowcase';
 import Footer from '@/components/Footer';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 interface ExecomDoc extends Record<string, unknown> { photo?: string; linkedin?: string; email?: string; phone?: string }
 
@@ -30,7 +31,7 @@ const POSITION_TAGLINES: Record<string, string> = {
 }
 
 export default async function Home() {
-  const pb = createPB()
+  const pb = createAdminPB()
 
   const [eventsResult, execomResult, societiesRes] = await Promise.allSettled([
     pb.collection('events').getList(1, 1, { filter: 'status="published"', sort: 'date', expand: 'society' }),
@@ -94,12 +95,14 @@ export default async function Home() {
         <Hero />
       </div>
       <Navbar />
-      <div className="relative z-10 mt-[100dvh]">
-        <WhatsHappening latestEvent={latestEvent} societies={societies} />
-        <Execom members={coreMembers} />
-        <EventsShowcase />
-        <Footer />
-      </div>
+      <ErrorBoundary>
+        <div className="relative z-10 mt-[100dvh]">
+          <WhatsHappening latestEvent={latestEvent} societies={societies} />
+          <Execom members={coreMembers} />
+          <EventsShowcase />
+          <Footer />
+        </div>
+      </ErrorBoundary>
     </div>
   );
 }

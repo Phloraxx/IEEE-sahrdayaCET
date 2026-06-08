@@ -5,7 +5,7 @@ import { NavItem } from '@/types';
 import { motion } from 'framer-motion';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
-import TransitionLink from './PageTransition/TransitionLink';
+import Link from 'next/link';
 import { LogOut, User } from 'lucide-react';
 import LoginModal from './LoginModal';
 
@@ -90,7 +90,7 @@ export default function Navbar() {
                             (item.href.startsWith('/#') && pathname === '/' && activeSection.includes(item.href.replace('/#', '')));
                         
                         return (
-                            <TransitionLink
+                            <Link
                                 key={item.label}
                                 href={item.href}
                                 className={`relative px-3 md:px-5 py-2 rounded-full text-[10px] md:text-xs font-bold tracking-wide transition-all duration-300 whitespace-nowrap ${
@@ -100,7 +100,7 @@ export default function Navbar() {
                                 }`}
                             >
                                 {item.label}
-                            </TransitionLink>
+                            </Link>
                         );
                     })}
                     </div>

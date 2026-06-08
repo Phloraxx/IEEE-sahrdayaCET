@@ -12,6 +12,9 @@
   .animate-marquee-images-reverse {
     animation: marquee-images-reverse 25s linear infinite;
   }
+  .animate-shimmer {
+    animation: shimmer 2s infinite;
+  }
 }
 
 @keyframes marquee-images {
@@ -28,3 +31,9 @@
   0% { transform: translateX(0); }
   100% { transform: translateX(1960px); }
 }
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+

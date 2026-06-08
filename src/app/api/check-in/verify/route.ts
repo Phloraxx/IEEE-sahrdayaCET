@@ -1,5 +1,6 @@
 import { createPB } from '@/lib/pb'
 import { requireAuth } from '@/lib/auth'
+import { escapeFilterValue } from '@/lib/pb-filter'
 
 export async function POST(req: Request) {
   const pb = createPB(req.headers.get('cookie') || undefined)
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
     }
 
     const registrations = await pb.collection('registrations').getFullList({
-      filter: `event = '${eventId}' && (ticketId = '${ticketId}' || paymentTicketId = '${ticketId}')`,
+      filter: `event = ${escapeFilterValue(eventId)} && (ticketId = ${escapeFilterValue(ticketId)} || paymentTicketId = ${escapeFilterValue(ticketId)})`,
     })
 
     if (registrations.length === 0) {

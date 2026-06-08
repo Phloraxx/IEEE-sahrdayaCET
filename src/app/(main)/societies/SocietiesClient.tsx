@@ -13,6 +13,7 @@ import { Loader2, X, Edit, Calendar, Users, Award, LogIn } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import EventCard from '@/components/EventCard';
 import Footer from '@/components/Footer';
+import { logError } from '@/lib/logger';
 import dynamic from 'next/dynamic';
 
 const EventRegistrationModal = dynamic(
@@ -34,7 +35,7 @@ interface ExecomMember {
 }
 
 // Member Card Component
-const MemberCard = React.memo(({ member, idx }: { member: ExecomMember; idx: number }) => {
+function MemberCard({ member, idx }: { member: ExecomMember; idx: number }) {
     const [imgError, setImgError] = useState(false);
     const imageSrc = member.photoUrl || '';
 
@@ -45,7 +46,6 @@ const MemberCard = React.memo(({ member, idx }: { member: ExecomMember; idx: num
             transition={{ delay: idx * 0.05 }}
             className="group bg-white border-2 border-gray-200 rounded-xl overflow-hidden hover:border-ieee-blue hover:shadow-lg transition-all duration-300"
         >
-            {/* Member Photo */}
             <div className="relative aspect-[4/5] bg-gray-100 overflow-hidden">
                 {imageSrc && !imgError ? (
                     <Image
@@ -63,16 +63,12 @@ const MemberCard = React.memo(({ member, idx }: { member: ExecomMember; idx: num
                         </span>
                     </div>
                 )}
-
-                {/* Position Badge */}
                 <div className="absolute top-2 left-2">
                     <span className="text-[10px] font-bold text-white bg-ieee-blue px-2 py-1 rounded-full shadow-lg">
                         {member.position}
                     </span>
                 </div>
             </div>
-
-            {/* Member Info */}
             <div className="p-3">
                 <h4 className="font-bold text-gray-900 text-sm mb-1 line-clamp-2">
                     {member.name}
@@ -85,8 +81,7 @@ const MemberCard = React.memo(({ member, idx }: { member: ExecomMember; idx: num
             </div>
         </motion.div>
     );
-});
-MemberCard.displayName = 'MemberCard';
+}
 
 interface SocietiesClientProps {
     societies: Society[];
@@ -121,7 +116,7 @@ export default function SocietiesClient({ societies: initialSocieties }: Societi
             ))
             setSocietyMembers(data.members || [])
         } catch (err: unknown) {
-            console.error('Error fetching society data:', err)
+            logError('societies-client', err)
         } finally {
             setLoadingEvents(false)
             setLoadingMembers(false)

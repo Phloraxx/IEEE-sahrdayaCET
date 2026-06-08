@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
-import { createPB } from '@/lib/pb'
+import { createAdminPB } from '@/lib/pb'
 import { APP_URL } from '@/lib/constants'
+import { logError } from '@/lib/logger'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import ExecomClient, { ExecomMemberDoc } from './ExecomClient'
 
 export const dynamic = 'force-dynamic'
@@ -34,7 +36,7 @@ export default async function FullExecomPage() {
   let docs: ExecomMemberDoc[] = []
 
   try {
-    const pb = createPB()
+    const pb = createAdminPB()
     const result = await pb.collection('execom').getList(1, 100, { sort: 'order' })
     docs = (result.items || []).map((raw: Record<string, unknown>, i: number) => {
       const doc = raw as { id: string; order?: number; name?: string; department?: string; batch?: string; position?: string; category?: string; section?: string; sectionId?: string; photo?: string; linkedin?: string; instagram?: string; email?: string; phone?: string }
@@ -59,8 +61,12 @@ export default async function FullExecomPage() {
       }
     })
   } catch (e) {
-    console.error('Execom fetch failed (known Windows ECONNRESET):', e instanceof Error ? e.message : e)
+    logError('full-execom', e)
   }
 
-  return <ExecomClient initialDocs={docs} />;
+  return (
+    <ErrorBoundary>
+      <ExecomClient initialDocs={docs} />
+    </ErrorBoundary>
+  );
 }

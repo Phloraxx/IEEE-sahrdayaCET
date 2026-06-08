@@ -1,12 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { ArrowUpRight, Mail, MapPin, Phone } from 'lucide-react';
 
 const Footer: React.FC = () => {
-    const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-    useEffect(() => { setCurrentYear(new Date().getFullYear()); }, []);
+    const currentYear = new Date().getFullYear();
 
     return (
         <footer className="relative z-20 bg-gray-950 text-white overflow-hidden">
@@ -107,16 +105,22 @@ const Footer: React.FC = () => {
                 {/* Logos Row */}
                 <div className="py-10 border-b border-white/10">
                     <div className="flex items-center justify-center gap-8 md:gap-16">
-                        <a href="https://ieee-link.org/" target="_blank" rel="noopener noreferrer" className="opacity-70 hover:opacity-100 transition-opacity duration-300">
-                            <Image src="/IEEELink_footer.png" alt="IEEE" width={120} height={48} style={{ width: 'auto', height: 'auto' }} className="h-10 md:h-12 w-auto object-contain brightness-0 invert" />
+                        <a href="https://ieee-link.org/" target="_blank" rel="noopener noreferrer" className="opacity-70 hover:opacity-100 transition-opacity duration-300 inline-flex items-center">
+                            <div className="relative h-10 md:h-12 w-auto aspect-[5/2]">
+                                <Image src="/IEEELink_footer.png" alt="IEEE" fill className="object-contain brightness-0 invert" />
+                            </div>
                         </a>
                         <div className="w-px h-10 bg-white/50" />
-                        <a href="https://www.sahrdaya.ac.in" target="_blank" rel="noopener noreferrer" className="opacity-70 hover:opacity-100 transition-opacity duration-300">
-                            <Image src="/sahrdaya_footer.png" alt="Sahrdaya" width={120} height={48} style={{ width: 'auto', height: 'auto' }} className="h-10 md:h-12 w-auto object-contain brightness-0 invert" />
+                        <a href="https://www.sahrdaya.ac.in" target="_blank" rel="noopener noreferrer" className="opacity-70 hover:opacity-100 transition-opacity duration-300 inline-flex items-center">
+                            <div className="relative h-10 md:h-12 w-auto aspect-[5/2]">
+                                <Image src="/sahrdaya_footer.png" alt="Sahrdaya" fill className="object-contain brightness-0 invert" />
+                            </div>
                         </a>
                         <div className="w-px h-10 bg-white/50" />
-                        <a href="https://ieeekerala.org" target="_blank" rel="noopener noreferrer" className="opacity-80 hover:opacity-100 transition-opacity duration-300">
-                            <Image src="/keralaSection_footer.png" alt="IEEE Kerala Section" width={120} height={48} style={{ width: 'auto', height: 'auto' }} className="h-10 md:h-12 w-auto object-contain brightness-100" />
+                        <a href="https://ieeekerala.org" target="_blank" rel="noopener noreferrer" className="opacity-80 hover:opacity-100 transition-opacity duration-300 inline-flex items-center">
+                            <div className="relative h-10 md:h-12 w-auto aspect-[5/2]">
+                                <Image src="/keralaSection_footer.png" alt="IEEE Kerala Section" fill className="object-contain brightness-100" />
+                            </div>
                         </a>
                     </div>
                 </div>

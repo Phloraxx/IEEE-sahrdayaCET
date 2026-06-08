@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Image from 'next/image';
-import TransitionLink from '@/components/PageTransition/TransitionLink';
+import Link from 'next/link';
 import {
     Grid,
     ArrowRight,
@@ -81,10 +81,10 @@ export const WhatsHappening: React.FC<WhatsHappeningProps> = ({ latestEvent, soc
                                         </div>
                                     )}
 
-                                    <TransitionLink href="/events" className="glass-btn bg-white/10 backdrop-blur-sm border border-white/20 px-6 py-2 rounded-lg text-white font-medium text-sm hover:bg-white/20 hover:scale-105 transition-all flex items-center space-x-2 group">
+                                    <Link href="/events" className="glass-btn bg-white/10 backdrop-blur-sm border border-white/20 px-6 py-2 rounded-lg text-white font-medium text-sm hover:bg-white/20 hover:scale-105 transition-all flex items-center space-x-2 group">
                                         <span>Register Now</span>
                                         <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                                    </TransitionLink>
+                                    </Link>
                                 </div>
                             </>
                         ) : (
@@ -94,10 +94,10 @@ export const WhatsHappening: React.FC<WhatsHappeningProps> = ({ latestEvent, soc
                                 <p className="text-gray-200 text-sm md:text-base mb-6 max-w-md">
                                     Check back soon for exciting upcoming events from IEEE Sahrdaya SB.
                                 </p>
-                                <TransitionLink href="/events" className="glass-btn bg-white/10 backdrop-blur-sm border border-white/20 px-6 py-2 rounded-lg text-white font-medium text-sm hover:bg-white/20 hover:scale-105 transition-all flex items-center space-x-2 group w-max">
+                                <Link href="/events" className="glass-btn bg-white/10 backdrop-blur-sm border border-white/20 px-6 py-2 rounded-lg text-white font-medium text-sm hover:bg-white/20 hover:scale-105 transition-all flex items-center space-x-2 group w-max">
                                     <span>View Past Events</span>
                                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                                </TransitionLink>
+                                </Link>
                             </>
                         )}
                     </div>
@@ -121,29 +121,29 @@ export const WhatsHappening: React.FC<WhatsHappeningProps> = ({ latestEvent, soc
                                 Call for Papers: Int&apos;l Conference on Robotics open now.
                             </h5>
                         </a>
-                        <TransitionLink href="/societies#wie" className="group block">
+                        <Link href="/societies#wie" className="group block">
                             <div className="flex justify-between items-baseline">
                                 <span className="text-[10px] font-mono text-gray-400">OCT 10</span>
                             </div>
                             <h5 className="text-xs font-semibold text-gray-700 leading-snug group-hover:text-ieee-blue transition-colors mt-1">
                                 Women in Engineering (WIE) orientation session highlights.
                             </h5>
-                        </TransitionLink>
-                        <TransitionLink href="/events" className="group block">
+                        </Link>
+                        <Link href="/events" className="group block">
                             <div className="flex justify-between items-baseline">
                                 <span className="text-[10px] font-mono text-gray-400">OCT 08</span>
                             </div>
                             <h5 className="text-xs font-semibold text-gray-700 leading-snug group-hover:text-ieee-blue transition-colors mt-1">
                                 Sahrdaya SB wins Outstanding Student Branch Award!
                             </h5>
-                        </TransitionLink>
+                        </Link>
                     </div>
-                    <TransitionLink href="/events" className="text-[10px] text-gray-400 font-mono mt-3 text-right hover:text-ieee-blue flex items-center justify-end gap-1">
+                    <Link href="/events" className="text-[10px] text-gray-400 font-mono mt-3 text-right hover:text-ieee-blue flex items-center justify-end gap-1">
                         VIEW ARCHIVE <ArrowUpRight className="w-3 h-3" />
-                    </TransitionLink>
+                    </Link>
                 </div>
 
-                <TransitionLink href="/societies" className="col-span-1 md:col-span-1 row-span-1 bento-card bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-200 p-5 flex flex-col justify-between shadow-sm relative overflow-hidden group transition-all hover:shadow-md hover:border-ieee-blue/30 min-h-[250px] md:min-h-0">
+                <Link href="/societies" className="col-span-1 md:col-span-1 row-span-1 bento-card bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-200 p-5 flex flex-col justify-between shadow-sm relative overflow-hidden group transition-all hover:shadow-md hover:border-ieee-blue/30 min-h-[250px] md:min-h-0">
                     <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-ieee-blue opacity-5 rounded-full z-0 group-hover:scale-150 transition-transform duration-500"></div>
                     <div>
                         <div className="text-[10px] font-mono text-gray-400 mb-1 uppercase tracking-wide">Society Spotlight</div>
@@ -158,7 +158,7 @@ export const WhatsHappening: React.FC<WhatsHappeningProps> = ({ latestEvent, soc
                     <div className=" text-xs text-gray-500 line-clamp-2 relative z-10">
                         Advancing the theory, practice, and application of computer and info systems.
                     </div>
-                </TransitionLink>
+                </Link>
 
                 <div className="col-span-1 md:col-span-2 row-span-1 bento-card bg-white rounded-xl border border-gray-200 p-5 flex flex-col shadow-sm transition-all hover:shadow-md hover:border-ieee-blue/30 relative overflow-hidden group">
                     <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-ieee-blue opacity-[0.03] rounded-full z-0 group-hover:scale-150 transition-transform duration-500"></div>

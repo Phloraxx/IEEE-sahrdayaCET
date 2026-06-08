@@ -3,9 +3,13 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { CalendarDays } from 'lucide-react';
-import { ExtendedEvent } from './types';
-import { EventCard } from './EventCard';
-import { STAGGER } from './animations';
+import type { ExtendedEvent } from '@/types';
+import { AnnotatedEventCard as EventCard } from './AnnotatedEventCard';
+
+const STAGGER = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.12 } },
+};
 
 interface EventListSectionProps {
     events: ExtendedEvent[];

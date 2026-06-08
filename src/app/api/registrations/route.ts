@@ -1,5 +1,6 @@
 import { createPB } from '@/lib/pb'
 import { requireAuth } from '@/lib/auth'
+import { escapeFilterValue } from '@/lib/pb-filter'
 import crypto from 'crypto'
 
 export async function GET(req: Request) {
@@ -16,8 +17,8 @@ export async function GET(req: Request) {
   const eventId = url.searchParams.get('eventId')
 
   const filter = eventId
-    ? `user = '${user.id}' && event = '${eventId}'`
-    : `user = '${user.id}'`
+    ? `user = ${escapeFilterValue(user.id)} && event = ${escapeFilterValue(eventId)}`
+    : `user = ${escapeFilterValue(user.id)}`
 
   try {
     const result = await pb.collection('registrations').getList(1, 50, {
@@ -97,7 +98,7 @@ export async function POST(req: Request) {
     const now = new Date().toISOString()
 
     const existing = await pb.collection('registrations').getFullList({
-      filter: `user = '${user.id}' && event = '${eventId}'`,
+      filter: `user = ${escapeFilterValue(user.id)} && event = ${escapeFilterValue(eventId)}`,
       fields: 'id',
     })
     if (existing.length > 0) {

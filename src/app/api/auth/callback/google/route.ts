@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import PocketBase from 'pocketbase'
+import { logError } from '@/lib/logger'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
 
     return response
   } catch (err) {
-    console.error('OAuth callback error:', err)
+    logError('oauth-callback', err)
     return NextResponse.redirect(new URL('/auth/login?error=auth_failed', req.url))
   }
 }

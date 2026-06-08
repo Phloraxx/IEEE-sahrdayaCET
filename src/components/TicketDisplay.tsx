@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Calendar, MapPin, Clock, Download, Ticket } from 'lucide-react';
 import { generateQRDataUrl, downloadQR as downloadQRFile } from '@/lib/qr';
 import { getTicketStatusInfo } from '@/lib/ticketStatus';
+import { logError } from '@/lib/logger';
 import type { Event } from '@/types';
 
 interface TicketData {
@@ -38,7 +39,7 @@ export default function TicketDisplay({ ticket, event, onClose }: TicketDisplayP
                 const dataUrl = await generateQRDataUrl(ticket.qrCodeData);
                 setQrDataUrl(dataUrl);
             } catch (err) {
-                console.error('Failed to generate QR:', err);
+                logError('ticket-qr', err);
             } finally {
                 setIsGeneratingQR(false);
             }

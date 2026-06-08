@@ -9,6 +9,7 @@ import Footer from '@/components/Footer';
 import { generateQRDataUrl, downloadQR as downloadQRFile } from '@/lib/qr';
 import { getTicketStatusInfo } from '@/lib/ticketStatus';
 import { formatDateShort, formatTime } from '@/lib/dates';
+import { logError } from '@/lib/logger';
 
 interface TicketData {
     ticket: {
@@ -90,7 +91,7 @@ export default function TicketPage({ params }: PageProps) {
                 const qr = await generateQRDataUrl(ticketUrl);
                 setQrDataUrl(qr);
             } catch (err) {
-                console.error('Failed to fetch ticket:', err);
+                logError('ticket-page', err);
                 setError('Failed to load ticket');
             } finally {
                 setLoading(false);

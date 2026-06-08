@@ -3,18 +3,18 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-    Clock, 
     Copy, 
     Check, 
     RefreshCw, 
     Smartphone, 
     AlertTriangle,
-    IndianRupee,
     Loader2,
     QrCode,
     ExternalLink
 } from 'lucide-react';
-import { generateQRDataUrl } from '@/lib/qr';
+import { logError } from '@/lib/logger';
+import { UpiQrCode } from './UpiQrCode';
+import { PaymentTimer } from './PaymentTimer';
 import type { Event } from '@/types';
 import type { Registration } from '@/types/registration';
 
@@ -38,100 +38,7 @@ interface PaymentModalProps {
     onError: (message: string) => void;
 }
 
-// Simple QR Code generator using shared utility
-const QRCodeCanvas: React.FC<{
-    data: string;
-    size?: number;
-}> = ({ data, size = 200 }) => {
-    const [dataUrl, setDataUrl] = useState<string | null>(null);
-    const [error, setError] = useState(false);
 
-    useEffect(() => {
-        if (!data) return;
-
-        generateQRDataUrl(data, {
-            width: size,
-            margin: 2,
-            color: {
-                dark: '#000000',
-                light: '#FFFFFF',
-            },
-        })
-            .then(setDataUrl)
-            .catch((err) => {
-                console.error('QR generation error', err);
-                setError(true);
-            });
-    }, [data, size]);
-
-    return (
-        <div className="relative">
-            {dataUrl ? (
-                <img
-                    src={dataUrl}
-                    width={size}
-                    height={size}
-                    alt="UPI QR Code"
-                    className="rounded-xl"
-                />
-            ) : (
-                <div
-                    className="rounded-xl bg-gray-100 flex items-center justify-center"
-                    style={{ width: size, height: size }}
-                >
-                    <Loader2 className="w-8 h-8 text-ieee-blue animate-spin" />
-                </div>
-            )}
-            {error && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-xl">
-                    <span className="text-xs text-gray-500">Failed to generate QR</span>
-                </div>
-            )}
-        </div>
-    );
-};
-
-// Payment timer component
-const PaymentTimer: React.FC<{
-    expiresAt: number;
-    onExpire: () => void;
-}> = ({ expiresAt, onExpire }) => {
-    const [timeLeft, setTimeLeft] = useState<number>(0);
-
-    useEffect(() => {
-        const updateTimer = () => {
-            const now = Date.now();
-            const remaining = Math.max(0, Math.floor((expiresAt - now) / 1000));
-            setTimeLeft(remaining);
-
-            if (remaining <= 0) {
-                onExpire();
-            }
-        };
-
-        updateTimer();
-        const interval = setInterval(updateTimer, 1000);
-
-        return () => clearInterval(interval);
-    }, [expiresAt, onExpire]);
-
-    const minutes = Math.floor(timeLeft / 60);
-    const seconds = timeLeft % 60;
-    const isWarning = timeLeft <= 60;
-
-    return (
-        <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[13px] font-bold tracking-wide border ${
-            isWarning 
-                ? 'bg-red-500/10 text-red-200 border-red-500/20' 
-                : 'bg-white/10 text-white border-white/20'
-        }`}>
-            <Clock className={`w-3.5 h-3.5 ${isWarning ? 'animate-pulse text-red-400' : 'text-white/80'}`} />
-            <span className="font-mono tabular-nums leading-none mt-0.5">
-                {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
-            </span>
-        </div>
-    );
-};
 
 export default function PaymentModal({
     event,
@@ -171,7 +78,7 @@ export default function PaymentModal({
             if (copiedTimeoutRef.current) clearTimeout(copiedTimeoutRef.current);
             copiedTimeoutRef.current = setTimeout(() => setCopied(false), 2000);
         } catch (err) {
-            console.error('Failed to copy to clipboard', err);
+            logError('clipboard-copy', err);
         }
     };
 
@@ -236,7 +143,7 @@ export default function PaymentModal({
                 setPaymentStatus('pending');
             }
         } catch (err) {
-            console.error('Error checking payment', err);
+            logError('payment-check', err);
             setPaymentStatus('pending');
         }
     }, [registration.id, paymentStatus, paymentData?.statusUrl, paymentTicketId, onPaymentComplete, onError]);
@@ -370,7 +277,7 @@ export default function PaymentModal({
             {/* QR Code Section */}
             <div className="flex flex-col items-center">
                 <div className="bg-white p-5 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-gray-100/80 mb-4 transition-transform hover:scale-[1.02] duration-300">
-                    <QRCodeCanvas data={upiString} size={220} />
+                    <UpiQrCode data={upiString} size={220} />
                 </div>
                 <div className="flex items-center gap-2 text-gray-500 bg-gray-50 px-4 py-2 rounded-full border border-gray-100">
                     <QrCode className="w-4 h-4 text-ieee-blue" />

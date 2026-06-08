@@ -1,15 +1,6 @@
 import { createPB } from '@/lib/pb'
 import { requireAuth } from '@/lib/auth'
-import { escapeCsv } from '@/lib/csv'
-
-const formatDate = (iso: string | null | undefined) => {
-  if (!iso) return ''
-  try {
-    return new Date(iso).toISOString()
-  } catch {
-    return ''
-  }
-}
+import { generateRegistrationsCSV } from '@/lib/csv-export'
 
 export async function GET(
   req: Request,
@@ -36,39 +27,7 @@ export async function GET(
     }
   }
 
-  const regs = await pb.collection('registrations').getFullList({
-    filter: `event = '${eventId}'`,
-    sort: '-registrationDate',
-  })
-
-  const header = [
-    'name',
-    'email',
-    'phone',
-    'payment_status',
-    'registration_status',
-    'checked_in',
-    'checked_in_at',
-    'ticket_id',
-    'registration_date',
-  ]
-
-  const rows = [header.join(',')]
-  for (const r of regs) {
-    rows.push([
-      escapeCsv(r.userName),
-      escapeCsv(r.userEmail),
-      escapeCsv(r.userPhone),
-      escapeCsv(r.paymentStatus),
-      escapeCsv(r.registrationStatus),
-      escapeCsv(r.checkedIn ? 'yes' : 'no'),
-      escapeCsv(formatDate(r.checkedInAt as string)),
-      escapeCsv(r.ticketId || r.paymentTicketId),
-      escapeCsv(formatDate(r.registrationDate as string)),
-    ].join(','))
-  }
-
-  const csv = rows.join('\n') + '\n'
+  const csv = await generateRegistrationsCSV(pb, eventId, { adminFormat: true })
   const filename = `registrations-${(event.slug as string) || eventId}.csv`
 
   return new Response(csv, {

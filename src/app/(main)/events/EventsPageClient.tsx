@@ -9,10 +9,8 @@ import {
     EventHeroSection,
     EventListSection,
     EventDetailModal,
-    TechnicalCuratorSection,
-    EventWithSociety,
-    ExtendedEvent,
 } from '@/components/events';
+import type { EventWithSociety, ExtendedEvent } from '@/types';
 
 const EventRegistrationModal = dynamic(
     () => import('@/components/EventRegistrationModal'),
@@ -100,7 +98,6 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
                 />
             </section>
 
-            <TechnicalCuratorSection />
             <Footer />
 
             <AnimatePresence>

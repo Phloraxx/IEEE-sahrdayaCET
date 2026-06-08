@@ -21,6 +21,7 @@ export const TechnicalDetails: React.FC = () => {
                     alt="IEEE SB Logo"
                     width={128}
                     height={128}
+                    loading="eager"
                     className="opacity-80"
                 />
             </motion.div>
@@ -37,6 +38,7 @@ export const TechnicalDetails: React.FC = () => {
                     alt="Sahrdaya Logo"
                     width={64}
                     height={64}
+                    loading="eager"
                     className="opacity-80"
                 />
             </motion.div>

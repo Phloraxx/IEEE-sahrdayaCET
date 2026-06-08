@@ -3,9 +3,13 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { CalendarDays, ChevronRight } from 'lucide-react';
-import { ExtendedEvent } from './types';
-import { FADE_UP } from './animations';
+import type { ExtendedEvent } from '@/types';
 import { formatDate } from '@/lib/dates';
+
+const FADE_UP = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.6 } },
+};
 
 const ANNOTATIONS: { index: number; text: string; color: string; rotate: string; position: string }[] = [
     { index: 0, text: "For the builders 🛠️", color: 'text-[#4285F4]', rotate: '-12deg', position: '-top-8 left-0 md:-left-4 origin-top-left' },
@@ -22,7 +26,7 @@ interface EventCardProps {
     isMobile?: boolean;
 }
 
-export function EventCard({ event, index, onSelect, isMobile = false }: EventCardProps) {
+export function AnnotatedEventCard({ event, index, onSelect, isMobile = false }: EventCardProps) {
     const annotation = ANNOTATIONS.find(a => a.index === index);
 
     return (

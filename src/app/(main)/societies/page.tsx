@@ -1,3 +1,5 @@
+import { logError } from '@/lib/logger'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import SocietiesClient from './SocietiesClient'
 import type { Society } from '@/types'
 
@@ -28,8 +30,12 @@ export default async function SocietiesPage() {
       }))
     }
   } catch (e) {
-    console.error('Failed to fetch societies:', e)
+    logError('societies-page', e)
   }
 
-  return <SocietiesClient societies={societies} />
+  return (
+    <ErrorBoundary>
+      <SocietiesClient societies={societies} />
+    </ErrorBoundary>
+  )
 }

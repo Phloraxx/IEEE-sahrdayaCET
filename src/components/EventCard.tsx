@@ -1,6 +1,5 @@
 'use client';
 
-import { memo } from 'react';
 import Image from 'next/image';
 import { Event, Society } from '@/types';
 import { Calendar, Clock, MapPin, Users } from 'lucide-react';
@@ -14,8 +13,8 @@ interface EventCardProps {
     index?: number;
 }
 
-function EventCardComponent({ event, variant = 'default', societyName, onClick, index }: EventCardProps) {
-    const bannerSrc = event.bannerUrl || (typeof event.banner === 'object' && event.banner?.url) || '/default-banner.jpg';
+export default function EventCard({ event, variant = 'default', societyName, onClick, index }: EventCardProps) {
+    const bannerSrc = event.bannerUrl || (typeof event.banner === 'object' && event.banner?.url) || '/AGM.webp';
     const society = event.society as Society | undefined;
 
     if (variant === 'compact') {
@@ -26,6 +25,7 @@ function EventCardComponent({ event, variant = 'default', societyName, onClick, 
                         src={bannerSrc}
                         alt={event.title}
                         fill
+                        unoptimized
                         className="object-cover group-hover:scale-105 transition-transform duration-500"
                         sizes="(max-width: 768px) 100vw, 33vw"
                     />
@@ -62,6 +62,7 @@ function EventCardComponent({ event, variant = 'default', societyName, onClick, 
                     src={bannerSrc}
                     alt={event.title}
                     fill
+                    unoptimized
                     className="object-cover group-hover:scale-110 transition-transform duration-700"
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 />
@@ -112,5 +113,3 @@ function EventCardComponent({ event, variant = 'default', societyName, onClick, 
         </div>
     );
 }
-
-export default memo(EventCardComponent);

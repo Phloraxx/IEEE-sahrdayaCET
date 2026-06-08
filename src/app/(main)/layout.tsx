@@ -1,10 +1,7 @@
-import type { Metadata, Viewport } from "next";
+import type { Metadata } from "next";
 import { Press_Start_2P, Inter, Caveat } from "next/font/google";
 import "../globals.css";
 import { AuthProvider } from "@/lib/auth-context";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
-import JsonLd from "@/components/JsonLd";
 import { APP_URL } from "@/lib/constants";
 
 const pressStart2P = Press_Start_2P({ 
@@ -83,9 +80,25 @@ export default async function MainLayout({
         <link rel="preconnect" href="https://lh3.googleusercontent.com" />
       </head>
       <body className={`${pressStart2P.variable} ${inter.variable} ${caveat.variable} font-sans antialiased`}>
-        <AuthProvider>
-          <JsonLd schema={organizationSchema} />
-          <JsonLd schema={websiteSchema} />
+          <AuthProvider>
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify(organizationSchema)
+                .replace(/</g, '\\u003c')
+                .replace(/>/g, '\\u003e')
+                .replace(/&/g, '\\u0026'),
+            }}
+          />
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify(websiteSchema)
+                .replace(/</g, '\\u003c')
+                .replace(/>/g, '\\u003e')
+                .replace(/&/g, '\\u0026'),
+            }}
+          />
           {children}
         </AuthProvider>
       </body>

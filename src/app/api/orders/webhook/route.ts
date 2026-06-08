@@ -1,4 +1,5 @@
-import { createPB } from '@/lib/pb'
+import { createAdminPB } from '@/lib/pb'
+import { escapeFilterValue } from '@/lib/pb-filter'
 import crypto from 'crypto'
 
 export async function POST(req: Request) {
@@ -20,7 +21,7 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Invalid webhook secret' }, { status: 401 })
   }
 
-  const pb = createPB()
+  const pb = createAdminPB()
 
   try {
     const body = (await req.json()) as {
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
     }
 
     const registrations = await pb.collection('registrations').getFullList({
-      filter: `paymentTicketId = '${ticketId}'`,
+      filter: `paymentTicketId = ${escapeFilterValue(ticketId)}`,
     })
     if (registrations.length === 0) {
       return Response.json({ error: 'Registration not found' }, { status: 404 })

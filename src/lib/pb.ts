@@ -7,9 +7,16 @@ export function createPB(cookieString?: string) {
 
   if (cookieString) {
     pb.authStore.loadFromCookie(cookieString, 'pb_auth')
-  } else if (process.env.POCKETBASE_SUPERUSER_TOKEN) {
-    pb.authStore.save(process.env.POCKETBASE_SUPERUSER_TOKEN!, null)
   }
 
+  return pb
+}
+
+export function createAdminPB() {
+  const pb = createPB()
+  const token = process.env.POCKETBASE_SUPERUSER_TOKEN
+  if (token) {
+    pb.authStore.save(token, null)
+  }
   return pb
 }

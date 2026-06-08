@@ -3,7 +3,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { CalendarDays, MapPin, X } from 'lucide-react';
-import { ExtendedEvent, EventWithSociety } from './types';
+import type { ExtendedEvent, EventWithSociety } from '@/types';
 import { formatDate, formatTime } from '@/lib/dates';
 
 interface EventDetailModalProps {

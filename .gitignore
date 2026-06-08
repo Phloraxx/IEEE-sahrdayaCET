@@ -81,3 +81,5 @@ tmp/
 
 # Plaintext credentials (one-time scripts)
 tmp_login.json
+
+# Dev log.devlog

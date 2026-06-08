@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Calendar, MapPin, Clock, Download, Ticket } from 'lucide-react';
 import { generateQRDataUrl, downloadQR as downloadQRFile } from '@/lib/qr';
 import { getTicketStatusInfo } from '@/lib/ticketStatus';
+import { logError } from '@/lib/logger';
 import { formatDateShort, formatTime } from '@/lib/dates';
 
 interface TicketCardProps {
@@ -43,7 +44,7 @@ export function TicketCard({ ticket, event, registration, variant = 'compact', o
             const dataUrl = await generateQRDataUrl(ticket.id, { width: 300 });
             setQrDataUrl(dataUrl);
         } catch (error) {
-            console.error('Failed to generate QR code:', error);
+            logError('ticketcard-qr', error);
         } finally {
             setIsGeneratingQR(false);
         }

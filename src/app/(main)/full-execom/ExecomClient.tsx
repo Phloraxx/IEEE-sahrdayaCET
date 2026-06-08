@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Users, Cpu, Zap, Radio, Atom, GraduationCap, Activity, Bolt, Heart, Cog, Wrench, Sparkles, Camera, FileText, MessageSquare, Palette, X, Linkedin, Instagram, Mail, Phone } from 'lucide-react';
-import TransitionLink from '@/components/PageTransition/TransitionLink';
+import Link from 'next/link';
 
 interface Member {
     slNo: number;
@@ -223,7 +223,7 @@ const MemberDetailModal: React.FC<{ member: Member; onClose: () => void }> = ({ 
     );
 };
 
-const MemberCard: React.FC<{ member: Member; index: number; onClick: () => void }> = React.memo(({ member, index, onClick }) => {
+function MemberCard({ member, index, onClick }: { member: Member; index: number; onClick: () => void }) {
     const [imgError, setImgError] = useState(false);
     const imageSrc = member.photoUrl || '';
     const hasContactInfo = !!(member.linkedin || member.instagram || member.email || member.phone);
@@ -282,8 +282,7 @@ const MemberCard: React.FC<{ member: Member; index: number; onClick: () => void 
             </div>
         </motion.div>
     );
-});
-MemberCard.displayName = 'MemberCard';
+}
 
 const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
     const sections = useMemo(() => transformToSections(initialDocs), [initialDocs])
@@ -318,9 +317,9 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
 
             <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-100">
                 <div className="flex items-center justify-between px-4 py-3">
-                    <TransitionLink href="/" className="p-2 -ml-2 text-gray-500 hover:text-gray-900">
+                    <Link href="/" className="p-2 -ml-2 text-gray-500 hover:text-gray-900">
                         <ArrowLeft className="w-5 h-5" />
-                    </TransitionLink>
+                    </Link>
                     <span className="font-semibold text-gray-900">EXECOM &apos;26</span>
                     <button onClick={() => setIsMobileNavOpen(!isMobileNavOpen)} className="p-2 -mr-2 text-gray-500">
                         <Users className="w-5 h-5" />
@@ -353,9 +352,9 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
             </AnimatePresence>
 
             <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-20 bg-white border-r border-gray-100 flex-col z-50">
-                <TransitionLink href="/" className="flex items-center justify-center h-16 border-b border-gray-100 text-gray-400 hover:text-[#00629B] transition-colors">
+                <Link href="/" className="flex items-center justify-center h-16 border-b border-gray-100 text-gray-400 hover:text-[#00629B] transition-colors">
                     <ArrowLeft className="w-5 h-5" />
-                </TransitionLink>
+                </Link>
                 <nav className="flex-1 overflow-y-auto py-4 scrollbar-hide">
                     <div className="space-y-1 px-2">
                         {sections.map((section) => (

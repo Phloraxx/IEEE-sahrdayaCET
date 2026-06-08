@@ -1,6 +1,6 @@
 import React from 'react';
 import Image from 'next/image';
-import TransitionLink from '@/components/PageTransition/TransitionLink';
+import Link from 'next/link';
 
 const eventImages = [
     '/Events/503658167_18144990655399954_4943514208253057479_n.webp',
@@ -62,9 +62,9 @@ export const EventsShowcase: React.FC = () => {
                 <ImageStrip />
             </div>
             <div className="relative z-20 flex justify-center mb-12 md:mb-16">
-                <TransitionLink href="/events" className="bg-ieee-blue hover:bg-ieee-light-blue text-white text-sm md:text-base font-bold py-3 px-10 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 uppercase tracking-wider">
+                <Link href="/events" className="bg-ieee-blue hover:bg-ieee-light-blue text-white text-sm md:text-base font-bold py-3 px-10 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 uppercase tracking-wider">
                     Explore Events
-                </TransitionLink>
+                </Link>
             </div>
             <div className="relative z-20">
                 <TextMarquee />

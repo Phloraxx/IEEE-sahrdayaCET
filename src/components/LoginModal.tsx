@@ -2,8 +2,19 @@
 
 
 import { X } from 'lucide-react';
-import PixelGrid from './PixelGrid';
 import GoogleLoginButton from './GoogleLoginButton';
+
+function PixelGrid({ grid, size }: { grid: string[][]; size: number }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${grid[0].length}, ${size}px)`, gap: 0 }}>
+      {grid.flatMap((row, y) =>
+        row.map((color, x) => (
+          <div key={`${x}-${y}`} style={{ width: size, height: size, backgroundColor: color }} />
+        ))
+      )}
+    </div>
+  );
+}
 
 
 interface LoginModalProps {
