@@ -101,7 +101,10 @@ export default function SocietiesClient({ societies: initialSocieties }: Societi
         setLoadingMembers(true);
         try {
             const res = await fetch(`/api/society/${slug}`)
-            if (!res.ok) throw new Error('Failed to fetch society data')
+            if (!res.ok) {
+              const body = await res.json().catch(() => ({}))
+              throw new Error(body.error || `HTTP ${res.status}`)
+            }
             const data = await res.json()
             setSocietyEvents((data.events || []).filter((e: Event) =>
                 e.status === 'published' || e.status === 'completed'

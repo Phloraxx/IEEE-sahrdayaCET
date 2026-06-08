@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { APP_URL } from '@/lib/constants'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { pbFetch } from '@/lib/pb'
 import EventsPageClient from './EventsPageClient'
 
 interface EventItem {
@@ -33,14 +34,9 @@ export default async function EventsPage() {
 
   let events: EventItem[] = []
   try {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 8000)
-    const res = await fetch(`${PB_URL}/api/collections/events/records?perPage=20&filter=${encodeURIComponent('status="published"')}&sort=date&expand=society&skipTotal=1&fields=id,title,description,date,endDate,venue,price,banner,status,registrationOpen,maxCapacity,registeredCount`, { signal: controller.signal })
-    clearTimeout(timeout)
-    if (!res.ok) throw new Error(`PocketBase returned ${res.status}`)
-    const result = await res.json()
+    const result = await pbFetch<{ items: Record<string, unknown>[] }>(`${PB_URL}/api/collections/events/records?perPage=20&filter=${encodeURIComponent('status="published"')}&sort=date&expand=society&skipTotal=1&fields=id,title,description,date,endDate,venue,price,banner,status,registrationOpen,maxCapacity,registeredCount`)
 
-  events = ((result as any).items || []).map((raw: Record<string, unknown>) => {
+  events = (result?.items || []).map((raw: Record<string, unknown>) => {
     const doc = raw as Record<string, unknown>
     const expand = doc.expand as Record<string, unknown> | undefined
     const societyData = (doc.society && typeof doc.society === 'object' ? doc.society : expand?.society) as Record<string, unknown> | undefined

@@ -20,3 +20,16 @@ export function createAdminPB() {
   }
   return pb
 }
+
+export async function pbFetch<T = unknown>(url: string, timeoutMs = 8000): Promise<T | null> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const res = await fetch(url, { signal: controller.signal })
+    return res.ok ? (await res.json()) as T : null
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timer)
+  }
+}

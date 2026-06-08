@@ -1,4 +1,5 @@
 import { escapeFilterValue } from '@/lib/pb-filter'
+import { pbFetch } from '@/lib/pb'
 
 export async function GET(
   _req: Request,
@@ -11,18 +12,14 @@ export async function GET(
   const fileUrl = (col: string, id: string, name: string) => `${PB_URL}/api/files/${col}/${id}/${name}`
 
   try {
-    const ac1 = new AbortController()
-    const t1 = setTimeout(() => ac1.abort(), 8000)
-    const socRes = await fetch(`${PB_URL}/api/collections/societies/records?filter=${encodeURIComponent(`slug='${slug}'`)}&skipTotal=1&fields=id,name,slug,bio,logo,banner`, { signal: ac1.signal })
-    clearTimeout(t1)
-    if (!socRes.ok) throw new Error(`PB ${socRes.status}`)
-    const socData = await socRes.json()
-    const society = (socData as any).items?.[0]
+    const societyUrl = `${PB_URL}/api/collections/societies/records?filter=${encodeURIComponent(`slug='${slug}'`)}&skipTotal=1&fields=id,name,slug,bio,logo,banner`
+    const socData = await pbFetch<{ items: Record<string, unknown>[] }>(societyUrl)
+    const society = socData?.items?.[0] as Record<string, unknown> | undefined
     if (!society) return Response.json({ error: 'Society not found' }, { status: 404 })
 
     const [eventsRes, membersRes] = await Promise.all([
-      (() => { const ac = new AbortController(); const t = setTimeout(() => ac.abort(), 8000); return fetch(`${PB_URL}/api/collections/events/records?perPage=50&filter=${encodeURIComponent(`society='${society.id}'`)}&sort=-date&skipTotal=1&fields=id,title,description,date,venue,price,status,maxCapacity,banner`, { signal: ac.signal }).then(r => { clearTimeout(t); return r.ok ? r.json() : null }) })(),
-      (() => { const ac = new AbortController(); const t = setTimeout(() => ac.abort(), 8000); return fetch(`${PB_URL}/api/collections/execom/records?perPage=50&filter=${encodeURIComponent(`sectionId='${slug}'`)}&sort=order&skipTotal=1&fields=id,order,name,department,batch,position,photo,linkedin,instagram,email,phone`, { signal: ac.signal }).then(r => { clearTimeout(t); return r.ok ? r.json() : null }) })(),
+      pbFetch<{ items: Record<string, unknown>[] }>(`${PB_URL}/api/collections/events/records?perPage=50&filter=${encodeURIComponent(`society='${society.id as string}'`)}&sort=-date&skipTotal=1&fields=id,title,description,date,venue,price,status,maxCapacity,banner`),
+      pbFetch<{ items: Record<string, unknown>[] }>(`${PB_URL}/api/collections/execom/records?perPage=50&filter=${encodeURIComponent(`sectionId='${slug}'`)}&sort=order&skipTotal=1&fields=id,order,name,department,batch,position,photo,linkedin,instagram,email,phone`),
     ])
 
     const events = (eventsRes?.items || []).map((e: Record<string, unknown>) => ({
@@ -52,12 +49,12 @@ export async function GET(
 
     return Response.json({
       society: {
-        id: society.id,
-        name: society.name,
-        slug: society.slug,
-        bio: society.bio || '',
-        logoUrl: society.logo ? fileUrl('societies', society.id, society.logo) : '',
-        bannerUrl: society.banner ? fileUrl('societies', society.id, society.banner) : '',
+        id: society.id as string,
+        name: society.name as string,
+        slug: society.slug as string,
+        bio: (society.bio as string) || '',
+        logoUrl: society.logo ? fileUrl('societies', society.id as string, society.logo as string) : '',
+        bannerUrl: society.banner ? fileUrl('societies', society.id as string, society.banner as string) : '',
       },
       events,
       members,

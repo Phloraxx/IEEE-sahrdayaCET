@@ -193,20 +193,17 @@ ieee-sahrdaya/
 │   ├── lib/                                 # Shared utilities
 │   │   ├── api.ts                           # apiFetch() + ApiError + buildQueryString()
 │   │   ├── auth.ts                          # requireAuth() + AuthError
-│   │   ├── coupons.ts                       # applyCoupon()
-│   │   ├── api.ts                           # apiFetch() + ApiError
-│   │   ├── auth.ts                          # requireAuth() + AuthError
 │   │   ├── constants.ts                     # APP_URL
+│   │   ├── coupons.ts                       # applyCoupon()
 │   │   ├── dates.ts                         # Date formatting utilities
 │   │   ├── logger.ts                        # Structured error logging
-│   │   ├── pb.ts                            # PocketBase client factories
+│   │   ├── pb.ts                            # PocketBase client factories + pbFetch() helper
 │   │   ├── pb-filter.ts                     # Filter value escaper
 │   │   ├── qr.ts                            # QR code generation
 │   │   ├── csv.ts                           # CSV escaping
 │   │   ├── csv-export.ts                    # CSV generation
 │   │   ├── auth-context.tsx                 # Client-side auth context
 │   │   ├── ticketStatus.ts                  # Ticket badge logic
-│   │   └── dates.ts                         # 11 date formatters
 │   │
 │   ├── types/                               # Single source of truth for types
 │   │   └── index.ts                         # Event, Society, AuthUser, Member, etc.
@@ -424,13 +421,15 @@ PocketBase runs separately at `db.phloraxx.us.to` (external to the compose stack
 | `console.error` in production code | Open | 7+ catch blocks log to console; should use structured logging |
 | `src/lib/pb.ts` superuser fallback | Open | `createPB()` falls back to superuser token when no cookie; read-only SSR pages only, but needs audit |
 | Filter injection (7+ routes) | Deferred | String interpolation in PB filter params — single quote breaks filter |
-| Node.js ECONNRESET on Windows | Known | Node.js fetch to PB server fails on Windows; `NODE_OPTIONS=--no-network-family-autoselection` workaround |
+| `pbFetch()` helper | Resolved | Shared `AbortController` 8s timeout wrapper in `src/lib/pb.ts` — used by events, execom, and society API routes |
+| Node.js ECONNRESET on Windows | Mitigated | `pbFetch()` wraps every PB fetch with 8s timeout; errors return `null` instead of crashing |
 | Registration UI removed | Resolved | Frontend registration flow (forms, payment, tickets) removed for redesign |
 | Payload CMS artifacts | Resolved | `data/payload.db*`, `scripts/fix-admin.ts`, `scripts/check-user.mjs`, `DATABASE_URL` in `.env.example` — all cleaned |
 | `tmp_login.json` credentials | Resolved | Removed, added to `.gitignore` |
 | Hardcoded `BASE_URL` | Resolved | Consolidated into `src/lib/constants.ts` |
 | Events migrated | Resolved | 29 events imported from SQL dump with 28 banners from external URLs |
 | Societies + Execom migrated | Resolved | 14 societies, 89 execom members with photos and ordering fixed |
+| Society API error feedback | Resolved | `SocietiesClient.tsx` now reads error body from API response for better diagnostics |
 
 ---
 
