@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import PocketBase from 'pocketbase'
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const authCookie = req.cookies.get('pb_auth')?.value
 
   if (req.nextUrl.pathname.startsWith('/admin')) {

@@ -23,6 +23,7 @@ export const TechnicalDetails: React.FC = () => {
                     height={128}
                     loading="eager"
                     className="opacity-80"
+                    style={{ width: 'auto', height: 'auto' }}
                 />
             </motion.div>
 
@@ -40,6 +41,7 @@ export const TechnicalDetails: React.FC = () => {
                     height={64}
                     loading="eager"
                     className="opacity-80"
+                    style={{ width: 'auto', height: 'auto' }}
                 />
             </motion.div>
 
