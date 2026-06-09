@@ -47,7 +47,8 @@ export async function PUT(
   const { id } = await params
 
   try {
-    const body = await req.json()
+    const contentType = req.headers.get('content-type') || ''
+    const body = contentType.includes('multipart/form-data') ? await req.formData() : await req.json()
     const pb = createPB(req.headers.get('cookie') || undefined)
     const { user } = await requireRole(['admin', 'chair'], pb)
     const adminPB = createAdminPB()
