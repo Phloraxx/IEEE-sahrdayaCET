@@ -1,6 +1,21 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --color-ieee-blue: #00629B;
+  --color-ieee-light-blue: #0099D6;
+}
+
+/* Font utilities using Next.js font loader CSS variables.
+   The @font-face rules and CSS variables are injected by next/font
+   via layout.tsx and applied to <body> as className.
+   Defined here (not in @theme) since v4 @theme doesn't support
+   var() with comma-separated fallbacks inside font-family values. */
+.font-pixel {
+  font-family: var(--font-pixel-loaded, "Courier New", monospace);
+}
+.font-sans {
+  font-family: var(--font-inter-loaded, system-ui, sans-serif);
+}
 
 @layer utilities {
   .animate-marquee-images {
@@ -9,12 +24,6 @@
   .animate-marquee-text {
     animation: marquee-text 39s linear infinite;
   }
-  .animate-marquee-images-reverse {
-    animation: marquee-images-reverse 25s linear infinite;
-  }
-  .animate-shimmer {
-    animation: shimmer 2s infinite;
-  }
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
@@ -22,22 +31,6 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
-  }
-  .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-@media (min-width: 640px) {
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
-  }
-  .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-}
 }
 
 @keyframes marquee-images {
@@ -48,14 +41,4 @@
 @keyframes marquee-text {
   0% { transform: translateX(0); }
   100% { transform: translateX(-2800px); }
-}
-
-@keyframes marquee-images-reverse {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(1960px); }
-}
-
-@keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
 }

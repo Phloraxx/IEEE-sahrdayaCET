@@ -7,7 +7,7 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN --mount=type=cache,id=npm-cache,target=/root/.npm \
-    npm ci --legacy-peer-deps --omit=dev
+    npm ci --omit=dev
 
 # Build the app
 FROM base AS builder
