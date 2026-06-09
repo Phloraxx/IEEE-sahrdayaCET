@@ -3,6 +3,9 @@ const appUrl = new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+  turbopack: {
+    root: process.cwd(),
+  },
   images: {
     formats: ['image/avif', 'image/webp'],
     remotePatterns: [

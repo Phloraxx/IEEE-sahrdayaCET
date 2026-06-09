@@ -1,13 +1,22 @@
+# ───────────────────────────────────────────────────────────────
+#  IEEE Sahrdaya — Multi-stage Docker build (bun runtime)
+#  Base:        node:22-alpine + bun
+#  Output:      Next.js standalone (runs via node server.js)
+# ───────────────────────────────────────────────────────────────
+
 FROM node:22-alpine AS base
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Install dependencies only when needed
+# Install bun for faster dependency installs
+RUN npm install -g bun@latest
+
+# Install dependencies when needed
 FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN --mount=type=cache,id=npm-cache,target=/root/.npm \
-    npm ci --omit=dev
+COPY package.json ./
+RUN --mount=type=cache,id=bun-cache,target=/root/.bun/install/cache \
+    bun install
 
 # Build the app
 FROM base AS builder
@@ -15,7 +24,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN --mount=type=cache,id=next-cache,target=/app/.next/cache \
-    npm run build
+    bun run build
 
 # Production image
 FROM base AS runner

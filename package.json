@@ -4,7 +4,7 @@
   "version": "4.0.0",
   "type": "module",
   "scripts": {
-    "dev": "next dev --webpack",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -13,9 +13,9 @@
     "test:ui": "vitest --ui",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
-    "migrate:pb": "npx tsx scripts/migrate-to-pb.ts",
-    "migrate:events": "npx tsx scripts/migrate-events.ts",
-    "migrate:indexes": "npx tsx scripts/migrate-indexes.ts"
+    "migrate:pb": "bun scripts/migrate-to-pb.ts",
+    "migrate:events": "bun scripts/migrate-events.ts",
+    "migrate:indexes": "bun scripts/migrate-indexes.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
@@ -55,9 +55,7 @@
     "eslint": "^9.0.0",
     "eslint-config-next": "^16.2.7",
     "tailwindcss": "^4.3.0",
-    "tsx": "^4.21.0",
     "typescript": "~5.8.2",
     "vitest": "^4.1.8"
-  },
-  "packageManager": "npm@10"
+  }
 }

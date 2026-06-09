@@ -108,3 +108,7 @@ AGENTS.md
 tmp_login.json
 
 # Dev log.devlog
+
+# Windows reserved device names (artifact from Unix-aware tools)
+NUL
+nul
