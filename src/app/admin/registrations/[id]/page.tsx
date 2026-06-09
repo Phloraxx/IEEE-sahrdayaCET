@@ -1,20 +1,42 @@
 import { Suspense } from 'react'
-import { createPB } from '@/lib/pb'
+import { createPB, createAdminPB } from '@/lib/pb'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { getChairSocietyIds } from '@/lib/chair-scope'
 
 async function RegistrationDetail({ id }: { id: string }) {
   const cookieStore = await cookies()
   const pb = createPB(`pb_auth=${cookieStore.get('pb_auth')?.value}`)
+  const adminPB = createAdminPB()
 
   try {
-    const reg = await pb.collection('registrations').getOne(id, { expand: 'event' })
+    // Authenticate and get user role
+    await pb.collection('users').authRefresh()
+    const record = pb.authStore.record as { id: string; role: string } | null
+    const userId = record?.id || ''
+    const userRole = record?.role || ''
+
+    const reg = await adminPB.collection('registrations').getOne(id, { expand: 'event' })
     const expand = (reg as Record<string, unknown>).expand as Record<string, unknown> | undefined
     const event = expand?.event as Record<string, unknown> | undefined
     const r = reg as Record<string, unknown>
+
+    // Chair access check: verify the registration's event belongs to the chair's society
+    if (userRole === 'chair' && userId) {
+      // Use the expanded event's society field (not r.event, which is the event UUID)
+      const eventSocietyId = event?.society as string | undefined
+      if (eventSocietyId) {
+        const societyIds = await getChairSocietyIds(adminPB, userId)
+        if (!societyIds.includes(eventSocietyId)) {
+          return <div className="p-12 text-center text-sm text-muted-foreground">You don't have access to this registration.</div>
+        }
+      } else {
+        return <div className="p-12 text-center text-sm text-muted-foreground">Registration has no associated event.</div>
+      }
+    }
 
     return (
       <div className="grid gap-4 md:grid-cols-2">

@@ -1,30 +1,37 @@
-import { createPB } from '@/lib/pb'
-import { requireAuth } from '@/lib/auth'
+import { createPB, createAdminPB } from '@/lib/pb'
+import { requireRole } from '@/lib/auth'
 import { generateRegistrationsCSV } from '@/lib/csv-export'
+import { getChairSocietyIds } from '@/lib/chair-scope'
 
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const pb = createPB(req.headers.get('cookie') || undefined)
-  const { user } = await requireAuth(pb)
+  const { user } = await requireRole(['admin', 'chair'], pb)
+  const adminPB = createAdminPB()
 
   const { id: eventId } = await params
 
-  const event = await pb.collection('events').getOne(eventId).catch(() => null)
+  const event = await adminPB.collection('events').getOne(eventId).catch(() => null)
   if (!event) {
     return new Response('Event not found', { status: 404 })
   }
 
-  if (user.role !== 'admin') {
-    const society = await pb.collection('societies').getOne(event.society).catch(() => null)
-    const chairs = (society?.chairs || []) as string[]
-    if (!chairs.includes(user.id)) {
-      return new Response('Forbidden', { status: 403 })
+  // Chair scoping: verify the chair has access to this event's society
+  if (user.role === 'chair') {
+    const eventSociety = (event as Record<string, unknown>).society as string
+    if (eventSociety) {
+      const societyIds = await getChairSocietyIds(adminPB, user.id)
+      if (!societyIds.includes(eventSociety)) {
+        return new Response('Forbidden', { status: 403 })
+      }
+    } else {
+      return new Response('Event has no society', { status: 400 })
     }
   }
 
-  const csv = await generateRegistrationsCSV(pb, eventId, { adminFormat: true })
+  const csv = await generateRegistrationsCSV(adminPB, eventId, { adminFormat: true })
   const filename = `registrations-${eventId}.csv`
 
   return new Response(csv, {

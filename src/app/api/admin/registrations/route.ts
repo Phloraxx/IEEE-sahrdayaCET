@@ -7,6 +7,7 @@ import { getChairSocietyIds } from '@/lib/chair-scope'
 export async function GET(req: NextRequest) {
   const pb = createPB(req.headers.get('cookie') || undefined)
   const { user } = await requireRole(['admin', 'chair'], pb)
+  const adminPB = createAdminPB()
 
   const url = new URL(req.url)
   const page = parseInt(url.searchParams.get('page') || '1')
@@ -28,7 +29,6 @@ export async function GET(req: NextRequest) {
 
   // Scope to chair's societies
   if (user.role === 'chair') {
-    const adminPB = createAdminPB()
     const societyIds = await getChairSocietyIds(adminPB, user.id)
     if (societyIds.length === 0) {
       // No societies assigned — no registrations to show
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const result = await pb.collection('registrations').getList(page, perPage, {
+    const result = await adminPB.collection('registrations').getList(page, perPage, {
       filter: filter || undefined,
       sort: '-registrationDate',
       expand: 'event',
