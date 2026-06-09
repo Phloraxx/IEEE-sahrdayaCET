@@ -1,7 +1,8 @@
-import { createPB } from '@/lib/pb'
+import { createPB, buildFileUrl, escapeFilterValue } from '@/lib/pb'
 import { requireAuth } from '@/lib/auth'
-import { escapeFilterValue } from '@/lib/pb-filter'
+import { ClientResponseError } from 'pocketbase'
 import crypto from 'crypto'
+import { logError } from '@/lib/logger'
 
 export async function GET(req: Request) {
   const pb = createPB(req.headers.get('cookie') || undefined)
@@ -48,7 +49,7 @@ export async function GET(req: Request) {
               venue: evt.venue,
               price: (evt.price as number) || 0,
               bannerUrl: evt.banner
-                ? `${process.env.POCKETBASE_URL}/api/files/events/${evt.id}/${evt.banner}`
+                ? buildFileUrl('events', evt.id as string, evt.banner as string)
                 : '',
               status: evt.status || 'published',
             }
@@ -73,6 +74,7 @@ export async function GET(req: Request) {
       totalPages: result.totalPages,
     })
   } catch (error) {
+    logError('registrations-get', error)
     return Response.json({ error: 'Failed to fetch registrations' }, { status: 500 })
   }
 }
@@ -90,20 +92,7 @@ export async function POST(req: Request) {
       return Response.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    const event = await pb.collection('events').getOne(eventId).catch(() => null)
-    if (!event) {
-      return Response.json({ error: 'Event not found' }, { status: 404 })
-    }
-
     const now = new Date().toISOString()
-
-    const existing = await pb.collection('registrations').getFullList({
-      filter: `user = ${escapeFilterValue(user.id)} && event = ${escapeFilterValue(eventId)}`,
-      fields: 'id',
-    })
-    if (existing.length > 0) {
-      return Response.json({ error: 'Already registered for this event' }, { status: 409 })
-    }
 
     const registration = await pb.collection('registrations').create({
       user: user.id,
@@ -124,6 +113,8 @@ export async function POST(req: Request) {
       })
     }
 
+    // Fetch event for price info (the hook already validated it exists)
+    const event = await pb.collection('events').getOne(eventId)
     const finalAmount = Number(event.price) || 0
     const paymentTicketId = crypto.randomUUID()
 
@@ -140,6 +131,13 @@ export async function POST(req: Request) {
       amount: finalAmount,
     })
   } catch (error) {
+    if (error instanceof ClientResponseError) {
+      return Response.json(
+        { error: error.data?.message || 'Registration failed' },
+        { status: error.status },
+      )
+    }
+    logError('registrations-post', error)
     return Response.json({ error: 'Registration failed' }, { status: 500 })
   }
 }

@@ -33,3 +33,15 @@ export async function pbFetch<T = unknown>(url: string, timeoutMs = 8000): Promi
     clearTimeout(timer)
   }
 }
+
+export function buildFileUrl(collection: string, recordId: string, filename: string): string {
+  const url = process.env.POCKETBASE_URL
+  if (!url || !recordId || !filename) return ''
+  return `${url}/api/files/${collection}/${recordId}/${filename}`
+}
+
+export function escapeFilterValue(value: string | number | boolean): string {
+  if (typeof value === 'number') return String(value)
+  if (typeof value === 'boolean') return value ? 'true' : 'false'
+  return `'${value.replace(/'/g, "''")}'`
+}

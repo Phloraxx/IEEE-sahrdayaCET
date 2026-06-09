@@ -1,3 +1,4 @@
+import { buildFileUrl } from '@/lib/pb'
 import { logError } from '@/lib/logger'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import SocietiesClient from './SocietiesClient'
@@ -29,7 +30,7 @@ export default async function SocietiesPage() {
         slug: s.slug as string,
         bio: s.bio as string | undefined,
         logoUrl: s.logo
-          ? `${process.env.POCKETBASE_URL}/api/files/societies/${s.id}/${s.logo}`
+          ? buildFileUrl('societies', s.id as string, s.logo as string)
           : undefined,
       }))
     }

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import type { Member, Society } from '@/types'
 import { logError } from '@/lib/logger'
+import { buildFileUrl } from '@/lib/pb'
 
 export const dynamic = 'force-dynamic'
 import Navbar from '@/components/Navbar';
@@ -34,7 +35,6 @@ const POSITION_TAGLINES: Record<string, string> = {
 export default async function Home() {
   const PB_URL = process.env.POCKETBASE_URL
   if (!PB_URL) throw new Error('Missing POCKETBASE_URL')
-  const fileUrl = (col: string, id: string, name: string) => `${PB_URL}/api/files/${col}/${id}/${name}`
 
   const [eventsResult, execomResult, societiesRes] = await Promise.allSettled([
     fetch(`${PB_URL}/api/collections/events/records?perPage=1&filter=${encodeURIComponent('status="published"')}&sort=date&expand=society&skipTotal=1&fields=id,title,description,date,short_title,banner,event_type`).then(r => r.ok ? r.json() : null),
@@ -47,7 +47,7 @@ export default async function Home() {
         id: s.id as string,
         name: s.name as string,
         slug: s.slug as string,
-        logoUrl: s.logo ? fileUrl('societies', s.id as string, s.logo as string) : undefined,
+        logoUrl: s.logo ? buildFileUrl('societies', s.id as string, s.logo as string) : undefined,
       }))
     : []
 
@@ -60,7 +60,7 @@ export default async function Home() {
           shortTitle: ev.short_title as string | undefined,
           description: (ev.description as string) || 'Join us for this exciting IEEE event!',
           date: ev.date as string,
-          bannerUrl: ev.banner ? fileUrl('events', ev.id as string, ev.banner as string) : '',
+          bannerUrl: ev.banner ? buildFileUrl('events', ev.id as string, ev.banner as string) : '',
           tag: (ev.event_type as string) || 'UPCOMING EVENT',
         }
       })()
@@ -74,7 +74,7 @@ export default async function Home() {
           name: doc.name as string,
           role: pos,
           tagline: (POSITION_TAGLINES as Record<string, string>)[pos] || pos.toUpperCase(),
-          image: doc.photo ? fileUrl('execom', doc.id as string, doc.photo) : '/placeholder-person.jpg',
+          image: doc.photo ? buildFileUrl('execom', doc.id as string, doc.photo) : '/placeholder-person.jpg',
           linkedin: doc.linkedin,
           email: doc.email,
           phone: doc.phone,
@@ -85,7 +85,7 @@ export default async function Home() {
   return (
     <div className="relative w-full bg-white text-gray-900 font-sans selection:bg-ieee-blue/20">
       <div id="home" className="absolute top-0 left-0 w-full h-1" />
-      <div className="fixed inset-0 z-0 h-[100dvh] overflow-hidden">
+      <div className="fixed inset-0 z-0 h-dvh overflow-hidden">
         <GridBackground />
         <FloatingIcons />
         <TechnicalDetails />

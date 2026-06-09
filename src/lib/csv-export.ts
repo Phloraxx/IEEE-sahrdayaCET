@@ -1,5 +1,5 @@
 import { escapeCsv } from './csv'
-import { escapeFilterValue } from './pb-filter'
+import { escapeFilterValue } from './pb'
 
 interface RegistrationRow {
   userName?: string

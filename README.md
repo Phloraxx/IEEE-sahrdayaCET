@@ -69,13 +69,12 @@ pb_hooks/                     # PocketBase JS hooks (registration validation, ti
 
 | File | Purpose |
 |------|---------|
-| `pb.ts` | PocketBase client factories + `pbFetch()` helper (8s timeout wrapper) |
+| `pb.ts` | PocketBase client factories + `pbFetch()` + `buildFileUrl()` + `escapeFilterValue()` |
 | `auth.ts` | `requireAuth()` + `AuthError` for server-side auth |
 | `auth-context.tsx` | Client-side auth context (React context + cookies) |
 | `logger.ts` | Structured error logging |
 | `dates.ts` | Date formatting utilities |
 | `csv-export.ts` | CSV generation for event registrations |
-| `pb-filter.ts` | PocketBase filter value escaper |
 
 ---
 

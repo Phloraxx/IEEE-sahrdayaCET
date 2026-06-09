@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { APP_URL } from '@/lib/constants'
+import { buildFileUrl } from '@/lib/pb'
 import { logError } from '@/lib/logger'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { pbFetch } from '@/lib/pb'
@@ -38,7 +39,6 @@ export default async function FullExecomPage() {
 
   try {
     if (!PB_URL) throw new Error('Missing POCKETBASE_URL')
-    const fileUrl = (col: string, id: string, name: string) => `${PB_URL}/api/files/${col}/${id}/${name}`
 
     const data = await pbFetch<{ items: Record<string, unknown>[] }>(`${PB_URL}/api/collections/execom/records?perPage=100&sort=order&skipTotal=1&fields=id,order,name,department,batch,position,category,section,sectionId,photo,linkedin,instagram,email,phone`)
     docs = (data?.items || []).map((raw: Record<string, unknown>, i: number) => {
@@ -54,7 +54,7 @@ export default async function FullExecomPage() {
         category: doc.category || '',
         section: doc.section || '',
         sectionId: doc.sectionId || '',
-        photoUrl: doc.photo ? fileUrl('execom', doc.id, doc.photo) : '',
+        photoUrl: doc.photo ? buildFileUrl('execom', doc.id, doc.photo) : '',
         linkedin: doc.linkedin,
         instagram: doc.instagram,
         email: doc.email,

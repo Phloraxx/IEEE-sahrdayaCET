@@ -1,6 +1,6 @@
-import { createAdminPB } from '@/lib/pb'
-import { escapeFilterValue } from '@/lib/pb-filter'
+import { createAdminPB, escapeFilterValue } from '@/lib/pb'
 import crypto from 'crypto'
+import { logError } from '@/lib/logger'
 
 export async function POST(req: Request) {
   const webhookSecret = process.env.PAYMENT_WEBHOOK_SECRET
@@ -60,6 +60,7 @@ export async function POST(req: Request) {
 
     return Response.json({ success: true })
   } catch (error) {
+    logError('payment-webhook', error)
     return Response.json({ error: 'Webhook processing failed' }, { status: 500 })
   }
 }

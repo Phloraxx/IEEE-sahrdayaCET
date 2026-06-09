@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { APP_URL } from '@/lib/constants'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
-import { pbFetch } from '@/lib/pb'
+import { pbFetch, buildFileUrl } from '@/lib/pb'
 import EventsPageClient from './EventsPageClient'
 
 interface EventItem {
@@ -30,7 +30,6 @@ export const metadata: Metadata = {
 
 export default async function EventsPage() {
   if (!PB_URL) throw new Error('Missing POCKETBASE_URL')
-  const fileUrl = (col: string, id: string, name: string) => `${PB_URL}/api/files/${col}/${id}/${name}`
 
   let events: EventItem[] = []
   try {
@@ -41,7 +40,7 @@ export default async function EventsPage() {
     const expand = doc.expand as Record<string, unknown> | undefined
     const societyData = (doc.society && typeof doc.society === 'object' ? doc.society : expand?.society) as Record<string, unknown> | undefined
     const society = societyData
-      ? { id: societyData.id as string, name: societyData.name as string, slug: societyData.slug as string, logoUrl: societyData.logo ? fileUrl('societies', societyData.id as string, societyData.logo as string) : '' }
+      ? { id: societyData.id as string, name: societyData.name as string, slug: societyData.slug as string, logoUrl: societyData.logo ? buildFileUrl('societies', societyData.id as string, societyData.logo as string) : '' }
       : undefined
     const price = Number(doc.price) || 0
     return {
@@ -55,7 +54,7 @@ export default async function EventsPage() {
       venue: (doc.venue as string) || '',
       price,
       isPaid: price > 0,
-      bannerUrl: doc.banner ? fileUrl('events', doc.id as string, doc.banner as string) : '',
+      bannerUrl: doc.banner ? buildFileUrl('events', doc.id as string, doc.banner as string) : '',
       status: (doc.status as string) || 'published',
       registrationOpen: !!doc.registrationOpen,
       maxCapacity: (doc.maxCapacity as number) || 0,

@@ -1,5 +1,5 @@
-import { escapeFilterValue } from '@/lib/pb-filter'
-import { pbFetch } from '@/lib/pb'
+import { pbFetch, buildFileUrl, escapeFilterValue } from '@/lib/pb'
+import { logError } from '@/lib/logger'
 
 export async function GET(
   _req: Request,
@@ -8,8 +8,6 @@ export async function GET(
   const { slug } = await params
   const PB_URL = process.env.POCKETBASE_URL
   if (!PB_URL) throw new Error('Missing POCKETBASE_URL')
-
-  const fileUrl = (col: string, id: string, name: string) => `${PB_URL}/api/files/${col}/${id}/${name}`
 
   try {
     const societyUrl = `${PB_URL}/api/collections/societies/records?filter=${encodeURIComponent(`slug='${slug}'`)}&skipTotal=1&fields=id,name,slug,bio,logo,banner`
@@ -31,7 +29,7 @@ export async function GET(
       price: (e.price as number) || 0,
       status: e.status || 'published',
       maxCapacity: (e.maxCapacity as number) || 0,
-      bannerUrl: e.banner ? fileUrl('events', e.id as string, e.banner as string) : '',
+      bannerUrl: e.banner ? buildFileUrl('events', e.id as string, e.banner as string) : '',
     }))
 
     const members = (membersRes?.items || []).map((doc: Record<string, unknown>) => ({
@@ -40,7 +38,7 @@ export async function GET(
       department: (doc.department as string) || '',
       semester: (doc.batch as string) || '',
       position: (doc.position as string) || '',
-      photoUrl: doc.photo ? fileUrl('execom', doc.id as string, doc.photo as string) : '',
+      photoUrl: doc.photo ? buildFileUrl('execom', doc.id as string, doc.photo as string) : '',
       linkedin: (doc.linkedin as string) || '',
       instagram: (doc.instagram as string) || '',
       email: (doc.email as string) || '',
@@ -53,13 +51,14 @@ export async function GET(
         name: society.name as string,
         slug: society.slug as string,
         bio: (society.bio as string) || '',
-        logoUrl: society.logo ? fileUrl('societies', society.id as string, society.logo as string) : '',
-        bannerUrl: society.banner ? fileUrl('societies', society.id as string, society.banner as string) : '',
+        logoUrl: society.logo ? buildFileUrl('societies', society.id as string, society.logo as string) : '',
+        bannerUrl: society.banner ? buildFileUrl('societies', society.id as string, society.banner as string) : '',
       },
       events,
       members,
     })
   } catch (e) {
+    logError('society-get', e)
     const msg = e instanceof Error ? e.message : 'Unknown error'
     return Response.json({ error: msg.includes('no matching record') ? 'Society not found' : 'Failed to fetch society data' }, { status: msg.includes('no matching record') ? 404 : 500 })
   }
