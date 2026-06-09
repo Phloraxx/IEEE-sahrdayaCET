@@ -8,7 +8,8 @@ interface EventItem {
   id: string; createdAt: string; updatedAt: string; title: string; description: string
   date: string; endDate: string; venue: string; price: number; isPaid: boolean
   bannerUrl: string; status: string; registrationOpen: boolean; maxCapacity: number
-  registeredCount: number; society?: { id: string; name: string; slug: string; logoUrl: string }
+  registeredCount: number; externalFormUrl?: string; collectIeeeMember?: boolean
+  society?: { id: string; name: string; slug: string; logoUrl: string }
 }
 
 export const dynamic = 'force-dynamic'
@@ -33,7 +34,7 @@ export default async function EventsPage() {
 
   let events: EventItem[] = []
   try {
-    const result = await pbFetch<{ items: Record<string, unknown>[] }>(`${PB_URL}/api/collections/events/records?perPage=20&filter=${encodeURIComponent('status="published"')}&sort=date&expand=society&skipTotal=1&fields=id,title,description,date,endDate,venue,price,banner,status,registrationOpen,maxCapacity,registeredCount`)
+    const result = await pbFetch<{ items: Record<string, unknown>[] }>(`${PB_URL}/api/collections/events/records?perPage=20&filter=${encodeURIComponent('status="published"')}&sort=date&expand=society&skipTotal=1&fields=id,title,description,date,endDate,venue,price,banner,status,registrationOpen,maxCapacity,registeredCount,externalFormUrl,collectIeeeMember`)
 
   events = (result?.items || []).map((raw: Record<string, unknown>) => {
     const doc = raw as Record<string, unknown>
@@ -59,6 +60,8 @@ export default async function EventsPage() {
       registrationOpen: !!doc.registrationOpen,
       maxCapacity: (doc.maxCapacity as number) || 0,
       registeredCount: (doc.registeredCount as number) || 0,
+      externalFormUrl: (doc.externalFormUrl as string) || undefined,
+      collectIeeeMember: !!doc.collectIeeeMember,
       society,
     }
   })

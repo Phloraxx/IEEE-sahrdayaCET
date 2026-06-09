@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { AnimatePresence } from 'framer-motion';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -27,6 +28,7 @@ interface EventsPageClientProps {
 }
 
 export default function EventsPageClient({ initialEvents }: EventsPageClientProps) {
+    const router = useRouter();
     const [selectedEvent, setSelectedEvent] = useState<ExtendedEvent | null>(null);
 
     const extendedEvents: ExtendedEvent[] = useMemo(() => {
@@ -40,6 +42,14 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
 
     const handleSelectEvent = (event: ExtendedEvent) => {
         setSelectedEvent(event);
+    };
+
+    const handleRegister = (event: EventWithSociety) => {
+        if (event.externalFormUrl) {
+            window.open(event.externalFormUrl, '_blank');
+        } else {
+            router.push(`/register/${event.id}`);
+        }
     };
 
     return (
@@ -82,6 +92,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
                     <EventDetailModal
                         event={selectedEvent}
                         onClose={() => setSelectedEvent(null)}
+                        onRegister={handleRegister}
                     />
                 )}
             </AnimatePresence>
