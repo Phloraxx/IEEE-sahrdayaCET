@@ -1,6 +1,7 @@
 import { createPB } from '@/lib/pb'
 import { requireRole } from '@/lib/auth'
 import { iso } from '@/lib/dates'
+import { logError } from '@/lib/logger'
 
 export async function GET(req: Request) {
   const pb = createPB(req.headers.get('cookie') || undefined)
@@ -54,6 +55,7 @@ export async function GET(req: Request) {
       recentlyCompleted: recentlyCompleted.items.map(project),
     })
   } catch (error) {
+    logError('admin-dashboard', error)
     return Response.json(
       { error: 'Failed to fetch dashboard events', live: [], upcoming: [], recentlyCompleted: [] },
       { status: 500 },

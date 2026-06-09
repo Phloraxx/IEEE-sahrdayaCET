@@ -1,6 +1,7 @@
 import { createPB } from '@/lib/pb'
 import { requireAdmin } from '@/lib/auth'
 import { iso } from '@/lib/dates'
+import { logError } from '@/lib/logger'
 
 export async function GET(req: Request) {
   const pb = createPB(req.headers.get('cookie') || undefined)
@@ -47,6 +48,7 @@ export async function GET(req: Request) {
       societies: { total: societiesTotal, active: societiesActive },
     })
   } catch (error) {
+    logError('admin-stats', error)
     return Response.json({ error: 'Failed to fetch stats' }, { status: 500 })
   }
 }
