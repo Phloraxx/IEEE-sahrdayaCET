@@ -3,7 +3,8 @@
 import React, { useState, useMemo } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Users, Cpu, Zap, Radio, Atom, GraduationCap, Activity, Bolt, Heart, Cog, Wrench, Sparkles, Camera, FileText, MessageSquare, Palette, X, Linkedin, Instagram, Mail, Phone } from 'lucide-react';
+import { ArrowLeft, Users, Cpu, Zap, Radio, Atom, GraduationCap, Activity, Bolt, Heart, Cog, Wrench, Sparkles, Camera, FileText, MessageSquare, Palette, X, Mail, Phone } from 'lucide-react';
+import { Linkedin, Instagram } from '@/components/icons';
 import Link from 'next/link';
 
 interface Member {
@@ -134,7 +135,7 @@ const MemberDetailModal: React.FC<{ member: Member; onClose: () => void }> = ({ 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+                className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4"
                 onClick={onClose}
             >
                 <motion.div
@@ -148,30 +149,31 @@ const MemberDetailModal: React.FC<{ member: Member; onClose: () => void }> = ({ 
                     <button
                         onClick={onClose}
                         aria-label="Close"
-                        className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm shadow-lg flex items-center justify-center hover:bg-white transition-all hover:scale-110"
+                        className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/90 backdrop-blur-xs shadow-lg flex items-center justify-center hover:bg-white transition-all hover:scale-110"
                     >
                         <X className="w-5 h-5 text-gray-600" />
                     </button>
 
-                    <div className="relative h-72 sm:h-96 bg-gray-50 overflow-hidden flex-shrink-0">
+                    <div className="relative h-72 bg-gray-100 overflow-hidden shrink-0">
                         {imageSrc && !imgError ? (
                             <Image
                                 src={imageSrc}
                                 alt={member.name}
                                 onError={() => setImgError(true)}
                                 fill
+                                style={{ objectFit: 'contain' }}
                                 sizes="(max-width: 768px) 100vw, 500px"
                                 priority
                             />
                         ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+                            <div className="w-full h-full flex items-center justify-center bg-linear-to-br from-gray-100 to-gray-200">
                                 <span className="text-6xl font-light text-gray-400">
                                     {member.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                                 </span>
                             </div>
                         )}
                         <div className="absolute top-4 left-4">
-                            <span className="text-xs font-mono text-white bg-black/40 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                            <span className="text-xs font-mono text-white bg-black/40 backdrop-blur-xs px-3 py-1.5 rounded-full">
                                 #{String(member.slNo).padStart(2, '0')}
                             </span>
                         </div>
@@ -179,7 +181,7 @@ const MemberDetailModal: React.FC<{ member: Member; onClose: () => void }> = ({ 
 
                     <div className="p-6">
                         <div className="mb-4">
-                            <div className="text-xs font-semibold text-[#00629B] uppercase tracking-wider mb-2">{member.position}</div>
+                            <div className="text-xs font-semibold text-ieee-blue uppercase tracking-wider mb-2">{member.position}</div>
                             <h2 className="text-2xl font-bold text-gray-900 mb-2">{member.name}</h2>
                             <div className="flex items-center gap-3 text-sm text-gray-500">
                                 <span className="font-medium">{member.department}</span>
@@ -198,7 +200,7 @@ const MemberDetailModal: React.FC<{ member: Member; onClose: () => void }> = ({ 
                                         </a>
                                     )}
                                     {member.instagram && (
-                                        <a href={member.instagram} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-br from-[#833AB4] via-[#E1306C] to-[#F77737] text-white hover:opacity-90 transition-all hover:scale-105">
+                                        <a href={member.instagram} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-linear-to-br from-[#833AB4] via-[#E1306C] to-[#F77737] text-white hover:opacity-90 transition-all hover:scale-105">
                                             <Instagram className="w-4 h-4" /><span className="text-sm font-medium">Instagram</span>
                                         </a>
                                     )}
@@ -239,7 +241,7 @@ function MemberCard({ member, index, onClick }: { member: Member; index: number;
             tabIndex={0}
         >
             <div className="relative bg-white border border-gray-100 rounded-2xl overflow-hidden hover:border-gray-200 hover:shadow-xl transition-all duration-500 hover:scale-105">
-                <div className="relative aspect-[3/4] bg-gray-50 overflow-hidden">
+                <div className="relative aspect-3/4 bg-gray-50 overflow-hidden">
                     {imageSrc && !imgError ? (
                         <Image
                             src={imageSrc}
@@ -257,20 +259,20 @@ function MemberCard({ member, index, onClick }: { member: Member; index: number;
                         </div>
                     )}
                     <div className="absolute top-3 left-3">
-                        <span className="text-[10px] font-mono text-white/80 bg-black/30 backdrop-blur-sm px-2 py-1 rounded-full">
+                        <span className="text-[10px] font-mono text-white/80 bg-black/30 backdrop-blur-xs px-2 py-1 rounded-full">
                             {String(member.slNo).padStart(2, '0')}
                         </span>
                     </div>
                     {hasContactInfo && (
                         <div className="absolute bottom-3 right-3 transition-all group-hover:scale-110">
-                            <div className="w-8 h-8 rounded-full bg-[#00629B]/70 backdrop-blur-sm flex items-center justify-center shadow-lg group-hover:bg-[#00629B]">
+                            <div className="w-8 h-8 rounded-full bg-ieee-blue/70 backdrop-blur-xs flex items-center justify-center shadow-lg group-hover:bg-ieee-blue">
                                 <Linkedin className="w-4 h-4 text-white" />
                             </div>
                         </div>
                     )}
                 </div>
                 <div className="p-4">
-                    <div className="text-[10px] font-medium text-[#00629B] uppercase tracking-wider mb-1">{member.position}</div>
+                    <div className="text-[10px] font-medium text-ieee-blue uppercase tracking-wider mb-1">{member.position}</div>
                     <h3 className="font-semibold text-gray-900 text-sm leading-tight mb-2">{member.name}</h3>
                     <div className="flex items-center gap-2">
                         <span className="text-[10px] text-gray-400 font-medium">{member.department}</span>
@@ -339,7 +341,7 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
                                 <button
                                     key={section.id}
                                     onClick={() => scrollToSection(section.id)}
-                                    className={`p-3 rounded-xl text-center transition-all ${activeSection === section.id ? 'bg-[#00629B] text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+                                    className={`p-3 rounded-xl text-center transition-all ${activeSection === section.id ? 'bg-ieee-blue text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
                                 >
                                     <div className="flex justify-center mb-1">{section.icon}</div>
                                     <span className="text-[10px] font-medium">{section.shortTitle}</span>
@@ -351,7 +353,7 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
             </AnimatePresence>
 
             <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-20 bg-white border-r border-gray-100 flex-col z-50">
-                <Link href="/" className="flex items-center justify-center h-16 border-b border-gray-100 text-gray-400 hover:text-[#00629B] transition-colors">
+                <Link href="/" className="flex items-center justify-center h-16 border-b border-gray-100 text-gray-400 hover:text-ieee-blue transition-colors">
                     <ArrowLeft className="w-5 h-5" />
                 </Link>
                 <nav className="flex-1 overflow-y-auto py-4 scrollbar-hide">
@@ -360,7 +362,7 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
                             <button
                                 key={section.id}
                                 onClick={() => scrollToSection(section.id)}
-                                className={`group relative w-full flex flex-col items-center py-3 px-1 rounded-xl transition-all duration-300 ${activeSection === section.id ? 'bg-[#00629B] text-white' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}
+                                className={`group relative w-full flex flex-col items-center py-3 px-1 rounded-xl transition-all duration-300 ${activeSection === section.id ? 'bg-ieee-blue text-white' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}
                             >
                                 {section.icon}
                                 <span className="text-[8px] font-medium mt-1 text-center leading-tight">{section.shortTitle}</span>
@@ -373,7 +375,7 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
                     </div>
                 </nav>
                 <div className="h-16 flex items-center justify-center border-t border-gray-100">
-                    <span className="text-[10px] font-bold text-[#00629B]">IEEE</span>
+                    <span className="text-[10px] font-bold text-ieee-blue">IEEE</span>
                 </div>
             </aside>
 
@@ -383,7 +385,7 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
                         <div className="flex items-start justify-between">
                             <div>
                                 <motion.div key={activeSection} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3 mb-2">
-                                    <div className="w-10 h-10 rounded-xl bg-[#00629B] text-white flex items-center justify-center">{currentSection?.icon}</div>
+                                    <div className="w-10 h-10 rounded-xl bg-ieee-blue text-white flex items-center justify-center">{currentSection?.icon}</div>
                                     <div>
                                         <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">{currentSection?.title}</h1>
                                         <p className="text-sm text-gray-400 mt-0.5">{currentSection?.members.length} members</p>
@@ -416,7 +418,7 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
                                 <button
                                     key={section.id}
                                     onClick={() => scrollToSection(section.id)}
-                                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${activeSection === section.id ? 'bg-[#00629B] text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}`}
+                                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${activeSection === section.id ? 'bg-ieee-blue text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}`}
                                 >
                                     {section.shortTitle}
                                 </button>

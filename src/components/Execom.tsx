@@ -4,7 +4,8 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Users, ArrowUpRight, Linkedin, Mail, Phone } from 'lucide-react';
+import { Users, ArrowUpRight, Mail, Phone } from 'lucide-react';
+import { Linkedin } from '@/components/icons';
 import type { Member } from '@/types';
 
 interface ExecomProps {
@@ -48,8 +49,8 @@ const MemberCard: React.FC<{ member: Member; index: number }> = ({ member, index
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
-            <div className="relative overflow-hidden rounded-xl aspect-[3/4] mb-4 bg-gray-100">
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <div className="relative overflow-hidden rounded-xl aspect-3/4 mb-4 bg-gray-100">
+                <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
                 <div className="relative w-full h-full">
                     <Image
@@ -57,12 +58,12 @@ const MemberCard: React.FC<{ member: Member; index: number }> = ({ member, index
                         alt={member.name}
                         fill
                         sizes="270px"
-                        className={`object-cover transition-transform duration-[600ms] ease-[cubic-bezier(0.2,0.65,0.3,0.9)] ${isHovered ? 'scale-105' : 'scale-100'}`}
+                        className={`object-cover transition-transform duration-600 ease-[cubic-bezier(0.2,0.65,0.3,0.9)] ${isHovered ? 'scale-105' : 'scale-100'}`}
                     />
                 </div>
 
                 <div className="absolute top-3 left-3 z-20">
-                    <span className="px-2 py-1 bg-white/90 backdrop-blur-sm text-[9px] md:text-[10px] font-mono tracking-[0.15em] text-gray-700 rounded-sm uppercase">
+                    <span className="px-2 py-1 bg-white/90 backdrop-blur-xs text-[9px] md:text-[10px] font-mono tracking-[0.15em] text-gray-700 rounded-xs uppercase">
                         {member.role}
                     </span>
                 </div>
@@ -114,7 +115,7 @@ const MemberCard: React.FC<{ member: Member; index: number }> = ({ member, index
                 {member.name}
             </h4>
 
-            <div className="mt-1 overflow-hidden rounded-sm">
+            <div className="mt-1 overflow-hidden rounded-xs">
                 <MarqueeText text={member.tagline} />
             </div>
         </motion.div>
@@ -261,7 +262,7 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
                     {items.map((member, index) => (
                         <div
                             key={`${member.name}-${index}`}
-                            className="flex-shrink-0 transition-transform duration-300 ease-out hover:-translate-y-2"
+                            className="shrink-0 transition-transform duration-300 ease-out hover:-translate-y-2"
                             style={{ width: `${CARD_WIDTH}px` }}
                         >
                             <MemberCard member={member} index={index % members.length} />
@@ -285,7 +286,7 @@ export const Execom: React.FC<ExecomProps> = ({ members }) => {
                     <div className="flex items-center space-x-2 mb-6">
                         <Users className="w-5 h-5 text-ieee-blue" />
                         <h3 className="font-pixel text-lg md:text-xl text-gray-800">THE EXECOM</h3>
-                        <div className="h-px flex-grow bg-gray-300 ml-4" />
+                        <div className="h-px grow bg-gray-300 ml-4" />
                     </div>
 
                     <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
