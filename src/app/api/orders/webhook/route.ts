@@ -1,6 +1,7 @@
 import { createAdminPB, escapeFilterValue } from '@/lib/pb'
 import crypto from 'crypto'
 import { logError } from '@/lib/logger'
+import { confirmRegistration } from '@/lib/registration-service'
 
 export async function POST(req: Request) {
   const webhookSecret = process.env.PAYMENT_WEBHOOK_SECRET
@@ -54,9 +55,15 @@ export async function POST(req: Request) {
 
     await pb.collection('registrations').update(registration.id, {
       paymentStatus: isSuccess ? 'paid' : 'failed',
-      registrationStatus: isSuccess ? 'confirmed' : 'pending',
       paymentData: body,
     })
+
+    // If payment succeeded, confirm the registration:
+    // sets registrationStatus to 'confirmed', generates ticket,
+    // and increments event.registeredCount (only on first confirmation).
+    if (isSuccess) {
+      await confirmRegistration(pb, registration.id)
+    }
 
     return Response.json({ success: true })
   } catch (error) {

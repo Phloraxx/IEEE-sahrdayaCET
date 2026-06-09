@@ -1,6 +1,7 @@
-import { createPB, escapeFilterValue } from '@/lib/pb'
+import { createPB, createAdminPB, escapeFilterValue } from '@/lib/pb'
 import { requireAuth } from '@/lib/auth'
 import { logError } from '@/lib/logger'
+import { checkInRegistration } from '@/lib/registration-service'
 
 export async function POST(req: Request) {
   const pb = createPB(req.headers.get('cookie') || undefined)
@@ -50,11 +51,9 @@ export async function POST(req: Request) {
       return Response.json({ error: 'Already checked in', registrationId: registration.id })
     }
 
-    const now = new Date().toISOString()
-    await pb.collection('registrations').update(registration.id, {
-      checkedIn: true,
-      checkedInAt: now,
-    })
+    // Use elevated client for the write so event.checkedInCount can be updated
+    const adminPB = createAdminPB()
+    await checkInRegistration(adminPB, registration.id)
 
     return Response.json({ success: true, registrationId: registration.id })
   } catch (error) {

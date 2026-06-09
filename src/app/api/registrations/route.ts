@@ -1,9 +1,9 @@
-import { createPB, buildFileUrl, escapeFilterValue } from '@/lib/pb'
+import { createPB, createAdminPB, buildFileUrl, escapeFilterValue } from '@/lib/pb'
 import { requireAuth } from '@/lib/auth'
 import { ClientResponseError } from 'pocketbase'
-import crypto from 'crypto'
 import { logError } from '@/lib/logger'
 import { z } from 'zod'
+import { createRegistration, RegistrationError } from '@/lib/registration-service'
 
 const RegistrationBodySchema = z.object({
   eventId: z.string().min(1, 'eventId is required'),
@@ -100,48 +100,29 @@ export async function POST(req: Request) {
     const parsed = RegistrationBodySchema.parse(await req.json())
     const { eventId, formResponses } = parsed
 
-    const now = new Date().toISOString()
-
-    const registration = await pb.collection('registrations').create({
-      user: user.id,
-      event: eventId,
+    const adminPB = createAdminPB()
+    const result = await createRegistration(pb, adminPB, {
+      userId: user.id,
+      eventId,
       userName: (formResponses.name as string) || '',
       userEmail: (formResponses.email as string) || '',
       userPhone: (formResponses.phone as string) || '',
       formResponses,
-      registrationDate: now,
-    })
-
-    if (registration.paymentStatus === 'not_required') {
-      return Response.json({
-        registrationId: registration.id,
-        ticketId: registration.ticketId || '',
-        paymentRequired: false,
-        amount: 0,
-      })
-    }
-
-    // Fetch event for price info (the hook already validated it exists)
-    const event = await pb.collection('events').getOne(eventId)
-    const finalAmount = Number(event.price) || 0
-    const paymentTicketId = crypto.randomUUID()
-
-    await pb.collection('registrations').update(registration.id, {
-      paymentStatus: 'pending',
-      paymentTicketId,
-      amount: finalAmount,
     })
 
     return Response.json({
-      registrationId: registration.id,
-      ticketId: paymentTicketId,
-      paymentRequired: true,
-      amount: finalAmount,
+      registrationId: result.registrationId,
+      ticketId: result.ticketId,
+      paymentRequired: result.paymentRequired,
+      amount: result.amount,
     })
   } catch (error) {
     if (error instanceof z.ZodError) {
       const messages = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ')
       return Response.json({ error: `Validation failed: ${messages}` }, { status: 400 })
+    }
+    if (error instanceof RegistrationError) {
+      return Response.json({ error: error.message }, { status: error.statusCode })
     }
     if (error instanceof ClientResponseError) {
       return Response.json(

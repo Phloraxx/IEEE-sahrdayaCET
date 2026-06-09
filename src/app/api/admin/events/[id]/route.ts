@@ -3,6 +3,7 @@ import { createPB, createAdminPB } from '@/lib/pb'
 import { requireRole } from '@/lib/auth'
 import { handleError } from '@/lib/api-error'
 import { getChairSocietyIds } from '@/lib/chair-scope'
+import { softDeleteEvent } from '@/lib/registration-service'
 
 async function assertChairCanAccessEvent(adminPB: ReturnType<typeof createAdminPB>, userId: string, eventId: string) {
   const event = await adminPB.collection('events').getOne(eventId, { fields: 'id,society' }).catch(() => null)
@@ -79,7 +80,7 @@ export async function DELETE(
       if (!access.allowed) return access.error
     }
 
-    await adminPB.collection('events').update(id, { isDeleted: true })
+    await softDeleteEvent(adminPB, id)
     return Response.json({ success: true })
   } catch (error) {
     return handleError(error, 'admin-events-delete')
