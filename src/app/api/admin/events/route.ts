@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { createPB, createAdminPB, escapeFilterValue } from '@/lib/pb'
+import { requireRole } from '@/lib/auth'
 import { handleError } from '@/lib/api-error'
 import { getChairSocietyIds, buildSocietyFilter } from '@/lib/chair-scope'
 
@@ -21,19 +22,13 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const pb = createPB(req.headers.get('cookie') || undefined)
+    const { user } = await requireRole(['admin', 'chair'], pb)
     const adminPB = createAdminPB()
 
     // Scope to user's societies if they are a chair
-    const userPB = createPB(req.headers.get('cookie') || undefined)
-    try {
-      await userPB.collection('users').authRefresh()
-    } catch {
-      return Response.json({ error: 'Authentication required' }, { status: 401 })
-    }
-    const userRecord = userPB.authStore.record as { id: string; role: string } | null
-
-    if (userRecord && userRecord.role === 'chair') {
-      const societyIds = await getChairSocietyIds(adminPB, userRecord.id)
+    if (user.role === 'chair') {
+      const societyIds = await getChairSocietyIds(adminPB, user.id)
       const societyFilter = buildSocietyFilter(societyIds)
       filter = filter ? `(${filter} && ${societyFilter})` : societyFilter
     }
@@ -74,19 +69,13 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
+    const pb = createPB(req.headers.get('cookie') || undefined)
+    const { user } = await requireRole(['admin', 'chair'], pb)
     const adminPB = createAdminPB()
 
     // Chairs can only create events under their own societies
-    const userPB = createPB(req.headers.get('cookie') || undefined)
-    try {
-      await userPB.collection('users').authRefresh()
-    } catch {
-      return Response.json({ error: 'Authentication required' }, { status: 401 })
-    }
-    const userRecord = userPB.authStore.record as { id: string; role: string } | null
-
-    if (userRecord && userRecord.role === 'chair') {
-      const societyIds = await getChairSocietyIds(adminPB, userRecord.id)
+    if (user.role === 'chair') {
+      const societyIds = await getChairSocietyIds(adminPB, user.id)
       if (!body.society || !societyIds.includes(body.society)) {
         return Response.json({ error: 'You can only create events under your own societies' }, { status: 403 })
       }

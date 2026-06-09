@@ -1,23 +1,14 @@
 import { NextRequest } from 'next/server'
 import { createPB, createAdminPB } from '@/lib/pb'
+import { requireRole } from '@/lib/auth'
 import { handleError } from '@/lib/api-error'
 import { getChairSocietyIds } from '@/lib/chair-scope'
 
-async function assertChairCanAccessEvent(req: NextRequest, eventId: string) {
-  const userPB = createPB(req.headers.get('cookie') || undefined)
-  try {
-    await userPB.collection('users').authRefresh()
-  } catch {
-    return { allowed: false, error: Response.json({ error: 'Authentication required' }, { status: 401 }) }
-  }
-  const userRecord = userPB.authStore.record as { id: string; role: string } | null
-  if (!userRecord || userRecord.role !== 'chair') return { allowed: true }
-
-  const adminPB = createAdminPB()
+async function assertChairCanAccessEvent(adminPB: ReturnType<typeof createAdminPB>, userId: string, eventId: string) {
   const event = await adminPB.collection('events').getOne(eventId, { fields: 'id,society' }).catch(() => null)
   if (!event) return { allowed: false, error: Response.json({ error: 'Event not found' }, { status: 404 }) }
 
-  const societyIds = await getChairSocietyIds(adminPB, userRecord.id)
+  const societyIds = await getChairSocietyIds(adminPB, userId)
   const eventSociety = (event as Record<string, unknown>).society as string
   if (!societyIds.includes(eventSociety)) {
     return { allowed: false, error: Response.json({ error: 'Forbidden: not a chair of this event\'s society' }, { status: 403 }) }
@@ -31,12 +22,17 @@ export async function GET(
 ) {
   const { id } = await params
 
-  const access = await assertChairCanAccessEvent(req, id)
-  if (!access.allowed) return access.error
-
   try {
-    const pb = createAdminPB()
-    const event = await pb.collection('events').getOne(id, { expand: 'society' })
+    const pb = createPB(req.headers.get('cookie') || undefined)
+    const { user } = await requireRole(['admin', 'chair'], pb)
+    const adminPB = createAdminPB()
+
+    if (user.role === 'chair') {
+      const access = await assertChairCanAccessEvent(adminPB, user.id, id)
+      if (!access.allowed) return access.error
+    }
+
+    const event = await adminPB.collection('events').getOne(id, { expand: 'society' })
     return Response.json({ event })
   } catch (error) {
     return handleError(error, 'admin-events-get')
@@ -49,13 +45,18 @@ export async function PUT(
 ) {
   const { id } = await params
 
-  const access = await assertChairCanAccessEvent(req, id)
-  if (!access.allowed) return access.error
-
   try {
     const body = await req.json()
-    const pb = createAdminPB()
-    const event = await pb.collection('events').update(id, body)
+    const pb = createPB(req.headers.get('cookie') || undefined)
+    const { user } = await requireRole(['admin', 'chair'], pb)
+    const adminPB = createAdminPB()
+
+    if (user.role === 'chair') {
+      const access = await assertChairCanAccessEvent(adminPB, user.id, id)
+      if (!access.allowed) return access.error
+    }
+
+    const event = await adminPB.collection('events').update(id, body)
     return Response.json({ event })
   } catch (error) {
     return handleError(error, 'admin-events-update')
@@ -68,12 +69,17 @@ export async function DELETE(
 ) {
   const { id } = await params
 
-  const access = await assertChairCanAccessEvent(req, id)
-  if (!access.allowed) return access.error
-
   try {
-    const pb = createAdminPB()
-    await pb.collection('events').update(id, { isDeleted: true })
+    const pb = createPB(req.headers.get('cookie') || undefined)
+    const { user } = await requireRole(['admin', 'chair'], pb)
+    const adminPB = createAdminPB()
+
+    if (user.role === 'chair') {
+      const access = await assertChairCanAccessEvent(adminPB, user.id, id)
+      if (!access.allowed) return access.error
+    }
+
+    await adminPB.collection('events').update(id, { isDeleted: true })
     return Response.json({ success: true })
   } catch (error) {
     return handleError(error, 'admin-events-delete')

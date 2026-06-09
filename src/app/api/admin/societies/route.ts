@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { createPB, createAdminPB, escapeFilterValue } from '@/lib/pb'
+import { requireRole } from '@/lib/auth'
 import { handleError } from '@/lib/api-error'
 import { getChairSocietyIds } from '@/lib/chair-scope'
 
@@ -14,21 +15,14 @@ export async function GET(req: NextRequest) {
     filter = `name ~ ${escapeFilterValue(search)}`
   }
 
-  // Scope to chair's own societies
-  const userPB = createPB(req.headers.get('cookie') || undefined)
   try {
-    await userPB.collection('users').authRefresh()
-  } catch {
-    return Response.json({ error: 'Authentication required' }, { status: 401 })
-  }
-  const userRecord = userPB.authStore.record as { id: string; role: string } | null
-
-  try {
+    const pb = createPB(req.headers.get('cookie') || undefined)
+    const { user } = await requireRole(['admin', 'chair'], pb)
     const adminPB = createAdminPB()
 
     let effectiveFilter = filter || ''
-    if (userRecord && userRecord.role === 'chair') {
-      const societyIds = await getChairSocietyIds(adminPB, userRecord.id)
+    if (user.role === 'chair') {
+      const societyIds = await getChairSocietyIds(adminPB, user.id)
       if (societyIds.length === 0) {
         return Response.json({ societies: [], total: 0, page: 1, perPage })
       }
@@ -70,22 +64,18 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  // Only admins can create societies
-  const userPB = createPB(req.headers.get('cookie') || undefined)
-  try {
-    await userPB.collection('users').authRefresh()
-  } catch {
-    return Response.json({ error: 'Authentication required' }, { status: 401 })
-  }
-  const userRecord = userPB.authStore.record as { role: string } | null
-  if (!userRecord || userRecord.role !== 'admin') {
-    return Response.json({ error: 'Only admins can create societies' }, { status: 403 })
-  }
-
   try {
     const body = await req.json()
-    const pb = createAdminPB()
-    const society = await pb.collection('societies').create(body)
+    const pb = createPB(req.headers.get('cookie') || undefined)
+    const { user } = await requireRole(['admin', 'chair'], pb)
+
+    // Only admins can create societies
+    if (user.role !== 'admin') {
+      return Response.json({ error: 'Only admins can create societies' }, { status: 403 })
+    }
+
+    const adminPB = createAdminPB()
+    const society = await adminPB.collection('societies').create(body)
     return Response.json({ society }, { status: 201 })
   } catch (error) {
     return handleError(error, 'admin-societies-create')

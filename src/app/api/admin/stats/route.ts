@@ -7,6 +7,7 @@ import { getChairSocietyIds } from '@/lib/chair-scope'
 export async function GET(req: Request) {
   const pb = createPB(req.headers.get('cookie') || undefined)
   const { user } = await requireRole(['admin', 'chair'], pb)
+  const adminPB = createAdminPB()
 
   const now = new Date()
   const nowIso = iso(now)
@@ -19,7 +20,6 @@ export async function GET(req: Request) {
   let eventScopeFilter = ''
   let societyIds: string[] = []
   if (user.role === 'chair') {
-    const adminPB = createAdminPB()
     societyIds = await getChairSocietyIds(adminPB, user.id)
     if (societyIds.length > 0) {
       eventScopeFilter = societyIds.map((id) => `society = ${escapeFilterValue(id)}`).join(' || ')
@@ -31,7 +31,6 @@ export async function GET(req: Request) {
   // For chair-scoped registration counts, find the chair's event IDs
   let regScopeFilter = ''
   if (user.role === 'chair' && societyIds.length > 0) {
-    const adminPB = createAdminPB()
     const chairEvents = await adminPB.collection('events').getFullList({
       filter: societyIds.map((id) => `society = ${escapeFilterValue(id)}`).join(' || '),
       fields: 'id',
@@ -43,8 +42,6 @@ export async function GET(req: Request) {
       regScopeFilter = 'id = ""'
     }
   }
-
-  const adminPB = createAdminPB()
 
   try {
     const count = async (col: string, filter?: string) => {

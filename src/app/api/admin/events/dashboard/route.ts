@@ -13,20 +13,20 @@ export async function GET(req: Request) {
   const futureIso = iso(new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000))
   const pastIso = iso(new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000))
 
-  // Build society scope filter for chairs
-  let scopeFilter = ''
-  if (user.role === 'chair') {
-    const adminPB = createAdminPB()
-    const societyIds = await getChairSocietyIds(adminPB, user.id)
-    if (societyIds.length > 0) {
-      scopeFilter = `(${societyIds.map((id) => `society = ${escapeFilterValue(id)}`).join(' || ')})`
-    } else {
-      scopeFilter = 'id = ""' // no access
-    }
-  }
-
   try {
     const adminPB = createAdminPB()
+
+    // Build society scope filter for chairs
+    let scopeFilter = ''
+    if (user.role === 'chair') {
+      const societyIds = await getChairSocietyIds(adminPB, user.id)
+      if (societyIds.length > 0) {
+        scopeFilter = `(${societyIds.map((id) => `society = ${escapeFilterValue(id)}`).join(' || ')})`
+      } else {
+        scopeFilter = 'id = ""' // no access
+      }
+    }
+
     const liveFilter = [`date <= '${nowIso}' && endDate >= '${nowIso}' && status = 'published'`]
     const upcomingFilter = [`date > '${nowIso}' && date <= '${futureIso}' && status = 'published'`]
     const recentFilter = [`endDate > '${pastIso}' && endDate < '${nowIso}'`]

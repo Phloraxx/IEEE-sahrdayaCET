@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { createPB, createAdminPB, escapeFilterValue } from '@/lib/pb'
+import { requireRole } from '@/lib/auth'
 import { handleError } from '@/lib/api-error'
 
 export async function GET(req: NextRequest) {
@@ -49,23 +50,19 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  // Only admins can change roles
-  const userPB = createPB(req.headers.get('cookie') || undefined)
-  try {
-    await userPB.collection('users').authRefresh()
-  } catch {
-    return Response.json({ error: 'Authentication required' }, { status: 401 })
-  }
-  const userRecord = userPB.authStore.record as { role: string } | null
-  if (!userRecord || userRecord.role !== 'admin') {
-    return Response.json({ error: 'Only admins can change roles' }, { status: 403 })
-  }
-
   try {
     const body = await req.json()
-    const pb = createAdminPB()
-    const user = await pb.collection('users').update(body.id, { role: body.role })
-    return Response.json({ user })
+    const pb = createPB(req.headers.get('cookie') || undefined)
+    const { user } = await requireRole(['admin', 'chair'], pb)
+
+    // Only admins can change roles
+    if (user.role !== 'admin') {
+      return Response.json({ error: 'Only admins can change roles' }, { status: 403 })
+    }
+
+    const adminPB = createAdminPB()
+    const updated = await adminPB.collection('users').update(body.id, { role: body.role })
+    return Response.json({ user: updated })
   } catch (error) {
     return handleError(error, 'admin-users-update')
   }
