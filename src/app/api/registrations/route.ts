@@ -15,6 +15,7 @@ const RegistrationBodySchema = z.object({
     })
     .passthrough()
     .refine((val) => typeof val === 'object' && val !== null, 'formResponses must be an object'),
+  couponCode: z.string().optional(),
 })
 
 export async function GET(req: Request) {
@@ -98,7 +99,7 @@ export async function POST(req: Request) {
 
   try {
     const parsed = RegistrationBodySchema.parse(await req.json())
-    const { eventId, formResponses } = parsed
+    const { eventId, formResponses, couponCode } = parsed
 
     const adminPB = createAdminPB()
     const result = await createRegistration(pb, adminPB, {
@@ -108,6 +109,7 @@ export async function POST(req: Request) {
       userEmail: (formResponses.email as string) || '',
       userPhone: (formResponses.phone as string) || '',
       formResponses,
+      couponCode,
     })
 
     return Response.json({
