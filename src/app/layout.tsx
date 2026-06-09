@@ -1,5 +1,26 @@
 import type { Metadata, Viewport } from "next";
+import { Press_Start_2P, Inter, Caveat, Geist } from "next/font/google";
+import "./globals.css";
+import { AuthProvider } from "@/lib/auth-context";
 import { APP_URL } from "@/lib/constants";
+
+const geist = Geist({ subsets: ['latin'], variable: '--font-sans' });
+const pressStart2P = Press_Start_2P({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-pixel-loaded",
+  display: "swap",
+});
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter-loaded",
+  display: "swap",
+});
+const caveat = Caveat({
+  subsets: ["latin"],
+  variable: "--font-caveat-loaded",
+  display: "swap",
+});
 
 const BASE_URL = APP_URL;
 
@@ -74,5 +95,17 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return children;
+  return (
+    <html lang="en">
+      <head>
+        <link rel="preconnect" href="https://res.cloudinary.com" />
+        <link rel="preconnect" href="https://lh3.googleusercontent.com" />
+      </head>
+      <body className={`${geist.variable} ${pressStart2P.variable} ${inter.variable} ${caveat.variable} font-sans antialiased`}>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
+      </body>
+    </html>
+  );
 }

@@ -1,27 +1,5 @@
 import type { Metadata } from "next";
-import { Press_Start_2P, Inter, Caveat } from "next/font/google";
-import "../globals.css";
-import { AuthProvider } from "@/lib/auth-context";
 import { APP_URL } from "@/lib/constants";
-
-const pressStart2P = Press_Start_2P({ 
-  weight: "400",
-  subsets: ["latin"],
-  variable: "--font-pixel-loaded",
-  display: "swap",
-});
-
-const inter = Inter({ 
-  subsets: ["latin"],
-  variable: "--font-inter-loaded",
-  display: "swap",
-});
-
-const caveat = Caveat({ 
-  subsets: ["latin"],
-  variable: "--font-caveat-loaded",
-  display: "swap",
-});
 
 const BASE_URL = APP_URL;
 
@@ -68,40 +46,32 @@ const websiteSchema = {
   },
 };
 
-export default async function MainLayout({
+export default function MainLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <head>
-        <link rel="preconnect" href="https://res.cloudinary.com" />
-        <link rel="preconnect" href="https://lh3.googleusercontent.com" />
-      </head>
-      <body className={`${pressStart2P.variable} ${inter.variable} ${caveat.variable} font-sans antialiased`}>
-          <AuthProvider>
-          <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{
-              __html: JSON.stringify(organizationSchema)
-                .replace(/</g, '\\u003c')
-                .replace(/>/g, '\\u003e')
-                .replace(/&/g, '\\u0026'),
-            }}
-          />
-          <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{
-              __html: JSON.stringify(websiteSchema)
-                .replace(/</g, '\\u003c')
-                .replace(/>/g, '\\u003e')
-                .replace(/&/g, '\\u0026'),
-            }}
-          />
-          {children}
-        </AuthProvider>
-      </body>
-    </html>
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(organizationSchema)
+            .replace(/</g, '\\u003c')
+            .replace(/>/g, '\\u003e')
+            .replace(/&/g, '\\u0026'),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(websiteSchema)
+            .replace(/</g, '\\u003c')
+            .replace(/>/g, '\\u003e')
+            .replace(/&/g, '\\u0026'),
+        }}
+      />
+      {children}
+    </>
   );
 }

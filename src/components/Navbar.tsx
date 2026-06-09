@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import Link from 'next/link';
-import { LogOut, User } from 'lucide-react';
+import { LayoutDashboard, LogOut, User } from 'lucide-react';
 import LoginModal from './LoginModal';
 
 const navItems: NavItem[] = [
@@ -126,6 +126,20 @@ export default function Navbar() {
                                             <p className="text-sm font-bold text-gray-900">{user.name}</p>
                                             <p className="text-[10px] font-mono text-gray-500 truncate mt-0.5">{user.email}</p>
                                         </div>
+                                        {user.role === 'admin' && (
+                                            <>
+                                                <div className="h-px bg-gray-100" />
+                                                <Link
+                                                    href="/admin"
+                                                    className="w-full px-4 py-3 text-left text-xs font-bold text-blue-600 hover:bg-blue-50 transition-colors flex items-center gap-3 tracking-wide"
+                                                    onClick={() => setShowUserMenu(false)}
+                                                >
+                                                    <LayoutDashboard className="w-4 h-4" />
+                                                    Dashboard
+                                                </Link>
+                                            </>
+                                        )}
+                                        <div className="h-px bg-gray-100" />
                                         <button
                                             onClick={handleLogout}
                                             className="w-full px-4 py-3 text-left text-xs font-bold text-red-600 hover:bg-red-50 transition-colors flex items-center gap-3 tracking-wide"
