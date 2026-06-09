@@ -1,7 +1,10 @@
-import { NextResponse } from 'next/server'
+import { serialize } from 'cookie'
 
 export async function POST() {
-  const response = NextResponse.json({ success: true })
-  response.cookies.set('pb_auth', '', { path: '/', maxAge: 0, httpOnly: false })
+  const response = Response.json({ success: true })
+  response.headers.set(
+    'Set-Cookie',
+    serialize('pb_auth', '', { path: '/', maxAge: 0 }),
+  )
   return response
 }

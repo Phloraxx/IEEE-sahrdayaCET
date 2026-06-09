@@ -10,9 +10,6 @@ export async function GET(
   const { user } = await requireAuth()
 
   const { id: eventId } = await params
-  if (!eventId) {
-    return new Response('Missing event id', { status: 400 })
-  }
 
   const event = await pb.collection('events').getOne(eventId).catch(() => null)
   if (!event) {
