@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useAuth } from '@/lib/auth-context';
 
 interface GoogleLoginButtonProps {
     variant?: 'default' | 'full-width';
@@ -15,14 +14,21 @@ export default function GoogleLoginButton({
     onLogin,
 }: GoogleLoginButtonProps) {
     const [isLoading, setIsLoading] = useState(false);
-    const { signIn } = useAuth();
 
-    const handleClick = () => {
+    const handleClick = async () => {
         setIsLoading(true);
         if (onLogin) {
             onLogin();
         } else {
-            signIn();
+            try {
+                const res = await fetch('/api/auth/init')
+                const data = await res.json()
+                if (data.authURL) {
+                    window.location.href = data.authURL
+                }
+            } catch {
+                setIsLoading(false)
+            }
         }
     };
 

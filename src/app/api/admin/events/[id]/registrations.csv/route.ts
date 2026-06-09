@@ -7,7 +7,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const pb = createPB(req.headers.get('cookie') || undefined)
-  const { user } = await requireAuth()
+  const { user } = await requireAuth(pb)
 
   const { id: eventId } = await params
 

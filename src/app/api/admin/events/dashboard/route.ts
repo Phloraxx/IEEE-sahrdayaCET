@@ -1,29 +1,53 @@
-import { createPB } from '@/lib/pb'
+import { createPB, createAdminPB, escapeFilterValue } from '@/lib/pb'
 import { requireRole } from '@/lib/auth'
 import { iso } from '@/lib/dates'
 import { logError } from '@/lib/logger'
+import { getChairSocietyIds } from '@/lib/chair-scope'
 
 export async function GET(req: Request) {
   const pb = createPB(req.headers.get('cookie') || undefined)
-  await requireRole('admin', 'chair')
+  const { user } = await requireRole(['admin', 'chair'], pb)
 
   const now = new Date()
   const nowIso = iso(now)
   const futureIso = iso(new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000))
   const pastIso = iso(new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000))
 
+  // Build society scope filter for chairs
+  let scopeFilter = ''
+  if (user.role === 'chair') {
+    const adminPB = createAdminPB()
+    const societyIds = await getChairSocietyIds(adminPB, user.id)
+    if (societyIds.length > 0) {
+      scopeFilter = `(${societyIds.map((id) => `society = ${escapeFilterValue(id)}`).join(' || ')})`
+    } else {
+      scopeFilter = 'id = ""' // no access
+    }
+  }
+
   try {
+    const adminPB = createAdminPB()
+    const liveFilter = [`date <= '${nowIso}' && endDate >= '${nowIso}' && status = 'published'`]
+    const upcomingFilter = [`date > '${nowIso}' && date <= '${futureIso}' && status = 'published'`]
+    const recentFilter = [`endDate > '${pastIso}' && endDate < '${nowIso}'`]
+
+    if (scopeFilter) {
+      liveFilter.push(scopeFilter)
+      upcomingFilter.push(scopeFilter)
+      recentFilter.push(scopeFilter)
+    }
+
     const [live, upcoming, recentlyCompleted] = await Promise.all([
-      pb.collection('events').getList(1, 5, {
-        filter: `date <= '${nowIso}' && endDate >= '${nowIso}' && status = 'published'`,
+      adminPB.collection('events').getList(1, 5, {
+        filter: liveFilter.join(' && '),
         sort: 'date',
       }),
-      pb.collection('events').getList(1, 6, {
-        filter: `date > '${nowIso}' && date <= '${futureIso}' && status = 'published'`,
+      adminPB.collection('events').getList(1, 6, {
+        filter: upcomingFilter.join(' && '),
         sort: 'date',
       }),
-      pb.collection('events').getList(1, 5, {
-        filter: `endDate > '${pastIso}' && endDate < '${nowIso}'`,
+      adminPB.collection('events').getList(1, 5, {
+        filter: recentFilter.join(' && '),
         sort: '-endDate',
       }),
     ])

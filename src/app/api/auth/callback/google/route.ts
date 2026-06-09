@@ -9,12 +9,12 @@ export async function GET(req: NextRequest) {
   const providerCookie = req.cookies.get('pb_oauth_provider')?.value
 
   if (!code || !state || !providerCookie) {
-    return NextResponse.redirect(new URL('/auth/login?error=invalid_request', req.url))
+    return NextResponse.redirect(new URL('/', req.url))
   }
 
   const provider = JSON.parse(providerCookie)
   if (provider.state !== state) {
-    return NextResponse.redirect(new URL('/auth/login?error=state_mismatch', req.url))
+    return NextResponse.redirect(new URL('/', req.url))
   }
 
   const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback/google`
@@ -42,6 +42,6 @@ export async function GET(req: NextRequest) {
     return response
   } catch (err) {
     logError('oauth-callback', err)
-    return NextResponse.redirect(new URL('/auth/login?error=auth_failed', req.url))
+    return NextResponse.redirect(new URL('/', req.url))
   }
 }

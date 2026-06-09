@@ -1,11 +1,12 @@
-import { createPB } from '@/lib/pb'
-import { requireAdmin } from '@/lib/auth'
+import { createPB, createAdminPB, escapeFilterValue } from '@/lib/pb'
+import { requireRole } from '@/lib/auth'
 import { iso } from '@/lib/dates'
 import { logError } from '@/lib/logger'
+import { getChairSocietyIds } from '@/lib/chair-scope'
 
 export async function GET(req: Request) {
   const pb = createPB(req.headers.get('cookie') || undefined)
-  await requireAdmin()
+  const { user } = await requireRole(['admin', 'chair'], pb)
 
   const now = new Date()
   const nowIso = iso(now)
@@ -14,11 +15,47 @@ export async function GET(req: Request) {
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
   const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString()
 
+  // Build scope filter for chairs
+  let eventScopeFilter = ''
+  let societyIds: string[] = []
+  if (user.role === 'chair') {
+    const adminPB = createAdminPB()
+    societyIds = await getChairSocietyIds(adminPB, user.id)
+    if (societyIds.length > 0) {
+      eventScopeFilter = societyIds.map((id) => `society = ${escapeFilterValue(id)}`).join(' || ')
+    } else {
+      eventScopeFilter = 'id = ""'
+    }
+  }
+
+  // For chair-scoped registration counts, find the chair's event IDs
+  let regScopeFilter = ''
+  if (user.role === 'chair' && societyIds.length > 0) {
+    const adminPB = createAdminPB()
+    const chairEvents = await adminPB.collection('events').getFullList({
+      filter: societyIds.map((id) => `society = ${escapeFilterValue(id)}`).join(' || '),
+      fields: 'id',
+    })
+    const chairEventIds = (chairEvents || []).map((e: Record<string, unknown>) => e.id as string)
+    if (chairEventIds.length > 0) {
+      regScopeFilter = chairEventIds.map((id) => `event = ${escapeFilterValue(id)}`).join(' || ')
+    } else {
+      regScopeFilter = 'id = ""'
+    }
+  }
+
+  const adminPB = createAdminPB()
+
   try {
     const count = async (col: string, filter?: string) => {
-      const r = await (filter
-        ? pb.collection(col).getList(1, 1, { filter, fields: 'id' })
-        : pb.collection(col).getList(1, 1, { fields: 'id' }))
+      const extra = col === 'registrations' && regScopeFilter && (!filter || !filter.includes('event ='))
+        ? (filter ? `(${filter} && (${regScopeFilter}))` : regScopeFilter)
+        : (col === 'events' && eventScopeFilter && (!filter || !filter.includes('society =')))
+          ? (filter ? `(${filter} && (${eventScopeFilter}))` : eventScopeFilter)
+          : filter
+      const r = await (extra
+        ? adminPB.collection(col).getList(1, 1, { filter: extra, fields: 'id' })
+        : adminPB.collection(col).getList(1, 1, { fields: 'id' }))
       return r.totalItems
     }
 

@@ -12,6 +12,8 @@
   --color-ieee-success: #16a34a;
   --color-ieee-warning: #d97706;
   --color-ieee-danger: #dc2626;
+  --color-ieee-glass: oklch(1 0 0 / 60%);
+  --color-ieee-glass-border: oklch(0 0 0 / 6%);
 }
 
 /* Font utilities using Next.js font loader CSS variables.
@@ -40,6 +42,69 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
+  /* ── Shimmer skeleton ── */
+  .animate-shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--color-muted) 0%,
+      var(--color-accent) 50%,
+      var(--color-muted) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+
+  /* ── Glass surface for admin topbar/sheets ── */
+  .admin-glass {
+    background: oklch(1 0 0 / 65%);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid oklch(0 0 0 / 6%);
+  }
+  .dark .admin-glass {
+    background: oklch(0.145 0 0 / 65%);
+    border-bottom: 1px solid oklch(1 1 1 / 8%);
+  }
+
+  /* ── Card hover lift ── */
+  .card-hover {
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+                box-shadow 0.2s ease;
+  }
+  .card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px -6px oklch(0 0 0 / 8%),
+                0 2px 8px -4px oklch(0 0 0 / 4%);
+  }
+  .dark .card-hover:hover {
+    box-shadow: 0 8px 25px -6px oklch(0 0 0 / 30%),
+                0 2px 8px -4px oklch(0 0 0 / 15%);
+  }
+
+  /* ── Live indicator pulse ── */
+  .live-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background: var(--color-ieee-success);
+    animation: live-pulse 2s ease-in-out infinite;
+  }
+
+  /* ── Trend indicator ── */
+  .trend-up { color: var(--color-ieee-success); }
+  .trend-down { color: var(--color-ieee-danger); }
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 oklch(0.63 0.2 145 / 40%); }
+  50% { opacity: 0.8; box-shadow: 0 0 0 4px oklch(0.63 0.2 145 / 0%); }
 }
 
 @keyframes marquee-images {

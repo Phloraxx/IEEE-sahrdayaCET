@@ -18,7 +18,7 @@ export default async function SocietiesPage() {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 8000)
     const res = await fetch(
-      `${process.env.POCKETBASE_URL}/api/collections/societies/records?skipTotal=1&fields=id,name,slug,bio,logo`,
+      `${process.env.POCKETBASE_URL}/api/collections/societies/records?skipTotal=1&fields=id,name,slug,bio,logo&filter=${encodeURIComponent('isHidden=false')}`,
       { signal: controller.signal },
     )
     clearTimeout(timeout)

@@ -4,7 +4,7 @@ import { logError } from '@/lib/logger'
 
 export async function POST(req: Request) {
   const pb = createPB(req.headers.get('cookie') || undefined)
-  const { user } = await requireAuth()
+  const { user } = await requireAuth(pb)
 
   try {
     const { ticketId, eventId } = (await req.json()) as {

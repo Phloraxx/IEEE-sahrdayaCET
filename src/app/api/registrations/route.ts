@@ -3,12 +3,25 @@ import { requireAuth } from '@/lib/auth'
 import { ClientResponseError } from 'pocketbase'
 import crypto from 'crypto'
 import { logError } from '@/lib/logger'
+import { z } from 'zod'
+
+const RegistrationBodySchema = z.object({
+  eventId: z.string().min(1, 'eventId is required'),
+  formResponses: z
+    .object({
+      name: z.string().optional(),
+      email: z.string().optional(),
+      phone: z.string().optional(),
+    })
+    .passthrough()
+    .refine((val) => typeof val === 'object' && val !== null, 'formResponses must be an object'),
+})
 
 export async function GET(req: Request) {
   const pb = createPB(req.headers.get('cookie') || undefined)
   let user
   try {
-    const auth = await requireAuth()
+    const auth = await requireAuth(pb)
     user = auth.user
   } catch {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
@@ -81,16 +94,11 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const pb = createPB(req.headers.get('cookie') || undefined)
-  const { user } = await requireAuth()
+  const { user } = await requireAuth(pb)
 
   try {
-    const { eventId, formResponses } = (await req.json()) as {
-      eventId?: string
-      formResponses?: Record<string, unknown>
-    }
-    if (!eventId || !formResponses) {
-      return Response.json({ error: 'Missing required fields' }, { status: 400 })
-    }
+    const parsed = RegistrationBodySchema.parse(await req.json())
+    const { eventId, formResponses } = parsed
 
     const now = new Date().toISOString()
 
@@ -131,6 +139,10 @@ export async function POST(req: Request) {
       amount: finalAmount,
     })
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      const messages = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ')
+      return Response.json({ error: `Validation failed: ${messages}` }, { status: 400 })
+    }
     if (error instanceof ClientResponseError) {
       return Response.json(
         { error: error.data?.message || 'Registration failed' },

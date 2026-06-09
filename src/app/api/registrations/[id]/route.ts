@@ -9,7 +9,7 @@ export async function PATCH(
   const pb = createPB(req.headers.get('cookie') || undefined)
   let user
   try {
-    const auth = await requireAuth()
+    const auth = await requireAuth(pb)
     user = auth.user
   } catch {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
