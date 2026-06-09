@@ -31,7 +31,12 @@ export async function GET(req: NextRequest) {
     )
 
     const response = NextResponse.redirect(new URL('/', req.url))
-    const cookie = pb.authStore.exportToCookie({ httpOnly: true })
+    const cookie = pb.authStore.exportToCookie({
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+    })
     response.headers.set('Set-Cookie', cookie)
 
     return response

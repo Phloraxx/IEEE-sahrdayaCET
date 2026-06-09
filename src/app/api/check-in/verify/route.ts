@@ -1,6 +1,6 @@
-import { createPB } from '@/lib/pb'
+import { createPB, escapeFilterValue } from '@/lib/pb'
 import { requireAuth } from '@/lib/auth'
-import { escapeFilterValue } from '@/lib/pb-filter'
+import { logError } from '@/lib/logger'
 
 export async function POST(req: Request) {
   const pb = createPB(req.headers.get('cookie') || undefined)
@@ -42,6 +42,10 @@ export async function POST(req: Request) {
 
     const registration = registrations[0]
 
+    if (registration.registrationStatus !== 'confirmed') {
+      return Response.json({ error: 'Registration is not confirmed' }, { status: 400 })
+    }
+
     if (registration.checkedIn) {
       return Response.json({ error: 'Already checked in', registrationId: registration.id })
     }
@@ -54,6 +58,7 @@ export async function POST(req: Request) {
 
     return Response.json({ success: true, registrationId: registration.id })
   } catch (error) {
+    logError('check-in-verify', error)
     return Response.json({ error: 'Check-in failed' }, { status: 500 })
   }
 }
