@@ -84,7 +84,7 @@ export function AdminSidebar() {
 
   return (
     <Sidebar collapsible="icon" variant="sidebar">
-      <SidebarHeader>
+      <SidebarHeader className="p-3">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" render={<Link href="/admin" />}>
@@ -100,11 +100,11 @@ export function AdminSidebar() {
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent>
-        <SidebarGroup>
+      <SidebarContent className="gap-1">
+        <SidebarGroup className="px-3 py-2">
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-0.5">
               {navMain.map((item) => {
                 const isActive =
                   item.url === '/admin'
@@ -119,10 +119,10 @@ export function AdminSidebar() {
         {user?.role === 'admin' && (
           <>
             <SidebarSeparator />
-            <SidebarGroup>
+            <SidebarGroup className="px-3 py-2">
               <SidebarGroupLabel>Administration</SidebarGroupLabel>
               <SidebarGroupContent>
-                <SidebarMenu>
+                <SidebarMenu className="gap-0.5">
                   <SidebarMenuItem>
                     <SidebarMenuButton tooltip="Users" render={<Link href="/admin/users" />}>
                       <Users />
@@ -148,7 +148,7 @@ export function AdminSidebar() {
         )}
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="p-3">
         <SidebarMenu>
           {isChair && (
             <SidebarMenuItem>
