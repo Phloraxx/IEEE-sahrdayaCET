@@ -17,7 +17,7 @@ const getEventColor = (index: number): { color: string; textColor: string } => {
         { color: 'bg-[#34A853]', textColor: 'text-[#34A853]' },
         { color: 'bg-[#EA4335]', textColor: 'text-[#EA4335]' },
         { color: 'bg-[#FBBC05]', textColor: 'text-[#FBBC05]' },
-        { color: 'bg-[#00629B]', textColor: 'text-[#00629B]' },
+        { color: 'bg-ieee-blue', textColor: 'text-ieee-blue' },
     ];
     return colors[index % colors.length];
 };
@@ -33,11 +33,6 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
         return initialEvents.map((event, index) => ({
             ...event,
             about: event.description || 'Join us for this exciting IEEE event!',
-            agenda: [
-                { time: '10:00 AM', title: 'Registration & Welcome' },
-                { time: '11:00 AM', title: 'Main Session' },
-                { time: '01:00 PM', title: 'Networking' }
-            ],
             tags: [event.society?.name || 'IEEE Event'],
             ...getEventColor(index),
         }));
@@ -48,7 +43,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
     };
 
     return (
-        <main className="min-h-screen text-slate-800 font-sans selection:bg-[#00629B] selection:text-white overflow-x-hidden relative bg-[#F8F9FA]">
+        <main className="min-h-screen text-slate-800 font-sans selection:bg-ieee-blue selection:text-white overflow-x-hidden relative bg-[#F8F9FA]">
             <style jsx global>{`
                 .font-handwriting { font-family: var(--font-caveat-loaded), cursive; }
                 .custom-scrollbar::-webkit-scrollbar { width: 6px; }
