@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { QrCode, Scan, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -87,24 +86,13 @@ export default function CheckInPage() {
             </Button>
           </form>
 
-          <AnimatePresence>
-            {result && (
-              <motion.div
-                initial={{ opacity: 0, y: -8, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                transition={{ duration: 0.2, ease: 'easeOut' }}
-                className={`mt-4 rounded-lg border p-4 ${result.success ? 'bg-ieee-success/5 border-ieee-success/20' : 'bg-destructive/5 border-destructive/20'}`}
-              >
+          {result && (
+              <div className={`animate-in fade-in slide-in-from-top-1 zoom-in-95 duration-200 mt-4 rounded-lg border p-4 ${result.success ? 'bg-ieee-success/5 border-ieee-success/20' : 'bg-destructive/5 border-destructive/20'}`}>
                 <div className="flex items-start gap-3">
                   {result.success ? (
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ type: 'spring', stiffness: 300, damping: 15, delay: 0.1 }}
-                    >
+                    <div className="animate-in zoom-in duration-300 delay-100">
                       <CheckCircle2 className="size-5 text-ieee-success shrink-0 mt-0.5" />
-                    </motion.div>
+                    </div>
                   ) : (
                     <XCircle className="size-5 text-destructive shrink-0 mt-0.5" />
                   )}
@@ -117,9 +105,8 @@ export default function CheckInPage() {
                     )}
                   </div>
                 </div>
-              </motion.div>
+              </div>
             )}
-          </AnimatePresence>
         </CardContent>
       </Card>
 

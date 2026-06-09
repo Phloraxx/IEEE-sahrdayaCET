@@ -1,6 +1,5 @@
 'use client'
 
-import { motion } from 'framer-motion'
 import { useState } from 'react'
 import { CalendarIcon, MapPin, Eye, Pencil, Trash2, MoreHorizontal, Search } from 'lucide-react'
 import Link from 'next/link'
@@ -170,12 +169,10 @@ export function EventsTableClient({ events, total }: Props) {
                     ? Math.round((event.registeredCount / event.maxCapacity) * 100)
                     : 0
                   return (
-                    <motion.tr
+                    <tr
                       key={event.id}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.2, delay: idx * 0.03, ease: 'easeOut' }}
-                      className="border-b border-border/30 last:border-0 hover:bg-muted/30 transition-colors relative group"
+                      className="animate-in fade-in slide-in-from-bottom-1 duration-200 border-b border-border/30 last:border-0 hover:bg-muted/30 transition-colors relative group"
+                      style={{ animationDelay: `${idx * 0.03}s`, animationFillMode: 'both' }}
                     >
                       <td className="px-4 py-3 relative">
                         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-0 rounded-full bg-ieee-blue opacity-0 group-hover:opacity-100 group-hover:h-5 transition-all duration-200" />
@@ -260,7 +257,7 @@ export function EventsTableClient({ events, total }: Props) {
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </td>
-                    </motion.tr>
+                    </tr>
                   )
                 })}
               </tbody>

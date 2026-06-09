@@ -1,6 +1,5 @@
 'use client'
 
-import { motion } from 'framer-motion'
 import { Calendar, Users, ArrowUpRight, TrendingUp, TrendingDown, Sparkles, CalendarPlus, QrCode, Download } from 'lucide-react'
 import Link from 'next/link'
 import {
@@ -175,12 +174,7 @@ function GreetingSection({ name, role }: { name?: string; role?: string }) {
   const today = formatToday()
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
-    >
+    <div className="animate-in fade-in slide-in-from-bottom-1 duration-300 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
       <div>
         <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
           <span>{emoji}</span>
@@ -203,7 +197,7 @@ function GreetingSection({ name, role }: { name?: string; role?: string }) {
           Create Event
         </Link>
       </div>
-    </motion.div>
+    </div>
   )
 }
 
@@ -295,11 +289,7 @@ export function OverviewClient({
 
       {/* ── Hero Event Card ── */}
       {heroEvent && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
-        >
+        <div className="animate-in fade-in slide-in-from-bottom-1 duration-300 delay-100">
           <Card className="relative overflow-hidden border-ieee-blue/10">
             <div className="absolute inset-0 bg-gradient-to-br from-ieee-blue/5 via-transparent to-transparent pointer-events-none" />
             <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-ieee-blue/10 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
@@ -343,27 +333,20 @@ export function OverviewClient({
                     <span className="tabular-nums">{heroEvent.registeredCount}/{heroEvent.maxCapacity}</span>
                   </div>
                   <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                    <motion.div
-                      className="h-full rounded-full bg-gradient-to-r from-ieee-blue to-ieee-light-blue"
-                      initial={{ width: 0 }}
-                      animate={{ width: `${Math.min((heroEvent.registeredCount / heroEvent.maxCapacity) * 100, 100)}%` }}
-                      transition={{ duration: 0.8, ease: 'easeOut', delay: 0.2 }}
-                    />
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-ieee-blue to-ieee-light-blue transition-all duration-700 ease-out"
+                    style={{ width: `${Math.min((heroEvent.registeredCount / heroEvent.maxCapacity) * 100, 100)}%` }}
+                  />
                   </div>
                 </div>
               )}
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
       )}
 
       {/* ── Quick Actions ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.15 }}
-        className="flex flex-wrap items-center gap-2"
-      >
+      <div className="animate-in fade-in slide-in-from-bottom-1 duration-300 delay-150 flex flex-wrap items-center gap-2">
         <Link
           href="/admin/check-in"
           className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
@@ -385,15 +368,10 @@ export function OverviewClient({
           <Calendar className="size-3.5" />
           All Events
         </Link>
-      </motion.div>
+      </div>
 
       {/* ── Stat Cards ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.2 }}
-        className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"
-      >
+      <div className="animate-in fade-in slide-in-from-bottom-1 duration-300 delay-200 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Live Events"
           value={liveEventCount}
@@ -428,7 +406,7 @@ export function OverviewClient({
           sparklineData={sparklineCounts}
           accent="var(--color-chart-1)"
         />
-      </motion.div>
+      </div>
 
       {/* ── Charts Row ── */}
       <div className="grid gap-4 md:grid-cols-2">
@@ -532,11 +510,9 @@ export function OverviewClient({
                       <div className="ml-4 flex items-center gap-3">
                         <div className="flex items-center gap-1.5">
                           <div className="h-2 w-16 overflow-hidden rounded-full bg-muted">
-                            <motion.div
-                              className="h-full rounded-full bg-gradient-to-r from-ieee-blue to-ieee-light-blue"
-                              initial={{ width: 0 }}
-                              animate={{ width: `${Math.min(pct, 100)}%` }}
-                              transition={{ duration: 0.8, ease: 'easeOut', delay: 0.1 }}
+                          <div
+                              className="h-full rounded-full bg-gradient-to-r from-ieee-blue to-ieee-light-blue transition-all duration-700 ease-out"
+                              style={{ width: `${Math.min(pct, 100)}%` }}
                             />
                           </div>
                           <span className="text-xs tabular-nums text-muted-foreground">

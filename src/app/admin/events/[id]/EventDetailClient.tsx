@@ -1,6 +1,5 @@
 'use client'
 
-import { motion } from 'framer-motion'
 import { useState, useMemo } from 'react'
 import { ArrowLeft, CalendarIcon, MapPin, Users, Download, Trash2, Search, CheckCheck, X } from 'lucide-react'
 import Link from 'next/link'
@@ -317,11 +316,7 @@ export function EventDetailClient({ event, registrations }: Props) {
         </TabsList>
 
         <TabsContent value="registrations" className="mt-4">
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2 }}
-          >
+          <div className="animate-in fade-in slide-in-from-bottom-1 duration-200">
             <Card className="card-hover">
             {/* Search + Filters */}
             <div className="border-b border-border/50 px-4 py-2.5 flex flex-wrap items-center gap-2">
@@ -489,7 +484,7 @@ export function EventDetailClient({ event, registrations }: Props) {
               )}
             </CardContent>
           </Card>
-          </motion.div>
+          </div>
         </TabsContent>
 
         <TabsContent value="details" className="mt-4">

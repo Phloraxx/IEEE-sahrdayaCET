@@ -13,7 +13,6 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { motion } from 'framer-motion'
 
 import {
   Sidebar,
@@ -60,11 +59,7 @@ function NavItem({
     <SidebarMenuItem>
       <div className="relative">
         {isActive && (
-          <motion.div
-            layoutId="active-nav-indicator"
-            className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-full bg-ieee-blue"
-            transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-          />
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-full bg-ieee-blue transition-all duration-200" />
         )}
         <SidebarMenuButton
           isActive={isActive}
