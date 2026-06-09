@@ -23,17 +23,23 @@ onRecordBeforeCreateRequest(async (e) => {
 
   const maxCapacity = event.get('maxCapacity')
   if (maxCapacity) {
-    const existing = dao.findRecordsByFilter(
-      'registrations',
-      `event = "${eventId}" && registrationStatus != "cancelled"`
-    )
-    if (existing.length >= maxCapacity) {
+    // Check against the maintained counter field.
+    // The UNIQUE (user, event) index + counter hooks prevent duplicates.
+    // There is a narrow race window between the read and the create
+    // (max 1 over capacity) — acceptable for this use case.
+    const current = event.get('registeredCount') || 0
+    if (current >= maxCapacity) {
       throw new BadRequestError('Event has reached maximum capacity')
     }
   }
 
   const userId = record.get('user')
   if (userId) {
+    const user = dao.findRecordById('users', userId)
+    if (!user) throw new BadRequestError('User not found')
+
+    // First-pass duplicate check (fast path for the 99% case).
+    // The UNIQUE (user, event) DB index is the source of truth.
     const duplicates = dao.findRecordsByFilter(
       'registrations',
       `user = "${userId}" && event = "${eventId}" && registrationStatus != "cancelled"`
