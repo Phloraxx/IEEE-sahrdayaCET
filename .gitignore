@@ -97,6 +97,10 @@ playwright-report/
 # Local visual verification artifacts
 tmp/
 
+# AI/IDE tool state
+.codegraph/
+.reasonix/
+
 # Plaintext credentials (one-time scripts)
 tmp_login.json
 

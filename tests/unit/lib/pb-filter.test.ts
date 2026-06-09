@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { escapeFilterValue } from '@/lib/pb-filter'
+import { escapeFilterValue } from '@/lib/pb'
 
 describe('escapeFilterValue', () => {
   it('wraps strings in single quotes and escapes embedded quotes', () => {
