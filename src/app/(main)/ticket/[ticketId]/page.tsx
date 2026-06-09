@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, use } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, MapPin, Clock, Download, ArrowLeft, Loader2, AlertCircle, Ticket } from 'lucide-react';
+import { Calendar, MapPin, Clock, Download, ArrowLeft, Loader2, AlertCircle, CheckCircle2, Ticket } from 'lucide-react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -109,7 +109,7 @@ export default function TicketPage({ params }: PageProps) {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+            <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100">
                 <Navbar />
                 <div className="flex items-center justify-center min-h-[60vh]">
                     <div className="text-center">
@@ -124,7 +124,7 @@ export default function TicketPage({ params }: PageProps) {
 
     if (error || !ticketData) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+            <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100">
                 <Navbar />
                 <div className="flex items-center justify-center min-h-[60vh]">
                     <div className="text-center max-w-md mx-auto px-4">
@@ -153,10 +153,13 @@ export default function TicketPage({ params }: PageProps) {
     const isConfirmed = registration.registrationStatus === 'confirmed';
     const isPending = registration.paymentStatus === 'pending';
     const status = getTicketStatusInfo(registration.registrationStatus || registration.paymentStatus, isPast);
-    const StatusIcon = status.icon;
+    const iconMap: Record<string, React.ElementType> = {
+        CheckCircle2, Clock, AlertCircle, Ticket,
+    };
+    const StatusIcon = iconMap[status.iconName] || AlertCircle;
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100">
             <Navbar />
             
             <main className="py-12 px-4">
@@ -177,7 +180,7 @@ export default function TicketPage({ params }: PageProps) {
                         className="bg-white rounded-3xl shadow-2xl overflow-hidden"
                     >
                         {/* Header with gradient */}
-                        <div className="bg-gradient-to-br from-ieee-blue via-blue-600 to-blue-700 p-8 text-white text-center relative overflow-hidden">
+                        <div className="bg-linear-to-br from-ieee-blue via-blue-600 to-blue-700 p-8 text-white text-center relative overflow-hidden">
                             {/* Background pattern */}
                             <div className="absolute inset-0 opacity-10">
                                 <div className="absolute inset-0" style={{
