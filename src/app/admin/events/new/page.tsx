@@ -1,21 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Loader2, Plus, X, GripVertical, ImageUp } from 'lucide-react'
+import { ArrowLeft, Loader2, X, ImageUp } from 'lucide-react'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
-
-interface FormField {
-  id: string
-  label: string
-  type: 'text' | 'textarea' | 'select' | 'checkbox'
-  required: boolean
-  options: string[]
-}
-
-function generateId() { return Math.random().toString(36).substring(2, 9) }
+import { CustomFieldBuilder } from '@/components/admin/CustomFieldBuilder'
+import { CouponManager } from '@/components/admin/CouponManager'
+import type { FormField } from '@/components/admin/CustomFieldBuilder'
+import type { Coupon } from '@/types'
 
 export default function NewEventPage() {
   const router = useRouter()
@@ -23,9 +17,17 @@ export default function NewEventPage() {
   const [error, setError] = useState<string | null>(null)
   const [bannerPreview, setBannerPreview] = useState<string | null>(null)
   const [bannerFile, setBannerFile] = useState<File | null>(null)
-  const [useExternalForm, setUseExternalForm] = useState(false)
-  const [showAdvanced, setShowAdvanced] = useState(false)
   const [customFields, setCustomFields] = useState<FormField[]>([])
+  const [coupons, setCoupons] = useState<Coupon[]>([])
+  const [societies, setSocieties] = useState<{ id: string; name: string }[]>([])
+
+  useEffect(() => {
+    fetch('/api/admin/societies')
+      .then((res) => res.json())
+      .then((data) => setSocieties(data.societies || []))
+      .catch(() => {})
+  }, [])
+
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -36,7 +38,9 @@ export default function NewEventPage() {
     price: '0',
     maxCapacity: '',
     registrationOpen: true,
+    collectIeeeMember: false,
     status: 'draft',
+    registrationStart: '',
     registrationDeadline: '',
     contactEmail: '',
     contactPhone: '',
@@ -44,30 +48,6 @@ export default function NewEventPage() {
     externalFormUrl: '',
   })
 
-  // Custom field management
-  const addField = () => {
-    setCustomFields((prev) => [...prev, { id: generateId(), label: '', type: 'text', required: false, options: [''] }])
-  }
-
-  const removeField = (id: string) => {
-    setCustomFields((prev) => prev.filter((f) => f.id !== id))
-  }
-
-  const updateField = (id: string, updates: Partial<FormField>) => {
-    setCustomFields((prev) => prev.map((f) => (f.id === id ? { ...f, ...updates } : f)))
-  }
-
-  const moveField = (index: number, direction: -1 | 1) => {
-    const newIndex = index + direction
-    if (newIndex < 0 || newIndex >= customFields.length) return
-    setCustomFields((prev) => {
-      const next = [...prev]
-      ;[next[index], next[newIndex]] = [next[newIndex], next[index]]
-      return next
-    })
-  }
-
-  // Banner upload
   const handleBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -94,13 +74,16 @@ export default function NewEventPage() {
         maxCapacity: form.maxCapacity ? Number(form.maxCapacity) : null,
         isPaid: Number(form.price) > 0,
         registrationOpen: form.registrationOpen,
+        collectIeeeMember: form.collectIeeeMember,
         status: form.status,
+        registrationStart: form.registrationStart ? new Date(form.registrationStart).toISOString() : '',
         registrationDeadline: form.registrationDeadline ? new Date(form.registrationDeadline).toISOString() : '',
         contactEmail: form.contactEmail,
         contactPhone: form.contactPhone,
         whatsappLink: form.whatsappLink || '',
-        externalFormUrl: useExternalForm ? form.externalFormUrl : '',
+        externalFormUrl: !form.registrationOpen ? form.externalFormUrl : '',
         formTemplate: customFields.length > 0 ? customFields : null,
+        coupons: coupons.length > 0 ? coupons : null,
       }
 
       // Create event
@@ -228,76 +211,58 @@ export default function NewEventPage() {
 
             {/* Custom Registration Fields */}
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-base">Custom Registration Fields</CardTitle>
-                  <CardDescription>Add custom questions for registrants</CardDescription>
-                </div>
-                <button type="button" onClick={addField}
-                  className="inline-flex items-center gap-1 rounded-lg bg-primary text-primary-foreground hover:bg-primary/80 px-2.5 py-1.5 text-xs font-medium transition-colors">
-                  <Plus className="size-3.5" />
-                  Add Field
-                </button>
+              <CardHeader>
+                <CardTitle className="text-base">Custom Registration Fields</CardTitle>
+                <CardDescription>Add custom questions for registrants</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3">
-                {customFields.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center">
-                    No custom fields yet. Add questions like &ldquo;Department&rdquo;, &ldquo;Year&rdquo;, or custom selections.
-                  </p>
-                ) : (
-                  customFields.map((field, idx) => (
-                    <div key={field.id} className="rounded-lg border border-border/50 p-3 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <button type="button" onClick={() => moveField(idx, -1)} disabled={idx === 0}
-                          className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30">
-                          <GripVertical className="size-4" />
-                        </button>
-                        <input value={field.label} onChange={(e) => updateField(field.id, { label: e.target.value })}
-                          placeholder="Field label (e.g. Department)"
-                          className="flex-1 rounded-md border border-input bg-background px-2 py-1.5 text-sm outline-none focus:border-ring" />
-                        <select value={field.type} onChange={(e) => updateField(field.id, { type: e.target.value as FormField['type'] })}
-                          className="rounded-md border border-input bg-background px-2 py-1.5 text-xs outline-none">
-                          <option value="text">Text</option>
-                          <option value="textarea">Textarea</option>
-                          <option value="select">Select</option>
-                          <option value="checkbox">Checkbox</option>
-                        </select>
-                        <label className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer whitespace-nowrap">
-                          <input type="checkbox" checked={field.required} onChange={(e) => updateField(field.id, { required: e.target.checked })}
-                            className="rounded border-input" />
-                          Required
-                        </label>
-                        <button type="button" onClick={() => removeField(field.id)}
-                          className="p-1 text-muted-foreground hover:text-destructive transition-colors">
-                          <X className="size-4" />
-                        </button>
-                      </div>
-                      {field.type === 'select' && (
-                        <div className="ml-8 space-y-1">
-                          {field.options.map((opt, oi) => (
-                            <div key={oi} className="flex items-center gap-1">
-                              <input value={opt} onChange={(e) => {
-                                const newOpts = [...field.options]
-                                newOpts[oi] = e.target.value
-                                updateField(field.id, { options: newOpts })
-                              }} placeholder={`Option ${oi + 1}`}
-                                className="flex-1 rounded-md border border-input bg-background px-2 py-1 text-xs outline-none" />
-                              {field.options.length > 1 && (
-                                <button type="button" onClick={() => {
-                                  const newOpts = field.options.filter((_, i) => i !== oi)
-                                  updateField(field.id, { options: newOpts })
-                                }} className="p-0.5 text-muted-foreground hover:text-destructive">
-                                  <X className="size-3" />
-                                </button>
-                              )}
-                            </div>
-                          ))}
-                          <button type="button" onClick={() => updateField(field.id, { options: [...field.options, ''] })}
-                            className="text-xs text-ieee-blue hover:underline">+ Add option</button>
+              <CardContent>
+                <CustomFieldBuilder fields={customFields} onChange={setCustomFields} />
+                {customFields.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-border/50">
+                    <details className="group">
+                      <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none">
+                        Preview registration form
+                      </summary>
+                      <div className="mt-3 space-y-3 pointer-events-none opacity-70">
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-muted-foreground">Full Name *</label>
+                          <div className="h-9 rounded-lg border border-input bg-muted/30" />
                         </div>
-                      )}
-                    </div>
-                  ))
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-muted-foreground">Email *</label>
+                          <div className="h-9 rounded-lg border border-input bg-muted/30" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-muted-foreground">Phone</label>
+                          <div className="h-9 rounded-lg border border-input bg-muted/30" />
+                        </div>
+                        {customFields.map((field) => (
+                          <div key={field.id} className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground">
+                              {field.label} {field.required && '*'}
+                            </label>
+                            {field.type === 'textarea' ? (
+                              <div className="h-16 rounded-lg border border-input bg-muted/30" />
+                            ) : field.type === 'select' || field.type === 'radio' ? (
+                              <div className="h-9 rounded-lg border border-input bg-muted/30 flex items-center px-3 text-xs text-muted-foreground">
+                                {field.options[0] || 'Select...'}
+                              </div>
+                            ) : field.type === 'checkbox' || field.type === 'boolean' ? (
+                              <div className="flex items-center gap-2">
+                                <div className="size-4 rounded border border-input bg-muted/30" />
+                                <span className="text-xs text-muted-foreground">{field.defaultValue || field.label}</span>
+                              </div>
+                            ) : (
+                              <div className="h-9 rounded-lg border border-input bg-muted/30" />
+                            )}
+                          </div>
+                        ))}
+                        <div className="h-10 rounded-xl bg-muted/50 flex items-center justify-center">
+                          <span className="text-xs text-muted-foreground">Submit</span>
+                        </div>
+                      </div>
+                    </details>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -305,29 +270,76 @@ export default function NewEventPage() {
 
           {/* Sidebar — 1 column */}
           <div className="space-y-6">
-            {/* Registration & Pricing */}
+            {/* Registration */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Registration & Pricing</CardTitle>
+                <CardTitle className="text-base">Registration</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Price (₹)</label>
-                  <input type="number" min="0" value={form.price} onChange={update('price')}
-                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
-                  <p className="text-xs text-muted-foreground">Set 0 for free events</p>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Max Capacity</label>
-                  <input type="number" min="1" value={form.maxCapacity} onChange={update('maxCapacity')} placeholder="Unlimited"
-                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
-                </div>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={form.registrationOpen}
                     onChange={(e) => setForm((prev) => ({ ...prev, registrationOpen: e.target.checked }))}
                     className="rounded border-input" />
-                  <span className="text-sm font-medium">Registration Open</span>
+                  <span className="text-sm font-medium">Enable Registration</span>
                 </label>
+
+                {form.registrationOpen ? (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Price (₹)</label>
+                      <input type="number" min="0" value={form.price} onChange={update('price')}
+                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
+                      <p className="text-xs text-muted-foreground">Set 0 for free events</p>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Max Capacity</label>
+                      <input type="number" min="1" value={form.maxCapacity} onChange={update('maxCapacity')} placeholder="Unlimited"
+                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Registration Start</label>
+                      <input type="datetime-local" value={form.registrationStart} onChange={update('registrationStart')}
+                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Registration Deadline</label>
+                      <input type="datetime-local" value={form.registrationDeadline} onChange={update('registrationDeadline')}
+                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={form.collectIeeeMember}
+                        onChange={(e) => setForm((prev) => ({ ...prev, collectIeeeMember: e.target.checked }))}
+                        className="rounded border-input" />
+                      <span className="text-sm font-medium">Collect IEEE Membership ID</span>
+                    </label>
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">External Registration URL</label>
+                    <input value={form.externalFormUrl} onChange={update('externalFormUrl')} placeholder="https://docs.google.com/forms/..."
+                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
+                    <p className="text-xs text-muted-foreground">Users will be redirected here instead</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Society */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Society</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Host Society</label>
+                  <select value={form.society} onChange={(e) => setForm((prev) => ({ ...prev, society: e.target.value }))}
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50">
+                    <option value="">Select a society...</option>
+                    {societies.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
               </CardContent>
             </Card>
 
@@ -364,53 +376,17 @@ export default function NewEventPage() {
               </CardContent>
             </Card>
 
-            {/* External Form Toggle */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Registration Method</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={useExternalForm}
-                    onChange={(e) => setUseExternalForm(e.target.checked)}
-                    className="rounded border-input" />
-                  <span className="text-sm font-medium">Use External Form</span>
-                </label>
-                {useExternalForm && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Google Form URL</label>
-                    <input value={form.externalFormUrl} onChange={update('externalFormUrl')} placeholder="https://docs.google.com/forms/..."
-                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
-                    <p className="text-xs text-muted-foreground">Users will be redirected here to register</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Advanced Settings */}
-            <Card>
-              <CardHeader className="cursor-pointer" onClick={() => setShowAdvanced(!showAdvanced)}>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">Advanced Settings</CardTitle>
-                  <span className="text-xs text-muted-foreground">{showAdvanced ? '▲' : '▼'}</span>
-                </div>
-              </CardHeader>
-              {showAdvanced && (
-                <CardContent className="space-y-4 border-t border-border/50 pt-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Registration Deadline</label>
-                    <input type="datetime-local" value={form.registrationDeadline} onChange={update('registrationDeadline')}
-                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Society ID</label>
-                    <input value={form.society} onChange={update('society')} placeholder="PocketBase society ID"
-                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm font-mono outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
-                    <p className="text-xs text-muted-foreground">Leave blank for unaffiliated events</p>
-                  </div>
+            {/* Coupons */}
+            {form.registrationOpen && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Coupons</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CouponManager coupons={coupons} onChange={setCoupons} />
                 </CardContent>
-              )}
-            </Card>
+              </Card>
+            )}
 
             {/* Submit */}
             {error && (
