@@ -16,7 +16,7 @@ const ANNOTATIONS: { index: number; text: string; color: string; rotate: string;
     { index: 1, text: "Free pizza? 🍕", color: 'text-[#34A853]', rotate: '8deg', position: '-bottom-4 right-0 md:-right-4 origin-bottom-right' },
     { index: 2, text: "Don't miss out! 🔥", color: 'text-[#EA4335]', rotate: '15deg', position: '-top-8 right-0 md:-right-4 origin-top-right' },
     { index: 3, text: "Level up! 🚀", color: 'text-[#FBBC05]', rotate: '-10deg', position: '-bottom-4 left-0 md:-left-4 origin-bottom-left' },
-    { index: 4, text: "Limited seats 🎟️", color: 'text-[#00629B]', rotate: '5deg', position: 'top-1/2 -right-2 md:-right-12 origin-right' },
+    { index: 4, text: "Limited seats 🎟️", color: 'text-ieee-blue', rotate: '5deg', position: 'top-1/2 -right-2 md:-right-12 origin-right' },
 ];
 
 interface EventCardProps {
@@ -47,7 +47,7 @@ export function AnnotatedEventCard({ event, index, onSelect, isMobile = false }:
                     transition={{ delay: 0.7 + index * 0.1, type: "spring", bounce: 0.5 }}
                     className={`absolute ${annotation.position} z-20 pointer-events-none scale-75 md:scale-100`}
                 >
-                    <span className={`font-handwriting text-xl ${annotation.color} bg-white/80 backdrop-blur-sm px-3 py-1 rounded-full shadow-sm border border-slate-100 inline-block`} style={{ transform: `rotate(${annotation.rotate})` }}>
+                    <span className={`font-handwriting text-xl ${annotation.color} bg-white/80 backdrop-blur-xs px-3 py-1 rounded-full shadow-xs border border-slate-100 inline-block`} style={{ transform: `rotate(${annotation.rotate})` }}>
                         {annotation.text}
                     </span>
                 </motion.div>
@@ -61,14 +61,14 @@ export function AnnotatedEventCard({ event, index, onSelect, isMobile = false }:
                     transition={{ delay: 0.8, type: "spring", bounce: 0.5 }}
                     className="absolute -bottom-8 right-6 z-20 sm:hidden pointer-events-none scale-90 origin-bottom-right"
                 >
-                    <span className="font-handwriting text-xl text-[#FBBC05] bg-white/90 backdrop-blur-sm px-4 py-1.5 rounded-full shadow-md border border-slate-100 rotate-[-8deg] inline-block">
+                    <span className="font-handwriting text-xl text-[#FBBC05] bg-white/90 backdrop-blur-xs px-4 py-1.5 rounded-full shadow-md border border-slate-100 rotate-[-8deg] inline-block">
                         Tough choice! 👀
                     </span>
                 </motion.div>
             )}
 
             {/* Event Image */}
-            <div className="relative rounded-[2rem] overflow-hidden shrink-0 h-64">
+            <div className="relative rounded-4xl overflow-hidden shrink-0 h-64">
                 <div className="absolute inset-0 bg-slate-900/5 z-10 group-hover:bg-transparent transition-colors duration-500" />
                 {event.bannerUrl ? (
                     <img
@@ -77,19 +77,19 @@ export function AnnotatedEventCard({ event, index, onSelect, isMobile = false }:
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                     />
                 ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-[#00629B] to-[#4285F4] flex items-center justify-center">
+                    <div className="w-full h-full bg-linear-to-br from-ieee-blue to-[#4285F4] flex items-center justify-center">
                         <CalendarDays className="w-16 h-16 text-white/50" />
                     </div>
                 )}
                 <div className="absolute top-4 left-4 z-20 flex gap-2">
-                    <span className={`${event.color} text-white text-xs font-bold px-4 py-2 rounded-full uppercase tracking-wider shadow-sm backdrop-blur-md`}>
+                    <span className={`${event.color} text-white text-xs font-bold px-4 py-2 rounded-full uppercase tracking-wider shadow-xs backdrop-blur-md`}>
                         {event.tags?.[0] || 'Event'}
                     </span>
                 </div>
             </div>
 
             {/* Event Content */}
-            <div className="px-4 pt-6 pb-4 flex-grow flex flex-col justify-center">
+            <div className="px-4 pt-6 pb-4 grow flex flex-col justify-center">
                 <div className="flex justify-between items-center mb-2">
                     <div>
                         <h3 className="text-2xl font-bold text-slate-800 mb-2 leading-tight">{event.title}</h3>
@@ -98,7 +98,7 @@ export function AnnotatedEventCard({ event, index, onSelect, isMobile = false }:
                             {formatDate(event.date)}
                         </p>
                     </div>
-                    <div className="w-12 h-12 rounded-full bg-slate-50 border border-slate-100 shadow-sm flex items-center justify-center text-slate-400 shrink-0 ml-4 group-hover:bg-slate-100 group-hover:text-slate-800 transition-colors">
+                    <div className="w-12 h-12 rounded-full bg-slate-50 border border-slate-100 shadow-xs flex items-center justify-center text-slate-400 shrink-0 ml-4 group-hover:bg-slate-100 group-hover:text-slate-800 transition-colors">
                         <ChevronRight size={24} />
                     </div>
                 </div>

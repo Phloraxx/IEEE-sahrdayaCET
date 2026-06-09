@@ -21,7 +21,7 @@ export function EventDetailModal({ event, onClose, onRegister }: EventDetailModa
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={onClose}
-                className="fixed inset-0 bg-slate-900/30 backdrop-blur-md z-[100]"
+                className="fixed inset-0 bg-slate-900/30 backdrop-blur-md z-100"
             />
 
             {/* Modal */}
@@ -30,7 +30,7 @@ export function EventDetailModal({ event, onClose, onRegister }: EventDetailModa
                 animate={{ y: 0, opacity: 1 }}
                 exit={{ y: "100%", opacity: 0.5 }}
                 transition={{ type: "spring", damping: 28, stiffness: 250, mass: 0.8 }}
-                className="fixed bottom-0 left-0 right-0 md:top-0 md:m-auto md:w-[700px] md:h-fit bg-white rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl z-[101] max-h-[90vh] md:max-h-[85vh] flex flex-col overflow-hidden"
+                className="fixed bottom-0 left-0 right-0 md:top-0 md:m-auto md:w-[700px] md:h-fit bg-white rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl z-101 max-h-[90vh] md:max-h-[85vh] flex flex-col overflow-hidden"
             >
                 {/* Modal Header */}
                 <div className="relative px-6 pt-8 pb-6 md:px-10 shrink-0 border-b border-slate-100">
@@ -41,14 +41,14 @@ export function EventDetailModal({ event, onClose, onRegister }: EventDetailModa
                     >
                         <X size={20} />
                     </button>
-                    <span className={`${event.color} text-white text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider mb-4 inline-block shadow-sm`}>
+                    <span className={`${event.color} text-white text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider mb-4 inline-block shadow-xs`}>
                         {event.tags?.[0] || 'Event'}
                     </span>
                     <h2 className="text-3xl md:text-4xl font-black text-slate-800 leading-tight pr-12">{event.title}</h2>
                 </div>
 
                 {/* Modal Scrollable Content */}
-                <div className="overflow-y-auto px-6 py-6 md:px-10 flex-grow custom-scrollbar">
+                <div className="overflow-y-auto px-6 py-6 md:px-10 grow custom-scrollbar">
                     <div className="flex flex-col sm:flex-row gap-6 mb-8 pb-8 border-b border-slate-100">
                         <div className="flex items-center gap-3 text-slate-600">
                             <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center shrink-0">

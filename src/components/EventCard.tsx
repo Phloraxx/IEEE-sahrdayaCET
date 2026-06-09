@@ -19,7 +19,7 @@ export default function EventCard({ event, variant = 'default', societyName, onC
 
     if (variant === 'compact') {
         return (
-            <div className="group relative bg-white/5 backdrop-blur-sm rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition-all duration-300 cursor-pointer" onClick={() => onClick?.(event)}>
+            <div className="group relative bg-white/5 backdrop-blur-xs rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition-all duration-300 cursor-pointer" onClick={() => onClick?.(event)}>
                 <div className="relative h-32 overflow-hidden">
                     <Image
                         src={bannerSrc}
@@ -29,7 +29,7 @@ export default function EventCard({ event, variant = 'default', societyName, onC
                         className="object-cover group-hover:scale-105 transition-transform duration-500"
                         sizes="(max-width: 768px) 100vw, 33vw"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                    <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent" />
                     <div className="absolute bottom-2 left-3 right-3">
                         <h3 className="text-white font-semibold text-sm line-clamp-2">{event.title}</h3>
                     </div>
@@ -46,7 +46,7 @@ export default function EventCard({ event, variant = 'default', societyName, onC
                         </div>
                     )}
                     <div className="flex items-center justify-between pt-1">
-                        <span className="text-xs font-medium text-[#00629B]">
+                        <span className="text-xs font-medium text-ieee-blue">
                             {event.isPaid ? `₹${event.price}` : 'Free'}
                         </span>
                     </div>
@@ -56,7 +56,7 @@ export default function EventCard({ event, variant = 'default', societyName, onC
     }
 
     return (
-        <div className="group relative bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl overflow-hidden border border-gray-700/50 hover:border-[#00629B]/50 transition-all duration-500 hover:shadow-xl hover:shadow-[#00629B]/10">
+        <div className="group relative bg-linear-to-br from-gray-900 to-gray-800 rounded-2xl overflow-hidden border border-gray-700/50 hover:border-ieee-blue/50 transition-all duration-500 hover:shadow-xl hover:shadow-ieee-blue/10">
             <div className="relative h-48 overflow-hidden">
                 <Image
                     src={bannerSrc}
@@ -66,9 +66,9 @@ export default function EventCard({ event, variant = 'default', societyName, onC
                     className="object-cover group-hover:scale-110 transition-transform duration-700"
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/40 to-transparent" />
+                <div className="absolute inset-0 bg-linear-to-t from-gray-900 via-gray-900/40 to-transparent" />
                 {(event.isPaid && event.price > 0) && (
-                    <div className="absolute top-3 right-3 bg-[#00629B] text-white px-3 py-1 rounded-full text-xs font-semibold">
+                    <div className="absolute top-3 right-3 bg-ieee-blue text-white px-3 py-1 rounded-full text-xs font-semibold">
                         ₹{event.price}
                     </div>
                 )}
@@ -80,7 +80,7 @@ export default function EventCard({ event, variant = 'default', societyName, onC
             </div>
             <div className="p-5 space-y-4">
                 <div>
-                    <h3 className="text-lg font-semibold text-white group-hover:text-[#00629B] transition-colors line-clamp-2">
+                    <h3 className="text-lg font-semibold text-white group-hover:text-ieee-blue transition-colors line-clamp-2">
                         {event.title}
                     </h3>
                     {(societyName || society?.name) && (
@@ -89,16 +89,16 @@ export default function EventCard({ event, variant = 'default', societyName, onC
                 </div>
                 <div className="space-y-2 text-sm text-gray-400">
                     <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-[#00629B]" />
+                        <Calendar className="w-4 h-4 text-ieee-blue" />
                         <span>{formatDate(event.date)}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-[#00629B]" />
+                        <Clock className="w-4 h-4 text-ieee-blue" />
                         <span>{formatTime(event.date)}</span>
                     </div>
                     {event.venue && (
                         <div className="flex items-center gap-2">
-                            <MapPin className="w-4 h-4 text-[#00629B]" />
+                            <MapPin className="w-4 h-4 text-ieee-blue" />
                             <span className="truncate">{event.venue}</span>
                         </div>
                     )}

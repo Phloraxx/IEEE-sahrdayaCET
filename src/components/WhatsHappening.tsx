@@ -37,12 +37,12 @@ export const WhatsHappening: React.FC<WhatsHappeningProps> = ({ latestEvent, soc
             <div className="flex items-center space-x-2 mb-8">
                 <Grid className="w-5 h-5 text-ieee-blue" />
                 <h3 className="font-pixel text-lg md:text-xl text-gray-800">WHAT&apos;S HAPPENING</h3>
-                <div className="h-px flex-grow bg-gray-300 ml-4"></div>
+                <div className="h-px grow bg-gray-300 ml-4"></div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 auto-rows-min md:grid-rows-[300px_200px] gap-4">
-                <div className="col-span-1 md:col-span-3 row-span-1 md:row-span-1 bento-card bg-white rounded-xl overflow-hidden border border-gray-200 relative group shadow-sm transition-all hover:shadow-md hover:border-ieee-blue/30 min-h-[400px] md:min-h-0">
-                    <div className="absolute inset-0 bg-gradient-to-r from-gray-900 via-transparent to-transparent z-10 opacity-90"></div>
+                <div className="col-span-1 md:col-span-3 row-span-1 md:row-span-1 bento-card bg-white rounded-xl overflow-hidden border border-gray-200 relative group shadow-xs transition-all hover:shadow-md hover:border-ieee-blue/30 min-h-[400px] md:min-h-0">
+                    <div className="absolute inset-0 bg-linear-to-r from-gray-900 via-transparent to-transparent z-10 opacity-90"></div>
                     <div className="absolute inset-0 bg-blue-900 bg-opacity-20 z-0">
                         <Image
                             alt={latestEvent?.title || "Upcoming Event"}
@@ -56,7 +56,7 @@ export const WhatsHappening: React.FC<WhatsHappeningProps> = ({ latestEvent, soc
                     <div className="relative z-20 p-6 md:p-8 h-full flex flex-col justify-center text-white">
                         {latestEvent ? (
                             <>
-                                <div className="inline-block px-3 py-1 bg-ieee-blue text-white text-[10px] font-mono tracking-wider rounded-sm mb-3 w-max uppercase">
+                                <div className="inline-block px-3 py-1 bg-ieee-blue text-white text-[10px] font-mono tracking-wider rounded-xs mb-3 w-max uppercase">
                                     {latestEvent.tag}
                                 </div>
                                 <h2 className="font-bold text-3xl md:text-5xl font-sans mb-2 drop-shadow-lg">
@@ -68,7 +68,7 @@ export const WhatsHappening: React.FC<WhatsHappeningProps> = ({ latestEvent, soc
 
                                 <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-6">
                                     {dateParts && (
-                                        <div className="flex space-x-4 font-mono text-sm shadow-inner bg-black/20 p-2 rounded-lg backdrop-blur-sm border border-white/10">
+                                        <div className="flex space-x-4 font-mono text-sm shadow-inner bg-black/20 p-2 rounded-lg backdrop-blur-xs border border-white/10">
                                             <div className="text-center px-1">
                                                 <span className="block text-2xl font-bold text-white">{dateParts.day}</span>
                                                 <span className="text-[10px] text-gray-300 tracking-wider">{dateParts.month}</span>
@@ -81,7 +81,7 @@ export const WhatsHappening: React.FC<WhatsHappeningProps> = ({ latestEvent, soc
                                         </div>
                                     )}
 
-                                    <Link href="/events" className="glass-btn bg-white/10 backdrop-blur-sm border border-white/20 px-6 py-2 rounded-lg text-white font-medium text-sm hover:bg-white/20 hover:scale-105 transition-all flex items-center space-x-2 group">
+                                    <Link href="/events" className="glass-btn bg-white/10 backdrop-blur-xs border border-white/20 px-6 py-2 rounded-lg text-white font-medium text-sm hover:bg-white/20 hover:scale-105 transition-all flex items-center space-x-2 group">
                                         <span>Register Now</span>
                                         <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                                     </Link>
@@ -89,12 +89,12 @@ export const WhatsHappening: React.FC<WhatsHappeningProps> = ({ latestEvent, soc
                             </>
                         ) : (
                             <>
-                                <div className="inline-block px-3 py-1 bg-ieee-blue text-white text-[10px] font-mono tracking-wider rounded-sm mb-3 w-max">NO UPCOMING EVENTS</div>
+                                <div className="inline-block px-3 py-1 bg-ieee-blue text-white text-[10px] font-mono tracking-wider rounded-xs mb-3 w-max">NO UPCOMING EVENTS</div>
                                 <h2 className="font-bold text-3xl md:text-5xl font-sans mb-2 drop-shadow-lg">Stay Tuned!</h2>
                                 <p className="text-gray-200 text-sm md:text-base mb-6 max-w-md">
                                     Check back soon for exciting upcoming events from IEEE Sahrdaya SB.
                                 </p>
-                                <Link href="/events" className="glass-btn bg-white/10 backdrop-blur-sm border border-white/20 px-6 py-2 rounded-lg text-white font-medium text-sm hover:bg-white/20 hover:scale-105 transition-all flex items-center space-x-2 group w-max">
+                                <Link href="/events" className="glass-btn bg-white/10 backdrop-blur-xs border border-white/20 px-6 py-2 rounded-lg text-white font-medium text-sm hover:bg-white/20 hover:scale-105 transition-all flex items-center space-x-2 group w-max">
                                     <span>View Past Events</span>
                                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                                 </Link>
@@ -103,7 +103,7 @@ export const WhatsHappening: React.FC<WhatsHappeningProps> = ({ latestEvent, soc
                     </div>
                 </div>
 
-                <div className="col-span-1 md:col-span-1 row-span-1 bento-card bg-white rounded-xl border border-gray-200 p-5 flex flex-col shadow-sm transition-all hover:shadow-md hover:border-ieee-blue/30 max-h-[300px] md:max-h-none min-h-[250px] md:min-h-0">
+                <div className="col-span-1 md:col-span-1 row-span-1 bento-card bg-white rounded-xl border border-gray-200 p-5 flex flex-col shadow-xs transition-all hover:shadow-md hover:border-ieee-blue/30 max-h-[300px] md:max-h-none min-h-[250px] md:min-h-0">
                     <div className="flex justify-between items-center mb-4 border-b border-gray-100 pb-2">
                         <h4 className="font-bold text-sm text-gray-800 flex items-center gap-2">
                             <Newspaper className="w-4 h-4 text-ieee-blue" />
@@ -111,7 +111,7 @@ export const WhatsHappening: React.FC<WhatsHappeningProps> = ({ latestEvent, soc
                         </h4>
                         <span className="text-[10px] font-mono text-gray-400">LIVE FEED</span>
                     </div>
-                    <div className="flex-grow overflow-y-auto no-scrollbar space-y-4 pr-1">
+                    <div className="grow overflow-y-auto no-scrollbar space-y-4 pr-1">
                         <a href="https://www.ieee.org/conferences" target="_blank" rel="noopener noreferrer" className="group block">
                             <div className="flex justify-between items-baseline">
                                 <span className="text-[10px] font-mono text-ieee-blue">OCT 14</span>
@@ -143,7 +143,7 @@ export const WhatsHappening: React.FC<WhatsHappeningProps> = ({ latestEvent, soc
                     </Link>
                 </div>
 
-                <Link href="/societies" className="col-span-1 md:col-span-1 row-span-1 bento-card bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-200 p-5 flex flex-col justify-between shadow-sm relative overflow-hidden group transition-all hover:shadow-md hover:border-ieee-blue/30 min-h-[250px] md:min-h-0">
+                <Link href="/societies" className="col-span-1 md:col-span-1 row-span-1 bento-card bg-linear-to-br from-gray-50 to-white rounded-xl border border-gray-200 p-5 flex flex-col justify-between shadow-xs relative overflow-hidden group transition-all hover:shadow-md hover:border-ieee-blue/30 min-h-[250px] md:min-h-0">
                     <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-ieee-blue opacity-5 rounded-full z-0 group-hover:scale-150 transition-transform duration-500"></div>
                     <div>
                         <div className="text-[10px] font-mono text-gray-400 mb-1 uppercase tracking-wide">Society Spotlight</div>
@@ -160,7 +160,7 @@ export const WhatsHappening: React.FC<WhatsHappeningProps> = ({ latestEvent, soc
                     </div>
                 </Link>
 
-                <div className="col-span-1 md:col-span-2 row-span-1 bento-card bg-white rounded-xl border border-gray-200 p-5 flex flex-col shadow-sm transition-all hover:shadow-md hover:border-ieee-blue/30 relative overflow-hidden group">
+                <div className="col-span-1 md:col-span-2 row-span-1 bento-card bg-white rounded-xl border border-gray-200 p-5 flex flex-col shadow-xs transition-all hover:shadow-md hover:border-ieee-blue/30 relative overflow-hidden group">
                     <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-ieee-blue opacity-[0.03] rounded-full z-0 group-hover:scale-150 transition-transform duration-500"></div>
                     <div className="flex justify-between items-center mb-4 border-b border-gray-100 pb-2">
                         <h4 className="font-bold text-sm text-gray-800 flex items-center gap-2">

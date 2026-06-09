@@ -38,7 +38,7 @@ export const FloatingIcons: React.FC = () => {
                     style={{ left: item.x, top: item.y }}
                     className="absolute flex flex-col items-center text-gray-400"
                 >
-                    <div className="p-3 bg-white/50 backdrop-blur-sm border border-gray-200 rounded-xl shadow-sm mb-1">
+                    <div className="p-3 bg-white/50 backdrop-blur-xs border border-gray-200 rounded-xl shadow-xs mb-1">
                         {item.icon}
                     </div>
                     <span className="font-mono text-[10px] tracking-widest">{item.label}</span>

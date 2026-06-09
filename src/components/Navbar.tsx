@@ -80,7 +80,7 @@ export default function Navbar() {
                     opacity: isVisible ? 1 : 0 
                 }}
                 transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                className="fixed top-6 left-0 right-0 z-[100] flex justify-center pointer-events-none px-4"
+                className="fixed top-6 left-0 right-0 z-100 flex justify-center pointer-events-none px-4"
             >
                 <div className="pointer-events-auto bg-white/70 backdrop-blur-md border border-white/20 shadow-lg shadow-black/5 rounded-full px-2 py-1.5 flex items-center gap-1 max-w-[95vw]">
                     <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
@@ -95,7 +95,7 @@ export default function Navbar() {
                                 href={item.href}
                                 className={`relative px-3 md:px-5 py-2 rounded-full text-[10px] md:text-xs font-bold tracking-wide transition-all duration-300 whitespace-nowrap ${
                                     isActive
-                                        ? 'text-gray-900 bg-white shadow-sm' 
+                                        ? 'text-gray-900 bg-white shadow-xs' 
                                         : 'text-gray-500 hover:text-blue-600 hover:bg-white/50'
                                 }`}
                             >
@@ -105,7 +105,7 @@ export default function Navbar() {
                     })}
                     </div>
                     
-                    <div className="w-px h-4 bg-gray-300 mx-1 flex-shrink-0" />
+                    <div className="w-px h-4 bg-gray-300 mx-1 shrink-0" />
                     
                     {/* Auth Section */}
                     {!loading && (
@@ -121,7 +121,7 @@ export default function Navbar() {
                                 
                                 {/* User dropdown */}
                                 {showUserMenu && (
-                                    <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 min-w-[200px] overflow-hidden z-[1000] pointer-events-auto">
+                                    <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 min-w-[200px] overflow-hidden z-1000 pointer-events-auto">
                                         <div className="px-4 py-3 border-b border-gray-50 bg-gray-50/50">
                                             <p className="text-sm font-bold text-gray-900">{user.name}</p>
                                             <p className="text-[10px] font-mono text-gray-500 truncate mt-0.5">{user.email}</p>

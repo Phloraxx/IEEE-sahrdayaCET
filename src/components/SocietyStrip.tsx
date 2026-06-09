@@ -22,7 +22,7 @@ const LogoItem: React.FC<{ society: Society }> = ({ society }) => {
     
     if (!validLogoUrl) {
         return (
-            <div className="flex-shrink-0 flex items-center justify-center group mx-6 md:mx-10">
+            <div className="shrink-0 flex items-center justify-center group mx-6 md:mx-10">
                 <div className="relative flex items-center justify-center h-10 md:h-12 w-auto transition-all duration-300 group-hover:scale-110">
                     <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center text-gray-500 text-xs font-bold">
                         {society.name?.charAt(0) || '?'}
@@ -33,7 +33,7 @@ const LogoItem: React.FC<{ society: Society }> = ({ society }) => {
     }
     
     return (
-        <div className="flex-shrink-0 flex items-center justify-center group mx-6 md:mx-10">
+        <div className="shrink-0 flex items-center justify-center group mx-6 md:mx-10">
             <div className="relative h-10 md:h-12 w-14 md:w-16 transition-all duration-300 group-hover:scale-110">
                 <Image
                     src={validLogoUrl}
@@ -67,7 +67,7 @@ export const SocietyStrip: React.FC<SocietyStripProps> = ({ societies }) => {
                 <div className="font-mono text-[10px] tracking-[0.3em] text-gray-400 uppercase whitespace-nowrap">
                     OUR SOCIETIES
                 </div>
-                <div className="h-px flex-grow bg-gray-200" />
+                <div className="h-px grow bg-gray-200" />
                 <div className="font-mono text-[10px] tracking-[0.2em] text-gray-300">
                     {societies.length}
                 </div>
@@ -76,8 +76,8 @@ export const SocietyStrip: React.FC<SocietyStripProps> = ({ societies }) => {
             {/* Marquee container */}
             <div className="relative overflow-hidden py-4">
                 {/* Fade edges */}
-                <div className="absolute left-0 top-0 bottom-0 w-16 md:w-32 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
-                <div className="absolute right-0 top-0 bottom-0 w-16 md:w-32 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
+                <div className="absolute left-0 top-0 bottom-0 w-16 md:w-32 bg-linear-to-r from-white to-transparent z-10 pointer-events-none" />
+                <div className="absolute right-0 top-0 bottom-0 w-16 md:w-32 bg-linear-to-l from-white to-transparent z-10 pointer-events-none" />
 
                 {/* Scrolling track */}
                 <motion.div
@@ -99,7 +99,7 @@ export const SocietyStrip: React.FC<SocietyStripProps> = ({ societies }) => {
             </div>
 
             {/* Subtle bottom border */}
-            <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent" />
+            <div className="h-px bg-linear-to-r from-transparent via-gray-200 to-transparent" />
         </div>
     );
 };

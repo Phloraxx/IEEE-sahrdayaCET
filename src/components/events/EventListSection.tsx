@@ -62,7 +62,7 @@ export function EventListSection({ events, loading, error, onSelectEvent, onRetr
             {/* Loading State */}
             {loading && (
                 <div className="flex justify-center items-center py-20">
-                    <div className="w-12 h-12 border-4 border-[#00629B]/20 border-t-[#00629B] rounded-full animate-spin" />
+                    <div className="w-12 h-12 border-4 border-ieee-blue/20 border-t-ieee-blue rounded-full animate-spin" />
                 </div>
             )}
 

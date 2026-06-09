@@ -9,7 +9,7 @@ const Footer: React.FC = () => {
     return (
         <footer className="relative z-20 bg-gray-950 text-white overflow-hidden">
             {/* Top accent line */}
-            <div className="h-px bg-gradient-to-r from-transparent via-ieee-blue to-transparent" />
+            <div className="h-px bg-linear-to-r from-transparent via-ieee-blue to-transparent" />
 
             {/* Main Footer */}
             <div className="container mx-auto px-4">
@@ -167,7 +167,7 @@ const Footer: React.FC = () => {
 
             {/* Large watermark text */}
             <div className="absolute bottom-0 left-0 right-0 overflow-hidden pointer-events-none select-none" aria-hidden="true">
-                <div className="font-pixel text-[8vw] md:text-[6vw] text-white/[0.05] whitespace-nowrap tracking-tighter leading-none translate-y-[30%]">
+                <div className="font-pixel text-[8vw] md:text-[6vw] text-white/5 whitespace-nowrap tracking-tighter leading-none translate-y-[30%]">
                     IEEE SAHRDAYA &mdash; ADVANCING TECHNOLOGY FOR HUMANITY
                 </div>
             </div>

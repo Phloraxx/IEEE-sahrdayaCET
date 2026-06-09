@@ -33,7 +33,7 @@ export default function GoogleLoginButton({
         <button
             onClick={handleClick}
             disabled={isLoading}
-            className={`${buttonClasses} bg-gray-950 hover:bg-ieee-blue text-white font-mono text-xs tracking-wider uppercase py-3.5 px-6 rounded-lg transition-all duration-300 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md`}
+            className={`${buttonClasses} bg-gray-950 hover:bg-ieee-blue text-white font-mono text-xs tracking-wider uppercase py-3.5 px-6 rounded-lg transition-all duration-300 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed shadow-xs hover:shadow-md`}
         >
             {isLoading ? (
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

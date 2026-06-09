@@ -29,7 +29,7 @@ const ImageStrip = () => {
         <div className="overflow-hidden w-full">
             <div className="flex gap-4 will-change-transform animate-marquee-images" style={{ width: `${tripled.length * 280}px` }}>
                 {tripled.map((src, i) => (
-                    <div key={i} className="relative flex-shrink-0 w-[260px] h-[360px] rounded-2xl overflow-hidden shadow-lg">
+                    <div key={i} className="relative shrink-0 w-[260px] h-[360px] rounded-2xl overflow-hidden shadow-lg">
                         <Image src={src} alt={`IEEE Event ${(i % eventImages.length) + 1}`} fill sizes="260px" className="object-cover hover:scale-105 transition-transform duration-700" />
                     </div>
                 ))}
@@ -44,7 +44,7 @@ const TextMarquee = () => {
         <div className="overflow-hidden w-full">
             <div className="flex items-center will-change-transform whitespace-nowrap animate-marquee-text" style={{ width: `${tripled.length * 350}px` }}>
                 {tripled.map((text, i) => (
-                    <span key={i} className="flex items-center flex-shrink-0">
+                    <span key={i} className="flex items-center shrink-0">
                         <span className="text-5xl md:text-7xl lg:text-8xl font-black text-black tracking-tight italic uppercase">{text}</span>
                         <span className="text-ieee-light-blue text-4xl md:text-6xl lg:text-7xl mx-6 md:mx-8 font-bold">•</span>
                     </span>
@@ -57,7 +57,7 @@ const TextMarquee = () => {
 export const EventsShowcase: React.FC = () => {
     return (
         <section className="relative py-16 md:py-24 overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-white/90 z-10 pointer-events-none" />
+            <div className="absolute inset-0 bg-linear-to-b from-transparent via-transparent to-white/90 z-10 pointer-events-none" />
             <div className="relative z-0 -rotate-3 scale-110 mb-12 md:mb-16">
                 <ImageStrip />
             </div>
