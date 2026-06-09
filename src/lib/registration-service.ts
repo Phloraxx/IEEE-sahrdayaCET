@@ -134,6 +134,72 @@ export async function incrementCheckedInCount(
   }
 }
 
+// ─── Coupon Validation ─────────────────────────────────────
+
+/**
+ * Validates a coupon code against the event's stored coupons.
+ * If valid, applies the discount and increments usedCount.
+ * Returns the discount amount and final price, or throws if invalid.
+ */
+export async function validateAndApplyCoupon(
+  adminPB: PocketBase,
+  eventId: string,
+  code: string,
+): Promise<{ discountAmount: number; finalPrice: number }> {
+  const event = await adminPB.collection('events').getOne(eventId).catch(() => null)
+  if (!event) throw new RegistrationError('Event not found', 404)
+
+  const coupons = (event as Record<string, unknown>).coupons as unknown[] | undefined
+  if (!coupons || !Array.isArray(coupons) || coupons.length === 0) {
+    throw new RegistrationError('Invalid coupon code')
+  }
+
+  const coupon = coupons.find(
+    (c: any) => typeof c === 'object' && c.code?.toUpperCase() === code.toUpperCase(),
+  ) as Record<string, unknown> | undefined
+
+  if (!coupon) throw new RegistrationError('Invalid coupon code')
+
+  if (coupon.isActive === false) {
+    throw new RegistrationError('This coupon is no longer active')
+  }
+
+  if (coupon.expiresAt && new Date(coupon.expiresAt as string) < new Date()) {
+    throw new RegistrationError('This coupon has expired')
+  }
+
+  const maxUses = Number(coupon.maxUses) || 0
+  const usedCount = Number(coupon.usedCount) || 0
+  if (maxUses > 0 && usedCount >= maxUses) {
+    throw new RegistrationError('This coupon has reached its maximum uses')
+  }
+
+  const price = Number((event as Record<string, unknown>).price) || 0
+  const discountType = coupon.discountType as string
+  const discountValue = Number(coupon.discountValue) || 0
+
+  let discountAmount = 0
+  if (discountType === 'percentage') {
+    discountAmount = Math.round(price * (discountValue / 100))
+  } else {
+    discountAmount = Math.min(discountValue, price)
+  }
+
+  const finalPrice = Math.max(0, price - discountAmount)
+
+  // Increment usedCount on the coupon
+  const updatedCoupons = coupons.map((c: any) => {
+    if (c.code?.toUpperCase() === code.toUpperCase()) {
+      return { ...c, usedCount: (c.usedCount || 0) + 1 }
+    }
+    return c
+  })
+
+  await adminPB.collection('events').update(eventId, { coupons: updatedCoupons })
+
+  return { discountAmount, finalPrice }
+}
+
 // ─── Registration Creation ─────────────────────────────────
 
 export async function createRegistration(
@@ -146,6 +212,7 @@ export async function createRegistration(
     userEmail: string
     userPhone: string
     formResponses: Record<string, unknown>
+    couponCode?: string
   },
 ): Promise<{
   registrationId: string
@@ -153,12 +220,35 @@ export async function createRegistration(
   paymentRequired: boolean
   amount: number
 }> {
-  const { userId, eventId, userName, userEmail, userPhone, formResponses } = data
+  const { userId, eventId, userName, userEmail, userPhone, formResponses, couponCode } = data
 
   // 1. Validate
   const { event, isFree } = await validateRegistration(pb, eventId, userId)
 
-  // 2. Create the registration record
+  // 2. Validate required custom fields
+  const formTemplate = (event as Record<string, unknown>).formTemplate
+  if (Array.isArray(formTemplate)) {
+    for (const field of formTemplate as Array<Record<string, unknown>>) {
+      if (field.required) {
+        const val = formResponses[field.id as string]
+        if (val === undefined || val === null || val === '') {
+          throw new RegistrationError(`"${(field.label as string) || 'A required field'}" is required`)
+        }
+      }
+    }
+  }
+
+  let finalAmount = isFree ? 0 : (Number(event.price) || 0)
+  let discountAmount = 0
+
+  // 2. Apply coupon if provided
+  if (couponCode && !isFree) {
+    const couponResult = await validateAndApplyCoupon(adminPB, eventId, couponCode)
+    finalAmount = couponResult.finalPrice
+    discountAmount = couponResult.discountAmount
+  }
+
+  // 3. Create the registration record
   const now = new Date().toISOString()
   const registration = await pb.collection('registrations').create({
     user: userId,
@@ -170,7 +260,9 @@ export async function createRegistration(
     registrationDate: now,
     paymentStatus: isFree ? 'not_required' : 'pending',
     registrationStatus: isFree ? 'confirmed' : 'pending',
-    amount: isFree ? 0 : (Number(event.price) || 0),
+    amount: finalAmount,
+    couponCode: couponCode || '',
+    discountAmount,
   })
 
   // 3. Post-processing
@@ -188,7 +280,7 @@ export async function createRegistration(
     registrationId: registration.id,
     ticketId: paymentTicketId,
     paymentRequired: true,
-    amount: Number(event.price) || 0,
+    amount: finalAmount,
   }
 }
 
