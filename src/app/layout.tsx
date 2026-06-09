@@ -1,19 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Press_Start_2P, Inter } from "next/font/google";
 import { APP_URL } from "@/lib/constants";
-
-const pressStart2P = Press_Start_2P({ 
-  weight: "400",
-  subsets: ["latin"],
-  variable: "--font-pixel",
-  display: "swap",
-});
-
-const inter = Inter({ 
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-});
 
 const BASE_URL = APP_URL;
 
