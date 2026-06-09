@@ -33,6 +33,20 @@ onRecordBeforeCreateRequest(async (e) => {
     }
   }
 
+  // Validate required custom fields from formTemplate
+  const formTemplate = event.get('formTemplate')
+  if (formTemplate && Array.isArray(formTemplate)) {
+    const formResponses = record.get('formResponses') || {}
+    for (const field of formTemplate) {
+      if (field.required) {
+        const val = formResponses[field.id]
+        if (val === undefined || val === null || val === '') {
+          throw new BadRequestError(`"${field.label || 'A required field'}" is required`)
+        }
+      }
+    }
+  }
+
   const userId = record.get('user')
   if (userId) {
     const user = dao.findRecordById('users', userId)
