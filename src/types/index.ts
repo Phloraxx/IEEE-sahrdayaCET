@@ -60,14 +60,28 @@ export interface Event {
     currency?: string;
     checkInEnabled?: boolean;
     selfCheckIn?: boolean;
+    collectIeeeMember?: boolean;
     contactEmail?: string;
     contactPhone?: string;
     externalLink?: string;
+    externalFormUrl?: string;
     category?: string;
     speakers?: unknown;
     schedule?: unknown;
     faqs?: unknown;
-    isDeleted?: boolean;
+    coupons?: Coupon[];
+  isDeleted?: boolean;
+}
+
+export interface Coupon {
+  id: string
+  code: string
+  discountType: 'percentage' | 'fixed'
+  discountValue: number
+  maxUses: number
+  usedCount: number
+  expiresAt?: string
+  isActive: boolean
 }
 
 export interface EventWithSociety extends Event {
