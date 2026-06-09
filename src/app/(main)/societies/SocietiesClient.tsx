@@ -40,7 +40,7 @@ function MemberCard({ member, idx }: { member: ExecomMember; idx: number }) {
             transition={{ delay: idx * 0.05 }}
             className="group bg-white border-2 border-gray-200 rounded-xl overflow-hidden hover:border-ieee-blue hover:shadow-lg transition-all duration-300"
         >
-            <div className="relative aspect-[4/5] bg-gray-100 overflow-hidden">
+            <div className="relative aspect-4/5 bg-gray-100 overflow-hidden">
                 {imageSrc && !imgError ? (
                     <Image
                         src={imageSrc}
@@ -52,7 +52,7 @@ function MemberCard({ member, idx }: { member: ExecomMember; idx: number }) {
                         unoptimized
                     />
                 ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+                    <div className="w-full h-full flex items-center justify-center bg-linear-to-br from-gray-100 to-gray-200">
                         <span className="text-3xl font-bold text-gray-300">
                             {member.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                         </span>
@@ -167,7 +167,7 @@ export default function SocietiesClient({ societies: initialSocieties }: Societi
                 >
                     <button
                         onClick={() => signIn()}
-                        className="bg-white/80 backdrop-blur-sm hover:bg-white border border-gray-200 hover:border-ieee-blue text-gray-700 hover:text-ieee-blue font-semibold py-2 px-4 rounded-lg transition-all shadow-md hover:shadow-lg flex items-center gap-2 text-sm"
+                        className="bg-white/80 backdrop-blur-xs hover:bg-white border border-gray-200 hover:border-ieee-blue text-gray-700 hover:text-ieee-blue font-semibold py-2 px-4 rounded-lg transition-all shadow-md hover:shadow-lg flex items-center gap-2 text-sm"
                     >
                         <LogIn className="w-4 h-4" />
                         <span className="hidden sm:inline">Society Chair</span>
@@ -259,7 +259,7 @@ export default function SocietiesClient({ societies: initialSocieties }: Societi
                                     {/* Card Container */}
                                     <div className="relative bg-white border-2 border-gray-200 rounded-xl overflow-hidden shadow-lg hover:shadow-2xl hover:border-ieee-blue transition-all duration-300">
                                         {/* Gradient Overlay on Hover */}
-                                        <div className="absolute inset-0 bg-gradient-to-br from-ieee-blue/0 to-purple-600/0 group-hover:from-ieee-blue/10 group-hover:to-purple-600/10 transition-all duration-300 z-0" />
+                                        <div className="absolute inset-0 bg-linear-to-br from-ieee-blue/0 to-purple-600/0 group-hover:from-ieee-blue/10 group-hover:to-purple-600/10 transition-all duration-300 z-0" />
                                         
                                         {/* Logo Container */}
                                          <div className="relative aspect-square p-6">
@@ -280,11 +280,11 @@ export default function SocietiesClient({ societies: initialSocieties }: Societi
                                             </motion.div>
                                             
                                             {/* Glow Effect */}
-                                            <div className="absolute inset-0 bg-gradient-to-br from-ieee-blue/20 to-purple-600/20 opacity-0 group-hover:opacity-100 blur-2xl transition-opacity duration-300" />
+                                            <div className="absolute inset-0 bg-linear-to-br from-ieee-blue/20 to-purple-600/20 opacity-0 group-hover:opacity-100 blur-2xl transition-opacity duration-300" />
                                         </div>
 
                                         {/* Society Name */}
-                                        <div className="relative p-4 pt-2 bg-gradient-to-b from-transparent to-gray-50/50">
+                                        <div className="relative p-4 pt-2 bg-linear-to-b from-transparent to-gray-50/50">
                                             <h3 className="text-center text-xs md:text-sm font-bold text-gray-800 line-clamp-2 group-hover:text-ieee-blue transition-colors">
                                                 {society.name}
                                             </h3>
@@ -325,7 +325,7 @@ export default function SocietiesClient({ societies: initialSocieties }: Societi
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             onClick={() => setSelectedSociety(null)}
-                            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+                            className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40"
                         />
 
                         {/* Detail Panel */}
@@ -345,7 +345,7 @@ export default function SocietiesClient({ societies: initialSocieties }: Societi
                             </button>
 
                             {/* Banner */}
-                            <div className="relative h-64 bg-gradient-to-br from-ieee-blue to-purple-600 overflow-hidden">
+                            <div className="relative h-64 bg-linear-to-br from-ieee-blue to-purple-600 overflow-hidden">
                                 {selectedSociety.bannerUrl ? (
                                     <Image src={selectedSociety.bannerUrl} alt={selectedSociety.name} fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" unoptimized />
                                 ) : (
@@ -363,7 +363,7 @@ export default function SocietiesClient({ societies: initialSocieties }: Societi
                                 )}
                                 
                                 {/* Gradient Overlay */}
-                                <div className="absolute inset-0 bg-gradient-to-t from-white via-white/50 to-transparent" />
+                                <div className="absolute inset-0 bg-linear-to-t from-white via-white/50 to-transparent" />
                             </div>
 
                             {/* Content */}
@@ -411,17 +411,17 @@ export default function SocietiesClient({ societies: initialSocieties }: Societi
 
                                 {/* Stats */}
                                 <div className="grid grid-cols-3 gap-4 mb-8">
-                                    <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl p-4 text-center border border-blue-100">
+                                    <div className="bg-linear-to-br from-blue-50 to-purple-50 rounded-xl p-4 text-center border border-blue-100">
                                         <Calendar className="w-6 h-6 text-ieee-blue mx-auto mb-2" />
                                         <div className="text-2xl font-bold text-gray-900">{societyEvents.length}</div>
                                         <div className="text-xs text-gray-600 font-semibold">Events</div>
                                     </div>
-                                    <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 text-center border border-purple-100">
+                                    <div className="bg-linear-to-br from-purple-50 to-pink-50 rounded-xl p-4 text-center border border-purple-100">
                                         <Users className="w-6 h-6 text-purple-600 mx-auto mb-2" />
                                         <div className="text-2xl font-bold text-gray-900">{loadingMembers ? '-' : societyMembers.length}</div>
                                         <div className="text-xs text-gray-600 font-semibold">Members</div>
                                     </div>
-                                    <div className="bg-gradient-to-br from-pink-50 to-orange-50 rounded-xl p-4 text-center border border-pink-100">
+                                    <div className="bg-linear-to-br from-pink-50 to-orange-50 rounded-xl p-4 text-center border border-pink-100">
                                         <Award className="w-6 h-6 text-pink-600 mx-auto mb-2" />
                                         <div className="text-2xl font-bold text-gray-900">{societyEvents.filter(e => e.status === 'completed').length}</div>
                                         <div className="text-xs text-gray-600 font-semibold">Completed</div>
@@ -539,7 +539,7 @@ export default function SocietiesClient({ societies: initialSocieties }: Societi
                                 setEventActionError(null);
                                 setSelectedEvent(null);
                             }}
-                            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+                            className="fixed inset-0 bg-black/70 backdrop-blur-xs z-60 flex items-center justify-center p-4"
                         >
                             {/* Event Detail Card */}
                             <motion.div
@@ -548,7 +548,7 @@ export default function SocietiesClient({ societies: initialSocieties }: Societi
                                 exit={{ opacity: 0, scale: 0.9 }}
                                 transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                                 onClick={(e) => e.stopPropagation()}
-                                className="relative aspect-[15/17] max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden"
+                                className="relative aspect-15/17 max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden"
                             >
                                 {/* Close Button */}
                                 <button
@@ -556,7 +556,7 @@ export default function SocietiesClient({ societies: initialSocieties }: Societi
                                         setEventActionError(null);
                                         setSelectedEvent(null);
                                     }}
-                                    className="absolute top-4 right-4 z-10 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors backdrop-blur-sm"
+                                    className="absolute top-4 right-4 z-10 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors backdrop-blur-xs"
                                 >
                                     <X className="w-5 h-5" />
                                 </button>
@@ -564,7 +564,7 @@ export default function SocietiesClient({ societies: initialSocieties }: Societi
                                 {/* Scrollable Content */}
                                 <div className="overflow-y-auto h-full">
                                     {/* Event Banner - 9:16 aspect ratio */}
-                                    <div className="relative bg-gradient-to-br from-ieee-blue to-purple-600">{selectedEvent.bannerUrl ? (
+                                    <div className="relative bg-linear-to-br from-ieee-blue to-purple-600">{selectedEvent.bannerUrl ? (
                                             <Image
                                                 src={selectedEvent.bannerUrl}
                                                 alt={selectedEvent.title}
@@ -580,7 +580,7 @@ export default function SocietiesClient({ societies: initialSocieties }: Societi
                                         )}
                                         
                                         {/* Gradient Overlay */}
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                                        <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent" />
                                         
                                         {/* Status Badge */}
                                         <div className="absolute top-4 left-4">

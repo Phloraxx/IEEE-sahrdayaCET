@@ -22,7 +22,7 @@ export default function LoginPage() {
     <div className="relative min-h-screen bg-white text-gray-900 font-sans selection:bg-ieee-blue/20 overflow-hidden">
       {/* Background Grid */}
       <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#e5e7eb_1px,transparent_1px),linear-gradient(to_bottom,#e5e7eb_1px,transparent_1px)] bg-[size:40px_40px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#e5e7eb_1px,transparent_1px),linear-gradient(to_bottom,#e5e7eb_1px,transparent_1px)] bg-size-[40px_40px]" />
         <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-repeat"
           style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}
         />
@@ -34,7 +34,7 @@ export default function LoginPage() {
           {/* Card */}
           <div className="relative bg-white border border-gray-200 rounded-xl shadow-2xl overflow-hidden">
             {/* Top accent */}
-            <div className="h-1 bg-gradient-to-r from-ieee-blue via-ieee-light-blue to-ieee-blue" />
+            <div className="h-1 bg-linear-to-r from-ieee-blue via-ieee-light-blue to-ieee-blue" />
 
             <div className="px-8 pt-8 pb-6 text-center">
               {/* Logo / Title */}
@@ -54,7 +54,7 @@ export default function LoginPage() {
               <button
                 onClick={handleGoogleSignIn}
                 disabled={isLoading}
-                className="w-full bg-gray-950 hover:bg-ieee-blue text-white font-mono text-xs tracking-wider uppercase py-3.5 px-6 rounded-lg transition-all duration-300 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
+                className="w-full bg-gray-950 hover:bg-ieee-blue text-white font-mono text-xs tracking-wider uppercase py-3.5 px-6 rounded-lg transition-all duration-300 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed shadow-xs hover:shadow-md"
               >
                 {isLoading ? (
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -73,9 +73,9 @@ export default function LoginPage() {
 
               {/* Divider */}
               <div className="flex items-center gap-3 my-5">
-                <div className="h-px flex-grow bg-gray-200" />
+                <div className="h-px grow bg-gray-200" />
                 <span className="font-mono text-[9px] tracking-[0.3em] text-gray-400 uppercase">IEEE Sahrdaya</span>
-                <div className="h-px flex-grow bg-gray-200" />
+                <div className="h-px grow bg-gray-200" />
               </div>
 
               {/* Privacy note */}
