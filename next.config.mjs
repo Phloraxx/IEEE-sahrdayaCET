@@ -12,14 +12,12 @@ const nextConfig = {
       { protocol: 'https', hostname: 'backend.mulearnscet.in' },
       { protocol: 'https', hostname: 'backend.ieeesahrdaya.com' },
       { protocol: 'https', hostname: 'db.phloraxx.us.to' },
+      { protocol: 'http', hostname: '*.sslip.io' },
       { protocol: appUrl.protocol.replace(':', ''), hostname: appUrl.hostname },
     ],
   },
   reactStrictMode: true,
   poweredByHeader: false,
-  turbopack: {
-    root: process.cwd(),
-  },
 }
 
 export default nextConfig

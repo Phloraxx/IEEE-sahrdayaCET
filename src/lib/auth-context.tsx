@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, [fetchUser])
 
     const signIn = useCallback(() => {
-        window.location.href = '/auth/login'
+        window.location.href = '/'
     }, [])
 
     const signOut = useCallback(() => {

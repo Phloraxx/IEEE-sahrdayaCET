@@ -101,6 +101,9 @@ tmp/
 .codegraph/
 .reasonix/
 
+# Agent memory file (loaded into every session)
+AGENTS.md
+
 # Plaintext credentials (one-time scripts)
 tmp_login.json
 
