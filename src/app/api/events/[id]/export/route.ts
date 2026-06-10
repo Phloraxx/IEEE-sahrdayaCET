@@ -5,15 +5,15 @@ import { logError } from '@/lib/logger'
 
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ eventId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const pb = createPB(request.headers.get('cookie') || undefined)
   const { user } = await requireAuth(pb)
 
   try {
-    const { eventId } = await params
+    const { id } = await params
 
-    const event = await pb.collection('events').getOne(eventId).catch(() => null)
+    const event = await pb.collection('events').getOne(id).catch(() => null)
     if (!event) {
       return Response.json({ error: 'Event not found' }, { status: 404 })
     }
@@ -26,7 +26,7 @@ export async function GET(
       }
     }
 
-    const csv = await generateRegistrationsCSV(pb, eventId)
+    const csv = await generateRegistrationsCSV(pb, id)
     const filename = `${String(event.title).replace(/[^a-zA-Z0-9]/g, '_')}_registrations.csv`
 
     return new Response(csv, {
