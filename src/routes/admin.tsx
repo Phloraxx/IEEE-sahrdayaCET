@@ -6,7 +6,6 @@ import AdminGuard from "@/components/admin/AdminGuard";
 import { AdminKeyboardShortcuts } from "@/components/admin/KeyboardShortcuts";
 import { PageTransition } from "@/components/admin/PageTransition";
 import { SidebarStateProvider } from "@/components/admin/SidebarState";
-import "@/app/globals.css";
 
 export const Route = createFileRoute("/admin")({
   component: AdminLayout,

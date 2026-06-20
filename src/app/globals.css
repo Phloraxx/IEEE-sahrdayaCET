@@ -47,6 +47,15 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 }
+/* Font CSS variables — mapped to @fontsource font-family names.
+   Previously injected by next/font/google via <body> className.
+   Defined at :root so .font-pixel and .font-sans utilities resolve. */
+:root {
+  --font-sans: 'Geist Variable', system-ui, sans-serif;
+  --font-inter-loaded: 'Inter Variable', system-ui, sans-serif;
+  --font-pixel-loaded: 'Press Start 2P', 'Courier New', monospace;
+  --font-caveat-loaded: 'Caveat', cursive;
+}
 
 /* Font utilities using Next.js font loader CSS variables.
    The @font-face rules and CSS variables are injected by next/font

@@ -1,12 +1,43 @@
 import type { ReactNode } from 'react'
 import { Outlet, createRootRoute, HeadContent, Scripts } from '@tanstack/react-router'
+import { AuthProvider } from '@/lib/auth-context'
+import '@/app/globals.css'
+
+// Fonts — replace next/font/google with @fontsource equivalents
+import '@fontsource-variable/geist'
+import '@fontsource-variable/inter'
+import '@fontsource/press-start-2p'
+import '@fontsource/caveat'
 
 export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: 'IEEE Sahrdaya Student Branch' },
+      {
+        title: {
+          default: 'IEEE Sahrdaya Student Branch',
+          template: '%s | IEEE Sahrdaya',
+        },
+      },
+      {
+        name: 'description',
+        content:
+          'Official IEEE Sahrdaya Student Branch — technical events, workshops, societies & execom directory. Sahrdaya College of Engineering, Thrissur, Kerala.',
+      },
+      { name: 'theme-color', content: '#00629B' },
+      { property: 'og:type', content: 'website' },
+      { property: 'og:site_name', content: 'IEEE Sahrdaya Student Branch' },
+      { name: 'twitter:card', content: 'summary_large_image' },
+      {
+        name: 'robots',
+        content: 'index, follow',
+      },
+    ],
+    links: [
+      { rel: 'preconnect', href: 'https://res.cloudinary.com' },
+      { rel: 'preconnect', href: 'https://lh3.googleusercontent.com' },
+      { rel: 'icon', href: '/emblem.png' },
     ],
   }),
   component: RootComponent,
@@ -15,7 +46,9 @@ export const Route = createRootRoute({
 function RootComponent() {
   return (
     <RootDocument>
-      <Outlet />
+      <AuthProvider>
+        <Outlet />
+      </AuthProvider>
     </RootDocument>
   )
 }
@@ -26,7 +59,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
       <head>
         <HeadContent />
       </head>
-      <body>
+      <body className="font-sans antialiased">
         {children}
         <Scripts />
       </body>
