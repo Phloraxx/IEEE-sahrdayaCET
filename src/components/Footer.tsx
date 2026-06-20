@@ -132,6 +132,7 @@ const Footer: React.FC = () => {
               className="opacity-70 hover:opacity-100 transition-opacity duration-300 inline-flex items-center"
             >
               <img
+                loading="lazy"
                 src="/IEEELink_footer.png"
                 alt="IEEE"
                 width={314}
@@ -147,6 +148,7 @@ const Footer: React.FC = () => {
               className="opacity-70 hover:opacity-100 transition-opacity duration-300 inline-flex items-center"
             >
               <img
+                loading="lazy"
                 src="/sahrdaya_footer.png"
                 alt="Sahrdaya"
                 width={1623}
@@ -162,6 +164,7 @@ const Footer: React.FC = () => {
               className="opacity-80 hover:opacity-100 transition-opacity duration-300 inline-flex items-center"
             >
               <img
+                loading="lazy"
                 src="/keralaSection_footer.png"
                 alt="IEEE Kerala Section"
                 width={557}

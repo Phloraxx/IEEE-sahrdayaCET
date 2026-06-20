@@ -228,6 +228,7 @@ const MemberDetailModal: React.FC<{ member: Member; onClose: () => void }> = ({
           <div className="relative h-72 bg-gray-100 overflow-hidden shrink-0">
             {imageSrc && !imgError ? (
               <img
+                loading="lazy"
                 src={imageSrc}
                 alt={member.name}
                 onError={() => setImgError(true)}
@@ -360,6 +361,7 @@ function MemberCard({
         <div className="relative aspect-3/4 bg-gray-50 overflow-hidden">
           {imageSrc && !imgError ? (
             <img
+              loading="lazy"
               src={imageSrc}
               alt={member.name}
               onError={() => setImgError(true)}

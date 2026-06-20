@@ -40,6 +40,7 @@ const LogoItem: React.FC<{ society: Society }> = ({ society }) => {
     <div className="shrink-0 flex items-center justify-center group mx-6 md:mx-10">
       <div className="relative h-10 md:h-12 w-14 md:w-16 transition-all duration-300 group-hover:scale-110">
         <img
+          loading="lazy"
           src={validLogoUrl}
           alt={society.name}
           className="absolute inset-0 w-full h-full object-contain opacity-40 group-hover:opacity-90 transition-opacity duration-500 grayscale group-hover:grayscale-0"

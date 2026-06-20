@@ -36,6 +36,7 @@ const ImageStrip = () => {
             className="relative shrink-0 w-[260px] h-[360px] rounded-2xl overflow-hidden shadow-lg"
           >
             <img
+              loading="lazy"
               src={src}
               alt={`IEEE Event ${(i % eventImages.length) + 1}`}
               className="absolute inset-0 w-full h-full object-cover hover:scale-105 transition-transform duration-700"

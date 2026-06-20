@@ -60,6 +60,7 @@ const MemberCard: React.FC<{ member: Member; index: number }> = ({
 
         <div className="relative w-full h-full">
           <img
+            loading="lazy"
             src={member.image}
             alt={member.name}
             className={`absolute inset-0 w-full h-full object-cover transition-transform duration-600 ease-[cubic-bezier(0.2,0.65,0.3,0.9)] ${isHovered ? "scale-105" : "scale-100"}`}

@@ -34,6 +34,7 @@ export default function EventCard({
       >
         <div className="relative h-32 overflow-hidden">
           <img
+            loading="lazy"
             src={bannerSrc}
             alt={event.title}
             className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
@@ -70,6 +71,7 @@ export default function EventCard({
     <div className="group relative bg-linear-to-br from-gray-900 to-gray-800 rounded-2xl overflow-hidden border border-gray-700/50 hover:border-ieee-blue/50 transition-all duration-500 hover:shadow-xl hover:shadow-ieee-blue/10">
       <div className="relative h-48 overflow-hidden">
         <img
+          loading="lazy"
           src={bannerSrc}
           alt={event.title}
           className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"

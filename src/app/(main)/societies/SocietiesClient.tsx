@@ -42,6 +42,7 @@ function MemberCard({ member, idx }: { member: ExecomMember; idx: number }) {
       <div className="relative aspect-4/5 bg-gray-100 overflow-hidden">
         {imageSrc && !imgError ? (
           <img
+            loading="lazy"
             src={imageSrc}
             alt={member.name}
             className="absolute inset-0 w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
@@ -164,6 +165,7 @@ export default function SocietiesClient({
       <div className="relative h-56 bg-linear-to-br from-ieee-blue to-purple-600 overflow-hidden shrink-0">
         {selectedSociety && selectedSociety.bannerUrl ? (
           <img
+            loading="lazy"
             src={selectedSociety.bannerUrl}
             alt={selectedSociety.name}
             className="absolute inset-0 w-full h-full object-cover"
@@ -173,6 +175,7 @@ export default function SocietiesClient({
             <div className="relative w-24 h-24 opacity-20">
               {selectedSociety && selectedSociety.logoUrl ? (
                 <img
+                  loading="lazy"
                   src={selectedSociety.logoUrl}
                   alt={selectedSociety.name || ""}
                   className="absolute inset-0 w-full h-full object-contain"
@@ -202,6 +205,7 @@ export default function SocietiesClient({
           <div className="relative w-20 h-20">
             {selectedSociety && selectedSociety.logoUrl ? (
               <img
+                loading="lazy"
                 src={selectedSociety.logoUrl}
                 alt={selectedSociety.name}
                 className="absolute inset-0 w-full h-full object-contain"
@@ -493,6 +497,7 @@ export default function SocietiesClient({
                       >
                         {society.logoUrl ? (
                           <img
+                            loading="lazy"
                             src={society.logoUrl}
                             alt={society.name}
                             className="absolute inset-0 w-full h-full object-contain"
@@ -613,6 +618,7 @@ export default function SocietiesClient({
                   <div className="relative bg-linear-to-br from-ieee-blue to-purple-600">
                     {selectedEvent.bannerUrl ? (
                       <img
+                        loading="lazy"
                         src={selectedEvent.bannerUrl}
                         alt={selectedEvent.title}
                         className="absolute inset-0 w-full h-full object-cover object-top"
