@@ -1,9 +1,11 @@
-import { Suspense } from 'react'
-import { EventDetailContent } from './EventDetailContent'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Suspense } from "react";
+import { EventDetailContent } from "./EventDetailContent";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export default async function EventDetailPage(props: { params: Promise<{ id: string }> }) {
-  const { id } = await props.params
+export default async function EventDetailPage(props: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await props.params;
 
   return (
     <div className="space-y-6">
@@ -11,7 +13,7 @@ export default async function EventDetailPage(props: { params: Promise<{ id: str
         <EventDetailContent eventId={id} />
       </Suspense>
     </div>
-  )
+  );
 }
 
 function EventDetailSkeleton() {
@@ -34,5 +36,5 @@ function EventDetailSkeleton() {
         ))}
       </div>
     </div>
-  )
+  );
 }

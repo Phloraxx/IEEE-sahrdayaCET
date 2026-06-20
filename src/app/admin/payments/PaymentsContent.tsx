@@ -1,6 +1,6 @@
-import { createPB } from '@/lib/pb'
-import { cookies } from 'next/headers'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { createPB } from "@/lib/pb";
+import { getRequestHeader } from "@tanstack/react-start/server";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -8,34 +8,40 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
-import { PB_AUTH_COOKIE } from '@/lib/constants'
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { PB_AUTH_COOKIE } from "@/lib/constants";
 
 export async function PaymentsContent() {
-  const cookieStore = await cookies()
-  const pb = createPB(`${PB_AUTH_COOKIE}=${cookieStore.get(PB_AUTH_COOKIE)?.value}`)
+  const cookieHeader = getRequestHeader("cookie") || "";
+  const pb = createPB(cookieHeader);
 
   try {
-    const regs = await pb.collection('registrations').getFullList({
+    const regs = await pb.collection("registrations").getFullList({
       filter: "paymentStatus != 'not_required'",
-      sort: '-registrationDate',
-      fields: 'id,userName,userEmail,paymentStatus,amount,registrationDate,paymentTicketId',
-    })
+      sort: "-registrationDate",
+      fields:
+        "id,userName,userEmail,paymentStatus,amount,registrationDate,paymentTicketId",
+    });
 
     const payments = regs.map((r: Record<string, unknown>) => ({
       id: r.id as string,
-      userName: (r.userName as string) || 'Unknown',
-      userEmail: (r.userEmail as string) || '',
-      paymentStatus: (r.paymentStatus as string) || 'pending',
+      userName: (r.userName as string) || "Unknown",
+      userEmail: (r.userEmail as string) || "",
+      paymentStatus: (r.paymentStatus as string) || "pending",
       amount: Number(r.amount) || 0,
-      transactionId: (r.paymentTicketId as string) || '',
-      createdAt: (r.registrationDate as string) || '',
-    }))
+      transactionId: (r.paymentTicketId as string) || "",
+      createdAt: (r.registrationDate as string) || "",
+    }));
 
-    const totalRevenue = payments.reduce((s, p) => s + (p.paymentStatus === 'paid' ? p.amount : 0), 0)
-    const paidCount = payments.filter((p) => p.paymentStatus === 'paid').length
-    const pendingCount = payments.filter((p) => p.paymentStatus === 'pending').length
+    const totalRevenue = payments.reduce(
+      (s, p) => s + (p.paymentStatus === "paid" ? p.amount : 0),
+      0,
+    );
+    const paidCount = payments.filter((p) => p.paymentStatus === "paid").length;
+    const pendingCount = payments.filter(
+      (p) => p.paymentStatus === "pending",
+    ).length;
 
     return (
       <div className="space-y-6">
@@ -68,7 +74,9 @@ export async function PaymentsContent() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold text-amber-600">{pendingCount}</p>
+              <p className="text-2xl font-bold text-amber-600">
+                {pendingCount}
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -87,7 +95,9 @@ export async function PaymentsContent() {
                     <TableHead>User</TableHead>
                     <TableHead>Amount</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="hidden sm:table-cell">Transaction ID</TableHead>
+                    <TableHead className="hidden sm:table-cell">
+                      Transaction ID
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -95,14 +105,20 @@ export async function PaymentsContent() {
                     <TableRow key={p.id}>
                       <TableCell>
                         <div className="font-medium">{p.userName}</div>
-                        <div className="text-xs text-muted-foreground">{p.userEmail}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {p.userEmail}
+                        </div>
                       </TableCell>
-                      <TableCell className="font-mono text-sm">₹{p.amount}</TableCell>
+                      <TableCell className="font-mono text-sm">
+                        ₹{p.amount}
+                      </TableCell>
                       <TableCell>
                         <PaymentStatusBadge status={p.paymentStatus} />
                       </TableCell>
                       <TableCell className="hidden sm:table-cell font-mono text-xs text-muted-foreground">
-                        {p.transactionId ? p.transactionId.slice(0, 16) + '…' : '—'}
+                        {p.transactionId
+                          ? p.transactionId.slice(0, 16) + "…"
+                          : "—"}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -112,7 +128,7 @@ export async function PaymentsContent() {
           </CardContent>
         </Card>
       </div>
-    )
+    );
   } catch {
     return (
       <Card className="border-dashed">
@@ -120,20 +136,20 @@ export async function PaymentsContent() {
           Failed to load payments.
         </CardContent>
       </Card>
-    )
+    );
   }
 }
 
 /* ── Small helper to pick the right badge variant ── */
 function PaymentStatusBadge({ status }: { status: string }) {
   switch (status) {
-    case 'paid':
-      return <Badge variant="success">Paid</Badge>
-    case 'pending':
-      return <Badge variant="warning">Pending</Badge>
-    case 'failed':
-      return <Badge variant="destructive">Failed</Badge>
+    case "paid":
+      return <Badge variant="success">Paid</Badge>;
+    case "pending":
+      return <Badge variant="warning">Pending</Badge>;
+    case "failed":
+      return <Badge variant="destructive">Failed</Badge>;
     default:
-      return <Badge variant="outline">{status}</Badge>
+      return <Badge variant="outline">{status}</Badge>;
   }
 }

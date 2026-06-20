@@ -1,8 +1,8 @@
-import { Suspense } from 'react'
-import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
-import { RegistrationDetailClient } from '../RegistrationDetailClient'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Suspense } from "react";
+import { Link } from "@tanstack/react-router";
+import { ArrowLeft } from "lucide-react";
+import { RegistrationDetailClient } from "../RegistrationDetailClient";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function RegDetailSkeleton() {
   return (
@@ -16,21 +16,28 @@ function RegDetailSkeleton() {
         </div>
       ))}
     </div>
-  )
+  );
 }
 
-export default async function RegistrationDetailPage(props: { params: Promise<{ id: string }> }) {
-  const { id } = await props.params
+export default async function RegistrationDetailPage(props: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await props.params;
 
   return (
     <div className="space-y-6 max-w-2xl">
       <div className="flex items-center gap-4">
-        <Link href="/admin/registrations" className="inline-flex items-center justify-center rounded-lg border border-border p-2 text-muted-foreground hover:bg-muted transition-colors">
+        <Link
+          to="/admin/registrations"
+          className="inline-flex items-center justify-center rounded-lg border border-border p-2 text-muted-foreground hover:bg-muted transition-colors"
+        >
           <ArrowLeft className="size-4" />
         </Link>
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Registration</h1>
-          <p className="text-sm text-muted-foreground mt-1">Registration details</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Registration details
+          </p>
         </div>
       </div>
 
@@ -38,5 +45,5 @@ export default async function RegistrationDetailPage(props: { params: Promise<{ 
         <RegistrationDetailClient id={id} />
       </Suspense>
     </div>
-  )
+  );
 }

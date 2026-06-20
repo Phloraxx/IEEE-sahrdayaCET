@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Outlet, createRootRoute, HeadContent, Scripts } from '@tanstack/react-router'
+import { Outlet, createRootRoute, HeadContent, Scripts, Link } from '@tanstack/react-router'
 import { AuthProvider } from '@/lib/auth-context'
 import '@/app/globals.css'
 
@@ -41,8 +41,16 @@ export const Route = createRootRoute({
     ],
   }),
   component: RootComponent,
+  notFoundComponent: () => (
+    <div style={{ padding: '2rem', textAlign: 'center', fontFamily: 'system-ui, sans-serif' }}>
+      <h1 style={{ fontSize: '2rem', fontWeight: 'bold' }}>404 — Page Not Found</h1>
+      <p style={{ marginTop: '0.5rem', color: '#666' }}>The page you're looking for doesn't exist.</p>
+      <Link to="/" style={{ color: '#00629B', textDecoration: 'underline', marginTop: '1rem', display: 'inline-block' }}>
+        Go home
+      </Link>
+    </div>
+  ),
 })
-
 function RootComponent() {
   return (
     <RootDocument>

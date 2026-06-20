@@ -1,12 +1,17 @@
-'use client'
+"use client";
 
-import { Search } from 'lucide-react'
-import { useState, useMemo } from 'react'
-import { CalendarIcon } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
+import { Search } from "lucide-react";
+import { useState, useMemo } from "react";
+import { CalendarIcon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -14,104 +19,129 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+} from "@/components/ui/table";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface RegItem {
-  id: string
-  userName: string
-  userEmail: string
-  userPhone: string
-  registrationStatus: string
-  paymentStatus: string
-  checkedIn: boolean
-  checkedInAt: string
-  ticketId: string
-  amount: number
-  createdAt: string
-  eventTitle: string
-  eventId: string
+  id: string;
+  userName: string;
+  userEmail: string;
+  userPhone: string;
+  registrationStatus: string;
+  paymentStatus: string;
+  checkedIn: boolean;
+  checkedInAt: string;
+  ticketId: string;
+  amount: number;
+  createdAt: string;
+  eventTitle: string;
+  eventId: string;
 }
 
 interface Props {
-  registrations: RegItem[]
-  total: number
-  events?: { id: string; title: string }[]
+  registrations: RegItem[];
+  total: number;
+  events?: { id: string; title: string }[];
 }
 
 function formatDate(dateStr: string) {
-  if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleDateString('en-IN', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  if (!dateStr) return "—";
+  return new Date(dateStr).toLocaleDateString("en-IN", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function RegistrationStatusBadge({ status }: { status: string }) {
   switch (status) {
-    case 'confirmed': return <Badge variant="secondary">Confirmed</Badge>
-    case 'pending': return <Badge variant="outline" className="border-amber-400 text-amber-700">Pending</Badge>
-    case 'cancelled': return <Badge variant="destructive">Cancelled</Badge>
-    default: return <Badge variant="outline">{status}</Badge>
+    case "confirmed":
+      return <Badge variant="secondary">Confirmed</Badge>;
+    case "pending":
+      return (
+        <Badge variant="outline" className="border-amber-400 text-amber-700">
+          Pending
+        </Badge>
+      );
+    case "cancelled":
+      return <Badge variant="destructive">Cancelled</Badge>;
+    default:
+      return <Badge variant="outline">{status}</Badge>;
   }
 }
 
 function PaymentStatusBadge({ status }: { status: string }) {
   switch (status) {
-    case 'paid': return <Badge variant="secondary">Paid</Badge>
-    case 'pending': return <Badge variant="outline" className="border-amber-400 text-amber-700">Pending</Badge>
-    case 'not_required': return <Badge variant="outline">Free</Badge>
-    case 'failed': return <Badge variant="destructive">Failed</Badge>
-    default: return <Badge variant="outline">{status || '—'}</Badge>
+    case "paid":
+      return <Badge variant="secondary">Paid</Badge>;
+    case "pending":
+      return (
+        <Badge variant="outline" className="border-amber-400 text-amber-700">
+          Pending
+        </Badge>
+      );
+    case "not_required":
+      return <Badge variant="outline">Free</Badge>;
+    case "failed":
+      return <Badge variant="destructive">Failed</Badge>;
+    default:
+      return <Badge variant="outline">{status || "—"}</Badge>;
   }
 }
 
 export function RegistrationsClient({ registrations, total, events }: Props) {
-  const [searchQuery, setSearchQuery] = useState('')
-  const [eventFilter, setEventFilter] = useState<string>('all')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [paymentFilter, setPaymentFilter] = useState<string>('all')
-  const [currentPage, setCurrentPage] = useState(1)
-  const perPage = 20
+  const [searchQuery, setSearchQuery] = useState("");
+  const [eventFilter, setEventFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [paymentFilter, setPaymentFilter] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const perPage = 20;
 
   const filtered = useMemo(() => {
-    let result = [...registrations]
+    let result = [...registrations];
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase()
-      result = result.filter((r) =>
-        r.userName.toLowerCase().includes(q) ||
-        r.userEmail.toLowerCase().includes(q) ||
-        r.eventTitle?.toLowerCase().includes(q)
-      )
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (r) =>
+          r.userName.toLowerCase().includes(q) ||
+          r.userEmail.toLowerCase().includes(q) ||
+          r.eventTitle?.toLowerCase().includes(q),
+      );
     }
-    if (eventFilter !== 'all') {
-      result = result.filter((r) => r.eventId === eventFilter)
+    if (eventFilter !== "all") {
+      result = result.filter((r) => r.eventId === eventFilter);
     }
-    if (statusFilter !== 'all') {
-      result = result.filter((r) => r.registrationStatus === statusFilter)
+    if (statusFilter !== "all") {
+      result = result.filter((r) => r.registrationStatus === statusFilter);
     }
-    if (paymentFilter === 'paid') {
-      result = result.filter((r) => r.paymentStatus === 'paid')
-    } else if (paymentFilter === 'pending') {
-      result = result.filter((r) => r.paymentStatus === 'pending')
-    } else if (paymentFilter === 'free') {
-      result = result.filter((r) => r.paymentStatus === 'not_required')
+    if (paymentFilter === "paid") {
+      result = result.filter((r) => r.paymentStatus === "paid");
+    } else if (paymentFilter === "pending") {
+      result = result.filter((r) => r.paymentStatus === "pending");
+    } else if (paymentFilter === "free") {
+      result = result.filter((r) => r.paymentStatus === "not_required");
     }
-    return result
-  }, [registrations, searchQuery, eventFilter, statusFilter, paymentFilter])
+    return result;
+  }, [registrations, searchQuery, eventFilter, statusFilter, paymentFilter]);
 
-  const totalPages = Math.ceil(filtered.length / perPage)
-  const paginated = filtered.slice((currentPage - 1) * perPage, currentPage * perPage)
+  const totalPages = Math.ceil(filtered.length / perPage);
+  const paginated = filtered.slice(
+    (currentPage - 1) * perPage,
+    currentPage * perPage,
+  );
 
   const applyFilter = (setter: (v: string) => void, val: string) => {
-    setter(val)
-    setCurrentPage(1)
-  }
+    setter(val);
+    setCurrentPage(1);
+  };
 
   if (filtered.length === 0) {
-    const hasFilters = searchQuery.trim().length > 0 || eventFilter !== 'all' || statusFilter !== 'all' || paymentFilter !== 'all'
+    const hasFilters =
+      searchQuery.trim().length > 0 ||
+      eventFilter !== "all" ||
+      statusFilter !== "all" ||
+      paymentFilter !== "all";
     return (
       <Card className="border-dashed">
         <CardContent className="py-16 text-center">
@@ -119,21 +149,35 @@ export function RegistrationsClient({ registrations, total, events }: Props) {
             <>
               <Search className="mx-auto size-10 text-muted-foreground/40 mb-4" />
               <CardTitle className="text-lg mb-1">No matches</CardTitle>
-              <CardDescription className="mb-6">No registrations match your filters.</CardDescription>
-              <Button variant="outline" onClick={() => { setSearchQuery(''); setEventFilter('all'); setStatusFilter('all'); setPaymentFilter('all') }}>
+              <CardDescription className="mb-6">
+                No registrations match your filters.
+              </CardDescription>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSearchQuery("");
+                  setEventFilter("all");
+                  setStatusFilter("all");
+                  setPaymentFilter("all");
+                }}
+              >
                 Clear filters
               </Button>
             </>
           ) : (
             <>
               <CalendarIcon className="mx-auto size-10 text-muted-foreground/40 mb-4" />
-              <CardTitle className="text-lg mb-1">No registrations yet</CardTitle>
-              <CardDescription>Registrations will appear here once users sign up for events.</CardDescription>
+              <CardTitle className="text-lg mb-1">
+                No registrations yet
+              </CardTitle>
+              <CardDescription>
+                Registrations will appear here once users sign up for events.
+              </CardDescription>
             </>
           )}
         </CardContent>
       </Card>
-    )
+    );
   }
 
   return (
@@ -151,29 +195,43 @@ export function RegistrationsClient({ registrations, total, events }: Props) {
               className="pl-9"
             />
             {searchQuery && (
-              <button onClick={() => applyFilter(setSearchQuery, '')} className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground">
+              <button
+                onClick={() => applyFilter(setSearchQuery, "")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
+              >
                 Clear
               </button>
             )}
           </div>
           {events && events.length > 0 && (
-            <select value={eventFilter} onChange={(e) => applyFilter(setEventFilter, e.target.value)}
-              className="h-9 rounded-md border border-input bg-white px-3 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50">
+            <select
+              value={eventFilter}
+              onChange={(e) => applyFilter(setEventFilter, e.target.value)}
+              className="h-9 rounded-md border border-input bg-white px-3 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
+            >
               <option value="all">All events</option>
               {events.map((e) => (
-                <option key={e.id} value={e.id}>{e.title}</option>
+                <option key={e.id} value={e.id}>
+                  {e.title}
+                </option>
               ))}
             </select>
           )}
-          <select value={statusFilter} onChange={(e) => applyFilter(setStatusFilter, e.target.value)}
-            className="h-9 rounded-md border border-input bg-white px-3 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50">
+          <select
+            value={statusFilter}
+            onChange={(e) => applyFilter(setStatusFilter, e.target.value)}
+            className="h-9 rounded-md border border-input bg-white px-3 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
+          >
             <option value="all">All status</option>
             <option value="confirmed">Confirmed</option>
             <option value="pending">Pending</option>
             <option value="cancelled">Cancelled</option>
           </select>
-          <select value={paymentFilter} onChange={(e) => applyFilter(setPaymentFilter, e.target.value)}
-            className="h-9 rounded-md border border-input bg-white px-3 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50">
+          <select
+            value={paymentFilter}
+            onChange={(e) => applyFilter(setPaymentFilter, e.target.value)}
+            className="h-9 rounded-md border border-input bg-white px-3 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
+          >
             <option value="all">All payments</option>
             <option value="paid">Paid</option>
             <option value="pending">Pending</option>
@@ -197,24 +255,38 @@ export function RegistrationsClient({ registrations, total, events }: Props) {
               <TableRow
                 key={reg.id}
                 className="cursor-pointer"
-                onClick={() => window.location.href = `/admin/registrations/${reg.id}`}
+                onClick={() =>
+                  (window.location.href = `/admin/registrations/${reg.id}`)
+                }
               >
                 <TableCell>
                   <div className="flex items-center gap-2">
                     <Avatar className="size-8">
                       <AvatarFallback className="text-xs font-semibold bg-muted text-muted-foreground">
-                        {reg.userName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                        {reg.userName
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .slice(0, 2)}
                       </AvatarFallback>
                     </Avatar>
                     <div>
                       <div className="font-medium text-sm">{reg.userName}</div>
-                      <div className="text-xs text-muted-foreground">{reg.userEmail}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {reg.userEmail}
+                      </div>
                     </div>
                   </div>
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground hidden md:table-cell">{reg.eventTitle || '—'}</TableCell>
-                <TableCell><RegistrationStatusBadge status={reg.registrationStatus} /></TableCell>
-                <TableCell className="hidden sm:table-cell"><PaymentStatusBadge status={reg.paymentStatus} /></TableCell>
+                <TableCell className="text-sm text-muted-foreground hidden md:table-cell">
+                  {reg.eventTitle || "—"}
+                </TableCell>
+                <TableCell>
+                  <RegistrationStatusBadge status={reg.registrationStatus} />
+                </TableCell>
+                <TableCell className="hidden sm:table-cell">
+                  <PaymentStatusBadge status={reg.paymentStatus} />
+                </TableCell>
                 <TableCell className="hidden md:table-cell">
                   {reg.checkedIn ? (
                     <Badge variant="secondary">Yes</Badge>
@@ -223,7 +295,9 @@ export function RegistrationsClient({ registrations, total, events }: Props) {
                   )}
                 </TableCell>
                 <TableCell className="text-right">
-                  <span className="text-xs text-muted-foreground">{formatDate(reg.createdAt)}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {formatDate(reg.createdAt)}
+                  </span>
                 </TableCell>
               </TableRow>
             ))}
@@ -232,20 +306,41 @@ export function RegistrationsClient({ registrations, total, events }: Props) {
 
         {/* Pagination — only show when more than one page */}
         {totalPages > 1 && (
-        <div className="flex items-center gap-2 px-6 py-4 text-sm text-muted-foreground border-t border-border">
-          <span>
-            {searchQuery || eventFilter !== 'all' || statusFilter !== 'all' || paymentFilter !== 'all'
-              ? `Found ${filtered.length} of ${total} registrations`
-              : `Showing ${paginated.length} of ${total} registrations`}
-          </span>
+          <div className="flex items-center gap-2 px-6 py-4 text-sm text-muted-foreground border-t border-border">
+            <span>
+              {searchQuery ||
+              eventFilter !== "all" ||
+              statusFilter !== "all" ||
+              paymentFilter !== "all"
+                ? `Found ${filtered.length} of ${total} registrations`
+                : `Showing ${paginated.length} of ${total} registrations`}
+            </span>
             <div className="ml-auto flex gap-1 items-center">
-              <Button variant="outline" size="sm" onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}>Prev</Button>
-              <span className="text-xs text-muted-foreground px-2">Page {currentPage} of {totalPages}</span>
-              <Button variant="outline" size="sm" onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                Prev
+              </Button>
+              <span className="text-xs text-muted-foreground px-2">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
             </div>
-        </div>
+          </div>
         )}
       </CardContent>
     </Card>
-  )
+  );
 }

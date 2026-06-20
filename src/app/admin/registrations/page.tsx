@@ -1,6 +1,6 @@
-import { Suspense } from 'react'
-import { RegistrationsContent } from './RegistrationsContent'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Suspense } from "react";
+import { RegistrationsContent } from "./RegistrationsContent";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function RegistrationsPage() {
   return (
@@ -15,7 +15,7 @@ export default function RegistrationsPage() {
         <RegistrationsContent />
       </Suspense>
     </div>
-  )
+  );
 }
 
 function RegSkeleton() {
@@ -47,5 +47,5 @@ function RegSkeleton() {
         <Skeleton className="h-4 w-48" />
       </div>
     </div>
-  )
+  );
 }

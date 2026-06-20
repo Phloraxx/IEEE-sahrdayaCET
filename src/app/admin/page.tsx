@@ -1,6 +1,6 @@
-import { Suspense } from 'react'
-import { OverviewContent } from './OverviewContent'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Suspense } from "react";
+import { OverviewContent } from "./OverviewContent";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function AdminPage() {
   return (
@@ -9,7 +9,7 @@ export default function AdminPage() {
         <OverviewContent />
       </Suspense>
     </div>
-  )
+  );
 }
 
 function OverviewSkeleton() {
@@ -72,5 +72,5 @@ function OverviewSkeleton() {
         </div>
       </div>
     </div>
-  )
+  );
 }

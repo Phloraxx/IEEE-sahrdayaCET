@@ -1,13 +1,25 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { CalendarIcon, MapPin, Eye, Pencil, Trash2, Search } from 'lucide-react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
+import { useState } from "react";
+import {
+  CalendarIcon,
+  MapPin,
+  Eye,
+  Pencil,
+  Trash2,
+  Search,
+} from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -15,7 +27,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
+} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -23,71 +35,81 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
+} from "@/components/ui/dialog";
 
 interface EventItem {
-  id: string
-  title: string
-  date: string
-  endDate: string
-  venue: string
-  price: number
-  status: string
-  registrationOpen: boolean
-  maxCapacity: number
-  registeredCount: number
-  checkedInCount: number
-  isPaid: boolean
-  societyName: string
-  societyId: string
+  id: string;
+  title: string;
+  date: string;
+  endDate: string;
+  venue: string;
+  price: number;
+  status: string;
+  registrationOpen: boolean;
+  maxCapacity: number;
+  registeredCount: number;
+  checkedInCount: number;
+  isPaid: boolean;
+  societyName: string;
+  societyId: string;
 }
 
 interface Props {
-  events: EventItem[]
-  total: number
+  events: EventItem[];
+  total: number;
 }
 
 function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('en-IN', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
+  return new Date(dateStr).toLocaleDateString("en-IN", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 export function EventsTableClient({ events, total }: Props) {
-  const router = useRouter()
-  const [deleteId, setDeleteId] = useState<string | null>(null)
-  const [deleting, setDeleting] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [societyFilter, setSocietyFilter] = useState('all')
+  const navigate = useNavigate();
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [societyFilter, setSocietyFilter] = useState("all");
 
   const filtered = events.filter((e) => {
-    if (searchQuery.trim() && !e.title.toLowerCase().includes(searchQuery.toLowerCase()) && !e.societyName?.toLowerCase().includes(searchQuery.toLowerCase())) {
-      return false
+    if (
+      searchQuery.trim() &&
+      !e.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
+      !e.societyName?.toLowerCase().includes(searchQuery.toLowerCase())
+    ) {
+      return false;
     }
-    if (statusFilter !== 'all' && e.status !== statusFilter) return false
-    if (societyFilter !== 'all' && e.societyName !== societyFilter) return false
-    return true
-  })
+    if (statusFilter !== "all" && e.status !== statusFilter) return false;
+    if (societyFilter !== "all" && e.societyName !== societyFilter)
+      return false;
+    return true;
+  });
 
   const handleDelete = async () => {
-    if (!deleteId) return
-    setDeleting(true)
+    if (!deleteId) return;
+    setDeleting(true);
     try {
-      await fetch(`/api/admin/events/${deleteId}`, { method: 'DELETE' })
-      window.location.reload()
+      await fetch(`/api/admin/events/${deleteId}`, { method: "DELETE" });
+      window.location.reload();
     } catch {
-      setDeleting(false)
-      setDeleteId(null)
+      setDeleting(false);
+      setDeleteId(null);
     }
-  }
+  };
 
-  const societies = [...new Set(events.map((e) => e.societyName).filter(Boolean))]
+  const societies = [
+    ...new Set(events.map((e) => e.societyName).filter(Boolean)),
+  ];
 
   if (filtered.length === 0) {
-    const isEmptySearch = searchQuery.trim().length > 0 || statusFilter !== 'all' || societyFilter !== 'all'
+    const isEmptySearch =
+      searchQuery.trim().length > 0 ||
+      statusFilter !== "all" ||
+      societyFilter !== "all";
     return (
       <Card className="border-dashed">
         <CardContent className="py-16 text-center">
@@ -95,8 +117,17 @@ export function EventsTableClient({ events, total }: Props) {
             <>
               <Search className="mx-auto size-10 text-muted-foreground/40 mb-4" />
               <CardTitle className="text-lg mb-1">No matches</CardTitle>
-              <CardDescription className="mb-6">No events match your filters. Try a different search term.</CardDescription>
-              <Button variant="outline" onClick={() => { setSearchQuery(''); setStatusFilter('all'); setSocietyFilter('all') }}>
+              <CardDescription className="mb-6">
+                No events match your filters. Try a different search term.
+              </CardDescription>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSearchQuery("");
+                  setStatusFilter("all");
+                  setSocietyFilter("all");
+                }}
+              >
                 Clear filters
               </Button>
             </>
@@ -104,15 +135,17 @@ export function EventsTableClient({ events, total }: Props) {
             <>
               <CalendarIcon className="mx-auto size-10 text-muted-foreground/40 mb-4" />
               <CardTitle className="text-lg mb-1">No events yet</CardTitle>
-              <CardDescription className="mb-6">Create your first IEEE event to get started.</CardDescription>
-              <Link href="/admin/events/new">
+              <CardDescription className="mb-6">
+                Create your first IEEE event to get started.
+              </CardDescription>
+              <Link to="/admin/events/new">
                 <Button>Create Event</Button>
               </Link>
             </>
           )}
         </CardContent>
       </Card>
-    )
+    );
   }
 
   return (
@@ -131,7 +164,10 @@ export function EventsTableClient({ events, total }: Props) {
                 className="pl-9"
               />
               {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground">
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
+                >
                   Clear
                 </button>
               )}
@@ -153,7 +189,9 @@ export function EventsTableClient({ events, total }: Props) {
             >
               <option value="all">All societies</option>
               {societies.map((s) => (
-                <option key={s} value={s}>{s}</option>
+                <option key={s} value={s}>
+                  {s}
+                </option>
               ))}
             </select>
           </div>
@@ -172,17 +210,31 @@ export function EventsTableClient({ events, total }: Props) {
             </TableHeader>
             <TableBody>
               {filtered.map((event) => {
-                const pct = event.maxCapacity > 0 ? Math.min((event.registeredCount / event.maxCapacity) * 100, 100) : 0
+                const pct =
+                  event.maxCapacity > 0
+                    ? Math.min(
+                        (event.registeredCount / event.maxCapacity) * 100,
+                        100,
+                      )
+                    : 0;
                 return (
                   <TableRow key={event.id}>
                     <TableCell>
-                      <Link href={`/admin/events/${event.id}`} className="no-underline text-inherit">
+                      <Link
+                        to={`/admin/events/${event.id}`}
+                        className="no-underline text-inherit"
+                      >
                         <div className="font-medium text-sm">{event.title}</div>
                         <div className="text-xs text-muted-foreground mt-0.5">
                           <MapPin className="size-3 inline align-middle mr-0.5" />
-                          {event.venue || 'TBD'}
+                          {event.venue || "TBD"}
                           {event.isPaid && (
-                            <span className="font-mono text-xs ml-2" style={{ color: 'var(--success, #2e7d5e)' }}>₹{event.price}</span>
+                            <span
+                              className="font-mono text-xs ml-2"
+                              style={{ color: "var(--success, #2e7d5e)" }}
+                            >
+                              ₹{event.price}
+                            </span>
                           )}
                         </div>
                       </Link>
@@ -194,11 +246,19 @@ export function EventsTableClient({ events, total }: Props) {
                       </div>
                     </TableCell>
                     <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
-                      {event.societyName || '—'}
+                      {event.societyName || "—"}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <Badge variant={event.status === 'published' ? 'default' : event.status === 'completed' ? 'secondary' : 'outline'}>
+                        <Badge
+                          variant={
+                            event.status === "published"
+                              ? "default"
+                              : event.status === "completed"
+                                ? "secondary"
+                                : "outline"
+                          }
+                        >
                           {event.status}
                         </Badge>
                         {event.registrationOpen && <Badge>Open</Badge>}
@@ -207,54 +267,90 @@ export function EventsTableClient({ events, total }: Props) {
                     <TableCell>
                       <div className="flex items-center gap-2 min-w-[120px]">
                         <div className="progress" style={{ flex: 1 }}>
-                          <div className="progress-fill" style={{ width: `${pct}%` }} />
+                          <div
+                            className="progress-fill"
+                            style={{ width: `${pct}%` }}
+                          />
                         </div>
-                        <span className="text-xs font-mono text-muted-foreground">{event.registeredCount}/{event.maxCapacity}</span>
+                        <span className="text-xs font-mono text-muted-foreground">
+                          {event.registeredCount}/{event.maxCapacity}
+                        </span>
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex gap-1 justify-end">
-                        <Button variant="ghost" size="icon" className="size-8" onClick={() => router.push(`/admin/events/${event.id}`)}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8"
+                          onClick={() =>
+                            navigate({ to: `/admin/events/${event.id}` })
+                          }
+                        >
                           <Eye className="size-3.5" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="size-8" onClick={() => router.push(`/admin/events/${event.id}/edit`)}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8"
+                          onClick={() =>
+                            navigate({ to: `/admin/events/${event.id}/edit` })
+                          }
+                        >
                           <Pencil className="size-3.5" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="size-8" onClick={() => setDeleteId(event.id)}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8"
+                          onClick={() => setDeleteId(event.id)}
+                        >
                           <Trash2 className="size-3.5" />
                         </Button>
                       </div>
                     </TableCell>
                   </TableRow>
-                )
+                );
               })}
             </TableBody>
           </Table>
 
           {/* Summary */}
           {total > events.length && (
-          <div className="flex items-center gap-2 px-6 py-4 text-sm text-muted-foreground border-t border-border">
-            <span>
-              {searchQuery || statusFilter !== 'all' || societyFilter !== 'all'
-                ? `Found ${filtered.length} of ${total} events`
-                : `Showing ${events.length} of ${total} events`}
-            </span>
-          </div>
+            <div className="flex items-center gap-2 px-6 py-4 text-sm text-muted-foreground border-t border-border">
+              <span>
+                {searchQuery ||
+                statusFilter !== "all" ||
+                societyFilter !== "all"
+                  ? `Found ${filtered.length} of ${total} events`
+                  : `Showing ${events.length} of ${total} events`}
+              </span>
+            </div>
           )}
         </CardContent>
       </Card>
 
       {/* Delete Dialog */}
-      <Dialog open={!!deleteId} onOpenChange={(open) => { if (!open) setDeleteId(null) }}>
+      <Dialog
+        open={!!deleteId}
+        onOpenChange={(open) => {
+          if (!open) setDeleteId(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Event</DialogTitle>
             <DialogDescription>
-              This will soft-delete the event and mark it as completed. Registrations will be preserved. This action can be reversed.
+              This will soft-delete the event and mark it as completed.
+              Registrations will be preserved. This action can be reversed.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteId(null)} disabled={deleting}>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteId(null)}
+              disabled={deleting}
+            >
               Cancel
             </Button>
             <Button
@@ -262,11 +358,11 @@ export function EventsTableClient({ events, total }: Props) {
               disabled={deleting}
               onClick={handleDelete}
             >
-              {deleting ? 'Deleting...' : 'Delete Event'}
+              {deleting ? "Deleting..." : "Delete Event"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
-  )
+  );
 }

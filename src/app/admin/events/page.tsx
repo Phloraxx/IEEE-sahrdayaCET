@@ -1,8 +1,8 @@
-import { Suspense } from 'react'
-import Link from 'next/link'
-import { Plus } from 'lucide-react'
-import { EventsTableContent } from './EventsTableContent'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Suspense } from "react";
+import { Link } from "@tanstack/react-router";
+import { Plus } from "lucide-react";
+import { EventsTableContent } from "./EventsTableContent";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function EventsPage() {
   return (
@@ -15,7 +15,7 @@ export default function EventsPage() {
           </p>
         </div>
         <Link
-          href="/admin/events/new"
+          to="/admin/events/new"
           className="inline-flex items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/80 px-4 py-2 text-sm font-medium transition-all"
         >
           <Plus className="mr-1.5 size-4" />
@@ -27,7 +27,7 @@ export default function EventsPage() {
         <EventsTableContent />
       </Suspense>
     </div>
-  )
+  );
 }
 
 function EventsTableSkeleton() {
@@ -47,5 +47,5 @@ function EventsTableSkeleton() {
         ))}
       </div>
     </div>
-  )
+  );
 }

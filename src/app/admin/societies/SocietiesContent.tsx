@@ -1,10 +1,10 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useMemo } from 'react'
-import { Search, Eye, EyeOff } from 'lucide-react'
-import Link from 'next/link'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
+import { useState, useEffect, useMemo } from "react";
+import { Search, Eye, EyeOff } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -12,45 +12,50 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Input } from '@/components/ui/input'
+} from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 
 interface SocietyItem {
-  id: string
-  name: string
-  slug: string
-  isHidden: boolean
-  chairs: string[]
-  eventsCount?: number
+  id: string;
+  name: string;
+  slug: string;
+  isHidden: boolean;
+  chairs: string[];
+  eventsCount?: number;
 }
 
 export function SocietiesContent() {
-  const [societies, setSocieties] = useState<SocietyItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [visibilityFilter, setVisibilityFilter] = useState('all')
+  const [societies, setSocieties] = useState<SocietyItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [visibilityFilter, setVisibilityFilter] = useState("all");
 
   useEffect(() => {
-    fetch('/api/admin/societies')
+    fetch("/api/admin/societies")
       .then((r) => r.json())
       .then((data) => {
-        setSocieties(data.societies || [])
-        setLoading(false)
+        setSocieties(data.societies || []);
+        setLoading(false);
       })
-      .catch(() => setLoading(false))
-  }, [])
+      .catch(() => setLoading(false));
+  }, []);
 
   const filtered = useMemo(() => {
-    let result = [...societies]
+    let result = [...societies];
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase()
-      result = result.filter((s) => s.name.toLowerCase().includes(q) || s.slug.toLowerCase().includes(q))
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (s) =>
+          s.name.toLowerCase().includes(q) || s.slug.toLowerCase().includes(q),
+      );
     }
-    if (visibilityFilter === 'visible') result = result.filter((s) => !s.isHidden)
-    else if (visibilityFilter === 'hidden') result = result.filter((s) => s.isHidden)
-    return result
-  }, [societies, searchQuery, visibilityFilter])
+    if (visibilityFilter === "visible")
+      result = result.filter((s) => !s.isHidden);
+    else if (visibilityFilter === "hidden")
+      result = result.filter((s) => s.isHidden);
+    return result;
+  }, [societies, searchQuery, visibilityFilter]);
 
   if (loading) {
     return (
@@ -67,7 +72,7 @@ export function SocietiesContent() {
           </div>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   return (
@@ -84,7 +89,10 @@ export function SocietiesContent() {
               className="pl-9"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground">
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
+              >
                 Clear
               </button>
             )}
@@ -120,23 +128,40 @@ export function SocietiesContent() {
                 <TableRow
                   key={s.id}
                   className="cursor-pointer"
-                  onClick={() => window.location.href = `/admin/societies/${s.id}/edit`}
+                  onClick={() =>
+                    (window.location.href = `/admin/societies/${s.id}/edit`)
+                  }
                 >
                   <TableCell>
-                    <Link href={`/admin/societies/${s.id}/edit`} className="font-medium no-underline text-inherit">
+                    <Link
+                      to={`/admin/societies/${s.id}/edit`}
+                      className="font-medium no-underline text-inherit"
+                    >
                       {s.name}
                     </Link>
                   </TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">{s.slug}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{Array.isArray(s.chairs) ? s.chairs.length : 0} chairs</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{s.eventsCount ?? '—'}</TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">
+                    {s.slug}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {Array.isArray(s.chairs) ? s.chairs.length : 0} chairs
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {s.eventsCount ?? "—"}
+                  </TableCell>
                   <TableCell>
                     {s.isHidden ? (
-                      <Badge variant="outline" className="inline-flex items-center gap-1">
+                      <Badge
+                        variant="outline"
+                        className="inline-flex items-center gap-1"
+                      >
                         <EyeOff className="size-3" /> Hidden
                       </Badge>
                     ) : (
-                      <Badge variant="secondary" className="inline-flex items-center gap-1">
+                      <Badge
+                        variant="secondary"
+                        className="inline-flex items-center gap-1"
+                      >
                         <Eye className="size-3" /> Visible
                       </Badge>
                     )}
@@ -148,5 +173,5 @@ export function SocietiesContent() {
         )}
       </CardContent>
     </Card>
-  )
+  );
 }
