@@ -207,3 +207,38 @@ Public route map → TanStack file names:
 | Authz vs framework swap order | Authz first (Stage 1), framework second (Stage 3) |
 | Tests | Keep Playwright + Vitest; add visual snapshot diff for UI-preservation proof |
 | UI changes | NONE. Imperative. Identical JSX, props, classes, layout. Diff = failure. |
+
+## Stage 3 — BLOCKED (2026-06-20)
+
+Stage 3 scaffold attempted and **blocked** by TanStack Start RC dependency drift:
+
+1. `@tanstack/react-start@1.120.20` (latest) has no `./plugin/vite` export that the
+   official docs assume. The plugin moved to `@tanstack/react-start-plugin`, whose
+   API renames between patch lines (`createTanStackStartPlugin` in 1.120.x vs
+   `tanstackStart` in 1.131.x).
+2. The server runtime (`@tanstack/start-server-core`) references the virtual import
+   `#tanstack-router-entry`, which the plugin is supposed to inject. On the 1.120.x
+   line the resolver never fires → HTTP 500 on every SSR request.
+3. The official workaround is Nitro. Latest Nitro (3.x) requires Vite 7/8, conflicting
+   with the Vite 6 that TanStack 1.120 pins. The compatible Nitro (2.2.28) is
+   **deprecated** and fails its native build on Windows (`deasync`/`spawn EINVAL`).
+
+This is the exact RC API-drift risk flagged in the risk register. It is not a code
+problem that can be edited past — it's a broken dependency-compatibility matrix in
+this environment.
+
+### What's done and safe
+- ✅ Stage 0 PASS (PB rules proven, test chair confirmed scoping).
+- ✅ Stage 1 DONE (commit `ab3c285`): `createAdminPB` + `chair-scope.ts` removed
+  from 20 admin routes, `-256 net lines`, typecheck clean. This is the real
+  de-engineering win and is independent of the framework.
+
+### Recommended next step
+Reattempt Stage 3 only after one of:
+- TanStack Start ships a **stable 1.0** with a consistent plugin + virtual-module
+  contract, OR
+- The Nitro/Vite version matrix resolves (Nitro 3 supports Vite 6, or TanStack
+  supports Vite 7/8), OR
+- A hosted adapter (Cloudflare/Netlify Vite plugin) is used to bypass Nitro entirely.
+
+Until then, the Next.js app + Stage 1 cleanup is the production deliverable.
