@@ -16,12 +16,16 @@ import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AdminSocietiesRouteImport } from './routes/admin/societies'
 import { Route as AdminRegistrationsRouteImport } from './routes/admin/registrations'
+import { Route as AdminPaymentsRouteImport } from './routes/admin/payments'
 import { Route as AdminEventsRouteImport } from './routes/admin/events'
+import { Route as AdminCheckInRouteImport } from './routes/admin/check-in'
 import { Route as AdminLayoutRouteImport } from './routes/admin/_layout'
 import { Route as PublicSocietiesRouteImport } from './routes/_public.societies'
 import { Route as PublicEventsRouteImport } from './routes/_public.events'
 import { Route as AdminEventsNewRouteImport } from './routes/admin/events.new'
 import { Route as AdminEventsEventIdRouteImport } from './routes/admin/events.$eventId'
+import { Route as AdminCheckInEventIdRouteImport } from './routes/admin/check-in.$eventId'
+import { Route as PublicSocietiesSlugRouteImport } from './routes/_public.societies.$slug'
 import { Route as PublicEventsEventIdRouteImport } from './routes/_public.events.$eventId'
 import { Route as AdminEventsEventIdEditRouteImport } from './routes/admin/events.$eventId.edit'
 
@@ -59,9 +63,19 @@ const AdminRegistrationsRoute = AdminRegistrationsRouteImport.update({
   path: '/admin/registrations',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminPaymentsRoute = AdminPaymentsRouteImport.update({
+  id: '/admin/payments',
+  path: '/admin/payments',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminEventsRoute = AdminEventsRouteImport.update({
   id: '/admin/events',
   path: '/admin/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminCheckInRoute = AdminCheckInRouteImport.update({
+  id: '/admin/check-in',
+  path: '/admin/check-in',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminLayoutRoute = AdminLayoutRouteImport.update({
@@ -89,6 +103,16 @@ const AdminEventsEventIdRoute = AdminEventsEventIdRouteImport.update({
   path: '/$eventId',
   getParentRoute: () => AdminEventsRoute,
 } as any)
+const AdminCheckInEventIdRoute = AdminCheckInEventIdRouteImport.update({
+  id: '/$eventId',
+  path: '/$eventId',
+  getParentRoute: () => AdminCheckInRoute,
+} as any)
+const PublicSocietiesSlugRoute = PublicSocietiesSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => PublicSocietiesRoute,
+} as any)
 const PublicEventsEventIdRoute = PublicEventsEventIdRouteImport.update({
   id: '/$eventId',
   path: '/$eventId',
@@ -103,30 +127,38 @@ const AdminEventsEventIdEditRoute = AdminEventsEventIdEditRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof PublicIndexRoute
   '/events': typeof PublicEventsRouteWithChildren
-  '/societies': typeof PublicSocietiesRoute
+  '/societies': typeof PublicSocietiesRouteWithChildren
   '/admin': typeof AdminLayoutRoute
+  '/admin/check-in': typeof AdminCheckInRouteWithChildren
   '/admin/events': typeof AdminEventsRouteWithChildren
+  '/admin/payments': typeof AdminPaymentsRoute
   '/admin/registrations': typeof AdminRegistrationsRoute
   '/admin/societies': typeof AdminSocietiesRoute
   '/admin/users': typeof AdminUsersRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/admin/': typeof AdminIndexRoute
   '/events/$eventId': typeof PublicEventsEventIdRoute
+  '/societies/$slug': typeof PublicSocietiesSlugRoute
+  '/admin/check-in/$eventId': typeof AdminCheckInEventIdRoute
   '/admin/events/$eventId': typeof AdminEventsEventIdRouteWithChildren
   '/admin/events/new': typeof AdminEventsNewRoute
   '/admin/events/$eventId/edit': typeof AdminEventsEventIdEditRoute
 }
 export interface FileRoutesByTo {
   '/events': typeof PublicEventsRouteWithChildren
-  '/societies': typeof PublicSocietiesRoute
+  '/societies': typeof PublicSocietiesRouteWithChildren
   '/admin': typeof AdminIndexRoute
+  '/admin/check-in': typeof AdminCheckInRouteWithChildren
   '/admin/events': typeof AdminEventsRouteWithChildren
+  '/admin/payments': typeof AdminPaymentsRoute
   '/admin/registrations': typeof AdminRegistrationsRoute
   '/admin/societies': typeof AdminSocietiesRoute
   '/admin/users': typeof AdminUsersRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/': typeof PublicIndexRoute
   '/events/$eventId': typeof PublicEventsEventIdRoute
+  '/societies/$slug': typeof PublicSocietiesSlugRoute
+  '/admin/check-in/$eventId': typeof AdminCheckInEventIdRoute
   '/admin/events/$eventId': typeof AdminEventsEventIdRouteWithChildren
   '/admin/events/new': typeof AdminEventsNewRoute
   '/admin/events/$eventId/edit': typeof AdminEventsEventIdEditRoute
@@ -135,9 +167,11 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_public': typeof PublicRouteWithChildren
   '/_public/events': typeof PublicEventsRouteWithChildren
-  '/_public/societies': typeof PublicSocietiesRoute
+  '/_public/societies': typeof PublicSocietiesRouteWithChildren
   '/admin/_layout': typeof AdminLayoutRoute
+  '/admin/check-in': typeof AdminCheckInRouteWithChildren
   '/admin/events': typeof AdminEventsRouteWithChildren
+  '/admin/payments': typeof AdminPaymentsRoute
   '/admin/registrations': typeof AdminRegistrationsRoute
   '/admin/societies': typeof AdminSocietiesRoute
   '/admin/users': typeof AdminUsersRoute
@@ -145,6 +179,8 @@ export interface FileRoutesById {
   '/_public/': typeof PublicIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/_public/events/$eventId': typeof PublicEventsEventIdRoute
+  '/_public/societies/$slug': typeof PublicSocietiesSlugRoute
+  '/admin/check-in/$eventId': typeof AdminCheckInEventIdRoute
   '/admin/events/$eventId': typeof AdminEventsEventIdRouteWithChildren
   '/admin/events/new': typeof AdminEventsNewRoute
   '/admin/events/$eventId/edit': typeof AdminEventsEventIdEditRoute
@@ -156,13 +192,17 @@ export interface FileRouteTypes {
     | '/events'
     | '/societies'
     | '/admin'
+    | '/admin/check-in'
     | '/admin/events'
+    | '/admin/payments'
     | '/admin/registrations'
     | '/admin/societies'
     | '/admin/users'
     | '/auth/callback'
     | '/admin/'
     | '/events/$eventId'
+    | '/societies/$slug'
+    | '/admin/check-in/$eventId'
     | '/admin/events/$eventId'
     | '/admin/events/new'
     | '/admin/events/$eventId/edit'
@@ -171,13 +211,17 @@ export interface FileRouteTypes {
     | '/events'
     | '/societies'
     | '/admin'
+    | '/admin/check-in'
     | '/admin/events'
+    | '/admin/payments'
     | '/admin/registrations'
     | '/admin/societies'
     | '/admin/users'
     | '/auth/callback'
     | '/'
     | '/events/$eventId'
+    | '/societies/$slug'
+    | '/admin/check-in/$eventId'
     | '/admin/events/$eventId'
     | '/admin/events/new'
     | '/admin/events/$eventId/edit'
@@ -187,7 +231,9 @@ export interface FileRouteTypes {
     | '/_public/events'
     | '/_public/societies'
     | '/admin/_layout'
+    | '/admin/check-in'
     | '/admin/events'
+    | '/admin/payments'
     | '/admin/registrations'
     | '/admin/societies'
     | '/admin/users'
@@ -195,6 +241,8 @@ export interface FileRouteTypes {
     | '/_public/'
     | '/admin/'
     | '/_public/events/$eventId'
+    | '/_public/societies/$slug'
+    | '/admin/check-in/$eventId'
     | '/admin/events/$eventId'
     | '/admin/events/new'
     | '/admin/events/$eventId/edit'
@@ -203,7 +251,9 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   PublicRoute: typeof PublicRouteWithChildren
   AdminLayoutRoute: typeof AdminLayoutRoute
+  AdminCheckInRoute: typeof AdminCheckInRouteWithChildren
   AdminEventsRoute: typeof AdminEventsRouteWithChildren
+  AdminPaymentsRoute: typeof AdminPaymentsRoute
   AdminRegistrationsRoute: typeof AdminRegistrationsRoute
   AdminSocietiesRoute: typeof AdminSocietiesRoute
   AdminUsersRoute: typeof AdminUsersRoute
@@ -262,11 +312,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRegistrationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/payments': {
+      id: '/admin/payments'
+      path: '/admin/payments'
+      fullPath: '/admin/payments'
+      preLoaderRoute: typeof AdminPaymentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/events': {
       id: '/admin/events'
       path: '/admin/events'
       fullPath: '/admin/events'
       preLoaderRoute: typeof AdminEventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/check-in': {
+      id: '/admin/check-in'
+      path: '/admin/check-in'
+      fullPath: '/admin/check-in'
+      preLoaderRoute: typeof AdminCheckInRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/_layout': {
@@ -304,6 +368,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminEventsEventIdRouteImport
       parentRoute: typeof AdminEventsRoute
     }
+    '/admin/check-in/$eventId': {
+      id: '/admin/check-in/$eventId'
+      path: '/$eventId'
+      fullPath: '/admin/check-in/$eventId'
+      preLoaderRoute: typeof AdminCheckInEventIdRouteImport
+      parentRoute: typeof AdminCheckInRoute
+    }
+    '/_public/societies/$slug': {
+      id: '/_public/societies/$slug'
+      path: '/$slug'
+      fullPath: '/societies/$slug'
+      preLoaderRoute: typeof PublicSocietiesSlugRouteImport
+      parentRoute: typeof PublicSocietiesRoute
+    }
     '/_public/events/$eventId': {
       id: '/_public/events/$eventId'
       path: '/$eventId'
@@ -333,20 +411,44 @@ const PublicEventsRouteWithChildren = PublicEventsRoute._addFileChildren(
   PublicEventsRouteChildren,
 )
 
+interface PublicSocietiesRouteChildren {
+  PublicSocietiesSlugRoute: typeof PublicSocietiesSlugRoute
+}
+
+const PublicSocietiesRouteChildren: PublicSocietiesRouteChildren = {
+  PublicSocietiesSlugRoute: PublicSocietiesSlugRoute,
+}
+
+const PublicSocietiesRouteWithChildren = PublicSocietiesRoute._addFileChildren(
+  PublicSocietiesRouteChildren,
+)
+
 interface PublicRouteChildren {
   PublicEventsRoute: typeof PublicEventsRouteWithChildren
-  PublicSocietiesRoute: typeof PublicSocietiesRoute
+  PublicSocietiesRoute: typeof PublicSocietiesRouteWithChildren
   PublicIndexRoute: typeof PublicIndexRoute
 }
 
 const PublicRouteChildren: PublicRouteChildren = {
   PublicEventsRoute: PublicEventsRouteWithChildren,
-  PublicSocietiesRoute: PublicSocietiesRoute,
+  PublicSocietiesRoute: PublicSocietiesRouteWithChildren,
   PublicIndexRoute: PublicIndexRoute,
 }
 
 const PublicRouteWithChildren =
   PublicRoute._addFileChildren(PublicRouteChildren)
+
+interface AdminCheckInRouteChildren {
+  AdminCheckInEventIdRoute: typeof AdminCheckInEventIdRoute
+}
+
+const AdminCheckInRouteChildren: AdminCheckInRouteChildren = {
+  AdminCheckInEventIdRoute: AdminCheckInEventIdRoute,
+}
+
+const AdminCheckInRouteWithChildren = AdminCheckInRoute._addFileChildren(
+  AdminCheckInRouteChildren,
+)
 
 interface AdminEventsEventIdRouteChildren {
   AdminEventsEventIdEditRoute: typeof AdminEventsEventIdEditRoute
@@ -376,7 +478,9 @@ const AdminEventsRouteWithChildren = AdminEventsRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   PublicRoute: PublicRouteWithChildren,
   AdminLayoutRoute: AdminLayoutRoute,
+  AdminCheckInRoute: AdminCheckInRouteWithChildren,
   AdminEventsRoute: AdminEventsRouteWithChildren,
+  AdminPaymentsRoute: AdminPaymentsRoute,
   AdminRegistrationsRoute: AdminRegistrationsRoute,
   AdminSocietiesRoute: AdminSocietiesRoute,
   AdminUsersRoute: AdminUsersRoute,
