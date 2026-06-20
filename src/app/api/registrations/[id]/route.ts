@@ -1,53 +1,43 @@
-import { createPB } from '@/lib/pb'
+import { createAdminPB, createPB } from '@/lib/pb'
 import { requireAuth } from '@/lib/auth'
-import { logError } from '@/lib/logger'
+import { handleError } from '@/lib/api-error'
+import { cancelRegistration } from '@/lib/registration-service'
 
+/**
+ * User-facing registration PATCH.
+ * For security, users may ONLY cancel their own registration.
+ * Payment status, paymentTicketId, amount, and arbitrary status changes
+ * are NOT allowed here — those are admin-only (see admin/registrations/[id]).
+ */
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const pb = createPB(req.headers.get('cookie') || undefined)
-  let user
-  try {
-    const auth = await requireAuth(pb)
-    user = auth.user
-  } catch {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   try {
     const { id } = await params
+    const pb = createPB(req.headers.get('cookie') || undefined)
+    const { user } = await requireAuth(pb)
 
-    const registration = await pb.collection('registrations').getOne(id).catch(() => null)
+    const registration = await pb.collection('registrations').getOne(id, { fields: 'id,user' }).catch(() => null)
     if (!registration) {
       return Response.json({ error: 'Registration not found' }, { status: 404 })
     }
 
-    if (registration.user !== user.id && user.role !== 'admin') {
+    const regUser = (registration as Record<string, unknown>).user as string
+    if (regUser !== user.id && user.role !== 'admin') {
       return Response.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const body = (await req.json()) as {
-      paymentStatus?: string
-      registrationStatus?: string
-      paymentAmount?: number
-      paymentTicketId?: string
+    const body = (await req.json().catch(() => ({}))) as { registrationStatus?: string }
+
+    if (body.registrationStatus === 'cancelled') {
+      const adminPB = createAdminPB()
+      await cancelRegistration(adminPB, id)
+      return Response.json({ success: true, action: 'cancelled' })
     }
 
-    const updateData: Record<string, unknown> = {}
-    if (body.paymentStatus) updateData.paymentStatus = body.paymentStatus
-    if (body.registrationStatus) updateData.registrationStatus = body.registrationStatus
-    if (body.paymentAmount !== undefined) updateData.amount = body.paymentAmount
-    if (body.paymentTicketId) updateData.paymentTicketId = body.paymentTicketId
-
-    const updated = await pb.collection('registrations').update(id, updateData)
-
-    return Response.json({
-      id: updated.id,
-      ticket: { ticket_id: updated.ticketId || null },
-    })
+    return Response.json({ error: 'Users can only cancel their registration' }, { status: 400 })
   } catch (error) {
-    logError('registrations-patch', error)
-    return Response.json({ error: 'Failed to update registration' }, { status: 500 })
+    return handleError(error, 'registrations-patch')
   }
 }
