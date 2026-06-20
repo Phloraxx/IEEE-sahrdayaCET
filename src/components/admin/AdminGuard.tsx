@@ -1,16 +1,24 @@
-import { redirect } from 'next/navigation'
-import { requireRole } from '@/lib/auth'
+"use client";
 
-export default async function AdminGuard({
+import { useAuth } from "@/lib/auth-context";
+
+export default function AdminGuard({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
-  try {
-    await requireRole(['admin', 'chair'])
-  } catch {
-    redirect('/')
+  const { user, status } = useAuth();
+
+  if (status === "loading") {
+    return null;
   }
 
-  return <>{children}</>
+  if (!user || (user.role !== "admin" && user.role !== "chair")) {
+    if (typeof window !== "undefined") {
+      window.location.href = "/";
+    }
+    return null;
+  }
+
+  return <>{children}</>;
 }

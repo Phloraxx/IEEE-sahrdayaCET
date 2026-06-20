@@ -1,11 +1,11 @@
-'use client'
+"use client";
 
-import { motion, AnimatePresence } from 'framer-motion'
-import { usePathname } from 'next/navigation'
-import type { ReactNode } from 'react'
+import { motion, AnimatePresence } from "framer-motion";
+import { useLocation } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 
 export function PageTransition({ children }: { children: ReactNode }) {
-  const pathname = usePathname()
+  const pathname = useLocation().pathname;
 
   return (
     <AnimatePresence mode="wait">
@@ -14,10 +14,10 @@ export function PageTransition({ children }: { children: ReactNode }) {
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -4 }}
-        transition={{ duration: 0.2, ease: 'easeOut' }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
       >
         {children}
       </motion.div>
     </AnimatePresence>
-  )
+  );
 }

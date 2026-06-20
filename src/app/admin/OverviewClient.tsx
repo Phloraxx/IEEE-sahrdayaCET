@@ -1,7 +1,7 @@
-'use client'
+"use client";
 
-import { ArrowUpRight, CalendarPlus } from 'lucide-react'
-import Link from 'next/link'
+import { ArrowUpRight, CalendarPlus } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import {
   BarChart,
   Bar,
@@ -9,112 +9,117 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-} from 'recharts'
-import {
-  ChartContainer,
-  ChartTooltipContent,
-} from '@/components/ui/chart'
+} from "recharts";
+import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 // ─── Types ──────────────────────────────────────────────
 
 interface Stats {
-  events: { total: number; upcoming: number; live: number }
-  registrations: { total: number; confirmed: number; pending: number; today: number }
-  societies: { active: number; total: number }
+  events: { total: number; upcoming: number; live: number };
+  registrations: {
+    total: number;
+    confirmed: number;
+    pending: number;
+    today: number;
+  };
+  societies: { active: number; total: number };
 }
 
 interface UpcomingEvent {
-  id: string
-  title: string
-  date: string
-  venue: string
-  maxCapacity: number
-  registeredCount: number
+  id: string;
+  title: string;
+  date: string;
+  venue: string;
+  maxCapacity: number;
+  registeredCount: number;
 }
 
 interface RecentReg {
-  id: string
-  userName: string
-  userEmail: string
-  registrationStatus: string
-  paymentStatus: string
-  checkedIn: boolean
-  createdAt: string
+  id: string;
+  userName: string;
+  userEmail: string;
+  registrationStatus: string;
+  paymentStatus: string;
+  checkedIn: boolean;
+  createdAt: string;
 }
 
 interface DailyCount {
-  date: string
-  count: number
+  date: string;
+  count: number;
 }
 
 interface PaymentBucket {
-  name: string
-  value: number
-  fill: string
+  name: string;
+  value: number;
+  fill: string;
 }
 
 interface Props {
-  stats: Stats | null
-  upcoming: UpcomingEvent[]
-  recent: RecentReg[]
-  dailyRegistrations: DailyCount[]
-  paymentDistribution: PaymentBucket[]
-  userName?: string
-  userRole?: string
+  stats: Stats | null;
+  upcoming: UpcomingEvent[];
+  recent: RecentReg[];
+  dailyRegistrations: DailyCount[];
+  paymentDistribution: PaymentBucket[];
+  userName?: string;
+  userRole?: string;
 }
 
 // ─── Greeting helper ────────────────────────────────────
 
 function getGreeting(): { text: string; emoji: string } {
-  const hour = new Date().getHours()
-  if (hour < 12) return { text: 'Good morning', emoji: '🌅' }
-  if (hour < 17) return { text: 'Good afternoon', emoji: '☀️' }
-  if (hour < 21) return { text: 'Good evening', emoji: '🌆' }
-  return { text: 'Working late', emoji: '🌙' }
+  const hour = new Date().getHours();
+  if (hour < 12) return { text: "Good morning", emoji: "🌅" };
+  if (hour < 17) return { text: "Good afternoon", emoji: "☀️" };
+  if (hour < 21) return { text: "Good evening", emoji: "🌆" };
+  return { text: "Working late", emoji: "🌙" };
 }
 
 function formatToday(): string {
-  return new Date().toLocaleDateString('en-IN', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  })
+  return new Date().toLocaleDateString("en-IN", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 }
 
 // ─── Greeting ──────────────────────────────────────────
 
 function GreetingSection({ name, role }: { name?: string; role?: string }) {
-  const { text, emoji } = getGreeting()
-  const today = formatToday()
+  const { text, emoji } = getGreeting();
+  const today = formatToday();
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-1 duration-300 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
       <div>
         <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
           <span>{emoji}</span>
-          <span>{text}{name ? `, ${name.split(' ')[0]}` : ''}</span>
+          <span>
+            {text}
+            {name ? `, ${name.split(" ")[0]}` : ""}
+          </span>
         </h1>
         <p className="text-sm text-muted-foreground mt-0.5">{today}</p>
       </div>
       <div className="flex items-center gap-2">
-        {role === 'chair' && (
+        {role === "chair" && (
           <span className="inline-flex items-center gap-1 rounded-full bg-ieee-blue/10 px-2.5 py-0.5 text-xs font-medium text-ieee-blue">
             <span className="size-1.5 rounded-full bg-ieee-blue" />
             Chair
           </span>
         )}
         <Link
-          href="/admin/events/new"
+          to="/admin/events/new"
           className="inline-flex items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/80 px-3 py-1.5 text-xs font-medium transition-all"
         >
           <CalendarPlus className="size-3.5 mr-1" />
@@ -122,43 +127,43 @@ function GreetingSection({ name, role }: { name?: string; role?: string }) {
         </Link>
       </div>
     </div>
-  )
+  );
 }
 
 function statusBadgeVariant(status: string) {
   switch (status) {
-    case 'confirmed':
-    case 'paid':
-      return 'default' as const
-    case 'pending':
-      return 'secondary' as const
-    case 'cancelled':
-    case 'failed':
-      return 'destructive' as const
+    case "confirmed":
+    case "paid":
+      return "default" as const;
+    case "pending":
+      return "secondary" as const;
+    case "cancelled":
+    case "failed":
+      return "destructive" as const;
     default:
-      return 'outline' as const
+      return "outline" as const;
   }
 }
 
 function formatRelativeTime(dateStr: string) {
-  const now = Date.now()
-  const date = new Date(dateStr).getTime()
-  const diff = now - date
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(diff / (24 * 60 * 60 * 1000))
-  return `${days}d ago`
+  const now = Date.now();
+  const date = new Date(dateStr).getTime();
+  const diff = now - date;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(diff / (24 * 60 * 60 * 1000));
+  return `${days}d ago`;
 }
 
 function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('en-IN', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
+  return new Date(dateStr).toLocaleDateString("en-IN", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 // ─── Main Component ────────────────────────────────────
@@ -184,13 +189,15 @@ export function OverviewClient({
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
-  const hasChartData = dailyRegistrations.length > 0 && dailyRegistrations.some((d) => d.count > 0)
+  const hasChartData =
+    dailyRegistrations.length > 0 &&
+    dailyRegistrations.some((d) => d.count > 0);
 
   // Find the first live or upcoming event for the hero card
-  const heroEvent = upcoming.length > 0 ? upcoming[0] : null
+  const heroEvent = upcoming.length > 0 ? upcoming[0] : null;
 
   return (
     <div className="space-y-6">
@@ -213,23 +220,31 @@ export function OverviewClient({
                         Live now
                       </span>
                     ) : (
-                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Upcoming</Badge>
+                      <Badge
+                        variant="secondary"
+                        className="text-[10px] px-1.5 py-0"
+                      >
+                        Upcoming
+                      </Badge>
                     )}
                   </div>
-                  <h2 className="text-xl font-bold tracking-tight">{heroEvent.title}</h2>
+                  <h2 className="text-xl font-bold tracking-tight">
+                    {heroEvent.title}
+                  </h2>
                   <p className="text-sm text-muted-foreground">
-                    {formatDate(heroEvent.date)}{heroEvent.venue ? ` · ${heroEvent.venue}` : ''}
+                    {formatDate(heroEvent.date)}
+                    {heroEvent.venue ? ` · ${heroEvent.venue}` : ""}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <Link
-                    href={`/admin/events/${heroEvent.id}`}
+                    to={`/admin/events/${heroEvent.id}`}
                     className="inline-flex items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/80 px-3 py-2 text-xs font-medium transition-all"
                   >
                     View Event
                   </Link>
                   <Link
-                    href={`/admin/events/${heroEvent.id}/edit`}
+                    to={`/admin/events/${heroEvent.id}/edit`}
                     className="inline-flex items-center justify-center rounded-lg border border-border px-3 py-2 text-xs font-medium hover:bg-muted transition-colors"
                   >
                     Edit
@@ -240,13 +255,17 @@ export function OverviewClient({
                 <div className="mt-4">
                   <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
                     <span>Registration progress</span>
-                    <span className="tabular-nums">{heroEvent.registeredCount}/{heroEvent.maxCapacity}</span>
+                    <span className="tabular-nums">
+                      {heroEvent.registeredCount}/{heroEvent.maxCapacity}
+                    </span>
                   </div>
                   <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-ieee-blue to-ieee-light-blue transition-all duration-700 ease-out"
-                    style={{ width: `${Math.min((heroEvent.registeredCount / heroEvent.maxCapacity) * 100, 100)}%` }}
-                  />
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-ieee-blue to-ieee-light-blue transition-all duration-700 ease-out"
+                      style={{
+                        width: `${Math.min((heroEvent.registeredCount / heroEvent.maxCapacity) * 100, 100)}%`,
+                      }}
+                    />
                   </div>
                 </div>
               )}
@@ -273,29 +292,46 @@ export function OverviewClient({
                 <ChartContainer
                   config={{
                     registrations: {
-                      label: 'Registrations',
-                      color: 'hsl(var(--primary))',
+                      label: "Registrations",
+                      color: "hsl(var(--primary))",
                     },
                   }}
                 >
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={dailyRegistrations}>
                       <defs>
-                        <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.9} />
-                          <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                        <linearGradient
+                          id="barGradient"
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="0%"
+                            stopColor="hsl(var(--primary))"
+                            stopOpacity={0.9}
+                          />
+                          <stop
+                            offset="100%"
+                            stopColor="hsl(var(--primary))"
+                            stopOpacity={0.3}
+                          />
                         </linearGradient>
                       </defs>
                       <XAxis
                         dataKey="date"
                         tickLine={false}
                         axisLine={false}
-                        tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                        tick={{
+                          fontSize: 11,
+                          fill: "hsl(var(--muted-foreground))",
+                        }}
                       />
                       <YAxis hide />
                       <Tooltip
                         content={<ChartTooltipContent />}
-                        cursor={{ fill: 'hsl(var(--muted))' }}
+                        cursor={{ fill: "hsl(var(--muted))" }}
                       />
                       <Bar
                         dataKey="count"
@@ -320,7 +356,7 @@ export function OverviewClient({
               <CardDescription>Next 5 events</CardDescription>
             </div>
             <Link
-              href="/admin/events"
+              to="/admin/events"
               className="flex items-center gap-1 text-xs text-ieee-blue hover:underline"
             >
               View all <ArrowUpRight className="size-3" />
@@ -337,13 +373,13 @@ export function OverviewClient({
                   const pct =
                     event.maxCapacity > 0
                       ? Math.round(
-                          (event.registeredCount / event.maxCapacity) * 100
+                          (event.registeredCount / event.maxCapacity) * 100,
                         )
-                      : 0
+                      : 0;
                   return (
                     <Link
                       key={event.id}
-                      href={`/admin/events/${event.id}`}
+                      to={`/admin/events/${event.id}`}
                       className="group flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/50"
                     >
                       <div className="min-w-0 flex-1">
@@ -351,24 +387,24 @@ export function OverviewClient({
                           {event.title}
                         </p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
-                          {formatDate(event.date)} · {event.venue || 'TBD'}
+                          {formatDate(event.date)} · {event.venue || "TBD"}
                         </p>
                       </div>
                       <div className="ml-4 flex items-center gap-3">
                         <div className="flex items-center gap-1.5">
                           <div className="h-2 w-16 overflow-hidden rounded-full bg-muted">
-                          <div
+                            <div
                               className="h-full rounded-full bg-gradient-to-r from-ieee-blue to-ieee-light-blue transition-all duration-700 ease-out"
                               style={{ width: `${Math.min(pct, 100)}%` }}
                             />
                           </div>
                           <span className="text-xs tabular-nums text-muted-foreground">
-                            {event.registeredCount}/{event.maxCapacity || '∞'}
+                            {event.registeredCount}/{event.maxCapacity || "∞"}
                           </span>
                         </div>
                       </div>
                     </Link>
-                  )
+                  );
                 })}
               </div>
             )}
@@ -384,7 +420,7 @@ export function OverviewClient({
             <CardDescription>Latest 8 sign-ups</CardDescription>
           </div>
           <Link
-            href="/admin/registrations"
+            to="/admin/registrations"
             className="flex items-center gap-1 text-xs text-ieee-blue hover:underline"
           >
             View all <ArrowUpRight className="size-3" />
@@ -400,16 +436,16 @@ export function OverviewClient({
               {recent.map((reg) => (
                 <Link
                   key={reg.id}
-                  href={`/admin/registrations/${reg.id}`}
+                  to={`/admin/registrations/${reg.id}`}
                   className="group flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/50"
                 >
                   <div className="flex min-w-0 items-center gap-3">
                     <Avatar className="size-8">
                       <AvatarFallback className="bg-ieee-blue/10 text-xs text-ieee-blue">
                         {reg.userName
-                          .split(' ')
+                          .split(" ")
                           .map((n) => n[0])
-                          .join('')
+                          .join("")
                           .slice(0, 2)}
                       </AvatarFallback>
                     </Avatar>
@@ -440,5 +476,5 @@ export function OverviewClient({
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
