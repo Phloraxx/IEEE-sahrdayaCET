@@ -1,670 +1,724 @@
-'use client';
+"use client";
 
-import React, { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import Image from 'next/image';
+import React, { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
-import { Society, Event } from '@/types';
-import Navbar from '@/components/Navbar';
-import { GridBackground } from '@/components/GridBackground';
-import { FloatingIcons } from '@/components/FloatingIcons';
-import { TechnicalDetails } from '@/components/TechnicalDetails';
-import { Loader2, X, Edit, Calendar, Users, Award, LogIn } from 'lucide-react';
-import { useAuth } from '@/lib/auth-context';
-import EventCard from '@/components/EventCard';
-import Footer from '@/components/Footer';
-import { logError } from '@/lib/logger';
+import { Society, Event } from "@/types";
+import Navbar from "@/components/Navbar";
+import { GridBackground } from "@/components/GridBackground";
+import { FloatingIcons } from "@/components/FloatingIcons";
+import { TechnicalDetails } from "@/components/TechnicalDetails";
+import { Loader2, X, Edit, Calendar, Users, Award, LogIn } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
+import EventCard from "@/components/EventCard";
+import Footer from "@/components/Footer";
+import { logError } from "@/lib/logger";
 
 interface ExecomMember {
-    slNo: number;
-    name: string;
-    department: string;
-    semester: string;
-    position: string;
-    photoUrl?: string;
-    linkedin?: string;
-    instagram?: string;
-    email?: string;
-    phone?: string;
+  slNo: number;
+  name: string;
+  department: string;
+  semester: string;
+  position: string;
+  photoUrl?: string;
+  linkedin?: string;
+  instagram?: string;
+  email?: string;
+  phone?: string;
 }
 
 // Member Card Component
 function MemberCard({ member, idx }: { member: ExecomMember; idx: number }) {
-    const [imgError, setImgError] = useState(false);
-    const imageSrc = member.photoUrl || '';
+  const [imgError, setImgError] = useState(false);
+  const imageSrc = member.photoUrl || "";
 
-    return (
-        <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: idx * 0.05 }}
-            className="group bg-white border-2 border-gray-200 rounded-xl overflow-hidden hover:border-ieee-blue hover:shadow-lg transition-all duration-300"
-        >
-            <div className="relative aspect-4/5 bg-gray-100 overflow-hidden">
-                {imageSrc && !imgError ? (
-                    <Image
-                        src={imageSrc}
-                        alt={member.name}
-                        fill
-                        sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                        className="object-cover object-top group-hover:scale-105 transition-transform duration-300"
-                        onError={() => setImgError(true)}
-                        unoptimized
-                    />
-                ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-linear-to-br from-gray-100 to-gray-200">
-                        <span className="text-3xl font-bold text-gray-300">
-                            {member.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                        </span>
-                    </div>
-                )}
-                <div className="absolute top-2 left-2">
-                    <span className="text-[10px] font-bold text-white bg-ieee-blue px-2 py-1 rounded-full shadow-lg">
-                        {member.position}
-                    </span>
-                </div>
-            </div>
-            <div className="p-3">
-                <h4 className="font-bold text-gray-900 text-sm mb-1 line-clamp-2">
-                    {member.name}
-                </h4>
-                <div className="flex items-center gap-2 text-xs text-gray-600">
-                    <span className="font-medium">{member.department}</span>
-                    <span>•</span>
-                    <span>{member.semester}</span>
-                </div>
-            </div>
-        </motion.div>
-    );
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay: idx * 0.05 }}
+      className="group bg-white border-2 border-gray-200 rounded-xl overflow-hidden hover:border-ieee-blue hover:shadow-lg transition-all duration-300"
+    >
+      <div className="relative aspect-4/5 bg-gray-100 overflow-hidden">
+        {imageSrc && !imgError ? (
+          <img
+            src={imageSrc}
+            alt={member.name}
+            className="absolute inset-0 w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-linear-to-br from-gray-100 to-gray-200">
+            <span className="text-3xl font-bold text-gray-300">
+              {member.name
+                .split(" ")
+                .map((n) => n[0])
+                .join("")
+                .slice(0, 2)}
+            </span>
+          </div>
+        )}
+        <div className="absolute top-2 left-2">
+          <span className="text-[10px] font-bold text-white bg-ieee-blue px-2 py-1 rounded-full shadow-lg">
+            {member.position}
+          </span>
+        </div>
+      </div>
+      <div className="p-3">
+        <h4 className="font-bold text-gray-900 text-sm mb-1 line-clamp-2">
+          {member.name}
+        </h4>
+        <div className="flex items-center gap-2 text-xs text-gray-600">
+          <span className="font-medium">{member.department}</span>
+          <span>•</span>
+          <span>{member.semester}</span>
+        </div>
+      </div>
+    </motion.div>
+  );
 }
 
 interface SocietiesClientProps {
-    societies: Society[];
+  societies: Society[];
 }
 
-export default function SocietiesClient({ societies: initialSocieties }: SocietiesClientProps) {
-    const [societies] = useState<Society[]>(initialSocieties);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [selectedSociety, setSelectedSociety] = useState<Society | null>(null);
-    const [societyEvents, setSocietyEvents] = useState<Event[]>([]);
-    const [societyMembers, setSocietyMembers] = useState<ExecomMember[]>([]);
-    const [loadingEvents, setLoadingEvents] = useState(false);
-    const [loadingMembers, setLoadingMembers] = useState(false);
-    const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-    const [eventActionError, setEventActionError] = useState<string | null>(null);
-    const [scrollPosition, setScrollPosition] = useState(0);
-    const { user, signIn } = useAuth();
+export default function SocietiesClient({
+  societies: initialSocieties,
+}: SocietiesClientProps) {
+  const [societies] = useState<Society[]>(initialSocieties);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [selectedSociety, setSelectedSociety] = useState<Society | null>(null);
+  const [societyEvents, setSocietyEvents] = useState<Event[]>([]);
+  const [societyMembers, setSocietyMembers] = useState<ExecomMember[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(false);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [eventActionError, setEventActionError] = useState<string | null>(null);
+  const [scrollPosition, setScrollPosition] = useState(0);
+  const { user, signIn } = useAuth();
 
-    const fetchSocietyData = async (slug: string) => {
-        setLoadingEvents(true);
-        setLoadingMembers(true);
-        try {
-            const res = await fetch(`/api/society/${slug}`)
-            if (!res.ok) {
-              const body = await res.json().catch(() => ({}))
-              throw new Error(body.error || `HTTP ${res.status}`)
-            }
-            const data = await res.json()
-            setSocietyEvents((data.events || []).filter((e: Event) =>
-                e.status === 'published' || e.status === 'completed'
-            ))
-            setSocietyMembers(data.members || [])
-        } catch (err: unknown) {
-            logError('societies-client', err)
-        } finally {
-            setLoadingEvents(false)
-            setLoadingMembers(false)
-        }
-    };
+  const fetchSocietyData = async (slug: string) => {
+    setLoadingEvents(true);
+    setLoadingMembers(true);
+    try {
+      const res = await fetch(`/api/society/${slug}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      setSocietyEvents(
+        (data.events || []).filter(
+          (e: Event) => e.status === "published" || e.status === "completed",
+        ),
+      );
+      setSocietyMembers(data.members || []);
+    } catch (err: unknown) {
+      logError("societies-client", err);
+    } finally {
+      setLoadingEvents(false);
+      setLoadingMembers(false);
+    }
+  };
 
-    const handleSocietyClick = (society: Society) => {
-        setSelectedSociety(society);
-        setEventActionError(null);
-        fetchSocietyData(society.slug);
-    };
+  const handleSocietyClick = (society: Society) => {
+    setSelectedSociety(society);
+    setEventActionError(null);
+    fetchSocietyData(society.slug);
+  };
 
-    const handleEditClick = () => {
-        signIn();
-    };
+  const handleEditClick = () => {
+    signIn();
+  };
 
-    const isChair = false;
+  const isChair = false;
 
-    // Auto-scroll effect for events carousel
-    useEffect(() => {
-        if (!selectedSociety || societyEvents.length === 0) return;
+  // Auto-scroll effect for events carousel
+  useEffect(() => {
+    if (!selectedSociety || societyEvents.length === 0) return;
 
-        const interval = setInterval(() => {
-            if (document.hidden) return;
-            setScrollPosition((prev) => {
-                const maxScroll = (societyEvents.length - 1) * 260; // card width + gap
-                return prev >= maxScroll ? 0 : prev + 260;
-            });
-        }, 3000); // Auto-scroll every 3 seconds
+    const interval = setInterval(() => {
+      if (document.hidden) return;
+      setScrollPosition((prev) => {
+        const maxScroll = (societyEvents.length - 1) * 260; // card width + gap
+        return prev >= maxScroll ? 0 : prev + 260;
+      });
+    }, 3000); // Auto-scroll every 3 seconds
 
-        return () => clearInterval(interval);
-    }, [selectedSociety, societyEvents]);
+    return () => clearInterval(interval);
+  }, [selectedSociety, societyEvents]);
 
-    // Shared content for society detail (used in both desktop popup and mobile bottom sheet)
-    const renderSocietyDetailContent = () => (
-        <>
-            {/* Close Button */}
-            <button
-                onClick={() => setSelectedSociety(null)}
-                className="absolute top-4 right-4 z-10 bg-gray-900/80 hover:bg-gray-900 text-white p-3 rounded-full transition-colors shadow-lg"
-            >
-                <X className="w-6 h-6" />
-            </button>
+  // Shared content for society detail (used in both desktop popup and mobile bottom sheet)
+  const renderSocietyDetailContent = () => (
+    <>
+      {/* Close Button */}
+      <button
+        onClick={() => setSelectedSociety(null)}
+        className="absolute top-4 right-4 z-10 bg-gray-900/80 hover:bg-gray-900 text-white p-3 rounded-full transition-colors shadow-lg"
+      >
+        <X className="w-6 h-6" />
+      </button>
 
-            {/* Banner */}
-            <div className="relative h-56 bg-linear-to-br from-ieee-blue to-purple-600 overflow-hidden shrink-0">
-                {selectedSociety && selectedSociety.bannerUrl ? (
-                    <Image src={selectedSociety.bannerUrl} alt={selectedSociety.name} fill sizes="400px" className="object-cover" unoptimized />
-                ) : (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="relative w-24 h-24 opacity-20">
-                            {selectedSociety && selectedSociety.logoUrl ? (
-                                <Image src={selectedSociety.logoUrl} alt={selectedSociety.name || ''} fill sizes="96px" className="object-contain" unoptimized />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-white/30">
-                                    {selectedSociety?.name?.charAt(0) || '?'}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
-                
-                {/* Gradient Overlay */}
-                <div className="absolute inset-0 bg-linear-to-t from-white via-white/50 to-transparent" />
+      {/* Banner */}
+      <div className="relative h-56 bg-linear-to-br from-ieee-blue to-purple-600 overflow-hidden shrink-0">
+        {selectedSociety && selectedSociety.bannerUrl ? (
+          <img
+            src={selectedSociety.bannerUrl}
+            alt={selectedSociety.name}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="relative w-24 h-24 opacity-20">
+              {selectedSociety && selectedSociety.logoUrl ? (
+                <img
+                  src={selectedSociety.logoUrl}
+                  alt={selectedSociety.name || ""}
+                  className="absolute inset-0 w-full h-full object-contain"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-white/30">
+                  {selectedSociety?.name?.charAt(0) || "?"}
+                </div>
+              )}
             </div>
+          </div>
+        )}
 
-            {/* Content */}
-            <div className="relative px-6 -mt-14">
-                {/* Logo Badge */}
-                <motion.div 
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: 'spring', delay: 0.2 }}
-                    className="inline-block bg-white rounded-2xl p-4 shadow-2xl border-4 border-white mb-6"
-                >
-                    <div className="relative w-20 h-20">
-                        {selectedSociety && selectedSociety.logoUrl ? (
-                            <Image src={selectedSociety.logoUrl} alt={selectedSociety.name} fill sizes="64px" className="object-contain" unoptimized />
-                        ) : (
-                            <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-gray-300">
-                                {selectedSociety?.name?.charAt(0) || '?'}
-                            </div>
-                        )}
-                    </div>
-                </motion.div>
+        {/* Gradient Overlay */}
+        <div className="absolute inset-0 bg-linear-to-t from-white via-white/50 to-transparent" />
+      </div>
 
-                {/* Header */}
-                <div className="mb-6">
-                    <div className="flex items-start justify-between gap-3 mb-3">
-                        <h2 className="text-3xl font-bold text-gray-900">
-                            {selectedSociety?.name}
-                        </h2>
-                        {isChair && (
-                            <button
-                                onClick={handleEditClick}
-                                className="bg-ieee-blue hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-semibold shrink-0"
-                            >
-                                <Edit className="w-3.5 h-3.5" />
-                                Edit
-                            </button>
-                        )}
-                    </div>
-                    
-                    {/* Bio */}
-                    <p className="text-gray-600 leading-relaxed text-base">
-                        {selectedSociety?.bio || 'No description available.'}
-                    </p>
-                </div>
-
-                {/* Stats */}
-                <div className="grid grid-cols-3 gap-4 mb-8">
-                    <div className="bg-linear-to-br from-blue-50 to-purple-50 rounded-xl p-3 text-center border border-blue-100">
-                        <Calendar className="w-6 h-6 text-ieee-blue mx-auto mb-1.5" />
-                        <div className="text-2xl font-bold text-gray-900">{societyEvents.length}</div>
-                        <div className="text-[10px] text-gray-600 font-semibold">Events</div>
-                    </div>
-                    <div className="bg-linear-to-br from-purple-50 to-pink-50 rounded-xl p-3 text-center border border-purple-100">
-                        <Users className="w-6 h-6 text-purple-600 mx-auto mb-1.5" />
-                        <div className="text-2xl font-bold text-gray-900">{loadingMembers ? '-' : societyMembers.length}</div>
-                        <div className="text-[10px] text-gray-600 font-semibold">Members</div>
-                    </div>
-                    <div className="bg-linear-to-br from-pink-50 to-orange-50 rounded-xl p-3 text-center border border-pink-100">
-                        <Award className="w-6 h-6 text-pink-600 mx-auto mb-1.5" />
-                        <div className="text-2xl font-bold text-gray-900">{societyEvents.filter(e => e.status === 'completed').length}</div>
-                        <div className="text-[10px] text-gray-600 font-semibold">Completed</div>
-                    </div>
-                </div>
-
-                {/* Members Section */}
-                <div className="mb-8">
-                    <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                        <Users className="w-6 h-6 text-ieee-blue" />
-                        Team Members
-                    </h3>
-                    
-                    {loadingMembers ? (
-                        <div className="flex items-center justify-center py-8">
-                            <Loader2 className="w-6 h-6 text-ieee-blue animate-spin" />
-                        </div>
-                    ) : societyMembers.length > 0 ? (
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                            {societyMembers.map((member, idx) => (
-                                <MemberCard key={member.slNo} member={member} idx={idx} />
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="text-center py-10 bg-gray-50 rounded-lg border border-gray-200">
-                            <Users className="w-10 h-10 text-gray-400 mx-auto mb-2" />
-                            <p className="text-base text-gray-600">No members found for this society</p>
-                        </div>
-                    )}
-                </div>
-
-                {/* Events Carousel Section */}
-                <div className="mb-8">
-                    <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                        <Calendar className="w-6 h-6 text-ieee-blue" />
-                        Events & Activities
-                    </h3>
-                    
-                    {loadingEvents ? (
-                        <div className="flex items-center justify-center py-8">
-                            <Loader2 className="w-6 h-6 text-ieee-blue animate-spin" />
-                        </div>
-                    ) : societyEvents.length > 0 ? (
-                        <div className="relative">
-                            {/* Carousel Container */}
-                            <div className="overflow-hidden rounded-xl">
-                                <motion.div 
-                                    className="flex gap-4"
-                                    animate={{ x: -scrollPosition }}
-                                    transition={{ 
-                                        type: "spring", 
-                                        stiffness: 100,
-                                        damping: 20
-                                    }}
-                                    style={{ width: `${societyEvents.length * 260}px` }}
-                                >
-                                    {societyEvents.map((event, idx) => (
-                                        <EventCard 
-                                            key={event.id}
-                                            event={event}
-                                            variant="compact"
-                                            onClick={(selected) => {
-                                                setEventActionError(null);
-                                                setSelectedEvent(selected);
-                                            }}
-                                            index={idx}
-                                        />
-                                    ))}
-                                </motion.div>
-                            </div>
-
-                            {/* Carousel Indicators */}
-                            <div className="flex justify-center gap-2 mt-4">
-                                {societyEvents.map((_, idx) => (
-                                    <button
-                                        key={idx}
-                                        onClick={() => setScrollPosition(idx * 260)}
-                                        className={`h-2 rounded-full transition-all ${
-                                            Math.round(scrollPosition / 260) === idx 
-                                                ? 'w-8 bg-ieee-blue' 
-                                                : 'w-2 bg-gray-300 hover:bg-gray-400'
-                                        }`}
-                                    />
-                                ))}
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="text-center py-10 bg-gray-50 rounded-lg border border-gray-200">
-                            <Calendar className="w-10 h-10 text-gray-400 mx-auto mb-2" />
-                            <p className="text-base text-gray-600">No events yet</p>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            <div className="h-4" />
-        </>
-    );
-
-    return (
-        <div className="relative w-full bg-white text-gray-900 font-sans min-h-screen">
-            {/* Background Elements - Same as Hero */}
-            <div className="fixed inset-0 z-0 pointer-events-none">
-                <GridBackground />
-                <FloatingIcons />
-                <TechnicalDetails />
-            </div>
-
-            {/* Navbar - Hidden when society detail or event modal is active */}
-            {!selectedSociety && !selectedEvent && <Navbar />}
-
-            {/* Subtle Society Chair Sign In Button - Top Right (visible even when Appwrite user exists) */}
-            {!selectedSociety && !selectedEvent && (
-                <motion.div
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.5 }}
-                    className="fixed top-24 right-6 z-20"
-                >
-                    <button
-                        onClick={() => signIn()}
-                        className="bg-white/80 backdrop-blur-xs hover:bg-white border border-gray-200 hover:border-ieee-blue text-gray-700 hover:text-ieee-blue font-semibold py-2 px-4 rounded-lg transition-all shadow-md hover:shadow-lg flex items-center gap-2 text-sm"
-                    >
-                        <LogIn className="w-4 h-4" />
-                        <span className="hidden sm:inline">Society Chair</span>
-                    </button>
-                </motion.div>
+      {/* Content */}
+      <div className="relative px-6 -mt-14">
+        {/* Logo Badge */}
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: "spring", delay: 0.2 }}
+          className="inline-block bg-white rounded-2xl p-4 shadow-2xl border-4 border-white mb-6"
+        >
+          <div className="relative w-20 h-20">
+            {selectedSociety && selectedSociety.logoUrl ? (
+              <img
+                src={selectedSociety.logoUrl}
+                alt={selectedSociety.name}
+                className="absolute inset-0 w-full h-full object-contain"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-gray-300">
+                {selectedSociety?.name?.charAt(0) || "?"}
+              </div>
             )}
+          </div>
+        </motion.div>
 
-            {/* Main Content */}
-            <div className="relative z-10 pt-32 pb-20 px-6">
-                <div className="max-w-7xl mx-auto">
-                    {/* Hero Title */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 30 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.8 }}
-                        className="text-center mb-16"
-                    >
-                        <h1 className="font-pixel text-4xl md:text-6xl lg:text-7xl text-ieee-blue mb-4"
-                            style={{ textShadow: '4px 4px 0px rgba(0,0,0,0.1)' }}>
-                            SELECT YOUR SOCIETY
-                        </h1>
-                        <div className="flex items-center justify-center gap-6 mt-8">
-                            <div className="h-px bg-gray-400 w-32 hidden sm:block" />
-                            <p className="font-sans text-xs font-bold tracking-[0.4em] text-gray-600">
-                                CHOOSE YOUR PATH
-                            </p>
-                            <div className="h-px bg-gray-400 w-32 hidden sm:block" />
-                        </div>
-                    </motion.div>
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <h2 className="text-3xl font-bold text-gray-900">
+              {selectedSociety?.name}
+            </h2>
+            {isChair && (
+              <button
+                onClick={handleEditClick}
+                className="bg-ieee-blue hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-semibold shrink-0"
+              >
+                <Edit className="w-3.5 h-3.5" />
+                Edit
+              </button>
+            )}
+          </div>
 
-                    {/* Character Selection Grid */}
-                    {loading ? (
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-                            {Array.from({ length: 10 }).map((_, i) => (
-                                <div key={i} className="bg-white border-2 border-gray-100 rounded-xl overflow-hidden animate-pulse">
-                                    <div className="aspect-square p-6">
-                                        <div className="w-full h-full bg-gray-100 rounded-lg" />
-                                    </div>
-                                    <div className="p-4 pt-2">
-                                        <div className="h-4 bg-gray-100 rounded w-3/4 mx-auto" />
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    ) : error ? (
-                        <div className="text-center py-20">
-                            <div className="text-6xl mb-4">⚠️</div>
-                            <p className="text-red-600 text-lg">{error}</p>
-                        </div>
-                    ) : (
-                        <motion.div 
-                            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6"
-                            initial="hidden"
-                            animate="visible"
-                            variants={{
-                                hidden: {},
-                                visible: {
-                                    transition: {
-                                        staggerChildren: 0.05
-                                    }
-                                }
-                            }}
-                        >
-                            {societies.map((society) => (
-                                <motion.div
-                                    key={society.id}
-                                    variants={{
-                                        hidden: { opacity: 0, scale: 0.8, y: 20 },
-                                        visible: { 
-                                            opacity: 1, 
-                                            scale: 1, 
-                                            y: 0,
-                                            transition: {
-                                                type: "spring",
-                                                stiffness: 100,
-                                                damping: 15
-                                            }
-                                        }
-                                    }}
-                                    whileHover={{ 
-                                        scale: 1.05, 
-                                        y: -8,
-                                        transition: { duration: 0.2 }
-                                    }}
-                                    whileTap={{ scale: 0.95 }}
-                                    onClick={() => handleSocietyClick(society)}
-                                    className="cursor-pointer group relative"
-                                >
-                                    {/* Card Container */}
-                                    <div className="relative bg-white border-2 border-gray-200 rounded-xl overflow-hidden shadow-lg hover:shadow-2xl hover:border-ieee-blue transition-all duration-300">
-                                        {/* Gradient Overlay on Hover */}
-                                        <div className="absolute inset-0 bg-linear-to-br from-ieee-blue/0 to-purple-600/0 group-hover:from-ieee-blue/10 group-hover:to-purple-600/10 transition-all duration-300 z-0" />
-                                        
-                                        {/* Logo Container */}
-                                         <div className="relative aspect-square p-6">
-                                            <motion.div
-                                                className="relative w-full h-full flex items-center justify-center"
-                                                whileHover={{ rotate: [0, -5, 5, 0] }}
-                                                transition={{ duration: 0.5 }}
-                                            >
-                                                {society.logoUrl ? (
-                                                <Image src={society.logoUrl} alt={society.name} fill sizes="96px" className="object-contain" unoptimized />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center">
-                                                    <span className="text-4xl font-bold text-gray-300">
-                                                        {society.name?.charAt(0) || '?'}
-                                                    </span>
-                                                </div>
-                                            )}
-                                            </motion.div>
-                                            
-                                            {/* Glow Effect */}
-                                            <div className="absolute inset-0 bg-linear-to-br from-ieee-blue/20 to-purple-600/20 opacity-0 group-hover:opacity-100 blur-2xl transition-opacity duration-300" />
-                                        </div>
-
-                                        {/* Society Name */}
-                                        <div className="relative p-4 pt-2 bg-linear-to-b from-transparent to-gray-50/50">
-                                            <h3 className="text-center text-xs md:text-sm font-bold text-gray-800 line-clamp-2 group-hover:text-ieee-blue transition-colors">
-                                                {society.name}
-                                            </h3>
-                                        </div>
-
-                                        {/* Selection Indicator */}
-                                        <motion.div 
-                                            className="absolute top-2 right-2 w-3 h-3 rounded-full bg-ieee-blue opacity-0 group-hover:opacity-100"
-                                            animate={{ scale: [1, 1.2, 1] }}
-                                            transition={{ repeat: Infinity, duration: 1.5 }}
-                                        />
-                                    </div>
-
-                                    {/* Hover Prompt */}
-                                    <motion.div 
-                                        className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        initial={{ y: -10 }}
-                                        whileHover={{ y: 0 }}
-                                    >
-                                        <div className="bg-gray-900 text-white text-[10px] px-3 py-1 rounded-full whitespace-nowrap font-semibold">
-                                            Click to view
-                                        </div>
-                                    </motion.div>
-                                </motion.div>
-                            ))}
-                        </motion.div>
-                    )}
-                </div>
-            </div>
-
-            {/* Society Detail Panel — Side Drawer (half on desktop, full on mobile) */}
-            <AnimatePresence>
-                {selectedSociety && (
-                    <>
-                        {/* Backdrop */}
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => setSelectedSociety(null)}
-                            className="fixed inset-0 bg-black/50 md:bg-black/30 backdrop-blur-xs z-40"
-                        />
-
-                        {/* Detail Panel */}
-                        <motion.div
-                            initial={{ x: '100%' }}
-                            animate={{ x: 0 }}
-                            exit={{ x: '100%' }}
-                            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-                            className="fixed right-0 top-0 bottom-0 w-full md:w-[85vw] lg:w-[45vw] max-w-[560px] bg-white shadow-2xl md:shadow-[-8px_0_30px_rgba(0,0,0,0.12)] md:border-l md:border-gray-200/60 z-50 overflow-y-auto"
-                        >
-                            {renderSocietyDetailContent()}
-                        </motion.div>
-                    </>
-                )}
-            </AnimatePresence>
-
-            {/* Footer */}
-            <Footer />
-
-            {/* Event Detail Modal */}
-            <AnimatePresence>
-                {selectedEvent && (
-                    <>
-                        {/* Backdrop */}
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => {
-                                setEventActionError(null);
-                                setSelectedEvent(null);
-                            }}
-                            className="fixed inset-0 bg-black/70 backdrop-blur-xs z-60 flex items-center justify-center p-4"
-                        >
-                            {/* Event Detail Card */}
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.9 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.9 }}
-                                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                                onClick={(e) => e.stopPropagation()}
-                                className="relative aspect-15/17 max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden"
-                            >
-                                {/* Close Button */}
-                                <button
-                                    onClick={() => {
-                                        setEventActionError(null);
-                                        setSelectedEvent(null);
-                                    }}
-                                    className="absolute top-4 right-4 z-10 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors backdrop-blur-xs"
-                                >
-                                    <X className="w-5 h-5" />
-                                </button>
-
-                                {/* Scrollable Content */}
-                                <div className="overflow-y-auto h-full">
-                                    {/* Event Banner - 9:16 aspect ratio */}
-                                    <div className="relative bg-linear-to-br from-ieee-blue to-purple-600">{selectedEvent.bannerUrl ? (
-                                            <Image
-                                                src={selectedEvent.bannerUrl}
-                                                alt={selectedEvent.title}
-                                                fill
-                                                sizes="(max-width: 768px) 100vw, 50vw"
-                                                className="object-cover object-top"
-                                                unoptimized
-                                            />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center">
-                                                <Calendar className="w-24 h-24 text-white/30" />
-                                            </div>
-                                        )}
-                                        
-                                        {/* Gradient Overlay */}
-                                        <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent" />
-                                        
-                                        {/* Status Badge */}
-                                        <div className="absolute top-4 left-4">
-                                            <span className={`text-xs font-bold px-3 py-1.5 rounded-full shadow-lg ${
-                                                selectedEvent.status === 'completed' ? 'bg-green-500 text-white' :
-                                                selectedEvent.status === 'published' ? 'bg-blue-500 text-white' :
-                                                'bg-gray-500 text-white'
-                                            }`}>
-                                                {(selectedEvent.status || 'draft').toUpperCase()}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    {/* Content */}
-                                    <div className="p-6 md:p-8">
-                                        {/* Title */}
-                                        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">
-                                            {selectedEvent.title}
-                                        </h2>
-
-                                        {/* Meta Info */}
-                                        <div className="flex flex-wrap gap-4 mb-6 pb-6 border-b border-gray-200">
-                                            <div className="flex items-center gap-2 text-gray-700">
-                                                <Calendar className="w-5 h-5 text-ieee-blue" />
-                                                <span className="font-semibold">
-                                                    {new Date(selectedEvent.date).toLocaleDateString('en-US', { 
-                                                        weekday: 'long',
-                                                        month: 'long', 
-                                                        day: 'numeric',
-                                                        year: 'numeric'
-                                                    })}
-                                                </span>
-                                            </div>
-                                            
-                                            {selectedEvent.venue && (
-                                                <div className="flex items-center gap-2 text-gray-700">
-                                                    <span className="text-ieee-blue">📍</span>
-                                                    <span className="font-semibold">{selectedEvent.venue}</span>
-                                                </div>
-                                            )}
-                                            
-                                            {selectedEvent.price !== undefined && selectedEvent.price > 0 && (
-                                                <div className="flex items-center gap-2 text-gray-700">
-                                                    <span className="text-ieee-blue">💰</span>
-                                                    <span className="font-semibold">₹{selectedEvent.price}</span>
-                                                </div>
-                                            )}
-
-                                            {selectedEvent.maxCapacity !== undefined && selectedEvent.maxCapacity > 0 && (
-                                                <div className="flex items-center gap-2 text-gray-700">
-                                                    <Users className="w-5 h-5 text-ieee-blue" />
-                                                    <span className="font-semibold">{selectedEvent.maxCapacity} seats</span>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Description */}
-                                        <div className="mb-6">
-                                            <h3 className="text-lg font-bold text-gray-900 mb-3">About This Event</h3>
-                                            <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-                                                {selectedEvent.description || 'No description available.'}
-                                            </p>
-                                        </div>
-
-                                        {eventActionError && (
-                                            <p className="mt-3 text-xs text-red-600" role="alert">
-                                                {eventActionError}
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-                            </motion.div>
-                        </motion.div>
-                    </>
-                )}
-            </AnimatePresence>
-
+          {/* Bio */}
+          <p className="text-gray-600 leading-relaxed text-base">
+            {selectedSociety?.bio || "No description available."}
+          </p>
         </div>
-    );
+
+        {/* Stats */}
+        <div className="grid grid-cols-3 gap-4 mb-8">
+          <div className="bg-linear-to-br from-blue-50 to-purple-50 rounded-xl p-3 text-center border border-blue-100">
+            <Calendar className="w-6 h-6 text-ieee-blue mx-auto mb-1.5" />
+            <div className="text-2xl font-bold text-gray-900">
+              {societyEvents.length}
+            </div>
+            <div className="text-[10px] text-gray-600 font-semibold">
+              Events
+            </div>
+          </div>
+          <div className="bg-linear-to-br from-purple-50 to-pink-50 rounded-xl p-3 text-center border border-purple-100">
+            <Users className="w-6 h-6 text-purple-600 mx-auto mb-1.5" />
+            <div className="text-2xl font-bold text-gray-900">
+              {loadingMembers ? "-" : societyMembers.length}
+            </div>
+            <div className="text-[10px] text-gray-600 font-semibold">
+              Members
+            </div>
+          </div>
+          <div className="bg-linear-to-br from-pink-50 to-orange-50 rounded-xl p-3 text-center border border-pink-100">
+            <Award className="w-6 h-6 text-pink-600 mx-auto mb-1.5" />
+            <div className="text-2xl font-bold text-gray-900">
+              {societyEvents.filter((e) => e.status === "completed").length}
+            </div>
+            <div className="text-[10px] text-gray-600 font-semibold">
+              Completed
+            </div>
+          </div>
+        </div>
+
+        {/* Members Section */}
+        <div className="mb-8">
+          <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <Users className="w-6 h-6 text-ieee-blue" />
+            Team Members
+          </h3>
+
+          {loadingMembers ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 text-ieee-blue animate-spin" />
+            </div>
+          ) : societyMembers.length > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {societyMembers.map((member, idx) => (
+                <MemberCard key={member.slNo} member={member} idx={idx} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-10 bg-gray-50 rounded-lg border border-gray-200">
+              <Users className="w-10 h-10 text-gray-400 mx-auto mb-2" />
+              <p className="text-base text-gray-600">
+                No members found for this society
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Events Carousel Section */}
+        <div className="mb-8">
+          <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <Calendar className="w-6 h-6 text-ieee-blue" />
+            Events & Activities
+          </h3>
+
+          {loadingEvents ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 text-ieee-blue animate-spin" />
+            </div>
+          ) : societyEvents.length > 0 ? (
+            <div className="relative">
+              {/* Carousel Container */}
+              <div className="overflow-hidden rounded-xl">
+                <motion.div
+                  className="flex gap-4"
+                  animate={{ x: -scrollPosition }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 100,
+                    damping: 20,
+                  }}
+                  style={{ width: `${societyEvents.length * 260}px` }}
+                >
+                  {societyEvents.map((event, idx) => (
+                    <EventCard
+                      key={event.id}
+                      event={event}
+                      variant="compact"
+                      onClick={(selected) => {
+                        setEventActionError(null);
+                        setSelectedEvent(selected);
+                      }}
+                      index={idx}
+                    />
+                  ))}
+                </motion.div>
+              </div>
+
+              {/* Carousel Indicators */}
+              <div className="flex justify-center gap-2 mt-4">
+                {societyEvents.map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setScrollPosition(idx * 260)}
+                    className={`h-2 rounded-full transition-all ${
+                      Math.round(scrollPosition / 260) === idx
+                        ? "w-8 bg-ieee-blue"
+                        : "w-2 bg-gray-300 hover:bg-gray-400"
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-10 bg-gray-50 rounded-lg border border-gray-200">
+              <Calendar className="w-10 h-10 text-gray-400 mx-auto mb-2" />
+              <p className="text-base text-gray-600">No events yet</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="h-4" />
+    </>
+  );
+
+  return (
+    <div className="relative w-full bg-white text-gray-900 font-sans min-h-screen">
+      {/* Background Elements - Same as Hero */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <GridBackground />
+        <FloatingIcons />
+        <TechnicalDetails />
+      </div>
+
+      {/* Navbar - Hidden when society detail or event modal is active */}
+      {!selectedSociety && !selectedEvent && <Navbar />}
+
+      {/* Subtle Society Chair Sign In Button - Top Right (visible even when Appwrite user exists) */}
+      {!selectedSociety && !selectedEvent && (
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.5 }}
+          className="fixed top-24 right-6 z-20"
+        >
+          <button
+            onClick={() => signIn()}
+            className="bg-white/80 backdrop-blur-xs hover:bg-white border border-gray-200 hover:border-ieee-blue text-gray-700 hover:text-ieee-blue font-semibold py-2 px-4 rounded-lg transition-all shadow-md hover:shadow-lg flex items-center gap-2 text-sm"
+          >
+            <LogIn className="w-4 h-4" />
+            <span className="hidden sm:inline">Society Chair</span>
+          </button>
+        </motion.div>
+      )}
+
+      {/* Main Content */}
+      <div className="relative z-10 pt-32 pb-20 px-6">
+        <div className="max-w-7xl mx-auto">
+          {/* Hero Title */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="text-center mb-16"
+          >
+            <h1
+              className="font-pixel text-4xl md:text-6xl lg:text-7xl text-ieee-blue mb-4"
+              style={{ textShadow: "4px 4px 0px rgba(0,0,0,0.1)" }}
+            >
+              SELECT YOUR SOCIETY
+            </h1>
+            <div className="flex items-center justify-center gap-6 mt-8">
+              <div className="h-px bg-gray-400 w-32 hidden sm:block" />
+              <p className="font-sans text-xs font-bold tracking-[0.4em] text-gray-600">
+                CHOOSE YOUR PATH
+              </p>
+              <div className="h-px bg-gray-400 w-32 hidden sm:block" />
+            </div>
+          </motion.div>
+
+          {/* Character Selection Grid */}
+          {loading ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
+              {Array.from({ length: 10 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="bg-white border-2 border-gray-100 rounded-xl overflow-hidden animate-pulse"
+                >
+                  <div className="aspect-square p-6">
+                    <div className="w-full h-full bg-gray-100 rounded-lg" />
+                  </div>
+                  <div className="p-4 pt-2">
+                    <div className="h-4 bg-gray-100 rounded w-3/4 mx-auto" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : error ? (
+            <div className="text-center py-20">
+              <div className="text-6xl mb-4">⚠️</div>
+              <p className="text-red-600 text-lg">{error}</p>
+            </div>
+          ) : (
+            <motion.div
+              className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6"
+              initial="hidden"
+              animate="visible"
+              variants={{
+                hidden: {},
+                visible: {
+                  transition: {
+                    staggerChildren: 0.05,
+                  },
+                },
+              }}
+            >
+              {societies.map((society) => (
+                <motion.div
+                  key={society.id}
+                  variants={{
+                    hidden: { opacity: 0, scale: 0.8, y: 20 },
+                    visible: {
+                      opacity: 1,
+                      scale: 1,
+                      y: 0,
+                      transition: {
+                        type: "spring",
+                        stiffness: 100,
+                        damping: 15,
+                      },
+                    },
+                  }}
+                  whileHover={{
+                    scale: 1.05,
+                    y: -8,
+                    transition: { duration: 0.2 },
+                  }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => handleSocietyClick(society)}
+                  className="cursor-pointer group relative"
+                >
+                  {/* Card Container */}
+                  <div className="relative bg-white border-2 border-gray-200 rounded-xl overflow-hidden shadow-lg hover:shadow-2xl hover:border-ieee-blue transition-all duration-300">
+                    {/* Gradient Overlay on Hover */}
+                    <div className="absolute inset-0 bg-linear-to-br from-ieee-blue/0 to-purple-600/0 group-hover:from-ieee-blue/10 group-hover:to-purple-600/10 transition-all duration-300 z-0" />
+
+                    {/* Logo Container */}
+                    <div className="relative aspect-square p-6">
+                      <motion.div
+                        className="relative w-full h-full flex items-center justify-center"
+                        whileHover={{ rotate: [0, -5, 5, 0] }}
+                        transition={{ duration: 0.5 }}
+                      >
+                        {society.logoUrl ? (
+                          <img
+                            src={society.logoUrl}
+                            alt={society.name}
+                            className="absolute inset-0 w-full h-full object-contain"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <span className="text-4xl font-bold text-gray-300">
+                              {society.name?.charAt(0) || "?"}
+                            </span>
+                          </div>
+                        )}
+                      </motion.div>
+
+                      {/* Glow Effect */}
+                      <div className="absolute inset-0 bg-linear-to-br from-ieee-blue/20 to-purple-600/20 opacity-0 group-hover:opacity-100 blur-2xl transition-opacity duration-300" />
+                    </div>
+
+                    {/* Society Name */}
+                    <div className="relative p-4 pt-2 bg-linear-to-b from-transparent to-gray-50/50">
+                      <h3 className="text-center text-xs md:text-sm font-bold text-gray-800 line-clamp-2 group-hover:text-ieee-blue transition-colors">
+                        {society.name}
+                      </h3>
+                    </div>
+
+                    {/* Selection Indicator */}
+                    <motion.div
+                      className="absolute top-2 right-2 w-3 h-3 rounded-full bg-ieee-blue opacity-0 group-hover:opacity-100"
+                      animate={{ scale: [1, 1.2, 1] }}
+                      transition={{ repeat: Infinity, duration: 1.5 }}
+                    />
+                  </div>
+
+                  {/* Hover Prompt */}
+                  <motion.div
+                    className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
+                    initial={{ y: -10 }}
+                    whileHover={{ y: 0 }}
+                  >
+                    <div className="bg-gray-900 text-white text-[10px] px-3 py-1 rounded-full whitespace-nowrap font-semibold">
+                      Click to view
+                    </div>
+                  </motion.div>
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
+        </div>
+      </div>
+
+      {/* Society Detail Panel — Side Drawer (half on desktop, full on mobile) */}
+      <AnimatePresence>
+        {selectedSociety && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedSociety(null)}
+              className="fixed inset-0 bg-black/50 md:bg-black/30 backdrop-blur-xs z-40"
+            />
+
+            {/* Detail Panel */}
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="fixed right-0 top-0 bottom-0 w-full md:w-[85vw] lg:w-[45vw] max-w-[560px] bg-white shadow-2xl md:shadow-[-8px_0_30px_rgba(0,0,0,0.12)] md:border-l md:border-gray-200/60 z-50 overflow-y-auto"
+            >
+              {renderSocietyDetailContent()}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Footer */}
+      <Footer />
+
+      {/* Event Detail Modal */}
+      <AnimatePresence>
+        {selectedEvent && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setEventActionError(null);
+                setSelectedEvent(null);
+              }}
+              className="fixed inset-0 bg-black/70 backdrop-blur-xs z-60 flex items-center justify-center p-4"
+            >
+              {/* Event Detail Card */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                onClick={(e) => e.stopPropagation()}
+                className="relative aspect-15/17 max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden"
+              >
+                {/* Close Button */}
+                <button
+                  onClick={() => {
+                    setEventActionError(null);
+                    setSelectedEvent(null);
+                  }}
+                  className="absolute top-4 right-4 z-10 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors backdrop-blur-xs"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                {/* Scrollable Content */}
+                <div className="overflow-y-auto h-full">
+                  {/* Event Banner - 9:16 aspect ratio */}
+                  <div className="relative bg-linear-to-br from-ieee-blue to-purple-600">
+                    {selectedEvent.bannerUrl ? (
+                      <img
+                        src={selectedEvent.bannerUrl}
+                        alt={selectedEvent.title}
+                        className="absolute inset-0 w-full h-full object-cover object-top"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Calendar className="w-24 h-24 text-white/30" />
+                      </div>
+                    )}
+
+                    {/* Gradient Overlay */}
+                    <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent" />
+
+                    {/* Status Badge */}
+                    <div className="absolute top-4 left-4">
+                      <span
+                        className={`text-xs font-bold px-3 py-1.5 rounded-full shadow-lg ${
+                          selectedEvent.status === "completed"
+                            ? "bg-green-500 text-white"
+                            : selectedEvent.status === "published"
+                              ? "bg-blue-500 text-white"
+                              : "bg-gray-500 text-white"
+                        }`}
+                      >
+                        {(selectedEvent.status || "draft").toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Content */}
+                  <div className="p-6 md:p-8">
+                    {/* Title */}
+                    <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">
+                      {selectedEvent.title}
+                    </h2>
+
+                    {/* Meta Info */}
+                    <div className="flex flex-wrap gap-4 mb-6 pb-6 border-b border-gray-200">
+                      <div className="flex items-center gap-2 text-gray-700">
+                        <Calendar className="w-5 h-5 text-ieee-blue" />
+                        <span className="font-semibold">
+                          {new Date(selectedEvent.date).toLocaleDateString(
+                            "en-US",
+                            {
+                              weekday: "long",
+                              month: "long",
+                              day: "numeric",
+                              year: "numeric",
+                            },
+                          )}
+                        </span>
+                      </div>
+
+                      {selectedEvent.venue && (
+                        <div className="flex items-center gap-2 text-gray-700">
+                          <span className="text-ieee-blue">📍</span>
+                          <span className="font-semibold">
+                            {selectedEvent.venue}
+                          </span>
+                        </div>
+                      )}
+
+                      {selectedEvent.price !== undefined &&
+                        selectedEvent.price > 0 && (
+                          <div className="flex items-center gap-2 text-gray-700">
+                            <span className="text-ieee-blue">💰</span>
+                            <span className="font-semibold">
+                              ₹{selectedEvent.price}
+                            </span>
+                          </div>
+                        )}
+
+                      {selectedEvent.maxCapacity !== undefined &&
+                        selectedEvent.maxCapacity > 0 && (
+                          <div className="flex items-center gap-2 text-gray-700">
+                            <Users className="w-5 h-5 text-ieee-blue" />
+                            <span className="font-semibold">
+                              {selectedEvent.maxCapacity} seats
+                            </span>
+                          </div>
+                        )}
+                    </div>
+
+                    {/* Description */}
+                    <div className="mb-6">
+                      <h3 className="text-lg font-bold text-gray-900 mb-3">
+                        About This Event
+                      </h3>
+                      <p className="text-gray-700 leading-relaxed whitespace-pre-line">
+                        {selectedEvent.description ||
+                          "No description available."}
+                      </p>
+                    </div>
+
+                    {eventActionError && (
+                      <p className="mt-3 text-xs text-red-600" role="alert">
+                        {eventActionError}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }

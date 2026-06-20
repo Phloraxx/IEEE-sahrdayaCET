@@ -141,14 +141,14 @@ export default function Navbar() {
                     {user.role === "admin" && (
                       <>
                         <div className="h-px bg-gray-100" />
-                        <Link
-                          to="/admin"
+                        <a
+                          href="/admin"
                           className="w-full px-4 py-3 text-left text-xs font-bold text-blue-600 hover:bg-blue-50 transition-colors flex items-center gap-3 tracking-wide"
                           onClick={() => setShowUserMenu(false)}
                         >
                           <LayoutDashboard className="w-4 h-4" />
                           Dashboard
-                        </Link>
+                        </a>
                       </>
                     )}
                     <div className="h-px bg-gray-100" />
