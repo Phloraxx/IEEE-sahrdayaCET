@@ -28,11 +28,11 @@ export function CouponManager({ coupons, onChange }: CouponManagerProps) {
   }
 
   const removeCoupon = (id: string) => {
-    onChange(coupons.filter((c) => c.id !== id))
+    onChange(coupons.filter((c) => (c.id || c.code) !== id))
   }
 
   const updateCoupon = (id: string, updates: Partial<Coupon>) => {
-    onChange(coupons.map((c) => (c.id === id ? { ...c, ...updates } : c)))
+    onChange(coupons.map((c) => ((c.id || c.code) === id ? { ...c, ...updates } : c)))
   }
 
   return (
@@ -47,7 +47,7 @@ export function CouponManager({ coupons, onChange }: CouponManagerProps) {
             <div className="flex items-center gap-2">
               <input
                 value={coupon.code}
-                onChange={(e) => updateCoupon(coupon.id, { code: e.target.value.toUpperCase() })}
+                onChange={(e) => updateCoupon(coupon.id || coupon.code, { code: e.target.value.toUpperCase() })}
                 placeholder="COUPON CODE"
                 className="flex-1 rounded-md border border-input bg-background px-2 py-1.5 text-sm font-mono uppercase outline-none focus:border-ring"
               />
@@ -56,7 +56,7 @@ export function CouponManager({ coupons, onChange }: CouponManagerProps) {
               }} className="p-1 text-muted-foreground hover:text-foreground transition-colors" title={`Copy ${coupon.code}`}>
                 <Copy className="size-3.5" />
               </button>
-              <button type="button" onClick={() => removeCoupon(coupon.id)}
+              <button type="button" onClick={() => removeCoupon(coupon.id || coupon.code)}
                 className="p-1 text-muted-foreground hover:text-destructive transition-colors">
                 <X className="size-4" />
               </button>
@@ -67,7 +67,7 @@ export function CouponManager({ coupons, onChange }: CouponManagerProps) {
                 <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Type</label>
                 <select
                   value={coupon.discountType}
-                  onChange={(e) => updateCoupon(coupon.id, { discountType: e.target.value as 'percentage' | 'fixed' })}
+                  onChange={(e) => updateCoupon(coupon.id || coupon.code, { discountType: e.target.value as 'percentage' | 'fixed' })}
                   className="w-full rounded-md border border-input bg-background px-2 py-1 text-xs outline-none"
                 >
                   <option value="percentage">Percentage (%)</option>
@@ -80,7 +80,7 @@ export function CouponManager({ coupons, onChange }: CouponManagerProps) {
                   type="number"
                   min="0"
                   value={coupon.discountValue}
-                  onChange={(e) => updateCoupon(coupon.id, { discountValue: Number(e.target.value) })}
+                  onChange={(e) => updateCoupon(coupon.id || coupon.code, { discountValue: Number(e.target.value) })}
                   placeholder={coupon.discountType === 'percentage' ? '10' : '100'}
                   className="w-full rounded-md border border-input bg-background px-2 py-1 text-xs outline-none"
                 />
@@ -91,7 +91,7 @@ export function CouponManager({ coupons, onChange }: CouponManagerProps) {
                   type="number"
                   min="0"
                   value={coupon.maxUses}
-                  onChange={(e) => updateCoupon(coupon.id, { maxUses: Number(e.target.value) })}
+                  onChange={(e) => updateCoupon(coupon.id || coupon.code, { maxUses: Number(e.target.value) })}
                   placeholder="0 = unlimited"
                   className="w-full rounded-md border border-input bg-background px-2 py-1 text-xs outline-none"
                 />
@@ -103,10 +103,10 @@ export function CouponManager({ coupons, onChange }: CouponManagerProps) {
                   value={coupon.expiresAt ? coupon.expiresAt.substring(0, 16) : ''}
                   onChange={(e) => {
                     if (!e.target.value) {
-                      updateCoupon(coupon.id, { expiresAt: '' })
+                      updateCoupon(coupon.id || coupon.code, { expiresAt: '' })
                       return
                     }
-                    updateCoupon(coupon.id, { expiresAt: new Date(e.target.value).toISOString() })
+                    updateCoupon(coupon.id || coupon.code, { expiresAt: new Date(e.target.value).toISOString() })
                   }}
                   className="w-full rounded-md border border-input bg-background px-2 py-1 text-xs outline-none"
                 />
@@ -117,7 +117,7 @@ export function CouponManager({ coupons, onChange }: CouponManagerProps) {
               <input
                 type="checkbox"
                 checked={coupon.isActive}
-                onChange={(e) => updateCoupon(coupon.id, { isActive: e.target.checked })}
+                onChange={(e) => updateCoupon(coupon.id || coupon.code, { isActive: e.target.checked })}
                 className="rounded border-input"
               />
               <span className="text-xs text-muted-foreground">Active</span>

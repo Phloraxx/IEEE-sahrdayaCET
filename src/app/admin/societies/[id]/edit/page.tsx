@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Loader2, X, Search, Plus } from 'lucide-react'
+import { ArrowLeft, Loader2, X, Search, Plus, ImageUp } from 'lucide-react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 
 interface User {
   id: string
@@ -32,6 +33,10 @@ export default function EditSocietyPage({ params }: PageProps) {
   const [chairs, setChairs] = useState<string[]>([])
   const [users, setUsers] = useState<User[]>([])
   const [userSearch, setUserSearch] = useState('')
+  const [logoPreview, setLogoPreview] = useState<string | null>(null)
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null)
+  const [bannerFile, setBannerFile] = useState<File | null>(null)
 
   useEffect(() => {
     params.then(({ id }) => {
@@ -51,6 +56,8 @@ export default function EditSocietyPage({ params }: PageProps) {
           })
           setChairs((s.chairs as string[]) || [])
           setUsers(usersData.users || [])
+          if (s.bannerUrl) setBannerPreview(s.bannerUrl)
+          if (s.logoUrl) setLogoPreview(s.logoUrl)
           setLoading(false)
         })
         .catch(() => {
@@ -66,24 +73,61 @@ export default function EditSocietyPage({ params }: PageProps) {
     setError(null)
 
     try {
-      const res = await fetch(`/api/admin/societies/${societyId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          chairs,
-        }),
-      })
+      const body: Record<string, unknown> = {
+        ...form,
+        chairs,
+      }
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || 'Failed to update society')
+      // Upload files if changed
+      if (logoFile || bannerFile) {
+        const fd = new FormData()
+        Object.entries(body).forEach(([key, val]) => {
+          fd.append(key, typeof val === 'object' ? JSON.stringify(val) : String(val))
+        })
+        if (logoFile) fd.append('logo', logoFile)
+        if (bannerFile) fd.append('banner', bannerFile)
+        const res = await fetch(`/api/admin/societies/${societyId}`, {
+          method: 'PUT',
+          body: fd,
+        })
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          throw new Error(data.error || 'Failed to update society')
+        }
+      } else {
+        const res = await fetch(`/api/admin/societies/${societyId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          throw new Error(data.error || 'Failed to update society')
+        }
       }
       router.push(`/admin/societies/${societyId}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
       setSaving(false)
     }
+  }
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setLogoFile(file)
+    const reader = new FileReader()
+    reader.onloadend = () => setLogoPreview(reader.result as string)
+    reader.readAsDataURL(file)
+  }
+
+  const handleBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setBannerFile(file)
+    const reader = new FileReader()
+    reader.onloadend = () => setBannerPreview(reader.result as string)
+    reader.readAsDataURL(file)
   }
 
   const update = (field: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -113,22 +157,22 @@ export default function EditSocietyPage({ params }: PageProps) {
     return (
       <div className="space-y-6 max-w-2xl">
         <div className="flex items-center gap-4">
-          <div className="animate-shimmer rounded-lg h-8 w-8" />
+          <Skeleton className="h-8 w-8 rounded-lg" />
           <div className="space-y-1">
-            <div className="animate-shimmer rounded-md h-6 w-48" />
-            <div className="animate-shimmer rounded-md h-4 w-32" />
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-4 w-32" />
           </div>
         </div>
         <div className="rounded-xl border bg-card p-6 space-y-3">
-          <div className="animate-shimmer rounded-md h-5 w-36" />
-          <div className="animate-shimmer rounded-md h-10 w-full" />
-          <div className="animate-shimmer rounded-md h-10 w-full" />
-          <div className="animate-shimmer rounded-md h-20 w-full" />
+          <Skeleton className="h-5 w-36" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-20 w-full" />
         </div>
         <div className="rounded-xl border bg-card p-6 space-y-3">
-          <div className="animate-shimmer rounded-md h-5 w-32" />
-          <div className="animate-shimmer rounded-md h-10 w-full" />
-          <div className="animate-shimmer rounded-md h-10 w-full" />
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
         </div>
       </div>
     )
@@ -163,8 +207,48 @@ export default function EditSocietyPage({ params }: PageProps) {
             <div className="space-y-2">
               <label className="text-sm font-medium">Slug *</label>
               <input required value={form.slug} onChange={update('slug')}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm font-mono outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
+                className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm font-mono outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
               <p className="text-xs text-muted-foreground">URL-friendly identifier (e.g. &quot;ieee-cs&quot;)</p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Logo</label>
+              <div className="relative">
+                {logoPreview ? (
+                  <div className="relative rounded-lg overflow-hidden border border-border w-32 h-32">
+                    <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" />
+                    <button type="button" onClick={() => { setLogoPreview(null); setLogoFile(null) }}
+                      className="absolute top-1 right-1 rounded-full bg-background/80 p-0.5 hover:bg-background">
+                      <X className="size-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center h-32 w-32 rounded-lg border-2 border-dashed border-border bg-muted/30 cursor-pointer hover:bg-muted/50">
+                    <ImageUp className="size-5 text-muted-foreground/60 mb-1" />
+                    <span className="text-[10px] text-muted-foreground">Upload logo</span>
+                    <input type="file" accept="image/*" onChange={handleLogoChange} className="hidden" />
+                  </label>
+                )}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Banner</label>
+              <div className="relative">
+                {bannerPreview ? (
+                  <div className="relative rounded-lg overflow-hidden border border-border">
+                    <img src={bannerPreview} alt="Banner" className="w-full h-32 object-cover" />
+                    <button type="button" onClick={() => { setBannerPreview(null); setBannerFile(null) }}
+                      className="absolute top-2 right-2 rounded-full bg-background/80 p-1 hover:bg-background">
+                      <X className="size-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center h-32 rounded-lg border-2 border-dashed border-border bg-muted/30 cursor-pointer hover:bg-muted/50">
+                    <ImageUp className="size-6 text-muted-foreground/60 mb-1" />
+                    <span className="text-xs text-muted-foreground">Click to upload banner</span>
+                    <input type="file" accept="image/*" onChange={handleBannerChange} className="hidden" />
+                  </label>
+                )}
+              </div>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Bio</label>
@@ -223,7 +307,7 @@ export default function EditSocietyPage({ params }: PageProps) {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                 <input value={userSearch} onChange={(e) => setUserSearch(e.target.value)}
                   placeholder="Search users by name or email..."
-                  className="w-full rounded-lg border border-input bg-background pl-9 pr-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
+                  className="w-full rounded-lg border border-input bg-white pl-9 pr-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
               </div>
               {userSearch && (
                 <div className="max-h-48 overflow-y-auto rounded-lg border border-border/50 bg-card divide-y divide-border/30">

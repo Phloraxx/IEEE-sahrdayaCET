@@ -1,11 +1,10 @@
 import { createAdminPB, escapeFilterValue } from '@/lib/pb'
+import { handleError } from '@/lib/api-error'
 import crypto from 'crypto'
-import { logError } from '@/lib/logger'
-import { confirmRegistration } from '@/lib/registration-service'
 
 export async function POST(req: Request) {
   const webhookSecret = process.env.PAYMENT_WEBHOOK_SECRET
-  if (!webhookSecret || webhookSecret === 'your-webhook-secret-here') {
+  if (!webhookSecret) {
     return Response.json({ error: 'Webhook not configured' }, { status: 500 })
   }
 
@@ -36,38 +35,42 @@ export async function POST(req: Request) {
       return Response.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    const registrations = await pb.collection('registrations').getFullList({
-      filter: `paymentTicketId = ${escapeFilterValue(ticketId)}`,
-    })
-    if (registrations.length === 0) {
+    const registration = await pb.collection('registrations')
+      .getFirstListItem(
+        'paymentTicketId = ' + escapeFilterValue(ticketId),
+        { fields: 'id,amount,paymentStatus,registrationStatus' },
+      )
+      .catch(() => null)
+    if (!registration) {
       return Response.json({ error: 'Registration not found' }, { status: 404 })
     }
 
-    const registration = registrations[0]
-    if (Number(amount) !== Number(registration.amount)) {
+    const regR = registration as unknown as Record<string, unknown>
+
+    if (Math.round(Number(amount) * 100) !== Math.round(Number(regR.amount) * 100)) {
       return Response.json({ error: 'Amount mismatch' }, { status: 400 })
     }
 
     const isSuccess = status === 'success' || status === 'completed' || status === 'paid'
-    if (isSuccess && registration.paymentStatus === 'paid') {
+    if (isSuccess && regR.paymentStatus === 'paid') {
       return Response.json({ success: true, message: 'Already processed' })
     }
 
-    await pb.collection('registrations').update(registration.id, {
-      paymentStatus: isSuccess ? 'paid' : 'failed',
-      paymentData: body,
-    })
-
-    // If payment succeeded, confirm the registration:
-    // sets registrationStatus to 'confirmed', generates ticket,
-    // and increments event.registeredCount (only on first confirmation).
     if (isSuccess) {
-      await confirmRegistration(pb, registration.id)
+      await pb.collection('registrations').update(registration.id, {
+        paymentStatus: 'paid',
+        paymentData: body,
+        registrationStatus: 'confirmed',
+      })
+    } else {
+      await pb.collection('registrations').update(registration.id, {
+        paymentStatus: 'failed',
+        paymentData: body,
+      })
     }
 
     return Response.json({ success: true })
   } catch (error) {
-    logError('payment-webhook', error)
-    return Response.json({ error: 'Webhook processing failed' }, { status: 500 })
+    return handleError(error, 'payment-webhook')
   }
 }

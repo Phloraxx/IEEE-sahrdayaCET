@@ -2,18 +2,19 @@ import type PocketBase from 'pocketbase'
 import type { AuthUser } from '@/types'
 import { createPB } from './pb'
 import { cookies } from 'next/headers'
+import { PB_AUTH_COOKIE } from './constants'
 
 export interface AuthResult {
-    user: AuthUser
+  user: AuthUser
 }
 
 export class AuthError extends Error {
-    status: number
-    constructor(message: string, status: number = 401) {
-        super(message)
-        this.name = 'AuthError'
-        this.status = status
-    }
+  status: number
+  constructor(message: string, status: number = 401) {
+    super(message)
+    this.name = 'AuthError'
+    this.status = status
+  }
 }
 
 /**
@@ -23,51 +24,48 @@ export class AuthError extends Error {
  * Returns the refreshed pb instance along with the user.
  */
 export async function requireAuth(pb?: PocketBase): Promise<AuthResult & { pb: PocketBase }> {
-    if (!pb) {
-        const cookieStore = await cookies()
-        const authCookie = cookieStore.get('pb_auth')?.value
-        if (!authCookie) throw new AuthError('Authentication required', 401)
-        pb = createPB(`pb_auth=${authCookie}`)
-    }
+  if (!pb) {
+    const cookieStore = await cookies()
+    const authCookie = cookieStore.get(PB_AUTH_COOKIE)?.value
+    if (!authCookie) throw new AuthError('Authentication required', 401)
+    pb = createPB(`${PB_AUTH_COOKIE}=${authCookie}`)
+  }
 
-    try {
-        await pb.collection('users').authRefresh()
-    } catch {
-        throw new AuthError('Invalid or expired session', 401)
-    }
+  try {
+    await pb.collection('users').authRefresh()
+  } catch {
+    throw new AuthError('Invalid or expired session', 401)
+  }
 
-    const record = pb.authStore.record as AuthUser
-    return {
-        user: { id: record.id, email: record.email, name: record.name, role: record.role },
-        pb,
-    }
+  const record = pb.authStore.record
+  if (!record) throw new AuthError('Invalid or expired session', 401)
+
+  const user: AuthUser = {
+    id: record.id,
+    email: record.email,
+    name: record.name,
+    role: record.role,
+  }
+  return { user, pb }
 }
 
 export async function requireAdmin(pb?: PocketBase): Promise<AuthResult & { pb: PocketBase }> {
-    const result = await requireAuth(pb)
-    if (result.user.role !== 'admin') throw new AuthError('Admin access required', 403)
-    return result
+  const result = await requireAuth(pb)
+  if (result.user.role !== 'admin') throw new AuthError('Admin access required', 403)
+  return result
 }
 
-export async function requireRole(...roles: string[]): Promise<AuthResult & { pb: PocketBase }>;
-export async function requireRole(roles: string[], pb?: PocketBase): Promise<AuthResult & { pb: PocketBase }>;
-export async function requireRole(...args: unknown[]): Promise<AuthResult & { pb: PocketBase }> {
-    // Support both: requireRole('admin', 'chair') and requireRole(['admin', 'chair'], pb)
-    let roles: string[]
-    let pb: PocketBase | undefined
-
-    if (Array.isArray(args[0])) {
-        // Signature: requireRole(['admin', 'chair'], pb?)
-        roles = args[0] as string[]
-        pb = args[1] as PocketBase | undefined
-    } else {
-        // Signature: requireRole('admin', 'chair')
-        roles = args as string[]
-    }
-
-    const result = await requireAuth(pb)
-    if (!roles.includes(result.user.role || '')) {
-        throw new AuthError(`Access restricted to ${roles.join(' or ')}`, 403)
-    }
-    return result
+/**
+ * Require that the authenticated user has one of the given roles.
+ * Throws AuthError(401) if not authenticated, AuthError(403) if role insufficient.
+ */
+export async function requireRole(
+  roles: string[],
+  pb?: PocketBase,
+): Promise<AuthResult & { pb: PocketBase }> {
+  const result = await requireAuth(pb)
+  if (!roles.includes(result.user.role || '')) {
+    throw new AuthError(`Access restricted to ${roles.join(' or ')}`, 403)
+  }
+  return result
 }

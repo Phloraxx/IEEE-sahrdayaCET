@@ -7,7 +7,7 @@ export default async function AdminGuard({
   children: React.ReactNode
 }) {
   try {
-    await requireRole('admin', 'chair')
+    await requireRole(['admin', 'chair'])
   } catch {
     redirect('/')
   }

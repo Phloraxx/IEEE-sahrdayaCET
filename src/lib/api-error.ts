@@ -1,8 +1,23 @@
 import { logError } from './logger'
 import { ClientResponseError } from 'pocketbase'
+import { AuthError } from './auth'
+import { RegistrationError } from './registration-service'
 
-export function handleError(error: unknown, context: string) {
+/**
+ * Central error handler for API route try/catch blocks.
+ * Maps known error types (AuthError, RegistrationError, ClientResponseError)
+ * to the correct HTTP status and message; falls back to 500 for unknown errors.
+ */
+export function handleError(error: unknown, context: string): Response {
   logError(context, error)
+
+  if (error instanceof AuthError) {
+    return Response.json({ error: error.message }, { status: error.status })
+  }
+
+  if (error instanceof RegistrationError) {
+    return Response.json({ error: error.message }, { status: error.statusCode })
+  }
 
   if (error instanceof ClientResponseError) {
     const status = error.status
@@ -10,10 +25,13 @@ export function handleError(error: unknown, context: string) {
       return Response.json({ error: 'Resource not found' }, { status: 404 })
     }
     if (status === 400) {
-      return Response.json({
-        error: error.data?.message || 'Invalid request',
-        details: error.data?.data || undefined,
-      }, { status: 400 })
+      return Response.json(
+        {
+          error: error.data?.message || 'Invalid request',
+          details: error.data?.data || undefined,
+        },
+        { status: 400 },
+      )
     }
     return Response.json(
       { error: error.data?.message || 'Request failed' },
@@ -22,4 +40,18 @@ export function handleError(error: unknown, context: string) {
   }
 
   return Response.json({ error: 'Internal server error' }, { status: 500 })
+}
+
+/**
+ * Extracts a numeric HTTP status from any error-like object.
+ * Used by routes that need to branch on status before/after handleError.
+ */
+export function getErrorStatus(error: unknown): number {
+  if (error instanceof AuthError) return error.status
+  if (error instanceof RegistrationError) return error.statusCode
+  if (error instanceof ClientResponseError) return error.status
+  if (error && typeof error === 'object' && 'status' in error && typeof (error as { status: unknown }).status === 'number') {
+    return (error as { status: number }).status
+  }
+  return 500
 }

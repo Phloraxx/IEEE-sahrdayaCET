@@ -30,7 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 return
             }
             const data = await res.json()
-            const u = data?.user || data
+            const u = data?.user
             if (u?.id) {
                 setUser({
                     id: String(u.id),
@@ -54,14 +54,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, [fetchUser])
 
     const signIn = useCallback(() => {
-        window.location.href = '/'
+        window.location.href = '/api/auth/init'
     }, [])
 
     const signOut = useCallback(() => {
         fetch('/api/auth/logout', { method: 'POST' }).finally(() => {
             setUser(null)
             setStatus('unauthenticated')
-            document.cookie = 'pb_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
             window.location.href = '/'
         })
     }, [])

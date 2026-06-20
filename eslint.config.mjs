@@ -15,6 +15,10 @@ const eslintConfig = [
     rules: {
       "no-console": "off",
       "@next/next/no-img-element": "warn",
+      "prefer-const": "warn",
+      "no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+      "no-var": "warn",
+      "prefer-template": "warn",
     },
   },
 ];

@@ -2,34 +2,9 @@ import { NextRequest } from 'next/server'
 import { createPB, createAdminPB } from '@/lib/pb'
 import { requireRole } from '@/lib/auth'
 import { handleError } from '@/lib/api-error'
-import { getChairSocietyIds } from '@/lib/chair-scope'
+import { getChairScope, assertChairRegistrationAccess } from '@/lib/chair-scope'
 import { checkInRegistration, cancelRegistration, RegistrationError } from '@/lib/registration-service'
-
-/**
- * Verifies that a chair user has access to the event this registration belongs to.
- */
-async function assertChairCanAccessRegistration(
-  adminPB: ReturnType<typeof createAdminPB>,
-  userId: string,
-  registrationId: string,
-): Promise<{ allowed: boolean; error?: Response }> {
-  const reg = await adminPB.collection('registrations').getOne(registrationId, { fields: 'id,event' }).catch(() => null)
-  if (!reg) return { allowed: false, error: Response.json({ error: 'Registration not found' }, { status: 404 }) }
-
-  const eventId = (reg as Record<string, unknown>).event as string
-  if (!eventId) return { allowed: false, error: Response.json({ error: 'Registration has no event' }, { status: 400 }) }
-
-  const event = await adminPB.collection('events').getOne(eventId, { fields: 'id,society' }).catch(() => null)
-  if (!event) return { allowed: false, error: Response.json({ error: 'Event not found' }, { status: 404 }) }
-
-  const societyIds = await getChairSocietyIds(adminPB, userId)
-  const eventSociety = (event as Record<string, unknown>).society as string
-  if (!societyIds.includes(eventSociety)) {
-    return { allowed: false, error: Response.json({ error: 'Forbidden: not a chair of this event\'s society' }, { status: 403 }) }
-  }
-
-  return { allowed: true }
-}
+import { REGISTRATION_STATUS, PAYMENT_STATUS } from '@/lib/constants'
 
 export async function GET(
   req: NextRequest,
@@ -38,34 +13,35 @@ export async function GET(
   const { id } = await params
 
   try {
-    const pb = createPB(req.headers.get('cookie') || undefined)
+    const cookie = req.headers.get('cookie') || undefined
+    const pb = createPB(cookie)
     const { user } = await requireRole(['admin', 'chair'], pb)
     const adminPB = createAdminPB()
-
-    // Chair scoping
-    if (user.role === 'chair') {
-      const access = await assertChairCanAccessRegistration(adminPB, user.id, id)
-      if (!access.allowed) return access.error
-    }
+    const scope = await getChairScope(adminPB, user.id, user.role)
+    await assertChairRegistrationAccess(adminPB, user.id, user.role, id, scope)
 
     const reg = await adminPB.collection('registrations').getOne(id, { expand: 'event' })
-    const expand = (reg as Record<string, unknown>).expand as Record<string, unknown> | undefined
+    const r = reg as unknown as Record<string, unknown>
+    const expand = r.expand as Record<string, unknown> | undefined
     const event = expand?.event as Record<string, unknown> | undefined
 
     return Response.json({
       registration: {
-        id: reg.id,
-        userName: (reg as Record<string, unknown>).userName,
-        userEmail: (reg as Record<string, unknown>).userEmail,
-        userPhone: (reg as Record<string, unknown>).userPhone,
-        registrationStatus: (reg as Record<string, unknown>).registrationStatus,
-        paymentStatus: (reg as Record<string, unknown>).paymentStatus,
-        checkedIn: !!(reg as Record<string, unknown>).checkedIn,
-        checkedInAt: (reg as Record<string, unknown>).checkedInAt,
-        ticketId: (reg as Record<string, unknown>).ticketId,
-        amount: Number((reg as Record<string, unknown>).amount) || 0,
-        formResponses: (reg as Record<string, unknown>).formResponses,
-        createdAt: (reg as Record<string, unknown>).created,
+        id: r.id,
+        userName: r.userName,
+        userEmail: r.userEmail,
+        userPhone: r.userPhone,
+        registrationStatus: r.registrationStatus,
+        paymentStatus: r.paymentStatus,
+        checkedIn: !!r.checkedIn,
+        checkedInAt: r.checkedInAt,
+        ticketId: r.ticketId,
+        amount: Number(r.amount) || 0,
+        couponCode: r.couponCode || '',
+        discountAmount: Number(r.discountAmount) || 0,
+        paymentData: r.paymentData || null,
+        formResponses: r.formResponses,
+        createdAt: r.created,
         eventTitle: event?.title || '',
         eventId: event?.id || '',
       },
@@ -82,19 +58,18 @@ export async function PUT(
   const { id } = await params
 
   try {
-    const pb = createPB(req.headers.get('cookie') || undefined)
+    const cookie = req.headers.get('cookie') || undefined
+    const pb = createPB(cookie)
     const { user } = await requireRole(['admin', 'chair'], pb)
     const adminPB = createAdminPB()
+    const scope = await getChairScope(adminPB, user.id, user.role)
+    await assertChairRegistrationAccess(adminPB, user.id, user.role, id, scope)
 
-    // Chair scoping
-    if (user.role === 'chair') {
-      const access = await assertChairCanAccessRegistration(adminPB, user.id, id)
-      if (!access.allowed) return access.error
-    }
-
-    const body = (await req.json()) as {
+    const body = (await req.json().catch(() => ({}))) as {
       checkedIn?: boolean
       registrationStatus?: string
+      paymentStatus?: string
+      amount?: number
     }
 
     if (body.checkedIn === true) {
@@ -105,6 +80,21 @@ export async function PUT(
     if (body.registrationStatus === 'cancelled') {
       await cancelRegistration(adminPB, id)
       return Response.json({ success: true, action: 'cancelled' })
+    }
+
+    if (body.registrationStatus && (REGISTRATION_STATUS as readonly string[]).includes(body.registrationStatus)) {
+      await adminPB.collection('registrations').update(id, { registrationStatus: body.registrationStatus })
+      return Response.json({ success: true, action: 'status_updated' })
+    }
+
+    if (body.paymentStatus && (PAYMENT_STATUS as readonly string[]).includes(body.paymentStatus)) {
+      await adminPB.collection('registrations').update(id, { paymentStatus: body.paymentStatus })
+      return Response.json({ success: true, action: 'payment_updated' })
+    }
+
+    if (typeof body.amount === 'number' && body.amount >= 0) {
+      await adminPB.collection('registrations').update(id, { amount: body.amount })
+      return Response.json({ success: true, action: 'amount_updated' })
     }
 
     return Response.json({ error: 'No valid action specified' }, { status: 400 })

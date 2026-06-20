@@ -1,0 +1,2013 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IEEE Sahrdaya SB — Admin</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23c14a3a'/%3E%3Ctext x='16' y='22' font-size='16' font-weight='bold' text-anchor='middle' fill='white' font-family='sans-serif'%3ESB%3C/text%3E%3C/svg%3E">
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   EDITORIAL-MONOCLE DESIGN TOKENS
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  --paper: #f7f5f0;
+  --paper-alt: #f0ede7;
+  --ink: #1a1a1a;
+  --ink-soft: #6b655a;
+  --ink-muted: #a09a8e;
+  --ink-border: #ddd8d0;
+  --ink-border-light: #e8e4dc;
+  --accent: #c14a3a;
+  --accent-hover: #a83a2c;
+  --accent-light: #f5e6e3;
+  --success: #2e7d5e;
+  --success-light: #e8f3ee;
+  --warning: #b8860b;
+  --warning-light: #f8f0e0;
+  --danger: #b33a2a;
+  --danger-light: #f5e3e0;
+
+  --font-serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, serif;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+
+  --sidebar-w: 220px;
+  --sidebar-w-collapsed: 56px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESET + BASE
+   ═══════════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 15px; -webkit-font-smoothing: antialiased; }
+body {
+  font-family: var(--font-sans);
+  color: var(--ink);
+  background: var(--paper);
+  line-height: 1.5;
+  display: flex;
+  min-height: 100vh;
+}
+a { color: inherit; text-decoration: none; }
+button { font: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+input, textarea, select { font: inherit; color: inherit; }
+table { border-collapse: collapse; width: 100%; }
+img { max-width: 100%; display: block; }
+svg { flex-shrink: 0; }
+kbd {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  padding: 0.1em 0.4em;
+  border: 1px solid var(--ink-border);
+  border-radius: 4px;
+  background: var(--paper-alt);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SIDEBAR
+   ═══════════════════════════════════════════════════════════════ */
+.sidebar {
+  width: var(--sidebar-w);
+  min-width: var(--sidebar-w);
+  background: var(--ink);
+  color: #ccc;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #2a2a2a;
+  transition: width 0.2s, min-width 0.2s;
+  overflow: hidden;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+.sidebar.collapsed {
+  width: var(--sidebar-w-collapsed);
+  min-width: var(--sidebar-w-collapsed);
+}
+.sidebar-header {
+  padding: 1rem 1rem 0.75rem;
+  border-bottom: 1px solid #2a2a2a;
+}
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.sidebar-logo {
+  width: 28px; height: 28px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+}
+.sidebar-brand-text {
+  display: flex; flex-direction: column;
+}
+.sidebar-brand-name {
+  font-family: var(--font-serif);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #e8e4dc;
+  text-transform: uppercase;
+}
+.sidebar-brand-sub {
+  font-size: 0.6rem;
+  color: #777;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.sidebar-nav {
+  flex: 1; overflow-y: auto;
+  padding: 0.75rem 0;
+}
+.sidebar-section {
+  padding: 0 0.625rem;
+  margin-bottom: 0.25rem;
+}
+.sidebar-section-label {
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #555;
+  padding: 0.75rem 0.625rem 0.375rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: var(--radius-md);
+  font-size: 0.8rem;
+  color: #999;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: color 0.15s, background 0.15s;
+  cursor: pointer;
+  position: relative;
+}
+.sidebar-item:hover { color: #e8e4dc; background: #2a2a2a; }
+.sidebar-item.active {
+  color: #e8e4dc;
+  background: rgba(193,74,58,0.15);
+}
+.sidebar-item svg {
+  width: 16px; height: 16px;
+  flex-shrink: 0;
+}
+.sidebar-item span { overflow: hidden; text-overflow: ellipsis; }
+.sidebar.collapsed .sidebar-item span,
+.sidebar.collapsed .sidebar-brand-text,
+.sidebar.collapsed .sidebar-section-label,
+.sidebar.collapsed .sidebar-footer-text,
+.sidebar.collapsed .sidebar-badge,
+.sidebar.collapsed .sidebar-toggle-text { display: none; }
+.sidebar.collapsed .sidebar-item { justify-content: center; padding: 0.5rem; }
+.sidebar.collapsed .sidebar-header { padding: 0.75rem 0.5rem; display: flex; justify-content: center; }
+.sidebar.collapsed .sidebar-logo { margin: 0; }
+.sidebar.collapsed .sidebar-section { padding: 0 0.25rem; }
+.sidebar.collapsed .sidebar-section-label { display: none; }
+
+.sidebar-footer {
+  padding: 0.625rem;
+  border-top: 1px solid #2a2a2a;
+}
+.sidebar-user {
+  display: flex; align-items: center; gap: 0.625rem;
+  padding: 0.375rem 0.5rem;
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  transition: background 0.15s;
+}
+.sidebar-user:hover { background: #2a2a2a; }
+.sidebar-avatar {
+  width: 28px; height: 28px;
+  background: #333;
+  color: #999;
+  font-size: 0.6rem;
+  font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid #444;
+  border-radius: var(--radius-sm);
+}
+.sidebar-user-info {
+  overflow: hidden;
+  white-space: nowrap;
+}
+.sidebar-user-name {
+  font-size: 0.75rem;
+  color: #ccc;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.sidebar-user-role {
+  font-size: 0.6rem;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.sidebar-badge {
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.15em 0.5em;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  display: inline-block;
+}
+.sidebar-toggle {
+  position: absolute;
+  bottom: 0.5rem;
+  right: -0.75rem;
+  width: 24px; height: 24px;
+  background: var(--paper);
+  border: 1px solid var(--ink-border);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+  border-radius: 50%;
+}
+.sidebar-toggle:hover { background: var(--ink-border-light); }
+
+/* ═══════════════════════════════════════════════════════════════
+   MAIN LAYOUT
+   ═══════════════════════════════════════════════════════════════ */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid var(--ink-border-light);
+  background: var(--paper);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.topbar-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.03em;
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+}
+.topbar-breadcrumb span.accent { color: var(--accent); }
+.topbar-shortcuts {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.65rem;
+  color: var(--ink-muted);
+}
+.content {
+  flex: 1;
+  padding: 2.5rem 2.5rem 4rem;
+  max-width: 1200px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TYPOGRAPHY
+   ═══════════════════════════════════════════════════════════════ */
+h1, h2, h3, h4, h5 {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--ink);
+}
+.page-title {
+  font-size: 1.6rem;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.25rem;
+}
+.page-subtitle {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  font-family: var(--font-sans);
+}
+.label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+  font-family: var(--font-sans);
+  font-weight: 600;
+}
+.value-large {
+  font-family: var(--font-serif);
+  font-size: 2rem;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+.text-mono { font-family: var(--font-mono); font-size: 0.8rem; }
+.text-small { font-size: 0.75rem; }
+.text-xs { font-size: 0.65rem; }
+.text-soft { color: var(--ink-soft); }
+.text-muted { color: var(--ink-muted); }
+.text-accent { color: var(--accent); }
+.text-success { color: var(--success); }
+
+/* ═══════════════════════════════════════════════════════════════
+   COMPONENTS
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Card */
+.card {
+  border: 1px solid var(--ink-border-light);
+  background: #fff;
+  border-radius: var(--radius-lg);
+}
+.card-header {
+  padding: 1.5rem 1.5rem 0.875rem;
+}
+.card-header:first-child { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+.card-title {
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  font-weight: 400;
+}
+.card-subtitle {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  margin-top: 0.15rem;
+}
+.card-body { padding: 1rem 1.75rem 1.75rem; }
+.card-body.inset { padding: 1.75rem; }
+.card-footer {
+  padding: 1rem 1.75rem;
+  border-top: 1px solid var(--ink-border-light);
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+
+/* Grid helper */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2.5rem; }
+.grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 2.5rem; }
+
+/* Stat card */
+.stat-card {
+  border: 1px solid var(--ink-border-light);
+  background: #fff;
+  padding: 1.75rem;
+  border-radius: var(--radius-lg);
+}
+.stat-card-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+  font-weight: 600;
+  margin-bottom: 0.375rem;
+}
+.stat-card-value {
+  font-family: var(--font-serif);
+  font-size: 1.75rem;
+  line-height: 1.1;
+}
+.stat-card-desc {
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+  margin-top: 0.25rem;
+}
+
+/* Table */
+.table-wrap { overflow-x: auto; }
+table.data {
+  width: 100%;
+  font-size: 0.8rem;
+}
+table.data th {
+  text-align: left;
+  padding: 1rem 1.25rem;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+  font-weight: 600;
+  border-bottom: 1px solid var(--ink-border);
+  background: #fcfbf9;
+}
+table.data td {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--ink-border-light);
+  vertical-align: middle;
+}
+table.data tr:last-child td { border-bottom: none; }
+table.data tr:hover td { background: #faf8f5; }
+table.data .row-active td { background: var(--accent-light); }
+
+/* Badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1em 0.5em;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  border: 1px solid var(--ink-border);
+  background: transparent;
+  color: var(--ink-soft);
+  border-radius: 4px;
+}
+.badge-accent { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+.badge-success { border-color: var(--success); color: var(--success); background: var(--success-light); }
+.badge-warning { border-color: var(--warning); color: var(--warning); background: var(--warning-light); }
+.badge-danger { border-color: var(--danger); color: var(--danger); background: var(--danger-light); }
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.75rem;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  border: 1px solid var(--ink-border);
+  background: transparent;
+  color: var(--ink);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  white-space: nowrap;
+  border-radius: var(--radius-sm);
+}
+.btn:hover { background: var(--paper-alt); border-color: var(--ink-border); }
+.btn-primary {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+.btn-primary:hover { background: #333; }
+.btn-accent {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.btn-accent:hover { background: var(--accent-hover); }
+.btn-ghost { border-color: transparent; }
+.btn-ghost:hover { background: var(--paper-alt); }
+.btn-sm { padding: 0.3rem 0.6rem; font-size: 0.7rem; }
+.btn-xs { padding: 0.15rem 0.4rem; font-size: 0.6rem; }
+.btn-icon {
+  width: 32px; height: 32px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.btn-icon svg { width: 16px; height: 16px; }
+
+/* Inputs */
+.input {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8rem;
+  border: 1px solid var(--ink-border);
+  background: #fff;
+  transition: border-color 0.15s;
+  outline: none;
+  border-radius: var(--radius-sm);
+}
+.input:focus { border-color: var(--ink); }
+.input-sm { padding: 0.35rem 0.6rem; font-size: 0.75rem; }
+select.input { appearance: auto; }
+textarea.input { resize: vertical; min-height: 80px; }
+.input-group {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--ink-border);
+  background: #fff;
+  transition: border-color 0.15s;
+  border-radius: var(--radius-sm);
+}
+.input-group:focus-within { border-color: var(--ink); }
+.input-group input {
+  flex: 1; border: none; outline: none; background: none;
+  font-size: 0.8rem;
+}
+.input-group svg { width: 14px; height: 14px; color: var(--ink-muted); }
+
+/* Filter bar */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.25rem 1.75rem;
+  border-bottom: 1px solid var(--ink-border-light);
+  background: #fcfbf9;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+/* Tabs */
+.tabs {
+  border-bottom: 1px solid var(--ink-border-light);
+  display: flex;
+  gap: 0;
+  margin-bottom: 2rem;
+}
+.tab {
+  padding: 0.875rem 1.75rem;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  cursor: pointer;
+  font-family: var(--font-sans);
+}
+.tab:hover { color: var(--ink); }
+.tab.active {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* Separator */
+.sep { border: none; border-top: 1px solid var(--ink-border-light); margin: 2.5rem 0; }
+
+/* Spacing */
+.space-y { display: flex; flex-direction: column; gap: 2.5rem; }
+.space-y-sm { gap: 1rem; }
+.flex { display: flex; }
+.flex-wrap { flex-wrap: wrap; }
+.items-center { align-items: center; }
+.items-start { align-items: flex-start; }
+.justify-between { justify-content: space-between; }
+.justify-end { justify-content: flex-end; }
+.gap-1 { gap: 0.5rem; }
+.gap-2 { gap: 0.75rem; }
+.gap-3 { gap: 1.25rem; }
+.gap-4 { gap: 1.5rem; }
+.mt-1 { margin-top: 0.5rem; }
+.mt-2 { margin-top: 1rem; }
+.mt-3 { margin-top: 1.5rem; }
+.mt-4 { margin-top: 2.5rem; }
+.mb-1 { margin-bottom: 0.5rem; }
+.mb-2 { margin-bottom: 1rem; }
+.mb-3 { margin-bottom: 1.5rem; }
+.ml-auto { margin-left: auto; }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.w-full { width: 100%; }
+
+/* Pagination */
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--ink-border-light);
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+.page-btn {
+  padding: 0.2rem 0.5rem;
+  font-size: 0.7rem;
+  border: 1px solid var(--ink-border);
+  transition: background 0.15s;
+  background: #fff;
+  border-radius: var(--radius-sm);
+}
+.page-btn:hover { background: var(--paper-alt); }
+.page-btn.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+.page-btn:disabled { opacity: 0.3; cursor: default; }
+
+/* Avatar */
+.avatar {
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 600;
+  border: 1px solid var(--ink-border);
+  background: var(--paper-alt);
+  color: var(--ink-soft);
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+}
+
+/* Progress bar */
+.progress {
+  height: 5px;
+  background: var(--ink-border-light);
+  overflow: hidden;
+  border-radius: 999px;
+}
+.progress-fill { border-radius: 999px; }
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.5s;
+}
+
+/* Skeleton */
+.skeleton {
+  background: var(--ink-border-light);
+  animation: shimmer 1.5s infinite;
+  background-size: 200% 100%;
+  background-image: linear-gradient(90deg, var(--ink-border-light) 0%, #f0ede7 50%, var(--ink-border-light) 100%);
+}
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+/* Hero event card */
+.hero-event {
+  border: 1px solid var(--ink-border-light);
+  background: #fff;
+  padding: 2rem;
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+}
+.hero-event::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 3px;
+  background: var(--accent);
+}
+
+/* Quick actions row */
+.quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+/* Check-in result */
+.result-box {
+  padding: 1.5rem;
+  border: 1px solid var(--ink-border-light);
+  margin-top: 1.5rem;
+  border-radius: var(--radius-md);
+}
+.result-box.success { border-color: var(--success); background: var(--success-light); }
+.result-box.error { border-color: var(--danger); background: var(--danger-light); }
+
+/* Form layout */
+.form-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 2rem;
+}
+.form-section {
+  border: 1px solid var(--ink-border-light);
+  background: #fff;
+  padding: 1.75rem;
+  border-radius: var(--radius-lg);
+}
+.form-section-title {
+  font-family: var(--font-serif);
+  font-size: 0.9rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--ink-border-light);
+}
+.form-row { margin-bottom: 1.5rem; }
+.form-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  margin-bottom: 0.375rem;
+}
+.form-label .required { color: var(--accent); }
+
+/* Overlay for mobile sidebar */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 99;
+}
+.sidebar-overlay.open { display: block; }
+
+/* Responsive */
+@media (max-width: 900px) {
+  .grid-4 { grid-template-columns: 1fr 1fr; }
+  .hidden-lg { display: none !important; }
+}
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    z-index: 100;
+    width: var(--sidebar-w);
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    border-right: 1px solid #2a2a2a;
+  }
+  .sidebar.open { transform: translateX(0); }
+  .sidebar.collapsed { width: var(--sidebar-w); min-width: var(--sidebar-w); transform: translateX(-100%); }
+  .sidebar.collapsed.open { transform: translateX(0); }
+  .sidebar.collapsed .sidebar-item span,
+  .sidebar.collapsed .sidebar-brand-text,
+  .sidebar.collapsed .sidebar-section-label,
+  .sidebar.collapsed .sidebar-footer-text,
+  .sidebar.collapsed .sidebar-badge,
+  .sidebar.collapsed .sidebar-toggle-text { display: inline; }
+  .sidebar.collapsed .sidebar-item { justify-content: flex-start; padding: 0.5rem 0.625rem; }
+  .sidebar.collapsed .sidebar-header { padding: 1rem 1rem 0.75rem; display: flex; justify-content: flex-start; }
+  .sidebar.collapsed .sidebar-logo { margin: 0; }
+  .sidebar.collapsed .sidebar-section { padding: 0 0.625rem; }
+  .sidebar.collapsed .sidebar-section-label { display: block; }
+  .content { padding: 1.25rem; }
+  .grid-4 { grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  .grid-3 { grid-template-columns: 1fr; }
+  .grid-2 { grid-template-columns: 1fr; gap: 1.5rem; }
+  .form-grid { grid-template-columns: 1fr; }
+  .sidebar-toggle { display: none; }
+  .hamburger { display: flex !important; }
+  .hidden-sm { display: none !important; }
+  .page-title { font-size: 1.3rem; }
+  .topbar { padding: 0.5rem 1rem; }
+  .topbar-shortcuts { display: none; }
+  .stat-card-value { font-size: 1.4rem; }
+  .mt-4 { margin-top: 1.5rem; }
+  .mb-3 { margin-bottom: 1rem; }
+  .hero-event { padding: 1rem; }
+}
+@media (max-width: 480px) {
+  .grid-4 { grid-template-columns: 1fr; }
+  .content { padding: 1rem; }
+  .page-title { font-size: 1.15rem; }
+  .card-header, .card-body, .card-footer { padding-left: 1.25rem; padding-right: 1.25rem; }
+  .filter-bar { flex-direction: column; align-items: stretch; }
+  .stat-card { padding: 1.25rem; }
+}
+@media (min-width: 769px) {
+  .hidden-md { display: none !important; }
+}
+.hamburger { display: none; align-items: center; justify-content: center; width: 36px; height: 36px; cursor: pointer; border: 1px solid var(--ink-border); border-radius: var(--radius-sm); background: #fff; }
+
+/* Transitions */
+.fade-in { animation: fadeIn 0.25s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+.delay-1 { animation-delay: 0.05s; animation-fill-mode: both; }
+.delay-2 { animation-delay: 0.1s; animation-fill-mode: both; }
+.delay-3 { animation-delay: 0.15s; animation-fill-mode: both; }
+.delay-4 { animation-delay: 0.2s; animation-fill-mode: both; }
+
+/* Checkbox / Toggle */
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+.checkbox-group input[type="checkbox"] {
+  width: 16px; height: 16px;
+  accent-color: var(--accent);
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SIDEBAR -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-brand">
+      <div class="sidebar-logo">SB</div>
+      <div class="sidebar-brand-text">
+        <span class="sidebar-brand-name">IEEE SAHRDAYA</span>
+        <span class="sidebar-brand-sub">Student Branch</span>
+      </div>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Navigation</div>
+      <a class="sidebar-item active" data-page="overview" href="#" onclick="return navigate('overview')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        <span>Overview</span>
+      </a>
+      <a class="sidebar-item" data-page="events" href="#" onclick="return navigate('events')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span>Events</span>
+      </a>
+      <a class="sidebar-item" data-page="checkin" href="#" onclick="return navigate('checkin')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><polyline points="9 12 11 14 15 10"/></svg>
+        <span>Check-in</span>
+      </a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Administration</div>
+      <a class="sidebar-item" data-page="registrations" href="#" onclick="return navigate('registrations')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span>Registrations</span>
+      </a>
+      <a class="sidebar-item" data-page="payments" href="#" onclick="return navigate('payments')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        <span>Payments</span>
+      </a>
+      <a class="sidebar-item" data-page="societies" href="#" onclick="return navigate('societies')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        <span>Societies</span>
+      </a>
+      <a class="sidebar-item" data-page="users" href="#" onclick="return navigate('users')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+        <span>Users</span>
+      </a>
+    </div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="sidebar-user">
+      <div class="sidebar-avatar">DR</div>
+      <div class="sidebar-user-info">
+        <div class="sidebar-user-name">Dr. Vineeth R.</div>
+        <div class="sidebar-user-role">
+          <span class="sidebar-badge">Admin</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  </div>
+</aside>
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- MAIN CONTENT -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="main">
+  <header class="topbar">
+    <div class="hamburger" onclick="toggleSidebar()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </div>
+    <div class="topbar-breadcrumb">
+      <span class="accent">IEEE SB</span>
+      <span>/</span>
+      <span id="breadcrumb-page">overview</span>
+    </div>
+    <div class="topbar-shortcuts">
+      <span class="text-xs text-soft">14 societies · 24 events</span>
+    </div>
+  </header>
+
+  <main class="content" id="main-content">
+    <!-- Content is injected here by JavaScript -->
+  </main>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- JAVASCRIPT — Mock Data + Navigation + Templates -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<script>
+// ─── Mock Data ───────────────────────────────────────────
+const MOCK = {
+  stats: {
+    events: { total: 24, upcoming: 8, live: 2 },
+    registrations: { total: 547, confirmed: 412, pending: 135, today: 18 },
+    societies: { active: 12, total: 14 }
+  },
+  dailyRegs: [
+    { date: 'Jun 4', count: 12 },
+    { date: 'Jun 5', count: 8 },
+    { date: 'Jun 6', count: 15 },
+    { date: 'Jun 7', count: 22 },
+    { date: 'Jun 8', count: 18 },
+    { date: 'Jun 9', count: 10 },
+    { date: 'Jun 10', count: 18 },
+  ],
+  events: [
+    { id: 'e1', title: 'AI & Machine Learning Workshop', date: '2026-06-20T09:00', endDate: '2026-06-20T17:00', venue: 'Seminar Hall A', society: 'Computer Society', price: 0, status: 'published', regOpen: true, capacity: 120, registered: 87, checkedIn: 42 },
+    { id: 'e2', title: 'Embedded Systems Hackathon', date: '2026-06-25T08:00', endDate: '2026-06-26T18:00', venue: 'Innovation Lab', society: 'RAS', price: 200, status: 'published', regOpen: true, capacity: 60, registered: 54, checkedIn: 0 },
+    { id: 'e3', title: 'Women in Engineering Summit', date: '2026-06-28T10:00', endDate: '2026-06-28T16:00', venue: 'Main Auditorium', society: 'WIE', price: 0, status: 'published', regOpen: true, capacity: 300, registered: 189, checkedIn: 0 },
+    { id: 'e4', title: 'IoT for Smart Agriculture', date: '2026-07-02T09:30', endDate: '2026-07-02T15:30', venue: 'CSED Block', society: 'SIGHT', price: 150, status: 'published', regOpen: true, capacity: 80, registered: 45, checkedIn: 0 },
+    { id: 'e5', title: 'VLSI Design Bootcamp', date: '2026-06-15T09:00', endDate: '2026-06-19T17:00', venue: 'ECE Lab', society: 'CAS/EDS', price: 500, status: 'published', regOpen: true, capacity: 40, registered: 38, checkedIn: 12 },
+    { id: 'e6', title: 'Annual IEEE Day Celebration', date: '2026-07-15T17:00', endDate: '2026-07-15T21:00', venue: 'Open Air Auditorium', society: 'IEEE SB', price: 0, status: 'draft', regOpen: false, capacity: 500, registered: 12, checkedIn: 0 },
+  ],
+  registrations: [
+    { id: 'r1', name: 'Anjali Krishna', email: 'anjali.k@ieee.org', phone: '9876543210', event: 'AI & Machine Learning Workshop', eventId: 'e1', regStatus: 'confirmed', payStatus: 'not_required', checkedIn: true, ticketId: 'TKT-0001', amount: 0, date: '2026-06-08T10:23' },
+    { id: 'r2', name: 'Basil Mathew', email: 'basil.m@ieee.org', phone: '9876543211', event: 'Embedded Systems Hackathon', eventId: 'e2', regStatus: 'confirmed', payStatus: 'paid', checkedIn: false, ticketId: 'TKT-0002', amount: 200, date: '2026-06-08T11:45' },
+    { id: 'r3', name: 'Catherine Paul', email: 'catherine@ieee.org', phone: '9876543212', event: 'Women in Engineering Summit', eventId: 'e3', regStatus: 'pending', payStatus: 'not_required', checkedIn: false, ticketId: 'TKT-0003', amount: 0, date: '2026-06-09T08:12' },
+    { id: 'r4', name: 'Deepak Suresh', email: 'deepak@ieee.org', phone: '9876543213', event: 'AI & Machine Learning Workshop', eventId: 'e1', regStatus: 'confirmed', payStatus: 'not_required', checkedIn: true, ticketId: 'TKT-0004', amount: 0, date: '2026-06-07T14:30' },
+    { id: 'r5', name: 'Elizabeth Thomas', email: 'elizabeth@ieee.org', phone: '9876543214', event: 'VLSI Design Bootcamp', eventId: 'e5', regStatus: 'confirmed', payStatus: 'paid', checkedIn: true, ticketId: 'TKT-0005', amount: 500, date: '2026-06-06T09:15' },
+    { id: 'r6', name: 'Faisal Khan', email: 'faisal@ieee.org', phone: '9876543215', event: 'Embedded Systems Hackathon', eventId: 'e2', regStatus: 'confirmed', payStatus: 'pending', checkedIn: false, ticketId: 'TKT-0006', amount: 200, date: '2026-06-09T16:00' },
+    { id: 'r7', name: 'Gauri Nair', email: 'gauri@ieee.org', phone: '9876543216', event: 'Women in Engineering Summit', eventId: 'e3', regStatus: 'confirmed', payStatus: 'not_required', checkedIn: false, ticketId: 'TKT-0007', amount: 0, date: '2026-06-05T11:20' },
+    { id: 'r8', name: 'Harish Ramesh', email: 'harish@ieee.org', phone: '9876543217', event: 'IoT for Smart Agriculture', eventId: 'e4', regStatus: 'pending', payStatus: 'pending', checkedIn: false, ticketId: 'TKT-0008', amount: 150, date: '2026-06-10T07:45' },
+    { id: 'r9', name: 'Isha George', email: 'isha@ieee.org', phone: '9876543218', event: 'AI & Machine Learning Workshop', eventId: 'e1', regStatus: 'confirmed', payStatus: 'not_required', checkedIn: true, ticketId: 'TKT-0009', amount: 0, date: '2026-06-04T12:00' },
+    { id: 'r10', name: 'Jerin Joseph', email: 'jerin@ieee.org', phone: '9876543219', event: 'VLSI Design Bootcamp', eventId: 'e5', regStatus: 'cancelled', payStatus: 'refunded', checkedIn: false, ticketId: 'TKT-0010', amount: 500, date: '2026-06-03T15:30' },
+    { id: 'r11', name: 'Kavya Menon', email: 'kavya@ieee.org', phone: '9876543220', event: 'AI & Machine Learning Workshop', eventId: 'e1', regStatus: 'confirmed', payStatus: 'not_required', checkedIn: false, ticketId: 'TKT-0011', amount: 0, date: '2026-06-10T09:00' },
+    { id: 'r12', name: 'Leo Dominic', email: 'leo@ieee.org', phone: '9876543221', event: 'Embedded Systems Hackathon', eventId: 'e2', regStatus: 'confirmed', payStatus: 'paid', checkedIn: false, ticketId: 'TKT-0012', amount: 200, date: '2026-06-09T18:22' },
+  ],
+  payments: [
+    { id: 'p1', name: 'Basil Mathew', email: 'basil.m@ieee.org', amount: 200, status: 'paid', txId: 'TXN-ABC-001', date: '2026-06-08T11:50' },
+    { id: 'p2', name: 'Elizabeth Thomas', email: 'elizabeth@ieee.org', amount: 500, status: 'paid', txId: 'TXN-ABC-002', date: '2026-06-06T09:20' },
+    { id: 'p3', name: 'Faisal Khan', email: 'faisal@ieee.org', amount: 200, status: 'pending', txId: 'TXN-ABC-003', date: '2026-06-09T16:05' },
+    { id: 'p4', name: 'Harish Ramesh', email: 'harish@ieee.org', amount: 150, status: 'pending', txId: '', date: '2026-06-10T07:50' },
+    { id: 'p5', name: 'Jerin Joseph', email: 'jerin@ieee.org', amount: 500, status: 'refunded', txId: 'TXN-ABC-004', date: '2026-06-04T10:00' },
+    { id: 'p6', name: 'Leo Dominic', email: 'leo@ieee.org', amount: 200, status: 'paid', txId: 'TXN-ABC-005', date: '2026-06-09T18:30' },
+  ],
+  societies: [
+    { id: 's1', name: 'Computer Society', slug: 'computer-society', chairs: 3, events: 8, hidden: false },
+    { id: 's2', name: 'Robotics & Automation', slug: 'ras', chairs: 2, events: 5, hidden: false },
+    { id: 's3', name: 'Women in Engineering', slug: 'wie', chairs: 2, events: 4, hidden: false },
+    { id: 's4', name: 'SIGHT', slug: 'sight', chairs: 1, events: 3, hidden: false },
+    { id: 's5', name: 'CAS/EDS', slug: 'cas-eds', chairs: 2, events: 6, hidden: false },
+    { id: 's6', name: 'Signal Processing', slug: 'signal-processing', chairs: 1, events: 2, hidden: true },
+    { id: 's7', name: 'Power & Energy', slug: 'power-energy', chairs: 2, events: 3, hidden: false },
+    { id: 's8', name: 'Aerospace & Electronic Systems', slug: 'aes', chairs: 1, events: 1, hidden: true },
+  ],
+  users: [
+    { id: 'u1', name: 'Dr. Vineeth R.', email: 'vineeth@ieee.org', role: 'admin', regs: 0, joined: '2024-01-15' },
+    { id: 'u2', name: 'Anjali Krishna', email: 'anjali.k@ieee.org', role: 'user', regs: 3, joined: '2025-08-20' },
+    { id: 'u3', name: 'Prof. Sarah Mathew', email: 'sarah@ieee.org', role: 'chair', regs: 0, joined: '2024-06-01' },
+    { id: 'u4', name: 'Basil Mathew', email: 'basil.m@ieee.org', role: 'user', regs: 1, joined: '2025-11-10' },
+    { id: 'u5', name: 'Dr. James Kurian', email: 'james@ieee.org', role: 'admin', regs: 0, joined: '2023-09-05' },
+    { id: 'u6', name: 'Deepak Suresh', email: 'deepak@ieee.org', role: 'user', regs: 4, joined: '2025-10-12' },
+    { id: 'u7', name: 'Elizabeth Thomas', email: 'elizabeth@ieee.org', role: 'chair', regs: 0, joined: '2024-03-22' },
+    { id: 'u8', name: 'Faisal Khan', email: 'faisal@ieee.org', role: 'user', regs: 2, joined: '2026-01-05' },
+  ],
+};
+
+// ─── Helper Functions ────────────────────────────────────
+let selectedSocietyIdx = 0;
+function openSociety(idx) {
+  selectedSocietyIdx = idx;
+  navigate('society-edit');
+}
+function fmtDate(d) { return new Date(d).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }); }
+function fmtDateTime(d) { return new Date(d).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+function fmtRelative(d) { const n=Date.now(), t=new Date(d).getTime(), diff=n-t; if(diff<60000)return'just now'; if(diff<3600000)return Math.floor(diff/60000)+'m ago'; if(diff<86400000)return Math.floor(diff/3600000)+'h ago'; return Math.floor(diff/86400000)+'d ago'; }
+function statusBadge(s) {
+  const m = {
+    'published': ['badge-accent','Published'],
+    'draft': ['','Draft'],
+    'completed': ['badge-success','Completed'],
+    'confirmed': ['badge-success','Confirmed'],
+    'pending': ['badge-warning','Pending'],
+    'cancelled': ['badge-danger','Cancelled'],
+    'paid': ['badge-success','Paid'],
+    'not_required': ['','Free'],
+    'failed': ['badge-danger','Failed'],
+    'refunded': ['','Refunded'],
+    'paid_': ['badge-success','Paid']
+  };
+  const [cls, label] = m[s] || ['', s];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+// ─── Navigation ──────────────────────────────────────────
+let currentPage = 'overview';
+
+function navigate(page) {
+  currentPage = page;
+  document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+  const item = document.querySelector(`.sidebar-item[data-page="${page}"]`);
+  if (item) item.classList.add('active');
+  document.getElementById('breadcrumb-page').textContent = page;
+  renderPage(page);
+  return false;
+}
+
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  if (window.innerWidth <= 768) {
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('open');
+  } else {
+    sidebar.classList.toggle('collapsed');
+  }
+}
+function closeSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  sidebar.classList.remove('open');
+  overlay.classList.remove('open');
+}
+
+// ─── Render Engine ───────────────────────────────────────
+function renderPage(page) {
+  const container = document.getElementById('main-content');
+  container.innerHTML = `<div class="fade-in">${PAGES[page]()}</div>`;
+  container.querySelectorAll('.tab').forEach(el => {
+    el.addEventListener('click', function() {
+      const parent = this.closest('.tabs');
+      parent.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      this.classList.add('active');
+      parent.parentElement.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      const target = document.getElementById(this.dataset.tab);
+      if (target) target.classList.add('active');
+    });
+  });
+}
+
+// ─── SVG Icons (inline) ──────────────────────────────────
+const ICONS = {
+  calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+  mapPin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+  users: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+  search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+  arrowLeft: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>',
+  edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>',
+  download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+  qr: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><line x1="3" y1="14" x2="3" y2="17"/><line x1="3" y1="21" x2="6" y2="21"/><line x1="17" y1="21" x2="21" y2="21"/><line x1="21" y1="14" x2="21" y2="17"/></svg>',
+  eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
+  eyeOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>',
+};
+
+// ─── PAGE TEMPLATES ──────────────────────────────────────
+const PAGES = {};
+
+// ── OVERVIEW ─────────────────────────────────────────────
+PAGES.overview = function() {
+  const s = MOCK.stats;
+  const hero = MOCK.events[0];
+
+  return `
+    <div class="flex items-start justify-between mb-2">
+      <div>
+        <h1 class="page-title">Good afternoon, Vineeth</h1>
+        <p class="page-subtitle">Wednesday, 10 June 2026</p>
+      </div>
+      <div class="flex gap-2">
+        <button class="btn btn-primary btn-sm" onclick="navigate('event-new')">${ICONS.plus} New Event</button>
+      </div>
+    </div>
+
+    <div class="hero-event mt-3">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div style="margin-bottom:0.5rem"><span class="badge badge-accent">Live now</span></div>
+          <h2 style="font-size:1.15rem;font-family:var(--font-serif)">${hero.title}</h2>
+          <p class="text-small text-soft mt-1">${ICONS.calendar} ${fmtDate(hero.date)} ${hero.venue ? '· '+ICONS.mapPin+' '+hero.venue : ''} · ${hero.society}</p>
+        </div>
+        <div class="flex gap-2">
+          <button class="btn btn-accent btn-sm" onclick="navigate('event-detail')">View Event</button>
+          <button class="btn btn-sm" onclick="navigate('event-edit')">${ICONS.edit} Edit</button>
+        </div>
+      </div>
+      ${hero.capacity > 0 ? `
+      <div class="mt-3">
+        <div class="flex items-center justify-between text-xs text-soft mb-1">
+          <span>Registration progress</span>
+          <span>${hero.registered}/${hero.capacity}</span>
+        </div>
+        <div class="progress"><div class="progress-fill" style="width:${Math.min(hero.registered/hero.capacity*100,100)}%"></div></div>
+      </div>` : ''}
+    </div>
+
+    <div class="quick-actions mt-3">
+      <button class="btn btn-sm" onclick="navigate('checkin')">${ICONS.qr} Check-in</button>
+      <button class="btn btn-sm" onclick="navigate('registrations')">${ICONS.users} Registrations</button>
+      <button class="btn btn-sm" onclick="navigate('events')">${ICONS.calendar} All Events</button>
+    </div>
+
+    <div class="grid-4 mt-4">
+      <div class="stat-card fade-in delay-1">
+        <div class="stat-card-label">${ICONS.calendar} Live Events</div>
+        <div class="stat-card-value">${s.events.live}</div>
+        <div class="stat-card-desc">${s.events.upcoming} upcoming scheduled</div>
+      </div>
+      <div class="stat-card fade-in delay-2">
+        <div class="stat-card-label">${ICONS.users} Today</div>
+        <div class="stat-card-value">${s.registrations.today}</div>
+        <div class="stat-card-desc">${s.registrations.confirmed} total confirmed · +12% vs yesterday</div>
+      </div>
+      <div class="stat-card fade-in delay-3">
+        <div class="stat-card-label">Pending Actions</div>
+        <div class="stat-card-value">${s.registrations.pending}</div>
+        <div class="stat-card-desc">registrations need attention</div>
+      </div>
+      <div class="stat-card fade-in delay-4">
+        <div class="stat-card-label">${ICONS.users} Total Registrations</div>
+        <div class="stat-card-value">${s.registrations.total}</div>
+        <div class="stat-card-desc">${s.registrations.confirmed} confirmed</div>
+      </div>
+    </div>
+
+    <div class="grid-2 mt-4">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Top Societies by Events</div>
+          <div class="card-subtitle">Most active IEEE societies</div>
+        </div>
+        <div class="card-body inset" style="padding-top:0.25rem">
+          ${MOCK.societies.sort((a,b) => b.events - a.events).slice(0,5).map((s,i) => {
+            const maxEv = Math.max(...MOCK.societies.map(x=>x.events));
+            const pct = (s.events/maxEv)*100;
+            return `<div style="display:flex;align-items:center;gap:0.75rem;padding:1rem 0;border-bottom:${i<4?'1px solid var(--ink-border-light)':'none'}">
+              <div style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-sm);background:${i===0?'var(--accent)':i===1?'var(--ink)':i===2?'var(--ink-soft)':'var(--ink-border-light)'};color:${i<3?'#fff':'var(--ink-soft)'};font-size:0.65rem;font-weight:700">${i+1}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:0.8rem;font-weight:500">${s.name}</div>
+                <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.25rem">
+                  <div class="progress" style="flex:1"><div class="progress-fill" style="width:${pct}%"></div></div>
+                  <span class="text-xs text-mono text-soft">${s.events} events</span>
+                </div>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div class="card-title">Upcoming Events</div>
+            <div class="card-subtitle">Next 5 events</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="navigate('events')">View all →</button>
+        </div>
+        <div class="card-body inset" style="padding-top:0.25rem">
+          ${MOCK.events.filter(e => e.status==='published').slice(0,5).map(e => {
+            const pct = e.capacity > 0 ? Math.min(e.registered/e.capacity*100,100) : 0;
+            return `<div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 0;border-bottom:1px solid var(--ink-border-light)">
+              <div style="min-width:0;flex:1">
+                <div style="font-size:0.8rem;font-weight:500">${e.title}</div>
+                <div class="text-xs text-soft mt-1">${fmtDate(e.date)} · ${e.venue || 'TBD'}</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:0.75rem;margin-left:1rem">
+                <div class="progress" style="width:64px"><div class="progress-fill" style="width:${pct}%"></div></div>
+                <span class="text-xs text-mono text-soft">${e.registered}/${e.capacity || '∞'}</span>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-4">
+      <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div class="card-title">Recent Registrations</div>
+          <div class="card-subtitle">Latest sign-ups</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="navigate('registrations')">View all →</button>
+      </div>
+      <div class="card-body inset" style="padding-top:0.25rem">
+        ${MOCK.registrations.slice(0,6).map(r => `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 0;border-bottom:1px solid var(--ink-border-light)">
+            <div style="display:flex;align-items:center;gap:0.75rem;min-width:0">
+              <div class="avatar">${r.name.split(' ').map(n=>n[0]).join('').slice(0,2)}</div>
+              <div style="min-width:0">
+                <div style="font-size:0.8rem;font-weight:500">${r.name}</div>
+                <div class="text-xs text-soft">${r.email}</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.5rem;flex-shrink:0">
+              ${statusBadge(r.regStatus)}
+              <span class="text-xs text-soft">${fmtRelative(r.date)}</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+};
+
+// ── EVENTS LISTING ───────────────────────────────────────
+PAGES.events = function() {
+  return `
+    <div class="flex items-start justify-between mb-3">
+      <div>
+        <h1 class="page-title">Events</h1>
+        <p class="page-subtitle">${MOCK.events.length} events · ${MOCK.events.filter(e=>e.status==='published').length} published</p>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="navigate('event-new')">${ICONS.plus} New Event</button>
+    </div>
+
+    <div class="card">
+      <div class="filter-bar">
+        <div class="input-group" style="flex:1;min-width:160px">
+          ${ICONS.search}
+          <input type="text" placeholder="Search events..." oninput="filterTable(this.value)">
+        </div>
+        <select class="input input-sm" style="width:auto">
+          <option>All status</option>
+          <option>Published</option>
+          <option>Draft</option>
+          <option>Completed</option>
+        </select>
+        <select class="input input-sm" style="width:auto">
+          <option>All societies</option>
+          ${MOCK.societies.filter(s=>!s.hidden).map(s => `<option>${s.name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr>
+              <th>Event</th>
+              <th>Date</th>
+              <th>Society</th>
+              <th>Status</th>
+              <th>Capacity</th>
+              <th style="text-align:right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${MOCK.events.map(e => {
+              const pct = e.capacity > 0 ? Math.min(e.registered/e.capacity*100,100) : 0;
+              return `<tr>
+                <td><div style="font-weight:500;font-size:0.85rem">${e.title}</div></td>
+                <td class="text-small text-soft">${fmtDate(e.date)}</td>
+                <td class="text-small text-soft">${e.society}</td>
+                <td>${statusBadge(e.status)} ${e.regOpen ? '<span class="badge badge-accent">Open</span>' : ''}</td>
+                <td style="min-width:120px">
+                  <div class="flex items-center gap-2">
+                    <div class="progress" style="flex:1"><div class="progress-fill" style="width:${pct}%"></div></div>
+                    <span class="text-xs text-mono text-soft">${e.registered}/${e.capacity}</span>
+                  </div>
+                </td>
+                <td style="text-align:right">
+                  <div class="flex gap-1 justify-end">
+                    <button class="btn btn-sm btn-ghost" onclick="navigate('event-detail')">${ICONS.eye}</button>
+                    <button class="btn btn-sm btn-ghost" onclick="alert('Edit event: ${e.title}')">${ICONS.edit}</button>
+                    <button class="btn btn-sm btn-ghost" onclick="if(confirm('Delete?')){}">${ICONS.trash}</button>
+                  </div>
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination">
+        <span class="text-small text-soft">Showing ${MOCK.events.length} of ${MOCK.events.length} events</span>
+        <div class="ml-auto flex gap-1">
+          <button class="page-btn" disabled>Prev</button>
+          <button class="page-btn active">1</button>
+          <button class="page-btn">2</button>
+          <button class="page-btn">Next</button>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+// ── EVENT DETAIL ─────────────────────────────────────────
+PAGES['event-detail'] = function() {
+  const e = MOCK.events[0];
+  const regs = MOCK.registrations.filter(r => r.eventId === e.id);
+  const confirmed = regs.filter(r => r.regStatus === 'confirmed');
+  const checkedRegs = regs.filter(r => r.checkedIn);
+  return `
+    <div class="flex items-start justify-between mb-3">
+      <div>
+        <div class="flex items-center gap-2 mb-1">
+          <button class="btn btn-sm btn-ghost" onclick="navigate('events')">${ICONS.arrowLeft}</button>
+          <h1 class="page-title" style="margin-bottom:0">${e.title}</h1>
+          ${statusBadge(e.status)}
+          ${e.regOpen ? '<span class="badge badge-accent">Open</span>' : ''}
+        </div>
+        <p class="page-subtitle">${ICONS.calendar} ${fmtDateTime(e.date)} ${e.venue ? '· '+ICONS.mapPin+' '+e.venue : ''} · ${e.society}</p>
+      </div>
+      <div class="flex gap-2">
+        <button class="btn btn-sm">${e.regOpen ? 'Close Reg' : 'Open Reg'}</button>
+<button class="btn btn-sm" onclick="navigate('event-edit')">${ICONS.edit} Edit</button>
+            <button class="btn btn-sm" style="color:var(--danger)" onclick="if(confirm('Delete this event?')){}">${ICONS.trash} Delete</button>
+      </div>
+    </div>
+
+    <div class="grid-4">
+      <div class="stat-card">
+        <div class="stat-card-label">Registrations</div>
+        <div class="stat-card-value">${e.registered}</div>
+        <div class="stat-card-desc">of ${e.capacity || '∞'} capacity</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label">Confirmed</div>
+        <div class="stat-card-value">${confirmed.length}</div>
+        <div class="mt-2 progress"><div class="progress-fill" style="width:${Math.min(confirmed.length/Math.max(regs.length,1)*100,100)}%"></div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label">Checked In</div>
+        <div class="stat-card-value">${checkedRegs.length}</div>
+        <div class="stat-card-desc">${confirmed.length > 0 ? Math.round(checkedRegs.length/confirmed.length*100) : 0}% check-in rate</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label">Pending</div>
+        <div class="stat-card-value">${regs.filter(r => r.regStatus === 'pending').length}</div>
+        <div class="stat-card-desc">awaiting confirmation</div>
+      </div>
+    </div>
+
+    <div class="mt-4">
+      <div class="tabs">
+        <div class="tab active" data-tab="reg-tab">Registrations (${regs.length})</div>
+        <div class="tab" data-tab="detail-tab">Details</div>
+      </div>
+      <div class="tab-content active" id="reg-tab">
+        <div class="card">
+          <div class="filter-bar">
+            <div class="input-group" style="flex:1;min-width:160px">${ICONS.search}<input type="text" placeholder="Search by name or email..."></div>
+            <select class="input input-sm" style="width:auto"><option>All status</option><option>Confirmed</option><option>Pending</option><option>Cancelled</option></select>
+            <select class="input input-sm" style="width:auto"><option>All check-in</option><option>Checked in</option><option>Not checked in</option></select>
+            <button class="btn btn-sm">${ICONS.download} CSV</button>
+          </div>
+          <div class="table-wrap">
+            <table class="data">
+              <thead><tr><th style="width:32px"><input type="checkbox"></th><th>Name</th><th class="hidden-sm">Email</th><th>Status</th><th class="hidden-sm">Payment</th><th style="text-align:right">Checked In</th></tr></thead>
+              <tbody>
+                ${regs.map(r => `
+                  <tr class="${r.checkedIn ? 'row-active' : ''}">
+                    <td><input type="checkbox"></td>
+                    <td><div style="font-weight:500">${r.name}</div></td>
+                    <td class="text-small text-soft hidden-sm">${r.email}</td>
+                    <td>${statusBadge(r.regStatus)}</td>
+                    <td class="hidden-sm">${statusBadge(r.payStatus)}</td>
+                    <td style="text-align:right">${r.checkedIn ? '<span class="badge badge-success">Yes</span>' : '<span class="text-xs text-soft">—</span>'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <span class="text-small text-soft">Showing 1–${regs.length} of ${regs.length}</span>
+            <div class="ml-auto flex gap-1"><button class="page-btn" disabled>Prev</button><button class="page-btn active">1</button><button class="page-btn">Next</button></div>
+          </div>
+        </div>
+      </div>
+      <div class="tab-content" id="detail-tab">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header"><div class="card-title">Event Info</div></div>
+            <div class="card-body" style="font-size:0.8rem">
+              <div class="space-y-sm">
+                <div class="flex justify-between"><span class="text-soft">Description</span><span style="max-width:60%;text-align:right">A comprehensive workshop covering AI/ML fundamentals.</span></div>
+                <div class="flex justify-between"><span class="text-soft">Start</span><span>${fmtDateTime(e.date)}</span></div>
+                <div class="flex justify-between"><span class="text-soft">End</span><span>${fmtDateTime(e.endDate)}</span></div>
+                <div class="flex justify-between"><span class="text-soft">Venue</span><span>${e.venue}</span></div>
+                <div class="flex justify-between"><span class="text-soft">Society</span><span>${e.society}</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">Registration Settings</div></div>
+            <div class="card-body" style="font-size:0.8rem">
+              <div class="space-y-sm">
+                <div class="flex justify-between"><span class="text-soft">Price</span><span class="text-mono">${e.price > 0 ? '₹'+e.price : 'Free'}</span></div>
+                <div class="flex justify-between"><span class="text-soft">Capacity</span><span>${e.capacity || 'Unlimited'}</span></div>
+                <div class="flex justify-between"><span class="text-soft">Registration Deadline</span><span>—</span></div>
+                <div class="flex justify-between"><span class="text-soft">Contact Email</span><span>ieee@sahrdaya.ac.in</span></div>
+                <div class="flex justify-between"><span class="text-soft">Contact Phone</span><span>+91 9876543210</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+// ── CHECK-IN ─────────────────────────────────────────────
+PAGES.checkin = function() {
+  return `
+    <div style="max-width:480px;margin:0 auto">
+      <div class="text-center mb-4">
+        <h1 class="page-title">Check-in</h1>
+        <p class="page-subtitle">Verify tickets and check in attendees.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title" style="display:flex;align-items:center;gap:0.5rem">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16"><rect x="3" y="3" width="18" height="18" rx="2"/><polyline points="9 12 11 14 15 10"/></svg>
+            Scan Ticket
+          </div>
+          <div class="card-subtitle">Enter or scan the ticket ID to verify</div>
+        </div>
+        <div class="card-body">
+          <div class="space-y-sm">
+            <div>
+              <label class="form-label">Ticket ID</label>
+              <div class="input-group"><input type="text" placeholder="Scan QR or type ticket ID..." id="ticket-input"></div>
+            </div>
+            <div>
+              <label class="form-label">Event ID (optional)</label>
+              <select class="input input-sm"><option value="">All events</option>${MOCK.events.map(e => '<option>'+e.title+'</option>').join('')}</select>
+            </div>
+            <button class="btn btn-accent w-full" onclick="simulateCheckin()" style="justify-content:center;padding:0.625rem">${ICONS.qr} Verify & Check In</button>
+          </div>
+          <div id="checkin-result"></div>
+        </div>
+      </div>
+
+      <div class="card mt-3">
+        <div class="card-header"><div class="card-title">How it works</div></div>
+        <div class="card-body text-small text-soft">
+          <div class="space-y-sm">
+            <p>1. Attendee presents their ticket (QR code or ticket ID).</p>
+            <p>2. Scan the QR code or type the ticket ID above.</p>
+            <p>3. The system verifies the registration and marks them as checked in.</p>
+            <p>4. A confirmation message appears — the attendee is checked in!</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+// ── REGISTRATIONS LIST ───────────────────────────────────
+PAGES.registrations = function() {
+  return `
+    <div class="flex items-start justify-between mb-3">
+      <div>
+        <h1 class="page-title">Registrations</h1>
+        <p class="page-subtitle">${MOCK.registrations.length} total registrations</p>
+      </div>
+      <button class="btn btn-sm">${ICONS.download} Export</button>
+    </div>
+
+    <div class="card">
+      <div class="filter-bar">
+        <div class="input-group" style="flex:1;min-width:160px">${ICONS.search}<input type="text" placeholder="Search by name, email, or event..."></div>
+        <select class="input input-sm" style="width:auto"><option>All events</option>${MOCK.events.map(e=>'<option>'+e.title+'</option>').join('')}</select>
+        <select class="input input-sm" style="width:auto"><option>All status</option><option>Confirmed</option><option>Pending</option><option>Cancelled</option></select>
+        <select class="input input-sm" style="width:auto"><option>All payments</option><option>Paid</option><option>Pending</option><option>Free</option></select>
+      </div>
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th>User</th><th class="hidden-md">Event</th><th>Status</th><th class="hidden-sm">Payment</th><th class="hidden-lg">Checked In</th><th style="text-align:right">Date</th></tr></thead>
+          <tbody>
+            ${MOCK.registrations.map(r => `
+              <tr style="cursor:pointer" onclick="navigate('reg-detail')">
+                <td>
+                  <div class="flex items-center gap-2">
+                    <div class="avatar">${r.name.split(' ').map(n=>n[0]).join('').slice(0,2)}</div>
+                    <div><div style="font-weight:500;font-size:0.85rem">${r.name}</div><div class="text-xs text-soft">${r.email}</div></div>
+                  </div>
+                </td>
+                <td class="text-small text-soft hidden-md">${r.event}</td>
+                <td>${statusBadge(r.regStatus)}</td>
+                <td class="hidden-sm">${statusBadge(r.payStatus)}</td>
+                <td class="hidden-lg">${r.checkedIn ? '<span class="badge badge-success">Yes</span>' : '<span class="text-xs text-soft">—</span>'}</td>
+                <td style="text-align:right"><span class="text-xs text-soft">${fmtDateTime(r.date)}</span></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination">
+        <span class="text-small text-soft">Showing ${MOCK.registrations.length} of ${MOCK.registrations.length} registrations</span>
+        <div class="ml-auto flex gap-1"><button class="page-btn" disabled>Prev</button><button class="page-btn active">1</button><button class="page-btn">2</button><button class="page-btn">Next</button></div>
+      </div>
+    </div>
+  `;
+};
+
+// ── REGISTRATION DETAIL ──────────────────────────────────
+PAGES['reg-detail'] = function() {
+  const r = MOCK.registrations[0];
+  return `
+    <div class="flex items-center gap-2 mb-3">
+      <button class="btn btn-sm btn-ghost" onclick="navigate('registrations')">${ICONS.arrowLeft}</button>
+      <div>
+        <h1 class="page-title" style="margin-bottom:0">Registration</h1>
+        <p class="page-subtitle">Registration details · ${r.ticketId}</p>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header"><div class="card-title">User Info</div></div>
+        <div class="card-body" style="font-size:0.8rem">
+          <div class="space-y-sm">
+            <div><span class="text-soft">Name:</span> <span style="font-weight:500">${r.name}</span></div>
+            <div><span class="text-soft">Email:</span> ${r.email}</div>
+            <div><span class="text-soft">Phone:</span> ${r.phone}</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Event</div></div>
+        <div class="card-body" style="font-size:0.8rem">
+          <div class="space-y-sm">
+            <div><span class="text-soft">Title:</span> ${r.event}</div>
+            <div><span class="text-soft">Date:</span> ${fmtDate(r.date)}</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Status</div></div>
+        <div class="card-body" style="font-size:0.8rem">
+          <div class="space-y-sm">
+            <div class="flex justify-between"><span class="text-soft">Registration:</span> ${statusBadge(r.regStatus)}</div>
+            <div class="flex justify-between"><span class="text-soft">Payment:</span> ${statusBadge(r.payStatus)}</div>
+            <div class="flex justify-between"><span class="text-soft">Checked In:</span> <span>${r.checkedIn ? 'Yes' : 'No'}</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Ticket</div></div>
+        <div class="card-body" style="font-size:0.8rem">
+          <div class="space-y-sm">
+            <div><span class="text-soft">Ticket ID:</span> <span class="text-mono text-xs">${r.ticketId}</span></div>
+            <div><span class="text-soft">Amount:</span> <span class="text-mono">₹${r.amount}</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+// ── PAYMENTS ─────────────────────────────────────────────
+PAGES.payments = function() {
+  const ps = MOCK.payments;
+  const totalRev = ps.filter(p=>p.status==='paid').reduce((s,p)=>s+p.amount,0);
+  const paidC = ps.filter(p=>p.status==='paid').length;
+  const pendC = ps.filter(p=>p.status==='pending').length;
+  return `
+    <div class="flex items-start justify-between mb-3">
+      <div>
+        <h1 class="page-title">Payments</h1>
+        <p class="page-subtitle">Track registration payments and revenue.</p>
+      </div>
+    </div>
+    <div class="grid-3">
+      <div class="stat-card">
+        <div class="stat-card-label">Total Revenue</div>
+        <div class="stat-card-value">₹${totalRev}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label">Paid</div>
+        <div class="stat-card-value" style="color:var(--success)">${paidC}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label">Pending</div>
+        <div class="stat-card-value" style="color:var(--warning)">${pendC}</div>
+      </div>
+    </div>
+    <div class="card mt-4">
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th>User</th><th>Amount</th><th>Status</th><th class="hidden-sm">Transaction ID</th></tr></thead>
+          <tbody>
+            ${ps.map(p => `
+              <tr>
+                <td><div style="font-weight:500">${p.name}</div><div class="text-xs text-soft">${p.email}</div></td>
+                <td class="text-mono">₹${p.amount}</td>
+                <td>${statusBadge(p.status)}</td>
+                <td class="text-xs text-mono text-soft hidden-sm">${p.txId ? p.txId.slice(0,16)+'...' : '—'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+};
+
+// ── SOCIETIES ────────────────────────────────────────────
+PAGES.societies = function() {
+  return `
+    <div class="flex items-start justify-between mb-3">
+      <div>
+        <h1 class="page-title">Societies</h1>
+        <p class="page-subtitle">${MOCK.societies.length} IEEE societies · ${MOCK.societies.filter(s=>!s.hidden).length} active</p>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="alert('Add society')">${ICONS.plus} Add Society</button>
+    </div>
+    <div class="card">
+      <div class="filter-bar">
+        <div class="input-group" style="flex:1;min-width:160px">${ICONS.search}<input type="text" placeholder="Search societies..."></div>
+        <select class="input input-sm" style="width:auto"><option>All</option><option>Visible</option><option>Hidden</option></select>
+      </div>
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th>Name</th><th>Slug</th><th>Chairs</th><th>Events</th><th>Status</th></tr></thead>
+          <tbody>
+            ${MOCK.societies.map((s,i) => `
+              <tr style="cursor:pointer" onclick="openSociety(${i})">
+                <td><div style="font-weight:500">${s.name}</div></td>
+                <td class="text-mono text-small text-soft">${s.slug}</td>
+                <td class="text-small text-soft">${s.chairs} chairs</td>
+                <td class="text-small text-soft">${s.events} events</td>
+                <td>${s.hidden ? '<span class="badge">'+ICONS.eyeOff+' Hidden</span>' : '<span class="badge badge-success">'+ICONS.eye+' Visible</span>'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+};
+
+// ── USERS ────────────────────────────────────────────────
+PAGES.users = function() {
+  return `
+    <div class="flex items-start justify-between mb-3">
+      <div>
+        <h1 class="page-title">Users</h1>
+        <p class="page-subtitle">${MOCK.users.length} users · role management</p>
+      </div>
+      <button class="btn btn-sm">${ICONS.plus} Invite</button>
+    </div>
+    <div class="card">
+      <div class="filter-bar">
+        <div class="input-group" style="flex:1;min-width:160px">${ICONS.search}<input type="text" placeholder="Search by name or email..."></div>
+        <select class="input input-sm" style="width:auto"><option>All roles</option><option>Admin</option><option>Chair</option><option>User</option></select>
+      </div>
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th>User</th><th>Role</th><th class="hidden-sm">Registrations</th><th class="hidden-sm">Joined</th></tr></thead>
+          <tbody>
+            ${MOCK.users.map(u => `
+              <tr>
+                <td>
+                  <div class="flex items-center gap-2">
+                    <div class="avatar">${u.name.split(' ').map(n=>n[0]).join('').slice(0,2)}</div>
+                    <div><div style="font-weight:500;font-size:0.85rem">${u.name}</div><div class="text-xs text-soft">${u.email}</div></div>
+                  </div>
+                </td>
+                <td>
+                  <select class="input input-sm" style="width:auto;padding:0.2rem 0.4rem;font-size:0.65rem">
+                    <option ${u.role==='user'?'selected':''}>User</option>
+                    <option ${u.role==='chair'?'selected':''}>Chair</option>
+                    <option ${u.role==='admin'?'selected':''}>Admin</option>
+                  </select>
+                </td>
+                <td class="text-small text-soft hidden-sm">${u.regs}</td>
+                <td class="text-xs text-soft hidden-sm">${fmtDate(u.joined)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+};
+
+// ── SOCIETY EDIT ────────────────────────────────────────
+PAGES['society-edit'] = function() {
+  const s = MOCK.societies[selectedSocietyIdx] || MOCK.societies[0];
+  return `
+    <div class="flex items-center gap-2 mb-3">
+      <button class="btn btn-sm btn-ghost" onclick="navigate('societies')">${ICONS.arrowLeft}</button>
+      <div>
+        <h1 class="page-title" style="margin-bottom:0">Edit Society</h1>
+        <p class="page-subtitle">${s.name}</p>
+      </div>
+    </div>
+    <form onsubmit="alert('Society saved!');return false">
+      <div class="form-grid">
+        <div class="space-y">
+          <div class="form-section">
+            <div class="form-section-title">Basic Information</div>
+            <div class="form-row">
+              <label class="form-label">Society Name <span class="required">*</span></label>
+              <input class="input" value="${s.name}">
+            </div>
+            <div class="form-row">
+              <label class="form-label">Slug</label>
+              <input class="input" value="${s.slug}">
+            </div>
+            <div class="form-row">
+              <label class="form-label">Bio / Description</label>
+              <textarea class="input" rows="4">The ${s.name} chapter of IEEE Sahrdaya focuses on advancing technical excellence through workshops, seminars, and hands-on projects.</textarea>
+            </div>
+            <div class="form-row">
+              <label class="form-label">Society Logo</label>
+              <div style="border:1px dashed var(--ink-border-light);padding:2.5rem;text-align:center;background:var(--paper-alt);border-radius:var(--radius-md)">
+                <div style="width:72px;height:72px;margin:0 auto 1rem;background:var(--accent-light);border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:1.5rem;font-weight:700">${s.name[0]}</div>
+                <p class="text-small text-soft">Click to upload logo</p>
+                <p class="text-xs text-muted mt-1">Recommended: 400×400</p>
+              </div>
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">Customization</div>
+            <div class="form-row">
+              <label class="form-label">Banner Image</label>
+              <div style="border:1px dashed var(--ink-border-light);padding:2rem;text-align:center;background:var(--paper-alt);border-radius:var(--radius-md)">
+                <p class="text-small text-soft">Click to upload banner</p>
+                <p class="text-xs text-muted mt-1">Recommended: 1200×400</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="space-y">
+          <div class="form-section">
+            <div class="form-section-title">Chairs & Contact</div>
+            <div class="form-row">
+              <label class="form-label">Society Chairs</label>
+              <div class="space-y-sm">
+                <input class="input" value="Prof. Sarah Mathew" placeholder="Chair name 1">
+                <input class="input" value="Dr. James Kurian" placeholder="Chair name 2">
+                <button class="btn btn-sm btn-ghost" onclick="alert('Add chair');return false">${ICONS.plus} Add Chair</button>
+              </div>
+            </div>
+            <div class="form-row">
+              <label class="form-label">Contact Email</label>
+              <input class="input" type="email" value="${s.slug}@ieee.org">
+            </div>
+            <div class="form-row">
+              <label class="form-label">Contact Phone</label>
+              <input class="input" value="+91 9876543200">
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">Visibility & Metadata</div>
+            <div class="form-row">
+              <label class="checkbox-group"><input type="checkbox" ${s.hidden?'':'checked'}><span class="text-small">Visible on public site</span></label>
+            </div>
+            <div class="form-row">
+              <label class="form-label">Display Order</label>
+              <input class="input" type="number" value="${Math.floor(Math.random()*10)+1}">
+            </div>
+            <div class="form-row">
+              <div style="display:flex;gap:0.5rem;padding:0.75rem;background:var(--paper-alt);border-radius:var(--radius-sm)">
+                <div class="text-xs text-soft">Events: <strong>${s.events}</strong></div>
+                <div class="text-xs text-soft" style="margin-left:auto">Created: Jan 2024</div>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:1rem">
+            <button class="btn btn-primary" style="flex:1;justify-content:center">Save Changes</button>
+            <button class="btn" onclick="navigate('societies');return false">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </form>
+  `;
+};
+
+// ── EVENT EDIT ─────────────────────────────────────────
+PAGES['event-edit'] = function() {
+  const e = MOCK.events[0];
+  const societies = MOCK.societies.filter(s => !s.hidden);
+  return `
+    <div class="flex items-center gap-2 mb-3">
+      <button class="btn btn-sm btn-ghost" onclick="navigate('event-detail')">${ICONS.arrowLeft}</button>
+      <div>
+        <h1 class="page-title" style="margin-bottom:0">Edit Event</h1>
+        <p class="page-subtitle">${e.title}</p>
+      </div>
+    </div>
+    <form onsubmit="alert('Event saved!');return false">
+      <div class="form-grid">
+        <div class="space-y">
+          <div class="form-section">
+            <div class="form-section-title">Basic Information</div>
+            <div class="form-row">
+              <label class="form-label">Title <span class="required">*</span></label>
+              <input class="input" value="${e.title}">
+            </div>
+            <div class="form-row">
+              <label class="form-label">Description</label>
+              <textarea class="input" rows="4">A comprehensive workshop covering fundamental and advanced concepts in artificial intelligence and machine learning. Suitable for beginners and intermediate learners.</textarea>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+              <div class="form-row">
+                <label class="form-label">Start Date <span class="required">*</span></label>
+                <input class="input" type="datetime-local" value="2026-06-20T09:00">
+              </div>
+              <div class="form-row">
+                <label class="form-label">End Date</label>
+                <input class="input" type="datetime-local" value="2026-06-20T17:00">
+              </div>
+            </div>
+            <div class="form-row">
+              <label class="form-label">Venue</label>
+              <input class="input" value="${e.venue}">
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">Custom Registration Fields</div>
+            <div style="border:1px dashed var(--ink-border-light);padding:1.75rem;text-align:center">
+              <p class="text-small text-soft">No custom fields configured yet.</p>
+              <button class="btn btn-sm mt-2" onclick="alert('Add field');return false">${ICONS.plus} Add Field</button>
+            </div>
+          </div>
+        </div>
+        <div class="space-y">
+          <div class="form-section">
+            <div class="form-section-title">Registration</div>
+            <div class="form-row">
+              <label class="checkbox-group"><input type="checkbox" checked><span class="text-small">Enable Registration</span></label>
+            </div>
+            <div class="form-row">
+              <label class="form-label">Price (₹)</label>
+              <input class="input" type="number" value="${e.price}">
+            </div>
+            <div class="form-row">
+              <label class="form-label">Max Capacity</label>
+              <input class="input" type="number" value="${e.capacity}" placeholder="Unlimited">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+              <div class="form-row">
+                <label class="form-label">Reg Start</label>
+                <input class="input" type="datetime-local">
+              </div>
+              <div class="form-row">
+                <label class="form-label">Reg Deadline</label>
+                <input class="input" type="datetime-local">
+              </div>
+            </div>
+            <div class="form-row">
+              <label class="checkbox-group"><input type="checkbox"><span class="text-small">Collect IEEE Membership ID</span></label>
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">Society</div>
+            <div class="form-row">
+              <label class="form-label">Host Society</label>
+              <select class="input">
+                <option value="">Select a society...</option>
+                ${societies.map(s => `<option ${s.name === e.society ? 'selected' : ''}>${s.name}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">Contact & Status</div>
+            <div class="form-row">
+              <label class="form-label">Contact Email</label>
+              <input class="input" type="email" value="ieee@sahrdaya.ac.in">
+            </div>
+            <div class="form-row">
+              <label class="form-label">Contact Phone</label>
+              <input class="input" value="+91 9876543210">
+            </div>
+            <div class="form-row">
+              <label class="form-label">Status</label>
+              <select class="input">
+                <option ${e.status==='draft'?'selected':''}>Draft</option>
+                <option ${e.status==='published'?'selected':''}>Published</option>
+                <option ${e.status==='completed'?'selected':''}>Completed</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex;gap:1rem">
+            <button class="btn btn-primary" style="flex:1;justify-content:center">Save Changes</button>
+            <button class="btn" onclick="navigate('event-detail');return false">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </form>
+  `;
+};
+
+// ── NEW EVENT ──────────────────────────────────────────
+PAGES['event-new'] = function() {
+  const societies = MOCK.societies.filter(s => !s.hidden);
+  return `
+    <div class="flex items-center gap-2 mb-3">
+      <button class="btn btn-sm btn-ghost" onclick="navigate('events')">${ICONS.arrowLeft}</button>
+      <div>
+        <h1 class="page-title" style="margin-bottom:0">New Event</h1>
+        <p class="page-subtitle">Create a new IEEE event</p>
+      </div>
+    </div>
+    <form onsubmit="alert('Event created!');return false">
+      <div class="form-grid">
+        <div class="space-y">
+          <div class="form-section">
+            <div class="form-section-title">Basic Information</div>
+            <div class="form-row">
+              <label class="form-label">Title <span class="required">*</span></label>
+              <input class="input" placeholder="Enter event title">
+            </div>
+            <div class="form-row">
+              <label class="form-label">Banner Image</label>
+              <div style="border:1px dashed var(--ink-border-light);padding:2.5rem;text-align:center;background:var(--paper-alt)">
+                <p class="text-small text-soft">Click to upload banner image</p>
+                <p class="text-xs text-muted mt-1">Recommended: 1200×600</p>
+              </div>
+            </div>
+            <div class="form-row">
+              <label class="form-label">Description</label>
+              <textarea class="input" rows="4" placeholder="Describe the event..."></textarea>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+              <div class="form-row">
+                <label class="form-label">Start Date <span class="required">*</span></label>
+                <input class="input" type="datetime-local">
+              </div>
+              <div class="form-row">
+                <label class="form-label">End Date</label>
+                <input class="input" type="datetime-local">
+              </div>
+            </div>
+            <div class="form-row">
+              <label class="form-label">Venue</label>
+              <input class="input" placeholder="e.g. Seminar Hall A">
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">Custom Registration Fields</div>
+            <div style="border:1px dashed var(--ink-border-light);padding:1.75rem;text-align:center">
+              <p class="text-small text-soft">Add custom fields to your registration form.</p>
+              <button class="btn btn-sm mt-2" onclick="alert('Add field');return false">${ICONS.plus} Add Field</button>
+            </div>
+          </div>
+        </div>
+        <div class="space-y">
+          <div class="form-section">
+            <div class="form-section-title">Registration</div>
+            <div class="form-row">
+              <label class="checkbox-group"><input type="checkbox" checked><span class="text-small">Enable Registration</span></label>
+            </div>
+            <div class="form-row">
+              <label class="form-label">Price (₹)</label>
+              <input class="input" type="number" value="0">
+            </div>
+            <div class="form-row">
+              <label class="form-label">Max Capacity</label>
+              <input class="input" type="number" placeholder="Unlimited">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+              <div class="form-row">
+                <label class="form-label">Reg Start</label>
+                <input class="input" type="datetime-local">
+              </div>
+              <div class="form-row">
+                <label class="form-label">Reg Deadline</label>
+                <input class="input" type="datetime-local">
+              </div>
+            </div>
+            <div class="form-row">
+              <label class="checkbox-group"><input type="checkbox"><span class="text-small">Collect IEEE Membership ID</span></label>
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">Society</div>
+            <div class="form-row">
+              <label class="form-label">Host Society</label>
+              <select class="input"><option value="">Select a society...</option>${societies.map(s => `<option>${s.name}</option>`).join('')}</select>
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">Contact & Status</div>
+            <div class="form-row">
+              <label class="form-label">Contact Email</label>
+              <input class="input" type="email" placeholder="ieee@sahrdaya.ac.in">
+            </div>
+            <div class="form-row">
+              <label class="form-label">Contact Phone</label>
+              <input class="input" placeholder="+91 9876543210">
+            </div>
+            <div class="form-row">
+              <label class="form-label">Status</label>
+              <select class="input"><option>Draft</option><option selected>Published</option><option>Completed</option></select>
+            </div>
+          </div>
+          <div style="display:flex;gap:1rem">
+            <button class="btn btn-primary" style="flex:1;justify-content:center">${ICONS.plus} Create Event</button>
+            <button class="btn" onclick="navigate('events');return false">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </form>
+  `;
+};
+
+// ─── Simulate check-in ──────────────────────────────────
+function simulateCheckin() {
+  const input = document.getElementById('ticket-input');
+  const result = document.getElementById('checkin-result');
+  const val = input ? input.value.trim() : '';
+  if (!val) {
+    result.innerHTML = '<div class="result-box error"><strong style="color:var(--danger)">✕</strong> Please enter a ticket ID.</div>';
+    return;
+  }
+  const found = MOCK.registrations.find(r => r.ticketId.toLowerCase() === val.toLowerCase());
+  if (found) {
+    result.innerHTML = `<div class="result-box success">
+      <div class="flex items-start gap-2">
+        <strong style="color:var(--success)">✓</strong>
+        <div><strong style="color:var(--success)">Checked in successfully!</strong><br><span class="text-small text-soft">${found.name}</span></div>
+      </div>
+    </div>`;
+    if (input) input.value = '';
+  } else {
+    result.innerHTML = '<div class="result-box error"><div class="flex items-start gap-2"><strong style="color:var(--danger)">✕</strong><div><strong style="color:var(--danger)">Check-in failed</strong><br><span class="text-small text-soft">Invalid or duplicate ticket ID.</span></div></div></div>';
+  }
+}
+
+// ─── Init ────────────────────────────────────────────────
+renderPage('overview');
+</script>
+</body>
+</html>

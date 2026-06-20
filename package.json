@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
+    "test:integration": "vitest run --config vitest.config.ts tests/integration/",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "migrate:pb": "bun scripts/migrate-to-pb.ts",

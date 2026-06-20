@@ -3,10 +3,11 @@ import { cookies } from 'next/headers'
 import { EventDetailClient } from './EventDetailClient'
 import { logError } from '@/lib/logger'
 import { getChairSocietyIds } from '@/lib/chair-scope'
+import { PB_AUTH_COOKIE } from '@/lib/constants'
 
 export async function EventDetailContent({ eventId }: { eventId: string }) {
   const cookieStore = await cookies()
-  const userPB = createPB(`pb_auth=${cookieStore.get('pb_auth')?.value}`)
+  const userPB = createPB(`${PB_AUTH_COOKIE}=${cookieStore.get(PB_AUTH_COOKIE)?.value}`)
 
   // Check chair access
   let userRole = ''
@@ -84,7 +85,7 @@ export async function EventDetailContent({ eventId }: { eventId: string }) {
           maxCapacity: Number((event as Record<string, unknown>).maxCapacity) || 0,
           registeredCount: Number((event as Record<string, unknown>).registeredCount) || 0,
           checkedInCount: Number((event as Record<string, unknown>).checkedInCount) || 0,
-          isPaid: !!(event as Record<string, unknown>).isPaid,
+          isPaid: Number((event as Record<string, unknown>).price) > 0,
           societyName: societyName,
           registrationDeadline: (event as Record<string, unknown>).registrationDeadline as string,
           contactEmail: (event as Record<string, unknown>).contactEmail as string,

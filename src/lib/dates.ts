@@ -1,5 +1,10 @@
 const DATE_LOCALE = 'en-IN';
 
+/** ISO string helper for building PB date filters. */
+export function toIso(date: Date): string {
+    return date.toISOString();
+}
+
 export function formatDate(dateString: string): string {
     return new Date(dateString).toLocaleDateString(DATE_LOCALE, {
         weekday: 'long',
@@ -46,8 +51,4 @@ export function formatHour12(dateString: string): string {
 export function formatAMPM(dateString: string): string {
     const t = new Date(dateString).toLocaleTimeString('en-US', { hour: '2-digit', hour12: true });
     return t.split(' ')[1];
-}
-
-export function iso(d: Date): string {
-  return d.toISOString()
 }

@@ -38,6 +38,7 @@ export default function NewEventPage() {
     price: '0',
     maxCapacity: '',
     registrationOpen: true,
+    checkInEnabled: true,
     collectIeeeMember: false,
     status: 'draft',
     registrationStart: '',
@@ -45,6 +46,8 @@ export default function NewEventPage() {
     contactEmail: '',
     contactPhone: '',
     whatsappLink: '',
+    externalLink: '',
+    tags: '',
     externalFormUrl: '',
   })
 
@@ -72,8 +75,8 @@ export default function NewEventPage() {
         society: form.society || undefined,
         price: Number(form.price),
         maxCapacity: form.maxCapacity ? Number(form.maxCapacity) : null,
-        isPaid: Number(form.price) > 0,
         registrationOpen: form.registrationOpen,
+        checkInEnabled: form.checkInEnabled,
         collectIeeeMember: form.collectIeeeMember,
         status: form.status,
         registrationStart: form.registrationStart ? new Date(form.registrationStart).toISOString() : '',
@@ -81,7 +84,9 @@ export default function NewEventPage() {
         contactEmail: form.contactEmail,
         contactPhone: form.contactPhone,
         whatsappLink: form.whatsappLink || '',
-        externalFormUrl: !form.registrationOpen ? form.externalFormUrl : '',
+        externalLink: form.externalLink || '',
+        tags: form.tags || '',
+        externalFormUrl: !form.registrationOpen ? form.externalFormUrl : undefined,
         formTemplate: customFields.length > 0 ? customFields : null,
         coupons: coupons.length > 0 ? coupons : null,
       }
@@ -155,7 +160,7 @@ export default function NewEventPage() {
                   <label className="text-sm font-medium">Title *</label>
                   <input required value={form.title} onChange={update('title')}
                     placeholder="e.g. AI Workshop 2025"
-                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
+                    className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
                 </div>
 
                 {/* Banner upload */}
@@ -166,7 +171,7 @@ export default function NewEventPage() {
                       <div className="relative rounded-lg overflow-hidden border border-border">
                         <img src={bannerPreview} alt="Banner preview" className="w-full h-48 object-cover" />
                         <button type="button" onClick={() => { setBannerPreview(null); setBannerFile(null) }}
-                          className="absolute top-2 right-2 rounded-full bg-background/80 p-1 hover:bg-background transition-colors">
+                          className="absolute top-2 right-2 rounded-full bg-white/80 p-1 hover:bg-white transition-colors">
                           <X className="size-4" />
                         </button>
                       </div>
@@ -184,27 +189,34 @@ export default function NewEventPage() {
                   <label className="text-sm font-medium">Description</label>
                   <textarea value={form.description} onChange={update('description')} rows={5}
                     placeholder="Describe what the event is about..."
-                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50 resize-y min-h-[120px]" />
+                    className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50 resize-y min-h-[120px]" />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Start Date *</label>
                     <input type="datetime-local" required value={form.date} onChange={update('date')}
-                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
+                      className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">End Date</label>
                     <input type="datetime-local" value={form.endDate} onChange={update('endDate')}
-                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
+                      className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
                   </div>
                 </div>
 
                 <div className="space-y-2">
+                  <label className="text-sm font-medium">Tags</label>
+                  <input value={form.tags} onChange={update('tags')}
+                    placeholder="e.g. workshop, technical, ieee-day"
+                    className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
+                  <p className="text-xs text-muted-foreground">Comma-separated tags for search &amp; filtering</p>
+                </div>
+                <div className="space-y-2">
                   <label className="text-sm font-medium">Venue</label>
                   <input value={form.venue} onChange={update('venue')}
                     placeholder="e.g. Seminar Hall, Block A"
-                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
+                    className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
                 </div>
               </CardContent>
             </Card>
@@ -288,24 +300,30 @@ export default function NewEventPage() {
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Price (₹)</label>
                       <input type="number" min="0" value={form.price} onChange={update('price')}
-                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
+                        className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
                       <p className="text-xs text-muted-foreground">Set 0 for free events</p>
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Max Capacity</label>
                       <input type="number" min="1" value={form.maxCapacity} onChange={update('maxCapacity')} placeholder="Unlimited"
-                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
+                        className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Registration Start</label>
                       <input type="datetime-local" value={form.registrationStart} onChange={update('registrationStart')}
-                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
+                        className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Registration Deadline</label>
                       <input type="datetime-local" value={form.registrationDeadline} onChange={update('registrationDeadline')}
-                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
+                        className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
                     </div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={form.checkInEnabled}
+                        onChange={(e) => setForm((prev) => ({ ...prev, checkInEnabled: e.target.checked }))}
+                        className="rounded border-input" />
+                      <span className="text-sm font-medium">Enable QR Check-in</span>
+                    </label>
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input type="checkbox" checked={form.collectIeeeMember}
                         onChange={(e) => setForm((prev) => ({ ...prev, collectIeeeMember: e.target.checked }))}
@@ -317,7 +335,7 @@ export default function NewEventPage() {
                   <div className="space-y-2">
                     <label className="text-sm font-medium">External Registration URL</label>
                     <input value={form.externalFormUrl} onChange={update('externalFormUrl')} placeholder="https://docs.google.com/forms/..."
-                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
+                      className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
                     <p className="text-xs text-muted-foreground">Users will be redirected here instead</p>
                   </div>
                 )}
@@ -333,7 +351,7 @@ export default function NewEventPage() {
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Host Society</label>
                   <select value={form.society} onChange={(e) => setForm((prev) => ({ ...prev, society: e.target.value }))}
-                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50">
+                    className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50">
                     <option value="">Select a society...</option>
                     {societies.map((s) => (
                       <option key={s.id} value={s.id}>{s.name}</option>
@@ -352,25 +370,32 @@ export default function NewEventPage() {
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Contact Email</label>
                   <input type="email" value={form.contactEmail} onChange={update('contactEmail')}
-                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
+                    className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Contact Phone</label>
                   <input value={form.contactPhone} onChange={update('contactPhone')}
-                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
+                    className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">External Link</label>
+                  <input value={form.externalLink} onChange={update('externalLink')} placeholder="https://example.com/event-page"
+                    className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
+                  <p className="text-xs text-muted-foreground">Public event page link (shown on event cards)</p>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">WhatsApp Link</label>
                   <input value={form.whatsappLink} onChange={update('whatsappLink')} placeholder="https://chat.whatsapp.com/..."
-                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
+                    className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
                   <p className="text-xs text-muted-foreground">Shown to registrants on confirmation</p>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Status</label>
                   <select value={form.status} onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))}
-                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50">
+                    className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50">
                     <option value="draft">Draft</option>
                     <option value="published">Published</option>
+                    <option value="completed">Completed</option>
                   </select>
                 </div>
               </CardContent>

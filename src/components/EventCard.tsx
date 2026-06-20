@@ -25,7 +25,6 @@ export default function EventCard({ event, variant = 'default', societyName, onC
                         src={bannerSrc}
                         alt={event.title}
                         fill
-                        unoptimized
                         className="object-cover group-hover:scale-105 transition-transform duration-500"
                         sizes="(max-width: 768px) 100vw, 33vw"
                     />
@@ -62,7 +61,6 @@ export default function EventCard({ event, variant = 'default', societyName, onC
                     src={bannerSrc}
                     alt={event.title}
                     fill
-                    unoptimized
                     className="object-cover group-hover:scale-110 transition-transform duration-700"
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 />

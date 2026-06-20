@@ -9,6 +9,7 @@ export async function EventsTableContent() {
     const result = await pb.collection('events').getList(1, 20, {
       sort: '-date',
       expand: 'society',
+      fields: 'id,title,date,endDate,venue,price,status,registrationOpen,maxCapacity,registeredCount,checkedInCount,society,expand.society.id,expand.society.name',
     })
 
     const events = result.items.map((e: Record<string, unknown>) => {
@@ -26,7 +27,7 @@ export async function EventsTableContent() {
         maxCapacity: (e.maxCapacity as number) || 0,
         registeredCount: (e.registeredCount as number) || 0,
         checkedInCount: (e.checkedInCount as number) || 0,
-        isPaid: !!e.isPaid,
+        isPaid: Number(e.price) > 0,
         societyName: (society?.name as string) || '',
         societyId: (society?.id as string) || '',
       }

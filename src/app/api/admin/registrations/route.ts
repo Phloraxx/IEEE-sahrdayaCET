@@ -1,76 +1,59 @@
 import { NextRequest } from 'next/server'
 import { createPB, createAdminPB, escapeFilterValue } from '@/lib/pb'
 import { requireRole } from '@/lib/auth'
-import { logError } from '@/lib/logger'
-import { getChairSocietyIds } from '@/lib/chair-scope'
+import { handleError } from '@/lib/api-error'
+import { getChairScope } from '@/lib/chair-scope'
+import { parsePagination, buildFilter } from '@/lib/route-helpers'
 
 export async function GET(req: NextRequest) {
-  const pb = createPB(req.headers.get('cookie') || undefined)
-  const { user } = await requireRole(['admin', 'chair'], pb)
-  const adminPB = createAdminPB()
-
-  const url = new URL(req.url)
-  const page = parseInt(url.searchParams.get('page') || '1')
-  const perPage = Math.min(parseInt(url.searchParams.get('perPage') || '50'), 100)
-  const eventId = url.searchParams.get('eventId')
-  const status = url.searchParams.get('status')
-  const search = url.searchParams.get('search')
-
-  let filter = ''
-  if (eventId) filter = `event = ${escapeFilterValue(eventId)}`
-  if (status && status !== 'all') {
-    const sf = `registrationStatus = ${escapeFilterValue(status)}`
-    filter = filter ? `${filter} && ${sf}` : sf
-  }
-  if (search) {
-    const sf = `userName ~ ${escapeFilterValue(search)}`
-    filter = filter ? `${filter} && ${sf}` : sf
-  }
-
-  // Scope to chair's societies
-  if (user.role === 'chair') {
-    const societyIds = await getChairSocietyIds(adminPB, user.id)
-    if (societyIds.length === 0) {
-      // No societies assigned — no registrations to show
-      return Response.json({ registrations: [], total: 0, page: 1, perPage })
-    }
-    // Find events belonging to chair's societies
-    const societyFilter = societyIds.map((id) => `society = ${escapeFilterValue(id)}`).join(' || ')
-    const chairEvents = await adminPB.collection('events').getFullList({
-      filter: societyFilter,
-      fields: 'id',
-    })
-    const chairEventIds = (chairEvents || []).map((e: Record<string, unknown>) => e.id as string)
-    if (chairEventIds.length === 0) {
-      return Response.json({ registrations: [], total: 0, page: 1, perPage })
-    }
-    const eventFilter = chairEventIds.map((id) => `event = ${escapeFilterValue(id)}`).join(' || ')
-    filter = filter ? `(${filter} && (${eventFilter}))` : eventFilter
-  }
-
   try {
+    const pb = createPB(req.headers.get('cookie') || undefined)
+    const { user } = await requireRole(['admin', 'chair'], pb)
+    const adminPB = createAdminPB()
+
+    const url = new URL(req.url)
+    const { page, perPage } = parsePagination(url, { defaultPerPage: 50, maxPerPage: 100 })
+    const eventId = url.searchParams.get('eventId')
+    const status = url.searchParams.get('status')
+    const search = url.searchParams.get('search')
+
+    // Build base filter from query params
+    const baseParts: string[] = []
+    if (eventId) baseParts.push(`event = ${escapeFilterValue(eventId)}`)
+    if (status && status !== 'all') baseParts.push(`registrationStatus = ${escapeFilterValue(status)}`)
+    if (search) baseParts.push(`userName ~ ${escapeFilterValue(search)}`)
+    const baseFilter = buildFilter(baseParts)
+
+    // Apply chair scope — use event.society join filter (avoids pre-fetching event IDs)
+    const scope = await getChairScope(adminPB, user.id, user.role)
+    if (user.role === 'chair' && !scope.hasScope) {
+      return Response.json({ registrations: [], total: 0, page: 1, perPage })
+    }
+    const filter = buildFilter([baseFilter, scope.eventFilter])
+
     const result = await adminPB.collection('registrations').getList(page, perPage, {
       filter: filter || undefined,
       sort: '-registrationDate',
       expand: 'event',
-      fields: 'id,userName,userEmail,userPhone,registrationStatus,paymentStatus,checkedIn,checkedInAt,ticketId,amount,created,expand',
+      fields: 'id,userName,userEmail,userPhone,registrationStatus,paymentStatus,checkedIn,checkedInAt,ticketId,amount,created,expand.event.id,expand.event.title',
     })
 
-    const registrations = result.items.map((r: Record<string, unknown>) => {
-      const expand = r.expand as Record<string, unknown> | undefined
+    const registrations = result.items.map((r) => {
+      const row = r as unknown as Record<string, unknown>
+      const expand = row.expand as Record<string, unknown> | undefined
       const event = expand?.event as Record<string, unknown> | undefined
       return {
-        id: r.id,
-        userName: r.userName,
-        userEmail: r.userEmail,
-        userPhone: r.userPhone,
-        registrationStatus: r.registrationStatus,
-        paymentStatus: r.paymentStatus,
-        checkedIn: !!r.checkedIn,
-        checkedInAt: r.checkedInAt,
-        ticketId: r.ticketId,
-        amount: Number(r.amount) || 0,
-        createdAt: r.created,
+        id: row.id,
+        userName: row.userName,
+        userEmail: row.userEmail,
+        userPhone: row.userPhone,
+        registrationStatus: row.registrationStatus,
+        paymentStatus: row.paymentStatus,
+        checkedIn: !!row.checkedIn,
+        checkedInAt: row.checkedInAt,
+        ticketId: row.ticketId,
+        amount: Number(row.amount) || 0,
+        createdAt: row.created,
         eventTitle: event?.title || '',
         eventId: event?.id || '',
       }
@@ -78,7 +61,6 @@ export async function GET(req: NextRequest) {
 
     return Response.json({ registrations, total: result.totalItems, page: result.page, perPage: result.perPage })
   } catch (error) {
-    logError('admin-registrations-list', error)
-    return Response.json({ error: 'Failed to fetch registrations' }, { status: 500 })
+    return handleError(error, 'admin-registrations-list')
   }
 }

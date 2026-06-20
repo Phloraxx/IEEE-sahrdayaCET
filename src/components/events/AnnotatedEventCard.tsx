@@ -83,7 +83,7 @@ export function AnnotatedEventCard({ event, index, onSelect, isMobile = false }:
                 )}
                 <div className="absolute top-4 left-4 z-20 flex gap-2">
                     <span className={`${event.color} text-white text-xs font-bold px-4 py-2 rounded-full uppercase tracking-wider shadow-xs backdrop-blur-md`}>
-                        {event.tags?.[0] || 'Event'}
+                        {event.tags || 'Event'}
                     </span>
                 </div>
             </div>

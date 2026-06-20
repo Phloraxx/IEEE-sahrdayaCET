@@ -1,6 +1,6 @@
 'use client'
 
-import { Calendar, Users, ArrowUpRight, TrendingUp, TrendingDown, Sparkles, CalendarPlus, QrCode, Download } from 'lucide-react'
+import { ArrowUpRight, CalendarPlus } from 'lucide-react'
 import Link from 'next/link'
 import {
   BarChart,
@@ -91,83 +91,7 @@ function formatToday(): string {
   })
 }
 
-// ─── Sub-components ─────────────────────────────────────
-
-function StatCard({
-  title,
-  value,
-  description,
-  icon: Icon,
-  trend,
-  trendLabel,
-  sparklineData,
-  accent,
-}: {
-  title: string
-  value: number
-  description?: React.ReactNode
-  icon: React.ElementType
-  trend?: 'up' | 'down' | 'neutral'
-  trendLabel?: string
-  sparklineData?: number[]
-  accent?: string
-}) {
-  return (
-    <Card className="card-hover relative overflow-hidden">
-      {accent && (
-        <div
-          className="absolute top-0 left-0 right-0 h-0.5"
-          style={{ background: accent }}
-        />
-      )}
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          {title}
-        </CardTitle>
-        <Icon className="size-4 text-muted-foreground/40" />
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-baseline gap-2">
-          <span className="text-2xl font-bold tabular-nums">
-            {value.toLocaleString('en-IN')}
-          </span>
-          {trend && trend !== 'neutral' && (
-            <span className={`flex items-center gap-0.5 text-xs font-medium tabular-nums ${trend === 'up' ? 'trend-up' : 'trend-down'}`}>
-              {trend === 'up' ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
-              {trendLabel}
-            </span>
-          )}
-        </div>
-        {description && (
-          <p className="mt-1 text-xs text-muted-foreground">{description}</p>
-        )}
-        {sparklineData && sparklineData.length > 1 && (
-          <div className="mt-2 -mb-1">
-            {sparklineData && sparklineData.length > 1 && (
-              <svg width={80} height={20} viewBox="0 0 80 20" aria-hidden="true" className="text-ieee-blue/40">
-                <polyline
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  points={sparklineData.map((d, i, arr) => {
-                    const max = Math.max(...arr, 1)
-                    const min = Math.min(...arr, 0)
-                    const range = max - min || 1
-                    const x = (i / (arr.length - 1)) * 80
-                    const y = 20 - ((d - min) / range) * 16 - 2
-                    return `${x},${y}`
-                  }).join(' ')}
-                />
-              </svg>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
+// ─── Greeting ──────────────────────────────────────────
 
 function GreetingSection({ name, role }: { name?: string; role?: string }) {
   const { text, emoji } = getGreeting()
@@ -237,17 +161,6 @@ function formatDate(dateStr: string) {
   })
 }
 
-// ─── Helpers ────────────────────────────────────────────
-
-function computeTrend(data: DailyCount[]): { direction: 'up' | 'down' | 'neutral'; label: string } | null {
-  if (data.length < 2) return null
-  const today = data[data.length - 1].count
-  const yesterday = data[data.length - 2].count
-  if (today > yesterday) return { direction: 'up', label: `${today - yesterday}` }
-  if (today < yesterday) return { direction: 'down', label: `${yesterday - today}` }
-  return { direction: 'neutral', label: '0' }
-}
-
 // ─── Main Component ────────────────────────────────────
 
 export function OverviewClient({
@@ -275,12 +188,9 @@ export function OverviewClient({
   }
 
   const hasChartData = dailyRegistrations.length > 0 && dailyRegistrations.some((d) => d.count > 0)
-  const trend = computeTrend(dailyRegistrations)
-  const sparklineCounts = dailyRegistrations.map((d) => d.count)
 
   // Find the first live or upcoming event for the hero card
   const heroEvent = upcoming.length > 0 ? upcoming[0] : null
-  const liveEventCount = stats.events.live
 
   return (
     <div className="space-y-6">
@@ -297,7 +207,7 @@ export function OverviewClient({
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    {liveEventCount > 0 ? (
+                    {stats.events.live > 0 ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-ieee-success/10 px-2 py-0.5 text-[10px] font-medium text-ieee-success">
                         <span className="live-dot" />
                         Live now
@@ -344,69 +254,6 @@ export function OverviewClient({
           </Card>
         </div>
       )}
-
-      {/* ── Quick Actions ── */}
-      <div className="animate-in fade-in slide-in-from-bottom-1 duration-300 delay-150 flex flex-wrap items-center gap-2">
-        <Link
-          href="/admin/check-in"
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
-        >
-          <QrCode className="size-3.5" />
-          Check-in
-        </Link>
-        <Link
-          href="/admin/registrations"
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
-        >
-          <Users className="size-3.5" />
-          Registrations
-        </Link>
-        <Link
-          href="/admin/events"
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
-        >
-          <Calendar className="size-3.5" />
-          All Events
-        </Link>
-      </div>
-
-      {/* ── Stat Cards ── */}
-      <div className="animate-in fade-in slide-in-from-bottom-1 duration-300 delay-200 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Live Events"
-          value={liveEventCount}
-          icon={Calendar}
-          description={
-            <>{stats.events.upcoming} upcoming scheduled</>
-          }
-          accent="var(--color-ieee-success)"
-        />
-        <StatCard
-          title="Registrations Today"
-          value={stats.registrations.today}
-          icon={Users}
-          description={`${stats.registrations.confirmed} total confirmed`}
-          trend={trend?.direction}
-          trendLabel={trend ? `vs yesterday` : undefined}
-          sparklineData={sparklineCounts}
-          accent="var(--color-chart-2)"
-        />
-        <StatCard
-          title="Pending Actions"
-          value={stats.registrations.pending}
-          icon={Sparkles}
-          description="registrations need attention"
-          accent="var(--color-ieee-warning)"
-        />
-        <StatCard
-          title="Total Registrations"
-          value={stats.registrations.total}
-          icon={Users}
-          description={`${stats.registrations.confirmed} confirmed`}
-          sparklineData={sparklineCounts}
-          accent="var(--color-chart-1)"
-        />
-      </div>
 
       {/* ── Charts Row ── */}
       <div className="grid gap-4 md:grid-cols-2">

@@ -1,17 +1,21 @@
 'use client'
 
 import { useState } from 'react'
-import { CalendarIcon, MapPin, Eye, Pencil, Trash2, MoreHorizontal, Search } from 'lucide-react'
+import { CalendarIcon, MapPin, Eye, Pencil, Trash2, Search } from 'lucide-react'
 import Link from 'next/link'
-import { Card, CardContent } from '@/components/ui/card'
+import { useRouter } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import {
   Dialog,
   DialogContent,
@@ -20,7 +24,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { useRouter } from 'next/navigation'
 
 interface EventItem {
   id: string
@@ -44,19 +47,6 @@ interface Props {
   total: number
 }
 
-function statusBadgeVariant(status: string) {
-  switch (status) {
-    case 'published':
-      return 'default' as const
-    case 'draft':
-      return 'secondary' as const
-    case 'completed':
-      return 'outline' as const
-    default:
-      return 'outline' as const
-  }
-}
-
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('en-IN', {
     month: 'short',
@@ -70,13 +60,17 @@ export function EventsTableClient({ events, total }: Props) {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [societyFilter, setSocietyFilter] = useState('all')
 
-  const filtered = searchQuery.trim()
-    ? events.filter((e) =>
-        e.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.societyName?.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : events
+  const filtered = events.filter((e) => {
+    if (searchQuery.trim() && !e.title.toLowerCase().includes(searchQuery.toLowerCase()) && !e.societyName?.toLowerCase().includes(searchQuery.toLowerCase())) {
+      return false
+    }
+    if (statusFilter !== 'all' && e.status !== statusFilter) return false
+    if (societyFilter !== 'all' && e.societyName !== societyFilter) return false
+    return true
+  })
 
   const handleDelete = async () => {
     if (!deleteId) return
@@ -90,37 +84,29 @@ export function EventsTableClient({ events, total }: Props) {
     }
   }
 
+  const societies = [...new Set(events.map((e) => e.societyName).filter(Boolean))]
+
   if (filtered.length === 0) {
-    const isEmptySearch = searchQuery.trim().length > 0
+    const isEmptySearch = searchQuery.trim().length > 0 || statusFilter !== 'all' || societyFilter !== 'all'
     return (
       <Card className="border-dashed">
         <CardContent className="py-16 text-center">
           {isEmptySearch ? (
             <>
               <Search className="mx-auto size-10 text-muted-foreground/40 mb-4" />
-              <h3 className="text-lg font-semibold mb-1">No matches</h3>
-              <p className="text-sm text-muted-foreground mb-6">
-                No events match &ldquo;{searchQuery}&rdquo;. Try a different search term.
-              </p>
-              <button
-                onClick={() => setSearchQuery('')}
-                className="inline-flex items-center justify-center rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors"
-              >
-                Clear search
-              </button>
+              <CardTitle className="text-lg mb-1">No matches</CardTitle>
+              <CardDescription className="mb-6">No events match your filters. Try a different search term.</CardDescription>
+              <Button variant="outline" onClick={() => { setSearchQuery(''); setStatusFilter('all'); setSocietyFilter('all') }}>
+                Clear filters
+              </Button>
             </>
           ) : (
             <>
               <CalendarIcon className="mx-auto size-10 text-muted-foreground/40 mb-4" />
-              <h3 className="text-lg font-semibold mb-1">No events yet</h3>
-              <p className="text-sm text-muted-foreground mb-6">
-                Create your first IEEE event to get started.
-              </p>
-              <Link
-                href="/admin/events/new"
-                className="inline-flex items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/80 px-4 py-2 text-sm font-medium transition-all"
-              >
-                Create Event
+              <CardTitle className="text-lg mb-1">No events yet</CardTitle>
+              <CardDescription className="mb-6">Create your first IEEE event to get started.</CardDescription>
+              <Link href="/admin/events/new">
+                <Button>Create Event</Button>
               </Link>
             </>
           )}
@@ -131,146 +117,134 @@ export function EventsTableClient({ events, total }: Props) {
 
   return (
     <>
-      <Card className="card-hover">
-        <div className="border-b border-border/50 px-4 py-2.5 flex items-center gap-2">
-          <Search className="size-4 text-muted-foreground/60" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search events..."
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/40"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="text-xs text-muted-foreground/60 hover:text-foreground transition-colors"
-            >
-              Clear
-            </button>
-          )}
-        </div>
+      <Card>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border/50 text-left">
-                  <th className="sticky top-0 bg-card z-10 px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Event</th>
-                  <th className="sticky top-0 bg-card z-10 px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider hidden md:table-cell">Society</th>
-                  <th className="sticky top-0 bg-card z-10 px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Date</th>
-                  <th className="sticky top-0 bg-card z-10 px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
-                  <th className="sticky top-0 bg-card z-10 px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider text-right">Registrations</th>
-                  <th className="sticky top-0 bg-card z-10 px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider w-12"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((event, idx) => {
-                  const pct = event.maxCapacity > 0
-                    ? Math.round((event.registeredCount / event.maxCapacity) * 100)
-                    : 0
-                  return (
-                    <tr
-                      key={event.id}
-                      className="animate-in fade-in slide-in-from-bottom-1 duration-200 border-b border-border/30 last:border-0 hover:bg-muted/30 transition-colors relative group"
-                      style={{ animationDelay: `${idx * 0.03}s`, animationFillMode: 'both' }}
-                    >
-                      <td className="px-4 py-3 relative">
-                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-0 rounded-full bg-ieee-blue opacity-0 group-hover:opacity-100 group-hover:h-5 transition-all duration-200" />
-                        <Link href={`/admin/events/${event.id}`} className="block group">
-                          <p className="text-sm font-medium truncate max-w-[280px] group-hover:text-ieee-blue transition-colors">
-                            {event.title}
-                          </p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <MapPin className="size-3" />
-                              {event.venue || 'TBD'}
-                            </span>
-                            {event.isPaid && (
-                              <span className="text-xs font-mono text-ieee-success">
-                                ₹{event.price}
-                              </span>
-                            )}
-                          </div>
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3 hidden md:table-cell">
-                        <span className="text-sm text-muted-foreground">
-                          {event.societyName || '—'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 hidden sm:table-cell">
-                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                          <CalendarIcon className="size-3.5" />
-                          {formatDate(event.date)}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <Badge variant={statusBadgeVariant(event.status)} className="text-[10px] px-1.5 py-0">
-                            {event.status}
-                          </Badge>
-                          {event.registrationOpen && (
-                            <Badge className="text-[10px] px-1.5 py-0 bg-ieee-success hover:bg-ieee-success/80">
-                              Open
-                            </Badge>
+          {/* Filter Bar */}
+          <div className="flex flex-wrap gap-3 items-center px-6 py-5 border-b border-border bg-muted/20 rounded-t-[14px]">
+            <div className="relative flex-1 min-w-[160px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search events..."
+                className="pl-9"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground">
+                  Clear
+                </button>
+              )}
+            </div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="h-9 rounded-md border border-input bg-white px-3 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
+            >
+              <option value="all">All status</option>
+              <option value="published">Published</option>
+              <option value="draft">Draft</option>
+              <option value="completed">Completed</option>
+            </select>
+            <select
+              value={societyFilter}
+              onChange={(e) => setSocietyFilter(e.target.value)}
+              className="h-9 rounded-md border border-input bg-white px-3 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
+            >
+              <option value="all">All societies</option>
+              {societies.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Table */}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Event</TableHead>
+                <TableHead className="hidden sm:table-cell">Date</TableHead>
+                <TableHead className="hidden sm:table-cell">Society</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Capacity</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((event) => {
+                const pct = event.maxCapacity > 0 ? Math.min((event.registeredCount / event.maxCapacity) * 100, 100) : 0
+                return (
+                  <TableRow key={event.id}>
+                    <TableCell>
+                      <Link href={`/admin/events/${event.id}`} className="no-underline text-inherit">
+                        <div className="font-medium text-sm">{event.title}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          <MapPin className="size-3 inline align-middle mr-0.5" />
+                          {event.venue || 'TBD'}
+                          {event.isPaid && (
+                            <span className="font-mono text-xs ml-2" style={{ color: 'var(--success, #2e7d5e)' }}>₹{event.price}</span>
                           )}
                         </div>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <div className="hidden sm:flex items-center gap-1.5">
-                            <div className="h-2 w-14 overflow-hidden rounded-full bg-muted">
-                              <div
-                                className="h-full rounded-full bg-ieee-blue transition-all"
-                                style={{ width: `${Math.min(pct, 100)}%` }}
-                              />
-                            </div>
-                          </div>
-                          <div className="text-sm tabular-nums">
-                            <span className="font-medium">{event.registeredCount}</span>
-                            <span className="text-muted-foreground">/{event.maxCapacity || '∞'}</span>
-                          </div>
+                      </Link>
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <CalendarIcon className="size-3.5" />
+                        {formatDate(event.date)}
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
+                      {event.societyName || '—'}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={event.status === 'published' ? 'default' : event.status === 'completed' ? 'secondary' : 'outline'}>
+                          {event.status}
+                        </Badge>
+                        {event.registrationOpen && <Badge>Open</Badge>}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2 min-w-[120px]">
+                        <div className="progress" style={{ flex: 1 }}>
+                          <div className="progress-fill" style={{ width: `${pct}%` }} />
                         </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger render={<button />}>
-                            <MoreHorizontal className="size-4" />
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-40">
-                            <DropdownMenuItem onClick={() => router.push(`/admin/events/${event.id}`)}>
-                              <Eye className="size-4 mr-2" />
-                              View
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => router.push(`/admin/events/${event.id}/edit`)}>
-                              <Pencil className="size-4 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              variant="destructive"
-                              onClick={() => setDeleteId(event.id)}
-                            >
-                              <Trash2 className="size-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+                        <span className="text-xs font-mono text-muted-foreground">{event.registeredCount}/{event.maxCapacity}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex gap-1 justify-end">
+                        <Button variant="ghost" size="icon" className="size-8" onClick={() => router.push(`/admin/events/${event.id}`)}>
+                          <Eye className="size-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="size-8" onClick={() => router.push(`/admin/events/${event.id}/edit`)}>
+                          <Pencil className="size-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="size-8" onClick={() => setDeleteId(event.id)}>
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+
+          {/* Summary */}
+          {total > events.length && (
+          <div className="flex items-center gap-2 px-6 py-4 text-sm text-muted-foreground border-t border-border">
+            <span>
+              {searchQuery || statusFilter !== 'all' || societyFilter !== 'all'
+                ? `Found ${filtered.length} of ${total} events`
+                : `Showing ${events.length} of ${total} events`}
+            </span>
           </div>
-          <div className="flex items-center justify-between border-t border-border/50 px-4 py-3">
-            <p className="text-xs text-muted-foreground">
-              {searchQuery ? `Found ${filtered.length} of ${total} events` : `Showing ${events.length} of ${total} events`}
-            </p>
-          </div>
+          )}
         </CardContent>
       </Card>
 
+      {/* Delete Dialog */}
       <Dialog open={!!deleteId} onOpenChange={(open) => { if (!open) setDeleteId(null) }}>
         <DialogContent>
           <DialogHeader>
@@ -280,22 +254,16 @@ export function EventsTableClient({ events, total }: Props) {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <button
-              type="button"
-              onClick={() => setDeleteId(null)}
-              disabled={deleting}
-              className="inline-flex items-center justify-center rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors"
-            >
+            <Button variant="outline" onClick={() => setDeleteId(null)} disabled={deleting}>
               Cancel
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="destructive"
               disabled={deleting}
               onClick={handleDelete}
-              className="inline-flex items-center justify-center rounded-lg bg-destructive text-destructive-foreground hover:bg-destructive/80 px-4 py-2 text-sm font-medium transition-colors"
             >
               {deleting ? 'Deleting...' : 'Delete Event'}
-            </button>
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

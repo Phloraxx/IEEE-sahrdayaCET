@@ -4,11 +4,12 @@ import Link from 'next/link'
 import { ArrowLeft, Pencil } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { PB_AUTH_COOKIE } from '@/lib/constants'
 
 export default async function SocietyDetailPage(props: { params: Promise<{ id: string }> }) {
   const { id } = await props.params
   const cookieStore = await cookies()
-  const pb = createPB(`pb_auth=${cookieStore.get('pb_auth')?.value}`)
+  const pb = createPB(`${PB_AUTH_COOKIE}=${cookieStore.get(PB_AUTH_COOKIE)?.value}`)
 
   try {
     const society = await pb.collection('societies').getOne(id)

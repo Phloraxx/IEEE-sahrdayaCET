@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "IEEE SB Admin — Claude Design System",
+  "entry": "admin-dashboard-4.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "primary": true,
+  "createdAt": "2026-06-12T09:41:31.251Z",
+  "updatedAt": "2026-06-12T09:41:31.254Z",
+  "sourceSkillId": "agent-browser",
+  "designSystemId": "claude",
+  "metadata": {
+    "identifier": "admin-dashboard",
+    "artifactType": "text/html",
+    "inferred": false
+  }
+}

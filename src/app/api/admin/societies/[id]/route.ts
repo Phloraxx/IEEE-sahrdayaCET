@@ -1,20 +1,14 @@
 import { NextRequest } from 'next/server'
-import { createPB, createAdminPB } from '@/lib/pb'
+import { createPB, createAdminPB, buildFileUrl } from '@/lib/pb'
 import { requireRole } from '@/lib/auth'
 import { handleError } from '@/lib/api-error'
-import { getChairSocietyIds } from '@/lib/chair-scope'
-
-async function assertChairCanAccessSociety(adminPB: ReturnType<typeof createAdminPB>, userId: string, societyId: string) {
-  const societyIds = await getChairSocietyIds(adminPB, userId)
-  if (!societyIds.includes(societyId)) {
-    return { allowed: false, error: Response.json({ error: 'Forbidden' }, { status: 403 }) }
-  }
-  return { allowed: true }
-}
+import { assertChairSocietyAccess, getChairScope } from '@/lib/chair-scope'
+import { parseFormData } from '@/lib/request-helpers'
+import { z } from 'zod'
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params
 
@@ -23,36 +17,53 @@ export async function GET(
     const { user } = await requireRole(['admin', 'chair'], pb)
     const adminPB = createAdminPB()
 
+    const scope = await getChairScope(adminPB, user.id, user.role)
     if (user.role === 'chair') {
-      const access = await assertChairCanAccessSociety(adminPB, user.id, id)
-      if (!access.allowed) return access.error
+      await assertChairSocietyAccess(adminPB, user.id, user.role, id, scope)
     }
 
     const society = await adminPB.collection('societies').getOne(id)
-    return Response.json({ society })
+    return Response.json({
+      society: {
+        ...society,
+        logoUrl: society.logo ? buildFileUrl('societies', society.id as string, society.logo as string) : null,
+        bannerUrl: society.banner ? buildFileUrl('societies', society.id as string, society.banner as string) : null,
+      },
+    })
   } catch (error) {
     return handleError(error, 'admin-societies-get')
   }
 }
 
+const SocietyUpdateSchema = z.object({
+  name: z.string(),
+  slug: z.string(),
+  bio: z.string(),
+  chairs: z.array(z.string()),
+  isHidden: z.boolean(),
+  logo: z.any(),
+  banner: z.any(),
+}).partial()
+
 export async function PUT(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params
 
   try {
-    const body = await req.json()
     const pb = createPB(req.headers.get('cookie') || undefined)
     const { user } = await requireRole(['admin', 'chair'], pb)
 
-    // Only admins can edit societies
     if (user.role !== 'admin') {
       return Response.json({ error: 'Only admins can edit societies' }, { status: 403 })
     }
 
     const adminPB = createAdminPB()
-    const society = await adminPB.collection('societies').update(id, body)
+    const body = await parseFormData(req)
+    const parsed = SocietyUpdateSchema.parse(body)
+
+    const society = await adminPB.collection('societies').update(id, parsed)
     return Response.json({ society })
   } catch (error) {
     return handleError(error, 'admin-societies-update')

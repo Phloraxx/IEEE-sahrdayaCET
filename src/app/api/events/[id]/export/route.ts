@@ -1,46 +1,40 @@
-import { createPB } from '@/lib/pb'
+import { createPB, createAdminPB } from '@/lib/pb'
 import { requireAuth } from '@/lib/auth'
-import { generateRegistrationsCSV } from '@/lib/csv-export'
-import { logError } from '@/lib/logger'
+import { handleError } from '@/lib/api-error'
+import { assertChairEventAccess } from '@/lib/chair-scope'
+import { streamRegistrationsCSV, csvFilename } from '@/lib/csv-export'
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const pb = createPB(request.headers.get('cookie') || undefined)
-  const { user } = await requireAuth(pb)
-
   try {
+    const pb = createPB(request.headers.get('cookie') || undefined)
+    const { user } = await requireAuth(pb)
+    const adminPB = createAdminPB()
+
     const { id } = await params
 
-    const event = await pb.collection('events').getOne(id).catch(() => null)
+    const event = await adminPB.collection('events')
+      .getOne(id, { fields: 'id,title,society' })
+      .catch(() => null)
     if (!event) {
       return Response.json({ error: 'Event not found' }, { status: 404 })
     }
 
-    if (user.role !== 'admin') {
-      const society = await pb.collection('societies').getOne(event.society).catch(() => null)
-      const chairs = (society?.chairs || []) as string[]
-      if (!chairs.includes(user.id)) {
-        return Response.json({ error: 'Forbidden' }, { status: 403 })
-      }
-    }
+    await assertChairEventAccess(adminPB, user.id, user.role, id)
 
-    const csv = await generateRegistrationsCSV(pb, id)
-    const filename = `${String(event.title).replace(/[^a-zA-Z0-9]/g, '_')}_registrations.csv`
+    const stream = await streamRegistrationsCSV(adminPB, id, { event: event as any })
+    const filename = csvFilename((event as any).title, id)
 
-    return new Response(csv, {
+    return new Response(stream, {
       status: 200,
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
-        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Disposition': 'attachment; filename="' + filename + '"',
       },
     })
   } catch (error) {
-    logError('event-export', error)
-    return Response.json(
-      { error: 'Failed to export registrations' },
-      { status: 500 }
-    )
+    return handleError(error, 'event-export')
   }
 }

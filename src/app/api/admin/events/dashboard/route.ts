@@ -1,74 +1,59 @@
-import { createPB, createAdminPB, escapeFilterValue } from '@/lib/pb'
+import { createPB, createAdminPB } from '@/lib/pb'
 import { requireRole } from '@/lib/auth'
-import { iso } from '@/lib/dates'
-import { logError } from '@/lib/logger'
-import { getChairSocietyIds } from '@/lib/chair-scope'
+import { getChairScope } from '@/lib/chair-scope'
+import { handleError } from '@/lib/api-error'
+import { toIso } from '@/lib/dates'
+import { UPCOMING_WINDOW_DAYS, RECENT_WINDOW_DAYS, MS_PER_DAY } from '@/lib/constants'
 
 export async function GET(req: Request) {
-  const pb = createPB(req.headers.get('cookie') || undefined)
-  const { user } = await requireRole(['admin', 'chair'], pb)
-
-  const now = new Date()
-  const nowIso = iso(now)
-  const futureIso = iso(new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000))
-  const pastIso = iso(new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000))
-
   try {
+    const pb = createPB(req.headers.get('cookie') || undefined)
+    const { user } = await requireRole(['admin', 'chair'], pb)
     const adminPB = createAdminPB()
 
-    // Build society scope filter for chairs
-    let scopeFilter = ''
-    if (user.role === 'chair') {
-      const societyIds = await getChairSocietyIds(adminPB, user.id)
-      if (societyIds.length > 0) {
-        scopeFilter = `(${societyIds.map((id) => `society = ${escapeFilterValue(id)}`).join(' || ')})`
-      } else {
-        scopeFilter = 'id = ""' // no access
-      }
-    }
+    const now = new Date()
+    const nowIso = toIso(now)
+    const futureIso = toIso(new Date(now.getTime() + UPCOMING_WINDOW_DAYS * MS_PER_DAY))
+    const pastIso = toIso(new Date(now.getTime() - RECENT_WINDOW_DAYS * MS_PER_DAY))
 
-    const liveFilter = [`date <= '${nowIso}' && endDate >= '${nowIso}' && status = 'published'`]
-    const upcomingFilter = [`date > '${nowIso}' && date <= '${futureIso}' && status = 'published'`]
-    const recentFilter = [`endDate > '${pastIso}' && endDate < '${nowIso}'`]
+    const scope = await getChairScope(adminPB, user.id, user.role)
+    const scopeFilter = user.role === 'chair' ? scope.societyFilter : ''
 
-    if (scopeFilter) {
-      liveFilter.push(scopeFilter)
-      upcomingFilter.push(scopeFilter)
-      recentFilter.push(scopeFilter)
-    }
+    const withScope = (base: string) => (scopeFilter ? `(${base}) && (${scopeFilter})` : base)
 
     const [live, upcoming, recentlyCompleted] = await Promise.all([
       adminPB.collection('events').getList(1, 5, {
-        filter: liveFilter.join(' && '),
+        filter: withScope(`date <= '${nowIso}' && endDate >= '${nowIso}' && status = 'published'`),
         sort: 'date',
       }),
       adminPB.collection('events').getList(1, 6, {
-        filter: upcomingFilter.join(' && '),
+        filter: withScope(`date > '${nowIso}' && date <= '${futureIso}' && status = 'published'`),
         sort: 'date',
       }),
       adminPB.collection('events').getList(1, 5, {
-        filter: recentFilter.join(' && '),
+        filter: withScope(`endDate > '${pastIso}' && endDate < '${nowIso}'`),
         sort: '-endDate',
       }),
     ])
 
-    const project = (e: Record<string, unknown>) => {
-      const society = e.society as Record<string, unknown> | string | null
+    const project = (e: unknown) => {
+      const r = e as Record<string, unknown>
+      const society = r.society as Record<string, unknown> | string | null
       const societyName =
         typeof society === 'object' && society !== null
           ? (society.name as string) || ''
           : ''
       return {
-        id: e.id as string,
-        title: e.title,
-        date: e.date,
-        endDate: e.endDate,
-        venue: e.venue,
-        status: e.status,
-        maxCapacity: e.maxCapacity,
-        registeredCount: e.registeredCount,
-        checkedInCount: e.checkedInCount,
-        bannerUrl: e.bannerUrl,
+        id: r.id as string,
+        title: r.title,
+        date: r.date,
+        endDate: r.endDate,
+        venue: r.venue,
+        status: r.status,
+        maxCapacity: r.maxCapacity,
+        registeredCount: r.registeredCount,
+        checkedInCount: r.checkedInCount,
+        bannerUrl: r.bannerUrl,
         societyName,
       }
     }
@@ -79,10 +64,6 @@ export async function GET(req: Request) {
       recentlyCompleted: recentlyCompleted.items.map(project),
     })
   } catch (error) {
-    logError('admin-dashboard', error)
-    return Response.json(
-      { error: 'Failed to fetch dashboard events', live: [], upcoming: [], recentlyCompleted: [] },
-      { status: 500 },
-    )
+    return handleError(error, 'admin-dashboard')
   }
 }

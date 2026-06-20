@@ -6,7 +6,7 @@ import {
   formatTime,
   formatDay,
   formatMonth,
-  iso,
+  toIso,
 } from '@/lib/dates'
 
 const TEST_DATE = '2026-06-08T14:30:00.000Z'
@@ -43,8 +43,8 @@ describe('date formatting', () => {
     expect(formatMonth(TEST_DATE)).toBe('JUN')
   })
 
-  it('iso returns ISO string', () => {
+  it('toIso returns ISO string', () => {
     const d = new Date('2026-06-08T00:00:00.000Z')
-    expect(iso(d)).toBe('2026-06-08T00:00:00.000Z')
+    expect(toIso(d)).toBe('2026-06-08T00:00:00.000Z')
   })
 })

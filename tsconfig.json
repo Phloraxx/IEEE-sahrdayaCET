@@ -38,6 +38,8 @@
   "exclude": [
     "node_modules",
     "migration",
+    ".next",
+    ".next/**",
     "scripts",
     "tests"
   ]

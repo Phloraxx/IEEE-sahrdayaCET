@@ -3,8 +3,18 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Search, Eye, EyeOff } from 'lucide-react'
 import Link from 'next/link'
-import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Input } from '@/components/ui/input'
 
 interface SocietyItem {
   id: string
@@ -44,20 +54,15 @@ export function SocietiesContent() {
 
   if (loading) {
     return (
-      <Card className="card-hover">
-        <div className="p-3 border-b border-border/50">
-          <div className="animate-shimmer rounded-md h-8 w-full" />
-        </div>
-        <CardContent className="p-0">
-          <div className="p-4 space-y-3">
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-wrap gap-3 items-center mb-4">
+            <Skeleton className="h-9 flex-1 min-w-[160px]" />
+            <Skeleton className="h-9 w-24" />
+          </div>
+          <div className="space-y-2">
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4">
-                <div className="flex-1 space-y-1">
-                  <div className="animate-shimmer rounded-md h-4 w-40" />
-                  <div className="animate-shimmer rounded-md h-3 w-24" />
-                </div>
-                <div className="animate-shimmer rounded-full h-5 w-16" />
-              </div>
+              <Skeleton key={i} className="h-12 w-full" />
             ))}
           </div>
         </CardContent>
@@ -66,69 +71,80 @@ export function SocietiesContent() {
   }
 
   return (
-    <Card className="card-hover">
-      <div className="border-b border-border/50 px-4 py-2.5 flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1.5 flex-1 min-w-[160px]">
-          <Search className="size-4 text-muted-foreground/60" />
-          <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search societies..."
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/40" />
-          {searchQuery && <button onClick={() => setSearchQuery('')} className="text-xs text-muted-foreground/60 hover:text-foreground">Clear</button>}
-        </div>
-        <select value={visibilityFilter} onChange={(e) => setVisibilityFilter(e.target.value)}
-          className="rounded-lg border border-border/50 bg-background px-2 py-1 text-xs outline-none">
-          <option value="all">All</option>
-          <option value="visible">Visible</option>
-          <option value="hidden">Hidden</option>
-        </select>
-      </div>
+    <Card>
       <CardContent className="p-0">
-        {filtered.length === 0 ? (
-          <div className="py-12 text-center text-sm text-muted-foreground">No societies found.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border/50 text-left">
-                  <th className="px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Name</th>
-                  <th className="px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Slug</th>
-                  <th className="px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Chairs</th>
-                  <th className="px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Events</th>
-                  <th className="px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((s) => (
-                  <tr key={s.id} className="border-b border-border/30 last:border-0 hover:bg-muted/30 transition-colors relative group">
-                    <td className="px-4 py-3 relative">
-                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-0 rounded-full bg-ieee-blue opacity-0 group-hover:opacity-100 group-hover:h-5 transition-all duration-200" />
-                      <Link href={`/admin/societies/${s.id}`} className="text-sm font-medium hover:text-ieee-blue transition-colors">
-                        {s.name}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground font-mono">{s.slug}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">
-                      {Array.isArray(s.chairs) ? s.chairs.length : 0} chairs
-                    </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">
-                      {s.eventsCount ?? '—'}
-                    </td>
-                    <td className="px-4 py-3">
-                      {s.isHidden ? (
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 flex items-center gap-1 w-fit">
-                          <EyeOff className="size-3" /> Hidden
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-ieee-success/15 text-ieee-success border-ieee-success/20 text-[10px] px-1.5 py-0 flex items-center gap-1 w-fit">
-                          <Eye className="size-3" /> Visible
-                        </Badge>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div className="flex flex-wrap gap-3 items-center px-6 py-5 border-b border-border bg-muted/20 rounded-t-[14px]">
+          <div className="relative flex-1 min-w-[160px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search societies..."
+              className="pl-9"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground">
+                Clear
+              </button>
+            )}
           </div>
+          <select
+            value={visibilityFilter}
+            onChange={(e) => setVisibilityFilter(e.target.value)}
+            className="h-9 rounded-md border border-input bg-white px-3 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
+          >
+            <option value="all">All</option>
+            <option value="visible">Visible</option>
+            <option value="hidden">Hidden</option>
+          </select>
+        </div>
+
+        {filtered.length === 0 ? (
+          <div className="px-6 py-12 text-center text-sm text-muted-foreground">
+            No societies found.
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Slug</TableHead>
+                <TableHead>Chairs</TableHead>
+                <TableHead>Events</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((s) => (
+                <TableRow
+                  key={s.id}
+                  className="cursor-pointer"
+                  onClick={() => window.location.href = `/admin/societies/${s.id}/edit`}
+                >
+                  <TableCell>
+                    <Link href={`/admin/societies/${s.id}/edit`} className="font-medium no-underline text-inherit">
+                      {s.name}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">{s.slug}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{Array.isArray(s.chairs) ? s.chairs.length : 0} chairs</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{s.eventsCount ?? '—'}</TableCell>
+                  <TableCell>
+                    {s.isHidden ? (
+                      <Badge variant="outline" className="inline-flex items-center gap-1">
+                        <EyeOff className="size-3" /> Hidden
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="inline-flex items-center gap-1">
+                        <Eye className="size-3" /> Visible
+                      </Badge>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         )}
       </CardContent>
     </Card>

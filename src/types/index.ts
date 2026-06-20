@@ -29,6 +29,17 @@ export interface Society {
     chairs?: string[];
 }
 
+export interface Coupon {
+    id?: string;
+    code: string;
+    discountType: 'percentage' | 'fixed';
+    discountValue: number;
+    maxUses: number;
+    usedCount: number;
+    expiresAt?: string;
+    isActive: boolean;
+}
+
 export interface Event {
     id: string;
     createdAt?: string;
@@ -41,7 +52,9 @@ export interface Event {
     price: number;
     bannerUrl?: string;
     banner?: { url?: string } | string | number | null;
-    society?: Society | string;
+    /** Society relation. When expanded, an object; otherwise the society ID string. */
+    society?: { id: string; name?: string; slug?: string; logoUrl?: string } | string;
+    societyId?: string;
     status?: string;
     maxCapacity?: number;
     registeredCount?: number;
@@ -50,38 +63,16 @@ export interface Event {
     registrationStart?: string;
     registrationDeadline?: string;
     formTemplate?: unknown;
-    enableWaitlist?: boolean;
-    waitlistCount?: number;
     isPaid?: boolean;
-    ieeeMemberPrice?: number;
-    nonMemberPrice?: number;
-    earlyBirdPrice?: number;
-    earlyBirdDeadline?: string;
-    currency?: string;
     checkInEnabled?: boolean;
-    selfCheckIn?: boolean;
     collectIeeeMember?: boolean;
     contactEmail?: string;
     contactPhone?: string;
+    coupons?: Coupon[];
     externalLink?: string;
     externalFormUrl?: string;
-    category?: string;
-    speakers?: unknown;
-    schedule?: unknown;
-    faqs?: unknown;
-    coupons?: Coupon[];
-  isDeleted?: boolean;
-}
-
-export interface Coupon {
-  id: string
-  code: string
-  discountType: 'percentage' | 'fixed'
-  discountValue: number
-  maxUses: number
-  usedCount: number
-  expiresAt?: string
-  isActive: boolean
+    tags?: string;
+    isDeleted?: boolean;
 }
 
 export interface EventWithSociety extends Event {
@@ -96,7 +87,7 @@ export interface EventWithSociety extends Event {
 export interface ExtendedEvent extends EventWithSociety {
     about?: string;
     agenda?: AgendaItem[];
-    tags?: string[];
+    tags?: string;
     color?: string;
     textColor?: string;
 }
@@ -113,7 +104,34 @@ export interface AuthUser {
     role?: string
 }
 
+/**
+ * Execom member — matches the `execom` PocketBase collection schema.
+ * Used by home page, society pages, and full execom page.
+ */
+export interface ExecomMember {
+    id: string;
+    name: string;
+    position: string;
+    department?: string;
+    batch?: string;
+    section?: string;
+    sectionId?: string;
+    order?: number;
+    photo?: string;
+    photoUrl?: string;
+    linkedin?: string;
+    instagram?: string;
+    email?: string;
+    phone?: string;
+    category?: string;
+}
+
+/**
+ * Display-oriented execom member (legacy home page shape). Derived from
+ * ExecomMember at fetch time.
+ */
 export interface Member {
+    id?: string;
     name: string;
     role: string;
     tagline: string;

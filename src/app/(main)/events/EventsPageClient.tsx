@@ -35,7 +35,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
         return initialEvents.map((event, index) => ({
             ...event,
             about: event.description || 'Join us for this exciting IEEE event!',
-            tags: [event.society?.name || 'IEEE Event'],
+            tags: event.society?.name || 'IEEE Event',
             ...getEventColor(index),
         }));
     }, [initialEvents]);

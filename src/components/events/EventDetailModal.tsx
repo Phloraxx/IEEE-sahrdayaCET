@@ -42,7 +42,7 @@ export function EventDetailModal({ event, onClose, onRegister }: EventDetailModa
                         <X size={20} />
                     </button>
                     <span className={`${event.color} text-white text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider mb-4 inline-block shadow-xs`}>
-                        {event.tags?.[0] || 'Event'}
+                        {event.tags || 'Event'}
                     </span>
                     <h2 className="text-3xl md:text-4xl font-black text-slate-800 leading-tight pr-12">{event.title}</h2>
                 </div>

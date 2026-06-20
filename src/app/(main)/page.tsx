@@ -3,7 +3,7 @@ import type { Member, Society } from '@/types'
 import { logError } from '@/lib/logger'
 import { buildFileUrl } from '@/lib/pb'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 60
 import Navbar from '@/components/Navbar';
 import { Hero } from '@/components/Hero';
 import { GridBackground } from '@/components/GridBackground';

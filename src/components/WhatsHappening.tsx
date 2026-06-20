@@ -50,7 +50,6 @@ export const WhatsHappening: React.FC<WhatsHappeningProps> = ({ latestEvent, soc
                             src={latestEvent?.bannerUrl || "/AGM.webp"}
                             fill
                             sizes="(max-width: 768px) 100vw, 50vw"
-                            unoptimized
                         />
                     </div>
                     <div className="relative z-20 p-6 md:p-8 h-full flex flex-col justify-center text-white">

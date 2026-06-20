@@ -145,6 +145,194 @@ export default function SocietiesClient({ societies: initialSocieties }: Societi
         return () => clearInterval(interval);
     }, [selectedSociety, societyEvents]);
 
+    // Shared content for society detail (used in both desktop popup and mobile bottom sheet)
+    const renderSocietyDetailContent = () => (
+        <>
+            {/* Close Button */}
+            <button
+                onClick={() => setSelectedSociety(null)}
+                className="absolute top-4 right-4 z-10 bg-gray-900/80 hover:bg-gray-900 text-white p-3 rounded-full transition-colors shadow-lg"
+            >
+                <X className="w-6 h-6" />
+            </button>
+
+            {/* Banner */}
+            <div className="relative h-56 bg-linear-to-br from-ieee-blue to-purple-600 overflow-hidden shrink-0">
+                {selectedSociety && selectedSociety.bannerUrl ? (
+                    <Image src={selectedSociety.bannerUrl} alt={selectedSociety.name} fill sizes="400px" className="object-cover" unoptimized />
+                ) : (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="relative w-24 h-24 opacity-20">
+                            {selectedSociety && selectedSociety.logoUrl ? (
+                                <Image src={selectedSociety.logoUrl} alt={selectedSociety.name || ''} fill sizes="96px" className="object-contain" unoptimized />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-white/30">
+                                    {selectedSociety?.name?.charAt(0) || '?'}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+                
+                {/* Gradient Overlay */}
+                <div className="absolute inset-0 bg-linear-to-t from-white via-white/50 to-transparent" />
+            </div>
+
+            {/* Content */}
+            <div className="relative px-6 -mt-14">
+                {/* Logo Badge */}
+                <motion.div 
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', delay: 0.2 }}
+                    className="inline-block bg-white rounded-2xl p-4 shadow-2xl border-4 border-white mb-6"
+                >
+                    <div className="relative w-20 h-20">
+                        {selectedSociety && selectedSociety.logoUrl ? (
+                            <Image src={selectedSociety.logoUrl} alt={selectedSociety.name} fill sizes="64px" className="object-contain" unoptimized />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-gray-300">
+                                {selectedSociety?.name?.charAt(0) || '?'}
+                            </div>
+                        )}
+                    </div>
+                </motion.div>
+
+                {/* Header */}
+                <div className="mb-6">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                        <h2 className="text-3xl font-bold text-gray-900">
+                            {selectedSociety?.name}
+                        </h2>
+                        {isChair && (
+                            <button
+                                onClick={handleEditClick}
+                                className="bg-ieee-blue hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-semibold shrink-0"
+                            >
+                                <Edit className="w-3.5 h-3.5" />
+                                Edit
+                            </button>
+                        )}
+                    </div>
+                    
+                    {/* Bio */}
+                    <p className="text-gray-600 leading-relaxed text-base">
+                        {selectedSociety?.bio || 'No description available.'}
+                    </p>
+                </div>
+
+                {/* Stats */}
+                <div className="grid grid-cols-3 gap-4 mb-8">
+                    <div className="bg-linear-to-br from-blue-50 to-purple-50 rounded-xl p-3 text-center border border-blue-100">
+                        <Calendar className="w-6 h-6 text-ieee-blue mx-auto mb-1.5" />
+                        <div className="text-2xl font-bold text-gray-900">{societyEvents.length}</div>
+                        <div className="text-[10px] text-gray-600 font-semibold">Events</div>
+                    </div>
+                    <div className="bg-linear-to-br from-purple-50 to-pink-50 rounded-xl p-3 text-center border border-purple-100">
+                        <Users className="w-6 h-6 text-purple-600 mx-auto mb-1.5" />
+                        <div className="text-2xl font-bold text-gray-900">{loadingMembers ? '-' : societyMembers.length}</div>
+                        <div className="text-[10px] text-gray-600 font-semibold">Members</div>
+                    </div>
+                    <div className="bg-linear-to-br from-pink-50 to-orange-50 rounded-xl p-3 text-center border border-pink-100">
+                        <Award className="w-6 h-6 text-pink-600 mx-auto mb-1.5" />
+                        <div className="text-2xl font-bold text-gray-900">{societyEvents.filter(e => e.status === 'completed').length}</div>
+                        <div className="text-[10px] text-gray-600 font-semibold">Completed</div>
+                    </div>
+                </div>
+
+                {/* Members Section */}
+                <div className="mb-8">
+                    <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <Users className="w-6 h-6 text-ieee-blue" />
+                        Team Members
+                    </h3>
+                    
+                    {loadingMembers ? (
+                        <div className="flex items-center justify-center py-8">
+                            <Loader2 className="w-6 h-6 text-ieee-blue animate-spin" />
+                        </div>
+                    ) : societyMembers.length > 0 ? (
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                            {societyMembers.map((member, idx) => (
+                                <MemberCard key={member.slNo} member={member} idx={idx} />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-10 bg-gray-50 rounded-lg border border-gray-200">
+                            <Users className="w-10 h-10 text-gray-400 mx-auto mb-2" />
+                            <p className="text-base text-gray-600">No members found for this society</p>
+                        </div>
+                    )}
+                </div>
+
+                {/* Events Carousel Section */}
+                <div className="mb-8">
+                    <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <Calendar className="w-6 h-6 text-ieee-blue" />
+                        Events & Activities
+                    </h3>
+                    
+                    {loadingEvents ? (
+                        <div className="flex items-center justify-center py-8">
+                            <Loader2 className="w-6 h-6 text-ieee-blue animate-spin" />
+                        </div>
+                    ) : societyEvents.length > 0 ? (
+                        <div className="relative">
+                            {/* Carousel Container */}
+                            <div className="overflow-hidden rounded-xl">
+                                <motion.div 
+                                    className="flex gap-4"
+                                    animate={{ x: -scrollPosition }}
+                                    transition={{ 
+                                        type: "spring", 
+                                        stiffness: 100,
+                                        damping: 20
+                                    }}
+                                    style={{ width: `${societyEvents.length * 260}px` }}
+                                >
+                                    {societyEvents.map((event, idx) => (
+                                        <EventCard 
+                                            key={event.id}
+                                            event={event}
+                                            variant="compact"
+                                            onClick={(selected) => {
+                                                setEventActionError(null);
+                                                setSelectedEvent(selected);
+                                            }}
+                                            index={idx}
+                                        />
+                                    ))}
+                                </motion.div>
+                            </div>
+
+                            {/* Carousel Indicators */}
+                            <div className="flex justify-center gap-2 mt-4">
+                                {societyEvents.map((_, idx) => (
+                                    <button
+                                        key={idx}
+                                        onClick={() => setScrollPosition(idx * 260)}
+                                        className={`h-2 rounded-full transition-all ${
+                                            Math.round(scrollPosition / 260) === idx 
+                                                ? 'w-8 bg-ieee-blue' 
+                                                : 'w-2 bg-gray-300 hover:bg-gray-400'
+                                        }`}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-center py-10 bg-gray-50 rounded-lg border border-gray-200">
+                            <Calendar className="w-10 h-10 text-gray-400 mx-auto mb-2" />
+                            <p className="text-base text-gray-600">No events yet</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <div className="h-4" />
+        </>
+    );
+
     return (
         <div className="relative w-full bg-white text-gray-900 font-sans min-h-screen">
             {/* Background Elements - Same as Hero */}
@@ -315,7 +503,7 @@ export default function SocietiesClient({ societies: initialSocieties }: Societi
                 </div>
             </div>
 
-            {/* Society Detail Panel */}
+            {/* Society Detail Panel — Side Drawer (half on desktop, full on mobile) */}
             <AnimatePresence>
                 {selectedSociety && (
                     <>
@@ -325,7 +513,7 @@ export default function SocietiesClient({ societies: initialSocieties }: Societi
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             onClick={() => setSelectedSociety(null)}
-                            className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40"
+                            className="fixed inset-0 bg-black/50 md:bg-black/30 backdrop-blur-xs z-40"
                         />
 
                         {/* Detail Panel */}
@@ -334,190 +522,9 @@ export default function SocietiesClient({ societies: initialSocieties }: Societi
                             animate={{ x: 0 }}
                             exit={{ x: '100%' }}
                             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-                            className="fixed right-0 top-0 bottom-0 w-full md:w-2/3 lg:w-1/2 bg-white shadow-2xl z-50 overflow-y-auto"
+                            className="fixed right-0 top-0 bottom-0 w-full md:w-[85vw] lg:w-[45vw] max-w-[560px] bg-white shadow-2xl md:shadow-[-8px_0_30px_rgba(0,0,0,0.12)] md:border-l md:border-gray-200/60 z-50 overflow-y-auto"
                         >
-                            {/* Close Button */}
-                            <button
-                                onClick={() => setSelectedSociety(null)}
-                                className="absolute top-6 right-6 z-10 bg-gray-900 text-white p-3 rounded-full hover:bg-gray-800 transition-colors shadow-lg"
-                            >
-                                <X className="w-6 h-6" />
-                            </button>
-
-                            {/* Banner */}
-                            <div className="relative h-64 bg-linear-to-br from-ieee-blue to-purple-600 overflow-hidden">
-                                {selectedSociety.bannerUrl ? (
-                                    <Image src={selectedSociety.bannerUrl} alt={selectedSociety.name} fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" unoptimized />
-                                ) : (
-                                    <div className="absolute inset-0 flex items-center justify-center">
-                                        <div className="relative w-32 h-32 opacity-20">
-                                            {selectedSociety.logoUrl ? (
-                                                <Image src={selectedSociety.logoUrl} alt={selectedSociety.name} fill sizes="128px" className="object-contain" unoptimized />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-white/30">
-                                                    {selectedSociety.name?.charAt(0) || '?'}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-                                
-                                {/* Gradient Overlay */}
-                                <div className="absolute inset-0 bg-linear-to-t from-white via-white/50 to-transparent" />
-                            </div>
-
-                            {/* Content */}
-                            <div className="relative px-8 -mt-20">
-                                {/* Logo Badge */}
-                                <motion.div 
-                                    initial={{ scale: 0 }}
-                                    animate={{ scale: 1 }}
-                                    transition={{ type: 'spring', delay: 0.2 }}
-                                    className="inline-block bg-white rounded-2xl p-4 shadow-2xl border-4 border-white mb-6"
-                                >
-                                    <div className="relative w-24 h-24">
-                                        {selectedSociety.logoUrl ? (
-                                            <Image src={selectedSociety.logoUrl} alt={selectedSociety.name} fill sizes="96px" className="object-contain" unoptimized />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-gray-300">
-                                                {selectedSociety.name?.charAt(0) || '?'}
-                                            </div>
-                                        )}
-                                    </div>
-                                </motion.div>
-
-                                {/* Header */}
-                                <div className="mb-8">
-                                    <div className="flex items-start justify-between gap-4 mb-4">
-                                        <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
-                                            {selectedSociety.name}
-                                        </h2>
-                                        {isChair && (
-                                            <button
-                                                onClick={handleEditClick}
-                                                className="bg-ieee-blue hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2 text-sm font-semibold"
-                                            >
-                                                <Edit className="w-4 h-4" />
-                                                Edit
-                                            </button>
-                                        )}
-                                    </div>
-                                    
-                                    {/* Bio */}
-                                    <p className="text-gray-600 leading-relaxed text-lg">
-                                        {selectedSociety.bio || 'No description available.'}
-                                    </p>
-                                </div>
-
-                                {/* Stats */}
-                                <div className="grid grid-cols-3 gap-4 mb-8">
-                                    <div className="bg-linear-to-br from-blue-50 to-purple-50 rounded-xl p-4 text-center border border-blue-100">
-                                        <Calendar className="w-6 h-6 text-ieee-blue mx-auto mb-2" />
-                                        <div className="text-2xl font-bold text-gray-900">{societyEvents.length}</div>
-                                        <div className="text-xs text-gray-600 font-semibold">Events</div>
-                                    </div>
-                                    <div className="bg-linear-to-br from-purple-50 to-pink-50 rounded-xl p-4 text-center border border-purple-100">
-                                        <Users className="w-6 h-6 text-purple-600 mx-auto mb-2" />
-                                        <div className="text-2xl font-bold text-gray-900">{loadingMembers ? '-' : societyMembers.length}</div>
-                                        <div className="text-xs text-gray-600 font-semibold">Members</div>
-                                    </div>
-                                    <div className="bg-linear-to-br from-pink-50 to-orange-50 rounded-xl p-4 text-center border border-pink-100">
-                                        <Award className="w-6 h-6 text-pink-600 mx-auto mb-2" />
-                                        <div className="text-2xl font-bold text-gray-900">{societyEvents.filter(e => e.status === 'completed').length}</div>
-                                        <div className="text-xs text-gray-600 font-semibold">Completed</div>
-                                    </div>
-                                </div>
-
-                                {/* Members Section */}
-                                <div className="mb-8">
-                                    <h3 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                        <Users className="w-6 h-6 text-ieee-blue" />
-                                        Team Members
-                                    </h3>
-                                    
-                                    {loadingMembers ? (
-                                        <div className="flex items-center justify-center py-12">
-                                            <Loader2 className="w-8 h-8 text-ieee-blue animate-spin" />
-                                        </div>
-                                    ) : societyMembers.length > 0 ? (
-                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                            {societyMembers.map((member, idx) => (
-                                                <MemberCard key={member.slNo} member={member} idx={idx} />
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
-                                            <Users className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                                            <p className="text-gray-600">No members found for this society</p>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Events Carousel Section */}
-                                <div className="mb-8">
-                                    <h3 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                        <Calendar className="w-6 h-6 text-ieee-blue" />
-                                        Events & Activities
-                                    </h3>
-                                    
-                                    {loadingEvents ? (
-                                        <div className="flex items-center justify-center py-12">
-                                            <Loader2 className="w-8 h-8 text-ieee-blue animate-spin" />
-                                        </div>
-                                    ) : societyEvents.length > 0 ? (
-                                        <div className="relative">
-                                            {/* Carousel Container */}
-                                            <div className="overflow-hidden rounded-xl">
-                                                <motion.div 
-                                                    className="flex gap-4"
-                                                    animate={{ x: -scrollPosition }}
-                                                    transition={{ 
-                                                        type: "spring", 
-                                                        stiffness: 100,
-                                                        damping: 20
-                                                    }}
-                                                    style={{ width: `${societyEvents.length * 260}px` }}
-                                                >
-                                                    {societyEvents.map((event, idx) => (
-                                                        <EventCard 
-                                                            key={event.id}
-                                                            event={event}
-                                                            variant="compact"
-                                                            onClick={(selected) => {
-                                                                setEventActionError(null);
-                                                                setSelectedEvent(selected);
-                                                            }}
-                                                            index={idx}
-                                                        />
-                                                    ))}
-                                                </motion.div>
-                                            </div>
-
-                                            {/* Carousel Indicators */}
-                                            <div className="flex justify-center gap-2 mt-4">
-                                                {societyEvents.map((_, idx) => (
-                                                    <button
-                                                        key={idx}
-                                                        onClick={() => setScrollPosition(idx * 260)}
-                                                        className={`h-2 rounded-full transition-all ${
-                                                            Math.round(scrollPosition / 260) === idx 
-                                                                ? 'w-8 bg-ieee-blue' 
-                                                                : 'w-2 bg-gray-300 hover:bg-gray-400'
-                                                        }`}
-                                                    />
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
-                                            <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                                            <p className="text-gray-600">No events yet</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="h-20" />
+                            {renderSocietyDetailContent()}
                         </motion.div>
                     </>
                 )}

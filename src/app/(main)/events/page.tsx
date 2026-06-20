@@ -12,7 +12,7 @@ interface EventItem {
   society?: { id: string; name: string; slug: string; logoUrl: string }
 }
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 60
 
 const PB_URL = process.env.POCKETBASE_URL
 const EVENTS_URL = `${APP_URL}/events`

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, Loader2, X, ImageUp } from 'lucide-react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { CustomFieldBuilder } from '@/components/admin/CustomFieldBuilder'
 import { CouponManager } from '@/components/admin/CouponManager'
@@ -60,6 +61,7 @@ export default function EditEventPage({ params }: PageProps) {
     price: '0',
     maxCapacity: '',
     registrationOpen: true,
+    checkInEnabled: true,
     collectIeeeMember: false,
     status: 'draft',
     registrationStart: '',
@@ -67,6 +69,8 @@ export default function EditEventPage({ params }: PageProps) {
     contactEmail: '',
     contactPhone: '',
     whatsappLink: '',
+    externalLink: '',
+    tags: '',
     externalFormUrl: '',
   })
 
@@ -87,6 +91,7 @@ export default function EditEventPage({ params }: PageProps) {
             price: String(e.price || 0),
             maxCapacity: e.maxCapacity ? String(e.maxCapacity) : '',
             registrationOpen: !!e.registrationOpen,
+            checkInEnabled: e.checkInEnabled !== false, // default true
             collectIeeeMember: !!e.collectIeeeMember,
             status: e.status || 'draft',
             registrationStart: e.registrationStart ? toDatetimeLocal(e.registrationStart) : '',
@@ -94,6 +99,8 @@ export default function EditEventPage({ params }: PageProps) {
             contactEmail: e.contactEmail || '',
             contactPhone: e.contactPhone || '',
             whatsappLink: e.whatsappLink || '',
+            externalLink: e.externalLink || '',
+            tags: e.tags || '',
             externalFormUrl: e.externalFormUrl || '',
           })
           if (e.bannerUrl) setBannerPreview(e.bannerUrl)
@@ -132,8 +139,8 @@ export default function EditEventPage({ params }: PageProps) {
         society: form.society || undefined,
         price: Number(form.price),
         maxCapacity: form.maxCapacity ? Number(form.maxCapacity) : null,
-        isPaid: Number(form.price) > 0,
         registrationOpen: form.registrationOpen,
+        checkInEnabled: form.checkInEnabled,
         collectIeeeMember: form.collectIeeeMember,
         status: form.status,
         registrationStart: fromDatetimeLocal(form.registrationStart),
@@ -141,7 +148,9 @@ export default function EditEventPage({ params }: PageProps) {
         contactEmail: form.contactEmail,
         contactPhone: form.contactPhone,
         whatsappLink: form.whatsappLink || '',
-        externalFormUrl: !form.registrationOpen ? form.externalFormUrl : '',
+        externalLink: form.externalLink || '',
+        tags: form.tags || '',
+        externalFormUrl: !form.registrationOpen ? form.externalFormUrl : undefined,
         formTemplate: customFields.length > 0 ? customFields : null,
         coupons: coupons.length > 0 ? coupons : null,
       }
@@ -188,29 +197,29 @@ export default function EditEventPage({ params }: PageProps) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
-          <div className="animate-shimmer rounded-lg h-8 w-8" />
+          <Skeleton className="h-8 w-8 rounded-lg" />
           <div className="space-y-1">
-            <div className="animate-shimmer rounded-md h-6 w-48" />
-            <div className="animate-shimmer rounded-md h-4 w-32" />
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-4 w-32" />
           </div>
         </div>
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-6">
             {Array.from({ length: 2 }).map((_, i) => (
               <div key={i} className="rounded-xl border bg-card p-6 space-y-3">
-                <div className="animate-shimmer rounded-md h-5 w-36" />
-                <div className="animate-shimmer rounded-md h-4 w-56" />
-                <div className="animate-shimmer rounded-md h-10 w-full" />
-                <div className="animate-shimmer rounded-md h-32 w-full" />
+                <Skeleton className="h-5 w-36" />
+                <Skeleton className="h-4 w-56" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-32 w-full" />
               </div>
             ))}
           </div>
           <div className="space-y-6">
             {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="rounded-xl border bg-card p-6 space-y-3">
-                <div className="animate-shimmer rounded-md h-5 w-32" />
-                <div className="animate-shimmer rounded-md h-10 w-full" />
-                <div className="animate-shimmer rounded-md h-10 w-full" />
+                <Skeleton className="h-5 w-32" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
               </div>
             ))}
           </div>
@@ -287,6 +296,13 @@ export default function EditEventPage({ params }: PageProps) {
                   </div>
                 </div>
 
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Tags</label>
+                  <input value={form.tags} onChange={update('tags')}
+                    placeholder="e.g. workshop, technical, ieee-day"
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50" />
+                  <p className="text-xs text-muted-foreground">Comma-separated tags for search &amp; filtering</p>
+                </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Venue</label>
                   <input value={form.venue} onChange={update('venue')}
@@ -383,6 +399,10 @@ export default function EditEventPage({ params }: PageProps) {
                       <input type="datetime-local" value={form.registrationDeadline} onChange={update('registrationDeadline')} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none" />
                     </div>
                     <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={form.checkInEnabled} onChange={(e) => setForm((prev) => ({ ...prev, checkInEnabled: e.target.checked }))} className="rounded border-input" />
+                      <span className="text-sm font-medium">Enable QR Check-in</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
                       <input type="checkbox" checked={form.collectIeeeMember} onChange={(e) => setForm((prev) => ({ ...prev, collectIeeeMember: e.target.checked }))} className="rounded border-input" />
                       <span className="text-sm font-medium">Collect IEEE Membership ID</span>
                     </label>
@@ -425,6 +445,11 @@ export default function EditEventPage({ params }: PageProps) {
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Contact Phone</label>
                   <input value={form.contactPhone} onChange={update('contactPhone')} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">External Link</label>
+                  <input value={form.externalLink} onChange={update('externalLink')} placeholder="https://example.com/event-page" className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none" />
+                  <p className="text-xs text-muted-foreground">Public event page link (shown on event cards)</p>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">WhatsApp Link</label>

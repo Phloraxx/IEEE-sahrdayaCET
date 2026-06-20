@@ -21,19 +21,15 @@ onRecordBeforeCreateRequest(async (e) => {
     }
   }
 
-  const maxCapacity = event.get('maxCapacity')
-  if (maxCapacity) {
-    // Check against the maintained counter field.
-    // The UNIQUE (user, event) index + counter hooks prevent duplicates.
-    // There is a narrow race window between the read and the create
-    // (max 1 over capacity) — acceptable for this use case.
-    const current = event.get('registeredCount') || 0
-    if (current >= maxCapacity) {
+  await dao.runInTransaction(async (txDao) => {
+    const txEvent = await txDao.findRecordById('events', eventId)
+    const maxCapacity = txEvent.get('maxCapacity')
+    const registeredCount = txEvent.get('registeredCount') || 0
+    if (maxCapacity && registeredCount >= maxCapacity) {
       throw new BadRequestError('Event has reached maximum capacity')
     }
-  }
+  })
 
-  // Validate required custom fields from formTemplate
   const formTemplate = event.get('formTemplate')
   if (formTemplate && Array.isArray(formTemplate)) {
     const formResponses = record.get('formResponses') || {}
@@ -49,14 +45,14 @@ onRecordBeforeCreateRequest(async (e) => {
 
   const userId = record.get('user')
   if (userId) {
-    const user = dao.findRecordById('users', userId)
+    const user = await dao.findRecordById('users', userId)
     if (!user) throw new BadRequestError('User not found')
 
-    // First-pass duplicate check (fast path for the 99% case).
-    // The UNIQUE (user, event) DB index is the source of truth.
-    const duplicates = dao.findRecordsByFilter(
+    const escapedUserId = userId.replace(/'/g, "''")
+    const escapedEventId = eventId.replace(/'/g, "''")
+    const duplicates = await dao.findRecordsByFilter(
       'registrations',
-      `user = "${userId}" && event = "${eventId}" && registrationStatus != "cancelled"`
+      'user = "' + escapedUserId + '" && event = "' + escapedEventId + '" && registrationStatus != "cancelled"'
     )
     if (duplicates.length > 0) {
       throw new BadRequestError('You are already registered for this event')
