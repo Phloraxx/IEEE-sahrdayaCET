@@ -1,13 +1,15 @@
 import { createPB, createAdminPB, escapeFilterValue } from '@/lib/pb'
 import { requireAuth } from '@/lib/auth'
-import { logError } from '@/lib/logger'
+import { handleError } from '@/lib/api-error'
+import { assertChairEventAccess } from '@/lib/chair-scope'
 import { checkInRegistration } from '@/lib/registration-service'
 
 export async function POST(req: Request) {
-  const pb = createPB(req.headers.get('cookie') || undefined)
-  const { user } = await requireAuth(pb)
-
   try {
+    const pb = createPB(req.headers.get('cookie') || undefined)
+    const { user } = await requireAuth(pb)
+    const adminPB = createAdminPB()
+
     const { ticketId, eventId } = (await req.json()) as {
       ticketId?: string
       eventId?: string
@@ -16,48 +18,47 @@ export async function POST(req: Request) {
       return Response.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    const event = await pb.collection('events').getOne(eventId).catch(() => null)
+    const event = await adminPB.collection('events')
+      .getOne(eventId, { fields: 'id,society,checkInEnabled' })
+      .catch(() => null)
     if (!event) {
       return Response.json({ error: 'Event not found' }, { status: 404 })
     }
 
-    if (user.role !== 'admin') {
-      const society = await pb.collection('societies').getOne(event.society).catch(() => null)
-      const chairs = (society?.chairs || []) as string[]
-      if (!chairs.includes(user.id)) {
-        return Response.json({ error: 'Forbidden: not a chair of this event\'s society' }, { status: 403 })
-      }
-    }
+    await assertChairEventAccess(adminPB, user.id, user.role, eventId, undefined, event)
 
-    if (!event.checkInEnabled) {
+    const eventR = event as unknown as Record<string, unknown>
+    if (!eventR.checkInEnabled) {
       return Response.json({ error: 'Check-in is not enabled for this event' }, { status: 400 })
     }
 
-    const registrations = await pb.collection('registrations').getFullList({
-      filter: `event = ${escapeFilterValue(eventId)} && (ticketId = ${escapeFilterValue(ticketId)} || paymentTicketId = ${escapeFilterValue(ticketId)})`,
-    })
+    const registration = await adminPB.collection('registrations')
+      .getFirstListItem(
+        'event = ' + escapeFilterValue(eventId) +
+        ' && (ticketId = ' + escapeFilterValue(ticketId) +
+        ' || paymentTicketId = ' + escapeFilterValue(ticketId) + ')',
+        { fields: 'id,registrationStatus,checkedIn' },
+      )
+      .catch(() => null)
 
-    if (registrations.length === 0) {
+    if (!registration) {
       return Response.json({ error: 'Registration not found' }, { status: 404 })
     }
 
-    const registration = registrations[0]
+    const regR = registration as unknown as Record<string, unknown>
 
-    if (registration.registrationStatus !== 'confirmed') {
+    if (regR.registrationStatus !== 'confirmed') {
       return Response.json({ error: 'Registration is not confirmed' }, { status: 400 })
     }
 
-    if (registration.checkedIn) {
+    if (regR.checkedIn) {
       return Response.json({ error: 'Already checked in', registrationId: registration.id })
     }
 
-    // Use elevated client for the write so event.checkedInCount can be updated
-    const adminPB = createAdminPB()
     await checkInRegistration(adminPB, registration.id)
 
     return Response.json({ success: true, registrationId: registration.id })
   } catch (error) {
-    logError('check-in-verify', error)
-    return Response.json({ error: 'Check-in failed' }, { status: 500 })
+    return handleError(error, 'check-in-verify')
   }
 }
