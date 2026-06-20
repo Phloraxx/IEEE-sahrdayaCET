@@ -1,9 +1,5 @@
-import Link from 'next/link';
-import type { Metadata } from 'next';
+import { Link } from '@tanstack/react-router';
 
-export const metadata: Metadata = {
-  title: '404 — Page Not Found',
-};
 
 export default function NotFound() {
   return (
@@ -38,7 +34,7 @@ export default function NotFound() {
           The page you&apos;re looking for doesn&apos;t exist or has been moved.
         </p>
         <Link
-          href="/"
+          to="/"
           className="inline-flex items-center gap-2 rounded-lg bg-ieee-blue hover:bg-[#004D7A] active:bg-[#003D63] text-white px-8 py-3.5 text-base font-semibold transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

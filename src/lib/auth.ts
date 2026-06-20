@@ -1,8 +1,5 @@
 import type PocketBase from 'pocketbase'
 import type { AuthUser } from '@/types'
-import { createPB } from './pb'
-import { cookies } from 'next/headers'
-import { PB_AUTH_COOKIE } from './constants'
 
 export interface AuthResult {
   user: AuthUser
@@ -19,18 +16,10 @@ export class AuthError extends Error {
 
 /**
  * Require an authenticated session.
- * If `pb` is provided it will be refreshed and used to extract the user.
- * If not, a new PocketBase instance is created from the cookie.
+ * The caller must provide a PB client created from the request cookie.
  * Returns the refreshed pb instance along with the user.
  */
-export async function requireAuth(pb?: PocketBase): Promise<AuthResult & { pb: PocketBase }> {
-  if (!pb) {
-    const cookieStore = await cookies()
-    const authCookie = cookieStore.get(PB_AUTH_COOKIE)?.value
-    if (!authCookie) throw new AuthError('Authentication required', 401)
-    pb = createPB(`${PB_AUTH_COOKIE}=${authCookie}`)
-  }
-
+export async function requireAuth(pb: PocketBase): Promise<AuthResult & { pb: PocketBase }> {
   try {
     await pb.collection('users').authRefresh()
   } catch {
@@ -49,7 +38,7 @@ export async function requireAuth(pb?: PocketBase): Promise<AuthResult & { pb: P
   return { user, pb }
 }
 
-export async function requireAdmin(pb?: PocketBase): Promise<AuthResult & { pb: PocketBase }> {
+export async function requireAdmin(pb: PocketBase): Promise<AuthResult & { pb: PocketBase }> {
   const result = await requireAuth(pb)
   if (result.user.role !== 'admin') throw new AuthError('Admin access required', 403)
   return result
@@ -61,7 +50,7 @@ export async function requireAdmin(pb?: PocketBase): Promise<AuthResult & { pb: 
  */
 export async function requireRole(
   roles: string[],
-  pb?: PocketBase,
+  pb: PocketBase,
 ): Promise<AuthResult & { pb: PocketBase }> {
   const result = await requireAuth(pb)
   if (!roles.includes(result.user.role || '')) {

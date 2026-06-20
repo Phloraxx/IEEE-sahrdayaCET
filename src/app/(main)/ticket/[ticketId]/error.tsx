@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
+import { Link } from '@tanstack/react-router';
 
 export default function TicketError({
     error,
@@ -23,7 +23,7 @@ export default function TicketError({
                         Try again
                     </button>
                     <Link
-                        href="/events"
+                        to="/events"
                         className="bg-gray-200 text-gray-800 px-6 py-3 rounded-xl font-semibold hover:bg-gray-300 transition-colors"
                     >
                         Back to Events
