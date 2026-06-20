@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { createPB, createAdminPB } from '@/lib/pb'
+import { createPB } from '@/lib/pb'
 import { requireRole } from '@/lib/auth'
 import { handleError } from '@/lib/api-error'
 import { parseFormData } from '@/lib/request-helpers'
@@ -10,12 +10,12 @@ export async function GET(req: NextRequest) {
   try {
     const pb = createPB(req.headers.get('cookie') || undefined)
     await requireRole(['admin', 'chair'], pb)
-    const adminPB = createAdminPB()
+    
     const url = new URL(req.url)
 
     const { page, perPage } = parsePagination(url, { defaultPerPage: 50, maxPerPage: 200 })
 
-    const records = await adminPB.collection('execom').getList(page, perPage, {
+    const records = await pb.collection('execom').getList(page, perPage, {
       sort: 'order',
       expand: 'society',
     })
@@ -56,11 +56,11 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: 'Only admins can manage execom' }, { status: 403 })
     }
 
-    const adminPB = createAdminPB()
+    
     const body = await parseFormData(req)
     const parsed = ExecomCreateSchema.parse(body)
 
-    const member = await adminPB.collection('execom').create(parsed)
+    const member = await pb.collection('execom').create(parsed)
     return Response.json({ member }, { status: 201 })
   } catch (error) {
     return handleError(error, 'admin-execom-create')

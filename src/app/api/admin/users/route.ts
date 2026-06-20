@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { createPB, createAdminPB, escapeFilterValue } from '@/lib/pb'
+import { createPB, escapeFilterValue } from '@/lib/pb'
 import { requireRole } from '@/lib/auth'
 import { handleError } from '@/lib/api-error'
 import { parsePagination } from '@/lib/route-helpers'
@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   try {
     const pb = createPB(req.headers.get('cookie') || undefined)
     await requireRole(['admin', 'chair'], pb)
-    const adminPB = createAdminPB()
+    
     const url = new URL(req.url)
 
     const { page, perPage } = parsePagination(url, { defaultPerPage: 200, maxPerPage: 500 })
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
       ? `name ~ ${escapeFilterValue(search)} || email ~ ${escapeFilterValue(search)}`
       : ''
 
-    const result = await adminPB.collection('users').getList(page, perPage, {
+    const result = await pb.collection('users').getList(page, perPage, {
       filter: filter || undefined,
       sort: 'name',
       fields: 'id,name,email,role,avatar,created',
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     if (userIds.length > 0) {
       const regsFilter = userIds.map((id) => `user = ${escapeFilterValue(id)}`).join(' || ')
       try {
-        const regs = await adminPB.collection('registrations').getFullList<{ user: string }>({
+        const regs = await pb.collection('registrations').getFullList<{ user: string }>({
           filter: regsFilter,
           fields: 'user',
         })
@@ -77,7 +77,7 @@ export async function PUT(req: NextRequest) {
       return Response.json({ error: 'Only admins can change roles' }, { status: 403 })
     }
 
-    const adminPB = createAdminPB()
+    
     const body = await req.json()
     const parsed = UserUpdateSchema.parse(body)
 
@@ -86,7 +86,7 @@ export async function PUT(req: NextRequest) {
     if (parsed.name !== undefined) updateData.name = parsed.name
     if (parsed.email !== undefined) updateData.email = parsed.email
 
-    const updated = await adminPB.collection('users').update(parsed.id, updateData)
+    const updated = await pb.collection('users').update(parsed.id, updateData)
     return Response.json({ user: updated })
   } catch (error) {
     return handleError(error, 'admin-users-update')

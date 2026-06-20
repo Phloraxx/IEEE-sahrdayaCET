@@ -1,47 +1,16 @@
-import { createPB, createAdminPB, escapeFilterValue } from '@/lib/pb'
+import { createPB, escapeFilterValue } from '@/lib/pb'
 import { cookies } from 'next/headers'
 import { EventDetailClient } from './EventDetailClient'
 import { logError } from '@/lib/logger'
-import { getChairSocietyIds } from '@/lib/chair-scope'
 import { PB_AUTH_COOKIE } from '@/lib/constants'
 
 export async function EventDetailContent({ eventId }: { eventId: string }) {
   const cookieStore = await cookies()
-  const userPB = createPB(`${PB_AUTH_COOKIE}=${cookieStore.get(PB_AUTH_COOKIE)?.value}`)
+  const pb = createPB(`${PB_AUTH_COOKIE}=${cookieStore.get(PB_AUTH_COOKIE)?.value}`)
 
-  // Check chair access
-  let userRole = ''
-  let userId = ''
+  // PB viewRule enforces chair can only fetch events under their own society.
   try {
-    await userPB.collection('users').authRefresh()
-    const record = userPB.authStore.record as { id: string; role: string } | null
-    if (record) {
-      userRole = record.role || ''
-      userId = record.id || ''
-    }
-  } catch {
-    // Will fail below with event not found
-  }
-
-  const adminPB = createAdminPB()
-
-  if (userRole === 'chair' && userId) {
-    const event = await adminPB.collection('events').getOne(eventId, { fields: 'id,society' }).catch(() => null)
-    if (event) {
-      const societyIds = await getChairSocietyIds(adminPB, userId)
-      const eventSociety = (event as Record<string, unknown>).society as string
-      if (!societyIds.includes(eventSociety)) {
-        return (
-          <div className="rounded-xl border border-dashed bg-card p-12 text-center text-sm text-muted-foreground">
-            You don&apos;t have access to this event.
-          </div>
-        )
-      }
-    }
-  }
-
-  try {
-    const event = await adminPB.collection('events').getOne(eventId, { expand: 'society' })
+    const event = await pb.collection('events').getOne(eventId, { expand: 'society' })
     const expand = (event as Record<string, unknown>).expand as Record<string, unknown> | undefined
     const society = expand?.society as Record<string, unknown> | undefined
 
@@ -50,7 +19,7 @@ export async function EventDetailContent({ eventId }: { eventId: string }) {
       const societyId = (event as Record<string, unknown>).society as string
       if (societyId) {
         try {
-          const societyRecord = await adminPB.collection('societies').getOne(societyId, { fields: 'id,name' })
+          const societyRecord = await pb.collection('societies').getOne(societyId, { fields: 'id,name' })
           societyName = (societyRecord as Record<string, unknown>).name as string
         } catch {
           // Non-fatal
@@ -60,7 +29,7 @@ export async function EventDetailContent({ eventId }: { eventId: string }) {
 
     let registrationsItems: Record<string, unknown>[] = []
     try {
-      const registrations = await adminPB.collection('registrations').getList(1, 50, {
+      const registrations = await pb.collection('registrations').getList(1, 50, {
         filter: `event = ${escapeFilterValue(eventId)}`,
         sort: '-registrationDate',
         fields: 'id,userName,userEmail,userPhone,registrationStatus,paymentStatus,checkedIn,checkedInAt,ticketId,paymentTicketId,created,amount',

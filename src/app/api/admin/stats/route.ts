@@ -1,16 +1,15 @@
-import { createPB, createAdminPB, escapeFilterValue } from '@/lib/pb'
+import { createPB, escapeFilterValue } from '@/lib/pb'
 import { requireRole } from '@/lib/auth'
-import { getChairScope } from '@/lib/chair-scope'
+
 import { handleError } from '@/lib/api-error'
 import { toIso } from '@/lib/dates'
-import { buildFilter } from '@/lib/route-helpers'
-import { UPCOMING_WINDOW_DAYS, RECENT_WINDOW_DAYS, MS_PER_DAY, EMPTY_FILTER } from '@/lib/constants'
+import { UPCOMING_WINDOW_DAYS, RECENT_WINDOW_DAYS, MS_PER_DAY } from '@/lib/constants'
 
 export async function GET(req: Request) {
   try {
     const pb = createPB(req.headers.get('cookie') || undefined)
-    const { user } = await requireRole(['admin', 'chair'], pb)
-    const adminPB = createAdminPB()
+    await requireRole(['admin', 'chair'], pb)
+    
 
     const now = new Date()
     const nowIso = toIso(now)
@@ -19,33 +18,13 @@ export async function GET(req: Request) {
     const startOfToday = toIso(new Date(now.getFullYear(), now.getMonth(), now.getDate()))
     const endOfToday = toIso(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1))
 
-    // Single scope resolution — reuse for both events and registrations filters
-    const scope = await getChairScope(adminPB, user.id, user.role)
-
-    const eventsScopeFilter = user.role === 'chair' ? scope.societyFilter : ''
-    // For registrations, use event.society join filter (avoids pre-fetching event IDs)
-    const regsScopeFilter = user.role === 'chair' ? scope.eventFilter : ''
-
+    // PB listRules scope chairs to their own societies/registrations automatically.
     const count = async (col: 'events' | 'registrations' | 'execom' | 'societies', filter?: string) => {
-      const baseScope = col === 'registrations' ? regsScopeFilter : eventsScopeFilter
-      // buildFilter handles parenthesization and empty-part dropping safely,
-      // replacing the previous brittle string-prefix detection.
-      const effective = buildFilter([baseScope, filter])
-      const r = await adminPB.collection(col).getList(1, 1, {
-        filter: effective || undefined,
+      const r = await pb.collection(col).getList(1, 1, {
+        filter: filter || undefined,
         fields: 'id',
       })
       return r.totalItems
-    }
-
-    // If chair has no societies, short-circuit with zeros
-    if (user.role === 'chair' && eventsScopeFilter === EMPTY_FILTER) {
-      return Response.json({
-        events: { total: 0, published: 0, upcoming: 0, live: 0, recentlyCompleted: 0 },
-        registrations: { total: 0, confirmed: 0, pending: 0, today: 0 },
-        execom: { total: 0 },
-        societies: { total: 0, active: 0 },
-      })
     }
 
     const [

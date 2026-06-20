@@ -1,15 +1,15 @@
 import { NextRequest } from 'next/server'
-import { createPB, createAdminPB, escapeFilterValue } from '@/lib/pb'
+import { createPB, escapeFilterValue } from '@/lib/pb'
 import { requireRole } from '@/lib/auth'
 import { handleError } from '@/lib/api-error'
-import { getChairScope } from '@/lib/chair-scope'
+
 import { parsePagination, buildFilter } from '@/lib/route-helpers'
 
 export async function GET(req: NextRequest) {
   try {
     const pb = createPB(req.headers.get('cookie') || undefined)
     const { user } = await requireRole(['admin', 'chair'], pb)
-    const adminPB = createAdminPB()
+    
 
     const url = new URL(req.url)
     const { page, perPage } = parsePagination(url, { defaultPerPage: 50, maxPerPage: 100 })
@@ -22,16 +22,9 @@ export async function GET(req: NextRequest) {
     if (eventId) baseParts.push(`event = ${escapeFilterValue(eventId)}`)
     if (status && status !== 'all') baseParts.push(`registrationStatus = ${escapeFilterValue(status)}`)
     if (search) baseParts.push(`userName ~ ${escapeFilterValue(search)}`)
-    const baseFilter = buildFilter(baseParts)
+    const filter = buildFilter(baseParts)
 
-    // Apply chair scope — use event.society join filter (avoids pre-fetching event IDs)
-    const scope = await getChairScope(adminPB, user.id, user.role)
-    if (user.role === 'chair' && !scope.hasScope) {
-      return Response.json({ registrations: [], total: 0, page: 1, perPage })
-    }
-    const filter = buildFilter([baseFilter, scope.eventFilter])
-
-    const result = await adminPB.collection('registrations').getList(page, perPage, {
+    const result = await pb.collection('registrations').getList(page, perPage, {
       filter: filter || undefined,
       sort: '-registrationDate',
       expand: 'event',

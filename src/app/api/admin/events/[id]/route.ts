@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server'
-import { createPB, createAdminPB } from '@/lib/pb'
+import { createPB } from '@/lib/pb'
 import { requireRole } from '@/lib/auth'
 import { handleError } from '@/lib/api-error'
-import { assertChairEventAccess, getChairScope } from '@/lib/chair-scope'
+
 import { softDeleteEvent } from '@/lib/registration-service'
 import { parseFormData } from '@/lib/request-helpers'
 import { z } from 'zod'
@@ -15,11 +15,11 @@ export async function GET(
     const { id } = await params
     const pb = createPB(req.headers.get('cookie') || undefined)
     const { user } = await requireRole(['admin', 'chair'], pb)
-    const adminPB = createAdminPB()
-    const scope = await getChairScope(adminPB, user.id, user.role)
+    
+    
 
-    const event = await adminPB.collection('events').getOne(id, { expand: 'society' })
-    await assertChairEventAccess(adminPB, user.id, user.role, id, scope, event)
+    const event = await pb.collection('events').getOne(id, { expand: 'society' })
+    
     return Response.json({ event })
   } catch (error) {
     return handleError(error, 'admin-events-get')
@@ -59,17 +59,17 @@ export async function PUT(
     const { id } = await params
     const pb = createPB(req.headers.get('cookie') || undefined)
     const { user } = await requireRole(['admin', 'chair'], pb)
-    const adminPB = createAdminPB()
-    const scope = await getChairScope(adminPB, user.id, user.role)
+    
+    
 
-    await assertChairEventAccess(adminPB, user.id, user.role, id, scope)
+    
 
     const body = await parseFormData(req)
     // Whitelist fields — protects against mass-assignment of registeredCount,
     // isDeleted, society, checkedInCount, etc.
     const parsed = EventUpdateSchema.parse(body)
 
-    const event = await adminPB.collection('events').update(id, parsed)
+    const event = await pb.collection('events').update(id, parsed)
     return Response.json({ event })
   } catch (error) {
     return handleError(error, 'admin-events-update')
@@ -84,12 +84,12 @@ export async function DELETE(
     const { id } = await params
     const pb = createPB(req.headers.get('cookie') || undefined)
     const { user } = await requireRole(['admin', 'chair'], pb)
-    const adminPB = createAdminPB()
-    const scope = await getChairScope(adminPB, user.id, user.role)
+    
+    
 
-    await assertChairEventAccess(adminPB, user.id, user.role, id, scope)
+    
 
-    await softDeleteEvent(adminPB, id)
+    await softDeleteEvent(pb, id)
     return Response.json({ success: true })
   } catch (error) {
     return handleError(error, 'admin-events-delete')

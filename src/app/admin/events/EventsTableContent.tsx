@@ -1,10 +1,13 @@
-import { createAdminPB } from '@/lib/pb'
+import { createPB } from '@/lib/pb'
+import { PB_AUTH_COOKIE } from '@/lib/constants'
+import { requireRole } from '@/lib/auth'
+import { cookies } from 'next/headers'
 import { EventsTableClient } from './EventsTableClient'
 import { logError } from '@/lib/logger'
 
 export async function EventsTableContent() {
-  const pb = createAdminPB()
-
+  const cookieStore = await cookies()
+  const pb = createPB(`${PB_AUTH_COOKIE}=${cookieStore.get(PB_AUTH_COOKIE)?.value}`)
   try {
     const result = await pb.collection('events').getList(1, 20, {
       sort: '-date',

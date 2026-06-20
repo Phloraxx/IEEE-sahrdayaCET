@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { createPB, createAdminPB } from '@/lib/pb'
+import { createPB } from '@/lib/pb'
 import { requireAuth } from '@/lib/auth'
 import { handleError } from '@/lib/api-error'
 import { validateCouponCode, computeDiscount } from '@/lib/registration-service'
@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   try {
     const pb = createPB(req.headers.get('cookie') || undefined)
     await requireAuth(pb)
-    const adminPB = createAdminPB()
+    
 
     const body = await req.json()
     const { eventId, code } = body
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: 'eventId and code are required' }, { status: 400 })
     }
 
-    const { coupon, event } = await validateCouponCode(adminPB, eventId, code)
+    const { coupon, event } = await validateCouponCode(pb, eventId, code)
 
     const price = Number(event.price) || 0
     const discountAmount = computeDiscount(price, coupon)

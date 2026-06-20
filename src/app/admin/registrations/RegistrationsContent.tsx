@@ -1,27 +1,21 @@
-import { createPB, createAdminPB } from '@/lib/pb'
+import { createPB } from '@/lib/pb'
 import { cookies } from 'next/headers'
 import { RegistrationsClient } from './RegistrationsClient'
-import { getChairScope } from '@/lib/chair-scope'
 import { requireAuth } from '@/lib/auth'
-import { PB_AUTH_COOKIE, EMPTY_FILTER } from '@/lib/constants'
+import { PB_AUTH_COOKIE } from '@/lib/constants'
 
 export async function RegistrationsContent() {
   const cookieStore = await cookies()
   const pb = createPB(`${PB_AUTH_COOKIE}=${cookieStore.get(PB_AUTH_COOKIE)?.value}`)
-  const adminPB = createAdminPB()
 
   try {
-    const { user } = await requireAuth(pb)
-    const scope = await getChairScope(adminPB, user.id, user.role)
-    if (user.role === 'chair' && !scope.hasScope) {
-      return <RegistrationsClient registrations={[]} total={0} events={[]} />
-    }
+    await requireAuth(pb)
 
-    const result = await adminPB.collection('registrations').getList(1, 50, {
+    // PB listRule scopes chairs to their own societies' registrations automatically.
+    const result = await pb.collection('registrations').getList(1, 50, {
       sort: '-registrationDate',
       expand: 'event',
       fields: 'id,userName,userEmail,userPhone,registrationStatus,paymentStatus,checkedIn,checkedInAt,ticketId,amount,created,expand.event.id,expand.event.title',
-      filter: scope.eventFilter && scope.eventFilter !== EMPTY_FILTER ? scope.eventFilter : undefined,
     })
 
     const registrations = result.items.map((r: Record<string, unknown>) => {
@@ -46,8 +40,8 @@ export async function RegistrationsContent() {
 
     let events: { id: string; title: string }[] = []
     try {
-      const eventsResult = await adminPB.collection('events').getFullList({
-        filter: scope.societyFilter && scope.societyFilter !== EMPTY_FILTER ? scope.societyFilter : undefined,
+      // PB listRule scopes chairs to their own societies' events automatically.
+      const eventsResult = await pb.collection('events').getFullList({
         fields: 'id,title',
         sort: '-date',
       })

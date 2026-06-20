@@ -1,9 +1,8 @@
-import { createPB, createAdminPB, escapeFilterValue } from '@/lib/pb'
+import { createPB } from '@/lib/pb'
 import { cookies } from 'next/headers'
 import { OverviewClient } from './OverviewClient'
-import { getChairScope } from '@/lib/chair-scope'
 import { requireAuth } from '@/lib/auth'
-import { PB_AUTH_COOKIE, EMPTY_FILTER, MS_PER_DAY, RECENT_WINDOW_DAYS } from '@/lib/constants'
+import { PB_AUTH_COOKIE, MS_PER_DAY, RECENT_WINDOW_DAYS } from '@/lib/constants'
 import { toIso } from '@/lib/dates'
 
 export async function OverviewContent() {
@@ -32,34 +31,19 @@ export async function OverviewContent() {
     )
   }
 
-  const adminPB = createAdminPB()
   const now = new Date()
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
   const past7 = new Date(now.getTime() - RECENT_WINDOW_DAYS * MS_PER_DAY)
 
   try {
-    const scope = await getChairScope(adminPB, userId, userRole)
-    if (userRole === 'chair' && !scope.hasScope) {
-      return (
-        <OverviewClient
-          stats={null}
-          upcoming={[]}
-          recent={[]}
-          dailyRegistrations={[]}
-          paymentDistribution={[]}
-          userName={userName}
-          userRole={userRole}
-        />
-      )
-    }
-
-    const withScope = (base: string) => (scope.societyFilter ? `(${base}) && (${scope.societyFilter})` : base)
-
+    // PB listRules scope chairs to their own societies/registrations automatically.
     const count = async (collection: string, filter: string) => {
-      const res = await adminPB.collection(collection).getList(1, 1, { filter, fields: 'id' })
+      const res = await pb.collection(collection).getList(1, 1, { filter, fields: 'id' })
       return res.totalItems
     }
+
+
 
     const nowIso = toIso(now)
     const startTodayIso = toIso(startOfToday)
@@ -76,13 +60,13 @@ export async function OverviewContent() {
       societiesActive,
       societiesTotal,
     ] = await Promise.all([
-      count('events', withScope('') || 'id != ""'),
-      count('events', withScope(`date > '${nowIso}' && status = 'published'`)),
-      count('events', withScope(`date <= '${nowIso}' && endDate >= '${nowIso}' && status = 'published'`)),
-      count('registrations', scope.eventFilter && scope.eventFilter !== EMPTY_FILTER ? scope.eventFilter : 'id != ""'),
-      count('registrations', `registrationStatus = 'confirmed'${scope.eventFilter && scope.eventFilter !== EMPTY_FILTER ? ` && (${scope.eventFilter})` : ''}`),
-      count('registrations', `registrationStatus = 'pending'${scope.eventFilter && scope.eventFilter !== EMPTY_FILTER ? ` && (${scope.eventFilter})` : ''}`),
-      count('registrations', `registrationDate >= '${startTodayIso}' && registrationDate < '${endTodayIso}'${scope.eventFilter && scope.eventFilter !== EMPTY_FILTER ? ` && (${scope.eventFilter})` : ''}`),
+      count('events', 'id != ""'),
+      count('events', `date > '${nowIso}' && status = 'published'`),
+      count('events', `date <= '${nowIso}' && endDate >= '${nowIso}' && status = 'published'`),
+      count('registrations', 'id != ""'),
+      count('registrations', `registrationStatus = 'confirmed'`),
+      count('registrations', `registrationStatus = 'pending'`),
+      count('registrations', `registrationDate >= '${startTodayIso}' && registrationDate < '${endTodayIso}'`),
       count('societies', 'isHidden = false'),
       count('societies', 'id != ""'),
     ])
@@ -93,8 +77,8 @@ export async function OverviewContent() {
       societies: { active: societiesActive, total: societiesTotal },
     }
 
-    const upcomingRes = await adminPB.collection('events').getList(1, 5, {
-      filter: withScope(`date > '${nowIso}' && status = 'published'`),
+    const upcomingRes = await pb.collection('events').getList(1, 5, {
+      filter: `date > '${nowIso}' && status = 'published'`,
       sort: 'date',
       fields: 'id,title,date,venue,maxCapacity,registeredCount',
     })
@@ -107,8 +91,8 @@ export async function OverviewContent() {
       registeredCount: Number(e.registeredCount) || 0,
     }))
 
-    const recentRes = await adminPB.collection('registrations').getList(1, 8, {
-      filter: scope.eventFilter && scope.eventFilter !== EMPTY_FILTER ? scope.eventFilter : undefined,
+    const recentRes = await pb.collection('registrations').getList(1, 8, {
+      filter: undefined,
       sort: '-registrationDate',
       expand: 'event',
       fields: 'id,userName,userEmail,registrationStatus,paymentStatus,checkedIn,registrationDate,expand.event.id,expand.event.title',
@@ -129,8 +113,8 @@ export async function OverviewContent() {
       }
     })
 
-    const chartRes = await adminPB.collection('registrations').getList(1, 500, {
-      filter: `registrationDate >= '${toIso(past7)}'${scope.eventFilter && scope.eventFilter !== EMPTY_FILTER ? ` && (${scope.eventFilter})` : ''}`,
+    const chartRes = await pb.collection('registrations').getList(1, 500, {
+      filter: `registrationDate >= '${toIso(past7)}'`,
       fields: 'registrationDate,paymentStatus',
     })
 

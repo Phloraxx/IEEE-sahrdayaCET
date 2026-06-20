@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server'
-import { createPB, createAdminPB } from '@/lib/pb'
+import { createPB } from '@/lib/pb'
 import { requireRole } from '@/lib/auth'
 import { handleError } from '@/lib/api-error'
-import { getChairScope, assertChairRegistrationAccess } from '@/lib/chair-scope'
+
 import { checkInRegistration, cancelRegistration, RegistrationError } from '@/lib/registration-service'
 import { REGISTRATION_STATUS, PAYMENT_STATUS } from '@/lib/constants'
 
@@ -16,11 +16,11 @@ export async function GET(
     const cookie = req.headers.get('cookie') || undefined
     const pb = createPB(cookie)
     const { user } = await requireRole(['admin', 'chair'], pb)
-    const adminPB = createAdminPB()
-    const scope = await getChairScope(adminPB, user.id, user.role)
-    await assertChairRegistrationAccess(adminPB, user.id, user.role, id, scope)
+    
+    
+    
 
-    const reg = await adminPB.collection('registrations').getOne(id, { expand: 'event' })
+    const reg = await pb.collection('registrations').getOne(id, { expand: 'event' })
     const r = reg as unknown as Record<string, unknown>
     const expand = r.expand as Record<string, unknown> | undefined
     const event = expand?.event as Record<string, unknown> | undefined
@@ -61,9 +61,9 @@ export async function PUT(
     const cookie = req.headers.get('cookie') || undefined
     const pb = createPB(cookie)
     const { user } = await requireRole(['admin', 'chair'], pb)
-    const adminPB = createAdminPB()
-    const scope = await getChairScope(adminPB, user.id, user.role)
-    await assertChairRegistrationAccess(adminPB, user.id, user.role, id, scope)
+    
+    
+    
 
     const body = (await req.json().catch(() => ({}))) as {
       checkedIn?: boolean
@@ -73,27 +73,27 @@ export async function PUT(
     }
 
     if (body.checkedIn === true) {
-      await checkInRegistration(adminPB, id)
+      await checkInRegistration(pb, id)
       return Response.json({ success: true, action: 'checked_in' })
     }
 
     if (body.registrationStatus === 'cancelled') {
-      await cancelRegistration(adminPB, id)
+      await cancelRegistration(pb, id)
       return Response.json({ success: true, action: 'cancelled' })
     }
 
     if (body.registrationStatus && (REGISTRATION_STATUS as readonly string[]).includes(body.registrationStatus)) {
-      await adminPB.collection('registrations').update(id, { registrationStatus: body.registrationStatus })
+      await pb.collection('registrations').update(id, { registrationStatus: body.registrationStatus })
       return Response.json({ success: true, action: 'status_updated' })
     }
 
     if (body.paymentStatus && (PAYMENT_STATUS as readonly string[]).includes(body.paymentStatus)) {
-      await adminPB.collection('registrations').update(id, { paymentStatus: body.paymentStatus })
+      await pb.collection('registrations').update(id, { paymentStatus: body.paymentStatus })
       return Response.json({ success: true, action: 'payment_updated' })
     }
 
     if (typeof body.amount === 'number' && body.amount >= 0) {
-      await adminPB.collection('registrations').update(id, { amount: body.amount })
+      await pb.collection('registrations').update(id, { amount: body.amount })
       return Response.json({ success: true, action: 'amount_updated' })
     }
 

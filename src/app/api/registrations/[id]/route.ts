@@ -1,4 +1,4 @@
-import { createAdminPB, createPB } from '@/lib/pb'
+import { createPB } from '@/lib/pb'
 import { requireAuth } from '@/lib/auth'
 import { handleError } from '@/lib/api-error'
 import { cancelRegistration } from '@/lib/registration-service'
@@ -31,8 +31,7 @@ export async function PATCH(
     const body = (await req.json().catch(() => ({}))) as { registrationStatus?: string }
 
     if (body.registrationStatus === 'cancelled') {
-      const adminPB = createAdminPB()
-      await cancelRegistration(adminPB, id)
+      await cancelRegistration(pb, id)
       return Response.json({ success: true, action: 'cancelled' })
     }
 

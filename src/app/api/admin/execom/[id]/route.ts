@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { createPB, createAdminPB } from '@/lib/pb'
+import { createPB } from '@/lib/pb'
 import { requireRole } from '@/lib/auth'
 import { handleError } from '@/lib/api-error'
 import { parseFormData } from '@/lib/request-helpers'
@@ -30,8 +30,8 @@ export async function GET(
     const pb = createPB(req.headers.get('cookie') || undefined)
     await requireRole(['admin', 'chair'], pb)
 
-    const adminPB = createAdminPB()
-    const member = await adminPB.collection('execom').getOne(id, { expand: 'society' })
+    
+    const member = await pb.collection('execom').getOne(id, { expand: 'society' })
     return Response.json({ member })
   } catch (error) {
     return handleError(error, 'admin-execom-get')
@@ -51,11 +51,11 @@ export async function PUT(
       return Response.json({ error: 'Only admins can manage execom' }, { status: 403 })
     }
 
-    const adminPB = createAdminPB()
+    
     const body = await parseFormData(req)
     const parsed = ExecomUpdateSchema.parse(body)
 
-    const member = await adminPB.collection('execom').update(id, parsed)
+    const member = await pb.collection('execom').update(id, parsed)
     return Response.json({ member })
   } catch (error) {
     return handleError(error, 'admin-execom-update')
@@ -75,8 +75,8 @@ export async function DELETE(
       return Response.json({ error: 'Only admins can manage execom' }, { status: 403 })
     }
 
-    const adminPB = createAdminPB()
-    await adminPB.collection('execom').delete(id)
+    
+    await pb.collection('execom').delete(id)
     return Response.json({ success: true })
   } catch (error) {
     return handleError(error, 'admin-execom-delete')

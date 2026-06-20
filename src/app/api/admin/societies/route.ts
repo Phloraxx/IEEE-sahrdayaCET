@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server'
-import { createPB, createAdminPB, escapeFilterValue } from '@/lib/pb'
+import { createPB, escapeFilterValue } from '@/lib/pb'
 import { requireRole } from '@/lib/auth'
 import { handleError } from '@/lib/api-error'
-import { getChairScope } from '@/lib/chair-scope'
+
 import { parseFormData } from '@/lib/request-helpers'
 import { parsePagination, buildFilter } from '@/lib/route-helpers'
 import { z } from 'zod'
@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   try {
     const pb = createPB(req.headers.get('cookie') || undefined)
     const { user } = await requireRole(['admin', 'chair'], pb)
-    const adminPB = createAdminPB()
+    
     const url = new URL(req.url)
 
     const { page, perPage } = parsePagination(url, { defaultPerPage: 100, maxPerPage: 200 })
@@ -19,19 +19,10 @@ export async function GET(req: NextRequest) {
 
     const searchFilter = search ? `name ~ ${escapeFilterValue(search)}` : ''
 
-    // Build the societies list filter: chair scope restricts to their own societies.
-    let scopeFilter = ''
-    if (user.role === 'chair') {
-      const scope = await getChairScope(adminPB, user.id, user.role)
-      if (!scope.hasScope) {
-        return Response.json({ societies: [], total: 0, page: 1, perPage })
-      }
-      scopeFilter = scope.societyIds.map((id) => `id = ${escapeFilterValue(id)}`).join(' || ')
-    }
+    // PB societies listRule scopes chairs to their own societies automatically.
+    const filter = buildFilter([searchFilter])
 
-    const filter = buildFilter([searchFilter, scopeFilter])
-
-    const result = await adminPB.collection('societies').getList(page, perPage, {
+    const result = await pb.collection('societies').getList(page, perPage, {
       filter: filter || undefined,
       sort: 'name',
     })
@@ -43,7 +34,7 @@ export async function GET(req: NextRequest) {
     if (societyIds.length > 0) {
       const eventsFilter = societyIds.map((id) => `society = ${escapeFilterValue(id)}`).join(' || ')
       try {
-        const events = await adminPB.collection('events').getFullList<{ society: string }>({
+        const events = await pb.collection('events').getFullList<{ society: string }>({
           filter: eventsFilter,
           fields: 'society',
         })
@@ -91,11 +82,11 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: 'Only admins can create societies' }, { status: 403 })
     }
 
-    const adminPB = createAdminPB()
+    
     const body = await parseFormData(req)
     const parsed = SocietyCreateSchema.parse(body)
 
-    const society = await adminPB.collection('societies').create(parsed)
+    const society = await pb.collection('societies').create(parsed)
     return Response.json({ society }, { status: 201 })
   } catch (error) {
     return handleError(error, 'admin-societies-create')

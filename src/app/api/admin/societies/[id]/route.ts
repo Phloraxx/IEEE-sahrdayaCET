@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server'
-import { createPB, createAdminPB, buildFileUrl } from '@/lib/pb'
+import { createPB, buildFileUrl } from '@/lib/pb'
 import { requireRole } from '@/lib/auth'
 import { handleError } from '@/lib/api-error'
-import { assertChairSocietyAccess, getChairScope } from '@/lib/chair-scope'
+
 import { parseFormData } from '@/lib/request-helpers'
 import { z } from 'zod'
 
@@ -15,14 +15,14 @@ export async function GET(
   try {
     const pb = createPB(req.headers.get('cookie') || undefined)
     const { user } = await requireRole(['admin', 'chair'], pb)
-    const adminPB = createAdminPB()
+    
 
-    const scope = await getChairScope(adminPB, user.id, user.role)
+    
     if (user.role === 'chair') {
-      await assertChairSocietyAccess(adminPB, user.id, user.role, id, scope)
+      
     }
 
-    const society = await adminPB.collection('societies').getOne(id)
+    const society = await pb.collection('societies').getOne(id)
     return Response.json({
       society: {
         ...society,
@@ -59,11 +59,11 @@ export async function PUT(
       return Response.json({ error: 'Only admins can edit societies' }, { status: 403 })
     }
 
-    const adminPB = createAdminPB()
+    
     const body = await parseFormData(req)
     const parsed = SocietyUpdateSchema.parse(body)
 
-    const society = await adminPB.collection('societies').update(id, parsed)
+    const society = await pb.collection('societies').update(id, parsed)
     return Response.json({ society })
   } catch (error) {
     return handleError(error, 'admin-societies-update')

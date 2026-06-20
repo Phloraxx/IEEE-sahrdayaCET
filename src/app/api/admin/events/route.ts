@@ -1,36 +1,27 @@
 import { NextRequest } from 'next/server'
-import { createPB, createAdminPB, escapeFilterValue } from '@/lib/pb'
+import { createPB, escapeFilterValue } from '@/lib/pb'
 import { requireRole } from '@/lib/auth'
 import { handleError } from '@/lib/api-error'
-import { getChairScope } from '@/lib/chair-scope'
 import { parsePagination, buildFilter } from '@/lib/route-helpers'
 import { z } from 'zod'
 
 export async function GET(req: NextRequest) {
   try {
     const pb = createPB(req.headers.get('cookie') || undefined)
-    const { user } = await requireRole(['admin', 'chair'], pb)
-    const adminPB = createAdminPB()
+    await requireRole(['admin', 'chair'], pb)
     const url = new URL(req.url)
 
     const { page, perPage } = parsePagination(url, { defaultPerPage: 20, maxPerPage: 100 })
     const status = url.searchParams.get('status')
     const search = url.searchParams.get('search')
 
-    // Build base filter
+    // Build base filter — PB collection rules enforce chair/admin scoping
     const baseParts: string[] = []
     if (status && status !== 'all') baseParts.push(`status = ${escapeFilterValue(status)}`)
     if (search) baseParts.push(`title ~ ${escapeFilterValue(search)}`)
-    const baseFilter = buildFilter(baseParts)
+    const filter = buildFilter(baseParts)
 
-    // Apply chair scope
-    const scope = await getChairScope(adminPB, user.id, user.role)
-    const filter = buildFilter([baseFilter, scope.societyFilter])
-    if (!scope.hasScope && user.role === 'chair') {
-      return Response.json({ events: [], total: 0, page, perPage })
-    }
-
-    const result = await adminPB.collection('events').getList(page, perPage, {
+    const result = await pb.collection('events').getList(page, perPage, {
       filter: filter || undefined,
       sort: '-date',
       expand: 'society',
@@ -95,21 +86,11 @@ const EventCreateSchema = z.object({
 export async function POST(req: NextRequest) {
   try {
     const pb = createPB(req.headers.get('cookie') || undefined)
-    const { user } = await requireRole(['admin', 'chair'], pb)
+    await requireRole(['admin', 'chair'], pb)
 
     const parsed = EventCreateSchema.parse(await req.json())
-
-    // Chairs can only create events under their own societies
-    if (user.role === 'chair') {
-      const scope = await getChairScope(pb, user.id, user.role)
-      if (!scope.hasScope || !scope.societyIds.includes(parsed.society)) {
-        return Response.json({ error: 'You can only create events under your own societies' }, { status: 403 })
-      }
-    }
-
-    const adminPB = createAdminPB()
-    // Only pass whitelisted fields (no registeredCount, isDeleted, etc.)
-    const event = await adminPB.collection('events').create(parsed)
+    // PB createRule enforces chair can only create under their own society
+    const event = await pb.collection('events').create(parsed)
     return Response.json({ event }, { status: 201 })
   } catch (error) {
     return handleError(error, 'admin-events-create')

@@ -1,6 +1,6 @@
-import { createPB, createAdminPB } from '@/lib/pb'
+import { createPB } from '@/lib/pb'
 import { requireRole } from '@/lib/auth'
-import { getChairScope } from '@/lib/chair-scope'
+
 import { handleError } from '@/lib/api-error'
 import { toIso } from '@/lib/dates'
 import { UPCOMING_WINDOW_DAYS, RECENT_WINDOW_DAYS, MS_PER_DAY } from '@/lib/constants'
@@ -8,30 +8,26 @@ import { UPCOMING_WINDOW_DAYS, RECENT_WINDOW_DAYS, MS_PER_DAY } from '@/lib/cons
 export async function GET(req: Request) {
   try {
     const pb = createPB(req.headers.get('cookie') || undefined)
-    const { user } = await requireRole(['admin', 'chair'], pb)
-    const adminPB = createAdminPB()
+    await requireRole(['admin', 'chair'], pb)
+
 
     const now = new Date()
     const nowIso = toIso(now)
     const futureIso = toIso(new Date(now.getTime() + UPCOMING_WINDOW_DAYS * MS_PER_DAY))
     const pastIso = toIso(new Date(now.getTime() - RECENT_WINDOW_DAYS * MS_PER_DAY))
 
-    const scope = await getChairScope(adminPB, user.id, user.role)
-    const scopeFilter = user.role === 'chair' ? scope.societyFilter : ''
-
-    const withScope = (base: string) => (scopeFilter ? `(${base}) && (${scopeFilter})` : base)
-
+    // PB listRule scopes chairs to their own societies automatically.
     const [live, upcoming, recentlyCompleted] = await Promise.all([
-      adminPB.collection('events').getList(1, 5, {
-        filter: withScope(`date <= '${nowIso}' && endDate >= '${nowIso}' && status = 'published'`),
+      pb.collection('events').getList(1, 5, {
+        filter: `date <= '${nowIso}' && endDate >= '${nowIso}' && status = 'published'`,
         sort: 'date',
       }),
-      adminPB.collection('events').getList(1, 6, {
-        filter: withScope(`date > '${nowIso}' && date <= '${futureIso}' && status = 'published'`),
+      pb.collection('events').getList(1, 6, {
+        filter: `date > '${nowIso}' && date <= '${futureIso}' && status = 'published'`,
         sort: 'date',
       }),
-      adminPB.collection('events').getList(1, 5, {
-        filter: withScope(`endDate > '${pastIso}' && endDate < '${nowIso}'`),
+      pb.collection('events').getList(1, 5, {
+        filter: `endDate > '${pastIso}' && endDate < '${nowIso}'`,
         sort: '-endDate',
       }),
     ])
