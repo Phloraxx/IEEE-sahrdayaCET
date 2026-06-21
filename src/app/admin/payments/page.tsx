@@ -1,6 +1,13 @@
 import { Suspense } from "react";
-import { PaymentsContent } from "./PaymentsContent";
+import PaymentsContent, { type PaymentsData } from "./PaymentsContent";
 import { Skeleton } from "@/components/ui/skeleton";
+
+const EMPTY_DATA: PaymentsData = {
+  payments: [],
+  totalRevenue: 0,
+  paidCount: 0,
+  pendingCount: 0,
+};
 
 export default function PaymentsPage() {
   return (
@@ -19,7 +26,7 @@ export default function PaymentsPage() {
           </div>
         }
       >
-        <PaymentsContent />
+        <PaymentsContent data={EMPTY_DATA} />
       </Suspense>
     </div>
   );

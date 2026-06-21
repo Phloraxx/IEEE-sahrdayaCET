@@ -1,11 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { EventDetailContent } from "@/app/admin/events/[id]/EventDetailContent";
+import { createFileRoute } from '@tanstack/react-router'
 
-export const Route = createFileRoute("/admin/events/$id")({
-  component: AdminEventDetail,
-});
+export const Route = createFileRoute('/admin/events/$id')({
+  component: RouteComponent,
+})
 
-function AdminEventDetail() {
-  const { id } = Route.useParams();
-  return <EventDetailContent eventId={id} />;
+function RouteComponent() {
+  return <div>Hello "/admin/events/$id"!</div>
 }
