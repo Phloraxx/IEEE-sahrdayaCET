@@ -24,7 +24,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const fetchUser = useCallback(async () => {
         try {
             const res = await fetch('/api/auth/me', { credentials: 'include' })
+            if (res.status === 401) {
+                setUser(null)
+                setStatus('unauthenticated')
+                return
+            }
             if (!res.ok) {
+                console.error('Auth check failed:', res.status, res.statusText)
                 setUser(null)
                 setStatus('unauthenticated')
                 return
@@ -43,7 +49,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setUser(null)
                 setStatus('unauthenticated')
             }
-        } catch {
+        } catch (err) {
+            console.error('Auth network error:', err)
             setUser(null)
             setStatus('unauthenticated')
         }

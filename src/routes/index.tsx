@@ -46,6 +46,7 @@ interface HomeData {
   } | null
   coreMembers: Member[]
   societies: Society[]
+  eventItems: Array<{ id: string; bannerUrl: string; title: string }>
 }
 
 export const Route = createFileRoute('/')({
@@ -66,9 +67,12 @@ export const Route = createFileRoute('/')({
     const PB_URL = process.env.POCKETBASE_URL
     if (!PB_URL) throw new Error('Missing POCKETBASE_URL')
 
-    const [eventsResult, execomResult, societiesRes] = await Promise.allSettled([
+    const [eventsResult, eventsAllResult, execomResult, societiesRes] = await Promise.allSettled([
       fetch(
         `${PB_URL}/api/collections/events/records?perPage=1&filter=${encodeURIComponent('status="published"')}&sort=date&expand=society&skipTotal=1&fields=id,title,description,date,short_title,banner,event_type`,
+      ).then((r) => (r.ok ? r.json() : null)),
+      fetch(
+        `${PB_URL}/api/collections/events/records?perPage=20&filter=${encodeURIComponent('status="published"')}&sort=-date&skipTotal=1&fields=id,title,banner`,
       ).then((r) => (r.ok ? r.json() : null)),
       fetch(
         `${PB_URL}/api/collections/execom/records?perPage=20&filter=${encodeURIComponent('sectionId="core"')}&sort=order&skipTotal=1&fields=id,order,name,position,photo,linkedin,email,phone`,
@@ -104,6 +108,17 @@ export const Route = createFileRoute('/')({
           })()
         : null
 
+    const eventItems: Array<{ id: string; bannerUrl: string; title: string }> =
+      eventsAllResult.status === 'fulfilled' && eventsAllResult.value?.items
+        ? (eventsAllResult.value.items as Record<string, unknown>[]).map((ev) => ({
+            id: ev.id as string,
+            title: (ev.title as string) || '',
+            bannerUrl: ev.banner
+              ? buildFileUrl('events', ev.id as string, ev.banner as string)
+              : '',
+          }))
+        : []
+
     const coreMembers: Member[] =
       execomResult.status === 'fulfilled' && execomResult.value
         ? (execomResult.value.items || []).map((raw: Record<string, unknown>) => {
@@ -123,13 +138,13 @@ export const Route = createFileRoute('/')({
           })
         : []
 
-    return { latestEvent, coreMembers, societies }
+    return { latestEvent, coreMembers, societies, eventItems }
   },
   component: Home,
 })
 
 function Home() {
-  const { latestEvent, coreMembers, societies } = Route.useLoaderData()
+  const { latestEvent, coreMembers, societies, eventItems } = Route.useLoaderData()
 
   return (
     <div className="relative w-full bg-white text-gray-900 font-sans selection:bg-ieee-blue/20">
@@ -145,7 +160,7 @@ function Home() {
         <div className="relative z-10 mt-[100dvh]">
           <WhatsHappening latestEvent={latestEvent} societies={societies} />
           <Execom members={coreMembers} />
-          <EventsShowcase />
+          <EventsShowcase eventItems={eventItems} />
           <Footer />
         </div>
       </ErrorBoundary>
