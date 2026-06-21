@@ -108,7 +108,7 @@ export default function EditSocietyPage({ params }: PageProps) {
           throw new Error(data.error || "Failed to update society");
         }
       }
-      navigate({ to: `/admin/societies/${societyId}` });
+      navigate({ to: "/admin/societies/$id", params: { id: societyId } });
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
       setSaving(false);
@@ -187,7 +187,7 @@ export default function EditSocietyPage({ params }: PageProps) {
     <div className="space-y-6 max-w-2xl">
       <div className="flex items-center gap-4">
         <Link
-          to={`/admin/societies/${societyId}`}
+          to="/admin/societies/$id" params={{ id: societyId }}
           className="inline-flex items-center justify-center rounded-lg border border-border p-2 text-muted-foreground hover:bg-muted transition-colors"
         >
           <ArrowLeft className="size-4" />
@@ -451,7 +451,7 @@ export default function EditSocietyPage({ params }: PageProps) {
             )}
           </button>
           <Link
-            to={`/admin/societies/${societyId}`}
+            to="/admin/societies/$id" params={{ id: societyId }}
             className="inline-flex items-center justify-center rounded-lg border border-border px-6 py-2.5 text-sm font-medium hover:bg-muted transition-colors"
           >
             Cancel

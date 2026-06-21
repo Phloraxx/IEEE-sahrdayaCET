@@ -69,7 +69,7 @@ export default function NewSocietyPage() {
 
       const data = await res.json();
       toast.success("Society created");
-      navigate({ to: `/admin/societies/${data.society.id}` });
+      navigate({ to: "/admin/societies/$id", params: { id: data.society.id } });
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
       setSaving(false);

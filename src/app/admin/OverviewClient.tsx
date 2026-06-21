@@ -238,13 +238,13 @@ export function OverviewClient({
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <Link
-                    to={`/admin/events/${heroEvent.id}`}
+                    to="/admin/events/$id" params={{ id: heroEvent.id }}
                     className="inline-flex items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/80 px-3 py-2 text-xs font-medium transition-all"
                   >
                     View Event
                   </Link>
                   <Link
-                    to={`/admin/events/${heroEvent.id}/edit`}
+                    to="/admin/events/$id/edit" params={{ id: heroEvent.id }}
                     className="inline-flex items-center justify-center rounded-lg border border-border px-3 py-2 text-xs font-medium hover:bg-muted transition-colors"
                   >
                     Edit
@@ -379,7 +379,7 @@ export function OverviewClient({
                   return (
                     <Link
                       key={event.id}
-                      to={`/admin/events/${event.id}`}
+                      to="/admin/events/$id" params={{ id: event.id }}
                       className="group flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/50"
                     >
                       <div className="min-w-0 flex-1">
@@ -436,7 +436,7 @@ export function OverviewClient({
               {recent.map((reg) => (
                 <Link
                   key={reg.id}
-                  to={`/admin/registrations/${reg.id}`}
+                  to="/admin/registrations/$id" params={{ id: reg.id }}
                   className="group flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/50"
                 >
                   <div className="flex min-w-0 items-center gap-3">

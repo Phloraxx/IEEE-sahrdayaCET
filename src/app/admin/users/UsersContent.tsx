@@ -191,7 +191,7 @@ export function UsersContent() {
               <TableRow key={u.id}>
                 <TableCell>
                   <Link
-                    to={`/admin/users/${u.id}`}
+                    to="/admin/users/$id" params={{ id: u.id }}
                     className="flex items-center gap-2 no-underline text-inherit"
                   >
                     <Avatar className="size-8">

@@ -106,7 +106,7 @@ export function SocietyEditForm({ societyId, initial }: Props) {
         }),
       });
       if (!res.ok) throw new Error("Failed to save");
-      navigate({ to: `/admin/societies/${societyId}` });
+      navigate({ to: "/admin/societies/$id", params: { id: societyId } });
     } catch {
       setError("Failed to save society");
     } finally {
@@ -117,7 +117,7 @@ export function SocietyEditForm({ societyId, initial }: Props) {
   return (
     <div>
       <div className="flex items-center gap-2 mb-3">
-        <Link to={`/admin/societies/${societyId}`}>
+        <Link to="/admin/societies/$id" params={{ id: societyId }}>
           <Button variant="ghost" size="sm">
             <ArrowLeft className="size-4" />
           </Button>
@@ -341,7 +341,7 @@ export function SocietyEditForm({ societyId, initial }: Props) {
                 >
                   {saving ? "Saving..." : "Save Changes"}
                 </Button>
-                <Link to={`/admin/societies/${societyId}`}>
+                <Link to="/admin/societies/$id" params={{ id: societyId }}>
                   <Button variant="outline">Cancel</Button>
                 </Link>
               </div>

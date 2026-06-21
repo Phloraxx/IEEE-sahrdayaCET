@@ -315,7 +315,7 @@ export function EventDetailClient({ event, registrations }: Props) {
           >
             {event.registrationOpen ? "Close Reg" : "Open Reg"}
           </Button>
-          <Link to={`/admin/events/${event.id}/edit`}>
+          <Link to="/admin/events/$id/edit" params={{ id: event.id }}>
             <Button variant="outline" size="sm">
               Edit
             </Button>
@@ -537,7 +537,7 @@ export function EventDetailClient({ event, registrations }: Props) {
                             </TableCell>
                             <TableCell>
                               <Link
-                                to={`/admin/registrations/${r.id}`}
+                                to="/admin/registrations/$id" params={{ id: r.id }}
                                 className="no-underline text-inherit"
                               >
                                 <span className="font-medium text-sm">

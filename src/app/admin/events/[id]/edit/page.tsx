@@ -201,7 +201,7 @@ export default function EditEventPage({ params }: PageProps) {
       }
 
       toast.success("Event updated");
-      navigate({ to: `/admin/events/${eventId}` });
+      navigate({ to: "/admin/events/$id", params: { id: eventId } });
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
       setSaving(false);
@@ -252,7 +252,7 @@ export default function EditEventPage({ params }: PageProps) {
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Link
-          to={`/admin/events/${eventId}`}
+          to="/admin/events/$id" params={{ id: eventId }}
           className="inline-flex items-center justify-center rounded-lg border border-border p-2 text-muted-foreground hover:bg-muted transition-colors"
         >
           <ArrowLeft className="size-4" />
@@ -693,7 +693,7 @@ export default function EditEventPage({ params }: PageProps) {
                 )}
               </button>
               <Link
-                to={`/admin/events/${eventId}`}
+                to="/admin/events/$id" params={{ id: eventId }}
                 className="inline-flex items-center justify-center rounded-lg border border-border px-6 py-2.5 text-sm font-medium hover:bg-muted"
               >
                 Cancel

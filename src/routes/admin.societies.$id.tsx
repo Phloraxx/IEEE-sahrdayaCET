@@ -103,7 +103,7 @@ function SocietyDetailPage() {
           </div>
         </div>
         <Link
-          to={`/admin/societies/${data.id}/edit`}
+          to="/admin/societies/$id/edit" params={{ id: data.id }}
           className="inline-flex items-center justify-center rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-muted transition-colors"
         >
           <Pencil className="size-4 mr-1.5" />

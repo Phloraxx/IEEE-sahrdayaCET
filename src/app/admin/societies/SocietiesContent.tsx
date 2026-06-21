@@ -134,7 +134,7 @@ export function SocietiesContent() {
                 >
                   <TableCell>
                     <Link
-                      to={`/admin/societies/${s.id}/edit`}
+                      to="/admin/societies/$id/edit" params={{ id: s.id }}
                       className="font-medium no-underline text-inherit"
                     >
                       {s.name}

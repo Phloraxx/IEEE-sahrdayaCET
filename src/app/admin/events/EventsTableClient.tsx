@@ -221,7 +221,7 @@ export function EventsTableClient({ events, total }: Props) {
                   <TableRow key={event.id}>
                     <TableCell>
                       <Link
-                        to={`/admin/events/${event.id}`}
+                        to="/admin/events/$id" params={{ id: event.id }}
                         className="no-underline text-inherit"
                       >
                         <div className="font-medium text-sm">{event.title}</div>
@@ -284,7 +284,7 @@ export function EventsTableClient({ events, total }: Props) {
                           size="icon"
                           className="size-8"
                           onClick={() =>
-                            navigate({ to: `/admin/events/${event.id}` })
+                            navigate({ to: "/admin/events/$id", params: { id: event.id } })
                           }
                         >
                           <Eye className="size-3.5" />
@@ -294,7 +294,7 @@ export function EventsTableClient({ events, total }: Props) {
                           size="icon"
                           className="size-8"
                           onClick={() =>
-                            navigate({ to: `/admin/events/${event.id}/edit` })
+                            navigate({ to: "/admin/events/$id/edit", params: { id: event.id } })
                           }
                         >
                           <Pencil className="size-3.5" />
