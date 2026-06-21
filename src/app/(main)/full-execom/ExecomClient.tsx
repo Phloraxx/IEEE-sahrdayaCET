@@ -435,8 +435,16 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
     return (
       <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
         <div className="text-center">
-          <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500">No execom members found</p>
+          <div className="w-20 h-20 rounded-full bg-ieee-blue/10 flex items-center justify-center mx-auto mb-6">
+            <Users className="w-10 h-10 text-ieee-blue/50" />
+          </div>
+          <h3 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">
+            Meet our team coming soon
+          </h3>
+          <p className="text-gray-500 text-sm md:text-base max-w-md font-mono mx-auto">
+            The executive committee roster is being assembled. Check back
+            later to meet the people behind the vision.
+          </p>
         </div>
       </div>
     );

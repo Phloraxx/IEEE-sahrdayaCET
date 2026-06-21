@@ -52,7 +52,7 @@ export const WhatsHappening: React.FC<WhatsHappeningProps> = ({
               loading="lazy"
               alt={latestEvent?.title || "Upcoming Event"}
               className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-              src={latestEvent?.bannerUrl || "/AGM.webp"}
+              src={latestEvent?.bannerUrl || "/emblem.png"}
             />
           </div>
           <div className="relative z-20 p-6 md:p-8 h-full flex flex-col justify-center text-white">
