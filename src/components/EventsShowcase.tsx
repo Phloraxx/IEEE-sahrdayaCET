@@ -2,7 +2,7 @@ import React from "react";
 import { Link } from "@tanstack/react-router";
 
 interface EventsShowcaseProps {
-  eventItems: Array<{ id: string; bannerUrl: string; title: string }>;
+  eventItems?: Array<{ id: string; bannerUrl: string; title: string }>;
 }
 
 const scrollingText = [
@@ -15,8 +15,31 @@ const scrollingText = [
   "TECH TALKS",
   "BOOTCAMPS",
 ];
-const ImageStrip = ({ eventItems }: EventsShowcaseProps) => {
-  const images = eventItems.length > 0 ? eventItems : [{ id: 'placeholder', bannerUrl: '/emblem.png', title: 'IEEE Event' }];
+const ImageStrip = ({ eventItems = [] }: EventsShowcaseProps) => {
+  const validItems = eventItems.filter(item => item.bannerUrl);
+  if (validItems.length === 0) {
+    const fallbackTexts = ["IEEE Events", "Coming Soon", "Stay Tuned"];
+    return (
+      <div className="overflow-hidden w-full">
+        <div
+          className="flex gap-4 will-change-transform animate-marquee-images"
+          style={{ width: `${fallbackTexts.length * 3 * 280}px` }}
+        >
+          {[...fallbackTexts, ...fallbackTexts, ...fallbackTexts].map((text, i) => (
+            <div
+              key={`fallback-${i}`}
+              className="relative shrink-0 w-[260px] h-[360px] rounded-2xl overflow-hidden shadow-lg bg-linear-to-br from-ieee-blue to-[#4285F4] flex items-center justify-center"
+            >
+              <span className="text-white/80 text-2xl md:text-3xl font-bold tracking-tight text-center px-4 leading-tight">
+                {text}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  const images = validItems;
   const tripled = [...images, ...images, ...images];
   return (
     <div className="overflow-hidden w-full">

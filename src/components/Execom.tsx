@@ -365,7 +365,22 @@ export const Execom: React.FC<ExecomProps> = ({ members }) => {
           </div>
         </motion.div>
 
-        <DragCarousel members={members} />
+        {members.length > 0 ? (
+          <DragCarousel members={members} />
+        ) : (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="w-20 h-20 rounded-full bg-ieee-blue/10 flex items-center justify-center mb-6">
+              <Users className="w-10 h-10 text-ieee-blue/50" />
+            </div>
+            <h3 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">
+              Meet our team coming soon
+            </h3>
+            <p className="text-gray-500 text-sm md:text-base max-w-md font-mono">
+              The executive committee roster is being assembled. Check back
+              later to meet the people behind the vision.
+            </p>
+          </div>
+        )}
 
         <div className="mt-12 flex justify-center">
           <Link
