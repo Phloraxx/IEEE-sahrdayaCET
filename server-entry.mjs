@@ -40,17 +40,20 @@ async function main() {
       const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
 
       // Serve static assets from dist/client
-      if (url.pathname.startsWith('/assets/') || url.pathname === '/favicon.ico' || url.pathname === '/robots.txt' || url.pathname === '/sitemap.xml') {
+      // Serve static files from dist/client (public/ files copied during build)
+      if (!url.pathname.startsWith('/api/') && !url.pathname.includes('..') && extname(url.pathname)) {
         const filePath = join(CLIENT_DIR, url.pathname);
-        if (existsSync(filePath)) {
+        try {
           const ext = extname(filePath);
           const mime = MIME_TYPES[ext] || 'application/octet-stream';
-          res.writeHead(200, { 'Content-Type': mime, 'Cache-Control': 'public, max-age=31536000, immutable' });
+          const cacheControl = url.pathname.startsWith('/assets/')
+            ? 'public, max-age=31536000, immutable'
+            : 'public, max-age=86400';
+          res.writeHead(200, { 'Content-Type': mime, 'Cache-Control': cacheControl });
           res.end(readFileSync(filePath));
           return;
-        }
+        } catch { /* file missing or directory, fall through to SSR */ }
       }
-
       // SSR: forward to TanStack Start handler
       const nodeHandler = toNodeHandler ? toNodeHandler(fetch) : simpleNodeHandler(fetch);
       await nodeHandler(req, res);

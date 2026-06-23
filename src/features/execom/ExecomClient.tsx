@@ -132,6 +132,7 @@ const transformToSections = (documents: ExecomMemberDoc[]): Section[] => {
     [key: string]: { title: string; members: Member[] };
   } = {};
 
+  if (!documents || !Array.isArray(documents)) return [];
   documents.forEach((doc) => {
     if (!groupedBySectionId[doc.sectionId]) {
       groupedBySectionId[doc.sectionId] = {

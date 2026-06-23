@@ -1,6 +1,6 @@
 "use client";
 
-import { Link, useLocation } from "@tanstack/react-router";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import type { Society } from "@/types";
 
@@ -22,9 +22,10 @@ const getValidLogoUrl = (logoUrl: string | undefined | null): string | null => {
 };
 
 const LogoItem: React.FC<{ society: Society }> = ({ society }) => {
+  const [imgError, setImgError] = useState(false);
   const validLogoUrl = getValidLogoUrl(society.logoUrl);
 
-  if (!validLogoUrl) {
+  if (!validLogoUrl || imgError) {
     return (
       <div className="shrink-0 flex items-center justify-center group mx-6 md:mx-10">
         <div className="relative flex items-center justify-center h-10 md:h-12 w-auto transition-all duration-300 group-hover:scale-110">
@@ -41,8 +42,9 @@ const LogoItem: React.FC<{ society: Society }> = ({ society }) => {
       <div className="relative h-10 md:h-12 w-14 md:w-16 transition-all duration-300 group-hover:scale-110">
         <img
           loading="lazy"
-          src={validLogoUrl}
+          src={validLogoUrl!}
           alt={society.name}
+          onError={() => setImgError(true)}
           className="absolute inset-0 w-full h-full object-contain opacity-40 group-hover:opacity-90 transition-opacity duration-500 grayscale group-hover:grayscale-0"
           draggable={false}
         />
@@ -56,9 +58,7 @@ interface SocietyStripProps {
 }
 
 export const SocietyStrip: React.FC<SocietyStripProps> = ({ societies }) => {
-  if (societies.length === 0) {
-    return null; // Don't show section if no societies
-  }
+  if (!societies || societies.length === 0) return null
 
   // Duplicate the list for seamless loop (4x for safety on wide screens)
   const repeated = [...societies, ...societies, ...societies, ...societies];
