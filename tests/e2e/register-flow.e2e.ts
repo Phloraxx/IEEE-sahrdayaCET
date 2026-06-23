@@ -14,7 +14,7 @@ const SKIP = !process.env.TEST_EVENT_ID || !process.env.TEST_USER_ID
 test.describe('Registration API', () => {
   test.skip(SKIP, 'TEST_EVENT_ID / TEST_USER_ID not configured')
 
-  test('free event: POST /api/registrations → 200 with not_required', async ({ baseURL }) => {
+  test('free event: POST /api/registrations → 401/403 without auth', async ({ baseURL }) => {
     const ctx = await request.newContext({ baseURL })
     // Note: this requires an authenticated session cookie. Auth setup is
     // application-specific; for now this test asserts the unauthenticated

@@ -4,7 +4,7 @@ import path from 'path'
 export default defineConfig({
   test: {
     globals: true,
-    environment: 'node',
+    exclude: ['tests/e2e/**', '**/*.spec.ts'],
     include: ['tests/unit/**/*.test.ts', 'tests/integration/**/*.test.ts'],
     setupFiles: ['tests/setup.ts'],
     testTimeout: 30_000,

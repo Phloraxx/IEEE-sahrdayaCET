@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { buildFileUrl } from '@/lib/pb'
 
 describe('buildFileUrl', () => {
@@ -21,6 +21,7 @@ describe('buildFileUrl', () => {
 
   it('returns empty string when POCKETBASE_URL is missing', () => {
     delete process.env.POCKETBASE_URL
+    vi.stubEnv('VITE_POCKETBASE_URL', '')
     const url = buildFileUrl('events', 'rec-123', 'banner.jpg')
     expect(url).toBe('')
   })

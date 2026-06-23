@@ -4,7 +4,7 @@ import { test, expect } from '@playwright/test'
  * Edge case and error handling API tests.
  */
 
-const BASE = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000'
+const BASE = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3001'
 
 test.describe('API Error Handling', () => {
   test('GET unknown route returns 404', async ({ request }) => {
@@ -17,13 +17,13 @@ test.describe('API Error Handling', () => {
     expect(res.status()).toBe(404)
   })
 
-  test('POST /api/events/validate-coupon with invalid JSON returns 400', async ({ request }) => {
+  test('POST /api/events/validate-coupon returns 401 without auth', async ({ request }) => {
     const res = await request.post(`${BASE}/api/events/validate-coupon`, {
       data: 'not-json',
       headers: { 'Content-Type': 'application/json' },
     })
-    // Should handle gracefully
-    expect([400, 500]).toContain(res.status())
+    // Auth gate fires before body parsing — should return 401
+    expect(res.status()).toBe(401)
   })
 
   test('Large filter values are handled without crash', async ({ request }) => {
