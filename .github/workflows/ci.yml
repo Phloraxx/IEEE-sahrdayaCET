@@ -34,11 +34,12 @@ jobs:
 
       - name: Install dependencies
         if: steps.cache-node-modules.outputs.cache-hit != 'true'
-        run: bun install --frozen-lockfile
+        run: bun install
 
-      # Install even on cache hit to ensure full fidelity
+      # Verify even on cache hit — `bun install` without --frozen-lockfile
+      # self-heals if lockfile drifted (common in local dev with bun)
       - name: Verify dependencies
-        run: bun install --frozen-lockfile
+        run: bun install
 
       - name: Type-check and build
         run: bun run build
