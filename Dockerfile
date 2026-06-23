@@ -33,8 +33,9 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Build the app
-RUN --mount=type=cache,id=build-cache,target=/app/.tanstack/tmp \
-    bun run build
+# Note: No --mount=type=cache for .tanstack/tmp — TanStack Router generator
+# uses rename() which fails across filesystem boundaries (EXDEV).
+RUN bun run build
 
 # ─── Production Runner ─────────────────────────────────────────
 FROM node:22-alpine AS runner
