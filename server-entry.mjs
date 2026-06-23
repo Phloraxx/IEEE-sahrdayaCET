@@ -39,20 +39,24 @@ async function main() {
     try {
       const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
 
-      // Serve static assets from dist/client
-      // Serve static files from dist/client (public/ files copied during build)
+      // Serve static files: try dist/client (Vite output), then public/ (raw assets)
       if (!url.pathname.startsWith('/api/') && !url.pathname.includes('..') && extname(url.pathname)) {
-        const filePath = join(CLIENT_DIR, url.pathname);
-        try {
-          const ext = extname(filePath);
-          const mime = MIME_TYPES[ext] || 'application/octet-stream';
-          const cacheControl = url.pathname.startsWith('/assets/')
-            ? 'public, max-age=31536000, immutable'
-            : 'public, max-age=86400';
-          res.writeHead(200, { 'Content-Type': mime, 'Cache-Control': cacheControl });
-          res.end(readFileSync(filePath));
-          return;
-        } catch { /* file missing or directory, fall through to SSR */ }
+        const candidates = [
+          join(CLIENT_DIR, url.pathname),
+          join(__dirname, 'public', url.pathname),
+        ];
+        for (const filePath of candidates) {
+          try {
+            const ext = extname(filePath).toLowerCase();
+            const mime = MIME_TYPES[ext] || 'application/octet-stream';
+            const cacheControl = url.pathname.startsWith('/assets/')
+              ? 'public, max-age=31536000, immutable'
+              : 'public, max-age=86400';
+            res.writeHead(200, { 'Content-Type': mime, 'Cache-Control': cacheControl });
+            res.end(readFileSync(filePath));
+            return;
+          } catch { /* try next candidate */ }
+        }
       }
       // SSR: forward to TanStack Start handler
       const nodeHandler = toNodeHandler ? toNodeHandler(fetch) : simpleNodeHandler(fetch);
