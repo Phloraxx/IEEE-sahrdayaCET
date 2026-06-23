@@ -1,18 +1,20 @@
 name: CD
-# Triggers Dokploy deployment after CI passes on main.
-# Dokploy uses the GitHub App integration to clone source and build from Dockerfile.
-# This workflow ensures the image is built and tested first, then tells Dokploy to deploy.
+# Builds Docker image, pushes to Dokploy, and triggers deployment.
 
 on:
   push:
-    branches: [main]
+    branches: [main, "docs/**"]
 
 concurrency:
-  group: ${{ github.workflow }}-main
+  group: ${{ github.workflow }}-${{ github.ref_name }}
   cancel-in-progress: false
 
+env:
+  REGISTRY: docker.mulearnscet.in
+  IMAGE: ieee-sahrdaya/app
+
 jobs:
-  # ─── Build & Push to Dokploy's internal registry ────
+  # ─── Build & Push ────────────────────────────────
   build-and-push:
     runs-on: ubuntu-latest
     steps:
@@ -22,7 +24,7 @@ jobs:
       - name: Log in to Dokploy internal registry
         uses: docker/login-action@v3
         with:
-          registry: docker.mulearnscet.in
+          registry: ${{ env.REGISTRY }}
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
@@ -31,11 +33,13 @@ jobs:
         with:
           context: .
           push: true
-          tags: docker.mulearnscet.in/ieee-sahrdaya/app:${{ github.sha }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE }}:${{ github.ref_name }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # ─── Trigger Dokploy Deploy ────────────────────────
+  # ─── Trigger Dokploy Deploy ──────────────────────
   deploy:
     needs: [build-and-push]
     runs-on: ubuntu-latest
@@ -45,4 +49,4 @@ jobs:
           curl -sSf -X POST "${{ secrets.DOCKPLOY_WEBHOOK_URL }}" \
             -H "X-GitHub-Event: push" \
             -H "Content-Type: application/json" \
-            -d '{"ref": "refs/heads/${{ vars.DOKPLOY_BRANCH || 'main' }}"}' || echo "Webhook call completed"
+            -d '{"ref": "refs/heads/${{ github.ref_name }}"}' || echo "Webhook call completed"
