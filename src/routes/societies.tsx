@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { APP_URL } from "@/lib/constants";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import SocietiesClient from "@/app/(main)/societies/SocietiesClient";
+import SocietiesClient from "@/features/societies/SocietiesClient";
 import type { Society } from "@/types";
-import { buildFileUrl } from "@/lib/pb";
+import { createPB, buildFileUrl } from "@/lib/pb";
 
 export const Route = createFileRoute("/societies")({
   head: () => ({
@@ -11,22 +12,43 @@ export const Route = createFileRoute("/societies")({
       {
         name: "description",
         content:
-          "Explore the technical societies under IEEE Sahrdaya Student Branch",
+          "Explore 14 technical societies under IEEE Sahrdaya Student Branch — Computer Society, RAS, WIE, IAS, PES and more.",
       },
+      { property: "og:title", content: "Societies | IEEE Sahrdaya Student Branch" },
+      {
+        property: "og:description",
+        content:
+          "Explore 14 technical societies under IEEE Sahrdaya Student Branch — Computer Society, RAS, WIE, IAS, PES and more.",
+      },
+      { property: "og:url", content: `${APP_URL}/societies` },
+      { property: "og:image", content: `${APP_URL}/web.png` },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
     ],
     links: [{ rel: "canonical", href: "/societies" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        innerHTML: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "Home", item: APP_URL },
+            { "@type": "ListItem", position: 2, name: "Societies", item: `${APP_URL}/societies` },
+          ],
+        }),
+      },
+    ],
   }),
-  loader: async (): Promise<Society[]> => {
-    const PB_URL = process.env.POCKETBASE_URL;
-    if (!PB_URL) return [];
-
+  loader: async ({ context }: { context: { response: { headers: Headers } } }): Promise<Society[]> => {
     try {
-      const res = await fetch(
-        `${PB_URL}/api/collections/societies/records?skipTotal=1&fields=id,name,slug,bio,logo&filter=${encodeURIComponent("isHidden=false")}`,
-        { signal: AbortSignal.timeout(8000) },
-      );
-      if (!res.ok) return [];
-      const data = await res.json();
+      context.response.headers.set('Cache-Control', 'public, max-age=300');
+      const pb = createPB();
+      const data = await pb.collection("societies").getList(1, 200, {
+        filter: "isHidden=false",
+        skipTotal: true,
+        fields: "id,name,slug,bio,logo",
+      });
       return (data.items || []).map((s: Record<string, unknown>) => ({
         id: s.id as string,
         name: s.name as string,

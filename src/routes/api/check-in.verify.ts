@@ -1,56 +1,48 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createPB, escapeFilterValue } from "@/lib/pb";
-import { requireAuth } from "@/lib/auth";
+import { requireRole, AuthError } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 import { checkInRegistration } from "@/lib/registration-service";
+import { getField } from '@/lib/safe-get';
+import { requireEventScope } from "@/lib/chair-scope";
+import { z } from 'zod';
+import { verifySameOrigin } from "@/lib/verify-same-origin";
 
 export const Route = createFileRoute("/api/check-in/verify")({
   server: {
     handlers: {
       POST: async ({ request }) => {
         try {
+          const contentType = request.headers.get('content-type') || '';
+          if (!contentType.includes('application/json') && !contentType.includes('multipart/form-data') && request.method !== 'GET') {
+            return Response.json({ error: 'Unsupported media type' }, { status: 415 });
+          }
           const pb = createPB(request.headers.get("cookie") || undefined);
-          await requireAuth(pb);
+          verifySameOrigin(request);
+          const { user } = await requireRole(["admin","chair"], pb);
 
-          const { ticketId, eventId } = (await request.json()) as {
-            ticketId?: string;
-            eventId?: string;
-          };
-          if (!ticketId || !eventId) {
+          const BodySchema = z.object({
+            ticketId: z.string().min(1),
+            eventId: z.string().optional(),
+          });
+          const { ticketId, eventId } = BodySchema.parse(await request.json());
+          if (!ticketId) {
             return Response.json(
-              { error: "Missing required fields" },
+              { error: "Missing required field: ticketId" },
               { status: 400 },
             );
           }
 
-          const event = await pb
-            .collection("events")
-            .getOne(eventId, { fields: "id,society,checkInEnabled" })
-            .catch(() => null);
-          if (!event) {
-            return Response.json({ error: "Event not found" }, { status: 404 });
-          }
-
-          const eventR = event as unknown as Record<string, unknown>;
-          if (!eventR.checkInEnabled) {
-            return Response.json(
-              { error: "Check-in is not enabled for this event" },
-              { status: 400 },
-            );
-          }
+          // Lookup registration by ticket ID (optionally scoped to event)
+          const filter = eventId
+            ? `event = ${escapeFilterValue(eventId)} && (ticketId = ${escapeFilterValue(ticketId)} || paymentTicketId = ${escapeFilterValue(ticketId)})`
+            : `ticketId = ${escapeFilterValue(ticketId)} || paymentTicketId = ${escapeFilterValue(ticketId)}`;
 
           const registration = await pb
             .collection("registrations")
-            .getFirstListItem(
-              "event = " +
-                escapeFilterValue(eventId) +
-                " && (ticketId = " +
-                escapeFilterValue(ticketId) +
-                " || paymentTicketId = " +
-                escapeFilterValue(ticketId) +
-                ")",
-              { fields: "id,registrationStatus,checkedIn" },
-            )
+            .getFirstListItem(filter, {
+              fields: "id,event,registrationStatus,checkedIn,userName",
+            })
             .catch(() => null);
 
           if (!registration) {
@@ -60,15 +52,44 @@ export const Route = createFileRoute("/api/check-in/verify")({
             );
           }
 
-          const regR = registration as unknown as Record<string, unknown>;
 
-          if (regR.registrationStatus !== "confirmed") {
+          // Derive eventId from registration if not provided
+            const resolvedEventId = eventId || getField(registration, 'event', '');
+          try {
+            await requireEventScope(pb, user, resolvedEventId);
+          } catch (e) {
+            throw new AuthError(e instanceof Error ? e.message : "Forbidden", 403);
+          }
+          if (!resolvedEventId) {
+            return Response.json(
+              { error: "Could not determine event" },
+              { status: 400 },
+            );
+          }
+
+          // Verify event exists and has check-in enabled
+          const event = await pb
+            .collection("events")
+            .getOne(resolvedEventId, { fields: "id,checkInEnabled" })
+            .catch(() => null);
+          if (!event) {
+            return Response.json({ error: "Event not found" }, { status: 404 });
+          }
+
+          if (!event.checkInEnabled) {
+            return Response.json(
+              { error: "Check-in is not enabled for this event" },
+              { status: 400 },
+            );
+          }
+
+          if (getField<string>(registration, 'registrationStatus', '') !== "confirmed") {
             return Response.json(
               { error: "Registration is not confirmed" },
               { status: 400 },
             );
           }
-          if (regR.checkedIn) {
+          if (getField(registration, 'checkedIn', false)) {
             return Response.json({
               error: "Already checked in",
               registrationId: registration.id,
@@ -79,6 +100,7 @@ export const Route = createFileRoute("/api/check-in/verify")({
           return Response.json({
             success: true,
             registrationId: registration.id,
+            userName: getField(registration, 'userName', '') as string | undefined,
           });
         } catch (error) {
           return handleError(error, "check-in-verify");

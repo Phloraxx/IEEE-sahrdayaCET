@@ -3,26 +3,8 @@ import { createPB } from "@/lib/pb";
 import { requireRole } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 import { parseFormData } from "@/lib/parse-form-data";
-import { z } from "zod";
-
-const ExecomUpdateSchema = z
-  .object({
-    name: z.string(),
-    position: z.string(),
-    department: z.string(),
-    batch: z.string(),
-    section: z.string(),
-    sectionId: z.string(),
-    order: z.number(),
-    photo: z.any(),
-    linkedin: z.string(),
-    instagram: z.string(),
-    email: z.string(),
-    phone: z.string(),
-    society: z.string(),
-  })
-  .partial();
-
+import { ExecomUpdateSchema } from "@/schemas/execom";
+import { verifySameOrigin } from "@/lib/verify-same-origin";
 export const Route = createFileRoute("/api/admin/execom/$id")({
   server: {
     handlers: {
@@ -33,16 +15,24 @@ export const Route = createFileRoute("/api/admin/execom/$id")({
           await requireRole(["admin", "chair"], pb);
           const member = await pb
             .collection("execom")
-            .getOne(id, { expand: "society" });
-          return Response.json({ member });
+            .getOne(id, {
+              expand: "society",
+              fields: "id,name,position,department,batch,section,sectionId,order,photo,linkedin,instagram,email,phone,society,created,updated",
+            });
+          return Response.json({ member }, { headers: { 'Cache-Control': 'private, max-age=30, s-maxage=60' } });
         } catch (error) {
           return handleError(error, "admin-execom-get");
         }
       },
       PUT: async ({ request, params }) => {
         try {
+          const contentType = request.headers.get('content-type') || '';
+          if (!contentType.includes('application/json') && !contentType.includes('multipart/form-data') && request.method !== 'GET') {
+            return Response.json({ error: 'Unsupported media type' }, { status: 415 });
+          }
           const { id } = params;
           const pb = createPB(request.headers.get("cookie") || undefined);
+          verifySameOrigin(request);
           const { user } = await requireRole(["admin", "chair"], pb);
           if (user.role !== "admin")
             return Response.json(
@@ -59,8 +49,13 @@ export const Route = createFileRoute("/api/admin/execom/$id")({
       },
       DELETE: async ({ request, params }) => {
         try {
+          const contentType = request.headers.get('content-type') || '';
+          if (!contentType.includes('application/json') && !contentType.includes('multipart/form-data') && request.method !== 'GET') {
+            return Response.json({ error: 'Unsupported media type' }, { status: 415 });
+          }
           const { id } = params;
           const pb = createPB(request.headers.get("cookie") || undefined);
+          verifySameOrigin(request);
           const { user } = await requireRole(["admin", "chair"], pb);
           if (user.role !== "admin")
             return Response.json(

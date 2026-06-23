@@ -1,17 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB, escapeFilterValue } from "@/lib/pb";
-import { requireRole } from "@/lib/auth";
+import { authenticateAdmin, buildChairFilter } from "@/lib/admin-middleware";
+import { escapeFilterValue } from "@/lib/pb";
 import { handleError } from "@/lib/api-error";
 import { parsePagination, buildFilter } from "@/lib/route-helpers";
-import { z } from "zod";
+import { verifySameOrigin } from "@/lib/verify-same-origin";
+import { EventCreateSchema } from "@/schemas/events";
+import { getField, getExpand } from "@/lib/safe-get";
 
 export const Route = createFileRoute("/api/admin/events")({
   server: {
     handlers: {
       GET: async ({ request }) => {
         try {
-          const pb = createPB(request.headers.get("cookie") || undefined);
-          await requireRole(["admin", "chair"], pb);
+          const ctx = await authenticateAdmin();
           const url = new URL(request.url);
 
           const { page, perPage } = parsePagination(url, {
@@ -25,9 +26,11 @@ export const Route = createFileRoute("/api/admin/events")({
           if (status && status !== "all")
             baseParts.push(`status = ${escapeFilterValue(status)}`);
           if (search) baseParts.push(`title ~ ${escapeFilterValue(search)}`);
+          const eventScope = await buildChairFilter(ctx, 'event');
+          if (eventScope) baseParts.unshift(eventScope);
           const filter = buildFilter(baseParts);
 
-          const result = await pb.collection("events").getList(page, perPage, {
+          const result = await ctx.pb.collection("events").getList(page, perPage, {
             filter: filter || undefined,
             sort: "-date",
             expand: "society",
@@ -36,26 +39,23 @@ export const Route = createFileRoute("/api/admin/events")({
           });
 
           const events = result.items.map((e) => {
-            const r = e as unknown as Record<string, unknown>;
-            const expand = r.expand as Record<string, unknown> | undefined;
-            const society = expand?.society as
-              | Record<string, unknown>
-              | undefined;
+            const expand = getExpand(e);
+            const society = expand?.society;
             return {
-              id: r.id,
-              title: r.title,
-              date: r.date,
-              endDate: r.endDate,
-              venue: r.venue,
-              price: r.price,
-              status: r.status,
-              registrationOpen: r.registrationOpen,
-              maxCapacity: r.maxCapacity,
-              registeredCount: r.registeredCount,
-              checkedInCount: r.checkedInCount,
-              isPaid: Number(r.price) > 0,
-              societyName: society?.name || "",
-              societyId: society?.id || "",
+              id: getField(e, 'id', ''),
+              title: getField(e, 'title', ''),
+              date: getField(e, 'date', ''),
+              endDate: getField(e, 'endDate', ''),
+              venue: getField(e, 'venue', ''),
+              price: getField(e, 'price', 0),
+              status: getField(e, 'status', ''),
+              registrationOpen: getField(e, 'registrationOpen', false),
+              maxCapacity: getField(e, 'maxCapacity', 0),
+              registeredCount: getField(e, 'registeredCount', 0),
+              checkedInCount: getField(e, 'checkedInCount', 0),
+              isPaid: Number(getField(e, 'price', 0)) > 0,
+              societyName: getField(society, 'name', ''),
+              societyId: getField(society, 'id', ''),
             };
           });
 
@@ -64,45 +64,39 @@ export const Route = createFileRoute("/api/admin/events")({
             total: result.totalItems,
             page: result.page,
             perPage: result.perPage,
-          });
+            hasMore: result.totalPages > result.page,
+          }, { headers: { 'Cache-Control': 'private, max-age=30, s-maxage=60' } });
         } catch (error) {
           return handleError(error, "admin-events-list");
         }
       },
       POST: async ({ request }) => {
         try {
-          const pb = createPB(request.headers.get("cookie") || undefined);
-          await requireRole(["admin", "chair"], pb);
-
-          const EventCreateSchema = z.object({
-            title: z.string().min(1),
-            description: z.string().optional().default(""),
-            date: z.string().min(1),
-            endDate: z.string().optional(),
-            venue: z.string().optional().default(""),
-            price: z.number().min(0).default(0),
-            status: z
-              .enum(["draft", "published", "completed", "cancelled"])
-              .default("draft"),
-            society: z.string().min(1),
-            maxCapacity: z.number().int().positive().optional(),
-            registrationOpen: z.boolean().default(false),
-            registrationStart: z.string().optional(),
-            registrationDeadline: z.string().optional(),
-            formTemplate: z.array(z.record(z.string(), z.unknown())).optional(),
-            banner: z.string().optional(),
-            checkInEnabled: z.boolean().default(false),
-            collectIeeeMember: z.boolean().default(false),
-            contactEmail: z.string().optional(),
-            contactPhone: z.string().optional(),
-            coupons: z.array(z.record(z.string(), z.unknown())).optional(),
-            externalLink: z.string().optional(),
-            externalFormUrl: z.string().optional(),
-            tags: z.string().optional(),
-          });
+          const contentType = request.headers.get('content-type') || '';
+          if (!contentType.includes('application/json') && !contentType.includes('multipart/form-data') && request.method !== 'GET') {
+            return Response.json({ error: 'Unsupported media type' }, { status: 415 });
+          }
+          verifySameOrigin(request);
+          const ctx = await authenticateAdmin();
 
           const parsed = EventCreateSchema.parse(await request.json());
-          const event = await pb.collection("events").create(parsed);
+
+          // Chair scoping: chairs can only create events for their own societies
+          if (ctx.role === "chair") {
+            const allowed = await ctx.pb.collection("societies").getFullList({
+              filter: `chairs ?= ${escapeFilterValue(ctx.userId)}`,
+              fields: "id",
+            });
+            const allowedIds = allowed.map((s: Record<string, unknown>) => s.id);
+            if (!allowedIds.includes(parsed.society)) {
+              return Response.json(
+                { error: "You can only create events for your own society" },
+                { status: 403 },
+              );
+            }
+          }
+
+          const event = await ctx.pb.collection("events").create(parsed);
           return Response.json({ event }, { status: 201 });
         } catch (error) {
           return handleError(error, "admin-events-create");

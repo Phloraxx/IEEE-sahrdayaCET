@@ -1,28 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB, escapeFilterValue } from "@/lib/pb";
-import { requireRole } from "@/lib/auth";
+import { authenticateAdmin } from "@/lib/admin-middleware";
+import { escapeFilterValue } from "@/lib/pb";
 import { handleError } from "@/lib/api-error";
 import { parseFormData } from "@/lib/parse-form-data";
 import { parsePagination, buildFilter } from "@/lib/route-helpers";
-import { z } from "zod";
-
-const SocietyCreateSchema = z.object({
-  name: z.string().min(1),
-  slug: z.string().min(1),
-  bio: z.string().optional(),
-  chairs: z.array(z.string()).optional(),
-  isHidden: z.boolean().optional(),
-  logo: z.any().optional(),
-  banner: z.any().optional(),
-});
+import { SocietyCreateSchema } from "@/schemas/societies";
+import { verifySameOrigin } from "@/lib/verify-same-origin";
 
 export const Route = createFileRoute("/api/admin/societies")({
   server: {
     handlers: {
       GET: async ({ request }) => {
         try {
-          const pb = createPB(request.headers.get("cookie") || undefined);
-          await requireRole(["admin", "chair"], pb);
+          const ctx = await authenticateAdmin();
           const url = new URL(request.url);
           const { page, perPage } = parsePagination(url, {
             defaultPerPage: 100,
@@ -34,38 +24,13 @@ export const Route = createFileRoute("/api/admin/societies")({
             : "";
           const filter = buildFilter([searchFilter]);
 
-          const result = await pb
+          const result = await ctx.pb
             .collection("societies")
             .getList(page, perPage, {
               filter: filter || undefined,
               sort: "name",
+              fields: "id,name,slug,bio,isHidden,chairs",
             });
-
-          const societyIds = result.items.map((s) => s.id);
-          const eventsCountBySociety = new Map<string, number>();
-          if (societyIds.length > 0) {
-            const eventsFilter = societyIds
-              .map((id) => `society = ${escapeFilterValue(id)}`)
-              .join(" || ");
-            try {
-              const events = await pb
-                .collection("events")
-                .getFullList<{ society: string }>({
-                  filter: eventsFilter,
-                  fields: "society",
-                });
-              for (const e of events) {
-                const sid = e.society as string;
-                eventsCountBySociety.set(
-                  sid,
-                  (eventsCountBySociety.get(sid) || 0) + 1,
-                );
-              }
-            } catch {
-              /* best-effort */
-            }
-          }
-
           const societies = result.items.map((s: Record<string, unknown>) => ({
             id: s.id,
             name: s.name,
@@ -73,7 +38,8 @@ export const Route = createFileRoute("/api/admin/societies")({
             bio: s.bio,
             isHidden: !!s.isHidden,
             chairs: (s.chairs as string[]) || [],
-            eventsCount: eventsCountBySociety.get(s.id as string) || 0,
+            // events count removed for performance — use dedicated events admin page
+            eventsCount: 0,
           }));
 
           return Response.json({
@@ -81,23 +47,28 @@ export const Route = createFileRoute("/api/admin/societies")({
             total: result.totalItems,
             page: result.page,
             perPage: result.perPage,
-          });
+            hasMore: false,
+          }, { headers: { 'Cache-Control': 'private, max-age=30, s-maxage=60' } });
         } catch (error) {
           return handleError(error, "admin-societies-list");
         }
       },
       POST: async ({ request }) => {
         try {
-          const pb = createPB(request.headers.get("cookie") || undefined);
-          const { user } = await requireRole(["admin", "chair"], pb);
-          if (user.role !== "admin")
+          const contentType = request.headers.get('content-type') || '';
+          if (!contentType.includes('application/json') && !contentType.includes('multipart/form-data') && request.method !== 'GET') {
+            return Response.json({ error: 'Unsupported media type' }, { status: 415 });
+          }
+          verifySameOrigin(request);
+          const ctx = await authenticateAdmin();
+          if (ctx.role !== "admin")
             return Response.json(
               { error: "Only admins can create societies" },
               { status: 403 },
             );
           const body = await parseFormData(request);
           const parsed = SocietyCreateSchema.parse(body);
-          const society = await pb.collection("societies").create(parsed);
+          const society = await ctx.pb.collection("societies").create(parsed);
           return Response.json({ society }, { status: 201 });
         } catch (error) {
           return handleError(error, "admin-societies-create");

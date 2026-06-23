@@ -12,6 +12,10 @@ export const Route = createFileRoute("/api/events/validate-coupon")({
     handlers: {
       POST: async ({ request }) => {
         try {
+          const contentType = request.headers.get('content-type') || '';
+          if (!contentType.includes('application/json') && !contentType.includes('multipart/form-data') && request.method !== 'GET') {
+            return Response.json({ error: 'Unsupported media type' }, { status: 415 });
+          }
           const pb = createPB(request.headers.get("cookie") || undefined);
           await requireAuth(pb);
 
@@ -34,8 +38,7 @@ export const Route = createFileRoute("/api/events/validate-coupon")({
             valid: true,
             coupon: {
               code: coupon.code,
-              discountType: coupon.discountType,
-              discountValue: coupon.discountValue,
+              discountPercent: coupon.discountPercent,
               discountAmount,
               finalPrice,
             },

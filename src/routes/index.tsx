@@ -1,6 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
-import type { Member, Society } from '@/types'
-import { buildFileUrl } from '@/lib/pb'
+import { getField } from '@/lib/safe-get';
+import type { Society } from '@/types'
+import { createPB, buildFileUrl } from '@/lib/pb'
+import { APP_URL } from "@/lib/constants";
 import Navbar from '@/components/Navbar'
 import { Hero } from '@/components/Hero'
 import { GridBackground } from '@/components/GridBackground'
@@ -13,138 +15,111 @@ import Footer from '@/components/Footer'
 import { FloatingAction } from '@/components/FloatingAction'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 
-interface ExecomDoc extends Record<string, unknown> {
-  photo?: string
-  linkedin?: string
-  email?: string
-  phone?: string
-}
 
-const POSITION_TAGLINES: Record<string, string> = {
-  'Branch Counselor': 'GUIDING LIGHT',
-  'Chairperson': 'LEADING THE CHARGE',
-  'Vice Chair': 'VISION & STRATEGY',
-  'Secretary': 'KEEPING IT TOGETHER',
-  'Joint Secretary': 'BRIDGING THE GAP',
-  'Treasurer': 'NUMBERS & BEYOND',
-  'Web Master': 'DIGITAL ARCHITECT',
-  'MDC': 'MEMBERSHIP DRIV',
-  'ECC': 'ELECTRONIC & COMM',
-  'Technical Coordinator': 'TECH WIZARD',
-  'Link Rep': 'LINKING MINDS',
-}
 
 interface HomeData {
   latestEvent: {
     id: string
     title: string
-    shortTitle?: string
     description: string
     date: string
     bannerUrl: string
-    tag: string
   } | null
-  coreMembers: Member[]
   societies: Society[]
   eventItems: Array<{ id: string; bannerUrl: string; title: string }>
 }
 
 export const Route = createFileRoute('/')({
-  head: () => ({
+  head: ({ loaderData }) => ({
     meta: [
       {
-        title: 'IEEE Sahrdaya Student Branch — Home',
+        title: 'Home | IEEE Sahrdaya Student Branch',
       },
       {
         name: 'description',
         content:
           'Official IEEE Sahrdaya Student Branch — technical events, workshops, societies & execom directory. Sahrdaya College of Engineering, Thrissur, Kerala.',
       },
+      { property: 'og:title', content: 'Home | IEEE Sahrdaya Student Branch' },
+      {
+        property: 'og:description',
+        content:
+          'Official IEEE Sahrdaya Student Branch — technical events, workshops, societies & execom directory. Sahrdaya College of Engineering, Thrissur, Kerala.',
+      },
+      { property: 'og:image', content: `${APP_URL}/web.png` },
+      { property: 'og:image:width', content: '1200' },
+      { property: 'og:image:height', content: '630' },
+      { property: 'og:url', content: `${APP_URL}/` },
     ],
-    links: [{ rel: 'canonical', href: '/' }],
+    links: [
+      { rel: 'canonical', href: '/' },
+      ...(loaderData?.latestEvent?.bannerUrl
+        ? [{ rel: 'preload', as: 'image', href: loaderData.latestEvent.bannerUrl }]
+        : []),
+    ],
   }),
-  loader: async (): Promise<HomeData> => {
-    const PB_URL = process.env.POCKETBASE_URL
-    if (!PB_URL) throw new Error('Missing POCKETBASE_URL')
+  loader: async ({ context }: { context: { response: { headers: Headers } } }): Promise<HomeData> => {
+    try {
+      context.response.headers.set('Cache-Control', 'public, max-age=300');
+      const pb = createPB();
+      const [eventsResult, societiesRes] = await Promise.allSettled([
+        pb.collection("events").getList(1, 20, {
+          filter: 'status="published"',
+          sort: "-date",
+          skipTotal: true,
+          fields: "id,title,description,date,banner",
+        }),
+        pb.collection("societies").getList(1, 200, {
+          skipTotal: true,
+          fields: "id,name,slug,logo",
+        }),
+      ]);
 
-    const [eventsResult, eventsAllResult, execomResult, societiesRes] = await Promise.allSettled([
-      fetch(
-        `${PB_URL}/api/collections/events/records?perPage=1&filter=${encodeURIComponent('status="published"')}&sort=date&expand=society&skipTotal=1&fields=id,title,description,date,short_title,banner,event_type`,
-      ).then((r) => (r.ok ? r.json() : null)),
-      fetch(
-        `${PB_URL}/api/collections/events/records?perPage=20&filter=${encodeURIComponent('status="published"')}&sort=-date&skipTotal=1&fields=id,title,banner`,
-      ).then((r) => (r.ok ? r.json() : null)),
-      fetch(
-        `${PB_URL}/api/collections/execom/records?perPage=20&filter=${encodeURIComponent('sectionId="core"')}&sort=order&skipTotal=1&fields=id,order,name,position,photo,linkedin,email,phone`,
-      ).then((r) => (r.ok ? r.json() : null)),
-      fetch(`${PB_URL}/api/collections/societies/records?skipTotal=1&fields=id,name,slug,logo`).then(
-        (r) => r.json(),
-      ),
-    ])
+      const societies: Society[] =
+        societiesRes.status === "fulfilled"
+          ? (societiesRes.value.items || []).map((s: Record<string, unknown>) => ({
+              id: getField(s, 'id', ''),
+              name: getField(s, 'name', ''),
+              slug: getField(s, 'slug', ''),
+              logoUrl: s.logo ? buildFileUrl("societies", getField(s, 'id', ''), getField(s, 'logo', '')) : undefined,
+            }))
+          : [];
 
-    const societies: Society[] =
-      societiesRes.status === 'fulfilled'
-        ? (societiesRes.value.items || []).map((s: Record<string, unknown>) => ({
-            id: s.id as string,
-            name: s.name as string,
-            slug: s.slug as string,
-            logoUrl: s.logo ? buildFileUrl('societies', s.id as string, s.logo as string) : undefined,
-          }))
-        : []
+      const latestEvent =
+        eventsResult.status === "fulfilled" && eventsResult.value?.items?.[0]
+          ? (() => {
+              const ev = eventsResult.value.items[0];
+              return {
+                id: getField(ev, 'id', ''),
+                title: getField(ev, 'title', ''),
+                description: getField(ev, 'description', 'Join us for this exciting IEEE event!'),
+                date: getField(ev, 'date', ''),
+                bannerUrl: ev.banner ? buildFileUrl("events", getField(ev, 'id', ''), getField(ev, 'banner', '')) : "",
+              };
+            })()
+          : null;
 
-    const latestEvent =
-      eventsResult.status === 'fulfilled' && eventsResult.value?.items?.[0]
-        ? (() => {
-            const ev = eventsResult.value.items[0] as Record<string, unknown>
-            return {
-              id: ev.id as string,
-              title: ev.title as string,
-              shortTitle: ev.short_title as string | undefined,
-              description: (ev.description as string) || 'Join us for this exciting IEEE event!',
-              date: ev.date as string,
-              bannerUrl: ev.banner ? buildFileUrl('events', ev.id as string, ev.banner as string) : '',
-              tag: (ev.event_type as string) || 'UPCOMING EVENT',
-            }
-          })()
-        : null
+      const eventItems: Array<{ id: string; bannerUrl: string; title: string }> =
+        eventsResult.status === "fulfilled" && eventsResult.value?.items
+          ? eventsResult.value.items.slice(0, 20).map((ev) => ({
+              id: getField(ev, 'id', ''),
+              title: getField(ev, 'title', ''),
+              bannerUrl: ev.banner
+                ? buildFileUrl("events", getField(ev, 'id', ''), getField(ev, 'banner', ''))
+                : "",
+            }))
+          : [];
 
-    const eventItems: Array<{ id: string; bannerUrl: string; title: string }> =
-      eventsAllResult.status === 'fulfilled' && eventsAllResult.value?.items
-        ? (eventsAllResult.value.items as Record<string, unknown>[]).map((ev) => ({
-            id: ev.id as string,
-            title: (ev.title as string) || '',
-            bannerUrl: ev.banner
-              ? buildFileUrl('events', ev.id as string, ev.banner as string)
-              : '',
-          }))
-        : []
-
-    const coreMembers: Member[] =
-      execomResult.status === 'fulfilled' && execomResult.value
-        ? (execomResult.value.items || []).map((raw: Record<string, unknown>) => {
-            const doc = raw as ExecomDoc
-            const pos = (doc.position as string) || ''
-            return {
-              name: doc.name as string,
-              role: pos,
-              tagline: (POSITION_TAGLINES as Record<string, string>)[pos] || pos.toUpperCase(),
-              image: doc.photo
-                ? buildFileUrl('execom', doc.id as string, doc.photo)
-                : '/placeholder-person.jpg',
-              linkedin: doc.linkedin,
-              email: doc.email,
-              phone: doc.phone,
-            }
-          })
-        : []
-
-    return { latestEvent, coreMembers, societies, eventItems }
+      return { latestEvent, societies, eventItems };
+    } catch {
+      return { latestEvent: null, societies: [], eventItems: [] };
+    }
   },
   component: Home,
 })
 
 function Home() {
-  const { latestEvent, coreMembers, societies, eventItems } = Route.useLoaderData()
+  const { latestEvent, societies, eventItems: _eventItems } = Route.useLoaderData()
 
   return (
     <div className="relative w-full bg-white text-gray-900 font-sans selection:bg-ieee-blue/20">
@@ -159,8 +134,8 @@ function Home() {
       <ErrorBoundary>
         <div className="relative z-10 mt-[100dvh]">
           <WhatsHappening latestEvent={latestEvent} societies={societies} />
-          <Execom members={coreMembers} />
-          <EventsShowcase eventItems={eventItems} />
+          <Execom />
+          <EventsShowcase />
           <Footer />
         </div>
       </ErrorBoundary>

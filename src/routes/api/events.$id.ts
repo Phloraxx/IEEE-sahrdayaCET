@@ -2,11 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createPB, buildFileUrl } from "@/lib/pb";
 import { handleError } from "@/lib/api-error";
 import { ClientResponseError } from "pocketbase";
+import { getField, getExpand } from "@/lib/safe-get";
 
 export const Route = createFileRoute("/api/events/$id")({
   server: {
     handlers: {
-      GET: async ({ request, params }) => {
+      GET: async ({ request: _request, params }) => {
         try {
           const { id } = params;
           const pb = createPB();
@@ -17,45 +18,42 @@ export const Route = createFileRoute("/api/events/$id")({
               "id,title,description,date,endDate,venue,price,registrationOpen,registrationStart,registrationDeadline,maxCapacity,registeredCount,formTemplate,collectIeeeMember,externalFormUrl,externalLink,banner,status,isDeleted,society",
           });
 
-          const r = event as unknown as Record<string, unknown>;
 
-          if (r.isDeleted || (r.status && r.status !== "published")) {
+          if (event.isDeleted || (event.status && event.status !== "published")) {
             return Response.json({ error: "Event not found" }, { status: 404 });
           }
 
-          const expand = r.expand as Record<string, unknown> | undefined;
-          const society = expand?.society as
-            | Record<string, unknown>
-            | undefined;
-          const bannerFile = r.banner;
+          const expand = getExpand(event);
+          const society = expand?.society;
+          const bannerFile = event.banner;
           const bannerUrl = bannerFile
-            ? buildFileUrl("events", id, bannerFile as string)
+            ? buildFileUrl("events", id, getField(event, "banner", ""))
             : "";
 
           const result = {
             id: event.id,
-            title: r.title || "",
-            description: r.description || "",
-            date: r.date || "",
-            endDate: r.endDate || "",
-            venue: r.venue || "",
-            price: Number(r.price) || 0,
-            isPaid: Number(r.price) > 0,
-            registrationOpen: !!r.registrationOpen,
-            registrationStart: r.registrationStart || "",
-            registrationDeadline: r.registrationDeadline || "",
-            maxCapacity: Number(r.maxCapacity) || 0,
-            registeredCount: Number(r.registeredCount) || 0,
-            formTemplate: r.formTemplate || [],
-            collectIeeeMember: !!r.collectIeeeMember,
-            externalFormUrl: r.externalFormUrl || "",
-            externalLink: r.externalLink || "",
+            title: event.title || "",
+            description: event.description || "",
+            date: event.date || "",
+            endDate: event.endDate || "",
+            venue: event.venue || "",
+            price: Number(event.price) || 0,
+            isPaid: Number(event.price) > 0,
+            registrationOpen: !!event.registrationOpen,
+            registrationStart: event.registrationStart || "",
+            registrationDeadline: event.registrationDeadline || "",
+            maxCapacity: Number(event.maxCapacity) || 0,
+            registeredCount: Number(event.registeredCount) || 0,
+            formTemplate: event.formTemplate || [],
+            collectIeeeMember: !!event.collectIeeeMember,
+            externalFormUrl: event.externalFormUrl || "",
+            externalLink: event.externalLink || "",
             bannerUrl,
-            societyName: society?.name || "",
-            status: r.status || "",
+            societyName: getField(society, 'name', ''),
+            status: event.status || "",
           };
 
-          return Response.json({ event: result });
+          return Response.json({ event: result }, { headers: { 'Cache-Control': 'public, max-age=300' } });
         } catch (error) {
           if (error instanceof ClientResponseError && error.status === 404) {
             return Response.json({ error: "Event not found" }, { status: 404 });

@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createPB } from "@/lib/pb";
-import { requireRole } from "@/lib/auth";
+import { requireRole, AuthError } from "@/lib/auth";
+import { requireRegistrationScope } from "@/lib/chair-scope";
+import { AdminRegistrationUpdateSchema } from "@/schemas/admin-registrations";
 import { handleError } from "@/lib/api-error";
 import {
   checkInRegistration,
@@ -8,6 +10,8 @@ import {
   RegistrationError,
 } from "@/lib/registration-service";
 import { REGISTRATION_STATUS, PAYMENT_STATUS } from "@/lib/constants";
+import { verifySameOrigin } from "@/lib/verify-same-origin";
+import { getField, getExpand } from "@/lib/safe-get";
 
 export const Route = createFileRoute("/api/admin/registrations/$id")({
   server: {
@@ -16,51 +20,60 @@ export const Route = createFileRoute("/api/admin/registrations/$id")({
         try {
           const { id } = params;
           const pb = createPB(request.headers.get("cookie") || undefined);
-          await requireRole(["admin", "chair"], pb);
+          const { user } = await requireRole(["admin", "chair"], pb);
+          try {
+            await requireRegistrationScope(pb, user, id);
+          } catch (e) {
+            throw new AuthError(e instanceof Error ? e.message : "Forbidden", 403);
+          }
           const reg = await pb
             .collection("registrations")
             .getOne(id, { expand: "event" });
-          const r = reg as unknown as Record<string, unknown>;
-          const expand = r.expand as Record<string, unknown> | undefined;
-          const event = expand?.event as Record<string, unknown> | undefined;
+          const expand = getExpand(reg);
+          const event = expand?.event;
 
           return Response.json({
             registration: {
-              id: r.id,
-              userName: r.userName,
-              userEmail: r.userEmail,
-              userPhone: r.userPhone,
-              registrationStatus: r.registrationStatus,
-              paymentStatus: r.paymentStatus,
-              checkedIn: !!r.checkedIn,
-              checkedInAt: r.checkedInAt,
-              ticketId: r.ticketId,
-              amount: Number(r.amount) || 0,
-              couponCode: r.couponCode || "",
-              discountAmount: Number(r.discountAmount) || 0,
-              paymentData: r.paymentData || null,
-              formResponses: r.formResponses,
-              createdAt: r.created,
-              eventTitle: event?.title || "",
-              eventId: event?.id || "",
+              id: getField(reg, 'id', ''),
+              userName: getField(reg, 'userName', ''),
+              userEmail: getField(reg, 'userEmail', ''),
+              userPhone: getField(reg, 'userPhone', ''),
+              registrationStatus: getField(reg, 'registrationStatus', ''),
+              paymentStatus: getField(reg, 'paymentStatus', ''),
+              checkedIn: !!getField(reg, 'checkedIn', false),
+              checkedInAt: getField(reg, 'checkedInAt', null),
+              ticketId: getField(reg, 'ticketId', ''),
+              amount: Number(getField(reg, 'amount', 0)) || 0,
+              couponCode: getField(reg, 'couponCode', ''),
+              discountAmount: Number(getField(reg, 'discountAmount', 0)) || 0,
+              paymentData: getField(reg, 'paymentData', null),
+              formResponses: getField(reg, 'formResponses', null),
+              createdAt: getField(reg, 'created', ''),
+              eventTitle: getField(event, 'title', ''),
+              eventId: getField(event, 'id', ''),
             },
-          });
+          }, { headers: { 'Cache-Control': 'private, max-age=30, s-maxage=60' } });
         } catch (error) {
           return handleError(error, "admin-registrations-get");
         }
       },
       PUT: async ({ request, params }) => {
         try {
+          const contentType = request.headers.get('content-type') || '';
+          if (!contentType.includes('application/json') && !contentType.includes('multipart/form-data') && request.method !== 'GET') {
+            return Response.json({ error: 'Unsupported media type' }, { status: 415 });
+          }
           const { id } = params;
           const pb = createPB(request.headers.get("cookie") || undefined);
-          await requireRole(["admin", "chair"], pb);
+          verifySameOrigin(request);
+          const { user } = await requireRole(["admin", "chair"], pb);
+          try {
+            await requireRegistrationScope(pb, user, id);
+          } catch (e) {
+            throw new AuthError(e instanceof Error ? e.message : "Forbidden", 403);
+          }
 
-          const body = (await request.json().catch(() => ({}))) as {
-            checkedIn?: boolean;
-            registrationStatus?: string;
-            paymentStatus?: string;
-            amount?: number;
-          };
+          const body = AdminRegistrationUpdateSchema.parse(await request.json().catch(() => ({})));
 
           if (body.checkedIn === true) {
             await checkInRegistration(pb, id);

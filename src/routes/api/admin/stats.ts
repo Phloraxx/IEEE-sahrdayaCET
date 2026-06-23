@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB, escapeFilterValue } from "@/lib/pb";
-import { requireRole } from "@/lib/auth";
+import { authenticateAdmin, buildChairFilter } from "@/lib/admin-middleware";
+import { escapeFilterValue } from "@/lib/pb";
 import { handleError } from "@/lib/api-error";
+import { buildFilter } from "@/lib/route-helpers";
 import { toIso } from "@/lib/dates";
 import {
   UPCOMING_WINDOW_DAYS,
@@ -12,10 +13,12 @@ import {
 export const Route = createFileRoute("/api/admin/stats")({
   server: {
     handlers: {
-      GET: async ({ request }) => {
+      GET: async ({ request: _request }) => {
+
         try {
-          const pb = createPB(request.headers.get("cookie") || undefined);
-          await requireRole(["admin", "chair"], pb);
+          const ctx = await authenticateAdmin();
+          const eventScope = await buildChairFilter(ctx, 'event');
+          const registrationScope = await buildChairFilter(ctx, 'registration');
 
           const now = new Date();
           const nowIso = toIso(now);
@@ -36,7 +39,7 @@ export const Route = createFileRoute("/api/admin/stats")({
             col: "events" | "registrations" | "execom" | "societies",
             filter?: string,
           ) => {
-            const r = await pb
+            const r = await ctx.pb
               .collection(col)
               .getList(1, 1, { filter: filter || undefined, fields: "id" });
             return r.totalItems;
@@ -56,26 +59,26 @@ export const Route = createFileRoute("/api/admin/stats")({
             societiesTotal,
             societiesActive,
           ] = await Promise.all([
-            count("events"),
-            count("events", `status = 'published'`),
+            count("events", buildFilter([eventScope])),
+            count("events", buildFilter([eventScope, `status = 'published'`])),
             count(
               "events",
-              `date > ${escapeFilterValue(nowIso)} && date <= ${escapeFilterValue(futureIso)} && status = 'published'`,
+              buildFilter([eventScope, `date > ${escapeFilterValue(nowIso)} && date <= ${escapeFilterValue(futureIso)} && status = 'published'`]),
             ),
             count(
               "events",
-              `date <= ${escapeFilterValue(nowIso)} && endDate >= ${escapeFilterValue(nowIso)} && status = 'published'`,
+              buildFilter([eventScope, `date <= ${escapeFilterValue(nowIso)} && endDate >= ${escapeFilterValue(nowIso)} && status = 'published'`]),
             ),
             count(
               "events",
-              `endDate > ${escapeFilterValue(pastIso)} && endDate < ${escapeFilterValue(nowIso)}`,
+              buildFilter([eventScope, `endDate > ${escapeFilterValue(pastIso)} && endDate < ${escapeFilterValue(nowIso)}`]),
             ),
-            count("registrations"),
-            count("registrations", `registrationStatus = 'confirmed'`),
-            count("registrations", `registrationStatus = 'pending'`),
+            count("registrations", buildFilter([registrationScope])),
+            count("registrations", buildFilter([registrationScope, `registrationStatus = 'confirmed'`])),
+            count("registrations", buildFilter([registrationScope, `registrationStatus = 'pending'`])),
             count(
               "registrations",
-              `registrationDate >= ${escapeFilterValue(startOfToday)} && registrationDate < ${escapeFilterValue(endOfToday)}`,
+              buildFilter([registrationScope, `registrationDate >= ${escapeFilterValue(startOfToday)} && registrationDate < ${escapeFilterValue(endOfToday)}`]),
             ),
             count("execom"),
             count("societies"),
@@ -98,7 +101,7 @@ export const Route = createFileRoute("/api/admin/stats")({
             },
             execom: { total: execomTotal },
             societies: { total: societiesTotal, active: societiesActive },
-          });
+          }, { headers: { 'Cache-Control': 'private, max-age=30, s-maxage=60' } });
         } catch (error) {
           return handleError(error, "admin-stats");
         }

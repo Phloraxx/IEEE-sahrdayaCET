@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { pbFetch, buildFileUrl } from "@/lib/pb";
+import { createPB, buildFileUrl } from "@/lib/pb";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import EventsPageClient from "@/app/(main)/events/EventsPageClient";
+import { APP_URL } from "@/lib/constants";
+import EventsPageClient from "@/features/events/EventsPageClient";
 import type { EventWithSociety } from "@/types";
+import { getField, getExpand } from '@/lib/safe-get';
 
 interface EventItem {
   id: string;
@@ -28,65 +30,74 @@ interface EventItem {
 export const Route = createFileRoute("/events")({
   head: () => ({
     meta: [
-      { title: "Events" },
+      { title: "Events | IEEE Sahrdaya Student Branch" },
       {
         name: "description",
         content:
+          "Browse upcoming IEEE Sahrdaya events — workshops, hackathons, seminars, conferences and more. Explore technical events from 14 IEEE societies.",
+      },
+      { property: "og:title", content: "Events | IEEE Sahrdaya Student Branch" },
+      {
+        property: "og:description",
+        content:
           "Browse upcoming IEEE Sahrdaya events — workshops, hackathons, seminars, conferences and more.",
       },
+      { property: "og:url", content: `${APP_URL}/events` },
+      { property: "og:image", content: `${APP_URL}/web.png` },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
     ],
     links: [{ rel: "canonical", href: "/events" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        innerHTML: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "Home", item: APP_URL },
+            { "@type": "ListItem", position: 2, name: "Events", item: `${APP_URL}/events` },
+          ],
+        }),
+      },
+    ],
   }),
-  loader: async (): Promise<EventItem[]> => {
-    const PB_URL = process.env.POCKETBASE_URL;
-    if (!PB_URL) throw new Error("Missing POCKETBASE_URL");
-
+  loader: async ({ context }: { context: { response: { headers: Headers } } }): Promise<EventItem[]> => {
     try {
-      const result = await pbFetch<{ items: Record<string, unknown>[] }>(
-        `${PB_URL}/api/collections/events/records?perPage=20&filter=${encodeURIComponent('status="published"')}&sort=date&expand=society&skipTotal=1&fields=id,title,description,date,endDate,venue,price,banner,status,registrationOpen,maxCapacity,registeredCount,externalFormUrl,collectIeeeMember`,
-      );
-      return (result?.items || []).map((raw: Record<string, unknown>) => {
-        const expand = raw.expand as Record<string, unknown> | undefined;
-        const societyData = (
-          raw.society && typeof raw.society === "object"
-            ? raw.society
-            : expand?.society
-        ) as Record<string, unknown> | undefined;
-        const society = societyData
-          ? {
-              id: societyData.id as string,
-              name: societyData.name as string,
-              slug: societyData.slug as string,
-              logoUrl: societyData.logo
-                ? buildFileUrl(
-                    "societies",
-                    societyData.id as string,
-                    societyData.logo as string,
-                  )
-                : "",
-            }
-          : undefined;
-        const price = Number(raw.price) || 0;
+      context.response.headers.set('Cache-Control', 'public, max-age=300');
+      const pb = createPB();
+      const result = await pb.collection("events").getList(1, 20, {
+        filter: 'status="published"',
+        sort: "date",
+        expand: "society",
+        skipTotal: true,
+        fields: "id,title,description,date,endDate,venue,price,banner,status,registrationOpen,maxCapacity,registeredCount,externalFormUrl,collectIeeeMember",
+      });
+      return (result.items || []).map((raw: Record<string, unknown>) => {
+        const expand = getExpand(raw);
+        const societyRaw = raw.society && typeof raw.society === 'object' ? raw.society : expand?.society;
+        const society = societyRaw ? { id: getField(societyRaw, 'id', ''), name: getField(societyRaw, 'name', ''), slug: getField(societyRaw, 'slug', ''), logoUrl: getField(societyRaw, 'logo', '') ? buildFileUrl('societies', getField(societyRaw, 'id', ''), getField(societyRaw, 'logo', '')) : '' } : undefined;
+        const price = Number(getField(raw, 'price', 0)) || 0;
         return {
-          id: raw.id as string,
-          createdAt: (raw.created as string) || "",
-          updatedAt: (raw.updated as string) || "",
-          title: (raw.title as string) || "",
-          description: (raw.description as string) || "",
-          date: (raw.date as string) || "",
-          endDate: (raw.endDate as string) || "",
-          venue: (raw.venue as string) || "",
+          id: getField(raw, 'id', ''),
+          createdAt: getField(raw, 'created', ''),
+          updatedAt: getField(raw, 'updated', ''),
+          title: getField(raw, 'title', ''),
+          description: getField(raw, 'description', ''),
+          date: getField(raw, 'date', ''),
+          endDate: getField(raw, 'endDate', ''),
+          venue: getField(raw, 'venue', ''),
           price,
           isPaid: price > 0,
-          bannerUrl: raw.banner
-            ? buildFileUrl("events", raw.id as string, raw.banner as string)
+          bannerUrl: getField(raw, 'banner', '')
+            ? buildFileUrl("events", getField(raw, 'id', ''), getField(raw, 'banner', ''))
             : "",
-          status: (raw.status as string) || "published",
-          registrationOpen: !!raw.registrationOpen,
-          maxCapacity: (raw.maxCapacity as number) || 0,
-          registeredCount: (raw.registeredCount as number) || 0,
-          externalFormUrl: (raw.externalFormUrl as string) || undefined,
-          collectIeeeMember: !!raw.collectIeeeMember,
+          status: getField(raw, 'status', 'published'),
+          registrationOpen: !!getField(raw, 'registrationOpen', false),
+          maxCapacity: getField(raw, 'maxCapacity', 0),
+          registeredCount: getField(raw, 'registeredCount', 0),
+          externalFormUrl: getField(raw, 'externalFormUrl', '') || undefined,
+          collectIeeeMember: !!getField(raw, 'collectIeeeMember', false),
           society,
         };
       });
@@ -99,9 +110,33 @@ export const Route = createFileRoute("/events")({
 
 function EventsPage() {
   const initialEvents = Route.useLoaderData();
+  const appUrl = typeof window !== 'undefined' ? window.location.origin : APP_URL;
+  const itemListSchema = initialEvents.length > 0 ? {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    itemListElement: initialEvents.slice(0, 20).map((ev, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      url: `${appUrl}/events`,
+      name: ev.title,
+    })),
+  } : null;
   return (
-    <ErrorBoundary>
-      <EventsPageClient initialEvents={initialEvents as EventWithSociety[]} />
-    </ErrorBoundary>
+    <>
+      {itemListSchema && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(itemListSchema)
+              .replace(/</g, '\\u003c')
+              .replace(/>/g, '\\u003e')
+              .replace(/&/g, '\\u0026'),
+          }}
+        />
+      )}
+      <ErrorBoundary>
+        <EventsPageClient initialEvents={initialEvents as EventWithSociety[]} />
+      </ErrorBoundary>
+    </>
   );
 }

@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 import { parseFormData } from "@/lib/parse-form-data";
 import { z } from "zod";
+import { verifySameOrigin } from "@/lib/verify-same-origin";
 
 const SocietyUpdateSchema = z
   .object({
@@ -25,7 +26,9 @@ export const Route = createFileRoute("/api/admin/societies/$id")({
           const { id } = params;
           const pb = createPB(request.headers.get("cookie") || undefined);
           await requireRole(["admin", "chair"], pb);
-          const society = await pb.collection("societies").getOne(id);
+          const society = await pb.collection("societies").getOne(id, {
+            fields: "id,name,slug,bio,chairs,isHidden,logo,banner,created,updated",
+          });
           return Response.json({
             society: {
               ...society,
@@ -44,15 +47,20 @@ export const Route = createFileRoute("/api/admin/societies/$id")({
                   )
                 : null,
             },
-          });
+          }, { headers: { 'Cache-Control': 'private, max-age=30, s-maxage=60' } });
         } catch (error) {
           return handleError(error, "admin-societies-get");
         }
       },
       PUT: async ({ request, params }) => {
         try {
+          const contentType = request.headers.get('content-type') || '';
+          if (!contentType.includes('application/json') && !contentType.includes('multipart/form-data') && request.method !== 'GET') {
+            return Response.json({ error: 'Unsupported media type' }, { status: 415 });
+          }
           const { id } = params;
           const pb = createPB(request.headers.get("cookie") || undefined);
+          verifySameOrigin(request);
           const { user } = await requireRole(["admin", "chair"], pb);
           if (user.role !== "admin")
             return Response.json(

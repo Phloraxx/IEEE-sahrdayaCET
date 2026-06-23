@@ -1,69 +1,92 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { pbFetch, buildFileUrl } from "@/lib/pb";
+import { createPB, buildFileUrl } from "@/lib/pb";
+import { APP_URL } from "@/lib/constants";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import ExecomClient, {
   type ExecomMemberDoc,
-} from "@/app/(main)/full-execom/ExecomClient";
+} from "@/features/execom/ExecomClient";
 
 export const Route = createFileRoute("/full-execom")({
   head: () => ({
     meta: [
-      { title: "Execom Directory" },
+      { title: "Execom Directory | IEEE Sahrdaya Student Branch" },
       {
         name: "description",
         content:
           "Meet the IEEE Sahrdaya Student Branch executive committee — browse all 60+ members across CS, RAS, WIE, PES, IAS and other societies. EXECOM 2026-2027.",
       },
+      { property: "og:title", content: "Execom Directory | IEEE Sahrdaya Student Branch" },
+      {
+        property: "og:description",
+        content:
+          "Meet the IEEE Sahrdaya Student Branch executive committee — browse all 60+ members across CS, RAS, WIE, PES, IAS and other societies. EXECOM 2026-2027.",
+      },
+      { property: "og:url", content: `${APP_URL}/full-execom` },
+      { property: "og:image", content: `${APP_URL}/web.png` },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
     ],
     links: [{ rel: "canonical", href: "/full-execom" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        innerHTML: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "Home", item: APP_URL },
+            { "@type": "ListItem", position: 2, name: "Execom", item: `${APP_URL}/full-execom` },
+          ],
+        }),
+      },
+    ],
   }),
-  loader: async (): Promise<ExecomMemberDoc[]> => {
-    const PB_URL = process.env.POCKETBASE_URL;
-    if (!PB_URL) return [];
-
+  loader: async ({ context }: { context: { response: { headers: Headers } } }): Promise<ExecomMemberDoc[]> => {
     try {
-      const data = await pbFetch<{ items: Record<string, unknown>[] }>(
-        `${PB_URL}/api/collections/execom/records?perPage=100&sort=order&skipTotal=1&fields=id,order,name,department,batch,position,category,section,sectionId,photo,linkedin,instagram,email,phone`,
-      );
-      return (data?.items || []).map(
-        (raw: Record<string, unknown>, i: number) => {
-          const doc = raw as {
-            id: string;
-            order?: number;
-            name?: string;
-            department?: string;
-            batch?: string;
-            position?: string;
-            category?: string;
-            section?: string;
-            sectionId?: string;
-            photo?: string;
-            linkedin?: string;
-            instagram?: string;
-            email?: string;
-            phone?: string;
-          };
-          return {
-            id: doc.id,
-            order: doc.order || 0,
-            slNo: doc.order || i + 1,
-            name: doc.name || "",
-            department: doc.department || "",
-            semester: doc.batch || "",
-            position: doc.position || "",
-            category: doc.category || "",
-            section: doc.section || "",
-            sectionId: doc.sectionId || "",
-            photoUrl: doc.photo
-              ? buildFileUrl("execom", doc.id, doc.photo)
-              : "",
-            linkedin: doc.linkedin,
-            instagram: doc.instagram,
-            email: doc.email,
-            phone: doc.phone,
-          };
-        },
-      );
+      context.response.headers.set('Cache-Control', 'public, max-age=300');
+      const pb = createPB();
+      const data = await pb.collection("execom").getList(1, 100, {
+        sort: "order",
+        skipTotal: true,
+        fields: "id,order,name,department,batch,position,category,section,sectionId,photo,linkedin,instagram,email,phone",
+      });
+      return (data?.items || []).map((raw: Record<string, unknown>, i: number) => {
+        const doc = raw as {
+          id: string;
+          order?: number;
+          name?: string;
+          department?: string;
+          batch?: string;
+          position?: string;
+          category?: string;
+          section?: string;
+          sectionId?: string;
+          photo?: string;
+          linkedin?: string;
+          instagram?: string;
+          email?: string;
+          phone?: string;
+        };
+        return {
+          id: doc.id,
+          order: doc.order ?? 0,
+          slNo: doc.order ?? i + 1,
+          name: doc.name || "",
+          department: doc.department || "",
+          semester: doc.batch || "",
+          position: doc.position || "",
+          category: doc.category || "",
+          section: doc.section || "",
+          sectionId: doc.sectionId || "",
+          photoUrl: doc.photo
+            ? buildFileUrl("execom", doc.id, doc.photo)
+            : "",
+          linkedin: doc.linkedin,
+          instagram: doc.instagram,
+          email: doc.email,
+          phone: doc.phone,
+        };
+      });
     } catch {
       return [];
     }

@@ -1,23 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  createPB,
-  createAdminPB,
-  buildFileUrl,
-  escapeFilterValue,
-} from "@/lib/pb";
+import { createPB, buildFileUrl, escapeFilterValue } from "@/lib/pb";
 import { requireAuth } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 import {
   createRegistration,
   RegistrationError,
 } from "@/lib/registration-service";
+import { RegistrationBodySchema } from "@/schemas/registrations";
 import { z } from "zod";
-
-const RegistrationBodySchema = z.object({
-  eventId: z.string().min(1, "eventId is required"),
-  formResponses: z.record(z.string(), z.unknown()).default({}),
-  couponCode: z.string().optional(),
-});
+import { verifySameOrigin } from "@/lib/verify-same-origin";
+import { getField, getExpand } from '@/lib/safe-get';
 
 export const Route = createFileRoute("/api/registrations")({
   server: {
@@ -50,50 +42,49 @@ export const Route = createFileRoute("/api/registrations")({
             });
 
           const items = result.items.map((reg) => {
-            const r = reg as unknown as Record<string, unknown>;
-            const expand = r.expand as Record<string, unknown> | undefined;
-            const evt = expand?.event as Record<string, unknown> | undefined;
+            const expand = getExpand(reg);
+            const evt = expand?.event;
             return {
-              id: r.id as string,
-              ticket: r.ticketId
+              id: getField(reg, 'id', ''),
+              ticket: getField(reg, 'ticketId', '')
                 ? {
-                    id: r.ticketId as string,
-                    qr_data: r.ticketId as string,
-                    is_scanned: !!r.checkedIn,
-                    scanned_at: (r.checkedInAt as string) || null,
+                    id: getField(reg, 'ticketId', ''),
+                    qr_data: getField(reg, 'ticketId', ''),
+                    is_scanned: !!getField(reg, 'checkedIn', false),
+                    scanned_at: getField(reg, 'checkedInAt', '') || null,
                     createdAt:
-                      (r.created as string) || (r.registrationDate as string),
+                      getField(reg, 'created', '') || getField(reg, 'registrationDate', ''),
                   }
                 : null,
               event: evt
                 ? {
-                    id: evt.id as string,
-                    title: evt.title as string,
-                    description: evt.description as string,
-                    date: evt.date as string,
-                    venue: evt.venue as string,
-                    price: Number(evt.price) || 0,
-                    bannerUrl: evt.banner
+                    id: getField(evt, 'id', ''),
+                    title: getField(evt, 'title', ''),
+                    description: getField(evt, 'description', ''),
+                    date: getField(evt, 'date', ''),
+                    venue: getField(evt, 'venue', ''),
+                    price: Number(getField(evt, 'price', 0)) || 0,
+                    bannerUrl: getField(evt, 'banner', '')
                       ? buildFileUrl(
                           "events",
-                          evt.id as string,
-                          evt.banner as string,
+                          getField(evt, 'id', ''),
+                          getField(evt, 'banner', ''),
                         )
                       : "",
-                    status: (evt.status as string) || "published",
+                    status: getField(evt, 'status', '') || "published",
                   }
                 : null,
               registration: {
-                id: r.id as string,
-                eventId: r.event as string,
-                paymentStatus: (r.paymentStatus as string) || "pending",
+                id: getField(reg, 'id', ''),
+                eventId: getField(reg, 'event', ''),
+                paymentStatus: getField(reg, 'paymentStatus', '') || "pending",
                 registrationStatus:
-                  (r.registrationStatus as string) || "pending",
-                formResponses: r.formResponses || {},
+                  getField(reg, 'registrationStatus', '') || "pending",
+                formResponses: getField(reg, 'formResponses', {}),
                 createdAt:
-                  (r.created as string) || (r.registrationDate as string),
+                  getField(reg, 'created', '') || getField(reg, 'registrationDate', ''),
                 updatedAt:
-                  (r.created as string) || (r.registrationDate as string),
+                  getField(reg, 'created', '') || getField(reg, 'registrationDate', ''),
               },
             };
           });
@@ -111,24 +102,23 @@ export const Route = createFileRoute("/api/registrations")({
       },
       POST: async ({ request }) => {
         try {
+          const contentType = request.headers.get('content-type') || '';
+          if (!contentType.includes('application/json') && !contentType.includes('multipart/form-data') && request.method !== 'GET') {
+            return Response.json({ error: 'Unsupported media type' }, { status: 415 });
+          }
           const pb = createPB(request.headers.get("cookie") || undefined);
+          verifySameOrigin(request);
           const { user } = await requireAuth(pb);
           const parsed = RegistrationBodySchema.parse(await request.json());
           const { eventId, formResponses, couponCode } = parsed;
 
-          const adminPB = createAdminPB();
-          const result = await createRegistration(pb, adminPB, {
+          const result = await createRegistration(pb, {
             userId: user.id,
             eventId,
-            userName:
-              ((formResponses as Record<string, unknown>).name as string) || "",
-            userEmail:
-              ((formResponses as Record<string, unknown>).email as string) ||
-              "",
-            userPhone:
-              ((formResponses as Record<string, unknown>).phone as string) ||
-              "",
-            formResponses: formResponses as Record<string, unknown>,
+            userName: getField(formResponses, 'name', ''),
+            userEmail: getField(formResponses, 'email', ''),
+            userPhone: getField(formResponses, 'phone', ''),
+            formResponses,
             couponCode,
           });
 

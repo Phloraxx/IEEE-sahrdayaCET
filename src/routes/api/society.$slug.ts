@@ -2,18 +2,19 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createPB, buildFileUrl, escapeFilterValue } from "@/lib/pb";
 import { handleError } from "@/lib/api-error";
 import { ClientResponseError } from "pocketbase";
+import { getField } from "@/lib/safe-get";
 
 export const Route = createFileRoute("/api/society/$slug")({
   server: {
     handlers: {
-      GET: async ({ request, params }) => {
+      GET: async ({ request: _request, params }) => {
         const { slug } = params;
         try {
           const pb = createPB();
 
           const society = await pb
             .collection("societies")
-            .getFirstListItem("slug = " + escapeFilterValue(slug), {
+            .getFirstListItem(`slug = ${escapeFilterValue(slug)}`, {
               fields: "id,name,slug,bio,logo,banner",
             })
             .catch(() => null);
@@ -29,7 +30,7 @@ export const Route = createFileRoute("/api/society/$slug")({
             pb
               .collection("events")
               .getList(1, 50, {
-                filter: "society = " + escapeFilterValue(society.id),
+                filter: `society = ${escapeFilterValue(society.id)}`,
                 sort: "-date",
                 skipTotal: true,
                 fields:
@@ -40,7 +41,7 @@ export const Route = createFileRoute("/api/society/$slug")({
             pb
               .collection("execom")
               .getList(1, 50, {
-                filter: "sectionId = " + escapeFilterValue(slug),
+                filter: `sectionId = ${escapeFilterValue(slug)}`,
                 sort: "order",
                 skipTotal: true,
                 fields:
@@ -82,29 +83,25 @@ export const Route = createFileRoute("/api/society/$slug")({
               id: society.id,
               name: society.name,
               slug: society.slug,
-              bio:
-                ((society as unknown as Record<string, unknown>)
-                  .bio as string) || "",
-              logoUrl: (society as unknown as Record<string, unknown>).logo
+              bio: getField(society, 'bio', ''),
+              logoUrl: getField(society, 'logo', '')
                 ? buildFileUrl(
                     "societies",
                     society.id,
-                    (society as unknown as Record<string, unknown>)
-                      .logo as string,
+                    getField(society, 'logo', ''),
                   )
                 : "",
-              bannerUrl: (society as unknown as Record<string, unknown>).banner
+              bannerUrl: getField(society, 'banner', '')
                 ? buildFileUrl(
                     "societies",
                     society.id,
-                    (society as unknown as Record<string, unknown>)
-                      .banner as string,
+                    getField(society, 'banner', ''),
                   )
                 : "",
             },
             events: mappedEvents,
             members: mappedMembers,
-          });
+          }, { headers: { 'Cache-Control': 'public, max-age=300' } });
         } catch (error) {
           if (error instanceof ClientResponseError && error.status === 404) {
             return Response.json(
