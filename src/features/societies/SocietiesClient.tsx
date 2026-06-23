@@ -161,6 +161,8 @@ export default function SocietiesClient({ societies }: SocietiesClientProps) {
   const [isRegisteringEvent, setIsRegisteringEvent] = useState(false);
   const [scrollPosition, setScrollPosition] = useState(0);
   const [societyError, setSocietyError] = useState<string | null>(null);
+  const [selfSocieties, setSelfSocieties] = useState<Society[]>(societies);
+  const [fetching, setFetching] = useState(false);
   const societyPanelRef = useRef<HTMLDivElement>(null);
   const eventModalRef = useRef<HTMLDivElement>(null);
 
@@ -207,6 +209,36 @@ export default function SocietiesClient({ societies }: SocietiesClientProps) {
       }
     }
   }, [selectedEvent]);
+
+  /* ---------- Fetch societies if SSR returned empty ---------- */
+  useEffect(() => {
+    if (societies.length > 0) {
+      setSelfSocieties(societies);
+      return;
+    }
+    // SSR returned empty — fetch ourselves
+    setFetching(true);
+    const pb = createPB();
+    pb.collection("societies").getList(1, 200, {
+      filter: "isHidden=false",
+      skipTotal: true,
+      fields: "id,name,slug,bio,logo",
+    })
+      .then((data) => {
+        const items = (data.items || []).map((s: Record<string, unknown>) => ({
+          id: getField(s, "id", ""),
+          name: getField(s, "name", ""),
+          slug: getField(s, "slug", ""),
+          bio: getField(s, "bio", undefined),
+          logoUrl: s.logo
+            ? buildFileUrl("societies", getField(s, "id", ""), getField(s, "logo", ""))
+            : undefined,
+        }));
+        setSelfSocieties(items);
+        setFetching(false);
+      })
+      .catch(() => setFetching(false));
+  }, [societies]);
 
   /* ---------- Fetch members & events for selected society ---------- */
   const handleSocietyClick = useCallback(async (society: Society) => {
@@ -382,7 +414,11 @@ export default function SocietiesClient({ societies }: SocietiesClientProps) {
               <div className="text-6xl mb-4">&#9888;&#65039;</div>
               <p className="text-red-600 text-lg">{error}</p>
             </div>
-          ) : societies.length === 0 ? (
+          ) : selfSocieties.length === 0 && fetching ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 text-ieee-blue animate-spin" />
+            </div>
+          ) : selfSocieties.length === 0 ? (
             <p className="text-center text-gray-500 py-12">
               No societies found.
             </p>
@@ -398,7 +434,7 @@ export default function SocietiesClient({ societies }: SocietiesClientProps) {
                 },
               }}
             >
-              {societies.map((society) => (
+              {selfSocieties.map((society) => (
                 <motion.div
                   key={society.id}
                   variants={{
