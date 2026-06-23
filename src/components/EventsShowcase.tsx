@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useEffect } from "react";
 import { Link } from "@tanstack/react-router";
 
 const eventImages = [
@@ -26,15 +26,37 @@ const IMG_W = 260;
 const IMG_GAP = 16;
 
 const ImageStrip = () => {
+  const stripRef = useRef<HTMLDivElement>(null);
+  const offsetRef = useRef(0);
+  const setWidth = eventImages.length * (IMG_W + IMG_GAP);
+
+  useEffect(() => {
+    let animId: number;
+
+    const scroll = () => {
+      offsetRef.current -= 0.6;
+      if (offsetRef.current <= -setWidth) {
+        offsetRef.current = 0;
+      }
+      if (stripRef.current) {
+        stripRef.current.style.transform = `translate3d(${offsetRef.current}px, 0, 0)`;
+      }
+      animId = requestAnimationFrame(scroll);
+    };
+
+    animId = requestAnimationFrame(scroll);
+    return () => cancelAnimationFrame(animId);
+  }, [setWidth]);
+
   const tripled = [...eventImages, ...eventImages, ...eventImages];
 
   return (
     <div className="overflow-hidden w-full">
       <div
+        ref={stripRef}
         className="flex gap-4 will-change-transform"
         style={{
           width: `${tripled.length * (IMG_W + IMG_GAP)}px`,
-          animation: 'scroll-images 40s linear infinite',
         }}
       >
         {tripled.map((src, i) => (
@@ -58,15 +80,37 @@ const ImageStrip = () => {
 const TEXT_W = 350;
 
 const TextMarquee = () => {
+  const stripRef = useRef<HTMLDivElement>(null);
+  const offsetRef = useRef(0);
+  const setWidth = scrollingText.length * TEXT_W;
+
+  useEffect(() => {
+    let animId: number;
+
+    const scroll = () => {
+      offsetRef.current -= 1.2;
+      if (offsetRef.current <= -setWidth) {
+        offsetRef.current = 0;
+      }
+      if (stripRef.current) {
+        stripRef.current.style.transform = `translate3d(${offsetRef.current}px, 0, 0)`;
+      }
+      animId = requestAnimationFrame(scroll);
+    };
+
+    animId = requestAnimationFrame(scroll);
+    return () => cancelAnimationFrame(animId);
+  }, [setWidth]);
+
   const tripled = [...scrollingText, ...scrollingText, ...scrollingText];
 
   return (
     <div className="overflow-hidden w-full">
       <div
+        ref={stripRef}
         className="flex items-center will-change-transform whitespace-nowrap"
         style={{
           width: `${tripled.length * TEXT_W}px`,
-          animation: 'scroll-text 40s linear infinite',
         }}
       >
         {tripled.map((text, i) => (
