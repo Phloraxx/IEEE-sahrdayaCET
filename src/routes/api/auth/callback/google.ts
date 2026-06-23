@@ -53,7 +53,7 @@ export const Route = createFileRoute("/api/auth/callback/google")({
                       secure: isProduction,
                       sameSite: "strict",
                       path: "/",
-                      cookie: isProduction ? "__Host-pb_auth" : "pb_auth",
+                      cookie: "pb_auth",
                     });
           response.headers.set("Set-Cookie", authCookie);
 

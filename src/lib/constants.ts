@@ -1,5 +1,5 @@
 export const APP_URL = process.env.PUBLIC_APP_URL || 'https://ieeesahrdaya.com'
-export const PB_AUTH_COOKIE = typeof window !== 'undefined' && window.location.protocol === 'http:' ? 'pb_auth' : process.env.NODE_ENV === 'production' ? '__Host-pb_auth' : 'pb_auth'
+export const PB_AUTH_COOKIE = 'pb_auth'
 export const PB_OAUTH_PROVIDER_COOKIE = 'pb_oauth_provider'
 export const OAUTH_CALLBACK_PATH = '/api/auth/callback/google'
 
