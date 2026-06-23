@@ -1,6 +1,5 @@
 "use client";
 
-import { Link } from "@tanstack/react-router";
 import { ArrowUpRight, Mail, MapPin, Phone } from "lucide-react";
 
 const Footer: React.FC = () => {
@@ -138,6 +137,7 @@ const Footer: React.FC = () => {
                 width={314}
                 height={76}
                 className="h-14 md:h-16 w-auto object-contain brightness-0 invert"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.textContent = 'IEEE LINK'; }}
               />
             </a>
             <div className="w-px h-14 bg-white/50" />
@@ -154,6 +154,7 @@ const Footer: React.FC = () => {
                 width={1623}
                 height={531}
                 className="h-14 md:h-16 w-auto object-contain brightness-0 invert"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.textContent = 'Sahrdaya College'; }}
               />
             </a>
             <div className="w-px h-14 bg-white/50" />
@@ -170,6 +171,7 @@ const Footer: React.FC = () => {
                 width={557}
                 height={135}
                 className="h-14 md:h-16 w-auto object-contain brightness-100"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.textContent = 'IEEE Kerala Section'; }}
               />
             </a>
           </div>

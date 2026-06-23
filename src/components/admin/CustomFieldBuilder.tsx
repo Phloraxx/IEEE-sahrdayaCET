@@ -13,8 +13,8 @@ export interface FormField {
   dependsOn?: { fieldId: string; value: string }
 }
 
-function generateId() {
-  return Math.random().toString(36).substring(2, 9)
+function generateId(): string {
+  return crypto.randomUUID()
 }
 
 interface CustomFieldBuilderProps {
@@ -40,14 +40,14 @@ export function CustomFieldBuilder({ fields, onChange, readOnly = false }: Custo
     const newIndex = index + direction
     if (newIndex < 0 || newIndex >= fields.length) return
     const next = [...fields]
-    ;[next[index], next[newIndex]] = [next[newIndex], next[index]]
+    ;[next[index]!, next[newIndex]!] = [next[newIndex]!, next[index]!]
     onChange(next)
   }
 
   const cloneField = (id: string) => {
     const field = fields.find((f) => f.id === id)
     if (!field) return
-    const clone = { ...field, id: generateId(), label: field.label + ' (copy)' }
+    const clone = { ...field, id: generateId(), label: `${field.label  } (copy)` }
     const idx = fields.findIndex((f) => f.id === id)
     const next = [...fields]
     next.splice(idx + 1, 0, clone)

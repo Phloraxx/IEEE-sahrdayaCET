@@ -38,12 +38,6 @@ export async function requireAuth(pb: PocketBase): Promise<AuthResult & { pb: Po
   return { user, pb }
 }
 
-export async function requireAdmin(pb: PocketBase): Promise<AuthResult & { pb: PocketBase }> {
-  const result = await requireAuth(pb)
-  if (result.user.role !== 'admin') throw new AuthError('Admin access required', 403)
-  return result
-}
-
 /**
  * Require that the authenticated user has one of the given roles.
  * Throws AuthError(401) if not authenticated, AuthError(403) if role insufficient.

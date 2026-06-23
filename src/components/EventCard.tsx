@@ -1,7 +1,6 @@
 "use client";
 
-import { Link, useLocation } from "@tanstack/react-router";
-import { Event, Society } from "@/types";
+import { type Event, type Society } from "@/types";
 import { Calendar, Clock, MapPin, Users } from "lucide-react";
 import { formatDate, formatTime, formatDateCompact } from "@/lib/dates";
 
@@ -10,7 +9,6 @@ interface EventCardProps {
   variant?: "default" | "compact";
   societyName?: string;
   onClick?: (event: Event) => void;
-  index?: number;
 }
 
 export default function EventCard({
@@ -18,11 +16,10 @@ export default function EventCard({
   variant = "default",
   societyName,
   onClick,
-  index,
 }: EventCardProps) {
   const bannerSrc =
     event.bannerUrl ||
-    (typeof event.banner === "object" && event.banner?.url) ||
+    (typeof event.banner === "string" && event.banner) ||
     "/AGM.webp";
   const society = event.society as Society | undefined;
 
@@ -31,12 +28,21 @@ export default function EventCard({
       <div
         className="group relative bg-white/5 backdrop-blur-xs rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition-all duration-300 cursor-pointer"
         onClick={() => onClick?.(event)}
+        tabIndex={onClick ? 0 : undefined}
+        role={onClick ? "button" : undefined}
+        onKeyDown={(e) => {
+          if ((e.key === 'Enter' || e.key === ' ') && onClick) {
+            e.preventDefault();
+            onClick(event);
+          }
+        }}
       >
         <div className="relative h-32 overflow-hidden">
           <img
             loading="lazy"
             src={bannerSrc}
             alt={event.title}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
             className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
           <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent" />
@@ -74,6 +80,7 @@ export default function EventCard({
           loading="lazy"
           src={bannerSrc}
           alt={event.title}
+          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
           className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
         />
         <div className="absolute inset-0 bg-linear-to-t from-gray-900 via-gray-900/40 to-transparent" />

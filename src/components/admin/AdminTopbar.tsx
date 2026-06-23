@@ -1,7 +1,7 @@
 "use client";
 
 import { useLocation } from "@tanstack/react-router";
-import { useSidebarState } from "./SidebarState";
+
 
 const PAGE_LABELS: Record<string, string> = {
   "": "overview",
@@ -13,19 +13,18 @@ const PAGE_LABELS: Record<string, string> = {
   users: "users",
 };
 
-export function AdminTopbar() {
+export function AdminTopbar({ onToggleMobile }: { onToggleMobile: () => void }) {
   const pathname = useLocation().pathname;
-  const { toggleMobile } = useSidebarState();
 
   const segments = pathname.split("/").filter(Boolean);
-  const pageSlug = segments.length >= 2 ? segments[1] : "";
+  const pageSlug: string = segments.length >= 2 ? (segments[1] ?? "") : "";
   const pageLabel = PAGE_LABELS[pageSlug] || pageSlug || "overview";
 
   return (
     <header className="topbar">
       <button
         className="hamburger"
-        onClick={toggleMobile}
+        onClick={onToggleMobile}
         aria-label="Toggle sidebar"
       >
         <svg

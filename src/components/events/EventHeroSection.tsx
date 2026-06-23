@@ -17,10 +17,12 @@ export function EventHeroSection() {
     return (
         <section className="relative pt-48 pb-16 px-4 max-w-[1400px] mx-auto">
             <div className="text-center max-w-[900px] mx-auto relative z-10 mb-24">
-                <motion.h1
+                <h1 className="sr-only">Events | IEEE Sahrdaya Student Branch</h1>
+                <motion.h2
                     variants={STAGGER}
                     initial="hidden"
                     animate="show"
+                    aria-hidden="true"
                     className="text-[3.5rem] md:text-[5rem] lg:text-[6rem] font-black leading-[1.1] tracking-tight text-slate-800"
                 >
                     <motion.div variants={FADE_UP}>Experience the</motion.div>
@@ -32,7 +34,7 @@ export function EventHeroSection() {
                             </svg>
                         </span>
                     </motion.div>
-                </motion.h1>
+                </motion.h2>
 
                 <motion.p
                     initial={{ opacity: 0, y: 20 }}

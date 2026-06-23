@@ -18,8 +18,8 @@ import PocketBase from 'pocketbase'
 // ─── Env ───────────────────────────────────────────────────
 
 export const PB_URL = process.env.POCKETBASE_URL || 'http://127.0.0.1:8090'
-export const SUPERUSER_EMAIL = process.env.TEST_SUPERUSER_EMAIL || 'souravpbijoy@gmail.com'
-export const SUPERUSER_PASSWORD = process.env.TEST_SUPERUSER_PASSWORD || 'Wasdqwe1@'
+export const SUPERUSER_EMAIL = process.env.TEST_SUPERUSER_EMAIL
+export const SUPERUSER_PASSWORD = process.env.TEST_SUPERUSER_PASSWORD
 
 // ─── Superuser Token ───────────────────────────────────────
 
@@ -28,7 +28,11 @@ let _superuserId: string | null = null
 
 export async function getSuperuserToken(): Promise<{ token: string; userId: string }> {
   if (_token) return { token: _token, userId: _superuserId! }
-
+  if (!SUPERUSER_EMAIL || !SUPERUSER_PASSWORD) {
+    throw new Error(
+      'TEST_SUPERUSER_EMAIL and TEST_SUPERUSER_PASSWORD must be set for integration tests',
+    )
+  }
   const pb = new PocketBase(PB_URL)
   const auth = await pb.collection('_superusers').authWithPassword(SUPERUSER_EMAIL, SUPERUSER_PASSWORD)
   _token = auth.token

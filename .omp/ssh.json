@@ -1,0 +1,9 @@
+{
+  "oracle": {
+    "host": "144.24.114.90",
+    "port": 22,
+    "user": "drvij",
+    "keyPath": "~/.ssh/id_ed25519",
+    "compat": false
+  }
+}

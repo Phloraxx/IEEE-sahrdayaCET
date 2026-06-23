@@ -1,11 +1,11 @@
 /**
  * Integration tests for PocketBase operations.
  *
- * These tests connect to a running PocketBase instance via the superuser token
- * and exercise read/write/query operations against all 5 collections.
+ * These tests connect to a running PocketBase instance and exercise
+ * read/write/query operations against all 5 collections.
  *
- * Requires: POCKETBASE_URL, POCKETBASE_SUPERUSER_TOKEN env vars.
- * If they are not set, the tests are skipped.
+ * Requires: POCKETBASE_URL env var.
+ * If it is not set, the tests are skipped.
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
@@ -13,11 +13,13 @@ import PocketBase from 'pocketbase'
 
 const PB_URL = process.env.POCKETBASE_URL
 const TOKEN = process.env.POCKETBASE_SUPERUSER_TOKEN
-const skip = !PB_URL || !TOKEN
+const skip = !PB_URL
 
 function getPB(): PocketBase {
   const pb = new PocketBase(PB_URL!)
-  pb.authStore.save(TOKEN!, null)
+  if (TOKEN) {
+    pb.authStore.save(TOKEN, null)
+  }
   return pb
 }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { requireAuth, requireAdmin, requireRole, AuthError } from '@/lib/auth'
+import { requireAuth, requireRole, AuthError } from '@/lib/auth'
 
 // ─── Mock PocketBase ───────────────────────────────────────
 function createMockPB(overrides: Record<string, unknown> = {}) {
@@ -54,20 +54,6 @@ describe('requireAuth', () => {
       message: 'Invalid or expired session',
       status: 401,
     })
-  })
-})
-
-describe('requireAdmin', () => {
-  it('throws AuthError(403) when user is not admin', async () => {
-    const pb = makeAuthenticatedPB('chair') as any
-    await expect(requireAdmin(pb)).rejects.toThrow(AuthError)
-    await expect(requireAdmin(pb)).rejects.toMatchObject({ status: 403 })
-  })
-
-  it('returns result when user is admin', async () => {
-    const pb = makeAuthenticatedPB('admin') as any
-    const result = await requireAdmin(pb)
-    expect(result.user.role).toBe('admin')
   })
 })
 

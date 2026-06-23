@@ -46,7 +46,7 @@ describe('handleError', () => {
     expect(body.error).toBe('Resource not found')
   })
 
-  it('handles PB-style 400 error with details', async () => {
+  it('handles PB-style 400 error', async () => {
     const { ClientResponseError } = await import('pocketbase')
     const err = new (ClientResponseError as any)(400, 'Bad request', {
       message: 'Failed to create record.',
@@ -55,7 +55,7 @@ describe('handleError', () => {
     const response = handleError(err, 'test-context')
     expect(response.status).toBe(400)
     const body = await response.json()
-    expect(body.details).toBeDefined()
+    expect(body.error).toBe('Invalid request')
   })
 
   it('handles PB-style 403 error', async () => {

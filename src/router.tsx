@@ -1,22 +1,18 @@
-import { createRouter } from '@tanstack/react-router'
-import { routeTree } from './routeTree.gen'
+import { createRouter } from "@tanstack/react-router";
+import { routeTree } from "./routeTree.gen";
 
-export interface AppRouterInstance {
-  routeTree: typeof routeTree
-  scrollRestoration: boolean
-}
+export const router = createRouter({
+  routeTree,
+  scrollRestoration: true,
+});
 
+// Required by TanStack Start internals (hydrateStart imports getRouter)
 export function getRouter() {
-  const router = createRouter({
-    routeTree,
-    scrollRestoration: true,
-  })
-
-  return router
+  return router;
 }
 
-declare module '@tanstack/react-router' {
+declare module "@tanstack/react-router" {
   interface Register {
-    router: ReturnType<typeof getRouter>
+    router: typeof router;
   }
 }

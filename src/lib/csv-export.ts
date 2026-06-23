@@ -1,12 +1,19 @@
 import type PocketBase from 'pocketbase'
 import { escapeFilterValue } from './pb'
+import { getField } from './safe-get'
 
 /** CSV batch size for streaming exports. */
 const CSV_BATCH_SIZE = 500
 
 function escapeCsv(v: unknown): string {
   if (v === null || v === undefined) return ''
-  const s = String(v)
+  let s = String(v)
+  // Formula-injection protection: prefix dangerous leading chars so spreadsheet
+  // apps don't evaluate the cell as a formula. Prefix with a single quote and
+  // let Excel/Sheets strip it on import.
+  if (/^[=+\-@]/.test(s)) {
+    s = `'${s}`
+  }
   if (/[",\n]/.test(s)) {
     return `"${s.replace(/"/g, '""')}"`
   }
@@ -19,7 +26,7 @@ interface FormFieldDef {
   type?: string
 }
 
-interface EventLite {
+export interface EventLite {
   id: string
   formTemplate?: unknown
   title?: string
@@ -40,10 +47,8 @@ export async function streamRegistrationsCSV(
 
   // Resolve formTemplate for dynamic columns (use provided event if available)
   let customFields: FormFieldDef[] = []
-  let eventTitle = 'event'
   try {
     const event = options?.event ?? await pb.collection('events').getOne<EventLite>(eventId, { fields: 'id,formTemplate,title' })
-    eventTitle = event.title || 'event'
     const template = event.formTemplate
     if (Array.isArray(template)) customFields = template as FormFieldDef[]
   } catch {
@@ -63,7 +68,7 @@ export async function streamRegistrationsCSV(
     try { return new Date(iso).toISOString() } catch { return '' }
   }
 
-  const queue: string[] = [headerRow + '\n']
+  const queue: string[] = [`${headerRow  }\n`]
   let page = 1
   let exhausted = false
 
@@ -74,25 +79,24 @@ export async function streamRegistrationsCSV(
       sort: '-registrationDate',
     })
     for (const reg of result.items) {
-      const r = reg as unknown as Record<string, unknown>
-      const formResponses = (r.formResponses as Record<string, unknown>) || {}
+      const formResponses = getField<Record<string, unknown>>(reg, 'formResponses', {});
       const staticCols = [
-        escapeCsv(r.userName),
-        escapeCsv(r.userEmail),
-        escapeCsv(r.userPhone),
-        isAdmin ? escapeCsv(formatter(r.registrationDate as string)) : escapeCsv(r.registrationDate ? new Date(r.registrationDate as string).toLocaleDateString('en-IN') : ''),
-        escapeCsv(r.paymentStatus),
-        escapeCsv(r.registrationStatus),
-        isAdmin ? escapeCsv(r.checkedIn ? 'yes' : 'no') : (r.checkedIn ? 'Yes' : 'No'),
-        isAdmin ? escapeCsv(formatter(r.checkedInAt as string)) : escapeCsv(r.checkedInAt ? new Date(r.checkedInAt as string).toLocaleDateString('en-IN') : ''),
-        isAdmin ? escapeCsv((r.ticketId as string) || (r.paymentTicketId as string)) : escapeCsv(r.ticketId as string),
+        escapeCsv(getField(reg, 'userName', '')),
+        escapeCsv(getField(reg, 'userEmail', '')),
+        escapeCsv(getField(reg, 'userPhone', '')),
+        isAdmin ? escapeCsv(formatter(getField(reg, 'registrationDate', ''))) : escapeCsv(getField(reg, 'registrationDate', '') ? new Date(getField(reg, 'registrationDate', '')).toLocaleDateString('en-IN') : ''),
+        escapeCsv(getField(reg, 'paymentStatus', '')),
+        escapeCsv(getField(reg, 'registrationStatus', '')),
+        isAdmin ? escapeCsv(getField(reg, 'checkedIn', false) ? 'yes' : 'no') : (getField(reg, 'checkedIn', false) ? 'Yes' : 'No'),
+        isAdmin ? escapeCsv(formatter(getField(reg, 'checkedInAt', ''))) : escapeCsv(getField(reg, 'checkedInAt', '') ? new Date(getField(reg, 'checkedInAt', '')).toLocaleDateString('en-IN') : ''),
+        isAdmin ? escapeCsv(getField(reg, 'ticketId', '') || getField(reg, 'paymentTicketId', '')) : escapeCsv(getField(reg, 'ticketId', '')),
       ]
       const couponCols = [
-        escapeCsv(r.couponCode as string),
-        escapeCsv((r.discountAmount as number) ? `₹${r.discountAmount}` : ''),
+        escapeCsv(getField(reg, 'couponCode', '')),
+        escapeCsv(getField(reg, 'discountAmount', 0) ? `₹${getField(reg, 'discountAmount', 0)}` : ''),
       ]
       const customCols = customFields.map((f) => escapeCsv(formResponses[f.id]))
-      queue.push([...staticCols, ...couponCols, ...customCols].join(',') + '\n')
+      queue.push(`${[...staticCols, ...couponCols, ...customCols].join(',')  }\n`)
     }
     if (result.items.length < CSV_BATCH_SIZE) exhausted = true
     page++

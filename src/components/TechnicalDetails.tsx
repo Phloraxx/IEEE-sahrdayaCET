@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { Link, useLocation } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import pkg from "../../package.json";
 const { version } = pkg;

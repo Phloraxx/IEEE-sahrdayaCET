@@ -23,6 +23,6 @@ export function parsePagination(
 export function buildFilter(parts: Array<string | undefined | null>): string {
   const nonEmpty = parts.filter((p): p is string => Boolean(p))
   if (nonEmpty.length === 0) return ''
-  if (nonEmpty.length === 1) return nonEmpty[0]
+  if (nonEmpty.length === 1) return nonEmpty[0] ?? ''
   return nonEmpty.map((p) => (p.includes(' && ') || p.includes(' || ') ? `(${p})` : p)).join(' && ')
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { CalendarDays, ChevronRight } from 'lucide-react';
 import type { ExtendedEvent } from '@/types';
 import { formatDate } from '@/lib/dates';
@@ -27,12 +27,13 @@ interface EventCardProps {
 }
 
 export function AnnotatedEventCard({ event, index, onSelect, isMobile = false }: EventCardProps) {
+    const prefersReducedMotion = useReducedMotion();
     const annotation = ANNOTATIONS.find(a => a.index === index);
 
     return (
         <motion.div
-            variants={FADE_UP}
-            whileHover={{ y: -8 }}
+            variants={prefersReducedMotion ? undefined : FADE_UP}
+            whileHover={prefersReducedMotion ? undefined : { y: -8 }}
             onClick={() => onSelect(event)}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(event); } }}
             role="button"
@@ -42,9 +43,9 @@ export function AnnotatedEventCard({ event, index, onSelect, isMobile = false }:
             {/* Annotation */}
             {annotation && (
                 <motion.div
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    whileInView={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.7 + index * 0.1, type: "spring", bounce: 0.5 }}
+                    initial={prefersReducedMotion ? undefined : { opacity: 0, scale: 0.8 }}
+                    whileInView={prefersReducedMotion ? undefined : { opacity: 1, scale: 1 }}
+                    transition={prefersReducedMotion ? undefined : { delay: 0.7 + index * 0.1, type: "spring", bounce: 0.5 }}
                     className={`absolute ${annotation.position} z-20 pointer-events-none scale-75 md:scale-100`}
                 >
                     <span className={`font-handwriting text-xl ${annotation.color} bg-white/80 backdrop-blur-xs px-3 py-1 rounded-full shadow-xs border border-slate-100 inline-block`} style={{ transform: `rotate(${annotation.rotate})` }}>
@@ -56,9 +57,9 @@ export function AnnotatedEventCard({ event, index, onSelect, isMobile = false }:
             {/* Mobile-only tough choice annotation between cards 0 and 1 */}
             {index === 0 && !isMobile && (
                 <motion.div
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    whileInView={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.8, type: "spring", bounce: 0.5 }}
+                    initial={prefersReducedMotion ? undefined : { opacity: 0, scale: 0.8 }}
+                    whileInView={prefersReducedMotion ? undefined : { opacity: 1, scale: 1 }}
+                    transition={prefersReducedMotion ? undefined : { delay: 0.8, type: "spring", bounce: 0.5 }}
                     className="absolute -bottom-8 right-6 z-20 sm:hidden pointer-events-none scale-90 origin-bottom-right"
                 >
                     <span className="font-handwriting text-xl text-[#FBBC05] bg-white/90 backdrop-blur-xs px-4 py-1.5 rounded-full shadow-md border border-slate-100 rotate-[-8deg] inline-block">
@@ -74,6 +75,7 @@ export function AnnotatedEventCard({ event, index, onSelect, isMobile = false }:
                     <img
                         src={event.bannerUrl}
                         alt={event.title}
+                        loading="lazy"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                     />
                 ) : (

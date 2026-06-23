@@ -4,7 +4,7 @@
 
 # IEEE Sahrdaya Student Branch
 
-[![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js)](https://nextjs.org/)
+[![TanStack Start](https://img.shields.io/badge/TanStack_Start-1.x-black?style=flat-square)](https://tanstack.com/start)
 [![PocketBase](https://img.shields.io/badge/PocketBase-0.39.1-BB2B2B?style=flat-square&logo=pocketbase)](https://pocketbase.io/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-4.x-38B2AC?style=flat-square&logo=tailwind-css)](https://tailwindcss.com/)
@@ -40,10 +40,10 @@ The IEEE Sahrdaya Event Management System is a comprehensive platform for managi
 
 | Layer | Technology |
 |-------|------------|
-| Framework | Next.js 16 (App Router, Server Components, API routes) |
-| UI | React 19, Tailwind CSS 4, Framer Motion, Lucide |
+| Framework | TanStack Start (file-based routes, server functions, SSR) |
+| UI | React 19, Tailwind CSS 4, Framer Motion, shadcn/ui, Lucide |
 | Backend | PocketBase 0.39.1 (embedded SQLite, built-in auth, file storage, REST API) |
-| Auth | Google OAuth2 via PocketBase |
+| Auth | Google OAuth2 via PocketBase (roles: admin/chair/user) |
 
 ---
 
@@ -51,36 +51,54 @@ The IEEE Sahrdaya Event Management System is a comprehensive platform for managi
 
 ```
 src/
-├── app/
-│   ├── (main)/              # Public pages (home, events, societies, execom, tickets)
-│   ├── api/                  # API routes (auth, admin, registrations, check-in, webhook)
-│   └── globals.css           # Tailwind v4 config via @import + @theme
-├── components/               # React components
-│   ├── events/               # Event-specific components (cards, modals, hero)
-│   └── icons.tsx             # SVG replacements for lucide-react removed brand icons
-├── lib/                      # Utilities
-├── types/                    # TypeScript interfaces
-└── hooks/                    # React hooks
+├── routes/                      # File-based dot-delimited routes (TanStack Start)
+│   ├── __root.tsx               # Root route (HTML shell, AuthProvider, QueryClientProvider, head/SEO)
+│   ├── index.tsx                # Home page (SSR)
+│   ├── events.tsx               # Events listing (SSR)
+│   ├── societies.tsx            # Societies listing (SSR)
+│   ├── full-execom.tsx          # Full execom page (SSR)
+│   ├── register.$eventId.tsx    # Event registration (CSR)
+│   ├── ticket.$ticketId.tsx     # Ticket view (CSR)
+│   ├── admin.tsx                # Admin layout (AdminGuard, sidebar, topbar)
+│   ├── admin.*.tsx              # Admin pages (events, registrations, societies, users, execom, check-in, payments)
+│   └── api/                     # Server function handlers
+│       ├── auth/                #   OAuth2 init, callback, me, logout
+│       ├── registrations.ts     #   GET (list user's), POST (register)
+│       ├── events.*.ts          #   Event detail, CSV export, coupon validation
+│       ├── check-in.verify.ts   #   QR check-in verification
+│       ├── orders/webhook.ts    #   Payment webhook
+│       └── admin/               #   Admin API handlers
+├── features/                    # Feature-specific page components
+│   ├── globals.css              # Tailwind v4 + CSS custom properties
+│   ├── admin/                   # Admin page components
+│   ├── events/                  # Event page components
+│   └── ...
+├── components/
+│   ├── ui/                      # shadcn/ui primitives (button, dialog, table, card, form, etc.)
+│   └── admin/                   # Admin UI (sidebar, guards, keyboard shortcuts)
+├── lib/                         # Utilities (see below)
+├── types/                       # Shared TypeScript interfaces
+└── hooks/                      # React hooks (use-mobile)
 
-pb_hooks/                     # PocketBase JS hooks
-├── registrations.pb.js       # Registration validation (capacity, duplicates, deadline)
-├── registrations_confirm.pb.js  # Auto ticket generation on confirmation
-├── registrations_counters.pb.js # Maintains event.registeredCount/checkedInCount
-└── events.pb.js              # Event lifecycle hooks
+Business logic lives in src/lib/registration-service.ts — there are no PocketBase hooks.
 ```
 
 ### Key `src/lib/` utilities
 
 | File | Purpose |
 |------|---------|
-| `pb.ts` | PocketBase client factories + `pbFetch()`, `buildFileUrl()`, `escapeFilterValue()` |
-| `auth.ts` | `requireAuth()`, `requireAdmin()`, `AuthError` for server-side auth |
-| `auth-context.tsx` | Client-side auth context (React context + cookies) |
-| `logger.ts` | Structured error logging |
-| `dates.ts` | Date formatting utilities |
-| `csv-export.ts` | CSV generation for event registrations |
+| `pb.ts` | PocketBase client factories: `createPB()`, `createAdminPB()`, `buildFileUrl()`, `escapeFilterValue()` |
+| `auth.ts` | `requireAuth()`, `requireAdmin()`, `requireRole()`, `AuthError` for server-side auth |
+| `chair-scope.ts` | Centralized chair scoping: `requireEventScope()`, `requireRegistrationScope()`, `scopeEventFilter()` |
+| `registration-service.ts` | Business logic: create/confirm/cancel/checkIn, coupon validation, counter bumps (retry-on-conflict) |
+| `auth-context.tsx` | Client-side auth context (React Context + cookie) |
+| `api-error.ts` | Centralized error-to-Response mapping (`handleError()`) |
+| `logger.ts` | Structured error logging (JSON in prod, console in dev) |
+| `dates.ts` | Date formatting utilities (en-IN locale) |
+| `csv-export.ts` | CSV generation with formula-injection protection |
 | `ticketStatus.ts` | Ticket status label/color/icon mapping |
-| `qr.ts` | QR code generation and download |
+| `qr-utils.ts` | QR code generation and download |
+| `webhook.ts` | Payment webhook body schema + idempotency guard |
 
 ---
 
@@ -132,9 +150,9 @@ Google OAuth, roles (admin/chair/user).
 | `registrationDeadline` | date | |
 | `checkInEnabled` | bool | |
 | `isDeleted` | bool | |
-| `registeredCount` | number | Maintained by pb_hook |
-| `checkedInCount` | number | Maintained by pb_hook |
-| `formTemplate` | json | |
+ | `registeredCount` | number | Maintained by `registration-service.ts` |
+ | `checkedInCount` | number | Maintained by `registration-service.ts` |
+ | `formTemplate` | json | |
 | `tags` | text | |
 
 Indexes: `(status, date)`, `(date, endDate)`, `(society)`
@@ -150,7 +168,7 @@ Indexes: `(status, date)`, `(date, endDate)`, `(society)`
 | `formResponses` | json | |
 | `paymentStatus` | select | pending / paid / failed / not_required |
 | `registrationStatus` | select | pending / confirmed / cancelled |
-| `ticketId` | text | Unique, auto-generated by hook |
+ | `ticketId` | text | Generated by `registration-service.ts` |
 | `paymentTicketId` | text | Used by payment webhook |
 | `amount` | number | |
 | `registrationDate` | date | |
@@ -223,12 +241,6 @@ npm run migrate:indexes
 npm run dev
 ```
 
-### pb_hooks
-Copy the `pb_hooks/` folder into your PocketBase data directory.  
-These hooks run server-side and handle:
-- Registration validation (deadlines, capacity, duplicates)
-- Auto ticket generation on confirmation
-- Maintaining `event.registeredCount` and `event.checkedInCount`
 
 ---
 

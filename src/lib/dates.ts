@@ -40,15 +40,15 @@ export function formatDay(dateString: string): string {
 }
 
 export function formatMonth(dateString: string): string {
-    return new Date(dateString).toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
+    return new Date(dateString).toLocaleDateString(DATE_LOCALE, { month: 'short' }).toUpperCase();
 }
 
 export function formatHour12(dateString: string): string {
-    const t = new Date(dateString).toLocaleTimeString('en-US', { hour: '2-digit', hour12: true });
-    return t.split(' ')[0];
+    const t = new Date(dateString).toLocaleTimeString(DATE_LOCALE, { hour: '2-digit', hour12: true });
+    return t.split(' ')[0] ?? '';
 }
 
 export function formatAMPM(dateString: string): string {
-    const t = new Date(dateString).toLocaleTimeString('en-US', { hour: '2-digit', hour12: true });
-    return t.split(' ')[1];
+    const t = new Date(dateString).toLocaleTimeString(DATE_LOCALE, { hour: '2-digit', hour12: true });
+    return t.split(' ')[1] ?? '';
 }

@@ -4,14 +4,14 @@ import crypto from 'crypto'
 function getSigningSecret(): string {
   const secret = process.env.OAUTH_COOKIE_SECRET
   if (secret) return secret
-  // In production, fail closed — NEXT_PUBLIC_APP_URL is publicly known and
+  // In production, fail closed — PUBLIC_APP_URL is publicly known and
   // would let an attacker forge the OAuth state cookie (CSRF bypass).
   if (process.env.NODE_ENV === 'production') {
     throw new Error('OAUTH_COOKIE_SECRET must be set in production')
   }
   // Dev-only fallback. Uses the public app URL as a stable per-env secret so
   // the OAuth flow works locally without extra configuration.
-  return process.env.NEXT_PUBLIC_APP_URL || 'dev-only-insecure-secret'
+  return process.env.PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'dev-only-insecure-secret'
 }
 
 /** HMAC-signs a payload so it can't be tampered with via subdomain cookie injection. */

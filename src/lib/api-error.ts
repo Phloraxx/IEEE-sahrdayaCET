@@ -2,6 +2,7 @@ import { logError } from './logger'
 import { ClientResponseError } from 'pocketbase'
 import { AuthError } from './auth'
 import { RegistrationError } from './registration-service'
+import { ParseError } from './parse-form-data'
 
 /**
  * Central error handler for API route try/catch blocks.
@@ -19,24 +20,19 @@ export function handleError(error: unknown, context: string): Response {
     return Response.json({ error: error.message }, { status: error.statusCode })
   }
 
+  if (error instanceof ParseError) {
+    return Response.json({ error: error.message }, { status: 400 })
+  }
+
   if (error instanceof ClientResponseError) {
     const status = error.status
     if (status === 404) {
       return Response.json({ error: 'Resource not found' }, { status: 404 })
     }
     if (status === 400) {
-      return Response.json(
-        {
-          error: error.data?.message || 'Invalid request',
-          details: error.data?.data || undefined,
-        },
-        { status: 400 },
-      )
+      return Response.json({ error: 'Invalid request' }, { status: 400 })
     }
-    return Response.json(
-      { error: error.data?.message || 'Request failed' },
-      { status },
-    )
+    return Response.json({ error: 'Request failed' }, { status })
   }
 
   return Response.json({ error: 'Internal server error' }, { status: 500 })
@@ -45,10 +41,12 @@ export function handleError(error: unknown, context: string): Response {
 /**
  * Extracts a numeric HTTP status from any error-like object.
  * Used by routes that need to branch on status before/after handleError.
+
  */
 export function getErrorStatus(error: unknown): number {
   if (error instanceof AuthError) return error.status
   if (error instanceof RegistrationError) return error.statusCode
+  if (error instanceof ParseError) return 400
   if (error instanceof ClientResponseError) return error.status
   if (error && typeof error === 'object' && 'status' in error && typeof (error as { status: unknown }).status === 'number') {
     return (error as { status: number }).status

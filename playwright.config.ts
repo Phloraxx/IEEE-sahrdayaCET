@@ -8,7 +8,7 @@ export default defineConfig({
   workers: 1,
   reporter: 'list',
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3001',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -21,8 +21,8 @@ export default defineConfig({
   webServer: process.env.CI
     ? undefined
     : {
-        command: 'bun run dev',
-        url: 'http://localhost:3000',
+        command: 'npm run dev',
+        url: 'http://localhost:3001',
         reuseExistingServer: true,
         timeout: 120_000,
       },

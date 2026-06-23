@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { NavItem } from "@/types";
+import { type NavItem } from "@/types";
 import { motion } from "framer-motion";
 import { useLocation, Link } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth-context";
@@ -32,6 +32,7 @@ export default function Navbar() {
   }, [pathname]);
 
   // Close user menu on click outside
+  // Close user menu on click outside or Escape
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (
@@ -41,10 +42,17 @@ export default function Navbar() {
         setShowUserMenu(false);
       }
     };
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowUserMenu(false);
+    };
     if (showUserMenu) {
       document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleEscape);
     }
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
   }, [showUserMenu]);
 
   useEffect(() => {
@@ -119,6 +127,8 @@ export default function Navbar() {
               <div className="relative" ref={userMenuRef}>
                 <button
                   onClick={() => setShowUserMenu(!showUserMenu)}
+                  aria-expanded={showUserMenu}
+                  aria-haspopup="true"
                   className="flex items-center gap-2 px-3 md:px-4 py-2 rounded-full text-[10px] md:text-xs font-bold tracking-wide text-blue-600 hover:bg-white/50 transition-all duration-300 whitespace-nowrap"
                 >
                   <User className="w-3 h-3 md:w-4 md:h-4" />
@@ -128,6 +138,7 @@ export default function Navbar() {
                 </button>
 
                 {/* User dropdown */}
+                {/* Close on Escape */}
                 {showUserMenu && (
                   <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 min-w-[200px] overflow-hidden z-1000 pointer-events-auto">
                     <div className="px-4 py-3 border-b border-gray-50 bg-gray-50/50">
@@ -141,14 +152,14 @@ export default function Navbar() {
                     {user.role === "admin" && (
                       <>
                         <div className="h-px bg-gray-100" />
-                        <a
-                          href="/admin"
+                        <Link
+                          to="/admin"
                           className="w-full px-4 py-3 text-left text-xs font-bold text-blue-600 hover:bg-blue-50 transition-colors flex items-center gap-3 tracking-wide"
                           onClick={() => setShowUserMenu(false)}
                         >
                           <LayoutDashboard className="w-4 h-4" />
                           Dashboard
-                        </a>
+                        </Link>
                       </>
                     )}
                     <div className="h-px bg-gray-100" />

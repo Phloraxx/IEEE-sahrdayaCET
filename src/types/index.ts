@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 
 export interface NavItem {
     label: string;
@@ -27,17 +27,20 @@ export interface Society {
     banner?: { url?: string } | string | number | null;
     isHidden?: boolean;
     chairs?: string[];
+  defaultWhatsappLink?: string;
 }
 
 export interface Coupon {
-    id?: string;
-    code: string;
-    discountType: 'percentage' | 'fixed';
-    discountValue: number;
-    maxUses: number;
-    usedCount: number;
-    expiresAt?: string;
-    isActive: boolean;
+    id: string
+    event: string
+    code: string
+    discountPercent: number
+    maxUses: number
+    usedCount: number
+    expiresAt?: string
+    isActive: boolean
+    createdAt?: string
+    updatedAt?: string
 }
 
 export interface Event {
@@ -51,7 +54,7 @@ export interface Event {
     venue?: string;
     price: number;
     bannerUrl?: string;
-    banner?: { url?: string } | string | number | null;
+    banner?: string | null;
     /** Society relation. When expanded, an object; otherwise the society ID string. */
     society?: { id: string; name?: string; slug?: string; logoUrl?: string } | string;
     societyId?: string;
@@ -72,25 +75,13 @@ export interface Event {
     externalLink?: string;
     externalFormUrl?: string;
     tags?: string;
+  whatsappLink?: string;
     isDeleted?: boolean;
 }
 
-export interface EventWithSociety extends Event {
-    society?: {
-        id: string;
-        name: string;
-        slug: string;
-        logoUrl: string;
-    };
-}
-
-export interface ExtendedEvent extends EventWithSociety {
-    about?: string;
-    agenda?: AgendaItem[];
-    tags?: string;
-    color?: string;
-    textColor?: string;
-}
+export type EventWithSociety = Event & { society: Society };
+export type EventExtended = EventWithSociety & { about?: string; agenda?: string; color?: string; textColor?: string };
+export type ExtendedEvent = EventExtended;
 
 export interface AgendaItem {
     time: string;
@@ -101,7 +92,7 @@ export interface AuthUser {
     id: string
     email?: string | null
     name?: string | null
-    role?: string
+    role?: 'admin' | 'chair' | 'user'
 }
 
 /**
@@ -126,20 +117,6 @@ export interface ExecomMember {
     category?: string;
 }
 
-/**
- * Display-oriented execom member (legacy home page shape). Derived from
- * ExecomMember at fetch time.
- */
-export interface Member {
-    id?: string;
-    name: string;
-    role: string;
-    tagline: string;
-    image: string;
-    linkedin?: string;
-    email?: string;
-    phone?: string;
-}
 
 export interface LatestEvent {
     id: string;
@@ -150,4 +127,28 @@ export interface LatestEvent {
     bannerUrl?: string;
     banner?: { url?: string } | string | number | null;
     tag?: string;
+}
+
+/**
+ * Canonical Registration type — superset of all registration display variants.
+ * Use Pick<> or Partial<> where not all fields are needed.
+ */
+export interface Registration {
+  id: string;
+  userName: string;
+  userEmail: string;
+  userPhone: string;
+  registrationStatus: string;
+  paymentStatus: string;
+  checkedIn: boolean;
+  checkedInAt?: string;
+  ticketId?: string;
+  amount: number;
+  couponCode?: string;
+  discountAmount?: number;
+  paymentData?: unknown;
+  formResponses?: unknown;
+  createdAt: string;
+  eventTitle?: string;
+  eventId?: string;
 }

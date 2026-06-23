@@ -1,11 +1,10 @@
 'use client'
 
-import { useState } from 'react'
 import { Plus, X, Copy } from 'lucide-react'
 import type { Coupon } from '@/types'
 
-function generateId() {
-  return Math.random().toString(36).substring(2, 9)
+function generateId(): string {
+  return crypto.randomUUID()
 }
 
 interface CouponManagerProps {
@@ -17,9 +16,9 @@ export function CouponManager({ coupons, onChange }: CouponManagerProps) {
   const addCoupon = () => {
     const newCoupon: Coupon = {
       id: generateId(),
+      event: '',
       code: '',
-      discountType: 'percentage',
-      discountValue: 0,
+      discountPercent: 10,
       maxUses: 0,
       usedCount: 0,
       isActive: true,
@@ -64,24 +63,14 @@ export function CouponManager({ coupons, onChange }: CouponManagerProps) {
 
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
-                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Type</label>
-                <select
-                  value={coupon.discountType}
-                  onChange={(e) => updateCoupon(coupon.id || coupon.code, { discountType: e.target.value as 'percentage' | 'fixed' })}
-                  className="w-full rounded-md border border-input bg-background px-2 py-1 text-xs outline-none"
-                >
-                  <option value="percentage">Percentage (%)</option>
-                  <option value="fixed">Fixed (₹)</option>
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Value</label>
+                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Discount %</label>
                 <input
                   type="number"
                   min="0"
-                  value={coupon.discountValue}
-                  onChange={(e) => updateCoupon(coupon.id || coupon.code, { discountValue: Number(e.target.value) })}
-                  placeholder={coupon.discountType === 'percentage' ? '10' : '100'}
+                  max="100"
+                  value={coupon.discountPercent}
+                  onChange={(e) => updateCoupon(coupon.id || coupon.code, { discountPercent: Number(e.target.value) })}
+                  placeholder="10"
                   className="w-full rounded-md border border-input bg-background px-2 py-1 text-xs outline-none"
                 />
               </div>

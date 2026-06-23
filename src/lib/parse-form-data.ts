@@ -1,4 +1,15 @@
 /**
+ * Thrown when a request body cannot be parsed as JSON.
+ * `handleError` maps this to HTTP 400.
+ */
+export class ParseError extends Error {
+  status = 400
+  constructor(message: string) {
+    super(message)
+    this.name = 'ParseError'
+  }
+}
+/**
  * Parses a Request body into a plain record, handling both
  * `multipart/form-data` (with File objects preserved) and JSON.
  *
@@ -27,8 +38,8 @@ export async function parseFormData(
   }
 
   try {
-    return (await req.json()) as Record<string, unknown>;
+    return (await req.json()) as Record<string, unknown>
   } catch {
-    return {};
+    throw new ParseError('Malformed JSON in request body')
   }
 }
