@@ -45,7 +45,7 @@ jobs:
         run: bun run build
 
       - name: Lint
-        run: bun run lint
+        run: bun run lint --max-warnings 30
 
       - name: Test (unit + integration)
         run: bun test
