@@ -1,136 +1,309 @@
-import React, { useState, useEffect } from "react";
+"use client";
+
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Users, Mail } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { Users, ArrowUpRight, Mail, Phone } from "lucide-react";
+import { Linkedin } from "@/components/icons";
 import { createPB, buildFileUrl } from "@/lib/pb";
-import { Linkedin, Instagram } from "@/components/icons";
-import { Skeleton } from "@/components/ui/skeleton";
+import type { ExecomMember } from "@/types";
 
-interface ExecomMemberDoc {
-  id: string;
-  order: number;
-  name: string;
-  position: string;
-  department: string;
-  photo?: string;
-  linkedin?: string;
-  instagram?: string;
-  email?: string;
-  phone?: string;
-}
+const MarqueeText: React.FC<{ text: string }> = ({ text }) => {
+  const repeated = `${text} ~ `.repeat(12);
+  return (
+    <div className="overflow-hidden whitespace-nowrap">
+      <motion.div
+        className="inline-block"
+        animate={{ x: ["0%", "-50%"] }}
+        transition={{
+          x: {
+            repeat: Infinity,
+            repeatType: "loop",
+            duration: 8,
+            ease: "linear",
+          },
+        }}
+      >
+        <span className="text-[10px] md:text-xs font-mono tracking-[0.3em] text-ieee-blue/60 uppercase">
+          {repeated}
+        </span>
+      </motion.div>
+    </div>
+  );
+};
 
-/* ── Individual Member Card ── */
-
-const MemberCard: React.FC<{ member: ExecomMemberDoc; index: number }> = ({
+const MemberCard: React.FC<{ member: ExecomMember; index: number }> = ({
   member,
   index,
 }) => {
+  const [isHovered, setIsHovered] = useState(false);
   const [imgError, setImgError] = useState(false);
   const photoUrl = member.photo
     ? buildFileUrl("execom", member.id, member.photo)
-    : "";
-  const initials = member.name
-    ? member.name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase()
-    : "?";
-  const hasSocial = !!(
-    member.linkedin || member.instagram || member.email
-  );
+    : member.photoUrl || "";
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      className="flex flex-col group cursor-pointer"
+      initial={{ opacity: 0, y: 60 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.4, delay: index * 0.05 }}
-      className="group"
+      viewport={{ once: true, margin: "-50px" }}
+      transition={{
+        duration: 0.7,
+        delay: index * 0.12,
+        ease: [0.2, 0.65, 0.3, 0.9],
+      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="relative bg-white border border-gray-100 rounded-2xl overflow-hidden hover:border-gray-200 hover:shadow-xl transition-all duration-500 hover:scale-[1.02]">
-        {/* Photo / Initials Fallback */}
-        <div className="relative aspect-[3/4] bg-gray-50 overflow-hidden">
+      <div className="relative overflow-hidden rounded-xl aspect-[3/4] mb-4 bg-gray-100">
+        <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+        <div className="relative w-full h-full">
           {photoUrl && !imgError ? (
             <img
               src={photoUrl}
               alt={member.name}
               loading="lazy"
               onError={() => setImgError(true)}
-              className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-105"
+              className={`absolute inset-0 w-full h-full object-cover transition-transform duration-600 ease-[cubic-bezier(0.2,0.65,0.3,0.9)] ${isHovered ? "scale-105" : "scale-100"}`}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
               <span className="text-3xl md:text-4xl font-bold text-gray-300">
-                {initials}
+                {member.name
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")
+                  .slice(0, 2)
+                  .toUpperCase()}
               </span>
             </div>
           )}
         </div>
 
-        {/* Info */}
-        <div className="p-3 md:p-4">
-          <div className="text-[10px] font-semibold text-ieee-blue uppercase tracking-wider mb-1 truncate">
+        <div className="absolute top-3 left-3 z-20">
+          <span className="px-2 py-1 bg-white/90 backdrop-blur-xs text-[9px] md:text-[10px] font-mono tracking-[0.15em] text-gray-700 rounded-xs uppercase">
             {member.position}
-          </div>
-          <h3 className="font-semibold text-gray-900 text-sm leading-tight mb-1 truncate">
-            {member.name}
-          </h3>
-          {member.department && (
-            <p className="text-[11px] text-gray-400 font-medium truncate">
-              {member.department}
-            </p>
-          )}
+          </span>
         </div>
 
-        {/* Hover Social Links */}
-        {hasSocial && (
-          <div className="absolute top-2 right-2 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            {member.linkedin && (
-              <a
-                href={member.linkedin}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm shadow-md flex items-center justify-center hover:bg-[#0077B5] hover:text-white transition-all hover:scale-110"
-                aria-label={`${member.name}&apos;s LinkedIn`}
-              >
-                <Linkedin className="w-3.5 h-3.5" />
-              </a>
-            )}
-            {member.instagram && (
-              <a
-                href={member.instagram}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm shadow-md flex items-center justify-center hover:bg-gradient-to-br hover:from-[#833AB4] hover:via-[#E1306C] hover:to-[#F77737] hover:text-white transition-all hover:scale-110"
-                aria-label={`${member.name}&apos;s Instagram`}
-              >
-                <Instagram className="w-3.5 h-3.5" />
-              </a>
-            )}
-            {member.email && (
-              <a
-                href={`mailto:${member.email}`}
-                onClick={(e) => e.stopPropagation()}
-                className="w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm shadow-md flex items-center justify-center hover:bg-gray-800 hover:text-white transition-all hover:scale-110"
-                aria-label={`Email ${member.name}`}
-              >
-                <Mail className="w-3.5 h-3.5" />
-              </a>
-            )}
+        <motion.div
+          className="absolute bottom-4 left-4 right-4 z-20 flex items-center justify-between"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: isHovered ? 1 : 0, y: isHovered ? 0 : 20 }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className="flex gap-2">
+            <a
+              href={member.linkedin || "#"}
+              target={member.linkedin ? "_blank" : "_self"}
+              rel="noopener noreferrer"
+              onClick={(e) => !member.linkedin && e.preventDefault()}
+              aria-label="View on LinkedIn"
+              className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/40 transition-colors"
+            >
+              <Linkedin className="w-3.5 h-3.5 text-white" />
+            </a>
+            <a
+              href={member.email ? `mailto:${member.email}` : "#"}
+              onClick={(e) => !member.email && e.preventDefault()}
+              aria-label="Send email"
+              className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/40 transition-colors"
+            >
+              <Mail className="w-3.5 h-3.5 text-white" />
+            </a>
+            <a
+              href={member.phone ? `tel:${member.phone}` : "#"}
+              onClick={(e) => !member.phone && e.preventDefault()}
+              aria-label="Call"
+              className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/40 transition-colors"
+            >
+              <Phone className="w-3.5 h-3.5 text-white" />
+            </a>
           </div>
-        )}
+        </motion.div>
+
+        <div className="absolute bottom-3 right-3 z-20 opacity-20 group-hover:opacity-0 transition-opacity">
+          <span className="font-pixel text-4xl md:text-5xl text-white font-bold">
+            {String(index + 1).padStart(2, "0")}
+          </span>
+        </div>
+      </div>
+
+      <h4 className="font-sans font-bold text-lg md:text-xl text-gray-900 tracking-tight mb-0.5 group-hover:text-ieee-blue transition-colors duration-300">
+        {member.name}
+      </h4>
+
+      <div className="mt-1 overflow-hidden rounded-xs">
+        <MarqueeText text={member.department || member.position} />
       </div>
     </motion.div>
   );
 };
 
-/* ── Main Execom Section ── */
+const CARD_WIDTH = 270;
+const GAP = 30;
+const ITEM_SIZE = CARD_WIDTH + GAP;
+
+const DragCarousel: React.FC<{ members: ExecomMember[] }> = ({ members }) => {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const offsetRef = useRef(0);
+  const rafRef = useRef<number>(0);
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const [isInView, setIsInView] = useState(false);
+  const [hasStartedScrolling, setHasStartedScrolling] = useState(false);
+
+  const physics = useRef({
+    isDragging: false,
+    startX: 0,
+    currentX: 0,
+    velocity: 0,
+    lastTime: 0,
+    lastX: 0,
+  });
+
+  const animate = useCallback(() => {
+    if (!trackRef.current) return;
+
+    if (!document.hidden) {
+      if (!physics.current.isDragging) {
+        physics.current.velocity *= 0.98;
+
+        if (
+          Math.abs(physics.current.velocity) < 0.05 &&
+          isInView &&
+          hasStartedScrolling
+        ) {
+          const targetVelocity = -0.5;
+          physics.current.velocity +=
+            (targetVelocity - physics.current.velocity) * 0.1;
+        }
+      }
+
+      offsetRef.current += physics.current.velocity;
+
+      const contentWidth = ITEM_SIZE * members.length;
+      if (offsetRef.current <= -contentWidth) {
+        offsetRef.current += contentWidth;
+      }
+      if (offsetRef.current > 0) {
+        offsetRef.current -= contentWidth;
+      }
+
+      trackRef.current.style.transform = `translate3d(${offsetRef.current}px, 0, 0)`;
+    }
+
+    rafRef.current = requestAnimationFrame(animate);
+  }, [isInView, hasStartedScrolling, members.length]);
+
+  useEffect(() => {
+    rafRef.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [animate]);
+
+  useEffect(() => {
+    const element = sectionRef.current;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsInView(entry.isIntersecting && entry.intersectionRatio >= 0.8);
+      },
+      { threshold: 0.8 },
+    );
+
+    if (element) {
+      observer.observe(element);
+    }
+
+    return () => {
+      if (element) {
+        observer.unobserve(element);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isInView && !hasStartedScrolling) {
+      const timer = setTimeout(() => {
+        setHasStartedScrolling(true);
+      }, 500);
+
+      return () => clearTimeout(timer);
+    } else if (!isInView) {
+      setHasStartedScrolling(false);
+    }
+  }, [isInView, hasStartedScrolling]);
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+
+    physics.current.isDragging = true;
+    physics.current.startX = e.clientX;
+    physics.current.lastX = e.clientX;
+    physics.current.lastTime = performance.now();
+    physics.current.velocity = 0;
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!physics.current.isDragging) return;
+
+    const now = performance.now();
+    const deltaX = e.clientX - physics.current.lastX;
+    const deltaTime = now - physics.current.lastTime;
+
+    offsetRef.current += deltaX;
+
+    if (deltaTime > 0) {
+      const newVelocity = (deltaX / deltaTime) * 16;
+      physics.current.velocity =
+        physics.current.velocity * 0.8 + newVelocity * 0.2;
+    }
+
+    physics.current.lastX = e.clientX;
+    physics.current.lastTime = now;
+  };
+
+  const onPointerUp = () => {
+    if (!physics.current.isDragging) return;
+    physics.current.isDragging = false;
+  };
+
+  const items = [...members, ...members, ...members];
+
+  if (!members.length) return null;
+
+  return (
+    <div ref={sectionRef} className="relative w-full select-none">
+      <div
+        className="overflow-hidden cursor-grab active:cursor-grabbing py-4 touch-pan-y"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onPointerLeave={onPointerUp}
+      >
+        <div
+          ref={trackRef}
+          className="flex will-change-transform"
+          style={{ gap: `${GAP}px` }}
+        >
+          {items.map((member, index) => (
+            <div
+              key={`${member.id}-${index}`}
+              className="shrink-0 transition-transform duration-300 ease-out hover:-translate-y-2"
+              style={{ width: `${CARD_WIDTH}px` }}
+            >
+              <MemberCard member={member} index={index % members.length} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export const Execom: React.FC = () => {
-  const [members, setMembers] = useState<ExecomMemberDoc[]>([]);
+  const [members, setMembers] = useState<ExecomMember[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -139,10 +312,10 @@ export const Execom: React.FC = () => {
       .getList(1, 100, {
         sort: "order",
         fields:
-          "id,order,name,position,department,photo,linkedin,instagram,email,phone",
+          "id,order,name,position,department,photo,photoUrl,linkedin,instagram,email,phone",
       })
       .then((result) => {
-        setMembers(result.items as ExecomMemberDoc[]);
+        setMembers(result.items as ExecomMember[]);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -158,7 +331,6 @@ export const Execom: React.FC = () => {
       <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-ieee-blue/5 rounded-full blur-3xl" />
 
       <div className="container mx-auto px-4 relative z-10">
-        {/* Heading Section */}
         <div className="mb-16 md:mb-20">
           <div className="flex items-center space-x-2 mb-6">
             <Users className="w-5 h-5 text-ieee-blue" />
@@ -195,42 +367,47 @@ export const Execom: React.FC = () => {
           </div>
         </div>
 
-        {/* Loading State — skeleton cards */}
-        {loading && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <div key={i} className="space-y-3">
-                <Skeleton className="aspect-[3/4] rounded-2xl" />
-                <div className="space-y-2 px-1">
-                  <Skeleton className="h-3 w-3/4" />
-                  <Skeleton className="h-3 w-1/2" />
-                </div>
-              </div>
-            ))}
+        <motion.div
+          className="grid grid-cols-3 gap-4 mb-16 md:mb-20 border-y border-gray-200 py-8"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+        >
+          <div className="text-center md:text-left">
+            <div className="font-mono text-[10px] tracking-[0.3em] text-gray-400 uppercase mb-1">
+              Roster
+            </div>
+            <div className="font-bold text-2xl md:text-4xl text-gray-900">
+              80
+            </div>
           </div>
-        )}
+          <div className="text-center">
+            <div className="font-mono text-[10px] tracking-[0.3em] text-gray-400 uppercase mb-1">
+              Events Led
+            </div>
+            <div className="font-bold text-2xl md:text-4xl text-gray-900">
+              100+
+            </div>
+          </div>
+          <div className="text-center md:text-right">
+            <div className="font-mono text-[10px] tracking-[0.3em] text-gray-400 uppercase mb-1">
+              Societies
+            </div>
+            <div className="font-bold text-2xl md:text-4xl text-gray-900">
+              14
+            </div>
+          </div>
+        </motion.div>
 
-        {/* Members Grid */}
-        {!loading && members.length > 0 && (
-          <motion.div
-            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5 }}
-          >
-            {members.map((member, index) => (
-              <MemberCard key={member.id} member={member} index={index} />
-            ))}
-          </motion.div>
-        )}
-
-        {/* Empty State */}
-        {!loading && members.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center py-16"
-          >
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="w-8 h-8 border-2 border-ieee-blue border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : members.length > 0 ? (
+          <DragCarousel members={members} />
+        ) : (
+          <div className="text-center py-20">
             <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-500 mb-2">
               Coming Soon
@@ -239,8 +416,39 @@ export const Execom: React.FC = () => {
               We&apos;re assembling the team. Check back soon to meet the
               executive committee driving innovation at IEEE Sahrdaya SB.
             </p>
-          </motion.div>
+          </div>
         )}
+
+        <div className="mt-12 flex justify-center">
+          <Link
+            to="/full-execom"
+            className="group relative inline-flex items-center justify-center px-8 py-3 font-mono text-sm uppercase tracking-widest text-white transition-all duration-300 bg-ieee-blue/90 hover:bg-ieee-blue rounded-full"
+          >
+            <span>View Full Execom</span>
+            <ArrowUpRight className="ml-2 w-4 h-4 transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1" />
+          </Link>
+        </div>
+
+        <motion.div
+          className="mt-16 md:mt-24 flex flex-col md:flex-row items-center justify-center gap-4 text-center"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+        >
+          <div className="h-px w-16 bg-gray-300 hidden md:block" />
+          <p className="font-mono text-xs text-gray-400 tracking-[0.2em] uppercase">
+            Want to be part of the team?
+          </p>
+          <a
+            href="https://students.ieee.org/"
+            target="_blank"
+            className="inline-flex items-center gap-2 px-6 py-2.5 bg-gray-900 text-white text-xs font-mono tracking-wider rounded-full hover:bg-ieee-blue transition-colors duration-300 uppercase"
+          >
+            Join IEEE <ArrowUpRight className="w-3.5 h-3.5" />
+          </a>
+          <div className="h-px w-16 bg-gray-300 hidden md:block" />
+        </motion.div>
       </div>
     </section>
   );
