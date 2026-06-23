@@ -24,6 +24,7 @@ export function createAdminPB() {
     throw new Error('POCKETBASE_SUPERUSER_TOKEN not configured')
   }
   pb.authStore.save(token, null)
+  return pb
 }
 export function buildFileUrl(collection: string, recordId: string, filename: string): string {
   const envUrl = process.env.POCKETBASE_URL || (typeof import.meta !== 'undefined' ? import.meta.env.VITE_POCKETBASE_URL : '') || ''

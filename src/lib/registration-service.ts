@@ -206,7 +206,7 @@ export async function createRegistration(
   // 4. Bump registeredCount for the free/confirmed path (previously the
   //    onRecordAfterCreate hook did this). Paid events bump on webhook confirm.
   if (isFree) {
-    await bumpEventCounter(eventId, 'registeredCount', +1)
+    await bumpEventCounter(eventId, 'registeredCount', +1, pb)
     return { registrationId: registration.id, paymentRequired: false, amount: 0 }
   }
 
@@ -251,7 +251,7 @@ export async function confirmRegistration(
   // Note: a concurrent caller may also see wasPending=true and bump.
   //       Race window is ~1ms. For precise accounting, use PB hooks with unique constraints.
   if (wasPending) {
-    await bumpEventCounter(eventId, 'registeredCount', +1)
+    await bumpEventCounter(eventId, 'registeredCount', +1, pb)
   }
 }
 
@@ -275,7 +275,7 @@ export async function cancelRegistration(
   // Note: a concurrent caller may also see wasConfirmed=true and decrement.
   //       Race window is ~1ms. For precise accounting, use PB hooks with unique constraints.
   if (wasConfirmed) {
-    await bumpEventCounter(eventId, 'registeredCount', -1)
+    await bumpEventCounter(eventId, 'registeredCount', -1, pb)
   }
 }
 
@@ -300,7 +300,7 @@ export async function checkInRegistration(
   // Note: a concurrent caller may also see wasNotCheckedIn=true and bump.
   //       Race window is ~1ms. For precise accounting, use PB hooks with unique constraints.
   if (wasNotCheckedIn) {
-    await bumpEventCounter(getField(reg, 'event', ''), 'checkedInCount', +1)
+    await bumpEventCounter(getField(reg, 'event', ''), 'checkedInCount', +1, pb)
   }
 }
 
@@ -322,11 +322,12 @@ export async function bumpEventCounter(
   eventId: string,
   field: 'registeredCount' | 'checkedInCount',
   delta: number,
+  pb?: PocketBase,
 ): Promise<void> {
   const MAX_RETRIES = 3
-  const adminPB = createAdminPB()
+  const client = pb ?? createAdminPB()
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    const event = await adminPB.collection('events')
+    const event = await client.collection('events')
       .getOne(eventId, { fields: `id,${field}` })
       .catch(() => null)
     if (!event) return
@@ -336,7 +337,7 @@ export async function bumpEventCounter(
     }
     const next = Math.max(0, current + delta)
     try {
-      await adminPB.collection('events').update(eventId, { [field]: next })
+      await client.collection('events').update(eventId, { [field]: next })
       return
     } catch (err) {
       if (attempt === MAX_RETRIES - 1) {

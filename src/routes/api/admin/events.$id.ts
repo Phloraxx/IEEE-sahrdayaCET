@@ -67,7 +67,7 @@ export const Route = createFileRoute("/api/admin/events/$id")({
           } catch (e) {
             throw new AuthError(e instanceof Error ? e.message : "Forbidden", 403);
           }
-          await softDeleteEvent(id);
+          await softDeleteEvent(id, pb);
           return Response.json({ success: true });
         } catch (error) {
           return handleError(error, "admin-events-delete");
