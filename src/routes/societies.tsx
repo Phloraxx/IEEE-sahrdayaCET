@@ -45,10 +45,11 @@ export const Route = createFileRoute("/societies")({
       context.response.headers.set('Cache-Control', 'public, max-age=300');
       const pb = createPB();
       const data = await pb.collection("societies").getList(1, 200, {
+        sort: "name",
         filter: "isHidden=false",
         skipTotal: true,
         fields: "id,name,slug,bio,logo",
-      });
+      })
       return (data.items || []).map((s: Record<string, unknown>) => ({
         id: s.id as string,
         name: s.name as string,

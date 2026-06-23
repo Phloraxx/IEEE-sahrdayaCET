@@ -220,6 +220,7 @@ export default function SocietiesClient({ societies }: SocietiesClientProps) {
     setFetching(true);
     const pb = createPB();
     pb.collection("societies").getList(1, 200, {
+      sort: "name",
       filter: "isHidden=false",
       skipTotal: true,
       fields: "id,name,slug,bio,logo",
