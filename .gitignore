@@ -66,9 +66,6 @@ data/
 /scripts/
 
 # Image artifacts (migrated to PocketBase file storage)
-/public/Events/
-/public/Execom/
-/public/Societies/
 
 # Database dumps and SQL files
 *.sql
