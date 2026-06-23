@@ -1,6 +1,6 @@
 name: CI
 # Runs on every PR and push to main.
-# Produces commit status checks for: build, lint, test.
+# Checks out the PR HEAD, not the auto-merge commit (main is old Next.js codebase).
 
 on:
   push:
@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -36,8 +38,6 @@ jobs:
         if: steps.cache-node-modules.outputs.cache-hit != 'true'
         run: bun install
 
-      # Verify even on cache hit — `bun install` without --frozen-lockfile
-      # self-heals if lockfile drifted (common in local dev with bun)
       - name: Verify dependencies
         run: bun install
 
@@ -56,6 +56,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
