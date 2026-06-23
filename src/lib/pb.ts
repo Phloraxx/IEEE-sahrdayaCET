@@ -4,7 +4,7 @@ import { logError } from './logger'
 
 export function createPB(cookieString?: string) {
   const envUrl = process.env.POCKETBASE_URL || (typeof import.meta !== 'undefined' ? import.meta.env.VITE_POCKETBASE_URL : '') || ''
-  const url = envUrl && !envUrl.includes('sslip.io') ? envUrl : 'http://ieee-pocketbase-8wt381-14074c-144-24-114-90.sslip.io'
+  const url = envUrl && !envUrl.includes('sslip.io') ? envUrl : 'https://db.phloraxx.us.to'
   const pb = new PocketBase(url)
   if (cookieString) {
     pb.authStore.loadFromCookie(cookieString, PB_AUTH_COOKIE)
@@ -27,7 +27,7 @@ export function createAdminPB() {
 }
 export function buildFileUrl(collection: string, recordId: string, filename: string): string {
   const envUrl = process.env.POCKETBASE_URL || (typeof import.meta !== 'undefined' ? import.meta.env.VITE_POCKETBASE_URL : '') || ''
-  const url = envUrl && !envUrl.includes('sslip.io') ? envUrl : 'http://ieee-pocketbase-8wt381-14074c-144-24-114-90.sslip.io'
+  const url = envUrl && !envUrl.includes('sslip.io') ? envUrl : 'https://db.phloraxx.us.to'
   if (!url || !recordId || !filename) {
     if (!recordId || !filename) {
       logError('buildFileUrl', 'Missing recordId or filename', { collection, recordId, filename })
