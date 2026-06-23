@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { useState } from "react";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { AdminTopbar } from "@/components/admin/AdminTopbar";
@@ -6,15 +6,7 @@ import { Toaster } from "@/components/ui/sonner";
 import AdminGuard from "@/components/admin/AdminGuard";
 import { AdminKeyboardShortcuts } from "@/components/admin/KeyboardShortcuts";
 import { PageTransition } from "@/components/admin/PageTransition";
-import { checkAdminAccess } from "@/lib/admin-guard";
 export const Route = createFileRoute("/admin")({
-  beforeLoad: async () => {
-    try {
-      await checkAdminAccess();
-    } catch {
-      throw redirect({ to: "/" });
-    }
-  },
   component: AdminLayout,
   errorComponent: ({ error }: { error: Error }) => (
     <div className="flex items-center justify-center min-h-screen p-8">
