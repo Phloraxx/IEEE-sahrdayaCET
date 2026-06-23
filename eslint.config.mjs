@@ -57,6 +57,9 @@ export default [
     },
   },
   {
-    ignores: ["src/routeTree.gen.ts"],
+    ignores: [
+      "src/routeTree.gen.ts",
+      "src/app/**",       // old Next.js app (being deleted during migration)
+    ],
   },
 ]
