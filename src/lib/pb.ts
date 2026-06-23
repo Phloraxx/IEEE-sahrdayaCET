@@ -3,13 +3,12 @@ import { PB_AUTH_COOKIE } from './constants'
 import { logError } from './logger'
 
 export function createPB(cookieString?: string) {
-  const url = process.env.POCKETBASE_URL || (typeof import.meta !== 'undefined' ? import.meta.env.VITE_POCKETBASE_URL : '') || 'https://db.phloraxx.us.to'
+  const envUrl = process.env.POCKETBASE_URL || (typeof import.meta !== 'undefined' ? import.meta.env.VITE_POCKETBASE_URL : '') || ''
+  const url = envUrl && !envUrl.includes('sslip.io') ? envUrl : 'https://db.phloraxx.us.to'
   const pb = new PocketBase(url)
-
   if (cookieString) {
     pb.authStore.loadFromCookie(cookieString, PB_AUTH_COOKIE)
   }
-
   return pb
 }
 
@@ -26,9 +25,9 @@ export function createAdminPB() {
   }
   pb.authStore.save(token, null)
 }
-
 export function buildFileUrl(collection: string, recordId: string, filename: string): string {
-  const url = process.env.POCKETBASE_URL || (typeof import.meta !== 'undefined' ? import.meta.env.VITE_POCKETBASE_URL : '') || 'https://db.phloraxx.us.to'
+  const envUrl = process.env.POCKETBASE_URL || (typeof import.meta !== 'undefined' ? import.meta.env.VITE_POCKETBASE_URL : '') || ''
+  const url = envUrl && !envUrl.includes('sslip.io') ? envUrl : 'https://db.phloraxx.us.to'
   if (!url || !recordId || !filename) {
     if (!recordId || !filename) {
       logError('buildFileUrl', 'Missing recordId or filename', { collection, recordId, filename })
