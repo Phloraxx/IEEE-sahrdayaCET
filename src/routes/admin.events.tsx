@@ -1,73 +1,70 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { getField, getExpand } from "@/lib/safe-get";
 import { createServerFn } from "@tanstack/react-start";
-import { getRequestHeader } from "@tanstack/react-start/server";
-import { createPB } from "@/lib/pb";
-import { requireRole } from "@/lib/auth";
-import { EventsTableClient } from "@/app/admin/events/EventsTableClient";
-import { logError } from "@/lib/logger";
+import { adminLoader } from "@/lib/admin-loader";
+import { EventsTableClient } from "@/features/admin/EventsTableClient";
+import type { Event } from "@/types";
 
-interface EventRow {
-  id: string;
-  title: string;
-  date: string;
-  endDate: string;
-  venue: string;
-  price: number;
-  status: string;
-  registrationOpen: boolean;
-  maxCapacity: number;
-  registeredCount: number;
-  checkedInCount: number;
+export interface EventRow extends Pick<Event, 'id' | 'title' | 'date' | 'endDate' | 'venue' | 'price' | 'status' | 'registrationOpen' | 'maxCapacity' | 'registeredCount' | 'checkedInCount'> {
   isPaid: boolean;
   societyName: string;
   societyId: string;
 }
 
-const getEventsList = createServerFn({ method: "GET" }).handler(async () => {
-  const cookieHeader = getRequestHeader("cookie") || "";
-  const pb = createPB(cookieHeader);
-  try {
-    await requireRole(["admin", "chair"], pb);
-    const result = await pb.collection("events").getList(1, 20, {
-      sort: "-date",
-      expand: "society",
-      fields:
-        "id,title,date,endDate,venue,price,status,registrationOpen,maxCapacity,registeredCount,checkedInCount,society,expand.society.id,expand.society.name",
-    });
+export interface EventsLoaderData {
+  events: EventRow[];
+  total: number;
+}
 
-    const events: EventRow[] = result.items.map(
-      (e: Record<string, unknown>) => {
-        const expand = e.expand as Record<string, unknown> | undefined;
-        const society = expand?.society as Record<string, unknown> | undefined;
+const EMPTY: EventsLoaderData = { events: [], total: 0 };
+
+const getEventsList = createServerFn({ method: "GET" }).handler(() =>
+  adminLoader(
+    async (pb) => {
+      const result = await pb.collection("events").getList(1, 20, {
+        sort: "-date",
+        expand: "society",
+        fields:
+          "id,title,date,endDate,venue,price,status,registrationOpen,maxCapacity,registeredCount,checkedInCount,society,expand.society.id,expand.society.name",
+      });
+
+      const events: EventRow[] = result.items.map((e) => {
+        const expand = getExpand(e);
+        const society = expand?.society;
         return {
-          id: e.id as string,
-          title: e.title as string,
-          date: e.date as string,
-          endDate: e.endDate as string,
-          venue: e.venue as string,
-          price: Number(e.price) || 0,
-          status: (e.status as string) || "draft",
-          registrationOpen: !!e.registrationOpen,
-          maxCapacity: (e.maxCapacity as number) || 0,
-          registeredCount: (e.registeredCount as number) || 0,
-          checkedInCount: (e.checkedInCount as number) || 0,
-          isPaid: Number(e.price) > 0,
-          societyName: (society?.name as string) || "",
-          societyId: (society?.id as string) || "",
+          id: getField(e, 'id', ''),
+          title: getField(e, 'title', ''),
+          date: getField(e, 'date', ''),
+          endDate: getField(e, 'endDate', '') || "",
+          venue: getField(e, 'venue', ''),
+          price: Number(getField(e, 'price', 0)) || 0,
+          status: getField(e, 'status', 'draft'),
+          registrationOpen: !!getField(e, 'registrationOpen', false),
+          maxCapacity: Number(getField(e, 'maxCapacity', 0)) || 0,
+          registeredCount: Number(getField(e, 'registeredCount', 0)) || 0,
+          checkedInCount: Number(getField(e, 'checkedInCount', 0)) || 0,
+          isPaid: Number(getField(e, 'price', 0)) > 0,
+          societyName: getField(society, 'name', ''),
+          societyId: getField(society, 'id', ''),
         };
-      },
-    );
+      });
 
-    return { events, total: result.totalItems };
-  } catch (e) {
-    logError("admin-events-list", e);
-    return { events: [] as EventRow[], total: 0 };
-  }
-});
+      return { events, total: result.totalItems } satisfies EventsLoaderData;
+    },
+    EMPTY,
+    { context: "admin-events-list" },
+  ),
+);
 
 export const Route = createFileRoute("/admin/events")({
   loader: () => getEventsList(),
   component: AdminEventsPage,
+  errorComponent: ({ error }: { error: Error }) => (
+    <div className="p-8 text-center">
+      <h2 className="text-xl font-bold text-red-600 mb-2">Something went wrong</h2>
+      <p className="text-gray-500 text-sm">{error.message}</p>
+    </div>
+  ),
 });
 
 function AdminEventsPage() {

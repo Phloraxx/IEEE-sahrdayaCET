@@ -3,7 +3,7 @@ import { serialize } from "cookie";
 import PocketBase from "pocketbase";
 import { signCookie } from "@/lib/cookie-signing";
 import { PB_OAUTH_PROVIDER_COOKIE, OAUTH_CALLBACK_PATH } from "@/lib/constants";
-
+import { logError } from "@/lib/logger";
 export const Route = createFileRoute("/api/auth/init")({
   server: {
     handlers: {
@@ -18,7 +18,7 @@ export const Route = createFileRoute("/api/auth/init")({
           }
           const nextUrl = new URL(request.url);
           const appUrl =
-            process.env.NEXT_PUBLIC_APP_URL ||
+            process.env.PUBLIC_APP_URL ||
             `${nextUrl.protocol}//${nextUrl.host}`;
           const pb = new PocketBase(url);
           const authMethods = await pb.collection("users").listAuthMethods();
@@ -58,7 +58,7 @@ export const Route = createFileRoute("/api/auth/init")({
 
           return response;
         } catch (error) {
-          console.error("[auth-init]", error);
+          logError("auth-init", error);
           return Response.json(
             { error: "Internal server error" },
             { status: 500 },

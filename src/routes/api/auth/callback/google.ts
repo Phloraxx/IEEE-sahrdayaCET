@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { serialize } from "cookie";
+import { OAUTH_CALLBACK_PATH, PB_OAUTH_PROVIDER_COOKIE } from "@/lib/constants";
+import { logError } from "@/lib/logger";
 import PocketBase from "pocketbase";
 import { verifySignedCookie } from "@/lib/cookie-signing";
-import { PB_OAUTH_PROVIDER_COOKIE, OAUTH_CALLBACK_PATH } from "@/lib/constants";
-
 export const Route = createFileRoute("/api/auth/callback/google")({
   server: {
     handlers: {
@@ -18,15 +18,15 @@ export const Route = createFileRoute("/api/auth/callback/google")({
           ?.slice(PB_OAUTH_PROVIDER_COOKIE.length + 1);
 
         const appUrl =
-          process.env.NEXT_PUBLIC_APP_URL || `${url.protocol}//${url.host}`;
+          process.env.PUBLIC_APP_URL || `${url.protocol}//${url.host}`;
 
         if (!code || !state || !providerCookie) {
-          return Response.redirect(new URL("/", appUrl));
+          return Response.redirect(new URL("/?error=auth_failed", appUrl));
         }
 
         const provider = verifySignedCookie(decodeURIComponent(providerCookie));
         if (!provider || provider.state !== state) {
-          return Response.redirect(new URL("/", appUrl));
+          return Response.redirect(new URL("/?error=auth_failed", appUrl));
         }
 
         const redirectUrl = `${appUrl}${OAUTH_CALLBACK_PATH}`;
@@ -51,7 +51,7 @@ export const Route = createFileRoute("/api/auth/callback/google")({
           const authCookie = pb.authStore.exportToCookie({
             httpOnly: true,
             secure: isProduction,
-            sameSite: "lax",
+            sameSite: "strict",
             path: "/",
           });
           response.headers.set("Set-Cookie", authCookie);
@@ -70,9 +70,9 @@ export const Route = createFileRoute("/api/auth/callback/google")({
 
           return response;
         } catch (err) {
-          console.error("[oauth-callback]", err);
+          logError("oauth-callback", err);
           const isProduction = process.env.NODE_ENV === "production";
-          const response = Response.redirect(new URL("/", appUrl));
+          const response = Response.redirect(new URL("/?error=auth_failed", appUrl));
           response.headers.set(
             "Set-Cookie",
             serialize(PB_OAUTH_PROVIDER_COOKIE, "", {

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createPB } from "@/lib/pb";
 import { requireAuth, AuthError } from "@/lib/auth";
-
+import { logError } from "@/lib/logger";
 export const Route = createFileRoute("/api/auth/me")({
   server: {
     handlers: {
@@ -23,7 +23,7 @@ export const Route = createFileRoute("/api/auth/me")({
               { status: error.status },
             );
           }
-          console.error("[auth-me]", error);
+          logError("auth-me", error);
           return Response.json(
             { error: "Internal server error" },
             { status: 500 },

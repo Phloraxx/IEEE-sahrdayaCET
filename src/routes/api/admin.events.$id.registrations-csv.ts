@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createPB } from "@/lib/pb";
-import { requireRole } from "@/lib/auth";
+import { requireRole, AuthError } from "@/lib/auth";
 import { handleError, getErrorStatus } from "@/lib/api-error";
-import { streamRegistrationsCSV, csvFilename } from "@/lib/csv-export";
+import { streamRegistrationsCSV, csvFilename, type EventLite } from "@/lib/csv-export";
+import { requireEventScope } from "@/lib/chair-scope";
 
 export const Route = createFileRoute("/api/admin/events/$id/registrations-csv")(
   {
@@ -12,11 +13,16 @@ export const Route = createFileRoute("/api/admin/events/$id/registrations-csv")(
           try {
             const { id: eventId } = params;
             const pb = createPB(request.headers.get("cookie") || undefined);
-            await requireRole(["admin", "chair"], pb);
+            const { user } = await requireRole(["admin", "chair"], pb);
+            try {
+              await requireEventScope(pb, user, eventId);
+            } catch (e) {
+              throw new AuthError(e instanceof Error ? e.message : "Forbidden", 403);
+            }
 
             const event = await pb
               .collection("events")
-              .getOne(eventId, { fields: "id,title,formTemplate" })
+              .getOne<EventLite>(eventId, { fields: "id,title,formTemplate" })
               .catch(() => null);
             if (!event) {
               return new Response("Event not found", { status: 404 });
@@ -24,16 +30,16 @@ export const Route = createFileRoute("/api/admin/events/$id/registrations-csv")(
 
             const stream = await streamRegistrationsCSV(pb, eventId, {
               adminFormat: true,
-              event: event as any,
+              event: event,
             });
-            const filename = csvFilename((event as any).title, eventId);
+            const filename = csvFilename(event.title, eventId);
 
             return new Response(stream, {
               status: 200,
               headers: {
                 "Content-Type": "text/csv; charset=utf-8",
                 "Content-Disposition":
-                  'attachment; filename="' + filename + '"',
+                  `attachment; filename="${  filename  }"`,
                 "Cache-Control": "no-store",
               },
             });
