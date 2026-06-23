@@ -463,8 +463,10 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
             return {
               id,
               order: Number(raw.order) || i + 1,
+              slNo: Number(raw.order) || i + 1,
               name: (raw.name as string) || "",
               department: (raw.department as string) || "",
+              semester: (raw.batch as string) || "",
               batch: (raw.batch as string) || "",
               position: (raw.position as string) || "",
               category: (raw.category as string) || "",
