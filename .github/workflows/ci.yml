@@ -1,6 +1,6 @@
 name: CI
 # Runs on every PR and push to main.
-# Checks out the PR HEAD, not the auto-merge commit (main is old Next.js codebase).
+# Checks out the PR HEAD (not merge commit — main is old Next.js codebase).
 
 on:
   push:
@@ -12,7 +12,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # ─── Validate: type-check, lint, test ───────────────────
   validate:
     runs-on: ubuntu-latest
     steps:
@@ -20,37 +19,24 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.ref }}
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
-      - name: Cache node_modules
-        uses: actions/cache@v4
+      - uses: actions/cache@v4
         id: cache-node-modules
         with:
           path: node_modules
           key: node-modules-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            node-modules-${{ runner.os }}-
 
-      - name: Install dependencies
-        if: steps.cache-node-modules.outputs.cache-hit != 'true'
-        run: bun install
+      - run: bun install --frozen-lockfile
 
-      - name: Verify dependencies
-        run: bun install
+      - run: bun run build
 
-      - name: Type-check and build
-        run: bun run build
+      - run: bun run lint
 
-      - name: Lint
-        run: bun run lint --max-warnings 30
+      - run: bun test
 
-      - name: Test (unit + integration)
-        run: bun test
-
-  # ─── Build Docker image (PR only — main gets full CD) ──
   docker-build:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -59,10 +45,9 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.ref }}
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v3
 
-      - name: Build (no push — smoke test the Dockerfile)
+      - name: Build (no push — smoke test)
         uses: docker/build-push-action@v6
         with:
           context: .
