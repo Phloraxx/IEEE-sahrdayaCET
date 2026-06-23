@@ -1,6 +1,6 @@
 # ─────────────────────────────────────────────────────────────
 #  IEEE Sahrdaya — Production Docker Compose
-#  Single Next.js instance (no load balancer, no Caddy).
+#  Single TanStack Start instance (no load balancer, no Caddy).
 #  TLS options (pick one):
 #    A) Cloudflare Tunnel — zero open ports, free TLS at edge
 #    B) Minimal Caddy alongside — see commented service below
@@ -9,7 +9,7 @@
 # ─────────────────────────────────────────────────────────────
 
 services:
-  # ─── Next.js App ─────────────────────────────────────────
+  # ─── TanStack Start App ────────────────────────────────────
   app:
     build:
       context: .
@@ -21,20 +21,14 @@ services:
     environment:
       - NODE_ENV=production
       - POCKETBASE_URL=${POCKETBASE_URL:-https://db.phloraxx.us.to}
-      - POCKETBASE_SUPERUSER_TOKEN=${POCKETBASE_SUPERUSER_TOKEN:?err}
       - PAYMENT_API_URL=${PAYMENT_API_URL:-https://pay.mulearnscet.in}
       - PAYMENT_WEBHOOK_SECRET=${PAYMENT_WEBHOOK_SECRET:?err}
-      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-https://ieeesahrdaya.com}
+      - OAUTH_COOKIE_SECRET=${OAUTH_COOKIE_SECRET:?err}
+      - PUBLIC_APP_URL=${PUBLIC_APP_URL:-https://ieeesahrdaya.com}
       - SMTP_HOST=${SMTP_HOST:-}
       - SMTP_PORT=${SMTP_PORT:-587}
       - SMTP_USER=${SMTP_USER:-}
       - SMTP_PASS=${SMTP_PASS:-}
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
-      interval: 30s
-      timeout: 3s
-      start_period: 10s
-      retries: 3
 
   # ─── OPTIONAL: Minimal Caddy for TLS termination ────────
   # Uncomment if self-hosting on a VPS and not using Cloudflare Tunnel.

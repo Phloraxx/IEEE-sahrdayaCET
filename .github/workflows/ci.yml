@@ -1,0 +1,69 @@
+name: CI
+# Runs on every PR and push to main.
+# Produces commit status checks for: build, lint, test.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─── Validate: type-check, lint, test ───────────────────
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        id: cache-node-modules
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            node-modules-${{ runner.os }}-
+
+      - name: Install dependencies
+        if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        run: bun install --frozen-lockfile
+
+      # Install even on cache hit to ensure full fidelity
+      - name: Verify dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Type-check and build
+        run: bun run build
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Test (unit + integration)
+        run: bun test
+
+  # ─── Build Docker image (PR only — main gets full CD) ──
+  docker-build:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build (no push — smoke test the Dockerfile)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: ieee-sahrdaya/app:pr-${{ github.event.number }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
