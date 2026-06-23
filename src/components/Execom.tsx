@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { Link } from "@tanstack/react-router";
 import { Users, ArrowUpRight, Mail, Phone } from "lucide-react";
 import { Linkedin } from "@/components/icons";
-import { createPB } from "@/lib/pb";
+import { createPB, buildFileUrl } from "@/lib/pb"
 
 /* ── Member type ── */
 interface Member {
@@ -395,11 +395,13 @@ export const Execom: React.FC = () => {
           fields: "name,linkedin,email,phone",
         });
         const docs = result.items as Array<{
-          name: string;
-          linkedin?: string;
-          email?: string;
-          phone?: string;
-        }>;
+                  id: string;
+                  name: string;
+                  photo?: string;
+                  linkedin?: string;
+                  email?: string;
+                  phone?: string;
+                }>
         const docMap = new Map(
           docs.map((doc) => [doc.name.toLowerCase(), doc]),
         );
@@ -408,12 +410,16 @@ export const Execom: React.FC = () => {
           prev.map((member) => {
             const match = docMap.get(member.name.toLowerCase());
             if (match) {
-              return {
-                ...member,
-                linkedin: match.linkedin || undefined,
-                email: match.email || undefined,
-                phone: match.phone || undefined,
-              };
+              const photoUrl = match.id && match.photo
+                                ? buildFileUrl("execom", match.id, match.photo)
+                                : undefined;
+                            return {
+                              ...member,
+                              ...(photoUrl && { image: photoUrl }),
+                              linkedin: match.linkedin || undefined,
+                              email: match.email || undefined,
+                              phone: match.phone || undefined,
+                            };
             }
             return member;
           }),
