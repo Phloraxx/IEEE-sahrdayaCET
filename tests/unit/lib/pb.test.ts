@@ -5,7 +5,7 @@ describe('buildFileUrl', () => {
   const OLD_ENV = process.env
 
   beforeEach(() => {
-    vi.resetModules()
+    vi.resetAllMocks()
     process.env = { ...OLD_ENV }
   })
 

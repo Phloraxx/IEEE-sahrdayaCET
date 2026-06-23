@@ -3,7 +3,7 @@ import { logError } from '@/lib/logger'
 
 describe('logError', () => {
   beforeEach(() => {
-    vi.stubEnv('NODE_ENV', 'development')
+    process.env.NODE_ENV = "development"
   })
 
   it('logs error message with context', () => {
