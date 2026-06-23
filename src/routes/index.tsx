@@ -116,10 +116,24 @@ export const Route = createFileRoute('/')({
     }
   },
   component: Home,
+  errorComponent: ({ error }) => (
+    <div className="flex items-center justify-center min-h-screen bg-white px-4">
+      <div className="text-center max-w-md">
+        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
+          <span className="text-2xl font-bold text-red-600">!</span>
+        </div>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">Something went wrong</h2>
+        <p className="text-gray-500 mb-4">{error?.message || 'An unexpected error occurred'}</p>
+      </div>
+    </div>
+  ),
 })
 
 function Home() {
-  const { latestEvent, societies, eventItems: _eventItems } = Route.useLoaderData()
+  const loaderData = Route.useLoaderData() || {}
+  const latestEvent = loaderData.latestEvent ?? null
+  const societies = loaderData.societies ?? []
+  const eventItems = loaderData.eventItems ?? []
 
   return (
     <div className="relative w-full bg-white text-gray-900 font-sans selection:bg-ieee-blue/20">
