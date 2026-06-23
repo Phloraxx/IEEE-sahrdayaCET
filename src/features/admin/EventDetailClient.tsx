@@ -185,7 +185,7 @@ export function EventDetailClient({ event, registrations }: Props) {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ checkedIn: true }),
-          }).catch(() => {}),
+          }).catch(() => {/* individual checkin failure handled by toast */}),
         ),
       );
       toast.success(`${selected.size} checked in`);

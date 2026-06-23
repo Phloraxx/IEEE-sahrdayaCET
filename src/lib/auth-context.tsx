@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import type { AuthUser } from '@/types'
-
+import { logError } from './logger'
 interface AuthContextValue {
     user: AuthUser | null
     status: 'loading' | 'authenticated' | 'unauthenticated'
@@ -13,8 +13,8 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue>({
     user: null,
     status: 'loading',
-    signIn: () => {},
-    signOut: () => {},
+    signIn: () => {/* set by AuthProvider */},
+    signOut: () => {/* set by AuthProvider */},
 })
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -30,7 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 return
             }
             if (!res.ok) {
-                console.error('Auth check failed:', res.status, res.statusText)
+                logError('auth-check', `${res.status} ${res.statusText}`)
                 setUser(null)
                 setStatus('unauthenticated')
                 return
@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setStatus('unauthenticated')
             }
         } catch (err) {
-            console.error('Auth network error:', err)
+            logError('auth-network', err)
             setUser(null)
             setStatus('unauthenticated')
         }

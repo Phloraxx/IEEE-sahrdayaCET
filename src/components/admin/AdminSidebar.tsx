@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { LogOut, ExternalLink } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { useSidebarState } from "./SidebarState";
 
 /* ── Inline SVG icons matching the prototype exactly ── */
 const Icons = {
@@ -153,11 +152,30 @@ const NAV_ITEMS = [
   },
 ];
 
-export function AdminSidebar() {
+export function AdminSidebar({
+  mobileOpen,
+  setMobileOpen,
+  toggleMobile,
+}: {
+  mobileOpen: boolean;
+  setMobileOpen: (open: boolean) => void;
+  toggleMobile: () => void;
+}) {
   const pathname = useLocation().pathname;
   const { user, signOut } = useAuth();
-  const { mobileOpen, setMobileOpen, toggleMobile } = useSidebarState();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("sidebar-collapsed") === "true";
+    }
+    return false;
+  });
+
+  const toggle = () =>
+    setCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem("sidebar-collapsed", String(next));
+      return next;
+    });
 
   const isActive = (url: string) =>
     url === "/admin" ? pathname === "/admin" : pathname.startsWith(url);
@@ -165,13 +183,13 @@ export function AdminSidebar() {
   // Close mobile sidebar on route change
   useEffect(() => {
     setMobileOpen(false);
-  }, [pathname]);
+  }, [pathname, setMobileOpen]);
 
   const toggleSidebar = () => {
     if (typeof window !== "undefined" && window.innerWidth <= 768) {
       toggleMobile();
     } else {
-      setCollapsed((prev) => !prev);
+      toggle();
     }
   };
 
@@ -204,6 +222,7 @@ export function AdminSidebar() {
               <img
                 src="/favicon.svg"
                 alt="IEEE"
+                loading="lazy"
                 width="22"
                 height="22"
                 style={{ filter: "brightness(0) invert(1)" }}

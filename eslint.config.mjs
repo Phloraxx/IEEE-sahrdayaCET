@@ -1,26 +1,62 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
+import tseslint from "@typescript-eslint/eslint-plugin"
+import tsparser from "@typescript-eslint/parser"
+import reactHooks from "eslint-plugin-react-hooks"
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
-const eslintConfig = [
-  ...compat.extends("next/core-web-vitals"),
+export default [
   {
+    files: ["src/**/*.{ts,tsx}"],
+    languageOptions: {
+      parser: tsparser,
+      parserOptions: {
+        ecmaVersion: 2022,
+        sourceType: "module",
+      },
+    },
+    plugins: {
+      "@typescript-eslint": tseslint,
+      "react-hooks": reactHooks,
+    },
     rules: {
+      // Manually selected TypeScript-ESLint recommended rules
+      "@typescript-eslint/adjacent-overload-signatures": "warn",
+      "@typescript-eslint/ban-ts-comment": "warn",
+      "@typescript-eslint/no-array-constructor": "warn",
+      "@typescript-eslint/no-empty-function": "warn",
+      "@typescript-eslint/no-empty-interface": "warn",
+      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-extra-non-null-assertion": "warn",
+      "@typescript-eslint/no-loss-of-precision": "warn",
+      "@typescript-eslint/no-misused-new": "warn",
+      "@typescript-eslint/no-namespace": "warn",
+      "@typescript-eslint/no-non-null-asserted-optional-chain": "warn",
+      "@typescript-eslint/no-this-alias": "warn",
+      "@typescript-eslint/no-unnecessary-type-constraint": "warn",
+      "@typescript-eslint/no-unsafe-declaration-merging": "warn",
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+      "@typescript-eslint/no-var-requires": "warn",
+      "@typescript-eslint/prefer-as-const": "warn",
+      "@typescript-eslint/prefer-namespace-keyword": "warn",
+      "@typescript-eslint/triple-slash-reference": "warn",
+      "@typescript-eslint/consistent-type-imports": [
+        "warn",
+        { prefer: "type-imports", fixStyle: "inline-type-imports" },
+      ],
+
+      // React hooks
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "warn",
+
+      // General
       "no-console": "off",
-      "@next/next/no-img-element": "warn",
       "prefer-const": "warn",
-      "no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
       "no-var": "warn",
       "prefer-template": "warn",
     },
   },
-];
-
-export default eslintConfig;
+  {
+    ignores: ["src/routeTree.gen.ts"],
+  },
+]
