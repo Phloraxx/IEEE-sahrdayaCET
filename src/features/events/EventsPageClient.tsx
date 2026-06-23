@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import "@/styles/events.css";
 import { AnimatePresence } from "framer-motion";
@@ -12,6 +12,8 @@ import {
   EventDetailModal,
 } from "@/components/events";
 import type { EventWithSociety, ExtendedEvent } from "@/types";
+import { createPB, buildFileUrl } from "@/lib/pb";
+import { getField, getExpand } from "@/lib/safe-get";
 
 const getEventColor = (index: number): { color: string; textColor: string } => {
   const colors = [
@@ -35,15 +37,109 @@ export default function EventsPageClient({
   const router = useRouter();
 
   const [selectedEvent, setSelectedEvent] = useState<ExtendedEvent | null>(null);
+  const [selfEvents, setSelfEvents] = useState<EventWithSociety[]>(initialEvents);
+  const [fetching, setFetching] = useState(false);
+
+  useEffect(() => {
+    if (initialEvents.length > 0) {
+      setSelfEvents(initialEvents);
+      return;
+    }
+
+    let cancelled = false;
+    setFetching(true);
+
+    const pb = createPB();
+
+    pb.collection("events")
+      .getList(1, 100, {
+        filter: 'status="published"',
+        sort: "date",
+        expand: "society",
+        skipTotal: true,
+        fields: "id,title,description,date,endDate,venue,price,banner,status,registrationOpen,maxCapacity,registeredCount,externalFormUrl,collectIeeeMember",
+      })
+      .then((result) => {
+        if (cancelled) return;
+        const items: EventWithSociety[] = (result.items || []).map(
+          (raw: Record<string, unknown>) => {
+            const expand = getExpand(raw);
+            const societyRaw =
+              raw.society && typeof raw.society === "object"
+                ? raw.society
+                : expand?.society;
+            const society = societyRaw
+              ? {
+                  id: getField(societyRaw, "id", ""),
+                  name: getField(societyRaw, "name", ""),
+                  slug: getField(societyRaw, "slug", ""),
+                  logoUrl: getField(societyRaw, "logo", "")
+                    ? buildFileUrl(
+                        "societies",
+                        getField(societyRaw, "id", ""),
+                        getField(societyRaw, "logo", ""),
+                      )
+                    : "",
+                }
+              : undefined;
+            const price = Number(getField(raw, "price", 0)) || 0;
+            return {
+              id: getField(raw, "id", ""),
+              createdAt: getField(raw, "created", ""),
+              updatedAt: getField(raw, "updated", ""),
+              title: getField(raw, "title", ""),
+              description: getField(raw, "description", ""),
+              date: getField(raw, "date", ""),
+              endDate: getField(raw, "endDate", ""),
+              venue: getField(raw, "venue", ""),
+              price,
+              isPaid: price > 0,
+              bannerUrl: getField(raw, "banner", "")
+                ? buildFileUrl(
+                    "events",
+                    getField(raw, "id", ""),
+                    getField(raw, "banner", ""),
+                  )
+                : "",
+              status: getField(raw, "status", "published"),
+              registrationOpen: !!getField(
+                raw,
+                "registrationOpen",
+                false,
+              ),
+              maxCapacity: getField(raw, "maxCapacity", 0),
+              registeredCount: getField(raw, "registeredCount", 0),
+              externalFormUrl:
+                getField(raw, "externalFormUrl", "") || undefined,
+              collectIeeeMember: !!getField(
+                raw,
+                "collectIeeeMember",
+                false,
+              ),
+              society: society!,
+            } as EventWithSociety;
+          },
+        );
+        setSelfEvents(items);
+        setFetching(false);
+      })
+      .catch(() => {
+        if (!cancelled) setFetching(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialEvents]);
 
   const extendedEvents: ExtendedEvent[] = useMemo(() => {
-    return initialEvents.map((event, index) => ({
+    return selfEvents.map((event, index) => ({
       ...event,
       about: event.description || "Join us for this exciting IEEE event!",
       tags: event.society?.name || "IEEE Event",
       ...getEventColor(index),
     }));
-  }, [initialEvents]);
+  }, [selfEvents]);
 
   const handleSelectEvent = (event: ExtendedEvent) => {
     setSelectedEvent(event);
@@ -73,7 +169,7 @@ export default function EventsPageClient({
       <section className="px-4 max-w-[1400px] mx-auto">
         <EventListSection
           events={extendedEvents}
-          loading={false}
+          loading={fetching}
           error={null}
           onSelectEvent={handleSelectEvent}
           onRetry={() => router.invalidate()}
