@@ -24,16 +24,4 @@ start-app
 tmp
 test-results
 docs
-*.png
-*.webp
-*.ico
-*.svg
-*.jpg
-*.jpeg
-*.gif
-*.avif
-*.woff
-*.woff2
-*.ttf
-*.eot
 .asset-cache
