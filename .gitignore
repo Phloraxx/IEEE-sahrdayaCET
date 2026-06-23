@@ -111,3 +111,4 @@ tmp_login.json
 # Windows reserved device names (artifact from Unix-aware tools)
 NUL
 nul
+test-screenshots/

@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createPB, buildFileUrl } from "@/lib/pb";
 import { APP_URL } from "@/lib/constants";
+import { logError } from "@/lib/logger";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import ExecomClient, {
   type ExecomMemberDoc,
@@ -87,7 +88,8 @@ export const Route = createFileRoute("/full-execom")({
           phone: doc.phone,
         };
       });
-    } catch {
+    } catch (error) {
+      logError("full-execom-loader", error);
       return [];
     }
   },

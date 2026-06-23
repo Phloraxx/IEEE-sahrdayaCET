@@ -67,17 +67,16 @@ const PixelSVG: React.FC<{ grid: string[][]; offsetY?: number }> = ({ grid, offs
 export const FloatingAction: React.FC = () => (
   <div
     className="ieee-floating-character"
-    style={{
-      position: 'fixed',
-      bottom: '8px',
-      zIndex: 30,
-      pointerEvents: 'none',
-      userSelect: 'none',
-      left: '80%',
-      transform: 'translateX(-50%)',
-      filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.18))',
-      opacity: 0.75,
-    }}
+      style={{
+        position: 'fixed',
+        bottom: '20px',
+        right: '16px',
+        zIndex: 30,
+        pointerEvents: 'none',
+        userSelect: 'none',
+        filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.18))',
+        opacity: 0.6,
+      }}
   >
     <svg
       width={CHAR_W}

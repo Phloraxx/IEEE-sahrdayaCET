@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
+import { createPB, buildFileUrl } from "@/lib/pb";
 import {
   ArrowLeft,
   Users,
@@ -26,6 +27,7 @@ import {
   Phone,
 } from "lucide-react";
 import { Linkedin, Instagram } from "@/components/icons";
+import { createPB } from "@/lib/pb";
 
 // ===== TYPES =====
 interface Member {
@@ -436,8 +438,56 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
   const [activeSection, setActiveSection] = useState("core");
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [docs, setDocs] = useState(initialDocs);
+  const [isClientLoading, setIsClientLoading] = useState(false);
 
-  const sections = useMemo(() => transformToSections(initialDocs), [initialDocs]);
+  // Client-side fetch fallback when SSR fails to load data
+  useEffect(() => {
+    if (initialDocs.length === 0) {
+      setIsClientLoading(true);
+      const fetchFallback = async () => {
+        try {
+          const pb = createPB();
+          const result = await pb.collection("execom").getList(1, 100, {
+            sort: "order",
+            skipTotal: true,
+            fields: "id,order,name,department,batch,position,category,section,sectionId,photo,linkedin,instagram,email,phone",
+          });
+          const items = (result?.items || []).map((raw: Record<string, unknown>, i: number) => {
+            const id = raw.id as string;
+            const photo = raw.photo as string | undefined;
+            return {
+              id,
+              order: Number(raw.order) || i + 1,
+              name: (raw.name as string) || "",
+              department: (raw.department as string) || "",
+              batch: (raw.batch as string) || "",
+              position: (raw.position as string) || "",
+              category: (raw.category as string) || "",
+              section: (raw.section as string) || "",
+              sectionId: (raw.sectionId as string) || "",
+              photoUrl: photo ? buildFileUrl("execom", id, photo) : undefined,
+              linkedin: raw.linkedin as string | undefined,
+              instagram: raw.instagram as string | undefined,
+              email: raw.email as string | undefined,
+              phone: raw.phone as string | undefined,
+            };
+          });
+          if (items.length > 0) {
+            setDocs(items as ExecomMemberDoc[]);
+          }
+        } catch {
+          // Fallback fetch failed — empty state will show
+        } finally {
+          setIsClientLoading(false);
+        }
+      };
+      fetchFallback();
+    }
+  }, [initialDocs]);
+
+
+  const sections = useMemo(() => transformToSections(docs), [docs]);
 
   const currentSection =
     sections.find((s) => s.id === activeSection) || sections[0];
@@ -457,7 +507,7 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
   };
 
   // Loading State
-  if (!sections.length) {
+  if (isClientLoading) {
     return (
       <div className="min-h-screen bg-[#FAFAFA]">
         {/* Sidebar skeleton */}
@@ -511,6 +561,25 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
             </div>
           </div>
         </main>
+      </div>
+    );
+  }
+
+  // Empty State
+  if (!sections.length) {
+    return (
+      <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center px-4">
+        <div className="text-center max-w-md">
+          <Users className="w-16 h-16 mx-auto mb-6 text-gray-300" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">No execom data available</h2>
+          <p className="text-gray-500 mb-6">The execom directory could not be loaded. Please try again later.</p>
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-[#00629B] text-white rounded-full font-bold text-sm hover:bg-[#004a7c] transition-colors"
+          >
+            Go Home
+          </Link>
+        </div>
       </div>
     );
   }

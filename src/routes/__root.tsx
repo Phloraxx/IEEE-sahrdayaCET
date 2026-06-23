@@ -134,21 +134,32 @@ export const Route = createRootRoute({
   },
   component: RootComponent,
   notFoundComponent: () => (
-    <div style={{ padding: '2rem', textAlign: 'center', fontFamily: 'system-ui, sans-serif' }}>
-      <h1 style={{ fontSize: '2rem', fontWeight: 'bold' }}>404 — Page Not Found</h1>
-      <p style={{ marginTop: '0.5rem', color: '#666' }}>The page you're looking for doesn't exist.</p>
-      <Link to="/" style={{ color: '#00629B', textDecoration: 'underline', marginTop: '1rem', display: 'inline-block' }}>
-        Go home
-      </Link>
+    <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center px-4">
+      <div className="text-center max-w-md">
+        <div className="text-8xl font-bold text-[#00629B] mb-4 font-pixel">404</div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Page Not Found</h1>
+        <p className="text-gray-500 mb-6">The page you're looking for doesn't exist or has been moved.</p>
+        <Link to="/" className="inline-flex items-center gap-2 px-6 py-3 bg-[#00629B] text-white rounded-full font-bold text-sm hover:bg-[#004a7c] transition-colors">
+          Go Home
+        </Link>
+      </div>
     </div>
   ),
   errorComponent: ({ error }: { error: Error }) => (
-    <div style={{ padding: '2rem', textAlign: 'center', fontFamily: 'system-ui, sans-serif' }}>
-      <h1 style={{ fontSize: '2rem', fontWeight: 'bold' }}>Something went wrong</h1>
-      <p style={{ marginTop: '0.5rem', color: '#666' }}>{import.meta.env.DEV ? error.message : 'An unexpected error occurred'}</p>
-      <button onClick={() => window.location.reload()} style={{ color: '#00629B', textDecoration: 'underline', marginTop: '1rem', display: 'inline-block', background: 'none', border: 'none', cursor: 'pointer', fontSize: 'inherit' }}>
-        Reload page
-      </button>
+    <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center px-4">
+      <div className="text-center max-w-md">
+        <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-red-100 flex items-center justify-center">
+          <span className="text-2xl font-bold text-red-600">!</span>
+        </div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Something went wrong</h1>
+        <p className="text-gray-500 mb-6">{import.meta.env.DEV ? error.message : 'An unexpected error occurred'}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="inline-flex items-center gap-2 px-6 py-3 bg-[#00629B] text-white rounded-full font-bold text-sm hover:bg-[#004a7c] transition-colors"
+        >
+          Reload page
+        </button>
+      </div>
     </div>
   ),
 })
