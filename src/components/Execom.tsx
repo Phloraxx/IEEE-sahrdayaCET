@@ -5,9 +5,90 @@ import { motion } from "framer-motion";
 import { Link } from "@tanstack/react-router";
 import { Users, ArrowUpRight, Mail, Phone } from "lucide-react";
 import { Linkedin } from "@/components/icons";
-import { createPB, buildFileUrl } from "@/lib/pb";
-import type { ExecomMember } from "@/types";
+import { createPB } from "@/lib/pb";
 
+/* ── Member type ── */
+interface Member {
+  name: string;
+  role: string;
+  tagline: string;
+  image: string;
+  linkedin?: string;
+  email?: string;
+  phone?: string;
+}
+
+/* ── Hardcoded member list (matches main branch for max SEO) ── */
+const execomMembers: Member[] = [
+  {
+    name: "Anil Antony",
+    role: "Branch Counselor",
+    tagline: "GUIDING LIGHT",
+    image: "/Execom/anilantony.jpg",
+  },
+  {
+    name: "Sneha Prasanth",
+    role: "Chairperson",
+    tagline: "LEADING THE CHARGE",
+    image: "/Execom/Sneha Prasanth/Sneha Prasanth.JPG",
+  },
+  {
+    name: "Irene Anto",
+    role: "Vice Chairperson",
+    tagline: "VISION & STRATEGY",
+    image: "/Execom/Irene Anto/Irene_anto.jpg",
+  },
+  {
+    name: "Ameenul Irfan",
+    role: "Secretary",
+    tagline: "KEEPING IT TOGETHER",
+    image: "/Execom/Ameenul Irfan_/Ameenul_irfan.jpg",
+  },
+  {
+    name: "Binu Ashik",
+    role: "Joint Secretary",
+    tagline: "BRIDGING THE GAP",
+    image: "/Execom/Binu Ashik K/Binu_ashik.jpg",
+  },
+  {
+    name: "Aaron Stanphen",
+    role: "Treasurer",
+    tagline: "NUMBERS & BEYOND",
+    image: "/Execom/Aaron Stanphen_/Aaron_stanphen.jpg",
+  },
+  {
+    name: "Sourav P Bijoy",
+    role: "Webmaster",
+    tagline: "DIGITAL ARCHITECT",
+    image: "/Execom/Sourav P Bijoy/SouravPBijoy.jpg",
+  },
+  {
+    name: "Akhila Thomas",
+    role: "MDC",
+    tagline: "MEMBERSHIP DRIV",
+    image: "/Execom/Akhila Thomas/Screenshot_20240811_185346_Gallery.jpg",
+  },
+  {
+    name: "Alfin Joshi P",
+    role: "ECC",
+    tagline: "ELECTRONIC & COMM",
+    image: "/Execom/alfin_joshi.jpeg",
+  },
+  {
+    name: "Midhun P M",
+    role: "Technical Coordinator",
+    tagline: "TECH WIZARD",
+    image: "/Execom/Midhun P M/IMG_20240701_173337.jpg",
+  },
+  {
+    name: "Angelina Victor",
+    role: "Link Rep",
+    tagline: "LINKING MINDS",
+    image: "/Execom/Angelina Victor Varghese/eb65501f-0ea7-4a50-be56-0fd854318583.jpg",
+  },
+];
+
+/* ── Marquee Text ── */
 const MarqueeText: React.FC<{ text: string }> = ({ text }) => {
   const repeated = `${text} ~ `.repeat(12);
   return (
@@ -32,15 +113,13 @@ const MarqueeText: React.FC<{ text: string }> = ({ text }) => {
   );
 };
 
-const MemberCard: React.FC<{ member: ExecomMember; index: number }> = ({
+/* ── Member Card ── */
+const MemberCard: React.FC<{ member: Member; index: number }> = ({
   member,
   index,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [imgError, setImgError] = useState(false);
-  const photoUrl = member.photo
-    ? buildFileUrl("execom", member.id, member.photo)
-    : member.photoUrl || "";
 
   return (
     <motion.div
@@ -57,16 +136,16 @@ const MemberCard: React.FC<{ member: ExecomMember; index: number }> = ({
       onMouseLeave={() => setIsHovered(false)}
     >
       <div className="relative overflow-hidden rounded-xl aspect-[3/4] mb-4 bg-gray-100">
-        <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
         <div className="relative w-full h-full">
-          {photoUrl && !imgError ? (
+          {!imgError ? (
             <img
-              src={photoUrl}
+              src={member.image}
               alt={member.name}
               loading="lazy"
               onError={() => setImgError(true)}
-              className={`absolute inset-0 w-full h-full object-cover transition-transform duration-600 ease-[cubic-bezier(0.2,0.65,0.3,0.9)] ${isHovered ? "scale-105" : "scale-100"}`}
+              className={`absolute inset-0 w-full h-full object-cover transition-transform duration-[600ms] ease-[cubic-bezier(0.2,0.65,0.3,0.9)] ${isHovered ? "scale-105" : "scale-100"}`}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
@@ -84,7 +163,7 @@ const MemberCard: React.FC<{ member: ExecomMember; index: number }> = ({
 
         <div className="absolute top-3 left-3 z-20">
           <span className="px-2 py-1 bg-white/90 backdrop-blur-xs text-[9px] md:text-[10px] font-mono tracking-[0.15em] text-gray-700 rounded-xs uppercase">
-            {member.position}
+            {member.role}
           </span>
         </div>
 
@@ -136,17 +215,18 @@ const MemberCard: React.FC<{ member: ExecomMember; index: number }> = ({
       </h4>
 
       <div className="mt-1 overflow-hidden rounded-xs">
-        <MarqueeText text={member.department || member.position} />
+        <MarqueeText text={member.tagline} />
       </div>
     </motion.div>
   );
 };
 
+/* ── Drag Carousel ── */
 const CARD_WIDTH = 270;
 const GAP = 30;
 const ITEM_SIZE = CARD_WIDTH + GAP;
 
-const DragCarousel: React.FC<{ members: ExecomMember[] }> = ({ members }) => {
+const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
   const trackRef = useRef<HTMLDivElement>(null);
   const offsetRef = useRef(0);
   const rafRef = useRef<number>(0);
@@ -289,7 +369,7 @@ const DragCarousel: React.FC<{ members: ExecomMember[] }> = ({ members }) => {
         >
           {items.map((member, index) => (
             <div
-              key={`${member.id}-${index}`}
+              key={`${member.name}-${index}`}
               className="shrink-0 transition-transform duration-300 ease-out hover:-translate-y-2"
               style={{ width: `${CARD_WIDTH}px` }}
             >
@@ -302,23 +382,48 @@ const DragCarousel: React.FC<{ members: ExecomMember[] }> = ({ members }) => {
   );
 };
 
+/* ── Main Execom Section ── */
 export const Execom: React.FC = () => {
-  const [members, setMembers] = useState<ExecomMember[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [membersList, setMembersList] = useState<Member[]>(execomMembers);
 
+  /* Optional: enrich contacts from PocketBase on client */
   useEffect(() => {
-    const pb = createPB();
-    pb.collection("execom")
-      .getList(1, 100, {
-        sort: "order",
-        fields:
-          "id,order,name,position,department,photo,photoUrl,linkedin,instagram,email,phone",
-      })
-      .then((result) => {
-        setMembers(result.items as ExecomMember[]);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    const fetchContacts = async () => {
+      try {
+        const pb = createPB();
+        const result = await pb.collection("execom").getList(1, 100, {
+          fields: "name,linkedin,email,phone",
+        });
+        const docs = result.items as Array<{
+          name: string;
+          linkedin?: string;
+          email?: string;
+          phone?: string;
+        }>;
+        const docMap = new Map(
+          docs.map((doc) => [doc.name.toLowerCase(), doc]),
+        );
+
+        setMembersList((prev) =>
+          prev.map((member) => {
+            const match = docMap.get(member.name.toLowerCase());
+            if (match) {
+              return {
+                ...member,
+                linkedin: match.linkedin || undefined,
+                email: match.email || undefined,
+                phone: match.phone || undefined,
+              };
+            }
+            return member;
+          }),
+        );
+      } catch {
+        /* Contacts enrich is optional — member data is already hardcoded */
+      }
+    };
+
+    fetchContacts();
   }, []);
 
   return (
@@ -331,6 +436,7 @@ export const Execom: React.FC = () => {
       <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-ieee-blue/5 rounded-full blur-3xl" />
 
       <div className="container mx-auto px-4 relative z-10">
+        {/* Header */}
         <div className="mb-16 md:mb-20">
           <div className="flex items-center space-x-2 mb-6">
             <Users className="w-5 h-5 text-ieee-blue" />
@@ -367,6 +473,7 @@ export const Execom: React.FC = () => {
           </div>
         </div>
 
+        {/* Stats */}
         <motion.div
           className="grid grid-cols-3 gap-4 mb-16 md:mb-20 border-y border-gray-200 py-8"
           initial={{ opacity: 0 }}
@@ -400,25 +507,10 @@ export const Execom: React.FC = () => {
           </div>
         </motion.div>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="w-8 h-8 border-2 border-ieee-blue border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : members.length > 0 ? (
-          <DragCarousel members={members} />
-        ) : (
-          <div className="text-center py-20">
-            <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-500 mb-2">
-              Coming Soon
-            </h3>
-            <p className="text-gray-400 text-sm max-w-md mx-auto">
-              We&apos;re assembling the team. Check back soon to meet the
-              executive committee driving innovation at IEEE Sahrdaya SB.
-            </p>
-          </div>
-        )}
+        {/* Carousel */}
+        <DragCarousel members={membersList} />
 
+        {/* View Full Execom */}
         <div className="mt-12 flex justify-center">
           <Link
             to="/full-execom"
@@ -429,6 +521,7 @@ export const Execom: React.FC = () => {
           </Link>
         </div>
 
+        {/* CTA */}
         <motion.div
           className="mt-16 md:mt-24 flex flex-col md:flex-row items-center justify-center gap-4 text-center"
           initial={{ opacity: 0, y: 20 }}
