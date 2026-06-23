@@ -49,11 +49,12 @@ export const Route = createFileRoute("/api/auth/callback/google")({
 
           // Set the auth cookie
           const authCookie = pb.authStore.exportToCookie({
-            httpOnly: true,
-            secure: isProduction,
-            sameSite: "strict",
-            path: "/",
-          });
+                      httpOnly: true,
+                      secure: isProduction,
+                      sameSite: "strict",
+                      path: "/",
+                      cookie: isProduction ? "__Host-pb_auth" : "pb_auth",
+                    });
           response.headers.set("Set-Cookie", authCookie);
 
           // Clear the one-time OAuth provider cookie (PKCE verifier must not be reusable)
