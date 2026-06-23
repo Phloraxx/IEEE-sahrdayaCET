@@ -3,8 +3,7 @@ import { PB_AUTH_COOKIE } from './constants'
 import { logError } from './logger'
 
 export function createPB(cookieString?: string) {
-  const url = process.env.POCKETBASE_URL || (typeof import.meta !== 'undefined' ? import.meta.env.VITE_POCKETBASE_URL : '') || ''
-  if (!url) throw new Error('Missing POCKETBASE_URL environment variable')
+  const url = process.env.POCKETBASE_URL || (typeof import.meta !== 'undefined' ? import.meta.env.VITE_POCKETBASE_URL : '') || 'https://db.phloraxx.us.to'
   const pb = new PocketBase(url)
 
   if (cookieString) {
@@ -26,11 +25,10 @@ export function createAdminPB() {
     throw new Error('POCKETBASE_SUPERUSER_TOKEN not configured')
   }
   pb.authStore.save(token, null)
-  return pb
 }
 
 export function buildFileUrl(collection: string, recordId: string, filename: string): string {
-  const url = process.env.POCKETBASE_URL || (typeof import.meta !== 'undefined' ? import.meta.env.VITE_POCKETBASE_URL : '') || ''
+  const url = process.env.POCKETBASE_URL || (typeof import.meta !== 'undefined' ? import.meta.env.VITE_POCKETBASE_URL : '') || 'https://db.phloraxx.us.to'
   if (!url || !recordId || !filename) {
     if (!recordId || !filename) {
       logError('buildFileUrl', 'Missing recordId or filename', { collection, recordId, filename })
