@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createAdminPB, escapeFilterValue } from "@/lib/pb";
 import crypto from "crypto";
-import { bumpEventCounter } from "@/lib/registration-service";
 import { WebhookBodySchema, isDuplicateWebhook } from "@/lib/webhook";
 import { logError } from "@/lib/logger";
 import { getField } from "@/lib/safe-get";
@@ -109,3 +108,34 @@ export const Route = createFileRoute("/api/orders/webhook")({
     },
   },
 });
+
+// Inlined from registration-service.ts to avoid SSR code-split issues
+async function bumpEventCounter(
+  eventId: string,
+  field: 'registeredCount' | 'checkedInCount',
+  delta: number,
+): Promise<void> {
+  const MAX_RETRIES = 3
+  const adminPB = createAdminPB()
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const event = await adminPB.collection('events')
+      .getOne(eventId, { fields: `id,${field}` })
+      .catch(() => null)
+    if (!event) return
+    let current = 0
+    if (event && typeof event === 'object' && field in event) {
+      current = Number(event[field as keyof typeof event]) || 0
+    }
+    const next = Math.max(0, current + delta)
+    try {
+      await adminPB.collection('events').update(eventId, { [field]: next })
+      return
+    } catch (err) {
+      if (attempt === MAX_RETRIES - 1) {
+        logError('bumpEventCounter', err)
+        return
+      }
+      await new Promise((r) => setTimeout(r, 5 * (attempt + 1)))
+    }
+  }
+}
