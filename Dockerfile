@@ -21,8 +21,7 @@ RUN apk add --no-cache libc6-compat
 # Copy lock files first — this layer is cached until bun.lock changes
 COPY package.json bun.lock ./
 RUN --mount=type=cache,id=bun-cache,target=/root/.bun/install/cache \
-    bun install --frozen-lockfile
-
+    bun install
 # ─── Build ─────────────────────────────────────────────────────
 FROM base AS builder
 WORKDIR /app
