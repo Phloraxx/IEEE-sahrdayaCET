@@ -65,7 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, [])
 
     const signOut = useCallback(() => {
-        fetch('/api/auth/logout', { method: 'POST' }).finally(() => {
+        fetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' } }).finally(() => {
             setUser(null)
             setStatus('unauthenticated')
             window.location.href = '/'
