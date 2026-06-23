@@ -1,12 +1,12 @@
 "use client";
 
-
+import { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import GoogleLoginButton from './GoogleLoginButton';
 
 function PixelGrid({ grid, size }: { grid: string[][]; size: number }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${grid[0].length}, ${size}px)`, gap: 0 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${grid[0]?.length ?? 0}, ${size}px)`, gap: 0 }}>
       {grid.flatMap((row, y) =>
         row.map((color, x) => (
           <div key={`${x}-${y}`} style={{ width: size, height: size, backgroundColor: color }} />
@@ -42,11 +42,61 @@ const BODY_PEEK: string[][] = [
     ['#f5d5b8','#004a7c','#00629B','#00629B','#00629B','#00629B','#004a7c','#f5d5b8'],
 ];
 
+
 export default function LoginModal({ isOpen, onClose, message }: LoginModalProps) {
+    const dialogRef = useRef<HTMLDivElement>(null);
+
+    // Focus trap
+    useEffect(() => {
+      if (!isOpen) return;
+      const dialog = dialogRef.current;
+      if (dialog) {
+        const focusable = dialog.querySelector<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable) {
+          focusable.focus();
+        } else {
+          dialog.focus();
+        }
+      }
+    }, [isOpen]);
+
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs" onClick={onClose}>
+        <div
+            ref={dialogRef}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs"
+            onClick={onClose}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Sign in"
+            onKeyDown={(e) => {
+                if (e.key === 'Escape') onClose();
+                if (e.key === 'Tab') {
+                    const dialog = dialogRef.current;
+                    if (!dialog) return;
+                    const focusable = dialog.querySelectorAll<HTMLElement>(
+                        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+                    );
+                    const first = focusable[0];
+                    const last = focusable[focusable.length - 1];
+                    if (e.shiftKey) {
+                        if (document.activeElement === first) {
+                            e.preventDefault();
+                            last.focus();
+                        }
+                    } else {
+                        if (document.activeElement === last) {
+                            e.preventDefault();
+                            first.focus();
+                        }
+                    }
+                }
+            }}
+            tabIndex={-1}
+        >
             <div
                 className="relative w-full max-w-sm mx-4 bg-white border border-gray-200 rounded-xl shadow-2xl overflow-hidden"
                 onClick={(e) => e.stopPropagation()}

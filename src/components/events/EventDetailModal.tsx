@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { CalendarDays, MapPin, X } from 'lucide-react';
 import type { ExtendedEvent, EventWithSociety } from '@/types';
@@ -13,8 +13,61 @@ interface EventDetailModalProps {
 }
 
 export function EventDetailModal({ event, onClose, onRegister }: EventDetailModalProps) {
+    const dialogRef = useRef<HTMLDivElement>(null);
+
+    // Body scroll lock & focus trap
+    useEffect(() => {
+        document.body.style.overflow = 'hidden';
+
+        // Focus the first focusable element inside the modal
+        const dialog = dialogRef.current;
+        if (dialog) {
+            const focusable = dialog.querySelector<HTMLElement>(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+            );
+            if (focusable) {
+                focusable.focus();
+            } else {
+                dialog.focus();
+            }
+        }
+
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, []);
+
     return (
-        <>
+        <div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={event.title}
+            onKeyDown={(e) => {
+                if (e.key === 'Escape') onClose();
+                if (e.key === 'Tab') {
+                    const dialog = dialogRef.current;
+                    if (!dialog) return;
+                    const focusable = dialog.querySelectorAll<HTMLElement>(
+                        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+                    );
+                    const first = focusable[0];
+                    const last = focusable[focusable.length - 1];
+                    if (e.shiftKey) {
+                        if (document.activeElement === first) {
+                            e.preventDefault();
+                            last.focus();
+                        }
+                    } else {
+                        if (document.activeElement === last) {
+                            e.preventDefault();
+                            first.focus();
+                        }
+                    }
+                }
+            }}
+            tabIndex={-1}
+        >
             {/* Backdrop */}
             <motion.div
                 initial={{ opacity: 0 }}
@@ -82,11 +135,11 @@ export function EventDetailModal({ event, onClose, onRegister }: EventDetailModa
                         <p className="text-slate-600 leading-relaxed">{event.about}</p>
                     </div>
 
-                    {event.agenda && event.agenda.length > 0 && (
+                    {event.agenda && (typeof event.agenda === 'string' ? JSON.parse(event.agenda) : event.agenda).length > 0 && (
                         <div>
                             <h4 className="text-lg font-bold text-slate-800 mb-4">Agenda</h4>
                             <div className="flex flex-col gap-4">
-                                {event.agenda.map((item, i) => (
+                                {(typeof event.agenda === 'string' ? JSON.parse(event.agenda) : event.agenda).map((item: { title: string; time: string }, i: number) => (
                                     <div key={i} className="flex items-start gap-4">
                                         <div className={`w-2 h-2 rounded-full mt-2 shrink-0 ${event.color}`} />
                                         <div>
@@ -120,6 +173,6 @@ export function EventDetailModal({ event, onClose, onRegister }: EventDetailModa
                 </div>
                 )}
             </motion.div>
-        </>
+        </div>
     );
 }

@@ -1,9 +1,15 @@
 import React from "react";
 import { Link } from "@tanstack/react-router";
 
-interface EventsShowcaseProps {
-  eventItems?: Array<{ id: string; bannerUrl: string; title: string }>;
-}
+const eventImages = [
+  '/Events/503658167_18144990655399954_4943514208253057479_n.webp',
+  '/Events/504467036_18054402566594069_4106059723662040073_n.jpg',
+  '/Events/506004997_18132492568425776_600388619468309088_n.webp',
+  '/Events/522111348_18147650755399954_534418411965373382_n.webp',
+  '/Events/525582074_18148493980399954_1932903707501849959_n.webp',
+  '/Events/525622064_18148959217399954_6494357511617440071_n.webp',
+  '/Events/542326117_17847004371557574_12824648908429865_n.jpg',
+];
 
 const scrollingText = [
   "CONFERENCES",
@@ -15,47 +21,31 @@ const scrollingText = [
   "TECH TALKS",
   "BOOTCAMPS",
 ];
-const ImageStrip = ({ eventItems = [] }: EventsShowcaseProps) => {
-  const validItems = eventItems.filter(item => item.bannerUrl);
-  if (validItems.length === 0) {
-    const fallbackTexts = ["IEEE Events", "Coming Soon", "Stay Tuned"];
-    return (
-      <div className="overflow-hidden w-full">
-        <div
-          className="flex gap-4 will-change-transform animate-marquee-images"
-          style={{ width: `${fallbackTexts.length * 3 * 280}px` }}
-        >
-          {[...fallbackTexts, ...fallbackTexts, ...fallbackTexts].map((text, i) => (
-            <div
-              key={`fallback-${i}`}
-              className="relative shrink-0 w-[260px] h-[360px] rounded-2xl overflow-hidden shadow-lg bg-linear-to-br from-ieee-blue to-[#4285F4] flex items-center justify-center"
-            >
-              <span className="text-white/80 text-2xl md:text-3xl font-bold tracking-tight text-center px-4 leading-tight">
-                {text}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-  const images = validItems;
-  const tripled = [...images, ...images, ...images];
+
+const IMG_W = 260;
+const IMG_GAP = 16;
+
+const ImageStrip = () => {
+  const tripled = [...eventImages, ...eventImages, ...eventImages];
+
   return (
     <div className="overflow-hidden w-full">
       <div
-        className="flex gap-4 will-change-transform animate-marquee-images"
-        style={{ width: `${tripled.length * 280}px` }}
+        className="flex gap-4 will-change-transform"
+        style={{
+          width: `${tripled.length * (IMG_W + IMG_GAP)}px`,
+          animation: 'scroll-images 40s linear infinite',
+        }}
       >
-        {tripled.map((item, i) => (
+        {tripled.map((src, i) => (
           <div
-            key={`${item.id}-${i}`}
+            key={`${i}`}
             className="relative shrink-0 w-[260px] h-[360px] rounded-2xl overflow-hidden shadow-lg"
           >
             <img
-              loading="lazy"
-              src={item.bannerUrl}
-              alt={item.title || `IEEE Event ${(i % images.length) + 1}`}
+              src={src}
+              alt={`IEEE Event ${(i % eventImages.length) + 1}`}
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
               className="absolute inset-0 w-full h-full object-cover hover:scale-105 transition-transform duration-700"
             />
           </div>
@@ -65,13 +55,19 @@ const ImageStrip = ({ eventItems = [] }: EventsShowcaseProps) => {
   );
 };
 
+const TEXT_W = 350;
+
 const TextMarquee = () => {
   const tripled = [...scrollingText, ...scrollingText, ...scrollingText];
+
   return (
     <div className="overflow-hidden w-full">
       <div
-        className="flex items-center will-change-transform whitespace-nowrap animate-marquee-text"
-        style={{ width: `${tripled.length * 350}px` }}
+        className="flex items-center will-change-transform whitespace-nowrap"
+        style={{
+          width: `${tripled.length * TEXT_W}px`,
+          animation: 'scroll-text 40s linear infinite',
+        }}
       >
         {tripled.map((text, i) => (
           <span key={i} className="flex items-center shrink-0">
@@ -87,12 +83,13 @@ const TextMarquee = () => {
     </div>
   );
 };
-export const EventsShowcase: React.FC<EventsShowcaseProps> = ({ eventItems }) => {
+
+const EventsShowcase: React.FC = () => {
   return (
     <section className="relative py-16 md:py-24 overflow-hidden">
       <div className="absolute inset-0 bg-linear-to-b from-transparent via-transparent to-white/90 z-10 pointer-events-none" />
       <div className="relative z-0 -rotate-3 scale-110 mb-12 md:mb-16">
-        <ImageStrip eventItems={eventItems} />
+        <ImageStrip />
       </div>
       <div className="relative z-20 flex justify-center mb-12 md:mb-16">
         <Link
@@ -101,8 +98,12 @@ export const EventsShowcase: React.FC<EventsShowcaseProps> = ({ eventItems }) =>
         >
           Explore Events
         </Link>
+      </div>
+      <div className="relative z-20">
         <TextMarquee />
       </div>
     </section>
   );
 };
+
+export { EventsShowcase };
