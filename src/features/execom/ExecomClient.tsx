@@ -413,19 +413,23 @@ const MemberCard: React.FC<{
         {/* Info */}
         <div className="p-4">
           <div className="text-[10px] font-medium text-[#00629B] uppercase tracking-wider mb-1">
-            {member.position}
+            {member.position || "Member"}
           </div>
           <h3 className="font-semibold text-gray-900 text-sm leading-tight mb-2">
             {member.name}
           </h3>
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-gray-400 font-medium">
-              {member.department}
+              {member.department || ""}
             </span>
-            <span className="w-1 h-1 rounded-full bg-gray-300" />
-            <span className="text-[10px] text-gray-400 font-medium">
-              {member.semester}
-            </span>
+            {(member.department || member.semester) && (
+              <>
+                <span className="w-1 h-1 rounded-full bg-gray-300" />
+                <span className="text-[10px] text-gray-400 font-medium">
+                  {member.semester || ""}
+                </span>
+              </>
+            )}
           </div>
         </div>
       </div>
