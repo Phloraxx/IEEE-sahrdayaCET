@@ -26,6 +26,7 @@ jobs:
           key: node-modules-${{ runner.os }}-${{ hashFiles('bun.lock') }}
       - run: bun install
       - run: bun run build
+      - run: bunx tsc --noEmit
       - run: bun run lint
 
   docker-build:
