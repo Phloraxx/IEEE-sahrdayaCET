@@ -38,7 +38,7 @@ export const Route = createFileRoute("/api/admin/execom")({
       POST: async ({ request }) => {
         try {
           const contentType = request.headers.get('content-type') || '';
-          if (!contentType.includes('application/json') && !contentType.includes('multipart/form-data') && request.method !== 'GET') {
+          if (!contentType.includes('application/json') && !contentType.includes('multipart/form-data')) {
             return Response.json({ error: 'Unsupported media type' }, { status: 415 });
           }
           const pb = createPB(request.headers.get("cookie") || undefined);
