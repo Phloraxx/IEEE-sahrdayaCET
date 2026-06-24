@@ -173,13 +173,13 @@ export const AceternityGridBackground: React.FC = () => {
     return (
         <div className="fixed inset-0 pointer-events-none z-0">
             <AnimatedGridPattern
-                numSquares={30}
-                maxOpacity={0.1}
-                duration={3}
-                repeatDelay={1}
-                className="[mask-image:radial-gradient(500px_circle_at_center,white,transparent)]"
+                numSquares={50}
+                maxOpacity={0.25}
+                duration={1.5}
+                repeatDelay={0.5}
+                strokeDasharray={4}
+                className="[mask-image:radial-gradient(700px_circle_at_center,white,transparent)]"
             />
-            {/* Radial mask to fade grid toward edges */}
             <div className="pointer-events-none absolute inset-0 bg-white
                 [mask-image:radial-gradient(ellipse_at_center,transparent_20%,black)] dark:bg-black" />
         </div>
