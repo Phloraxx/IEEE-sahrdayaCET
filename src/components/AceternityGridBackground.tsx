@@ -1,34 +1,129 @@
 'use client';
 
-import React, { useId } from 'react';
+import {
+    useCallback,
+    useEffect,
+    useId,
+    useRef,
+    useState,
+} from 'react';
+import { motion } from 'framer-motion';
 
-interface GridPatternProps extends React.SVGProps<SVGSVGElement> {
+interface AnimatedGridPatternProps {
     width?: number;
     height?: number;
     x?: number;
     y?: number;
-    squares?: Array<[x: number, y: number]>;
-    strokeDasharray?: string;
+    strokeDasharray?: number;
+    numSquares?: number;
+    maxOpacity?: number;
+    duration?: number;
+    repeatDelay?: number;
     className?: string;
 }
 
-function GridPattern({
+type Square = {
+    id: number;
+    pos: [number, number];
+    iteration: number;
+};
+
+export function AnimatedGridPattern({
     width = 40,
     height = 40,
     x = -1,
     y = -1,
-    strokeDasharray = '0',
-    squares,
+    strokeDasharray = 0,
+    numSquares = 50,
     className,
-    ...props
-}: GridPatternProps) {
+    maxOpacity = 0.5,
+    duration = 4,
+    repeatDelay = 0.5,
+}: AnimatedGridPatternProps) {
     const id = useId();
+    const containerRef = useRef<SVGSVGElement | null>(null);
+    const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+    const [squares, setSquares] = useState<Array<Square>>([]);
+
+    const getPos = useCallback((): [number, number] => {
+        return [
+            Math.floor((Math.random() * dimensions.width) / width),
+            Math.floor((Math.random() * dimensions.height) / height),
+        ];
+    }, [dimensions.height, dimensions.width, height, width]);
+
+    const generateSquares = useCallback(
+        (count: number) => {
+            return Array.from({ length: count }, (_, i) => ({
+                id: i,
+                pos: getPos(),
+                iteration: 0,
+            }));
+        },
+        [getPos],
+    );
+
+    const updateSquarePosition = useCallback(
+        (squareId: number) => {
+            setSquares((currentSquares) => {
+                const current = currentSquares[squareId];
+                if (!current || current.id !== squareId) return currentSquares;
+
+                const nextSquares = currentSquares.slice();
+                nextSquares[squareId] = {
+                    ...current,
+                    pos: getPos(),
+                    iteration: current.iteration + 1,
+                };
+
+                return nextSquares;
+            });
+        },
+        [getPos],
+    );
+
+    useEffect(() => {
+        if (dimensions.width && dimensions.height) {
+            setSquares(generateSquares(numSquares));
+        }
+    }, [dimensions.width, dimensions.height, generateSquares, numSquares]);
+
+    useEffect(() => {
+        const element = containerRef.current;
+        let resizeObserver: ResizeObserver | null = null;
+
+        if (element) {
+            resizeObserver = new ResizeObserver((entries) => {
+                for (const entry of entries) {
+                    setDimensions((currentDimensions) => {
+                        const nextWidth = entry.contentRect.width;
+                        const nextHeight = entry.contentRect.height;
+                        if (
+                            currentDimensions.width === nextWidth &&
+                            currentDimensions.height === nextHeight
+                        ) {
+                            return currentDimensions;
+                        }
+                        return { width: nextWidth, height: nextHeight };
+                    });
+                }
+            });
+
+            resizeObserver.observe(element);
+        }
+
+        return () => {
+            if (resizeObserver) {
+                resizeObserver.disconnect();
+            }
+        };
+    }, []);
 
     return (
         <svg
+            ref={containerRef}
             aria-hidden="true"
             className={`pointer-events-none absolute inset-0 h-full w-full fill-gray-400/30 stroke-gray-400/30 ${className ?? ''}`}
-            {...props}
         >
             <defs>
                 <pattern
@@ -46,36 +141,43 @@ function GridPattern({
                     />
                 </pattern>
             </defs>
-            <rect width="100%" height="100%" strokeWidth={0} fill={`url(#${id})`} />
-            {squares && (
-                <svg x={x} y={y} className="overflow-visible">
-                    {squares.map(([sx, sy]) => (
-                        <rect
-                            strokeWidth="0"
-                            key={`${sx}-${sy}`}
-                            width={width - 1}
-                            height={height - 1}
-                            x={sx * width + 1}
-                            y={sy * height + 1}
-                        />
-                    ))}
-                </svg>
-            )}
+            <rect width="100%" height="100%" fill={`url(#${id})`} />
+            <svg x={x} y={y} className="overflow-visible">
+                {squares.map(({ pos: [squareX, squareY], id: squareId, iteration }, index) => (
+                    <motion.rect
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: maxOpacity }}
+                        transition={{
+                            duration,
+                            repeat: 1,
+                            delay: index * 0.1,
+                            repeatType: 'reverse',
+                            repeatDelay,
+                        }}
+                        onAnimationComplete={() => updateSquarePosition(squareId)}
+                        key={`${squareId}-${iteration}`}
+                        width={width - 1}
+                        height={height - 1}
+                        x={squareX * width + 1}
+                        y={squareY * height + 1}
+                        fill="currentColor"
+                        strokeWidth="0"
+                    />
+                ))}
+            </svg>
         </svg>
     );
 }
 
 export const AceternityGridBackground: React.FC = () => {
-    // Highlight a few cells with IEEE blue for visual interest
-    const highlightedSquares: [number, number][] = [
-        [3, 4], [7, 2], [10, 6], [5, 8], [12, 3],
-    ];
-
     return (
         <div className="fixed inset-0 pointer-events-none z-0">
-            <GridPattern
-                squares={highlightedSquares}
-                className="fill-ieee-blue/[0.06] stroke-ieee-blue/[0.08]"
+            <AnimatedGridPattern
+                numSquares={30}
+                maxOpacity={0.1}
+                duration={3}
+                repeatDelay={1}
+                className="[mask-image:radial-gradient(500px_circle_at_center,white,transparent)]"
             />
             {/* Radial mask to fade grid toward edges */}
             <div className="pointer-events-none absolute inset-0 bg-white
