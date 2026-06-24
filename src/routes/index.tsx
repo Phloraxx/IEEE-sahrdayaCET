@@ -6,7 +6,6 @@ import { APP_URL } from "@/lib/constants";
 import Navbar from '@/components/Navbar'
 import { Hero } from '@/components/Hero'
 import { DotPattern } from '@/components/ui/dot-pattern'
-import { ShootingStars } from '@/components/ui/shooting-stars'
 import { WhatsHappening } from '@/components/WhatsHappening'
 import { Execom } from '@/components/Execom'
 import { EventsShowcase } from '@/components/EventsShowcase'
@@ -161,7 +160,6 @@ function Home() {
           glow
           className="text-neutral-300"
         />
-        <ShootingStars starColor="#00629b" trailColor="#0099D6" minSpeed={10} maxSpeed={25} minDelay={1500} maxDelay={4000} starWidth={20} starHeight={2} />
         <Hero />
       </div>
       <Navbar />
