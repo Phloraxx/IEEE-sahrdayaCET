@@ -161,7 +161,7 @@ function Home() {
           glow
           className="text-neutral-300"
         />
-        <ShootingStars starColor="#00629b" trailColor="#0099D6" minDelay={2000} maxDelay={5000} />
+        <ShootingStars starColor="#00629b" trailColor="#0099D6" minSpeed={10} maxSpeed={25} minDelay={1500} maxDelay={4000} starWidth={20} starHeight={2} />
         <Hero />
       </div>
       <Navbar />
