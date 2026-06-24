@@ -23,6 +23,7 @@ interface StarBackgroundProps {
   minTwinkleSpeed?: number;
   maxTwinkleSpeed?: number;
   starColor?: string;
+  starSize?: number;
   className?: string;
 }
 
@@ -33,6 +34,7 @@ export const StarsBackground: React.FC<StarBackgroundProps> = ({
   minTwinkleSpeed = 0.5,
   maxTwinkleSpeed = 1,
   starColor = "#ffffff",
+  starSize = 1,
   className,
 }) => {
   const [stars, setStars] = useState<StarProps[]>([]);
@@ -49,7 +51,7 @@ export const StarsBackground: React.FC<StarBackgroundProps> = ({
         return {
           x: Math.random() * width,
           y: Math.random() * height,
-          radius: Math.random() * 0.05 + 0.5,
+          radius: (Math.random() * 0.5 + 0.5) * starSize,
           opacity: Math.random() * 0.5 + 0.5,
           twinkleSpeed: shouldTwinkle
             ? minTwinkleSpeed +
@@ -64,6 +66,7 @@ export const StarsBackground: React.FC<StarBackgroundProps> = ({
       twinkleProbability,
       minTwinkleSpeed,
       maxTwinkleSpeed,
+      starSize,
     ]
   );
 
