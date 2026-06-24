@@ -1,2 +1,0 @@
-import{t as e}from"./jsx-runtime-BseJUIpC.js";var t=e();function n({className:e}){return(0,t.jsx)(`div`,{className:`flex items-center justify-center ${e||``}`,children:(0,t.jsx)(`div`,{className:`h-8 w-8 animate-spin rounded-full border-4 border-ieee-blue border-t-transparent`})})}export{n as t};
-//# sourceMappingURL=loading-Dj_w5s5m.js.map
