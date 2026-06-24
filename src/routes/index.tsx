@@ -5,7 +5,7 @@ import { createPB, buildFileUrl } from '@/lib/pb'
 import { APP_URL } from "@/lib/constants";
 import Navbar from '@/components/Navbar'
 import { Hero } from '@/components/Hero'
-import { DotBackground } from '@/components/DotBackground'
+import { AceternityGridBackground } from '@/components/AceternityGridBackground'
 import { TechnicalDetails } from '@/components/TechnicalDetails'
 import { FloatingIcons } from '@/components/FloatingIcons'
 import { WhatsHappening } from '@/components/WhatsHappening'
@@ -155,7 +155,7 @@ function Home() {
     <div className="relative w-full bg-white text-gray-900 font-sans selection:bg-ieee-blue/20">
       <div id="home" className="absolute top-0 left-0 w-full h-1" />
       <div className="fixed inset-0 z-0 h-dvh overflow-hidden">
-        <DotBackground />
+        <AceternityGridBackground />
         <FloatingIcons />
         <TechnicalDetails />
         <Hero />
