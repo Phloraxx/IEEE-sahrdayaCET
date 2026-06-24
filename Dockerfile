@@ -11,7 +11,7 @@
 
 FROM node:22-alpine AS base
 ENV TANSTACK_START_TELEMETRY_DISABLED=1
-RUN npm install -g bun@latest
+RUN npm install -g bun@1.2.9
 
 # ─── Dependencies ──────────────────────────────────────────────
 FROM base AS deps

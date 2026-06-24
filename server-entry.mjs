@@ -35,7 +35,22 @@ async function main() {
   const { default: handler } = await import(SERVER_ENTRY);
   const fetch = handler.fetch || handler;
 
+const SECURITY_HEADERS = {
+  'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+};
+
+function addSecurityHeaders(res) {
+  for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
+    res.setHeader(key, value);
+  }
+}
+const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB
   const server = createServer(async (req, res) => {
+    addSecurityHeaders(res);
     try {
       const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
 
@@ -70,6 +85,15 @@ async function main() {
 
   server.listen(PORT, () => {
     console.log(`IEEE Sahrdaya app listening on port ${PORT}`);
+  });
+
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM received — closing gracefully...');
+    server.close(() => process.exit(0));
+  });
+  process.on('SIGINT', () => {
+    console.log('SIGINT received — closing gracefully...');
+    server.close(() => process.exit(0));
   });
 }
 

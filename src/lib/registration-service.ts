@@ -2,7 +2,7 @@ import type PocketBase from 'pocketbase'
 import { createAdminPB, escapeFilterValue } from './pb'
 import type { Coupon, Event } from '@/types'
 import { logError } from '@/lib/logger'
-import { getField } from './safe-get'
+import { escapeFilterValue } from '@/lib/pb'
 
 /**
  * Thrown by service functions when a business-rule check fails.
@@ -38,7 +38,7 @@ export async function validateCouponCode(
   if (!event) throw new RegistrationError('Event not found', 404)
 
   const result = await pb.collection('coupons').getList(1, 1, {
-    filter: `code = '${code}' && event = '${eventId}' && isActive = true && (expiresAt = null || expiresAt > @now)`,
+    filter: `code = ${escapeFilterValue(code)} && event = ${escapeFilterValue(eventId)} && isActive = true && (expiresAt = null || expiresAt > @now)`,
     fields: 'id,code,discountPercent,maxUses,usedCount,expiresAt',
   })
   if (result.items.length === 0) {
@@ -74,7 +74,7 @@ export async function validateAndApplyCoupon(
   code: string,
 ): Promise<{ discountAmount: number; finalPrice: number }> {
   const result = await pb.collection('coupons').getList(1, 1, {
-    filter: `code = '${code}' && event = '${eventId}' && isActive = true && (expiresAt = null || expiresAt > @now)`,
+    filter: `code = ${escapeFilterValue(code)} && event = ${escapeFilterValue(eventId)} && isActive = true && (expiresAt = null || expiresAt > @now)`,
     fields: 'id,code,discountPercent,maxUses,usedCount,expiresAt',
   })
   if (result.items.length === 0) {
