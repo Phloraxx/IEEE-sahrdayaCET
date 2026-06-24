@@ -2,10 +2,18 @@ import PocketBase from 'pocketbase'
 import { PB_AUTH_COOKIE } from './constants'
 import { logError } from './logger'
 
+function getPBUrl(): string {
+  const url =
+    process.env.POCKETBASE_URL ||
+    (typeof import.meta !== 'undefined' ? import.meta.env.VITE_POCKETBASE_URL : '')
+  if (!url) {
+    throw new Error('POCKETBASE_URL (or VITE_POCKETBASE_URL) is not configured')
+  }
+  return url
+}
+
 export function createPB(cookieString?: string) {
-  const envUrl = process.env.POCKETBASE_URL || (typeof import.meta !== 'undefined' ? import.meta.env.VITE_POCKETBASE_URL : '') || ''
-  const url = envUrl && !envUrl.includes('sslip.io') ? envUrl : 'https://db.phloraxx.us.to'
-  const pb = new PocketBase(url)
+  const pb = new PocketBase(getPBUrl())
   if (cookieString) {
     pb.authStore.loadFromCookie(cookieString, PB_AUTH_COOKIE)
   }
@@ -26,13 +34,11 @@ export function createAdminPB() {
   pb.authStore.save(token, null)
   return pb
 }
+
 export function buildFileUrl(collection: string, recordId: string, filename: string): string {
-  const envUrl = process.env.POCKETBASE_URL || (typeof import.meta !== 'undefined' ? import.meta.env.VITE_POCKETBASE_URL : '') || ''
-  const url = envUrl && !envUrl.includes('sslip.io') ? envUrl : 'https://db.phloraxx.us.to'
-  if (!url || !recordId || !filename) {
-    if (!recordId || !filename) {
-      logError('buildFileUrl', 'Missing recordId or filename', { collection, recordId, filename })
-    }
+  const url = getPBUrl()
+  if (!recordId || !filename) {
+    logError('buildFileUrl', 'Missing recordId or filename', { collection, recordId, filename })
     return ''
   }
   return `${url}/api/files/${collection}/${recordId}/${filename}`

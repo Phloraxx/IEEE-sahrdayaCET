@@ -1,8 +1,8 @@
 import type PocketBase from 'pocketbase'
-import { createAdminPB, escapeFilterValue } from './pb'
+import { createAdminPB, escapeFilterValue } from '@/lib/pb'
 import type { Coupon, Event } from '@/types'
 import { logError } from '@/lib/logger'
-import { escapeFilterValue } from '@/lib/pb'
+import { getField } from '@/lib/safe-get'
 
 /**
  * Thrown by service functions when a business-rule check fails.

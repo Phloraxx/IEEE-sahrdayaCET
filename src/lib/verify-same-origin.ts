@@ -8,13 +8,18 @@ export function verifySameOrigin(request: Request): void {
 	const origin = request.headers.get("origin");
 	const appUrl = APP_URL;
 
-	// If no app URL configured, skip check (dev fallback)
-	if (!appUrl) return;
+	// In production the origin check is mandatory. In dev, allow missing config or
+	// missing Origin header for local testing, but never allow a mismatched origin.
+	if (!appUrl) {
+		if (process.env.NODE_ENV === 'production') {
+			throw new Error('PUBLIC_APP_URL is not configured');
+		}
+		return;
+	}
+
 	if (!origin) {
-		// Same-origin GET requests have no Origin header. But mutations should have one.
-		// Allow it in dev; block in production.
-		if (process.env.NODE_ENV === "production") {
-			throw new Error("Missing Origin header");
+		if (process.env.NODE_ENV === 'production') {
+			throw new Error('Missing Origin header');
 		}
 		return;
 	}
@@ -26,9 +31,11 @@ export function verifySameOrigin(request: Request): void {
 			throw new Error(`Invalid origin: ${origin}`);
 		}
 	} catch (e) {
-		if (e instanceof Error && e.message.startsWith("Invalid origin")) {
+		if (e instanceof Error && e.message.startsWith('Invalid origin')) {
 			throw e;
 		}
-		throw new Error(`Invalid origin: ${origin}`);
+		if (process.env.NODE_ENV === 'production') {
+			throw new Error(`Invalid origin: ${origin}`);
+		}
 	}
 }
