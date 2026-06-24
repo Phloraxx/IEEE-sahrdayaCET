@@ -22,6 +22,7 @@ interface StarBackgroundProps {
   twinkleProbability?: number;
   minTwinkleSpeed?: number;
   maxTwinkleSpeed?: number;
+  starColor?: string;
   className?: string;
 }
 
@@ -31,6 +32,7 @@ export const StarsBackground: React.FC<StarBackgroundProps> = ({
   twinkleProbability = 0.7,
   minTwinkleSpeed = 0.5,
   maxTwinkleSpeed = 1,
+  starColor = "#ffffff",
   className,
 }) => {
   const [stars, setStars] = useState<StarProps[]>([]);
@@ -114,7 +116,7 @@ export const StarsBackground: React.FC<StarBackgroundProps> = ({
       stars.forEach((star) => {
         ctx.beginPath();
         ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255, 255, 255, ${star.opacity})`;
+        ctx.fillStyle = `${starColor}${Math.round(star.opacity * 255).toString(16).padStart(2, "0")}`;
         ctx.fill();
 
         if (star.twinkleSpeed !== null) {
@@ -132,7 +134,7 @@ export const StarsBackground: React.FC<StarBackgroundProps> = ({
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [stars]);
+  }, [stars, starColor]);
 
   return (
     <canvas
