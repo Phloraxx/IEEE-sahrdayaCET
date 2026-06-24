@@ -177,7 +177,7 @@ export function AceternityGridBackground() {
                 maxOpacity={0.25}
                 duration={1.5}
                 repeatDelay={0.5}
-                className="[mask-image:radial-gradient(700px_circle_at_center,white,transparent)] skew-y-12"
+                className="[mask-image:radial-gradient(700px_circle_at_center,white,transparent)]"
             />
             <div className="pointer-events-none absolute inset-0 bg-white
                 [mask-image:radial-gradient(ellipse_at_center,transparent_20%,black)] dark:bg-black" />
