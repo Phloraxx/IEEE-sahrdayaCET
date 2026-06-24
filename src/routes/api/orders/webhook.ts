@@ -82,7 +82,9 @@ export const Route = createFileRoute("/api/orders/webhook")({
             paymentStatus: 'paid',
             paymentData: body,
           });
-          await bumpEventCounter(getField(reg, 'event', ''), 'registeredCount', +1, pb);
+          if (wasPending) {
+            await bumpEventCounter(getField(reg, 'event', ''), 'registeredCount', +1, pb);
+          }
         }
         else {
           const existingPaymentData = getField<Record<string, unknown>>(regR, 'paymentData', {});

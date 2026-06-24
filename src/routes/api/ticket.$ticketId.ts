@@ -1,20 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createPB, buildFileUrl, escapeFilterValue } from "@/lib/pb";
 import { handleError } from "@/lib/api-error";
+import { requireAuth } from "@/lib/auth";
+import { requireEventScope } from "@/lib/chair-scope";
 import { getField, getExpand } from '@/lib/safe-get';
 
 export const Route = createFileRoute("/api/ticket/$ticketId")({
   server: {
     handlers: {
-          GET: async ({ request, params }) => {
+      GET: async ({ request, params }) => {
         try {
           const { ticketId } = params;
-          // Try authenticated client first
-          const cookie = request.headers.get('cookie') || '';
-          const pb = createPB(cookie);
-          const isAuthenticated = pb.authStore.isValid;
+          const pb = createPB(request.headers.get('cookie') || undefined);
+          const auth = await requireAuth(pb).catch(() => null);
 
-          // Look up registration by ticketId or paymentTicketId
           const regs = await pb.collection("registrations").getList(1, 1, {
             filter: `ticketId = ${escapeFilterValue(ticketId)} || paymentTicketId = ${escapeFilterValue(ticketId)}`,
             expand: "event",
@@ -54,13 +53,21 @@ export const Route = createFileRoute("/api/ticket/$ticketId")({
             event,
           };
 
-          // Only include PII for the ticket owner or admin/chair
-          if (isAuthenticated) {
-            const userId = pb.authStore.record?.id;
-            const role = pb.authStore.record?.role;
+          if (auth) {
+            const userId = auth.user.id;
+            const role = auth.user.role;
             const isAdmin = role === 'admin';
-            const isChair = role === 'chair';
             const isOwner = getField(reg, 'user', '') === userId;
+            const eventId = getField(eventData, 'id', '') || getField(reg, 'event', '');
+            let isChair = false;
+            if (role === 'chair' && eventId) {
+              try {
+                await requireEventScope(pb, auth.user, eventId);
+                isChair = true;
+              } catch {
+                isChair = false;
+              }
+            }
 
             if (isOwner || isAdmin || isChair) {
               response.registration = {

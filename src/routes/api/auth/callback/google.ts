@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { serialize } from "cookie";
+import { parse, serialize } from "cookie";
 import { OAUTH_CALLBACK_PATH, PB_OAUTH_PROVIDER_COOKIE } from "@/lib/constants";
 import { logError } from "@/lib/logger";
 import PocketBase from "pocketbase";
@@ -11,11 +11,8 @@ export const Route = createFileRoute("/api/auth/callback/google")({
         const url = new URL(request.url);
         const code = url.searchParams.get("code");
         const state = url.searchParams.get("state");
-        const providerCookie = request.headers
-          .get("cookie")
-          ?.split("; ")
-          .find((row) => row.startsWith(`${PB_OAUTH_PROVIDER_COOKIE}=`))
-          ?.slice(PB_OAUTH_PROVIDER_COOKIE.length + 1);
+        const cookies = parse(request.headers.get("cookie") || "");
+        const providerCookie = cookies[PB_OAUTH_PROVIDER_COOKIE];
 
         const appUrl =
           process.env.PUBLIC_APP_URL || `${url.protocol}//${url.host}`;
@@ -47,14 +44,12 @@ export const Route = createFileRoute("/api/auth/callback/google")({
           const isProduction = process.env.NODE_ENV === "production";
           const response = new Response(null, { status: 302, headers: { Location: appUrl } });
 
-          // Set the auth cookie
           const authCookie = pb.authStore.exportToCookie({
-                      httpOnly: true,
-                      secure: isProduction,
-                      sameSite: "strict",
-                      path: "/",
-                      cookie: "pb_auth",
-                    });
+              httpOnly: true,
+              secure: isProduction,
+              sameSite: "strict",
+              path: "/",
+          });
           response.headers.set("Set-Cookie", authCookie);
 
           // Clear the one-time OAuth provider cookie (PKCE verifier must not be reusable)
