@@ -6,8 +6,6 @@ import { APP_URL } from "@/lib/constants";
 import Navbar from '@/components/Navbar'
 import { Hero } from '@/components/Hero'
 import { AceternityGridBackground } from '@/components/AceternityGridBackground'
-import { TechnicalDetails } from '@/components/TechnicalDetails'
-import { FloatingIcons } from '@/components/FloatingIcons'
 import { WhatsHappening } from '@/components/WhatsHappening'
 import { Execom } from '@/components/Execom'
 import { EventsShowcase } from '@/components/EventsShowcase'
@@ -156,8 +154,6 @@ function Home() {
       <div id="home" className="absolute top-0 left-0 w-full h-1" />
       <div className="fixed inset-0 z-0 h-dvh overflow-hidden">
         <AceternityGridBackground />
-        <FloatingIcons />
-        <TechnicalDetails />
         <Hero />
       </div>
       <Navbar />
