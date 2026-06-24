@@ -169,7 +169,7 @@ export function AnimatedGridPattern({
     );
 }
 
-export const AceternityGridBackground: React.FC = () => {
+export function AceternityGridBackground() {
     return (
         <div className="fixed inset-0 pointer-events-none z-0">
             <AnimatedGridPattern
@@ -177,11 +177,10 @@ export const AceternityGridBackground: React.FC = () => {
                 maxOpacity={0.25}
                 duration={1.5}
                 repeatDelay={0.5}
-                strokeDasharray={4}
-                className="[mask-image:radial-gradient(700px_circle_at_center,white,transparent)]"
+                className="[mask-image:radial-gradient(700px_circle_at_center,white,transparent)] skew-y-12"
             />
             <div className="pointer-events-none absolute inset-0 bg-white
                 [mask-image:radial-gradient(ellipse_at_center,transparent_20%,black)] dark:bg-black" />
         </div>
     );
-};
+}
