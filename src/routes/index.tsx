@@ -5,7 +5,8 @@ import { createPB, buildFileUrl } from '@/lib/pb'
 import { APP_URL } from "@/lib/constants";
 import Navbar from '@/components/Navbar'
 import { Hero } from '@/components/Hero'
-import { BackgroundRippleEffect } from '@/components/ui/background-ripple-effect'
+import { StarsBackground } from '@/components/ui/stars-background'
+import { ShootingStars } from '@/components/ui/shooting-stars'
 import { WhatsHappening } from '@/components/WhatsHappening'
 import { Execom } from '@/components/Execom'
 import { EventsShowcase } from '@/components/EventsShowcase'
@@ -153,7 +154,8 @@ function Home() {
     <div className="relative w-full bg-white text-gray-900 font-sans selection:bg-ieee-blue/20">
       <div id="home" className="absolute top-0 left-0 w-full h-1" />
       <div className="fixed inset-0 z-0 h-dvh overflow-hidden">
-        <BackgroundRippleEffect rows={20} cols={27} />
+        <StarsBackground starDensity={0.00015} allStarsTwinkle />
+        <ShootingStars starColor="#00629b" trailColor="#0099D6" minDelay={2000} maxDelay={6000} />
         <Hero />
       </div>
       <Navbar />
