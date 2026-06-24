@@ -5,7 +5,7 @@ import { createPB, buildFileUrl } from '@/lib/pb'
 import { APP_URL } from "@/lib/constants";
 import Navbar from '@/components/Navbar'
 import { Hero } from '@/components/Hero'
-import { AceternityGridBackground } from '@/components/AceternityGridBackground'
+import { BackgroundRippleEffect } from '@/components/BackgroundRippleEffect'
 import { WhatsHappening } from '@/components/WhatsHappening'
 import { Execom } from '@/components/Execom'
 import { EventsShowcase } from '@/components/EventsShowcase'
@@ -153,7 +153,7 @@ function Home() {
     <div className="relative w-full bg-white text-gray-900 font-sans selection:bg-ieee-blue/20">
       <div id="home" className="absolute top-0 left-0 w-full h-1" />
       <div className="fixed inset-0 z-0 h-dvh overflow-hidden">
-        <AceternityGridBackground />
+        <BackgroundRippleEffect />
         <Hero />
       </div>
       <Navbar />
