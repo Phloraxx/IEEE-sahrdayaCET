@@ -5,7 +5,7 @@ import { createPB, buildFileUrl } from '@/lib/pb'
 import { APP_URL } from "@/lib/constants";
 import Navbar from '@/components/Navbar'
 import { Hero } from '@/components/Hero'
-import { BackgroundRippleEffect } from '@/components/BackgroundRippleEffect'
+import { BackgroundRippleEffect } from '@/components/ui/background-ripple-effect'
 import { WhatsHappening } from '@/components/WhatsHappening'
 import { Execom } from '@/components/Execom'
 import { EventsShowcase } from '@/components/EventsShowcase'
