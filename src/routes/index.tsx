@@ -6,6 +6,7 @@ import { APP_URL } from "@/lib/constants";
 import Navbar from '@/components/Navbar'
 import { Hero } from '@/components/Hero'
 import { DotPattern } from '@/components/ui/dot-pattern'
+import { ShootingStars } from '@/components/ui/shooting-stars'
 import { WhatsHappening } from '@/components/WhatsHappening'
 import { Execom } from '@/components/Execom'
 import { EventsShowcase } from '@/components/EventsShowcase'
@@ -154,12 +155,13 @@ function Home() {
       <div id="home" className="absolute top-0 left-0 w-full h-1" />
       <div className="fixed inset-0 z-0 h-dvh overflow-hidden">
         <DotPattern
-          width={24}
-          height={24}
-          cr={1.5}
+          width={32}
+          height={32}
+          cr={2.5}
           glow
           className="text-neutral-300"
         />
+        <ShootingStars starColor="#00629b" trailColor="#0099D6" minDelay={2000} maxDelay={5000} />
         <Hero />
       </div>
       <Navbar />
