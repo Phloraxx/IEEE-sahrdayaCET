@@ -30,37 +30,54 @@ interface HomeData {
 }
 
 export const Route = createFileRoute('/')({
-  head: ({ loaderData }) => ({
-    meta: [
-      {
-        title: 'Home | IEEE Sahrdaya Student Branch',
-      },
-      {
-        name: 'description',
-        content:
-          'Official IEEE Sahrdaya Student Branch — technical events, workshops, societies & execom directory. Sahrdaya College of Engineering, Thrissur, Kerala.',
-      },
-      { property: 'og:title', content: 'Home | IEEE Sahrdaya Student Branch' },
-      {
-        property: 'og:description',
-        content:
-          'Official IEEE Sahrdaya Student Branch — technical events, workshops, societies & execom directory. Sahrdaya College of Engineering, Thrissur, Kerala.',
-      },
-      { property: 'og:image', content: `${APP_URL}/web.png` },
-      { property: 'og:image:width', content: '1200' },
-      { property: 'og:image:height', content: '630' },
-      { property: 'og:url', content: `${APP_URL}/` },
-    ],
-    links: [
-      { rel: 'canonical', href: '/' },
-      ...(loaderData?.latestEvent?.bannerUrl
-        ? [{ rel: 'preload', as: 'image', href: loaderData.latestEvent.bannerUrl }]
-        : []),
-    ],
-  }),
-  loader: async ({ context }: { context: { response: { headers: Headers } } }): Promise<HomeData> => {
+  head: ({ loaderData }) => {
+    const data = loaderData as unknown as HomeData | undefined;
+    const preload = data?.latestEvent?.bannerUrl
+      ? [{ rel: 'preload', as: 'image', href: data.latestEvent.bannerUrl }]
+      : [];
+    return {
+      meta: [
+        {
+          title: 'Home | IEEE Sahrdaya Student Branch',
+        },
+        {
+          name: 'description',
+          content:
+            'Official IEEE Sahrdaya Student Branch — technical events, workshops, societies & execom directory. Sahrdaya College of Engineering, Thrissur, Kerala.',
+        },
+        { property: 'og:title', content: 'Home | IEEE Sahrdaya Student Branch' },
+        {
+          property: 'og:description',
+          content:
+            'Official IEEE Sahrdaya Student Branch — technical events, workshops, societies & execom directory. Sahrdaya College of Engineering, Thrissur, Kerala.',
+        },
+        { property: 'og:image', content: `${APP_URL}/web.png` },
+        { property: 'og:image:width', content: '1200' },
+        { property: 'og:image:height', content: '630' },
+        { property: 'og:url', content: `${APP_URL}/` },
+      ],
+      links: [
+        { rel: 'canonical', href: '/' },
+        ...preload,
+      ],
+      scripts: [
+        {
+          type: 'application/ld+json',
+          innerHTML: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'BreadcrumbList',
+            itemListElement: [
+              { '@type': 'ListItem', position: 1, name: 'Home', item: APP_URL },
+            ],
+          }),
+        },
+      ],
+    };
+  },
+  loader: async ({ context }): Promise<HomeData> => {
     try {
-      context.response.headers.set('Cache-Control', 'public, max-age=300');
+      const response = (context as unknown as { response: { headers: Headers } }).response;
+      response.headers.set('Cache-Control', 'public, max-age=300');
       const pb = createPB();
       const [eventsResult, societiesRes] = await Promise.allSettled([
         pb.collection("events").getList(1, 20, {
@@ -130,10 +147,9 @@ export const Route = createFileRoute('/')({
 })
 
 function Home() {
-  const loaderData = Route.useLoaderData() || {}
+  const loaderData = (Route.useLoaderData() || {}) as HomeData
   const latestEvent = loaderData.latestEvent ?? null
   const societies = loaderData.societies ?? []
-  const eventItems = loaderData.eventItems ?? []
 
   return (
     <div className="relative w-full bg-white text-gray-900 font-sans selection:bg-ieee-blue/20">

@@ -40,9 +40,10 @@ export const Route = createFileRoute("/societies")({
       },
     ],
   }),
-  loader: async ({ context }: { context: { response: { headers: Headers } } }): Promise<Society[]> => {
+  loader: async ({ context }): Promise<Society[]> => {
     try {
-      context.response.headers.set('Cache-Control', 'public, max-age=300');
+      const response = (context as unknown as { response: { headers: Headers } }).response;
+      response.headers.set('Cache-Control', 'public, max-age=300');
       const pb = createPB();
       const data = await pb.collection("societies").getList(1, 200, {
         filter: "isHidden=false",

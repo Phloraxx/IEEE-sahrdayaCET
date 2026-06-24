@@ -27,7 +27,6 @@ import {
   Phone,
 } from "lucide-react";
 import { Linkedin, Instagram } from "@/components/icons";
-import { createPB } from "@/lib/pb";
 
 // ===== TYPES =====
 interface Member {

@@ -80,8 +80,9 @@ export default function LoginModal({ isOpen, onClose, message }: LoginModalProps
                     const focusable = dialog.querySelectorAll<HTMLElement>(
                         'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
                     );
-                    const first = focusable[0];
-                    const last = focusable[focusable.length - 1];
+                    const first = focusable[0] ?? null;
+                    const last = focusable[focusable.length - 1] ?? null;
+                    if (!first || !last) return;
                     if (e.shiftKey) {
                         if (document.activeElement === first) {
                             e.preventDefault();

@@ -286,7 +286,9 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
     const element = sectionRef.current;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        setIsInView(entry.isIntersecting && entry.intersectionRatio >= 0.8);
+        if (entry) {
+          setIsInView(entry.isIntersecting && entry.intersectionRatio >= 0.8);
+        }
       },
       { threshold: 0.8 },
     );
@@ -394,14 +396,14 @@ export const Execom: React.FC = () => {
         const result = await pb.collection("execom").getList(1, 100, {
           fields: "name,linkedin,email,phone",
         });
-        const docs = result.items as Array<{
-                  id: string;
-                  name: string;
-                  photo?: string;
-                  linkedin?: string;
-                  email?: string;
-                  phone?: string;
-                }>
+        const docs = result.items as unknown as Array<{
+          id: string;
+          name: string;
+          photo?: string;
+          linkedin?: string;
+          email?: string;
+          phone?: string;
+        }>;
         const matchesName = (hardcoded: string, pbName: string): boolean => {
           const hc = hardcoded.toLowerCase().trim();
           const pb = pbName.toLowerCase().trim();

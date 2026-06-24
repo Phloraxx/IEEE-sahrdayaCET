@@ -30,7 +30,7 @@ const BODY: string[][] = [
 type IdleAction = 'idle' | 'walking' | 'jumping' | 'looking' | 'crouching' | 'headBob';
 
 const PixelGrid: React.FC<{ grid: string[][]; size: number }> = ({ grid, size }) => (
-  <div style={{ display: 'grid', gridTemplateColumns: `repeat(${grid[0].length}, ${size}px)`, lineHeight: 0 }}>
+  <div style={{ display: 'grid', gridTemplateColumns: `repeat(${grid[0]!.length}, ${size}px)`, lineHeight: 0 }}>
     {grid.flat().map((color, i) => (
       <div
         key={i}
@@ -67,8 +67,8 @@ export const FloatingAction: React.FC = () => {
     const total = weights.reduce((a, b) => a + b, 0);
     let r = Math.random() * total;
     for (let i = 0; i < actions.length; i++) {
-      r -= weights[i];
-      if (r <= 0) return actions[i];
+      r -= weights[i]!;
+      if (r <= 0) return actions[i]!;
     }
     return 'idle';
   }, []);
@@ -120,7 +120,7 @@ export const FloatingAction: React.FC = () => {
             break;
           case 'looking': {
             const dirs: ('left' | 'right')[] = ['left', 'right'];
-            setLookDir(dirs[Math.floor(Math.random() * dirs.length)]);
+            setLookDir(dirs[Math.floor(Math.random() * dirs.length)]! || 'left');
             setTimeout(() => { setLookDir('center'); setAction('idle'); }, 1200 + Math.random() * 800);
             break;
           }
@@ -144,28 +144,28 @@ export const FloatingAction: React.FC = () => {
 
   const getHead = useCallback((): string[][] => {
     const head = HEAD.map(row => [...row]);
+    const row3 = head[3]!;
     if (isBlinking) {
-      head[3][2] = '#f5d5b8'; head[3][3] = '#f5d5b8';
-      head[3][4] = '#f5d5b8'; head[3][5] = '#f5d5b8';
+      row3[2] = '#f5d5b8'; row3[3] = '#f5d5b8';
+      row3[4] = '#f5d5b8'; row3[5] = '#f5d5b8';
     } else if (lookDir === 'left') {
-      head[3][2] = '#0099D6'; head[3][3] = '#ffffff';
-      head[3][4] = '#0099D6'; head[3][5] = '#ffffff';
+      row3[2] = '#0099D6'; row3[3] = '#ffffff';
+      row3[4] = '#0099D6'; row3[5] = '#ffffff';
     } else if (lookDir === 'right') {
-      head[3][2] = '#ffffff'; head[3][3] = '#0099D6';
-      head[3][4] = '#ffffff'; head[3][5] = '#0099D6';
+      row3[2] = '#ffffff'; row3[3] = '#0099D6';
+      row3[4] = '#ffffff'; row3[5] = '#0099D6';
     }
     return head;
   }, [isBlinking, lookDir]);
-
   const getBody = useCallback((): string[][] => {
     const body = BODY.map(row => [...row]);
     if (action === 'walking') {
       if (walkCycle === 0) {
-        body[6] = ['transparent','#2c2c54','#2c2c54','#2c2c54','transparent','transparent','#2c2c54','transparent'];
-        body[7] = ['transparent','#1a1a2e','transparent','transparent','transparent','transparent','#1a1a2e','transparent'];
+        body[6]! = ['transparent','#2c2c54','#2c2c54','#2c2c54','transparent','transparent','#2c2c54','transparent'];
+        body[7]! = ['transparent','#1a1a2e','transparent','transparent','transparent','transparent','#1a1a2e','transparent'];
       } else {
-        body[6] = ['transparent','#2c2c54','transparent','transparent','#2c2c54','#2c2c54','transparent','transparent'];
-        body[7] = ['transparent','transparent','transparent','#1a1a2e','transparent','transparent','transparent','transparent'];
+        body[6]! = ['transparent','#2c2c54','transparent','transparent','#2c2c54','#2c2c54','transparent','transparent'];
+        body[7]! = ['transparent','transparent','transparent','#1a1a2e','transparent','transparent','transparent','transparent'];
       }
     }
     return body;
