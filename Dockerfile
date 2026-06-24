@@ -9,9 +9,32 @@
 #    runner — dist only + node_modules (no build tooling)
 # ───────────────────────────────────────────────────────────────
 
+# ═══════════════════════════════════════════════════════════════
+# Bun installer — downloads the correct platform binary directly.
+# npm's bun shim fails on arm64/aarch64 because the optional dependency
+# is not exposed by npm install, so we fetch the GitHub release instead.
+# ═══════════════════════════════════════════════════════════════
+FROM node:22-alpine AS bun-installer
+ARG BUN_VERSION=1.2.9
+ARG TARGETARCH
+RUN apk add --no-cache curl unzip bash
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+RUN set -eux; \
+    case "$TARGETARCH" in \
+    amd64) BUN_ARCH=x64 ;; \
+    arm64|aarch64) BUN_ARCH=aarch64 ;; \
+    *) echo "Unsupported architecture: $TARGETARCH"; exit 1 ;; \
+    esac; \
+    curl -fsSL "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-${BUN_ARCH}.zip" -o /tmp/bun.zip; \
+    unzip -o /tmp/bun.zip -d /tmp; \
+    mv "/tmp/bun-linux-${BUN_ARCH}/bun" /usr/local/bin/bun; \
+    chmod +x /usr/local/bin/bun; \
+    bun --version
+
+# ─── Base ──────────────────────────────────────────────────────
 FROM node:22-alpine AS base
 ENV TANSTACK_START_TELEMETRY_DISABLED=1
-RUN npm install -g bun@1.2.9
+COPY --from=bun-installer /usr/local/bin/bun /usr/local/bin/bun
 
 # ─── Dependencies ──────────────────────────────────────────────
 FROM base AS deps
