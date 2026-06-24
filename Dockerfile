@@ -25,9 +25,9 @@ RUN set -eux; \
     arm64|aarch64) BUN_ARCH=aarch64 ;; \
     *) echo "Unsupported architecture: $TARGETARCH"; exit 1 ;; \
     esac; \
-    curl -fsSL "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-${BUN_ARCH}.zip" -o /tmp/bun.zip; \
+    curl -fsSL "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-${BUN_ARCH}-musl.zip" -o /tmp/bun.zip; \
     unzip -o /tmp/bun.zip -d /tmp; \
-    mv "/tmp/bun-linux-${BUN_ARCH}/bun" /usr/local/bin/bun; \
+    mv "/tmp/bun-linux-${BUN_ARCH}-musl/bun" /usr/local/bin/bun; \
     chmod +x /usr/local/bin/bun; \
     bun --version
 
