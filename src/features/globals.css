@@ -93,14 +93,6 @@
     0% { transform: translateX(0); }
     100% { transform: translateX(-33.33%); }
   }
-  @keyframes cell-ripple {
-    0% { opacity: 1; }
-    100% { opacity: 0.4; }
-  }
-
-  .animate-cell-ripple {
-    animation: cell-ripple var(--duration, 500ms) var(--delay, 0ms) ease-out forwards;
-  }
 
   .no-scrollbar::-webkit-scrollbar {
     display: none;
@@ -869,6 +861,15 @@
     100% { background-position: -200% 0; }
   }
 
+}
+/* ── Aceternity ripple cell animation ── */
+@keyframes cell-ripple {
+  0% { opacity: 1; }
+  100% { opacity: 0.4; }
+}
+
+.animate-cell-ripple {
+  animation: cell-ripple var(--duration, 500ms) var(--delay, 0ms) ease-out forwards;
 }
 
 /* ═══════════════════════════════════════════════════════════
