@@ -367,7 +367,7 @@
 }
 
 /* Admin dark mode — chrome-warm, instrument-panel */
-.vh-admin.dark {
+.dark .vh-admin {
   --background: oklch(0.16 0.008 60);
   --foreground: oklch(0.95 0.006 70);
   --card: oklch(0.2 0.008 60);
