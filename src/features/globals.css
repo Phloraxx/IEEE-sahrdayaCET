@@ -317,3 +317,92 @@
     scroll-behavior: auto !important;
   }
 }
+/* ═══════════════════════════════════════════════════════════
+   ADMIN SCOPE — submissionPortalV2 design language
+   Geist font, tight density, instrument-panel feel
+   ═══════════════════════════════════════════════════════════ */
+.vh-admin {
+  --font-sans: "Geist Variable", "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --radius: 6px;
+}
+.vh-admin .font-sans {
+  font-family: var(--font-sans);
+}
+
+/* Admin light mode — warm paper with amber brand */
+.vh-admin:not(.dark) {
+  --background: oklch(0.985 0.005 75);
+  --foreground: oklch(0.18 0.012 60);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.012 60);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.012 60);
+  --primary: oklch(0.62 0.165 50);
+  --primary-foreground: oklch(0.99 0.005 75);
+  --secondary: oklch(0.96 0.008 70);
+  --secondary-foreground: oklch(0.22 0.015 60);
+  --muted: oklch(0.955 0.008 70);
+  --muted-foreground: oklch(0.48 0.015 60);
+  --accent: oklch(0.95 0.012 70);
+  --accent-foreground: oklch(0.22 0.015 60);
+  --destructive: oklch(0.55 0.21 27);
+  --border: oklch(0.9 0.008 70);
+  --input: oklch(0.92 0.008 70);
+  --ring: oklch(0.62 0.165 50);
+  --sidebar: oklch(0.18 0.012 60);
+  --sidebar-foreground: oklch(0.95 0.008 70);
+  --sidebar-primary: oklch(0.72 0.18 55);
+  --sidebar-primary-foreground: oklch(0.15 0.012 60);
+  --sidebar-accent: oklch(0.25 0.012 60);
+  --sidebar-accent-foreground: oklch(0.97 0.005 75);
+  --sidebar-border: oklch(0.28 0.012 60);
+  --sidebar-ring: oklch(0.72 0.18 55);
+  --success: oklch(0.55 0.14 150);
+  --success-foreground: oklch(0.99 0.005 150);
+  --warning: oklch(0.7 0.15 75);
+  --warning-foreground: oklch(0.2 0.02 75);
+  --info: oklch(0.55 0.13 230);
+  --info-foreground: oklch(0.99 0.005 230);
+  --danger: oklch(0.55 0.21 27);
+  --danger-foreground: oklch(0.99 0.005 27);
+}
+
+/* Admin dark mode — chrome-warm, instrument-panel */
+.vh-admin.dark {
+  --background: oklch(0.16 0.008 60);
+  --foreground: oklch(0.95 0.006 70);
+  --card: oklch(0.2 0.008 60);
+  --card-foreground: oklch(0.95 0.006 70);
+  --popover: oklch(0.22 0.008 60);
+  --popover-foreground: oklch(0.95 0.006 70);
+  --primary: oklch(0.74 0.175 55);
+  --primary-foreground: oklch(0.15 0.012 60);
+  --secondary: oklch(0.26 0.01 60);
+  --secondary-foreground: oklch(0.95 0.006 70);
+  --muted: oklch(0.24 0.008 60);
+  --muted-foreground: oklch(0.68 0.012 70);
+  --accent: oklch(0.28 0.012 60);
+  --accent-foreground: oklch(0.97 0.005 75);
+  --destructive: oklch(0.62 0.2 27);
+  --border: oklch(0.3 0.01 60);
+  --input: oklch(0.28 0.01 60);
+  --ring: oklch(0.74 0.175 55);
+  --sidebar: oklch(0.12 0.008 60);
+  --sidebar-foreground: oklch(0.95 0.006 70);
+  --sidebar-primary: oklch(0.74 0.175 55);
+  --sidebar-primary-foreground: oklch(0.12 0.008 60);
+  --sidebar-accent: oklch(0.2 0.01 60);
+  --sidebar-accent-foreground: oklch(0.97 0.005 75);
+  --sidebar-border: oklch(0.24 0.01 60);
+  --sidebar-ring: oklch(0.74 0.175 55);
+  --success: oklch(0.7 0.14 150);
+  --success-foreground: oklch(0.12 0.012 150);
+  --warning: oklch(0.78 0.15 75);
+  --warning-foreground: oklch(0.15 0.02 75);
+  --info: oklch(0.7 0.13 230);
+  --info-foreground: oklch(0.12 0.012 230);
+  --danger: oklch(0.7 0.2 27);
+  --danger-foreground: oklch(0.12 0.012 27);
+}
+

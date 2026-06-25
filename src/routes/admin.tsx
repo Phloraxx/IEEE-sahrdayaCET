@@ -71,7 +71,7 @@ function AdminLayout() {
 
   return (
     <AdminGuard>
-      <div className="flex h-screen overflow-hidden bg-background text-foreground">
+      <div className="vh-admin flex h-screen overflow-hidden bg-background text-foreground">
         <AdminSidebar
           open={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
@@ -92,7 +92,7 @@ function AdminLayout() {
             tabIndex={-1}
             className="flex-1 overflow-y-auto focus:outline-none"
           >
-            <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-5 sm:py-8 md:px-8 md:py-10">
+            <div className="mx-auto w-full max-w-7xl px-4 py-4 sm:px-5 sm:py-5 md:px-6 md:py-6">
               <PageTransition>
                 <Outlet />
               </PageTransition>
