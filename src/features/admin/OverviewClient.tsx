@@ -240,7 +240,7 @@ export function OverviewClient({
       {/* ── Charts Row ── */}
       <div className="grid gap-4 md:grid-cols-2">
         {/* Bar Chart: Daily Registrations */}
-        <Card className="card-hover">
+        <Card>
           <CardHeader>
             <CardTitle className="text-base">Registrations (7 days)</CardTitle>
             <CardDescription>Daily sign-ups over the past week</CardDescription>
@@ -312,7 +312,7 @@ export function OverviewClient({
         </Card>
 
         {/* Upcoming Events */}
-        <Card className="card-hover">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle className="text-base">Upcoming Events</CardTitle>
@@ -374,7 +374,7 @@ export function OverviewClient({
           </CardContent>
         </Card>
         {/* Payment Distribution */}
-        <Card className="card-hover">
+        <Card>
           <CardHeader>
             <CardTitle className="text-base">Payment Status</CardTitle>
             <CardDescription>Breakdown by payment status</CardDescription>
@@ -418,7 +418,7 @@ export function OverviewClient({
         </Card>
       </div>
       {/* ── Recent Registrations ── */}
-      <Card className="card-hover">
+      <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle className="text-base">Recent Registrations</CardTitle>

@@ -189,15 +189,15 @@ export function UsersContent({ users: initialUsers }: { users: UserItem[] }) {
                     style={{
                       color:
                         u.role === "admin"
-                          ? "var(--accent, #c14a3a)"
+                          ? "hsl(var(--primary))"
                           : u.role === "chair"
-                            ? "var(--warning, #b8860b)"
-                            : "var(--ink-soft, #6b655a)",
+                            ? "#b8860b"
+                            : "hsl(var(--muted-foreground))",
                       borderColor:
                         u.role === "admin"
-                          ? "var(--accent-light)"
+                          ? "hsl(var(--primary))"
                           : u.role === "chair"
-                            ? "var(--warning-light)"
+                            ? "#b8860b"
                             : undefined,
                     }}
                   >

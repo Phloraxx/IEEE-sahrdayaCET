@@ -234,14 +234,14 @@ export function EventDetailClient({ event, registrations }: Props) {
 
       {/* Stat Cards */}
       <div className="grid gap-[2.5rem] sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="stat-card-hover animate-fade-in delay-1">
+        <Card>
           <CardHeader className="p-[1.75rem] pb-1">
             <CardTitle className="text-xs font-normal text-muted-foreground">
               Registrations
             </CardTitle>
           </CardHeader>
           <CardContent className="p-[1.75rem] pt-0">
-            <div className="font-serif text-[1.75rem] leading-tight">
+            <div className="text-[1.75rem] leading-tight">
               {event.registeredCount.toLocaleString("en-IN")}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -249,32 +249,32 @@ export function EventDetailClient({ event, registrations }: Props) {
             </p>
           </CardContent>
         </Card>
-        <Card className="stat-card-hover animate-fade-in delay-2">
+        <Card>
           <CardHeader className="p-[1.75rem] pb-1">
             <CardTitle className="text-xs font-normal text-muted-foreground">
               Confirmed
             </CardTitle>
           </CardHeader>
           <CardContent className="p-[1.75rem] pt-0">
-            <div className="font-serif text-[1.75rem] leading-tight">
+            <div className="text-[1.75rem] leading-tight">
               {confirmed.length.toLocaleString("en-IN")}
             </div>
-            <div className="mt-2 progress">
+            <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
               <div
-                className="progress-fill"
+                className="h-full bg-primary transition-all duration-500 rounded-full"
                 style={{ width: `${Math.min(pct, 100)}%` }}
               />
             </div>
           </CardContent>
         </Card>
-        <Card className="stat-card-hover animate-fade-in delay-3">
+        <Card>
           <CardHeader className="p-[1.75rem] pb-1">
             <CardTitle className="text-xs font-normal text-muted-foreground">
               Checked In
             </CardTitle>
           </CardHeader>
           <CardContent className="p-[1.75rem] pt-0">
-            <div className="font-serif text-[1.75rem] leading-tight">
+            <div className="text-[1.75rem] leading-tight">
               {checkedInRegs.length.toLocaleString("en-IN")}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -282,14 +282,14 @@ export function EventDetailClient({ event, registrations }: Props) {
             </p>
           </CardContent>
         </Card>
-        <Card className="stat-card-hover animate-fade-in delay-4">
+        <Card>
           <CardHeader className="p-4 pb-1">
             <CardTitle className="text-xs font-normal text-muted-foreground">
               Pending
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
-            <div className="font-serif text-[1.75rem] leading-tight">
+            <div className="text-[1.75rem] leading-tight">
               {registrations
                 .filter((r) => r.registrationStatus === "pending")
                 .length.toLocaleString("en-IN")}

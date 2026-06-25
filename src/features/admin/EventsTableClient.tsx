@@ -241,9 +241,9 @@ export function EventsTableClient({ events, total }: Props) {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2 min-w-[120px]">
-                        <div className="progress" style={{ flex: 1 }}>
+                        <div className="h-1.5 bg-muted rounded-full overflow-hidden" style={{ flex: 1 }}>
                           <div
-                            className="progress-fill"
+                            className="h-full bg-primary transition-all duration-500 rounded-full"
                             style={{ width: `${pct}%` }}
                           />
                         </div>
