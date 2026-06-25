@@ -5,7 +5,8 @@ import { createPB, buildFileUrl } from '@/lib/pb'
 import { APP_URL } from "@/lib/constants";
 import Navbar from '@/components/Navbar'
 import { Hero } from '@/components/Hero'
-import { ClosingPlasma } from '@/components/ui/closing-plasma'
+import { StarsBackground } from '@/components/ui/stars-background'
+import { ShootingStars } from '@/components/ui/shooting-stars'
 import { FloatingIcons } from '@/components/FloatingIcons'
 import { TechnicalDetails } from '@/components/TechnicalDetails'
 import { WhatsHappening } from '@/components/WhatsHappening'
@@ -154,21 +155,8 @@ function Home() {
   return (
     <div className="relative w-full bg-white text-gray-900 font-sans selection:bg-ieee-blue/20">
       <div className="fixed inset-0 z-0 h-dvh overflow-hidden">
-        <div className="absolute inset-0 z-0">
-          <ClosingPlasma
-            themeMode="light"
-            speed={0.8}
-            turbulence={0.8}
-            mouseInfluence={0.6}
-            grain={0.2}
-            sparkle={0.3}
-            vignette={0.5}
-            opacity={1}
-            lightColorA="#c8d6e5"
-            lightColorB="#8395a7"
-            lightColorC="#00629b"
-          />
-        </div>
+        <StarsBackground starDensity={0.00015} allStarsTwinkle starColor="#1e293b" />
+        <ShootingStars starColor="#00629b" trailColor="#0099D6" minDelay={2000} maxDelay={5000} />
         <div className="relative z-10 h-full">
           <FloatingIcons />
           <TechnicalDetails />
