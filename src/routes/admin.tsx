@@ -56,7 +56,7 @@ function AdminLayout() {
   return (
     <AdminGuard>
       <AdminKeyboardShortcuts />
-      <div className="flex h-dvh overflow-hidden bg-background text-foreground">
+      <div className="admin-editorial flex h-dvh overflow-hidden bg-background text-foreground">
         <AdminSidebar
           sidebarOpen={sidebarOpen}
           setSidebarOpen={setSidebarOpen}
