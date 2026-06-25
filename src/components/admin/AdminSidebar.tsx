@@ -1,334 +1,258 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
-import { LogOut, ExternalLink } from "lucide-react";
+import {
+  LayoutDashboard,
+  Calendar,
+  QrCode,
+  ClipboardList,
+  CreditCard,
+  Building2,
+  Users,
+  UserCog,
+  LogOut,
+  Menu,
+  X,
+  Sun,
+  Moon,
+  ExternalLink,
+} from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-
-/* ── Inline SVG icons matching the prototype exactly ── */
-const Icons = {
-  overview: (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="3" y="3" width="7" height="7" />
-      <rect x="14" y="3" width="7" height="7" />
-      <rect x="3" y="14" width="7" height="7" />
-      <rect x="14" y="14" width="7" height="7" />
-    </svg>
-  ),
-  events: (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="3" y="4" width="18" height="18" rx="2" />
-      <line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="8" y1="2" x2="8" y2="6" />
-      <line x1="3" y1="10" x2="21" y2="10" />
-    </svg>
-  ),
-  checkin: (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      <polyline points="9 12 11 14 15 10" />
-    </svg>
-  ),
-  registrations: (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  ),
-  payments: (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <line x1="12" y1="1" x2="12" y2="23" />
-      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-    </svg>
-  ),
-  societies: (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="2" y="3" width="20" height="14" rx="2" />
-      <line x1="8" y1="21" x2="16" y2="21" />
-      <line x1="12" y1="17" x2="12" y2="21" />
-    </svg>
-  ),
-  execom: (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-      <line x1="12" y1="11" x2="12" y2="15" />
-      <line x1="10" y1="13" x2="14" y2="13" />
-    </svg>
-  ),
-  users: (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  ),
-};
+import { useTheme } from "@/components/admin/use-theme";
+import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   {
     section: "Navigation",
     items: [
-      { title: "Overview", url: "/admin", icon: Icons.overview },
-      { title: "Events", url: "/admin/events", icon: Icons.events },
-      { title: "Check-in", url: "/admin/check-in", icon: Icons.checkin },
+      { title: "Overview", url: "/admin", icon: LayoutDashboard },
+      { title: "Events", url: "/admin/events", icon: Calendar },
+      { title: "Check-in", url: "/admin/check-in", icon: QrCode },
     ],
   },
   {
     section: "Administration",
     adminOnly: true,
     items: [
-      {
-        title: "Registrations",
-        url: "/admin/registrations",
-        icon: Icons.registrations,
-      },
-      { title: "Payments", url: "/admin/payments", icon: Icons.payments },
-      { title: "Societies", url: "/admin/societies", icon: Icons.societies },
-      { title: "Execom", url: "/admin/execom", icon: Icons.execom },
-      { title: "Users", url: "/admin/users", icon: Icons.users },
+      { title: "Registrations", url: "/admin/registrations", icon: ClipboardList },
+      { title: "Payments", url: "/admin/payments", icon: CreditCard },
+      { title: "Societies", url: "/admin/societies", icon: Building2 },
+      { title: "Execom", url: "/admin/execom", icon: Users },
+      { title: "Users", url: "/admin/users", icon: UserCog },
     ],
   },
 ];
 
+const ROLE_LABEL: Record<string, string> = {
+  admin: "Administrator",
+  chair: "Society Chair",
+  user: "User",
+};
+
 export function AdminSidebar({
-  mobileOpen,
-  setMobileOpen,
-  toggleMobile,
+  sidebarOpen,
+  setSidebarOpen,
 }: {
-  mobileOpen: boolean;
-  setMobileOpen: (open: boolean) => void;
-  toggleMobile: () => void;
+  sidebarOpen: boolean;
+  setSidebarOpen: (open: boolean) => void;
 }) {
   const pathname = useLocation().pathname;
   const { user, signOut } = useAuth();
-  const [collapsed, setCollapsed] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("sidebar-collapsed") === "true";
-    }
-    return false;
-  });
-
-  const toggle = () =>
-    setCollapsed((prev) => {
-      const next = !prev;
-      localStorage.setItem("sidebar-collapsed", String(next));
-      return next;
-    });
+  const { theme, toggle } = useTheme();
+  const openTriggerRef = useRef<HTMLElement | null>(null);
 
   const isActive = (url: string) =>
     url === "/admin" ? pathname === "/admin" : pathname.startsWith(url);
 
-  // Close mobile sidebar on route change
+  // Close on route change
   useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname, setMobileOpen]);
+    setSidebarOpen(false);
+  }, [pathname, setSidebarOpen]);
 
-  const toggleSidebar = () => {
-    if (typeof window !== "undefined" && window.innerWidth <= 768) {
-      toggleMobile();
-    } else {
-      toggle();
-    }
+  // Drawer: Escape-to-close, body scroll lock, focus return
+  useEffect(() => {
+    if (!sidebarOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setSidebarOpen(false);
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+      openTriggerRef.current?.focus();
+    };
+  }, [sidebarOpen, setSidebarOpen]);
+
+  const openSidebar = (e: React.MouseEvent<HTMLElement>) => {
+    openTriggerRef.current = e.currentTarget;
+    setSidebarOpen(true);
   };
-
-  const initials = user?.name
-    ? user.name
-        .split(" ")
-        .map((n: string) => n[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase()
-    : "??";
 
   return (
     <>
       {/* Mobile overlay */}
-      {mobileOpen && (
+      {sidebarOpen && (
         <div
-          className="sidebar-overlay open"
-          onClick={() => setMobileOpen(false)}
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden vh-safe-top"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
         />
       )}
 
-      <aside
-        className={`sidebar${collapsed ? " collapsed" : ""}${mobileOpen ? " open" : ""}`}
+      {/* Skip-to-main */}
+      <a
+        href="#primary-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:shadow-lg focus:outline-none"
       >
-        {/* ── Brand Header ── */}
-        <div className="sidebar-header">
-          <div className="sidebar-brand">
-            <div className="sidebar-logo">
-              <img
-                src="/favicon.svg"
-                alt="IEEE"
-                loading="lazy"
-                width="22"
-                height="22"
-                style={{ filter: "brightness(0) invert(1)" }}
-              />
-            </div>
-            <div className="sidebar-brand-text">
-              <span className="sidebar-brand-name">IEEE SAHRDAYA</span>
-              <span className="sidebar-brand-sub">Student Branch</span>
-            </div>
-          </div>
-        </div>
+        Skip to main content
+      </a>
 
-        {/* ── Navigation ── */}
-        <nav className="sidebar-nav">
-          {NAV_ITEMS.map((group) => {
-            if (group.adminOnly && user?.role !== "admin") return null;
-            return (
-              <div key={group.section} className="sidebar-section">
-                <div className="sidebar-section-label">{group.section}</div>
-                {group.items.map((item) => {
-                  const active = isActive(item.url);
-                  return (
-                    <Link
-                      key={item.title}
-                      to={item.url}
-                      title={item.title}
-                      className={`sidebar-item${active ? " active" : ""}`}
-                    >
-                      {item.icon}
-                      <span>{item.title}</span>
-                    </Link>
-                  );
-                })}
-              </div>
-            );
-          })}
-        </nav>
-
-        {/* ── Footer: User + Links ── */}
-        <div className="sidebar-footer">
-          {/* Chair badge */}
-          {user?.role === "chair" && (
-            <div style={{ padding: "0 0.5rem 0.5rem" }}>
-              <span
-                className="sidebar-badge"
-                style={{ display: collapsed ? "none" : "inline-block" }}
-              >
-                Chair
+      {/* Sidebar */}
+      <aside
+        id="primary-sidebar"
+        aria-label="Primary"
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground drawer-slide lg:w-64 lg:translate-x-0",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
+        {/* Brand header */}
+        <div className="relative flex h-16 items-center justify-center border-b border-sidebar-border px-4 vh-safe-top">
+          <Link
+            to="/admin"
+            className="inline-flex items-center gap-2.5"
+            aria-label="IEEE SB Admin"
+          >
+            <img
+              src="/favicon.svg"
+              alt="IEEE"
+              className="h-6 w-auto"
+              style={{ filter: "brightness(0) invert(1)" }}
+            />
+            <div className="flex flex-col">
+              <span className="text-xs font-semibold uppercase tracking-[0.04em] text-sidebar-foreground">
+                IEEE Sahrdaya
+              </span>
+              <span className="text-[0.6rem] uppercase tracking-[0.06em] text-sidebar-foreground/50">
+                Student Branch
               </span>
             </div>
-          )}
-
-          {/* User info */}
-          {user && (
-            <div className="sidebar-user">
-              <div className="sidebar-avatar">{initials}</div>
-              <div className="sidebar-user-info sidebar-footer-text">
-                <div className="sidebar-user-name">{user.name}</div>
-                <div className="sidebar-user-role">{user.role}</div>
-              </div>
-            </div>
-          )}
-
-          {/* Back to Site */}
-          <Link
-            to="/"
-            title="Back to Site"
-            className="sidebar-item"
-            style={{ marginTop: "0.25rem" }}
-          >
-            <ExternalLink className="size-4" />
-            <span>Back to Site</span>
           </Link>
-
-          {/* Sign Out */}
           <button
-            onClick={signOut}
-            title="Sign Out"
-            className="sidebar-item"
-            style={{ width: "100%" }}
+            type="button"
+            className="vh-touch absolute right-4 flex h-10 w-10 items-center justify-center rounded-md text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Close sidebar"
           >
-            <LogOut className="size-4" />
-            <span>Sign Out</span>
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* ── Collapse toggle ── */}
-        <div
-          className="sidebar-toggle"
-          onClick={toggleSidebar}
-          title="Toggle sidebar"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            width="14"
-            height="14"
+        {/* Role context */}
+        <div className="border-b border-sidebar-border px-4 py-3">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-sidebar-foreground/50">
+              Logged in as
+            </p>
+            <button
+              type="button"
+              onClick={toggle}
+              className="vh-touch flex h-8 w-8 items-center justify-center rounded-sm text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            >
+              {theme === "dark" ? (
+                <Sun className="h-3.5 w-3.5" />
+              ) : (
+                <Moon className="h-3.5 w-3.5" />
+              )}
+            </button>
+          </div>
+          <p className="mt-1.5 text-sm font-medium text-sidebar-foreground">
+            {ROLE_LABEL[user?.role ?? ""] ?? "Unknown role"}
+          </p>
+          <p className="text-xs text-sidebar-foreground/60 truncate">{user?.email}</p>
+        </div>
+
+        {/* Nav */}
+        <nav className="flex-1 overflow-y-auto p-3">
+          <ul className="space-y-0.5">
+            {NAV_ITEMS.map((group) => {
+              if (group.adminOnly && user?.role !== "admin") return null;
+              return group.items.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.url);
+                return (
+                  <li key={item.url}>
+                    <Link
+                      to={item.url}
+                      onClick={() => setSidebarOpen(false)}
+                      aria-current={active ? "page" : undefined}
+                      className={cn(
+                        "group flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                        active
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                          : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                      )}
+                    >
+                      <Icon
+                        className={cn(
+                          "h-4 w-4 shrink-0",
+                          active
+                            ? "text-primary"
+                            : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground/70",
+                        )}
+                      />
+                      <span className="flex-1 truncate">{item.title}</span>
+                    </Link>
+                  </li>
+                );
+              });
+            })}
+          </ul>
+        </nav>
+
+        {/* Footer */}
+        <div className="border-t border-sidebar-border p-3 space-y-1">
+          <Link
+            to="/"
+            className="group flex items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
           >
-            <line x1="3" y1="12" x2="21" y2="12" />
-            <line x1="3" y1="6" x2="21" y2="6" />
-            <line x1="3" y1="18" x2="21" y2="18" />
-          </svg>
+            <ExternalLink className="h-4 w-4" />
+            <span>Back to Site</span>
+          </Link>
+          <button
+            onClick={signOut}
+            type="button"
+            className="group flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+          >
+            <LogOut className="h-4 w-4" />
+            <span>Sign out</span>
+          </button>
         </div>
       </aside>
+
+      {/* Mobile hamburger trigger — exposed for layout to use */}
+      <button
+        ref={openTriggerRef as React.RefObject<HTMLButtonElement>}
+        type="button"
+        className="vh-touch fixed left-4 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:bg-muted lg:hidden vh-safe-top"
+        onClick={openSidebar}
+        aria-label="Open sidebar"
+        aria-expanded={sidebarOpen}
+        aria-controls="primary-sidebar"
+        style={{ display: "none" }}
+      >
+        <Menu className="h-4 w-4" />
+      </button>
     </>
   );
 }
