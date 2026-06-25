@@ -6,6 +6,8 @@ import { APP_URL } from "@/lib/constants";
 import Navbar from '@/components/Navbar'
 import { Hero } from '@/components/Hero'
 import { ClosingPlasma } from '@/components/ui/closing-plasma'
+import { FloatingIcons } from '@/components/FloatingIcons'
+import { TechnicalDetails } from '@/components/TechnicalDetails'
 import { WhatsHappening } from '@/components/WhatsHappening'
 import { Execom } from '@/components/Execom'
 import { EventsShowcase } from '@/components/EventsShowcase'
@@ -169,6 +171,8 @@ function Home() {
           />
         </div>
         <div className="relative z-10 h-full">
+          <FloatingIcons />
+          <TechnicalDetails />
           <Hero />
         </div>
       </div>
