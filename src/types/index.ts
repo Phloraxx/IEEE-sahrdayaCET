@@ -152,3 +152,13 @@ export interface Registration {
   eventTitle?: string;
   eventId?: string;
 }
+export interface FormField {
+  id: string
+  label: string
+  type: 'text' | 'textarea' | 'select' | 'checkbox' | 'radio' | 'number' | 'email' | 'phone' | 'date' | 'boolean'
+  required: boolean
+  options: string[]
+  placeholder?: string
+  defaultValue?: string
+  dependsOn?: { fieldId: string; value: string }
+}

@@ -8,7 +8,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
-import type { FormField } from "@/components/admin/CustomFieldBuilder";
+import type { FormField } from "@/types";
 import { formatDate } from "@/lib/dates";
 
 interface PageProps {
