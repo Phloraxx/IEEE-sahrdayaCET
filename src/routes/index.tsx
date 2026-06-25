@@ -5,9 +5,7 @@ import { createPB, buildFileUrl } from '@/lib/pb'
 import { APP_URL } from "@/lib/constants";
 import Navbar from '@/components/Navbar'
 import { Hero } from '@/components/Hero'
-import { DotPattern } from '@/components/ui/dot-pattern'
-import { FloatingIcons } from '@/components/FloatingIcons'
-import { TechnicalDetails } from '@/components/TechnicalDetails'
+import { ClosingPlasma } from '@/components/ui/closing-plasma'
 import { WhatsHappening } from '@/components/WhatsHappening'
 import { Execom } from '@/components/Execom'
 import { EventsShowcase } from '@/components/EventsShowcase'
@@ -155,15 +153,19 @@ function Home() {
     <div className="relative w-full bg-white text-gray-900 font-sans selection:bg-ieee-blue/20">
       <div id="home" className="absolute top-0 left-0 w-full h-1" />
       <div className="fixed inset-0 z-0 h-dvh overflow-hidden">
-        <DotPattern
-          width={32}
-          height={32}
-          cr={2.5}
-          glow
-          className="text-neutral-300"
+        <ClosingPlasma
+          themeMode="light"
+          speed={0.8}
+          turbulence={0.6}
+          mouseInfluence={0.5}
+          grain={0.3}
+          sparkle={0.4}
+          vignette={0.8}
+          opacity={0.6}
+          lightColorA="#f0f2f7"
+          lightColorB="#d7dceb"
+          lightColorC="#bcc5e0"
         />
-        <FloatingIcons />
-        <TechnicalDetails />
         <Hero />
       </div>
       <Navbar />
