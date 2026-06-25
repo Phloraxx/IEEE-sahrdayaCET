@@ -74,14 +74,10 @@
   --sidebar-ring: hsl(217.2 91.2% 59.8%);
 }
 
-/* Font utility classes referencing :root CSS custom properties.
-   Defined here (not in @theme) since v4 @theme doesn't support
-   var() with comma-separated fallbacks inside font-family values. */
+/* Font utility class — .font-pixel only. .font-sans removed: Tailwind's
+   @theme --font-sans handles it (Geist Variable). */
 .font-pixel {
   font-family: var(--font-pixel-loaded, "Courier New", monospace);
-}
-.font-sans {
-  font-family: var(--font-inter-loaded, system-ui, sans-serif);
 }
 
 @layer utilities {
