@@ -17,38 +17,22 @@ import {
   Sun,
   Moon,
   ExternalLink,
+  ChevronRight,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/components/admin/use-theme";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
-  {
-    section: "Navigation",
-    items: [
-      { title: "Overview", url: "/admin", icon: LayoutDashboard },
-      { title: "Events", url: "/admin/events", icon: Calendar },
-      { title: "Check-in", url: "/admin/check-in", icon: QrCode },
-    ],
-  },
-  {
-    section: "Administration",
-    adminOnly: true,
-    items: [
-      { title: "Registrations", url: "/admin/registrations", icon: ClipboardList },
-      { title: "Payments", url: "/admin/payments", icon: CreditCard },
-      { title: "Societies", url: "/admin/societies", icon: Building2 },
-      { title: "Execom", url: "/admin/execom", icon: Users },
-      { title: "Users", url: "/admin/users", icon: UserCog },
-    ],
-  },
+  { title: "Overview", url: "/admin", icon: LayoutDashboard },
+  { title: "Events", url: "/admin/events", icon: Calendar },
+  { title: "Check-in", url: "/admin/check-in", icon: QrCode },
+  { title: "Registrations", url: "/admin/registrations", icon: ClipboardList, adminOnly: true },
+  { title: "Payments", url: "/admin/payments", icon: CreditCard, adminOnly: true },
+  { title: "Societies", url: "/admin/societies", icon: Building2, adminOnly: true },
+  { title: "Execom", url: "/admin/execom", icon: Users, adminOnly: true },
+  { title: "Users", url: "/admin/users", icon: UserCog, adminOnly: true },
 ];
-
-const ROLE_LABEL: Record<string, string> = {
-  admin: "Administrator",
-  chair: "Society Chair",
-  user: "User",
-};
 
 export function AdminSidebar({
   sidebarOpen,
@@ -97,12 +81,19 @@ export function AdminSidebar({
     setSidebarOpen(true);
   };
 
+  const roleLabel =
+    user?.role === "admin"
+      ? "Admin"
+      : user?.role === "chair"
+        ? "Chair"
+        : "User";
+
   return (
     <>
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden vh-safe-top"
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
           onClick={() => setSidebarOpen(false)}
           aria-hidden="true"
         />
@@ -126,7 +117,7 @@ export function AdminSidebar({
         )}
       >
         {/* Brand header */}
-        <div className="relative flex h-16 items-center justify-center border-b border-sidebar-border px-4 vh-safe-top">
+        <div className="relative flex h-16 items-center justify-center border-b border-sidebar-border px-4">
           <Link
             to="/admin"
             className="inline-flex items-center gap-2.5"
@@ -149,7 +140,7 @@ export function AdminSidebar({
           </Link>
           <button
             type="button"
-            className="vh-touch absolute right-4 flex h-10 w-10 items-center justify-center rounded-md text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground lg:hidden"
+            className="absolute right-4 flex h-10 w-10 items-center justify-center rounded-md text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground lg:hidden"
             onClick={() => setSidebarOpen(false)}
             aria-label="Close sidebar"
           >
@@ -166,7 +157,7 @@ export function AdminSidebar({
             <button
               type="button"
               onClick={toggle}
-              className="vh-touch flex h-8 w-8 items-center justify-center rounded-sm text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-sm text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
               aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
             >
               {theme === "dark" ? (
@@ -177,45 +168,44 @@ export function AdminSidebar({
             </button>
           </div>
           <p className="mt-1.5 text-sm font-medium text-sidebar-foreground">
-            {ROLE_LABEL[user?.role ?? ""] ?? "Unknown role"}
+            {roleLabel}
           </p>
           <p className="text-xs text-sidebar-foreground/60 truncate">{user?.email}</p>
         </div>
 
-        {/* Nav */}
+        {/* Nav — flat list, no section groups */}
         <nav className="flex-1 overflow-y-auto p-3">
           <ul className="space-y-0.5">
-            {NAV_ITEMS.map((group) => {
-              if (group.adminOnly && user?.role !== "admin") return null;
-              return group.items.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.url);
-                return (
-                  <li key={item.url}>
-                    <Link
-                      to={item.url}
-                      onClick={() => setSidebarOpen(false)}
-                      aria-current={active ? "page" : undefined}
+            {NAV_ITEMS.map((item) => {
+              if (item.adminOnly && user?.role !== "admin") return null;
+              const Icon = item.icon;
+              const active = isActive(item.url);
+              return (
+                <li key={item.url}>
+                  <Link
+                    to={item.url}
+                    onClick={() => setSidebarOpen(false)}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "group flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                      active
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                    )}
+                  >
+                    <Icon
                       className={cn(
-                        "group flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                        "h-4 w-4 shrink-0",
                         active
-                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                          : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                          ? "text-primary"
+                          : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground/70",
                       )}
-                    >
-                      <Icon
-                        className={cn(
-                          "h-4 w-4 shrink-0",
-                          active
-                            ? "text-primary"
-                            : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground/70",
-                        )}
-                      />
-                      <span className="flex-1 truncate">{item.title}</span>
-                    </Link>
-                  </li>
-                );
-              });
+                    />
+                    <span className="flex-1 truncate">{item.title}</span>
+                    {active && <ChevronRight className="h-3 w-3 text-primary" />}
+                  </Link>
+                </li>
+              );
             })}
           </ul>
         </nav>
@@ -239,20 +229,6 @@ export function AdminSidebar({
           </button>
         </div>
       </aside>
-
-      {/* Mobile hamburger trigger — exposed for layout to use */}
-      <button
-        ref={openTriggerRef as React.RefObject<HTMLButtonElement>}
-        type="button"
-        className="vh-touch fixed left-4 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:bg-muted lg:hidden vh-safe-top"
-        onClick={openSidebar}
-        aria-label="Open sidebar"
-        aria-expanded={sidebarOpen}
-        aria-controls="primary-sidebar"
-        style={{ display: "none" }}
-      >
-        <Menu className="h-4 w-4" />
-      </button>
     </>
   );
 }

@@ -56,7 +56,7 @@ function AdminLayout() {
   return (
     <AdminGuard>
       <AdminKeyboardShortcuts />
-      <div className="flex vh-h-screen-dynamic overflow-hidden bg-background text-foreground">
+      <div className="flex h-dvh overflow-hidden bg-background text-foreground">
         <AdminSidebar
           sidebarOpen={sidebarOpen}
           setSidebarOpen={setSidebarOpen}
@@ -65,10 +65,10 @@ function AdminLayout() {
         {/* Main area */}
         <div className="flex flex-1 flex-col lg:pl-64">
           {/* Mobile header */}
-          <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 lg:hidden vh-safe-top">
+          <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 lg:hidden">
             <button
               type="button"
-              className="vh-touch flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
+              className="flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
               onClick={() => setSidebarOpen(true)}
               aria-label="Open sidebar"
               aria-expanded={sidebarOpen}
@@ -96,7 +96,7 @@ function AdminLayout() {
             tabIndex={-1}
             className="flex-1 overflow-y-auto focus:outline-none"
           >
-            <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-5 sm:py-8 md:px-8 md:py-10">
+            <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-5 sm:py-8 md:px-8 md:py-10 transition-opacity duration-300 ease-out">
               <PageTransition>
                 <Outlet />
               </PageTransition>
@@ -110,45 +110,33 @@ function AdminLayout() {
 }
 
 /**
- * Loading bar — shows during navigation.
- * Reads TanStack Router's navigation state from DOM as a simple approach.
+ * Loading bar — shows during route transitions.
+ * Uses a simple fetch interceptor to detect navigation.
  */
 function LoadingBar() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // TanStack Router doesn't expose navigation state globally like React Router.
-    // We use a MutationObserver on the document to detect route changes.
-    // Alternative: use useNavigation() if available in the route context.
     const handleStart = () => setLoading(true);
-    const handleEnd = () => setLoading(false);
+    const handleComplete = () => setLoading(false);
 
-    // Listen for popstate and pushstate
-    const origPush = history.pushState;
-    const origReplace = history.replaceState;
-
-    history.pushState = function (...args) {
-      origPush.apply(this, args);
-      handleStart();
-      setTimeout(handleEnd, 300);
-    };
-    history.replaceState = function (...args) {
-      origReplace.apply(this, args);
-    };
-
-    window.addEventListener("popstate", handleStart);
-    // Clear loading after a short delay
-    const interval = setInterval(() => {
-      if (loading) setTimeout(handleEnd, 200);
-    }, 500);
+    // Intercept fetch calls to detect navigation
+    const originalFetch = window.fetch;
+    window.fetch = function (...args) {
+      // Only trigger for navigation-related fetches (not API calls)
+      const url = typeof args[0] === "string" ? args[0] : "";
+      if (url.startsWith("/") && !url.startsWith("/api/") && !url.includes(".")) {
+        handleStart();
+      }
+      return originalFetch.apply(this, args).finally(() => {
+        setTimeout(handleComplete, 300);
+      });
+    } as typeof window.fetch;
 
     return () => {
-      history.pushState = origPush;
-      history.replaceState = origReplace;
-      window.removeEventListener("popstate", handleStart);
-      clearInterval(interval);
+      window.fetch = originalFetch;
     };
-  }, [loading]);
+  }, []);
 
   return (
     <div
