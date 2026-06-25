@@ -150,17 +150,52 @@
   --input: #ddd8d0;
   --ring: #a09a8e;
   --radius: 0.625rem;
+  --success: oklch(0.55 0.14 150);
+  --success-foreground: oklch(0.99 0.005 150);
+  --warning: oklch(0.7 0.15 75);
+  --warning-foreground: oklch(0.2 0.02 75);
+  --info: oklch(0.55 0.13 230);
+  --info-foreground: oklch(0.99 0.005 230);
+  --danger: oklch(0.55 0.21 27);
+  --danger-foreground: oklch(0.99 0.005 27);
 }
 
 .dark {
-  --sidebar: hsl(240 5.9% 10%);
-  --sidebar-foreground: hsl(240 4.8% 95.9%);
-  --sidebar-primary: hsl(224.3 76.3% 48%);
-  --sidebar-primary-foreground: hsl(0 0% 100%);
-  --sidebar-accent: hsl(240 3.7% 15.9%);
-  --sidebar-accent-foreground: hsl(240 4.8% 95.9%);
-  --sidebar-border: hsl(240 3.7% 15.9%);
-  --sidebar-ring: hsl(217.2 91.2% 59.8%);
+  --background: oklch(0.16 0.008 60);
+  --foreground: oklch(0.95 0.006 70);
+  --card: oklch(0.2 0.008 60);
+  --card-foreground: oklch(0.95 0.006 70);
+  --popover: oklch(0.22 0.008 60);
+  --popover-foreground: oklch(0.95 0.006 70);
+  --primary: oklch(0.74 0.175 55);
+  --primary-foreground: oklch(0.15 0.012 60);
+  --secondary: oklch(0.26 0.01 60);
+  --secondary-foreground: oklch(0.95 0.006 70);
+  --muted: oklch(0.24 0.008 60);
+  --muted-foreground: oklch(0.68 0.012 70);
+  --accent: oklch(0.28 0.012 60);
+  --accent-foreground: oklch(0.97 0.005 75);
+  --destructive: oklch(0.62 0.2 27);
+  --destructive-foreground: oklch(0.99 0.005 27);
+  --border: oklch(0.3 0.01 60);
+  --input: oklch(0.28 0.01 60);
+  --ring: oklch(0.74 0.175 55);
+  --sidebar: oklch(0.12 0.008 60);
+  --sidebar-foreground: oklch(0.95 0.006 70);
+  --sidebar-primary: oklch(0.74 0.175 55);
+  --sidebar-primary-foreground: oklch(0.12 0.008 60);
+  --sidebar-accent: oklch(0.2 0.01 60);
+  --sidebar-accent-foreground: oklch(0.97 0.005 75);
+  --sidebar-border: oklch(0.24 0.01 60);
+  --sidebar-ring: oklch(0.74 0.175 55);
+  --success: oklch(0.7 0.14 150);
+  --success-foreground: oklch(0.12 0.012 150);
+  --warning: oklch(0.78 0.15 75);
+  --warning-foreground: oklch(0.15 0.02 75);
+  --info: oklch(0.7 0.13 230);
+  --info-foreground: oklch(0.12 0.012 230);
+  --danger: oklch(0.7 0.2 27);
+  --danger-foreground: oklch(0.12 0.012 27);
 }
 
 @theme inline {
@@ -191,6 +226,87 @@
 @keyframes ieee-float-fade {
   0%, 100% { opacity: 0.75; }
   50% { opacity: 0.9; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MOTION SYSTEM — 3-beat entrance, sharp-out easing
+   ═══════════════════════════════════════════════════════════ */
+::root {
+  --vh-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --vh-ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --vh-ease-glide: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@keyframes vh-beat-in {
+  0% { opacity: 0; transform: scale(0.96); }
+  60% { opacity: 1; transform: scale(1.01); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes vh-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes vh-slide-in-right {
+  from { opacity: 0; transform: translateX(8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes vh-pop-in {
+  0% { opacity: 0; transform: scale(0.94); }
+  60% { opacity: 1; transform: scale(1.02); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes loading-bar {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(0%); }
+  100% { transform: translateX(200%); }
+}
+
+@keyframes drawer-slide {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@layer utilities {
+  .animate-vh-beat-in {
+    animation: vh-beat-in 0.4s var(--vh-ease-out) both;
+  }
+  .animate-vh-fade-in {
+    animation: vh-fade-in 0.3s var(--vh-ease-out) both;
+  }
+  .animate-vh-slide-in-right {
+    animation: vh-slide-in-right 0.3s var(--vh-ease-out) both;
+  }
+  .animate-vh-pop-in {
+    animation: vh-pop-in 0.35s var(--vh-ease-out) both;
+  }
+  .loading-bar-fill {
+    animation: loading-bar 1.5s var(--vh-ease-glide) infinite;
+  }
+  .drawer-slide {
+    animation: drawer-slide 0.25s var(--vh-ease-glide) both;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ADMIN UTILITIES
+   ═══════════════════════════════════════════════════════════ */
+@layer utilities {
+  .vh-h-screen-dynamic {
+    height: 100dvh;
+  }
+  .vh-safe-top {
+    padding-top: env(safe-area-inset-top, 0);
+  }
+  @media (pointer: coarse) {
+    .vh-touch {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
