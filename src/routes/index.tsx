@@ -154,7 +154,7 @@ function Home() {
   return (
     <div className="relative w-full bg-white text-gray-900 font-sans selection:bg-ieee-blue/20">
       <div className="fixed inset-0 z-0 h-dvh overflow-hidden">
-        <StarsBackground starDensity={0.00015} allStarsTwinkle starColor="#1e293b" />
+        <StarsBackground starDensity={0.00015} allStarsTwinkle starColor="#1e293b" starSize={2} />
         <ShootingStars starColor="#00629b" trailColor="#0099D6" minDelay={1500} maxDelay={4000} minSpeed={8} maxSpeed={20} starWidth={12} starHeight={2} />
         <ShootingStars starColor="#00629b" trailColor="#0099D6" minDelay={2000} maxDelay={5000} minSpeed={12} maxSpeed={25} starWidth={10} starHeight={1} />
         <ShootingStars starColor="#0099D6" trailColor="#00629b" minDelay={3000} maxDelay={6000} minSpeed={10} maxSpeed={22} starWidth={8} starHeight={1} />
