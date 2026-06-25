@@ -11,12 +11,19 @@ export const Route = createFileRoute("/admin")({
 });
 
 function useTheme() {
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [theme, setTheme] = useState<"light" | "dark">("dark");
 
   useEffect(() => {
     if (typeof document === "undefined") return;
-    const isDark = document.documentElement.classList.contains("dark");
-    setTheme(isDark ? "dark" : "light");
+    // Admin defaults to dark. Check if user explicitly chose light.
+    const saved = localStorage.getItem("ieee-theme");
+    if (saved === "light") {
+      setTheme("light");
+    } else {
+      // Default to dark for admin
+      document.documentElement.classList.add("dark");
+      setTheme("dark");
+    }
   }, []);
 
   const toggle = useCallback(() => {

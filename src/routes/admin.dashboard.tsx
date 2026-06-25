@@ -57,13 +57,15 @@ function StatsSkeleton() {
 
 function AdminDashboard() {
   const { user } = useAuth();
-  const { data: stats, isLoading } = useQuery<StatsResponse>({
+  const { data: stats, isLoading, isError } = useQuery<StatsResponse>({
     queryKey: ["admin-stats"],
     queryFn: async () => {
       const res = await fetch("/api/admin/stats", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load stats");
       return res.json();
     },
+    retry: 1,
+    staleTime: 30_000,
   });
 
   const QUICK_ACTIONS = [
@@ -103,7 +105,9 @@ function AdminDashboard() {
             <p className="mt-1.5 text-sm text-muted-foreground">
               {stats
                 ? `${stats.registrations.total} total registrations across ${stats.events.total} events.`
-                : "Loading dashboard…"}
+                : isError
+                  ? "Could not load stats. Check console for errors."
+                  : "Loading dashboard…"}
             </p>
           </div>
           <Link
