@@ -1,5 +1,5 @@
 .font-handwriting {
-  font-family: var(--font-caveat-loaded), cursive;
+  font-family: "Caveat", cursive;
 }
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;

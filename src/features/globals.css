@@ -78,7 +78,7 @@
   font-family: var(--font-sans, system-ui, sans-serif);
 }
 .font-pixel {
-  font-family: var(--font-pixel-loaded, "Courier New", monospace);
+  font-family: "Press Start 2P", "Courier New", monospace;
 }
 
 @layer utilities {
