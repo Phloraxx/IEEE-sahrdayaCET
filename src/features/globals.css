@@ -54,13 +54,12 @@
   --color-danger: var(--danger);
   --color-danger-foreground: var(--danger-foreground);
 
-  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 /* Font CSS variables — mapped to @fontsource font-family names.
-   Defined at :root so .font-pixel and .font-sans utilities resolve. */
+   Public pages use Inter Variable. Admin (.admin-editorial) overrides to Geist. */
 ::root {
-  --font-sans: 'Geist Variable', system-ui, sans-serif;
+  --font-sans: 'Inter Variable', system-ui, sans-serif;
   --font-inter-loaded: 'Inter Variable', system-ui, sans-serif;
   --font-pixel-loaded: 'Press Start 2P', 'Courier New', monospace;
   --font-caveat-loaded: 'Caveat', cursive;
@@ -74,8 +73,9 @@
   --sidebar-ring: hsl(217.2 91.2% 59.8%);
 }
 
-/* Font utility class — .font-pixel only. .font-sans removed: Tailwind's
-   @theme --font-sans handles it (Geist Variable). */
+.font-sans {
+  font-family: var(--font-sans, system-ui, sans-serif);
+}
 .font-pixel {
   font-family: var(--font-pixel-loaded, "Courier New", monospace);
 }
@@ -921,6 +921,8 @@
    Public pages are NOT affected.
    ═══════════════════════════════════════════════════════════ */
 .admin-editorial {
+  /* Override font to Geist for admin pages */
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
   /* ── Scoped surface tokens (OKLCH, warm-tinted) ── */
   --background: oklch(0.985 0.005 75);
   --foreground: oklch(0.18 0.012 60);
