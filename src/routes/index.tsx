@@ -153,20 +153,19 @@ function Home() {
 
   return (
     <div className="relative w-full bg-white text-gray-900 font-sans selection:bg-ieee-blue/20">
-      <div id="home" className="absolute top-0 left-0 w-full h-1" />
       <div className="fixed inset-0 z-0 h-dvh overflow-hidden">
         <div className="absolute inset-0 z-0">
           <ClosingPlasma
             themeMode="light"
-            speed={0.8}
-            turbulence={0.8}
-            mouseInfluence={0.6}
-            grain={0.2}
-            sparkle={0.3}
-            vignette={0.5}
-            opacity={1}
-            lightColorA="#c8d6e5"
-            lightColorB="#8395a7"
+            speed={0.5}
+            turbulence={0.4}
+            mouseInfluence={0.3}
+            grain={0.1}
+            sparkle={0.2}
+            vignette={0.6}
+            opacity={0.8}
+            lightColorA="#e8edf3"
+            lightColorB="#b0bec5"
             lightColorC="#00629b"
           />
         </div>
