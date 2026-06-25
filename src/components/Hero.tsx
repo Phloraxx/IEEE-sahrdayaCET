@@ -32,7 +32,7 @@ export const Hero: React.FC = () => {
                 className="w-full h-full flex flex-col items-center justify-center relative"
             >
 
-                <div className="text-center transform translate-y-[-10%]">
+                <div className="text-center transform translate-y-[-10%] bg-white/50 backdrop-blur-sm rounded-2xl px-8 py-6">
                     {/* Main Title Group */}
                     <div className="flex flex-col items-center justify-center gap-2 md:gap-4 mb-8">
                         <motion.h1
