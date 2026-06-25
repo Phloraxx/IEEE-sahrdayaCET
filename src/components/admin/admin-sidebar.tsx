@@ -82,7 +82,6 @@ interface AdminSidebarProps {
   userRole: string;
   theme: "light" | "dark";
   onThemeToggle: () => void;
-  openTriggerRef: React.RefObject<HTMLElement | null>;
 }
 
 export function AdminSidebar({
@@ -91,7 +90,6 @@ export function AdminSidebar({
   userRole,
   theme,
   onThemeToggle,
-  openTriggerRef,
 }: AdminSidebarProps) {
   const location = useLocation();
   const items = NAV_ITEMS.filter(
@@ -109,7 +107,6 @@ export function AdminSidebar({
         <div
           className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
           onClick={onClose}
-          onKeyDown={() => {}}
           aria-hidden="true"
         />
       )}
