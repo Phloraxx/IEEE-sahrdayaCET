@@ -7,7 +7,6 @@ import Navbar from '@/components/Navbar'
 import { Hero } from '@/components/Hero'
 import { StarsBackground } from '@/components/ui/stars-background'
 import { ShootingStars } from '@/components/ui/shooting-stars'
-import { FloatingIcons } from '@/components/FloatingIcons'
 import { TechnicalDetails } from '@/components/TechnicalDetails'
 import { WhatsHappening } from '@/components/WhatsHappening'
 import { Execom } from '@/components/Execom'
@@ -158,7 +157,6 @@ function Home() {
         <StarsBackground starDensity={0.00015} allStarsTwinkle starColor="#1e293b" />
         <ShootingStars starColor="#00629b" trailColor="#0099D6" minDelay={2000} maxDelay={5000} />
         <div className="relative z-10 h-full">
-          <FloatingIcons />
           <TechnicalDetails />
           <Hero />
         </div>
