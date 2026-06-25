@@ -71,7 +71,7 @@ export function SocietiesContent({ societies: initialSocieties }: { societies: S
           <select
             value={visibilityFilter}
             onChange={(e) => setVisibilityFilter(e.target.value)}
-            className="h-9 rounded-md border border-input bg-white px-3 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
           >
             <option value="all">All</option>
             <option value="visible">Visible</option>

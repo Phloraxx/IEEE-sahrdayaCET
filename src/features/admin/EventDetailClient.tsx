@@ -621,7 +621,7 @@ function RegistrationFilters({
         <select
           value={statusFilter}
           onChange={(e) => applyFilter(setStatusFilter, e.target.value)}
-          className="h-9 rounded-md border border-input bg-white px-3 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
         >
           <option value="all">All status</option>
           <option value="confirmed">Confirmed</option>
@@ -631,7 +631,7 @@ function RegistrationFilters({
         <select
           value={checkinFilter}
           onChange={(e) => applyFilter(setCheckinFilter, e.target.value)}
-          className="h-9 rounded-md border border-input bg-white px-3 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
         >
           <option value="all">All check-in</option>
           <option value="checked-in">Checked in</option>

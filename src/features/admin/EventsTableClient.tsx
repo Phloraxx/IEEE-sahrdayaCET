@@ -160,7 +160,7 @@ export function EventsTableClient({ events, total }: Props) {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-9 rounded-md border border-input bg-white px-3 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
             >
               <option value="all">All status</option>
               <option value="published">Published</option>
@@ -170,7 +170,7 @@ export function EventsTableClient({ events, total }: Props) {
             <select
               value={societyFilter}
               onChange={(e) => setSocietyFilter(e.target.value)}
-              className="h-9 rounded-md border border-input bg-white px-3 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
             >
               <option value="all">All societies</option>
               {societies.map((s) => (

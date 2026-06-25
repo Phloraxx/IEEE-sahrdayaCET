@@ -113,7 +113,7 @@ export default function UserDetailPage({ id }: { id: string }) {
               ? "bg-red-50 text-red-700 border border-red-200"
               : user.role === "chair"
                 ? "bg-yellow-50 text-yellow-700 border border-yellow-200"
-                : "bg-gray-50 text-gray-600 border border-gray-200"
+                : "bg-muted text-muted-foreground border border-border"
           }`}
         >
           {user.role}

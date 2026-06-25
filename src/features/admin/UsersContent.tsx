@@ -133,7 +133,7 @@ export function UsersContent({ users: initialUsers }: { users: UserItem[] }) {
           <select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
-            className="h-9 rounded-md border border-input bg-white px-3 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
           >
             <option value="all">All roles</option>
             <option value="admin">Admin</option>
@@ -185,7 +185,7 @@ export function UsersContent({ users: initialUsers }: { users: UserItem[] }) {
                     value={u.role}
                     onChange={(e) => handleRoleChange(u.id, e.target.value)}
                     disabled={updatingRole === u.id}
-                    className="h-8 rounded-md border border-input bg-white px-2 text-xs font-medium outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
+                    className="h-8 rounded-md border border-input bg-background px-2 text-xs font-medium outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
                     style={{
                       color:
                         u.role === "admin"

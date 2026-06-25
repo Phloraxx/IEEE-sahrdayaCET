@@ -155,7 +155,7 @@ export function RegistrationsClient({ registrations, total, events }: Props) {
             <select
               value={eventFilter}
               onChange={(e) => applyFilter(setEventFilter, e.target.value)}
-              className="h-9 rounded-md border border-input bg-white px-3 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
             >
               <option value="all">All events</option>
               {events.map((e) => (
@@ -168,7 +168,7 @@ export function RegistrationsClient({ registrations, total, events }: Props) {
           <select
             value={statusFilter}
             onChange={(e) => applyFilter(setStatusFilter, e.target.value)}
-            className="h-9 rounded-md border border-input bg-white px-3 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
           >
             <option value="all">All status</option>
             <option value="confirmed">Confirmed</option>
@@ -178,7 +178,7 @@ export function RegistrationsClient({ registrations, total, events }: Props) {
           <select
             value={paymentFilter}
             onChange={(e) => applyFilter(setPaymentFilter, e.target.value)}
-            className="h-9 rounded-md border border-input bg-white px-3 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
           >
             <option value="all">All payments</option>
             <option value="paid">Paid</option>

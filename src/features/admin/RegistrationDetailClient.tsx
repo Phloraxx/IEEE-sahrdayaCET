@@ -143,7 +143,7 @@ export function RegistrationDetailClient({ reg: initialReg }: { reg: Registratio
                   : reg.paymentStatus === "failed"
                     ? "border-red-300 text-red-700 bg-red-50"
                     : reg.paymentStatus === "not_required"
-                      ? "border-gray-300 text-gray-600 bg-gray-50"
+                      ? "border-border text-muted-foreground bg-muted"
                       : "border-yellow-300 text-yellow-700 bg-yellow-50"
               }`}
             >
