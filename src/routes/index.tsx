@@ -157,15 +157,15 @@ function Home() {
           <ClosingPlasma
             themeMode="light"
             speed={0.8}
-            turbulence={0.6}
-            mouseInfluence={0.5}
-            grain={0.3}
-            sparkle={0.4}
-            vignette={0.8}
-            opacity={0.6}
-            lightColorA="#f0f2f7"
-            lightColorB="#d7dceb"
-            lightColorC="#bcc5e0"
+            turbulence={0.8}
+            mouseInfluence={0.6}
+            grain={0.2}
+            sparkle={0.3}
+            vignette={0.5}
+            opacity={1}
+            lightColorA="#c8d6e5"
+            lightColorB="#8395a7"
+            lightColorC="#00629b"
           />
         </div>
         <div className="relative z-10 h-full">
