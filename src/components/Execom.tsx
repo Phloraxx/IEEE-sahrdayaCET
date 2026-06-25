@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Link } from "@tanstack/react-router";
 import { Users, ArrowUpRight, Mail, Phone } from "lucide-react";
 import { Linkedin } from "@/components/icons";
-import { createPB, buildFileUrl } from "@/lib/pb"
 
 /* ── Member type ── */
 interface Member {
@@ -386,72 +385,7 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
 
 /* ── Main Execom Section ── */
 export const Execom: React.FC = () => {
-  const [membersList, setMembersList] = useState<Member[]>(execomMembers);
-
-  /* Optional: enrich contacts from PocketBase on client */
-  useEffect(() => {
-    const fetchContacts = async () => {
-      try {
-        const pb = createPB();
-        const result = await pb.collection("execom").getList(1, 100, {
-          fields: "name,linkedin,email,phone",
-        });
-        const docs = result.items as unknown as Array<{
-          id: string;
-          name: string;
-          photo?: string;
-          linkedin?: string;
-          email?: string;
-          phone?: string;
-        }>;
-        const matchesName = (hardcoded: string, pbName: string): boolean => {
-          const hc = hardcoded.toLowerCase().trim();
-          const pb = pbName.toLowerCase().trim();
-          // Exact match (fast path)
-          if (pb === hc) return true;
-          // PB name starts with hardcoded name (e.g., "Binu Ashik K" starts with "Binu Ashik")
-          if (pb.startsWith(hc)) return true;
-          // Split into words and compare first + last
-          const hcWords = hc.split(/\s+/).filter(Boolean);
-          const pbWords = pb.split(/\s+/).filter(Boolean);
-          if (hcWords.length >= 1 && pbWords.length >= 1) {
-            // First word must match
-            if (hcWords[0] !== pbWords[0]) return false;
-            // If hardcoded has 2+ words, last word must match
-            // This handles e.g. "Irene Anto" matching "Irene Kallookaran Anto"
-            if (hcWords.length >= 2) {
-              return hcWords[hcWords.length - 1] === pbWords[pbWords.length - 1];
-            }
-            return true;
-          }
-          return false;
-        };
-
-        setMembersList((prev) =>
-          prev.map((member) => {
-            const match = docs.find((doc) => matchesName(member.name, doc.name));
-            if (match) {
-              const photoUrl = match.id && match.photo
-                                ? buildFileUrl("execom", match.id, match.photo)
-                                : undefined;
-                            return {
-                              ...member,
-                              ...(photoUrl && { image: photoUrl }),
-                              linkedin: match.linkedin || undefined,
-                              email: match.email || undefined,
-                              phone: match.phone || undefined,
-                            };
-            }
-            return member;
-          }),
-        );
-      } catch {
-        /* Contacts enrich is optional — member data is already hardcoded */
-      }
-    };
-
-    fetchContacts();
-  }, []);
+  const membersList = execomMembers;
 
   return (
     <section
