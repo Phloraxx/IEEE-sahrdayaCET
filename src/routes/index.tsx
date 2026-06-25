@@ -153,20 +153,24 @@ function Home() {
     <div className="relative w-full bg-white text-gray-900 font-sans selection:bg-ieee-blue/20">
       <div id="home" className="absolute top-0 left-0 w-full h-1" />
       <div className="fixed inset-0 z-0 h-dvh overflow-hidden">
-        <ClosingPlasma
-          themeMode="light"
-          speed={0.8}
-          turbulence={0.6}
-          mouseInfluence={0.5}
-          grain={0.3}
-          sparkle={0.4}
-          vignette={0.8}
-          opacity={0.6}
-          lightColorA="#f0f2f7"
-          lightColorB="#d7dceb"
-          lightColorC="#bcc5e0"
-        />
-        <Hero />
+        <div className="absolute inset-0 z-0">
+          <ClosingPlasma
+            themeMode="light"
+            speed={0.8}
+            turbulence={0.6}
+            mouseInfluence={0.5}
+            grain={0.3}
+            sparkle={0.4}
+            vignette={0.8}
+            opacity={0.6}
+            lightColorA="#f0f2f7"
+            lightColorB="#d7dceb"
+            lightColorC="#bcc5e0"
+          />
+        </div>
+        <div className="relative z-10 h-full">
+          <Hero />
+        </div>
       </div>
       <Navbar />
       <ErrorBoundary>
