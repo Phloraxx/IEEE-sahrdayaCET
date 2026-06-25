@@ -322,12 +322,10 @@
    Geist font, tight density, instrument-panel feel
    ═══════════════════════════════════════════════════════════ */
 .vh-admin {
+  font-family: "Geist Variable", "Geist", ui-sans-serif, system-ui, sans-serif;
   --font-sans: "Geist Variable", "Geist", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --radius: 6px;
-}
-.vh-admin .font-sans {
-  font-family: var(--font-sans);
 }
 
 /* Admin light mode — warm paper with amber brand */
