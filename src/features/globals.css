@@ -53,6 +53,9 @@
   --color-info-foreground: var(--info-foreground);
   --color-danger: var(--danger);
   --color-danger-foreground: var(--danger-foreground);
+
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 /* Font CSS variables — mapped to @fontsource font-family names.
    Defined at :root so .font-pixel and .font-sans utilities resolve. */
