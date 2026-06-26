@@ -215,9 +215,8 @@ export function EventForm({ mode, eventId }: EventFormProps) {
         externalFormUrl: !form.registrationOpen
           ? form.externalFormUrl || undefined
           : undefined,
-        formTemplate:
-          customFields.length > 0 ? customFields : null,
-        coupons: coupons.length > 0 ? coupons : null,
+        ...(customFields.length > 0 ? { formTemplate: customFields } : {}),
+        ...(coupons.length > 0 ? { coupons } : {}),
       };
       if (form.maxCapacity) {
         payload.maxCapacity = Number(form.maxCapacity);
@@ -344,6 +343,7 @@ export function EventForm({ mode, eventId }: EventFormProps) {
                     value={form.title}
                     onChange={update("title")}
                     placeholder="e.g. WIE Workshop on AI Ethics"
+                    maxLength={200}
                     required
                   />
                 </div>
@@ -381,6 +381,7 @@ export function EventForm({ mode, eventId }: EventFormProps) {
                       type="datetime-local"
                       value={form.date}
                       onChange={update("date")}
+                      min={new Date().toISOString().slice(0, 16)}
                       required
                     />
                   </div>
