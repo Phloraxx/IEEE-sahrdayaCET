@@ -1,29 +1,32 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Outlet,
+  useLocation,
+  useRouterState,
+} from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AdminGuard } from "@/components/admin/admin-guard";
 import { AdminSidebar } from "@/components/admin/admin-sidebar";
 import { AdminTopbar } from "@/components/admin/admin-topbar";
 import { PageTransition } from "@/components/admin/page-transition";
 import { useAuth } from "@/lib/auth-context";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/admin")({
   component: AdminLayout,
 });
 
 function useTheme() {
+  // Admin defaults to dark. The inline script in __root.tsx already
+  // toggled the `dark` class before paint on any /admin route, so SSR
+  // and the first client render match. We sync React state to that
+  // class here.
   const [theme, setTheme] = useState<"light" | "dark">("dark");
 
   useEffect(() => {
     if (typeof document === "undefined") return;
-    // Admin defaults to dark. Check if user explicitly chose light.
-    const saved = localStorage.getItem("ieee-theme");
-    if (saved === "light") {
-      setTheme("light");
-    } else {
-      // Default to dark for admin
-      document.documentElement.classList.add("dark");
-      setTheme("dark");
-    }
+    const isDark = document.documentElement.classList.contains("dark");
+    setTheme(isDark ? "dark" : "light");
   }, []);
 
   const toggle = useCallback(() => {
@@ -44,12 +47,15 @@ function useTheme() {
 
 function AdminLayout() {
   const { user } = useAuth();
+  const location = useLocation();
+  const isNavigating = useRouterState({
+    select: (s) => s.status === "pending",
+  });
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isNavigating] = useState(false);
   const { theme, toggle } = useTheme();
   const openTriggerRef = useRef<HTMLElement | null>(null);
 
-  // Escape-to-close + body scroll lock
+  // Escape-to-close + body scroll lock when the mobile drawer is open
   useEffect(() => {
     if (!sidebarOpen) return;
 
@@ -78,11 +84,20 @@ function AdminLayout() {
 
   return (
     <AdminGuard>
-      <div className="vh-admin flex h-screen overflow-hidden bg-background text-foreground">
+      <div className="vh-admin flex vh-h-screen-dynamic overflow-hidden bg-background text-foreground">
+        {/* Skip-to-main link — keyboard only */}
+        <a
+          href="#primary-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:shadow-lg focus:outline-none"
+        >
+          Skip to main content
+        </a>
+
         <AdminSidebar
           open={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
           userRole={user?.role ?? ""}
+          userEmail={user?.email ?? undefined}
           theme={theme}
           onThemeToggle={toggle}
         />
@@ -99,8 +114,13 @@ function AdminLayout() {
             tabIndex={-1}
             className="flex-1 overflow-y-auto focus:outline-none"
           >
-            <div className="mx-auto w-full max-w-7xl px-4 py-4 sm:px-5 sm:py-5 md:px-6 md:py-6">
-              <PageTransition>
+            <div
+              className={cn(
+                "mx-auto w-full max-w-7xl px-4 py-6 sm:px-5 sm:py-8 md:px-8 md:py-10 transition-opacity duration-300 ease-out",
+                isNavigating ? "opacity-60" : "opacity-100",
+              )}
+            >
+              <PageTransition key={location.pathname}>
                 <Outlet />
               </PageTransition>
             </div>

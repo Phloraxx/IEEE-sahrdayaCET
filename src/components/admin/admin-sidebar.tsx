@@ -1,15 +1,15 @@
 import {
-  ChevronRight,
+  Building2,
   Calendar,
+  ChevronRight,
   ClipboardList,
   LayoutDashboard,
   LogOut,
   Moon,
-  Sun,
-  Users,
-  UserCheck,
-  Building2,
   ScanLine,
+  Sun,
+  UserCheck,
+  Users,
   X,
 } from "lucide-react";
 import { Link, useLocation } from "@tanstack/react-router";
@@ -25,10 +25,10 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   {
-    label: "Dashboard",
+    label: "Overview",
     href: "/admin/dashboard",
     icon: LayoutDashboard,
-    description: "Overview",
+    description: "Event pulse",
   },
   {
     label: "Events",
@@ -40,7 +40,13 @@ const NAV_ITEMS: NavItem[] = [
     label: "Registrations",
     href: "/admin/registrations",
     icon: ClipboardList,
-    description: "Sign-ups",
+    description: "Sign-ups & check-ins",
+  },
+  {
+    label: "Check-in",
+    href: "/admin/check-in",
+    icon: ScanLine,
+    description: "QR verify",
   },
   {
     label: "Societies",
@@ -53,7 +59,7 @@ const NAV_ITEMS: NavItem[] = [
     label: "Users",
     href: "/admin/users",
     icon: Users,
-    description: "Members",
+    description: "Roles",
     adminOnly: true,
   },
   {
@@ -62,12 +68,6 @@ const NAV_ITEMS: NavItem[] = [
     icon: UserCheck,
     description: "Committee",
     adminOnly: true,
-  },
-  {
-    label: "Check-in",
-    href: "/admin/check-in",
-    icon: ScanLine,
-    description: "QR verify",
   },
 ];
 
@@ -80,6 +80,7 @@ interface AdminSidebarProps {
   open: boolean;
   onClose: () => void;
   userRole: string;
+  userEmail?: string;
   theme: "light" | "dark";
   onThemeToggle: () => void;
 }
@@ -88,6 +89,7 @@ export function AdminSidebar({
   open,
   onClose,
   userRole,
+  userEmail,
   theme,
   onThemeToggle,
 }: AdminSidebarProps) {
@@ -96,18 +98,15 @@ export function AdminSidebar({
     (item) => !item.adminOnly || userRole === "admin",
   );
 
-  const handleLinkClick = () => {
-    onClose();
-  };
-
   return (
     <>
       {/* Mobile overlay */}
       {open && (
-        <div
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+        <button
+          type="button"
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden vh-safe-top"
           onClick={onClose}
-          aria-hidden="true"
+          aria-label="Close sidebar overlay"
         />
       )}
 
@@ -115,20 +114,37 @@ export function AdminSidebar({
         id="primary-sidebar"
         aria-label="Admin navigation"
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:w-64 lg:translate-x-0",
-          open ? "translate-x-0 drawer-slide" : "-translate-x-full",
+          "fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground drawer-slide lg:w-64 lg:translate-x-0",
+          open ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        {/* Brand header */}
-        <div className="relative flex h-16 items-center justify-center border-b border-sidebar-border px-4">
-          <Link to="/" aria-label="IEEE Sahrdaya home" className="inline-flex items-center gap-2">
-            <span className="text-lg font-bold tracking-tight text-sidebar-foreground">
-              IEEE Admin
-            </span>
+        {/* Brand header — wordmark + emblem (sidebar is dark in both
+            light and dark mode; invert the emblem so it reads on dark). */}
+        <div className="relative flex h-16 items-center justify-center border-b border-sidebar-border px-4 vh-safe-top">
+          <Link
+            to="/"
+            onClick={onClose}
+            className="inline-flex items-center gap-2.5"
+            aria-label="IEEE Sahrdaya home"
+          >
+            <img
+              src="/emblem.png"
+              alt=""
+              aria-hidden="true"
+              className="h-7 w-7 shrink-0 object-contain"
+            />
+            <div className="flex flex-col leading-tight">
+              <span className="text-[13px] font-semibold tracking-tight text-sidebar-foreground">
+                IEEE Sahrdaya
+              </span>
+              <span className="text-[9px] font-medium uppercase tracking-[0.18em] text-sidebar-foreground/50">
+                Admin Console
+              </span>
+            </div>
           </Link>
           <button
             type="button"
-            className="absolute right-4 flex h-10 w-10 items-center justify-center rounded-md text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground lg:hidden"
+            className="vh-touch absolute right-4 flex h-10 w-10 items-center justify-center rounded-md text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground lg:hidden"
             onClick={onClose}
             aria-label="Close sidebar"
           >
@@ -145,7 +161,7 @@ export function AdminSidebar({
             <button
               type="button"
               onClick={onThemeToggle}
-              className="flex h-8 w-8 items-center justify-center rounded-sm text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+              className="vh-touch flex h-8 w-8 items-center justify-center rounded-sm text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
               aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
             >
               {theme === "dark" ? (
@@ -158,6 +174,11 @@ export function AdminSidebar({
           <p className="mt-1.5 text-sm font-medium text-sidebar-foreground">
             {ROLE_LABEL[userRole] ?? "Unknown role"}
           </p>
+          {userEmail && (
+            <p className="text-xs text-sidebar-foreground/60 truncate">
+              {userEmail}
+            </p>
+          )}
         </div>
 
         {/* Nav */}
@@ -173,7 +194,7 @@ export function AdminSidebar({
                 <li key={item.href}>
                   <Link
                     to={item.href}
-                    onClick={handleLinkClick}
+                    onClick={onClose}
                     aria-current={isActive ? "page" : undefined}
                     className={cn(
                       "group flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
