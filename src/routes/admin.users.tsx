@@ -66,6 +66,16 @@ function UsersSkeleton() {
   );
 }
 
+function csrfToken(): string {
+  if (typeof document === "undefined") return "";
+  return (
+    document.cookie
+      .split("; ")
+      .find((c) => c.startsWith("csrf="))
+      ?.split("=")[1] ?? ""
+  );
+}
+
 function formatDate(d: string): string {
   if (!d) return "—";
   try {
@@ -102,12 +112,15 @@ function AdminUsers() {
       const res = await fetch("/api/admin/users", {
         method: "PUT",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken() },
         body: JSON.stringify({ id, role }),
       });
       if (!res.ok) throw new Error("Failed to update role");
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+    },
+    onError: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
     },
   });
