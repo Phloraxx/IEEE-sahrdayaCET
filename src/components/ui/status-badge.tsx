@@ -65,7 +65,7 @@ export function StatusBadge({ status, kind = "event", className, ...rest }: Stat
       : EVENT_VARIANTS
 
   const variant = variants[status] ?? "outline"
-  const label = STATUS_LABELS[status] ?? (status || "—")
+  const label = STATUS_LABELS[status] ?? (status || "Unknown")
   const extra = EXTRA_CLASSES[status] ?? ""
 
   return (
