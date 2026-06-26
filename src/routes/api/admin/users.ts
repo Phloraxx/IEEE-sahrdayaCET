@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB, escapeFilterValue } from "@/lib/pb";
+import { createPB, createAdminPB, escapeFilterValue } from "@/lib/pb";
 import { requireRole } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 import { parsePagination } from "@/lib/route-helpers";
@@ -74,7 +74,8 @@ export const Route = createFileRoute("/api/admin/users")({
           if (parsed.name !== undefined) updateData.name = parsed.name;
           if (parsed.email !== undefined) updateData.email = parsed.email;
 
-          const updated = await pb
+          const adminPb = createAdminPB();
+          const updated = await adminPb
             .collection("users")
             .update(parsed.id, updateData);
           return Response.json({ user: updated });
