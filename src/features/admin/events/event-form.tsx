@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -15,6 +16,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EVENT_STATUS } from "@/lib/constants";
+import { FormSection } from "@/features/admin/shared/form-section";
+import { ImageUpload } from "@/components/admin/image-upload";
+import { CustomFieldBuilder } from "@/components/admin/custom-field-builder";
+import type { FormField } from "@/components/admin/custom-field-builder";
+import { CouponManager } from "@/components/admin/coupon-manager";
+import type { Coupon } from "@/types";
 
 interface SocietyOption {
   id: string;
@@ -32,10 +39,16 @@ interface EventFormState {
   status: string;
   society: string;
   registrationOpen: boolean;
+  checkInEnabled: boolean;
+  collectIeeeMember: boolean;
+  registrationStart: string;
   registrationDeadline: string;
   contactEmail: string;
   contactPhone: string;
   externalLink: string;
+  whatsappLink: string;
+  tags: string;
+  externalFormUrl: string;
 }
 
 const EMPTY_STATE: EventFormState = {
@@ -48,11 +61,17 @@ const EMPTY_STATE: EventFormState = {
   maxCapacity: "",
   status: "draft",
   society: "",
-  registrationOpen: false,
+  registrationOpen: true,
+  checkInEnabled: true,
+  collectIeeeMember: false,
+  registrationStart: "",
   registrationDeadline: "",
   contactEmail: "",
   contactPhone: "",
   externalLink: "",
+  whatsappLink: "",
+  tags: "",
+  externalFormUrl: "",
 };
 
 function toLocalInput(dateString: string | undefined): string {
@@ -90,8 +109,13 @@ export function EventForm({ mode, eventId }: EventFormProps) {
   const queryClient = useQueryClient();
   const isEdit = mode === "edit";
   const [form, setForm] = useState<EventFormState>(EMPTY_STATE);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [customFields, setCustomFields] = useState<FormField[]>([]);
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  // Societies dropdown
   const { data: societies } = useQuery<{ societies: SocietyOption[] }>({
     queryKey: ["admin-societies-options"],
     queryFn: async () => {
@@ -104,6 +128,7 @@ export function EventForm({ mode, eventId }: EventFormProps) {
     staleTime: 60_000,
   });
 
+  // Existing event (edit mode only)
   const { data: existing, isLoading: existingLoading } = useQuery<{
     event: Record<string, unknown>;
   }>({
@@ -118,6 +143,7 @@ export function EventForm({ mode, eventId }: EventFormProps) {
     enabled: isEdit && Boolean(eventId),
   });
 
+  // Populate form from existing event
   useEffect(() => {
     if (!isEdit) return;
     if (existing?.event) {
@@ -135,289 +161,571 @@ export function EventForm({ mode, eventId }: EventFormProps) {
             : "",
         status: String(e.status ?? "draft"),
         society: String(e.society ?? ""),
-        registrationOpen: Boolean(e.registrationOpen),
+        registrationOpen: e.registrationOpen !== false,
+        checkInEnabled: e.checkInEnabled !== false,
+        collectIeeeMember: Boolean(e.collectIeeeMember),
+        registrationStart: toLocalInput(
+          e.registrationStart as string | undefined,
+        ),
         registrationDeadline: toLocalInput(
           e.registrationDeadline as string | undefined,
         ),
         contactEmail: String(e.contactEmail ?? ""),
         contactPhone: String(e.contactPhone ?? ""),
         externalLink: String(e.externalLink ?? ""),
+        whatsappLink: String(e.whatsappLink ?? ""),
+        tags: String(e.tags ?? ""),
+        externalFormUrl: String(e.externalFormUrl ?? ""),
       });
+      if (e.formTemplate && Array.isArray(e.formTemplate)) {
+        setCustomFields(e.formTemplate as FormField[]);
+      }
+      if (e.coupons && Array.isArray(e.coupons)) {
+        setCoupons(e.coupons as Coupon[]);
+      }
     }
   }, [existing, isEdit]);
 
-  const mutation = useMutation({
-    mutationFn: async () => {
+  // Submit handler
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitError(null);
+    setSubmitting(true);
+
+    try {
       const payload: Record<string, unknown> = {
         title: form.title.trim(),
         description: form.description,
         venue: form.venue,
         price: Number(form.price) || 0,
         status: form.status,
-        society: form.society,
+        society: form.society || undefined,
         registrationOpen: form.registrationOpen,
+        checkInEnabled: form.checkInEnabled,
+        collectIeeeMember: form.collectIeeeMember,
         date: toIso(form.date),
         endDate: toIso(form.endDate),
+        registrationStart: toIso(form.registrationStart),
         registrationDeadline: toIso(form.registrationDeadline),
         contactEmail: form.contactEmail || undefined,
         contactPhone: form.contactPhone || undefined,
         externalLink: form.externalLink || undefined,
+        whatsappLink: form.whatsappLink || undefined,
+        tags: form.tags || undefined,
+        externalFormUrl: !form.registrationOpen
+          ? form.externalFormUrl || undefined
+          : undefined,
+        formTemplate:
+          customFields.length > 0 ? customFields : null,
+        coupons: coupons.length > 0 ? coupons : null,
       };
-      if (form.maxCapacity) payload.maxCapacity = Number(form.maxCapacity);
+      if (form.maxCapacity) {
+        payload.maxCapacity = Number(form.maxCapacity);
+      }
+
+      // Clean undefined keys
       Object.keys(payload).forEach((k) => {
-        if (payload[k] === undefined || payload[k] === "") delete payload[k];
+        if (payload[k] === undefined || payload[k] === "")
+          delete payload[k];
       });
 
-      const url = isEdit ? `/api/admin/events/${eventId}` : "/api/admin/events";
-      const res = await fetch(url, {
-        method: isEdit ? "PUT" : "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          "x-csrf-token": csrfToken(),
-        },
-        body: JSON.stringify(payload),
-      });
+      const url = isEdit
+        ? `/api/admin/events/${eventId}`
+        : "/api/admin/events";
+
+      let res: Response;
+      if (bannerFile) {
+        const fd = new FormData();
+        Object.entries(payload).forEach(([key, val]) => {
+          if (val !== undefined && val !== null) {
+            fd.append(
+              key,
+              typeof val === "object" ? JSON.stringify(val) : String(val),
+            );
+          }
+        });
+        fd.append("banner", bannerFile);
+        res = await fetch(url, {
+          method: isEdit ? "PUT" : "POST",
+          credentials: "include",
+          headers: { "x-csrf-token": csrfToken() },
+          body: fd,
+        });
+      } else {
+        res = await fetch(url, {
+          method: isEdit ? "PUT" : "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            "x-csrf-token": csrfToken(),
+          },
+          body: JSON.stringify(payload),
+        });
+      }
+
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.error || `Request failed (${res.status})`);
       }
-      return res.json();
-    },
-    onSuccess: () => {
+
       queryClient.invalidateQueries({ queryKey: ["admin-events"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
-      if (eventId) {
-        queryClient.invalidateQueries({ queryKey: ["admin-event", eventId] });
-      }
       navigate({ to: "/admin/events" });
-    },
-    onError: (err: Error) => setSubmitError(err.message),
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitError(null);
-    if (!form.title.trim()) return setSubmitError("Title is required");
-    if (!form.date) return setSubmitError("Date is required");
-    if (!form.society) return setSubmitError("Society is required");
-    mutation.mutate();
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : "An error occurred",
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
+  // Loading skeleton
   if (isEdit && existingLoading) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-16">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-        </CardContent>
-      </Card>
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-8 w-8 rounded-lg" />
+          <div className="space-y-1">
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-4 w-32" />
+          </div>
+        </div>
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2 space-y-6">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <div
+                key={i}
+                className="rounded-lg border border-border bg-card p-6 space-y-3"
+              >
+                <Skeleton className="h-5 w-36" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-32 w-full" />
+              </div>
+            ))}
+          </div>
+          <div className="space-y-6">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div
+                key={i}
+                className="rounded-lg border border-border bg-card p-6 space-y-3"
+              >
+                <Skeleton className="h-5 w-32" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     );
   }
 
+  const update = (field: keyof EventFormState) =>
+    (
+      e: React.ChangeEvent<
+        HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+      >,
+    ) => setForm((prev) => ({ ...prev, [field]: e.target.value }));
+
   return (
-    <Card>
-      <CardContent className="p-6">
-        <form onSubmit={handleSubmit} className="grid gap-6">
-          <FormSection title="Identity" description="What and who is hosting this event.">
-            <div className="grid gap-1.5">
-              <Label htmlFor="evt-title">Title *</Label>
-              <Input
-                id="evt-title"
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                placeholder="e.g. WIE Workshop on AI Ethics"
-                required
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="evt-description">Description</Label>
-              <Textarea
-                id="evt-description"
-                rows={5}
-                value={form.description}
-                onChange={(e) =>
-                  setForm({ ...form, description: e.target.value })
-                }
-                placeholder="What is this event about?"
-              />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="grid gap-1.5">
-                <Label htmlFor="evt-society">Society *</Label>
-                <Select
-                  value={form.society}
-                  onValueChange={(v) => setForm({ ...form, society: v })}
-                >
-                  <SelectTrigger id="evt-society">
-                    <SelectValue placeholder="Pick a society" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(societies?.societies ?? []).map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.name}
+    <form onSubmit={handleSubmit}>
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* ─── Main column (2/3) ──────────────────────────── */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Basic Information */}
+          <Card>
+            <CardContent className="p-6">
+              <FormSection title="Basic Information">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="evt-title">Title *</Label>
+                  <Input
+                    id="evt-title"
+                    value={form.title}
+                    onChange={update("title")}
+                    placeholder="e.g. WIE Workshop on AI Ethics"
+                    required
+                  />
+                </div>
+
+                <div className="grid gap-1.5">
+                  <Label>Banner Image</Label>
+                  <ImageUpload
+                    label=""
+                    currentUrl={
+                      isEdit && existing?.event
+                        ? (existing.event as Record<string, unknown>)
+                            .bannerUrl as string
+                        : undefined
+                    }
+                    onChange={setBannerFile}
+                  />
+                </div>
+
+                <div className="grid gap-1.5">
+                  <Label htmlFor="evt-description">Description</Label>
+                  <Textarea
+                    id="evt-description"
+                    rows={5}
+                    value={form.description}
+                    onChange={update("description")}
+                    placeholder="What is this event about?"
+                  />
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="evt-date">Start Date *</Label>
+                    <Input
+                      id="evt-date"
+                      type="datetime-local"
+                      value={form.date}
+                      onChange={update("date")}
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="evt-end-date">End Date</Label>
+                    <Input
+                      id="evt-end-date"
+                      type="datetime-local"
+                      value={form.endDate}
+                      onChange={update("endDate")}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-1.5">
+                  <Label htmlFor="evt-tags">Tags</Label>
+                  <Input
+                    id="evt-tags"
+                    value={form.tags}
+                    onChange={update("tags")}
+                    placeholder="e.g. workshop, technical, ieee-day"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Comma-separated tags for search &amp; filtering
+                  </p>
+                </div>
+
+                <div className="grid gap-1.5">
+                  <Label htmlFor="evt-venue">Venue</Label>
+                  <Input
+                    id="evt-venue"
+                    value={form.venue}
+                    onChange={update("venue")}
+                    placeholder="Main Auditorium"
+                  />
+                </div>
+              </FormSection>
+            </CardContent>
+          </Card>
+
+          {/* Custom Registration Fields */}
+          <Card>
+            <CardContent className="p-6">
+              <FormSection title="Custom Registration Fields">
+                <CustomFieldBuilder
+                  fields={customFields}
+                  onChange={setCustomFields}
+                />
+                {customFields.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-border/50">
+                    <details className="group">
+                      <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none">
+                        Preview registration form
+                      </summary>
+                      <div className="mt-3 space-y-3 pointer-events-none opacity-70">
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-muted-foreground">
+                            Full Name *
+                          </label>
+                          <div className="h-9 rounded-lg border border-input bg-muted/30" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-muted-foreground">
+                            Email *
+                          </label>
+                          <div className="h-9 rounded-lg border border-input bg-muted/30" />
+                        </div>
+                        {customFields.map((field) => (
+                          <div key={field.id} className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground">
+                              {field.label}{" "}
+                              {field.required && "*"}
+                            </label>
+                            {field.type === "textarea" ? (
+                              <div className="h-16 rounded-lg border border-input bg-muted/30" />
+                            ) : field.type === "select" ||
+                              field.type === "radio" ? (
+                              <div className="h-9 rounded-lg border border-input bg-muted/30 flex items-center px-3 text-xs text-muted-foreground">
+                                {field.options[0] || "Select..."}
+                              </div>
+                            ) : (
+                              <div className="h-9 rounded-lg border border-input bg-muted/30" />
+                            )}
+                          </div>
+                        ))}
+                        <div className="h-10 rounded-lg bg-muted/50 flex items-center justify-center">
+                          <span className="text-xs text-muted-foreground">
+                            Submit
+                          </span>
+                        </div>
+                      </div>
+                    </details>
+                  </div>
+                )}
+              </FormSection>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ─── Sidebar column (1/3) ────────────────────────── */}
+        <div className="space-y-6">
+          {/* Registration */}
+          <Card>
+            <CardContent className="p-6">
+              <FormSection title="Registration">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.registrationOpen}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        registrationOpen: e.target.checked,
+                      }))
+                    }
+                    className="rounded border-input"
+                  />
+                  <span className="text-sm font-medium">
+                    Enable Registration
+                  </span>
+                </label>
+
+                {form.registrationOpen ? (
+                  <>
+                    <div className="grid gap-1.5">
+                      <Label htmlFor="evt-price">Price (₹)</Label>
+                      <Input
+                        id="evt-price"
+                        type="number"
+                        min="0"
+                        value={form.price}
+                        onChange={update("price")}
+                      />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label htmlFor="evt-capacity">Max Capacity</Label>
+                      <Input
+                        id="evt-capacity"
+                        type="number"
+                        min="1"
+                        value={form.maxCapacity}
+                        onChange={update("maxCapacity")}
+                        placeholder="Unlimited"
+                      />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label htmlFor="evt-reg-start">
+                        Registration Start
+                      </Label>
+                      <Input
+                        id="evt-reg-start"
+                        type="datetime-local"
+                        value={form.registrationStart}
+                        onChange={update("registrationStart")}
+                      />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label htmlFor="evt-deadline">
+                        Registration Deadline
+                      </Label>
+                      <Input
+                        id="evt-deadline"
+                        type="datetime-local"
+                        value={form.registrationDeadline}
+                        onChange={update("registrationDeadline")}
+                      />
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.checkInEnabled}
+                        onChange={(e) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            checkInEnabled: e.target.checked,
+                          }))
+                        }
+                        className="rounded border-input"
+                      />
+                      <span className="text-sm font-medium">
+                        Enable QR Check-in
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.collectIeeeMember}
+                        onChange={(e) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            collectIeeeMember: e.target.checked,
+                          }))
+                        }
+                        className="rounded border-input"
+                      />
+                      <span className="text-sm font-medium">
+                        Collect IEEE Membership ID
+                      </span>
+                    </label>
+                  </>
+                ) : (
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="evt-external-form">
+                      External Registration URL
+                    </Label>
+                    <Input
+                      id="evt-external-form"
+                      type="url"
+                      value={form.externalFormUrl}
+                      onChange={update("externalFormUrl")}
+                      placeholder="https://docs.google.com/forms/..."
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Users will be redirected here instead
+                    </p>
+                  </div>
+                )}
+              </FormSection>
+            </CardContent>
+          </Card>
+
+          {/* Society */}
+          <Card>
+            <CardContent className="p-6">
+              <FormSection title="Society">
+                <div className="grid gap-1.5">
+                  <Label>Host Society</Label>
+                  <Select
+                    key={form.society || "__none__"}
+                    value={form.society || "__none__"}
+                    onValueChange={(v) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        society: v === "__none__" ? "" : v,
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a society..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">
+                        Select a society...
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="evt-status">Status</Label>
-                <Select
-                  value={form.status}
-                  onValueChange={(v) => setForm({ ...form, status: v })}
-                >
-                  <SelectTrigger id="evt-status">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {EVENT_STATUS.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s.charAt(0).toUpperCase() + s.slice(1)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </FormSection>
+                      {(societies?.societies ?? []).map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </FormSection>
+            </CardContent>
+          </Card>
 
-          <FormSection title="Schedule" description="When and where.">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="grid gap-1.5">
-                <Label htmlFor="evt-date">Date *</Label>
-                <Input
-                  id="evt-date"
-                  type="datetime-local"
-                  value={form.date}
-                  onChange={(e) => setForm({ ...form, date: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="evt-end-date">End date</Label>
-                <Input
-                  id="evt-end-date"
-                  type="datetime-local"
-                  value={form.endDate}
-                  onChange={(e) =>
-                    setForm({ ...form, endDate: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="evt-venue">Venue</Label>
-              <Input
-                id="evt-venue"
-                value={form.venue}
-                onChange={(e) => setForm({ ...form, venue: e.target.value })}
-                placeholder="Main Auditorium"
-              />
-            </div>
-          </FormSection>
+          {/* Contact & Status */}
+          <Card>
+            <CardContent className="p-6">
+              <FormSection title="Contact & Status">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="evt-contact-email">
+                    Contact Email
+                  </Label>
+                  <Input
+                    id="evt-contact-email"
+                    type="email"
+                    value={form.contactEmail}
+                    onChange={update("contactEmail")}
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="evt-contact-phone">
+                    Contact Phone
+                  </Label>
+                  <Input
+                    id="evt-contact-phone"
+                    type="tel"
+                    value={form.contactPhone}
+                    onChange={update("contactPhone")}
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="evt-external">External Link</Label>
+                  <Input
+                    id="evt-external"
+                    type="url"
+                    value={form.externalLink}
+                    onChange={update("externalLink")}
+                    placeholder="https://example.com/event-page"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Public event page link (shown on event cards)
+                  </p>
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="evt-whatsapp">WhatsApp Link</Label>
+                  <Input
+                    id="evt-whatsapp"
+                    type="url"
+                    value={form.whatsappLink}
+                    onChange={update("whatsappLink")}
+                    placeholder="https://chat.whatsapp.com/..."
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="evt-status">Status</Label>
+                  <Select
+                    key={form.status || "draft"}
+                    value={form.status}
+                    onValueChange={(v) =>
+                      setForm((prev) => ({ ...prev, status: v }))
+                    }
+                  >
+                    <SelectTrigger id="evt-status">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {EVENT_STATUS.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {s.charAt(0).toUpperCase() + s.slice(1)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </FormSection>
+            </CardContent>
+          </Card>
 
-          <FormSection
-            title="Registration"
-            description="Pricing, capacity, and deadlines."
-          >
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="grid gap-1.5">
-                <Label htmlFor="evt-price">Price (₹)</Label>
-                <Input
-                  id="evt-price"
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={form.price}
-                  onChange={(e) =>
-                    setForm({ ...form, price: e.target.value })
-                  }
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="evt-capacity">Max capacity</Label>
-                <Input
-                  id="evt-capacity"
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={form.maxCapacity}
-                  onChange={(e) =>
-                    setForm({ ...form, maxCapacity: e.target.value })
-                  }
-                  placeholder="Unlimited"
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="evt-deadline">Reg. deadline</Label>
-                <Input
-                  id="evt-deadline"
-                  type="datetime-local"
-                  value={form.registrationDeadline}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      registrationDeadline: e.target.value,
-                    })
-                  }
-                />
-              </div>
-            </div>
-            <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-border accent-primary"
-                checked={form.registrationOpen}
-                onChange={(e) =>
-                  setForm({ ...form, registrationOpen: e.target.checked })
-                }
-              />
-              <span>Registration is open</span>
-            </label>
-          </FormSection>
+          {/* Coupons */}
+          {form.registrationOpen && (
+            <Card>
+              <CardContent className="p-6">
+                <FormSection title="Coupons">
+                  <CouponManager
+                    coupons={coupons}
+                    onChange={setCoupons}
+                  />
+                </FormSection>
+              </CardContent>
+            </Card>
+          )}
 
-          <FormSection
-            title="Contact"
-            description="Where to reach out about this event."
-          >
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="grid gap-1.5">
-                <Label htmlFor="evt-contact-email">Contact email</Label>
-                <Input
-                  id="evt-contact-email"
-                  type="email"
-                  value={form.contactEmail}
-                  onChange={(e) =>
-                    setForm({ ...form, contactEmail: e.target.value })
-                  }
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="evt-contact-phone">Contact phone</Label>
-                <Input
-                  id="evt-contact-phone"
-                  type="tel"
-                  value={form.contactPhone}
-                  onChange={(e) =>
-                    setForm({ ...form, contactPhone: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="evt-external">External link</Label>
-              <Input
-                id="evt-external"
-                type="url"
-                value={form.externalLink}
-                onChange={(e) =>
-                  setForm({ ...form, externalLink: e.target.value })
-                }
-                placeholder="https://forms.gle/…"
-              />
-            </div>
-          </FormSection>
-
+          {/* Error */}
           {submitError && (
             <p
               role="alert"
@@ -427,48 +735,29 @@ export function EventForm({ mode, eventId }: EventFormProps) {
             </p>
           )}
 
-          <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
+          {/* Actions */}
+          <div className="flex items-center gap-3">
+            <Button
+              type="submit"
+              disabled={submitting}
+              className="flex-1"
+            >
+              {submitting && (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              )}
+              {isEdit ? "Save Changes" : "Create Event"}
+            </Button>
             <Button
               type="button"
               variant="outline"
               onClick={() => navigate({ to: "/admin/events" })}
-              disabled={mutation.isPending}
+              disabled={submitting}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending && (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              )}
-              {isEdit ? "Save changes" : "Create event"}
-            </Button>
           </div>
-        </form>
-      </CardContent>
-    </Card>
-  );
-}
-
-function FormSection({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="grid gap-4 border-b border-border pb-6 last:border-b-0 last:pb-0">
-      <div>
-        <h2 className="text-sm font-semibold tracking-tight text-foreground">
-          {title}
-        </h2>
-        {description && (
-          <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
-        )}
+        </div>
       </div>
-      <div className="grid gap-4">{children}</div>
-    </section>
+    </form>
   );
 }
