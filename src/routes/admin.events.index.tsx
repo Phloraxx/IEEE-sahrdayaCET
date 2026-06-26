@@ -3,16 +3,14 @@ import {
   Link,
   useNavigate,
 } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import {
   Calendar,
   ChevronRight,
-  Loader2,
   Pencil,
   Plus,
   Search,
-  Trash2,
 } from "lucide-react";
 import { PanelHeader } from "@/components/admin/panel-header";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -26,7 +24,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ConfirmButton } from "@/components/admin/confirm-button";
 import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/admin/events/")({
@@ -87,15 +84,6 @@ function EventsSkeleton() {
   );
 }
 
-function csrfToken(): string {
-  if (typeof document === "undefined") return "";
-  return (
-    document.cookie
-      .split("; ")
-      .find((c) => c.startsWith("csrf="))
-      ?.split("=")[1] ?? ""
-  );
-}
 
 function formatDate(d: string): string {
   if (!d) return "—";
@@ -113,7 +101,6 @@ function formatDate(d: string): string {
 function AdminEvents() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [page, setPage] = useState(1);
@@ -136,23 +123,6 @@ function AdminEvents() {
     },
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`/api/admin/events/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          "x-csrf-token": csrfToken(),
-        },
-      });
-      if (!res.ok) throw new Error("Failed to delete event");
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-events"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
-    },
-  });
 
   const canEdit = user?.role === "admin" || user?.role === "chair";
 
@@ -222,9 +192,6 @@ function AdminEvents() {
         <EventsList
           rows={data.events}
           canEdit={canEdit}
-          canDelete={user?.role === "admin"}
-          onDelete={(id) => deleteMutation.mutate(id)}
-          deletingPending={deleteMutation.isPending}
         />
       )}
 
@@ -254,12 +221,6 @@ function AdminEvents() {
         </div>
       )}
 
-      {deleteMutation.isPending && (
-        <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-card border border-border px-4 py-2 shadow-lg">
-          <Loader2 className="h-4 w-4 animate-spin text-primary" />
-          <span className="text-sm text-muted-foreground">Deleting…</span>
-        </div>
-      )}
     </div>
   );
 }
@@ -267,17 +228,11 @@ function AdminEvents() {
 interface EventsListProps {
   rows: EventRow[];
   canEdit: boolean;
-  canDelete: boolean;
-  onDelete: (id: string) => void;
-  deletingPending: boolean;
 }
 
 function EventsList({
   rows,
   canEdit,
-  canDelete,
-  onDelete,
-  deletingPending,
 }: EventsListProps) {
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card divide-y divide-border">
@@ -325,7 +280,7 @@ function EventsList({
             )}
           </div>
           <div className="flex items-center justify-end gap-1">
-            {canEdit && (
+            {canEdit ? (
               <Link
                 to="/admin/events/$id/edit"
                 params={{ id: event.id }}
@@ -334,22 +289,7 @@ function EventsList({
               >
                 <Pencil className="h-3.5 w-3.5" />
               </Link>
-            )}
-            {canDelete && (
-              <ConfirmButton
-                label=""
-                confirmMessage="Delete this event?"
-                variant="destructive"
-                icon={<Trash2 className="h-3.5 w-3.5" />}
-                onConfirm={() => {
-                  onDelete(event.id);
-                  return true;
-                }}
-                disabled={deletingPending}
-                className="h-8 w-8 p-0"
-              />
-            )}
-            {!canEdit && !canDelete && (
+            ) : (
               <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
             )}
           </div>
