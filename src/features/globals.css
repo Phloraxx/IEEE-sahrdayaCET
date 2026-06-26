@@ -3,7 +3,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
-@theme {
+@theme inline {
   --color-ieee-blue: #00629B;
   --color-ieee-light-blue: #0099D6;
   --color-ieee-slate: #1e293b;
@@ -52,7 +52,7 @@
   --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-::root {
+:root {
   --font-sans: 'Inter Variable', system-ui, sans-serif;
   --font-inter-loaded: 'Inter Variable', system-ui, sans-serif;
   --font-pixel-loaded: 'Press Start 2P', 'Courier New', monospace;
@@ -129,7 +129,7 @@
 /* ═══════════════════════════════════════════════════════════
    SHADCN/UI BASE CSS VARIABLES — :root defaults
    ═══════════════════════════════════════════════════════════ */
-::root {
+:root {
   --background: #f7f5f0;
   --foreground: #1a1a1a;
   --card: #ffffff;
@@ -231,7 +231,7 @@
 /* ═══════════════════════════════════════════════════════════
    MOTION SYSTEM — 3-beat entrance, sharp-out easing
    ═══════════════════════════════════════════════════════════ */
-::root {
+:root {
   --vh-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --vh-ease-in: cubic-bezier(0.7, 0, 0.84, 0);
   --vh-ease-glide: cubic-bezier(0.32, 0.72, 0, 1);
@@ -404,3 +404,159 @@
   --danger-foreground: oklch(0.12 0.012 27);
 }
 
+
+/* ═══════════════════════════════════════════════════════════
+   ADMIN UTILITIES — pulled from submissionPortalV2 app.css
+   ═══════════════════════════════════════════════════════════ */
+
+/* Stagger cascade — used on metric/quick-action grids */
+.stagger-cards > * {
+  animation: vh-beat-in 360ms var(--vh-ease-out) both;
+}
+.stagger-cards > *:nth-child(1) { animation-delay: 20ms; }
+.stagger-cards > *:nth-child(2) { animation-delay: 60ms; }
+.stagger-cards > *:nth-child(3) { animation-delay: 100ms; }
+.stagger-cards > *:nth-child(4) { animation-delay: 140ms; }
+.stagger-cards > *:nth-child(5) { animation-delay: 180ms; }
+.stagger-cards > *:nth-child(6) { animation-delay: 220ms; }
+.stagger-cards > *:nth-child(7) { animation-delay: 260ms; }
+.stagger-cards > *:nth-child(8) { animation-delay: 300ms; }
+.stagger-cards > *:nth-child(n + 9) { animation-delay: 340ms; }
+
+/* Card lift — used on interactive surfaces only */
+.card-hover {
+  transition: transform 180ms var(--vh-ease-out),
+    border-color 180ms var(--vh-ease-out),
+    background-color 180ms var(--vh-ease-out);
+}
+.card-hover:hover {
+  border-color: color-mix(in oklch, var(--border), var(--foreground) 25%);
+}
+.card-hover:active {
+  transform: scale(0.99);
+}
+
+/* Press feedback on tap */
+.vh-press {
+  transition: transform 120ms var(--vh-ease-out);
+}
+.vh-press:active {
+  transform: scale(0.97);
+}
+
+/* Skeleton shimmer */
+@keyframes vh-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.vh-skeleton {
+  background-image: linear-gradient(
+    90deg,
+    var(--muted) 0%,
+    color-mix(in oklch, var(--muted), var(--foreground) 8%) 50%,
+    var(--muted) 100%
+  );
+  background-size: 200% 100%;
+  animation: vh-shimmer 1.6s linear infinite;
+}
+
+/* Mono numerics */
+.vh-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* Hairline divider with brand tint */
+.vh-divider {
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in oklch, var(--border), transparent 30%),
+    transparent
+  );
+}
+
+/* Grid backdrop — used on hero panels */
+.vh-grid-bg {
+  background-image: linear-gradient(
+      to right,
+      color-mix(in oklch, var(--border), transparent 70%) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in oklch, var(--border), transparent 70%) 1px,
+      transparent 1px
+    );
+  background-size: 32px 32px;
+}
+
+/* Brand signal line */
+.vh-brand-line {
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    var(--primary),
+    color-mix(in oklch, var(--primary), transparent 100%)
+  );
+}
+
+/* Brand wash glows — apply to absolute inset-0 div for soft brand-tinted areas */
+.vh-wash-tl {
+  background: radial-gradient(
+    ellipse at top left,
+    color-mix(in oklch, var(--primary), transparent 88%),
+    transparent 60%
+  );
+}
+.vh-wash-tr {
+  background: radial-gradient(
+    ellipse at top right,
+    color-mix(in oklch, var(--primary), transparent 88%),
+    transparent 60%
+  );
+}
+.vh-wash-bl {
+  background: radial-gradient(
+    ellipse at bottom left,
+    color-mix(in oklch, var(--primary), transparent 88%),
+    transparent 60%
+  );
+}
+.vh-wash-br {
+  background: radial-gradient(
+    ellipse at bottom right,
+    color-mix(in oklch, var(--primary), transparent 88%),
+    transparent 60%
+  );
+}
+
+/* Status pill base */
+.vh-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 1;
+  border: 1px solid currentColor;
+  border-color: color-mix(in oklch, currentColor, transparent 80%);
+}
+
+/* Reduced motion for the new utilities */
+@media (prefers-reduced-motion: reduce) {
+  .vh-skeleton {
+    animation: none;
+    background-image: none;
+  }
+  .vh-press:active,
+  .card-hover:active {
+    transform: none;
+  }
+}
