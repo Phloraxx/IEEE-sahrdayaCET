@@ -12,12 +12,31 @@ export interface AdminContext {
 }
 
 /**
+ * Extracts the cookie header from either the explicit `Request` or
+ * the ambient TanStack Start request context. Prefer passing `request`
+ * from inside API route handlers — `getRequestHeader` only works when
+ * the call site is inside a server-side handler that wired the request
+ * context, and API routes that don't use createServerFn may not have
+ * the h3 event available.
+ */
+function readCookie(request?: Request): string {
+  if (request) {
+    return request.headers.get("cookie") || ""
+  }
+  try {
+    return getRequestHeader("cookie") || ""
+  } catch {
+    return ""
+  }
+}
+
+/**
  * Creates an authenticated PB client and verifies admin/chair role.
  * Returns the context with PB, userId, and role.
  * Throws AuthError on failure.
  */
-export async function authenticateAdmin(): Promise<AdminContext> {
-  const cookie = getRequestHeader("cookie") || ""
+export async function authenticateAdmin(request?: Request): Promise<AdminContext> {
+  const cookie = readCookie(request)
   const pb = createPB(cookie)
   const { user } = await requireRole(["admin", "chair"], pb)
   return { pb, userId: user.id, role: user.role || "" }

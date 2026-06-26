@@ -12,7 +12,7 @@ export const Route = createFileRoute("/api/admin/events")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const ctx = await authenticateAdmin();
+          const ctx = await authenticateAdmin(request);
           const url = new URL(request.url);
 
           const { page, perPage } = parsePagination(url, {
@@ -77,7 +77,7 @@ export const Route = createFileRoute("/api/admin/events")({
             return Response.json({ error: 'Unsupported media type' }, { status: 415 });
           }
           verifySameOrigin(request);
-          const ctx = await authenticateAdmin();
+          const ctx = await authenticateAdmin(request);
 
           const parsed = EventCreateSchema.parse(await request.json());
 

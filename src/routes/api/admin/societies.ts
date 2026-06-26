@@ -12,7 +12,7 @@ export const Route = createFileRoute("/api/admin/societies")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const ctx = await authenticateAdmin();
+          const ctx = await authenticateAdmin(request);
           const url = new URL(request.url);
           const { page, perPage } = parsePagination(url, {
             defaultPerPage: 100,
@@ -60,7 +60,7 @@ export const Route = createFileRoute("/api/admin/societies")({
             return Response.json({ error: 'Unsupported media type' }, { status: 415 });
           }
           verifySameOrigin(request);
-          const ctx = await authenticateAdmin();
+          const ctx = await authenticateAdmin(request);
           if (ctx.role !== "admin")
             return Response.json(
               { error: "Only admins can create societies" },

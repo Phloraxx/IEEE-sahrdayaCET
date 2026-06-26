@@ -25,11 +25,15 @@ export function handleError(error: unknown, context: string): Response {
   }
 
   if (error instanceof ClientResponseError) {
-    const status = error.status
-    if (status === 404) {
+    // PB returns status 0 on auto-cancel / network failure — Response.json
+    // throws RangeError if we pass that through. Map anything < 400 or > 599
+    // to a generic 502 (upstream failure).
+    const raw = Number(error.status) || 0
+    const status = raw >= 400 && raw <= 599 ? raw : 502
+    if (raw === 404) {
       return Response.json({ error: 'Resource not found' }, { status: 404 })
     }
-    if (status === 400) {
+    if (raw === 400) {
       return Response.json({ error: 'Invalid request' }, { status: 400 })
     }
     return Response.json({ error: 'Request failed' }, { status })

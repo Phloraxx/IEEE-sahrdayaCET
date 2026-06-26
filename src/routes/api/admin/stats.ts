@@ -13,10 +13,10 @@ import {
 export const Route = createFileRoute("/api/admin/stats")({
   server: {
     handlers: {
-      GET: async ({ request: _request }) => {
+      GET: async ({ request }) => {
 
         try {
-          const ctx = await authenticateAdmin();
+          const ctx = await authenticateAdmin(request);
           const eventScope = await buildChairFilter(ctx, 'event');
           const registrationScope = await buildChairFilter(ctx, 'registration');
 
@@ -41,7 +41,14 @@ export const Route = createFileRoute("/api/admin/stats")({
           ) => {
             const r = await ctx.pb
               .collection(col)
-              .getList(1, 1, { filter: filter || undefined, fields: "id" });
+              .getList(1, 1, {
+                filter: filter || undefined,
+                fields: "id",
+                // PB JS SDK auto-cancels concurrent requests on the same
+                // client when their request keys collide. We fire ~12 counts
+                // in parallel, so disable per-request cancellation here.
+                requestKey: null,
+              });
             return r.totalItems;
           };
 
