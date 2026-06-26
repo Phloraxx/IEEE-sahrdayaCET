@@ -68,6 +68,13 @@ function ExecomSkeleton() {
   );
 }
 
+function buildFileUrl(collection: string, recordId: string, filename: string): string {
+  if (!recordId || !filename) return "";
+  if (filename.startsWith("http")) return filename;
+  const pbUrl = typeof window !== "undefined" ? window.location.origin : "";
+  return pbUrl + "/api/files/" + collection + "/" + recordId + "/" + filename;
+}
+
 function csrfToken(): string {
   if (typeof document === "undefined") return "";
   return (
@@ -196,7 +203,7 @@ function ExecomList({
           <div className="flex items-center gap-3 min-w-0">
             {m.photo ? (
               <img
-                src={m.photo}
+                src={m.photo?.startsWith("http") ? m.photo : m.photo ? buildFileUrl("execom", m.id, m.photo) : ""}
                 alt=""
                 className="h-8 w-8 shrink-0 rounded-full object-cover"
               />
