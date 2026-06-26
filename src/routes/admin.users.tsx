@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Search, Users } from "lucide-react";
 import { PanelHeader } from "@/components/admin/panel-header";
@@ -12,26 +12,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth-context";
-
 
 export const Route = createFileRoute("/admin/users")({
   component: AdminUsers,
   errorComponent: ({ error }: { error: Error }) => (
     <div className="flex min-h-[50vh] items-center justify-center p-8">
       <div className="mx-auto max-w-md text-center">
-        <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-destructive">Error</p>
-        <h1 className="mb-2 text-xl font-semibold tracking-tight">{error?.message ?? "Something went wrong"}</h1>
-        <button type="button" onClick={() => window.location.reload()} className="mt-6 inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity">Try again</button>
+        <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-destructive">
+          Error
+        </p>
+        <h1 className="mb-2 text-xl font-semibold tracking-tight">
+          {error?.message ?? "Something went wrong"}
+        </h1>
       </div>
     </div>
   ),
@@ -53,7 +47,10 @@ interface UsersResponse {
   hasMore: boolean;
 }
 
-const ROLE_BADGE: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
+const ROLE_BADGE: Record<
+  string,
+  "default" | "secondary" | "outline" | "destructive"
+> = {
   admin: "default",
   chair: "secondary",
   user: "outline",
@@ -62,11 +59,24 @@ const ROLE_BADGE: Record<string, "default" | "secondary" | "outline" | "destruct
 function UsersSkeleton() {
   return (
     <div className="space-y-3">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <Skeleton key={i} className="h-12 w-full rounded-lg" />
+      {Array.from({ length: 6 }).map((_, i) => (
+        <Skeleton key={i} className="h-16 w-full rounded-lg" />
       ))}
     </div>
   );
+}
+
+function formatDate(d: string): string {
+  if (!d) return "—";
+  try {
+    return new Date(d).toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return d;
+  }
 }
 
 function AdminUsers() {
@@ -102,25 +112,12 @@ function AdminUsers() {
     },
   });
 
-  const formatDate = (d: string) => {
-    if (!d) return "—";
-    try {
-      return new Date(d).toLocaleDateString("en-IN", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      });
-    } catch {
-      return d;
-    }
-  };
-
   return (
     <div className="space-y-6">
       <PanelHeader
         eyebrow="Users"
         title="Manage Users"
-        description={`${data?.total ?? 0} users`}
+        description={`${data?.total ?? 0} registered user${data?.total === 1 ? "" : "s"}.`}
       />
 
       <div className="relative max-w-sm">
@@ -141,75 +138,99 @@ function AdminUsers() {
           <p className="text-sm font-medium text-foreground">No users found</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead className="hidden sm:table-cell">Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead className="hidden md:table-cell">Joined</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.users.map((u) => (
-                <TableRow key={u.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      {u.avatar ? (
-                        <img
-                          src={u.avatar}
-                          alt=""
-                          className="h-7 w-7 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
-                          {(u.name || u.email).charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <span className="font-medium text-foreground">
-                        {u.name || "—"}
-                      </span>
-                    </div>
-                    <div className="text-xs text-muted-foreground sm:hidden">
-                      {u.email}
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
-                    {u.email}
-                  </TableCell>
-                  <TableCell>
-                    {currentUser?.role === "admin" && u.id !== currentUser.id ? (
-                      <Select
-                        value={u.role}
-                        onValueChange={(role) =>
-                          roleMutation.mutate({ id: u.id, role })
-                        }
-                      >
-                        <SelectTrigger className="h-7 w-[100px] text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="admin">Admin</SelectItem>
-                          <SelectItem value="chair">Chair</SelectItem>
-                          <SelectItem value="user">User</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Badge variant={ROLE_BADGE[u.role] ?? "outline"}>
-                        {u.role}
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
-                    {formatDate(u.created)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <UserList
+          rows={data.users}
+          currentUserId={currentUser?.id}
+          isAdmin={currentUser?.role === "admin"}
+          onRoleChange={(id, role) => roleMutation.mutate({ id, role })}
+        />
       )}
+    </div>
+  );
+}
+
+interface UserListProps {
+  rows: UserRow[];
+  currentUserId: string | undefined;
+  isAdmin: boolean;
+  onRoleChange: (id: string, role: string) => void;
+}
+
+function UserList({
+  rows,
+  currentUserId,
+  isAdmin,
+  onRoleChange,
+}: UserListProps) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-border bg-card divide-y divide-border">
+      <div className="hidden grid-cols-[1.6fr_1.4fr_120px_120px] gap-4 px-4 py-2.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground md:grid">
+        <span>Name</span>
+        <span>Email</span>
+        <span>Role</span>
+        <span>Joined</span>
+      </div>
+      {rows.map((u) => {
+        const canEditRole = isAdmin && u.id !== currentUserId;
+        return (
+          <div
+            key={u.id}
+            className="grid grid-cols-1 gap-3 px-4 py-3 transition-colors hover:bg-muted/40 md:grid-cols-[1.6fr_1.4fr_120px_120px] md:items-center md:gap-4"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              {u.avatar ? (
+                <img
+                  src={u.avatar}
+                  alt=""
+                  className="h-8 w-8 shrink-0 rounded-full object-cover"
+                />
+              ) : (
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
+                  {(u.name || u.email).charAt(0).toUpperCase()}
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground line-clamp-1">
+                  {u.name || "—"}
+                </p>
+                <p className="text-xs text-muted-foreground line-clamp-1 md:hidden">
+                  {u.email}
+                </p>
+              </div>
+            </div>
+            <div className="text-sm text-muted-foreground line-clamp-1">
+              {u.email}
+            </div>
+            <div>
+              {canEditRole ? (
+                <Select
+                  value={u.role}
+                  onValueChange={(role) => onRoleChange(u.id, role)}
+                >
+                  <SelectTrigger className="h-7 w-[100px] text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="chair">Chair</SelectItem>
+                    <SelectItem value="user">User</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Badge variant={ROLE_BADGE[u.role] ?? "outline"}>
+                  {u.role}
+                </Badge>
+              )}
+            </div>
+            <div className="font-mono text-xs tabular-nums text-muted-foreground">
+              <span className="md:hidden text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
+                Joined ·{" "}
+              </span>
+              {formatDate(u.created)}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
