@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { ClipboardList, Search, UserCheck } from "lucide-react";
+import { ClipboardList, Eye, Search, UserCheck } from "lucide-react";
 import { PanelHeader } from "@/components/admin/panel-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { RegistrationDetailDialog } from "@/components/admin/registration-detail-dialog";
 
 
 export const Route = createFileRoute("/admin/registrations")({
@@ -76,6 +77,7 @@ function AdminRegistrations() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [page, setPage] = useState(1);
+  const [detailId, setDetailId] = useState<string | undefined>(undefined);
   const perPage = 30;
 
   const { data, isLoading } = useQuery<RegistrationsResponse>({
@@ -132,6 +134,14 @@ function AdminRegistrations() {
         eyebrow="Registrations"
         title="Manage Registrations"
         description={`${data?.total ?? 0} total`}
+      />
+
+      <RegistrationDetailDialog
+        open={Boolean(detailId)}
+        onOpenChange={(o) => {
+          if (!o) setDetailId(undefined);
+        }}
+        registrationId={detailId}
       />
 
       {/* Filters */}
@@ -230,6 +240,14 @@ function AdminRegistrations() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label="View detail"
+                        onClick={() => setDetailId(reg.id)}
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
                       {!reg.checkedIn &&
                         reg.registrationStatus === "confirmed" && (
                           <Button

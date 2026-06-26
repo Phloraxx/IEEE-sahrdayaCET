@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Calendar, Loader2, Plus, Search, Trash2 } from "lucide-react";
+import { Calendar, Loader2, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { PanelHeader } from "@/components/admin/panel-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmButton } from "@/components/admin/confirm-button";
+import { EventFormDialog } from "@/components/admin/event-form-dialog";
 
 import { useAuth } from "@/lib/auth-context";
 
@@ -80,6 +81,8 @@ function AdminEvents() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [page, setPage] = useState(1);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | undefined>(undefined);
   const perPage = 20;
 
   const { data, isLoading } = useQuery<EventsResponse>({
@@ -140,13 +143,29 @@ function AdminEvents() {
         title="Manage Events"
         description={`${data?.total ?? 0} events total`}
         actions={
-          user?.role === "admin" ? (
-            <Button size="sm" className="gap-1.5">
+          user?.role === "admin" || user?.role === "chair" ? (
+            <Button
+              size="sm"
+              className="gap-1.5"
+              onClick={() => {
+                setEditingId(undefined);
+                setFormOpen(true);
+              }}
+            >
               <Plus className="h-3.5 w-3.5" />
-              Create Event
+              Create event
             </Button>
           ) : undefined
         }
+      />
+
+      <EventFormDialog
+        open={formOpen}
+        onOpenChange={(o) => {
+          setFormOpen(o);
+          if (!o) setEditingId(undefined);
+        }}
+        eventId={editingId}
       />
 
       {/* Filters */}
@@ -237,20 +256,35 @@ function AdminEvents() {
                     )}
                   </TableCell>
                   <TableCell className="text-right">
-                    {user?.role === "admin" && (
-                      <ConfirmButton
-                        label=""
-                        confirmMessage="Delete this event?"
-                        variant="destructive"
-                        icon={<Trash2 className="h-3.5 w-3.5" />}
-                        onConfirm={() => {
-                          deleteMutation.mutate(event.id);
-                          return true;
-                        }}
-                        disabled={deleteMutation.isPending}
-                        className="h-8 w-8 p-0"
-                      />
-                    )}
+                    <div className="flex items-center justify-end gap-1">
+                      {(user?.role === "admin" || user?.role === "chair") && (
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label="Edit event"
+                          onClick={() => {
+                            setEditingId(event.id);
+                            setFormOpen(true);
+                          }}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      {user?.role === "admin" && (
+                        <ConfirmButton
+                          label=""
+                          confirmMessage="Delete this event?"
+                          variant="destructive"
+                          icon={<Trash2 className="h-3.5 w-3.5" />}
+                          onConfirm={() => {
+                            deleteMutation.mutate(event.id);
+                            return true;
+                          }}
+                          disabled={deleteMutation.isPending}
+                          className="h-8 w-8 p-0"
+                        />
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

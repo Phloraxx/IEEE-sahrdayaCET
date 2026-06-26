@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Building2, Search } from "lucide-react";
+import { Building2, Pencil, Plus, Search } from "lucide-react";
 import { PanelHeader } from "@/components/admin/panel-header";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -14,16 +15,20 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-
+import { SocietyFormDialog } from "@/components/admin/society-form-dialog";
+import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/admin/societies")({
   component: AdminSocieties,
   errorComponent: ({ error }: { error: Error }) => (
     <div className="flex min-h-[50vh] items-center justify-center p-8">
       <div className="mx-auto max-w-md text-center">
-        <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-destructive">Error</p>
-        <h1 className="mb-2 text-xl font-semibold tracking-tight">{error?.message ?? "Something went wrong"}</h1>
-        <button type="button" onClick={() => window.location.reload()} className="mt-6 inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity">Try again</button>
+        <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-destructive">
+          Error
+        </p>
+        <h1 className="mb-2 text-xl font-semibold tracking-tight">
+          {error?.message ?? "Something went wrong"}
+        </h1>
       </div>
     </div>
   ),
@@ -50,7 +55,7 @@ interface SocietiesResponse {
 function SocietiesSkeleton() {
   return (
     <div className="space-y-3">
-      {Array.from({ length: 4 }).map((_, i) => (
+      {Array.from({ length: 6 }).map((_, i) => (
         <Skeleton key={i} className="h-12 w-full rounded-lg" />
       ))}
     </div>
@@ -58,7 +63,10 @@ function SocietiesSkeleton() {
 }
 
 function AdminSocieties() {
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | undefined>(undefined);
 
   const { data, isLoading } = useQuery<SocietiesResponse>({
     queryKey: ["admin-societies", { search }],
@@ -79,6 +87,30 @@ function AdminSocieties() {
         eyebrow="Societies"
         title="Manage Societies"
         description={`${data?.total ?? 0} societies`}
+        actions={
+          user?.role === "admin" ? (
+            <Button
+              size="sm"
+              className="gap-1.5"
+              onClick={() => {
+                setEditingId(undefined);
+                setFormOpen(true);
+              }}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Create society
+            </Button>
+          ) : undefined
+        }
+      />
+
+      <SocietyFormDialog
+        open={formOpen}
+        onOpenChange={(o) => {
+          setFormOpen(o);
+          if (!o) setEditingId(undefined);
+        }}
+        societyId={editingId}
       />
 
       <div className="relative max-w-sm">
@@ -112,6 +144,7 @@ function AdminSocieties() {
                 <TableHead className="hidden sm:table-cell text-right">
                   Chairs
                 </TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -133,6 +166,21 @@ function AdminSocieties() {
                   </TableCell>
                   <TableCell className="hidden sm:table-cell text-right font-mono text-sm tabular-nums">
                     {s.chairs.length}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {user?.role === "admin" && (
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label="Edit society"
+                        onClick={() => {
+                          setEditingId(s.id);
+                          setFormOpen(true);
+                        }}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
