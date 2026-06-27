@@ -12,6 +12,9 @@ export const Route = createFileRoute("/api/files/$")({
           if (!filePath) {
             return Response.json({ error: "Missing file path" }, { status: 400 });
           }
+          if (!/^[a-zA-Z0-9_]+\/[a-zA-Z0-9_]+\/[^/]+$/.test(filePath) || filePath.includes('..')) {
+            return Response.json({ error: 'Invalid file path' }, { status: 400 });
+          }
 
           const url = new URL(request.url);
           const pbUrl = new URL(`${PB_URL}/api/files/${filePath}`);

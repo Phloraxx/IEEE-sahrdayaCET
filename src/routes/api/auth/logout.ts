@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { serialize } from "cookie";
 import { PB_AUTH_COOKIE, PB_OAUTH_PROVIDER_COOKIE } from "@/lib/constants";
-import { logError } from "@/lib/logger";
+import { verifySameOrigin } from "@/lib/verify-same-origin";
 
 export const Route = createFileRoute("/api/auth/logout")({
   server: {
@@ -13,37 +13,10 @@ export const Route = createFileRoute("/api/auth/logout")({
         }
         const isProduction = process.env.NODE_ENV === "production";
 
-        // CSRF defense: require exact same-origin using URL constructor.
-        const origin = request.headers.get("origin");
-        const appUrl = process.env.PUBLIC_APP_URL;
-        if (!appUrl) {
-          if (process.env.NODE_ENV === "production") {
-            return Response.json(
-              { error: "Server misconfigured" },
-              { status: 500 },
-            );
-          }
-          // dev: skip check
-        } else if (origin) {
-          try {
-            const appOrigin = new URL(appUrl).origin;
-            const requestOrigin = new URL(origin).origin;
-            if (appOrigin !== requestOrigin) {
-              return Response.json(
-                { error: "Invalid origin" },
-                { status: 403 },
-              );
-            }
-          } catch {
-            logError("LogoutCSRF", "Failed to parse origin", {
-              origin,
-              appUrl,
-            });
-            return Response.json(
-              { error: "Invalid origin" },
-              { status: 403 },
-            );
-          }
+        try {
+          verifySameOrigin(request);
+        } catch {
+          return Response.json({ error: 'Invalid origin' }, { status: 403 });
         }
 
         const response = Response.json({ success: true });

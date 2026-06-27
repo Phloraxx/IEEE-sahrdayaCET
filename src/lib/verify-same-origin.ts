@@ -1,8 +1,12 @@
+import { AuthError } from '@/lib/auth'
 import { APP_URL } from '@/lib/constants'
 /**
  * CSRF defense: verifies the request's Origin header matches the application URL.
  * Uses URL.origin for exact comparison (not substring match).
  * Call at the top of every mutation (POST/PUT/PATCH/DELETE) handler.
+ *
+ * Throws AuthError(…, 403) on any rejection so handleError maps it to HTTP 403
+ * (a plain Error would fall through to 500).
  */
 export function verifySameOrigin(request: Request): void {
 	const origin = request.headers.get("origin");
@@ -10,17 +14,18 @@ export function verifySameOrigin(request: Request): void {
 	const isDev = process.env.NODE_ENV !== 'production';
 
 	// In production the origin check is mandatory. In dev, allow missing config or
-	// missing Origin header for local testing, but never allow a mismatched origin.
+	// missing Origin header for local testing, but never allow a mismatched or
+	// malformed origin.
 	if (!appUrl) {
 		if (!isDev) {
-			throw new Error('PUBLIC_APP_URL is not configured');
+			throw new AuthError('Server misconfigured: PUBLIC_APP_URL is not set', 500);
 		}
 		return;
 	}
 
 	if (!origin) {
 		if (!isDev) {
-			throw new Error('Missing Origin header');
+			throw new AuthError('Missing Origin header', 403);
 		}
 		return;
 	}
@@ -39,13 +44,11 @@ export function verifySameOrigin(request: Request): void {
 			if (reqHost === 'localhost' || reqHost === '127.0.0.1') return;
 		}
 
-		throw new Error(`Invalid origin: ${origin}`);
+		throw new AuthError('Invalid origin', 403);
 	} catch (e) {
-		if (e instanceof Error && e.message.startsWith('Invalid origin')) {
-			throw e;
-		}
-		if (!isDev) {
-			throw new Error(`Invalid origin: ${origin}`);
-		}
+		if (e instanceof AuthError) throw e;
+		// A present-but-unparseable Origin (or appUrl) is never a legitimate
+		// same-origin request — reject it regardless of environment.
+		throw new AuthError('Invalid origin', 403);
 	}
 }
