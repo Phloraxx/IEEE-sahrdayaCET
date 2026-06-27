@@ -5,11 +5,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from '@/lib/auth-context'
 import { APP_URL } from '@/lib/constants'
 import '@/features/globals.css'
+import { StarsBackground } from '@/components/ui/stars-background'
+import { ShootingStars } from '@/components/ui/shooting-stars'
 
 // Fonts — replace next/font/google with @fontsource equivalents
 import '@fontsource-variable/geist'
 import '@fontsource/press-start-2p'
 import '@fontsource/caveat'
+import '@fontsource/anton'
 
 // CSP, HSTS, and other security headers are set by the Caddy reverse proxy in production.
 // In dev mode, the Vite dev server serves directly — CSP is not enforced locally.
@@ -134,8 +137,14 @@ export const Route = createRootRoute({
   },
   component: RootComponent,
   notFoundComponent: () => (
-    <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center px-4">
-      <div className="text-center max-w-md">
+    <div className="relative min-h-screen bg-white flex items-center justify-center px-4 overflow-hidden">
+      <div className="absolute inset-0 z-0">
+        <StarsBackground starDensity={0.0004} allStarsTwinkle starColor="#1e293b" />
+        <ShootingStars starColor="#00629b" trailColor="#0099D6" minDelay={1500} maxDelay={4000} minSpeed={8} maxSpeed={20} starWidth={12} starHeight={2} />
+        <ShootingStars starColor="#00629b" trailColor="#0099D6" minDelay={2000} maxDelay={5000} minSpeed={12} maxSpeed={25} starWidth={10} starHeight={1} />
+        <ShootingStars starColor="#0099D6" trailColor="#00629b" minDelay={3000} maxDelay={6000} minSpeed={10} maxSpeed={22} starWidth={8} starHeight={1} />
+      </div>
+      <div className="relative z-10 text-center max-w-md">
         <div className="text-8xl font-bold text-[#00629B] mb-4 font-pixel">404</div>
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Page Not Found</h1>
         <p className="text-gray-500 mb-6">The page you're looking for doesn't exist or has been moved.</p>
@@ -146,8 +155,14 @@ export const Route = createRootRoute({
     </div>
   ),
   errorComponent: ({ error }: { error: Error }) => (
-    <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center px-4">
-      <div className="text-center max-w-md">
+    <div className="relative min-h-screen bg-white flex items-center justify-center px-4 overflow-hidden">
+      <div className="absolute inset-0 z-0">
+        <StarsBackground starDensity={0.0004} allStarsTwinkle starColor="#1e293b" />
+        <ShootingStars starColor="#00629b" trailColor="#0099D6" minDelay={1500} maxDelay={4000} minSpeed={8} maxSpeed={20} starWidth={12} starHeight={2} />
+        <ShootingStars starColor="#00629b" trailColor="#0099D6" minDelay={2000} maxDelay={5000} minSpeed={12} maxSpeed={25} starWidth={10} starHeight={1} />
+        <ShootingStars starColor="#0099D6" trailColor="#00629b" minDelay={3000} maxDelay={6000} minSpeed={10} maxSpeed={22} starWidth={8} starHeight={1} />
+      </div>
+      <div className="relative z-10 text-center max-w-md">
         <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-red-100 flex items-center justify-center">
           <span className="text-2xl font-bold text-red-600">!</span>
         </div>
