@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Loader2, Mail, Phone, Ticket, UserCheck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ConfirmButton } from "@/components/admin/confirm-button";
 
@@ -96,6 +95,7 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
         queryKey: ["admin-registration", registrationId],
       });
       queryClient.invalidateQueries({ queryKey: ["admin-registrations"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
     },
   });
 
@@ -179,14 +179,13 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {!reg.checkedIn && reg.registrationStatus === "confirmed" && (
-              <Button
-                size="sm"
-                onClick={() => checkInMutation.mutate()}
+              <ConfirmButton
+                label="Check in"
+                confirmMessage="Check in this attendee?"
+                icon={<UserCheck className="h-3.5 w-3.5" />}
+                onConfirm={() => { checkInMutation.mutate(); return true; }}
                 disabled={checkInMutation.isPending}
-              >
-                <UserCheck className="h-3.5 w-3.5" />
-                Check in
-              </Button>
+              />
             )}
             {reg.registrationStatus !== "cancelled" && (
               <ConfirmButton

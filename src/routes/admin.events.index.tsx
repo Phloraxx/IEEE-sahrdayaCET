@@ -151,6 +151,9 @@ function AdminEvents() {
       queryClient.invalidateQueries({ queryKey: ["admin-events"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
     },
+    onError: (error) => {
+      alert(error?.message ?? "Failed to delete event");
+    },
   });
 
 

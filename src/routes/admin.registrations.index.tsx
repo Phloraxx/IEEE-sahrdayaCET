@@ -121,6 +121,7 @@ function AdminRegistrations() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-registrations"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
     },
   });
 
@@ -205,7 +206,7 @@ function AdminRegistrations() {
         />
       )}
 
-      {data && data.hasMore && (
+      {data && data.total > 30 && (
         <div className="flex items-center justify-between">
           <p className="text-xs text-muted-foreground">
             Page {data.page} of {Math.ceil(data.total / perPage)}

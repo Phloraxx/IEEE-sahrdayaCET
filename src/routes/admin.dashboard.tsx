@@ -265,7 +265,6 @@ function AdminDashboard() {
                   <Link
                     key={segment.key}
                     to="/admin/registrations"
-                    search={{ status: segment.key } as never}
                     className="group flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2 transition-colors hover:border-foreground/20"
                   >
                     <div className="flex items-center gap-2 min-w-0">

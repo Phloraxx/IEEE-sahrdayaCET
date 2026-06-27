@@ -70,7 +70,7 @@ export const Route = createFileRoute("/api/check-in/verify")({
           // Verify event exists and has check-in enabled
           const event = await pb
             .collection("events")
-            .getOne(resolvedEventId, { fields: "id,checkInEnabled" })
+            .getOne(resolvedEventId, { fields: "id,checkInEnabled,title" })
             .catch(() => null);
           if (!event) {
             return Response.json({ error: "Event not found" }, { status: 404 });
@@ -101,7 +101,7 @@ export const Route = createFileRoute("/api/check-in/verify")({
               id: registration.id,
               userName: getField(registration, 'userName', '') as string,
               userEmail: '',
-              eventTitle: '',
+              eventTitle: getField(event, 'title', '') as string,
               ticketId: ticketId,
               checkedIn: true,
               checkedInAt: new Date().toISOString(),

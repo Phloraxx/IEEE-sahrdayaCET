@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Search, Users } from "lucide-react";
 import { PanelHeader } from "@/components/admin/panel-header";
 import { Badge } from "@/components/ui/badge";
@@ -93,6 +93,8 @@ function AdminUsers() {
   const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  const [inputValue, setInputValue] = useState("");
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data, isLoading } = useQuery<UsersResponse>({
     queryKey: ["admin-users", { search }],
@@ -121,6 +123,7 @@ function AdminUsers() {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
     },
     onError: () => {
+      alert('Failed to update role. Please try again.');
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
     },
   });
@@ -137,8 +140,12 @@ function AdminUsers() {
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder="Search by name or email…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={inputValue}
+          onChange={(e) => {
+            setInputValue(e.target.value);
+            if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+            searchTimeoutRef.current = setTimeout(() => setSearch(e.target.value), 300);
+          }}
           className="pl-9"
         />
       </div>
@@ -218,7 +225,7 @@ function UserList({
               {canEditRole ? (
                 <Select
                   value={u.role}
-                  onValueChange={(role) => onRoleChange(u.id, role)}
+                  onValueChange={(role) => { if (!window.confirm('Change this user\'s role?')) return; onRoleChange(u.id, role); }}
                 >
                   <SelectTrigger className="h-7 w-[100px] text-xs">
                     <SelectValue />

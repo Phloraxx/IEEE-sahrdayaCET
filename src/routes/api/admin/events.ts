@@ -6,6 +6,7 @@ import { parsePagination, buildFilter } from "@/lib/route-helpers";
 import { verifySameOrigin } from "@/lib/verify-same-origin";
 import { EventCreateSchema } from "@/schemas/events";
 import { getField, getExpand } from "@/lib/safe-get";
+import { parseFormData } from "@/lib/parse-form-data";
 
 export const Route = createFileRoute("/api/admin/events")({
   server: {
@@ -23,6 +24,7 @@ export const Route = createFileRoute("/api/admin/events")({
           const search = url.searchParams.get("search");
 
           const baseParts: string[] = [];
+          baseParts.push('isDeleted = false');
           if (status && status !== "all")
             baseParts.push(`status = ${escapeFilterValue(status)}`);
           if (search) baseParts.push(`title ~ ${escapeFilterValue(search)}`);
@@ -79,12 +81,11 @@ export const Route = createFileRoute("/api/admin/events")({
           verifySameOrigin(request);
           const ctx = await authenticateAdmin(request);
 
-          const parsed = EventCreateSchema.parse(await request.json());
+          const parsed = EventCreateSchema.parse(await parseFormData(request));
 
           // Chair scoping: chairs can only create events for their own societies
           if (ctx.role === "chair") {
             const allowed = await ctx.pb.collection("societies").getFullList({
-              filter: `chairs ?= ${escapeFilterValue(ctx.userId)}`,
               fields: "id",
             });
             const allowedIds = allowed.map((s: Record<string, unknown>) => s.id);
