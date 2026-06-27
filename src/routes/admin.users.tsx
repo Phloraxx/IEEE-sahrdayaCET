@@ -94,6 +94,7 @@ function AdminUsers() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [inputValue, setInputValue] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data, isLoading } = useQuery<UsersResponse>({
@@ -127,6 +128,9 @@ function AdminUsers() {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
     },
   });
+  const filteredUsers = (data?.users ?? []).filter(
+    (u) => roleFilter === "all" || u.role === roleFilter,
+  );
 
   return (
     <div className="space-y-6">
@@ -136,30 +140,43 @@ function AdminUsers() {
         description={`${data?.total ?? 0} registered user${data?.total === 1 ? "" : "s"}.`}
       />
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Search by name or email…"
-          value={inputValue}
-          onChange={(e) => {
-            setInputValue(e.target.value);
-            if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-            searchTimeoutRef.current = setTimeout(() => setSearch(e.target.value), 300);
-          }}
-          className="pl-9"
-        />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative max-w-sm flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search by name or email…"
+            value={inputValue}
+            onChange={(e) => {
+              setInputValue(e.target.value);
+              if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+              searchTimeoutRef.current = setTimeout(() => setSearch(e.target.value), 300);
+            }}
+            className="pl-9"
+          />
+        </div>
+        <Select value={roleFilter} onValueChange={setRoleFilter}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="All roles" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All roles</SelectItem>
+            <SelectItem value="admin">Admin</SelectItem>
+            <SelectItem value="chair">Chair</SelectItem>
+            <SelectItem value="user">User</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {isLoading ? (
         <UsersSkeleton />
-      ) : !data?.users.length ? (
+      ) : !filteredUsers.length ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-card/50 px-6 py-16 text-center">
           <Users className="h-8 w-8 text-muted-foreground/40" />
           <p className="text-sm font-medium text-foreground">No users found</p>
         </div>
       ) : (
         <UserList
-          rows={data.users}
+          rows={filteredUsers}
           currentUserId={currentUser?.id}
           isAdmin={currentUser?.role === "admin"}
           onRoleChange={(id, role) => roleMutation.mutate({ id, role })}

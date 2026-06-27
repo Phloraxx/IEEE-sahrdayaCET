@@ -1,5 +1,6 @@
 import {
   createFileRoute,
+  Link,
   Outlet,
   useLocation,
   useRouterState,
@@ -14,6 +15,25 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/admin")({
   component: AdminLayout,
+  notFoundComponent: () => (
+    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 p-8 text-center">
+      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-primary">
+        404
+      </p>
+      <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+        Page not found
+      </h1>
+      <p className="max-w-sm text-sm text-muted-foreground">
+        This admin page doesn't exist or may have been moved.
+      </p>
+      <Link
+        to="/admin/dashboard"
+        className="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+      >
+        Back to dashboard
+      </Link>
+    </div>
+  ),
 });
 
 function useTheme() {

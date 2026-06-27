@@ -115,6 +115,7 @@ export function EventForm({ mode, eventId }: EventFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [dateError, setDateError] = useState<string | null>(null);
+  const [dirty, setDirty] = useState(false);
 
   // Societies dropdown
   const { data: societies } = useQuery<{ societies: SocietyOption[] }>({
@@ -186,6 +187,16 @@ export function EventForm({ mode, eventId }: EventFormProps) {
       }
     }
   }, [existing, isEdit]);
+  // Warn before navigating away / closing tab with unsaved changes
+  useEffect(() => {
+    if (!dirty) return;
+    const h = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", h);
+    return () => window.removeEventListener("beforeunload", h);
+  }, [dirty]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -287,6 +298,7 @@ export function EventForm({ mode, eventId }: EventFormProps) {
         throw new Error(body?.error || `Request failed (${res.status})`);
       }
 
+      setDirty(false);
       queryClient.invalidateQueries({ queryKey: ["admin-events"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
       navigate({ to: "/admin/events" });
@@ -345,7 +357,10 @@ export function EventForm({ mode, eventId }: EventFormProps) {
       e: React.ChangeEvent<
         HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
       >,
-    ) => setForm((prev) => ({ ...prev, [field]: e.target.value }));
+    ) => {
+      setDirty(true);
+      setForm((prev) => ({ ...prev, [field]: e.target.value }));
+    };
 
   return (
     <form onSubmit={handleSubmit}>
@@ -453,7 +468,7 @@ export function EventForm({ mode, eventId }: EventFormProps) {
               <FormSection title="Custom Registration Fields">
                 <CustomFieldBuilder
                   fields={customFields}
-                  onChange={setCustomFields}
+                  onChange={(v) => { setDirty(true); setCustomFields(v); }}
                 />
                 {customFields.length > 0 && (
                   <div className="mt-4 pt-4 border-t border-border/50">
@@ -516,12 +531,13 @@ export function EventForm({ mode, eventId }: EventFormProps) {
                   <input
                     type="checkbox"
                     checked={form.registrationOpen}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      setDirty(true);
                       setForm((prev) => ({
                         ...prev,
                         registrationOpen: e.target.checked,
-                      }))
-                    }
+                      }));
+                    }}
                     className="rounded border-input"
                   />
                   <span className="text-sm font-medium">
@@ -578,12 +594,13 @@ export function EventForm({ mode, eventId }: EventFormProps) {
                       <input
                         type="checkbox"
                         checked={form.checkInEnabled}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          setDirty(true);
                           setForm((prev) => ({
                             ...prev,
                             checkInEnabled: e.target.checked,
-                          }))
-                        }
+                          }));
+                        }}
                         className="rounded border-input"
                       />
                       <span className="text-sm font-medium">
@@ -594,12 +611,13 @@ export function EventForm({ mode, eventId }: EventFormProps) {
                       <input
                         type="checkbox"
                         checked={form.collectIeeeMember}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          setDirty(true);
                           setForm((prev) => ({
                             ...prev,
                             collectIeeeMember: e.target.checked,
-                          }))
-                        }
+                          }));
+                        }}
                         className="rounded border-input"
                       />
                       <span className="text-sm font-medium">
@@ -637,12 +655,13 @@ export function EventForm({ mode, eventId }: EventFormProps) {
                   <Select
                     key={form.society || "__none__"}
                     value={form.society || "__none__"}
-                    onValueChange={(v) =>
+                    onValueChange={(v) => {
+                      setDirty(true);
                       setForm((prev) => ({
                         ...prev,
                         society: v === "__none__" ? "" : v,
-                      }))
-                    }
+                      }));
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select a society..." />
@@ -717,9 +736,10 @@ export function EventForm({ mode, eventId }: EventFormProps) {
                   <Select
                     key={form.status || "draft"}
                     value={form.status}
-                    onValueChange={(v) =>
-                      setForm((prev) => ({ ...prev, status: v }))
-                    }
+                    onValueChange={(v) => {
+                      setDirty(true);
+                      setForm((prev) => ({ ...prev, status: v }));
+                    }}
                   >
                     <SelectTrigger id="evt-status">
                       <SelectValue />
@@ -744,7 +764,7 @@ export function EventForm({ mode, eventId }: EventFormProps) {
                 <FormSection title="Coupons">
                   <CouponManager
                     coupons={coupons}
-                    onChange={setCoupons}
+                    onChange={(v) => { setDirty(true); setCoupons(v); }}
                   />
                 </FormSection>
               </CardContent>
@@ -776,7 +796,16 @@ export function EventForm({ mode, eventId }: EventFormProps) {
             <Button
               type="button"
               variant="outline"
-              onClick={() => navigate({ to: "/admin/events" })}
+              onClick={() => {
+                if (
+                  dirty &&
+                  !window.confirm(
+                    "You have unsaved changes. Discard them?",
+                  )
+                )
+                  return;
+                navigate({ to: "/admin/events" });
+              }}
               disabled={submitting}
             >
               Cancel

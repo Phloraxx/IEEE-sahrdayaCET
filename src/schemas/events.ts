@@ -18,7 +18,7 @@ export const CouponSchema = z.object({
 // Shared base schema — derive create (required) and update (partial) from it.
 
 const BaseEventSchema = z.object({
-  title: z.string().min(1),
+  title: z.string().min(1).max(200),
   description: z.string().optional().default(''),
   date: z.string().min(1),
   endDate: z.string().optional(),

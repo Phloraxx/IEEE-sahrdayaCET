@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth-context";
 
 interface NavItem {
   label: string;
@@ -94,6 +95,7 @@ export function AdminSidebar({
   onThemeToggle,
 }: AdminSidebarProps) {
   const location = useLocation();
+  const { signOut } = useAuth();
   const items = NAV_ITEMS.filter(
     (item) => !item.adminOnly || userRole === "admin",
   );
@@ -226,25 +228,7 @@ export function AdminSidebar({
         <div className="border-t border-sidebar-border p-3">
           <button
             type="button"
-            onClick={async () => {
-              try {
-                await fetch("/api/auth/logout", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                });
-              } finally {
-                // Defense-in-depth: attempt client-side cookie clearing.
-                // HttpOnly cookies cannot be cleared from JS, but this covers
-                // any non-HttpOnly auth cookies that may exist.
-                const clear = (name: string) => {
-                  document.cookie = `${name}=; path=/; max-age=0`;
-                  document.cookie = `${name}=; path=/; max-age=0; domain=${window.location.hostname}`;
-                };
-                clear("pb_auth");
-                clear("pb_oauth_provider");
-                window.location.href = "/";
-              }
-            }}
+            onClick={signOut}
             className="group flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
           >
             <LogOut className="h-4 w-4" />

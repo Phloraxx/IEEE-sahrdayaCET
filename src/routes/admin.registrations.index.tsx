@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ChevronRight,
   ClipboardList,
@@ -22,7 +22,17 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 
+const registrationStatusValues = ["all", "confirmed", "pending", "cancelled"] as const;
+type RegistrationStatus = (typeof registrationStatusValues)[number];
+
 export const Route = createFileRoute("/admin/registrations/")({
+  validateSearch: (search: Record<string, unknown>): { status?: string } => {
+    const raw = search.status;
+    if (typeof raw === "string" && registrationStatusValues.includes(raw as RegistrationStatus)) {
+      return { status: raw as RegistrationStatus };
+    }
+    return { status: undefined };
+  },
   component: AdminRegistrations,
   errorComponent: ({ error }: { error: Error }) => (
     <div className="flex min-h-[50vh] items-center justify-center p-8">
@@ -84,10 +94,15 @@ function csrfToken(): string {
 
 function AdminRegistrations() {
   const queryClient = useQueryClient();
+  const { status: urlStatus } = Route.useSearch();
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("all");
+  const [status, setStatus] = useState(urlStatus ?? "all");
   const [page, setPage] = useState(1);
   const perPage = 30;
+
+  useEffect(() => {
+    setStatus(urlStatus ?? "all");
+  }, [urlStatus]);
 
   const { data, isLoading } = useQuery<RegistrationsResponse>({
     queryKey: ["admin-registrations", { search, status, page }],
