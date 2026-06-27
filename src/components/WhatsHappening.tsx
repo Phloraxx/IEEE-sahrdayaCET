@@ -52,7 +52,7 @@ export const WhatsHappening: React.FC<WhatsHappeningProps> = ({
               loading="lazy"
               alt={latestEvent?.title || "Upcoming Event"}
               className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-              src={latestEvent?.bannerUrl || "/emblem.png"}
+              src={latestEvent?.bannerUrl || "/AGM.webp"}
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
             />
           </div>
