@@ -3,44 +3,10 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
-import { createClientPB, buildFileUrl } from "@/lib/pb"
-import {
-  ArrowLeft,
-  Users,
-  Cpu,
-  Zap,
-  Radio,
-  Atom,
-  GraduationCap,
-  Activity,
-  Bolt,
-  Heart,
-  Cog,
-  Wrench,
-  Sparkles,
-  Camera,
-  FileText,
-  MessageSquare,
-  Palette,
-  X,
-  Mail,
-  Phone,
-} from "lucide-react";
+import { createClientPB, buildFileUrl } from "@/lib/pb";
+import { cn } from "@/lib/utils";
+import { X, Mail, Phone, Users } from "lucide-react";
 import { Linkedin, Instagram } from "@/components/icons";
-
-// ===== TYPES =====
-interface Member {
-  slNo: number;
-  name: string;
-  department: string;
-  semester: string;
-  position: string;
-  photoUrl?: string;
-  linkedin?: string;
-  instagram?: string;
-  email?: string;
-  phone?: string;
-}
 
 export interface ExecomMemberDoc {
   id: string;
@@ -60,158 +26,79 @@ export interface ExecomMemberDoc {
   phone?: string;
 }
 
-interface Section {
+// ===== TYPES =====
+interface Member {
   id: string;
-  title: string;
-  shortTitle: string;
-  icon: React.ReactNode;
-  members: Member[];
+  slNo: number;
+  name: string;
+  department: string;
+  semester: string;
+  position: string;
+  sectionId: string;
+  photoUrl?: string;
+  linkedin?: string;
+  instagram?: string;
+  email?: string;
+  phone?: string;
 }
 
 interface ExecomClientProps {
   initialDocs: ExecomMemberDoc[];
 }
 
-// ===== SECTION CONFIGURATION =====
-const getSectionIcon = (sectionId: string): React.ReactNode => {
-  const iconMap: { [key: string]: React.ReactNode } = {
-    core: <Users className="w-4 h-4" />,
-    cs: <Cpu className="w-4 h-4" />,
-    ias: <Cog className="w-4 h-4" />,
-    ies: <Zap className="w-4 h-4" />,
-    sight: <Sparkles className="w-4 h-4" />,
-    sps: <Radio className="w-4 h-4" />,
-    npss: <Atom className="w-4 h-4" />,
-    edsoc: <GraduationCap className="w-4 h-4" />,
-    css: <Activity className="w-4 h-4" />,
-    embs: <Heart className="w-4 h-4" />,
-    pes: <Bolt className="w-4 h-4" />,
-    wie: <Users className="w-4 h-4" />,
-    cass: <Wrench className="w-4 h-4" />,
-    ras: <Cog className="w-4 h-4" />,
-    tech: <Cpu className="w-4 h-4" />,
-    epd: <FileText className="w-4 h-4" />,
-    media: <Camera className="w-4 h-4" />,
-    ec: <Users className="w-4 h-4" />,
-    design: <Palette className="w-4 h-4" />,
-    content: <MessageSquare className="w-4 h-4" />,
-    qrt: <Zap className="w-4 h-4" />,
+// ===== SECTION CONFIG =====
+// Canonical display order for the filter pills (mirrors the live execom page).
+const SECTION_ORDER = [
+  "core", "cs", "ias", "ies", "sight", "sps", "npss", "edsoc", "css",
+  "embs", "pes", "wie", "cass", "ras", "tech", "epd", "media", "ec",
+  "design", "content", "qrt",
+] as const;
+
+const SECTION_LABEL: Record<string, string> = {
+  core: "Core", cs: "CS", ias: "IAS", ies: "IES", sight: "SIGHT",
+  sps: "SPS", npss: "NPSS", edsoc: "EdSoc", css: "CSS", embs: "EMBS",
+  pes: "PES", wie: "WIE", cass: "CASS", ras: "RAS", tech: "Tech",
+  epd: "EPD", media: "Media", ec: "Event", design: "Design",
+  content: "Content", qrt: "QRT",
+};
+
+const IEEE_BLUE = "#00629B";
+
+function initials(name: string): string {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+function docToMember(doc: ExecomMemberDoc): Member {
+  return {
+    id: doc.id,
+    slNo: doc.slNo,
+    name: doc.name,
+    department: doc.department,
+    semester: doc.semester,
+    position: doc.position,
+    sectionId: doc.sectionId,
+    photoUrl: doc.photoUrl,
+    linkedin: doc.linkedin,
+    instagram: doc.instagram,
+    email: doc.email,
+    phone: doc.phone,
   };
-  return iconMap[sectionId] || <Users className="w-4 h-4" />;
-};
+}
 
-const getShortTitle = (sectionId: string, fullTitle: string): string => {
-  const shortMap: { [key: string]: string } = {
-    core: "Core",
-    cs: "CS",
-    ias: "IAS",
-    ies: "IES",
-    sight: "SIGHT",
-    sps: "SPS",
-    npss: "NPSS",
-    edsoc: "EdSoc",
-    css: "CSS",
-    embs: "EMBS",
-    pes: "PES",
-    wie: "WIE",
-    cass: "CASS",
-    ras: "RAS",
-    tech: "Tech",
-    epd: "EPD",
-    media: "Media",
-    ec: "Event",
-    design: "Design",
-    content: "Content",
-    qrt: "QRT",
-  };
-  return shortMap[sectionId] || fullTitle;
-};
-
-// Transform documents to sections array
-const transformToSections = (documents: ExecomMemberDoc[]): Section[] => {
-  const groupedBySectionId: {
-    [key: string]: { title: string; members: Member[] };
-  } = {};
-
-  if (!documents || !Array.isArray(documents)) return [];
-  documents.forEach((doc) => {
-    if (!groupedBySectionId[doc.sectionId]) {
-      groupedBySectionId[doc.sectionId] = {
-        title: doc.section,
-        members: [],
-      };
-    }
-
-    groupedBySectionId[doc.sectionId]!.members.push({
-      slNo: doc.slNo,
-      name: doc.name,
-      department: doc.department,
-      semester: doc.semester,
-      position: doc.position,
-      photoUrl: doc.photoUrl,
-      linkedin: doc.linkedin,
-      instagram: doc.instagram,
-      email: doc.email,
-      phone: doc.phone,
-    });
-  });
-
-  // Define section order
-  const sectionOrder = [
-    "core",
-    "cs",
-    "ias",
-    "ies",
-    "sight",
-    "sps",
-    "npss",
-    "edsoc",
-    "css",
-    "embs",
-    "pes",
-    "wie",
-    "cass",
-    "ras",
-    "tech",
-    "epd",
-    "media",
-    "ec",
-    "design",
-    "content",
-    "qrt",
-  ];
-
-  return sectionOrder
-    .filter((sectionId) => groupedBySectionId[sectionId])
-    .map((sectionId) => {
-      const section = groupedBySectionId[sectionId]!;
-      return {
-        id: sectionId,
-        title: section.title,
-        shortTitle: getShortTitle(
-          sectionId,
-          section.title,
-        ),
-        icon: getSectionIcon(sectionId),
-        members: section.members.sort(
-          (a, b) => a.slNo - b.slNo,
-        ),
-      };
-    });
-};
-
-// ===== COMPONENTS =====
-const MemberDetailModal: React.FC<{
-  member: Member;
-  onClose: () => void;
-}> = ({ member, onClose }) => {
+// ===== MEMBER DETAIL MODAL =====
+const MemberDetailModal: React.FC<{ member: Member; onClose: () => void }> = ({
+  member,
+  onClose,
+}) => {
   const [imgError, setImgError] = useState(false);
   const imageSrc = member.photoUrl || "";
   const hasContactInfo = !!(
-    member.linkedin ||
-    member.instagram ||
-    member.email ||
-    member.phone
+    member.linkedin || member.instagram || member.email || member.phone
   );
 
   return (
@@ -223,77 +110,70 @@ const MemberDetailModal: React.FC<{
         role="dialog"
         aria-modal="true"
         aria-label={member.name}
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
         onClick={onClose}
         onKeyDown={(e: React.KeyboardEvent) => e.key === "Escape" && onClose()}
       >
         <motion.div
-          initial={{ scale: 0.9, opacity: 0, y: 20 }}
+          initial={{ scale: 0.95, opacity: 0, y: 16 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.9, opacity: 0, y: 20 }}
-          transition={{ type: "spring", damping: 25, stiffness: 300 }}
-          className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden relative my-4"
+          exit={{ scale: 0.95, opacity: 0, y: 16 }}
+          transition={{ type: "spring", damping: 26, stiffness: 320 }}
+          className="relative my-4 w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl"
           onClick={(e) => e.stopPropagation()}
           tabIndex={-1}
         >
-          {/* Close Button */}
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm shadow-lg flex items-center justify-center hover:bg-white transition-all hover:scale-110"
+            aria-label="Close"
+            className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-gray-600 shadow-md backdrop-blur-sm transition hover:scale-105 hover:bg-white"
           >
-            <X className="w-5 h-5 text-gray-600" />
+            <X className="h-5 w-5" />
           </button>
 
-          {/* Image */}
-          <div className="relative h-72 sm:h-96 bg-gray-50 overflow-hidden flex-shrink-0">
+          <div className="relative aspect-[4/5] overflow-hidden bg-gray-100">
             {imageSrc && !imgError ? (
               <img
                 src={imageSrc}
                 alt={member.name}
                 loading="lazy"
                 onError={() => setImgError(true)}
-                className="absolute inset-0 w-full h-full object-cover object-top"
+                className="absolute inset-0 h-full w-full object-cover object-top"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
-                <span className="text-6xl font-light text-gray-400">
-                  {member.name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")
-                    .slice(0, 2)}
+              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-50 to-gray-200">
+                <span className="text-6xl font-light text-gray-300">
+                  {initials(member.name)}
                 </span>
               </div>
             )}
-
-            {/* Number Badge */}
-            <div className="absolute top-4 left-4">
-              <span className="text-xs font-mono text-white bg-black/40 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                #{String(member.slNo).padStart(2, "0")}
-              </span>
-            </div>
           </div>
 
-          {/* Details */}
           <div className="p-6">
-            <div className="mb-4">
-              <div className="text-xs font-semibold text-[#00629B] uppercase tracking-wider mb-2">
-                {member.position}
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                {member.name}
-              </h2>
-              <div className="flex items-center gap-3 text-sm text-gray-500">
-                <span className="font-medium">{member.department}</span>
-                <span className="w-1.5 h-1.5 rounded-full bg-gray-300" />
-                <span className="font-medium">{member.semester}</span>
-              </div>
+            <div
+              className="text-xs font-semibold uppercase tracking-wider"
+              style={{ color: IEEE_BLUE }}
+            >
+              {member.position || "Member"}
             </div>
+            <h2 className="mt-2 text-2xl font-bold text-gray-900">{member.name}</h2>
+            {(member.department || member.semester) && (
+              <div className="mt-2 flex items-center gap-3 text-sm text-gray-500">
+                {member.department && (
+                  <span className="font-medium">{member.department}</span>
+                )}
+                {member.department && member.semester && (
+                  <span className="h-1.5 w-1.5 rounded-full bg-gray-300" />
+                )}
+                {member.semester && (
+                  <span className="font-medium">{member.semester}</span>
+                )}
+              </div>
+            )}
 
-            {/* Contact Links */}
             {hasContactInfo && (
-              <div className="space-y-2 pt-4 border-t border-gray-100">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+              <div className="mt-5 border-t border-gray-100 pt-5">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
                   Connect
                 </p>
                 <div className="grid grid-cols-2 gap-2">
@@ -302,9 +182,9 @@ const MemberDetailModal: React.FC<{
                       href={member.linkedin}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0077B5] text-white hover:bg-[#006399] transition-all hover:scale-105"
+                      className="flex items-center gap-2 rounded-xl bg-[#0077B5] px-4 py-2.5 text-white transition hover:scale-[1.03]"
                     >
-                      <Linkedin className="w-4 h-4" />
+                      <Linkedin className="h-4 w-4" />
                       <span className="text-sm font-medium">LinkedIn</span>
                     </a>
                   )}
@@ -313,27 +193,27 @@ const MemberDetailModal: React.FC<{
                       href={member.instagram}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-br from-[#833AB4] via-[#E1306C] to-[#F77737] text-white hover:opacity-90 transition-all hover:scale-105"
+                      className="flex items-center gap-2 rounded-xl bg-gradient-to-br from-[#833AB4] via-[#E1306C] to-[#F77737] px-4 py-2.5 text-white transition hover:scale-[1.03]"
                     >
-                      <Instagram className="w-4 h-4" />
+                      <Instagram className="h-4 w-4" />
                       <span className="text-sm font-medium">Instagram</span>
                     </a>
                   )}
                   {member.email && (
                     <a
                       href={`mailto:${member.email}`}
-                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all hover:scale-105"
+                      className="flex items-center gap-2 rounded-xl bg-gray-100 px-4 py-2.5 text-gray-700 transition hover:scale-[1.03] hover:bg-gray-200"
                     >
-                      <Mail className="w-4 h-4" />
+                      <Mail className="h-4 w-4" />
                       <span className="text-sm font-medium">Email</span>
                     </a>
                   )}
                   {member.phone && (
                     <a
                       href={`tel:${member.phone}`}
-                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all hover:scale-105"
+                      className="flex items-center gap-2 rounded-xl bg-gray-100 px-4 py-2.5 text-gray-700 transition hover:scale-[1.03] hover:bg-gray-200"
                     >
-                      <Phone className="w-4 h-4" />
+                      <Phone className="h-4 w-4" />
                       <span className="text-sm font-medium">Call</span>
                     </a>
                   )}
@@ -347,6 +227,7 @@ const MemberDetailModal: React.FC<{
   );
 };
 
+// ===== MEMBER CARD (flat, Enumera-style) =====
 const MemberCard: React.FC<{
   member: Member;
   index: number;
@@ -354,109 +235,88 @@ const MemberCard: React.FC<{
 }> = React.memo(({ member, index, onClick }) => {
   const [imgError, setImgError] = useState(false);
   const imageSrc = member.photoUrl || "";
-  const hasContactInfo = !!(
-    member.linkedin ||
-    member.instagram ||
-    member.email ||
-    member.phone
-  );
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
+    <motion.button
+      type="button"
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: index * 0.03 }}
-      className="group cursor-pointer"
+      transition={{ duration: 0.35, delay: Math.min(index * 0.025, 0.4) }}
       onClick={onClick}
+      className="group rounded-2xl text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00629B] focus-visible:ring-offset-2"
     >
-      <div className="relative bg-white border border-gray-100 rounded-2xl overflow-hidden hover:border-gray-200 hover:shadow-xl transition-all duration-500 hover:scale-105">
-        {/* Image */}
-        <div className="relative aspect-[3/4] bg-gray-50 overflow-hidden">
-          {imageSrc && !imgError ? (
-            <img
-              src={imageSrc}
-              alt={member.name}
-              loading="lazy"
-              onError={() => setImgError(true)}
-              className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-105"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gray-100">
-              <span className="text-4xl font-light text-gray-300">
-                {member.name
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")
-                  .slice(0, 2)}
-              </span>
-            </div>
-          )}
-
-          {/* Number */}
-          <div className="absolute top-3 left-3">
-            <span className="text-[10px] font-mono text-white/80 bg-black/30 backdrop-blur-sm px-2 py-1 rounded-full">
-              {String(member.slNo).padStart(2, "0")}
+      <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-gray-100">
+        {imageSrc && !imgError ? (
+          <img
+            src={imageSrc}
+            alt={member.name}
+            loading="lazy"
+            onError={() => setImgError(true)}
+            className="absolute inset-0 h-full w-full object-cover object-top transition-transform duration-700 group-hover:scale-[1.04]"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+            <span className="text-4xl font-light text-gray-300">
+              {initials(member.name)}
             </span>
           </div>
-
-          {/* Contact Indicator */}
-          {hasContactInfo && (
-            <div className="absolute bottom-3 right-3 transition-all group-hover:scale-110">
-              <div className="w-8 h-8 rounded-full bg-[#00629B]/70 backdrop-blur-sm flex items-center justify-center shadow-lg group-hover:bg-[#00629B]">
-                <Linkedin className="w-4 h-4 text-white" />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Info */}
-        <div className="p-4">
-          <div className="text-[10px] font-medium text-[#00629B] uppercase tracking-wider mb-1">
-            {member.position || "Member"}
-          </div>
-          <h3 className="font-semibold text-gray-900 text-sm leading-tight mb-2">
-            {member.name}
-          </h3>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] text-gray-400 font-medium">
-              {member.department || ""}
-            </span>
-            {(member.department || member.semester) && (
-              <>
-                <span className="w-1 h-1 rounded-full bg-gray-300" />
-                <span className="text-[10px] text-gray-400 font-medium">
-                  {member.semester || ""}
-                </span>
-              </>
-            )}
-          </div>
-        </div>
+        )}
       </div>
-    </motion.div>
+      <h3 className="mt-3 text-[15px] font-semibold leading-snug text-gray-900">
+        {member.name}
+      </h3>
+      <p className="mt-0.5 text-[13px] text-gray-500">
+        {member.position || "Member"}
+      </p>
+    </motion.button>
   );
 });
 MemberCard.displayName = "MemberCard";
 
+// ===== FILTER PILL =====
+const FilterPill: React.FC<{
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}> = ({ active, onClick, children }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-pressed={active}
+    className={cn(
+      "rounded-full px-4 py-1.5 text-[13px] font-medium uppercase tracking-wide transition-colors",
+      active
+        ? "bg-[#00629B] text-white"
+        : "border border-gray-300 text-gray-600 hover:border-gray-400 hover:bg-gray-50",
+    )}
+  >
+    {children}
+  </button>
+);
+
+// ===== MAIN =====
 const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
-  const [activeSection, setActiveSection] = useState("core");
-  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
-  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [docs, setDocs] = useState(initialDocs);
   const [isClientLoading, setIsClientLoading] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<string>("all");
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
-  // Client-side fetch fallback when SSR fails to load data
+  // Client-side fetch fallback when SSR fails to load data.
   useEffect(() => {
-    if (initialDocs.length === 0) {
-      setIsClientLoading(true);
-      const fetchFallback = async () => {
-        try {
-          const pb = createClientPB()
-          const result = await pb.collection("execom").getList(1, 100, {
-            sort: "order",
-            skipTotal: true,
-            fields: "id,order,name,department,batch,position,category,section,sectionId,photo,linkedin,instagram,email,phone",
-          });
-          const items = (result?.items || []).map((raw: Record<string, unknown>, i: number) => {
+    if (initialDocs.length > 0) return;
+    let cancelled = false;
+    setIsClientLoading(true);
+    (async () => {
+      try {
+        const pb = createClientPB();
+        const result = await pb.collection("execom").getList(1, 100, {
+          sort: "order",
+          skipTotal: true,
+          fields:
+            "id,order,name,department,batch,position,category,section,sectionId,photo,linkedin,instagram,email,phone",
+        });
+        const items = (result?.items || []).map(
+          (raw: Record<string, unknown>, i: number): ExecomMemberDoc => {
             const id = raw.id as string;
             const photo = raw.photo as string | undefined;
             return {
@@ -466,121 +326,86 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
               name: (raw.name as string) || "",
               department: (raw.department as string) || "",
               semester: (raw.batch as string) || "",
-              batch: (raw.batch as string) || "",
               position: (raw.position as string) || "",
               category: (raw.category as string) || "",
               section: (raw.section as string) || "",
               sectionId: (raw.sectionId as string) || "",
-              photoUrl: photo ? buildFileUrl("execom", id, photo) : undefined,
+              photoUrl: photo ? buildFileUrl("execom", id, photo) : "",
               linkedin: raw.linkedin as string | undefined,
               instagram: raw.instagram as string | undefined,
               email: raw.email as string | undefined,
               phone: raw.phone as string | undefined,
             };
-          });
-          if (items.length > 0) {
-            setDocs(items as ExecomMemberDoc[]);
-          }
-        } catch {
-          // Fallback fetch failed — empty state will show
-        } finally {
-          setIsClientLoading(false);
-        }
-      };
-      fetchFallback();
-    }
+          },
+        );
+        if (!cancelled && items.length > 0) setDocs(items);
+      } catch {
+        // Fallback failed — empty state will render.
+      } finally {
+        if (!cancelled) setIsClientLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [initialDocs]);
 
+  // Sections actually present, in canonical order → drives the filter pills.
+  const presentSections = useMemo(() => {
+    const present = new Set(docs.map((d) => d.sectionId));
+    return SECTION_ORDER.filter((id) => present.has(id));
+  }, [docs]);
 
-  const sections = useMemo(() => transformToSections(docs), [docs]);
+  const allMembers = useMemo(
+    () => docs.map(docToMember).sort((a, b) => a.slNo - b.slNo),
+    [docs],
+  );
 
-  const currentSection =
-    sections.find((s) => s.id === activeSection) || sections[0];
+  const members = useMemo(
+    () =>
+      activeFilter === "all"
+        ? allMembers
+        : allMembers.filter((m) => m.sectionId === activeFilter),
+    [allMembers, activeFilter],
+  );
 
-  const scrollToSection = (id: string) => {
-    setActiveSection(id);
-    setIsMobileNavOpen(false);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const handleMemberClick = (member: Member) => {
-    setSelectedMember(member);
-  };
-
-  const handleCloseModal = () => {
-    setSelectedMember(null);
-  };
-
-  // Loading State
+  // Loading state
   if (isClientLoading) {
     return (
-      <div className="min-h-screen bg-[#FAFAFA]">
-        {/* Sidebar skeleton */}
-        <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-20 bg-white border-r border-gray-100 flex-col z-50">
-          <div className="h-16 border-b border-gray-100" />
-          <div className="flex-1 py-4 px-2 space-y-2">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-12 rounded-xl bg-gray-100 animate-pulse"
-              />
+      <div className="min-h-screen bg-white">
+        <div className="mx-auto max-w-7xl px-6 py-10 sm:px-10 lg:px-16 lg:py-16">
+          <div className="h-3 w-24 animate-pulse rounded bg-gray-100" />
+          <div className="mt-5 border-t border-gray-200" />
+          <div className="mt-8 h-14 w-72 animate-pulse rounded bg-gray-100" />
+          <div className="mt-12 grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div key={i}>
+                <div className="aspect-[3/4] animate-pulse rounded-2xl bg-gray-100" />
+                <div className="mt-3 h-4 w-3/4 animate-pulse rounded bg-gray-100" />
+                <div className="mt-2 h-3 w-1/2 animate-pulse rounded bg-gray-100" />
+              </div>
             ))}
           </div>
-        </aside>
-        {/* Mobile header skeleton */}
-        <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-100">
-          <div className="flex items-center justify-between px-4 py-3">
-            <div className="w-8 h-8 rounded-lg bg-gray-100 animate-pulse" />
-            <div className="w-32 h-5 rounded bg-gray-100 animate-pulse" />
-            <div className="w-8 h-8 rounded-lg bg-gray-100 animate-pulse" />
-          </div>
         </div>
-        {/* Content skeleton */}
-        <main className="lg:ml-20 pt-16 lg:pt-0">
-          <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-gray-100">
-            <div className="max-w-6xl mx-auto px-6 py-6 lg:py-8">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gray-100 animate-pulse" />
-                <div>
-                  <div className="w-40 h-7 rounded bg-gray-100 animate-pulse mb-2" />
-                  <div className="w-20 h-4 rounded bg-gray-100 animate-pulse" />
-                </div>
-              </div>
-            </div>
-          </header>
-          <div className="max-w-6xl mx-auto px-6 py-8 lg:py-12">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 lg:gap-6">
-              {Array.from({ length: 15 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="bg-white border border-gray-100 rounded-2xl overflow-hidden animate-pulse"
-                >
-                  <div className="aspect-[3/4] bg-gray-100" />
-                  <div className="p-4 space-y-2">
-                    <div className="h-3 bg-gray-100 rounded w-1/2" />
-                    <div className="h-4 bg-gray-100 rounded w-4/5" />
-                    <div className="h-3 bg-gray-100 rounded w-2/3" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </main>
       </div>
     );
   }
 
-  // Empty State
-  if (!sections.length) {
+  // Empty state
+  if (!docs.length) {
     return (
-      <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center px-4">
-        <div className="text-center max-w-md">
-          <Users className="w-16 h-16 mx-auto mb-6 text-gray-300" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">No execom data available</h2>
-          <p className="text-gray-500 mb-6">The execom directory could not be loaded. Please try again later.</p>
+      <div className="flex min-h-screen items-center justify-center bg-white px-4">
+        <div className="max-w-md text-center">
+          <Users className="mx-auto mb-6 h-14 w-14 text-gray-300" />
+          <h2 className="mb-2 text-2xl font-bold text-gray-900">
+            No execom data available
+          </h2>
+          <p className="mb-6 text-gray-500">
+            The execom directory could not be loaded. Please try again later.
+          </p>
           <Link
             to="/"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-[#00629B] text-white rounded-full font-bold text-sm hover:bg-[#004a7c] transition-colors"
+            className="inline-flex items-center gap-2 rounded-full bg-[#00629B] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#004a7c]"
           >
             Go Home
           </Link>
@@ -590,208 +415,87 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA]">
-      {/* Member Detail Modal */}
+    <div className="min-h-screen bg-white">
       {selectedMember && (
         <MemberDetailModal
           member={selectedMember}
-          onClose={handleCloseModal}
+          onClose={() => setSelectedMember(null)}
         />
       )}
 
-      {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-100">
-        <div className="flex items-center justify-between px-4 py-3">
+      <div className="mx-auto max-w-7xl px-6 py-10 sm:px-10 lg:px-16 lg:py-16">
+        {/* Breadcrumb */}
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium uppercase tracking-[0.25em] text-gray-500">
+            {"// Our Team"}
+          </span>
           <Link
             to="/"
-            className="p-2 -ml-2 text-gray-500 hover:text-gray-900"
+            className="text-xs font-medium uppercase tracking-[0.15em] text-gray-400 transition-colors hover:text-gray-700"
           >
-            <ArrowLeft className="w-5 h-5" />
+            Home
           </Link>
-          <span className="font-semibold text-gray-900">
-            EXECOM &apos;26
-          </span>
-          <button
-            onClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
-            className="p-2 -mr-2 text-gray-500"
-          >
-            <Users className="w-5 h-5" />
-          </button>
         </div>
-      </div>
 
-      {/* Mobile Nav Dropdown */}
-      <AnimatePresence>
-        {isMobileNavOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="lg:hidden fixed top-14 left-0 right-0 z-40 bg-white border-b border-gray-100 max-h-[60vh] overflow-y-auto"
-          >
-            <div className="p-4 grid grid-cols-3 gap-2">
-              {sections.map((section) => (
-                <button
-                  key={section.id}
-                  onClick={() => scrollToSection(section.id)}
-                  className={`p-3 rounded-xl text-center transition-all ${
-                    activeSection === section.id
-                      ? "bg-[#00629B] text-white"
-                      : "bg-gray-50 text-gray-600 hover:bg-gray-100"
-                  }`}
-                >
-                  <div className="flex justify-center mb-1">
-                    {section.icon}
-                  </div>
-                  <span className="text-[10px] font-medium">
-                    {section.shortTitle}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        <div className="mt-5 border-t border-gray-200" />
 
-      {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-20 bg-white border-r border-gray-100 flex-col z-50">
-        {/* Back Button */}
-        <Link
-          to="/"
-          className="flex items-center justify-center h-16 border-b border-gray-100 text-gray-400 hover:text-[#00629B] transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
+        {/* Title + filters */}
+        <div className="mt-8 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <h1 className="text-4xl font-medium leading-[1.05] tracking-tight text-gray-900 sm:text-5xl lg:text-6xl">
+            Meet the
+            <br />
+            Execom 2026
+          </h1>
 
-        {/* Nav Items */}
-        <nav className="flex-1 overflow-y-auto py-4 scrollbar-hide">
-          <div className="space-y-1 px-2">
-            {sections.map((section) => (
-              <button
-                key={section.id}
-                onClick={() => scrollToSection(section.id)}
-                className={`group relative w-full flex flex-col items-center py-3 px-1 rounded-xl transition-all duration-300 ${
-                  activeSection === section.id
-                    ? "bg-[#00629B] text-white"
-                    : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
-                }`}
+          <div className="flex flex-wrap gap-2 lg:max-w-2xl lg:justify-end">
+            <FilterPill
+              active={activeFilter === "all"}
+              onClick={() => setActiveFilter("all")}
+            >
+              All
+            </FilterPill>
+            {presentSections.map((id) => (
+              <FilterPill
+                key={id}
+                active={activeFilter === id}
+                onClick={() => setActiveFilter(id)}
               >
-                {section.icon}
-                <span className="text-[8px] font-medium mt-1 text-center leading-tight">
-                  {section.shortTitle}
-                </span>
-
-                {/* Tooltip */}
-                <div className="absolute left-full ml-3 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50">
-                  {section.title}
-                  <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 border-4 border-transparent border-r-gray-900" />
-                </div>
-              </button>
+                {SECTION_LABEL[id] ?? id}
+              </FilterPill>
             ))}
           </div>
-        </nav>
-
-        {/* Logo */}
-        <div className="h-16 flex items-center justify-center border-t border-gray-100">
-          <span className="text-[10px] font-bold text-[#00629B]">IEEE</span>
         </div>
-      </aside>
 
-      {/* Main Content */}
-      <main className="lg:ml-20 pt-16 lg:pt-0">
-        {/* Header */}
-        <header className="sticky top-0 lg:top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-gray-100">
-          <div className="max-w-6xl mx-auto px-6 py-6 lg:py-8">
-            <div className="flex items-start justify-between">
-              <div>
-                <motion.div
-                  key={activeSection}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="flex items-center gap-3 mb-2"
-                >
-                  <div className="w-10 h-10 rounded-xl bg-[#00629B] text-white flex items-center justify-center">
-                    {currentSection?.icon}
-                  </div>
-                  <div>
-                    <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">
-                      {currentSection?.title}
-                    </h1>
-                    <p className="text-sm text-gray-400 mt-0.5">
-                      {currentSection?.members.length} members
-                    </p>
-                  </div>
-                </motion.div>
-              </div>
-
-              <div className="hidden lg:block text-right">
-                <p className="text-xs text-gray-400 uppercase tracking-wider">
-                  IEEE SB Sahrdaya
-                </p>
-                <p className="text-lg font-semibold text-gray-900">
-                  EXECOM 2026-2027
-                </p>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        {/* Content */}
-        <div className="max-w-6xl mx-auto px-6 py-8 lg:py-12">
+        {/* Grid */}
+        <div className="mt-12 lg:mt-16">
           <AnimatePresence mode="wait">
             <motion.div
-              key={activeSection}
-              initial={{ opacity: 0, y: 20 }}
+              key={activeFilter}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.25 }}
             >
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 lg:gap-6">
-                {currentSection?.members.map((member, idx) => (
-                  <MemberCard
-                    key={member.slNo}
-                    member={member}
-                    index={idx}
-                    onClick={() => handleMemberClick(member)}
-                  />
-                ))}
-              </div>
+              {members.length > 0 ? (
+                <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                  {members.map((member, idx) => (
+                    <MemberCard
+                      key={member.id}
+                      member={member}
+                      index={idx}
+                      onClick={() => setSelectedMember(member)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="py-16 text-center text-sm text-gray-400">
+                  No members in this section yet.
+                </p>
+              )}
             </motion.div>
           </AnimatePresence>
-
-          {/* Quick Navigation */}
-          <div className="mt-16 pt-8 border-t border-gray-100">
-            <p className="text-xs text-gray-400 uppercase tracking-wider mb-4">
-              Quick Navigation
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {sections.map((section) => (
-                <button
-                  key={section.id}
-                  onClick={() => scrollToSection(section.id)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                    activeSection === section.id
-                      ? "bg-[#00629B] text-white"
-                      : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
-                  }`}
-                >
-                  {section.shortTitle}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
-      </main>
-
-      <style>{`
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}</style>
+      </div>
     </div>
   );
 };
