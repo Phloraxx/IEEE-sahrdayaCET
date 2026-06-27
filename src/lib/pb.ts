@@ -32,7 +32,14 @@ export function createClientPB(): PocketBase {
   }
   const url = import.meta.env.VITE_POCKETBASE_URL
   if (!url) throw new Error('VITE_POCKETBASE_URL is not configured')
-  return new PocketBase(url)
+  const pb = new PocketBase(url)
+  // PocketBase CORS is set to '*' which doesn't work with credentials.
+  // Public pages don't need auth cookies — disable credentials for CORS.
+  pb.beforeSend = (url, options) => {
+    options.credentials = 'omit'
+    return { url, options }
+  }
+  return pb
 }
 
 /**
