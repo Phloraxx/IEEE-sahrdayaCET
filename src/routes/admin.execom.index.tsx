@@ -71,7 +71,7 @@ function ExecomSkeleton() {
 function buildFileUrl(collection: string, recordId: string, filename: string): string {
   if (!recordId || !filename) return "";
   if (filename.startsWith("http")) return filename;
-  const pbUrl = "https://db.phloraxx.us.to";
+  const pbUrl = typeof window !== "undefined" ? window.location.origin : "";
   return pbUrl + "/api/files/" + collection + "/" + recordId + "/" + filename;
 }
 
