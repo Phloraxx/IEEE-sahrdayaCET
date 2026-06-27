@@ -13,6 +13,7 @@ const EVENT_VARIANTS: Record<string, VariantProps<typeof badgeVariants>["variant
   published: "default",
   draft: "outline",
   completed: "secondary",
+  cancelled: "destructive",
 }
 
 const REGISTRATION_VARIANTS: Record<string, VariantProps<typeof badgeVariants>["variant"]> = {

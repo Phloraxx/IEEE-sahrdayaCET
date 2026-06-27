@@ -46,6 +46,6 @@ export const EventCreateSchema = BaseEventSchema
 
 export const EventUpdateSchema = BaseEventSchema.partial().extend({
   // society must remain a valid string when provided on update
-  society: z.string().min(1).optional(),
+  society: z.string().min(1),
   whatsappLink: z.string().optional(),
 })

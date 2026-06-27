@@ -125,6 +125,12 @@ function AdminDashboard() {
       count: stats.registrations.pending,
       dot: "bg-warning",
     },
+    {
+      key: "cancelled",
+      label: "Cancelled",
+      count: stats.registrations.total - stats.registrations.confirmed - stats.registrations.pending,
+      dot: "bg-destructive",
+    },
   ].filter((s) => s.count > 0);
   const pipelineTotal = stats.registrations.total;
 

@@ -196,7 +196,7 @@ export function EventForm({ mode, eventId }: EventFormProps) {
     if (form.date && form.endDate) {
       const start = new Date(form.date);
       const end = new Date(form.endDate);
-      if (end < start) {
+      if (end <= start) {
         setDateError("End date must be after the start date");
         setSubmitting(false);
         return;

@@ -90,17 +90,22 @@ export const Route = createFileRoute("/api/check-in/verify")({
             );
           }
           if (getField(registration, 'checkedIn', false)) {
-            return Response.json({
-              error: "Already checked in",
-              registrationId: registration.id,
-            });
+            return Response.json({ error: "Already checked in", registrationId: registration.id }, { status: 409 });
           }
 
           await checkInRegistration(pb, registration.id);
           return Response.json({
             success: true,
-            registrationId: registration.id,
-            userName: getField(registration, 'userName', '') as string | undefined,
+            message: "Checked in successfully",
+            registration: {
+              id: registration.id,
+              userName: getField(registration, 'userName', '') as string,
+              userEmail: '',
+              eventTitle: '',
+              ticketId: ticketId,
+              checkedIn: true,
+              checkedInAt: new Date().toISOString(),
+            },
           });
         } catch (error) {
           return handleError(error, "check-in-verify");
