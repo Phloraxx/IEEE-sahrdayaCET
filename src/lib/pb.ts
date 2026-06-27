@@ -32,12 +32,7 @@ export function createClientPB(): PocketBase {
   }
   const url = import.meta.env.VITE_POCKETBASE_URL
   if (!url) throw new Error('VITE_POCKETBASE_URL is not configured')
-  const pb = new PocketBase(url)
-  pb.beforeSend = (url: string, options: Record<string, unknown>) => {
-    options.credentials = 'omit'
-    return { url, options }
-  }
-  return pb
+  return new PocketBase(url)
 }
 
 /**
