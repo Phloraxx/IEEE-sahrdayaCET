@@ -12,7 +12,6 @@ import { ShootingStars } from '@/components/ui/shooting-stars'
 import '@fontsource-variable/geist'
 import '@fontsource/press-start-2p'
 import '@fontsource/caveat'
-import '@fontsource/anton'
 
 // CSP, HSTS, and other security headers are set by the Caddy reverse proxy in production.
 // In dev mode, the Vite dev server serves directly — CSP is not enforced locally.
