@@ -32,12 +32,17 @@ export function createClientPB(): PocketBase {
   }
   const url = import.meta.env.VITE_POCKETBASE_URL
   if (!url) throw new Error('VITE_POCKETBASE_URL is not configured')
-  const pb = new PocketBase(url)
-  pb.beforeSend = (url: string, options: { credentials?: RequestCredentials }) => {
-    options.credentials = 'omit'
-    return { url, options }
+  // PocketBase CORS uses 'Access-Control-Allow-Origin: *' which rejects
+  // requests with credentials. Override fetch to strip credentials for
+  // all cross-origin PB requests made by the SDK.
+  const origFetch = window.fetch.bind(window)
+  window.fetch = (input, init) => {
+    if (typeof input === 'string' && input.startsWith(url)) {
+      return origFetch(input, { ...init, credentials: 'omit' })
+    }
+    return origFetch(input, init)
   }
-  return pb
+  return new PocketBase(url)
 }
 
 /**
