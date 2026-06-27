@@ -23,6 +23,27 @@ export function isChair(user: AuthUser): boolean {
 }
 
 /**
+ * Pure helper that maps a list of society IDs to a PB filter string.
+ * - `undefined` = admin / unscoped → '' (no restriction)
+ * - empty array = chair with no societies → EMPTY_FILTER ('id = ""')
+ */
+export function chairFilterFromSocietyIds(
+  ids: string[] | undefined,
+  scopeType: 'event' | 'registration' | 'society',
+): string {
+  if (ids === undefined) return ''
+  if (ids.length === 0) return EMPTY_FILTER
+  switch (scopeType) {
+    case 'event':
+      return ids.map((id) => `society = ${escapeFilterValue(id)}`).join(' || ')
+    case 'registration':
+      return ids.map((id) => `event.society = ${escapeFilterValue(id)}`).join(' || ')
+    case 'society':
+      return ids.map((id) => `id = ${escapeFilterValue(id)}`).join(' || ')
+  }
+}
+
+/**
  * Fetches the IDs of societies a chair manages. Admins get undefined (no scope).
  * Throws if the user is neither admin nor chair — caller should have already
  * passed `requireRole(["admin","chair"])`.
@@ -50,9 +71,7 @@ export async function scopeSocietyFilter(
   user: AuthUser,
 ): Promise<string> {
   const ids = await getChairSocietyIds(pb, user)
-  if (ids === undefined) return '' // admin
-  if (ids.length === 0) return EMPTY_FILTER
-  return ids.map((id) => `id = ${escapeFilterValue(id)}`).join(' || ')
+  return chairFilterFromSocietyIds(ids, 'society')
 }
 
 /**
@@ -64,9 +83,7 @@ export async function scopeEventFilter(
   user: AuthUser,
 ): Promise<string> {
   const ids = await getChairSocietyIds(pb, user)
-  if (ids === undefined) return '' // admin
-  if (ids.length === 0) return EMPTY_FILTER
-  return ids.map((id) => `society = ${escapeFilterValue(id)}`).join(' || ')
+  return chairFilterFromSocietyIds(ids, 'event')
 }
 
 /**

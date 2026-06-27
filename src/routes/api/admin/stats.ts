@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { authenticateAdmin, buildChairFilter } from "@/lib/admin-middleware";
+import { authenticateAdmin, getChairScopeFilters } from "@/lib/admin-middleware";
 import { escapeFilterValue } from "@/lib/pb";
 import { handleError } from "@/lib/api-error";
 import { buildFilter } from "@/lib/route-helpers";
@@ -17,8 +17,7 @@ export const Route = createFileRoute("/api/admin/stats")({
 
         try {
           const ctx = await authenticateAdmin(request);
-          const eventScope = await buildChairFilter(ctx, 'event');
-          const registrationScope = await buildChairFilter(ctx, 'registration');
+          const { eventFilter: eventScope, registrationFilter: registrationScope } = await getChairScopeFilters(ctx);
 
           const now = new Date();
           const nowIso = toIso(now);
