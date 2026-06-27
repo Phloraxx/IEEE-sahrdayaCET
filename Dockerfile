@@ -17,6 +17,7 @@
 FROM node:22-alpine AS bun-installer
 ARG BUN_VERSION=1.2.9
 ARG TARGETARCH
+ARG VITE_POCKETBASE_URL
 RUN apk add --no-cache curl unzip bash
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -eux; \
@@ -34,6 +35,7 @@ RUN set -eux; \
 # ─── Base ──────────────────────────────────────────────────────
 FROM node:22-alpine AS base
 ENV TANSTACK_START_TELEMETRY_DISABLED=1
+ENV VITE_POCKETBASE_URL=$VITE_POCKETBASE_URL
 COPY --from=bun-installer /usr/local/bin/bun /usr/local/bin/bun
 
 # ─── Dependencies ──────────────────────────────────────────────
@@ -42,7 +44,7 @@ WORKDIR /app
 RUN apk add --no-cache libc6-compat
 
 COPY package.json bun.lock ./
-RUN --mount=type=cache,id=bun-cache,target=/root/.bun/install/cache \
+RUN \
     bun install
 
 # ─── Build ─────────────────────────────────────────────────────
@@ -63,6 +65,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV TANSTACK_START_TELEMETRY_DISABLED=1
+ENV VITE_POCKETBASE_URL=$VITE_POCKETBASE_URL
 
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 ieeeapp
