@@ -35,6 +35,7 @@ RUN set -eux; \
 # ─── Base ──────────────────────────────────────────────────────
 FROM node:22-alpine AS base
 ENV TANSTACK_START_TELEMETRY_DISABLED=1
+ARG VITE_POCKETBASE_URL
 ENV VITE_POCKETBASE_URL=$VITE_POCKETBASE_URL
 COPY --from=bun-installer /usr/local/bin/bun /usr/local/bin/bun
 
@@ -49,6 +50,7 @@ RUN \
 
 # ─── Build ─────────────────────────────────────────────────────
 FROM base AS builder
+ARG VITE_POCKETBASE_URL
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
@@ -65,6 +67,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV TANSTACK_START_TELEMETRY_DISABLED=1
+ARG VITE_POCKETBASE_URL
 ENV VITE_POCKETBASE_URL=$VITE_POCKETBASE_URL
 
 RUN addgroup --system --gid 1001 nodejs && \
