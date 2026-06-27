@@ -21,6 +21,21 @@ export function createPB(cookieString?: string) {
 }
 
 /**
+ * Creates a PocketBase client for use in browser context.
+ * Routes through the app's server proxy (/api/*) instead of
+ * connecting directly to PocketBase, avoiding mixed-content
+ * and CORS issues.
+ */
+export function createClientPB(): PocketBase {
+  if (typeof window === 'undefined') {
+    throw new Error('createClientPB() must only be called in browser context')
+  }
+  // In production, PocketBase is behind Docker and not browser-accessible.
+  // Use the app's own origin — server functions proxy to PB.
+  return new PocketBase(window.location.origin)
+}
+
+/**
  * Creates a PocketBase client authenticated as a superuser.
  * Throws if POCKETBASE_SUPERUSER_TOKEN is not configured — fail-closed
  * so admin routes never silently degrade to an unauthenticated client.

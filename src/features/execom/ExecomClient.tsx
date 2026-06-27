@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
-import { createPB, buildFileUrl } from "@/lib/pb";
+import { createClientPB, buildFileUrl } from "@/lib/pb"
 import {
   ArrowLeft,
   Users,
@@ -450,7 +450,7 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
       setIsClientLoading(true);
       const fetchFallback = async () => {
         try {
-          const pb = createPB();
+          const pb = createClientPB()
           const result = await pb.collection("execom").getList(1, 100, {
             sort: "order",
             skipTotal: true,

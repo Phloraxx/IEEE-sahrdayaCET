@@ -16,7 +16,7 @@ import Footer from "@/components/Footer";
 import { GridBackground } from "@/components/GridBackground";
 import { FloatingIcons } from "@/components/FloatingIcons";
 import { TechnicalDetails } from "@/components/TechnicalDetails";
-import { createPB, buildFileUrl, escapeFilterValue } from "@/lib/pb";
+import { createClientPB, buildFileUrl, escapeFilterValue } from "@/lib/pb"
 import { formatDate, formatDateCompact } from "@/lib/dates";
 import type { Society, ExecomMember, Event } from "@/types";
 import { getField } from "@/lib/safe-get";
@@ -218,7 +218,7 @@ export default function SocietiesClient({ societies }: SocietiesClientProps) {
     }
     // SSR returned empty — fetch ourselves
     setFetching(true);
-    const pb = createPB();
+    const pb = createClientPB()
     pb.collection("societies").getList(1, 200, {
       filter: "isHidden=false",
       skipTotal: true,
@@ -247,7 +247,7 @@ export default function SocietiesClient({ societies }: SocietiesClientProps) {
     setSocietyError(null);
     setScrollPosition(0);
 
-    const pb = createPB();
+    const pb = createClientPB()
 
     // Fetch members
     setLoadingMembers(true);

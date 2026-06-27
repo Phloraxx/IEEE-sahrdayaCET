@@ -12,7 +12,7 @@ import {
   EventDetailModal,
 } from "@/components/events";
 import type { EventWithSociety, ExtendedEvent } from "@/types";
-import { createPB, buildFileUrl } from "@/lib/pb";
+import { createClientPB, buildFileUrl } from "@/lib/pb"
 import { getField, getExpand } from "@/lib/safe-get";
 
 const getEventColor = (index: number): { color: string; textColor: string } => {
@@ -49,7 +49,7 @@ export default function EventsPageClient({
     let cancelled = false;
     setFetching(true);
 
-    const pb = createPB();
+    const pb = createClientPB()
 
     pb.collection("events")
       .getList(1, 100, {
