@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB, buildFileUrl, escapeFilterValue } from "@/lib/pb";
+import { createPB, createAdminPB, buildFileUrl, escapeFilterValue } from "@/lib/pb";
 import { requireAuth } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 import {
@@ -106,13 +106,13 @@ export const Route = createFileRoute("/api/registrations")({
           if (!contentType.includes('application/json') && !contentType.includes('multipart/form-data')) {
             return Response.json({ error: 'Unsupported media type' }, { status: 415 });
           }
-          const pb = createPB(request.headers.get("cookie") || undefined);
+          const userPb = createPB(request.headers.get("cookie") || undefined);
           verifySameOrigin(request);
-          const { user } = await requireAuth(pb);
+          const { user } = await requireAuth(userPb);
           const parsed = RegistrationBodySchema.parse(await request.json());
           const { eventId, formResponses, couponCode } = parsed;
 
-          const result = await createRegistration(pb, {
+          const result = await createRegistration(createAdminPB(), {
             userId: user.id,
             eventId,
             userName: getField(formResponses, 'name', ''),

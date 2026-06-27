@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB } from "@/lib/pb";
+import { createPB, createAdminPB } from "@/lib/pb";
 import { requireAuth } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 import {
@@ -16,8 +16,8 @@ export const Route = createFileRoute("/api/events/validate-coupon")({
           if (!contentType.includes('application/json') && !contentType.includes('multipart/form-data')) {
             return Response.json({ error: 'Unsupported media type' }, { status: 415 });
           }
-          const pb = createPB(request.headers.get("cookie") || undefined);
-          await requireAuth(pb);
+          const userPb = createPB(request.headers.get("cookie") || undefined);
+          await requireAuth(userPb);
 
           const body = await request.json();
           const { eventId, code } = body;
@@ -29,7 +29,7 @@ export const Route = createFileRoute("/api/events/validate-coupon")({
             );
           }
 
-          const { coupon, event } = await validateCouponCode(pb, eventId, code);
+          const { coupon, event } = await validateCouponCode(createAdminPB(), eventId, code);
           const price = Number(event.price) || 0;
           const discountAmount = computeDiscount(price, coupon);
           const finalPrice = Math.max(0, price - discountAmount);

@@ -64,42 +64,6 @@ export function computeDiscount(price: number, coupon: Pick<Coupon, 'discountPer
   return Math.round(price * (discountPercent / 100))
 }
 
-/**
- * Validates a coupon code, applies the discount, and atomically increments
- * the coupon's usedCount. Queries the dedicated `coupons` collection.
- */
-export async function validateAndApplyCoupon(
-  pb: PocketBase,
-  eventId: string,
-  code: string,
-): Promise<{ discountAmount: number; finalPrice: number }> {
-  const result = await pb.collection('coupons').getList(1, 1, {
-    filter: `code = ${escapeFilterValue(code)} && event = ${escapeFilterValue(eventId)} && isActive = true && (expiresAt = null || expiresAt > @now)`,
-    fields: 'id,code,discountPercent,maxUses,usedCount,expiresAt',
-  })
-  if (result.items.length === 0) {
-    throw new RegistrationError('Invalid or expired coupon code')
-  }
-  const coupon = result.items[0] as Record<string, unknown>
-
-  const usedCount = Number(coupon.usedCount) || 0
-  const maxUses = Number(coupon.maxUses) || 0
-  if (maxUses > 0 && usedCount >= maxUses) {
-    throw new RegistrationError('Coupon usage limit reached')
-  }
-
-  // Atomic increment — PocketBase handles conflict detection
-  await pb.collection('coupons').update(coupon.id as string, { 'usedCount+': 1 })
-
-  // Get event price for discount computation
-  const event = await pb.collection('events').getOne(eventId, { fields: 'price' })
-  const price = Number((event as Record<string, unknown>).price) || 0
-  const discountPercent = Number(coupon.discountPercent) || 0
-  const discountAmount = Math.round(price * (discountPercent / 100))
-  const finalPrice = Math.max(0, price - discountAmount)
-
-  return { discountAmount, finalPrice }
-}
 
 // ─── Registration Creation ─────────────────────────────────
 
@@ -174,11 +138,12 @@ export async function createRegistration(
   let finalAmount = isFree ? 0 : (Number(event.price) || 0)
   let discountAmount = 0
 
-  // 2. Apply coupon if provided (paid events only).
+  // 2. Validate coupon if provided (paid events only) — do NOT increment
+  //    usedCount yet; that happens on payment confirmation (webhook).
   if (couponCode && !isFree) {
-    const couponResult = await validateAndApplyCoupon(pb, eventId, couponCode)
-    finalAmount = couponResult.finalPrice
-    discountAmount = couponResult.discountAmount
+    const { coupon } = await validateCouponCode(pb, eventId, couponCode)
+    discountAmount = computeDiscount(finalAmount, coupon)
+    finalAmount = Math.max(0, finalAmount - discountAmount)
   }
 
   // 3. Generate the user-facing ticket ID here (single source of truth).
@@ -202,6 +167,19 @@ export async function createRegistration(
     discountAmount,
     ...(ticketId ? { ticketId } : {}),
   })
+  // 6. Post-create capacity check: compensates for TOCTOU race between the
+  //    pre-check COUNT and the create above. If we exceeded capacity, roll back.
+  if (event.maxCapacity && event.maxCapacity > 0) {
+    const postCheck = await pb.collection('registrations').getList(1, 1, {
+      filter: `event = ${escapeFilterValue(eventId)} && registrationStatus != "cancelled"`,
+      fields: 'id',
+      count: 1,
+    })
+    if ((postCheck.totalItems ?? 0) > event.maxCapacity) {
+      await pb.collection('registrations').delete(registration.id).catch(() => null)
+      throw new RegistrationError('Event has reached maximum capacity')
+    }
+  }
 
   // 4. Bump registeredCount for the free/confirmed path (previously the
   //    onRecordAfterCreate hook did this). Paid events bump on webhook confirm.
@@ -313,10 +291,9 @@ function generateTicketId(): string {
 }
 
 /**
- * Adjusts a denormalized counter on the event by `delta`. Optimistic retry-on-
- * conflict: reads current, writes next, and on a PB conflict re-reads and
- * retries up to 3x with a small backoff. On exhaustion, logs and returns —
- * counter drift is recoverable via reconcile-counters.ts. No PB hooks.
+ * Adjusts a denormalized counter on the event by `delta` using PocketBase
+ * atomic increment. Counts stay balanced because every decrement corresponds
+ * to a prior increment on the same transition.
  */
 export async function bumpEventCounter(
   eventId: string,
@@ -324,28 +301,11 @@ export async function bumpEventCounter(
   delta: number,
   pb?: PocketBase,
 ): Promise<void> {
-  const MAX_RETRIES = 3
   const client = pb ?? createAdminPB()
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    const event = await client.collection('events')
-      .getOne(eventId, { fields: `id,${field}` })
-      .catch(() => null)
-    if (!event) return
-    let current = 0
-    if (event && typeof event === 'object' && field in event) {
-      current = Number(event[field as keyof typeof event]) || 0
-    }
-    const next = Math.max(0, current + delta)
-    try {
-      await client.collection('events').update(eventId, { [field]: next })
-      return
-    } catch (err) {
-      if (attempt === MAX_RETRIES - 1) {
-        logError('bumpEventCounter', err)
-        return
-      }
-      await new Promise((r) => setTimeout(r, 5 * (attempt + 1)))
-    }
+  const key = delta >= 0 ? `${field}+` : `${field}-`
+  try {
+    await client.collection('events').update(eventId, { [key]: Math.abs(delta) })
+  } catch (err) {
+    logError('bumpEventCounter', err)
   }
 }
-

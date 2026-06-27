@@ -74,7 +74,7 @@ export const Route = createFileRoute("/api/orders/webhook")({
           status === "success" || status === "completed" || status === "paid";
 
         if (isSuccess) {
-          const reg = await pb.collection('registrations').getOne(registration.id, { fields: 'id,event,registrationStatus,ticketId' });
+          const reg = await pb.collection('registrations').getOne(registration.id, { fields: 'id,event,registrationStatus,ticketId,couponCode' });
           if (!reg) return Response.json({ error: 'not found' }, { status: 404 });
           const wasPending = getField<string>(reg, 'registrationStatus', '') !== 'confirmed';
           await pb.collection('registrations').update(registration.id, {
@@ -84,6 +84,15 @@ export const Route = createFileRoute("/api/orders/webhook")({
           });
           if (wasPending) {
             await bumpEventCounter(getField(reg, 'event', ''), 'registeredCount', +1, pb);
+            // Increment coupon usedCount on confirmed payment (only once per registration)
+            const couponCode = getField<string>(reg, 'couponCode', '');
+            if (couponCode) {
+              const eventId = getField<string>(reg, 'event', '');
+              await pb.collection('coupons').getFirstListItem(
+                `code = ${escapeFilterValue(couponCode)} && event = ${escapeFilterValue(eventId)}`
+              ).then(c => pb.collection('coupons').update(c.id, { 'usedCount+': 1 }))
+              .catch((err) => logError('webhook-coupon-usedCount', err));
+            }
           }
         }
         else {
