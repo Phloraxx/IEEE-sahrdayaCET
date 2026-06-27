@@ -12,7 +12,7 @@ export const ExecomCreateSchema = z.object({
   linkedin: z.string().optional(),
   instagram: z.string().optional(),
   email: z.string().optional(),
-  phone: z.string().optional(),
+  phone: z.union([z.string(), z.number()]).transform(String).optional(),
   society: z.string().optional(),
   category: z.string().optional(),
 })
