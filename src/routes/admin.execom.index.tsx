@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { ConfirmButton } from "@/components/admin/confirm-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth-context";
+import { buildFileUrl } from "@/lib/pb";
 
 export const Route = createFileRoute("/admin/execom/")({
   component: AdminExecom,
@@ -69,13 +70,6 @@ function ExecomSkeleton() {
       ))}
     </div>
   );
-}
-
-function buildFileUrl(collection: string, recordId: string, filename: string): string {
-  if (!recordId || !filename) return "";
-  if (filename.startsWith("http")) return filename;
-  const pbUrl = typeof window !== "undefined" ? window.location.origin : "";
-  return pbUrl + "/api/files/" + collection + "/" + recordId + "/" + filename;
 }
 
 function csrfToken(): string {

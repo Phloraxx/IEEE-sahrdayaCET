@@ -245,7 +245,7 @@ export function SocietyForm({ mode, societyId }: SocietyFormProps) {
                   }}
                   placeholder="computer-society"
                   required
-                  pattern="[a-z0-9-]+"
+                  title="Lowercase letters, digits, and hyphens only"
                 />
               </div>
             </div>

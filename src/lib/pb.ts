@@ -36,12 +36,12 @@ export function createAdminPB() {
 }
 
 export function buildFileUrl(collection: string, recordId: string, filename: string): string {
-  const url = getPBUrl()
   if (!recordId || !filename) {
     logError('buildFileUrl', 'Missing recordId or filename', { collection, recordId, filename })
     return ''
   }
-  return `${url}/api/files/${collection}/${recordId}/${filename}`
+  if (filename.startsWith('http')) return filename
+  return `/api/files/${collection}/${recordId}/${filename}`
 }
 
 /**
