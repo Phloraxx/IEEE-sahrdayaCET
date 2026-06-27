@@ -36,15 +36,20 @@ export function createClientPB(): PocketBase {
 }
 
 /**
- * Creates a PocketBase client authenticated as a superuser.
- * Throws if POCKETBASE_SUPERUSER_TOKEN is not configured — fail-closed
- * so admin routes never silently degrade to an unauthenticated client.
+ * Creates a PocketBase client authenticated as the runtime admin-role service
+ * account (`POCKETBASE_ADMIN_TOKEN` — an impersonated long-lived token for a
+ * dedicated `role:"admin"` user). RULES-BOUND: it satisfies the
+ * `@request.auth.role = "admin"` branches the elevated server paths rely on,
+ * but — unlike a superuser token — it CANNOT bypass API rules or perform
+ * superuser-only operations (schema/settings management, reading `_superusers`,
+ * hidden fields). Throws if unset — fail-closed so elevated paths never
+ * silently degrade to an unauthenticated client.
  */
 export function createAdminPB() {
   const pb = createPB()
-  const token = process.env.POCKETBASE_SUPERUSER_TOKEN
+  const token = process.env.POCKETBASE_ADMIN_TOKEN
   if (!token) {
-    throw new Error('POCKETBASE_SUPERUSER_TOKEN not configured')
+    throw new Error('POCKETBASE_ADMIN_TOKEN not configured')
   }
   pb.authStore.save(token, null)
   return pb

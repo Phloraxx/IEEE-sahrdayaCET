@@ -1,16 +1,15 @@
-import { createAdminPB } from '@/lib/pb'
 import type PocketBase from 'pocketbase'
 
 /**
  * Soft-deletes an event: marks deleted, closes registration, sets status.
- * Accepts an optional authenticated PB client. If omitted, creates an admin client.
+ * Runs on the caller's authenticated client — the `events.update` rule allows
+ * admins and owning chairs, which every caller already is. No elevated client.
  */
 export async function softDeleteEvent(
   eventId: string,
-  pb?: PocketBase,
+  pb: PocketBase,
 ): Promise<void> {
-  const client = pb ?? createAdminPB()
-  await client.collection('events').update(eventId, {
+  await pb.collection('events').update(eventId, {
     isDeleted: true,
     status: 'cancelled',
     registrationOpen: false,

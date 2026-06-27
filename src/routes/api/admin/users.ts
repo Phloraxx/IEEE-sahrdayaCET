@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB, createAdminPB, escapeFilterValue } from "@/lib/pb";
+import { createPB, escapeFilterValue } from "@/lib/pb";
 import { requireRole } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 import { parsePagination } from "@/lib/route-helpers";
@@ -74,8 +74,10 @@ export const Route = createFileRoute("/api/admin/users")({
           if (parsed.name !== undefined) updateData.name = parsed.name;
           if (parsed.email !== undefined) updateData.email = parsed.email;
 
-          const adminPb = createAdminPB();
-          const updated = await adminPb
+          // Reuse the caller's authenticated admin client: the users.update
+          // rule's `role = "admin"` branch permits the change, so no elevated
+          // (service-account) client is needed here.
+          const updated = await pb
             .collection("users")
             .update(parsed.id, updateData);
           return Response.json({ user: updated });
