@@ -50,6 +50,7 @@
 
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-display: "Anton", "Archivo Black", "Impact", system-ui, sans-serif;
 }
 
 :root {
@@ -72,6 +73,11 @@
 }
 .font-pixel {
   font-family: "Press Start 2P", "Courier New", monospace;
+}
+.font-display {
+  font-family: var(--font-display, "Anton", "Archivo Black", "Impact", system-ui, sans-serif);
+  font-weight: 400;
+  letter-spacing: -0.02em;
 }
 
 @layer utilities {

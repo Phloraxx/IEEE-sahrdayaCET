@@ -12,6 +12,7 @@ const navItems: NavItem[] = [
   { label: "HOME", href: "/" },
   { label: "EVENTS", href: "/events" },
   { label: "SOCIETIES", href: "/societies" },
+  { label: "BLOG", href: "/blog" },
   { label: "EXECOM", href: "/#execom" },
 ];
 

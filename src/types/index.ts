@@ -152,6 +152,48 @@ export interface Registration {
   eventTitle?: string;
   eventId?: string;
 }
+/**
+ * Blog post — content for the public `/blog` page.
+ * Author and society are stored as expanded objects (when available)
+ * to keep the listing render path simple.
+ */
+export interface BlogPost {
+  id: string;
+  createdAt?: string;
+  updatedAt?: string;
+  title: string;
+  slug: string;
+  excerpt?: string;
+  content?: string;
+  coverUrl?: string;
+  cover?: string | null;
+  /** Reading time in minutes. */
+  readMinutes?: number;
+  /** Topic / category key (e.g. "ai-ml", "robotics"). */
+  topic?: string;
+  topicLabel?: string;
+  /** Free-form tags. */
+  tags?: string[];
+  author?: { id?: string; name?: string; role?: string; photoUrl?: string } | string;
+  society?: { id: string; name?: string; slug?: string; logoUrl?: string } | string;
+  publishedAt?: string;
+  isFeatured?: boolean;
+  isDraft?: boolean;
+}
+
+export interface BlogTopic {
+  /** Stable key, e.g. "ai-ml". */
+  key: string;
+  /** Display label, e.g. "AI & Machine Learning". */
+  label: string;
+  /** One of: "cream" | "lavender" | "dark" | "mint" — used to pick the card surface. */
+  tone: "cream" | "lavender" | "dark" | "mint";
+  /** Optional descriptive blurb. */
+  blurb?: string;
+  /** Posts shown inside the topic card (typically 3). */
+  posts: BlogPost[];
+}
+
 export interface FormField {
   id: string
   label: string
