@@ -1,8 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Building2, ChevronRight, Pencil, Plus, Search } from "lucide-react";
+import { Building2, ChevronRight, Loader2, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { PanelHeader } from "@/components/admin/panel-header";
+import { ConfirmButton } from "@/components/admin/confirm-button";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -52,10 +53,20 @@ function SocietiesSkeleton() {
     </div>
   );
 }
+function csrfToken(): string {
+  if (typeof document === "undefined") return "";
+  return (
+    document.cookie
+      .split("; ")
+      .find((c) => c.startsWith("csrf="))
+      ?.split("=")[1] ?? ""
+  );
+}
 
 function AdminSocieties() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
 
   const { data, isLoading } = useQuery<SocietiesResponse>({
@@ -68,6 +79,23 @@ function AdminSocieties() {
       });
       if (!res.ok) throw new Error("Failed to load societies");
       return res.json();
+    },
+  });
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/admin/societies/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "x-csrf-token": csrfToken(),
+        },
+      });
+      if (!res.ok) throw new Error("Failed to delete society");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-societies"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
     },
   });
 
@@ -114,7 +142,13 @@ function AdminSocieties() {
           }
         />
       ) : (
-        <SocietyList rows={data.societies} canEdit={user?.role === "admin"} />
+        <SocietyList rows={data.societies} canEdit={user?.role === "admin"} onDelete={(id) => deleteMutation.mutate(id)} deletingPending={deleteMutation.isPending} />
+      )}
+      {deleteMutation.isPending && (
+        <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-card border border-border px-4 py-2 shadow-lg">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <span className="text-sm text-muted-foreground">Deleting…</span>
+        </div>
       )}
     </div>
   );
@@ -123,9 +157,11 @@ function AdminSocieties() {
 interface SocietyListProps {
   rows: SocietyRow[];
   canEdit: boolean;
+  onDelete: (id: string) => void;
+  deletingPending: boolean;
 }
 
-function SocietyList({ rows, canEdit }: SocietyListProps) {
+function SocietyList({ rows, canEdit, onDelete, deletingPending }: SocietyListProps) {
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card divide-y divide-border">
       <div className="hidden grid-cols-[1fr_120px_88px_72px_56px] gap-4 px-4 py-2.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground sm:grid">
@@ -184,16 +220,30 @@ function SocietyList({ rows, canEdit }: SocietyListProps) {
               {s.isHidden ? "Hidden" : "Visible"}
             </span>
           </div>
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-1">
             {canEdit ? (
-              <Link
-                to="/admin/societies/$id/edit"
-                params={{ id: s.id }}
-                aria-label={`Edit ${s.name}`}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                <Pencil className="h-3.5 w-3.5" />
-              </Link>
+              <>
+                <Link
+                  to="/admin/societies/$id/edit"
+                  params={{ id: s.id }}
+                  aria-label={`Edit ${s.name}`}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Link>
+                <ConfirmButton
+                  label=""
+                  confirmMessage={`Delete "${s.name}"?`}
+                  variant="destructive"
+                  icon={<Trash2 className="h-3.5 w-3.5" />}
+                  onConfirm={() => {
+                    onDelete(s.id);
+                    return true;
+                  }}
+                  disabled={deletingPending}
+                  className="h-8 w-8 p-0"
+                />
+              </>
             ) : (
               <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
             )}

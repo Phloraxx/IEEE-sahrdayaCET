@@ -3,7 +3,6 @@ import { createFileRoute } from "@tanstack/react-router";
 const PB_URL =
   process.env.POCKETBASE_URL || "http://ieee-pocketbase-8wt381-pocketbase-1:8090";
 
-// @ts-expect-error - TanStack Router type system doesnt recognize splat routes
 export const Route = createFileRoute("/api/files/$")({
   server: {
     handlers: {

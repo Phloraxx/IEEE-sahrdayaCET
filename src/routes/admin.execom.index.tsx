@@ -1,15 +1,18 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
 import {
   ChevronRight,
   Loader2,
   Pencil,
   Plus,
+  Search,
   Trash2,
   UserCheck,
 } from "lucide-react";
 import { PanelHeader } from "@/components/admin/panel-header";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ConfirmButton } from "@/components/admin/confirm-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth-context";
@@ -89,6 +92,7 @@ function AdminExecom() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [search, setSearch] = useState("");
 
   const { data, isLoading } = useQuery<ExecomResponse>({
     queryKey: ["admin-execom"],
@@ -119,6 +123,20 @@ function AdminExecom() {
     },
   });
 
+  const filteredMembers = useMemo(() => {
+    if (!data?.members) return [];
+    if (!search.trim()) return data.members;
+    const q = search.toLowerCase();
+    return data.members.filter(
+      (m) =>
+        m.name.toLowerCase().includes(q) ||
+        m.position.toLowerCase().includes(q) ||
+        m.department.toLowerCase().includes(q) ||
+        m.email.toLowerCase().includes(q) ||
+        m.phone.toLowerCase().includes(q),
+    );
+  }, [data?.members, search]);
+
   const isAdmin = user?.role === "admin";
 
   return (
@@ -126,7 +144,7 @@ function AdminExecom() {
       <PanelHeader
         eyebrow="Execom"
         title="Executive Committee"
-        description={`${data?.total ?? 0} committee member${data?.total === 1 ? "" : "s"} listed.`}
+        description={`${filteredMembers.length} of ${data?.total ?? 0} committee member${(data?.total ?? 0) === 1 ? "" : "s"} listed.`}
         actions={
           isAdmin ? (
             <Button
@@ -141,6 +159,16 @@ function AdminExecom() {
         }
       />
 
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Search members…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
       {isLoading ? (
         <ExecomSkeleton />
       ) : !data?.members.length ? (
@@ -153,9 +181,15 @@ function AdminExecom() {
             </p>
           )}
         </div>
+      ) : !filteredMembers.length ? (
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-card/50 px-6 py-16 text-center">
+          <Search className="h-8 w-8 text-muted-foreground/40" />
+          <p className="text-sm font-medium text-foreground">No members found</p>
+          <p className="text-xs text-muted-foreground">Try a different search term.</p>
+        </div>
       ) : (
         <ExecomList
-          rows={data.members}
+          rows={filteredMembers}
           canEdit={isAdmin}
           onDelete={(id) => deleteMutation.mutate(id)}
           deletingPending={deleteMutation.isPending}

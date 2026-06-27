@@ -47,7 +47,7 @@ export const Route = createFileRoute("/api/auth/callback/google")({
           const authCookie = pb.authStore.exportToCookie({
               httpOnly: true,
               secure: isProduction,
-              sameSite: "strict",
+              sameSite: "lax",
               path: "/",
           });
           response.headers.set("Set-Cookie", authCookie);

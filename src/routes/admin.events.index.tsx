@@ -3,16 +3,19 @@ import {
   Link,
   useNavigate,
 } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
   Calendar,
   ChevronRight,
+  Loader2,
   Pencil,
   Plus,
   Search,
+  Trash2,
 } from "lucide-react";
 import { PanelHeader } from "@/components/admin/panel-header";
+import { ConfirmButton } from "@/components/admin/confirm-button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -97,10 +100,20 @@ function formatDate(d: string): string {
     return d;
   }
 }
+function csrfToken(): string {
+  if (typeof document === "undefined") return "";
+  return (
+    document.cookie
+      .split("; ")
+      .find((c) => c.startsWith("csrf="))
+      ?.split("=")[1] ?? ""
+  );
+}
 
 function AdminEvents() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [page, setPage] = useState(1);
@@ -120,6 +133,23 @@ function AdminEvents() {
       });
       if (!res.ok) throw new Error("Failed to load events");
       return res.json();
+    },
+  });
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/admin/events/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "x-csrf-token": csrfToken(),
+        },
+      });
+      if (!res.ok) throw new Error("Failed to delete event");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-events"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
     },
   });
 
@@ -192,6 +222,8 @@ function AdminEvents() {
         <EventsList
           rows={data.events}
           canEdit={canEdit}
+          onDelete={(id) => deleteMutation.mutate(id)}
+          deletingPending={deleteMutation.isPending}
         />
       )}
 
@@ -220,6 +252,12 @@ function AdminEvents() {
           </div>
         </div>
       )}
+      {deleteMutation.isPending && (
+        <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-card border border-border px-4 py-2 shadow-lg">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <span className="text-sm text-muted-foreground">Deleting…</span>
+        </div>
+      )}
 
     </div>
   );
@@ -228,11 +266,15 @@ function AdminEvents() {
 interface EventsListProps {
   rows: EventRow[];
   canEdit: boolean;
+  onDelete: (id: string) => void;
+  deletingPending: boolean;
 }
 
 function EventsList({
   rows,
   canEdit,
+  onDelete,
+  deletingPending,
 }: EventsListProps) {
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card divide-y divide-border">
@@ -281,14 +323,28 @@ function EventsList({
           </div>
           <div className="flex items-center justify-end gap-1">
             {canEdit ? (
-              <Link
-                to="/admin/events/$id/edit"
-                params={{ id: event.id }}
-                aria-label="Edit event"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                <Pencil className="h-3.5 w-3.5" />
-              </Link>
+              <>
+                <Link
+                  to="/admin/events/$id/edit"
+                  params={{ id: event.id }}
+                  aria-label="Edit event"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Link>
+                <ConfirmButton
+                  label=""
+                  confirmMessage="Delete this event?"
+                  variant="destructive"
+                  icon={<Trash2 className="h-3.5 w-3.5" />}
+                  onConfirm={() => {
+                    onDelete(event.id);
+                    return true;
+                  }}
+                  disabled={deletingPending}
+                  className="h-8 w-8 p-0"
+                />
+              </>
             ) : (
               <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
             )}

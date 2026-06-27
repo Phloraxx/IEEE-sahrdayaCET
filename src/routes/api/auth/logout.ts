@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { serialize } from "cookie";
-import { PB_AUTH_COOKIE } from "@/lib/constants";
+import { PB_AUTH_COOKIE, PB_OAUTH_PROVIDER_COOKIE } from "@/lib/constants";
 import { logError } from "@/lib/logger";
 
 export const Route = createFileRoute("/api/auth/logout")({
@@ -47,15 +47,24 @@ export const Route = createFileRoute("/api/auth/logout")({
         }
 
         const response = Response.json({ success: true });
-        // PB_AUTH_COOKIE uses '__Host-pb_auth' in production (forces Secure + path=/)
-        // and 'pb_auth' in local dev (works on HTTP). The constant resolves correctly
-        // in both environments so this serialize call clears the right cookie.
+        // Clear the pb_auth cookie (Secure in prod, plain in dev for HTTP).
         response.headers.set(
           "Set-Cookie",
           serialize(PB_AUTH_COOKIE, "", {
             httpOnly: true,
             secure: isProduction,
-            sameSite: "strict",
+            sameSite: "lax",
+            path: "/",
+            maxAge: 0,
+          }),
+        );
+        // Also clear the one-time OAuth provider cookie if still present.
+        response.headers.append(
+          "Set-Cookie",
+          serialize(PB_OAUTH_PROVIDER_COOKIE, "", {
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: "lax",
             path: "/",
             maxAge: 0,
           }),

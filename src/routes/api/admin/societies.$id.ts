@@ -75,6 +75,27 @@ export const Route = createFileRoute("/api/admin/societies/$id")({
           return handleError(error, "admin-societies-update");
         }
       },
+      DELETE: async ({ request, params }) => {
+        try {
+          const contentType = request.headers.get('content-type') || '';
+          if (!contentType.includes('application/json') && !contentType.includes('multipart/form-data')) {
+            return Response.json({ error: 'Unsupported media type' }, { status: 415 });
+          }
+          const { id } = params;
+          const pb = createPB(request.headers.get("cookie") || undefined);
+          verifySameOrigin(request);
+          const { user } = await requireRole(["admin", "chair"], pb);
+          if (user.role !== "admin")
+            return Response.json(
+              { error: "Only admins can delete societies" },
+              { status: 403 },
+            );
+          await pb.collection("societies").delete(id);
+          return Response.json({ success: true });
+        } catch (error) {
+          return handleError(error, "admin-societies-delete");
+        }
+      },
     },
   },
 });

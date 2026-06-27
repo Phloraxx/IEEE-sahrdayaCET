@@ -64,12 +64,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         window.location.href = '/api/auth/init'
     }, [])
 
-    const signOut = useCallback(() => {
-        fetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' } }).finally(() => {
+    const signOut = useCallback(async () => {
+        try {
+            await fetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+        } finally {
+            // Defense-in-depth: attempt client-side cookie clearing.
+            // HttpOnly cookies cannot be cleared from JS, but this covers
+            // any non-HttpOnly auth cookies that may exist.
+            const clear = (name: string) => {
+                document.cookie = `${name}=; path=/; max-age=0`
+                document.cookie = `${name}=; path=/; max-age=0; domain=${window.location.hostname}`
+            }
+            clear('pb_auth')
+            clear('pb_oauth_provider')
             setUser(null)
             setStatus('unauthenticated')
             window.location.href = '/'
-        })
+        }
     }, [])
 
     return (

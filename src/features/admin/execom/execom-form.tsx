@@ -209,6 +209,7 @@ export function ExecomForm({ mode, memberId }: ExecomFormProps) {
                   id="ex-name"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  maxLength={100}
                   required
                 />
               </div>
@@ -221,6 +222,7 @@ export function ExecomForm({ mode, memberId }: ExecomFormProps) {
                     setForm({ ...form, position: e.target.value })
                   }
                   placeholder="e.g. Chairperson"
+                  maxLength={100}
                   required
                 />
               </div>
@@ -273,6 +275,7 @@ export function ExecomForm({ mode, memberId }: ExecomFormProps) {
                     setForm({ ...form, department: e.target.value })
                   }
                   placeholder="e.g. CSE"
+                  maxLength={50}
                 />
               </div>
               <div className="grid gap-1.5">
@@ -284,6 +287,7 @@ export function ExecomForm({ mode, memberId }: ExecomFormProps) {
                     setForm({ ...form, batch: e.target.value })
                   }
                   placeholder="e.g. 2024"
+                  maxLength={50}
                 />
               </div>
             </div>
@@ -296,6 +300,7 @@ export function ExecomForm({ mode, memberId }: ExecomFormProps) {
                   onChange={(e) =>
                     setForm({ ...form, section: e.target.value })
                   }
+                  maxLength={50}
                 />
               </div>
               <div className="grid gap-1.5">
@@ -322,6 +327,7 @@ export function ExecomForm({ mode, memberId }: ExecomFormProps) {
                   onChange={(e) =>
                     setForm({ ...form, email: e.target.value })
                   }
+                  maxLength={100}
                 />
               </div>
               <div className="grid gap-1.5">

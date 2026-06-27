@@ -230,6 +230,7 @@ export function SocietyForm({ mode, societyId }: SocietyFormProps) {
                     }));
                   }}
                   placeholder="IEEE Computer Society"
+                  maxLength={100}
                   required
                 />
               </div>
@@ -285,6 +286,7 @@ export function SocietyForm({ mode, societyId }: SocietyFormProps) {
                 value={form.bio}
                 onChange={(e) => setForm({ ...form, bio: e.target.value })}
                 placeholder="Short description of the society."
+                maxLength={200}
               />
             </div>
 

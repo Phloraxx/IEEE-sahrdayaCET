@@ -114,6 +114,7 @@ export function EventForm({ mode, eventId }: EventFormProps) {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [dateError, setDateError] = useState<string | null>(null);
 
   // Societies dropdown
   const { data: societies } = useQuery<{ societies: SocietyOption[] }>({
@@ -186,10 +187,29 @@ export function EventForm({ mode, eventId }: EventFormProps) {
     }
   }, [existing, isEdit]);
 
-  // Submit handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError(null);
+    setDateError(null);
+
+    // Validate end date >= start date
+    if (form.date && form.endDate) {
+      const start = new Date(form.date);
+      const end = new Date(form.endDate);
+      if (end < start) {
+        setDateError("End date must be after the start date");
+        setSubmitting(false);
+        return;
+      }
+    }
+
+    // Validate society is selected
+    if (!form.society) {
+      setSubmitError("Please select a host society");
+      setSubmitting(false);
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -392,7 +412,12 @@ export function EventForm({ mode, eventId }: EventFormProps) {
                       type="datetime-local"
                       value={form.endDate}
                       onChange={update("endDate")}
+                      min={form.date || undefined}
+                      className={dateError ? "border-destructive" : ""}
                     />
+                    {dateError && (
+                      <p className="text-xs text-destructive">{dateError}</p>
+                    )}
                   </div>
                 </div>
 
@@ -608,7 +633,7 @@ export function EventForm({ mode, eventId }: EventFormProps) {
             <CardContent className="p-6">
               <FormSection title="Society">
                 <div className="grid gap-1.5">
-                  <Label>Host Society</Label>
+                  <Label>Host Society *</Label>
                   <Select
                     key={form.society || "__none__"}
                     value={form.society || "__none__"}

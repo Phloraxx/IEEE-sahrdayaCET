@@ -9,6 +9,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import { PanelHeader } from "@/components/admin/panel-header";
+import { ConfirmButton } from "@/components/admin/confirm-button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -300,31 +301,29 @@ function RegistrationsList({
               <Eye className="h-3.5 w-3.5" />
             </Link>
             {!reg.checkedIn && reg.registrationStatus === "confirmed" && (
-              <Button
+              <ConfirmButton
+                label="Check in"
+                confirmMessage="Check in this attendee?"
                 variant="outline"
-                size="sm"
                 className="h-7 gap-1 text-xs"
                 disabled={checkInPending}
-                onClick={() => onCheckIn(reg.id)}
-              >
-                <UserCheck className="h-3 w-3" />
-                Check in
-              </Button>
+                onConfirm={() => { onCheckIn(reg.id); return undefined; }}
+                icon={<UserCheck className="h-3 w-3" />}
+              />
             )}
             {reg.checkedIn && (
               <span className="text-xs font-medium text-success">✓ In</span>
             )}
             {reg.registrationStatus !== "cancelled" &&
               !reg.checkedIn && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs text-destructive"
+                <ConfirmButton
+                  label="Cancel"
+                  confirmMessage="Cancel this registration?"
+                  variant="destructive"
+                  className="h-7 text-xs"
                   disabled={cancelPending}
-                  onClick={() => onCancel(reg.id)}
-                >
-                  Cancel
-                </Button>
+                  onConfirm={() => { onCancel(reg.id); return undefined; }}
+                />
               )}
             {reg.registrationStatus === "cancelled" && (
               <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
