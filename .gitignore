@@ -113,3 +113,45 @@ tmp_login.json
 NUL
 nul
 test-screenshots/
+
+# ── Dev / QA artifacts — not needed for prod or CI ──────────────
+# Ad-hoc screenshots & images (repo root + QA folders)
+/*.png
+/*.webp
+/screenshots/
+/screenshotse2e/
+/oracle3-screenshots/
+/rbac_screenshots/
+/docs/dev-artifacts/
+# Browser / Playwright scratch
+/playwright-artifacts/
+/playwright-tmp/
+/tmp_playwright/
+/.playwright-tmp/
+# Tool state & scratch dirs
+/.claude/
+/.tanstack/
+/local/
+/UsersdrvijDesktoppw-tmp/
+# QA / audit reports
+/*_QA_REPORT.md
+/FINAL_*.md
+/VERIFIED_*.md
+/ROUND2_*.md
+/E2E_TEST_CONTEXT.md
+/REMEDIATION-STATUS.md
+/test-context.md
+/visual-design-audit.md
+# Test-result / findings dumps
+/*-results.json
+/*-findings.json
+/*-report.json
+/*_qa_*.json
+/design_data.json
+/r4_regression_result.json
+/rbac_results_user.json
+# Ad-hoc QA scripts & scratch
+/*.py
+/*test*.txt
+# Stray npm lockfile (this project uses bun.lock)
+/package-lock.json
