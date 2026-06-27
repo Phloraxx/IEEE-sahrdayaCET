@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-const PB_URL =
-  process.env.POCKETBASE_URL || "http://ieee-pocketbase-8wt381-pocketbase-1:8090";
+const PB_URL = process.env.POCKETBASE_URL;
+if (!PB_URL) throw new Error("POCKETBASE_URL is not configured");
 
 export const Route = createFileRoute("/api/files/$")({
   server: {

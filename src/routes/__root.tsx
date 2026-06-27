@@ -106,7 +106,6 @@ export const Route = createRootRoute({
         { rel: 'preconnect', href: 'https://res.cloudinary.com' },
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossOrigin: 'anonymous' },
-        { rel: 'preconnect', href: process.env.POCKETBASE_URL || 'https://db.phloraxx.us.to' },
         { rel: 'icon', href: '/emblem.png' },
       ],
       scripts: [
