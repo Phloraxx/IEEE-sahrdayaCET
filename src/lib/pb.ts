@@ -30,9 +30,9 @@ export function createClientPB(): PocketBase {
   if (typeof window === 'undefined') {
     throw new Error('createClientPB() must only be called in browser context')
   }
-  // In production, PocketBase is behind Docker and not browser-accessible.
-  // Use the app's own origin — server functions proxy to PB.
-  return new PocketBase(window.location.origin)
+  const url = import.meta.env.VITE_POCKETBASE_URL
+  if (!url) throw new Error('VITE_POCKETBASE_URL is not configured')
+  return new PocketBase(url)
 }
 
 /**
