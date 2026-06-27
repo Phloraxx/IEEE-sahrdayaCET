@@ -4,11 +4,11 @@ import type { AuthUser } from '@/types'
 
 // ── Hoisted mocks ──────────────────────────────────────────────────────────
 
-const mockEscapeFilterValue = vi.fn((v) => {
+const mockEscapeFilterValue = vi.hoisted(() => vi.fn((v) => {
   if (typeof v === "number") return String(v)
   if (typeof v === "boolean") return v ? "true" : "false"
   return `'${String(v).replace(/'/g, "")}'`
-})
+}))
 
 vi.mock('@/lib/pb', () => ({
   escapeFilterValue: mockEscapeFilterValue,

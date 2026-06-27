@@ -95,8 +95,9 @@ describe('createRegistration', () => {
     const result = await createRegistration(pb, sampleData)
 
     expect(result).toMatchObject({ registrationId: 'reg-1', paymentRequired: false, amount: 0 })
-    // Free events bump registeredCount (via the self-elevating bumpEventCounter mock)
-    expect(mockEventsUpdateForAdmin).toHaveBeenCalled()
+    // Free events bump registeredCount via bumpEventCounter, which writes to
+    // the passed pb's events collection with an atomic increment.
+    expect(events.update).toHaveBeenCalled()
   })
 
   it('creates a paid registration with paymentTicketId (no counter bump)', async () => {
@@ -147,7 +148,7 @@ describe('confirmRegistration', () => {
       registrationStatus: 'confirmed',
       ticketId: expect.any(String),
     })
-    expect(mockEventsUpdateForAdmin).toHaveBeenCalled()
+    expect(events.update).toHaveBeenCalled()
   })
 })
 
@@ -161,12 +162,13 @@ describe('cancelRegistration', () => {
       }),
       update: vi.fn().mockResolvedValue({}),
     }
-    const pb = mockPB({ events: { getOne: vi.fn(), update: vi.fn() }, registrations: regs })
+    const events = { getOne: vi.fn(), update: vi.fn() }
+    const pb = mockPB({ events, registrations: regs })
 
     await cancelRegistration(pb, 'reg-1')
 
     expect(regs.update).toHaveBeenCalledWith('reg-1', { registrationStatus: 'cancelled' })
-    expect(mockEventsUpdateForAdmin).toHaveBeenCalled()
+    expect(events.update).toHaveBeenCalled()
   })
 })
 
@@ -180,7 +182,8 @@ describe('checkInRegistration', () => {
       }),
       update: vi.fn().mockResolvedValue({}),
     }
-    const pb = mockPB({ events: { getOne: vi.fn(), update: vi.fn() }, registrations: regs })
+    const events = { getOne: vi.fn(), update: vi.fn() }
+    const pb = mockPB({ events, registrations: regs })
 
     await checkInRegistration(pb, 'reg-1')
 
@@ -188,6 +191,6 @@ describe('checkInRegistration', () => {
       checkedIn: true,
       checkedInAt: expect.any(String),
     })
-    expect(mockEventsUpdateForAdmin).toHaveBeenCalled()
+    expect(events.update).toHaveBeenCalled()
   })
 })

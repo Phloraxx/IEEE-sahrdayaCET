@@ -13,13 +13,17 @@ vi.mock('@/lib/pb', () => ({
   }),
 }))
 
-const mockGetChairSocietyIds = vi.fn()
+const mockGetChairSocietyIds = vi.hoisted(() => vi.fn())
 
-vi.mock('@/lib/chair-scope', () => ({
-  getChairSocietyIds: mockGetChairSocietyIds,
-}))
+vi.mock('@/lib/chair-scope', async () => {
+  const actual = await vi.importActual('@/lib/chair-scope')
+  return {
+    ...actual,
+    getChairSocietyIds: mockGetChairSocietyIds,
+  }
+})
 
-import { buildChairFilter } from '@/lib/admin-middleware'
+import { buildChairFilter, getChairScopeFilters } from '@/lib/admin-middleware'
 
 describe('buildChairFilter', () => {
   const adminCtx = { pb: {}, userId: 'admin-1', role: 'admin' } as const
@@ -65,5 +69,39 @@ describe('buildChairFilter', () => {
     mockGetChairSocietyIds.mockResolvedValue(['soc-X', 'soc-Y'])
     const result = await buildChairFilter(chairCtx, 'society')
     expect(result).toBe("id = 'soc-X' || id = 'soc-Y'")
+  })
+})
+
+describe('getChairScopeFilters', () => {
+  const adminCtx = { pb: {}, userId: 'admin-1', role: 'admin' } as const
+  const chairCtx = { pb: {}, userId: 'chair-1', role: 'chair' } as const
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('returns both filters as empty for admin without calling getChairSocietyIds', async () => {
+    const result = await getChairScopeFilters(adminCtx)
+    expect(result).toEqual({ eventFilter: '', registrationFilter: '' })
+    expect(mockGetChairSocietyIds).not.toHaveBeenCalled()
+  })
+
+  it('fetches society IDs only once and returns correct event and registration filters', async () => {
+    mockGetChairSocietyIds.mockResolvedValue(['soc-1', 'soc-2'])
+    const result = await getChairScopeFilters(chairCtx)
+    expect(mockGetChairSocietyIds).toHaveBeenCalledTimes(1)
+    expect(result).toEqual({
+      eventFilter: "society = 'soc-1' || society = 'soc-2'",
+      registrationFilter: "event.society = 'soc-1' || event.society = 'soc-2'",
+    })
+  })
+
+  it('returns EMPTY_FILTER for both when chair has no societies', async () => {
+    mockGetChairSocietyIds.mockResolvedValue([])
+    const result = await getChairScopeFilters(chairCtx)
+    expect(result).toEqual({
+      eventFilter: 'id = ""',
+      registrationFilter: 'id = ""',
+    })
   })
 })
