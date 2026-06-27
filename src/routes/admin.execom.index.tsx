@@ -71,7 +71,7 @@ function ExecomSkeleton() {
 function buildFileUrl(collection: string, recordId: string, filename: string): string {
   if (!recordId || !filename) return "";
   if (filename.startsWith("http")) return filename;
-  const pbUrl = (typeof import.meta !== 'undefined' ? import.meta.env?.VITE_POCKETBASE_URL : '') || (typeof window !== 'undefined' ? window.location.origin : '');
+  const pbUrl = "http://ieee-pocketbase-8wt381-14074c-144-24-114-90.sslip.io";
   return pbUrl + "/api/files/" + collection + "/" + recordId + "/" + filename;
 }
 
