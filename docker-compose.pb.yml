@@ -29,3 +29,4 @@ services:
 
 volumes:
   pocketbase-data:
+    external: true
