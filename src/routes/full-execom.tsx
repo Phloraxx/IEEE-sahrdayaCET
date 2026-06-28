@@ -8,7 +8,7 @@ import ExecomClient, {
   type ExecomMemberDoc,
 } from "@/features/execom/ExecomClient";
 
-const fetchExecomData = createServerFn({ method: "GET" }).handler(
+const fetchExecomData = createServerFn().handler(
   async (): Promise<ExecomMemberDoc[]> => {
     const pb = createPB();
     const data = await pb.collection("execom").getList(1, 100, {

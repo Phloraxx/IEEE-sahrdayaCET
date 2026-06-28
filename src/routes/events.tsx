@@ -64,8 +64,8 @@ export const Route = createFileRoute("/events")({
   }),
   loader: async ({ context }): Promise<EventItem[]> => {
     try {
-      const response = (context as unknown as { response: { headers: Headers } }).response;
-      response.headers.set('Cache-Control', 'public, max-age=300');
+      const response = (context as unknown as { response?: { headers?: Headers } })?.response;
+      response?.headers?.set('Cache-Control', 'public, max-age=300');
       const pb = createPB();
       const result = await pb.collection("events").getList(1, 20, {
         filter: 'status="published"',

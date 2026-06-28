@@ -6,7 +6,7 @@ import SocietiesClient from "@/features/societies/SocietiesClient";
 import { createPB, buildFileUrl, escapeFilterValue } from "@/lib/pb";
 import type { Society } from "@/types";
 
-export const fetchSocietyMembers = createServerFn({ method: "GET" })
+export const fetchSocietyMembers = createServerFn()
   .validator((slug: string) => slug)
   .handler(async ({ data: slug }) => {
     const pb = createPB();
@@ -32,7 +32,7 @@ export const fetchSocietyMembers = createServerFn({ method: "GET" })
     }));
   });
 
-export const fetchSocietyEvents = createServerFn({ method: "GET" })
+export const fetchSocietyEvents = createServerFn()
   .validator((societyId: string) => societyId)
   .handler(async ({ data: societyId }) => {
     const pb = createPB();

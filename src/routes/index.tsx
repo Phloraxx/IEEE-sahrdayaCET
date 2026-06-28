@@ -76,8 +76,8 @@ export const Route = createFileRoute('/')({
   },
   loader: async ({ context }): Promise<HomeData> => {
     try {
-      const response = (context as unknown as { response: { headers: Headers } }).response;
-      response.headers.set('Cache-Control', 'public, max-age=300');
+      const response = (context as unknown as { response?: { headers?: Headers } })?.response;
+      response?.headers?.set('Cache-Control', 'public, max-age=300');
       const pb = createPB();
       const [eventsResult, societiesRes] = await Promise.allSettled([
         pb.collection("events").getList(1, 20, {
