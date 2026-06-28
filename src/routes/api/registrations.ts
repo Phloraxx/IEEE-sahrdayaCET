@@ -109,10 +109,7 @@ export const Route = createFileRoute("/api/registrations")({
           const parsed = RegistrationBodySchema.parse(await request.json());
           const { eventId, formResponses, couponCode } = parsed;
 
-          // Create with the user's own client. The onRecordCreateRequest hook
-          // (pb_hooks/registrations.pb.js) enforces all business rules,
-          // pins the user to the caller, and sets server-authoritative
-          // fields (paymentStatus, registrationStatus, ticketId, amount).
+          // Create with the user's own client. API rules enforce auth + user match.
           const registration = await userPb.collection("registrations").create({
             user: user.id,
             event: eventId,
@@ -123,19 +120,43 @@ export const Route = createFileRoute("/api/registrations")({
             couponCode: couponCode || '',
           });
 
-          // Read back the server-set fields the hook wrote (paymentTicketId,
-          // ticketId, paymentStatus, registrationStatus, amount).
+          // Set server-authoritative fields via admin client (hook can't use
+          // reg.set() in PB 0.39.1 — goja bug prevents persistence).
+          const eventRecord = await userPb.collection("events").getOne(eventId, { fields: "price" });
+          const price = Number(getField(eventRecord, 'price', 0)) || 0;
+          const isFree = price === 0;
+          const adminToken = process.env.POCKETBASE_ADMIN_TOKEN;
+          if (adminToken) {
+            const paymentTicketId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2);
+            const ticketId = isFree ? `TKT-${Math.random().toString(36).substring(2, 10).toUpperCase()}` : '';
+            const patchBody: Record<string, unknown> = {
+              amount: price,
+              discountAmount: 0,
+              paymentStatus: isFree ? 'not_required' : 'pending',
+              registrationStatus: isFree ? 'confirmed' : 'pending',
+              registrationDate: new Date().toISOString(),
+              paymentTicketId: isFree ? '' : paymentTicketId,
+              ticketId: isFree ? ticketId : '',
+            };
+            const pbUrl = getPBUrl();
+            // Use plain fetch with admin token to bypass hook reg.set() issue
+            await fetch(`${pbUrl}/api/collections/registrations/records/${registration.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+              body: JSON.stringify(patchBody),
+            });
+          }
+          // Read back the updated registration
           const created = await userPb.collection("registrations").getOne(registration.id, {
             fields: "id,ticketId,paymentTicketId,paymentStatus,registrationStatus,amount",
           });
 
-          const isFree = getField<string>(created, 'paymentStatus', '') === 'not_required';
-          const paymentTicketId = getField<string>(created, 'paymentTicketId', '');
-          const ticketId = getField<string>(created, 'ticketId', '');
+          const readPaymentTicketId = getField<string>(created, 'paymentTicketId', '');
+          const readTicketId = getField<string>(created, 'ticketId', '');
 
           return Response.json({
             registrationId: registration.id,
-            ticketId: isFree ? ticketId : (paymentTicketId || registration.id),
+            ticketId: isFree ? readTicketId : (readPaymentTicketId || registration.id),
             paymentRequired: !isFree,
             amount: Number(getField(created, 'amount', 0)) || 0,
           });
