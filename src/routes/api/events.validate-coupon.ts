@@ -1,11 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB, createAdminPB } from "@/lib/pb";
+import { createPB, getPBUrl } from "@/lib/pb";
 import { requireAuth } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
-import {
-  validateCouponCode,
-  computeDiscount,
-} from "@/lib/registration-service";
 
 export const Route = createFileRoute("/api/events/validate-coupon")({
   server: {
@@ -29,20 +25,29 @@ export const Route = createFileRoute("/api/events/validate-coupon")({
             );
           }
 
-          const { coupon, event } = await validateCouponCode(createAdminPB(), eventId, code);
-          const price = Number(event.price) || 0;
-          const discountAmount = computeDiscount(price, coupon);
-          const finalPrice = Math.max(0, price - discountAmount);
-
-          return Response.json({
-            valid: true,
-            coupon: {
-              code: coupon.code,
-              discountPercent: coupon.discountPercent,
-              discountAmount,
-              finalPrice,
+          // Call the PB custom route (pb_hooks/coupon-validate.pb.js).
+          // The hook reads the coupon internally (no admin client needed)
+          // and returns the discount computation.
+          const res = await fetch(`${getPBUrl()}/api/validate-coupon`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              // Forward the user's auth token so the hook can authenticate.
+              "Authorization": userPb.authStore.token || "",
             },
+            body: JSON.stringify({ eventId, code }),
           });
+
+          const data = await res.json();
+
+          if (!res.ok) {
+            return Response.json(
+              { error: data.error || "Coupon validation failed" },
+              { status: res.status },
+            );
+          }
+
+          return Response.json(data);
         } catch (error) {
           return handleError(error, "validate-coupon");
         }

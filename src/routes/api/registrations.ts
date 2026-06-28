@@ -1,11 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB, createAdminPB, buildFileUrl, escapeFilterValue } from "@/lib/pb";
+import { createPB, buildFileUrl, escapeFilterValue } from "@/lib/pb";
 import { requireAuth } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
-import {
-  createRegistration,
-  RegistrationError,
-} from "@/lib/registration-service";
+import { RegistrationError } from "@/lib/registration-service";
 import { RegistrationBodySchema } from "@/schemas/registrations";
 import { z } from "zod";
 import { verifySameOrigin } from "@/lib/verify-same-origin";
@@ -112,21 +109,35 @@ export const Route = createFileRoute("/api/registrations")({
           const parsed = RegistrationBodySchema.parse(await request.json());
           const { eventId, formResponses, couponCode } = parsed;
 
-          const result = await createRegistration(createAdminPB(), {
-            userId: user.id,
-            eventId,
+          // Create with the user's own client. The onRecordCreateRequest hook
+          // (pb_hooks/registrations.pb.js) enforces all business rules,
+          // pins the user to the caller, and sets server-authoritative
+          // fields (paymentStatus, registrationStatus, ticketId, amount).
+          const registration = await userPb.collection("registrations").create({
+            user: user.id,
+            event: eventId,
             userName: getField(formResponses, 'name', ''),
             userEmail: getField(formResponses, 'email', ''),
             userPhone: getField(formResponses, 'phone', ''),
             formResponses,
-            couponCode,
+            couponCode: couponCode || '',
           });
 
+          // Read back the server-set fields the hook wrote (paymentTicketId,
+          // ticketId, paymentStatus, registrationStatus, amount).
+          const created = await userPb.collection("registrations").getOne(registration.id, {
+            fields: "id,ticketId,paymentTicketId,paymentStatus,registrationStatus,amount",
+          });
+
+          const isFree = getField<string>(created, 'paymentStatus', '') === 'not_required';
+          const paymentTicketId = getField<string>(created, 'paymentTicketId', '');
+          const ticketId = getField<string>(created, 'ticketId', '');
+
           return Response.json({
-            registrationId: result.registrationId,
-            ticketId: result.paymentTicketId || result.registrationId,
-            paymentRequired: result.paymentRequired,
-            amount: result.amount,
+            registrationId: registration.id,
+            ticketId: isFree ? ticketId : (paymentTicketId || registration.id),
+            paymentRequired: !isFree,
+            amount: Number(getField(created, 'amount', 0)) || 0,
           });
         } catch (error) {
           if (error instanceof z.ZodError) {

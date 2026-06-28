@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createPB, escapeFilterValue } from "@/lib/pb";
 import { requireRole, AuthError } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
-import { checkInRegistration } from "@/lib/registration-service";
 import { getField } from '@/lib/safe-get';
 import { requireEventScope } from "@/lib/chair-scope";
 import { z } from 'zod';
@@ -93,7 +92,10 @@ export const Route = createFileRoute("/api/check-in/verify")({
             return Response.json({ error: "Already checked in", registrationId: registration.id }, { status: 409 });
           }
 
-          await checkInRegistration(pb, registration.id);
+          await pb.collection("registrations").update(registration.id, {
+            checkedIn: true,
+            checkedInAt: new Date().toISOString(),
+          });
           return Response.json({
             success: true,
             message: "Checked in successfully",
