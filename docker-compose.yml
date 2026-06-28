@@ -1,6 +1,7 @@
 # ─────────────────────────────────────────────────────────────
-#  IEEE Sahrdaya — Production Docker Compose
-#  TanStack Start app + PocketBase (with pb_hooks support).
+#  IEEE Sahrdaya — TanStack Start App
+#  Deploy this via Dokploy as a separate service.
+#  PocketBase has its own compose (docker-compose.pb.yml).
 #  TLS options (pick one):
 #    A) Cloudflare Tunnel — zero open ports, free TLS at edge
 #    B) Minimal Caddy alongside — see commented service below
@@ -48,29 +49,3 @@ services:
   #
   # volumes:
   #   caddy_data:
-
-  # ─── PocketBase (with pb_hooks) ─────────────────────────────
-  pocketbase:
-    image: adrianmusante/pocketbase:latest
-    restart: always
-    expose:
-      - 8090
-    volumes:
-      - pocketbase-data:/pocketbase
-      - ./pb_hooks:/pocketbase/hooks
-    environment:
-      - POCKETBASE_ADMIN_EMAIL=${ADMIN_EMAIL:?err}
-      - POCKETBASE_ADMIN_PASSWORD=${ADMIN_PASSWORD:?err}
-      - POCKETBASE_ADMIN_UPSERT=true
-      - POCKETBASE_PORT_NUMBER=8090
-      - POCKETBASE_HOOK_DIR=/pocketbase/hooks
-      # Optional: enable settings encryption
-      # - POCKETBASE_ENCRYPTION_KEY=${ENCRYPTION_KEY}
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8090/_/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-volumes:
-  pocketbase-data:

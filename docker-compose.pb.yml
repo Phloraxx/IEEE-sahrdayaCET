@@ -1,0 +1,31 @@
+# ─────────────────────────────────────────────────────────────
+#  IEEE Sahrdaya — PocketBase (with pb_hooks)
+#  Deploy this via Dokploy as a separate service.
+#  The app has its own compose (docker-compose.yml).
+# ─────────────────────────────────────────────────────────────
+
+services:
+  pocketbase:
+    image: adrianmusante/pocketbase:latest
+    restart: always
+    expose:
+      - 8090
+    volumes:
+      - pocketbase-data:/pocketbase
+      - ./pb_hooks:/pocketbase/hooks
+    environment:
+      - POCKETBASE_ADMIN_EMAIL=${ADMIN_EMAIL:?err}
+      - POCKETBASE_ADMIN_PASSWORD=${ADMIN_PASSWORD:?err}
+      - POCKETBASE_ADMIN_UPSERT=true
+      - POCKETBASE_PORT_NUMBER=8090
+      - POCKETBASE_HOOK_DIR=/pocketbase/hooks
+      # Optional: enable settings encryption
+      # - POCKETBASE_ENCRYPTION_KEY=${ENCRYPTION_KEY}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8090/_/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  pocketbase-data:
