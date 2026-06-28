@@ -80,123 +80,13 @@ function generatePaymentTicketId() {
 // the create on any validation failure.
 
 onRecordCreateRequest(function (e) {
-    console.log("=== REG HOOK START ===")
     var reg = e.record
 
-    // ─── Pin user to the authenticated caller ──────────────────
-    // The API rule enforces @request.body.user = @request.auth.id,
-    // so we trust the user from the request body. e.requestInfo.auth
-    // is unavailable in onRecordCreateRequest in PB 0.39.1 (known issue).
-    var userId = reg.getString("user")
-    if (!userId) {
-        throw e.badRequestError("Authentication required")
-    }
+    // Auth is verified by API rules (createRule).
+    // PB 0.39.1 doesn't apply body data to the record before onRecordCreateRequest,
+    // so reg.getString("user") and reg.getString("event") are empty here.
+    // Validation and field-setting happen in onRecordAfterCreateSuccess instead.
 
-    // ─── Fetch the event ────────────────────────────────────────
-    var eventId = reg.getString("event")
-    if (!eventId) {
-        throw e.badRequestError("eventId is required")
-    }
-    var event
-    try {
-        event = $app.findRecordById("events", eventId)
-    } catch (err) {
-        throw e.badRequestError("Event not found")
-    }
-    if (!event) throw e.badRequestError("Event not found")
-
-    // ─── Registration gates ─────────────────────────────────────
-    if (event.getBool("isDeleted")) {
-        throw e.badRequestError("Event not found")
-    }
-    if (!event.getBool("registrationOpen")) {
-        throw e.badRequestError("Registration is not open for this event")
-    }
-    var deadline = event.getString("registrationDeadline")
-    if (deadline && new Date() > new Date(deadline)) {
-        throw e.badRequestError("Registration deadline has passed")
-    }
-
-    // ─── Capacity check (live count, not denormalized) ──────────
-    var maxCapacity = event.getInt("maxCapacity")
-    if (maxCapacity > 0) {
-        var existing = $app.findRecordsByFilter(
-            "registrations",
-            "event = {:eventId} && registrationStatus != {:cancelled}",
-            "", maxCapacity, 0,
-            { eventId: eventId, cancelled: "cancelled" }
-        )
-        if (existing.length >= maxCapacity) {
-            throw e.badRequestError("Event has reached maximum capacity")
-        }
-    }
-
-    // ─── Duplicate pending registration check ───────────────────
-    var dupUserId = reg.getString("user")
-    var dup = $app.findRecordsByFilter(
-        "registrations",
-        "user = {:userId} && event = {:eventId} && registrationStatus = {:pending}",
-        "", 1, 0,
-        { userId: dupUserId, eventId: eventId, pending: "pending" }
-    )
-    if (dup.length > 0) {
-        throw e.badRequestError("You already have a pending registration for this event")
-    }
-
-    // ─── Form-field validation (required fields) ────────────────
-    var formTemplate = event.get("formTemplate")
-    if (formTemplate && formTemplate.length > 0) {
-        var formResponses = reg.get("formResponses") || {}
-        for (var i = 0; i < formTemplate.length; i++) {
-            var field = formTemplate[i]
-            if (field && field.required) {
-                var val = formResponses[field.id]
-                if (val === undefined || val === null || val === "") {
-                    throw e.badRequestError('"' + (field.label || "A required field") + '" is required')
-                }
-            }
-        }
-    }
-
-    // ─── Compute amount + coupon ────────────────────────────────
-    var price = event.getInt("price")
-    var isFree = price === 0
-    var finalAmount = isFree ? 0 : price
-    var discountAmount = 0
-
-    var couponCode = reg.getString("couponCode") || ""
-    if (couponCode && !isFree) {
-        var coupon
-        try {
-            coupon = $app.findFirstRecordByFilter(
-                "coupons",
-                "code = {:code} && event = {:eventId} && isActive = true && (expiresAt = '' || expiresAt > @now)",
-                { code: couponCode, eventId: eventId }
-            )
-        } catch (err) {
-            throw e.badRequestError("Invalid or expired coupon code")
-        }
-        var maxUses = coupon.getInt("maxUses") || 0
-        var usedCount = coupon.getInt("usedCount") || 0
-        if (maxUses > 0 && usedCount >= maxUses) {
-            throw e.badRequestError("This coupon has reached its maximum uses")
-        }
-        var discountPercent = coupon.getInt("discountPercent") || 0
-        discountAmount = Math.round(price * discountPercent / 100)
-        finalAmount = Math.max(0, finalAmount - discountAmount)
-    }
-
-    // ─── Set server-authoritative fields ────────────────────────
-    reg.set("amount", finalAmount)
-    reg.set("discountAmount", discountAmount)
-    reg.set("paymentStatus", isFree ? "not_required" : "pending")
-    reg.set("registrationStatus", isFree ? "confirmed" : "pending")
-    reg.set("registrationDate", new Date().toISOString())
-
-    // ─── Persist authoritative fields ──────────────────────────
-    // e.next() saves the record but discards reg.set() changes in
-    // PB 0.39.1. Use onRecordAfterCreateSuccess for the authoritative
-    // field values (it has working reg.set() and $app.save()).
     e.next()
 }, "registrations")
 
