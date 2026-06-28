@@ -79,7 +79,7 @@ function generatePaymentTicketId() {
 // ticketId, paymentTicketId, amount, discountAmount). Throws to abort
 // the create on any validation failure.
 
-onRecordCreateRequest(function (e) {
+onRecordBeforeCreateRequest(function (e) {
     var reg = e.record
 
     // ─── Pin user to the authenticated caller ──────────────────
