@@ -1,9 +1,69 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
 import { APP_URL } from "@/lib/constants";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import SocietiesClient from "@/features/societies/SocietiesClient";
+import { createPB, buildFileUrl, escapeFilterValue } from "@/lib/pb";
 import type { Society } from "@/types";
-import { createPB, buildFileUrl } from "@/lib/pb";
+
+export const fetchSocietyMembers = createServerFn({ method: "GET" })
+  .validator((slug: string) => slug)
+  .handler(async ({ data: slug }) => {
+    const pb = createPB();
+    const res = await pb.collection("execom").getList(1, 50, {
+      filter: `sectionId = ${escapeFilterValue(slug)}`,
+      sort: "order",
+      fields:
+        "id,name,department,batch,position,sectionId,photo,linkedin,instagram",
+    });
+    return res.items.map((doc) => ({
+      id: doc.id as string,
+      name: (doc.name as string) || "",
+      position: (doc.position as string) || "",
+      department: (doc.department as string) || "",
+      batch: (doc.batch as string) || "",
+      sectionId: (doc.sectionId as string) || "",
+      photoUrl: doc.photo
+        ? buildFileUrl("execom", doc.id as string, doc.photo as string)
+        : "",
+      photo: doc.photo as string | undefined,
+      linkedin: doc.linkedin as string | undefined,
+      instagram: doc.instagram as string | undefined,
+    }));
+  });
+
+export const fetchSocietyEvents = createServerFn({ method: "GET" })
+  .validator((societyId: string) => societyId)
+  .handler(async ({ data: societyId }) => {
+    const pb = createPB();
+    const res = await pb.collection("events").getList(1, 50, {
+      filter: `society = ${escapeFilterValue(societyId)}`,
+      sort: "-date",
+      fields:
+        "id,title,description,date,endDate,venue,price,status,banner,externalFormUrl,registrationOpen",
+    });
+    return res.items
+      .filter((e) => {
+        const s = (e.status as string) || "";
+        return s === "published" || s === "completed";
+      })
+      .map((e) => ({
+        id: e.id as string,
+        title: (e.title as string) || "",
+        description: (e.description as string) || "",
+        date: (e.date as string) || "",
+        endDate: (e.endDate as string) || "",
+        venue: (e.venue as string) || "",
+        price: (e.price as number) || 0,
+        status: (e.status as string) || "",
+        bannerUrl: e.banner
+          ? buildFileUrl("events", e.id as string, e.banner as string)
+          : undefined,
+        banner: (e.banner as string) || "",
+        externalFormUrl: (e.externalFormUrl as string) || "",
+        registrationOpen: !!e.registrationOpen,
+      }));
+  });
 
 export const Route = createFileRoute("/societies")({
   head: () => ({
@@ -42,8 +102,8 @@ export const Route = createFileRoute("/societies")({
   }),
   loader: async ({ context }): Promise<Society[]> => {
     try {
-      const response = (context as unknown as { response: { headers: Headers } }).response;
-      response.headers.set('Cache-Control', 'public, max-age=300');
+      const response = (context as unknown as { response?: { headers?: Headers } })?.response;
+      response?.headers?.set('Cache-Control', 'public, max-age=300');
       const pb = createPB();
       const data = await pb.collection("societies").getList(1, 200, {
         filter: "isHidden=false",

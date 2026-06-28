@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { Link } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
-import { createClientPB, buildFileUrl } from "@/lib/pb";
 import { cn } from "@/lib/utils";
 import { X, Mail, Phone, Users } from "lucide-react";
 import { Linkedin, Instagram } from "@/components/icons";
@@ -299,58 +298,8 @@ const FilterPill: React.FC<{
 // ===== MAIN =====
 const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
   const [docs, setDocs] = useState(initialDocs);
-  const [isClientLoading, setIsClientLoading] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string>("core");
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
-
-  // Client-side fetch fallback when SSR fails to load data.
-  useEffect(() => {
-    if (initialDocs.length > 0) return;
-    let cancelled = false;
-    setIsClientLoading(true);
-    (async () => {
-      try {
-        const pb = createClientPB();
-        const result = await pb.collection("execom").getList(1, 100, {
-          sort: "order",
-          skipTotal: true,
-          fields:
-            "id,order,name,department,batch,position,category,section,sectionId,photo,linkedin,instagram,email,phone",
-        });
-        const items = (result?.items || []).map(
-          (raw: Record<string, unknown>, i: number): ExecomMemberDoc => {
-            const id = raw.id as string;
-            const photo = raw.photo as string | undefined;
-            return {
-              id,
-              order: Number(raw.order) || i + 1,
-              slNo: Number(raw.order) || i + 1,
-              name: (raw.name as string) || "",
-              department: (raw.department as string) || "",
-              semester: (raw.batch as string) || "",
-              position: (raw.position as string) || "",
-              category: (raw.category as string) || "",
-              section: (raw.section as string) || "",
-              sectionId: (raw.sectionId as string) || "",
-              photoUrl: photo ? buildFileUrl("execom", id, photo) : "",
-              linkedin: raw.linkedin as string | undefined,
-              instagram: raw.instagram as string | undefined,
-              email: raw.email as string | undefined,
-              phone: raw.phone as string | undefined,
-            };
-          },
-        );
-        if (!cancelled && items.length > 0) setDocs(items);
-      } catch {
-        // Fallback failed — empty state will render.
-      } finally {
-        if (!cancelled) setIsClientLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [initialDocs]);
 
   // Sections actually present, in canonical order → drives the filter pills.
   const presentSections = useMemo(() => {
@@ -367,28 +316,6 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
     [docs, activeFilter],
   );
 
-
-  // Loading state
-  if (isClientLoading) {
-    return (
-      <div className="min-h-screen bg-white">
-        <div className="mx-auto max-w-7xl px-6 py-10 sm:px-10 lg:px-16 lg:py-16">
-          <div className="h-3 w-24 animate-pulse rounded bg-gray-100" />
-          <div className="mt-5 border-t border-gray-200" />
-          <div className="mt-8 h-14 w-72 animate-pulse rounded bg-gray-100" />
-          <div className="mt-12 grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-            {Array.from({ length: 12 }).map((_, i) => (
-              <div key={i}>
-                <div className="aspect-[3/4] animate-pulse rounded-2xl bg-gray-100" />
-                <div className="mt-3 h-4 w-3/4 animate-pulse rounded bg-gray-100" />
-                <div className="mt-2 h-3 w-1/2 animate-pulse rounded bg-gray-100" />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // Empty state
   if (!docs.length) {

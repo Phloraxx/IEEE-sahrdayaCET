@@ -19,22 +19,6 @@ export function createPB(cookieString?: string) {
   }
   return pb
 }
-
-/**
- * Creates a PocketBase client for use in browser context.
- * Routes through the app's server proxy (/api/*) instead of
- * connecting directly to PocketBase, avoiding mixed-content
- * and CORS issues.
- */
-export function createClientPB(): PocketBase {
-  if (typeof window === 'undefined') {
-    throw new Error('createClientPB() must only be called in browser context')
-  }
-  const url = import.meta.env.VITE_POCKETBASE_URL
-  if (!url) throw new Error('VITE_POCKETBASE_URL is not configured')
-  return new PocketBase(url)
-}
-
 /**
  * Creates a PocketBase client authenticated as the runtime admin-role service
  * account (`POCKETBASE_ADMIN_TOKEN` — an impersonated long-lived token for a

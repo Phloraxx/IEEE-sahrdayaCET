@@ -67,8 +67,6 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV TANSTACK_START_TELEMETRY_DISABLED=1
-ARG VITE_POCKETBASE_URL
-ENV VITE_POCKETBASE_URL=$VITE_POCKETBASE_URL
 
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 ieeeapp

@@ -16,10 +16,10 @@ import Footer from "@/components/Footer";
 import { GridBackground } from "@/components/GridBackground";
 import { FloatingIcons } from "@/components/FloatingIcons";
 import { TechnicalDetails } from "@/components/TechnicalDetails";
-import { createClientPB, buildFileUrl, escapeFilterValue } from "@/lib/pb"
+import { buildFileUrl } from "@/lib/pb"
+import { fetchSocietyMembers, fetchSocietyEvents } from "@/routes/societies"
 import { formatDate, formatDateCompact } from "@/lib/dates";
 import type { Society, ExecomMember, Event } from "@/types";
-import { getField } from "@/lib/safe-get";
 
 /* ------------------------------------------------------------------ */
 /*  Inline Member card                                                 */
@@ -162,7 +162,6 @@ export default function SocietiesClient({ societies }: SocietiesClientProps) {
   const [scrollPosition, setScrollPosition] = useState(0);
   const [societyError, setSocietyError] = useState<string | null>(null);
   const [selfSocieties, setSelfSocieties] = useState<Society[]>(societies);
-  const [fetching, setFetching] = useState(false);
   const societyPanelRef = useRef<HTMLDivElement>(null);
   const eventModalRef = useRef<HTMLDivElement>(null);
 
@@ -210,36 +209,6 @@ export default function SocietiesClient({ societies }: SocietiesClientProps) {
     }
   }, [selectedEvent]);
 
-  /* ---------- Fetch societies if SSR returned empty ---------- */
-  useEffect(() => {
-    if (societies.length > 0) {
-      setSelfSocieties(societies);
-      return;
-    }
-    // SSR returned empty — fetch ourselves
-    setFetching(true);
-    const pb = createClientPB()
-    pb.collection("societies").getList(1, 200, {
-      filter: "isHidden=false",
-      skipTotal: true,
-      fields: "id,name,slug,bio,logo",
-    })
-      .then((data) => {
-        const items = (data.items || []).map((s: Record<string, unknown>) => ({
-          id: getField(s, "id", ""),
-          name: getField(s, "name", ""),
-          slug: getField(s, "slug", ""),
-          bio: getField(s, "bio", undefined),
-          logoUrl: s.logo
-            ? buildFileUrl("societies", getField(s, "id", ""), getField(s, "logo", ""))
-            : undefined,
-        }));
-        setSelfSocieties(items);
-        setFetching(false);
-      })
-      .catch(() => setFetching(false));
-  }, [societies]);
-
   /* ---------- Fetch members & events for selected society ---------- */
   const handleSocietyClick = useCallback(async (society: Society) => {
     setSelectedSociety(society);
@@ -247,89 +216,23 @@ export default function SocietiesClient({ societies }: SocietiesClientProps) {
     setSocietyError(null);
     setScrollPosition(0);
 
-    const pb = createClientPB()
-
-    // Fetch members
+    // Fetch members & events in parallel via server functions
     setLoadingMembers(true);
-    pb.collection("execom")
-      .getList(1, 50, {
-        filter: `sectionId = ${escapeFilterValue(society.slug)}`,
-        sort: "order",
-        fields:
-          "id,name,department,batch,position,sectionId,photo,linkedin,instagram",
-      })
-      .then((res) => {
-        const members = res.items.map(
-          (doc) =>
-            ({
-              id: getField(doc, 'id', ''),
-              name: getField(doc, 'name', ''),
-              department: getField(doc, 'department', ''),
-              position: getField(doc, 'position', ''),
-              sectionId: getField(doc, 'sectionId', ''),
-              batch: getField(doc, 'batch', ''),
-              photo: getField(doc, 'photo', ''),
-              photoUrl: getField(doc, 'photo', '')
-                ? buildFileUrl(
-                    "execom",
-                    getField(doc, 'id', ''),
-                    getField(doc, 'photo', ''),
-                  )
-                : undefined,
-              linkedin: getField(doc, 'linkedin', ''),
-              instagram: getField(doc, 'instagram', ''),
-              email: getField(doc, 'email', ''),
-              phone: getField(doc, 'phone', ''),
-            }) as ExecomMember,
-        );
-        setSocietyMembers(members);
-      })
-      .catch(() => setSocietyMembers([]))
-      .finally(() => setLoadingMembers(false));
-
-    // Fetch events
     setLoadingEvents(true);
-    pb.collection("events")
-      .getList(1, 50, {
-        filter: `society = ${escapeFilterValue(society.id)}`,
-        sort: "-date",
-        fields:
-          "id,title,description,date,endDate,venue,price,status,banner,externalFormUrl,registrationOpen",
-      })
-      .then((res) => {
-        const events = res.items
-          .filter(
-            (e) =>
-              getField<string>(e, 'status', '') === "published" ||
-              getField<string>(e, 'status', '') === "completed",
-          )
-          .map(
-            (e) =>
-              ({
-                id: getField(e, 'id', ''),
-                title: getField(e, 'title', ''),
-                description: getField(e, 'description', ''),
-                date: getField(e, 'date', ''),
-                endDate: getField(e, 'endDate', ''),
-                venue: getField(e, 'venue', ''),
-                price: getField(e, 'price', 0),
-                status: getField(e, 'status', ''),
-                bannerUrl: getField(e, 'banner', '')
-                  ? buildFileUrl(
-                      "events",
-                      getField(e, 'id', ''),
-                      getField(e, 'banner', ''),
-                    )
-                  : undefined,
-                banner: getField(e, 'banner', ''),
-                externalFormUrl: getField(e, 'externalFormUrl', ''),
-                registrationOpen: getField(e, 'registrationOpen', true),
-              }) as Event,
-          );
-        setSocietyEvents(events);
-      })
-      .catch(() => setSocietyEvents([]))
-      .finally(() => setLoadingEvents(false));
+    try {
+      const [members, events] = await Promise.all([
+        fetchSocietyMembers({ data: society.slug }),
+        fetchSocietyEvents({ data: society.id }),
+      ]);
+      setSocietyMembers(members as ExecomMember[]);
+      setSocietyEvents(events as Event[]);
+    } catch {
+      setSocietyMembers([]);
+      setSocietyEvents([]);
+    } finally {
+      setLoadingMembers(false);
+      setLoadingEvents(false);
+    }
   }, []);
 
   /* ---------- Auto-scroll for events carousel ---------- */
@@ -413,10 +316,6 @@ export default function SocietiesClient({ societies }: SocietiesClientProps) {
             <div className="text-center py-20">
               <div className="text-6xl mb-4">&#9888;&#65039;</div>
               <p className="text-red-600 text-lg">{error}</p>
-            </div>
-          ) : selfSocieties.length === 0 && fetching ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 text-ieee-blue animate-spin" />
             </div>
           ) : selfSocieties.length === 0 ? (
             <p className="text-center text-gray-500 py-12">
