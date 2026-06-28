@@ -333,30 +333,52 @@ const HEAD: string[][] = [
   ['transparent','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','transparent'],
 ];
 
-const BODY: string[][] = [
-  ['transparent','#004a7c','#00629B','#00629B','#00629B','#00629B','#004a7c','transparent'],
-  ['transparent','#004a7c','#00629B','#ffffff','#ffffff','#00629B','#004a7c','transparent'],
-  ['#f5d5b8','#004a7c','#00629B','#00629B','#00629B','#00629B','#004a7c','#f5d5b8'],
-  ['#f5d5b8','#004a7c','#004a7c','#0099D6','#0099D6','#004a7c','#004a7c','#f5d5b8'],
-  ['transparent','#004a7c','#004a7c','#00629B','#00629B','#004a7c','#004a7c','transparent'],
-  ['transparent','#2c3e50','#2c3e50','#2c3e50','#2c3e50','#2c3e50','#2c3e50','transparent'],
-  ['transparent','#2c3e50','#2c3e50','transparent','transparent','#2c3e50','#2c3e50','transparent'],
-  ['transparent','#1a252f','#1a252f','transparent','transparent','#1a252f','#1a252f','transparent'],
+/* Split body — column 0 = left arm, cols 1-6 = torso, col 7 = right arm */
+const BODY_LEFT_COL: string[][] = [
+  ['transparent'],['transparent'],['#f5d5b8'],['#f5d5b8'],
+  ['transparent'],['transparent'],['transparent'],['transparent'],
+];
+const BODY_CENTER: string[][] = [
+  ['#004a7c','#00629B','#00629B','#00629B','#00629B','#004a7c'],
+  ['#004a7c','#00629B','#ffffff','#ffffff','#00629B','#004a7c'],
+  ['#004a7c','#00629B','#00629B','#00629B','#00629B','#004a7c'],
+  ['#004a7c','#004a7c','#0099D6','#0099D6','#004a7c','#004a7c'],
+  ['#004a7c','#004a7c','#00629B','#00629B','#004a7c','#004a7c'],
+  ['#2c3e50','#2c3e50','#2c3e50','#2c3e50','#2c3e50','#2c3e50'],
+  ['#2c3e50','#2c3e50','transparent','transparent','#2c3e50','#2c3e50'],
+  ['#1a252f','#1a252f','transparent','transparent','#1a252f','#1a252f'],
+];
+const BODY_RIGHT_COL: string[][] = [
+  ['transparent'],['transparent'],['#f5d5b8'],['#f5d5b8'],
+  ['transparent'],['transparent'],['transparent'],['transparent'],
 ];
 
 function MascotScribble() {
   return (
-    <motion.div
-      animate={{ rotate: [-4, 4, -4] }}
-      transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
-      style={{ transformOrigin: "bottom center" }}
-      className="hidden sm:block"
-    >
+    <div className="hidden sm:block">
+      {/* Head — full 8 columns */}
       <PixelGrid grid={HEAD} size={4} />
-      <PixelGrid grid={BODY} size={4} />
-    </motion.div>
+      {/* Body — left arm + torso stacked, right arm animated separately */}
+      <div style={{ display: "flex" }}>
+        <PixelGrid grid={BODY_LEFT_COL} size={4} />
+        <PixelGrid grid={BODY_CENTER} size={4} />
+        <motion.div
+          animate={{ rotate: [0, 0, -24, -12, -24, -12, -24, 0, 0] }}
+          transition={{
+            duration: 10,
+            repeat: Infinity,
+            ease: "easeInOut",
+            times: [0, 0.15, 0.3, 0.4, 0.5, 0.6, 0.7, 0.85, 1],
+          }}
+          style={{ transformOrigin: "2px 10px" }}
+        >
+          <PixelGrid grid={BODY_RIGHT_COL} size={4} />
+        </motion.div>
+      </div>
+    </div>
   );
 }
+
 
 /* ============================================================
    Wordmark — Anton condensed, scaled with clamp(),
