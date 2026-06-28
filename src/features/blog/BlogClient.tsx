@@ -297,45 +297,64 @@ function EyebrowStrip() {
   );
 }
 
+function PixelGrid({ grid, size }: { grid: string[][]; size: number }) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: `repeat(${grid[0]?.length ?? 0}, ${size}px)`,
+        gap: 0,
+        lineHeight: 0,
+      }}
+    >
+      {grid.flat().map((color, i) => (
+        <div
+          key={i}
+          style={{
+            width: size,
+            height: size,
+            backgroundColor: color,
+            imageRendering: "pixelated",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+const HEAD: string[][] = [
+  ['#00629B','#00629B','#00629B','#00629B','#00629B','#00629B','#00629B','#00629B'],
+  ['#00629B','#0099D6','#0099D6','#0099D6','#0099D6','#0099D6','#0099D6','#00629B'],
+  ['#00629B','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#00629B'],
+  ['#f5d5b8','#f5d5b8','#ffffff','#0099D6','#0099D6','#ffffff','#f5d5b8','#f5d5b8'],
+  ['#f5d5b8','#f5d5b8','#f5d5b8','#e8c4a0','#e8c4a0','#f5d5b8','#f5d5b8','#f5d5b8'],
+  ['#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8'],
+  ['#f5d5b8','#e8c4a0','#e8c4a0','#e8c4a0','#e8c4a0','#e8c4a0','#e8c4a0','#f5d5b8'],
+  ['transparent','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','transparent'],
+];
+
+const BODY: string[][] = [
+  ['transparent','#004a7c','#00629B','#00629B','#00629B','#00629B','#004a7c','transparent'],
+  ['transparent','#004a7c','#00629B','#ffffff','#ffffff','#00629B','#004a7c','transparent'],
+  ['#f5d5b8','#004a7c','#00629B','#00629B','#00629B','#00629B','#004a7c','#f5d5b8'],
+  ['#f5d5b8','#004a7c','#004a7c','#0099D6','#0099D6','#004a7c','#004a7c','#f5d5b8'],
+  ['transparent','#004a7c','#004a7c','#00629B','#00629B','#004a7c','#004a7c','transparent'],
+  ['transparent','#2c3e50','#2c3e50','#2c3e50','#2c3e50','#2c3e50','#2c3e50','transparent'],
+  ['transparent','#2c3e50','#2c3e50','transparent','transparent','#2c3e50','#2c3e50','transparent'],
+  ['transparent','#1a252f','#1a252f','transparent','transparent','#1a252f','#1a252f','transparent'],
+];
+
 function MascotScribble() {
   return (
-    <svg
-      viewBox="0 0 80 60"
-      className="hidden h-12 w-16 text-foreground sm:block"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
+    <motion.div
+      animate={{ rotate: [-4, 4, -4] }}
+      transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
+      style={{ transformOrigin: "bottom center" }}
+      className="hidden sm:block"
     >
-      {/* Minecraft character — head */}
-      <rect x="22" y="4" width="14" height="14" rx="2" />
-      {/* Hair line */}
-      <path d="M22 5 h14" />
-      {/* Eyes */}
-      <path d="M25 9 h2 M31 9 h2" />
-      {/* Mouth */}
-      <path d="M26 13 h4 M26 14 h4" />
-      {/* Body */}
-      <rect x="24" y="20" width="10" height="14" rx="1.5" />
-      {/* Left arm */}
-      <path d="M24 22 L18 22 L18 32" />
-      {/* Right arm — waving "hi" */}
-      <motion.g
-        animate={{ rotate: [-5, 7, -5] }}
-        transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
-        style={{ transformOrigin: "34px 22px" }}
-      >
-        <path d="M34 22 L40 18 L42 12" />
-      </motion.g>
-      {/* Legs */}
-      <path d="M26 34 L26 50 M32 34 L32 50" />
-      {/* Decorative block (Minecraft-style) */}
-      <path d="M52 16 L58 12 L66 16 L60 20 Z" />
-      <path d="M52 16 L52 20 L60 24 L60 20" />
-      <path d="M58 12 L58 16 L66 16" />
-    </svg>
+      <PixelGrid grid={HEAD} size={4} />
+      <PixelGrid grid={BODY} size={4} />
+    </motion.div>
   );
 }
 
