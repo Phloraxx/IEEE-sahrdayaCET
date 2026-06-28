@@ -20,10 +20,8 @@ export default function Navbar() {
   const [isVisible, setIsVisible] = useState(true);
   const [activeSection, setActiveSection] = useState("/");
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [showUserMenu, setShowUserMenu] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const userMenuRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const pathname = location.pathname;
   const { user, status, signOut } = useAuth();
@@ -33,29 +31,6 @@ export default function Navbar() {
     setMobileMenuOpen(false);
   }, [pathname]);
 
-  // Close user menu on click outside
-  // Close user menu on click outside or Escape
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        userMenuRef.current &&
-        !userMenuRef.current.contains(e.target as Node)
-      ) {
-        setShowUserMenu(false);
-      }
-    };
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setShowUserMenu(false);
-    };
-    if (showUserMenu) {
-      document.addEventListener("mousedown", handleClickOutside);
-      document.addEventListener("keydown", handleEscape);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [showUserMenu]);
 
   useEffect(() => {
     const handleScrollEvent = () => {
@@ -81,7 +56,6 @@ export default function Navbar() {
 
   const handleLogout = () => {
     signOut();
-    setShowUserMenu(false);
   };
 
   return (
@@ -135,54 +109,24 @@ export default function Navbar() {
           {/* Auth Section */}
           {!loading &&
             (user ? (
-              <div className="relative" ref={userMenuRef}>
-                <button
-                  onClick={() => setShowUserMenu(!showUserMenu)}
-                  aria-expanded={showUserMenu}
-                  aria-haspopup="true"
+              <div className="flex items-center gap-1">
+                <Link
+                  to="/admin/dashboard"
                   className="flex items-center gap-2 px-3 md:px-4 py-2 rounded-full text-[10px] md:text-xs font-bold tracking-wide text-blue-600 hover:bg-white/50 transition-all duration-300 whitespace-nowrap"
                 >
                   <User className="w-3 h-3 md:w-4 md:h-4" />
                   <span className="hidden md:inline">
-                    {user.name?.split(" ")[0]}
+                    Dashboard
                   </span>
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-1 px-3 md:px-4 py-2 rounded-full text-[10px] md:text-xs font-bold tracking-wide text-red-500 hover:bg-red-50 transition-all duration-300 whitespace-nowrap"
+                  title="Sign Out"
+                >
+                  <LogOut className="w-3 h-3 md:w-4 md:h-4" />
+                  <span className="hidden md:inline">Sign Out</span>
                 </button>
-
-                {/* User dropdown */}
-                {/* Close on Escape */}
-                {showUserMenu && (
-                  <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 min-w-[200px] overflow-hidden z-1000 pointer-events-auto">
-                    <div className="px-4 py-3 border-b border-gray-50 bg-gray-50/50">
-                      <p className="text-sm font-bold text-gray-900">
-                        {user.name}
-                      </p>
-                      <p className="text-[10px] font-mono text-gray-500 truncate mt-0.5">
-                        {user.email}
-                      </p>
-                    </div>
-                    {user.role === "admin" && (
-                      <>
-                        <div className="h-px bg-gray-100" />
-                        <Link
-                          to="/admin"
-                          className="w-full px-4 py-3 text-left text-xs font-bold text-blue-600 hover:bg-blue-50 transition-colors flex items-center gap-3 tracking-wide"
-                          onClick={() => setShowUserMenu(false)}
-                        >
-                          <LayoutDashboard className="w-4 h-4" />
-                          Dashboard
-                        </Link>
-                      </>
-                    )}
-                    <div className="h-px bg-gray-100" />
-                    <button
-                      onClick={handleLogout}
-                      className="w-full px-4 py-3 text-left text-xs font-bold text-red-600 hover:bg-red-50 transition-colors flex items-center gap-3 tracking-wide"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      Sign Out
-                    </button>
-                  </div>
-                )}
               </div>
             ) : (
               <button
@@ -233,18 +177,22 @@ export default function Navbar() {
             {!loading &&
               (user ? (
                 <div className="flex flex-col items-center gap-4">
-                  <span className="text-gray-900 font-semibold text-lg">{user.name}</span>
+                  <Link
+                    to="/admin/dashboard"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="text-gray-900 font-semibold text-lg hover:text-[#00629B] transition-colors"
+                  >
+                    {user.name}
+                  </Link>
                   <div className="flex gap-3">
-                    {user.role === "admin" && (
-                      <Link
-                        to="/admin"
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="inline-flex items-center gap-2 px-6 py-3 bg-[#00629B] text-white rounded-full font-bold text-sm hover:bg-[#004a7c] transition-colors"
-                      >
-                        <LayoutDashboard className="w-4 h-4" />
-                        Dashboard
-                      </Link>
-                    )}
+                    <Link
+                      to="/admin/dashboard"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-[#00629B] text-white rounded-full font-bold text-sm hover:bg-[#004a7c] transition-colors"
+                    >
+                      <LayoutDashboard className="w-4 h-4" />
+                      Dashboard
+                    </Link>
                     <button
                       onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
                       className="inline-flex items-center gap-2 px-6 py-3 bg-red-500 text-white rounded-full font-bold text-sm hover:bg-red-600 transition-colors"
