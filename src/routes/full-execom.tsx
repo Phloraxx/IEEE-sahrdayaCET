@@ -44,8 +44,8 @@ export const Route = createFileRoute("/full-execom")({
   }),
   loader: async ({ context }): Promise<ExecomMemberDoc[]> => {
     try {
-      const response = (context as unknown as { response: { headers: Headers } }).response;
-      response.headers.set('Cache-Control', 'public, max-age=300');
+      const response = (context as unknown as { response?: { headers?: Headers } })?.response;
+      response?.headers?.set('Cache-Control', 'public, max-age=300');
       const pb = createPB();
       const data = await pb.collection("execom").getList(1, 100, {
         sort: "order",
