@@ -79,7 +79,7 @@ function generatePaymentTicketId() {
 // ticketId, paymentTicketId, amount, discountAmount). Throws to abort
 // the create on any validation failure.
 
-onRecordBeforeCreateRequest(function (e) {
+onRecordCreateRequest(function (e) {
     var reg = e.record
 
     // ─── Pin user to the authenticated caller ──────────────────
@@ -192,12 +192,10 @@ onRecordBeforeCreateRequest(function (e) {
     reg.set("registrationStatus", isFree ? "confirmed" : "pending")
     reg.set("registrationDate", new Date().toISOString())
 
-    if (isFree) {
-        reg.set("ticketId", generateTicketId())
-    } else {
-        reg.set("paymentTicketId", generatePaymentTicketId())
-    }
-
+    // ─── Persist authoritative fields ──────────────────────────
+    // e.next() saves the record but discards reg.set() changes in
+    // PB 0.39.1. Use onRecordAfterCreateSuccess for the authoritative
+    // field values (it has working reg.set() and $app.save()).
     e.next()
 }, "registrations")
 
@@ -210,11 +208,47 @@ onRecordAfterCreateSuccess(function (e) {
     var reg = e.record
     var eventId = reg.getString("event")
 
-    // Re-compute event counters (handles free/confirmed registrations)
+    // ─── Set server-authoritative fields ────────────────────────
+    // onRecordCreateRequest cannot persist reg.set() changes in
+    // PB 0.39.1 (goja bug), so we set them here where $app.save() works.
+    var event = $app.findRecordById("events", eventId)
+    var price = event.getInt("price") || 0
+    var isFree = price === 0
+    var couponCode = reg.getString("couponCode") || ""
+    var discountAmount = 0
+    var finalAmount = isFree ? 0 : price
+
+    if (couponCode && !isFree) {
+        var coupon = $app.findFirstRecordByFilter(
+            "coupons",
+            "code = {:code} && event = {:eventId} && isActive = true && (expiresAt = '' || expiresAt > @now)",
+            { code: couponCode, eventId: eventId }
+        )
+        if (coupon) {
+            var discountPercent = coupon.getInt("discountPercent") || 0
+            discountAmount = Math.round(price * discountPercent / 100)
+            finalAmount = Math.max(0, finalAmount - discountAmount)
+        }
+    }
+
+    reg.set("amount", finalAmount)
+    reg.set("discountAmount", discountAmount)
+    reg.set("paymentStatus", isFree ? "not_required" : "pending")
+    reg.set("registrationStatus", isFree ? "confirmed" : "pending")
+    reg.set("registrationDate", new Date().toISOString())
+
+    if (isFree) {
+        reg.set("ticketId", generateTicketId())
+    } else {
+        reg.set("paymentTicketId", generatePaymentTicketId())
+    }
+
+    $app.save(reg)
+
+    // Re-compute event counters
     recomputeEventCounters(eventId)
 
-    // Reserve coupon: re-compute usedCount from active registrations
-    var couponCode = reg.getString("couponCode") || ""
+    // Reserve coupon
     if (couponCode) {
         recomputeCouponUsedCount(couponCode, eventId)
     }
