@@ -86,9 +86,10 @@ export const Route = createFileRoute("/api/admin/stats")({
               "registrations",
               buildFilter([registrationScope, `registrationDate >= ${escapeFilterValue(startOfToday)} && registrationDate < ${escapeFilterValue(endOfToday)}`]),
             ),
-            count("execom"),
-            count("societies"),
-            count("societies", `isHidden != true`),
+            // L-1: org-wide totals are admin-only; chairs get null.
+            ctx.role === "admin" ? count("execom") : Promise.resolve(null),
+            ctx.role === "admin" ? count("societies") : Promise.resolve(null),
+            ctx.role === "admin" ? count("societies", `isHidden != true`) : Promise.resolve(null),
           ]);
 
           return Response.json({

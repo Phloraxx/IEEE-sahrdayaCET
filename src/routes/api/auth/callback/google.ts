@@ -14,19 +14,25 @@ export const Route = createFileRoute("/api/auth/callback/google")({
         const cookies = parse(request.headers.get("cookie") || "");
         const providerCookie = cookies[PB_OAUTH_PROVIDER_COOKIE];
 
-        const appUrl =
-          process.env.PUBLIC_APP_URL || `${url.protocol}//${url.host}`;
+        const appUrl = process.env.PUBLIC_APP_URL;
+        const fallbackUrl = `${url.protocol}//${url.host}`;
+        const isProduction = process.env.NODE_ENV === "production";
+        if (!appUrl && isProduction) {
+          logError("oauth-callback", "PUBLIC_APP_URL not set in production");
+          return new Response(null, { status: 302, headers: { Location: new URL("/?error=config_error", fallbackUrl).toString() } });
+        }
+        const resolvedAppUrl = appUrl || fallbackUrl;
 
         if (!code || !state || !providerCookie) {
-          return new Response(null, { status: 302, headers: { Location: new URL("/?error=auth_failed", appUrl).toString() } });
+          return new Response(null, { status: 302, headers: { Location: new URL("/?error=auth_failed", resolvedAppUrl).toString() } });
         }
 
         const provider = verifySignedCookie(decodeURIComponent(providerCookie));
         if (!provider || provider.state !== state) {
-          return new Response(null, { status: 302, headers: { Location: new URL("/?error=auth_failed", appUrl).toString() } });
+          return new Response(null, { status: 302, headers: { Location: new URL("/?error=auth_failed", resolvedAppUrl).toString() } });
         }
 
-        const redirectUrl = `${appUrl}${OAUTH_CALLBACK_PATH}`;
+        const redirectUrl = `${resolvedAppUrl}${OAUTH_CALLBACK_PATH}`;
 
         try {
           const pbUrl = process.env.POCKETBASE_URL;
@@ -42,7 +48,7 @@ export const Route = createFileRoute("/api/auth/callback/google")({
             );
 
           const isProduction = process.env.NODE_ENV === "production";
-          const response = new Response(null, { status: 302, headers: { Location: appUrl } });
+          const response = new Response(null, { status: 302, headers: { Location: resolvedAppUrl } });
 
           const authCookie = pb.authStore.exportToCookie({
               httpOnly: true,
@@ -68,7 +74,7 @@ export const Route = createFileRoute("/api/auth/callback/google")({
         } catch (err) {
           logError("oauth-callback", err);
           const isProduction = process.env.NODE_ENV === "production";
-          const response = new Response(null, { status: 302, headers: { Location: new URL("/?error=auth_failed", appUrl).toString() } });
+          const response = new Response(null, { status: 302, headers: { Location: new URL("/?error=auth_failed", resolvedAppUrl).toString() } });
           response.headers.set(
             "Set-Cookie",
             serialize(PB_OAUTH_PROVIDER_COOKIE, "", {

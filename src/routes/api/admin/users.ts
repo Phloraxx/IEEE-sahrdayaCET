@@ -12,7 +12,7 @@ export const Route = createFileRoute("/api/admin/users")({
       GET: async ({ request }) => {
         try {
           const pb = createPB(request.headers.get("cookie") || undefined);
-          await requireRole(["admin", "chair"], pb);
+          await requireRole(["admin"], pb);
           const url = new URL(request.url);
           const { page, perPage } = parsePagination(url, {
             defaultPerPage: 200,
