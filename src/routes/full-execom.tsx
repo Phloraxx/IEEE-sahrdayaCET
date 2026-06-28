@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
 import { createPB, buildFileUrl } from "@/lib/pb";
 import { APP_URL } from "@/lib/constants";
 import { logError } from "@/lib/logger";
@@ -6,6 +7,55 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import ExecomClient, {
   type ExecomMemberDoc,
 } from "@/features/execom/ExecomClient";
+
+const fetchExecomData = createServerFn({ method: "GET" }).handler(
+  async (): Promise<ExecomMemberDoc[]> => {
+    const pb = createPB();
+    const data = await pb.collection("execom").getList(1, 100, {
+      sort: "order",
+      skipTotal: true,
+      fields:
+        "id,order,name,department,batch,position,category,section,sectionId,photo,linkedin,instagram,email,phone",
+    });
+    return (data?.items || []).map((raw: Record<string, unknown>, i: number) => {
+      const doc = raw as {
+        id: string;
+        order?: number;
+        name?: string;
+        department?: string;
+        batch?: string;
+        position?: string;
+        category?: string;
+        section?: string;
+        sectionId?: string;
+        photo?: string;
+        linkedin?: string;
+        instagram?: string;
+        email?: string;
+        phone?: string;
+      };
+      return {
+        id: doc.id,
+        order: doc.order ?? 0,
+        slNo: doc.order ?? i + 1,
+        name: doc.name || "",
+        department: doc.department || "",
+        semester: doc.batch || "",
+        position: doc.position || "",
+        category: doc.category || "",
+        section: doc.section || "",
+        sectionId: doc.sectionId || "",
+        photoUrl: doc.photo
+          ? buildFileUrl("execom", doc.id, doc.photo)
+          : "",
+        linkedin: doc.linkedin,
+        instagram: doc.instagram,
+        email: doc.email,
+        phone: doc.phone,
+      };
+    });
+  },
+);
 
 export const Route = createFileRoute("/full-execom")({
   head: () => ({
@@ -42,53 +92,9 @@ export const Route = createFileRoute("/full-execom")({
       },
     ],
   }),
-  loader: async ({ context }): Promise<ExecomMemberDoc[]> => {
+  loader: async (): Promise<ExecomMemberDoc[]> => {
     try {
-      const response = (context as unknown as { response?: { headers?: Headers } })?.response;
-      response?.headers?.set('Cache-Control', 'public, max-age=300');
-      const pb = createPB();
-      const data = await pb.collection("execom").getList(1, 100, {
-        sort: "order",
-        skipTotal: true,
-        fields: "id,order,name,department,batch,position,category,section,sectionId,photo,linkedin,instagram,email,phone",
-      });
-      return (data?.items || []).map((raw: Record<string, unknown>, i: number) => {
-        const doc = raw as {
-          id: string;
-          order?: number;
-          name?: string;
-          department?: string;
-          batch?: string;
-          position?: string;
-          category?: string;
-          section?: string;
-          sectionId?: string;
-          photo?: string;
-          linkedin?: string;
-          instagram?: string;
-          email?: string;
-          phone?: string;
-        };
-        return {
-          id: doc.id,
-          order: doc.order ?? 0,
-          slNo: doc.order ?? i + 1,
-          name: doc.name || "",
-          department: doc.department || "",
-          semester: doc.batch || "",
-          position: doc.position || "",
-          category: doc.category || "",
-          section: doc.section || "",
-          sectionId: doc.sectionId || "",
-          photoUrl: doc.photo
-            ? buildFileUrl("execom", doc.id, doc.photo)
-            : "",
-          linkedin: doc.linkedin,
-          instagram: doc.instagram,
-          email: doc.email,
-          phone: doc.phone,
-        };
-      });
+      return await fetchExecomData();
     } catch (error) {
       logError("full-execom-loader", error);
       return [];
