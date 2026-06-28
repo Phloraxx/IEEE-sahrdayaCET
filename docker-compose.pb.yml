@@ -12,13 +12,13 @@ services:
       - 8090
     volumes:
       - pocketbase-data:/pocketbase
-      - ./pb_hooks:/hooks
+      - ./pb_hooks:/pocketbase/hooks
     environment:
       - POCKETBASE_ADMIN_EMAIL=${ADMIN_EMAIL:?err}
       - POCKETBASE_ADMIN_PASSWORD=${ADMIN_PASSWORD:?err}
       - POCKETBASE_ADMIN_UPSERT=true
       - POCKETBASE_PORT_NUMBER=8090
-      - POCKETBASE_HOOK_DIR=/hooks
+      - POCKETBASE_HOOK_DIR=/pocketbase/hooks
       - PAYMENT_WEBHOOK_SECRET=${PAYMENT_WEBHOOK_SECRET:?err}
       # Optional: enable settings encryption
       # - POCKETBASE_ENCRYPTION_KEY=${ENCRYPTION_KEY}
