@@ -309,13 +309,32 @@ function MascotScribble() {
       strokeLinejoin="round"
       aria-hidden
     >
-      <circle cx="28" cy="20" r="9" />
-      <path d="M28 29 L24 44 L18 55" />
-      <path d="M28 29 L34 44 L40 55" />
-      <path d="M28 33 L18 38" />
-      <path d="M28 33 L44 30" />
-      <path d="M50 22 Q60 14 70 22" />
-      <path d="M52 28 L68 28" />
+      {/* Minecraft character — head */}
+      <rect x="22" y="4" width="14" height="14" rx="2" />
+      {/* Hair line */}
+      <path d="M22 5 h14" />
+      {/* Eyes */}
+      <path d="M25 9 h2 M31 9 h2" />
+      {/* Mouth */}
+      <path d="M26 13 h4 M26 14 h4" />
+      {/* Body */}
+      <rect x="24" y="20" width="10" height="14" rx="1.5" />
+      {/* Left arm */}
+      <path d="M24 22 L18 22 L18 32" />
+      {/* Right arm — waving "hi" */}
+      <motion.g
+        animate={{ rotate: [-5, 7, -5] }}
+        transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+        style={{ transformOrigin: "34px 22px" }}
+      >
+        <path d="M34 22 L40 18 L42 12" />
+      </motion.g>
+      {/* Legs */}
+      <path d="M26 34 L26 50 M32 34 L32 50" />
+      {/* Decorative block (Minecraft-style) */}
+      <path d="M52 16 L58 12 L66 16 L60 20 Z" />
+      <path d="M52 16 L52 20 L60 24 L60 20" />
+      <path d="M58 12 L58 16 L66 16" />
     </svg>
   );
 }
