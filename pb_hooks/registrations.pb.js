@@ -106,52 +106,53 @@ onRecordCreateRequest(function (e) {
 onRecordAfterCreateSuccess(function (e) {
     var reg = e.record
     var eventId = reg.getString("event")
+    if (!eventId) { e.next(); return }
 
-    // ─── Set server-authoritative fields ────────────────────────
-    // onRecordCreateRequest cannot persist reg.set() changes in
-    // PB 0.39.1 (goja bug), so we set them here where $app.save() works.
     var event = $app.findRecordById("events", eventId)
+    if (!event) { e.next(); return }
+
     var price = event.getInt("price") || 0
     var isFree = price === 0
+    var finalAmount = isFree ? 0 : price
     var couponCode = reg.getString("couponCode") || ""
     var discountAmount = 0
-    var finalAmount = isFree ? 0 : price
+    var discountPercent = 0
 
     if (couponCode && !isFree) {
-        var coupon = $app.findFirstRecordByFilter(
-            "coupons",
-            "code = {:code} && event = {:eventId} && isActive = true && (expiresAt = '' || expiresAt > @now)",
-            { code: couponCode, eventId: eventId }
-        )
-        if (coupon) {
-            var discountPercent = coupon.getInt("discountPercent") || 0
-            discountAmount = Math.round(price * discountPercent / 100)
-            finalAmount = Math.max(0, finalAmount - discountAmount)
-        }
+        try {
+            var coupon = $app.findFirstRecordByFilter(
+                "coupons",
+                "code = {:code} && event = {:eventId} && isActive = true && (expiresAt = '' || expiresAt > @now)",
+                { code: couponCode, eventId: eventId }
+            )
+            if (coupon) {
+                discountPercent = coupon.getInt("discountPercent") || 0
+                discountAmount = Math.round(price * discountPercent / 100)
+                finalAmount = Math.max(0, finalAmount - discountAmount)
+            }
+        } catch (err) {}
     }
 
-    reg.set("amount", finalAmount)
-    reg.set("discountAmount", discountAmount)
-    reg.set("paymentStatus", isFree ? "not_required" : "pending")
-    reg.set("registrationStatus", isFree ? "confirmed" : "pending")
-    reg.set("registrationDate", new Date().toISOString())
+    // Re-fetch record from DB and update via dao (bypasses goja's broken set())
+    var dao = $app.dao()
+    var record = dao.findRecordById("registrations", reg.id)
+    if (!record) { e.next(); return }
 
+    record.set("amount", finalAmount)
+    record.set("discountAmount", discountAmount)
+    record.set("paymentStatus", isFree ? "not_required" : "pending")
+    record.set("registrationStatus", isFree ? "confirmed" : "pending")
+    record.set("registrationDate", new Date().toISOString())
     if (isFree) {
-        reg.set("ticketId", generateTicketId())
+        record.set("ticketId", generateTicketId())
     } else {
-        reg.set("paymentTicketId", generatePaymentTicketId())
+        record.set("paymentTicketId", generatePaymentTicketId())
     }
 
-    $app.save(reg)
+    $app.saveNoValidate(record)
 
-    // Re-compute event counters
     recomputeEventCounters(eventId)
-
-    // Reserve coupon
-    if (couponCode) {
-        recomputeCouponUsedCount(couponCode, eventId)
-    }
-
+    if (couponCode) { recomputeCouponUsedCount(couponCode, eventId) }
     e.next()
 }, "registrations")
 
