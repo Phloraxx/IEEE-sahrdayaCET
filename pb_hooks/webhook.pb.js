@@ -18,7 +18,7 @@ routerAdd("POST", "/api/webhooks/payment-confirm", function (e) {
         return e.json(500, { error: "Webhook not configured" })
     }
 
-    var headerSecret = e.request.header("x-webhook-secret")
+    var headerSecret = e.request.header.get("x-webhook-secret")
     if (!headerSecret) {
         return e.json(401, { error: "Missing webhook secret" })
     }
