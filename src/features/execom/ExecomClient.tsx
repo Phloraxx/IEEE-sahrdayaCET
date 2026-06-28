@@ -298,7 +298,7 @@ const FilterPill: React.FC<{
 const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
   const [docs, setDocs] = useState(initialDocs);
   const [isClientLoading, setIsClientLoading] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<string>("all");
+  const [activeFilter, setActiveFilter] = useState<string>("core");
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
   // Client-side fetch fallback when SSR fails to load data.
@@ -356,18 +356,15 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
     return SECTION_ORDER.filter((id) => present.has(id));
   }, [docs]);
 
-  const allMembers = useMemo(
-    () => docs.map(docToMember).sort((a, b) => a.slNo - b.slNo),
-    [docs],
-  );
-
   const members = useMemo(
     () =>
-      activeFilter === "all"
-        ? allMembers
-        : allMembers.filter((m) => m.sectionId === activeFilter),
-    [allMembers, activeFilter],
+      docs
+        .map(docToMember)
+        .sort((a, b) => a.slNo - b.slNo)
+        .filter((m) => m.sectionId === activeFilter),
+    [docs, activeFilter],
   );
+
 
   // Loading state
   if (isClientLoading) {
@@ -448,12 +445,6 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
           </h1>
 
           <div className="flex flex-wrap gap-2 lg:max-w-2xl lg:justify-end">
-            <FilterPill
-              active={activeFilter === "all"}
-              onClick={() => setActiveFilter("all")}
-            >
-              All
-            </FilterPill>
             {presentSections.map((id) => (
               <FilterPill
                 key={id}
