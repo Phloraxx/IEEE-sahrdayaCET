@@ -81,13 +81,15 @@ function generatePaymentTicketId() {
 
 onRecordCreateRequest(function (e) {
     var reg = e.record
-    var auth = e.requestInfo ? e.requestInfo.auth : null
 
     // ─── Pin user to the authenticated caller ──────────────────
-    if (!auth || !auth.id) {
+    // The API rule enforces @request.body.user = @request.auth.id,
+    // so we trust the user from the request body. e.requestInfo.auth
+    // is unavailable in onRecordCreateRequest in PB 0.39.1 (known issue).
+    var userId = reg.getString("user")
+    if (!userId) {
         throw e.badRequestError("Authentication required")
     }
-    reg.set("user", auth.id)
 
     // ─── Fetch the event ────────────────────────────────────────
     var eventId = reg.getString("event")
@@ -129,12 +131,12 @@ onRecordCreateRequest(function (e) {
     }
 
     // ─── Duplicate pending registration check ───────────────────
-    var userId = auth.id
+    var dupUserId = reg.getString("user")
     var dup = $app.findRecordsByFilter(
         "registrations",
         "user = {:userId} && event = {:eventId} && registrationStatus = {:pending}",
         "", 1, 0,
-        { userId: userId, eventId: eventId, pending: "pending" }
+        { userId: dupUserId, eventId: eventId, pending: "pending" }
     )
     if (dup.length > 0) {
         throw e.badRequestError("You already have a pending registration for this event")
