@@ -80,6 +80,7 @@ function generatePaymentTicketId() {
 // the create on any validation failure.
 
 onRecordCreateRequest(function (e) {
+    console.log("=== REG HOOK START ===")
     var reg = e.record
 
     // ─── Pin user to the authenticated caller ──────────────────
@@ -122,7 +123,7 @@ onRecordCreateRequest(function (e) {
         var existing = $app.findRecordsByFilter(
             "registrations",
             "event = {:eventId} && registrationStatus != {:cancelled}",
-            "-created", maxCapacity, 0,
+            "", maxCapacity, 0,
             { eventId: eventId, cancelled: "cancelled" }
         )
         if (existing.length >= maxCapacity) {
@@ -135,7 +136,7 @@ onRecordCreateRequest(function (e) {
     var dup = $app.findRecordsByFilter(
         "registrations",
         "user = {:userId} && event = {:eventId} && registrationStatus = {:pending}",
-        "-created", 1, 0,
+        "", 1, 0,
         { userId: dupUserId, eventId: eventId, pending: "pending" }
     )
     if (dup.length > 0) {
