@@ -38,7 +38,12 @@ routerAdd("POST", "/api/webhooks/payment-confirm", function (e) {
 
     // ─── Parse body ──────────────────────────────────────────────
     var body = {}
-    e.bindBody(body)
+    var rawBody = toString(e.request.body)
+    if (rawBody && rawBody.length > 0) {
+        try { body = JSON.parse(rawBody) } catch (e) { body = {} }
+    }
+    // Also bind for form-encoded compatibility (silent fallback)
+    try { e.bindBody(body) } catch (e) {}
 
     var ticketId = body.ticketId || ""
     var status = body.status || ""
