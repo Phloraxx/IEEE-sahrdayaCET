@@ -4,11 +4,7 @@ import { requireRole, AuthError } from "@/lib/auth";
 import { requireRegistrationScope } from "@/lib/chair-scope";
 import { AdminRegistrationUpdateSchema } from "@/schemas/admin-registrations";
 import { handleError } from "@/lib/api-error";
-import {
-  checkInRegistration,
-  cancelRegistration,
-  RegistrationError,
-} from "@/lib/registration-service";
+import { RegistrationError } from "@/lib/registration-service";
 import { REGISTRATION_STATUS, PAYMENT_STATUS } from "@/lib/constants";
 import { verifySameOrigin } from "@/lib/verify-same-origin";
 import { getField, getExpand } from "@/lib/safe-get";
@@ -76,12 +72,31 @@ export const Route = createFileRoute("/api/admin/registrations/$id")({
           const body = AdminRegistrationUpdateSchema.parse(await request.json().catch(() => ({})));
 
           if (body.checkedIn === true) {
-            await checkInRegistration(pb, id);
+            // Direct update — the onRecordUpdateRequest hook detects
+            // false→true and bumps checkedInCount atomically.
+            await pb.collection("registrations").update(id, {
+              checkedIn: true,
+              checkedInAt: new Date().toISOString(),
+            });
             return Response.json({ success: true, action: "checked_in" });
           }
           if (body.registrationStatus === "cancelled") {
-            await cancelRegistration(pb, id);
+            // Direct update — the hook detects confirmed→cancelled and
+            // decrements registeredCount atomically.
+            await pb.collection("registrations").update(id, {
+              registrationStatus: "cancelled",
+            });
             return Response.json({ success: true, action: "cancelled" });
+          }
+          // H-2: confirming a paid registration without payment is admin-only.
+          // Chairs can cancel but cannot flip to "confirmed" (that would grant
+          // free entry to a paid event). The hook also blocks this at the DB
+          // layer, but we gate here for a clean 403.
+          if (body.registrationStatus === "confirmed" && user.role !== "admin") {
+            return Response.json(
+              { error: "Only admins can confirm registrations" },
+              { status: 403 },
+            );
           }
           if (
             body.registrationStatus &&
@@ -89,10 +104,21 @@ export const Route = createFileRoute("/api/admin/registrations/$id")({
               body.registrationStatus,
             )
           ) {
+            // Direct update — the hook mints ticketId on pending→confirmed
+            // and bumps registeredCount.
             await pb
               .collection("registrations")
               .update(id, { registrationStatus: body.registrationStatus });
             return Response.json({ success: true, action: "status_updated" });
+          }
+          // H-2: paymentStatus and amount are admin-only. Chairs are
+          // blocked at the DB layer (onRecordUpdateRequest hook throws),
+          // but we gate here too so chairs get a clean 403.
+          if (user.role !== "admin") {
+            return Response.json(
+              { error: "Only admins can change payment status or amount" },
+              { status: 403 },
+            );
           }
           if (
             body.paymentStatus &&
