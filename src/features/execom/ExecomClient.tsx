@@ -7,6 +7,8 @@ import { createClientPB, buildFileUrl } from "@/lib/pb";
 import { cn } from "@/lib/utils";
 import { X, Mail, Phone, Users } from "lucide-react";
 import { Linkedin, Instagram } from "@/components/icons";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 
 export interface ExecomMemberDoc {
   id: string;
@@ -413,6 +415,7 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
 
   return (
     <div className="min-h-screen bg-white">
+      <Navbar />
       {selectedMember && (
         <MemberDetailModal
           member={selectedMember}
@@ -487,6 +490,8 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
           </AnimatePresence>
         </div>
       </div>
+
+      <Footer />
     </div>
   );
 };
