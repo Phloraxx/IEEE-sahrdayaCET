@@ -1,5 +1,10 @@
 /// <reference path="../pb_data/types.d.ts" />
 
+// Test custom route inline
+routerAdd("GET", "/api/ping", function(e) {
+    return e.json(200, { pong: true })
+})
+
 // ─── Registration Lifecycle Hooks ──────────────────────────────────
 // All registration business logic: capacity, deadline, form validation,
 // coupon validation, ticketId/paymentTicketId generation, counter
@@ -82,11 +87,14 @@ function generatePaymentTicketId() {
 onRecordCreateRequest(function (e) {
     var reg = e.record
 
-    // Auth is verified by API rules (createRule).
-    // PB 0.39.1 doesn't apply body data to the record before onRecordCreateRequest,
-    // so reg.getString("user") and reg.getString("event") are empty here.
-    // Validation and field-setting happen in onRecordAfterCreateSuccess instead.
+    // Set placeholder ticketId to avoid unique constraint violation.
+    // The real ticketId is set in onRecordAfterCreateSuccess.
+    if (!reg.getString("ticketId")) {
+        reg.set("ticketId", "temp-" + $security.randomString(16))
+    }
 
+    // Auth is verified by API rules (createRule).
+    // PB 0.39.1 doesn't apply body data before onRecordCreateRequest.
     e.next()
 }, "registrations")
 
