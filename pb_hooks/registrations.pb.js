@@ -122,7 +122,7 @@ onRecordCreateRequest(function (e) {
         var existing = $app.findRecordsByFilter(
             "registrations",
             "event = {:eventId} && registrationStatus != {:cancelled}",
-            "", maxCapacity, 0,
+            "-created", maxCapacity, 0,
             { eventId: eventId, cancelled: "cancelled" }
         )
         if (existing.length >= maxCapacity) {
@@ -135,7 +135,7 @@ onRecordCreateRequest(function (e) {
     var dup = $app.findRecordsByFilter(
         "registrations",
         "user = {:userId} && event = {:eventId} && registrationStatus = {:pending}",
-        "", 1, 0,
+        "-created", 1, 0,
         { userId: dupUserId, eventId: eventId, pending: "pending" }
     )
     if (dup.length > 0) {
