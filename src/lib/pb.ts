@@ -3,7 +3,7 @@ import { PB_AUTH_COOKIE } from './constants'
 import { logError } from './logger'
 
 export function getPBUrl(): string {
-  const url = process.env.POCKETBASE_URL
+  const url = import.meta.env.VITE_POCKETBASE_URL || process.env.POCKETBASE_URL
   if (!url) {
     throw new Error('POCKETBASE_URL is not configured')
   }
