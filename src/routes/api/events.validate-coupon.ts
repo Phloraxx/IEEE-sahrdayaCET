@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createPB, getPBUrl, escapeFilterValue } from "@/lib/pb";
 import { requireAuth } from "@/lib/auth";
+import { verifySameOrigin } from "@/lib/verify-same-origin";
 import { handleError } from "@/lib/api-error";
 
 export const Route = createFileRoute("/api/events/validate-coupon")({
@@ -12,6 +13,7 @@ export const Route = createFileRoute("/api/events/validate-coupon")({
           if (!contentType.includes('application/json') && !contentType.includes('multipart/form-data')) {
             return Response.json({ error: 'Unsupported media type' }, { status: 415 });
           }
+          verifySameOrigin(request);
           const userPb = createPB(request.headers.get("cookie") || undefined);
           await requireAuth(userPb);
 

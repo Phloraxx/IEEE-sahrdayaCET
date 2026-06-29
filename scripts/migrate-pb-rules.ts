@@ -90,7 +90,7 @@ const rules: Record<string, CollectionRuleSet> = {
     // (pb_hooks/registrations.pb.js) enforces all business rules and sets
     // server-authoritative fields (paymentStatus, registrationStatus,
     // ticketId, amount) regardless of what the client sends.
-    updateRule: `@request.auth.role = "admin" || (@request.auth.role = "chair" && event.society.chairs.id ?= @request.auth.id && @request.body.paymentStatus:changed = false && @request.body.amount:changed = false && @request.body.registrationStatus != "confirmed")`
+    updateRule: `@request.auth.role = "admin" || (@request.auth.role = "chair" && event.society.chairs.id ?= @request.auth.id && @request.body.paymentStatus:changed = false && @request.body.amount:changed = false && @request.body.registrationStatus != "confirmed")`,
     deleteRule: `@request.auth.role = "admin"`,
   },
   execom: {

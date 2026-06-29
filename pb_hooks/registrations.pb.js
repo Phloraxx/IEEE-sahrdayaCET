@@ -144,6 +144,11 @@ onRecordAfterCreateSuccess(function (e) {
     } else {
         record.set("paymentTicketId", generatePaymentTicketId())
     }
+    // NEW-3: Reset checkedIn/checkedInAt — the createRule only requires
+    // user = @request.auth.id, so a direct PB API client could sneak in
+    // checkedIn=true. The hook must always clear it.
+    record.set("checkedIn", false)
+    record.set("checkedInAt", "")
 
     $app.saveNoValidate(record)
 
@@ -161,9 +166,15 @@ onRecordAfterCreateSuccess(function (e) {
 onRecordUpdateRequest(function (e) {
     var newReg = e.record
     var auth = e.requestInfo ? e.requestInfo.auth : null
-
     // Fetch the OLD state from the DB (before the update applies)
     var oldReg = $app.findRecordById("registrations", newReg.id)
+    var oldStatus = oldReg.getString("registrationStatus")
+    var newStatusCheck = newReg.getString("registrationStatus")
+
+    // ─── NEW-9: Prevent cancelled→confirmed (regardless of role) ──
+    if (oldStatus === "cancelled" && newStatusCheck === "confirmed") {
+        throw e.badRequestError("Cannot re-confirm a cancelled registration")
+    }
 
     // ─── H-2: Chairs cannot forge payment status or amount ──────
     if (auth && auth.id) {
@@ -180,9 +191,6 @@ onRecordUpdateRequest(function (e) {
                 throw e.badRequestError("Amount can only be changed by an admin")
             }
             // H-2 completion: chairs cannot flip registrationStatus to "confirmed"
-            // (would grant free entry to a paid event without payment).
-            var oldStatus = oldReg.getString("registrationStatus")
-            var newStatusCheck = newReg.getString("registrationStatus")
             if (oldStatus !== "confirmed" && newStatusCheck === "confirmed") {
                 throw e.badRequestError("Only admins can confirm registrations")
             }
@@ -190,9 +198,7 @@ onRecordUpdateRequest(function (e) {
     }
 
     // ─── Mint ticketId on manual confirm ────────────────────────
-    var oldStatus = oldReg.getString("registrationStatus")
-    var newStatus = newReg.getString("registrationStatus")
-    if (oldStatus === "pending" && newStatus === "confirmed") {
+    if (oldStatus === "pending" && newStatusCheck === "confirmed") {
         if (!newReg.getString("ticketId")) {
             newReg.set("ticketId", generateTicketId())
         }

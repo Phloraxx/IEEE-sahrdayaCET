@@ -25,7 +25,7 @@ export type UserRole = (typeof USER_ROLES)[number]
 export const MAX_PER_PAGE = {
   events: 100,
   societies: 200,
-  users: 500,
+  users: 100,
   registrations: 100,
   execom: 200,
 } as const
