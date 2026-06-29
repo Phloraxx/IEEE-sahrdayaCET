@@ -106,16 +106,26 @@ function simpleNodeHandler(fetch) {
     const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
     const headers = new Headers();
     for (const [key, value] of Object.entries(req.headers)) {
+      // Skip hop-by-hop headers that shouldn't be forwarded
+      if (['connection', 'keep-alive', 'transfer-encoding'].includes(key)) continue;
       if (value) headers.set(key, Array.isArray(value) ? value.join(', ') : value);
     }
 
-    const body = req.method !== 'GET' && req.method !== 'HEAD'
-      ? await new Promise((resolve) => {
-          const chunks = [];
-          req.on('data', (c) => chunks.push(c));
-          req.on('end', () => resolve(Buffer.concat(chunks)));
-        })
-      : undefined;
+    let body = undefined;
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      const chunks = [];
+      for await (const chunk of req) chunks.push(chunk);
+      const buf = Buffer.concat(chunks);
+      // Use ReadableStream for body to match Web Fetch API expectations
+      if (buf.length > 0) {
+        body = new ReadableStream({
+          start(controller) {
+            controller.enqueue(new Uint8Array(buf));
+            controller.close();
+          }
+        });
+      }
+    }
 
     const request = new Request(url, {
       method: req.method,
@@ -124,11 +134,15 @@ function simpleNodeHandler(fetch) {
     });
 
     const response = await fetch(request);
-    res.writeHead(response.status, Object.fromEntries(response.headers.entries()));
+    // Filter out hop-by-hop response headers
+    const resHeaders = new Headers(response.headers);
+    resHeaders.delete('transfer-encoding');
+    res.writeHead(response.status, Object.fromEntries(resHeaders.entries()));
     if (response.body) {
       for await (const chunk of response.body) res.write(chunk);
+    } else {
+      res.end();
     }
-    res.end();
   };
 }
 
@@ -137,8 +151,10 @@ let toNodeHandler;
 try {
   const srvx = await import('srvx/node');
   toNodeHandler = srvx.toNodeHandler;
-} catch {
+  console.log('[server-entry] Using srvx toNodeHandler');
+} catch (err) {
   toNodeHandler = null;
+  console.log('[server-entry] srvx not available, using simpleNodeHandler:', err.message);
 }
 
 main().catch((err) => {
