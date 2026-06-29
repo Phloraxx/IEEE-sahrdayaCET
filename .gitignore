@@ -155,3 +155,40 @@ test-screenshots/
 /*test*.txt
 # Stray npm lockfile (this project uses bun.lock)
 /package-lock.json
+# Old/unused files
+/admin-prototype.html
+/mqanafyt-admin-*.html
+/UsersdrvijDesktopMuLearn
+/UsersdrvijDesktoppw-tmptest.txt
+/omp-session-*.html
+/videoframe_355.png
+/original-*.webp
+# Tool state & scratch dirs
+/.od-skills/
+/.omp/
+/local/
+# Generated build artifacts
+routeTree.gen.ts
+# Dev reports & docs
+/COMPREHENSIVE-AUDIT.md
+/ADMIN-MIGRATION-STATUS.md
+/ADMIN-FEATURE-GAP-PLAN.md
+/planner-report.md
+# Test results
+/test-results/
+/societies_execom_qa_report.json
+/events-list-final-report.json
+/users_qa_final.json
+/dashboard-test-results.json
+/events-list-findings.json
+/users_qa_report.json
+/cross-role-results.json
+/unauth-results.json
+# Logs
+*.log
+/vite-server.log
+/vite.log
+/v.log
+/v2.log
+/dev.log
+/regen.log
