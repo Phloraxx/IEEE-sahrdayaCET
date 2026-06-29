@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import "@/styles/events.css";
 import { AnimatePresence } from "framer-motion";
@@ -24,6 +24,7 @@ const getEventColor = (index: number): { color: string; textColor: string } => {
   return colors[index % colors.length]!;
 };
 
+
 interface EventsPageClientProps {
   initialEvents: EventWithSociety[];
 }
@@ -36,7 +37,40 @@ export default function EventsPageClient({
 
   const [selectedEvent, setSelectedEvent] = useState<ExtendedEvent | null>(null);
   const [selfEvents, setSelfEvents] = useState<EventWithSociety[]>(initialEvents);
-  // Data comes entirely from server-side loader; no client fetch needed
+
+  // Client-side fallback: if loader returned empty (server function failure
+  // during client-side navigation), fetch from PB REST API directly.
+  useEffect(() => {
+    if (selfEvents.length > 0) return;
+    const pbUrl = import.meta.env.VITE_POCKETBASE_URL;
+    if (!pbUrl) return;
+    fetch(`${pbUrl}/api/collections/events/records?filter=(status="published")&sort=date&expand=society&perPage=20&skipTotal=true`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((data) => {
+        if (!data?.items) return;
+        setSelfEvents(data.items.map((raw: Record<string, unknown>) => ({
+          id: raw.id as string, createdAt: raw.created as string, updatedAt: raw.updated as string,
+          title: raw.title as string, description: raw.description as string,
+          date: raw.date as string, endDate: raw.endDate as string,
+          venue: raw.venue as string, price: Number(raw.price) || 0,
+          isPaid: Number(raw.price) > 0,
+          bannerUrl: raw.banner ? `/api/files/events/${raw.id}/${raw.banner}` : '',
+          status: raw.status as string,
+          registrationOpen: !!raw.registrationOpen,
+          maxCapacity: Number(raw.maxCapacity) || 0,
+          registeredCount: Number(raw.registeredCount) || 0,
+          externalFormUrl: (raw.externalFormUrl as string) || undefined,
+          collectIeeeMember: !!raw.collectIeeeMember,
+          society: raw.expand && typeof raw.expand === 'object' && 'society' in (raw.expand as Record<string, unknown>)
+            ? (() => { const s = (raw.expand as Record<string, unknown>).society as Record<string, unknown>; return {
+                id: s.id as string, name: s.name as string, slug: s.slug as string,
+                logoUrl: s.logo ? `/api/files/societies/${s.id}/${s.logo}` : '',
+              }; })()
+            : undefined,
+        })));
+      })
+      .catch(() => {});
+  }, [selfEvents.length]);
 
   const extendedEvents: ExtendedEvent[] = useMemo(() => {
     return selfEvents.map((event, index) => ({

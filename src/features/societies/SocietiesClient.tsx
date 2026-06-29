@@ -162,6 +162,23 @@ export default function SocietiesClient({ societies }: SocietiesClientProps) {
   const [scrollPosition, setScrollPosition] = useState(0);
   const [societyError, setSocietyError] = useState<string | null>(null);
   const [selfSocieties, setSelfSocieties] = useState<Society[]>(societies);
+  // Client-side fallback: if loader returned empty (server function failure
+  // during client-side navigation), fetch from PB REST API directly.
+  useEffect(() => {
+    if (selfSocieties.length > 0) return;
+    const pbUrl = import.meta.env.VITE_POCKETBASE_URL;
+    if (!pbUrl) return;
+    fetch(`${pbUrl}/api/collections/societies/records?filter=isHidden=false&perPage=200&skipTotal=true`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((data) => {
+        if (!data?.items) return;
+        setSelfSocieties(data.items.map((s: Record<string, unknown>) => ({
+          id: s.id, name: s.name, slug: s.slug, bio: s.bio || undefined,
+          logoUrl: s.logo ? `/api/files/societies/${s.id}/${s.logo}` : undefined,
+        })));
+      })
+      .catch(() => {});
+  }, [selfSocieties.length]);
   const societyPanelRef = useRef<HTMLDivElement>(null);
   const eventModalRef = useRef<HTMLDivElement>(null);
 
