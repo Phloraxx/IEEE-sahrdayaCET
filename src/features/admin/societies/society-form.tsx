@@ -39,17 +39,6 @@ function slugify(value: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 }
-
-function csrfToken(): string {
-  if (typeof document === "undefined") return "";
-  return (
-    document.cookie
-      .split("; ")
-      .find((c) => c.startsWith("csrf="))
-      ?.split("=")[1] ?? ""
-  );
-}
-
 interface SocietyFormProps {
   mode: "create" | "edit";
   societyId?: string;
@@ -158,7 +147,6 @@ export function SocietyForm({ mode, societyId }: SocietyFormProps) {
         res = await fetch(url, {
           method: isEdit ? "PUT" : "POST",
           credentials: "include",
-          headers: { "x-csrf-token": csrfToken() },
           body: fd,
         });
       } else {
@@ -167,7 +155,6 @@ export function SocietyForm({ mode, societyId }: SocietyFormProps) {
           credentials: "include",
           headers: {
             "Content-Type": "application/json",
-            "x-csrf-token": csrfToken(),
           },
           body: JSON.stringify(payload),
         });

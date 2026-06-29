@@ -1,9 +1,22 @@
 import { logError } from './logger'
 import { ClientResponseError } from 'pocketbase'
 import { AuthError } from './auth'
-import { RegistrationError } from './registration-service'
 import { ParseError } from './parse-form-data'
 
+/**
+ * Thrown by API routes when a business-rule check fails (the PB hooks now
+ * enforce most rules at the DB layer, but routes still validate auth and
+ * scope before the write). `handleError` maps this to the correct HTTP status.
+ */
+export class RegistrationError extends Error {
+  constructor(
+    message: string,
+    public statusCode: number = 400,
+  ) {
+    super(message)
+    this.name = 'RegistrationError'
+  }
+}
 /**
  * Central error handler for API route try/catch blocks.
  * Maps known error types (AuthError, RegistrationError, ClientResponseError)

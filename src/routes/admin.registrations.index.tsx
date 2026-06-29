@@ -81,17 +81,6 @@ function RegistrationsSkeleton() {
     </div>
   );
 }
-
-function csrfToken(): string {
-  if (typeof document === "undefined") return "";
-  return (
-    document.cookie
-      .split("; ")
-      .find((c) => c.startsWith("csrf="))
-      ?.split("=")[1] ?? ""
-  );
-}
-
 function AdminRegistrations() {
   const queryClient = useQueryClient();
   const { status: urlStatus } = Route.useSearch();
@@ -128,7 +117,6 @@ function AdminRegistrations() {
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          "x-csrf-token": csrfToken(),
         },
         body: JSON.stringify({ checkedIn: true }),
       });
@@ -147,7 +135,6 @@ function AdminRegistrations() {
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          "x-csrf-token": csrfToken(),
         },
         body: JSON.stringify({ registrationStatus: "cancelled" }),
       });

@@ -64,6 +64,9 @@ export const Route = createFileRoute("/api/admin/users")({
           const body = await request.json();
           const parsed = UserUpdateSchema.parse(body);
 
+          if (parsed.id === user.id && parsed.role !== undefined && parsed.role !== 'admin') {
+            return Response.json({ error: 'Cannot demote yourself' }, { status: 403 });
+          }
           const updateData: Record<string, unknown> = {};
           if (parsed.role !== undefined) updateData.role = parsed.role;
           if (parsed.name !== undefined) updateData.name = parsed.name;

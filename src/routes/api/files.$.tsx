@@ -1,3 +1,6 @@
+import { createPB } from "@/lib/pb";
+import { requireAuth } from "@/lib/auth";
+
 import { createFileRoute } from "@tanstack/react-router";
 
 const PB_URL = process.env.POCKETBASE_URL;
@@ -15,6 +18,9 @@ export const Route = createFileRoute("/api/files/$")({
           if (!/^[a-zA-Z0-9_]+\/[a-zA-Z0-9_]+\/[^/]+$/.test(filePath) || filePath.includes('..')) {
             return Response.json({ error: 'Invalid file path' }, { status: 400 });
           }
+          // Require auth — file proxy must not expose files to anonymous users
+          const pb = createPB(request.headers.get("cookie") || undefined);
+          await requireAuth(pb);
 
           const url = new URL(request.url);
           const pbUrl = new URL(`${PB_URL}/api/files/${filePath}`);
@@ -22,7 +28,10 @@ export const Route = createFileRoute("/api/files/$")({
 
           const pbRes = await fetch(pbUrl.toString(), {
             method: request.method,
-            headers: { host: new URL(PB_URL).host },
+            headers: {
+              host: new URL(PB_URL).host,
+              cookie: request.headers.get('cookie') || '',
+            },
           });
 
           const headers = new Headers();

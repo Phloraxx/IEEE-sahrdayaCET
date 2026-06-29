@@ -1,8 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createPB, buildFileUrl, escapeFilterValue } from "@/lib/pb";
 import { requireAuth } from "@/lib/auth";
-import { handleError } from "@/lib/api-error";
-import { RegistrationError } from "@/lib/registration-service";
+import { handleError, RegistrationError } from "@/lib/api-error";
 import { RegistrationBodySchema } from "@/schemas/registrations";
 import { z } from "zod";
 import { verifySameOrigin } from "@/lib/verify-same-origin";

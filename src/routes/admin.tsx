@@ -13,7 +13,17 @@ import { PageTransition } from "@/components/admin/page-transition";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 
+import { checkAdminAccess } from "@/lib/admin-guard";
+import { redirect } from "@tanstack/react-router";
+
 export const Route = createFileRoute("/admin")({
+  beforeLoad: async () => {
+    try {
+      await checkAdminAccess();
+    } catch {
+      throw redirect({ to: "/", replace: true });
+    }
+  },
   component: AdminLayout,
   notFoundComponent: () => (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 p-8 text-center">

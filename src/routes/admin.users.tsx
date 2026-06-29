@@ -65,17 +65,6 @@ function UsersSkeleton() {
     </div>
   );
 }
-
-function csrfToken(): string {
-  if (typeof document === "undefined") return "";
-  return (
-    document.cookie
-      .split("; ")
-      .find((c) => c.startsWith("csrf="))
-      ?.split("=")[1] ?? ""
-  );
-}
-
 function formatDate(d: string): string {
   if (!d) return "—";
   try {
@@ -115,7 +104,7 @@ function AdminUsers() {
       const res = await fetch("/api/admin/users", {
         method: "PUT",
         credentials: "include",
-        headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken() },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, role }),
       });
       if (!res.ok) throw new Error("Failed to update role");

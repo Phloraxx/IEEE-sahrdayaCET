@@ -40,17 +40,6 @@ function formatDate(d: string | null): string {
     return d;
   }
 }
-
-function csrfToken(): string {
-  if (typeof document === "undefined") return "";
-  return (
-    document.cookie
-      .split("; ")
-      .find((c) => c.startsWith("csrf="))
-      ?.split("=")[1] ?? ""
-  );
-}
-
 interface RegistrationDetailProps {
   registrationId: string;
 }
@@ -84,7 +73,6 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          "x-csrf-token": csrfToken(),
         },
         body: JSON.stringify({ checkedIn: true }),
       });
@@ -106,7 +94,6 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          "x-csrf-token": csrfToken(),
         },
         body: JSON.stringify({ registrationStatus: "cancelled" }),
       });

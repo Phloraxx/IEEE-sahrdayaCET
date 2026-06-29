@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { authenticateAdmin } from "@/lib/admin-middleware";
+import { authenticateAdmin, buildChairFilter } from "@/lib/admin-middleware";
 import { escapeFilterValue } from "@/lib/pb";
 import { handleError } from "@/lib/api-error";
 import { parseFormData } from "@/lib/parse-form-data";
@@ -19,10 +19,11 @@ export const Route = createFileRoute("/api/admin/societies")({
             maxPerPage: 200,
           });
           const search = url.searchParams.get("search");
-          const searchFilter = search
-            ? `name ~ ${escapeFilterValue(search)}`
-            : "";
-          const filter = buildFilter([searchFilter]);
+          const baseParts: string[] = [];
+          if (search) baseParts.push(`name ~ ${escapeFilterValue(search)}`);
+          const societyScope = await buildChairFilter(ctx, 'society');
+          if (societyScope) baseParts.unshift(societyScope);
+          const filter = buildFilter(baseParts);
 
           const result = await ctx.pb
             .collection("societies")
@@ -38,8 +39,6 @@ export const Route = createFileRoute("/api/admin/societies")({
             bio: s.bio,
             isHidden: !!s.isHidden,
             chairs: (s.chairs as string[]) || [],
-            // events count removed for performance — use dedicated events admin page
-            eventsCount: 0,
           }));
 
           return Response.json({

@@ -88,17 +88,6 @@ function toIso(value: string): string | undefined {
   if (Number.isNaN(d.getTime())) return undefined;
   return d.toISOString();
 }
-
-function csrfToken(): string {
-  if (typeof document === "undefined") return "";
-  return (
-    document.cookie
-      .split("; ")
-      .find((c) => c.startsWith("csrf="))
-      ?.split("=")[1] ?? ""
-  );
-}
-
 interface EventFormProps {
   mode: "create" | "edit";
   eventId?: string;
@@ -278,7 +267,6 @@ export function EventForm({ mode, eventId }: EventFormProps) {
         res = await fetch(url, {
           method: isEdit ? "PUT" : "POST",
           credentials: "include",
-          headers: { "x-csrf-token": csrfToken() },
           body: fd,
         });
       } else {
@@ -287,7 +275,6 @@ export function EventForm({ mode, eventId }: EventFormProps) {
           credentials: "include",
           headers: {
             "Content-Type": "application/json",
-            "x-csrf-token": csrfToken(),
           },
           body: JSON.stringify(payload),
         });

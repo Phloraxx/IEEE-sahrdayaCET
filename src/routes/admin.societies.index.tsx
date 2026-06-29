@@ -33,7 +33,6 @@ interface SocietyRow {
   bio: string;
   isHidden: boolean;
   chairs: string[];
-  eventsCount: number;
 }
 
 interface SocietiesResponse {
@@ -53,16 +52,6 @@ function SocietiesSkeleton() {
     </div>
   );
 }
-function csrfToken(): string {
-  if (typeof document === "undefined") return "";
-  return (
-    document.cookie
-      .split("; ")
-      .find((c) => c.startsWith("csrf="))
-      ?.split("=")[1] ?? ""
-  );
-}
-
 function AdminSocieties() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -88,7 +77,6 @@ function AdminSocieties() {
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          "x-csrf-token": csrfToken(),
         },
       });
       if (!res.ok) throw new Error("Failed to delete society");

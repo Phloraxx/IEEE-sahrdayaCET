@@ -51,17 +51,6 @@ const EMPTY_STATE: ExecomFormState = {
   society: "",
   photoFile: null,
 };
-
-function csrfToken(): string {
-  if (typeof document === "undefined") return "";
-  return (
-    document.cookie
-      .split("; ")
-      .find((c) => c.startsWith("csrf="))
-      ?.split("=")[1] ?? ""
-  );
-}
-
 interface ExecomFormProps {
   mode: "create" | "edit";
   memberId?: string;
@@ -145,7 +134,6 @@ export function ExecomForm({ mode, memberId }: ExecomFormProps) {
       const res = await fetch(url, {
         method: isEdit ? "PUT" : "POST",
         credentials: "include",
-        headers: { "x-csrf-token": csrfToken() },
         body: fd,
       });
       if (!res.ok) {

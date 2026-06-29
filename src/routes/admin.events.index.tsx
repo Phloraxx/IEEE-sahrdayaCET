@@ -99,17 +99,7 @@ function formatDate(d: string): string {
   } catch {
     return d;
   }
-}
-function csrfToken(): string {
-  if (typeof document === "undefined") return "";
-  return (
-    document.cookie
-      .split("; ")
-      .find((c) => c.startsWith("csrf="))
-      ?.split("=")[1] ?? ""
-  );
-}
-
+  }
 function AdminEvents() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -142,7 +132,6 @@ function AdminEvents() {
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          "x-csrf-token": csrfToken(),
         },
       });
       if (!res.ok) throw new Error("Failed to delete event");

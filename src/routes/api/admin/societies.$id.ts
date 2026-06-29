@@ -27,16 +27,16 @@ export const Route = createFileRoute("/api/admin/societies/$id")({
           const { id } = params;
           const pb = createPB(request.headers.get("cookie") || undefined);
           const { user } = await requireRole(["admin", "chair"], pb);
+          // Single fetch with all fields including chairs for scope check
+          const society = await pb.collection("societies").getOne(id, {
+            fields: "id,name,slug,bio,chairs,isHidden,logo,banner,created,updated",
+          });
           if (user.role === "chair") {
-            const scopeResult = await pb.collection("societies").getOne(id, { fields: "id,chairs" });
-            const chairs = getField<string[]>(scopeResult, 'chairs', []);
+            const chairs = getField<string[]>(society, 'chairs', []);
             if (!chairs.includes(user.id)) {
               return Response.json({ error: "Forbidden" }, { status: 403 });
             }
           }
-          const society = await pb.collection("societies").getOne(id, {
-            fields: "id,name,slug,bio,chairs,isHidden,logo,banner,created,updated",
-          });
           return Response.json({
             society: {
               ...society,
