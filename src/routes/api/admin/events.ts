@@ -86,7 +86,7 @@ export const Route = createFileRoute("/api/admin/events")({
 
           // Chair scoping: chairs can only create events for their own societies
           if (ctx.role === "chair") {
-            const chairIds = await getChairSocietyIds(ctx.pb, ctx);
+            const chairIds = await getChairSocietyIds(ctx.pb, { id: ctx.userId, role: ctx.role as 'admin' | 'chair' | 'user' });
             if (chairIds === undefined || !chairIds.includes(parsed.society)) {
               return Response.json(
                 { error: "You can only create events for your own society" },

@@ -25,12 +25,6 @@ export const Route = createFileRoute("/api/check-in/verify")({
             eventId: z.string().optional(),
           });
           const { ticketId, eventId } = BodySchema.parse(await request.json());
-          if (!ticketId) {
-            return Response.json(
-              { error: "Missing required field: ticketId" },
-              { status: 400 },
-            );
-          }
 
           // Lookup registration by ticket ID (optionally scoped to event)
           const filter = eventId

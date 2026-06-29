@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB, getPBUrl } from "@/lib/pb";
+import { createPB, getPBUrl, escapeFilterValue } from "@/lib/pb";
 import { requireAuth } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 
@@ -36,7 +36,8 @@ export const Route = createFileRoute("/api/events/validate-coupon")({
           }
 
           const now = new Date().toISOString().split('T')[0];
-          const filter = `code='${code.replace(/'/g, "''")}' && event='${eventId}' && enabled=true && (maxUses=0 || usedCount<maxUses) && (expiresAt='' || expiresAt>='${now}')`;
+          // Use `isActive` and `discountPercent` — PB schema field names
+          const filter = `code=${escapeFilterValue(code)} && event=${escapeFilterValue(eventId)} && isActive=true && (maxUses=0 || usedCount<maxUses) && (expiresAt='' || expiresAt>='${now}')`;
           const pbUrl = getPBUrl();
           const couponRes = await fetch(
             `${pbUrl}/api/collections/coupons/records?filter=${encodeURIComponent(filter)}&perPage=1`,
@@ -59,9 +60,11 @@ export const Route = createFileRoute("/api/events/validate-coupon")({
             );
           }
 
+          const discountPercent = Number(coupon.discountPercent) || 0;
           return Response.json({
             valid: true,
-            discountAmount: Number(coupon.discountAmount) || 0,
+            discountPercent,
+            discountAmount: discountPercent, // Backwards-compat field name for older clients
             code: coupon.code,
             description: coupon.description || '',
           });

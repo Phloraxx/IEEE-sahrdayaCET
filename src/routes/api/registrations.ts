@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB, buildFileUrl, escapeFilterValue } from "@/lib/pb";
+import { createPB, getPBUrl, buildFileUrl, escapeFilterValue } from "@/lib/pb";
 import { requireAuth } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 import { RegistrationError } from "@/lib/registration-service";
@@ -119,6 +119,10 @@ export const Route = createFileRoute("/api/registrations")({
             formResponses,
             couponCode: couponCode || '',
           });
+          // Fetch event price (needed for admin PATCH field-setting)
+          const eventRecord = await userPb.collection("events").getOne(eventId, { fields: "price" });
+          const price = Number(getField(eventRecord, 'price', 0)) || 0;
+          const isFree = price === 0;
 
           // Compute amount with coupon discount before admin PATCH
           let amount = price;
@@ -129,7 +133,8 @@ export const Route = createFileRoute("/api/registrations")({
             try {
               const pbUrl = getPBUrl();
               const now = new Date().toISOString().split('T')[0];
-              const filter = `code='${couponCode.replace(/'/g, "''")}' && event='${eventId}' && (maxUses=0 || usedCount<maxUses) && (expiresAt='' || expiresAt>='${now}')`;
+              // Use `isActive` and `discountPercent` — PB schema field names (not `enabled` / `discountAmount`)
+              const filter = `code=${escapeFilterValue(couponCode)} && event=${escapeFilterValue(eventId)} && isActive=true && (maxUses=0 || usedCount<maxUses) && (expiresAt='' || expiresAt>='${now}')`;
               const couponRes = await fetch(
                 `${pbUrl}/api/collections/coupons/records?filter=${encodeURIComponent(filter)}&perPage=1`,
                 { headers: { 'Authorization': `Bearer ${adminToken}` } },
@@ -138,7 +143,8 @@ export const Route = createFileRoute("/api/registrations")({
                 const couponData = await couponRes.json();
                 const coupon = couponData?.items?.[0];
                 if (coupon) {
-                  discountAmount = Number(coupon.discountAmount) || 0;
+                  const discountPercent = Number(coupon.discountPercent) || 0;
+                  discountAmount = Math.round(price * discountPercent / 100);
                   amount = Math.max(0, price - discountAmount);
                 }
               }
