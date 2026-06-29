@@ -13,8 +13,8 @@ import '@fontsource-variable/geist'
 import '@fontsource/press-start-2p'
 import '@fontsource/caveat'
 
-// CSP, HSTS, and other security headers are set by the Caddy reverse proxy in production.
-// In dev mode, the Vite dev server serves directly — CSP is not enforced locally.
+// CSP enforced by both Caddy (edge) and server-entry.mjs (origin).
+// Policy lists PocketBase + Google OAuth origins in connect-src/frame-src.
 
 export const Route = createRootRoute({
   head: () => {

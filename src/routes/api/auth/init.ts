@@ -4,11 +4,15 @@ import PocketBase from "pocketbase";
 import { signCookie } from "@/lib/cookie-signing";
 import { PB_OAUTH_PROVIDER_COOKIE, OAUTH_CALLBACK_PATH } from "@/lib/constants";
 import { logError } from "@/lib/logger";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 export const Route = createFileRoute("/api/auth/init")({
   server: {
     handlers: {
       GET: async ({ request }) => {
         try {
+          const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
+          const rl = checkRateLimit({ key: `auth:${ip}`, max: 10, windowMs: 60_000 })
+          if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs)
           const url = process.env.POCKETBASE_URL;
           if (!url) {
             return Response.json(

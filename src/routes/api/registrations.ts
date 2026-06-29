@@ -6,6 +6,7 @@ import { RegistrationBodySchema } from "@/schemas/registrations";
 import { z } from "zod";
 import { verifySameOrigin } from "@/lib/verify-same-origin";
 import { getField, getExpand } from '@/lib/safe-get';
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const Route = createFileRoute("/api/registrations")({
   server: {
@@ -105,6 +106,8 @@ export const Route = createFileRoute("/api/registrations")({
           const userPb = createPB(request.headers.get("cookie") || undefined);
           verifySameOrigin(request);
           const { user } = await requireAuth(userPb);
+          const rl = checkRateLimit({ key: `reg:${user.id}`, max: 10, windowMs: 60_000 })
+          if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs)
           const parsed = RegistrationBodySchema.parse(await request.json());
           const { eventId, formResponses, couponCode } = parsed;
 

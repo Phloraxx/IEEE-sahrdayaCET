@@ -33,8 +33,8 @@ College of Engineering & Technology.
 | `docker compose up` | Full stack via Docker Compose |
 
 **Environment**: copy `.env.example` → `.env.local`, set `POCKETBASE_URL`,
-`POCKETBASE_SUPERUSER_TOKEN` (migrations only), `PUBLIC_APP_URL`,
-`OAUTH_COOKIE_SECRET`, and `PAYMENT_WEBHOOK_SECRET`.
+`PUBLIC_APP_URL`, `OAUTH_COOKIE_SECRET`, `PAYMENT_WEBHOOK_SECRET`,
+`INTERNAL_API_SECRET`, and `POCKETBASE_SUPERUSER_TOKEN` (migrations only).
 
 ## Architecture
 
@@ -52,9 +52,9 @@ src/
 │   ├── admin.*.tsx              # Admin pages (events, registrations, societies, users, execom, check-in, payments)
 │   └── api/                     # Server function handlers
 │       ├── auth/                #   OAuth2 init, callback, me, logout
-│       ├── registrations.ts     #   GET (list user's), POST (register)
-│       ├── events.*.ts          #   Event detail, CSV export, coupon validation
-│       ├── check-in.verify.ts   #   QR check-in verification
+│       ├── registrations.ts     #   GET (list user's), POST (register) + rate limit
+│       ├── events.*.ts          #   Event detail, CSV export, coupon validation (proxy)
+│       ├── check-in.verify.ts   #   QR check-in verification + rate limit
 │       ├── society.$slug.ts     #   Public society detail + events
 │       ├── orders/
 │       │   └── webhook.ts       #   Payment webhook
@@ -63,7 +63,7 @@ src/
 │           ├── registrations.ts #   Registrations admin view
 │           ├── societies.ts     #   Society CRUD
 │           ├── users.ts         #   User management
-│           ├── execom.ts        #   Execom management
+│           ├── execom.ts        #   Execom management (no PII)
 │           └── stats.ts         #   Dashboard KPIs
 ├── features/                    # Feature-specific page components
 │   ├── globals.css              # Tailwind v4 + CSS custom properties
@@ -85,19 +85,20 @@ src/
 │   ├── constants.ts              # APP_URL, status enums, pagination limits, dashboard windows
 │   ├── registration-service.ts   # RegistrationError + computeDiscount (pure helpers).
 │   │                             #   All business logic now lives in pb_hooks (see pb_hooks/).
+│   ├── rate-limit.ts             # In-memory sliding-window token bucket (checkRateLimit, rateLimitResponse)
 │   ├── dates.ts                  # Date formatting utilities
 │   ├── csv-export.ts             # CSV generation for registrations
 │   ├── ticketStatus.ts           # Ticket status label/color/icon mapping
 │   └── qr.ts                     # QR code generation helpers
 ├── types/index.ts                # All shared interfaces (Society, Event, AuthUser, Member, etc.)
 └── hooks/                        # use-mobile, useScrollLock
-
 Business logic lives in PocketBase hooks (`pb_hooks/registrations.pb.js`,
-`pb_hooks/webhook.pb.js`, `pb_hooks/coupon-validate.pb.js`). The TanStack
-server functions authenticate and scope requests, then write with the user's
-own client; the hooks enforce capacity, deadline, registration-open, form
-validation, ticket ID generation, payment confirmation, coupon consumption,
-and maintain `registeredCount`/`checkedInCount` atomically at the DB layer.
+`pb_hooks/webhook.pb.js`, `pb_hooks/events.pb.js`, `pb_hooks/coupons.pb.js`).
+The TanStack server functions authenticate and scope requests, then write with
+the user's own client; the hooks enforce capacity, deadline, registration-open,
+form validation, ticket ID generation, payment confirmation, coupon consumption,
+counter forgery prevention, and maintain `registeredCount`/`checkedInCount`
+atomically at the DB layer.
 There is no runtime admin/superuser token — the hooks run inside PB with
 direct DB access. Duplicate registration prevention is a partial unique index
 (`idx_registrations_user_event WHERE registrationStatus != "cancelled"`)
@@ -163,7 +164,6 @@ Browser → Caddy (HTTPS/LB) → TanStack Start (SSR + server functions) → Poc
 
 ## Notes
 
-<!-- Quick-add space for future agent findings. -->
 ### Security model (load-bearing)
 
 The PocketBase REST API is internet-reachable. Business logic runs in **PB hooks**
@@ -177,16 +177,28 @@ Current hardening:
   sign-up only); update forbids self role-change (`@request.body.role:changed = false`);
   delete = superuser-only. Role changes go through the admin route in `api/admin/users.ts`.
 - `registrations`: create pins `user` to the caller and forbids client-set
-  `paymentStatus="paid"`/`checkedIn=true`. The `onRecordCreateRequest` hook
-  (server-side, inside PB) sets `paymentStatus`/`registrationStatus`/`ticketId`/
-  `amount`/`discountAmount` — the user's token creates the record; the hook
-  mutates it before commit.
+  `paymentStatus="paid"`/`checkedIn=true` (backstop createRule). The
+  `onRecordCreateRequest` hook enforces ALL business rules (status, open,
+  deadline, form, capacity) before commit; `onRecordAfterCreateSuccess`
+  sets `paymentStatus`/`registrationStatus`/`ticketId`/`amount`/`discountAmount`
+  and runs post-commit overflow self-heal for TOCTOU safety.
 - `events`: chair create scoped to owned society; public list/view excludes
-  `isDeleted`. `societies`: chairs can't rewrite the `chairs` relation.
-- Coupon validation runs via a PB custom route (`/api/validate-coupon`); coupon
-  `usedCount` is incremented only on confirmed payment (webhook), not at create.
-- H-2: the `onRecordUpdateRequest` hook throws if a chair changes
-  `paymentStatus` or `amount` (admin-only). The admin route also gates this.
+  `isDeleted`. updateRule forbids chair writes to `registeredCount`,
+  `checkedInCount`, `isDeleted`. `onRecordUpdateRequest` hook in
+  `pb_hooks/events.pb.js` rejects non-admin counter/deletion writes
+  (defense-in-depth). `societies`: chairs can't rewrite the `chairs` relation.
+- `coupons`: listRule/viewRule scoped to admin/chair-of-event (was public).
+  Coupon validation runs via PB internal route (`/api/coupons/validate` in
+  `pb_hooks/coupons.pb.js`), gated by `INTERNAL_API_SECRET` with timing-safe
+  comparison. Returns correct `discountAmount` (not `discountPercent`).
+- `execom`: email/phone fields dropped; directory is name/position/photo only.
+- H-2: the `onRecordUpdateRequest` hook in `registrations.pb.js` throws if a
+  chair changes `paymentStatus` or `amount` (admin-only).
+- Rate limiting: in-memory sliding-window limiter (`lib/rate-limit.ts`) on
+  registration (10/60s), coupon (30/60s), check-in (60/60s), auth (10/60s).
+- CSP: enforced by both Caddy (edge) and `server-entry.mjs` (origin).
+- Webhook: requires `amount` on success; only `paid` triggers idempotency
+  (failed payments remain re-confirmable).
 
 ### Deferred security decisions (require ops/product input — not yet done)
 
@@ -195,15 +207,6 @@ Current hardening:
   full control of schema/settings. Still worth rotating to a short-lived/
   rotatable token, but the runtime attack surface is gone (no admin token in
   the app process).
-- **Rate limiting (H1)**: live PB `rateLimits.enabled = false`. The app calls
-  `authRefresh()` server-side per request from one server IP, so the bundled
-  `*:auth` (2/3s) / `*:create` rules would throttle legitimate traffic if enabled
-  blindly. Enable only after setting `trustedProxy` + per-route audience tuning so
-  limits key on the end-user, not the app server. The C1 fix already closed the
-  anon enumeration/creation vectors H1 was meant to mitigate.
-- **Execom PII (M4)**: `execom.email`/`phone` are world-readable via the raw PB
-  API (no field-level rules; collection is public for the directory). Drop the
-  fields, move them to an admin-only collection, or accept the exposure.
 - **Coupons modeled twice (O2)**: a dedicated `coupons` collection AND a
   `coupons` JSON field on `events`. Validation/consumption uses the collection;
   the event JSON is editable by chairs and bypasses the collection's admin-only
@@ -211,3 +214,17 @@ Current hardening:
 - **`safe-get.ts` stringly-typing (O4)**: `getField(obj,'key',fallback)` is used
   in 20+ files and defeats the PB SDK generics. A typed record layer would remove
   it, but that's broad zero-behavior churn — deferred to avoid regression risk.
+
+### Resolved security items (fixed)
+
+- **Rate limiting (H1)**: in-memory sliding-window limiter on registration,
+  coupon, check-in, auth endpoints. PB built-in rate limits remain disabled.
+- **Execom PII (M4)**: email/phone fields dropped from schema + all routes.
+- **Coupon enumeration**: listRule scoped to admin/chair-of-event; validation
+  via PB internal route with INTERNAL_API_SECRET gating.
+- **Registration bypass**: createRule added; onRecordCreateRequest enforces all
+  business rules (status, open, deadline, form, capacity).
+- **Chair counter forgery**: updateRule + events.pb.js hook both block writes
+  to registeredCount, checkedInCount, isDeleted.
+- **No CSP**: enforced by both Caddy and server-entry.mjs.
+- **Webhook amount**: required on success; failed payments re-confirmable.

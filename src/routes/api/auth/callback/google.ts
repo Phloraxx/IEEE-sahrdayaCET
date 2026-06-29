@@ -4,10 +4,15 @@ import { OAUTH_CALLBACK_PATH, PB_OAUTH_PROVIDER_COOKIE } from "@/lib/constants";
 import { logError } from "@/lib/logger";
 import PocketBase from "pocketbase";
 import { verifySignedCookie } from "@/lib/cookie-signing";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 export const Route = createFileRoute("/api/auth/callback/google")({
   server: {
     handlers: {
       GET: async ({ request }) => {
+        const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
+        const rl = checkRateLimit({ key: `auth:${ip}`, max: 10, windowMs: 60_000 })
+        if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs)
+
         const url = new URL(request.url);
         const code = url.searchParams.get("code");
         const state = url.searchParams.get("state");

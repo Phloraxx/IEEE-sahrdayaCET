@@ -4,7 +4,7 @@ import React, { useState, useMemo } from "react";
 import { Link } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { X, Mail, Phone, Users } from "lucide-react";
+import { X, Users } from "lucide-react";
 import { Linkedin, Instagram } from "@/components/icons";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -23,8 +23,6 @@ export interface ExecomMemberDoc {
   photoUrl?: string;
   linkedin?: string;
   instagram?: string;
-  email?: string;
-  phone?: string;
 }
 
 // ===== TYPES =====
@@ -39,8 +37,6 @@ interface Member {
   photoUrl?: string;
   linkedin?: string;
   instagram?: string;
-  email?: string;
-  phone?: string;
 }
 
 interface ExecomClientProps {
@@ -86,8 +82,6 @@ function docToMember(doc: ExecomMemberDoc): Member {
     photoUrl: doc.photoUrl,
     linkedin: doc.linkedin,
     instagram: doc.instagram,
-    email: doc.email,
-    phone: doc.phone,
   };
 }
 
@@ -99,7 +93,7 @@ const MemberDetailModal: React.FC<{ member: Member; onClose: () => void }> = ({
   const [imgError, setImgError] = useState(false);
   const imageSrc = member.photoUrl || "";
   const hasContactInfo = !!(
-    member.linkedin || member.instagram || member.email || member.phone
+    member.linkedin || member.instagram
   );
 
   return (
@@ -198,24 +192,6 @@ const MemberDetailModal: React.FC<{ member: Member; onClose: () => void }> = ({
                     >
                       <Instagram className="h-4 w-4" />
                       <span className="text-sm font-medium">Instagram</span>
-                    </a>
-                  )}
-                  {member.email && (
-                    <a
-                      href={`mailto:${member.email}`}
-                      className="flex items-center gap-2 rounded-xl bg-gray-100 px-4 py-2.5 text-gray-700 transition hover:scale-[1.03] hover:bg-gray-200"
-                    >
-                      <Mail className="h-4 w-4" />
-                      <span className="text-sm font-medium">Email</span>
-                    </a>
-                  )}
-                  {member.phone && (
-                    <a
-                      href={`tel:${member.phone}`}
-                      className="flex items-center gap-2 rounded-xl bg-gray-100 px-4 py-2.5 text-gray-700 transition hover:scale-[1.03] hover:bg-gray-200"
-                    >
-                      <Phone className="h-4 w-4" />
-                      <span className="text-sm font-medium">Call</span>
                     </a>
                   )}
                 </div>

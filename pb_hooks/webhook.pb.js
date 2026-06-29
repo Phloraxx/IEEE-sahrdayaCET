@@ -72,7 +72,7 @@ routerAdd("POST", "/api/webhooks/payment-confirm", function (e) {
     // ─── Idempotency: already processed ──────────────────────────
     var paymentStatus = reg.getString("paymentStatus")
 
-    if (paymentStatus === "paid" || paymentStatus === "failed") {
+    if (paymentStatus === "paid") {
         return e.json(200, { success: true, message: "Already processed" })
     }
 
@@ -89,9 +89,12 @@ routerAdd("POST", "/api/webhooks/payment-confirm", function (e) {
     var isSuccess = status === "success" || status === "completed" || status === "paid"
 
     if (isSuccess) {
-        // Verify amount matches (M-3)
+        // Verify amount is provided and matches (M-3)
+        if (typeof amount !== "number") {
+            return e.json(400, { error: "amount is required for success" })
+        }
         var expectedAmount = reg.getInt("amount") || 0
-        if (typeof amount === "number" && Math.abs(amount - expectedAmount) > 0.01) {
+        if (Math.abs(amount - expectedAmount) > 0.01) {
             return e.json(400, { error: "Amount mismatch" })
         }
 

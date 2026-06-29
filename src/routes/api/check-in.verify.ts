@@ -6,6 +6,7 @@ import { getField } from '@/lib/safe-get';
 import { requireEventScope } from "@/lib/chair-scope";
 import { z } from 'zod';
 import { verifySameOrigin } from "@/lib/verify-same-origin";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const Route = createFileRoute("/api/check-in/verify")({
   server: {
@@ -15,6 +16,8 @@ export const Route = createFileRoute("/api/check-in/verify")({
           const pb = createPB(request.headers.get("cookie") || undefined);
           verifySameOrigin(request);
           const { user } = await requireRole(["admin","chair"], pb);
+          const rl = checkRateLimit({ key: `checkin:${user.id}`, max: 60, windowMs: 60_000 })
+          if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs)
           const contentType = request.headers.get('content-type') || '';
           if (!contentType.includes('application/json') && !contentType.includes('multipart/form-data')) {
             return Response.json({ error: 'Unsupported media type' }, { status: 415 });

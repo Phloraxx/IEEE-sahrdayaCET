@@ -30,8 +30,6 @@ interface ExecomFormState {
   order: string;
   linkedin: string;
   instagram: string;
-  email: string;
-  phone: string;
   society: string;
   photoFile: File | null;
 }
@@ -46,8 +44,6 @@ const EMPTY_STATE: ExecomFormState = {
   order: "0",
   linkedin: "",
   instagram: "",
-  email: "",
-  phone: "",
   society: "",
   photoFile: null,
 };
@@ -103,8 +99,6 @@ export function ExecomForm({ mode, memberId }: ExecomFormProps) {
         order: String(m.order ?? "0"),
         linkedin: String(m.linkedin ?? ""),
         instagram: String(m.instagram ?? ""),
-        email: String(m.email ?? ""),
-        phone: String(m.phone ?? ""),
         society: String(m.society ?? ""),
         photoFile: null,
       });
@@ -123,8 +117,6 @@ export function ExecomForm({ mode, memberId }: ExecomFormProps) {
       if (form.order) fd.set("order", form.order);
       if (form.linkedin) fd.set("linkedin", form.linkedin);
       if (form.instagram) fd.set("instagram", form.instagram);
-      if (form.email) fd.set("email", form.email);
-      if (form.phone) fd.set("phone", form.phone);
       if (form.society) fd.set("society", form.society);
       if (form.photoFile) fd.set("photo", form.photoFile);
 
@@ -305,31 +297,6 @@ export function ExecomForm({ mode, memberId }: ExecomFormProps) {
           </FormSection>
 
           <FormSection title="Contact">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="grid gap-1.5">
-                <Label htmlFor="ex-email">Email</Label>
-                <Input
-                  id="ex-email"
-                  type="email"
-                  value={form.email}
-                  onChange={(e) =>
-                    setForm({ ...form, email: e.target.value })
-                  }
-                  maxLength={100}
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="ex-phone">Phone</Label>
-                <Input
-                  id="ex-phone"
-                  type="tel"
-                  value={form.phone}
-                  onChange={(e) =>
-                    setForm({ ...form, phone: e.target.value })
-                  }
-                />
-              </div>
-            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-1.5">
                 <Label htmlFor="ex-linkedin">LinkedIn</Label>

@@ -84,13 +84,85 @@ onRecordCreateRequest(function (e) {
     var reg = e.record
 
     // Set placeholder ticketId to avoid unique constraint violation.
-    // The real ticketId is set in onRecordAfterCreateSuccess.
     if (!reg.getString("ticketId")) {
         reg.set("ticketId", "temp-" + $security.randomString(16))
     }
 
-    // Auth is verified by API rules (createRule).
-    // PB 0.39.1 doesn't apply body data before onRecordCreateRequest.
+    // --- Business rule validation (authority lives here, not in route code) ---
+    var eventId = reg.getString("event")
+    if (!eventId) {
+        throw new errors.BadRequestError("Missing event ID")
+    }
+
+    var event
+    try {
+        event = $app.findRecordById("events", eventId)
+    } catch (err) {
+        throw new errors.BadRequestError("Event not found")
+    }
+
+    // 1. Status gate: event must be published
+    var eventStatus = event.getString("status")
+    if (eventStatus === "draft" || eventStatus === "cancelled") {
+        throw new errors.BadRequestError("Event is not available for registration")
+    }
+
+    // 2. Registration open gate
+    if (!event.getBool("registrationOpen")) {
+        throw new errors.BadRequestError("Registration is closed for this event")
+    }
+
+    // 3. Deadline gate
+    var deadline = event.getString("registrationDeadline")
+    if (deadline && deadline !== "") {
+        var deadlineDate = new Date(deadline)
+        if (deadlineDate < new Date()) {
+            throw new errors.BadRequestError("Registration deadline has passed")
+        }
+    }
+
+    // 4. Form validation
+    var formTemplateRaw = event.get("formTemplate")
+    var formTemplate = null
+    if (typeof formTemplateRaw === "string") {
+        try { formTemplate = JSON.parse(formTemplateRaw) } catch (e) {}
+    } else if (Array.isArray(formTemplateRaw)) {
+        formTemplate = formTemplateRaw
+    }
+    var formResponsesRaw = reg.get("formResponses")
+    var formResponses = {}
+    if (typeof formResponsesRaw === "string") {
+        try { formResponses = JSON.parse(formResponsesRaw) } catch (e) {}
+    } else if (typeof formResponsesRaw === "object" && formResponsesRaw !== null) {
+        formResponses = formResponsesRaw
+    }
+    if (formTemplate && Array.isArray(formTemplate) && formTemplate.length > 0) {
+        for (var i = 0; i < formTemplate.length; i++) {
+            var field = formTemplate[i]
+            if (field.required) {
+                var fieldName = field.name || field.id || ""
+                var value = formResponses[fieldName] || formResponses[field.id] || ""
+                if (!value || (typeof value === "string" && value.trim() === "")) {
+                    throw new errors.BadRequestError("Required field '" + (field.label || fieldName) + "' is missing")
+                }
+            }
+        }
+    }
+
+    // 5. Capacity check (live query, not stale counter)
+    var maxCapacity = event.getInt("maxCapacity") || 0
+    if (maxCapacity > 0) {
+        var confirmed = $app.findRecordsByFilter(
+            "registrations",
+            "event = {:eventId} && registrationStatus = {:status}",
+            "", 0, 0,
+            { eventId: eventId, status: "confirmed" }
+        )
+        if (confirmed.length >= maxCapacity) {
+            throw new errors.BadRequestError("Event is at full capacity")
+        }
+    }
+
     e.next()
 }, "registrations")
 
@@ -153,6 +225,27 @@ onRecordAfterCreateSuccess(function (e) {
     $app.saveNoValidate(record)
 
     recomputeEventCounters(eventId)
+
+    // --- Post-commit overflow self-heal (TOCTOU safety net) ---
+    var maxCap = event.getInt("maxCapacity") || 0
+    if (maxCap > 0) {
+        var confirmedAfter = $app.findRecordsByFilter(
+            "registrations",
+            "event = {:eventId} && registrationStatus = {:status}",
+            "created desc, id desc", 0, 0,
+            { eventId: eventId, status: "confirmed" }
+        )
+        var excess = confirmedAfter.length - maxCap
+        if (excess > 0) {
+            var healDao = $app.dao()
+            for (var j = 0; j < excess; j++) {
+                var rec = confirmedAfter[j]
+                rec.set("registrationStatus", "cancelled")
+                healDao.saveRecord(rec)
+            }
+            recomputeEventCounters(eventId)
+        }
+    }
     if (couponCode) { recomputeCouponUsedCount(couponCode, eventId) }
     e.next()
 }, "registrations")

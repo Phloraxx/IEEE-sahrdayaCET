@@ -22,7 +22,7 @@ export const Route = createFileRoute("/api/admin/execom")({
           const records = await pb.collection("execom").getList(page, perPage, {
             sort: "order",
             expand: "society",
-            fields: "id,name,position,department,batch,section,sectionId,order,photo,linkedin,instagram,email,phone,society,created,updated",
+            fields: "id,name,position,department,batch,section,sectionId,order,photo,linkedin,instagram,society,created,updated",
           });
           return Response.json({
             members: records.items,

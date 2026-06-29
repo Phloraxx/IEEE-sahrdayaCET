@@ -15,7 +15,7 @@ const fetchExecomData = createServerFn().handler(
       sort: "order",
       skipTotal: true,
       fields:
-        "id,order,name,department,batch,position,category,section,sectionId,photo,linkedin,instagram,email,phone",
+        "id,order,name,department,batch,position,category,section,sectionId,photo,linkedin,instagram",
     });
     return (data?.items || []).map((raw: Record<string, unknown>, i: number) => {
       const doc = raw as {
@@ -31,8 +31,6 @@ const fetchExecomData = createServerFn().handler(
         photo?: string;
         linkedin?: string;
         instagram?: string;
-        email?: string;
-        phone?: string;
       };
       return {
         id: doc.id,
@@ -50,8 +48,6 @@ const fetchExecomData = createServerFn().handler(
           : "",
         linkedin: doc.linkedin,
         instagram: doc.instagram,
-        email: doc.email,
-        phone: doc.phone,
       };
     });
   },

@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB } from "@/lib/pb.server"; import { escapeFilterValue } from "@/lib/pb"
+import { createPB } from "@/lib/pb.server";
 import { requireAuth } from "@/lib/auth";
 import { verifySameOrigin } from "@/lib/verify-same-origin";
 import { handleError } from "@/lib/api-error";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const Route = createFileRoute("/api/events/validate-coupon")({
   server: {
@@ -14,9 +15,14 @@ export const Route = createFileRoute("/api/events/validate-coupon")({
             return Response.json({ error: 'Unsupported media type' }, { status: 415 });
           }
           verifySameOrigin(request);
+
           const userPb = createPB(request.headers.get("cookie") || undefined);
           await requireAuth(userPb);
 
+          const authRecord = userPb.authStore.record;
+          const rlKey = authRecord?.id || request.headers.get('x-forwarded-for') || 'anon';
+          const rl = checkRateLimit({ key: `coupon:${rlKey}`, max: 30, windowMs: 60_000 });
+          if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
           const body = await request.json();
           const { eventId, code } = body;
 
@@ -27,30 +33,23 @@ export const Route = createFileRoute("/api/events/validate-coupon")({
             );
           }
 
-          // Query via user-authenticated PB client (coupons listRule allows @request.auth.id != "")
-          const now = new Date().toISOString().split('T')[0];
-          const filter = `code=${escapeFilterValue(code)} && event=${escapeFilterValue(eventId)} && isActive=true && (maxUses=0 || usedCount<maxUses) && (expiresAt='' || expiresAt>='${now}')`;
-          let coupon: Record<string, unknown> | null = null;
-          try {
-            coupon = await userPb.collection("coupons").getFirstListItem(filter, {
-              fields: "code,discountPercent,description",
-            }) as unknown as Record<string, unknown>;
-          } catch {
-            // getFirstListItem throws on no match — treat as invalid coupon
+          const pbUrl = process.env.POCKETBASE_URL;
+          const internalSecret = process.env.INTERNAL_API_SECRET;
+          if (!pbUrl || !internalSecret) {
+            return Response.json({ error: "Server configuration error" }, { status: 500 });
           }
-          if (!coupon) {
-            return Response.json(
-              { valid: false, error: "Invalid or expired coupon code" },
-            );
-          }
-          const discountPercent = Number(coupon.discountPercent) || 0;
-          return Response.json({
-            valid: true,
-            discountPercent,
-            discountAmount: discountPercent, // Backwards-compat field name for older clients
-            code: coupon.code,
-            description: coupon.description || '',
+
+          const pbResponse = await fetch(`${pbUrl}/api/coupons/validate`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-internal-secret": internalSecret,
+            },
+            body: JSON.stringify({ code, eventId }),
           });
+
+          const result = await pbResponse.json();
+          return Response.json(result);
         } catch (error) {
           return handleError(error, "validate-coupon");
         }
