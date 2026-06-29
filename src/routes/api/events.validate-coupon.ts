@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB, getPBUrl, escapeFilterValue } from "@/lib/pb";
+import { createPB, escapeFilterValue } from "@/lib/pb";
 import { requireAuth } from "@/lib/auth";
 import { verifySameOrigin } from "@/lib/verify-same-origin";
 import { handleError } from "@/lib/api-error";
@@ -27,41 +27,22 @@ export const Route = createFileRoute("/api/events/validate-coupon")({
             );
           }
 
-          // PB 0.39.1 routerAdd returns 404 on custom routes (goja bug).
-          // Query the coupons collection directly via admin token instead.
-          const adminToken = process.env.POCKETBASE_ADMIN_TOKEN;
-          if (!adminToken) {
-            return Response.json(
-              { error: "Coupon validation unavailable" },
-              { status: 503 },
-            );
-          }
-
+          // Query via user-authenticated PB client (coupons listRule allows @request.auth.id != "")
           const now = new Date().toISOString().split('T')[0];
-          // Use `isActive` and `discountPercent` — PB schema field names
           const filter = `code=${escapeFilterValue(code)} && event=${escapeFilterValue(eventId)} && isActive=true && (maxUses=0 || usedCount<maxUses) && (expiresAt='' || expiresAt>='${now}')`;
-          const pbUrl = getPBUrl();
-          const couponRes = await fetch(
-            `${pbUrl}/api/collections/coupons/records?filter=${encodeURIComponent(filter)}&perPage=1`,
-            { headers: { 'Authorization': `Bearer ${adminToken}` } },
-          );
-
-          if (!couponRes.ok) {
-            return Response.json(
-              { error: "Failed to validate coupon" },
-              { status: 502 },
-            );
+          let coupon: Record<string, unknown> | null = null;
+          try {
+            coupon = await userPb.collection("coupons").getFirstListItem(filter, {
+              fields: "code,discountPercent,description",
+            }) as unknown as Record<string, unknown>;
+          } catch {
+            // getFirstListItem throws on no match — treat as invalid coupon
           }
-
-          const couponData = await couponRes.json();
-          const coupon = couponData?.items?.[0];
-
           if (!coupon) {
             return Response.json(
               { valid: false, error: "Invalid or expired coupon code" },
             );
           }
-
           const discountPercent = Number(coupon.discountPercent) || 0;
           return Response.json({
             valid: true,

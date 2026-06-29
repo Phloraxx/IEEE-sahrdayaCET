@@ -72,11 +72,11 @@ const rules: Record<string, CollectionRuleSet> = {
     deleteRule: `@request.auth.role = "admin"`,
   },
   coupons: {
-    // Validation runs server-side with the admin-role service client (see
-    // events.validate-coupon.ts / registration-service.ts), so the collection
-    // stays locked to staff for direct API access.
-    listRule: `@request.auth.role = "admin" || @request.auth.role = "chair"`,
-    viewRule: `@request.auth.role = "admin" || @request.auth.role = "chair"`,
+    // Authenticated users can read non-expired, active coupons for their
+    // event (validated in-app via user-authenticated pb client). The
+    // pb_hooks hook still enforces coupon consumption at the DB layer.
+    listRule: `@request.auth.id != ""`,
+    viewRule: `@request.auth.id != ""`,
     createRule: `@request.auth.role = "admin"`,
     updateRule: `@request.auth.role = "admin"`,
     deleteRule: `@request.auth.role = "admin"`,

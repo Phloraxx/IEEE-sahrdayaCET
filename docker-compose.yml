@@ -29,7 +29,6 @@ services:
       - SMTP_PORT=${SMTP_PORT:-587}
       - SMTP_USER=${SMTP_USER:-}
       - SMTP_PASS=${SMTP_PASS:-}
-      - POCKETBASE_ADMIN_TOKEN=${POCKETBASE_ADMIN_TOKEN:?err}
 
   # ─── OPTIONAL: Minimal Caddy for TLS termination ────────
   # Uncomment if self-hosting on a VPS and not using Cloudflare Tunnel.

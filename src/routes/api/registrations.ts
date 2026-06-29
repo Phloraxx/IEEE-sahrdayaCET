@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB, getPBUrl, buildFileUrl, escapeFilterValue } from "@/lib/pb";
+import { createPB, buildFileUrl, escapeFilterValue } from "@/lib/pb";
 import { requireAuth } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 import { RegistrationError } from "@/lib/registration-service";
@@ -154,74 +154,24 @@ export const Route = createFileRoute("/api/registrations")({
             couponCode: couponCode || '',
           });
 
-          const price = Number(getField(eventRecord, 'price', 0)) || 0;
-          const isFree = price === 0;
-
-          // Compute amount with coupon discount before admin PATCH
-          let amount = price;
-          let discountAmount = 0;
-          const adminToken = process.env.POCKETBASE_ADMIN_TOKEN;
-
-          if (couponCode && adminToken) {
-            try {
-              const pbUrl = getPBUrl();
-              const now = new Date().toISOString().split('T')[0];
-              // Use `isActive` and `discountPercent` — PB schema field names (not `enabled` / `discountAmount`)
-              const filter = `code=${escapeFilterValue(couponCode)} && event=${escapeFilterValue(eventId)} && isActive=true && (maxUses=0 || usedCount<maxUses) && (expiresAt='' || expiresAt>='${now}')`;
-              const couponRes = await fetch(
-                `${pbUrl}/api/collections/coupons/records?filter=${encodeURIComponent(filter)}&perPage=1`,
-                { headers: { 'Authorization': `Bearer ${adminToken}` } },
-              );
-              if (couponRes.ok) {
-                const couponData = await couponRes.json();
-                const coupon = couponData?.items?.[0];
-                if (coupon) {
-                  const discountPercent = Number(coupon.discountPercent) || 0;
-                  discountAmount = Math.round(price * discountPercent / 100);
-                  amount = Math.max(0, price - discountAmount);
-                }
-              }
-            } catch {
-              // Coupon validation is best-effort here; fail open to avoid blocking registration
-            }
-          }
-
-          // Set server-authoritative fields via admin-token PATCH.
-          // Hook can't use reg.set() in PB 0.39.1 (goja bug) — this is the workaround.
-          if (adminToken) {
-            // Generate 16-char token IDs (matching hook's generateTicketId format)
-            const random16 = () => Array.from({ length: 16 }, () => Math.random().toString(36)[2] || '0').join('').toUpperCase();
-            const paymentTicketId = crypto.randomUUID ? crypto.randomUUID() : `PMT-${random16()}`;
-            const ticketId = isFree ? `TKT-${random16()}` : '';
-            const patchBody: Record<string, unknown> = {
-              amount,
-              discountAmount,
-              paymentStatus: isFree ? 'not_required' : 'pending',
-              registrationStatus: isFree ? 'confirmed' : 'pending',
-              registrationDate: new Date().toISOString(),
-              paymentTicketId: isFree ? '' : paymentTicketId,
-              ticketId: isFree ? ticketId : '',
-            };
-            const pbUrl = getPBUrl();
-            await fetch(`${pbUrl}/api/collections/registrations/records/${registration.id}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
-              body: JSON.stringify(patchBody),
-            });
-          }
-          // Read back the updated registration
+          // Read back the hook-populated fields (pb_hooks sets amount,
+          // paymentStatus, ticketId, etc. via DAO after create)
           const created = await userPb.collection("registrations").getOne(registration.id, {
             fields: "id,ticketId,paymentTicketId,paymentStatus,registrationStatus,amount",
           });
-
-          const readPaymentTicketId = getField<string>(created, 'paymentTicketId', '');
+          // Determine payment status from hook-set fields
+          const readAmount = Number(getField(created, 'amount', 0)) || 0;
           const readTicketId = getField<string>(created, 'ticketId', '');
+          const readPaymentTicketId = getField<string>(created, 'paymentTicketId', '');
+          const readPaymentStatus = getField<string>(created, 'paymentStatus', '');
+          const paymentRequired = readPaymentStatus === 'pending' || readPaymentStatus === 'paid';
+          const displayId = readTicketId || readPaymentTicketId || registration.id;
 
           return Response.json({
             registrationId: registration.id,
-            ticketId: isFree ? readTicketId : (readPaymentTicketId || registration.id),
-            paymentRequired: !isFree,
-            amount: Number(getField(created, 'amount', 0)) || 0,
+            ticketId: displayId,
+            paymentRequired,
+            amount: readAmount,
           });
         } catch (error) {
           if (error instanceof z.ZodError) {
