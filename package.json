@@ -18,7 +18,7 @@
     "migrate:pb-rules": "bun scripts/migrate-pb-rules.ts",
     "migrate:events": "bun scripts/migrate-events.ts",
     "generate:sitemap": "bun scripts/generate-sitemap.ts",
-    "advance:execom-batch": "bun scripts/advance-execom-batch.ts"
+    "advance:execom-batch": "bun scripts/advance-execom-batch.ts",
     "migrate:indexes": "bun scripts/migrate-indexes.ts"
   },
   "dependencies": {
