@@ -12,7 +12,7 @@ export const Route = createFileRoute("/api/admin/execom/$id")({
         try {
           const { id } = params;
           const pb = createPB(request.headers.get("cookie") || undefined);
-          await requireRole(["admin", "chair"], pb);
+          await requireRole(["admin"], pb);
           const member = await pb
             .collection("execom")
             .getOne(id, {
@@ -33,12 +33,7 @@ export const Route = createFileRoute("/api/admin/execom/$id")({
           const { id } = params;
           const pb = createPB(request.headers.get("cookie") || undefined);
           verifySameOrigin(request);
-          const { user } = await requireRole(["admin", "chair"], pb);
-          if (user.role !== "admin")
-            return Response.json(
-              { error: "Only admins can manage execom" },
-              { status: 403 },
-            );
+          await requireRole(["admin"], pb);
           const body = await parseFormData(request);
           const parsed = ExecomUpdateSchema.parse(body);
           const member = await pb.collection("execom").update(id, parsed);
@@ -56,12 +51,7 @@ export const Route = createFileRoute("/api/admin/execom/$id")({
           const { id } = params;
           const pb = createPB(request.headers.get("cookie") || undefined);
           verifySameOrigin(request);
-          const { user } = await requireRole(["admin", "chair"], pb);
-          if (user.role !== "admin")
-            return Response.json(
-              { error: "Only admins can manage execom" },
-              { status: 403 },
-            );
+          await requireRole(["admin"], pb);
           await pb.collection("execom").delete(id);
           return Response.json({ success: true });
         } catch (error) {

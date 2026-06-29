@@ -120,18 +120,43 @@ export const Route = createFileRoute("/api/registrations")({
             couponCode: couponCode || '',
           });
 
-          // Set server-authoritative fields via admin client (hook can't use
-          // reg.set() in PB 0.39.1 — goja bug prevents persistence).
-          const eventRecord = await userPb.collection("events").getOne(eventId, { fields: "price" });
-          const price = Number(getField(eventRecord, 'price', 0)) || 0;
-          const isFree = price === 0;
+          // Compute amount with coupon discount before admin PATCH
+          let amount = price;
+          let discountAmount = 0;
           const adminToken = process.env.POCKETBASE_ADMIN_TOKEN;
+
+          if (couponCode && adminToken) {
+            try {
+              const pbUrl = getPBUrl();
+              const now = new Date().toISOString().split('T')[0];
+              const filter = `code='${couponCode.replace(/'/g, "''")}' && event='${eventId}' && (maxUses=0 || usedCount<maxUses) && (expiresAt='' || expiresAt>='${now}')`;
+              const couponRes = await fetch(
+                `${pbUrl}/api/collections/coupons/records?filter=${encodeURIComponent(filter)}&perPage=1`,
+                { headers: { 'Authorization': `Bearer ${adminToken}` } },
+              );
+              if (couponRes.ok) {
+                const couponData = await couponRes.json();
+                const coupon = couponData?.items?.[0];
+                if (coupon) {
+                  discountAmount = Number(coupon.discountAmount) || 0;
+                  amount = Math.max(0, price - discountAmount);
+                }
+              }
+            } catch {
+              // Coupon validation is best-effort here; fail open to avoid blocking registration
+            }
+          }
+
+          // Set server-authoritative fields via admin-token PATCH.
+          // Hook can't use reg.set() in PB 0.39.1 (goja bug) — this is the workaround.
           if (adminToken) {
-            const paymentTicketId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2);
-            const ticketId = isFree ? `TKT-${Math.random().toString(36).substring(2, 10).toUpperCase()}` : '';
+            // Generate 16-char token IDs (matching hook's generateTicketId format)
+            const random16 = () => Array.from({ length: 16 }, () => Math.random().toString(36)[2] || '0').join('').toUpperCase();
+            const paymentTicketId = crypto.randomUUID ? crypto.randomUUID() : `PMT-${random16()}`;
+            const ticketId = isFree ? `TKT-${random16()}` : '';
             const patchBody: Record<string, unknown> = {
-              amount: price,
-              discountAmount: 0,
+              amount,
+              discountAmount,
               paymentStatus: isFree ? 'not_required' : 'pending',
               registrationStatus: isFree ? 'confirmed' : 'pending',
               registrationDate: new Date().toISOString(),
@@ -139,7 +164,6 @@ export const Route = createFileRoute("/api/registrations")({
               ticketId: isFree ? ticketId : '',
             };
             const pbUrl = getPBUrl();
-            // Use plain fetch with admin token to bypass hook reg.set() issue
             await fetch(`${pbUrl}/api/collections/registrations/records/${registration.id}`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },

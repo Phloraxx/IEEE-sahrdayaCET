@@ -15,8 +15,8 @@ export const Route = createFileRoute("/api/admin/users")({
           await requireRole(["admin"], pb);
           const url = new URL(request.url);
           const { page, perPage } = parsePagination(url, {
-            defaultPerPage: 200,
-            maxPerPage: 500,
+            defaultPerPage: 100,
+            maxPerPage: 100,
           });
           const search = url.searchParams.get("search");
           const userId = url.searchParams.get("id");
@@ -59,12 +59,7 @@ export const Route = createFileRoute("/api/admin/users")({
           }
           const pb = createPB(request.headers.get("cookie") || undefined);
           verifySameOrigin(request);
-          const { user } = await requireRole(["admin", "chair"], pb);
-          if (user.role !== "admin")
-            return Response.json(
-              { error: "Only admins can change roles" },
-              { status: 403 },
-            );
+          const { user } = await requireRole(["admin"], pb);
 
           const body = await request.json();
           const parsed = UserUpdateSchema.parse(body);

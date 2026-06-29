@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createPB, buildFileUrl } from "@/lib/pb";
 import { requireRole } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
+import { getField } from "@/lib/safe-get";
 import { parseFormData } from "@/lib/parse-form-data";
 import { z } from "zod";
 import { verifySameOrigin } from "@/lib/verify-same-origin";
@@ -25,7 +26,14 @@ export const Route = createFileRoute("/api/admin/societies/$id")({
         try {
           const { id } = params;
           const pb = createPB(request.headers.get("cookie") || undefined);
-          await requireRole(["admin", "chair"], pb);
+          const { user } = await requireRole(["admin", "chair"], pb);
+          if (user.role === "chair") {
+            const scopeResult = await pb.collection("societies").getOne(id, { fields: "id,chairs" });
+            const chairs = getField<string[]>(scopeResult, 'chairs', []);
+            if (!chairs.includes(user.id)) {
+              return Response.json({ error: "Forbidden" }, { status: 403 });
+            }
+          }
           const society = await pb.collection("societies").getOne(id, {
             fields: "id,name,slug,bio,chairs,isHidden,logo,banner,created,updated",
           });

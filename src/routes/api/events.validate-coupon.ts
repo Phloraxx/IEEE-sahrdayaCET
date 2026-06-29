@@ -25,29 +25,46 @@ export const Route = createFileRoute("/api/events/validate-coupon")({
             );
           }
 
-          // Call the PB custom route (pb_hooks/coupon-validate.pb.js).
-          // The hook reads the coupon internally (no admin client needed)
-          // and returns the discount computation.
-          const res = await fetch(`${getPBUrl()}/api/validate-coupon`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              // Forward the user's auth token so the hook can authenticate.
-              "Authorization": userPb.authStore.token || "",
-            },
-            body: JSON.stringify({ eventId, code }),
-          });
-
-          const data = await res.json();
-
-          if (!res.ok) {
+          // PB 0.39.1 routerAdd returns 404 on custom routes (goja bug).
+          // Query the coupons collection directly via admin token instead.
+          const adminToken = process.env.POCKETBASE_ADMIN_TOKEN;
+          if (!adminToken) {
             return Response.json(
-              { error: data.error || "Coupon validation failed" },
-              { status: res.status },
+              { error: "Coupon validation unavailable" },
+              { status: 503 },
             );
           }
 
-          return Response.json(data);
+          const now = new Date().toISOString().split('T')[0];
+          const filter = `code='${code.replace(/'/g, "''")}' && event='${eventId}' && enabled=true && (maxUses=0 || usedCount<maxUses) && (expiresAt='' || expiresAt>='${now}')`;
+          const pbUrl = getPBUrl();
+          const couponRes = await fetch(
+            `${pbUrl}/api/collections/coupons/records?filter=${encodeURIComponent(filter)}&perPage=1`,
+            { headers: { 'Authorization': `Bearer ${adminToken}` } },
+          );
+
+          if (!couponRes.ok) {
+            return Response.json(
+              { error: "Failed to validate coupon" },
+              { status: 502 },
+            );
+          }
+
+          const couponData = await couponRes.json();
+          const coupon = couponData?.items?.[0];
+
+          if (!coupon) {
+            return Response.json(
+              { valid: false, error: "Invalid or expired coupon code" },
+            );
+          }
+
+          return Response.json({
+            valid: true,
+            discountAmount: Number(coupon.discountAmount) || 0,
+            code: coupon.code,
+            description: coupon.description || '',
+          });
         } catch (error) {
           return handleError(error, "validate-coupon");
         }

@@ -13,7 +13,7 @@ export const Route = createFileRoute("/api/admin/execom")({
       GET: async ({ request }) => {
         try {
           const pb = createPB(request.headers.get("cookie") || undefined);
-          await requireRole(["admin", "chair"], pb);
+          await requireRole(["admin"], pb);
           const url = new URL(request.url);
           const { page, perPage } = parsePagination(url, {
             defaultPerPage: 50,
@@ -43,12 +43,7 @@ export const Route = createFileRoute("/api/admin/execom")({
           }
           const pb = createPB(request.headers.get("cookie") || undefined);
           verifySameOrigin(request);
-          const { user } = await requireRole(["admin", "chair"], pb);
-          if (user.role !== "admin")
-            return Response.json(
-              { error: "Only admins can manage execom" },
-              { status: 403 },
-            );
+          await requireRole(["admin"], pb);
           const body = await parseFormData(request);
           const parsed = ExecomCreateSchema.parse(body);
           const member = await pb.collection("execom").create(parsed);

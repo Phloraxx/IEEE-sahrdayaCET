@@ -11,7 +11,7 @@ function escapeCsv(v: unknown): string {
   // Formula-injection protection: prefix dangerous leading chars so spreadsheet
   // apps don't evaluate the cell as a formula. Prefix with a single quote and
   // let Excel/Sheets strip it on import.
-  if (/^[=+\-@]/.test(s)) {
+  if (/^[=+\-\t\r@]/.test(s)) {
     s = `'${s}`
   }
   if (/[",\n]/.test(s)) {

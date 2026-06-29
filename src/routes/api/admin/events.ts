@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { authenticateAdmin, buildChairFilter } from "@/lib/admin-middleware";
+import { getChairSocietyIds } from "@/lib/chair-scope";
 import { escapeFilterValue } from "@/lib/pb";
 import { handleError } from "@/lib/api-error";
 import { parsePagination, buildFilter } from "@/lib/route-helpers";
@@ -85,11 +86,8 @@ export const Route = createFileRoute("/api/admin/events")({
 
           // Chair scoping: chairs can only create events for their own societies
           if (ctx.role === "chair") {
-            const allowed = await ctx.pb.collection("societies").getFullList({
-              fields: "id",
-            });
-            const allowedIds = allowed.map((s: Record<string, unknown>) => s.id);
-            if (!allowedIds.includes(parsed.society)) {
+            const chairIds = await getChairSocietyIds(ctx.pb, ctx);
+            if (chairIds === undefined || !chairIds.includes(parsed.society)) {
               return Response.json(
                 { error: "You can only create events for your own society" },
                 { status: 403 },

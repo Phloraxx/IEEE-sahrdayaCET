@@ -12,13 +12,13 @@ export const Route = createFileRoute("/api/check-in/verify")({
     handlers: {
       POST: async ({ request }) => {
         try {
+          const pb = createPB(request.headers.get("cookie") || undefined);
+          verifySameOrigin(request);
+          const { user } = await requireRole(["admin","chair"], pb);
           const contentType = request.headers.get('content-type') || '';
           if (!contentType.includes('application/json') && !contentType.includes('multipart/form-data')) {
             return Response.json({ error: 'Unsupported media type' }, { status: 415 });
           }
-          const pb = createPB(request.headers.get("cookie") || undefined);
-          verifySameOrigin(request);
-          const { user } = await requireRole(["admin","chair"], pb);
 
           const BodySchema = z.object({
             ticketId: z.string().min(1),

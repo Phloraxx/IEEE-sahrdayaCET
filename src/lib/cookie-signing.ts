@@ -11,7 +11,9 @@ function getSigningSecret(): string {
   }
   // Dev-only fallback. Uses the public app URL as a stable per-env secret so
   // the OAuth flow works locally without extra configuration.
-  return process.env.PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'dev-only-insecure-secret'
+  const fallback = process.env.PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'dev-only-insecure-secret'
+  console.warn('[cookie-signing] Using fallback signing secret — OAUTH_COOKIE_SECRET not set in non-production environment')
+  return fallback
 }
 
 /** HMAC-signs a payload so it can't be tampered with via subdomain cookie injection. */

@@ -12,6 +12,10 @@ export function verifySameOrigin(request: Request): void {
 	const origin = request.headers.get("origin");
 	const appUrl = APP_URL;
 	const isDev = process.env.NODE_ENV !== 'production';
+	// Log a warning when CSRF is bypassed so misconfiguration doesn't go unnoticed.
+	if (isDev && (!appUrl || !origin)) {
+		console.warn(`[csrf] CSRF check bypassed: APP_URL=${appUrl ? 'set' : 'MISSING'} Origin=${origin ? 'set' : 'MISSING'} NODE_ENV=${process.env.NODE_ENV}`);
+	}
 
 	// In production the origin check is mandatory. In dev, allow missing config or
 	// missing Origin header for local testing, but never allow a mismatched or

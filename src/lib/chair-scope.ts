@@ -98,15 +98,7 @@ export async function scopeRegistrationFilter(
   user: AuthUser,
 ): Promise<string> {
   const ids = await getChairSocietyIds(pb, user)
-  if (ids === undefined) return '' // admin
-  if (ids.length === 0) return EMPTY_FILTER
-  // Get events belonging to the chair's societies
-  const events = await pb.collection('events').getFullList({
-    filter: ids.map((id) => `society = ${escapeFilterValue(id)}`).join(' || '),
-    fields: 'id',
-  })
-  if (events.length === 0) return EMPTY_FILTER
-  return events.map((e) => `event = ${escapeFilterValue(e.id)}`).join(' || ')
+  return chairFilterFromSocietyIds(ids, 'registration')
 }
 
 /**

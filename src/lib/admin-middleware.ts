@@ -6,6 +6,12 @@ import type { AuthUser } from "@/types"
 import { getChairSocietyIds, chairFilterFromSocietyIds } from "@/lib/chair-scope"
 import type PocketBase from "pocketbase"
 
+/** Narrow a raw string to the AuthUser role union, defaulting to 'user' for safety. */
+function toAuthUserRole(role: string): AuthUser['role'] {
+  const valid: AuthUser['role'][] = ['admin', 'chair', 'user']
+  return valid.includes(role as AuthUser['role']) ? (role as AuthUser['role']) : 'user'
+}
+
 export interface AdminContext {
   pb: PocketBase
   userId: string
@@ -53,7 +59,7 @@ export async function buildChairFilter(
   scopeType: 'event' | 'registration' | 'society' | string,
 ): Promise<string> {
   if (ctx.role === 'admin') return ''
-  const user: AuthUser = { id: ctx.userId, role: ctx.role as AuthUser['role'] }
+  const user: AuthUser = { id: ctx.userId, role: toAuthUserRole(ctx.role) }
   const societyIds = await getChairSocietyIds(ctx.pb, user)
   if (scopeType === 'event' || scopeType === 'registration' || scopeType === 'society') {
     return chairFilterFromSocietyIds(societyIds, scopeType)
@@ -72,7 +78,7 @@ export async function getChairScopeFilters(
   ctx: AdminContext,
 ): Promise<{ eventFilter: string; registrationFilter: string }> {
   if (ctx.role === 'admin') return { eventFilter: '', registrationFilter: '' }
-  const user: AuthUser = { id: ctx.userId, role: ctx.role as AuthUser['role'] }
+  const user: AuthUser = { id: ctx.userId, role: toAuthUserRole(ctx.role) }
   const ids = await getChairSocietyIds(ctx.pb, user)
   return {
     eventFilter: chairFilterFromSocietyIds(ids, 'event'),

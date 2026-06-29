@@ -69,7 +69,13 @@ export const Route = createFileRoute("/api/admin/registrations/$id")({
             throw new AuthError(e instanceof Error ? e.message : "Forbidden", 403);
           }
 
-          const body = AdminRegistrationUpdateSchema.parse(await request.json().catch(() => ({})));
+          let rawBody: unknown;
+          try {
+            rawBody = await request.json();
+          } catch {
+            return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+          }
+          const body = AdminRegistrationUpdateSchema.parse(rawBody);
 
           if (body.checkedIn === true) {
             // Direct update — the onRecordUpdateRequest hook detects
@@ -79,6 +85,20 @@ export const Route = createFileRoute("/api/admin/registrations/$id")({
               checkedInAt: new Date().toISOString(),
             });
             return Response.json({ success: true, action: "checked_in" });
+          }
+          // H-2: Prevent status transitions from cancelled registration
+          // (no ticketId would be minted on re-confirm).
+          if (body.registrationStatus && body.registrationStatus !== 'cancelled') {
+            const currentReg = await pb.collection('registrations').getOne(id, {
+              fields: 'registrationStatus',
+            });
+            const currentStatus = getField<string>(currentReg, 'registrationStatus', '');
+            if (currentStatus === 'cancelled') {
+              return Response.json(
+                { error: 'Cannot change status of a cancelled registration' },
+                { status: 400 },
+              );
+            }
           }
           if (body.registrationStatus === "cancelled") {
             // Direct update — the hook detects confirmed→cancelled and

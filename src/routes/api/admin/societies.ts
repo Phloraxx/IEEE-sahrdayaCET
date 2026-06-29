@@ -47,7 +47,7 @@ export const Route = createFileRoute("/api/admin/societies")({
             total: result.totalItems,
             page: result.page,
             perPage: result.perPage,
-            hasMore: false,
+            hasMore: result.totalPages > result.page,
           }, { headers: { 'Cache-Control': 'private, max-age=30, s-maxage=60' } });
         } catch (error) {
           return handleError(error, "admin-societies-list");

@@ -23,7 +23,13 @@ export function buildFileUrl(collection: string, recordId: string, filename: str
     logError('buildFileUrl', 'Missing recordId or filename', { collection, recordId, filename })
     return ''
   }
-  if (filename.startsWith('http')) return filename
+  if (filename.startsWith('http')) {
+    try {
+      const url = new URL(filename)
+      if (url.protocol !== 'https:' && url.protocol !== 'http:') return ''
+      return filename
+    } catch { return '' }
+  }
   return `/api/files/${collection}/${recordId}/${filename}`
 }
 
@@ -34,5 +40,5 @@ export function buildFileUrl(collection: string, recordId: string, filename: str
 export function escapeFilterValue(value: string | number | boolean): string {
   if (typeof value === 'number') return String(value)
   if (typeof value === 'boolean') return value ? 'true' : 'false'
-  return `'${value.replace(/'/g, "''")}'`
+  return `'${value.replace(/\0/g, '').replace(/'/g, "''")}'`
 }

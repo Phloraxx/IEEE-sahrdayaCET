@@ -1,9 +1,5 @@
 /// <reference path="../pb_data/types.d.ts" />
 
-// Test custom route inline
-routerAdd("GET", "/api/ping", function(e) {
-    return e.json(200, { pong: true })
-})
 
 // ─── Registration Lifecycle Hooks ──────────────────────────────────
 // All registration business logic: capacity, deadline, form validation,

@@ -101,19 +101,14 @@ routerAdd("POST", "/api/webhooks/payment-confirm", function (e) {
         // - Bump registeredCount (after e.next())
         reg.set("registrationStatus", "confirmed")
         reg.set("paymentStatus", "paid")
-        reg.set("paymentData", body)
+        reg.set("paymentData", { transactionId: transactionId, status: status })
         $app.save(reg)
         // Coupon usedCount is maintained by the registration hooks
         // (onRecordAfterUpdateSuccess re-computes it from active registrations).
     } else {
         // Payment failed — record the failure without changing registration status
-        var existingPaymentData = reg.get("paymentData") || {}
         reg.set("paymentStatus", "failed")
-        reg.set("paymentData", {
-            existing: existingPaymentData,
-            incoming: body,
-            transactionId: transactionId || existingPaymentData.transactionId
-        })
+        reg.set("paymentData", { transactionId: transactionId, status: status })
         $app.save(reg)
     }
 
