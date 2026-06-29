@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB } from "@/lib/pb";
+import { createPB } from "@/lib/pb.server"
 import { requireRole, AuthError } from "@/lib/auth";
 import { handleError, getErrorStatus } from "@/lib/api-error";
 import { streamRegistrationsCSV, csvFilename, type EventLite } from "@/lib/csv-export";

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB } from "@/lib/pb";
+import { createPB } from "@/lib/pb.server"
 import { requireAuth, AuthError } from "@/lib/auth";
 import { logError } from "@/lib/logger";
 export const Route = createFileRoute("/api/auth/me")({

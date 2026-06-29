@@ -1,22 +1,4 @@
-import PocketBase from 'pocketbase'
-import { PB_AUTH_COOKIE } from './constants'
 import { logError } from './logger'
-
-export function getPBUrl(): string {
-  const url = import.meta.env.VITE_POCKETBASE_URL || process.env.POCKETBASE_URL
-  if (!url) {
-    throw new Error('POCKETBASE_URL is not configured')
-  }
-  return url
-}
-
-export function createPB(cookieString?: string) {
-  const pb = new PocketBase(getPBUrl())
-  if (cookieString) {
-    pb.authStore.loadFromCookie(cookieString, PB_AUTH_COOKIE)
-  }
-  return pb
-}
 
 export function buildFileUrl(collection: string, recordId: string, filename: string): string {
   if (!recordId || !filename) {
@@ -42,3 +24,4 @@ export function escapeFilterValue(value: string | number | boolean): string {
   if (typeof value === 'boolean') return value ? 'true' : 'false'
   return `'${value.replace(/\0/g, '').replace(/'/g, "''")}'`
 }
+

@@ -1,12 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB, buildFileUrl } from "@/lib/pb";
+import { createServerFn } from "@tanstack/react-start";
+import { createPB } from "@/lib/pb.server";
+import { buildFileUrl } from "@/lib/pb";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { APP_URL } from "@/lib/constants";
 import EventsPageClient from "@/features/events/EventsPageClient";
 import type { EventWithSociety } from "@/types";
 import { getField, getExpand } from '@/lib/safe-get';
 
-interface EventItem {
+interface SerializableEvent {
   id: string;
   createdAt: string;
   updatedAt: string;
@@ -26,6 +28,50 @@ interface EventItem {
   collectIeeeMember?: boolean;
   society?: { id: string; name: string; slug: string; logoUrl: string };
 }
+
+const fetchEvents = createServerFn().handler(async (): Promise<SerializableEvent[]> => {
+  try {
+    const pb = createPB();
+    const result = await pb.collection("events").getList(1, 20, {
+      filter: 'status="published"',
+      sort: "date",
+      expand: "society",
+      skipTotal: true,
+      fields: "id,title,description,date,endDate,venue,price,banner,status,registrationOpen,maxCapacity,registeredCount,externalFormUrl,collectIeeeMember",
+    });
+    return (result.items || []).map((raw: Record<string, unknown>) => {
+      const expand = getExpand(raw);
+      const societyRaw = raw.society && typeof raw.society === 'object' ? raw.society : expand?.society;
+      const society = societyRaw ? { id: getField(societyRaw, 'id', ''), name: getField(societyRaw, 'name', ''), slug: getField(societyRaw, 'slug', ''), logoUrl: getField(societyRaw, 'logo', '') ? buildFileUrl('societies', getField(societyRaw, 'id', ''), getField(societyRaw, 'logo', '')) : '' } : undefined;
+      const price = Number(getField(raw, 'price', 0)) || 0;
+      return {
+        id: getField(raw, 'id', ''),
+        createdAt: getField(raw, 'created', ''),
+        updatedAt: getField(raw, 'updated', ''),
+        title: getField(raw, 'title', ''),
+        description: getField(raw, 'description', ''),
+        date: getField(raw, 'date', ''),
+        endDate: getField(raw, 'endDate', ''),
+        venue: getField(raw, 'venue', ''),
+        price,
+        isPaid: price > 0,
+        bannerUrl: getField(raw, 'banner', '')
+          ? buildFileUrl("events", getField(raw, 'id', ''), getField(raw, 'banner', ''))
+          : "",
+        status: getField(raw, 'status', 'published'),
+        registrationOpen: !!getField(raw, 'registrationOpen', false),
+        maxCapacity: getField(raw, 'maxCapacity', 0),
+        registeredCount: getField(raw, 'registeredCount', 0),
+        externalFormUrl: getField(raw, 'externalFormUrl', '') || undefined,
+        collectIeeeMember: !!getField(raw, 'collectIeeeMember', false),
+        society,
+      };
+    });
+  } catch {
+    return [];
+  }
+});
+
 
 export const Route = createFileRoute("/events")({
   head: () => ({
@@ -62,49 +108,10 @@ export const Route = createFileRoute("/events")({
       },
     ],
   }),
-  loader: async ({ context }): Promise<EventItem[]> => {
-    try {
-      const response = (context as unknown as { response?: { headers?: Headers } })?.response;
-      response?.headers?.set('Cache-Control', 'public, max-age=300');
-      const pb = createPB();
-      const result = await pb.collection("events").getList(1, 20, {
-        filter: 'status="published"',
-        sort: "date",
-        expand: "society",
-        skipTotal: true,
-        fields: "id,title,description,date,endDate,venue,price,banner,status,registrationOpen,maxCapacity,registeredCount,externalFormUrl,collectIeeeMember",
-      });
-      return (result.items || []).map((raw: Record<string, unknown>) => {
-        const expand = getExpand(raw);
-        const societyRaw = raw.society && typeof raw.society === 'object' ? raw.society : expand?.society;
-        const society = societyRaw ? { id: getField(societyRaw, 'id', ''), name: getField(societyRaw, 'name', ''), slug: getField(societyRaw, 'slug', ''), logoUrl: getField(societyRaw, 'logo', '') ? buildFileUrl('societies', getField(societyRaw, 'id', ''), getField(societyRaw, 'logo', '')) : '' } : undefined;
-        const price = Number(getField(raw, 'price', 0)) || 0;
-        return {
-          id: getField(raw, 'id', ''),
-          createdAt: getField(raw, 'created', ''),
-          updatedAt: getField(raw, 'updated', ''),
-          title: getField(raw, 'title', ''),
-          description: getField(raw, 'description', ''),
-          date: getField(raw, 'date', ''),
-          endDate: getField(raw, 'endDate', ''),
-          venue: getField(raw, 'venue', ''),
-          price,
-          isPaid: price > 0,
-          bannerUrl: getField(raw, 'banner', '')
-            ? buildFileUrl("events", getField(raw, 'id', ''), getField(raw, 'banner', ''))
-            : "",
-          status: getField(raw, 'status', 'published'),
-          registrationOpen: !!getField(raw, 'registrationOpen', false),
-          maxCapacity: getField(raw, 'maxCapacity', 0),
-          registeredCount: getField(raw, 'registeredCount', 0),
-          externalFormUrl: getField(raw, 'externalFormUrl', '') || undefined,
-          collectIeeeMember: !!getField(raw, 'collectIeeeMember', false),
-          society,
-        };
-      });
-    } catch {
-      return [];
-    }
+  loader: async ({ context }) => {
+    const response = (context as unknown as { response?: { headers?: Headers } })?.response;
+    response?.headers?.set('Cache-Control', 'public, max-age=300');
+    return fetchEvents();
   },
   component: EventsPage,
 });

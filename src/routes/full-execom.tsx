@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { createPB, buildFileUrl } from "@/lib/pb";
+import { createPB } from "@/lib/pb.server"; import { buildFileUrl } from "@/lib/pb"
 import { APP_URL } from "@/lib/constants";
 import { logError } from "@/lib/logger";
 import { ErrorBoundary } from "@/components/ErrorBoundary";

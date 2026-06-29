@@ -1,4 +1,4 @@
-import { createPB } from "@/lib/pb";
+import { createPB } from "@/lib/pb.server"
 import { requireAuth } from "@/lib/auth";
 
 import { createFileRoute } from "@tanstack/react-router";

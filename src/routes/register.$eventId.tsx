@@ -1,10 +1,13 @@
-import { createPB, buildFileUrl } from "@/lib/pb";
+import { createServerFn } from "@tanstack/react-start";
+import { createPB } from "@/lib/pb.server";
+import { buildFileUrl } from "@/lib/pb";
 import { getField } from "@/lib/safe-get";
 import { createFileRoute } from "@tanstack/react-router";
 import RegisterPage from "@/features/register/RegisterPage";
 
-export const Route = createFileRoute("/register/$eventId")({
-  loader: async ({ params: { eventId } }) => {
+const fetchEventForRegistration = createServerFn()
+  .validator((eventId: string) => eventId)
+  .handler(async ({ data: eventId }) => {
     const pb = createPB();
     const record = await pb.collection("events").getOne(eventId);
     if (!record) throw new Error("Event not found");
@@ -29,7 +32,10 @@ export const Route = createFileRoute("/register/$eventId")({
         getField(record, "formTemplate", undefined),
     };
     return { event };
-  },
+  });
+
+export const Route = createFileRoute("/register/$eventId")({
+  loader: async ({ params }) => fetchEventForRegistration({ data: params.eventId }),
   head: () => ({
     meta: [
       { title: "Register | IEEE Sahrdaya Student Branch" },

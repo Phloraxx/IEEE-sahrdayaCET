@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start"
 import { getRequestHeader } from "@tanstack/react-start/server"
-import { createPB } from "@/lib/pb"
+import { createPB } from "@/lib/pb.server"
 import { requireRole } from "@/lib/auth"
 
 /**

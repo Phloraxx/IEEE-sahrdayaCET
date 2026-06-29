@@ -1,7 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { createServerFn } from '@tanstack/react-start'
 import { getField } from '@/lib/safe-get';
 import type { Society } from '@/types'
-import { createPB, buildFileUrl } from '@/lib/pb'
+import { createPB } from '@/lib/pb.server'
+import { buildFileUrl } from '@/lib/pb'
 import { APP_URL } from "@/lib/constants";
 import Navbar from '@/components/Navbar'
 import { Hero } from '@/components/Hero'
@@ -28,6 +30,63 @@ interface HomeData {
   societies: Society[]
   eventItems: Array<{ id: string; bannerUrl: string; title: string }>
 }
+
+const fetchHomeData = createServerFn().handler(async (): Promise<HomeData> => {
+  try {
+    const pb = createPB();
+    const [eventsResult, societiesRes] = await Promise.allSettled([
+      pb.collection("events").getList(1, 20, {
+        filter: 'status="published"',
+        sort: "-date",
+        skipTotal: true,
+        fields: "id,title,description,date,banner",
+      }),
+      pb.collection("societies").getList(1, 200, {
+        skipTotal: true,
+        fields: "id,name,slug,logo",
+      }),
+    ]);
+
+    const societies: Society[] =
+      societiesRes.status === "fulfilled"
+        ? (societiesRes.value.items || []).map((s: Record<string, unknown>) => ({
+            id: getField(s, 'id', ''),
+            name: getField(s, 'name', ''),
+            slug: getField(s, 'slug', ''),
+            logoUrl: s.logo ? buildFileUrl("societies", getField(s, 'id', ''), getField(s, 'logo', '')) : undefined,
+          }))
+        : [];
+
+    const latestEvent =
+      eventsResult.status === "fulfilled" && eventsResult.value?.items?.[0]
+        ? (() => {
+            const ev = eventsResult.value.items[0];
+            return {
+              id: getField(ev, 'id', ''),
+              title: getField(ev, 'title', ''),
+              description: getField(ev, 'description', 'Join us for this exciting IEEE event!'),
+              date: getField(ev, 'date', ''),
+              bannerUrl: ev.banner ? buildFileUrl("events", getField(ev, 'id', ''), getField(ev, 'banner', '')) : "",
+            };
+          })()
+        : null;
+
+    const eventItems: Array<{ id: string; bannerUrl: string; title: string }> =
+      eventsResult.status === "fulfilled" && eventsResult.value?.items
+        ? eventsResult.value.items.slice(0, 20).map((ev) => ({
+            id: getField(ev, 'id', ''),
+            title: getField(ev, 'title', ''),
+            bannerUrl: ev.banner
+              ? buildFileUrl("events", getField(ev, 'id', ''), getField(ev, 'banner', ''))
+              : "",
+          }))
+        : [];
+
+    return { latestEvent, societies, eventItems };
+  } catch {
+    return { latestEvent: null, societies: [], eventItems: [] };
+  }
+});
 
 export const Route = createFileRoute('/')({
   head: ({ loaderData }) => {
@@ -75,59 +134,10 @@ export const Route = createFileRoute('/')({
     };
   },
   loader: async ({ context }): Promise<HomeData> => {
+    const response = (context as unknown as { response?: { headers?: Headers } })?.response;
+    response?.headers?.set('Cache-Control', 'public, max-age=300');
     try {
-      const response = (context as unknown as { response?: { headers?: Headers } })?.response;
-      response?.headers?.set('Cache-Control', 'public, max-age=300');
-      const pb = createPB();
-      const [eventsResult, societiesRes] = await Promise.allSettled([
-        pb.collection("events").getList(1, 20, {
-          filter: 'status="published"',
-          sort: "-date",
-          skipTotal: true,
-          fields: "id,title,description,date,banner",
-        }),
-        pb.collection("societies").getList(1, 200, {
-          skipTotal: true,
-          fields: "id,name,slug,logo",
-        }),
-      ]);
-
-      const societies: Society[] =
-        societiesRes.status === "fulfilled"
-          ? (societiesRes.value.items || []).map((s: Record<string, unknown>) => ({
-              id: getField(s, 'id', ''),
-              name: getField(s, 'name', ''),
-              slug: getField(s, 'slug', ''),
-              logoUrl: s.logo ? buildFileUrl("societies", getField(s, 'id', ''), getField(s, 'logo', '')) : undefined,
-            }))
-          : [];
-
-      const latestEvent =
-        eventsResult.status === "fulfilled" && eventsResult.value?.items?.[0]
-          ? (() => {
-              const ev = eventsResult.value.items[0];
-              return {
-                id: getField(ev, 'id', ''),
-                title: getField(ev, 'title', ''),
-                description: getField(ev, 'description', 'Join us for this exciting IEEE event!'),
-                date: getField(ev, 'date', ''),
-                bannerUrl: ev.banner ? buildFileUrl("events", getField(ev, 'id', ''), getField(ev, 'banner', '')) : "",
-              };
-            })()
-          : null;
-
-      const eventItems: Array<{ id: string; bannerUrl: string; title: string }> =
-        eventsResult.status === "fulfilled" && eventsResult.value?.items
-          ? eventsResult.value.items.slice(0, 20).map((ev) => ({
-              id: getField(ev, 'id', ''),
-              title: getField(ev, 'title', ''),
-              bannerUrl: ev.banner
-                ? buildFileUrl("events", getField(ev, 'id', ''), getField(ev, 'banner', ''))
-                : "",
-            }))
-          : [];
-
-      return { latestEvent, societies, eventItems };
+      return await fetchHomeData();
     } catch {
       return { latestEvent: null, societies: [], eventItems: [] };
     }

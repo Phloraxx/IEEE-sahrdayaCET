@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB, buildFileUrl, escapeFilterValue } from "@/lib/pb";
+import { createPB } from "@/lib/pb.server"; import { buildFileUrl, escapeFilterValue } from "@/lib/pb"
 import { handleError } from "@/lib/api-error";
 import { ClientResponseError } from "pocketbase";
 import { getField } from "@/lib/safe-get";

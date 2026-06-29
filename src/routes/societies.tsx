@@ -3,7 +3,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { APP_URL } from "@/lib/constants";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import SocietiesClient from "@/features/societies/SocietiesClient";
-import { createPB, buildFileUrl, escapeFilterValue } from "@/lib/pb";
+import { buildFileUrl, escapeFilterValue } from "@/lib/pb";
+import { createPB } from "@/lib/pb.server";
 import type { Society } from "@/types";
 
 export const fetchSocietyMembers = createServerFn()
@@ -65,6 +66,28 @@ export const fetchSocietyEvents = createServerFn()
       }));
   });
 
+const fetchSocieties = createServerFn().handler(async (): Promise<Society[]> => {
+  try {
+    const pb = createPB();
+    const data = await pb.collection("societies").getList(1, 200, {
+      filter: "isHidden=false",
+      skipTotal: true,
+      fields: "id,name,slug,bio,logo",
+    });
+    return (data.items || []).map((s: Record<string, unknown>) => ({
+      id: s.id as string,
+      name: s.name as string,
+      slug: s.slug as string,
+      bio: s.bio as string | undefined,
+      logoUrl: s.logo
+        ? buildFileUrl("societies", s.id as string, s.logo as string)
+        : undefined,
+    }));
+  } catch {
+    return [];
+  }
+});
+
 export const Route = createFileRoute("/societies")({
   head: () => ({
     meta: [
@@ -101,27 +124,9 @@ export const Route = createFileRoute("/societies")({
     ],
   }),
   loader: async ({ context }): Promise<Society[]> => {
-    try {
-      const response = (context as unknown as { response?: { headers?: Headers } })?.response;
-      response?.headers?.set('Cache-Control', 'public, max-age=300');
-      const pb = createPB();
-      const data = await pb.collection("societies").getList(1, 200, {
-        filter: "isHidden=false",
-        skipTotal: true,
-        fields: "id,name,slug,bio,logo",
-      })
-      return (data.items || []).map((s: Record<string, unknown>) => ({
-        id: s.id as string,
-        name: s.name as string,
-        slug: s.slug as string,
-        bio: s.bio as string | undefined,
-        logoUrl: s.logo
-          ? buildFileUrl("societies", s.id as string, s.logo as string)
-          : undefined,
-      }));
-    } catch {
-      return [];
-    }
+    const response = (context as unknown as { response?: { headers?: Headers } })?.response;
+    response?.headers?.set('Cache-Control', 'public, max-age=300');
+    return fetchSocieties();
   },
   component: SocietiesPage,
 });

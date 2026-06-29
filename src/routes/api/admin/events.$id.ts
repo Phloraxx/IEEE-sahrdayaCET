@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB } from "@/lib/pb";
+import { createPB } from "@/lib/pb.server"
 import { requireRole, AuthError } from "@/lib/auth";
 import { requireEventScope } from "@/lib/chair-scope";
 import { handleError } from "@/lib/api-error";

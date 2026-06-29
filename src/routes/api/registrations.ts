@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB, buildFileUrl, escapeFilterValue } from "@/lib/pb";
+import { createPB } from "@/lib/pb.server"; import { buildFileUrl, escapeFilterValue } from "@/lib/pb"
 import { requireAuth } from "@/lib/auth";
 import { handleError, RegistrationError } from "@/lib/api-error";
 import { RegistrationBodySchema } from "@/schemas/registrations";
