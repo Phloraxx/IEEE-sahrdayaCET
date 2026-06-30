@@ -21,16 +21,18 @@ College of Engineering & Technology.
 | `npm run dev` | Start Vite dev server (TanStack Start) |
 | `npm run build` | Production build (Vite) |
 | `npm start` | Start production server (`node dist/server/server.js`) |
-| `npm run lint` | Run ESLint (`eslint src --max-warnings 0`) |
+| `npm run lint` | Run ESLint (`eslint src`) |
 | `npm test` | Run unit tests (Vitest) — files in `tests/unit/**/*.test.ts` |
 | `npm run test:watch` | Vitest in watch mode |
 | `npm run test:ui` | Vitest with UI dashboard |
 | `npm run test:e2e` | Run Playwright e2e tests (`tests/e2e/`) |
 | `npm run test:e2e:headed` | Playwright with browser GUI |
 | `bun run migrate:pb` | Apply PocketBase schema (`scripts/migrate-to-pb.ts`) |
+| `bun run migrate:pb-rules` | Apply PocketBase collection API rules (`scripts/migrate-pb-rules.ts`) — source of truth for security rules |
 | `bun run migrate:events` | Migrate events (`scripts/migrate-events.ts`) |
 | `bun run migrate:indexes` | Apply DB indexes (`scripts/migrate-indexes.ts`) |
-| `docker compose up` | Full stack via Docker Compose |
+| `bun run generate:sitemap` | Generate sitemap (`scripts/generate-sitemap.ts`) |
+| `docker compose up` | App via `docker-compose.yml`; PocketBase via separate `docker-compose.pb.yml` |
 
 **Environment**: copy `.env.example` → `.env.local`, set `POCKETBASE_URL`,
 `PUBLIC_APP_URL`, `OAUTH_COOKIE_SECRET`, `PAYMENT_WEBHOOK_SECRET`,
@@ -56,8 +58,7 @@ src/
 │       ├── events.*.ts          #   Event detail, CSV export, coupon validation (proxy)
 │       ├── check-in.verify.ts   #   QR check-in verification + rate limit
 │       ├── society.$slug.ts     #   Public society detail + events
-│       ├── orders/
-│       │   └── webhook.ts       #   Payment webhook
+│       ├── ticket.$ticketId.ts  #   Public ticket lookup (QR)
 │       └── admin/               #   Admin API handlers
 │           ├── events.ts        #   CRUD events + dashboard stats
 │           ├── registrations.ts #   Registrations admin view
@@ -77,21 +78,23 @@ src/
 │   ├── admin/                    # Admin UI (sidebar, page transitions, guards, animated counter, sparkline)
 │   ├── events/                   # Event cards, detail modal, hero, list section
 │   └── ui/                       # shadcn/ui primitives (button, dialog, table, sidebar, card, form, etc.)
+├── lib/                          # Server-side + shared logic
 │   ├── pb.ts                     # PocketBase client factory
 │   │                             #   createPB(cookie?) → client from session cookie
 │   │                             #   buildFileUrl(), escapeFilterValue()
 │   ├── auth.ts                   # Server-side auth: requireAuth(), requireAdmin(), requireRole(), AuthError
 │   ├── auth-context.tsx          # Client-side AuthProvider + useAuth() hook (React Context + cookie)
 │   ├── constants.ts              # APP_URL, status enums, pagination limits, dashboard windows
-│   ├── registration-service.ts   # RegistrationError + computeDiscount (pure helpers).
-│   │                             #   All business logic now lives in pb_hooks (see pb_hooks/).
 │   ├── rate-limit.ts             # In-memory sliding-window token bucket (checkRateLimit, rateLimitResponse)
 │   ├── dates.ts                  # Date formatting utilities
 │   ├── csv-export.ts             # CSV generation for registrations
 │   ├── ticketStatus.ts           # Ticket status label/color/icon mapping
-│   └── qr.ts                     # QR code generation helpers
-├── types/index.ts                # All shared interfaces (Society, Event, AuthUser, Member, etc.)
-└── hooks/                        # use-mobile, useScrollLock
+│   ├── qr-utils.ts               # QR code generation helpers
+│   ├── chair-scope.ts            # Chair society scoping (getChairSocietyIds, scope*Filter, require*Scope)
+│   ├── admin-middleware.ts       # authenticateAdmin, buildChairFilter, getChairScopeFilters
+│   ├── api-error.ts              # handleError() — distinguishes ClientResponseError vs generic; logError()
+│   ├── logger.ts                 # Structured error logging
+│   └── safe-get.ts               # Untyped getField()/getExpand() over PB records (O4: stringly-typed)
 Business logic lives in PocketBase hooks (`pb_hooks/registrations.pb.js`,
 `pb_hooks/webhook.pb.js`, `pb_hooks/events.pb.js`, `pb_hooks/coupons.pb.js`).
 The TanStack server functions authenticate and scope requests, then write with
@@ -121,6 +124,11 @@ Browser → Caddy (HTTPS/LB) → TanStack Start (SSR + server functions) → Poc
   `buildChairFilter`, `getChairScopeFilters`) builds request filters on top of it.
 - **Public SSR pages** (top-level routes) fetch PB data directly via `fetch()` with no auth
   (unauthenticated reads).
+- **Payment webhook**: runs as a PB custom route (`/api/webhooks/payment-confirm`
+  in `pb_hooks/webhook.pb.js`), NOT a TanStack route — the payment gateway calls
+  PocketBase directly. Verifies `PAYMENT_WEBHOOK_SECRET` (timing-safe), looks up
+  by `ticketId`, confirms atomically; the registrations hook mints `ticketId`
+  and bumps counters on pending → confirmed. Idempotent on `paymentStatus="paid"`.
 
 ### PocketBase collections
 
