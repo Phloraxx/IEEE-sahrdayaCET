@@ -34,7 +34,6 @@ import {
   requireEventScope,
   requireRegistrationScope,
 } from '@/lib/chair-scope'
-import { isDuplicateWebhook, WebhookBodySchema } from '@/lib/webhook'
 import { signCookie, verifySignedCookie } from '@/lib/cookie-signing'
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -287,33 +286,31 @@ describe('scopeRegistrationFilter', () => {
     expect(result).toBe('id = ""')
   })
 
-  it('returns EMPTY_FILTER when chair societies have no events', async () => {
+  it('returns EMPTY_FILTER when chair has societies but implementation scopes via event.society (no separate event fetch)', async () => {
     const societies = {
       getFullList: vi.fn().mockResolvedValue([{ id: 'soc-1' }]),
     }
-    const events = {
-      getFullList: vi.fn().mockResolvedValue([]),
-    }
-    const pb = mockPB({ societies, events })
+    const pb = mockPB({ societies })
     const result = await scopeRegistrationFilter(pb, chairUser)
-    expect(result).toBe('id = ""')
+    // Implementation scopes registrations through event.society relation;
+    // it does not enumerate events, so a chair with societies is never empty.
+    expect(result).toContain('event.society =')
+    expect(result).toContain('soc-1')
+    expect(result).not.toBe('id = ""')
   })
 
-  it('returns event-constrained filter for chair with societies and events', async () => {
+  it('returns event.society-constrained filter for chair with societies', async () => {
     const societies = {
-      getFullList: vi.fn().mockResolvedValue([{ id: 'soc-1' }]),
-    }
-    const events = {
       getFullList: vi.fn().mockResolvedValue([
-        { id: 'event-1' },
-        { id: 'event-2' },
+        { id: 'soc-1' },
+        { id: 'soc-2' },
       ]),
     }
-    const pb = mockPB({ societies, events })
+    const pb = mockPB({ societies })
     const result = await scopeRegistrationFilter(pb, chairUser)
-    expect(result).toContain('event =')
-    expect(result).toContain('event-1')
-    expect(result).toContain('event-2')
+    expect(result).toContain('event.society =')
+    expect(result).toContain('soc-1')
+    expect(result).toContain('soc-2')
     expect(result).toContain('||')
   })
 })
@@ -475,128 +472,11 @@ describe('requireRegistrationScope', () => {
 })
 
 // ==========================================================================
-// 3. webhook.ts — idempotency + input validation
+// 3. webhook — moved to pb_hooks/webhook.pb.js (PocketBase JS runtime).
+//    Idempotency + body validation are enforced inside the PB hook and
+//    cannot be unit-tested here (Goja JS, not importable by vitest).
+//    See pb_hooks/webhook.pb.js for the canonical implementation.
 // ==========================================================================
-
-describe('isDuplicateWebhook', () => {
-  it('returns true for paid status (terminal)', () => {
-    expect(isDuplicateWebhook('paid', null, undefined)).toBe(true)
-  })
-
-  it('returns true for failed status (terminal)', () => {
-    expect(isDuplicateWebhook('failed', null, undefined)).toBe(true)
-  })
-
-  it('returns false for pending status (non-terminal)', () => {
-    expect(isDuplicateWebhook('pending', null, undefined)).toBe(false)
-  })
-
-  it('returns false for pending status with no transaction data', () => {
-    expect(isDuplicateWebhook('pending', {}, undefined)).toBe(false)
-  })
-
-  it('returns true when transactionId matches prior paymentData', () => {
-    const paymentData = { transactionId: 'txn-abc-123' }
-    expect(isDuplicateWebhook('pending', paymentData, 'txn-abc-123')).toBe(true)
-  })
-
-  it('returns false when transactionId does not match', () => {
-    const paymentData = { transactionId: 'txn-old' }
-    expect(isDuplicateWebhook('pending', paymentData, 'txn-new')).toBe(false)
-  })
-
-  it('returns false when paymentData is null despite matching transactionId', () => {
-    expect(isDuplicateWebhook('pending', null, 'txn-abc-123')).toBe(false)
-  })
-
-  it('returns false when paymentData is a non-object (scalar)', () => {
-    expect(isDuplicateWebhook('pending', 'not-an-object', 'txn-abc')).toBe(false)
-  })
-
-  it('returns false when paymentData lacks transactionId property', () => {
-    expect(isDuplicateWebhook('pending', { status: 'ok' }, 'txn-abc')).toBe(false)
-  })
-
-  it('returns false when transactionId is undefined but status is pending', () => {
-    expect(isDuplicateWebhook('pending', null, undefined)).toBe(false)
-  })
-
-  it('returns false for empty string paymentData without transactionId', () => {
-    expect(isDuplicateWebhook('pending', '', 'txn-abc')).toBe(false)
-  })
-
-  it('returns true for paid status even when transactionId does not match', () => {
-    // Terminal status takes priority over transactionId check
-    expect(isDuplicateWebhook('paid', { transactionId: 'txn-old' }, 'txn-new')).toBe(true)
-  })
-
-  it('returns true when transactionId matches but paymentData is a nested object', () => {
-    const paymentData = { transactionId: 'txn-abc', amount: 100 }
-    expect(isDuplicateWebhook('pending', paymentData, 'txn-abc')).toBe(true)
-  })
-
-  it('returns false for an unknown (non-terminal, non-matching) status', () => {
-    expect(isDuplicateWebhook('unknown', null, undefined)).toBe(false)
-  })
-})
-
-describe('WebhookBodySchema', () => {
-  it('accepts a valid body with all required fields', () => {
-    const result = WebhookBodySchema.parse({
-      ticketId: 'TKT-001',
-      status: 'paid',
-    })
-    expect(result.ticketId).toBe('TKT-001')
-    expect(result.status).toBe('paid')
-  })
-
-  it('accepts optional transactionId and amount', () => {
-    const result = WebhookBodySchema.parse({
-      ticketId: 'TKT-002',
-      status: 'paid',
-      transactionId: 'txn-xyz',
-      amount: 5000,
-    })
-    expect(result.transactionId).toBe('txn-xyz')
-    expect(result.amount).toBe(5000)
-  })
-
-  it('rejects empty ticketId', () => {
-    expect(() =>
-      WebhookBodySchema.parse({ ticketId: '', status: 'paid' }),
-    ).toThrow()
-  })
-
-  it('rejects missing ticketId', () => {
-    expect(() =>
-      WebhookBodySchema.parse({ status: 'paid' }),
-    ).toThrow()
-  })
-
-  it('rejects missing status', () => {
-    expect(() =>
-      WebhookBodySchema.parse({ ticketId: 'TKT-003' }),
-    ).toThrow()
-  })
-
-  it('rejects empty status', () => {
-    expect(() =>
-      WebhookBodySchema.parse({ ticketId: 'TKT-004', status: '' }),
-    ).toThrow()
-  })
-
-  it('rejects null ticketId', () => {
-    expect(() =>
-      WebhookBodySchema.parse({ ticketId: null, status: 'paid' }),
-    ).toThrow()
-  })
-
-  it('rejects numeric ticketId when string expected', () => {
-    expect(() =>
-      WebhookBodySchema.parse({ ticketId: 123, status: 'paid' }),
-    ).toThrow()
-  })
-})
 
 // ==========================================================================
 // 4. cookie-signing.ts

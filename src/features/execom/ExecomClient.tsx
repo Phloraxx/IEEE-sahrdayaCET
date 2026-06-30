@@ -273,7 +273,7 @@ const FilterPill: React.FC<{
 
 // ===== MAIN =====
 const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
-  const [docs, setDocs] = useState(initialDocs);
+  const [docs] = useState(initialDocs);
   const [activeFilter, setActiveFilter] = useState<string>("core");
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 

@@ -16,7 +16,7 @@ export const BackgroundRippleEffect = ({
     col: number;
   } | null>(null);
   const [rippleKey, setRippleKey] = useState(0);
-  const ref = useRef<any>(null);
+  const ref = useRef<HTMLDivElement>(null);
 
   return (
     <div
@@ -74,7 +74,7 @@ const DivGrid = ({
   borderColor = "#3f3f46",
   fillColor = "rgba(0,98,155,0.12)",
   clickedCell = null,
-  onCellClick = () => {},
+  onCellClick,
   interactive = true,
 }: DivGridProps) => {
   const cells = useMemo(

@@ -136,23 +136,19 @@ describe('scopeRegistrationFilter', () => {
     expect(result).toBe('id = ""')
   })
 
-  it('returns event-constrained filter for chair with societies', async () => {
+  it('returns event.society-constrained filter for chair with societies', async () => {
     const societies = {
       getFullList: vi.fn().mockResolvedValue([
         { id: 'soc-1' },
+        { id: 'soc-2' },
       ]),
     }
-    const events = {
-      getFullList: vi.fn().mockResolvedValue([
-        { id: 'evt-1' },
-        { id: 'evt-2' },
-      ]),
-    }
-    const pb = mockPB({ societies, events })
+    const pb = mockPB({ societies })
     const result = await scopeRegistrationFilter(pb, chairUser)
-    expect(result).toContain('event =')
-    expect(result).toContain('evt-1')
-    expect(result).toContain('evt-2')
+    // Implementation scopes via the event.society relation, not event id.
+    expect(result).toContain('event.society =')
+    expect(result).toContain('soc-1')
+    expect(result).toContain('soc-2')
     expect(result).toContain('||')
   })
 })

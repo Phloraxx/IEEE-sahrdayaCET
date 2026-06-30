@@ -55,7 +55,8 @@ describe('handleError', () => {
     const response = handleError(err, 'test-context')
     expect(response.status).toBe(400)
     const body = await response.json()
-    expect(body.error).toBe('Invalid request')
+    // handleError returns the PB error.message verbatim for 400s.
+    expect(body.error).toBe('Bad request')
   })
 
   it('handles PB-style 403 error', async () => {

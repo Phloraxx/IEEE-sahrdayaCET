@@ -36,7 +36,7 @@ export default function EventsPageClient({
   const router = useRouter();
 
   const [selectedEvent, setSelectedEvent] = useState<ExtendedEvent | null>(null);
-  const [selfEvents, setSelfEvents] = useState<EventWithSociety[]>(initialEvents);
+  const [selfEvents] = useState<EventWithSociety[]>(initialEvents);
 
 
   const extendedEvents: ExtendedEvent[] = useMemo(() => {

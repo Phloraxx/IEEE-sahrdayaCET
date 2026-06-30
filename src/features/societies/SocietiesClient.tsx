@@ -161,7 +161,7 @@ export default function SocietiesClient({ societies }: SocietiesClientProps) {
   const [isRegisteringEvent, setIsRegisteringEvent] = useState(false);
   const [scrollPosition, setScrollPosition] = useState(0);
   const [societyError, setSocietyError] = useState<string | null>(null);
-  const [selfSocieties, setSelfSocieties] = useState<Society[]>(societies);
+  const [selfSocieties] = useState<Society[]>(societies);
   const societyPanelRef = useRef<HTMLDivElement>(null);
   const eventModalRef = useRef<HTMLDivElement>(null);
 

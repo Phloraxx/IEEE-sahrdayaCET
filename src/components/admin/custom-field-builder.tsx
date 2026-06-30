@@ -91,7 +91,7 @@ export function CustomFieldBuilder({
     const clone = {
       ...field,
       id: generateId(),
-      label: field.label + " (copy)",
+      label: `${field.label} (copy)`,
     };
     const idx = fields.findIndex((f) => f.id === id);
     const next = [...fields];
