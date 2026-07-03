@@ -23,7 +23,7 @@ export const Route = createRootRoute({
       "@type": "Organization",
       name: "IEEE Sahrdaya Student Branch",
       url: APP_URL,
-      logo: `${APP_URL}/emblem.png`,
+      logo: `${APP_URL}/ieee-logo-square.png`,
       description:
         "Official IEEE Student Branch at Sahrdaya College of Engineering & Technology, Thrissur, Kerala, India.",
       sameAs: [
@@ -90,13 +90,13 @@ export const Route = createRootRoute({
           content:
             'Official IEEE Sahrdaya Student Branch — technical events, workshops, societies & execom directory. Sahrdaya College of Engineering, Thrissur, Kerala.',
         },
-        { property: 'og:image', content: `${APP_URL}/emblem.png` },
+        { property: 'og:image', content: `${APP_URL}/ieee-logo-square.png` },
         { property: 'og:image:width', content: '512' },
         { property: 'og:image:height', content: '512' },
         { name: 'twitter:card', content: 'summary_large_image' },
         { name: 'twitter:title', content: 'IEEE Sahrdaya Student Branch' },
         { name: 'twitter:description', content: 'Official IEEE Sahrdaya Student Branch — technical events, workshops, societies & execom directory.' },
-        { name: 'twitter:image', content: `${APP_URL}/emblem.png` },
+        { name: 'twitter:image', content: `${APP_URL}/ieee-logo-square.png` },
         {
           name: 'robots',
           content: 'index, follow',
@@ -107,6 +107,7 @@ export const Route = createRootRoute({
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossOrigin: 'anonymous' },
         { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
+        { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
       ],
       scripts: [
         {
