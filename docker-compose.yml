@@ -19,7 +19,7 @@ services:
     expose:
       - "3000"
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=${NODE_ENV:-production}
       - POCKETBASE_URL=${POCKETBASE_URL:-https://db.phloraxx.us.to}
       - PAYMENT_API_URL=${PAYMENT_API_URL:-https://pay.mulearnscet.in}
       - PAYMENT_WEBHOOK_SECRET=${PAYMENT_WEBHOOK_SECRET:?err}
