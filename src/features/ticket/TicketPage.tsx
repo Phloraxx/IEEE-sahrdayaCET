@@ -22,6 +22,7 @@ import { formatDateShort } from "@/lib/dates";
 import { logError } from "@/lib/logger";
 
 interface TicketData {
+  found?: boolean;
   ticket: {
     id: string;
     qrCode?: string;
@@ -45,7 +46,7 @@ interface TicketData {
     registrationStatus: string;
     paymentStatus: string;
     registrationDate: string;
-  };
+  } | null;
 }
 
 interface PageProps {
@@ -87,7 +88,7 @@ export default function TicketPage({ ticketId }: PageProps) {
   const handleDownloadQR = () => {
     if (qrDataUrl && ticketData) {
       try {
-        const fileName = `ticket-${ticketData.registration.name.replace(/\s+/g, "-").toLowerCase()}.png`;
+        const fileName = `ticket-${(ticketData.registration?.name || "guest").replace(/\s+/g, "-").toLowerCase()}.png`;
         downloadQRFile(qrDataUrl, fileName);
       } catch (error) {
         logError("ticket-download", error);
@@ -106,7 +107,7 @@ export default function TicketPage({ ticketId }: PageProps) {
     );
   }
 
-  if (error || !ticketData) {
+  if (error || !ticketData || ticketData.found === false || !ticketData.ticket) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-gray-50 to-gray-100">
         <div className="text-center max-w-md mx-auto px-4">
@@ -134,10 +135,12 @@ export default function TicketPage({ ticketId }: PageProps) {
   const { ticket, event, registration } = ticketData;
   const eventDate = event ? new Date(event.date) : new Date();
   const isPast = eventDate < new Date();
-  const status = getTicketStatusInfo(
-    registration.registrationStatus || registration.paymentStatus,
-    isPast,
-  );
+  const status = registration
+    ? getTicketStatusInfo(
+        registration.registrationStatus || registration.paymentStatus,
+        isPast,
+      )
+    : getTicketStatusInfo(ticket.registrationStatus || ticket.paymentStatus, isPast);
   const iconMap: Record<string, React.ElementType> = {
     CheckCircle2,
     Clock,
@@ -210,6 +213,7 @@ export default function TicketPage({ ticketId }: PageProps) {
             </div>
 
             {/* Attendee Details */}
+            {registration && (
             <div className="space-y-2 mb-6">
               <h3 className="font-semibold text-gray-900 text-sm">
                 Attendee Details
@@ -235,6 +239,7 @@ export default function TicketPage({ ticketId }: PageProps) {
                 </div>
               </div>
             </div>
+            )}
 
             {/* QR Code */}
             {qrDataUrl && (
@@ -258,10 +263,12 @@ export default function TicketPage({ ticketId }: PageProps) {
             )}
 
             {/* Registration Date */}
+            {registration && (
             <p className="text-center text-xs text-gray-400">
               Registered on{" "}
               {formatDateShort(registration.registrationDate)}
             </p>
+            )}
           </div>
         </motion.div>
       </main>
