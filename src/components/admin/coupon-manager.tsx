@@ -2,7 +2,7 @@ import { Plus, X, Copy } from "lucide-react";
 import type { Coupon } from "@/types";
 
 function generateId() {
-  return Math.random().toString(36).substring(2, 9);
+  return crypto.randomUUID();
 }
 
 interface CouponManagerProps {

@@ -19,6 +19,7 @@
     "migrate:events": "bun scripts/migrate-events.ts",
     "generate:sitemap": "bun scripts/generate-sitemap.ts",
     "advance:execom-batch": "bun scripts/advance-execom-batch.ts",
+    "migrate:coupons-to-collection": "bun scripts/migrate-coupons-to-collection.ts",
     "migrate:indexes": "bun scripts/migrate-indexes.ts"
   },
   "dependencies": {

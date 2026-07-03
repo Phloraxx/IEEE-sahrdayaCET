@@ -7,6 +7,7 @@ import { softDeleteEvent } from "@/lib/event-service";
 import { parseFormData } from "@/lib/parse-form-data";
 import { EventUpdateSchema } from "@/schemas/events";
 import { verifySameOrigin } from "@/lib/verify-same-origin";
+import { reconcileCoupons } from "@/lib/coupon-service";
 
 export const Route = createFileRoute("/api/admin/events/$id")({
   server: {
@@ -46,7 +47,15 @@ export const Route = createFileRoute("/api/admin/events/$id")({
           }
           const body = await parseFormData(request);
           const parsed = EventUpdateSchema.parse(body);
-          const event = await pb.collection("events").update(id, parsed);
+          // Coupons live in the `coupons` collection, not on the event record.
+          const { coupons: incomingCoupons, ...eventFields } = parsed;
+          const event = await pb.collection("events").update(id, eventFields);
+          // Reconcile coupons collection to match the incoming list.
+          // Pass an empty array when the UI omits coupons (e.g. banner upload)
+          // so removed coupons are deleted — but only when the key is present.
+          if (incomingCoupons !== undefined) {
+            await reconcileCoupons(pb, id, incomingCoupons);
+          }
           return Response.json({ event });
         } catch (error) {
           return handleError(error, "admin-events-update");

@@ -134,6 +134,20 @@ export function EventForm({ mode, eventId }: EventFormProps) {
     enabled: isEdit && Boolean(eventId),
   });
 
+  // Coupons for this event (edit mode) — loaded from the `coupons` collection,
+  // which is the single source of truth (not the event JSON field).
+  const { data: existingCoupons } = useQuery<{ coupons: Coupon[] }>({
+    queryKey: ["admin-event-coupons", eventId],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/events/${eventId}/coupons`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to load coupons");
+      return res.json();
+    },
+    enabled: isEdit && Boolean(eventId),
+  });
+
   // Populate form from existing event
   useEffect(() => {
     if (!isEdit) return;
@@ -171,11 +185,16 @@ export function EventForm({ mode, eventId }: EventFormProps) {
       if (e.formTemplate && Array.isArray(e.formTemplate)) {
         setCustomFields(e.formTemplate as FormField[]);
       }
-      if (e.coupons && Array.isArray(e.coupons)) {
-        setCoupons(e.coupons as Coupon[]);
-      }
     }
   }, [existing, isEdit]);
+
+  // Populate coupons from the `coupons` collection (separate query).
+  useEffect(() => {
+    if (!isEdit) return;
+    if (existingCoupons?.coupons) {
+      setCoupons(existingCoupons.coupons);
+    }
+  }, [existingCoupons, isEdit]);
   // Warn before navigating away / closing tab with unsaved changes
   useEffect(() => {
     if (!dirty) return;
@@ -236,7 +255,9 @@ export function EventForm({ mode, eventId }: EventFormProps) {
           ? form.externalFormUrl || undefined
           : undefined,
         ...(customFields.length > 0 ? { formTemplate: customFields } : {}),
-        ...(coupons.length > 0 ? { coupons } : {}),
+        // Always send coupons (even when empty) so the server reconcile
+        // can delete removed coupons. An omitted key means "don't touch".
+        ...(coupons.length > 0 ? { coupons } : { coupons: [] }),
       };
       if (form.maxCapacity) {
         payload.maxCapacity = Number(form.maxCapacity);
@@ -287,6 +308,7 @@ export function EventForm({ mode, eventId }: EventFormProps) {
 
       setDirty(false);
       queryClient.invalidateQueries({ queryKey: ["admin-events"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-event-coupons"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
       navigate({ to: "/admin/events" });
     } catch (err) {

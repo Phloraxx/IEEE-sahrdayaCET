@@ -77,8 +77,9 @@ const rules: Record<string, CollectionRuleSet> = {
     // The app validates via the PB internal route (pb_hooks/coupons.pb.js).
     listRule: `@request.auth.role = "admin" || (@request.auth.role = "chair" && event.society.chairs.id ?= @request.auth.id)`,
     viewRule: `@request.auth.role = "admin" || (@request.auth.role = "chair" && event.society.chairs.id ?= @request.auth.id)`,
-    createRule: `@request.auth.role = "admin"`,
-    updateRule: `@request.auth.role = "admin"`,
+    // Chairs may create/update coupons for their own society's events.
+    createRule: `@request.auth.role = "admin" || (@request.auth.role = "chair" && event.society.chairs.id ?= @request.auth.id)`,
+    updateRule: `@request.auth.role = "admin" || (@request.auth.role = "chair" && event.society.chairs.id ?= @request.auth.id)`,
     deleteRule: `@request.auth.role = "admin"`,
   },
   registrations: {
