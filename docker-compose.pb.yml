@@ -20,6 +20,7 @@ services:
       - POCKETBASE_PORT_NUMBER=8090
       - POCKETBASE_HOOK_DIR=/pocketbase/hooks
       - PAYMENT_WEBHOOK_SECRET=${PAYMENT_WEBHOOK_SECRET:?err}
+      - INTERNAL_API_SECRET=${INTERNAL_API_SECRET:?err}
       # Optional: enable settings encryption
       # - POCKETBASE_ENCRYPTION_KEY=${ENCRYPTION_KEY}
     healthcheck:

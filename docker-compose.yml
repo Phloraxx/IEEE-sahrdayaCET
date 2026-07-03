@@ -24,6 +24,7 @@ services:
       - PAYMENT_API_URL=${PAYMENT_API_URL:-https://pay.mulearnscet.in}
       - PAYMENT_WEBHOOK_SECRET=${PAYMENT_WEBHOOK_SECRET:?err}
       - OAUTH_COOKIE_SECRET=${OAUTH_COOKIE_SECRET:?err}
+      - INTERNAL_API_SECRET=${INTERNAL_API_SECRET:?err}
       - PUBLIC_APP_URL=${PUBLIC_APP_URL:-https://ieeesahrdaya.com}
       - SMTP_HOST=${SMTP_HOST:-}
       - SMTP_PORT=${SMTP_PORT:-587}
