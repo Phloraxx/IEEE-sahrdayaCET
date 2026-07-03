@@ -16,8 +16,8 @@ services:
       dockerfile: Dockerfile
     image: ieee-sahrdaya/app:latest
     restart: unless-stopped
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     environment:
       - NODE_ENV=production
       - POCKETBASE_URL=${POCKETBASE_URL:-https://db.phloraxx.us.to}
