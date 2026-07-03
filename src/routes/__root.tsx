@@ -111,21 +111,21 @@ export const Route = createRootRoute({
       scripts: [
         {
           type: 'application/ld+json',
-          innerHTML: JSON.stringify(organizationSchema)
+          children: JSON.stringify(organizationSchema)
             .replace(/</g, '\\u003c')
             .replace(/>/g, '\\u003e')
             .replace(/&/g, '\\u0026'),
         },
         {
           type: 'application/ld+json',
-          innerHTML: JSON.stringify(websiteSchema)
+          children: JSON.stringify(websiteSchema)
             .replace(/</g, '\\u003c')
             .replace(/>/g, '\\u003e')
             .replace(/&/g, '\\u0026'),
         },
         {
           type: 'application/ld+json',
-          innerHTML: JSON.stringify(breadcrumbSchema)
+          children: JSON.stringify(breadcrumbSchema)
             .replace(/</g, '\\u003c')
             .replace(/>/g, '\\u003e')
             .replace(/&/g, '\\u0026'),

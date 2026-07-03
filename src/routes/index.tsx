@@ -122,7 +122,7 @@ export const Route = createFileRoute('/')({
       scripts: [
         {
           type: 'application/ld+json',
-          innerHTML: JSON.stringify({
+          children: JSON.stringify({
             '@context': 'https://schema.org',
             '@type': 'BreadcrumbList',
             itemListElement: [
