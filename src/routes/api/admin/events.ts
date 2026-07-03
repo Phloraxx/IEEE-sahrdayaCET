@@ -6,6 +6,7 @@ import { handleError } from "@/lib/api-error";
 import { parsePagination, buildFilter } from "@/lib/route-helpers";
 import { verifySameOrigin } from "@/lib/verify-same-origin";
 import { EventCreateSchema } from "@/schemas/events";
+import { reconcileCoupons } from "@/lib/coupon-service";
 import { getField, getExpand } from "@/lib/safe-get";
 import { parseFormData } from "@/lib/parse-form-data";
 
@@ -95,7 +96,19 @@ export const Route = createFileRoute("/api/admin/events")({
             }
           }
 
-          const event = await ctx.pb.collection("events").create(parsed);
+          // Coupons live in the `coupons` collection, not on the event record.
+          const { coupons: incomingCoupons, ...eventFields } = parsed;
+          const event = await ctx.pb.collection("events").create(eventFields);
+          if (incomingCoupons && incomingCoupons.length > 0) {
+            try {
+              await reconcileCoupons(ctx.pb, event.id, incomingCoupons);
+            } catch (couponErr) {
+              // Roll back the freshly-created event so a coupon failure
+              // doesn't leave an orphan that a retry would duplicate.
+              try { await ctx.pb.collection("events").delete(event.id) } catch {}
+              throw couponErr;
+            }
+          }
           return Response.json({ event }, { status: 201 });
         } catch (error) {
           return handleError(error, "admin-events-create");

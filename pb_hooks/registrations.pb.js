@@ -163,6 +163,40 @@ onRecordCreateRequest(function (e) {
         }
     }
 
+    // 6. Coupon maxUses check — if the registration carries a coupon code,
+    // verify the coupon hasn't exceeded its usage limit. usedCount is
+    // recomputed from active registrations (see recomputeCouponUsedCount),
+    // so we count live active registrations with this code+event instead
+    // of trusting the stored counter (TOCTOU-safe).
+    var couponCode = reg.getString("couponCode") || ""
+    if (couponCode) {
+        var coupon = null
+        try {
+            coupon = $app.findFirstRecordByFilter(
+                "coupons",
+                "code = {:code} && event = {:eventId}",
+                { code: couponCode, eventId: eventId }
+            )
+        } catch (err) {
+            // Coupon doesn't exist — let the after-create hook handle
+            // the invalid-coupon case (discount just won't apply).
+        }
+        if (coupon) {
+            var maxUses = coupon.getInt("maxUses") || 0
+            if (maxUses > 0) {
+                var activeWithCoupon = $app.findRecordsByFilter(
+                    "registrations",
+                    "couponCode = {:code} && event = {:eventId} && registrationStatus != {:cancelled}",
+                    "", 0, 0,
+                    { code: couponCode, eventId: eventId, cancelled: "cancelled" }
+                )
+                if (activeWithCoupon.length >= maxUses) {
+                    throw new errors.BadRequestError("Coupon '" + couponCode + "' has reached its usage limit")
+                }
+            }
+        }
+    }
+
     e.next()
 }, "registrations")
 
