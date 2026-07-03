@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB } from "@/lib/pb.server"; import { escapeFilterValue } from "@/lib/pb"
+import { createPB } from "@/lib/pb.server"; import { buildFileUrl, escapeFilterValue } from "@/lib/pb"
 import { requireRole } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 import { parsePagination } from "@/lib/route-helpers";
@@ -40,7 +40,9 @@ export const Route = createFileRoute("/api/admin/users")({
             name: (u.name as string) || "",
             email: (u.email as string) || "",
             role: (u.role as string) || "user",
-            avatar: (u.avatar as string) || "",
+            avatar: (u.avatar as string)
+              ? buildFileUrl("users", u.id as string, u.avatar as string)
+              : "",
             created: (u.created as string) || "",
             // registrations count removed for performance — no per-user aggregate before PB group-by
             registrationsCount: 0,
