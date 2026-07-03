@@ -3,31 +3,17 @@ node_modules
 /.pnp
 .pnp.js
 
-
 # Testing
 /coverage
-~/*
-/~/
+
 # Next.js
 /.next/
 /out/
 
-.agent*
-
-*.pdf
-
-/docs/*
-/docs
-/scripts
-/scripts/*
-
-*.md
-!README.md
-
 # Production
 /build
 /dist
-dist-ssr
+/start-app/dist
 
 # Misc
 .DS_Store
@@ -35,16 +21,12 @@ dist-ssr
 
 # Debug
 npm-debug.log*
-pnpm-debug.log*
-lerna-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Local env files
 .env*.local
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
 
 # Vercel
 .vercel
@@ -52,6 +34,8 @@ lerna-debug.log*
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+# TanStack Start (generated route tree)
+src/routeTree.gen.ts
 
 # IDE
 .vscode/*
@@ -73,24 +57,138 @@ next-env.d.ts
 *.temp
 *.log
 
-# CSV data files
-*.csv
+# SQLite database (runtime)
+data/
 
-# Document files (personal)
-*.docx
-*.doc
+# Migration artifacts
+/media/
 
-# Apple raw photos (JPG versions preferred)
-*.HEIC
-*.heic
+# One-time migration scripts
+/scripts/
 
-certificates
-backups/
-diagnose-collections.js
-mcp-server-appwrite/
-opencode.json
-test-client-sdk.ts
-test-collections.js
-test-mcp.js
-.wrangler*
-/.open-next/*
+# Image artifacts (migrated to PocketBase file storage)
+
+# Database dumps and SQL files
+*.sql
+
+# Old migration artifacts
+ieee_export.sql
+society-cs.png
+
+# Dev planning
+plan.md
+
+# Unused public assets
+/public/sahrdaya.jpg
+/public/pdf.min.js
+/public/pdf.worker.min.js
+
+# Playwright local artifacts
+.pwerr
+.pwlog
+.pwout
+test-results/
+playwright-report/
+
+# opencode AI tool state
+.opencode/
+.devlog
+
+# Local visual verification artifacts
+tmp/
+
+# AI/IDE tool state
+.codegraph/
+.reasonix/
+
+# Agent memory file (loaded into every session)
+AGENTS.md
+
+# Plaintext credentials (one-time scripts)
+tmp_login.json
+
+# Dev log.devlog
+
+# Windows reserved device names (artifact from Unix-aware tools)
+NUL
+nul
+test-screenshots/
+
+# ── Dev / QA artifacts — not needed for prod or CI ──────────────
+# Ad-hoc screenshots & images (repo root + QA folders)
+/*.png
+/*.webp
+/screenshots/
+/screenshotse2e/
+/oracle3-screenshots/
+/rbac_screenshots/
+/docs/dev-artifacts/
+# Browser / Playwright scratch
+/playwright-artifacts/
+/playwright-tmp/
+/tmp_playwright/
+/.playwright-tmp/
+# Tool state & scratch dirs
+/.claude/
+/.tanstack/
+/local/
+/UsersdrvijDesktoppw-tmp/
+# QA / audit reports
+/*_QA_REPORT.md
+/FINAL_*.md
+/VERIFIED_*.md
+/ROUND2_*.md
+/E2E_TEST_CONTEXT.md
+/REMEDIATION-STATUS.md
+/test-context.md
+/visual-design-audit.md
+# Test-result / findings dumps
+/*-results.json
+/*-findings.json
+/*-report.json
+/*_qa_*.json
+/design_data.json
+/r4_regression_result.json
+/rbac_results_user.json
+# Ad-hoc QA scripts & scratch
+/*.py
+/*test*.txt
+# Stray npm lockfile (this project uses bun.lock)
+/package-lock.json
+# Old/unused files
+/admin-prototype.html
+/mqanafyt-admin-*.html
+/UsersdrvijDesktopMuLearn
+/UsersdrvijDesktoppw-tmptest.txt
+/omp-session-*.html
+/videoframe_355.png
+/original-*.webp
+# Tool state & scratch dirs
+/.od-skills/
+/.omp/
+/local/
+# Generated build artifacts
+routeTree.gen.ts
+# Dev reports & docs
+/COMPREHENSIVE-AUDIT.md
+/ADMIN-MIGRATION-STATUS.md
+/ADMIN-FEATURE-GAP-PLAN.md
+/planner-report.md
+# Test results
+/test-results/
+/societies_execom_qa_report.json
+/events-list-final-report.json
+/users_qa_final.json
+/dashboard-test-results.json
+/events-list-findings.json
+/users_qa_report.json
+/cross-role-results.json
+/unauth-results.json
+# Logs
+*.log
+/vite-server.log
+/vite.log
+/v.log
+/v2.log
+/dev.log
+/regen.log

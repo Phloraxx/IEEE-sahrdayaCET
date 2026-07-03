@@ -1,18 +1,18 @@
 <div align="center">
 
-<img width="1200" height="475" alt="IEEE Sahrdaya Event Management System" src="https://github.com/Phloraxx/Ieee/blob/6bc94e41dd156cfb25c4eaa1434fb0de8415f7ca/public/web.png" />
+<img width="1200" height="475" alt="IEEE Sahrdaya" src="./public/web.png" />
 
-# IEEE Sahrdaya Event Management System
+# IEEE Sahrdaya Student Branch
 
-[![Next.js](https://img.shields.io/badge/Next.js-15-black?style=flat-square&logo=next.js)](https://nextjs.org/)
+[![TanStack Start](https://img.shields.io/badge/TanStack_Start-1.x-black?style=flat-square)](https://tanstack.com/start)
+[![PocketBase](https://img.shields.io/badge/PocketBase-0.39.1-BB2B2B?style=flat-square&logo=pocketbase)](https://pocketbase.io/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Appwrite](https://img.shields.io/badge/Appwrite-22.x-F02E65?style=flat-square&logo=appwrite)](https://appwrite.io/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.x-38B2AC?style=flat-square&logo=tailwind-css)](https://tailwindcss.com/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-4.x-38B2AC?style=flat-square&logo=tailwind-css)](https://tailwindcss.com/)
 [![License](https://img.shields.io/badge/License-Proprietary-red?style=flat-square)]()
 
-**Complete event management platform for IEEE Sahrdaya Student Branch**
+**Event management platform for the 14 IEEE technical societies of Sahrdaya College of Engineering & Technology.**
 
-[Live Site](https://ieeesahrdaya.com) • [Documentation](#documentation) • [Quick Start](#quick-start)
+[Live Site](https://ieeesahrdaya.com)
 
 </div>
 
@@ -26,328 +26,250 @@ The IEEE Sahrdaya Event Management System is a comprehensive platform for managi
 
 | Feature | Description |
 |---------|-------------|
-| **Event Discovery** | Browse upcoming events with filters by society, date, and type |
-| **Online Registration** | Custom form builder for event-specific registration fields |
-| **Digital Tickets** | QR code-based tickets delivered via email |
-| **Check-in Scanner** | Real-time QR scanning with mobile-friendly interface |
-| **Payment Integration** | UPI payment support with manual verification |
-| **Email Automation** | Confirmations, reminders, and custom bulk emails |
-| **Analytics Dashboard** | Registration stats, demographics, and revenue tracking |
-| **Multi-Society Support** | 14 societies with independent management |
+| **Event Discovery** | Browse upcoming events with filters by society and date |
+| **Online Registration** | Custom registration forms per event |
+| **Digital Tickets** | QR code-based tickets |
+| **Check-in System** | Real-time QR scanning with status tracking |
+| **Email Automation** | Confirmations and updates |
+| **Analytics Dashboard** | Registration stats and revenue tracking |
+| **Multi-Society Support** | 14 societies with independent chair management |
 
 ---
 
-## Screenshots
+## Stack
 
-> **Home Page**: Modern landing page with event highlights and society showcase
->
-> **Events Page**: Browse all upcoming events with filtering and search
->
-> **Registration Flow**: Custom form with validation and payment integration
->
-> **Digital Ticket**: QR code ticket for event check-in
->
-> **Admin Dashboard**: Event management, registrations, and analytics
->
-> **Check-in Scanner**: Mobile QR scanner for event entry
-
-*Screenshots to be added*
-
----
-
-## Quick Start
-
-### Prerequisites
-
-- **Node.js** 18.x or higher
-- **npm** 9.x or higher
-- **Appwrite** account ([cloud.appwrite.io](https://cloud.appwrite.io))
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/ieee-sahrdaya/website.git
-cd website
-
-# Install dependencies
-npm install
-
-# Copy environment template
-cp .env.local.example .env.local
-
-# Configure environment variables (see docs/SETUP_GUIDE.md)
-# Then run setup scripts:
-
-npm run test:connection     # Verify Appwrite connection
-npm run setup:appwrite      # Create base collections
-npm run setup:event-system  # Create event system collections
-
-# Start development server
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) to view the application.
-
----
-
-## Tech Stack
-
-### Frontend
-
-| Technology | Purpose |
-|------------|---------|
-| **Next.js 15** | React framework with App Router |
-| **React 19** | UI library |
-| **TypeScript** | Type safety |
-| **Tailwind CSS** | Utility-first styling |
-| **Framer Motion** | Animations |
-| **Lucide React** | Icon library |
-
-### Backend
-
-| Technology | Purpose |
-|------------|---------|
-| **Appwrite** | Database, Auth, Teams |
-| **Next.js API Routes** | Serverless functions |
-| **Nodemailer** | Email delivery |
-| **Zod** | Schema validation |
-| **node-appwrite** | Server SDK |
-
-### Additional Libraries
-
-| Library | Purpose |
-|---------|---------|
-| **qrcode** | QR code generation |
-| **papaparse** | CSV export |
-| **jspdf** | PDF generation |
-| **@dnd-kit** | Drag-and-drop form builder |
-| **recharts** | Analytics charts |
+| Layer | Technology |
+|-------|------------|
+| Framework | TanStack Start (file-based routes, server functions, SSR) |
+| UI | React 19, Tailwind CSS 4, Framer Motion, shadcn/ui, Lucide |
+| Backend | PocketBase 0.39.1 (embedded SQLite, built-in auth, file storage, REST API) |
+| Auth | Google OAuth2 via PocketBase (roles: admin/chair/user) |
 
 ---
 
 ## Project Structure
 
 ```
-ieee-sahrdaya/
-├── src/
-│   ├── app/                      # Next.js App Router
-│   │   ├── admin/                # Admin dashboard pages
-│   │   │   ├── events/           # Event management
-│   │   │   ├── checkins/         # Check-in scanner
-│   │   │   └── dashboard/        # Analytics
-│   │   ├── api/                  # API routes
-│   │   │   ├── admin/            # Admin endpoints
-│   │   │   ├── events/           # Public event endpoints
-│   │   │   ├── registrations/    # Registration endpoints
-│   │   │   └── emails/           # Email endpoints
-│   │   ├── events/               # Events page
-│   │   ├── societies/            # Societies showcase
-│   │   └── full-execom/          # Execom directory
-│   │
-│   ├── components/               # React components
-│   │   ├── admin/                # Admin-specific components
-│   │   └── ...                   # Shared components
-│   │
-│   ├── contexts/                 # React contexts (Auth)
-│   │
-│   ├── lib/                      # Utilities
-│   │   ├── api/                  # API helpers
-│   │   ├── appwrite.ts           # Appwrite client
-│   │   ├── emailService.ts       # Email sending
-│   │   └── validation/           # Zod schemas
-│   │
-│   └── types/                    # TypeScript types
-│
-├── scripts/                      # Setup scripts
-├── public/                       # Static assets
-└── docs/                         # Documentation
+src/
+├── routes/                      # File-based dot-delimited routes (TanStack Start)
+│   ├── __root.tsx               # Root route (HTML shell, AuthProvider, QueryClientProvider, head/SEO)
+│   ├── index.tsx                # Home page (SSR)
+│   ├── events.tsx               # Events listing (SSR)
+│   ├── societies.tsx            # Societies listing (SSR)
+│   ├── full-execom.tsx          # Full execom page (SSR)
+│   ├── register.$eventId.tsx    # Event registration (CSR)
+│   ├── ticket.$ticketId.tsx     # Ticket view (CSR)
+│   ├── admin.tsx                # Admin layout (AdminGuard, sidebar, topbar)
+│   ├── admin.*.tsx              # Admin pages (events, registrations, societies, users, execom, check-in, payments)
+│   └── api/                     # Server function handlers
+│       ├── auth/                #   OAuth2 init, callback, me, logout
+│       ├── registrations.ts     #   GET (list user's), POST (register)
+│       ├── events.*.ts          #   Event detail, CSV export, coupon validation
+│       ├── check-in.verify.ts   #   QR check-in verification
+│       ├── orders/webhook.ts    #   Payment webhook
+│       └── admin/               #   Admin API handlers
+├── features/                    # Feature-specific page components
+│   ├── globals.css              # Tailwind v4 + CSS custom properties
+│   ├── admin/                   # Admin page components
+│   ├── events/                  # Event page components
+│   └── ...
+├── components/
+│   ├── ui/                      # shadcn/ui primitives (button, dialog, table, card, form, etc.)
+│   └── admin/                   # Admin UI (sidebar, guards, keyboard shortcuts)
+├── lib/                         # Utilities (see below)
+├── types/                       # Shared TypeScript interfaces
+└── hooks/                      # React hooks (use-mobile)
+
+Business logic lives in src/lib/registration-service.ts — there are no PocketBase hooks.
 ```
 
----
+### Key `src/lib/` utilities
 
-## Environment Variables
-
-Create a `.env.local` file with the following variables:
-
-```env
-# Appwrite Configuration
-NEXT_PUBLIC_APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
-NEXT_PUBLIC_APPWRITE_PROJECT_ID=your_project_id
-APPWRITE_API_KEY=your_api_key
-
-# Database Collections
-NEXT_PUBLIC_APPWRITE_DATABASE_ID=ieee_sahrdaya_db
-NEXT_PUBLIC_APPWRITE_EVENTS_COLLECTION_ID=events
-NEXT_PUBLIC_APPWRITE_EVENT_REGISTRATIONS_COLLECTION_ID=event_registrations
-# ... (see .env.local.example for full list)
-
-# Email (SMTP / Resend)
-EMAIL_PROVIDER=smtp # or "resend" for native Resend API
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-email@gmail.com
-SMTP_PASSWORD=your_app_password
-SMTP_FROM=IEEE Sahrdaya <events@ieeesahrdaya.com>
-RESEND_API_KEY=your_resend_api_key
-RESEND_FROM=IEEE Sahrdaya <events@ieeesahrdaya.com>
-
-# Application
-NEXT_PUBLIC_BASE_URL=https://ieeesahrdaya.com
-
-```
-
-See [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md) for detailed configuration instructions.
+| File | Purpose |
+|------|---------|
+| `pb.ts` | PocketBase client factories: `createPB()`, `createAdminPB()`, `buildFileUrl()`, `escapeFilterValue()` |
+| `auth.ts` | `requireAuth()`, `requireAdmin()`, `requireRole()`, `AuthError` for server-side auth |
+| `chair-scope.ts` | Centralized chair scoping: `requireEventScope()`, `requireRegistrationScope()`, `scopeEventFilter()` |
+| `registration-service.ts` | Business logic: create/confirm/cancel/checkIn, coupon validation, counter bumps (retry-on-conflict) |
+| `auth-context.tsx` | Client-side auth context (React Context + cookie) |
+| `api-error.ts` | Centralized error-to-Response mapping (`handleError()`) |
+| `logger.ts` | Structured error logging (JSON in prod, console in dev) |
+| `dates.ts` | Date formatting utilities (en-IN locale) |
+| `csv-export.ts` | CSV generation with formula-injection protection |
+| `ticketStatus.ts` | Ticket status label/color/icon mapping |
+| `qr-utils.ts` | QR code generation and download |
+| `webhook.ts` | Payment webhook body schema + idempotency guard |
 
 ---
 
-## Available Scripts
+## Collections
 
-| Script | Description |
-|--------|-------------|
-| `npm run dev` | Start development server with hot reload |
-| `npm run build` | Build for production |
-| `npm start` | Start production server |
-| `npm run lint` | Run ESLint |
-| `npm run setup:appwrite` | Create base Appwrite collections |
-| `npm run setup:event-system` | Create event system collections |
-| `npm run test:connection` | Test Appwrite connection |
+### `users` (Auth)
+Google OAuth, roles (admin/chair/user).
+
+### `societies` (Base)
+| Field | Type |
+|-------|------|
+| `name` | text |
+| `slug` | text (unique index) |
+| `bio` | text |
+| `logo` | file |
+| `banner` | file |
+| `chairs` | relation → users |
+
+### `execom` (Base)
+| Field | Type |
+|-------|------|
+| `name` | text |
+| `position` | text |
+| `department` | text |
+| `batch` | text |
+| `section` | text |
+| `sectionId` | text (indexed) |
+| `order` | number |
+| `photo` | file |
+| `linkedin` | url |
+| `instagram` | url |
+| `email` | email |
+| `phone` | text |
+
+### `events` (Base)
+| Field | Type | Notes |
+|-------|------|-------|
+| `title` | text | |
+| `description` | text (rich) | |
+| `date` | date | |
+| `endDate` | date | |
+| `venue` | text | |
+| `price` | number | |
+| `status` | select | draft / published / completed |
+| `society` | relation → societies | |
+| `banner` | file | |
+| `maxCapacity` | number | |
+| `registrationOpen` | bool | |
+| `registrationDeadline` | date | |
+| `checkInEnabled` | bool | |
+| `isDeleted` | bool | |
+ | `registeredCount` | number | Maintained by `registration-service.ts` |
+ | `checkedInCount` | number | Maintained by `registration-service.ts` |
+ | `formTemplate` | json | |
+| `tags` | text | |
+
+Indexes: `(status, date)`, `(date, endDate)`, `(society)`
+
+### `registrations` (Base)
+| Field | Type | Notes |
+|-------|------|-------|
+| `user` | relation → users | |
+| `event` | relation → events | |
+| `userName` | text | |
+| `userEmail` | email | |
+| `userPhone` | text | |
+| `formResponses` | json | |
+| `paymentStatus` | select | pending / paid / failed / not_required |
+| `registrationStatus` | select | pending / confirmed / cancelled |
+ | `ticketId` | text | Generated by `registration-service.ts` |
+| `paymentTicketId` | text | Used by payment webhook |
+| `amount` | number | |
+| `registrationDate` | date | |
+| `checkedIn` | bool | |
+| `checkedInAt` | date | |
+| `paymentData` | json | Raw webhook payload |
+
+Indexes:
+- `(ticketId)` UNIQUE
+- `(user, event)` UNIQUE
+- `(event)`, `(paymentTicketId)`, `(registrationStatus)`
+- `(event, ticketId)`, `(event, paymentTicketId)`
 
 ---
 
-## Documentation
+## API Routes
 
-### For Different Users
-
-| Document | Audience | Description |
-|----------|----------|-------------|
-| [Setup Guide](docs/SETUP_GUIDE.md) | DevOps | Complete setup from scratch |
-| [Developer Guide](docs/DEVELOPER_GUIDE.md) | Developers | Architecture, code style, contributing |
-| [API Documentation](docs/API_DOCUMENTATION.md) | Developers | Complete API reference |
-| [Admin Guide](docs/ADMIN_GUIDE.md) | Society Chairs | Managing events and registrations |
-| [User Guide](docs/USER_GUIDE.md) | Students | Registering for events |
-
-### Quick Links
-
-- **New Developer?** Start with the [Developer Guide](docs/DEVELOPER_GUIDE.md)
-- **Setting up fresh?** Follow the [Setup Guide](docs/SETUP_GUIDE.md)
-- **Building integrations?** Check the [API Documentation](docs/API_DOCUMENTATION.md)
-- **Society chair?** Read the [Admin Guide](docs/ADMIN_GUIDE.md)
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| GET | `/api/auth/init` | — | OAuth2 init — returns PB Google auth URL |
+| GET | `/api/auth/callback/google` | — | OAuth2 callback — code exchange, sets PB auth cookie |
+| GET | `/api/auth/me` | cookie | Current user from PB |
+| POST | `/api/auth/logout` | cookie | Clears PB auth cookie |
+| GET | `/api/registrations` | cookie | User's registrations (optional `?eventId=` filter) |
+| POST | `/api/registrations` | cookie | Register for an event |
+| PATCH | `/api/registrations/[id]` | cookie | Update registration (payment status etc.) |
+| GET | `/api/society/[slug]` | — | Society detail + events + execom members |
+| POST | `/api/check-in/verify` | chair/admin | Verify and mark check-in |
+| POST | `/api/orders/webhook` | webhook secret | Payment status webhook |
+| GET | `/api/events/[eventId]/export` | chair/admin | CSV export of registrations |
+| GET | `/api/admin/registrations.csv/[id]` | chair/admin | CSV export (admin format) |
+| GET | `/api/admin/stats` | admin | Dashboard KPI aggregates |
+| GET | `/api/admin/events/dashboard` | admin | Live/upcoming/recent events |
 
 ---
 
-## Authentication & Authorization
+## Auth & Roles
 
-### User Roles
+Google OAuth only (no email/password). Roles stored in PB user `role` field.
 
 | Role | Access |
 |------|--------|
-| **Guest** | View events, societies |
-| **Student** | Register for events, view tickets |
-| **Society Chair** | Manage society events, registrations, check-ins |
-| **Super Admin** | Full access to all societies and settings |
-
-### Society Chair Access
-
-Chairs are managed through Appwrite Teams:
-- Team ID format: `chair_<society_slug>` (e.g., `chair_cs`, `chair_ras`)
-- Add chairs via Appwrite Console → Auth → Teams
+| Guest | Browse events, societies, execom |
+| User | Register for events, view tickets |
+| Chair | Manage own society's events and registrations |
+| Admin | Full admin dashboard |
 
 ---
 
-## Deployment
-
-### Vercel (Recommended)
-
-1. Import repository to Vercel
-2. Configure environment variables
-3. Deploy
+## Setup
 
 ```bash
-# Verify deployment
-npm run build  # Ensure build succeeds locally
+# 1. Install dependencies
+npm install
+
+# 2. Configure environment
+cp .env.example .env.local
+# Edit .env.local with your PocketBase URL and superuser token
+
+# 3. Run PocketBase (download from https://pocketbase.io)
+# Start your PocketBase instance and apply the schema:
+npm run migrate:pb
+
+# 4. Add indexes (existing DB only — fresh migrate:pb includes them)
+export PB_ADMIN_EMAIL=admin@example.com
+export PB_ADMIN_PASSWORD=yourpassword
+npm run migrate:indexes
+
+# 5. Start the dev server
+npm run dev
 ```
 
-### Manual Deployment
-
-```bash
-npm run build
-npm start
-```
-
-See [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md#production-deployment) for detailed deployment instructions.
 
 ---
 
-## Contributing
+## Societies
 
-We welcome contributions from the IEEE Sahrdaya community!
-
-### Development Workflow
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Make your changes
-4. Run linting: `npm run lint`
-5. Commit: `git commit -m 'feat: add amazing feature'`
-6. Push: `git push origin feature/amazing-feature`
-7. Open a Pull Request
-
-### Commit Convention
-
-We use [Conventional Commits](https://www.conventionalcommits.org/):
-
-```
-feat(events): add bulk registration export
-fix(auth): handle expired session gracefully
-docs(api): document check-in endpoints
-```
-
-See [Developer Guide](docs/DEVELOPER_GUIDE.md#contributing) for detailed guidelines.
-
----
-
-## Team
-
-### Development Team
-
-The IEEE Sahrdaya Event Management System is built and maintained by the IEEE Sahrdaya Student Branch technical team.
-
-### Societies
-
-This platform serves 14 IEEE technical societies:
-
-| Society | Slug |
-|---------|------|
-| Computer Society | `cs` |
-| Robotics & Automation Society | `ras` |
-| Women in Engineering | `wie` |
-| Industry Applications Society | `ias` |
-| Power & Energy Society | `pes` |
-| SIGHT | `sight` |
-| Engineering in Medicine & Biology | `embs` |
-| Signal Processing Society | `sps` |
-| Circuits and Systems Society | `cas` |
-| Communication Society | `css` |
-| Education Society | `edsoc` |
-| Industrial Electronics Society | `ies` |
-| Nuclear & Plasma Sciences Society | `npss` |
-| Photonics Society | `ps` |
+| Society | Slug | Society | Slug |
+|---------|------|---------|------|
+| Computer Society | `cs` | Robotics & Automation | `ras` |
+| Women in Engineering | `wie` | Industry Applications | `ias` |
+| Power & Energy | `pes` | SIGHT | `sight` |
+| Engineering in Medicine & Biology | `embs` | Signal Processing | `sps` |
+| Circuits and Systems | `cas` | Communication | `css` |
+| Education | `edsoc` | Industrial Electronics | `ies` |
+| Nuclear & Plasma Sciences | `npss` | Photonics | `ps` |
 
 ---
 
 ## License
 
-© 2024-2026 IEEE Sahrdaya Student Branch. All rights reserved.
+<div align="center">
 
-This is proprietary software. Unauthorized copying, modification, distribution, or use of this software is strictly prohibited.
+© 2025-2026 IEEE Sahrdaya Student Branch. Proprietary — all rights reserved.
+
+</div>
 
 ---
 
 <div align="center">
 
-**Built by IEEE Sahrdaya Student Branch**
-
-[Website](https://ieeesahrdaya.com) • [Instagram](https://instagram.com/ieeesahrdaya) • [LinkedIn](https://linkedin.com/company/ieee-sahrdaya)
+[Website](https://ieeesahrdaya.com) • [Instagram](https://www.instagram.com/ieeesahrdaya/) • [LinkedIn](https://www.linkedin.com/company/ieeesahrdaya)
 
 </div>

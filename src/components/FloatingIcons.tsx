@@ -3,7 +3,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Monitor, Zap, Users, Bot, BarChart3 } from 'lucide-react';
-import { FloatingIconProps } from '@/types';
+import { type FloatingIconProps } from '@/types';
 
 const icons: FloatingIconProps[] = [
     { icon: <Monitor size={28} />, label: 'CS', x: '15%', y: '25%', delay: 0 },
@@ -15,7 +15,7 @@ const icons: FloatingIconProps[] = [
 
 export const FloatingIcons: React.FC = () => {
     return (
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
             {icons.map((item, index) => (
                 <motion.div
                     key={index}
@@ -38,7 +38,7 @@ export const FloatingIcons: React.FC = () => {
                     style={{ left: item.x, top: item.y }}
                     className="absolute flex flex-col items-center text-gray-400"
                 >
-                    <div className="p-3 bg-white/50 backdrop-blur-sm border border-gray-200 rounded-xl shadow-sm mb-1">
+                    <div className="p-3 bg-white/50 backdrop-blur-xs border border-gray-200 rounded-xl shadow-xs mb-1">
                         {item.icon}
                     </div>
                     <span className="font-mono text-[10px] tracking-widest">{item.label}</span>

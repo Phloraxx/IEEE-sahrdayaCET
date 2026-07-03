@@ -1,9 +1,9 @@
-/** @type {import('postcss-load-config').Config} */
-const config = {
-  plugins: {
-    tailwindcss: {},
-    autoprefixer: {},
-  },
-};
+// Tailwind CSS v4 PostCSS plugin registration.
+// Vite auto-detects this file and runs PostCSS during builds.
+// If switching to @tailwindcss/vite plugin, this file can be removed.
 
-export default config;
+export default {
+  plugins: {
+    '@tailwindcss/postcss': {},
+  },
+}

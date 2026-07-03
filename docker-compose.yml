@@ -1,0 +1,51 @@
+# ─────────────────────────────────────────────────────────────
+#  IEEE Sahrdaya — TanStack Start App
+#  Deploy this via Dokploy as a separate service.
+#  PocketBase has its own compose (docker-compose.pb.yml).
+#  TLS options (pick one):
+#    A) Cloudflare Tunnel — zero open ports, free TLS at edge
+#    B) Minimal Caddy alongside — see commented service below
+#    C) PaaS with built-in TLS (Railway, Fly.io, Render)
+# ─────────────────────────────────────────────────────────────
+
+services:
+  # ─── TanStack Start App ────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ieee-sahrdaya/app:latest
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - POCKETBASE_URL=${POCKETBASE_URL:-https://db.phloraxx.us.to}
+      - PAYMENT_API_URL=${PAYMENT_API_URL:-https://pay.mulearnscet.in}
+      - PAYMENT_WEBHOOK_SECRET=${PAYMENT_WEBHOOK_SECRET:?err}
+      - OAUTH_COOKIE_SECRET=${OAUTH_COOKIE_SECRET:?err}
+      - INTERNAL_API_SECRET=${INTERNAL_API_SECRET:?err}
+      - PUBLIC_APP_URL=${PUBLIC_APP_URL:-https://ieeesahrdaya.com}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+
+  # ─── OPTIONAL: Minimal Caddy for TLS termination ────────
+  # Uncomment if self-hosting on a VPS and not using Cloudflare Tunnel.
+  # Remove the app.ports section above when using Caddy.
+  #
+  # caddy:
+  #   image: caddy:2-alpine
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - caddy_data:/data
+  #     - ./Caddyfile:/etc/caddy/Caddyfile:ro
+  #   environment:
+  #     - DOMAIN=${DOMAIN:-ieeesahrdaya.com}
+  #
+  # volumes:
+  #   caddy_data:

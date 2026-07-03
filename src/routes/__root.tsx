@@ -1,0 +1,224 @@
+import type { ReactNode } from 'react'
+import { useState } from 'react'
+import { Outlet, createRootRoute, HeadContent, Scripts, Link } from '@tanstack/react-router'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { AuthProvider } from '@/lib/auth-context'
+import { APP_URL } from '@/lib/constants'
+import '@/features/globals.css'
+import { StarsBackground } from '@/components/ui/stars-background'
+import { ShootingStars } from '@/components/ui/shooting-stars'
+
+// Fonts — replace next/font/google with @fontsource equivalents
+import '@fontsource-variable/geist'
+import '@fontsource/press-start-2p'
+import '@fontsource/caveat'
+
+// CSP enforced by both Caddy (edge) and server-entry.mjs (origin).
+// Policy lists PocketBase + Google OAuth origins in connect-src/frame-src.
+
+export const Route = createRootRoute({
+  head: () => {
+    const organizationSchema = {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      name: "IEEE Sahrdaya Student Branch",
+      url: APP_URL,
+      logo: `${APP_URL}/emblem.png`,
+      description:
+        "Official IEEE Student Branch at Sahrdaya College of Engineering & Technology, Thrissur, Kerala, India.",
+      sameAs: [
+        "https://www.ieee.org",
+        "https://ieeekerala.org",
+        "https://www.instagram.com/ieee_sahrdaya_sb/",
+        "https://www.linkedin.com/company/ieee-sahrdaya-sb/",
+        "https://www.youtube.com/@ieeesahrdaya",
+      ],
+      parentOrganization: {
+        "@type": "Organization",
+        name: "IEEE Kerala Section",
+        url: "https://ieeekerala.org",
+      },
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: "Thrissur",
+        addressRegion: "Kerala",
+        addressCountry: "IN",
+      },
+    }
+
+    const websiteSchema = {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      name: "IEEE Sahrdaya Student Branch",
+      url: APP_URL,
+      potentialAction: {
+        "@type": "SearchAction",
+        target: {
+          "@type": "EntryPoint",
+          urlTemplate: `${APP_URL}/events?search={search_term_string}`,
+        },
+        "query-input": "required name=search_term_string",
+      },
+    }
+
+    const breadcrumbSchema = {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home", item: APP_URL },
+      ],
+    }
+
+
+    return {
+      meta: [
+        { charSet: 'utf-8' },
+        { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+        { title: 'IEEE Sahrdaya Student Branch' },
+        {
+          name: 'description',
+          content:
+            'Official IEEE Sahrdaya Student Branch — technical events, workshops, societies & execom directory. Sahrdaya College of Engineering, Thrissur, Kerala.',
+        },
+        { name: 'theme-color', content: '#00629B' },
+        { property: 'og:type', content: 'website' },
+        { property: 'og:locale', content: 'en_IN' },
+        { property: 'og:site_name', content: 'IEEE Sahrdaya Student Branch' },
+        { property: 'og:title', content: 'IEEE Sahrdaya Student Branch' },
+        {
+          property: 'og:description',
+          content:
+            'Official IEEE Sahrdaya Student Branch — technical events, workshops, societies & execom directory. Sahrdaya College of Engineering, Thrissur, Kerala.',
+        },
+        { property: 'og:image', content: `${APP_URL}/emblem.png` },
+        { property: 'og:image:width', content: '512' },
+        { property: 'og:image:height', content: '512' },
+        { name: 'twitter:card', content: 'summary_large_image' },
+        { name: 'twitter:title', content: 'IEEE Sahrdaya Student Branch' },
+        { name: 'twitter:description', content: 'Official IEEE Sahrdaya Student Branch — technical events, workshops, societies & execom directory.' },
+        { name: 'twitter:image', content: `${APP_URL}/emblem.png` },
+        {
+          name: 'robots',
+          content: 'index, follow',
+        },
+      ],
+      links: [
+        { rel: 'preconnect', href: 'https://res.cloudinary.com' },
+        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+        { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossOrigin: 'anonymous' },
+        { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
+      ],
+      scripts: [
+        {
+          type: 'application/ld+json',
+          children: JSON.stringify(organizationSchema)
+            .replace(/</g, '\\u003c')
+            .replace(/>/g, '\\u003e')
+            .replace(/&/g, '\\u0026'),
+        },
+        {
+          type: 'application/ld+json',
+          children: JSON.stringify(websiteSchema)
+            .replace(/</g, '\\u003c')
+            .replace(/>/g, '\\u003e')
+            .replace(/&/g, '\\u0026'),
+        },
+        {
+          type: 'application/ld+json',
+          children: JSON.stringify(breadcrumbSchema)
+            .replace(/</g, '\\u003c')
+            .replace(/>/g, '\\u003e')
+            .replace(/&/g, '\\u0026'),
+        },
+      ],
+    }
+  },
+  component: RootComponent,
+  notFoundComponent: () => (
+    <div className="relative min-h-screen bg-white flex items-center justify-center px-4 overflow-hidden">
+      <div className="absolute inset-0 z-0">
+        <StarsBackground starDensity={0.0004} allStarsTwinkle starColor="#1e293b" />
+        <ShootingStars starColor="#00629b" trailColor="#0099D6" minDelay={1500} maxDelay={4000} minSpeed={8} maxSpeed={20} starWidth={12} starHeight={2} />
+        <ShootingStars starColor="#00629b" trailColor="#0099D6" minDelay={2000} maxDelay={5000} minSpeed={12} maxSpeed={25} starWidth={10} starHeight={1} />
+        <ShootingStars starColor="#0099D6" trailColor="#00629b" minDelay={3000} maxDelay={6000} minSpeed={10} maxSpeed={22} starWidth={8} starHeight={1} />
+      </div>
+      <div className="relative z-10 text-center max-w-md">
+        <div className="text-8xl font-bold text-[#00629B] mb-4 font-pixel">404</div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Page Not Found</h1>
+        <p className="text-gray-500 mb-6">The page you're looking for doesn't exist or has been moved.</p>
+        <Link to="/" className="inline-flex items-center gap-2 px-6 py-3 bg-[#00629B] text-white rounded-full font-bold text-sm hover:bg-[#004a7c] transition-colors">
+          Go Home
+        </Link>
+      </div>
+    </div>
+  ),
+  errorComponent: ({ error }: { error: Error }) => (
+    <div className="relative min-h-screen bg-white flex items-center justify-center px-4 overflow-hidden">
+      <div className="absolute inset-0 z-0">
+        <StarsBackground starDensity={0.0004} allStarsTwinkle starColor="#1e293b" />
+        <ShootingStars starColor="#00629b" trailColor="#0099D6" minDelay={1500} maxDelay={4000} minSpeed={8} maxSpeed={20} starWidth={12} starHeight={2} />
+        <ShootingStars starColor="#00629b" trailColor="#0099D6" minDelay={2000} maxDelay={5000} minSpeed={12} maxSpeed={25} starWidth={10} starHeight={1} />
+        <ShootingStars starColor="#0099D6" trailColor="#00629b" minDelay={3000} maxDelay={6000} minSpeed={10} maxSpeed={22} starWidth={8} starHeight={1} />
+      </div>
+      <div className="relative z-10 text-center max-w-md">
+        <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-red-100 flex items-center justify-center">
+          <span className="text-2xl font-bold text-red-600">!</span>
+        </div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Something went wrong</h1>
+        <p className="text-gray-500 mb-6">{import.meta.env.DEV ? error.message : 'An unexpected error occurred'}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="inline-flex items-center gap-2 px-6 py-3 bg-[#00629B] text-white rounded-full font-bold text-sm hover:bg-[#004a7c] transition-colors"
+        >
+          Reload page
+        </button>
+      </div>
+    </div>
+  ),
+})
+function RootComponent() {
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: { staleTime: 30_000, refetchOnWindowFocus: false },
+        },
+      }),
+  )
+  return (
+    <RootDocument>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <Outlet />
+        </AuthProvider>
+      </QueryClientProvider>
+    </RootDocument>
+  )
+}
+
+function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var s=localStorage.getItem('ieee-theme');var admin=location.pathname.indexOf('/admin')===0;if(s==='dark'||(s!=='light'&&admin))document.documentElement.classList.add('dark');}catch(e){}})()`,
+          }}
+        />
+        <HeadContent />
+      </head>
+      <body className="font-sans antialiased">
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-white focus:text-ieee-blue focus:px-4 focus:py-2 focus:rounded focus:shadow-lg"
+        >
+          Skip to content
+        </a>
+        <div id="main-content" tabIndex={-1}>
+          {children}
+        </div>
+        <Scripts />
+      </body>
+    </html>
+  )
+}

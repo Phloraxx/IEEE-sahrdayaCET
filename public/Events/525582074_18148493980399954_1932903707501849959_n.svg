@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="520" height="720" viewBox="0 0 520 720">
+  <rect width="520" height="720" fill="#dc2626" rx="16"/>
+  <text x="260" y="320" font-family="system-ui,sans-serif" font-size="48" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="middle">Webinar</text>
+  <text x="260" y="390" font-family="system-ui,sans-serif" font-size="24" fill="rgba(255,255,255,0.8)" text-anchor="middle" dominant-baseline="middle">IEEE Sahrdaya</text>
+  <rect x="160" y="440" width="200" height="3" rx="2" fill="rgba(255,255,255,0.4)"/>
+  <text x="260" y="480" font-family="system-ui,sans-serif" font-size="16" fill="rgba(255,255,255,0.6)" text-anchor="middle" dominant-baseline="middle">Event Banner</text>
+</svg>

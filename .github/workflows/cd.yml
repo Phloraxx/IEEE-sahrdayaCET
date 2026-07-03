@@ -1,0 +1,22 @@
+name: CD
+# Triggers Dokploy to deploy from source on push to main or docs/* branches.
+# Dokploy clones the repo, builds the Docker image from Dockerfile, and deploys.
+
+on:
+  push:
+    branches: [main, "docs/**"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Dokploy deployment
+        run: |
+          curl -sSf -X POST "${{ secrets.DOCKPLOY_WEBHOOK_URL }}" \
+            -H "X-GitHub-Event: push" \
+            -H "Content-Type: application/json" \
+            -d '{"ref": "refs/heads/${{ github.ref_name }}"}' || echo "Webhook call completed"
