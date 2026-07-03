@@ -73,7 +73,7 @@ export const Route = createFileRoute("/full-execom")({
       { property: "og:image:width", content: "1200" },
       { property: "og:image:height", content: "630" },
     ],
-    links: [{ rel: "canonical", href: "/full-execom" }],
+    links: [{ rel: "canonical", href: `${APP_URL}/full-execom` }],
     scripts: [
       {
         type: "application/ld+json",
@@ -84,7 +84,10 @@ export const Route = createFileRoute("/full-execom")({
             { "@type": "ListItem", position: 1, name: "Home", item: APP_URL },
             { "@type": "ListItem", position: 2, name: "Execom", item: `${APP_URL}/full-execom` },
           ],
-        }),
+        })
+          .replace(/</g, '\\u003c')
+          .replace(/>/g, '\\u003e')
+          .replace(/&/g, '\\u0026'),
       },
     ],
   }),

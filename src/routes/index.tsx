@@ -116,7 +116,7 @@ export const Route = createFileRoute('/')({
         { property: 'og:url', content: `${APP_URL}/` },
       ],
       links: [
-        { rel: 'canonical', href: '/' },
+        { rel: 'canonical', href: `${APP_URL}/` },
         ...preload,
       ],
       scripts: [
@@ -128,7 +128,10 @@ export const Route = createFileRoute('/')({
             itemListElement: [
               { '@type': 'ListItem', position: 1, name: 'Home', item: APP_URL },
             ],
-          }),
+          })
+            .replace(/</g, '\\u003c')
+            .replace(/>/g, '\\u003e')
+            .replace(/&/g, '\\u0026'),
         },
       ],
     };

@@ -108,7 +108,7 @@ export const Route = createFileRoute("/societies")({
       { property: "og:image:width", content: "1200" },
       { property: "og:image:height", content: "630" },
     ],
-    links: [{ rel: "canonical", href: "/societies" }],
+    links: [{ rel: "canonical", href: `${APP_URL}/societies` }],
     scripts: [
       {
         type: "application/ld+json",
@@ -119,7 +119,10 @@ export const Route = createFileRoute("/societies")({
             { "@type": "ListItem", position: 1, name: "Home", item: APP_URL },
             { "@type": "ListItem", position: 2, name: "Societies", item: `${APP_URL}/societies` },
           ],
-        }),
+        })
+          .replace(/</g, '\\u003c')
+          .replace(/>/g, '\\u003e')
+          .replace(/&/g, '\\u0026'),
       },
     ],
   }),

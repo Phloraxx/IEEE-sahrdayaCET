@@ -17,6 +17,11 @@ import { checkAdminAccess } from "@/lib/admin-guard";
 import { redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/admin")({
+  head: () => ({
+    meta: [
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   beforeLoad: async () => {
     try {
       await checkAdminAccess();

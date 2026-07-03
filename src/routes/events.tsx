@@ -93,7 +93,7 @@ export const Route = createFileRoute("/events")({
       { property: "og:image:width", content: "1200" },
       { property: "og:image:height", content: "630" },
     ],
-    links: [{ rel: "canonical", href: "/events" }],
+    links: [{ rel: "canonical", href: `${APP_URL}/events` }],
     scripts: [
       {
         type: "application/ld+json",
@@ -104,7 +104,10 @@ export const Route = createFileRoute("/events")({
             { "@type": "ListItem", position: 1, name: "Home", item: APP_URL },
             { "@type": "ListItem", position: 2, name: "Events", item: `${APP_URL}/events` },
           ],
-        }),
+        })
+          .replace(/</g, '\\u003c')
+          .replace(/>/g, '\\u003e')
+          .replace(/&/g, '\\u0026'),
       },
     ],
   }),

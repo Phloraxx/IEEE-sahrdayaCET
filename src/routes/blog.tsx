@@ -23,7 +23,7 @@ export const Route = createFileRoute("/blog")({
       { property: "og:image:width", content: "1200" },
       { property: "og:image:height", content: "630" },
     ],
-    links: [{ rel: "canonical", href: "/blog" }],
+    links: [{ rel: "canonical", href: `${APP_URL}/blog` }],
     scripts: [
       {
         type: "application/ld+json",
@@ -34,7 +34,10 @@ export const Route = createFileRoute("/blog")({
             { "@type": "ListItem", position: 1, name: "Home", item: APP_URL },
             { "@type": "ListItem", position: 2, name: "Blog", item: `${APP_URL}/blog` },
           ],
-        }),
+        })
+          .replace(/</g, '\\u003c')
+          .replace(/>/g, '\\u003e')
+          .replace(/&/g, '\\u0026'),
       },
     ],
   }),
