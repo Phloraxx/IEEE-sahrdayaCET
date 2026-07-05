@@ -4,7 +4,7 @@ import viteReact from '@vitejs/plugin-react-swc'
 import tsconfigPaths from 'vite-tsconfig-paths'
 import path from 'path'
 export default defineConfig({
-  server: { port: 3001 },
+  server: { port: 3000 },
   plugins: [
     tanstackStart(),
     viteReact(),
