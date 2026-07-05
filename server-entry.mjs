@@ -50,37 +50,21 @@ function addSecurityHeaders(res) {
   }
 }
 
-// Wrap res.writeHead so security headers are injected into EVERY response
-// (including srvx/TanStack SSR responses) without calling setHeader before
-// the handler runs (which corrupts srvx's internal response state and
-// causes 307 redirect loops).
-function patchWriteHead(res) {
-  const origWriteHead = res.writeHead.bind(res);
-  res.writeHead = function (statusCode, statusMessage, headers) {
-    // Merge security headers into whatever headers are being written
-    const merged = { ...SECURITY_HEADERS };
-    if (typeof statusMessage === 'string') {
-      // writeHead(statusCode, statusMessage, headers)
-      if (headers) Object.assign(merged, headers);
-      return origWriteHead(statusCode, statusMessage, merged);
-    } else if (statusMessage) {
-      // writeHead(statusCode, headers)
-      Object.assign(merged, statusMessage);
-      return origWriteHead(statusCode, merged);
-    } else {
-      return origWriteHead(statusCode, merged);
-    }
-  };
+// Apply security headers to a response object.
+function addSecurityHeaders(res) {
+  for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
+    res.setHeader(key, value);
+  }
 }
 
 const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB
   const server = createServer(async (req, res) => {
-    patchWriteHead(res);
     try {
       const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
 
       // Health check endpoint — bypasses SSR router.
       if (url.pathname === '/health') {
+        addSecurityHeaders(res);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ status: 'ok', uptime: process.uptime() }));
         return;
@@ -99,18 +83,22 @@ const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB
             const cacheControl = url.pathname.startsWith('/assets/')
               ? 'public, max-age=31536000, immutable'
               : 'public, max-age=86400';
+            addSecurityHeaders(res);
             res.writeHead(200, { 'Content-Type': mime, 'Cache-Control': cacheControl });
             res.end(readFileSync(filePath));
             return;
           } catch { /* try next candidate */ }
         }
       }
-      // SSR: forward to TanStack Start handler
+      // SSR: forward to TanStack Start handler (no pre-set headers —
+      // calling setHeader before srvx corrupts its response state and
+      // causes 307 redirect loops).
       const nodeHandler = toNodeHandler ? toNodeHandler(fetch) : simpleNodeHandler(fetch);
       await nodeHandler(req, res);
     } catch (err) {
       console.error('Server error:', err);
       if (!res.headersSent) {
+        addSecurityHeaders(res);
         res.writeHead(500);
         res.end('Internal Server Error');
       }
