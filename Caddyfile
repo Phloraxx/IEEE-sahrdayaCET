@@ -25,6 +25,22 @@
         Cache-Control "public, max-age=31536000, immutable"
     }
 
+    # Same-origin proxy for client-side PocketBase SSE subscriptions.
+    # Public collections only (fifa_feed_events, fifa_bet_markets,
+    # fifa_matches). POCKETBASE_URL stays server-side; this exposes only the
+    # /pb path, not the raw PB URL. flush_interval -1 disables buffering so
+    # SSE events stream through immediately. handle_path strips the /pb
+    # prefix before forwarding to PocketBase.
+    @pb path /pb/*
+    handle_path @pb {
+        reverse_proxy pb:8090 {
+            flush_interval -1
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
     reverse_proxy app:3000 {
         header_up X-Real-IP {remote_host}
         header_up X-Forwarded-For {remote_host}

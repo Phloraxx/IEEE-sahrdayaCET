@@ -114,8 +114,83 @@ const rules: Record<string, CollectionRuleSet> = {
     listRule: `id = @request.auth.id || @request.auth.role = "admin"`,
     viewRule: `id = @request.auth.id || @request.auth.role = "admin"`,
     createRule: `@request.context = "oauth2"`,
-    updateRule: `(id = @request.auth.id && @request.body.role:changed = false) || @request.auth.role = "admin"`,
+    // FIFA: balance is the game economy — hook-only. A user may edit their
+    // own profile but never their role or balance.
+    updateRule: `(id = @request.auth.id && @request.body.role:changed = false && @request.body.balance:changed = false) || @request.auth.role = "admin"`,
     deleteRule: null,
+  },
+  // ─── FIFA WC Predict '26 ───────────────────────────────────────────
+  // Public read collections (anyone can view the game state); writes are
+  // admin-only or hook-only. Direct REST writes that affect the economy
+  // (bets, transactions, balance) are blocked at the rule layer and enforced
+  // by pb_hooks/fifa.pb.js at the DB layer.
+  fifa_matches: {
+    // Public match list/detail (excluding voided matches from public list).
+    listRule: ``,
+    viewRule: ``,
+    createRule: `@request.auth.role = "admin"`,
+    updateRule: `@request.auth.role = "admin"`,
+    deleteRule: `@request.auth.role = "admin"`,
+  },
+  fifa_bet_markets: {
+    // Public market detail (pool totals, odds). Admin-only writes so
+    // chairs/users can't bump pool counters — those are maintained by the
+    // bet hook via $app.dao (bypasses rules).
+    listRule: ``,
+    viewRule: ``,
+    createRule: `@request.auth.role = "admin"`,
+    updateRule: `@request.auth.role = "admin"`,
+    deleteRule: `@request.auth.role = "admin"`,
+  },
+  fifa_bets: {
+    // Owner can read their own bets; everyone else (incl. chairs) cannot.
+    listRule: `user = @request.auth.id || @request.auth.role = "admin"`,
+    viewRule: `user = @request.auth.id || @request.auth.role = "admin"`,
+    // createRule is a backstop — the onRecordCreateRequest hook in
+    // pb_hooks/fifa.pb.js enforces all business rules (market open, deadline,
+    // stake limits). This rule prevents direct PB REST POSTs from setting
+    // status/payout/odds_locked (the hook sets those server-side).
+    createRule: `user = @request.auth.id && @request.body.status:changed = false && @request.body.payout:changed = false && @request.body.odds_locked:changed = false`,
+    // No client updates — settlement runs through the admin-gated
+    // /api/fifa/settle custom route which uses $app.dao (bypasses rules).
+    updateRule: null,
+    deleteRule: null,
+  },
+  fifa_transactions: {
+    // Ledger is hook-only. No client create/update/delete under any
+    // circumstance — every balance change goes through a PB hook or custom
+    // route that writes via $app.dao.
+    listRule: `user = @request.auth.id || @request.auth.role = "admin"`,
+    viewRule: `user = @request.auth.id || @request.auth.role = "admin"`,
+    createRule: null,
+    updateRule: null,
+    deleteRule: null,
+  },
+  fifa_settings: {
+    // Public read (event name, prize, rules) — no PII. Admin-only write.
+    // Singleton enforcement is in the onRecordCreateRequest hook.
+    listRule: ``,
+    viewRule: ``,
+    createRule: `@request.auth.role = "admin"`,
+    updateRule: `@request.auth.role = "admin"`,
+    deleteRule: `@request.auth.role = "admin"`,
+  },
+  fifa_raffle_draws: {
+    // Public draw history (transparency). Admin-only write (trigger draw).
+    listRule: ``,
+    viewRule: ``,
+    createRule: `@request.auth.role = "admin"`,
+    updateRule: `@request.auth.role = "admin"`,
+    deleteRule: `@request.auth.role = "admin"`,
+  },
+  fifa_feed_events: {
+    // Public live feed. Writes are hook-only (bet hook, settle route, raffle
+    // route all emit feed events via $app.dao).
+    listRule: ``,
+    viewRule: ``,
+    createRule: null,
+    updateRule: null,
+    deleteRule: `@request.auth.role = "admin"`,
   },
 }
 
