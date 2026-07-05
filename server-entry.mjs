@@ -55,6 +55,14 @@ const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB
     try {
       const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
 
+      // Health check endpoint — bypasses SSR router (which can 307-loop after
+      // long uptime due to singleton router state accumulation).
+      if (url.pathname === '/health') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ok', uptime: process.uptime() }));
+        return;
+      }
+
       // Serve static files: try dist/client (Vite output), then public/ (raw assets)
       if (!url.pathname.startsWith('/api/') && !url.pathname.includes('..') && extname(url.pathname)) {
         const candidates = [
