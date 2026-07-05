@@ -176,7 +176,9 @@ export interface BlogPost {
   tags?: string[];
   author?: { id?: string; name?: string; role?: string; photoUrl?: string } | string;
   society?: { id: string; name?: string; slug?: string; logoUrl?: string } | string;
+  category?: "IEEE" | "Society" | "Event" | string;
   publishedAt?: string;
+  published?: boolean;
   isFeatured?: boolean;
   isDraft?: boolean;
 }

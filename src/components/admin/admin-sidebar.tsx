@@ -3,6 +3,7 @@ import {
   Calendar,
   ChevronRight,
   ClipboardList,
+  FileText,
   LayoutDashboard,
   LogOut,
   Moon,
@@ -54,6 +55,13 @@ const NAV_ITEMS: NavItem[] = [
     href: "/admin/societies",
     icon: Building2,
     description: "Chapters",
+    adminOnly: true,
+  },
+  {
+    label: "Blogs",
+    href: "/admin/blogs",
+    icon: FileText,
+    description: "Manage posts",
     adminOnly: true,
   },
   {
