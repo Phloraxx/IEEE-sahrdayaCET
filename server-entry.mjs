@@ -49,14 +49,37 @@ function addSecurityHeaders(res) {
     res.setHeader(key, value);
   }
 }
+
+// Wrap res.writeHead so security headers are injected into EVERY response
+// (including srvx/TanStack SSR responses) without calling setHeader before
+// the handler runs (which corrupts srvx's internal response state and
+// causes 307 redirect loops).
+function patchWriteHead(res) {
+  const origWriteHead = res.writeHead.bind(res);
+  res.writeHead = function (statusCode, statusMessage, headers) {
+    // Merge security headers into whatever headers are being written
+    const merged = { ...SECURITY_HEADERS };
+    if (typeof statusMessage === 'string') {
+      // writeHead(statusCode, statusMessage, headers)
+      if (headers) Object.assign(merged, headers);
+      return origWriteHead(statusCode, statusMessage, merged);
+    } else if (statusMessage) {
+      // writeHead(statusCode, headers)
+      Object.assign(merged, statusMessage);
+      return origWriteHead(statusCode, merged);
+    } else {
+      return origWriteHead(statusCode, merged);
+    }
+  };
+}
+
 const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB
   const server = createServer(async (req, res) => {
-    addSecurityHeaders(res);
+    patchWriteHead(res);
     try {
       const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
 
-      // Health check endpoint — bypasses SSR router (which can 307-loop after
-      // long uptime due to singleton router state accumulation).
+      // Health check endpoint — bypasses SSR router.
       if (url.pathname === '/health') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ status: 'ok', uptime: process.uptime() }));
@@ -87,8 +110,10 @@ const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB
       await nodeHandler(req, res);
     } catch (err) {
       console.error('Server error:', err);
-      res.writeHead(500);
-      res.end('Internal Server Error');
+      if (!res.headersSent) {
+        res.writeHead(500);
+        res.end('Internal Server Error');
+      }
     }
   });
 
