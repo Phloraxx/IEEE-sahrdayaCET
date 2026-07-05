@@ -12,6 +12,18 @@ export const FIFA_MARKET_MODE = ['pool', 'fixed'] as const
 export const FIFA_BET_STATUS = ['pending', 'won', 'lost', 'void'] as const
 export const FIFA_BET_MODE = ['pool', 'fixed'] as const
 
+// Human-readable labels for market types — shared between the public match
+// page and the admin match-detail page so they never diverge.
+export const FIFA_MARKET_LABELS: Record<string, string> = {
+  match_winner: 'Match Winner',
+  total_goals_ou: 'Total Goals Over/Under',
+  correct_score: 'Correct Score',
+  first_scorer: 'First Scorer',
+  cards_ou: 'Cards Over/Under',
+  clean_sheet: 'Clean Sheet',
+  custom: 'Custom Market',
+}
+
 // ─── Match schemas ──────────────────────────────────────────────────
 
 const BaseMatchSchema = z.object({

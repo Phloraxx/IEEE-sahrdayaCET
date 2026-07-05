@@ -29,11 +29,13 @@ interface Settings {
 }
 
 async function fetchSettings(): Promise<Settings> {
-  const res = await fetch('/pb/api/collections/fifa_settings/records?perPage=1')
-  if (!res.ok) throw new Error('Failed to load settings')
+  const res = await fetch('/api/admin/fifa/settings')
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.error || 'Failed to load settings')
+  }
   const data = await res.json()
-  if (!data.items?.length) throw new Error('Settings not seeded — run migrate:game-backfill')
-  return data.items[0]
+  return data.settings
 }
 
 function AdminFifaSettings() {
@@ -47,7 +49,7 @@ function AdminFifaSettings() {
   const save = useMutation({
     mutationFn: async () => {
       if (!form) return
-      const res = await fetch(`/pb/api/collections/fifa_settings/records/${form.id}`, {
+      const res = await fetch('/api/admin/fifa/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

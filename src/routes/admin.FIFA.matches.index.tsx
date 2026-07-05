@@ -123,9 +123,10 @@ function StatusBadge({ status, settled }: { status: string; settled: boolean }) 
 
 function CreateMatchForm({ onDone }: { onDone: () => void }) {
   const queryClient = useQueryClient()
-  const [form, setForm] = useState({
+  const initialForm = {
     team_home: '', team_away: '', stage: 'qf', kickoff_at: '', betting_locks_at: '',
-  })
+  }
+  const [form, setForm] = useState(initialForm)
 
   const create = useMutation({
     mutationFn: async () => {
@@ -147,6 +148,7 @@ function CreateMatchForm({ onDone }: { onDone: () => void }) {
     onSuccess: () => {
       toast.success('Match created')
       queryClient.invalidateQueries({ queryKey: ['admin-fifa-matches'] })
+      setForm(initialForm)
       onDone()
     },
     onError: (e: Error) => toast.error(e.message),

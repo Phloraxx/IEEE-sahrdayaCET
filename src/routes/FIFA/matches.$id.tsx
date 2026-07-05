@@ -8,6 +8,7 @@ import { FifaLayout } from '@/features/fifa/fifa-layout'
 import { useAuth } from '@/lib/auth-context'
 import { usePbSubscription } from '@/hooks/use-pb-subscription'
 import { toast } from 'sonner'
+import { FIFA_MARKET_LABELS } from '@/schemas/fifa'
 
 interface MatchDetail {
   id: string
@@ -178,15 +179,7 @@ function MatchDetailPage() {
   )
 }
 
-const MARKET_LABELS: Record<string, string> = {
-  match_winner: 'Match Winner',
-  total_goals_ou: 'Total Goals Over/Under',
-  correct_score: 'Correct Score',
-  first_scorer: 'First Scorer',
-  cards_ou: 'Cards Over/Under',
-  clean_sheet: 'Clean Sheet',
-  custom: 'Custom Market',
-}
+// Market labels shared from src/schemas/fifa.ts
 
 function MarketCard({ market, canBet, matchId }: { market: Market; canBet: boolean; matchId: string }) {
   const [selection, setSelection] = useState<string | null>(null)
@@ -224,7 +217,7 @@ function MarketCard({ market, canBet, matchId }: { market: Market; canBet: boole
   return (
     <section className="rounded-lg border border-border bg-card p-4">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="font-display text-lg text-foreground">{MARKET_LABELS[market.market_type] || market.market_type}</h2>
+        <h2 className="font-display text-lg text-foreground">{FIFA_MARKET_LABELS[market.market_type] || market.market_type}</h2>
         <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
           {market.mode === 'pool' ? `Pool · ${poolTotal} pts` : 'Fixed odds'}
         </span>

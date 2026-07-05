@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
+import { FIFA_MARKET_LABELS } from "@/schemas/fifa"
 
 export const Route = createFileRoute("/admin/FIFA/matches/$id")({
   component: AdminFifaMatchDetail,
@@ -133,7 +134,7 @@ function MarketCard({ market }: { market: MarketRow }) {
     },
     onSuccess: () => {
       toast.success(market.is_open ? 'Market closed' : 'Market opened')
-      queryClient.invalidateQueries({ queryKey: ['admin-fifa-markets'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-fifa-markets', market.match] })
     },
     onError: (e: Error) => toast.error(e.message),
   })
@@ -150,7 +151,7 @@ function MarketCard({ market }: { market: MarketRow }) {
     },
     onSuccess: () => {
       toast.success('Market voided — bets refunded')
-      queryClient.invalidateQueries({ queryKey: ['admin-fifa-markets'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-fifa-markets', market.match] })
       setOpen(false)
     },
     onError: (e: Error) => toast.error(e.message),
@@ -160,7 +161,7 @@ function MarketCard({ market }: { market: MarketRow }) {
     <div className="rounded-lg border bg-card p-3">
       <div className="flex items-center justify-between mb-2">
         <div>
-          <p className="text-sm font-medium">{MARKET_LABELS[market.market_type] || market.market_type}</p>
+          <p className="text-sm font-medium">{FIFA_MARKET_LABELS[market.market_type] || market.market_type}</p>
           <p className="text-xs text-muted-foreground">
             {market.mode} · {market.options.length} options · pool {market.pool_total}
           </p>
@@ -199,26 +200,19 @@ function MarketCard({ market }: { market: MarketRow }) {
   )
 }
 
-const MARKET_LABELS: Record<string, string> = {
-  match_winner: 'Match Winner',
-  total_goals_ou: 'Total Goals O/U',
-  correct_score: 'Correct Score',
-  first_scorer: 'First Scorer',
-  cards_ou: 'Cards O/U',
-  clean_sheet: 'Clean Sheet',
-  custom: 'Custom',
-}
+const MARKET_OPTIONS_DEFAULT = 'home,away,draw'
 
 function CreateMarketDialog({ matchId }: { matchId: string }) {
   const [open, setOpen] = useState(false)
   const queryClient = useQueryClient()
-  const [form, setForm] = useState({
+  const initialForm = {
     market_type: 'match_winner',
     mode: 'pool',
     line: 0,
-    optionsText: 'home,away,draw',
+    optionsText: MARKET_OPTIONS_DEFAULT,
     fixedOddsText: '',
-  })
+  }
+  const [form, setForm] = useState(initialForm)
 
   const create = useMutation({
     mutationFn: async () => {
@@ -253,6 +247,7 @@ function CreateMarketDialog({ matchId }: { matchId: string }) {
     onSuccess: () => {
       toast.success('Market created')
       queryClient.invalidateQueries({ queryKey: ['admin-fifa-markets', matchId] })
+      setForm(initialForm)
       setOpen(false)
     },
     onError: (e: Error) => toast.error(e.message),
@@ -271,7 +266,7 @@ function CreateMarketDialog({ matchId }: { matchId: string }) {
             <Select value={form.market_type} onValueChange={(v) => setForm({ ...form, market_type: v })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {Object.entries(MARKET_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                {Object.entries(FIFA_MARKET_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -319,8 +314,6 @@ function SettleForm({ matchId }: { matchId: string }) {
     result_scorers: '',
     result_yellow_cards: 0,
     result_red_cards: 0,
-    result_home_clean_sheet: false,
-    result_away_clean_sheet: false,
   })
 
   const settle = useMutation({

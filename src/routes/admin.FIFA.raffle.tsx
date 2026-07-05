@@ -27,8 +27,8 @@ interface RaffleDraw {
   seed: string
 }
 
-async function fetchDraws(): Promise<{ items: RaffleDraw[] }> {
-  const res = await fetch('/pb/api/collections/fifa_raffle_draws/records?sort=-drawn_at&perPage=20')
+async function fetchDraws(): Promise<{ draws: RaffleDraw[] }> {
+  const res = await fetch('/api/admin/fifa/raffle-draws')
   if (!res.ok) throw new Error('Failed to load draws')
   return res.json()
 }
@@ -83,7 +83,7 @@ function AdminFifaRaffle() {
       />
 
       {isLoading && <Skeleton className="h-32 w-full" />}
-      {data && data.items.length === 0 && (
+      {data && data.draws.length === 0 && (
         <div className="rounded-lg border border-dashed p-10 text-center">
           <Trophy className="mx-auto h-8 w-8 text-muted-foreground mb-3" />
           <p className="text-sm text-muted-foreground">No draws yet. Run the raffle when the tournament is over.</p>
@@ -91,7 +91,7 @@ function AdminFifaRaffle() {
       )}
 
       <div className="space-y-3">
-        {data?.items.map((d) => {
+        {data?.draws.map((d) => {
           const winner = d.entries_snapshot?.entries?.find((e) => e.user_id === d.winner)
           return (
             <div key={d.id} className="rounded-lg border bg-card p-4">
