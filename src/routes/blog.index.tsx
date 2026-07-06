@@ -2,8 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { APP_URL } from "@/lib/constants";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import BlogClient from "@/features/blog/BlogClient";
+import { getPublishedBlogs } from "./api/-blogs";
 
-export const Route = createFileRoute("/blog")({
+export const Route = createFileRoute("/blog/")({
   head: () => ({
     meta: [
       { title: "Blog | IEEE Sahrdaya Student Branch" },
@@ -41,13 +42,15 @@ export const Route = createFileRoute("/blog")({
       },
     ],
   }),
+  loader: async () => await getPublishedBlogs(),
   component: BlogPage,
 });
 
 function BlogPage() {
+  const blogs = Route.useLoaderData();
   return (
     <ErrorBoundary>
-      <BlogClient />
+      <BlogClient blogs={blogs} />
     </ErrorBoundary>
   );
 }

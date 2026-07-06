@@ -92,7 +92,7 @@ export interface AuthUser {
     id: string
     email?: string | null
     name?: string | null
-    role?: 'admin' | 'chair' | 'user'
+    role?: 'admin' | 'chair' | 'user' | 'content'
 }
 
 /**
@@ -175,8 +175,13 @@ export interface BlogPost {
   /** Free-form tags. */
   tags?: string[];
   author?: { id?: string; name?: string; role?: string; photoUrl?: string } | string;
+  societyId?: string;
+  eventId?: string;
   society?: { id: string; name?: string; slug?: string; logoUrl?: string } | string;
+  event?: { id: string; title: string } | string;
+  category?: "IEEE" | "Society" | "Event" | string;
   publishedAt?: string;
+  published?: boolean;
   isFeatured?: boolean;
   isDraft?: boolean;
 }

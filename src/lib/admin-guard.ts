@@ -10,5 +10,5 @@ import { requireRole } from "@/lib/auth"
 export const checkAdminAccess = createServerFn().handler(async () => {
   const cookie = getRequestHeader("cookie") || ""
   const pb = createPB(cookie)
-  await requireRole(["admin", "chair"], pb)
+  await requireRole(["admin", "chair", "content"], pb)
 })
