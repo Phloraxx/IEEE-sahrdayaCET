@@ -50,13 +50,6 @@ function addSecurityHeaders(res) {
   }
 }
 
-// Apply security headers to a response object.
-function addSecurityHeaders(res) {
-  for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
-    res.setHeader(key, value);
-  }
-}
-
 const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB
   const server = createServer(async (req, res) => {
     try {
@@ -90,9 +83,7 @@ const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB
           } catch { /* try next candidate */ }
         }
       }
-      // SSR: forward to TanStack Start handler (no pre-set headers —
-      // calling setHeader before srvx corrupts its response state and
-      // causes 307 redirect loops).
+      // SSR: forward to TanStack Start handler
       const nodeHandler = toNodeHandler ? toNodeHandler(fetch) : simpleNodeHandler(fetch);
       await nodeHandler(req, res);
     } catch (err) {
@@ -108,6 +99,16 @@ const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB
   server.listen(PORT, () => {
     console.log(`IEEE Sahrdaya app listening on port ${PORT}`);
   });
+
+  // Graceful restart every 25 minutes to prevent TanStack Start router
+  // singleton state corruption (causes 307 redirect loops after ~30 min).
+  // Docker's restart: unless-stopped policy brings the process back in <2s.
+  const RESTART_INTERVAL_MS = 25 * 60 * 1000;
+  const jitter = Math.floor(Math.random() * 5 * 60 * 1000); // 0-5 min jitter
+  setTimeout(() => {
+    console.log(`Scheduled restart after ${Math.round((RESTART_INTERVAL_MS + jitter) / 60000)} min — closing gracefully...`);
+    server.close(() => process.exit(0));
+  }, RESTART_INTERVAL_MS + jitter);
 
   process.on('SIGTERM', () => {
     console.log('SIGTERM received — closing gracefully...');
