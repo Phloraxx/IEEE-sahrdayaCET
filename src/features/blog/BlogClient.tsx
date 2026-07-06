@@ -26,13 +26,14 @@ export default function BlogClient({ blogs = [] }: { blogs?: BlogPost[] }) {
     const counts: Record<string, BlogPost[]> = {};
     for (const b of blogs) {
       if (!b.topicLabel) continue;
-      if (!counts[b.topicLabel]) counts[b.topicLabel] = [];
-      counts[b.topicLabel].push(b);
+      const label = b.topicLabel;
+      if (!counts[label]) counts[label] = [];
+      counts[label]!.push(b);
     }
     
     // Sort by number of posts descending
     const sortedLabels = Object.keys(counts).sort(
-      (a, b) => counts[b].length - counts[a].length
+      (a, b) => (counts[b]?.length ?? 0) - (counts[a]?.length ?? 0)
     );
     
     // Take top 3 topics
@@ -43,7 +44,7 @@ export default function BlogClient({ blogs = [] }: { blogs?: BlogPost[] }) {
       key: label,
       label: label,
       tone: tones[idx],
-      posts: counts[label].slice(0, 3), // max 3 posts per card
+      posts: (counts[label] ?? []).slice(0, 3), // max 3 posts per card
     })) as BlogTopic[];
   }, [blogs]);
 
