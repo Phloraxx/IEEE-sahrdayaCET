@@ -67,7 +67,6 @@ export function BlogForm({ initialData, societies = [], events = [], onSubmit, i
   })
 
   // Auto-generate slug from title if slug is empty and title is typed
-  const titleValue = form.watch("title")
   const slugValue = form.watch("slug")
   
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

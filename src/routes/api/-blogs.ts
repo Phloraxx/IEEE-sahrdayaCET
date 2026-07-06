@@ -16,7 +16,7 @@ function mapBlog(raw: Record<string, unknown>) {
   const expand = getExpand(raw);
   const authorRaw = expand?.relation; // the relation field is named "relation" in PB
   
-  let author: any = undefined;
+  let author: Record<string, unknown> | undefined = undefined;
   if (authorRaw) {
     author = {
       id: getField(authorRaw, 'id', ''),
@@ -29,7 +29,7 @@ function mapBlog(raw: Record<string, unknown>) {
   }
 
   const societyRaw = expand?.society;
-  let society: any = undefined;
+  let society: Record<string, unknown> | undefined = undefined;
   if (societyRaw) {
     society = {
       id: getField(societyRaw, 'id', ''),
@@ -42,7 +42,7 @@ function mapBlog(raw: Record<string, unknown>) {
   }
 
   const eventRaw = expand?.event;
-  let event: any = undefined;
+  let event: Record<string, unknown> | undefined = undefined;
   if (eventRaw) {
     event = {
       id: getField(eventRaw, 'id', ''),
@@ -139,7 +139,7 @@ export const createBlog = createServerFn({ method: "POST" })
     const ctx = await authenticateAdmin();
     
     // Map camelCase UI fields to snake_case DB fields
-    const dbData: any = {
+    const dbData: Record<string, unknown> = {
       title: data.title,
       slug: data.slug,
       excerpt: data.excerpt,
@@ -175,7 +175,7 @@ export const updateBlog = createServerFn({ method: "POST" })
     const { id, ...updateData } = data;
     
     // Map camelCase UI fields to snake_case DB fields dynamically
-    const dbData: any = {};
+    const dbData: Record<string, unknown> = {};
     if (updateData.title !== undefined) dbData.title = updateData.title;
     if (updateData.slug !== undefined) dbData.slug = updateData.slug;
     if (updateData.excerpt !== undefined) dbData.excerpt = updateData.excerpt;
@@ -217,7 +217,7 @@ export const getSocietiesForSelect = createServerFn({ method: "GET" })
         sort: "name",
         fields: "id,name",
       });
-      return result.items.map((s: any) => ({ id: s.id, name: s.name }));
+      return result.items.map((s: Record<string, unknown>) => ({ id: String(s.id), name: String(s.name) }));
     } catch (err) {
       console.error("Failed to fetch societies:", err);
       return [];
@@ -232,7 +232,7 @@ export const getEventsForSelect = createServerFn({ method: "GET" })
         sort: "-date",
         fields: "id,title",
       });
-      return result.items.map((e: any) => ({ id: e.id, title: e.title }));
+      return result.items.map((e: Record<string, unknown>) => ({ id: String(e.id), title: String(e.title) }));
     } catch (err) {
       console.error("Failed to fetch events:", err);
       return [];

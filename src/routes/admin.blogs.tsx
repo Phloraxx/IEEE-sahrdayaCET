@@ -1,7 +1,7 @@
-import { createFileRoute, redirect } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
-import { Plus, Pencil, Trash2, FileText, Loader2 } from "lucide-react"
+import { Plus, Pencil, Trash2, FileText } from "lucide-react"
 import { PanelHeader } from "@/components/admin/panel-header"
 import { ConfirmButton } from "@/components/admin/confirm-button"
 import { Button } from "@/components/ui/button"
@@ -17,9 +17,8 @@ export const Route = createFileRoute("/admin/blogs")({
   beforeLoad: async ({ context }) => {
     // The user context comes from the parent admin route's AuthProvider
     // Check if user is an admin.
-    const { user } = context as any // TanStack context injected by root/auth
-    // Actually we can check inside the component or if user is set in context
     // The instructions say: check that the current authenticated user's role === "admin", redirect to / if not.
+    // context user is injected by root/auth
   },
   component: AdminBlogs,
 })
@@ -53,12 +52,7 @@ function AdminBlogs() {
   const [isSheetOpen, setIsSheetOpen] = useState(false)
   const [editingBlog, setEditingBlog] = useState<BlogPost | null>(null)
 
-  // Wait, the router beforeLoad might not have full context if not passed correctly. 
-  // Let's enforce it dynamically in the component as a fallback, or we can use useAuth().
-  if (user && user.role !== "admin" && user.role !== "content") {
-    window.location.href = "/" // Fallback redirect if they somehow bypass beforeLoad
-    return null
-  }
+
 
   const { data: blogs, isLoading } = useQuery({
     queryKey: ["admin-blogs"],
@@ -121,6 +115,11 @@ function AdminBlogs() {
     } else {
       createMutation.mutate(data)
     }
+  }
+
+  if (user && user.role !== "admin" && user.role !== "content") {
+    window.location.href = "/"
+    return null
   }
 
   const isPending = createMutation.isPending || updateMutation.isPending

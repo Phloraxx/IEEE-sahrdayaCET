@@ -17,7 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export const Route = createFileRoute("/admin/dashboard")({
   beforeLoad: ({ context }) => {
-    const { user } = context as any;
+    const { user } = context as { user?: { role?: string } };
     if (user && user.role === "content") {
       throw redirect({ to: "/admin/blogs", replace: true });
     }
