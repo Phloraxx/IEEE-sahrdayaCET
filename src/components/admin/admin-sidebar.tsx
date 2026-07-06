@@ -22,7 +22,7 @@ interface NavItem {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   description?: string;
-  adminOnly?: boolean;
+  allowedRoles: ("admin" | "chair" | "content")[];
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -31,58 +31,63 @@ const NAV_ITEMS: NavItem[] = [
     href: "/admin/dashboard",
     icon: LayoutDashboard,
     description: "Event pulse",
+    allowedRoles: ["admin", "chair"],
   },
   {
     label: "Events",
     href: "/admin/events",
     icon: Calendar,
     description: "Manage events",
+    allowedRoles: ["admin", "chair"],
   },
   {
     label: "Registrations",
     href: "/admin/registrations",
     icon: ClipboardList,
     description: "Sign-ups & check-ins",
+    allowedRoles: ["admin", "chair"],
   },
   {
     label: "Check-in",
     href: "/admin/check-in",
     icon: ScanLine,
     description: "QR verify",
+    allowedRoles: ["admin", "chair"],
   },
   {
     label: "Societies",
     href: "/admin/societies",
     icon: Building2,
     description: "Chapters",
-    adminOnly: true,
+    allowedRoles: ["admin"],
   },
   {
     label: "Blogs",
     href: "/admin/blogs",
     icon: FileText,
     description: "Manage posts",
-    adminOnly: true,
+    allowedRoles: ["admin", "content"],
   },
   {
     label: "Users",
     href: "/admin/users",
     icon: Users,
     description: "Roles",
-    adminOnly: true,
+    allowedRoles: ["admin"],
   },
   {
     label: "Execom",
     href: "/admin/execom",
     icon: UserCheck,
     description: "Committee",
-    adminOnly: true,
+    allowedRoles: ["admin"],
   },
 ];
 
 const ROLE_LABEL: Record<string, string> = {
   admin: "Administrator",
   chair: "Society Chair",
+  content: "Content Team",
 };
 
 interface AdminSidebarProps {
@@ -105,7 +110,7 @@ export function AdminSidebar({
   const location = useLocation();
   const { signOut } = useAuth();
   const items = NAV_ITEMS.filter(
-    (item) => !item.adminOnly || userRole === "admin",
+    (item) => item.allowedRoles.includes(userRole as any),
   );
 
   return (

@@ -16,7 +16,7 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
       navigate({ to: "/" });
       return;
     }
-    if (user.role !== "admin" && user.role !== "chair") {
+    if (user.role !== "admin" && user.role !== "chair" && user.role !== "content") {
       navigate({ to: "/" });
     }
   }, [status, user, navigate]);
@@ -29,7 +29,7 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user || (user.role !== "admin" && user.role !== "chair")) {
+  if (!user || (user.role !== "admin" && user.role !== "chair" && user.role !== "content")) {
     return null;
   }
 

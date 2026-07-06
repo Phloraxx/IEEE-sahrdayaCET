@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
@@ -16,6 +16,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const Route = createFileRoute("/admin/dashboard")({
+  beforeLoad: ({ context }) => {
+    const { user } = context as any;
+    if (user && user.role === "content") {
+      throw redirect({ to: "/admin/blogs", replace: true });
+    }
+  },
   component: AdminDashboard,
   errorComponent: ({ error }: { error: Error }) => (
     <div className="flex min-h-[50vh] items-center justify-center p-8">
