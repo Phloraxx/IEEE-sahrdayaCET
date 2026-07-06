@@ -56,6 +56,14 @@ COPY . .
 # uses rename() which fails across filesystem boundaries (EXDEV).
 RUN bun run build
 
+# ─── Fix TanStack Start singleton getRouter() bug (#6924) ─────────
+# The built router bundle caches a singleton getRouter() that leaks
+# request-scoped state (including redirect) across SSR requests.
+# Patch it to return a fresh router per call instead of the cached singleton.
+RUN for f in /app/dist/server/assets/router-*.js; do \
+      sed -i 's|function getRouter() {|function getRouter() { return createRouter({routeTree,scrollRestoration:true,trailingSlash:"preserve"}); }\n// patched |' "$f"; \
+    done
+
 # ─── Production Runner ─────────────────────────────────────────
 FROM node:22-alpine AS runner
 WORKDIR /app
