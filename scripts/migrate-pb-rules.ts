@@ -63,11 +63,11 @@ const rules: Record<string, CollectionRuleSet> = {
     deleteRule: `@request.auth.role = "admin"`,
   },
   blogs: {
-    listRule: `@request.auth.role = "admin" || published = true`,
-    viewRule: `@request.auth.role = "admin" || published = true`,
-    createRule: `@request.auth.role = "admin"`,
-    updateRule: `@request.auth.role = "admin"`,
-    deleteRule: `@request.auth.role = "admin"`,
+    listRule: `@request.auth.role = "content" || published = true`,
+    viewRule: `@request.auth.role = "content" || published = true`,
+    createRule: `@request.auth.role = "content"`,
+    updateRule: `@request.auth.role = "content"`,
+    deleteRule: `@request.auth.role = "content"`,
   },
   societies: {
     listRule: `isHidden = false || @request.auth.role = "admin" || chairs.id ?= @request.auth.id`,

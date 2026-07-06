@@ -55,7 +55,7 @@ function AdminBlogs() {
 
   // Wait, the router beforeLoad might not have full context if not passed correctly. 
   // Let's enforce it dynamically in the component as a fallback, or we can use useAuth().
-  if (user && user.role !== "admin") {
+  if (user && user.role !== "admin" && user.role !== "content") {
     window.location.href = "/" // Fallback redirect if they somehow bypass beforeLoad
     return null
   }

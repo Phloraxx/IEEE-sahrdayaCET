@@ -92,7 +92,7 @@ export interface AuthUser {
     id: string
     email?: string | null
     name?: string | null
-    role?: 'admin' | 'chair' | 'user'
+    role?: 'admin' | 'chair' | 'user' | 'content'
 }
 
 /**
