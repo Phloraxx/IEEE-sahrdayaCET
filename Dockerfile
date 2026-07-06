@@ -61,7 +61,7 @@ RUN bun run build
 # request-scoped state (including redirect) across SSR requests.
 # Patch it to return a fresh router per call instead of the cached singleton.
 RUN for f in /app/dist/server/assets/router-*.js; do \
-      sed -i 's|function getRouter() {|function getRouter() { return createRouter({routeTree,scrollRestoration:true,trailingSlash:"preserve"}); }\n// patched |' "$f"; \
+      sed -i '/function getRouter/,/^}/c\function getRouter() { return createRouter({routeTree,scrollRestoration:true,trailingSlash:"preserve"}); }' "$f"; \
     done
 
 # ─── Production Runner ─────────────────────────────────────────
