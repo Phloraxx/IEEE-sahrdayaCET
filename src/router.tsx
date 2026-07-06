@@ -4,6 +4,7 @@ import { routeTree } from "./routeTree.gen";
 export const router = createRouter({
   routeTree,
   scrollRestoration: true,
+  trailingSlash: 'preserve',
 });
 
 // Required by TanStack Start internals (hydrateStart imports getRouter)
