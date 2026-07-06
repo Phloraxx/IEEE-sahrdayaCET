@@ -28,6 +28,28 @@ function mapBlog(raw: Record<string, unknown>) {
     };
   }
 
+  const societyRaw = expand?.society;
+  let society: any = undefined;
+  if (societyRaw) {
+    society = {
+      id: getField(societyRaw, 'id', ''),
+      name: getField(societyRaw, 'name', ''),
+      slug: getField(societyRaw, 'slug', ''),
+      logoUrl: getField(societyRaw, 'logo', '') 
+        ? buildFileUrl("societies", getField(societyRaw, 'id', ''), getField(societyRaw, 'logo', '')) 
+        : undefined,
+    };
+  }
+
+  const eventRaw = expand?.event;
+  let event: any = undefined;
+  if (eventRaw) {
+    event = {
+      id: getField(eventRaw, 'id', ''),
+      title: getField(eventRaw, 'title', ''),
+    };
+  }
+
   return {
     id: getField(raw, 'id', ''),
     createdAt: getField(raw, 'created', ''),
@@ -42,6 +64,10 @@ function mapBlog(raw: Record<string, unknown>) {
     publishedAt: getField(raw, 'published_at', ''),
     published: getField(raw, 'published', false),
     author,
+    societyId: getField(raw, 'society', ''),
+    eventId: getField(raw, 'event', ''),
+    society,
+    event,
   };
 }
 
@@ -52,7 +78,7 @@ export const getPublishedBlogs = createServerFn({ method: "GET" })
       const result = await pb.collection("blogs").getList(1, 50, {
         filter: "published = true",
         sort: "-published_at",
-        expand: "relation",
+        expand: "relation,society,event",
       });
       return (result.items || []).map(mapBlog);
     } catch (err) {
@@ -67,7 +93,7 @@ export const getBlogBySlug = createServerFn({ method: "GET" })
     try {
       const pb = getPB();
       const result = await pb.collection("blogs").getFirstListItem(`slug = "${slug}" && published = true`, {
-        expand: "relation",
+        expand: "relation,society,event",
       });
       return mapBlog(result);
     } catch (err) {
@@ -82,7 +108,7 @@ export const getAllBlogsAdmin = createServerFn({ method: "GET" })
       const ctx = await authenticateAdmin();
       // Admins (and chairs) can see all blogs
       const result = await ctx.pb.collection("blogs").getList(1, 100, {
-        expand: "relation", // The relation field in DB
+        expand: "relation,society,event", // The relation field in DB + society + event
       });
       return (result.items || []).map(mapBlog);
     } catch (err) {
@@ -103,6 +129,8 @@ const BlogCreateSchema = z.object({
   published: z.boolean().optional(),
   published_at: z.string().optional(),
   author: z.string().optional(), // ID of the author
+  societyId: z.string().optional(),
+  eventId: z.string().optional(),
 });
 
 export const createBlog = createServerFn({ method: "POST" })
@@ -123,6 +151,8 @@ export const createBlog = createServerFn({ method: "POST" })
       published: data.published,
       published_at: data.published_at,
       relation: data.author || ctx.userId, // use "relation" field
+      society: data.societyId || null,
+      event: data.eventId || null,
     };
 
     if (dbData.published && !dbData.published_at) {
@@ -157,6 +187,8 @@ export const updateBlog = createServerFn({ method: "POST" })
     if (updateData.published !== undefined) dbData.published = updateData.published;
     if (updateData.published_at !== undefined) dbData.published_at = updateData.published_at;
     if (updateData.author !== undefined) dbData.relation = updateData.author;
+    if (updateData.societyId !== undefined) dbData.society = updateData.societyId || null;
+    if (updateData.eventId !== undefined) dbData.event = updateData.eventId || null;
     
     // Auto-set published_at if publishing for the first time
     if (dbData.published === true && !dbData.published_at) {
@@ -175,4 +207,34 @@ export const deleteBlog = createServerFn({ method: "POST" })
     const ctx = await authenticateAdmin();
     await ctx.pb.collection("blogs").delete(id);
     return { success: true };
+  });
+
+export const getSocietiesForSelect = createServerFn({ method: "GET" })
+  .handler(async () => {
+    try {
+      const ctx = await authenticateAdmin();
+      const result = await ctx.pb.collection("societies").getList(1, 100, {
+        sort: "name",
+        fields: "id,name",
+      });
+      return result.items.map((s: any) => ({ id: s.id, name: s.name }));
+    } catch (err) {
+      console.error("Failed to fetch societies:", err);
+      return [];
+    }
+  });
+
+export const getEventsForSelect = createServerFn({ method: "GET" })
+  .handler(async () => {
+    try {
+      const ctx = await authenticateAdmin();
+      const result = await ctx.pb.collection("events").getList(1, 100, {
+        sort: "-date",
+        fields: "id,title",
+      });
+      return result.items.map((e: any) => ({ id: e.id, title: e.title }));
+    } catch (err) {
+      console.error("Failed to fetch events:", err);
+      return [];
+    }
   });

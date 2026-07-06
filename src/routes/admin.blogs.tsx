@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { useAuth } from "@/lib/auth-context"
-import { getAllBlogsAdmin, createBlog, updateBlog, deleteBlog } from "./api/-blogs"
+import { getAllBlogsAdmin, createBlog, updateBlog, deleteBlog, getSocietiesForSelect, getEventsForSelect } from "./api/-blogs"
 import { BlogForm, type BlogFormValues } from "@/components/admin/blog-form"
 import type { BlogPost } from "@/types"
 
@@ -63,6 +63,16 @@ function AdminBlogs() {
   const { data: blogs, isLoading } = useQuery({
     queryKey: ["admin-blogs"],
     queryFn: async () => await getAllBlogsAdmin(),
+  })
+
+  const { data: societies = [] } = useQuery({
+    queryKey: ["admin-societies-select"],
+    queryFn: async () => await getSocietiesForSelect(),
+  })
+
+  const { data: events = [] } = useQuery({
+    queryKey: ["admin-events-select"],
+    queryFn: async () => await getEventsForSelect(),
   })
 
   const createMutation = useMutation({
@@ -205,6 +215,8 @@ function AdminBlogs() {
           <div className="p-8 pt-6">
             <BlogForm
               initialData={editingBlog || undefined}
+              societies={societies}
+              events={events}
               onSubmit={handleFormSubmit}
               isPending={isPending}
               onCancel={() => setIsSheetOpen(false)}

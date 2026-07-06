@@ -33,18 +33,22 @@ const blogFormSchema = z.object({
   coverUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
   readMinutes: z.coerce.number().min(1).optional(),
   published: z.boolean().optional(),
+  societyId: z.string().optional(),
+  eventId: z.string().optional(),
 })
 
 export type BlogFormValues = z.infer<typeof blogFormSchema>
 
 interface BlogFormProps {
   initialData?: Partial<BlogPost>
+  societies?: { id: string; name: string }[]
+  events?: { id: string; title: string }[]
   onSubmit: (data: BlogFormValues) => void
   isPending: boolean
   onCancel: () => void
 }
 
-export function BlogForm({ initialData, onSubmit, isPending, onCancel }: BlogFormProps) {
+export function BlogForm({ initialData, societies = [], events = [], onSubmit, isPending, onCancel }: BlogFormProps) {
   const form = useForm<BlogFormValues>({
     resolver: zodResolver(blogFormSchema) as any,
     defaultValues: {
@@ -57,6 +61,8 @@ export function BlogForm({ initialData, onSubmit, isPending, onCancel }: BlogFor
       coverUrl: initialData?.coverUrl || "",
       readMinutes: initialData?.readMinutes || 5,
       published: initialData?.published ?? false,
+      societyId: initialData?.societyId || "none",
+      eventId: initialData?.eventId || "none",
     },
   })
 
@@ -74,7 +80,13 @@ export function BlogForm({ initialData, onSubmit, isPending, onCancel }: BlogFor
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit((data) => {
+        // Map "none" back to empty string before submitting
+        const submitData = { ...data };
+        if (submitData.societyId === "none") submitData.societyId = "";
+        if (submitData.eventId === "none") submitData.eventId = "";
+        onSubmit(submitData);
+      })} className="space-y-6">
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField
             control={form.control}
@@ -136,6 +148,58 @@ export function BlogForm({ initialData, onSubmit, isPending, onCancel }: BlogFor
                 <FormControl>
                   <Input placeholder="e.g. AI / ML" {...field} />
                 </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="societyId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Linked Society (Optional)</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a society" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {societies.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="eventId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Linked Event (Optional)</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select an event" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {events.map((e) => (
+                      <SelectItem key={e.id} value={e.id}>
+                        {e.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
