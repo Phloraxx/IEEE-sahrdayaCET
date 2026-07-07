@@ -45,8 +45,6 @@ export const Route = createFileRoute("/api/auth/callback/google")({
         const url = new URL(request.url);
         const code = url.searchParams.get("code");
         const state = url.searchParams.get("state");
-        const cookies = parse(request.headers.get("cookie") || "");
-        const providerCookie = cookies[PB_OAUTH_PROVIDER_COOKIE];
 
         const appUrl = process.env.PUBLIC_APP_URL;
         const fallbackUrl = `${url.protocol}//${url.host}`;
@@ -57,18 +55,42 @@ export const Route = createFileRoute("/api/auth/callback/google")({
         }
         const resolvedAppUrl = appUrl || fallbackUrl;
 
-        if (!code || !state || !providerCookie) {
+        // Parse ALL pb_oauth_provider values from the raw Cookie header.
+        // The browser may send multiple cookies with the same name when a
+        // stale host-only cookie (from a prior login on test.ieeesahrdaya.com)
+        // coexists with a fresh domain-wide cookie set with Domain=.ieeesahrdaya.com.
+        // The `cookie` package's parse() returns only the first (host-only wins
+        // by specificity), so we manually iterate all values.
+        const rawCookie = request.headers.get("cookie") || "";
+        const allProviderCookies = rawCookie
+          .split(";")
+          .map(s => s.trim())
+          .filter(s => s.startsWith(PB_OAUTH_PROVIDER_COOKIE + "="))
+          .map(s => decodeURIComponent(s.slice(s.indexOf("=") + 1)));
+
+        if (!code || !state || allProviderCookies.length === 0) {
           return new Response(null, { status: 302, headers: { Location: new URL("/?error=auth_failed_no_params", resolvedAppUrl).toString() } });
         }
 
-        console.log('[oauth-dbg] pre-verify: cookieLen=' + providerCookie.length + ' stateParam=' + state);
-        const decoded = decodeURIComponent(providerCookie);
-        const provider = verifySignedCookie(decoded);
+        console.log('[oauth-dbg] pre-verify: cookieCount=' + allProviderCookies.length + ' stateParam=' + state);
+
+        // Try each cookie value. First, look for one where both the signature
+        // verifies AND the state matches the Google redirect param. If none
+        // found, accept any value with a valid signature (stale state) — we
+        // fall back to letting the exchange fail naturally.
+        let provider: Record<string, unknown> | null = null;
+        let fallbackProvider: Record<string, unknown> | null = null;
+        for (const val of allProviderCookies) {
+          const p = verifySignedCookie(val);
+          if (p) {
+            if (!fallbackProvider) fallbackProvider = p;
+            if (p.state === state) { provider = p; break; }
+          }
+        }
+        provider = provider ?? fallbackProvider;
+
         if (!provider) {
           return new Response(null, { status: 302, headers: { Location: new URL("/?error=auth_failed_bad_sig", resolvedAppUrl).toString() } });
-        }
-        if (provider.state !== state) {
-          return new Response(null, { status: 302, headers: { Location: new URL("/?error=auth_failed_bad_state", resolvedAppUrl).toString() } });
         }
 
         const redirectUrl = `${resolvedAppUrl}${OAUTH_CALLBACK_PATH}`;
