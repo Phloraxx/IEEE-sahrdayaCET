@@ -3,7 +3,7 @@ import { parse, serialize } from "cookie";
 import { OAUTH_CALLBACK_PATH, PB_OAUTH_PROVIDER_COOKIE } from "@/lib/constants";
 import { logError } from "@/lib/logger";
 import PocketBase from "pocketbase";
-import { verifySignedCookie } from "@/lib/cookie-signing";
+import { signCookie, verifySignedCookie } from "@/lib/cookie-signing";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 /**
@@ -63,9 +63,12 @@ export const Route = createFileRoute("/api/auth/callback/google")({
 
         const decoded = decodeURIComponent(providerCookie);
         const dbgSep = decoded.lastIndexOf('.');
-        console.log('[oauth-cb] urlState=' + state + ' cookieLen=' + decoded.length + ' sep=' + dbgSep + ' dbgLast80=' + decoded.slice(-80));
+        const dbgPayload = decoded.slice(0, dbgSep);
+        const dbgSig = decoded.slice(dbgSep + 1);
+        const dbgExpected = dbgSep >= 1 ? signCookie(dbgPayload) : '(no sep)';
+        const dbgJsonOk = dbgSep >= 1 ? (() => { try { JSON.parse(dbgPayload); return true; } catch { return false; } })() : false;
+        console.log('[oauth-cb] urlState=' + state + ' cookieLen=' + decoded.length + ' sep=' + dbgSep + ' sig=' + dbgSig + ' expected=' + dbgExpected + ' jsonOk=' + dbgJsonOk + ' dbgLast80=' + decoded.slice(-80));
         const provider = verifySignedCookie(decoded);
-        console.log('[oauth-cb-res] provider=' + !!provider + ' cookieState=' + (provider?.state as string));
         if (!provider || provider.state !== state) {
           return new Response(null, { status: 302, headers: { Location: new URL("/?error=auth_failed_bad_state", resolvedAppUrl).toString() } });
         }
