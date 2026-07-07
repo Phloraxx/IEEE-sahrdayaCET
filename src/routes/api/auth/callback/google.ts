@@ -67,7 +67,7 @@ export const Route = createFileRoute("/api/auth/callback/google")({
         const dbgSig = decoded.slice(dbgSep + 1);
         const dbgExpected = dbgSep >= 1 ? signCookie(dbgPayload) : '(no sep)';
         const dbgJsonOk = dbgSep >= 1 ? (() => { try { JSON.parse(dbgPayload); return true; } catch { return false; } })() : false;
-        console.log('[oauth-cb] urlState=' + state + ' cookieLen=' + decoded.length + ' sep=' + dbgSep + ' sig=' + dbgSig + ' expected=' + dbgExpected + ' jsonOk=' + dbgJsonOk + ' dbgLast80=' + decoded.slice(-80));
+        console.log('[oauth-cb] urlState=' + state + ' cookieLen=' + decoded.length + ' sep=' + dbgSep + ' sig=' + dbgSig + ' expected=' + dbgExpected + ' jsonOk=' + dbgJsonOk + ' secretLen=' + (process.env.OAUTH_COOKIE_SECRET || '').length + ' payloadLen=' + dbgPayload.length + ' dbgLast80=' + decoded.slice(-80));
         const provider = verifySignedCookie(decoded);
         if (!provider || provider.state !== state) {
           return new Response(null, { status: 302, headers: { Location: new URL("/?error=auth_failed_bad_state", resolvedAppUrl).toString() } });
