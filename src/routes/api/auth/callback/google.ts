@@ -61,8 +61,13 @@ export const Route = createFileRoute("/api/auth/callback/google")({
           return new Response(null, { status: 302, headers: { Location: new URL("/?error=auth_failed_no_params", resolvedAppUrl).toString() } });
         }
 
-        const provider = verifySignedCookie(decodeURIComponent(providerCookie));
-        if (!provider || provider.state !== state) {
+        console.log('[oauth-dbg] pre-verify: cookieLen=' + providerCookie.length + ' stateParam=' + state);
+        const decoded = decodeURIComponent(providerCookie);
+        const provider = verifySignedCookie(decoded);
+        if (!provider) {
+          return new Response(null, { status: 302, headers: { Location: new URL("/?error=auth_failed_bad_sig", resolvedAppUrl).toString() } });
+        }
+        if (provider.state !== state) {
           return new Response(null, { status: 302, headers: { Location: new URL("/?error=auth_failed_bad_state", resolvedAppUrl).toString() } });
         }
 
