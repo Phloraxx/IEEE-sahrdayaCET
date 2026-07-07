@@ -3,7 +3,7 @@ import { parse, serialize } from "cookie";
 import { OAUTH_CALLBACK_PATH, PB_OAUTH_PROVIDER_COOKIE } from "@/lib/constants";
 import { logError } from "@/lib/logger";
 import PocketBase from "pocketbase";
-import { signCookie, verifySignedCookie } from "@/lib/cookie-signing";
+import { verifySignedCookie } from "@/lib/cookie-signing";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 /**
@@ -61,14 +61,12 @@ export const Route = createFileRoute("/api/auth/callback/google")({
           return new Response(null, { status: 302, headers: { Location: new URL("/?error=auth_failed_no_params", resolvedAppUrl).toString() } });
         }
 
-        const decoded = decodeURIComponent(providerCookie);
-        const dbgSep = decoded.lastIndexOf('.');
-        const dbgPayload = decoded.slice(0, dbgSep);
-        const dbgSig = decoded.slice(dbgSep + 1);
-        const dbgExpected = dbgSep >= 1 ? signCookie(dbgPayload) : '(no sep)';
-        const dbgJsonOk = dbgSep >= 1 ? (() => { try { JSON.parse(dbgPayload); return true; } catch { return false; } })() : false;
-        console.log('[oauth-cb] urlState=' + state + ' cookieLen=' + decoded.length + ' sep=' + dbgSep + ' sig=' + dbgSig + ' expected=' + dbgExpected + ' jsonOk=' + dbgJsonOk + ' secretLen=' + (process.env.OAUTH_COOKIE_SECRET || '').length + ' payloadLen=' + dbgPayload.length + ' dbgLast80=' + decoded.slice(-80));
-        const provider = verifySignedCookie(decoded);
+        // providerCookie from parse() is already URL-decoded. DO NOT call
+        // decodeURIComponent on it — PocketBase's authURL contains pre-encoded
+        // chars (%3A, %2F in the scope param) that survive single decode but
+        // get corrupted by a second decode, changing the payload string and
+        // causing an HMAC mismatch (verifySignedCookie returns null).
+        const provider = verifySignedCookie(providerCookie);
         if (!provider || provider.state !== state) {
           return new Response(null, { status: 302, headers: { Location: new URL("/?error=auth_failed_bad_state", resolvedAppUrl).toString() } });
         }

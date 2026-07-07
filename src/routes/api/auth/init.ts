@@ -57,10 +57,14 @@ export const Route = createFileRoute("/api/auth/init")({
 
           // Capture the page the user actually started login from (preview
           // domain, localhost, etc.) so the callback can redirect back there.
-          const origin = request.headers.get("origin") || request.headers.get("referer") || `${nextUrl.protocol}//${nextUrl.host}`;
+          // Normalize to origin (protocol + host) — the Referer header may
+          // include trailing slashes or query params that would break the
+          // single-flight guard's origin comparison.
+          const rawOrigin = request.headers.get("origin") || request.headers.get("referer") || `${nextUrl.protocol}//${nextUrl.host}`;
+          const origin = new URL(rawOrigin, rawOrigin.startsWith("http") ? undefined : "https://placeholder").origin;
 
           // ── Single-flight guard (prevents PKCE desync) ───────────────────
-          // PocketBase's `listAuthMethods()` mints a fresh PKCE codeVerifier
+          // pocketBase's `listAuthMethods()` mints a fresh PKCE codeVerifier
           // + state on every call. If a second init fires before the user
           // navigates to Google (React StrictMode double-invoke, a prefetch,
           // a double-click, or a retry), the second call overwrites the
@@ -74,19 +78,22 @@ export const Route = createFileRoute("/api/auth/init")({
           // WITHOUT calling listAuthMethods() again. The cookie carries the
           // authURL alongside the PKCE pair, so the cached authURL is
           // guaranteed to match the cached verifier.
+          //
+          // IMPORTANT: providerCookie from parse() is already URL-decoded.
+          // Do NOT call decodeURIComponent on it — PocketBase's authURL
+          // contains pre-encoded chars (%3A, %2F in the scope param) that
+          // survive single decode but get corrupted by a second decode,
+          // changing the payload string and causing HMAC mismatch.
           const existingCookies = parse(request.headers.get("cookie") || "");
           const existingSigned = existingCookies[PB_OAUTH_PROVIDER_COOKIE];
           if (existingSigned) {
-            const existing = verifySignedCookie(decodeURIComponent(existingSigned));
+            const existing = verifySignedCookie(existingSigned);
             if (
               existing &&
               typeof existing.authURL === "string" &&
               typeof existing.origin === "string" &&
               existing.origin === origin
             ) {
-              // Cookie is intact and matches this origin — return the cached
-              // authURL and don't touch the cookie, so the verifier in the
-              // cookie stays the one Google expects.
               return Response.json({ authURL: existing.authURL });
             }
           }
@@ -115,8 +122,6 @@ export const Route = createFileRoute("/api/auth/init")({
             authURL: fullAuthURL,
           });
           const signedCookie = `${payload}.${signCookie(payload)}`;
-
-          console.log('[oauth-init] state=' + provider.state + ' origin=' + origin + ' hasExisting=' + !!existingSigned + ' secretLen=' + (process.env.OAUTH_COOKIE_SECRET || '').length + ' payloadLen=' + payload.length + ' sig=' + signCookie(payload));
 
           const isProduction = process.env.NODE_ENV === "production";
           const response = Response.json({ authURL: fullAuthURL });
