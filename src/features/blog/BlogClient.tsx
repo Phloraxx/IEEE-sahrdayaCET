@@ -354,7 +354,7 @@ function FeaturedCard({
           </h3>
 
           <Link
-            to="/blog/$slug"
+            to="/blog/$slug/"
             params={{ slug: post.slug }}
             aria-label={`Read ${post.title}`}
             className={cn(
@@ -430,7 +430,7 @@ function SidebarColumn({ posts }: { posts: BlogPost[] }) {
             return (
               <li key={p.id} className="group">
                 <Link
-                  to="/blog/$slug"
+                  to="/blog/$slug/"
                   params={{ slug: p.slug }}
                   className="block border-b border-border/70 pb-3 last:border-b-0"
                 >
@@ -538,7 +538,7 @@ function TopicCard({ topic, index }: { topic: BlogTopic; index: number }) {
           return (
             <li key={p.id}>
               <Link
-                to="/blog/$slug"
+                to="/blog/$slug/"
                 params={{ slug: p.slug }}
                 className={cn(
                   "group flex items-center gap-3 border-t px-5 py-3.5 transition-colors",
