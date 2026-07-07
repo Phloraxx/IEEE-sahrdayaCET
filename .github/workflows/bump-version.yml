@@ -1,0 +1,205 @@
+name: Version
+
+# Versioning strategy (semver: MAJOR.MINOR.PATCH, build metadata: +build.N)
+#
+# The frontend reads `version` from package.json at build time
+# (src/components/TechnicalDetails.tsx), so package.json IS the source of
+# truth and CI must commit bumps to it.
+#
+# Triggers:
+# - PR opened/reopened/synchronize (base dev or main)
+#     -> bump package.json on the PR branch to <base>+build.<run>.pr<N>
+#     -> commit to the PR branch as github-actions[bot]
+#     -> append "[v<version>]" to the PR title
+# - PR merged into dev  -> strip build metadata, bump PATCH, commit to dev, tag vX.Y.(Z+1)
+# - PR merged into main -> strip build metadata, bump MINOR (patch=0), commit to main, tag vX.(Y+1).0
+# - Direct push to main/dev (no PR) -> same bump as merge, tagged on the pushed commit
+#
+# Commits made by GITHUB_TOKEN do NOT re-trigger workflows (GitHub anti-loop
+# protection), so this is safe from infinite loops. Requires that dev/main are
+# NOT protected, or that github-actions[bot] is allowed to push to them.
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+  push:
+    branches: [main, dev]
+
+permissions:
+  contents: write       # commit bumps + create tags
+  pull-requests: write  # edit PR title + labels
+
+concurrency:
+  group: version-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # --- Per-push bump on the PR branch (shows in preview builds) -------------
+  pr-bump:
+    if: |
+      github.event_name == 'pull_request' &&
+      github.event.action != 'closed' &&
+      (github.base_ref == 'dev' || github.base_ref == 'main') &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Compute build version
+        id: ver
+        run: |
+          BASE=$(jq -r .version package.json | sed 's/+.*//')
+          BUILD="${BASE}+build.${{ github.run_number }}.pr${{ github.event.pull_request.number }}"
+          echo "version=${BUILD}" >> "$GITHUB_OUTPUT"
+          jq --arg v "$BUILD" '.version = $v' package.json > package.json.tmp
+          mv package.json.tmp package.json
+      - name: Commit bump to PR branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json
+          if git diff --cached --quiet; then
+            echo "No version change, skipping commit"
+          else
+            git commit -m "chore(version): ${{ steps.ver.outputs.version }}"
+            git push
+          fi
+      - name: Append version to PR title
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const ver = `${{ steps.ver.outputs.version }}`;
+            const prNumber = ${{ github.event.pull_request.number }};
+            const cur = (await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber
+            })).data.title;
+            // Strip any existing trailing [v...] suffix, then re-append.
+            const base = cur.replace(/\s*\[v[^\]]+\]\s*$/, "").trim();
+            const next = `${base} [v${ver}]`;
+            if (next !== cur) {
+              await github.rest.pulls.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+                title: next
+              });
+            }
+
+  # --- Merge bump: dev -> patch, main -> minor ------------------------------
+  tag-on-merge:
+    if: |
+      github.event_name == 'pull_request' &&
+      github.event.action == 'closed' &&
+      github.event.pull_request.merged == true &&
+      (github.base_ref == 'dev' || github.base_ref == 'main')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.base_ref }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Compute next version
+        id: ver
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          # Idempotent: skip if HEAD (merge commit) already has a vX.Y.Z tag
+          if git tag --contains "$(git rev-parse HEAD)" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          CUR=$(jq -r .version package.json | sed 's/+.*//')
+          MAJOR=$(echo "$CUR" | cut -d. -f1)
+          MINOR=$(echo "$CUR" | cut -d. -f2)
+          PATCH=$(echo "$CUR" | cut -d. -f3 | sed 's/[^0-9].*$//')
+          if [ "$BASE_REF" = "main" ]; then
+            MINOR=$((MINOR + 1)); PATCH=0; KIND="minor"
+          else
+            PATCH=$((PATCH + 1)); KIND="patch"
+          fi
+          NEW="${MAJOR}.${MINOR}.${PATCH}"
+          jq --arg v "$NEW" '.version = $v' package.json > package.json.tmp
+          mv package.json.tmp package.json
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo "version=${NEW}" >> "$GITHUB_OUTPUT"
+          echo "kind=${KIND}" >> "$GITHUB_OUTPUT"
+      - name: Commit bump + tag
+        if: steps.ver.outputs.skip != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json
+          git commit -m "chore(release): v${{ steps.ver.outputs.version }} (${{ steps.ver.outputs.kind }} bump, merge of #${{ github.event.pull_request.number }})"
+          git push
+          git tag "v${{ steps.ver.outputs.version }}" -m "Release v${{ steps.ver.outputs.version }}"
+          git push origin "v${{ steps.ver.outputs.version }}"
+      - name: Job summary
+        if: steps.ver.outputs.skip != 'true'
+        run: |
+          echo "### Released v${{ steps.ver.outputs.version }}" >> "$GITHUB_STEP_SUMMARY
+          echo "${{ steps.ver.outputs.kind }} bump from merge of #${{ github.event.pull_request.number }} into \`${{ github.base_ref }}\`" >> "$GITHUB_STEP_SUMMARY"
+
+  # --- Direct push fallback (no PR) -----------------------------------------
+  tag-on-push:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Compute next version
+        id: ver
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          HEAD_SHA=$(git rev-parse HEAD)
+          # Skip if HEAD already tagged (tag-on-merge may have run)
+          if git tag --contains "$HEAD_SHA" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          # Skip PR merge commits — handled by tag-on-merge
+          if git log -1 --pretty=%s | grep -Eq '^Merge pull request'; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          # Skip our own release/version commits to avoid loops
+          if git log -1 --pretty=%s | grep -Eq '^chore\(release\)|^chore\(version\)'; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          CUR=$(jq -r .version package.json | sed 's/+.*//')
+          MAJOR=$(echo "$CUR" | cut -d. -f1)
+          MINOR=$(echo "$CUR" | cut -d. -f2)
+          PATCH=$(echo "$CUR" | cut -d. -f3 | sed 's/[^0-9].*$//')
+          if [ "$REF_NAME" = "main" ]; then
+            MINOR=$((MINOR + 1)); PATCH=0; KIND="minor"
+          else
+            PATCH=$((PATCH + 1)); KIND="patch"
+          fi
+          NEW="${MAJOR}.${MINOR}.${PATCH}"
+          jq --arg v "$NEW" '.version = $v' package.json > package.json.tmp
+          mv package.json.tmp package.json
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo "version=${NEW}" >> "$GITHUB_OUTPUT"
+          echo "kind=${KIND}" >> "$GITHUB_OUTPUT"
+      - name: Commit bump + tag
+        if: steps.ver.outputs.skip != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json
+          git commit -m "chore(release): v${{ steps.ver.outputs.version }} (${{ steps.ver.outputs.kind }} bump, direct push to ${{ github.ref_name }})"
+          git push
+          git tag "v${{ steps.ver.outputs.version }}" -m "Release v${{ steps.ver.outputs.version }}"
+          git push origin "v${{ steps.ver.outputs.version }}"

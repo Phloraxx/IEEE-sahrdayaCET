@@ -9,6 +9,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -25,9 +28,19 @@ jobs:
           path: node_modules
           key: node-modules-${{ runner.os }}-${{ hashFiles('bun.lock') }}
       - run: bun install
+      # Cache TS build artifacts so `tsc --noEmit` and `vite build` are faster
+      - uses: actions/cache@v4
+        with:
+          path: |
+            .tanstack
+            tsconfig.tsbuildinfo
+          key: tscache-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            tscache-${{ runner.os }}-
       - run: bun run build
       - run: bunx tsc --noEmit
       - run: bun run lint
+      - run: bun run test
 
   docker-build:
     if: github.event_name == 'pull_request'
