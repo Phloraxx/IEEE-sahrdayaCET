@@ -8,7 +8,7 @@ import type PocketBase from "pocketbase"
 
 /** Narrow a raw string to the AuthUser role union, defaulting to 'user' for safety. */
 function toAuthUserRole(role: string): AuthUser['role'] {
-  const valid: AuthUser['role'][] = ['admin', 'chair', 'user']
+  const valid: AuthUser['role'][] = ['admin', 'chair', 'user', 'content']
   return valid.includes(role as AuthUser['role']) ? (role as AuthUser['role']) : 'user'
 }
 
@@ -45,7 +45,7 @@ function readCookie(request?: Request): string {
 export async function authenticateAdmin(request?: Request): Promise<AdminContext> {
   const cookie = readCookie(request)
   const pb = createPB(cookie)
-  const { user } = await requireRole(["admin", "chair"], pb)
+  const { user } = await requireRole(["admin", "chair", "content"], pb)
   return { pb, userId: user.id, role: user.role || "" }
 }
 

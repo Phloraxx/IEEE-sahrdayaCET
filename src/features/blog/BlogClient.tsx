@@ -10,169 +10,43 @@ import Footer from "@/components/Footer";
 import type { BlogPost, BlogTopic } from "@/types";
 import { cn } from "@/lib/utils";
 
-/* ─────────────────────────────────────────────────────────────
-   FAKE DATA — will be replaced by a PocketBase loader later.
-   Cover images use Unsplash so we don't need any local assets.
-   ───────────────────────────────────────────────────────────── */
-
-const FEATURED: BlogPost[] = [
-  {
-    id: "f1",
-    title: "Inside RoboFest 2025: 36 Hours, 14 Bots, One Champion",
-    slug: "robofest-2025-recap",
-    excerpt:
-      "A behind-the-scenes recap of the largest robotics build-off our branch has ever hosted.",
-    coverUrl:
-      "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=900&auto=format&fit=crop&q=80",
-    readMinutes: 7,
-    topicLabel: "Robotics",
-    author: { name: "Ananya Krishnan", role: "RAS Chair" },
-    publishedAt: "2025-04-12",
-  },
-  {
-    id: "f2",
-    title: "We Trained a Tiny Transformer on a Raspberry Pi — Here's What Broke",
-    slug: "tiny-transformer-raspi",
-    excerpt:
-      "Edge ML is fun until your model is bigger than your RAM. A field report from our last AI hack night.",
-    coverUrl:
-      "https://images.unsplash.com/photo-1518770660439-4636190af475?w=900&auto=format&fit=crop&q=80",
-    readMinutes: 9,
-    topicLabel: "AI / ML",
-    author: { name: "Rahul Menon", role: "CS Society" },
-    publishedAt: "2025-03-28",
-  },
-  {
-    id: "f3",
-    title: "Women in Engineering: Why Our WIE Affinity Group Just Doubled",
-    slug: "wie-doubled",
-    excerpt:
-      "How a year of small, deliberate decisions turned WIE Sahrdaya into the most-joined affinity group on campus.",
-    coverUrl:
-      "https://images.unsplash.com/photo-1573164713988-8665fc963095?w=900&auto=format&fit=crop&q=80",
-    readMinutes: 5,
-    topicLabel: "Community",
-    author: { name: "Devika Suresh", role: "WIE Chair" },
-    publishedAt: "2025-03-15",
-  },
-];
-
-const SIDEBAR: BlogPost[] = [
-  {
-    id: "s1",
-    title: "The Art of Showing Up: Why Members Beat Talent",
-    slug: "art-of-showing-up",
-    author: { name: "Thomas Joseph" },
-  },
-  {
-    id: "s2",
-    title: "How I Survived My First Hackathon (And My Semester)",
-    slug: "first-hackathon",
-    author: { name: "Angela Jose" },
-  },
-  {
-    id: "s3",
-    title: "Soldering Teaches You Patience… or How to Tolerate Smoke",
-    slug: "soldering-patience",
-    author: { name: "Michael Winter" },
-  },
-  {
-    id: "s4",
-    title: "Ship Now, Refactor Later: Our New Branch Motto",
-    slug: "ship-now-refactor-later",
-    author: { name: "Budi Setiawan" },
-  },
-];
-
-const TOPICS: BlogTopic[] = [
-  {
-    key: "ai-ml",
-    label: "AI & Machine Learning",
-    tone: "cream",
-    blurb: "From transformers on toasters to honest reads on the hype cycle.",
-    posts: [
-      {
-        id: "ai1",
-        title: "From Excel to Embeddings: An Engineer's First ML Project",
-        slug: "excel-to-embeddings",
-        author: { name: "Thomas Joseph", photoUrl: "https://i.pravatar.cc/80?img=12" },
-      },
-      {
-        id: "ai2",
-        title: "Prompt, Don't Beg: Better Outputs with Less Effort",
-        slug: "prompt-dont-beg",
-        author: { name: "Aishwarya P.", photoUrl: "https://i.pravatar.cc/80?img=47" },
-      },
-      {
-        id: "ai3",
-        title: "Vibe Coding is Fine. Vibe Shipping is Not.",
-        slug: "vibe-coding-vs-shipping",
-        author: { name: "Hari Krishnan", photoUrl: "https://i.pravatar.cc/80?img=33" },
-      },
-    ],
-  },
-  {
-    key: "robotics",
-    label: "Robotics & Hardware",
-    tone: "lavender",
-    blurb: "Bots, boards, brushless motors and the occasional small fire.",
-    posts: [
-      {
-        id: "r1",
-        title: "Picking Your First Microcontroller Without Crying",
-        slug: "first-microcontroller",
-        author: { name: "Devika Suresh", photoUrl: "https://i.pravatar.cc/80?img=44" },
-      },
-      {
-        id: "r2",
-        title: "Line Followers, But Make Them Fast",
-        slug: "fast-line-followers",
-        author: { name: "Joel Mathew", photoUrl: "https://i.pravatar.cc/80?img=15" },
-      },
-      {
-        id: "r3",
-        title: "PCB Design Tips Nobody Told Us in Year One",
-        slug: "pcb-tips-year-one",
-        author: { name: "Sneha Raj", photoUrl: "https://i.pravatar.cc/80?img=23" },
-      },
-    ],
-  },
-  {
-    key: "events",
-    label: "Events & Branch Life",
-    tone: "dark",
-    blurb: "Recaps, lessons, and what we're brewing for next semester.",
-    posts: [
-      {
-        id: "e1",
-        title: "First-Time Volunteer: What to Expect on Event Day",
-        slug: "first-time-volunteer",
-        author: { name: "Akshay R.", photoUrl: "https://i.pravatar.cc/80?img=8" },
-      },
-      {
-        id: "e2",
-        title: "The Rookie Organizer: Surviving Your First Tech Fest",
-        slug: "rookie-organizer",
-        author: { name: "Meera Anand", photoUrl: "https://i.pravatar.cc/80?img=49" },
-      },
-      {
-        id: "e3",
-        title: "Crowd Control 101: Lessons from a Standing-Room Talk",
-        slug: "crowd-control-101",
-        author: { name: "Arjun Pillai", photoUrl: "https://i.pravatar.cc/80?img=11" },
-      },
-    ],
-  },
-];
-
-/* ─────────────────────────────────────────────────────────────
-   Page component
-   ───────────────────────────────────────────────────────────── */
-
-export default function BlogClient() {
+export default function BlogClient({ blogs = [] }: { blogs?: BlogPost[] }) {
   const [hovered, setHovered] = useState<string | null>(null);
-  const featured = useMemo(() => FEATURED, []);
-  const sidebar = useMemo(() => SIDEBAR, []);
+  
+  const featured = useMemo(() => {
+    return blogs.filter((b) => b.category === "IEEE").slice(0, 3);
+  }, [blogs]);
+  
+  const sidebar = useMemo(() => {
+    return blogs.filter((b) => b.category === "Society").slice(0, 4);
+  }, [blogs]);
+
+  const dynamicTopics = useMemo(() => {
+    // Group all blogs by topicLabel
+    const counts: Record<string, BlogPost[]> = {};
+    for (const b of blogs) {
+      if (!b.topicLabel) continue;
+      const label = b.topicLabel;
+      if (!counts[label]) counts[label] = [];
+      counts[label]!.push(b);
+    }
+    
+    // Sort by number of posts descending
+    const sortedLabels = Object.keys(counts).sort(
+      (a, b) => (counts[b]?.length ?? 0) - (counts[a]?.length ?? 0)
+    );
+    
+    // Take top 3 topics
+    const top3 = sortedLabels.slice(0, 3);
+    const tones: ("cream" | "lavender" | "dark")[] = ["cream", "lavender", "dark"];
+    
+    return top3.map((label, idx) => ({
+      key: label,
+      label: label,
+      tone: tones[idx],
+      posts: (counts[label] ?? []).slice(0, 3), // max 3 posts per card
+    })) as BlogTopic[];
+  }, [blogs]);
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-background text-foreground font-sans">
@@ -214,24 +88,21 @@ export default function BlogClient() {
         <div className="mt-14 mb-8 h-px w-full bg-border" />
 
         {/* ── Topics header row ────────────────────────────────── */}
-        <div className="mb-6 flex items-end justify-between">
+        <div className="mb-6 flex items-end justify-between" id="topics">
           <h2 className="text-xs font-extrabold uppercase tracking-[0.22em] text-accent">
             Browse topics
           </h2>
-          <button
-            type="button"
-            className="group inline-flex items-center gap-1 text-xs font-bold uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground"
-          >
-            See all topics
-            <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-          </button>
         </div>
 
         {/* ── Topic cards row ──────────────────────────────────── */}
         <section className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {TOPICS.map((topic, i) => (
-            <TopicCard key={topic.key} topic={topic} index={i} />
-          ))}
+          {dynamicTopics.length > 0 ? (
+            dynamicTopics.map((topic, i) => (
+              <TopicCard key={topic.key} topic={topic} index={i} />
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground col-span-full">No topics found yet.</p>
+          )}
         </section>
 
         {/* ── Newsletter ribbon ────────────────────────────────── */}
@@ -281,7 +152,7 @@ function EyebrowStrip() {
               {g.items.map((it) => (
                 <li
                   key={it}
-                  className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground"
                 >
                   {it}
                 </li>
@@ -483,7 +354,8 @@ function FeaturedCard({
           </h3>
 
           <Link
-            to="/blog"
+            to="/blog/$slug"
+            params={{ slug: post.slug }}
             aria-label={`Read ${post.title}`}
             className={cn(
               "relative z-20 grid h-12 w-12 shrink-0 place-items-center rounded-full text-accent-foreground shadow-lg transition-all",
@@ -558,7 +430,8 @@ function SidebarColumn({ posts }: { posts: BlogPost[] }) {
             return (
               <li key={p.id} className="group">
                 <Link
-                  to="/blog"
+                  to="/blog/$slug"
+                  params={{ slug: p.slug }}
                   className="block border-b border-border/70 pb-3 last:border-b-0"
                 >
                   <p className="text-sm font-semibold leading-snug text-foreground transition-colors group-hover:text-accent">
@@ -572,13 +445,14 @@ function SidebarColumn({ posts }: { posts: BlogPost[] }) {
         </ul>
       </div>
 
-      <Link
-        to="/blog"
+      <button
+        type="button"
+        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
         className="mt-6 inline-flex items-center justify-center gap-2 self-start rounded-full bg-foreground px-5 py-2.5 text-xs font-bold uppercase tracking-[0.18em] text-background transition-transform hover:scale-[1.02] active:scale-95"
       >
-        Visit blog
-        <ArrowRight className="h-3.5 w-3.5" />
-      </Link>
+        Back to top
+        <ArrowRight className="h-3.5 w-3.5 -rotate-90" />
+      </button>
     </motion.aside>
   );
 }
@@ -664,7 +538,8 @@ function TopicCard({ topic, index }: { topic: BlogTopic; index: number }) {
           return (
             <li key={p.id}>
               <Link
-                to="/blog"
+                to="/blog/$slug"
+                params={{ slug: p.slug }}
                 className={cn(
                   "group flex items-center gap-3 border-t px-5 py-3.5 transition-colors",
                   i === 0 ? "" : "",
@@ -803,7 +678,10 @@ function NewsletterRibbon() {
         </div>
 
         <form
-          onSubmit={(e) => e.preventDefault()}
+          onSubmit={(e) => {
+            e.preventDefault();
+            alert("Thanks for subscribing! We'll be in touch.");
+          }}
           className="flex w-full max-w-md flex-col gap-3 sm:flex-row"
         >
           <input

@@ -56,6 +56,14 @@ COPY . .
 # uses rename() which fails across filesystem boundaries (EXDEV).
 RUN bun run build
 
+# ─── Fix TanStack Start singleton getRouter() bug (#6924) ─────────
+# The built router bundle caches a singleton getRouter() that leaks
+# request-scoped state (including redirect) across SSR requests.
+# Patch it to return a fresh router per call instead of the cached singleton.
+RUN for f in /app/dist/server/assets/router-*.js; do \
+      sed -i '/function getRouter/,/^}/c\function getRouter() { return createRouter({routeTree,scrollRestoration:true,trailingSlash:"preserve"}); }' "$f"; \
+    done
+
 # ─── Production Runner ─────────────────────────────────────────
 FROM node:22-alpine AS runner
 WORKDIR /app
@@ -79,7 +87,7 @@ USER ieeeapp
 
 EXPOSE 3000
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD node -e "fetch('http://localhost:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD node -e "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 CMD ["node", "server-entry.mjs"]

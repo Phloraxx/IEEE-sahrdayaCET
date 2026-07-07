@@ -49,11 +49,19 @@ function addSecurityHeaders(res) {
     res.setHeader(key, value);
   }
 }
+
 const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB
   const server = createServer(async (req, res) => {
-    addSecurityHeaders(res);
     try {
       const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+
+      // Health check endpoint — bypasses SSR router.
+      if (url.pathname === '/health') {
+        addSecurityHeaders(res);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ok', uptime: process.uptime() }));
+        return;
+      }
 
       // Serve static files: try dist/client (Vite output), then public/ (raw assets)
       if (!url.pathname.startsWith('/api/') && !url.pathname.includes('..') && extname(url.pathname)) {
@@ -68,6 +76,7 @@ const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB
             const cacheControl = url.pathname.startsWith('/assets/')
               ? 'public, max-age=31536000, immutable'
               : 'public, max-age=86400';
+            addSecurityHeaders(res);
             res.writeHead(200, { 'Content-Type': mime, 'Cache-Control': cacheControl });
             res.end(readFileSync(filePath));
             return;
@@ -79,14 +88,27 @@ const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB
       await nodeHandler(req, res);
     } catch (err) {
       console.error('Server error:', err);
-      res.writeHead(500);
-      res.end('Internal Server Error');
+      if (!res.headersSent) {
+        addSecurityHeaders(res);
+        res.writeHead(500);
+        res.end('Internal Server Error');
+      }
     }
   });
 
   server.listen(PORT, () => {
     console.log(`IEEE Sahrdaya app listening on port ${PORT}`);
   });
+
+  // Graceful restart every 25 minutes to prevent TanStack Start router
+  // singleton state corruption (causes 307 redirect loops after ~30 min).
+  // Docker's restart: unless-stopped policy brings the process back in <2s.
+  const RESTART_INTERVAL_MS = 25 * 60 * 1000;
+  const jitter = Math.floor(Math.random() * 5 * 60 * 1000); // 0-5 min jitter
+  setTimeout(() => {
+    console.log(`Scheduled restart after ${Math.round((RESTART_INTERVAL_MS + jitter) / 60000)} min — closing gracefully...`);
+    server.close(() => process.exit(0));
+  }, RESTART_INTERVAL_MS + jitter);
 
   process.on('SIGTERM', () => {
     console.log('SIGTERM received — closing gracefully...');
