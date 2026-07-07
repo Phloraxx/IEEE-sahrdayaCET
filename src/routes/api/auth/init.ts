@@ -70,6 +70,8 @@ export const Route = createFileRoute("/api/auth/init")({
           const redirectUrl = `${appUrl}${OAUTH_CALLBACK_PATH}`;
           const fullAuthURL = `${provider.authURL}${redirectUrl}`;
 
+          console.log('[oauth-init] appUrl=' + appUrl + ' redirectUrl=' + redirectUrl + ' cookieDomain=' + (getCookieDomain(appUrl) || '(none)'));
+
           // Capture the page the user actually started login from (preview
           // domain, localhost, etc.) so the callback can redirect back there.
           const origin = request.headers.get("origin") || request.headers.get("referer") || `${nextUrl.protocol}//${nextUrl.host}`;

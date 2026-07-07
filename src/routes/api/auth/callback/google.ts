@@ -76,10 +76,13 @@ export const Route = createFileRoute("/api/auth/callback/google")({
 
         const cookieDomain = getCookieDomain(resolvedAppUrl);
 
+        console.log('[oauth-callback] resolvedAppUrl=' + resolvedAppUrl + ' redirectUrl=' + redirectUrl + ' cookieDomain=' + (cookieDomain || '(none)') + ' origin=' + (provider.origin || '(none)'));
+
         try {
           const pbUrl = process.env.POCKETBASE_URL;
           if (!pbUrl) throw new Error("Missing POCKETBASE_URL");
           const pb = new PocketBase(pbUrl);
+          console.log('[oauth-callback] exchanging with codeVerifier length=' + ((provider.codeVerifier as string) || '').length);
           await pb
             .collection("users")
             .authWithOAuth2Code(
