@@ -58,12 +58,12 @@ export const Route = createFileRoute("/api/auth/callback/google")({
         const resolvedAppUrl = appUrl || fallbackUrl;
 
         if (!code || !state || !providerCookie) {
-          return new Response(null, { status: 302, headers: { Location: new URL("/?error=auth_failed", resolvedAppUrl).toString() } });
+          return new Response(null, { status: 302, headers: { Location: new URL("/?error=auth_failed_no_params", resolvedAppUrl).toString() } });
         }
 
         const provider = verifySignedCookie(decodeURIComponent(providerCookie));
         if (!provider || provider.state !== state) {
-          return new Response(null, { status: 302, headers: { Location: new URL("/?error=auth_failed", resolvedAppUrl).toString() } });
+          return new Response(null, { status: 302, headers: { Location: new URL("/?error=auth_failed_bad_state", resolvedAppUrl).toString() } });
         }
 
         const redirectUrl = `${resolvedAppUrl}${OAUTH_CALLBACK_PATH}`;
@@ -75,6 +75,8 @@ export const Route = createFileRoute("/api/auth/callback/google")({
             : resolvedAppUrl;
 
         const cookieDomain = getCookieDomain(resolvedAppUrl);
+
+        console.log('[oauth-dbg] resolvedAppUrl=' + resolvedAppUrl + ' redirectUrl=' + redirectUrl + ' hasCookie=' + !!providerCookie + ' stateMatch=' + (provider?.state === state) + ' verifierLen=' + ((provider?.codeVerifier as string) || '').length);
 
         try {
           const pbUrl = process.env.POCKETBASE_URL;
@@ -120,7 +122,7 @@ export const Route = createFileRoute("/api/auth/callback/google")({
         } catch (err) {
           logError("oauth-callback", err);
           const isProduction = process.env.NODE_ENV === "production";
-          const response = new Response(null, { status: 302, headers: { Location: new URL("/?error=auth_failed", resolvedAppUrl).toString() } });
+          const response = new Response(null, { status: 302, headers: { Location: new URL("/?error=auth_failed_exchange", resolvedAppUrl).toString() } });
           response.headers.set(
             "Set-Cookie",
             serialize(PB_OAUTH_PROVIDER_COOKIE, "", {
