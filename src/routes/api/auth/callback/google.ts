@@ -85,6 +85,7 @@ export const Route = createFileRoute("/api/auth/callback/google")({
           const pbUrl = process.env.POCKETBASE_URL;
           if (!pbUrl) throw new Error("Missing POCKETBASE_URL");
           const pb = new PocketBase(pbUrl);
+          console.log('[oauth-cb] exchanging: redirectUrl=' + redirectUrl + ' verifierLen=' + ((provider.codeVerifier as string) || '').length + ' codeLen=' + (code || '').length);
           await pb
             .collection("users")
             .authWithOAuth2Code(
@@ -93,6 +94,7 @@ export const Route = createFileRoute("/api/auth/callback/google")({
               provider.codeVerifier as string,
               redirectUrl,
             );
+          console.log('[oauth-cb] exchange SUCCESS');
 
           const isProduction = process.env.NODE_ENV === "production";
           const response = new Response(null, { status: 302, headers: { Location: finalRedirect } });
@@ -124,6 +126,8 @@ export const Route = createFileRoute("/api/auth/callback/google")({
           return response;
         } catch (err) {
           logError("oauth-callback", err);
+          const errData = err && typeof err === 'object' ? JSON.stringify({ message: (err as any)?.message, data: (err as any)?.data, status: (err as any)?.status, response: (err as any)?.response }) : String(err);
+          console.log('[oauth-cb] exchange FAILED: ' + errData);
           const isProduction = process.env.NODE_ENV === "production";
           const response = new Response(null, { status: 302, headers: { Location: new URL("/?error=auth_failed_exchange", resolvedAppUrl).toString() } });
           response.headers.set(
