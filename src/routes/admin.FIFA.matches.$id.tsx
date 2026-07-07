@@ -17,13 +17,13 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { FIFA_MARKET_LABELS } from "@/schemas/fifa"
 
-export const Route = createFileRoute("/admin/FIFA/matches/$id")({
+export const Route = createFileRoute("/admin/FIFA/matches/$id/")({
   component: AdminFifaMatchDetail,
   errorComponent: ({ error }: { error: Error }) => (
     <div className="flex min-h-[50vh] items-center justify-center p-8 text-center">
       <div className="mx-auto max-w-md">
         <h1 className="text-xl font-semibold mb-2">{error?.message ?? "Something went wrong"}</h1>
-        <Link to="/admin/FIFA/matches" className="text-sm text-primary hover:underline">← Back to matches</Link>
+        <Link to="/admin/FIFA/matches/" className="text-sm text-primary hover:underline">← Back to matches</Link>
       </div>
     </div>
   ),
@@ -63,7 +63,7 @@ function AdminFifaMatchDetail() {
 
   return (
     <div>
-      <Link to="/admin/FIFA/matches" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+      <Link to="/admin/FIFA/matches/" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-3.5 w-3.5" /> All matches
       </Link>
 

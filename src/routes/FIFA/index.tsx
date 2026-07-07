@@ -78,7 +78,7 @@ export const Route = createFileRoute('/FIFA/')({
 })
 
 function FifaOverviewPage() {
-  const data = Route.useLoaderData()
+  const data = Route.useLoaderData() as OverviewData
 
   return (
     <FifaLayout active="home">
@@ -120,7 +120,7 @@ function FifaOverviewPage() {
         {/* Next match */}
         {data.nextMatch ? (
           <Link
-            to="/FIFA/matches/$id"
+            to="/FIFA/matches/$id/"
             params={{ id: data.nextMatch.id }}
             className="block rounded-lg border border-border bg-card p-5 hover:border-ieee-light-blue transition-colors mb-8"
           >
@@ -164,10 +164,10 @@ function FifaOverviewPage() {
 
         {/* Quick links */}
         <nav className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Link to="/FIFA/matches" className="rounded-lg border border-border bg-card p-3 text-center text-sm font-medium hover:border-ieee-light-blue transition-colors">Matches</Link>
-          <Link to="/FIFA/leaderboard" className="rounded-lg border border-border bg-card p-3 text-center text-sm font-medium hover:border-ieee-light-blue transition-colors">Leaderboard</Link>
-          <Link to="/FIFA/feed" className="rounded-lg border border-border bg-card p-3 text-center text-sm font-medium hover:border-ieee-light-blue transition-colors">Live feed</Link>
-          <Link to="/FIFA/dashboard" className="rounded-lg border border-border bg-card p-3 text-center text-sm font-medium hover:border-ieee-light-blue transition-colors">My dashboard</Link>
+          <Link to="/FIFA/matches/" className="rounded-lg border border-border bg-card p-3 text-center text-sm font-medium hover:border-ieee-light-blue transition-colors">Matches</Link>
+          <Link to="/FIFA/leaderboard/" className="rounded-lg border border-border bg-card p-3 text-center text-sm font-medium hover:border-ieee-light-blue transition-colors">Leaderboard</Link>
+          <Link to="/FIFA/feed/" className="rounded-lg border border-border bg-card p-3 text-center text-sm font-medium hover:border-ieee-light-blue transition-colors">Live feed</Link>
+          <Link to="/FIFA/dashboard/" className="rounded-lg border border-border bg-card p-3 text-center text-sm font-medium hover:border-ieee-light-blue transition-colors">My dashboard</Link>
         </nav>
       </div>
     </FifaLayout>

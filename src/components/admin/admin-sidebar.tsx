@@ -85,10 +85,10 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     label: "FIFA Predict",
-    href: "/admin/FIFA/matches",
+    href: "/admin/FIFA/matches/",
     icon: Trophy,
     description: "WC Predict '26",
-    adminOnly: true,
+    allowedRoles: ["admin"],
   },
 ];
 

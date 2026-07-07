@@ -11,7 +11,7 @@ import {
 import { toast } from "sonner"
 import { useState } from "react"
 
-export const Route = createFileRoute("/admin/FIFA/raffle")({
+export const Route = createFileRoute("/admin/FIFA/raffle/")({
   component: AdminFifaRaffle,
 })
 
