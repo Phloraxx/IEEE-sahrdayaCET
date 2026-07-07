@@ -59,7 +59,7 @@ export const Route = createFileRoute("/api/auth/init")({
           // domain, localhost, etc.) so the callback can redirect back there.
           const origin = request.headers.get("origin") || request.headers.get("referer") || `${nextUrl.protocol}//${nextUrl.host}`;
 
-          // ── Single-flight guard ────────────────────────────────────────
+          // ── Single-flight guard (prevents PKCE desync) ───────────────────
           // PocketBase's `listAuthMethods()` mints a fresh PKCE codeVerifier
           // + state on every call. If a second init fires before the user
           // navigates to Google (React StrictMode double-invoke, a prefetch,
