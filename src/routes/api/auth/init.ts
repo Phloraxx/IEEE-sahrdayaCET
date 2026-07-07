@@ -126,7 +126,26 @@ export const Route = createFileRoute("/api/auth/init")({
           const isProduction = process.env.NODE_ENV === "production";
           const response = Response.json({ authURL: fullAuthURL });
           const cookieDomain = getCookieDomain(appUrl);
-          response.headers.set(
+
+          // Clear any existing pb_oauth_provider cookies (both host-only and
+          // domain-wide) BEFORE setting the fresh one. A stale host-only
+          // cookie (from a login before Domain= was added) would otherwise
+          // be sent first by the browser (host-only wins by specificity) and
+          // shadow the fresh domain-wide cookie at the callback, causing a
+          // state/PKCE desync.
+          const clear = (d?: string) =>
+            serialize(PB_OAUTH_PROVIDER_COOKIE, "", {
+              httpOnly: true,
+              secure: isProduction,
+              sameSite: "lax",
+              path: "/",
+              maxAge: 0,
+              ...(d ? { domain: d } : {}),
+            });
+          response.headers.append("Set-Cookie", clear());
+          if (cookieDomain) response.headers.append("Set-Cookie", clear(cookieDomain));
+
+          response.headers.append(
             "Set-Cookie",
             serialize(PB_OAUTH_PROVIDER_COOKIE, signedCookie, {
               httpOnly: true,

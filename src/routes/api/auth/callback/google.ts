@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { parse, serialize } from "cookie";
+import { serialize } from "cookie";
 import { OAUTH_CALLBACK_PATH, PB_OAUTH_PROVIDER_COOKIE } from "@/lib/constants";
 import { logError } from "@/lib/logger";
 import PocketBase from "pocketbase";
@@ -45,8 +45,6 @@ export const Route = createFileRoute("/api/auth/callback/google")({
         const url = new URL(request.url);
         const code = url.searchParams.get("code");
         const state = url.searchParams.get("state");
-        const cookies = parse(request.headers.get("cookie") || "");
-        const providerCookie = cookies[PB_OAUTH_PROVIDER_COOKIE];
 
         const appUrl = process.env.PUBLIC_APP_URL;
         const fallbackUrl = `${url.protocol}//${url.host}`;
@@ -57,18 +55,43 @@ export const Route = createFileRoute("/api/auth/callback/google")({
         }
         const resolvedAppUrl = appUrl || fallbackUrl;
 
-        if (!code || !state || !providerCookie) {
+        // Parse ALL pb_oauth_provider values from the raw Cookie header.
+        // The browser may send multiple cookies with the same name when a
+        // stale host-only cookie (from a prior login before the Domain=
+        // attribute was added) coexists with a fresh domain-wide cookie set
+        // with Domain=.ieeesahrdaya.com. The `cookie` package's parse()
+        // returns only the first value (host-only wins by specificity), so we
+        // manually iterate all values to find the one matching this flow's
+        // state.
+        const rawCookie = request.headers.get("cookie") || "";
+        const allProviderCookies = rawCookie
+          .split(";")
+          .map(s => s.trim())
+          .filter(s => s.startsWith(PB_OAUTH_PROVIDER_COOKIE + "="))
+          .map(s => decodeURIComponent(s.slice(s.indexOf("=") + 1)));
+
+        if (!code || !state || allProviderCookies.length === 0) {
           return new Response(null, { status: 302, headers: { Location: new URL("/?error=auth_failed_no_params", resolvedAppUrl).toString() } });
         }
 
-        // providerCookie from parse() is already URL-decoded. DO NOT call
-        // decodeURIComponent on it — PocketBase's authURL contains pre-encoded
-        // chars (%3A, %2F in the scope param) that survive single decode but
-        // get corrupted by a second decode, changing the payload string and
-        // causing an HMAC mismatch (verifySignedCookie returns null).
-        const provider = verifySignedCookie(providerCookie);
-        if (!provider || provider.state !== state) {
-          return new Response(null, { status: 302, headers: { Location: new URL("/?error=auth_failed_bad_state", resolvedAppUrl).toString() } });
+        // Try each cookie value. Prefer one where BOTH the signature verifies
+        // AND the state matches the Google redirect param (this is the cookie
+        // for the current flow). Fall back to any valid-signature value only
+        // if none match (stale state — exchange will fail and surface the
+        // real Google error via the diagnostic logging below).
+        let provider: Record<string, unknown> | null = null;
+        let fallbackProvider: Record<string, unknown> | null = null;
+        for (const val of allProviderCookies) {
+          const p = verifySignedCookie(val);
+          if (p) {
+            if (!fallbackProvider) fallbackProvider = p;
+            if (p.state === state) { provider = p; break; }
+          }
+        }
+        provider = provider ?? fallbackProvider;
+
+        if (!provider) {
+          return new Response(null, { status: 302, headers: { Location: new URL("/?error=auth_failed_bad_sig", resolvedAppUrl).toString() } });
         }
 
         const redirectUrl = `${resolvedAppUrl}${OAUTH_CALLBACK_PATH}`;
@@ -81,11 +104,24 @@ export const Route = createFileRoute("/api/auth/callback/google")({
 
         const cookieDomain = getCookieDomain(resolvedAppUrl);
 
+        // Clear function for pb_oauth_provider — hoisted here so both the
+        // success path and the error path can clear both host-only and
+        // cross-domain cookie variants (preventing stale host-only cookies
+        // from overshadowing domain-wide ones on subsequent requests).
+        const clearCookie = (d?: string) =>
+          serialize(PB_OAUTH_PROVIDER_COOKIE, "", {
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: "lax",
+            path: "/",
+            maxAge: 0,
+            ...(d ? { domain: d } : {}),
+          });
+
         try {
           const pbUrl = process.env.POCKETBASE_URL;
           if (!pbUrl) throw new Error("Missing POCKETBASE_URL");
           const pb = new PocketBase(pbUrl);
-          console.log('[oauth-cb] exchanging: redirectUrl=' + redirectUrl + ' verifierLen=' + ((provider.codeVerifier as string) || '').length + ' codeLen=' + (code || '').length);
           await pb
             .collection("users")
             .authWithOAuth2Code(
@@ -94,9 +130,7 @@ export const Route = createFileRoute("/api/auth/callback/google")({
               provider.codeVerifier as string,
               redirectUrl,
             );
-          console.log('[oauth-cb] exchange SUCCESS');
 
-          const isProduction = process.env.NODE_ENV === "production";
           const response = new Response(null, { status: 302, headers: { Location: finalRedirect } });
 
           const authCookie = addCookieDomain(
@@ -110,37 +144,38 @@ export const Route = createFileRoute("/api/auth/callback/google")({
           );
           response.headers.set("Set-Cookie", authCookie);
 
-          // Clear the one-time OAuth provider cookie (PKCE verifier must not be reusable)
-          response.headers.append(
-            "Set-Cookie",
-            serialize(PB_OAUTH_PROVIDER_COOKIE, "", {
-              httpOnly: true,
-              secure: isProduction,
-              sameSite: "lax",
-              path: "/",
-              maxAge: 0,
-              ...(cookieDomain ? { domain: cookieDomain } : {}),
-            }),
-          );
+          // Clear pb_oauth_provider (PKCE verifier must not be reusable).
+          // Clear both host-only and domain-wide variants to prevent stale
+          // host-only cookies from shadowing future domain-wide cookies.
+          response.headers.append("Set-Cookie", clearCookie());
+          if (cookieDomain) response.headers.append("Set-Cookie", clearCookie(cookieDomain));
 
           return response;
         } catch (err) {
           logError("oauth-callback", err);
-          const errData = err && typeof err === 'object' ? JSON.stringify({ message: (err as any)?.message, data: (err as any)?.data, status: (err as any)?.status, response: (err as any)?.response }) : String(err);
-          console.log('[oauth-cb] exchange FAILED: ' + errData);
-          const isProduction = process.env.NODE_ENV === "production";
+
+          // PocketBase wraps Google's token-exchange error into a generic
+          // "Failed to fetch OAuth2 token" 400 and discards Google's actual
+          // error body (the real invalid_grant reason is in PB's Go server
+          // logs). We can't call Google directly (client_secret isn't
+          // available at runtime — it's only in PB's settings), so log the
+          // exact params we sent to PB so they can be compared against what
+          // init.ts baked into the authURL. The most common cause is a
+          // redirect_uri mismatch (stale cached authURL vs current
+          // PUBLIC_APP_URL) or a PKCE verifier desync from a stale cookie.
+          console.log("[oauth-cb] exchange FAILED. Params sent to PB:", {
+            provider: provider.name,
+            codeLen: (code || "").length,
+            verifierLen: ((provider.codeVerifier as string) || "").length,
+            redirectUrl,
+            stateMatch: provider.state === state,
+            cookieOrigin: provider.origin,
+            resolvedAppUrl,
+          });
+
           const response = new Response(null, { status: 302, headers: { Location: new URL("/?error=auth_failed_exchange", resolvedAppUrl).toString() } });
-          response.headers.set(
-            "Set-Cookie",
-            serialize(PB_OAUTH_PROVIDER_COOKIE, "", {
-              httpOnly: true,
-              secure: isProduction,
-              sameSite: "lax",
-              path: "/",
-              maxAge: 0,
-              ...(cookieDomain ? { domain: cookieDomain } : {}),
-            }),
-          );
+          response.headers.append("Set-Cookie", clearCookie());
+          if (cookieDomain) response.headers.append("Set-Cookie", clearCookie(cookieDomain));
           return response;
         }
       },
