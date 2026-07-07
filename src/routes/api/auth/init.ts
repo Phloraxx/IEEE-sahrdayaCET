@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { serialize } from "cookie";
+import { parse, serialize } from "cookie";
 import PocketBase from "pocketbase";
-import { signCookie } from "@/lib/cookie-signing";
+import { signCookie, verifySignedCookie } from "@/lib/cookie-signing";
 import { PB_OAUTH_PROVIDER_COOKIE, OAUTH_CALLBACK_PATH } from "@/lib/constants";
 import { logError } from "@/lib/logger";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
@@ -54,6 +54,43 @@ export const Route = createFileRoute("/api/auth/init")({
               { status: 500 },
             );
           }
+
+          // Capture the page the user actually started login from (preview
+          // domain, localhost, etc.) so the callback can redirect back there.
+          const origin = request.headers.get("origin") || request.headers.get("referer") || `${nextUrl.protocol}//${nextUrl.host}`;
+
+          // ── Single-flight guard ────────────────────────────────────────
+          // PocketBase's `listAuthMethods()` mints a fresh PKCE codeVerifier
+          // + state on every call. If a second init fires before the user
+          // navigates to Google (React StrictMode double-invoke, a prefetch,
+          // a double-click, or a retry), the second call overwrites the
+          // signed provider cookie with a NEW verifier — while the user
+          // opens the FIRST authURL. Google then issues a code bound to
+          // challenge #1, the callback sends verifier #2 → `invalid_grant`
+          // → "Failed to fetch OAuth2 token" 400.
+          //
+          // Fix: if a valid, unexpired provider cookie already exists for
+          // this same origin, reuse it verbatim and return its authURL
+          // WITHOUT calling listAuthMethods() again. The cookie carries the
+          // authURL alongside the PKCE pair, so the cached authURL is
+          // guaranteed to match the cached verifier.
+          const existingCookies = parse(request.headers.get("cookie") || "");
+          const existingSigned = existingCookies[PB_OAUTH_PROVIDER_COOKIE];
+          if (existingSigned) {
+            const existing = verifySignedCookie(decodeURIComponent(existingSigned));
+            if (
+              existing &&
+              typeof existing.authURL === "string" &&
+              typeof existing.origin === "string" &&
+              existing.origin === origin
+            ) {
+              // Cookie is intact and matches this origin — return the cached
+              // authURL and don't touch the cookie, so the verifier in the
+              // cookie stays the one Google expects.
+              return Response.json({ authURL: existing.authURL });
+            }
+          }
+
           const pb = new PocketBase(url);
           const authMethods = await pb.collection("users").listAuthMethods();
           const provider = authMethods.oauth2.providers.find(
@@ -70,17 +107,12 @@ export const Route = createFileRoute("/api/auth/init")({
           const redirectUrl = `${appUrl}${OAUTH_CALLBACK_PATH}`;
           const fullAuthURL = `${provider.authURL}${redirectUrl}`;
 
-          console.log('[oauth-init] appUrl=' + appUrl + ' redirectUrl=' + redirectUrl + ' cookieDomain=' + (getCookieDomain(appUrl) || '(none)'));
-
-          // Capture the page the user actually started login from (preview
-          // domain, localhost, etc.) so the callback can redirect back there.
-          const origin = request.headers.get("origin") || request.headers.get("referer") || `${nextUrl.protocol}//${nextUrl.host}`;
-
           const payload = JSON.stringify({
             name: provider.name,
             codeVerifier: provider.codeVerifier,
             state: provider.state,
             origin,
+            authURL: fullAuthURL,
           });
           const signedCookie = `${payload}.${signCookie(payload)}`;
 
