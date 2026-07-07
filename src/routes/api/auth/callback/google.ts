@@ -81,6 +81,20 @@ export const Route = createFileRoute("/api/auth/callback/google")({
 
         const cookieDomain = getCookieDomain(resolvedAppUrl);
 
+        // Clear function for pb_oauth_provider — hoisted here so both the
+        // success path and the error path can clear both host-only and
+        // cross-domain cookie variants (preventing stale host-only cookies
+        // from overshadowing domain-wide ones on subsequent requests).
+        const clearCookie = (d?: string) =>
+          serialize(PB_OAUTH_PROVIDER_COOKIE, "", {
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: "lax",
+            path: "/",
+            maxAge: 0,
+            ...(d ? { domain: d } : {}),
+          });
+
         console.log('[oauth-dbg] resolvedAppUrl=' + resolvedAppUrl + ' redirectUrl=' + redirectUrl + ' hasCookie=' + !!providerCookie + ' stateMatch=' + (provider?.state === state) + ' verifierLen=' + ((provider?.codeVerifier as string) || '').length);
 
         try {
@@ -96,7 +110,6 @@ export const Route = createFileRoute("/api/auth/callback/google")({
               redirectUrl,
             );
 
-          const isProduction = process.env.NODE_ENV === "production";
           const response = new Response(null, { status: 302, headers: { Location: finalRedirect } });
 
           const authCookie = addCookieDomain(
@@ -110,35 +123,16 @@ export const Route = createFileRoute("/api/auth/callback/google")({
           );
           response.headers.set("Set-Cookie", authCookie);
 
-          // Clear the one-time OAuth provider cookie (PKCE verifier must not be reusable)
-          response.headers.append(
-            "Set-Cookie",
-            serialize(PB_OAUTH_PROVIDER_COOKIE, "", {
-              httpOnly: true,
-              secure: isProduction,
-              sameSite: "lax",
-              path: "/",
-              maxAge: 0,
-              ...(cookieDomain ? { domain: cookieDomain } : {}),
-            }),
-          );
+          // Clear pb_oauth_provider (PKCE verifier must not be reusable).
+          response.headers.append("Set-Cookie", clearCookie());
+          if (cookieDomain) response.headers.append("Set-Cookie", clearCookie(cookieDomain));
 
           return response;
         } catch (err) {
           logError("oauth-callback", err);
-          const isProduction = process.env.NODE_ENV === "production";
           const response = new Response(null, { status: 302, headers: { Location: new URL("/?error=auth_failed_exchange", resolvedAppUrl).toString() } });
-          response.headers.set(
-            "Set-Cookie",
-            serialize(PB_OAUTH_PROVIDER_COOKIE, "", {
-              httpOnly: true,
-              secure: isProduction,
-              sameSite: "lax",
-              path: "/",
-              maxAge: 0,
-              ...(cookieDomain ? { domain: cookieDomain } : {}),
-            }),
-          );
+          response.headers.append("Set-Cookie", clearCookie());
+          if (cookieDomain) response.headers.append("Set-Cookie", clearCookie(cookieDomain));
           return response;
         }
       },

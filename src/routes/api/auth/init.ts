@@ -119,7 +119,26 @@ export const Route = createFileRoute("/api/auth/init")({
           const isProduction = process.env.NODE_ENV === "production";
           const response = Response.json({ authURL: fullAuthURL });
           const cookieDomain = getCookieDomain(appUrl);
-          response.headers.set(
+
+          // Clear any existing pb_oauth_provider cookies (host-only and
+          // domain-wide) to prevent a stale host-only cookie (from a prior
+          // login on test.ieeesahrdaya.com) from taking priority over the
+          // fresh domain-wide cookie at the callback — browsers send the
+          // most-specific-domain cookie first, so a stale host-only cookie
+          // would overshadow the new one and cause a state mismatch.
+          const clear = (d?: string) =>
+            serialize(PB_OAUTH_PROVIDER_COOKIE, "", {
+              httpOnly: true,
+              secure: isProduction,
+              sameSite: "lax",
+              path: "/",
+              maxAge: 0,
+              ...(d ? { domain: d } : {}),
+            });
+          response.headers.append("Set-Cookie", clear());
+          if (cookieDomain) response.headers.append("Set-Cookie", clear(cookieDomain));
+
+          response.headers.append(
             "Set-Cookie",
             serialize(PB_OAUTH_PROVIDER_COOKIE, signedCookie, {
               httpOnly: true,
