@@ -54,7 +54,20 @@ COPY . .
 
 # No --mount=type=cache for .tanstack/tmp — TanStack Router generator
 # uses rename() which fails across filesystem boundaries (EXDEV).
+# Remove stale .tanstack cache to force a fresh route tree generation.
+RUN rm -rf .tanstack
 RUN bun run build
+
+# Verify the generated route tree includes all FIFA API routes.
+# If any are missing, the build fails — prevents deploying a broken
+# preview that 404s on half the endpoints.
+RUN node -e "const t=require('./src/routeTree.gen.ts'); " 2>/dev/null || \
+    grep -q 'api/fifa/matches' src/routeTree.gen.ts && \
+    grep -q 'api/fifa/dashboard' src/routeTree.gen.ts && \
+    grep -q 'api/admin/fifa/matches' src/routeTree.gen.ts && \
+    grep -q 'api/admin/fifa/settings' src/routeTree.gen.ts && \
+    echo "route tree OK" || \
+    (echo "ERROR: route tree missing FIFA routes" && exit 1)
 
 # ─── Fix TanStack Start singleton getRouter() bug (#6924) ─────────
 # The built router bundle caches a singleton getRouter() that leaks
