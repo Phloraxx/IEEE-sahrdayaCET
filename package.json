@@ -20,7 +20,9 @@
     "generate:sitemap": "bun scripts/generate-sitemap.ts",
     "advance:execom-batch": "bun scripts/advance-execom-batch.ts",
     "migrate:coupons-to-collection": "bun scripts/migrate-coupons-to-collection.ts",
-    "migrate:indexes": "bun scripts/migrate-indexes.ts"
+    "migrate:indexes": "bun scripts/migrate-indexes.ts",
+    "migrate:game-schema": "bun scripts/migrate-game-schema.ts",
+    "migrate:game-backfill": "bun scripts/migrate-game-backfill.ts"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.9",

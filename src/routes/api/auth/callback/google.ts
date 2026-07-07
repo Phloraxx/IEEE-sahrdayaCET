@@ -38,6 +38,12 @@ export const Route = createFileRoute("/api/auth/callback/google")({
         }
 
         const redirectUrl = `${resolvedAppUrl}${OAUTH_CALLBACK_PATH}`;
+        // Where to send the user after login. Defaults to the stable app URL,
+        // but respects the origin they started from (preview domains, etc.).
+        const finalRedirect =
+          typeof provider.origin === "string" && provider.origin
+            ? provider.origin
+            : resolvedAppUrl;
 
         try {
           const pbUrl = process.env.POCKETBASE_URL;
@@ -53,7 +59,7 @@ export const Route = createFileRoute("/api/auth/callback/google")({
             );
 
           const isProduction = process.env.NODE_ENV === "production";
-          const response = new Response(null, { status: 302, headers: { Location: resolvedAppUrl } });
+          const response = new Response(null, { status: 302, headers: { Location: finalRedirect } });
 
           const authCookie = pb.authStore.exportToCookie({
               httpOnly: true,

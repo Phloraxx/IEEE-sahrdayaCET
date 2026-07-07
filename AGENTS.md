@@ -31,6 +31,8 @@ College of Engineering & Technology.
 | `bun run migrate:pb-rules` | Apply PocketBase collection API rules (`scripts/migrate-pb-rules.ts`) — source of truth for security rules |
 | `bun run migrate:events` | Migrate events (`scripts/migrate-events.ts`) |
 | `bun run migrate:indexes` | Apply DB indexes (`scripts/migrate-indexes.ts`) |
+| `bun run migrate:game-schema` | Create FIFA game collections (`scripts/migrate-game-schema.ts`) — run once after schema changes |
+| `bun run migrate:game-backfill` | Seed FIFA settings + grant starting balance to existing users (`scripts/migrate-game-backfill.ts`) |
 | `bun run generate:sitemap` | Generate sitemap (`scripts/generate-sitemap.ts`) |
 | `docker compose up` | App via `docker-compose.yml`; PocketBase via separate `docker-compose.pb.yml` |
 
@@ -236,3 +238,102 @@ Current hardening:
   to registeredCount, checkedInCount, isDeleted.
 - **No CSP**: enforced by both Caddy and server-entry.mjs.
 - **Webhook amount**: required on success; failed payments re-confirmable.
+
+## FIFA WC Predict '26
+
+A points-based match prediction game (fake points, no real money) for the
+2026 FIFA World Cup, layered on top of the existing site. Free to enter,
+college-email-only (Google OAuth internal-only), sponsor voucher prize via
+weighted raffle. **Not a gambling product** — no payment integration, no
+real currency anywhere.
+
+### Routes
+
+- **Public (no auth):** `/FIFA` (overview), `/FIFA/matches`,
+  `/FIFA/matches/$id` (betting UI unlocks when logged in), `/FIFA/leaderboard`,
+  `/FIFA/feed`.
+- **Authenticated:** `/FIFA/dashboard` (balance, bets, transactions).
+- **Admin (`role = 'admin'` only, NOT chair):** `/admin/FIFA/*` (matches,
+  markets, settle, settings, raffle — admin pages TBD, API routes exist).
+
+### PocketBase collections (all prefixed `fifa_`)
+
+| Collection | Type | Key fields |
+|-----------|------|-----------|
+| `fifa_matches` | Base | team_home, team_away, stage, kickoff_at, betting_locks_at, status, result_*, settled |
+| `fifa_bet_markets` | Base | match (rel), market_type, mode (pool/fixed), line, fixed_odds, options, is_open, void, pool_total, pool_by_option (hook-maintained) |
+| `fifa_bets` | Base | user (rel), match (rel), market (rel), selection, stake, mode, odds_locked, status, payout |
+| `fifa_transactions` | Base | user (rel), type, amount, balance_after, ref_bet (rel), note — ledger, hook-only writes |
+| `fifa_settings` | Base | singleton — event_name, starting_balance, max_bet_percent, daily_topup_*, raffle_*, prize, registration_open |
+| `fifa_raffle_draws` | Base | drawn_at, winner (rel), entries_snapshot (json), seed |
+| `fifa_feed_events` | Base | type, user (rel), match (rel), message — public live feed |
+| `users` (extended) | Auth | + display_name (unique), balance (hook-only) |
+
+### Game logic — `pb_hooks/fifa.pb.js` (single file)
+
+All balance-affecting logic runs server-side in PB hooks, mirroring the
+`registrations.pb.js` pattern. The TanStack routes authenticate + scope,
+then write with the user's own client; the hooks enforce invariants at the
+DB layer.
+
+- **Starting grant:** `onRecordAfterCreateSuccess` on `users` sets
+  `balance = starting_balance`, writes a `starting_grant` transaction.
+- **Settings singleton guard:** `onRecordCreateRequest` on `fifa_settings`
+  rejects a second row.
+- **Bet create:** `onRecordCreateRequest` on `fifa_bets` validates market
+  open + before `betting_locks_at` + stake ≤ balance + stake ≤
+  `max_bet_percent`%, snapshots `odds_locked`, pins `user` to caller.
+  `onRecordAfterCreateSuccess` deducts balance, writes `bet_placed`
+  transaction, recomputes market pool counters (self-healing), emits feed
+  event. **TOCTOU self-heal:** re-reads balance post-commit; if negative
+  from concurrent bets, voids + refunds (mirrors `registrations.pb.js:263`).
+- **Settlement:** `routerAdd("POST","/api/fifa/settle")` admin-gated via
+  `e.auth` role. Idempotent (skips settled bets, marks `match.settled=true`
+  LAST). Per-market-type payout logic mirrors `src/lib/fifa-payout.ts`
+  (unit-tested). Pool: `(stake/total_winning_stakes) × pool × (1−cut)`; no
+  winners → void + refund all. Fixed: `stake × odds_locked`.
+- **Daily top-up:** `cronAdd("fifa-daily-topup","0 9 * * *")` tops anyone
+  under `daily_topup_threshold` to `daily_topup_target`, idempotent via
+  today's `daily_topup` transaction check.
+- **Raffle:** `routerAdd("POST","/api/fifa/raffle")` admin-gated. Builds
+  ticket list from leaderboard: `max(1, base − decay×(rank−1))`. Weighted
+  random pick. Stores `entries_snapshot` + `seed` + `winner` for
+  transparency.
+- **Leaderboard + feed:** `routerAdd("GET","/api/fifa/leaderboard")` and
+  `/api/fifa/feed` — public custom routes using internal `$app` access
+  (bypasses `users` listRule, same bypass as `coupons.pb.js`).
+
+### Realtime (SSE)
+
+Public collections (`fifa_feed_events`, `fifa_bet_markets`, `fifa_matches`)
+subscribe via the same-origin `/pb` proxy. `POCKETBASE_URL` stays
+server-side; Caddy rewrites `/pb/*` → `pb:8090` (`flush_interval -1` for
+SSE), Vite dev proxy does the same. Client helper: `src/lib/pb-client.ts`,
+hook: `src/hooks/use-pb-subscription.ts`. Authed data (dashboard, own bets)
+is polled via React Query (HttpOnly cookie blocks authed SSE). Leaderboard
+polled every 15s (custom route, not a collection — SSE can't fire).
+
+### Security rules (`scripts/migrate-pb-rules.ts`)
+
+- `users.updateRule` forbids `balance` changes (hook-only).
+- `fifa_transactions` create/update/delete = `null` (hooks only).
+- `fifa_bets` create pins `user = @request.auth.id`, forbids
+  `status`/`payout`/`odds_locked` writes; update/delete = `null`.
+- `fifa_bet_markets` admin-only writes (pool counters are hook-maintained).
+- Public reads on matches/markets/settings/feed/raffle.
+
+### Design context
+
+`PRODUCT.md` (register, users, brand personality) and `DESIGN.md` (inherited
+tokens, typography, components) at project root — written via the Impeccable
+skill (`/impeccable init`). The FIFA game inherits the IEEE blue palette and
+Anton/Inter typography from `globals.css`; it does not invent new tokens.
+
+### Acceptable risks (small-event scale)
+
+- **Concurrent-bet TOCTOU:** post-commit self-heal voids the loser. Fine for
+  fake points at ~100 students.
+- **Pool counter races:** recompute-from-live-bets (self-healing, not atomic
+  increment). Same pattern as `registeredCount`.
+- **Settlement is sequential saves, not one transaction:** idempotency makes
+  a crash re-runnable.

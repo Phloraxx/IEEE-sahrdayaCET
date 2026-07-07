@@ -9,6 +9,7 @@ import {
   Moon,
   ScanLine,
   Sun,
+  Trophy,
   UserCheck,
   Users,
   X,
@@ -81,6 +82,13 @@ const NAV_ITEMS: NavItem[] = [
     icon: UserCheck,
     description: "Committee",
     allowedRoles: ["admin"],
+  },
+  {
+    label: "FIFA Predict",
+    href: "/admin/FIFA/matches",
+    icon: Trophy,
+    description: "WC Predict '26",
+    adminOnly: true,
   },
 ];
 
