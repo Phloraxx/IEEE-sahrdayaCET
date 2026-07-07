@@ -21,9 +21,17 @@ export const Route = createFileRoute("/api/auth/init")({
             );
           }
           const nextUrl = new URL(request.url);
-          const appUrl =
-            process.env.PUBLIC_APP_URL ||
-            `${nextUrl.protocol}//${nextUrl.host}`;
+          // OAuth redirect_uri must be a single stable, pre-registered URL in
+          // Google Cloud Console (Google does NOT allow wildcards). We therefore
+          // use PUBLIC_APP_URL for the OAuth callback and redirect the user back
+          // to their actual origin/preview domain after the exchange.
+          const appUrl = process.env.PUBLIC_APP_URL;
+          if (!appUrl) {
+            return Response.json(
+              { error: "Server configuration error — PUBLIC_APP_URL not set" },
+              { status: 500 },
+            );
+          }
           const pb = new PocketBase(url);
           const authMethods = await pb.collection("users").listAuthMethods();
           const provider = authMethods.oauth2.providers.find(
@@ -40,10 +48,15 @@ export const Route = createFileRoute("/api/auth/init")({
           const redirectUrl = `${appUrl}${OAUTH_CALLBACK_PATH}`;
           const fullAuthURL = `${provider.authURL}${redirectUrl}`;
 
+          // Capture the page the user actually started login from (preview
+          // domain, localhost, etc.) so the callback can redirect back there.
+          const origin = request.headers.get("origin") || request.headers.get("referer") || `${nextUrl.protocol}//${nextUrl.host}`;
+
           const payload = JSON.stringify({
             name: provider.name,
             codeVerifier: provider.codeVerifier,
             state: provider.state,
+            origin,
           });
           const signedCookie = `${payload}.${signCookie(payload)}`;
 
