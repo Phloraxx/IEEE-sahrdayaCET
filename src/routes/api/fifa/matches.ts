@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createPB } from "@/lib/pb.server"
+import { escapeFilterValue } from "@/lib/pb";
 import { handleError } from "@/lib/api-error";
 import { getField } from "@/lib/safe-get";
 
@@ -13,7 +14,7 @@ export const Route = createFileRoute("/api/fifa/matches")({
           const pb = createPB();
           const url = new URL(request.url);
           const stage = url.searchParams.get("stage");
-          const filter = stage ? `stage = '${stage}'` : undefined;
+          const filter = stage ? `stage = ${escapeFilterValue(stage)}` : undefined;
 
           const matches = await pb.collection("fifa_matches").getFullList({
             filter,
@@ -25,8 +26,10 @@ export const Route = createFileRoute("/api/fifa/matches")({
           const matchIds = matches.map((m) => getField(m, 'id', '')).filter(Boolean);
           const marketsByMatch: Record<string, unknown[]> = {};
           if (matchIds.length > 0) {
+            // Build "match = 'id1' || match = 'id2' || ..." safely
+            const matchFilter = matchIds.map((id) => `match = ${escapeFilterValue(id)}`).join(' || ');
             const markets = await pb.collection("fifa_bet_markets").getFullList({
-              filter: `match ?= "${matchIds.join('","')}"`,
+              filter: matchFilter,
               fields: "id,match,market_type,mode,line,fixed_odds,options,is_open,void,pool_total,pool_by_option",
             });
             for (const mkt of markets) {

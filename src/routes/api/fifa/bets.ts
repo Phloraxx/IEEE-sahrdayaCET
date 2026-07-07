@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createPB } from "@/lib/pb.server"
+import { escapeFilterValue } from "@/lib/pb";
 import { requireAuth } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 import { verifySameOrigin } from "@/lib/verify-same-origin";
@@ -20,9 +21,9 @@ export const Route = createFileRoute("/api/fifa/bets")({
           const matchId = url.searchParams.get("match");
           const status = url.searchParams.get("status");
 
-          const parts: string[] = [`user = '${user.id}'`];
-          if (matchId) parts.push(`match = '${matchId}'`);
-          if (status) parts.push(`status = '${status}'`);
+          const parts: string[] = [`user = ${escapeFilterValue(user.id)}`];
+          if (matchId) parts.push(`match = ${escapeFilterValue(matchId)}`);
+          if (status) parts.push(`status = ${escapeFilterValue(status)}`);
           const filter = parts.join(" && ");
 
           const result = await pb.collection("fifa_bets").getList(1, 100, {

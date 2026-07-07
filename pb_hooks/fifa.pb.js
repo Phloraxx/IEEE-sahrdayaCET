@@ -762,6 +762,11 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
             var stake = jb.bet.getInt("stake") || 0
             var mode = jb.bet.getString("mode") || "pool"
             var oddsLocked = jb.bet.getInt("odds_locked") || 0
+            // CRITICAL: only pay out bets that were pending before this run.
+            // judgeBetJS is idempotent (returns existing status for already-
+            // settled bets), but without this guard a crash-recovery re-run
+            // would call applyDelta AGAIN for already-paid bets → double pay.
+            var wasPending = jb.bet.getString("status") === "pending"
             var payout = computePayoutJS(stake, mode, oddsLocked, jb.outcome, totalPool, totalWinningStakes, houseCutPercent)
 
             jb.bet.set("status", jb.outcome)
@@ -769,10 +774,10 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
             dao.saveRecord(jb.bet)
             settledCount++
 
-            // Pay out (or refund) via transaction. applyDelta re-reads the
-            // current balance from the DB each call, so multiple payouts to
-            // the same user in one settle call compose correctly.
-            if (jb.outcome === "won" || jb.outcome === "void") {
+            // Only credit the user if this bet was newly settled (was pending).
+            // Already-settled bets (from a partial earlier run) keep their
+            // status but don't get paid again.
+            if (wasPending && (jb.outcome === "won" || jb.outcome === "void")) {
                 var userId = jb.bet.getString("user")
                 var txType = jb.outcome === "void" ? "bet_refund" : "bet_payout"
                 var note = jb.outcome === "void" ? "Bet voided — refund" : "Bet won — payout"

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { useQuery, useMutation } from "@tanstack/react-query"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useState, useEffect } from "react"
 import { Loader2 } from "lucide-react"
 import { PanelHeader } from "@/components/admin/panel-header"
@@ -39,6 +39,7 @@ async function fetchSettings(): Promise<Settings> {
 }
 
 function AdminFifaSettings() {
+  const queryClient = useQueryClient()
   const { data, isLoading } = useQuery({ queryKey: ['admin-fifa-settings'], queryFn: fetchSettings })
   const [form, setForm] = useState<Settings | null>(null)
 
@@ -74,6 +75,7 @@ function AdminFifaSettings() {
     },
     onSuccess: () => {
       toast.success('Settings saved')
+      queryClient.invalidateQueries({ queryKey: ['admin-fifa-settings'] })
     },
     onError: (e: Error) => toast.error(e.message),
   })

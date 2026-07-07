@@ -3,6 +3,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createPB } from '@/lib/pb.server'
+import { escapeFilterValue } from '@/lib/pb'
 import { getField } from '@/lib/safe-get'
 import { FifaLayout } from '@/features/fifa/fifa-layout'
 import { useAuth } from '@/lib/auth-context'
@@ -45,7 +46,7 @@ const fetchMatch = createServerFn()
     try {
       const m = await pb.collection('fifa_matches').getOne(id, { fields: 'id,team_home,team_away,stage,kickoff_at,betting_locks_at,status,result_winner,result_home_goals,result_away_goals,settled' })
       const markets = await pb.collection('fifa_bet_markets').getFullList({
-        filter: `match = "${id}"`,
+        filter: `match = ${escapeFilterValue(id)}`,
         fields: 'id,market_type,mode,line,fixed_odds,options,is_open,void,pool_total,pool_by_option',
       })
       return {

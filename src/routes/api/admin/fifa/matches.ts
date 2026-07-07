@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createPB } from "@/lib/pb.server"
+import { escapeFilterValue } from "@/lib/pb";
 import { requireRole } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 import { parsePagination, buildFilter } from "@/lib/route-helpers";
@@ -22,8 +23,8 @@ export const Route = createFileRoute("/api/admin/fifa/matches")({
           const stage = url.searchParams.get("stage");
 
           const parts: string[] = [];
-          if (status) parts.push(`status = '${status}'`);
-          if (stage) parts.push(`stage = '${stage}'`);
+          if (status) parts.push(`status = ${escapeFilterValue(status)}`);
+          if (stage) parts.push(`stage = ${escapeFilterValue(stage)}`);
           const filter = buildFilter(parts);
 
           const result = await pb.collection("fifa_matches").getList(page, perPage, {

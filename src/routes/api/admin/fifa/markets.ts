@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createPB } from "@/lib/pb.server"
+import { escapeFilterValue } from "@/lib/pb";
 import { requireRole } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 import { verifySameOrigin } from "@/lib/verify-same-origin";
@@ -16,7 +17,7 @@ export const Route = createFileRoute("/api/admin/fifa/markets")({
           await requireRole(["admin"], pb);
           const url = new URL(request.url);
           const matchId = url.searchParams.get("match");
-          const filter = matchId ? `match = '${matchId}'` : undefined;
+          const filter = matchId ? `match = ${escapeFilterValue(matchId)}` : undefined;
           const result = await pb.collection("fifa_bet_markets").getFullList({
             filter,
             sort: "created",

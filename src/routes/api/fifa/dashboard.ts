@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createPB } from "@/lib/pb.server"
+import { escapeFilterValue } from "@/lib/pb";
 import { requireAuth } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
-import { getField } from "@/lib/safe-get";
+import { getField, getExpand } from "@/lib/safe-get";
 
 // Authed: the player's own dashboard — balance, display_name, recent bets,
 // and recent transactions. Polled every ~10s by the client.
@@ -23,20 +24,17 @@ export const Route = createFileRoute("/api/fifa/dashboard")({
 
           const [bets, transactions] = await Promise.all([
             pb.collection("fifa_bets").getList(1, 20, {
-              filter: `user = '${user.id}'`,
+              filter: `user = ${escapeFilterValue(user.id)}`,
               sort: "-placed_at",
               expand: "match,market",
               fields: "id,selection,stake,mode,odds_locked,status,payout,placed_at,match,market,expand",
             }),
             pb.collection("fifa_transactions").getList(1, 30, {
-              filter: `user = '${user.id}'`,
+              filter: `user = ${escapeFilterValue(user.id)}`,
               sort: "-created",
               fields: "id,type,amount,balance_after,note,created",
             }),
           ]);
-
-          // Import getExpand here to avoid a top-level cycle (small file)
-          const { getExpand } = await import("@/lib/safe-get");
 
           return Response.json({
             user: {
