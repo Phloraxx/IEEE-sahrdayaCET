@@ -62,6 +62,7 @@ export const Route = createFileRoute("/api/auth/callback/google")({
         }
 
         const provider = verifySignedCookie(decodeURIComponent(providerCookie));
+        console.log('[oauth-cb] provider=' + !!provider + ' cookieState=' + (provider?.state as string) + ' urlState=' + state + ' match=' + (provider?.state === state) + ' verifierLen=' + ((provider?.codeVerifier as string) || '').length + ' origin=' + (provider?.origin as string));
         if (!provider || provider.state !== state) {
           return new Response(null, { status: 302, headers: { Location: new URL("/?error=auth_failed_bad_state", resolvedAppUrl).toString() } });
         }
@@ -75,8 +76,6 @@ export const Route = createFileRoute("/api/auth/callback/google")({
             : resolvedAppUrl;
 
         const cookieDomain = getCookieDomain(resolvedAppUrl);
-
-        console.log('[oauth-dbg] resolvedAppUrl=' + resolvedAppUrl + ' redirectUrl=' + redirectUrl + ' hasCookie=' + !!providerCookie + ' stateMatch=' + (provider?.state === state) + ' verifierLen=' + ((provider?.codeVerifier as string) || '').length);
 
         try {
           const pbUrl = process.env.POCKETBASE_URL;

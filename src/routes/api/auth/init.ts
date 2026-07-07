@@ -107,6 +107,8 @@ export const Route = createFileRoute("/api/auth/init")({
           const redirectUrl = `${appUrl}${OAUTH_CALLBACK_PATH}`;
           const fullAuthURL = `${provider.authURL}${redirectUrl}`;
 
+          console.log('[oauth-init] state=' + provider.state + ' origin=' + origin + ' hasExisting=' + !!existingSigned);
+
           const payload = JSON.stringify({
             name: provider.name,
             codeVerifier: provider.codeVerifier,
