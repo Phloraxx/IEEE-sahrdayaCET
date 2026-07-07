@@ -107,8 +107,6 @@ export const Route = createFileRoute("/api/auth/init")({
           const redirectUrl = `${appUrl}${OAUTH_CALLBACK_PATH}`;
           const fullAuthURL = `${provider.authURL}${redirectUrl}`;
 
-          console.log('[oauth-init] state=' + provider.state + ' origin=' + origin + ' hasExisting=' + !!existingSigned + ' secretLen=' + (process.env.OAUTH_COOKIE_SECRET || '').length + ' payloadLen=' + payload.length + ' sig=' + signCookie(payload));
-
           const payload = JSON.stringify({
             name: provider.name,
             codeVerifier: provider.codeVerifier,
@@ -117,6 +115,8 @@ export const Route = createFileRoute("/api/auth/init")({
             authURL: fullAuthURL,
           });
           const signedCookie = `${payload}.${signCookie(payload)}`;
+
+          console.log('[oauth-init] state=' + provider.state + ' origin=' + origin + ' hasExisting=' + !!existingSigned + ' secretLen=' + (process.env.OAUTH_COOKIE_SECRET || '').length + ' payloadLen=' + payload.length + ' sig=' + signCookie(payload));
 
           const isProduction = process.env.NODE_ENV === "production";
           const response = Response.json({ authURL: fullAuthURL });
