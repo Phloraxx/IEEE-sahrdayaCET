@@ -30,16 +30,43 @@ const pendingBet = (selection: string, extra: Partial<BetInfo> = {}): BetInfo =>
 })
 
 describe('judgeBet — match_winner', () => {
-  it('wins when selection matches result_winner', () => {
+  it('wins when selection matches result_winner (no advance field, non-draw)', () => {
     expect(judgeBet(pendingBet('home'), { market_type: 'match_winner', line: 0, options: [] }, { ...baseResult, result_winner: 'home' })).toBe('won')
     expect(judgeBet(pendingBet('away'), { market_type: 'match_winner', line: 0, options: [] }, { ...baseResult, result_winner: 'away' })).toBe('won')
-    expect(judgeBet(pendingBet('draw'), { market_type: 'match_winner', line: 0, options: [] }, { ...baseResult, result_winner: 'draw' })).toBe('won')
   })
   it('loses when selection does not match', () => {
     expect(judgeBet(pendingBet('home'), { market_type: 'match_winner', line: 0, options: [] }, { ...baseResult, result_winner: 'away' })).toBe('lost')
   })
   it('voids when result_winner is empty (not settled)', () => {
     expect(judgeBet(pendingBet('home'), { market_type: 'match_winner', line: 0, options: [] }, baseResult)).toBe('void')
+  })
+  // Knockout-only game: a 90-min draw with no result_advance → void (the
+  // admin must pick who advanced; "draw" is not a valid match-winner outcome
+  // in a knockout). Covered in the knockout describe block below too.
+  it('voids when result_winner is draw and no result_advance (knockout)', () => {
+    expect(judgeBet(pendingBet('home'), { market_type: 'match_winner', line: 0, options: [] }, { ...baseResult, result_winner: 'draw' })).toBe('void')
+    expect(judgeBet(pendingBet('draw'), { market_type: 'match_winner', line: 0, options: [] }, { ...baseResult, result_winner: 'draw' })).toBe('void')
+  })
+})
+
+describe('judgeBet — match_winner knockout (result_advance)', () => {
+  // Knockout: 90-min draw, home advanced on pens. match_winner settles on
+  // result_advance, NOT result_winner (which is "draw").
+  it('settles on result_advance when set, ignoring 90-min draw', () => {
+    const r: MatchResult = { ...baseResult, result_winner: 'draw', result_advance: 'home', result_after_penalties: true }
+    expect(judgeBet(pendingBet('home'), { market_type: 'match_winner', line: 0, options: [] }, r)).toBe('won')
+    expect(judgeBet(pendingBet('away'), { market_type: 'match_winner', line: 0, options: [] }, r)).toBe('lost')
+    // A "draw" selection loses in a knockout — there is no draw outcome.
+    expect(judgeBet(pendingBet('draw'), { market_type: 'match_winner', line: 0, options: [] }, r)).toBe('lost')
+  })
+  it('voids when 90-min was a draw and no result_advance set (admin forgot)', () => {
+    const r: MatchResult = { ...baseResult, result_winner: 'draw' }
+    expect(judgeBet(pendingBet('home'), { market_type: 'match_winner', line: 0, options: [] }, r)).toBe('void')
+  })
+  it('uses result_advance even when result_winner is also set to a non-draw', () => {
+    // 90-min 2-1 home win → advance should be home. result_advance wins.
+    const r: MatchResult = { ...baseResult, result_winner: 'home', result_home_goals: 2, result_away_goals: 1, result_advance: 'home' }
+    expect(judgeBet(pendingBet('home'), { market_type: 'match_winner', line: 0, options: [] }, r)).toBe('won')
   })
 })
 
@@ -74,17 +101,17 @@ describe('judgeBet — correct_score', () => {
   })
 })
 
-describe('judgeBet — first_scorer', () => {
+describe('judgeBet — any_scorer', () => {
   it('wins when selection is in result_scorers', () => {
     const r = { ...baseResult, result_scorers: ['Messi', 'Ronaldo'] }
-    expect(judgeBet(pendingBet('Messi'), { market_type: 'first_scorer', line: 0, options: [] }, r)).toBe('won')
+    expect(judgeBet(pendingBet('Messi'), { market_type: 'any_scorer', line: 0, options: [] }, r)).toBe('won')
   })
   it('loses when selection not in scorers', () => {
     const r = { ...baseResult, result_scorers: ['Messi'] }
-    expect(judgeBet(pendingBet('Neymar'), { market_type: 'first_scorer', line: 0, options: [] }, r)).toBe('lost')
+    expect(judgeBet(pendingBet('Neymar'), { market_type: 'any_scorer', line: 0, options: [] }, r)).toBe('lost')
   })
   it('voids when no scorers recorded', () => {
-    expect(judgeBet(pendingBet('Messi'), { market_type: 'first_scorer', line: 0, options: [] }, baseResult)).toBe('void')
+    expect(judgeBet(pendingBet('Messi'), { market_type: 'any_scorer', line: 0, options: [] }, baseResult)).toBe('void')
   })
 })
 

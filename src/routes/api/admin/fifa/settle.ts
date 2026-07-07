@@ -22,6 +22,18 @@ export const Route = createFileRoute("/api/admin/fifa/settle")({
           await requireRole(["admin"], pb);
           const parsed = FifaSettleSchema.parse(await request.json());
 
+          // Auto-fill result_advance from result_winner when the 90-min result
+          // wasn't a draw (FIFA-GAME.md §2.1). The PB hook does this too —
+          // belt and braces.
+          const body: Record<string, unknown> = { ...parsed };
+          if (
+            !parsed.result_advance &&
+            parsed.result_winner &&
+            parsed.result_winner !== 'draw'
+          ) {
+            body.result_advance = parsed.result_winner;
+          }
+
           // Call the PB custom route. The pb_auth cookie auto-attaches, so
           // the route's e.auth check sees the admin role.
           const res = await fetch(`${process.env.POCKETBASE_URL}/api/fifa/settle`, {
@@ -30,7 +42,7 @@ export const Route = createFileRoute("/api/admin/fifa/settle")({
               'Content-Type': 'application/json',
               cookie: request.headers.get('cookie') || '',
             },
-            body: JSON.stringify(parsed),
+            body: JSON.stringify(body),
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) {

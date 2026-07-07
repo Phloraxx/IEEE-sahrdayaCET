@@ -32,7 +32,12 @@ function LeaderboardPage() {
     <FifaLayout active="leaderboard">
       <div className="mx-auto max-w-2xl px-4 py-8">
         <h1 className="font-display text-3xl text-ieee-blue mb-2">Leaderboard</h1>
-        <p className="text-sm text-muted-foreground mb-6">Ranked by current balance. Updates every 15s.</p>
+        <p className="text-sm text-muted-foreground mb-2">Ranked by balance (tiebreak: more bets = higher). Updates every 15s.</p>
+        <div className="rounded-lg border border-ieee-light-blue/30 bg-ieee-light-blue/5 p-3 mb-6 text-xs text-muted-foreground">
+          <p className="font-medium text-foreground mb-1">Raffle tickets</p>
+          <p>Tickets = <code className="text-foreground">max(1, 50 − 2 × (rank − 1))</code>. Rank 1 → 50 tickets, rank 26+ → 1 ticket.</p>
+          <p className="mt-1">Need ≥ <strong className="text-foreground">5 bets</strong> to enter the raffle. <a href="/FIFA/rules" className="text-ieee-light-blue hover:underline">Full rules →</a></p>
+        </div>
 
         {isLoading && <p className="text-muted-foreground">Loading…</p>}
         {data?.leaderboard.length === 0 && (

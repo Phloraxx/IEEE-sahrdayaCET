@@ -251,23 +251,28 @@ real currency anywhere.
 
 - **Public (no auth):** `/FIFA` (overview), `/FIFA/matches`,
   `/FIFA/matches/$id` (betting UI unlocks when logged in), `/FIFA/leaderboard`,
-  `/FIFA/feed`.
+  `/FIFA/feed`, `/FIFA/rules`.
 - **Authenticated:** `/FIFA/dashboard` (balance, bets, transactions).
-- **Admin (`role = 'admin'` only, NOT chair):** `/admin/FIFA/*` (matches,
-  markets, settle, settings, raffle — admin pages TBD, API routes exist).
+- **Admin (`role = 'admin'` only, NOT chair):** `/admin/FIFA/matches`,
+  `/admin/FIFA/testing` (testing console — create test matches, adjust
+  balances, trigger auto-void, reset game), `/admin/FIFA/settings`,
+  `/admin/FIFA/raffle`.
 
 ### PocketBase collections (all prefixed `fifa_`)
 
 | Collection | Type | Key fields |
 |-----------|------|-----------|
-| `fifa_matches` | Base | team_home, team_away, stage, kickoff_at, betting_locks_at, status, result_*, settled |
-| `fifa_bet_markets` | Base | match (rel), market_type, mode (pool/fixed), line, fixed_odds, options, is_open, void, pool_total, pool_by_option (hook-maintained) |
+| `fifa_matches` | Base | team_home, team_away, stage, kickoff_at, betting_locks_at, status, result_winner (90-min), result_home/away_goals, result_scorers, result_yellow/red_cards, result_home/away_clean_sheet, **result_advance**, **result_after_extra_time**, **result_after_penalties**, settled |
+| `fifa_bet_markets` | Base | match (rel), market_type (match_winner/total_goals_ou/correct_score/any_scorer/cards_ou/clean_sheet/custom), mode (pool/fixed), line, fixed_odds, options, is_open, void, pool_total, pool_by_option (hook-maintained) |
 | `fifa_bets` | Base | user (rel), match (rel), market (rel), selection, stake, mode, odds_locked, status, payout |
 | `fifa_transactions` | Base | user (rel), type, amount, balance_after, ref_bet (rel), note — ledger, hook-only writes |
-| `fifa_settings` | Base | singleton — event_name, starting_balance, max_bet_percent, daily_topup_*, raffle_*, prize, registration_open |
+| `fifa_settings` | Base | singleton — event_name, starting_balance, max_bet_percent, daily_topup_*, raffle_*, **auto_void_hours**, prize, registration_open |
 | `fifa_raffle_draws` | Base | drawn_at, winner (rel), entries_snapshot (json), seed |
 | `fifa_feed_events` | Base | type, user (rel), match (rel), message — public live feed |
 | `users` (extended) | Auth | + display_name (unique), balance (hook-only) |
+
+See `FIFA-GAME.md` for the full design doc (knockout modeling, settlement
+semantics, raffle formula, admin testing console, live scores integration).
 
 ### Game logic — `pb_hooks/fifa.pb.js` (single file)
 
@@ -289,19 +294,63 @@ DB layer.
   from concurrent bets, voids + refunds (mirrors `registrations.pb.js:263`).
 - **Settlement:** `routerAdd("POST","/api/fifa/settle")` admin-gated via
   `e.auth` role. Idempotent (skips settled bets, marks `match.settled=true`
-  LAST). Per-market-type payout logic mirrors `src/lib/fifa-payout.ts`
-  (unit-tested). Pool: `(stake/total_winning_stakes) × pool × (1−cut)`; no
-  winners → void + refund all. Fixed: `stake × odds_locked`.
+  LAST). `match_winner` settles on **`result_advance`** (who advanced in a
+  knockout), not the 90-min `result_winner` — falls back to `result_winner`
+  only when `result_advance` isn't set. Per-market-type payout logic mirrors
+  `src/lib/fifa-payout.ts` (unit-tested). Pool:
+  `(stake/total_winning_stakes) × pool × (1−cut)`; no winners → void + refund
+  all. Fixed: `stake × odds_locked`.
+- **Market void:** `onRecordAfterUpdateSuccess` on `fifa_bet_markets` — when
+  `void` flips true, refunds all pending bets on that market.
 - **Daily top-up:** `cronAdd("fifa-daily-topup","0 9 * * *")` tops anyone
   under `daily_topup_threshold` to `daily_topup_target`, idempotent via
   today's `daily_topup` transaction check.
+- **Auto-void:** `cronAdd("fifa-auto-void","*/30 * * * *")` voids matches
+  whose kickoff was > `auto_void_hours` ago and are still upcoming/live, or
+  finished-but-unsettled past 48h. Prevents frozen pending bets if the admin
+  is a no-show.
+- **Admin balance adjust:** `routerAdd("POST","/api/fifa/admin-adjust")`
+  admin-gated. Applies a relative balance change via `applyDelta`, writes an
+  `admin_adjust` ledger row. Used by the testing console.
+- **Admin game reset:** `routerAdd("POST","/api/fifa/admin-reset")`
+  admin-gated, requires `{ confirm: "RESET" }`. Wipes all bets/transactions,
+  voids matches, resets every user's balance to `starting_balance`. For
+  pre-launch testing only.
 - **Raffle:** `routerAdd("POST","/api/fifa/raffle")` admin-gated. Builds
-  ticket list from leaderboard: `max(1, base − decay×(rank−1))`. Weighted
-  random pick. Stores `entries_snapshot` + `seed` + `winner` for
-  transparency.
+  ticket list from leaderboard (ranked by balance desc, tiebreak bets_count
+  desc): `max(1, base − decay×(rank−1))`. Only players with ≥
+  `raffle_active_participant_min_bets` bets enter. Weighted random pick.
+  Stores `entries_snapshot` + `seed` + `winner` for transparency.
 - **Leaderboard + feed:** `routerAdd("GET","/api/fifa/leaderboard")` and
   `/api/fifa/feed` — public custom routes using internal `$app` access
-  (bypasses `users` listRule, same bypass as `coupons.pb.js`).
+  (bypasses `users` listRule, same bypass as `coupons.pb.js`). Leaderboard
+  ranks by balance desc, tiebreak bets_count desc (competition ranking).
+
+### Live scores (multi-source)
+
+Three sources, tried in priority order (FIFA-GAME.md §2.7), mirroring the
+emrbli/worldcup project:
+1. **ESPN hidden API** (`site.api.espn.com`) — primary, no auth, real-time.
+2. **football-data.org** — fallback, `FOOTBALL_DATA_API_TOKEN` env var
+   (free tier, 10 req/min, WC included, scores ~30-60s delayed).
+3. **openfootball GitHub JSON** — static backbone, complete 104-match WC
+   2026 list, no auth, no rate limits, includes ET/penalty scores.
+
+`src/lib/fifa-live.ts` tries sources in order, caches 60s server-side,
+returns the first success with a `source` field. If all fail, the UI hides
+the overlay gracefully. The public matches list + match-detail pages poll
+`/api/fifa/live-scores` every 60s. The admin settle form has an
+"auto-fill from live" button; the testing console has an "import WC
+fixtures" button (imports R32→final from openfootball). The game works
+without live scores — settlement is admin-manual.
+
+### Admin testing console (`/admin/FIFA/testing`)
+
+One-click test match (creates a match +1h with all 6 standard markets),
+balance adjust (grant/deduct for any user), auto-void trigger (run the sweep
+immediately), and a destructive game reset (behind a type-to-confirm
+"RESET" dialog). Also shows all bets across all matches in an expandable
+table. See `FIFA-GAME.md §2.6`.
 
 ### Realtime (SSE)
 

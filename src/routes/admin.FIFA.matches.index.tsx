@@ -168,15 +168,17 @@ function CreateMatchForm({ onDone }: { onDone: () => void }) {
       </div>
       <div>
         <Label htmlFor="stage">Stage</Label>
-        <Select value={form.stage} onValueChange={(v) => setForm({ ...form, stage: v })}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="qf">Quarterfinal</SelectItem>
-            <SelectItem value="sf">Semifinal</SelectItem>
-            <SelectItem value="third_place">Third place</SelectItem>
-            <SelectItem value="final">Final</SelectItem>
-          </SelectContent>
-        </Select>
+          <Select value={form.stage} onValueChange={(v) => setForm({ ...form, stage: v })}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="r32">Round of 32</SelectItem>
+              <SelectItem value="r16">Round of 16</SelectItem>
+              <SelectItem value="qf">Quarterfinal</SelectItem>
+              <SelectItem value="sf">Semifinal</SelectItem>
+              <SelectItem value="third_place">Third place</SelectItem>
+              <SelectItem value="final">Final</SelectItem>
+            </SelectContent>
+          </Select>
       </div>
       <div>
         <Label htmlFor="kickoff_at">Kickoff time</Label>

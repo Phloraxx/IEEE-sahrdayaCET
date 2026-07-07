@@ -442,15 +442,14 @@ onRecordAfterUpdateSuccess(function (e) {
 // Polled by the client every ~15s (SSE can't fire on a custom route).
 routerAdd("GET", "/api/fifa/leaderboard", function (e) {
     try {
-        // Only count users who have placed at least one bet OR have a
-        // starting_grant — i.e. actual players, not every account.
-        // For simplicity and speed at small scale, list all users with
-        // balance > 0, ranked desc.
+        // Rank by balance desc, tiebreak by bets_count desc (FIFA-GAME.md §2.4).
+        // PB can't sort by a computed field, so we fetch all eligible users
+        // and sort in JS. At ~100 players this is trivial.
         var users = $app.findRecordsByFilter(
             "users",
             "balance > 0",
             "-balance",
-            200, 0,
+            500, 0,
             {}
         )
         var rows = []
@@ -471,14 +470,40 @@ routerAdd("GET", "/api/fifa/leaderboard", function (e) {
                 betCount = allUserBets.length
             } catch (err) { betCount = 0 }
             rows.push({
-                rank: i + 1,
                 id: u.id,
                 display_name: displayName,
                 balance: u.getInt("balance") || 0,
                 bets_count: betCount,
             })
         }
-        return e.json(200, { leaderboard: rows })
+        // Tiebreak: balance desc, then bets_count desc (active > passive at
+        // the same balance — FIFA-GAME.md §2.4).
+        rows.sort(function (a, b) {
+            if (b.balance !== a.balance) return b.balance - a.balance
+            return b.bets_count - a.bets_count
+        })
+        // Assign ranks after sort (ties get the same rank, next rank skips —
+        // standard competition ranking).
+        var ranked = []
+        var lastBalance = null
+        var lastBets = null
+        var rank = 0
+        for (var j = 0; j < rows.length; j++) {
+            var r = rows[j]
+            if (r.balance !== lastBalance || r.bets_count !== lastBets) {
+                rank = j + 1
+                lastBalance = r.balance
+                lastBets = r.bets_count
+            }
+            ranked.push({
+                rank: rank,
+                id: r.id,
+                display_name: r.display_name,
+                balance: r.balance,
+                bets_count: r.bets_count,
+            })
+        }
+        return e.json(200, { leaderboard: ranked })
     } catch (err) {
         console.log("[fifa] leaderboard route failed: " + err)
         return e.json(500, { error: "Failed to load leaderboard" })
@@ -545,8 +570,14 @@ function judgeBetJS(selection, status, marketType, line, result, customWinners) 
     }
     switch (marketType) {
         case "match_winner": {
-            if (!result.result_winner) return "void"
-            return selection === result.result_winner ? "won" : "lost"
+            // Knockouts: settle on who advanced (result_advance). Falls back
+            // to the 90-min result_winner when result_advance isn't set.
+            // A 90-min draw with no result_advance → void (the admin must
+            // pick who advanced; "draw" is not a valid match-winner outcome
+            // in a knockout).
+            var winner = result.result_advance || result.result_winner
+            if (!winner || winner === "draw") return "void"
+            return selection === winner ? "won" : "lost"
         }
         case "total_goals_ou": {
             var total = (result.result_home_goals || 0) + (result.result_away_goals || 0)
@@ -566,7 +597,7 @@ function judgeBetJS(selection, status, marketType, line, result, customWinners) 
             var expected = (result.result_home_goals || 0) + "-" + (result.result_away_goals || 0)
             return selection === expected ? "won" : "lost"
         }
-        case "first_scorer": {
+        case "any_scorer": {
             var scorers = result.result_scorers || []
             if (scorers.length === 0) return "void"
             return scorers.indexOf(selection) !== -1 ? "won" : "lost"
@@ -656,6 +687,14 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
         result_red_cards: Number(body.result_red_cards) || 0,
         result_home_clean_sheet: !!body.result_home_clean_sheet,
         result_away_clean_sheet: !!body.result_away_clean_sheet,
+        result_advance: body.result_advance || "",
+        result_after_extra_time: !!body.result_after_extra_time,
+        result_after_penalties: !!body.result_after_penalties,
+    }
+    // Auto-fill result_advance from result_winner when the 90-min result
+    // wasn't a draw (the TanStack route does this too — belt and braces).
+    if (!result.result_advance && result.result_winner && result.result_winner !== "draw") {
+        result.result_advance = result.result_winner
     }
     var customWinnersMap = body.custom_winners || {}
 
@@ -669,6 +708,9 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
     match.set("result_red_cards", result.result_red_cards)
     match.set("result_home_clean_sheet", result.result_home_clean_sheet)
     match.set("result_away_clean_sheet", result.result_away_clean_sheet)
+    match.set("result_advance", result.result_advance)
+    match.set("result_after_extra_time", result.result_after_extra_time)
+    match.set("result_after_penalties", result.result_after_penalties)
     match.set("status", "finished")
     dao.saveRecord(match)
 
@@ -794,7 +836,13 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
     // Emit feed event
     var homeTeam = match.getString("team_home") || ""
     var awayTeam = match.getString("team_away") || ""
-    emitFeedEvent("result", "", matchId, homeTeam + " " + result.result_home_goals + "-" + result.result_away_goals + " " + awayTeam + " — settled")
+    var scoreline = homeTeam + " " + result.result_home_goals + "-" + result.result_away_goals + " " + awayTeam
+    if (result.result_after_penalties) {
+        scoreline += " (Pens — " + (result.result_advance === "home" ? homeTeam : awayTeam) + " advanced)"
+    } else if (result.result_after_extra_time) {
+        scoreline += " (AET — " + (result.result_advance === "home" ? homeTeam : awayTeam) + " advanced)"
+    }
+    emitFeedEvent("result", "", matchId, scoreline + " — settled")
 
     return e.json(200, {
         success: true,
@@ -866,6 +914,218 @@ cronAdd("fifa-daily-topup", "0 9 * * *", function () {
     }
 })
 
+// ─── Phase 8b: Auto-void cron (FIFA-GAME.md §2.3) ───────────────────
+// Runs every 30 minutes. Voids matches that have drifted past their settle
+// window so pending bets don't sit frozen forever if the admin is a no-show.
+//
+//   status=upcoming|live  and kickoff_at > auto_void_hours ago  → void
+//   status=finished       and settled=false and kickoff > 48h ago → void
+//
+// Voids the match (sets status=void) which triggers the market-void refund
+// hook on each open market. Idempotent — voided matches are skipped.
+
+cronAdd("fifa-auto-void", "*/30 * * * *", function () {
+    var settings = getFifaSettings()
+    if (!settings) { return }
+    var autoVoidHours = settings.getInt("auto_void_hours") || 6
+    var now = Date.now()
+    var autoVoidMs = autoVoidHours * 3600 * 1000
+    var finishedTimeoutMs = 48 * 3600 * 1000
+
+    var matches
+    try {
+        matches = $app.findRecordsByFilter(
+            "fifa_matches",
+            "status != {:finished} && status != {:void}",
+            "kickoff_at",
+            500, 0,
+            { finished: "finished", void: "void" }
+        )
+    } catch (err) {
+        console.log("[fifa] auto-void: failed to list matches: " + err)
+        return
+    }
+
+    var voided = 0
+    for (var i = 0; i < matches.length; i++) {
+        var m = matches[i]
+        var kickoffStr = m.getString("kickoff_at") || ""
+        if (!kickoffStr) { continue }
+        var kickoffMs = new Date(kickoffStr).getTime()
+        if (isNaN(kickoffMs)) { continue }
+
+        var status = m.getString("status") || "upcoming"
+        var shouldVoid = false
+        if (status === "upcoming" || status === "live") {
+            if (now - kickoffMs > autoVoidMs) shouldVoid = true
+        } else if (status === "finished" && !m.getBool("settled")) {
+            if (now - kickoffMs > finishedTimeoutMs) shouldVoid = true
+        }
+
+        if (shouldVoid) {
+            try {
+                m.set("status", "void")
+                $app.dao().saveRecord(m)
+                voided++
+            } catch (err) {
+                console.log("[fifa] auto-void: failed to void match " + m.id + ": " + err)
+            }
+        }
+    }
+
+    // Also handle finished-but-unsettled separately (the filter above
+    // excluded status=finished, so we do a second pass for those).
+    try {
+        var finished = $app.findRecordsByFilter(
+            "fifa_matches",
+            "status = {:finished} && settled = {:false}",
+            "kickoff_at",
+            500, 0,
+            { finished: "finished", false: false }
+        )
+        for (var k = 0; k < finished.length; k++) {
+            var fm = finished[k]
+            var fk = new Date(fm.getString("kickoff_at") || "").getTime()
+            if (isNaN(fk)) { continue }
+            if (now - fk > finishedTimeoutMs) {
+                try {
+                    fm.set("status", "void")
+                    $app.dao().saveRecord(fm)
+                    voided++
+                } catch (err) {
+                    console.log("[fifa] auto-void: failed to void finished match " + fm.id + ": " + err)
+                }
+            }
+        }
+    } catch (err) {
+        console.log("[fifa] auto-void: finished pass failed: " + err)
+    }
+
+    if (voided > 0) {
+        emitFeedEvent("system", "", "", voided + " match(es) auto-voided (settle window expired)")
+        console.log("[fifa] auto-void: voided " + voided + " matches")
+    }
+})
+
+// ─── Phase 9b: Admin balance adjust (FIFA-GAME.md §2.6) ─────────────
+// POST /api/fifa/admin-adjust
+// Body: { userId, amount, note }
+// Admin-only. Applies a relative balance change via applyDelta, writing an
+// admin_adjust ledger row. Used by the testing console to top up / deduct
+// points for any player. amount can be negative (deduct).
+
+routerAdd("POST", "/api/fifa/admin-adjust", function (e) {
+    var auth = e.auth
+    if (!auth) { return e.json(401, { error: "Authentication required" }) }
+    var role = ""
+    try { role = auth.getString("role") } catch (err) { role = "" }
+    if (role !== "admin") { return e.json(403, { error: "Admin only" }) }
+
+    var body = {}
+    var rawBody = toString(e.request.body)
+    if (rawBody && rawBody.length > 0) {
+        try { body = JSON.parse(rawBody) } catch (err) { body = {} }
+    }
+    var userId = body.userId || ""
+    var amount = Number(body.amount) || 0
+    var note = body.note || "Admin adjustment"
+    if (!userId) { return e.json(400, { error: "userId is required" }) }
+    if (amount === 0) { return e.json(400, { error: "amount must be non-zero" }) }
+
+    var newBalance = applyDelta(userId, "admin_adjust", amount, "", note)
+    if (newBalance === null) { return e.json(404, { error: "User not found" }) }
+    return e.json(200, { success: true, userId: userId, newBalance: newBalance })
+})
+
+// ─── Phase 9c: Admin game reset (FIFA-GAME.md §2.6 — destructive) ───
+// POST /api/fifa/admin-reset
+// Body: { confirm: "RESET" }
+// Admin-only. Wipes all bets, transactions, voids all matches, resets every
+// user's balance to starting_balance, re-grants starting_grant transactions.
+// For pre-launch testing ONLY — behind a type-to-confirm in the admin UI.
+
+routerAdd("POST", "/api/fifa/admin-reset", function (e) {
+    var auth = e.auth
+    if (!auth) { return e.json(401, { error: "Authentication required" }) }
+    var role = ""
+    try { role = auth.getString("role") } catch (err) { role = "" }
+    if (role !== "admin") { return e.json(403, { error: "Admin only" }) }
+
+    var body = {}
+    var rawBody = toString(e.request.body)
+    if (rawBody && rawBody.length > 0) {
+        try { body = JSON.parse(rawBody) } catch (err) { body = {} }
+    }
+    if (body.confirm !== "RESET") {
+        return e.json(400, { error: 'Confirmation required — send { confirm: "RESET" }' })
+    }
+
+    var dao = $app.dao()
+    var settings = getFifaSettings()
+    var startingBalance = settings ? (settings.getInt("starting_balance") || 0) : 0
+
+    // 1. Delete all bets
+    try {
+        var allBets = $app.findRecordsByFilter("fifa_bets", "1 = 1", "", 0, 0, {})
+        for (var i = 0; i < allBets.length; i++) { dao.deleteRecord(allBets[i]) }
+    } catch (err) { console.log("[fifa] reset: bets delete failed: " + err) }
+
+    // 2. Delete all transactions
+    try {
+        var allTx = $app.findRecordsByFilter("fifa_transactions", "1 = 1", "", 0, 0, {})
+        for (var j = 0; j < allTx.length; j++) { dao.deleteRecord(allTx[j]) }
+    } catch (err) { console.log("[fifa] reset: tx delete failed: " + err) }
+
+    // 3. Void all matches + clear results
+    try {
+        var allMatches = $app.findRecordsByFilter("fifa_matches", "1 = 1", "", 0, 0, {})
+        for (var k = 0; k < allMatches.length; k++) {
+            var m = allMatches[k]
+            m.set("status", "upcoming")
+            m.set("settled", false)
+            m.set("result_winner", "")
+            m.set("result_home_goals", 0)
+            m.set("result_away_goals", 0)
+            m.set("result_scorers", [])
+            m.set("result_yellow_cards", 0)
+            m.set("result_red_cards", 0)
+            m.set("result_home_clean_sheet", false)
+            m.set("result_away_clean_sheet", false)
+            m.set("result_advance", "")
+            m.set("result_after_extra_time", false)
+            m.set("result_after_penalties", false)
+            dao.saveRecord(m)
+        }
+    } catch (err) { console.log("[fifa] reset: matches reset failed: " + err) }
+
+    // 4. Close + un-void all markets, reset pool counters
+    try {
+        var allMarkets = $app.findRecordsByFilter("fifa_bet_markets", "1 = 1", "", 0, 0, {})
+        for (var mi = 0; mi < allMarkets.length; mi++) {
+            var mk = allMarkets[mi]
+            mk.set("void", false)
+            mk.set("is_open", false)
+            mk.set("pool_total", 0)
+            mk.set("pool_by_option", {})
+            dao.saveRecord(mk)
+        }
+    } catch (err) { console.log("[fifa] reset: markets reset failed: " + err) }
+
+    // 5. Reset every user's balance to starting_balance + write a fresh grant
+    try {
+        var allUsers = $app.findRecordsByFilter("users", "1 = 1", "", 0, 0, {})
+        for (var ui = 0; ui < allUsers.length; ui++) {
+            var user = allUsers[ui]
+            user.set("balance", startingBalance)
+            dao.saveRecord(user)
+            applyTransaction(user.id, "starting_grant", startingBalance, startingBalance, "", "Game reset — fresh starting grant")
+        }
+    } catch (err) { console.log("[fifa] reset: user balance reset failed: " + err) }
+
+    emitFeedEvent("system", "", "", "Game has been reset by admin")
+    return e.json(200, { success: true, message: "Game reset complete" })
+})
+
 // ─── Phase 9: Raffle draw — admin-only custom route ─────────────────
 // POST /api/fifa/raffle
 // Body: {} (no params — reads settings + leaderboard)
@@ -897,7 +1157,9 @@ routerAdd("POST", "/api/fifa/raffle", function (e) {
     var decay = settings.getInt("raffle_tickets_decay") || 2
     var minBets = settings.getInt("raffle_active_participant_min_bets") || 1
 
-    // ─── Build leaderboard (ranked by balance desc) ────────────────
+    // ─── Build leaderboard (ranked by balance desc, tiebreak bets_count) ─
+    // Mirrors the /api/fifa/leaderboard route so raffle rank == leaderboard
+    // rank (FIFA-GAME.md §2.4).
     var users
     try {
         users = $app.findRecordsByFilter(
@@ -915,16 +1177,10 @@ routerAdd("POST", "/api/fifa/raffle", function (e) {
         return e.json(400, { error: "No eligible players" })
     }
 
-    // ─── Build ticket list ─────────────────────────────────────────
-    // Each entry: { user_id, display_name, rank, tickets, bets_count }
-    var entries = []
-    var totalTickets = 0
+    // Compute bets_count for each user, then sort by (balance, bets_count).
+    var candidates = []
     for (var i = 0; i < users.length; i++) {
         var u = users[i]
-        var rank = i + 1
-
-        // Count bets (eligibility check). limit=0 = no limit, so .length is
-        // the true count.
         var betCount = 0
         try {
             var bets = $app.findRecordsByFilter(
@@ -935,16 +1191,42 @@ routerAdd("POST", "/api/fifa/raffle", function (e) {
             )
             betCount = bets.length
         } catch (err) { betCount = 0 }
+        candidates.push({
+            id: u.id,
+            display_name: u.getString("display_name") || "Player",
+            balance: u.getInt("balance") || 0,
+            bets_count: betCount,
+        })
+    }
+    candidates.sort(function (a, b) {
+        if (b.balance !== a.balance) return b.balance - a.balance
+        return b.bets_count - a.bets_count
+    })
 
-        if (betCount < minBets) { continue }
+    // ─── Build ticket list ─────────────────────────────────────────
+    // Each entry: { user_id, display_name, rank, tickets, bets_count }
+    // Assign ranks with competition ranking (ties share a rank).
+    var entries = []
+    var totalTickets = 0
+    var lastBalance = null
+    var lastBets = null
+    var rank = 0
+    for (var j = 0; j < candidates.length; j++) {
+        var c = candidates[j]
+        if (c.balance !== lastBalance || c.bets_count !== lastBets) {
+            rank = j + 1
+            lastBalance = c.balance
+            lastBets = c.bets_count
+        }
+        if (c.bets_count < minBets) { continue }
 
         var tickets = Math.max(1, base - decay * (rank - 1))
         entries.push({
-            user_id: u.id,
-            display_name: u.getString("display_name") || "Player",
+            user_id: c.id,
+            display_name: c.display_name,
             rank: rank,
             tickets: tickets,
-            bets_count: betCount,
+            bets_count: c.bets_count,
         })
         totalTickets += tickets
     }

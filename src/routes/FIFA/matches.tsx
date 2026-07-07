@@ -13,6 +13,7 @@ interface MatchData {
   result_winner: string
   result_home_goals: number
   result_away_goals: number
+  result_advance: string
   settled: boolean
   markets: Array<{
     id: string
@@ -31,6 +32,12 @@ async function fetchMatches(): Promise<{ matches: MatchData[] }> {
   return res.json()
 }
 
+async function fetchLiveScores(): Promise<{ matches: Array<{ id: string; homeTeam: string; awayTeam: string; homeGoals: number | null; awayGoals: number | null; status: string; minute: number | null }>; configured: boolean }> {
+  const res = await fetch('/api/fifa/live-scores')
+  if (!res.ok) return { matches: [], configured: false }
+  return res.json()
+}
+
 export const Route = createFileRoute('/FIFA/matches')({
   head: () => ({ meta: [{ title: "Matches · WC Predict '26" }] }),
   component: MatchesPage,
@@ -41,6 +48,12 @@ function MatchesPage() {
     queryKey: ['fifa-matches'],
     queryFn: fetchMatches,
     refetchInterval: 15_000,
+  })
+  // Live scores overlay (60s poll, degrades gracefully if unconfigured).
+  const { data: liveData } = useQuery({
+    queryKey: ['fifa-live-scores'],
+    queryFn: fetchLiveScores,
+    refetchInterval: 60_000,
   })
 
   return (
@@ -53,7 +66,7 @@ function MatchesPage() {
         )}
         <div className="space-y-3">
           {data?.matches.map((m) => (
-            <MatchCard key={m.id} match={m} />
+            <MatchCard key={m.id} match={m} liveMatches={liveData?.matches || []} liveConfigured={liveData?.configured || false} />
           ))}
         </div>
       </div>
@@ -61,11 +74,23 @@ function MatchesPage() {
   )
 }
 
-function MatchCard({ match }: { match: MatchData }) {
+function MatchCard({ match, liveMatches, liveConfigured }: { match: MatchData; liveMatches: Array<{ id: string; homeTeam: string; awayTeam: string; homeGoals: number | null; awayGoals: number | null; status: string; minute: number | null }>; liveConfigured: boolean }) {
   const kickoff = new Date(match.kickoff_at)
   const isLive = match.status === 'live'
   const isFinished = match.status === 'finished' || match.settled
   const openMarkets = match.markets.filter((m) => m.is_open && !m.void)
+
+  // Live score overlay
+  const liveMatch = liveConfigured
+    ? liveMatches.find((lm) => {
+        const h = lm.homeTeam.trim().toLowerCase()
+        const a = lm.awayTeam.trim().toLowerCase()
+        const mh = match.team_home.trim().toLowerCase()
+        const ma = match.team_away.trim().toLowerCase()
+        return (mh === h && ma === a) || (mh === a && ma === h)
+      }) || null
+    : null
+  const showLiveScore = liveMatch && (liveMatch.status === 'IN_PLAY' || liveMatch.status === 'PAUSED')
 
   return (
     <Link
@@ -89,6 +114,15 @@ function MatchCard({ match }: { match: MatchData }) {
       <p className="font-display text-xl text-foreground">
         {match.team_home} <span className="text-muted-foreground font-sans text-base">vs</span> {match.team_away}
       </p>
+      {/* Live or finished score */}
+      {(showLiveScore || isFinished) && (
+        <p className="font-mono text-lg text-ieee-blue mt-1">
+          {showLiveScore ? (liveMatch?.homeGoals ?? 0) : match.result_home_goals}
+          {' - '}
+          {showLiveScore ? (liveMatch?.awayGoals ?? 0) : match.result_away_goals}
+          {showLiveScore && liveMatch?.minute && <span className="text-ieee-danger text-xs ml-2">'{liveMatch.minute}</span>}
+        </p>
+      )}
       <div className="flex items-center justify-between mt-3 text-sm text-muted-foreground">
         <span>{kickoff.toLocaleString()}</span>
         {openMarkets.length > 0 && (

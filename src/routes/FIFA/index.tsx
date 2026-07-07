@@ -149,7 +149,7 @@ function FifaOverviewPage() {
             </li>
             <li className="flex gap-3">
               <span className="font-mono text-ieee-blue flex-shrink-0">02</span>
-              <span>Pick a match, choose a market (match winner, total goals, first scorer...), and place a bet from your points balance.</span>
+              <span>Pick a match, choose a market (match winner, total goals, anytime scorer...), and place a bet from your points balance.</span>
             </li>
             <li className="flex gap-3">
               <span className="font-mono text-ieee-blue flex-shrink-0">03</span>
