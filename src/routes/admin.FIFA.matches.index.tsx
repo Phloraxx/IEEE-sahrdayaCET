@@ -94,7 +94,7 @@ function AdminFifaMatches() {
         {data?.matches.map((m) => (
           <Link
             key={m.id}
-            to="/admin/FIFA/matches/$id"
+            to="/admin/FIFA/matches/$id/"
             params={{ id: m.id }}
             className="flex items-center justify-between rounded-lg border bg-card p-4 hover:border-primary/50 transition-colors"
           >

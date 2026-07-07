@@ -81,7 +81,7 @@ function DashboardPage() {
         <section className="mb-6">
           <h2 className="font-display text-xl text-foreground mb-3">Recent bets</h2>
           {data.bets.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No bets yet. <a href="/FIFA/matches" className="text-ieee-light-blue hover:underline">Place your first bet →</a></p>
+            <p className="text-muted-foreground text-sm">No bets yet. <a href="/FIFA/matches/" className="text-ieee-light-blue hover:underline">Place your first bet →</a></p>
           ) : (
             <div className="space-y-2">
               {data.bets.map((b) => (

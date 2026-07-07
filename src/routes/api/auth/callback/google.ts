@@ -5,6 +5,35 @@ import { logError } from "@/lib/logger";
 import PocketBase from "pocketbase";
 import { verifySignedCookie } from "@/lib/cookie-signing";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+
+/**
+ * Returns a wildcard cookie domain for shared parent-domain auth.
+ * e.g. https://test.ieeesahrdaya.com -> .ieeesahrdaya.com
+ *      http://localhost:3000         -> undefined (host-only cookie)
+ */
+function getCookieDomain(appUrl: string): string | undefined {
+  try {
+    const hostname = new URL(appUrl).hostname;
+    const parts = hostname.split(".");
+    if (parts.length <= 1 || hostname === "localhost") return undefined;
+    return `.${parts.slice(-2).join(".")}`;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Adds a Domain attribute to a Set-Cookie value (used for the PB auth
+ * cookie because pb.authStore.exportToCookie doesn't expose domain).
+ */
+function addCookieDomain(cookieValue: string, domain: string | undefined): string {
+  if (!domain || cookieValue.includes("Domain=")) return cookieValue;
+  // Insert Domain= right after the cookie name/value pair.
+  const firstSemicolon = cookieValue.indexOf(";");
+  if (firstSemicolon === -1) return `${cookieValue}; Domain=${domain}`;
+  return `${cookieValue.slice(0, firstSemicolon)}; Domain=${domain}${cookieValue.slice(firstSemicolon)}`;
+}
+
 export const Route = createFileRoute("/api/auth/callback/google")({
   server: {
     handlers: {
@@ -45,6 +74,8 @@ export const Route = createFileRoute("/api/auth/callback/google")({
             ? provider.origin
             : resolvedAppUrl;
 
+        const cookieDomain = getCookieDomain(resolvedAppUrl);
+
         try {
           const pbUrl = process.env.POCKETBASE_URL;
           if (!pbUrl) throw new Error("Missing POCKETBASE_URL");
@@ -61,12 +92,15 @@ export const Route = createFileRoute("/api/auth/callback/google")({
           const isProduction = process.env.NODE_ENV === "production";
           const response = new Response(null, { status: 302, headers: { Location: finalRedirect } });
 
-          const authCookie = pb.authStore.exportToCookie({
-              httpOnly: true,
-              secure: isProduction,
-              sameSite: "lax",
-              path: "/",
-          });
+          const authCookie = addCookieDomain(
+            pb.authStore.exportToCookie({
+                httpOnly: true,
+                secure: isProduction,
+                sameSite: "lax",
+                path: "/",
+            }),
+            cookieDomain,
+          );
           response.headers.set("Set-Cookie", authCookie);
 
           // Clear the one-time OAuth provider cookie (PKCE verifier must not be reusable)
@@ -78,6 +112,7 @@ export const Route = createFileRoute("/api/auth/callback/google")({
               sameSite: "lax",
               path: "/",
               maxAge: 0,
+              ...(cookieDomain ? { domain: cookieDomain } : {}),
             }),
           );
 
@@ -94,6 +129,7 @@ export const Route = createFileRoute("/api/auth/callback/google")({
               sameSite: "lax",
               path: "/",
               maxAge: 0,
+              ...(cookieDomain ? { domain: cookieDomain } : {}),
             }),
           );
           return response;

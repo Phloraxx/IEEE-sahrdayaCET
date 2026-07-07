@@ -123,7 +123,7 @@ function MatchDetailPage() {
       <FifaLayout active="matches">
         <div className="mx-auto max-w-2xl px-4 py-16 text-center">
           <p className="text-muted-foreground">Match not found.</p>
-          <Link to="/FIFA/matches" className="text-ieee-light-blue hover:underline mt-4 inline-block">← Back to matches</Link>
+          <Link to="/FIFA/matches/" className="text-ieee-light-blue hover:underline mt-4 inline-block">← Back to matches</Link>
         </div>
       </FifaLayout>
     )
@@ -137,7 +137,7 @@ function MatchDetailPage() {
   return (
     <FifaLayout active="matches">
       <div className="mx-auto max-w-2xl px-4 py-8">
-        <Link to="/FIFA/matches" className="text-sm text-muted-foreground hover:text-foreground mb-4 inline-block">← All matches</Link>
+        <Link to="/FIFA/matches/" className="text-sm text-muted-foreground hover:text-foreground mb-4 inline-block">← All matches</Link>
 
         {/* Match hero */}
         <header className="mb-8 text-center">

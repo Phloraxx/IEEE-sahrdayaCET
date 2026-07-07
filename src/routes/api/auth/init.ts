@@ -5,6 +5,28 @@ import { signCookie } from "@/lib/cookie-signing";
 import { PB_OAUTH_PROVIDER_COOKIE, OAUTH_CALLBACK_PATH } from "@/lib/constants";
 import { logError } from "@/lib/logger";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+
+/**
+ * Returns a wildcard cookie domain for shared parent-domain auth.
+ * e.g. https://test.ieeesahrdaya.com -> .ieeesahrdaya.com
+ *      http://localhost:3000         -> undefined (host-only cookie)
+ */
+function getCookieDomain(appUrl: string): string | undefined {
+  try {
+    const hostname = new URL(appUrl).hostname;
+    // For localhost / IP / single-segment hostnames, don't set Domain
+    // (browser would reject it anyway).
+    const parts = hostname.split(".");
+    if (parts.length <= 1 || hostname === "localhost") return undefined;
+    // Leave the leading dot off in the Set-Cookie options; the `cookie`
+    // package normalizes it, and browsers treat it as a subdomain-wide
+    // cookie regardless.
+    return `.${parts.slice(-2).join(".")}`;
+  } catch {
+    return undefined;
+  }
+}
+
 export const Route = createFileRoute("/api/auth/init")({
   server: {
     handlers: {
@@ -62,6 +84,7 @@ export const Route = createFileRoute("/api/auth/init")({
 
           const isProduction = process.env.NODE_ENV === "production";
           const response = Response.json({ authURL: fullAuthURL });
+          const cookieDomain = getCookieDomain(appUrl);
           response.headers.set(
             "Set-Cookie",
             serialize(PB_OAUTH_PROVIDER_COOKIE, signedCookie, {
@@ -70,6 +93,7 @@ export const Route = createFileRoute("/api/auth/init")({
               sameSite: "lax",
               path: "/",
               maxAge: 300,
+              ...(cookieDomain ? { domain: cookieDomain } : {}),
             }),
           );
 

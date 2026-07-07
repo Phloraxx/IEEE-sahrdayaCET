@@ -69,7 +69,7 @@ function MatchCard({ match }: { match: MatchData }) {
 
   return (
     <Link
-      to="/FIFA/matches/$id"
+      to="/FIFA/matches/$id/"
       params={{ id: match.id }}
       className="block rounded-lg border border-border bg-card p-4 hover:border-ieee-light-blue transition-colors"
     >
