@@ -31,7 +31,7 @@ export const Route = createFileRoute("/api/fifa/dashboard")({
             }),
             pb.collection("fifa_transactions").getList(1, 30, {
               filter: `user = ${escapeFilterValue(user.id)}`,
-              sort: "-created",
+              sort: "-id",
               fields: "id,type,amount,balance_after,note,created",
             }),
           ]);

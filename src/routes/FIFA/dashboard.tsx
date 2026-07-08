@@ -43,7 +43,7 @@ export const Route = createFileRoute('/FIFA/dashboard')({
 
 function DashboardPage() {
   const { status, signIn } = useAuth()
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['fifa-dashboard'],
     queryFn: fetchDashboard,
     refetchInterval: 10_000,
@@ -63,7 +63,27 @@ function DashboardPage() {
   }
 
   if (isLoading || !data) {
-    return <FifaLayout active="dashboard"><div className="mx-auto max-w-2xl px-4 py-8 text-muted-foreground">Loading…</div></FifaLayout>
+    const errorMessage = error instanceof Error ? error.message : ''
+    return (
+      <FifaLayout active="dashboard">
+        <div className="mx-auto max-w-2xl px-4 py-8">
+          {errorMessage ? (
+            <div className="rounded-lg border border-border bg-card p-5 text-center">
+              <p className="text-ieee-danger mb-2">Failed to load dashboard</p>
+              <p className="text-sm text-muted-foreground mb-4">{errorMessage}</p>
+              <button
+                onClick={() => signIn()}
+                className="rounded-md bg-ieee-light-blue px-4 py-2 text-sm font-medium text-white hover:bg-ieee-blue transition-colors"
+              >
+                Sign in again
+              </button>
+            </div>
+          ) : (
+            <p className="text-muted-foreground">Loading…</p>
+          )}
+        </div>
+      </FifaLayout>
+    )
   }
 
   return (
