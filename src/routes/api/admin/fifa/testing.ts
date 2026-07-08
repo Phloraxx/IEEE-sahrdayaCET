@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type PocketBase from "pocketbase";
 import { createPB } from "@/lib/pb.server"
+import { escapeFilterValue } from "@/lib/pb";
 import { requireRole } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 import { verifySameOrigin } from "@/lib/verify-same-origin";
@@ -74,7 +75,7 @@ async function createTestMatch(pb: PocketBase): Promise<Response> {
 
   // Standard market templates. Pool mode, default options.
   const markets = [
-    { market_type: 'match_winner', mode: 'pool' as const, options: ['home', 'away', 'draw'] },
+    { market_type: 'match_winner', mode: 'pool' as const, options: ['home', 'away'] },
     { market_type: 'total_goals_ou', mode: 'pool' as const, line: 2.5, options: ['over', 'under'] },
     { market_type: 'correct_score', mode: 'pool' as const, options: ['1-0', '2-1', '1-1', '0-0', '2-0', '0-1', '1-2', '0-2', '3-0', '0-3', '2-2'] },
     { market_type: 'any_scorer', mode: 'pool' as const, options: ['Player A', 'Player B', 'Player C', 'No scorer'] },
@@ -221,8 +222,23 @@ async function triggerAutoVoid(pb: PocketBase): Promise<Response> {
       if (now - kickoffMs > finishedTimeoutMs) shouldVoid = true
     }
     if (shouldVoid) {
-      await pb.collection("fifa_matches").update(String(getField(m, 'id', '')), { status: 'void' })
-      drifted.push(String(getField(m, 'id', '')))
+      const matchId = String(getField(m, 'id', ''))
+      await pb.collection("fifa_matches").update(matchId, { status: 'void' })
+      // Cascade: void open markets so the PB market-void hook refunds stakes.
+      // (PB match-void cascade also does this; belt-and-braces for admin path.)
+      try {
+        const markets = await pb.collection("fifa_bet_markets").getFullList({
+          filter: `match = ${escapeFilterValue(matchId)} && void = false`,
+          fields: 'id',
+        })
+        for (const mkt of markets) {
+          await pb.collection("fifa_bet_markets").update(String(getField(mkt, 'id', '')), {
+            void: true,
+            is_open: false,
+          })
+        }
+      } catch { /* match-void cascade hook is the primary path */ }
+      drifted.push(matchId)
     }
   }
   return Response.json({ success: true, voided: drifted.length, matchIds: drifted })

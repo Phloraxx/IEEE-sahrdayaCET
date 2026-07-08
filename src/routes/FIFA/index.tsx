@@ -56,12 +56,14 @@ const fetchOverview = createServerFn().handler(async (): Promise<OverviewData> =
   let playerCount = 0
   let totalBets = 0
   try {
-    const players = await pb.collection('users').getList(1, 1, { filter: 'balance > 0' })
-    playerCount = players.totalItems
-  } catch { /* ignore */ }
-  try {
-    const bets = await pb.collection('fifa_bets').getList(1, 1)
-    totalBets = bets.totalItems
+    // Public custom route — users/fifa_bets listRules block unauth REST counts.
+    const pbUrl = (process.env.POCKETBASE_URL || 'http://127.0.0.1:8090').replace(/\/+$/, '')
+    const statsRes = await fetch(`${pbUrl}/api/fifa/stats`)
+    if (statsRes.ok) {
+      const stats = await statsRes.json() as { playerCount?: number; totalBets?: number }
+      playerCount = Number(stats.playerCount) || 0
+      totalBets = Number(stats.totalBets) || 0
+    }
   } catch { /* ignore */ }
 
   return { ...settings, nextMatch, playerCount, totalBets }

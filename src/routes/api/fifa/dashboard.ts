@@ -3,6 +3,7 @@ import { createPB } from "@/lib/pb.server"
 import { escapeFilterValue } from "@/lib/pb";
 import { requireAuth } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
+import { verifySameOrigin } from "@/lib/verify-same-origin";
 import { getField, getExpand } from "@/lib/safe-get";
 
 // Authed: the player's own dashboard — balance, display_name, recent bets,
@@ -36,6 +37,14 @@ export const Route = createFileRoute("/api/fifa/dashboard")({
             }),
           ]);
 
+          let maxBetPercent = 25;
+          try {
+            const settings = await pb.collection("fifa_settings").getFirstListItem("1=1", {
+              fields: "max_bet_percent",
+            });
+            maxBetPercent = Number(getField(settings, 'max_bet_percent', 25)) || 25;
+          } catch { /* settings not seeded — keep default */ }
+
           return Response.json({
             user: {
               id: getField(userRec, 'id', ''),
@@ -43,6 +52,7 @@ export const Route = createFileRoute("/api/fifa/dashboard")({
               balance: getField(userRec, 'balance', 0),
               email: getField(userRec, 'email', ''),
             },
+            max_bet_percent: maxBetPercent,
             bets: bets.items.map((b) => {
               const expand = getExpand(b);
               return {
@@ -85,6 +95,7 @@ export const Route = createFileRoute("/api/fifa/dashboard")({
           if (!ct.includes('application/json')) {
             return Response.json({ error: 'Unsupported media type' }, { status: 415 });
           }
+          verifySameOrigin(request);
           const pb = createPB(request.headers.get("cookie") || undefined);
           const { user } = await requireAuth(pb);
           const body = await request.json() as { display_name?: string };

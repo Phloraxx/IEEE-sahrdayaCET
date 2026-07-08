@@ -64,21 +64,44 @@ const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB
         return;
       }
 
-      // Same-origin proxy for client-side PB SSE subscriptions (public
-      // collections only: fifa_feed_events, fifa_bet_markets, fifa_matches).
-      // POCKETBASE_URL stays server-side; this exposes only the /pb path.
+      // Same-origin proxy for client-side PB SSE + public FIFA read routes.
+      // Allowlist only — never open the whole PB REST surface.
+      // Allowed:
+      //   GET/HEAD realtime SSE: /api/realtime
+      //   GET public FIFA custom routes: /api/fifa/leaderboard|feed|stats
+      //   GET collection reads for public game collections only
       if (url.pathname.startsWith('/pb/')) {
         try {
-          const pbUrl = process.env.POCKETBASE_URL || 'http://127.0.0.1:8090';
+          const method = (req.method || 'GET').toUpperCase();
           const targetPath = url.pathname.replace(/^\/pb/, '') + (url.search || '');
+          const pathOnly = url.pathname.replace(/^\/pb/, '') || '/';
+
+          const isGet = method === 'GET' || method === 'HEAD';
+          const isRealtime = pathOnly === '/api/realtime' || pathOnly.startsWith('/api/realtime?');
+          const isPublicFifaRoute = /^\/api\/fifa\/(leaderboard|feed|stats)\/?$/.test(pathOnly);
+          const isPublicCollection = /^\/api\/collections\/(fifa_feed_events|fifa_bet_markets|fifa_matches)(\/|$)/.test(pathOnly);
+
+          // SSE subscribe is POST on /api/realtime in PB — allow only that write path.
+          const isRealtimeSubscribe = method === 'POST' && (pathOnly === '/api/realtime' || pathOnly.startsWith('/api/realtime?'));
+
+          if (!(isRealtimeSubscribe || (isGet && (isRealtime || isPublicFifaRoute || isPublicCollection)))) {
+            addSecurityHeaders(res);
+            res.writeHead(403, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Forbidden: /pb path not allowlisted' }));
+            return;
+          }
+
+          const pbUrl = process.env.POCKETBASE_URL || 'http://127.0.0.1:8090';
           const targetUrl = `${pbUrl}${targetPath}`;
           const pbHeaders = new Headers();
           for (const [key, value] of Object.entries(req.headers)) {
             if (['connection', 'keep-alive', 'transfer-encoding', 'host'].includes(key)) continue;
+            // Drop auth for public proxy — these endpoints are public reads.
+            if (['authorization', 'cookie'].includes(key)) continue;
             pbHeaders.set(key, Array.isArray(value) ? value.join(', ') : value);
           }
           let pbBody = undefined;
-          if (req.method !== 'GET' && req.method !== 'HEAD') {
+          if (isRealtimeSubscribe) {
             const chunks = [];
             for await (const chunk of req) chunks.push(chunk);
             const buf = Buffer.concat(chunks);
