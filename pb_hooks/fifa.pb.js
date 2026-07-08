@@ -308,7 +308,11 @@ onRecordCreateRequest(function (e) {
     e.next()
     } catch (err) {
         console.log("[fifa] bet create error: " + String(err))
-        throw err
+        // Re-throw as BadRequestError so PB returns 400, not 502
+        if (err && typeof err === "object" && err.name === "BadRequestError") {
+            throw err
+        }
+        throw new errors.BadRequestError(String(err))
     }
 }, "fifa_bets")
 
