@@ -6,11 +6,26 @@ export function toIso(date: Date): string {
 }
 
 export function formatDate(dateString: string): string {
-    return new Date(dateString).toLocaleDateString(DATE_LOCALE, {
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString(DATE_LOCALE, {
         weekday: 'long',
         month: 'long',
         day: 'numeric',
         year: 'numeric',
+    });
+}
+
+export function formatDateTime(dateString: string): string {
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleString(DATE_LOCALE, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
     });
 }
 

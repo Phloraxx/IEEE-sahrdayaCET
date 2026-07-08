@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { FifaLayout } from '@/features/fifa/fifa-layout'
 import { useAuth } from '@/lib/auth-context'
 import { toast } from 'sonner'
+import { formatDateTime } from '@/lib/dates'
 
 interface DashboardData {
   user: { id: string; display_name: string; balance: number; email: string }
@@ -110,7 +111,9 @@ function DashboardPage() {
                 <div key={t.id} className="flex items-center justify-between text-sm py-2 border-b border-border/50 last:border-0">
                   <div>
                     <p className="text-foreground">{t.note || t.type.replace(/_/g, ' ')}</p>
-                    <p className="text-xs text-muted-foreground">{new Date(t.created).toLocaleString()}</p>
+                    {formatDateTime(t.created) && (
+                      <p className="text-xs text-muted-foreground">{formatDateTime(t.created)}</p>
+                    )}
                   </div>
                   <span className={`font-mono ${t.amount >= 0 ? 'text-ieee-success' : 'text-ieee-danger'}`}>
                     {t.amount >= 0 ? '+' : ''}{t.amount}

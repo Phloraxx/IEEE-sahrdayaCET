@@ -32,14 +32,15 @@ var getFifaSettings = function() {
 var applyTransaction = function(userId, type, amount, balanceAfter, refBetId, note) {
     try {
         var txCol = $app.findCollectionByNameOrId("fifa_transactions")
-        var tx = new Record(txCol, {
-            user: userId,
-            type: type,
-            amount: amount,
-            balance_after: balanceAfter,
-            ref_bet: refBetId || "",
-            note: note || "",
-        })
+var tx = new Record(txCol, {
+        user: userId,
+        type: type,
+        amount: amount,
+        balance_after: balanceAfter,
+        ref_bet: refBetId || "",
+        note: note || "",
+        created: new Date().toISOString(),
+    })
         $app.saveNoValidate(tx)
 
         var user = $app.findRecordById("users", userId)
@@ -60,14 +61,15 @@ var applyDelta = function(userId, type, delta, refBetId, note) {
         var newBalance = currentBalance + delta
 
         var txCol = $app.findCollectionByNameOrId("fifa_transactions")
-        var tx = new Record(txCol, {
-            user: userId,
-            type: type,
-            amount: delta,
-            balance_after: newBalance,
-            ref_bet: refBetId || "",
-            note: note || "",
-        })
+var tx = new Record(txCol, {
+        user: userId,
+        type: type,
+        amount: delta,
+        balance_after: newBal,
+        ref_bet: refBetId || "",
+        note: note || "",
+        created: new Date().toISOString(),
+    })
         $app.saveNoValidate(tx)
 
         user.set("balance", newBalance)
@@ -135,6 +137,7 @@ onRecordAfterCreateSuccess(function (e) {
         balance_after: startingBalance,
         ref_bet: "",
         note: "Starting balance grant",
+        created: new Date().toISOString(),
     })
     $app.saveNoValidate(tx)
 
@@ -350,7 +353,7 @@ onRecordAfterCreateSuccess(function (e) {
             $app.saveNoValidate(betRec)
             // Inline applyDelta for refund (0 delta)
             var txCol2 = $app.findCollectionByNameOrId("fifa_transactions")
-            var tx2 = new Record(txCol2, { user: userId, type: "bet_refund", amount: 0, balance_after: currentBalance, ref_bet: bet.id, note: "Voided: insufficient balance (race)" })
+            var tx2 = new Record(txCol2, { user: userId, type: "bet_refund", amount: 0, balance_after: currentBalance, ref_bet: bet.id, note: "Voided: insufficient balance (race)", created: new Date().toISOString() })
             $app.saveNoValidate(tx2)
         } catch (err) {
             console.log("[fifa] TOCTOU void failed for bet " + bet.id + ": " + err)
@@ -364,7 +367,7 @@ onRecordAfterCreateSuccess(function (e) {
         var u = $app.findRecordById("users", userId)
         var newBal = (u.getInt("balance") || 0) - stake
         var txCol3 = $app.findCollectionByNameOrId("fifa_transactions")
-        var tx3 = new Record(txCol3, { user: userId, type: "bet_placed", amount: -stake, balance_after: newBal, ref_bet: bet.id, note: "Bet placed on " + selection })
+        var tx3 = new Record(txCol3, { user: userId, type: "bet_placed", amount: -stake, balance_after: newBal, ref_bet: bet.id, note: "Bet placed on " + selection, created: new Date().toISOString() })
         $app.saveNoValidate(tx3)
         u.set("balance", newBal)
         $app.saveNoValidate(u)
@@ -681,7 +684,7 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
             if (!u) return null
             var newBal = (u.getInt("balance") || 0) + delta
             var txCol = $app.findCollectionByNameOrId("fifa_transactions")
-            var tx = new Record(txCol, { user: userId, type: type, amount: delta, balance_after: newBal, ref_bet: refBetId || "", note: note || "" })
+            var tx = new Record(txCol, { user: userId, type: type, amount: delta, balance_after: newBal, ref_bet: refBetId || "", note: note || "", created: new Date().toISOString() })
             $app.saveNoValidate(tx)
             u.set("balance", newBal)
             $app.saveNoValidate(u)
@@ -959,7 +962,7 @@ cronAdd("fifa-daily-topup", "0 9 * * *", function () {
             if (!u) return null
             var newBal = (u.getInt("balance") || 0) + delta
             var txCol = $app.findCollectionByNameOrId("fifa_transactions")
-            var tx = new Record(txCol, { user: userId, type: type, amount: delta, balance_after: newBal, ref_bet: refBetId || "", note: note || "" })
+            var tx = new Record(txCol, { user: userId, type: type, amount: delta, balance_after: newBal, ref_bet: refBetId || "", note: note || "", created: new Date().toISOString() })
             $app.saveNoValidate(tx)
             u.set("balance", newBal)
             $app.saveNoValidate(u)
@@ -976,7 +979,7 @@ cronAdd("fifa-daily-topup", "0 9 * * *", function () {
     var _applyTransaction = function(userId, type, amount, balanceAfter, refBetId, note) {
         try {
             var txCol = $app.findCollectionByNameOrId("fifa_transactions")
-            var tx = new Record(txCol, { user: userId, type: type, amount: amount, balance_after: balanceAfter, ref_bet: refBetId || "", note: note || "" })
+            var tx = new Record(txCol, { user: userId, type: type, amount: amount, balance_after: balanceAfter, ref_bet: refBetId || "", note: note || "", created: new Date().toISOString() })
             $app.saveNoValidate(tx)
             var u = $app.findRecordById("users", userId)
             u.set("balance", balanceAfter)
@@ -1067,7 +1070,7 @@ cronAdd("fifa-auto-void", "*/30 * * * *", function () {
             if (!u) return null
             var newBal = (u.getInt("balance") || 0) + delta
             var txCol = $app.findCollectionByNameOrId("fifa_transactions")
-            var tx = new Record(txCol, { user: userId, type: type, amount: delta, balance_after: newBal, ref_bet: refBetId || "", note: note || "" })
+            var tx = new Record(txCol, { user: userId, type: type, amount: delta, balance_after: newBal, ref_bet: refBetId || "", note: note || "", created: new Date().toISOString() })
             $app.saveNoValidate(tx)
             u.set("balance", newBal)
             $app.saveNoValidate(u)
@@ -1182,7 +1185,7 @@ routerAdd("POST", "/api/fifa/admin-adjust", function (e) {
             if (!u) return null
             var newBal = (u.getInt("balance") || 0) + delta
             var txCol = $app.findCollectionByNameOrId("fifa_transactions")
-            var tx = new Record(txCol, { user: userId, type: type, amount: delta, balance_after: newBal, ref_bet: refBetId || "", note: note || "" })
+            var tx = new Record(txCol, { user: userId, type: type, amount: delta, balance_after: newBal, ref_bet: refBetId || "", note: note || "", created: new Date().toISOString() })
             $app.saveNoValidate(tx)
             u.set("balance", newBal)
             $app.saveNoValidate(u)
@@ -1237,7 +1240,7 @@ routerAdd("POST", "/api/fifa/admin-reset", function (e) {
             if (!u) return null
             var newBal = (u.getInt("balance") || 0) + delta
             var txCol = $app.findCollectionByNameOrId("fifa_transactions")
-            var tx = new Record(txCol, { user: userId, type: type, amount: delta, balance_after: newBal, ref_bet: refBetId || "", note: note || "" })
+            var tx = new Record(txCol, { user: userId, type: type, amount: delta, balance_after: newBal, ref_bet: refBetId || "", note: note || "", created: new Date().toISOString() })
             $app.saveNoValidate(tx)
             u.set("balance", newBal)
             $app.saveNoValidate(u)
@@ -1254,7 +1257,7 @@ routerAdd("POST", "/api/fifa/admin-reset", function (e) {
     var _applyTransaction = function(userId, type, amount, balanceAfter, refBetId, note) {
         try {
             var txCol = $app.findCollectionByNameOrId("fifa_transactions")
-            var tx = new Record(txCol, { user: userId, type: type, amount: amount, balance_after: balanceAfter, ref_bet: refBetId || "", note: note || "" })
+            var tx = new Record(txCol, { user: userId, type: type, amount: amount, balance_after: balanceAfter, ref_bet: refBetId || "", note: note || "", created: new Date().toISOString() })
             $app.saveNoValidate(tx)
             var u = $app.findRecordById("users", userId)
             u.set("balance", balanceAfter)
@@ -1366,7 +1369,7 @@ routerAdd("POST", "/api/fifa/raffle", function (e) {
             if (!u) return null
             var newBal = (u.getInt("balance") || 0) + delta
             var txCol = $app.findCollectionByNameOrId("fifa_transactions")
-            var tx = new Record(txCol, { user: userId, type: type, amount: delta, balance_after: newBal, ref_bet: refBetId || "", note: note || "" })
+            var tx = new Record(txCol, { user: userId, type: type, amount: delta, balance_after: newBal, ref_bet: refBetId || "", note: note || "", created: new Date().toISOString() })
             $app.saveNoValidate(tx)
             u.set("balance", newBal)
             $app.saveNoValidate(u)
