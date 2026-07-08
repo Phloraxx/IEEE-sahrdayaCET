@@ -1,6 +1,7 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 // ─── FIFA WC Predict '26 — game logic hooks ─────────────────────────
+// Touch this file to trigger PB hook reload (auto-watch enabled).
 // All balance-affecting logic runs server-side here, never trusting client-
 // submitted values for stake validation, payout, or balance. Mirrors the
 // pattern in registrations.pb.js: hooks enforce invariants at the DB layer
