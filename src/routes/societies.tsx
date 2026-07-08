@@ -83,7 +83,7 @@ const fetchSocieties = createServerFn().handler(async (): Promise<Society[]> => 
         ? buildFileUrl("societies", s.id as string, s.logo as string)
         : undefined,
     }));
-  } catch {
+  } catch (nodeError) {
     return [];
   }
 });

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { serializeToFormData } from "@/lib/pb.server";
 import { authenticateAdmin, buildChairFilter } from "@/lib/admin-middleware";
 import { getChairSocietyIds } from "@/lib/chair-scope";
 import { escapeFilterValue } from "@/lib/pb";
@@ -98,7 +99,7 @@ export const Route = createFileRoute("/api/admin/events")({
 
           // Coupons live in the `coupons` collection, not on the event record.
           const { coupons: incomingCoupons, ...eventFields } = parsed;
-          const event = await ctx.pb.collection("events").create(eventFields);
+          const event = await ctx.pb.collection("events").create(serializeToFormData(eventFields));
           if (incomingCoupons && incomingCoupons.length > 0) {
             try {
               await reconcileCoupons(ctx.pb, event.id, incomingCoupons);

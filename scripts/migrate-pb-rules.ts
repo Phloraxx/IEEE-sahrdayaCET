@@ -58,8 +58,11 @@ const rules: Record<string, CollectionRuleSet> = {
     viewRule: `(isDeleted != true && (status = "published" || status = "completed")) || @request.auth.role = "admin" || @request.auth.role = "chair"`,
     // H3: a chair may only create events under a society they chair.
     createRule: `@request.auth.role = "admin" || (@request.auth.role = "chair" && society.chairs.id ?= @request.auth.id)`,
-    // #3: chairs may edit title/date/venue but cannot rewrite counters or un-delete.
-    updateRule: `@request.auth.role = "admin" || (@request.auth.role = "chair" && society.chairs.id ?= @request.auth.id && @request.body.registeredCount:changed = false && @request.body.checkedInCount:changed = false && @request.body.isDeleted:changed = false)`,
+    // #3: chairs may edit title/date/venue/status and soft-delete, but cannot
+    // rewrite server-authoritative counters. Soft-delete (isDeleted false→true)
+    // goes through the app server using a superuser client so the hook owns that
+    // defence. Un-deleting (true→false) is blocked by the hook.
+    updateRule: `@request.auth.role = "admin" || (@request.auth.role = "chair" && society.chairs.id ?= @request.auth.id && @request.body.registeredCount:changed = false && @request.body.checkedInCount:changed = false)`,
     deleteRule: `@request.auth.role = "admin"`,
   },
   blogs: {

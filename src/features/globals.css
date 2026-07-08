@@ -120,6 +120,13 @@
 
   .trend-up { color: var(--color-ieee-success); }
   .trend-down { color: var(--color-ieee-danger); }
+
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
 }
 
 /* ── Aceternity ripple cell animation ── */

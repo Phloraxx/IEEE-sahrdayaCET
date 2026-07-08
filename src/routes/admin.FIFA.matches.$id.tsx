@@ -17,7 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { FIFA_MARKET_LABELS } from "@/schemas/fifa"
 
-export const Route = createFileRoute("/admin/FIFA/matches/$id/")({
+export const Route = createFileRoute("/admin/FIFA/matches/$id")({
   component: AdminFifaMatchDetail,
   errorComponent: ({ error }: { error: Error }) => (
     <div className="flex min-h-[50vh] items-center justify-center p-8 text-center">

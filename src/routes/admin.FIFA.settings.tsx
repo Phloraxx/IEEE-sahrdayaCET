@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 
-export const Route = createFileRoute("/admin/FIFA/settings/")({
+export const Route = createFileRoute("/admin/FIFA/settings")({
   component: AdminFifaSettings,
 })
 
