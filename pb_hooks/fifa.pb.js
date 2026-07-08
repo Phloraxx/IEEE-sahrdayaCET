@@ -230,25 +230,24 @@ onRecordCreateRequest(function (e) {
     }
 
     // 4. Selection must be a valid option
-    // PB 0.39 stores JSON fields as byte arrays in goja. Detect encoding:
-    // - string: JSON.parse it
-    // - array of numbers: byte-encoded JSON, decode then parse
-    // - array of strings: native array, use directly
+    // PB 0.39 stores JSON fields in goja as byte arrays. Try multiple
+    // decoding strategies. If all fail, skip validation (the createRule
+    // on the collection is a backstop).
     var optionsRaw = market.get("options")
     var options = []
-    if (typeof optionsRaw === "string") {
-        try { options = JSON.parse(optionsRaw) } catch (e) { options = [] }
-    } else if (optionsRaw && typeof optionsRaw === "object" && typeof optionsRaw.length === "number") {
-        if (optionsRaw.length > 0 && typeof optionsRaw[0] === "number") {
-            // Byte array from goja's json field encoding
-            try {
-                var str = ""
-                for (var i = 0; i < optionsRaw.length; i++) str += String.fromCharCode(optionsRaw[i])
-                options = JSON.parse(str)
-            } catch (e) { options = [] }
-        } else {
-            // Native array
-            for (var i = 0; i < optionsRaw.length; i++) options.push(optionsRaw[i])
+    if (optionsRaw) {
+        if (typeof optionsRaw === "string") {
+            try { options = JSON.parse(optionsRaw) } catch (e) { options = [] }
+        } else if (typeof optionsRaw === "object" && typeof optionsRaw.length === "number") {
+            if (optionsRaw.length > 0 && typeof optionsRaw[0] === "number") {
+                try {
+                    var str = ""
+                    for (var i = 0; i < optionsRaw.length; i++) str += String.fromCharCode(optionsRaw[i])
+                    options = JSON.parse(str)
+                } catch (e) { options = [] }
+            } else {
+                for (var i = 0; i < optionsRaw.length; i++) { options.push(optionsRaw[i]) }
+            }
         }
     }
     if (options.length > 0 && options.indexOf(selection) === -1) {
