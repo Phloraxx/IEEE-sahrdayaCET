@@ -59,10 +59,12 @@ export const Route = createFileRoute("/api/admin/fifa/testing")({
 // pre-configured (pool mode, sensible default options) so the admin can
 // immediately bet from their own account and settle.
 async function createTestMatch(pb: PocketBase): Promise<Response> {
-  const kickoff = new Date(Date.now() + 60 * 60 * 1000).toISOString() // +1h
+  const now = new Date()
+  const kickoff = new Date(now.getTime() + 60 * 60 * 1000).toISOString() // +1h
+  const ts = now.toISOString().replace(/[:.]/g, '-').slice(0, 19)
   const match = await pb.collection("fifa_matches").create({
-    team_home: 'Test Home',
-    team_away: 'Test Away',
+    team_home: `Test Home (${ts})`,
+    team_away: `Test Away (${ts})`,
     stage: 'qf',
     kickoff_at: kickoff,
     betting_locks_at: kickoff,

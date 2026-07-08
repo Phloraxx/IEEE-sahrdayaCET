@@ -66,3 +66,16 @@ export function rateLimitResponse(retryAfterMs: number): Response {
     },
   )
 }
+
+/**
+ * Refund a rate limit token — call this when a request consumed a token but
+ * the downstream operation failed (e.g. PB hook rejected the bet). Prevents
+ * failed validations from depleting the user's rate limit budget.
+ */
+export function refundToken(config: RateLimitConfig): void {
+  const { key, max } = config
+  const bucket = buckets.get(key)
+  if (bucket) {
+    bucket.tokens = Math.min(max, bucket.tokens + 1)
+  }
+}
