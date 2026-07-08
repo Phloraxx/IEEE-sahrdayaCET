@@ -15,29 +15,21 @@
 //   Phase 9 — raffle draw custom route
 
 // ─── Helpers ─────────────────────────────────────────────────────────
+//
+// PB 0.39 goja does not hoist top-level function declarations into hook
+// callback scopes. We define helpers as var assignments (function expressions)
+// which ARE accessible in all callback scopes.
 
-/**
- * Reads the single fifa_settings row, returning a fresh record each call.
- * Returns null if settings hasn't been seeded yet (backfill script does it).
- */
-function getFifaSettings() {
+var getFifaSettings = function() {
     try {
-        // findFirstRecordByFilter requires a non-empty filter; "1 = 1" is a
-        // tautology that matches the single settings row.
         return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {})
     } catch (err) {
         return null
     }
 }
 
-/**
- * Writes a fifa_transactions ledger row + updates the user's balance in one
- * DAO save. Every balance change must go through this so the ledger stays
- * the source of truth. Returns the new balance, or null on failure.
- */
-function applyTransaction(userId, type, amount, balanceAfter, refBetId, note) {
+var applyTransaction = function(userId, type, amount, balanceAfter, refBetId, note) {
     try {
-        
         var txCol = $app.findCollectionByNameOrId("fifa_transactions")
         var tx = new Record(txCol, {
             user: userId,
@@ -59,17 +51,8 @@ function applyTransaction(userId, type, amount, balanceAfter, refBetId, note) {
     }
 }
 
-/**
- * Applies a RELATIVE balance change (delta) to the user's CURRENT balance,
- * re-reading it from the DB to avoid stale-read races when multiple deltas
- * hit the same user in one settle call. Writes a transaction + updates
- * balance. Use this for payouts/refunds/deductions where the new balance
- * = current + delta. Use applyTransaction (absolute) for starting_grant
- * and daily_topup where the target balance is known. Returns new balance.
- */
-function applyDelta(userId, type, delta, refBetId, note) {
+var applyDelta = function(userId, type, delta, refBetId, note) {
     try {
-        
         var user = $app.findRecordById("users", userId)
         if (!user) return null
         var currentBalance = user.getInt("balance") || 0
@@ -95,10 +78,7 @@ function applyDelta(userId, type, delta, refBetId, note) {
     }
 }
 
-/**
- * Emits a public feed event. System events (no user) pass null for userId.
- */
-function emitFeedEvent(type, userId, matchId, message) {
+var emitFeedEvent = function(type, userId, matchId, message) {
     try {
         var col = $app.findCollectionByNameOrId("fifa_feed_events")
         var ev = new Record(col, {
@@ -612,7 +592,7 @@ routerAdd("GET", "/api/fifa/feed", function (e) {
 
 // ─── Payout math (mirror of fifa-payout.ts) ─────────────────────────
 
-function judgeBetJS(selection, status, marketType, line, result, customWinners) {
+var judgeBetJS = function(selection, status, marketType, line, result, customWinners) {
     // Idempotent: already-settled bets keep their status
     if (status === "won" || status === "lost" || status === "void") {
         return status
@@ -679,7 +659,7 @@ function judgeBetJS(selection, status, marketType, line, result, customWinners) 
     }
 }
 
-function computePayoutJS(stake, mode, oddsLocked, outcome, totalPool, totalWinningStakes, houseCutPercent) {
+var computePayoutJS = function(stake, mode, oddsLocked, outcome, totalPool, totalWinningStakes, houseCutPercent) {
     if (outcome === "lost") return 0
     if (outcome === "void") return stake // refund
     if (mode === "fixed") {
@@ -693,6 +673,32 @@ function computePayoutJS(stake, mode, oddsLocked, outcome, totalPool, totalWinni
 }
 
 routerAdd("POST", "/api/fifa/settle", function (e) {
+  try {
+    // ─── Inlined helpers (PB 0.39 goja doesn't share top-level scope with callbacks) ───
+    var _getFifaSettings = function() {
+        try { return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (e) { return null }
+    }
+    var _applyDelta = function(userId, type, delta, refBetId, note) {
+        try {
+            var u = $app.findRecordById("users", userId)
+            if (!u) return null
+            var newBal = (u.getInt("balance") || 0) + delta
+            var txCol = $app.findCollectionByNameOrId("fifa_transactions")
+            var tx = new Record(txCol, { user: userId, type: type, amount: delta, balance_after: newBal, ref_bet: refBetId || "", note: note || "" })
+            $app.saveNoValidate(tx)
+            u.set("balance", newBal)
+            $app.saveNoValidate(u)
+            return newBal
+        } catch (err) { console.log("[fifa] applyDelta failed: " + err); return null }
+    }
+    var _emitFeedEvent = function(type, userId, matchId, message) {
+        try {
+            var col = $app.findCollectionByNameOrId("fifa_feed_events")
+            var ev = new Record(col, { type: type, user: userId || "", match: matchId || "", message: message || "" })
+            $app.saveNoValidate(ev)
+        } catch (err) { console.log("[fifa] emitFeedEvent failed: " + err) }
+    }
+
     // ─── Admin-only ────────────────────────────────────────────────
     var auth = e.auth
     if (!auth) {
@@ -771,7 +777,7 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
         { matchId: matchId }
     )
 
-    var settings = getFifaSettings()
+    var settings = _getFifaSettings()
     var houseCutPercent = settings ? (settings.getInt("pool_house_cut_percent") || 0) : 0
 
     var settledCount = 0
@@ -831,7 +837,7 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
                     $app.saveNoValidate(b)
                     // Refund via applyDelta (re-reads balance — safe if user
                     // has multiple bets across voided markets in one call)
-                    applyDelta(b.getString("user"), "bet_refund", refundStake, b.id, "Pool voided — refund")
+                    _applyDelta(b.getString("user"), "bet_refund", refundStake, b.id, "Pool voided — refund")
                 }
                 continue
             }
@@ -872,7 +878,7 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
                 var userId = jb.bet.getString("user")
                 var txType = jb.outcome === "void" ? "bet_refund" : "bet_payout"
                 var note = jb.outcome === "void" ? "Bet voided — refund" : "Bet won — payout"
-                applyDelta(userId, txType, payout, jb.bet.id, note)
+                _applyDelta(userId, txType, payout, jb.bet.id, note)
                 totalPayout += payout
             }
         }
@@ -891,7 +897,7 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
     } else if (result.result_after_extra_time) {
         scoreline += " (AET — " + (result.result_advance === "home" ? homeTeam : awayTeam) + " advanced)"
     }
-    emitFeedEvent("result", "", matchId, scoreline + " — settled")
+    _emitFeedEvent("result", "", matchId, scoreline + " — settled")
 
     return e.json(200, {
         success: true,
@@ -911,7 +917,43 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
 // 24h — so re-running on the same day is a no-op.
 
 cronAdd("fifa-daily-topup", "0 9 * * *", function () {
-    var settings = getFifaSettings()
+    // ─── Inlined helpers (PB 0.39 goja doesn't share top-level scope with callbacks) ───
+    var _getFifaSettings = function() {
+        try { return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (e) { return null }
+    }
+    var _applyDelta = function(userId, type, delta, refBetId, note) {
+        try {
+            var u = $app.findRecordById("users", userId)
+            if (!u) return null
+            var newBal = (u.getInt("balance") || 0) + delta
+            var txCol = $app.findCollectionByNameOrId("fifa_transactions")
+            var tx = new Record(txCol, { user: userId, type: type, amount: delta, balance_after: newBal, ref_bet: refBetId || "", note: note || "" })
+            $app.saveNoValidate(tx)
+            u.set("balance", newBal)
+            $app.saveNoValidate(u)
+            return newBal
+        } catch (err) { console.log("[fifa] applyDelta failed: " + err); return null }
+    }
+    var _emitFeedEvent = function(type, userId, matchId, message) {
+        try {
+            var col = $app.findCollectionByNameOrId("fifa_feed_events")
+            var ev = new Record(col, { type: type, user: userId || "", match: matchId || "", message: message || "" })
+            $app.saveNoValidate(ev)
+        } catch (err) { console.log("[fifa] emitFeedEvent failed: " + err) }
+    }
+    var _applyTransaction = function(userId, type, amount, balanceAfter, refBetId, note) {
+        try {
+            var txCol = $app.findCollectionByNameOrId("fifa_transactions")
+            var tx = new Record(txCol, { user: userId, type: type, amount: amount, balance_after: balanceAfter, ref_bet: refBetId || "", note: note || "" })
+            $app.saveNoValidate(tx)
+            var u = $app.findRecordById("users", userId)
+            u.set("balance", balanceAfter)
+            $app.saveNoValidate(u)
+            return balanceAfter
+        } catch (err) { console.log("[fifa] applyTransaction failed: " + err); return null }
+    }
+
+    var settings = _getFifaSettings()
     if (!settings) { return }
     var threshold = settings.getInt("daily_topup_threshold") || 0
     var target = settings.getInt("daily_topup_target") || 0
@@ -962,12 +1004,12 @@ cronAdd("fifa-daily-topup", "0 9 * * *", function () {
         var topupAmount = target - currentBalance
         if (topupAmount <= 0) { continue }
 
-        applyTransaction(userId, "daily_topup", topupAmount, target, "", "Daily top-up")
+        _applyTransaction(userId, "daily_topup", topupAmount, target, "", "Daily top-up")
         toppedUp++
     }
 
     if (toppedUp > 0) {
-        emitFeedEvent("system", "", "", toppedUp + " players received their daily top-up")
+        _emitFeedEvent("system", "", "", toppedUp + " players received their daily top-up")
         console.log("[fifa] daily topup: " + toppedUp + " users topped up to " + target)
     }
 })
@@ -983,7 +1025,32 @@ cronAdd("fifa-daily-topup", "0 9 * * *", function () {
 // hook on each open market. Idempotent — voided matches are skipped.
 
 cronAdd("fifa-auto-void", "*/30 * * * *", function () {
-    var settings = getFifaSettings()
+    // ─── Inlined helpers (PB 0.39 goja doesn't share top-level scope with callbacks) ───
+    var _getFifaSettings = function() {
+        try { return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (e) { return null }
+    }
+    var _applyDelta = function(userId, type, delta, refBetId, note) {
+        try {
+            var u = $app.findRecordById("users", userId)
+            if (!u) return null
+            var newBal = (u.getInt("balance") || 0) + delta
+            var txCol = $app.findCollectionByNameOrId("fifa_transactions")
+            var tx = new Record(txCol, { user: userId, type: type, amount: delta, balance_after: newBal, ref_bet: refBetId || "", note: note || "" })
+            $app.saveNoValidate(tx)
+            u.set("balance", newBal)
+            $app.saveNoValidate(u)
+            return newBal
+        } catch (err) { console.log("[fifa] applyDelta failed: " + err); return null }
+    }
+    var _emitFeedEvent = function(type, userId, matchId, message) {
+        try {
+            var col = $app.findCollectionByNameOrId("fifa_feed_events")
+            var ev = new Record(col, { type: type, user: userId || "", match: matchId || "", message: message || "" })
+            $app.saveNoValidate(ev)
+        } catch (err) { console.log("[fifa] emitFeedEvent failed: " + err) }
+    }
+
+    var settings = _getFifaSettings()
     if (!settings) { return }
     var autoVoidHours = settings.getInt("auto_void_hours") || 6
     var now = Date.now()
@@ -1060,7 +1127,7 @@ cronAdd("fifa-auto-void", "*/30 * * * *", function () {
     }
 
     if (voided > 0) {
-        emitFeedEvent("system", "", "", voided + " match(es) auto-voided (settle window expired)")
+        _emitFeedEvent("system", "", "", voided + " match(es) auto-voided (settle window expired)")
         console.log("[fifa] auto-void: voided " + voided + " matches")
     }
 })
@@ -1073,6 +1140,31 @@ cronAdd("fifa-auto-void", "*/30 * * * *", function () {
 // points for any player. amount can be negative (deduct).
 
 routerAdd("POST", "/api/fifa/admin-adjust", function (e) {
+    // ─── Inlined helpers (PB 0.39 goja doesn't share top-level scope with callbacks) ───
+    var _getFifaSettings = function() {
+        try { return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (e) { return null }
+    }
+    var _applyDelta = function(userId, type, delta, refBetId, note) {
+        try {
+            var u = $app.findRecordById("users", userId)
+            if (!u) return null
+            var newBal = (u.getInt("balance") || 0) + delta
+            var txCol = $app.findCollectionByNameOrId("fifa_transactions")
+            var tx = new Record(txCol, { user: userId, type: type, amount: delta, balance_after: newBal, ref_bet: refBetId || "", note: note || "" })
+            $app.saveNoValidate(tx)
+            u.set("balance", newBal)
+            $app.saveNoValidate(u)
+            return newBal
+        } catch (err) { console.log("[fifa] applyDelta failed: " + err); return null }
+    }
+    var _emitFeedEvent = function(type, userId, matchId, message) {
+        try {
+            var col = $app.findCollectionByNameOrId("fifa_feed_events")
+            var ev = new Record(col, { type: type, user: userId || "", match: matchId || "", message: message || "" })
+            $app.saveNoValidate(ev)
+        } catch (err) { console.log("[fifa] emitFeedEvent failed: " + err) }
+    }
+
     var auth = e.auth
     if (!auth) { return e.json(401, { error: "Authentication required" }) }
     var role = ""
@@ -1090,7 +1182,7 @@ routerAdd("POST", "/api/fifa/admin-adjust", function (e) {
     if (!userId) { return e.json(400, { error: "userId is required" }) }
     if (amount === 0) { return e.json(400, { error: "amount must be non-zero" }) }
 
-    var newBalance = applyDelta(userId, "admin_adjust", amount, "", note)
+    var newBalance = _applyDelta(userId, "admin_adjust", amount, "", note)
     if (newBalance === null) { return e.json(404, { error: "User not found" }) }
     return e.json(200, { success: true, userId: userId, newBalance: newBalance })
 })
@@ -1103,6 +1195,42 @@ routerAdd("POST", "/api/fifa/admin-adjust", function (e) {
 // For pre-launch testing ONLY — behind a type-to-confirm in the admin UI.
 
 routerAdd("POST", "/api/fifa/admin-reset", function (e) {
+    // ─── Inlined helpers (PB 0.39 goja doesn't share top-level scope with callbacks) ───
+    var _getFifaSettings = function() {
+        try { return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (e) { return null }
+    }
+    var _applyDelta = function(userId, type, delta, refBetId, note) {
+        try {
+            var u = $app.findRecordById("users", userId)
+            if (!u) return null
+            var newBal = (u.getInt("balance") || 0) + delta
+            var txCol = $app.findCollectionByNameOrId("fifa_transactions")
+            var tx = new Record(txCol, { user: userId, type: type, amount: delta, balance_after: newBal, ref_bet: refBetId || "", note: note || "" })
+            $app.saveNoValidate(tx)
+            u.set("balance", newBal)
+            $app.saveNoValidate(u)
+            return newBal
+        } catch (err) { console.log("[fifa] applyDelta failed: " + err); return null }
+    }
+    var _emitFeedEvent = function(type, userId, matchId, message) {
+        try {
+            var col = $app.findCollectionByNameOrId("fifa_feed_events")
+            var ev = new Record(col, { type: type, user: userId || "", match: matchId || "", message: message || "" })
+            $app.saveNoValidate(ev)
+        } catch (err) { console.log("[fifa] emitFeedEvent failed: " + err) }
+    }
+    var _applyTransaction = function(userId, type, amount, balanceAfter, refBetId, note) {
+        try {
+            var txCol = $app.findCollectionByNameOrId("fifa_transactions")
+            var tx = new Record(txCol, { user: userId, type: type, amount: amount, balance_after: balanceAfter, ref_bet: refBetId || "", note: note || "" })
+            $app.saveNoValidate(tx)
+            var u = $app.findRecordById("users", userId)
+            u.set("balance", balanceAfter)
+            $app.saveNoValidate(u)
+            return balanceAfter
+        } catch (err) { console.log("[fifa] applyTransaction failed: " + err); return null }
+    }
+
     var auth = e.auth
     if (!auth) { return e.json(401, { error: "Authentication required" }) }
     var role = ""
@@ -1119,7 +1247,7 @@ routerAdd("POST", "/api/fifa/admin-reset", function (e) {
     }
 
     
-    var settings = getFifaSettings()
+    var settings = _getFifaSettings()
     var startingBalance = settings ? (settings.getInt("starting_balance") || 0) : 0
 
     // 1. Delete all bets
@@ -1176,11 +1304,11 @@ routerAdd("POST", "/api/fifa/admin-reset", function (e) {
             var user = allUsers[ui]
             user.set("balance", startingBalance)
             $app.saveNoValidate(user)
-            applyTransaction(user.id, "starting_grant", startingBalance, startingBalance, "", "Game reset — fresh starting grant")
+            _applyTransaction(user.id, "starting_grant", startingBalance, startingBalance, "", "Game reset — fresh starting grant")
         }
     } catch (err) { console.log("[fifa] reset: user balance reset failed: " + err) }
 
-    emitFeedEvent("system", "", "", "Game has been reset by admin")
+    _emitFeedEvent("system", "", "", "Game has been reset by admin")
     return e.json(200, { success: true, message: "Game reset complete" })
 })
 
@@ -1196,6 +1324,31 @@ routerAdd("POST", "/api/fifa/admin-reset", function (e) {
 // transparency.
 
 routerAdd("POST", "/api/fifa/raffle", function (e) {
+    // ─── Inlined helpers (PB 0.39 goja doesn't share top-level scope with callbacks) ───
+    var _getFifaSettings = function() {
+        try { return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (e) { return null }
+    }
+    var _applyDelta = function(userId, type, delta, refBetId, note) {
+        try {
+            var u = $app.findRecordById("users", userId)
+            if (!u) return null
+            var newBal = (u.getInt("balance") || 0) + delta
+            var txCol = $app.findCollectionByNameOrId("fifa_transactions")
+            var tx = new Record(txCol, { user: userId, type: type, amount: delta, balance_after: newBal, ref_bet: refBetId || "", note: note || "" })
+            $app.saveNoValidate(tx)
+            u.set("balance", newBal)
+            $app.saveNoValidate(u)
+            return newBal
+        } catch (err) { console.log("[fifa] applyDelta failed: " + err); return null }
+    }
+    var _emitFeedEvent = function(type, userId, matchId, message) {
+        try {
+            var col = $app.findCollectionByNameOrId("fifa_feed_events")
+            var ev = new Record(col, { type: type, user: userId || "", match: matchId || "", message: message || "" })
+            $app.saveNoValidate(ev)
+        } catch (err) { console.log("[fifa] emitFeedEvent failed: " + err) }
+    }
+
     // ─── Admin-only ────────────────────────────────────────────────
     var auth = e.auth
     if (!auth) {
@@ -1207,7 +1360,7 @@ routerAdd("POST", "/api/fifa/raffle", function (e) {
         return e.json(403, { error: "Admin only" })
     }
 
-    var settings = getFifaSettings()
+    var settings = _getFifaSettings()
     if (!settings) {
         return e.json(400, { error: "Game not configured" })
     }
@@ -1333,7 +1486,7 @@ routerAdd("POST", "/api/fifa/raffle", function (e) {
         $app.saveNoValidate(draw)
 
         // Emit feed event
-        emitFeedEvent("raffle", winner.user_id, "", "🎁 Raffle winner: " + winner.display_name + " (rank #" + winner.rank + ")")
+        _emitFeedEvent("raffle", winner.user_id, "", "🎁 Raffle winner: " + winner.display_name + " (rank #" + winner.rank + ")")
 
         return e.json(200, {
             success: true,
