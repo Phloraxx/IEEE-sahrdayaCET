@@ -2,13 +2,14 @@
 // easy to unit-test per market type. The PB hook route calls these to compute
 // payouts, then writes them to the DB.
 //
-// Settlement logic per market_type:
-//   match_winner    → selection === result_winner
-//   total_goals_ou  → total vs line; over/under, exact push → void
-//   correct_score   → selection === "{home}-{away}"
-//   first_scorer    → selection ∈ result_scorers
+// Settlement logic per market_type (see FIFA-GAME.md §4):
+//   match_winner    → selection === (result_advance || result_winner)
+//                     (knockouts: who advances; group: 90-min result)
+//   total_goals_ou  → 90-min total vs line; over/under, exact push → void
+//   correct_score   → selection === "{home}-{away}" (90-min score)
+//   any_scorer      → selection ∈ result_scorers (anytime, reg + ET)
 //   cards_ou        → total cards vs line; over/under, push → void
-//   clean_sheet     → home/away clean sheet bool
+//   clean_sheet     → home/away 90-min clean sheet bool
 //   custom          → admin marks winning option(s)
 
 export interface MatchResult {
@@ -20,6 +21,13 @@ export interface MatchResult {
   result_red_cards: number
   result_home_clean_sheet: boolean
   result_away_clean_sheet: boolean
+  // NEW — knockout football (FIFA-GAME.md §2.1):
+  // Who advanced. For knockouts, match_winner settles on this when set.
+  // For a 90-min draw, this is the ET/pens winner. Auto-set to result_winner
+  // by the settle route when the 90-min result isn't a draw.
+  result_advance?: 'home' | 'away' | ''
+  result_after_extra_time?: boolean
+  result_after_penalties?: boolean
 }
 
 export interface MarketInfo {
@@ -63,9 +71,14 @@ export function judgeBet(
 
   switch (market.market_type) {
     case 'match_winner': {
-      if (!result.result_winner) return 'void'
+      // Knockouts: settle on who advanced (result_advance). Falls back to the
+      // 90-min result_winner when result_advance isn't set. A 90-min draw
+      // with no result_advance → void (the admin must pick who advanced;
+      // "draw" is not a valid match-winner outcome in a knockout).
+      const winner = result.result_advance || result.result_winner
+      if (!winner || winner === 'draw') return 'void'
       // selection is "home" | "away" | "draw"
-      return sel === result.result_winner ? 'won' : 'lost'
+      return sel === winner ? 'won' : 'lost'
     }
 
     case 'total_goals_ou': {
@@ -90,7 +103,7 @@ export function judgeBet(
       return sel === expected ? 'won' : 'lost'
     }
 
-    case 'first_scorer': {
+    case 'any_scorer': {
       if (result.result_scorers.length === 0) return 'void'
       return result.result_scorers.includes(sel) ? 'won' : 'lost'
     }

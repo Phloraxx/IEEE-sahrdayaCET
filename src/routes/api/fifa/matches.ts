@@ -19,7 +19,7 @@ export const Route = createFileRoute("/api/fifa/matches")({
           const matches = await pb.collection("fifa_matches").getFullList({
             filter,
             sort: "kickoff_at",
-            fields: "id,team_home,team_away,stage,kickoff_at,betting_locks_at,status,result_winner,result_home_goals,result_away_goals,settled",
+            fields: "id,team_home,team_away,stage,kickoff_at,betting_locks_at,status,result_winner,result_home_goals,result_away_goals,result_advance,result_after_extra_time,result_after_penalties,settled",
           });
 
           // Fetch all open markets for these matches in one query
@@ -62,6 +62,9 @@ export const Route = createFileRoute("/api/fifa/matches")({
               result_winner: getField(m, 'result_winner', ''),
               result_home_goals: getField(m, 'result_home_goals', 0),
               result_away_goals: getField(m, 'result_away_goals', 0),
+              result_advance: getField(m, 'result_advance', ''),
+              result_after_extra_time: getField(m, 'result_after_extra_time', false),
+              result_after_penalties: getField(m, 'result_after_penalties', false),
               settled: getField(m, 'settled', false),
               markets: marketsByMatch[getField(m, 'id', '')] || [],
             })),

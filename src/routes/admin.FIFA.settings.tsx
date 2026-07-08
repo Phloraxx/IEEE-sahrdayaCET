@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 
-export const Route = createFileRoute("/admin/FIFA/settings/")({
+export const Route = createFileRoute("/admin/FIFA/settings")({
   component: AdminFifaSettings,
 })
 
@@ -24,6 +24,7 @@ interface Settings {
   raffle_tickets_base: number
   raffle_tickets_decay: number
   raffle_active_participant_min_bets: number
+  auto_void_hours: number
   prize: string
   registration_open: boolean
 }
@@ -63,6 +64,7 @@ function AdminFifaSettings() {
           raffle_tickets_base: Number(form.raffle_tickets_base),
           raffle_tickets_decay: Number(form.raffle_tickets_decay),
           raffle_active_participant_min_bets: Number(form.raffle_active_participant_min_bets),
+          auto_void_hours: Number(form.auto_void_hours),
           prize: form.prize,
           registration_open: form.registration_open,
         }),
@@ -136,9 +138,16 @@ function AdminFifaSettings() {
             <Input id="raffle_tickets_decay" type="number" value={form.raffle_tickets_decay} onChange={(e) => setForm({ ...form, raffle_tickets_decay: Number(e.target.value) })} />
           </div>
           <div>
-            <Label htmlFor="raffle_active_participant_min_bets">Min bets</Label>
-            <Input id="raffle_active_participant_min_bets" type="number" value={form.raffle_active_participant_min_bets} onChange={(e) => setForm({ ...form, raffle_active_participant_min_bets: Number(e.target.value) })} />
+            <Label htmlFor="raffle_active_participant_min_bets">Min bets to enter</Label>
+            <Input id="raffle_active_participant_min_bets" type="number" min={1} value={form.raffle_active_participant_min_bets} onChange={(e) => setForm({ ...form, raffle_active_participant_min_bets: Number(e.target.value) })} />
           </div>
+        </div>
+
+        <h3 className="text-sm font-semibold pt-2">Auto-void</h3>
+        <div>
+          <Label htmlFor="auto_void_hours">Auto-void after (hours)</Label>
+          <Input id="auto_void_hours" type="number" min={1} value={form.auto_void_hours} onChange={(e) => setForm({ ...form, auto_void_hours: Number(e.target.value) })} />
+          <p className="text-xs text-muted-foreground mt-1">Matches not settled this long after kickoff are auto-voided (cron runs every 30 min). Finished-but-unsettled matches void after 48h regardless.</p>
         </div>
 
         <label className="flex items-center gap-2 pt-2">

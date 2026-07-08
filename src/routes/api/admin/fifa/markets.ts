@@ -20,7 +20,7 @@ export const Route = createFileRoute("/api/admin/fifa/markets")({
           const filter = matchId ? `match = ${escapeFilterValue(matchId)}` : undefined;
           const result = await pb.collection("fifa_bet_markets").getFullList({
             filter,
-            sort: "created",
+            sort: "id",
           });
           return Response.json({
             markets: result.map((m) => ({

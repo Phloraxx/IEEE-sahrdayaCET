@@ -3,14 +3,15 @@ import { useAuth } from '@/lib/auth-context'
 
 // Shared layout for the public FIFA pages. Simple top nav, no sidebar.
 // The admin FIFA pages use the existing admin.tsx layout instead.
-export function FifaLayout({ active, children }: { active: 'home' | 'matches' | 'leaderboard' | 'feed' | 'dashboard'; children: React.ReactNode }) {
+export function FifaLayout({ active, children }: { active: 'home' | 'matches' | 'leaderboard' | 'feed' | 'dashboard' | 'rules'; children: React.ReactNode }) {
   const { status, signIn } = useAuth()
 
   const navItems = [
-    { key: 'home', label: 'Overview', to: '/FIFA/' as const },
-    { key: 'matches', label: 'Matches', to: '/FIFA/matches/' as const },
-    { key: 'leaderboard', label: 'Leaderboard', to: '/FIFA/leaderboard/' as const },
-    { key: 'feed', label: 'Feed', to: '/FIFA/feed/' as const },
+    { key: 'home', label: 'Overview', to: '/FIFA' as const },
+    { key: 'matches', label: 'Matches', to: '/FIFA/matches' as const },
+    { key: 'leaderboard', label: 'Leaderboard', to: '/FIFA/leaderboard' as const },
+    { key: 'feed', label: 'Feed', to: '/FIFA/feed' as const },
+    { key: 'rules', label: 'Rules', to: '/FIFA/rules' as const },
   ] as const
 
   return (

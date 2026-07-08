@@ -35,7 +35,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 # TanStack Start (generated route tree)
-src/routeTree.gen.ts
 
 # IDE
 .vscode/*
@@ -191,7 +190,6 @@ test-screenshots/
 /.omp/
 /local/
 # Generated build artifacts
-routeTree.gen.ts
 # Dev reports & docs
 /COMPREHENSIVE-AUDIT.md
 /ADMIN-MIGRATION-STATUS.md

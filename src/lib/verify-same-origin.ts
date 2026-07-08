@@ -40,11 +40,20 @@ export function verifySameOrigin(request: Request): void {
 
 		if (appOrigin === requestOrigin) return;
 
+		// Allow preview subdomains (e.g. preview-ieee-website-xxx.ieeesahrdaya.com)
+		// when the app URL is a *.ieeesahrdaya.com domain. Dokploy generates
+		// unique preview subdomains per PR; the origin check would otherwise
+		// block all mutations on preview builds.
+		const appHost = new URL(appUrl).hostname;
+		const reqHost = new URL(origin).hostname;
+		// Extract the apex domain (e.g. ieeesahrdaya.com from any subdomain).
+		const apexDomain = appHost.split('.').slice(-2).join('.');
+		if (apexDomain.length > 0 && reqHost.endsWith('.' + apexDomain)) return;
+
 		// In dev mode, allow any localhost/127.0.0.1 origin — Vite often
 		// picks a different port than PUBLIC_APP_URL, and the port mismatch
 		// shouldn't block local mutations.
 		if (isDev) {
-			const reqHost = new URL(origin).hostname;
 			if (reqHost === 'localhost' || reqHost === '127.0.0.1') return;
 		}
 

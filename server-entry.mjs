@@ -33,7 +33,8 @@ const MIME_TYPES = {
 
 async function main() {
   const { default: handler } = await import(SERVER_ENTRY);
-  const fetch = handler.fetch || handler;
+  const tsrFetch = handler.fetch || handler;
+  const globalFetch = globalThis.fetch;
 
 const SECURITY_HEADERS = {
   'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
@@ -41,7 +42,7 @@ const SECURITY_HEADERS = {
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-  'Content-Security-Policy': "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' data: https:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' https://*.pocketbase.io https://accounts.google.com; frame-src https://accounts.google.com",
+  'Content-Security-Policy': "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' data: https:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' https://*.pocketbase.io https://*.ieeesahrdaya.com https://accounts.google.com https://site.api.espn.com https://api.football-data.org https://raw.githubusercontent.com; frame-src https://accounts.google.com",
 };
 
 function addSecurityHeaders(res) {
@@ -60,6 +61,49 @@ const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB
         addSecurityHeaders(res);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ status: 'ok', uptime: process.uptime() }));
+        return;
+      }
+
+      // Same-origin proxy for client-side PB SSE subscriptions (public
+      // collections only: fifa_feed_events, fifa_bet_markets, fifa_matches).
+      // POCKETBASE_URL stays server-side; this exposes only the /pb path.
+      if (url.pathname.startsWith('/pb/')) {
+        try {
+          const pbUrl = process.env.POCKETBASE_URL || 'http://127.0.0.1:8090';
+          const targetPath = url.pathname.replace(/^\/pb/, '') + (url.search || '');
+          const targetUrl = `${pbUrl}${targetPath}`;
+          const pbHeaders = new Headers();
+          for (const [key, value] of Object.entries(req.headers)) {
+            if (['connection', 'keep-alive', 'transfer-encoding', 'host'].includes(key)) continue;
+            pbHeaders.set(key, Array.isArray(value) ? value.join(', ') : value);
+          }
+          let pbBody = undefined;
+          if (req.method !== 'GET' && req.method !== 'HEAD') {
+            const chunks = [];
+            for await (const chunk of req) chunks.push(chunk);
+            const buf = Buffer.concat(chunks);
+            if (buf.length > 0) {
+              pbBody = new ReadableStream({
+                start(controller) {
+                  controller.enqueue(new Uint8Array(buf));
+                  controller.close();
+                }
+              });
+            }
+          }
+          const pbRes = await globalFetch(targetUrl, { method: req.method, headers: pbHeaders, body: pbBody });
+          addSecurityHeaders(res);
+          res.writeHead(pbRes.status, Object.fromEntries(pbRes.headers.entries()));
+          if (pbRes.body) {
+            for await (const chunk of pbRes.body) res.write(chunk);
+          }
+          res.end();
+        } catch (err) {
+          console.error('[pb-proxy] Error:', err);
+          addSecurityHeaders(res);
+          res.writeHead(502, { 'Content-Type': 'text/plain' });
+          res.end('Bad Gateway: ' + (err.message || 'Unknown error'));
+        }
         return;
       }
 
@@ -84,7 +128,7 @@ const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB
         }
       }
       // SSR: forward to TanStack Start handler
-      const nodeHandler = toNodeHandler ? toNodeHandler(fetch) : simpleNodeHandler(fetch);
+      const nodeHandler = toNodeHandler ? toNodeHandler(tsrFetch) : simpleNodeHandler(tsrFetch);
       await nodeHandler(req, res);
     } catch (err) {
       console.error('Server error:', err);
