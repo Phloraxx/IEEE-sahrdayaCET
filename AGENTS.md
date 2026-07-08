@@ -171,6 +171,46 @@ Browser → Caddy (HTTPS/LB) → TanStack Start (SSR + server functions) → Poc
   (`tests/e2e/`). Vitest config has `@/` alias matching tsconfig.
 - **Components**: Avoid `React.FC` — prefer regular function components. Both
   semicolon and no-semicolon styles coexist.
+- **PR titles**: conventional commits (`feat:`, `fix:`, `chore:`, etc.),
+  enforced by `.github/workflows/pr-lint.yml`. Scope is optional
+  (`feat(auth):`, `fix(fifa):`). Merge commits ("Merge pull request #N") are
+  exempt. The version workflow keys off merge commits, not titles.
+
+## Versioning & CI/CD
+
+- **Semver source of truth = `package.json` `version`** (the frontend reads it
+  at build time via `src/components/TechnicalDetails.tsx`). Bumps are committed
+  by `.github/workflows/bump-version.yml` as `github-actions[bot]`:
+  - PR open/push (base `dev` or `main`) → `package.json` bumped to
+    `<base>+build.<run>.pr<N>` on the PR branch, committed as
+    `chore(version): …`, and `[v<version>]` appended to the PR title. Shows
+    in preview/staging builds.
+  - PR merged into `dev` → build metadata stripped, PATCH bumped, committed
+    to `dev` as `chore(release): vX.Y.(Z+1) (patch bump, …)`, tagged
+    `vX.Y.(Z+1)`.
+  - PR merged into `main` → MINOR bumped (patch reset to 0), committed to
+    `main`, tagged `vX.(Y+1).0`.
+  - Direct push to `main`/`dev` (no PR) → same bump, committed + tagged on
+    the pushed commit. PR merge commits are skipped here (the
+    `pull_request closed` event handles them).
+  - Idempotent: re-runs skip if the commit already carries a `vX.Y.Z` tag.
+- **Bot commits don't loop**: commits made by the default `GITHUB_TOKEN` do
+  not re-trigger workflows (GitHub anti-loop protection), so no PAT/secret
+  is needed. If `dev`/`main` are branch-protected, allow `github-actions[bot]`
+  to push to them (or exempt the `chore(release):`/`chore(version):` commits).
+- **CI** (`.github/workflows/ci.yml`) on push to `main`/`dev` and all PRs:
+  `bun install` → `bun run build` → `tsc --noEmit` → `bun run lint` →
+  `bun run test` (vitest). Caches `node_modules` (keyed on `bun.lock`),
+  `.tanstack/` and `tsconfig.tsbuildinfo` (keyed on SHA). Docker build job
+  runs on PRs only.
+- **CD** (`.github/workflows/cd.yml`) on push to `main`/`dev`: triggers the
+  Dokploy webhook (prod for `main`, staging for `dev`).
+- **PR lint** (`.github/workflows/pr-lint.yml`): enforces conventional-commit
+  PR titles (`feat:`, `fix:`, `chore:`, …). Scope optional. Merge commits
+  exempt. The version workflow appends `[v…]` to the title — the lint action
+  treats the bracketed suffix as part of the subject and tolerates it.
+- **No runtime elevated token in CI**: workflows use the default
+  `GITHUB_TOKEN` with explicit least-privilege `permissions:` blocks.
 
 ## Notes
 

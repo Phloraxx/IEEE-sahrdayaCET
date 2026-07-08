@@ -67,7 +67,7 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     label: "Blogs",
-    href: "/admin/blogs",
+    href: "/admin/blogs/",
     icon: FileText,
     description: "Manage posts",
     allowedRoles: ["admin", "content"],
