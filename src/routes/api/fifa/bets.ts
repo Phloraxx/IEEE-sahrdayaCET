@@ -88,53 +88,46 @@ export const Route = createFileRoute("/api/fifa/bets")({
           if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
 
           try {
-            const bet = await pb.collection("fifa_bets").create({
-              user: user.id,
-              match: parsed.match,
-              market: parsed.market,
-              selection: parsed.selection,
-              stake: parsed.stake,
+            // Use Bearer token for the PB call so the hook's e.auth is set.
+            // The cookie-based PB client may not set e.auth in onRecordCreateRequest.
+            const token = pb.authStore.token;
+            const pbUrl = process.env.POCKETBASE_URL;
+            const res = await fetch(`${pbUrl}/api/collections/fifa_bets/records`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                user: user.id,
+                match: parsed.match,
+                market: parsed.market,
+                selection: parsed.selection,
+                stake: parsed.stake,
+              }),
             });
-
-            const created = await pb.collection("fifa_bets").getOne(bet.id, {
-              fields: "id,selection,stake,mode,odds_locked,status,payout,placed_at",
-            });
+            const bet = await res.json();
+            if (!res.ok) {
+              const errMsg = bet?.message || bet?.error || 'Bet rejected';
+              return Response.json({ error: errMsg }, { status: res.status });
+            }
 
             return Response.json({
               bet: {
-                id: getField(created, 'id', ''),
-                selection: getField(created, 'selection', ''),
-                stake: getField(created, 'stake', 0),
-                mode: getField(created, 'mode', 'pool'),
-                odds_locked: getField(created, 'odds_locked', 0),
-                status: getField(created, 'status', 'pending'),
-                payout: getField(created, 'payout', 0),
-                placed_at: getField(created, 'placed_at', ''),
+                id: bet.id,
+                selection: bet.selection,
+                stake: bet.stake,
+                mode: bet.mode || 'pool',
+                odds_locked: bet.odds_locked || 0,
+                status: bet.status || 'pending',
+                payout: bet.payout || 0,
+                placed_at: bet.placed_at || '',
               },
             }, { status: 201 });
           } catch (createError) {
             refundToken({ key: `fifa-bet:${user.id}`, max: FIFA_RATE_LIMITS.bet.max, windowMs: FIFA_RATE_LIMITS.bet.windowMs });
             throw createError;
           }
-
-          // Read back the hook-populated fields (mode, odds_locked, status,
-          // placed_at are set by the hook, not the client)
-          const created = await pb.collection("fifa_bets").getOne(bet.id, {
-            fields: "id,selection,stake,mode,odds_locked,status,payout,placed_at",
-          });
-
-          return Response.json({
-            bet: {
-              id: getField(created, 'id', ''),
-              selection: getField(created, 'selection', ''),
-              stake: getField(created, 'stake', 0),
-              mode: getField(created, 'mode', 'pool'),
-              odds_locked: getField(created, 'odds_locked', 0),
-              status: getField(created, 'status', 'pending'),
-              payout: getField(created, 'payout', 0),
-              placed_at: getField(created, 'placed_at', ''),
-            },
-          }, { status: 201 });
         } catch (error) {
           return handleError(error, "fifa-bets-create");
         }
