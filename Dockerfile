@@ -54,9 +54,9 @@ COPY . .
 
 # Generate route tree before build — the Vite plugin's file crawler
 # misses some route files in Docker (pre-existing TanStack Start bug).
-# Running tsr generate first ensures routeTree.gen.ts is complete,
-# then the build reuses it.
-RUN npx tsr generate
+# Generate a complete route tree, then make it read-only so the plugin
+# can't overwrite it with a broken version during the build.
+RUN node scripts/generate-routes.mjs && chmod 444 src/routeTree.gen.ts
 RUN bun run build
 
 # ─── Fix TanStack Start singleton getRouter() bug (#6924) ─────────
