@@ -37,13 +37,13 @@ export const Route = createFileRoute("/api/admin/fifa/testing")({
             return await importFixtures(pb);
           }
           if (action === 'adjust-balance') {
-            return await adjustBalanceProxy(request);
+            return await adjustBalanceProxy(request, pb);
           }
           if (action === 'trigger-auto-void') {
             return await triggerAutoVoid(pb);
           }
           if (action === 'reset') {
-            return await resetProxy(request);
+            return await resetProxy(request, pb);
           }
           return Response.json({ error: `Unknown action: ${action}` }, { status: 400 });
         } catch (error) {
@@ -162,16 +162,23 @@ async function importFixtures(pb: PocketBase): Promise<Response> {
 }
 
 // ─── Adjust balance — proxy to PB /api/fifa/admin-adjust ─────────────
-async function adjustBalanceProxy(request: Request): Promise<Response> {
+async function adjustBalanceProxy(request: Request, pb: PocketBase): Promise<Response> {
   const body = await request.json() as { userId?: string; amount?: number; note?: string }
   const parsed = z.object({
     userId: z.string().min(1),
     amount: z.number().int(),
     note: z.string().max(200).optional(),
   }).parse(body)
+  const token = pb.authStore.token;
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  } else {
+    headers['cookie'] = request.headers.get('cookie') || '';
+  }
   const res = await fetch(`${process.env.POCKETBASE_URL}/api/fifa/admin-adjust`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', cookie: request.headers.get('cookie') || '' },
+    headers,
     body: JSON.stringify(parsed),
   })
   const data = await res.json().catch(() => ({}))
@@ -220,11 +227,18 @@ async function triggerAutoVoid(pb: PocketBase): Promise<Response> {
 }
 
 // ─── Reset game — proxy to PB /api/fifa/admin-reset ──────────────────
-async function resetProxy(request: Request): Promise<Response> {
+async function resetProxy(request: Request, pb: PocketBase): Promise<Response> {
   const body = await request.json() as { confirm?: string }
+  const token = pb.authStore.token;
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  } else {
+    headers['cookie'] = request.headers.get('cookie') || '';
+  }
   const res = await fetch(`${process.env.POCKETBASE_URL}/api/fifa/admin-reset`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', cookie: request.headers.get('cookie') || '' },
+    headers,
     body: JSON.stringify({ confirm: body.confirm || '' }),
   })
   const data = await res.json().catch(() => ({}))

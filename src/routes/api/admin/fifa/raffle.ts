@@ -20,12 +20,19 @@ export const Route = createFileRoute("/api/admin/fifa/raffle")({
           const rl = checkRateLimit({ key: `fifa-raffle:${user.id}`, max: FIFA_RATE_LIMITS.raffle.max, windowMs: FIFA_RATE_LIMITS.raffle.windowMs });
           if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
 
+          const token = pb.authStore.token;
+          const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+          };
+          if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+          } else {
+            headers['cookie'] = request.headers.get('cookie') || '';
+          }
+
           const res = await fetch(`${process.env.POCKETBASE_URL}/api/fifa/raffle`, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              cookie: request.headers.get('cookie') || '',
-            },
+            headers,
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) {
