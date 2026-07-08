@@ -698,6 +698,56 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
             $app.saveNoValidate(ev)
         } catch (err) { console.log("[fifa] emitFeedEvent failed: " + err) }
     }
+    var _judgeBet = function(selection, status, marketType, line, result, customWinners) {
+        if (status === "won" || status === "lost" || status === "void") { return status }
+        switch (marketType) {
+            case "match_winner": {
+                var winner = result.result_advance || result.result_winner
+                if (!winner || winner === "draw") return "void"
+                return selection === winner ? "won" : "lost"
+            }
+            case "total_goals_ou": {
+                var total = (result.result_home_goals || 0) + (result.result_away_goals || 0)
+                if (selection === "over") { if (total > line) return "won"; if (total < line) return "lost"; return "void" }
+                if (selection === "under") { if (total < line) return "won"; if (total > line) return "lost"; return "void" }
+                return "lost"
+            }
+            case "correct_score": {
+                var expected = (result.result_home_goals || 0) + "-" + (result.result_away_goals || 0)
+                return selection === expected ? "won" : "lost"
+            }
+            case "any_scorer": {
+                var scorers = result.result_scorers || []
+                if (scorers.length === 0) return "void"
+                return scorers.indexOf(selection) !== -1 ? "won" : "lost"
+            }
+            case "cards_ou": {
+                var cards = (result.result_yellow_cards || 0) + (result.result_red_cards || 0)
+                if (selection === "over") { if (cards > line) return "won"; if (cards < line) return "lost"; return "void" }
+                if (selection === "under") { if (cards < line) return "won"; if (cards > line) return "lost"; return "void" }
+                return "lost"
+            }
+            case "clean_sheet": {
+                if (selection === "home") return result.result_home_clean_sheet ? "won" : "lost"
+                if (selection === "away") return result.result_away_clean_sheet ? "won" : "lost"
+                return "lost"
+            }
+            case "custom": {
+                if (!customWinners || customWinners.length === 0) return "void"
+                return customWinners.indexOf(selection) !== -1 ? "won" : "lost"
+            }
+            default: return "void"
+        }
+    }
+    var _computePayout = function(stake, mode, oddsLocked, outcome, totalPool, totalWinningStakes, houseCutPercent) {
+        if (outcome === "lost") return 0
+        if (outcome === "void") return stake
+        if (mode === "fixed") { return Math.round(stake * oddsLocked) }
+        if (totalWinningStakes <= 0) return 0
+        var cut = houseCutPercent / 100
+        var pool = totalPool * (1 - cut)
+        return Math.round((stake / totalWinningStakes) * pool)
+    }
 
     // ─── Admin-only ────────────────────────────────────────────────
     var auth = e.auth
@@ -811,7 +861,7 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
         var judged = []
         for (var bi = 0; bi < bets.length; bi++) {
             var bet = bets[bi]
-            var outcome = judgeBetJS(
+            var outcome = _judgeBet(
                 bet.getString("selection"),
                 bet.getString("status"),
                 marketType,
@@ -835,8 +885,6 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
                     b.set("status", "void")
                     b.set("payout", refundStake)
                     $app.saveNoValidate(b)
-                    // Refund via applyDelta (re-reads balance — safe if user
-                    // has multiple bets across voided markets in one call)
                     _applyDelta(b.getString("user"), "bet_refund", refundStake, b.id, "Pool voided — refund")
                 }
                 continue
@@ -859,52 +907,35 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
             var stake = jb.bet.getInt("stake") || 0
             var mode = jb.bet.getString("mode") || "pool"
             var oddsLocked = jb.bet.getInt("odds_locked") || 0
-            // CRITICAL: only pay out bets that were pending before this run.
-            // judgeBetJS is idempotent (returns existing status for already-
-            // settled bets), but without this guard a crash-recovery re-run
-            // would call applyDelta AGAIN for already-paid bets → double pay.
             var wasPending = jb.bet.getString("status") === "pending"
-            var payout = computePayoutJS(stake, mode, oddsLocked, jb.outcome, totalPool, totalWinningStakes, houseCutPercent)
+            var payout = _computePayout(stake, mode, oddsLocked, jb.outcome, totalPool, totalWinningStakes, houseCutPercent)
 
             jb.bet.set("status", jb.outcome)
             jb.bet.set("payout", payout)
             $app.saveNoValidate(jb.bet)
             settledCount++
 
-            // Only credit the user if this bet was newly settled (was pending).
-            // Already-settled bets (from a partial earlier run) keep their
-            // status but don't get paid again.
-            if (wasPending && (jb.outcome === "won" || jb.outcome === "void")) {
-                var userId = jb.bet.getString("user")
-                var txType = jb.outcome === "void" ? "bet_refund" : "bet_payout"
-                var note = jb.outcome === "void" ? "Bet voided — refund" : "Bet won — payout"
-                _applyDelta(userId, txType, payout, jb.bet.id, note)
-                totalPayout += payout
+            if (wasPending && payout > 0) {
+                var newBalance = _applyDelta(jb.bet.getString("user"), "bet_payout", payout, jb.bet.id, "Match settlement")
+                if (newBalance !== null) {
+                    totalPayout += payout
+                }
             }
         }
     }
 
-    // ─── Mark match settled LAST (crash → re-runnable) ─────────────
+    // ─── Mark match as settled ────────────────────────────────────
     match.set("settled", true)
     $app.saveNoValidate(match)
 
-    // Emit feed event
-    var homeTeam = match.getString("team_home") || ""
-    var awayTeam = match.getString("team_away") || ""
-    var scoreline = homeTeam + " " + result.result_home_goals + "-" + result.result_away_goals + " " + awayTeam
-    if (result.result_after_penalties) {
-        scoreline += " (Pens — " + (result.result_advance === "home" ? homeTeam : awayTeam) + " advanced)"
-    } else if (result.result_after_extra_time) {
-        scoreline += " (AET — " + (result.result_advance === "home" ? homeTeam : awayTeam) + " advanced)"
-    }
-    _emitFeedEvent("result", "", matchId, scoreline + " — settled")
+    _emitFeedEvent("settlement", "", matchId, "Match settled — " + settledCount + " bets processed")
 
     return e.json(200, {
         success: true,
         matchId: matchId,
-        marketsSettled: marketsProcessed,
-        betsSettled: settledCount,
+        settledCount: settledCount,
         totalPayout: totalPayout,
+        marketsProcessed: marketsProcessed,
     })
   } catch (err) {
     console.log("[fifa] settle error: " + err)
