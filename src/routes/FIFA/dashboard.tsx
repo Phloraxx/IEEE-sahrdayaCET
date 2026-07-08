@@ -26,7 +26,7 @@ interface DashboardData {
     amount: number
     balance_after: number
     note: string
-    created: string
+    timestamp: string
   }>
 }
 
@@ -131,8 +131,8 @@ function DashboardPage() {
                 <div key={t.id} className="flex items-center justify-between text-sm py-2 border-b border-border/50 last:border-0">
                   <div>
                     <p className="text-foreground">{t.note || t.type.replace(/_/g, ' ')}</p>
-                    {formatDateTime(t.created) && (
-                      <p className="text-xs text-muted-foreground">{formatDateTime(t.created)}</p>
+                    {formatDateTime(t.timestamp) && (
+                      <p className="text-xs text-muted-foreground">{formatDateTime(t.timestamp)}</p>
                     )}
                   </div>
                   <span className={`font-mono ${t.amount >= 0 ? 'text-ieee-success' : 'text-ieee-danger'}`}>
