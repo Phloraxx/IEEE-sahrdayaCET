@@ -83,10 +83,7 @@ function generatePaymentTicketId() {
 onRecordCreateRequest(function (e) {
     var reg = e.record
 
-    // Set placeholder ticketId to avoid unique constraint violation.
-    if (!reg.getString("ticketId")) {
-        reg.set("ticketId", "temp-" + $security.randomString(16))
-    }
+    // We'll set the correct ticketId after fetching the event below.
 
     // --- Business rule validation (authority lives here, not in route code) ---
     var eventId = reg.getString("event")
@@ -99,6 +96,19 @@ onRecordCreateRequest(function (e) {
         event = $app.findRecordById("events", eventId)
     } catch (err) {
         throw new errors.BadRequestError("Event not found")
+    }
+    // Set the correct ticketId based on event price. For free events, set the
+    // user-facing ticketId; for paid events, set the paymentTicketId.
+    // The after-create hook will null out the unused one.
+    // This avoids a temp-* placeholder that could persist if the after-create
+    // hook fails.
+    if (!reg.getString("ticketId") && !reg.getString("paymentTicketId")) {
+        var eventPrice = event.getInt("price") || 0
+        if (eventPrice === 0) {
+            reg.set("ticketId", "TKT-" + $security.randomString(16))
+        } else {
+            reg.set("paymentTicketId", generatePaymentTicketId())
+        }
     }
 
     // 1. Status gate: event must be published
@@ -246,9 +256,20 @@ onRecordAfterCreateSuccess(function (e) {
     record.set("registrationStatus", isFree ? "confirmed" : "pending")
     record.set("registrationDate", new Date().toISOString())
     if (isFree) {
-        record.set("ticketId", generateTicketId())
+        record.set("paymentTicketId", "")  // null out the payment ID for free events
     } else {
-        record.set("paymentTicketId", generatePaymentTicketId())
+        record.set("ticketId", "")  // null out the user-facing ID for paid events
+    }
+    // Safety net: if the pre-commit hook somehow left a temp-* ticketId,
+    // generate the real one now. This prevents temp-* placeholders from
+    // persisting if the pre-commit hook's event fetch failed silently.
+    var existingTicketId = record.getString("ticketId") || ""
+    var existingPaymentTicketId = record.getString("paymentTicketId") || ""
+    if (existingTicketId.indexOf("temp-") === 0) {
+        record.set("ticketId", isFree ? generateTicketId() : "")
+    }
+    if (existingPaymentTicketId.indexOf("temp-") === 0) {
+        record.set("paymentTicketId", isFree ? "" : generatePaymentTicketId())
     }
     // NEW-3: Reset checkedIn/checkedInAt — the createRule only requires
     // user = @request.auth.id, so a direct PB API client could sneak in
@@ -280,7 +301,42 @@ onRecordAfterCreateSuccess(function (e) {
             recomputeEventCounters(eventId)
         }
     }
-    if (couponCode) { recomputeCouponUsedCount(couponCode, eventId) }
+    // --- Coupon maxUses post-commit overflow self-heal ---
+    // Mirrors the capacity check above. If concurrent registrations with the
+    // same coupon code raced past the pre-commit check, cancel the excess.
+    if (couponCode) {
+        var coupon = null
+        try {
+            coupon = $app.findFirstRecordByFilter(
+                "coupons",
+                "code = {:code} && event = {:eventId}",
+                { code: couponCode, eventId: eventId }
+            )
+        } catch (err) {}
+        if (coupon) {
+            var maxUses = coupon.getInt("maxUses") || 0
+            if (maxUses > 0) {
+                var activeAfter = $app.findRecordsByFilter(
+                    "registrations",
+                    "couponCode = {:code} && event = {:eventId} && registrationStatus != {:cancelled}",
+                    "created desc, id desc", 0, 0,
+                    { code: couponCode, eventId: eventId, cancelled: "cancelled" }
+                )
+                var couponExcess = activeAfter.length - maxUses
+                if (couponExcess > 0) {
+                    var healDao2 = $app.dao()
+                    for (var k = 0; k < couponExcess; k++) {
+                        var rec2 = activeAfter[k]
+                        rec2.set("registrationStatus", "cancelled")
+                        healDao2.saveRecord(rec2)
+                    }
+                    recomputeEventCounters(eventId)
+                    recomputeCouponUsedCount(couponCode, eventId)
+                }
+            }
+        }
+    }
+    if (couponCode && !couponExcess) { recomputeCouponUsedCount(couponCode, eventId) }
     e.next()
 }, "registrations")
 

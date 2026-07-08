@@ -62,10 +62,11 @@ routerAdd("POST", "/api/webhooks/payment-confirm", function (e) {
             "paymentTicketId = {:ticketId}",
             { ticketId: ticketId }
         )
-    if (!reg) {
-        return e.json(404, { error: "Registration not found" })
-    }
     } catch (err) {
+        console.log("[webhook] DB error looking up registration: " + err)
+        return e.json(502, { error: "Database error" })
+    }
+    if (!reg) {
         return e.json(404, { error: "Registration not found" })
     }
 

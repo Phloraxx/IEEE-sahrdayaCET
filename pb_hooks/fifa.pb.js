@@ -234,24 +234,30 @@ onRecordCreateRequest(function (e) {
 
     // 4. Selection must be a valid option
     // PB 0.39 stores JSON fields in goja as byte arrays. Try multiple
-    // decoding strategies. If all fail, skip validation (the createRule
-    // on the collection is a backstop).
+    // decoding strategies. If all fail, reject the bet — a market with
+    // unparseable options is misconfigured and shouldn't accept bets.
     var optionsRaw = market.get("options")
     var options = []
+    var parseFailed = false
     if (optionsRaw) {
         if (typeof optionsRaw === "string") {
-            try { options = JSON.parse(optionsRaw) } catch (ex) { options = [] }
+            try { options = JSON.parse(optionsRaw) } catch (ex) { parseFailed = true }
         } else if (typeof optionsRaw === "object" && typeof optionsRaw.length === "number") {
             if (optionsRaw.length > 0 && typeof optionsRaw[0] === "number") {
                 try {
                     var str = ""
                     for (var i = 0; i < optionsRaw.length; i++) str += String.fromCharCode(optionsRaw[i])
                     options = JSON.parse(str)
-                } catch (ex) { options = [] }
+                } catch (ex) { parseFailed = true }
             } else {
                 for (var i = 0; i < optionsRaw.length; i++) { options.push(optionsRaw[i]) }
             }
+        } else {
+            parseFailed = true
         }
+    }
+    if (parseFailed) {
+        throw new errors.BadRequestError("Market configuration error: invalid options")
     }
     if (options.length > 0 && options.indexOf(selection) === -1) {
         throw new errors.BadRequestError("Invalid selection for this market")
@@ -351,10 +357,13 @@ onRecordAfterCreateSuccess(function (e) {
             betRec.set("status", "void")
             betRec.set("payout", 0)
             $app.saveNoValidate(betRec)
-            // Inline applyDelta for refund (0 delta)
+            // Inline applyDelta for refund (full stake)
             var txCol2 = $app.findCollectionByNameOrId("fifa_transactions")
-            var tx2 = new Record(txCol2, { user: userId, type: "bet_refund", amount: 0, balance_after: currentBalance, ref_bet: bet.id, note: "Voided: insufficient balance (race)", timestamp: new Date().toISOString() })
+            var refundBal = currentBalance + stake
+            var tx2 = new Record(txCol2, { user: userId, type: "bet_refund", amount: stake, balance_after: refundBal, ref_bet: bet.id, note: "Voided: insufficient balance (race)", timestamp: new Date().toISOString() })
             $app.saveNoValidate(tx2)
+            user.set("balance", refundBal)
+            $app.saveNoValidate(user)
         } catch (err) {
             console.log("[fifa] TOCTOU void failed for bet " + bet.id + ": " + err)
         }
@@ -363,6 +372,9 @@ onRecordAfterCreateSuccess(function (e) {
     }
 
     // Deduct balance + write ledger (inline applyDelta to avoid scope issues)
+    // Re-reads the user balance from DB right before deduction to minimize
+    // the race window between the TOCTOU check and the actual deduction.
+    // The self-heal above is the safety net for any remaining race.
     try {
         var u = $app.findRecordById("users", userId)
         var newBal = (u.getInt("balance") || 0) - stake

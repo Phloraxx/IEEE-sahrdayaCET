@@ -1,11 +1,7 @@
 {
   "name": "ieee-sahrdaya",
   "private": true,
-<<<<<<< HEAD
   "version": "2.3.26",
-  "version": "2.3.26",
-  "version": "2.3.26",
->>>>>>> origin/dev
   "type": "module",
   "scripts": {
     "dev": "vite dev",
