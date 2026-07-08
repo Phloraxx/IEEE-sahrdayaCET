@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, Outlet, useRouterState } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { FifaLayout } from '@/features/fifa/fifa-layout'
 
@@ -44,17 +44,31 @@ export const Route = createFileRoute('/FIFA/matches')({
 })
 
 function MatchesPage() {
+  // When a child route (match detail) is active, render only the outlet.
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const isDetail = /^\/FIFA\/matches\/[^/]+\/?$/.test(pathname)
+
   const { data, isLoading } = useQuery({
     queryKey: ['fifa-matches'],
     queryFn: fetchMatches,
     refetchInterval: 15_000,
+    enabled: !isDetail,
   })
   // Live scores overlay (60s poll, degrades gracefully if unconfigured).
   const { data: liveData } = useQuery({
     queryKey: ['fifa-live-scores'],
     queryFn: fetchLiveScores,
     refetchInterval: 60_000,
+    enabled: !isDetail,
   })
+
+  if (isDetail) {
+    return (
+      <FifaLayout active="matches">
+        <Outlet />
+      </FifaLayout>
+    )
+  }
 
   return (
     <FifaLayout active="matches">
