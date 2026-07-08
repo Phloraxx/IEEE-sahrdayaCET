@@ -152,7 +152,7 @@ function betFields(usersId: string, matchesId: string, marketsId: string): Recor
     relationField('user', usersId, { required: true, cascadeDelete: true }),
     relationField('match', matchesId, { required: true, cascadeDelete: true }),
     relationField('market', marketsId, { required: true, cascadeDelete: true }),
-    jsonField('selection'),
+    textField('selection', { required: true, min: 1, max: 100 }),
     numberField('stake', { required: true }),
     selectField('mode', ['pool', 'fixed'], { required: true }),
     numberField('odds_locked'),
