@@ -168,6 +168,7 @@ onRecordCreateRequest(function (e) {
 // snapshots, so a failed validation doesn't leave orphan records.
 
 onRecordCreateRequest(function (e) {
+    try {
     var bet = e.record
     var settings = null
     try { settings = $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (err) { settings = null }
@@ -229,43 +230,37 @@ onRecordCreateRequest(function (e) {
     }
 
     // 4. Selection must be a valid option
+    // PB 0.39 stores JSON fields as byte arrays in goja. Detect encoding:
+    // - string: JSON.parse it
+    // - array of numbers: byte-encoded JSON, decode then parse
+    // - array of strings: native array, use directly
     var optionsRaw = market.get("options")
     var options = []
     if (typeof optionsRaw === "string") {
         try { options = JSON.parse(optionsRaw) } catch (e) { options = [] }
-    } else if (Array.isArray(optionsRaw)) {
-        // Could be a real array ["home","away"] or a byte array from goja's
-        // json field encoding ([91,34,104,...] = ["home",...]). Detect bytes.
+    } else if (optionsRaw && typeof optionsRaw === "object" && typeof optionsRaw.length === "number") {
         if (optionsRaw.length > 0 && typeof optionsRaw[0] === "number") {
+            // Byte array from goja's json field encoding
             try {
                 var str = ""
                 for (var i = 0; i < optionsRaw.length; i++) str += String.fromCharCode(optionsRaw[i])
                 options = JSON.parse(str)
             } catch (e) { options = [] }
         } else {
-            options = optionsRaw
+            // Native array
+            for (var i = 0; i < optionsRaw.length; i++) options.push(optionsRaw[i])
         }
-    } else if (optionsRaw && typeof optionsRaw === "object") {
-        try {
-            var str2 = ""
-            for (var j = 0; j < optionsRaw.length; j++) str2 += String.fromCharCode(optionsRaw[j])
-            options = JSON.parse(str2)
-        } catch (e) { options = [] }
     }
     if (options.length > 0 && options.indexOf(selection) === -1) {
         throw new errors.BadRequestError("Invalid selection for this market")
     }
 
     // 5. Auth record (the user placing the bet).
-    // PB 0.23+ exposes e.auth directly. Fall back to $apis.requestInfo
-    // for older versions. The createRule also enforces user = @request.auth.id.
-    var auth = e.auth || null
-    if (!auth && e.httpContext) {
-        try {
-            var ri = $apis.requestInfo(e.httpContext)
-            auth = ri.authRecord || null
-        } catch (err) { auth = null }
-    }
+    // PB 0.39 sets e.auth when the request has a valid Authorization: Bearer
+    // header. The TanStack route now passes the token as Bearer (not cookie),
+    // so e.auth should be populated.
+    var auth = null
+    try { auth = e.auth || null } catch (err) { auth = null }
     if (!auth || !auth.id) {
         throw new errors.BadRequestError("Must be logged in to bet")
     }
@@ -294,13 +289,7 @@ onRecordCreateRequest(function (e) {
         var fixedOdds = {}
         if (typeof fixedOddsRaw === "string") {
             try { fixedOdds = JSON.parse(fixedOddsRaw) } catch (e) { fixedOdds = {} }
-        } else if (Array.isArray(fixedOddsRaw)) {
-            try {
-                var str2 = ""
-                for (var j = 0; j < fixedOddsRaw.length; j++) str2 += String.fromCharCode(fixedOddsRaw[j])
-                fixedOdds = JSON.parse(str2)
-            } catch (e) { fixedOdds = {} }
-        } else if (typeof fixedOddsRaw === "object" && fixedOddsRaw !== null && !Array.isArray(fixedOddsRaw)) {
+        } else if (typeof fixedOddsRaw === "object" && fixedOddsRaw !== null) {
             fixedOdds = fixedOddsRaw
         }
         var odds = fixedOdds[selection]
@@ -318,6 +307,10 @@ onRecordCreateRequest(function (e) {
     bet.set("placed_at", new Date().toISOString())
 
     e.next()
+    } catch (err) {
+        console.log("[fifa] bet create error: " + String(err))
+        throw err
+    }
 }, "fifa_bets")
 
 // ─── Phase 4: Bet create — after commit (deduct, ledger, pool, feed) ─
