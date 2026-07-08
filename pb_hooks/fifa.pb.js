@@ -237,14 +237,14 @@ onRecordCreateRequest(function (e) {
     var options = []
     if (optionsRaw) {
         if (typeof optionsRaw === "string") {
-            try { options = JSON.parse(optionsRaw) } catch (e) { options = [] }
+            try { options = JSON.parse(optionsRaw) } catch (ex) { options = [] }
         } else if (typeof optionsRaw === "object" && typeof optionsRaw.length === "number") {
             if (optionsRaw.length > 0 && typeof optionsRaw[0] === "number") {
                 try {
                     var str = ""
                     for (var i = 0; i < optionsRaw.length; i++) str += String.fromCharCode(optionsRaw[i])
                     options = JSON.parse(str)
-                } catch (e) { options = [] }
+                } catch (ex) { options = [] }
             } else {
                 for (var i = 0; i < optionsRaw.length; i++) { options.push(optionsRaw[i]) }
             }
@@ -287,7 +287,7 @@ onRecordCreateRequest(function (e) {
         var fixedOddsRaw = market.get("fixed_odds")
         var fixedOdds = {}
         if (typeof fixedOddsRaw === "string") {
-            try { fixedOdds = JSON.parse(fixedOddsRaw) } catch (e) { fixedOdds = {} }
+            try { fixedOdds = JSON.parse(fixedOddsRaw) } catch (ex) { fixedOdds = {} }
         } else if (typeof fixedOddsRaw === "object" && fixedOddsRaw !== null) {
             fixedOdds = fixedOddsRaw
         }
@@ -673,7 +673,7 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
   try {
     // ─── Inlined helpers (PB 0.39 goja doesn't share top-level scope with callbacks) ───
     var _getFifaSettings = function() {
-        try { return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (e) { return null }
+        try { return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (ex) { return null }
     }
     var _applyDelta = function(userId, type, delta, refBetId, note) {
         try {
@@ -951,7 +951,7 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
 cronAdd("fifa-daily-topup", "0 9 * * *", function () {
     // ─── Inlined helpers (PB 0.39 goja doesn't share top-level scope with callbacks) ───
     var _getFifaSettings = function() {
-        try { return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (e) { return null }
+        try { return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (ex) { return null }
     }
     var _applyDelta = function(userId, type, delta, refBetId, note) {
         try {
@@ -1059,7 +1059,7 @@ cronAdd("fifa-daily-topup", "0 9 * * *", function () {
 cronAdd("fifa-auto-void", "*/30 * * * *", function () {
     // ─── Inlined helpers (PB 0.39 goja doesn't share top-level scope with callbacks) ───
     var _getFifaSettings = function() {
-        try { return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (e) { return null }
+        try { return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (ex) { return null }
     }
     var _applyDelta = function(userId, type, delta, refBetId, note) {
         try {
@@ -1174,7 +1174,7 @@ cronAdd("fifa-auto-void", "*/30 * * * *", function () {
 routerAdd("POST", "/api/fifa/admin-adjust", function (e) {
     // ─── Inlined helpers (PB 0.39 goja doesn't share top-level scope with callbacks) ───
     var _getFifaSettings = function() {
-        try { return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (e) { return null }
+        try { return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (ex) { return null }
     }
     var _applyDelta = function(userId, type, delta, refBetId, note) {
         try {
@@ -1229,7 +1229,7 @@ routerAdd("POST", "/api/fifa/admin-adjust", function (e) {
 routerAdd("POST", "/api/fifa/admin-reset", function (e) {
     // ─── Inlined helpers (PB 0.39 goja doesn't share top-level scope with callbacks) ───
     var _getFifaSettings = function() {
-        try { return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (e) { return null }
+        try { return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (ex) { return null }
     }
     var _applyDelta = function(userId, type, delta, refBetId, note) {
         try {
@@ -1358,7 +1358,7 @@ routerAdd("POST", "/api/fifa/admin-reset", function (e) {
 routerAdd("POST", "/api/fifa/raffle", function (e) {
     // ─── Inlined helpers (PB 0.39 goja doesn't share top-level scope with callbacks) ───
     var _getFifaSettings = function() {
-        try { return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (e) { return null }
+        try { return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (ex) { return null }
     }
     var _applyDelta = function(userId, type, delta, refBetId, note) {
         try {
