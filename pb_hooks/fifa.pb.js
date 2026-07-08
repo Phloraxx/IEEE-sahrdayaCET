@@ -906,6 +906,10 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
         betsSettled: settledCount,
         totalPayout: totalPayout,
     })
+  } catch (err) {
+    console.log("[fifa] settle error: " + err)
+    return e.json(500, { error: "Settlement failed: " + String(err) })
+  }
 })
 
 // ─── Phase 8: Daily top-up cron ─────────────────────────────────────
