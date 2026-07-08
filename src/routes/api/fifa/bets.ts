@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB } from "@/lib/pb.server"
+import { createPB, getPBUrl } from "@/lib/pb.server"
 import { escapeFilterValue } from "@/lib/pb";
 import { requireAuth } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
@@ -88,10 +88,12 @@ export const Route = createFileRoute("/api/fifa/bets")({
           if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
 
           try {
-            // Use Bearer token for the PB call so the hook's e.auth is set.
-            // The cookie-based PB client may not set e.auth in onRecordCreateRequest.
+            // Use raw fetch with Bearer token so PB 0.39's onRecordCreateRequest
+            // hook has e.auth populated (cookie-based auth doesn't set e.auth
+            // in hook callbacks). The SDK's create() sends the token as a cookie,
+            // which PB 0.39 doesn't decode into e.auth for hooks.
             const token = pb.authStore.token;
-            const pbUrl = process.env.POCKETBASE_URL;
+            const pbUrl = getPBUrl().replace(/\/+$/, '');
             const res = await fetch(`${pbUrl}/api/collections/fifa_bets/records`, {
               method: 'POST',
               headers: {
