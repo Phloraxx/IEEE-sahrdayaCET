@@ -224,14 +224,14 @@ const BET_INDEXES = [
   'CREATE INDEX IF NOT EXISTS idx_fifa_bets_user_status ON fifa_bets (user, status)',
 ]
 const TRANSACTION_INDEXES = [
-  'CREATE INDEX IF NOT EXISTS idx_fifa_transactions_user_created ON fifa_transactions (user, created)',
-  'CREATE INDEX IF NOT EXISTS idx_fifa_transactions_type_created ON fifa_transactions (type, created)',
+  'CREATE INDEX IF NOT EXISTS idx_fifa_transactions_user ON fifa_transactions (user)',
+  'CREATE INDEX IF NOT EXISTS idx_fifa_transactions_type ON fifa_transactions (type)',
 ]
 const RAFFLE_INDEXES = [
   'CREATE INDEX IF NOT EXISTS idx_fifa_raffle_draws_drawn_at ON fifa_raffle_draws (drawn_at)',
 ]
 const FEED_INDEXES = [
-  'CREATE INDEX IF NOT EXISTS idx_fifa_feed_events_created ON fifa_feed_events (created)',
+  'CREATE INDEX IF NOT EXISTS idx_fifa_feed_events_type ON fifa_feed_events (type)',
 ]
 
 // ─── Main ────────────────────────────────────────────────────────────
@@ -259,7 +259,6 @@ async function createCollection(name: string, fields: Record<string, unknown>[],
     name,
     type: 'base',
     fields: resolvedFields,
-    indexes,
     // Permissive rules here — migrate-pb-rules.ts is the source of truth and
     // will tighten them. Starting permissive lets the schema land even if the
     // rules script hasn't run yet.
@@ -269,7 +268,13 @@ async function createCollection(name: string, fields: Record<string, unknown>[],
     updateRule: '',
     deleteRule: '',
   }
+  // Create without indexes first — PB validates index expressions at creation
+  // time, but the `created` system column isn't available until the collection
+  // exists. Add indexes via PATCH after creation.
   await api('POST', '/api/collections', body)
+  if (indexes.length > 0) {
+    await api('PATCH', `/api/collections/${name}`, { indexes })
+  }
   console.log(`[ok] Created collection "${name}" (${fields.length} fields)`)
 }
 

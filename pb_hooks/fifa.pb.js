@@ -524,7 +524,7 @@ routerAdd("GET", "/api/fifa/feed", function (e) {
         var events = $app.findRecordsByFilter(
             "fifa_feed_events",
             "1 = 1",
-            "-created",
+            "-id",
             limit, 0,
             {}
         )
@@ -890,14 +890,23 @@ cronAdd("fifa-daily-topup", "0 9 * * *", function () {
         var user = users[i]
         var userId = user.id
 
-        // Idempotency: skip if already topped up today
+        // Idempotency: skip if already topped up today.
+        // We can't filter by `created` (not a real SQLite column on this
+        // collection), so we fetch today's daily_topup records for this user
+        // and check in JS. At ~100 users this is fine.
         try {
-            var existing = $app.findFirstRecordByFilter(
+            var todays = $app.findRecordsByFilter(
                 "fifa_transactions",
-                "user = {:uid} && type = {:type} && created ~ {:prefix}",
-                { uid: userId, type: "daily_topup", prefix: todayPrefix }
+                "user = {:uid} && type = {:type}",
+                "-id",
+                1, 0,
+                { uid: userId, type: "daily_topup" }
             )
-            if (existing) { continue }
+            if (todays.length > 0) {
+                var last = todays[0]
+                var lastCreated = last.getString("created") || ""
+                if (lastCreated.indexOf(todayPrefix) === 0) { continue }
+            }
         } catch (err) { /* no existing — proceed */ }
 
         var currentBalance = user.getInt("balance") || 0
