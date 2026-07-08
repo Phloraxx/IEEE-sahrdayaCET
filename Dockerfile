@@ -52,13 +52,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# The TanStack Start route tree generator misses some route files during
-# Docker builds (pre-existing bug — modified files don't get picked up).
-# We commit src/routeTree.gen.ts with all routes and prevent the build from
-# regenerating it by making it read-only before the build runs.
-RUN chmod 444 /app/src/routeTree.gen.ts
 RUN bun run build
-RUN chmod 644 /app/src/routeTree.gen.ts
 
 # ─── Fix TanStack Start singleton getRouter() bug (#6924) ─────────
 # The built router bundle caches a singleton getRouter() that leaks
