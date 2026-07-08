@@ -33,7 +33,8 @@ const MIME_TYPES = {
 
 async function main() {
   const { default: handler } = await import(SERVER_ENTRY);
-  const fetch = handler.fetch || handler;
+  const tsrFetch = handler.fetch || handler;
+  const globalFetch = globalThis.fetch;
 
 const SECURITY_HEADERS = {
   'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
@@ -90,7 +91,7 @@ const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB
               });
             }
           }
-          const pbRes = await fetch(targetUrl, { method: req.method, headers: pbHeaders, body: pbBody });
+          const pbRes = await globalFetch(targetUrl, { method: req.method, headers: pbHeaders, body: pbBody });
           addSecurityHeaders(res);
           res.writeHead(pbRes.status, Object.fromEntries(pbRes.headers.entries()));
           if (pbRes.body) {
@@ -127,7 +128,7 @@ const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB
         }
       }
       // SSR: forward to TanStack Start handler
-      const nodeHandler = toNodeHandler ? toNodeHandler(fetch) : simpleNodeHandler(fetch);
+      const nodeHandler = toNodeHandler ? toNodeHandler(tsrFetch) : simpleNodeHandler(tsrFetch);
       await nodeHandler(req, res);
     } catch (err) {
       console.error('Server error:', err);
