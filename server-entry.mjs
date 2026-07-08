@@ -67,38 +67,42 @@ const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB
       // collections only: fifa_feed_events, fifa_bet_markets, fifa_matches).
       // POCKETBASE_URL stays server-side; this exposes only the /pb path.
       if (url.pathname.startsWith('/pb/')) {
-        const pbUrl = process.env.POCKETBASE_URL || 'http://127.0.0.1:8090';
-        const targetPath = url.pathname.replace(/^\/pb/, '') + (url.search || '');
-        const targetUrl = `${pbUrl}${targetPath}`;
-        let pbBody = undefined;
-        if (req.method !== 'GET' && req.method !== 'HEAD') {
-          const chunks = [];
-          for await (const chunk of req) chunks.push(chunk);
-          const buf = Buffer.concat(chunks);
-          if (buf.length > 0) {
-            pbBody = new ReadableStream({
-              start(controller) {
-                controller.enqueue(new Uint8Array(buf));
-                controller.close();
-              }
-            });
+        try {
+          const pbUrl = process.env.POCKETBASE_URL || 'http://127.0.0.1:8090';
+          const targetPath = url.pathname.replace(/^\/pb/, '') + (url.search || '');
+          const targetUrl = `${pbUrl}${targetPath}`;
+          const pbHeaders = new Headers();
+          for (const [key, value] of Object.entries(req.headers)) {
+            if (['connection', 'keep-alive', 'transfer-encoding', 'host'].includes(key)) continue;
+            pbHeaders.set(key, Array.isArray(value) ? value.join(', ') : value);
           }
+          let pbBody = undefined;
+          if (req.method !== 'GET' && req.method !== 'HEAD') {
+            const chunks = [];
+            for await (const chunk of req) chunks.push(chunk);
+            const buf = Buffer.concat(chunks);
+            if (buf.length > 0) {
+              pbBody = new ReadableStream({
+                start(controller) {
+                  controller.enqueue(new Uint8Array(buf));
+                  controller.close();
+                }
+              });
+            }
+          }
+          const pbRes = await fetch(targetUrl, { method: req.method, headers: pbHeaders, body: pbBody });
+          addSecurityHeaders(res);
+          res.writeHead(pbRes.status, Object.fromEntries(pbRes.headers.entries()));
+          if (pbRes.body) {
+            for await (const chunk of pbRes.body) res.write(chunk);
+          }
+          res.end();
+        } catch (err) {
+          console.error('[pb-proxy] Error:', err);
+          addSecurityHeaders(res);
+          res.writeHead(502, { 'Content-Type': 'text/plain' });
+          res.end('Bad Gateway: ' + (err.message || 'Unknown error'));
         }
-        const pbRes = await fetch(targetUrl, {
-          method: req.method,
-          headers: Object.fromEntries(
-            Object.entries(req.headers)
-              .filter(([k]) => !['connection', 'keep-alive', 'transfer-encoding', 'host'].includes(k))
-              .map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : v])
-          ),
-          body: pbBody,
-        });
-        addSecurityHeaders(res);
-        res.writeHead(pbRes.status, Object.fromEntries(pbRes.headers.entries()));
-        if (pbRes.body) {
-          for await (const chunk of pbRes.body) res.write(chunk);
-        }
-        res.end();
         return;
       }
 
