@@ -21,7 +21,7 @@ export default defineConfig({
     },
   },
   plugins: [
-    tanstackStart({ router: { enableRouteGeneration: false } }),
+    tanstackStart(),
     viteReact(),
     tsconfigPaths(),
   ],

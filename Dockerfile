@@ -52,6 +52,11 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Generate route tree before build — the Vite plugin's file crawler
+# misses some route files in Docker (pre-existing TanStack Start bug).
+# Running tsr generate first ensures routeTree.gen.ts is complete,
+# then the build reuses it.
+RUN npx tsr generate
 RUN bun run build
 
 # ─── Fix TanStack Start singleton getRouter() bug (#6924) ─────────
