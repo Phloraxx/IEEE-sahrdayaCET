@@ -10,6 +10,7 @@ import { APP_URL } from '@/lib/constants'
  */
 export function verifySameOrigin(request: Request): void {
 	const origin = request.headers.get("origin");
+	const host = request.headers.get("host");
 	const appUrl = APP_URL;
 	const isDev = process.env.NODE_ENV !== 'production';
 	// Log a warning when CSRF is bypassed so misconfiguration doesn't go unnoticed.
@@ -40,15 +41,23 @@ export function verifySameOrigin(request: Request): void {
 
 		if (appOrigin === requestOrigin) return;
 
+		const appHost = new URL(appUrl).hostname;
+		const reqHost = new URL(origin).hostname;
+
 		// Allow preview subdomains (e.g. preview-ieee-website-xxx.ieeesahrdaya.com)
 		// when the app URL is a *.ieeesahrdaya.com domain. Dokploy generates
 		// unique preview subdomains per PR; the origin check would otherwise
 		// block all mutations on preview builds.
-		const appHost = new URL(appUrl).hostname;
-		const reqHost = new URL(origin).hostname;
-		// Extract the apex domain (e.g. ieeesahrdaya.com from any subdomain).
 		const apexDomain = appHost.split('.').slice(-2).join('.');
 		if (apexDomain.length > 0 && reqHost.endsWith('.' + apexDomain)) return;
+
+		// Fallback: if PUBLIC_APP_URL is misconfigured (e.g. localhost in preview),
+		// check the Host header against the Origin. A matching Host + Origin pair
+		// is a valid same-origin request regardless of PUBLIC_APP_URL.
+		if (host) {
+			const hostOrigin = new URL(`https://${host}`).origin;
+			if (hostOrigin === requestOrigin) return;
+		}
 
 		// In dev mode, allow any localhost/127.0.0.1 origin — Vite often
 		// picks a different port than PUBLIC_APP_URL, and the port mismatch
@@ -60,8 +69,6 @@ export function verifySameOrigin(request: Request): void {
 		throw new AuthError('Invalid origin', 403);
 	} catch (e) {
 		if (e instanceof AuthError) throw e;
-		// A present-but-unparseable Origin (or appUrl) is never a legitimate
-		// same-origin request — reject it regardless of environment.
 		throw new AuthError('Invalid origin', 403);
 	}
 }
