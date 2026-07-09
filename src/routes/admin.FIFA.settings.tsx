@@ -10,24 +10,15 @@ import { toast } from "sonner"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { FifaSettingsSchema } from "@/schemas/fifa"
+import { FifaSettingsSchema, type FifaSettings } from "@/schemas/fifa"
+import { fetchSettings } from "@/lib/api/fifa"
 import { useEffect } from "react"
 
 export const Route = createFileRoute("/admin/FIFA/settings")({
   component: AdminFifaSettings,
 })
 
-type SettingsFormValues = z.infer<typeof FifaSettingsSchema>
 
-async function fetchSettings() {
-  const res = await fetch('/api/admin/fifa/settings')
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.error || 'Failed to load settings')
-  }
-  const data = await res.json()
-  return data.settings
-}
 
 async function fetchDraws() {
   const res = await fetch('/api/admin/fifa/raffle-draws')
@@ -48,7 +39,7 @@ function AdminFifaSettings() {
     queryFn: fetchDraws 
   })
 
-  const form = useForm<SettingsFormValues>({
+  const form = useForm<FifaSettings>({
     resolver: zodResolver(FifaSettingsSchema) as any,
     defaultValues: {
       event_name: "IEEE Sahrdaya WC Predict '26",
@@ -73,7 +64,7 @@ function AdminFifaSettings() {
   }, [settingsData, form])
 
   const save = useMutation({
-    mutationFn: async (values: SettingsFormValues) => {
+    mutationFn: async (values: FifaSettings) => {
       const res = await fetch('/api/admin/fifa/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -102,7 +93,7 @@ function AdminFifaSettings() {
   const hasDraws = drawsData && drawsData.draws && drawsData.draws.length > 0
   const raffleWarning = regOpen && hasDraws
 
-  const onSubmit = (values: SettingsFormValues) => {
+  const onSubmit = (values: FifaSettings) => {
     if (values.daily_topup_target < values.daily_topup_threshold) {
       toast.error("Top-up target must be greater than or equal to threshold")
       return
