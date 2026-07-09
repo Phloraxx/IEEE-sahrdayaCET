@@ -77,9 +77,20 @@ function emitFeedEvent(type, userId, matchId, message) {
     }
 }
 
+// Returns a display name for a user record. Falls back to "Player <short-id>"
+// (last 4 of the user id) when display_name is empty — so multiple unset users
+// are distinguishable on the public leaderboard instead of all reading "Player".
+function displayName(user) {
+    var name = user.getString("display_name")
+    if (name) return name
+    var shortId = user.id.length >= 4 ? user.id.slice(-4) : user.id
+    return "Player " + shortId
+}
+
 module.exports = {
     getFifaSettings: getFifaSettings,
     applyTransaction: applyTransaction,
     applyDelta: applyDelta,
     emitFeedEvent: emitFeedEvent,
+    displayName: displayName,
 }
