@@ -206,6 +206,7 @@ function feedEventsFields(usersId: string, matchesId: string): Record<string, un
     relationField('user', usersId, { cascadeDelete: false }),
     relationField('match', matchesId, { cascadeDelete: false }),
     textField('message', { max: 500 }),
+    { name: 'created', type: 'autodate', onCreate: true, onUpdate: false } as Record<string, unknown>,
   ]
 }
 

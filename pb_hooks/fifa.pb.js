@@ -633,7 +633,7 @@ routerAdd("GET", "/api/fifa/feed", function (e) {
         var events = $app.findRecordsByFilter(
             "fifa_feed_events",
             "1 = 1",
-            "-id",
+            "-created",
             limit, 0,
             {}
         )
@@ -646,7 +646,7 @@ routerAdd("GET", "/api/fifa/feed", function (e) {
                 user: ev.getString("user") || "",
                 match: ev.getString("match") || "",
                 message: ev.getString("message") || "",
-                created: ev.getString("created") || "",
+                created: ev.get("created") ? ev.get("created").toString() : "",
             })
         }
         return e.json(200, { events: rows })
