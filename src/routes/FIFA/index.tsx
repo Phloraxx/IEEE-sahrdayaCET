@@ -41,28 +41,37 @@ const fetchOverview = createServerFn().handler(async (): Promise<OverviewData> =
 
   let nextMatch: OverviewData['nextMatch'] = null
   try {
-    const m = await pb.collection('fifa_matches').getFirstListItem(
-      '(status = "upcoming" || status = "live")',
-      { sort: 'kickoff_at', fields: 'id,team_home,team_away,stage,kickoff_at,status' },
-    )
-    const matchId = getField(m, 'id', '')
-    let openMarkets = 0
-    try {
-      const markets = await pb.collection('fifa_bet_markets').getFullList({
-        filter: `match = ${escapeFilterValue(matchId)} && is_open = true && void = false`,
-        fields: 'id',
-      })
-      openMarkets = markets.length
-    } catch { /* ignore */ }
-
-    nextMatch = {
-      id: matchId,
-      team_home: getField(m, 'team_home', ''),
-      team_away: getField(m, 'team_away', ''),
-      stage: getField(m, 'stage', ''),
-      kickoff_at: getField(m, 'kickoff_at', ''),
-      status: getField(m, 'status', 'upcoming'),
-      openMarkets,
+    const upcoming = await pb.collection('fifa_matches').getFullList({
+      filter: '(status = "upcoming" || status = "live") && status != "void"',
+      sort: 'kickoff_at',
+      fields: 'id,team_home,team_away,stage,kickoff_at,status',
+      perPage: 50,
+    })
+    // Skip test matches created by the admin testing console (team_home
+    // starts with "Test"). At ~20 rows this client-side filter is cheap.
+    const realMatch = upcoming.find((mu) => {
+      const h = String(getField(mu, 'team_home', '')).toLowerCase()
+      return !h.startsWith('test')
+    })
+    if (realMatch) {
+      const matchId = getField(realMatch, 'id', '')
+      let openMarkets = 0
+      try {
+        const markets = await pb.collection('fifa_bet_markets').getFullList({
+          filter: `match = ${escapeFilterValue(matchId)} && is_open = true && void = false`,
+          fields: 'id',
+        })
+        openMarkets = markets.length
+      } catch { /* ignore */ }
+      nextMatch = {
+        id: matchId,
+        team_home: getField(realMatch, 'team_home', ''),
+        team_away: getField(realMatch, 'team_away', ''),
+        stage: getField(realMatch, 'stage', ''),
+        kickoff_at: getField(realMatch, 'kickoff_at', ''),
+        status: getField(realMatch, 'status', 'upcoming'),
+        openMarkets,
+      }
     }
   } catch { /* no upcoming matches */ }
 

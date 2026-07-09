@@ -105,7 +105,19 @@ export function FifaFeedMarquee() {
       )}
 
       {events.length > 0 && (
-        <div className={`overflow-hidden ${reducedMotion ? '' : 'group'}`}>
+        <div
+          className={`overflow-hidden ${reducedMotion ? '' : 'group'}`}
+          style={
+            reducedMotion
+              ? undefined
+              : {
+                  WebkitMaskImage:
+                    'linear-gradient(90deg, transparent 0%, #131519 6%, #131519 94%, transparent 100%)',
+                  maskImage:
+                    'linear-gradient(90deg, transparent 0%, #131519 6%, #131519 94%, transparent 100%)',
+                }
+          }
+        >
           {reducedMotion ? (
             <div className="flex flex-wrap gap-3 px-[clamp(20px,4vw,48px)]">
               {events.slice(0, 6).map((ev) => (
