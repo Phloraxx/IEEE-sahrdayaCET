@@ -113,6 +113,8 @@ export const FifaSettingsSchema = z.object({
   registration_open: z.boolean().default(true),
 })
 
+export type FifaSettings = z.infer<typeof FifaSettingsSchema>
+
 // ─── Settle schema (admin enters result + triggers settlement) ──────
 
 export const FifaSettleSchema = z.object({
