@@ -14,6 +14,9 @@ import { test, expect } from '@playwright/test'
 const PB_AUTH_COOKIE_VALUE = process.env.PLAYWRIGHT_PB_AUTH_COOKIE || ''
 const HAS_AUTH_COOKIE = PB_AUTH_COOKIE_VALUE.length > 0
 
+/** Cloudflare may label PB proxy JSON as gzip without compressing; request identity encoding. */
+const PB_PROXY_HEADERS = { 'Accept-Encoding': 'identity' }
+
 test.describe('FIFA — Public Pages (no auth)', () => {
   test('GET /FIFA → 200, shows overview', async ({ page }) => {
     const res = await page.goto('/FIFA', { waitUntil: 'networkidle' })
@@ -122,7 +125,7 @@ test.describe('FIFA — Authenticated Pages (with pb_auth cookie)', () => {
 
 test.describe('FIFA — API endpoints (via /pb proxy)', () => {
   test('GET /pb/api/fifa/leaderboard → 200, returns { leaderboard: [...] }', async ({ request }) => {
-    const res = await request.get('/pb/api/fifa/leaderboard')
+    const res = await request.get('/pb/api/fifa/leaderboard', { headers: PB_PROXY_HEADERS })
     expect(res.ok()).toBeTruthy()
     const body = await res.json()
     expect(body).toHaveProperty('leaderboard')
@@ -130,7 +133,7 @@ test.describe('FIFA — API endpoints (via /pb proxy)', () => {
   })
 
   test('GET /pb/api/fifa/feed → 200, returns { events: [...] }', async ({ request }) => {
-    const res = await request.get('/pb/api/fifa/feed?limit=5')
+    const res = await request.get('/pb/api/fifa/feed?limit=5', { headers: PB_PROXY_HEADERS })
     expect(res.ok()).toBeTruthy()
     const body = await res.json()
     expect(body).toHaveProperty('events')

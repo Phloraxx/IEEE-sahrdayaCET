@@ -51,12 +51,13 @@ test.describe('Unauthenticated Public API', () => {
     expect(res.status()).toBe(404)
   })
 
-  test('POST /api/events/validate-coupon → 401 without auth', async ({ baseURL }) => {
+  test('POST /api/events/validate-coupon → 401/403 without auth', async ({ baseURL }) => {
     const ctx = await request.newContext({ baseURL })
     const res = await ctx.post('/api/events/validate-coupon', {
       data: { eventId: 'anyprevalidish000', code: 'INVALID' },
     })
-    expect(res.status()).toBe(401)
+    // 403 when Origin is absent (same-origin guard); 401 when auth runs first
+    expect([401, 403]).toContain(res.status())
   })
 })
 
@@ -122,12 +123,12 @@ test.describe('Unauthenticated Registration API', () => {
     expect(res.status()).toBe(401)
   })
 
-  test('POST /api/registrations → 401 without auth', async ({ baseURL }) => {
+  test('POST /api/registrations → 401/403 without auth', async ({ baseURL }) => {
     const ctx = await request.newContext({ baseURL })
     const res = await ctx.post('/api/registrations', {
       data: { eventId: 'test', formResponses: {} },
     })
-    expect(res.status()).toBe(401)
+    expect([401, 403]).toContain(res.status())
   })
 
   test('PATCH /api/registrations/{id} → 401/404 without auth', async ({ baseURL }) => {
