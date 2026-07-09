@@ -68,9 +68,24 @@ function generatePaymentTicketId() {
     return $security.randomString(32)
 }
 
+/** Sort hook-fetched records newest-first (findRecordsByFilter sort is unreliable). */
+function sortRecordsNewestFirst(records) {
+    records.sort(function (a, b) {
+        var ac = a.getString("created") || ""
+        var bc = b.getString("created") || ""
+        if (ac > bc) return -1
+        if (ac < bc) return 1
+        if (a.id > b.id) return -1
+        if (a.id < b.id) return 1
+        return 0
+    })
+    return records
+}
+
 module.exports = {
     recomputeEventCounters: recomputeEventCounters,
     recomputeCouponUsedCount: recomputeCouponUsedCount,
     generateTicketId: generateTicketId,
     generatePaymentTicketId: generatePaymentTicketId,
+    sortRecordsNewestFirst: sortRecordsNewestFirst,
 }
