@@ -311,7 +311,7 @@ onRecordAfterCreateSuccess(function (e) {
     var stake = bet.getInt("stake")
     var selection = bet.getString("selection") || ""
 
-    
+    var fh = require(__hooks + "/fifa-helpers.js")
 
     // Re-read user balance from DB (not the stale auth record)
     var user = $app.findRecordById("users", userId)
@@ -387,7 +387,7 @@ onRecordAfterCreateSuccess(function (e) {
 
     // Emit feed event (inline to avoid scope issues)
     try {
-        var displayName = user.getString("display_name") || "Player"
+        var displayName = fh.displayName(user)
         var feedCol = $app.findCollectionByNameOrId("fifa_feed_events")
         var feedEv = new Record(feedCol, { type: "bet_placed", user: userId, match: matchId, message: displayName + " bet " + stake + " on " + selection })
         $app.saveNoValidate(feedEv)
@@ -517,6 +517,7 @@ onRecordAfterUpdateSuccess(function (e) {
 // Polled by the client every ~15s (SSE can't fire on a custom route).
 routerAdd("GET", "/api/fifa/leaderboard", function (e) {
     try {
+        var fh = require(__hooks + "/fifa-helpers.js")
         // Rank by balance desc, tiebreak by bets_count desc (FIFA-GAME.md §2.4).
         // PB can't sort by a computed field, so we fetch all eligible users
         // and sort in JS. At ~100 players this is trivial.
@@ -530,7 +531,7 @@ routerAdd("GET", "/api/fifa/leaderboard", function (e) {
         var rows = []
         for (var i = 0; i < users.length; i++) {
             var u = users[i]
-            var displayName = u.getString("display_name") || "Player"
+            var displayName = fh.displayName(u)
             // Count the user's bets. limit=0 means no limit in PB's
             // findRecordsByFilter, so .length is the true count. At ~100
             // players this is fine; would denormalize into a counter at scale.
@@ -1422,6 +1423,7 @@ routerAdd("POST", "/api/fifa/admin-reset", function (e) {
 
 routerAdd("POST", "/api/fifa/raffle", function (e) {
     // ─── Inlined helpers (PB 0.39 goja doesn't share top-level scope with callbacks) ───
+    var fh = require(__hooks + "/fifa-helpers.js")
     var _getFifaSettings = function() {
         try { return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (ex) { return null }
     }
@@ -1501,7 +1503,7 @@ routerAdd("POST", "/api/fifa/raffle", function (e) {
         } catch (err) { betCount = 0 }
         candidates.push({
             id: u.id,
-            display_name: u.getString("display_name") || "Player",
+            display_name: fh.displayName(u),
             balance: u.getInt("balance") || 0,
             bets_count: betCount,
         })
