@@ -11,27 +11,21 @@ onRecordCreateRequest((e) => {
             .replace(/(^-|-$)+/g, '');
         record.set("slug", generated);
     }
-    e.next()
+    e.next();
 }, "blogs");
 
 onRecordDeleteRequest((e) => {
-    var auth = null
-    try { auth = e.auth || (e.requestInfo && e.requestInfo.auth) || null } catch (err) { auth = null }
+    var role = "";
+    try {
+        // e.requestInfo.auth is the authRecord associated with this request
+        if (e.requestInfo && e.requestInfo.auth) {
+            role = e.requestInfo.auth.getString("role");
+        }
+    } catch (err) {}
 
-    var role = ""
-    if (auth) {
-        try {
-            if (auth.isSuperuser && auth.isSuperuser()) {
-                role = "admin"
-            } else {
-                role = auth.getString("role") || ""
-            }
-        } catch (err) { role = "" }
+    // Enforce admin-only deletions based on the role check you requested
+    if (role !== "admin") {
+        throw new errors.BadRequestError("Only admins can delete blogs.");
     }
-
-    if (role !== "admin" && role !== "content") {
-        throw new BadRequestError("Only admins and content editors can delete blogs.");
-    }
-
-    e.next()
+    e.next();
 }, "blogs");

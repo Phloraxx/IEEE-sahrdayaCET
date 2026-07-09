@@ -15,7 +15,135 @@
 //   Phase 8 — daily top-up cron
 //   Phase 9 — raffle draw custom route
 
-// Helpers in fifa-helpers.js — require() inside each hook handler (PB 0.39).
+// ─── Helpers ─────────────────────────────────────────────────────────
+//
+// PB 0.39 goja does not hoist top-level function declarations into hook
+// callback scopes. We define helpers as var assignments (function expressions)
+// which ARE accessible in all callback scopes.
+
+var getFifaSettings = function() {
+    try {
+        return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {})
+    } catch (err) {
+        return null
+    }
+}
+
+var applyTransaction = function(userId, type, amount, balanceAfter, refBetId, note) {
+    try {
+        var txCol = $app.findCollectionByNameOrId("fifa_transactions")
+        var tx = new Record(txCol, {
+            user: userId,
+            type: type,
+            amount: amount,
+            balance_after: balanceAfter,
+            ref_bet: refBetId || "",
+            note: note || "",
+            timestamp: new Date().toISOString(),
+        })
+        $app.saveNoValidate(tx)
+
+        var user = $app.findRecordById("users", userId)
+        user.set("balance", balanceAfter)
+        $app.saveNoValidate(user)
+        return balanceAfter
+    } catch (err) {
+        console.log("[fifa] applyTransaction failed for " + userId + ": " + err)
+        return null
+    }
+}
+
+var applyDelta = function(userId, type, delta, refBetId, note) {
+    try {
+        var user = $app.findRecordById("users", userId)
+        if (!user) return null
+        var currentBalance = user.getInt("balance") || 0
+        var newBalance = currentBalance + delta
+
+        var txCol = $app.findCollectionByNameOrId("fifa_transactions")
+        var tx = new Record(txCol, {
+            user: userId,
+            type: type,
+            amount: delta,
+            balance_after: newBalance,
+            ref_bet: refBetId || "",
+            note: note || "",
+            timestamp: new Date().toISOString(),
+        })
+        $app.saveNoValidate(tx)
+
+        user.set("balance", newBalance)
+        $app.saveNoValidate(user)
+        return newBalance
+    } catch (err) {
+        console.log("[fifa] applyDelta failed for " + userId + ": " + err)
+        return null
+    }
+}
+
+var emitFeedEvent = function(type, userId, matchId, message) {
+    try {
+        var col = $app.findCollectionByNameOrId("fifa_feed_events")
+        var ev = new Record(col, {
+            type: type,
+            user: userId || "",
+            match: matchId || "",
+            message: message || "",
+        })
+        $app.saveNoValidate(ev)
+    } catch (err) {
+        console.log("[fifa] emitFeedEvent failed: " + err)
+    }
+}
+
+// Decode PB JSON fields (string, object, or goja byte array).
+var parseJsonField = function(raw) {
+    if (!raw) return null
+    if (typeof raw === "string") {
+        try { return JSON.parse(raw) } catch (ex) { return null }
+    }
+    if (typeof raw === "object" && typeof raw.length === "number") {
+        if (raw.length > 0 && typeof raw[0] === "number") {
+            try {
+                var str = ""
+                for (var i = 0; i < raw.length; i++) str += String.fromCharCode(raw[i])
+                return JSON.parse(str)
+            } catch (ex) { return null }
+        }
+        return raw
+    }
+    if (typeof raw === "object") return raw
+    return null
+}
+
+var getRecordFloat = function(record, field) {
+    var v = record.get(field)
+    if (v === null || v === undefined || v === "") return 0
+    var n = Number(v)
+    return isNaN(n) ? 0 : n
+}
+
+// Void all markets on a match — triggers market-void refund hook per market.
+var voidMatchMarkets = function(matchId) {
+    try {
+        var markets = $app.findRecordsByFilter(
+            "fifa_bet_markets",
+            "match = {:matchId}",
+            "", 0, 0,
+            { matchId: matchId }
+        )
+        for (var i = 0; i < markets.length; i++) {
+            var mk = markets[i]
+            if (!mk.getBool("void")) {
+                mk.set("void", true)
+                mk.set("is_open", false)
+                $app.saveNoValidate(mk)
+            }
+        }
+    } catch (err) {
+        console.log("[fifa] voidMatchMarkets failed for " + matchId + ": " + err)
+    }
+}
 
 // ─── Phase 2: Starting grant on user create ─────────────────────────
 // Fires AFTER a new user is committed. Reads starting_balance from settings,
@@ -23,15 +151,22 @@
 // silently if settings isn't seeded yet (the backfill script will catch up).
 
 onRecordAfterCreateSuccess(function (e) {
-    var fh = require(__hooks + "/fifa-helpers.js")
     var user = e.record
     if (!user) { e.next(); return }
 
-    // Only grant once — skip if balance already non-zero (defensive)
-    var existingBalance = user.getInt("balance") || 0
-    if (existingBalance > 0) { e.next(); return }
+    // Only grant once — skip if a starting_grant transaction already exists.
+    try {
+        var prior = $app.findRecordsByFilter(
+            "fifa_transactions",
+            "user = {:uid} && type = {:type}",
+            "-id",
+            1, 0,
+            { uid: user.id, type: "starting_grant" }
+        )
+        if (prior.length > 0) { e.next(); return }
+    } catch (err) { /* proceed */ }
 
-    var settings = fh.getFifaSettings()
+    var settings = getFifaSettings()
     if (!settings) {
         // Settings not seeded yet — backfill script will grant on next run.
         e.next()
@@ -63,7 +198,7 @@ onRecordAfterCreateSuccess(function (e) {
     })
     $app.saveNoValidate(tx)
 
-    fh.emitFeedEvent("system", user.id, "", "New player joined the game")
+    emitFeedEvent("system", user.id, "", "New player joined the game")
 
     e.next()
 }, "users")
@@ -78,7 +213,7 @@ onRecordCreateRequest(function (e) {
         existing = $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {})
     } catch (err) { existing = null }
     if (existing) {
-        throw e.badRequestError("Settings already exist — edit the existing row instead")
+        throw new errors.BadRequestError("Settings already exist — edit the existing row instead")
     }
     e.next()
 }, "fifa_settings")
@@ -98,7 +233,10 @@ onRecordCreateRequest(function (e) {
     var settings = null
     try { settings = $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (err) { settings = null }
     if (!settings) {
-        throw e.badRequestError("Game not configured")
+        throw new errors.BadRequestError("Game not configured")
+    }
+    if (!settings.getBool("registration_open")) {
+        throw new errors.BadRequestError("Registration is closed")
     }
 
     var marketId = bet.getString("market")
@@ -107,13 +245,13 @@ onRecordCreateRequest(function (e) {
     var selection = bet.getString("selection") || ""
 
     if (!marketId || !matchId) {
-        throw e.badRequestError("Missing market or match")
+        throw new errors.BadRequestError("Missing market or match")
     }
     if (stake <= 0) {
-        throw e.badRequestError("Stake must be positive")
+        throw new errors.BadRequestError("Stake must be positive")
     }
     if (!selection) {
-        throw e.badRequestError("Missing selection")
+        throw new errors.BadRequestError("Missing selection")
     }
 
     // Load market + match
@@ -121,26 +259,27 @@ onRecordCreateRequest(function (e) {
     try {
         market = $app.findRecordById("fifa_bet_markets", marketId)
     } catch (err) {
-        throw e.badRequestError("Market not found")
+        throw new errors.BadRequestError("Market not found")
     }
     var match
     try {
         match = $app.findRecordById("fifa_matches", matchId)
     } catch (err) {
-        throw e.badRequestError("Match not found")
+        throw new errors.BadRequestError("Match not found")
     }
 
     // 1. Market must be open and not voided
     if (!market.getBool("is_open")) {
-        throw e.badRequestError("Market is closed")
+        throw new errors.BadRequestError("Market is closed")
     }
     if (market.getBool("void")) {
-        throw e.badRequestError("Market has been voided")
+        throw new errors.BadRequestError("Market has been voided")
     }
 
-    // 2. Match must not be voided
-    if (match.getString("status") === "void") {
-        throw e.badRequestError("Match has been voided")
+    // 2. Match must be open for betting
+    var matchStatus = match.getString("status") || "upcoming"
+    if (matchStatus === "void" || matchStatus === "finished" || matchStatus === "live") {
+        throw new errors.BadRequestError("Betting is closed for this match")
     }
 
     // 3. Betting deadline: before betting_locks_at on the match (defaults
@@ -150,7 +289,7 @@ onRecordCreateRequest(function (e) {
     if (locksAt && locksAt !== "") {
         var locksDate = new Date(locksAt)
         if (locksDate <= new Date()) {
-            throw e.badRequestError("Betting is closed for this market")
+            throw new errors.BadRequestError("Betting is closed for this market")
         }
     }
 
@@ -158,31 +297,22 @@ onRecordCreateRequest(function (e) {
     // PB 0.39 stores JSON fields in goja as byte arrays. Try multiple
     // decoding strategies. If all fail, reject the bet — a market with
     // unparseable options is misconfigured and shouldn't accept bets.
-    var optionsRaw = market.get("options")
+    var marketType = market.getString("market_type") || ""
+    var optionsParsed = parseJsonField(market.get("options"))
     var options = []
-    var parseFailed = false
-    if (optionsRaw) {
-        if (typeof optionsRaw === "string") {
-            try { options = JSON.parse(optionsRaw) } catch (ex) { parseFailed = true }
-        } else if (typeof optionsRaw === "object" && typeof optionsRaw.length === "number") {
-            if (optionsRaw.length > 0 && typeof optionsRaw[0] === "number") {
-                try {
-                    var str = ""
-                    for (var i = 0; i < optionsRaw.length; i++) str += String.fromCharCode(optionsRaw[i])
-                    options = JSON.parse(str)
-                } catch (ex) { parseFailed = true }
-            } else {
-                for (var i = 0; i < optionsRaw.length; i++) { options.push(optionsRaw[i]) }
-            }
-        } else {
-            parseFailed = true
+    if (optionsParsed) {
+        if (typeof optionsParsed.length === "number") {
+            for (var oi = 0; oi < optionsParsed.length; oi++) options.push(optionsParsed[oi])
         }
     }
-    if (parseFailed) {
-        throw e.badRequestError("Market configuration error: invalid options")
+    if (!optionsParsed && market.get("options")) {
+        throw new errors.BadRequestError("Market configuration error: invalid options")
+    }
+    if (marketType !== "custom" && options.length === 0) {
+        throw new errors.BadRequestError("Market has no valid options configured")
     }
     if (options.length > 0 && options.indexOf(selection) === -1) {
-        throw e.badRequestError("Invalid selection for this market")
+        throw new errors.BadRequestError("Invalid selection for this market")
     }
 
     // 5. Auth record (the user placing the bet).
@@ -192,19 +322,19 @@ onRecordCreateRequest(function (e) {
     var auth = null
     try { auth = e.auth || null } catch (err) { auth = null }
     if (!auth || !auth.id) {
-        throw e.badRequestError("Must be logged in to bet")
+        throw new errors.BadRequestError("Must be logged in to bet")
     }
 
     // 6. Stake vs balance + max_bet_percent (pre-commit check; the
     //    after-create hook re-checks balance post-commit for TOCTOU safety)
     var balance = auth.getInt("balance") || 0
     if (stake > balance) {
-        throw e.badRequestError("Insufficient balance")
+        throw new errors.BadRequestError("Insufficient balance")
     }
     var maxBetPercent = settings.getInt("max_bet_percent") || 25
     var maxStake = Math.floor(balance * maxBetPercent / 100)
     if (maxBetPercent > 0 && stake > maxStake) {
-        throw e.badRequestError("Stake exceeds " + maxBetPercent + "% of your balance")
+        throw new errors.BadRequestError("Stake exceeds " + maxBetPercent + "% of your balance")
     }
 
     // 7. Pin user to the authenticated caller (createRule also enforces this
@@ -215,16 +345,10 @@ onRecordCreateRequest(function (e) {
     var mode = market.getString("mode") || "pool"
     bet.set("mode", mode)
     if (mode === "fixed") {
-        var fixedOddsRaw = market.get("fixed_odds")
-        var fixedOdds = {}
-        if (typeof fixedOddsRaw === "string") {
-            try { fixedOdds = JSON.parse(fixedOddsRaw) } catch (ex) { fixedOdds = {} }
-        } else if (typeof fixedOddsRaw === "object" && fixedOddsRaw !== null) {
-            fixedOdds = fixedOddsRaw
-        }
+        var fixedOdds = parseJsonField(market.get("fixed_odds")) || {}
         var odds = fixedOdds[selection]
         if (typeof odds !== "number" || odds <= 0) {
-            throw e.badRequestError("No odds set for selection '" + selection + "'")
+            throw new errors.BadRequestError("No odds set for selection '" + selection + "'")
         }
         bet.set("odds_locked", odds)
     } else {
@@ -243,7 +367,7 @@ onRecordCreateRequest(function (e) {
         if (err && typeof err === "object" && err.name === "BadRequestError") {
             throw err
         }
-        throw e.badRequestError(String(err))
+        throw new errors.BadRequestError(String(err))
     }
 }, "fifa_bets")
 
@@ -253,8 +377,8 @@ onRecordCreateRequest(function (e) {
 // bets (self-healing), and emits a feed event.
 //
 // TOCTOU safety: re-reads the user's balance from the DB. If concurrent
-// bets raced past the pre-commit check and balance went negative, voids
-// this bet and refunds the stake. Mirrors registrations.pb.js:263-282.
+// bets raced past the pre-commit check, voids this bet without refunding
+// (stake was never deducted). Mirrors registrations.pb.js:263-282.
 
 onRecordAfterCreateSuccess(function (e) {
     var bet = e.record
@@ -272,18 +396,13 @@ onRecordAfterCreateSuccess(function (e) {
     if (!user) { e.next(); return }
     var currentBalance = user.getInt("balance") || 0
 
-    // TOCTOU self-heal: if concurrent bets already spent the balance, void
-    // THIS bet without refunding — stake was never deducted for this row.
+    // TOCTOU self-heal: void without refund — stake not deducted yet
     if (currentBalance - stake < 0) {
         try {
             var betRec = $app.findRecordById("fifa_bets", bet.id)
             betRec.set("status", "void")
             betRec.set("payout", 0)
             $app.saveNoValidate(betRec)
-            // Ledger-only note; do NOT credit balance (stake never left the account).
-            var txCol2 = $app.findCollectionByNameOrId("fifa_transactions")
-            var tx2 = new Record(txCol2, { user: userId, type: "bet_refund", amount: 0, balance_after: currentBalance, ref_bet: bet.id, note: "Voided: insufficient balance (race) — no debit applied", timestamp: new Date().toISOString() })
-            $app.saveNoValidate(tx2)
         } catch (err) {
             console.log("[fifa] TOCTOU void failed for bet " + bet.id + ": " + err)
         }
@@ -305,6 +424,16 @@ onRecordAfterCreateSuccess(function (e) {
         $app.saveNoValidate(u)
     } catch (err) {
         console.log("[fifa] balance deduction failed for bet " + bet.id + ": " + err)
+        try {
+            var voidBet = $app.findRecordById("fifa_bets", bet.id)
+            voidBet.set("status", "void")
+            voidBet.set("payout", 0)
+            $app.saveNoValidate(voidBet)
+        } catch (voidErr) {
+            console.log("[fifa] failed to void bet after deduction error: " + voidErr)
+        }
+        e.next()
+        return
     }
 
     // Recompute market pool counters from live bets (self-healing, not atomic
@@ -347,20 +476,27 @@ onRecordAfterCreateSuccess(function (e) {
     e.next()
 }, "fifa_bets")
 
-// ─── Phase 4b: Market void — refund pending bets ───────────────────
-// Fires AFTER a bet_markets record is updated. If `void` flipped to true,
-// refund all pending bets on that market. This is the missing piece that
-// the settle route's "skip voided markets" comment assumed already happened.
+// ─── Phase 4b: Match void — void all markets (triggers refunds) ─────
+onRecordAfterUpdateSuccess(function (e) {
+    var match = e.record
+    if (!match) { e.next(); return }
+    if (match.getString("status") !== "void") { e.next(); return }
+    voidMatchMarkets(match.id)
+    e.next()
+}, "fifa_matches")
+
+// ─── Phase 4c: Market void — refund pending bets ───────────────────
+// Fires AFTER a bet_markets record is updated. When void=true, refund all
+// pending bets on that market (idempotent — pending bets clear on first pass).
 
 onRecordAfterUpdateSuccess(function (e) {
-    var fh = require(__hooks + "/fifa-helpers.js")
     var market = e.record
     if (!market) { e.next(); return }
 
-    // Only act when void just turned true
     if (!market.getBool("void")) { e.next(); return }
 
     var marketId = market.id
+    
 
     // Find all pending bets on this market
     var pendingBets
@@ -377,77 +513,21 @@ onRecordAfterUpdateSuccess(function (e) {
         return
     }
 
-    var refundedCount = 0
     for (var i = 0; i < pendingBets.length; i++) {
         var bet = pendingBets[i]
         var stake = bet.getInt("stake") || 0
-        // Credit first; leave pending if ledger write fails so a retry can refund.
-        var newBal = fh.applyDelta(bet.getString("user"), "bet_refund", stake, bet.id, "Market voided — refund")
-        if (newBal === null) {
-            console.log("[fifa] void refund: credit failed for bet " + bet.id + " — leaving pending")
-            continue
-        }
         bet.set("status", "void")
         bet.set("payout", stake) // refund
         $app.saveNoValidate(bet)
-        refundedCount++
+        applyDelta(bet.getString("user"), "bet_refund", stake, bet.id, "Market voided — refund")
     }
 
-    if (refundedCount > 0) {
-        fh.emitFeedEvent("system", "", "", "Market voided — " + refundedCount + " bets refunded")
+    if (pendingBets.length > 0) {
+        emitFeedEvent("system", "", "", "Market voided — " + pendingBets.length + " bets refunded")
     }
-
 
     e.next()
 }, "fifa_bet_markets")
-
-// ─── Phase 4c: Match void — cascade to markets (refund via market hook) ─
-// Fires AFTER a match is updated. When status becomes "void", mark every
-// non-void market as void so the market-void hook refunds pending bets.
-// Auto-void cron and admin trigger only set match.status; this closes the
-// gap that left stakes locked forever.
-
-onRecordAfterUpdateSuccess(function (e) {
-    var match = e.record
-    if (!match) { e.next(); return }
-    if (match.getString("status") !== "void") { e.next(); return }
-
-    var matchId = match.id
-    var markets
-    try {
-        markets = $app.findRecordsByFilter(
-            "fifa_bet_markets",
-            "match = {:matchId}",
-            "", 0, 0,
-            { matchId: matchId }
-        )
-    } catch (err) {
-        console.log("[fifa] match-void cascade: failed to load markets for " + matchId + ": " + err)
-        e.next()
-        return
-    }
-
-    var voidedMarkets = 0
-    for (var i = 0; i < markets.length; i++) {
-        var market = markets[i]
-        if (market.getBool("void")) continue
-        try {
-            market.set("void", true)
-            market.set("is_open", false)
-            $app.saveNoValidate(market)
-            // Market onRecordAfterUpdateSuccess refunds pending bets.
-            voidedMarkets++
-        } catch (err) {
-            console.log("[fifa] match-void cascade: failed to void market " + market.id + ": " + err)
-        }
-    }
-
-    if (voidedMarkets > 0) {
-        console.log("[fifa] match-void cascade: voided " + voidedMarkets + " markets for match " + matchId)
-    }
-    e.next()
-}, "fifa_matches")
-
 
 // ─── Phase 5: Public custom routes ──────────────────────────────────
 // Leaderboard + live feed. These bypass collection API rules (users.listRule
@@ -527,39 +607,6 @@ routerAdd("GET", "/api/fifa/leaderboard", function (e) {
     }
 })
 
-// GET /api/fifa/stats — public player + bet counts for the overview page.
-// users/fifa_bets listRules block unauthenticated REST counts; this uses
-// $app internal access (same pattern as leaderboard).
-routerAdd("GET", "/api/fifa/stats", function (e) {
-    try {
-        var playerCount = 0
-        var totalBets = 0
-        try {
-            var players = $app.findRecordsByFilter(
-                "users",
-                "balance > 0",
-                "", 0, 0,
-                {}
-            )
-            playerCount = players.length
-        } catch (err) { playerCount = 0 }
-        try {
-            var bets = $app.findRecordsByFilter(
-                "fifa_bets",
-                "1 = 1",
-                "", 0, 0,
-                {}
-            )
-            totalBets = bets.length
-        } catch (err) { totalBets = 0 }
-        return e.json(200, { playerCount: playerCount, totalBets: totalBets })
-    } catch (err) {
-        console.log("[fifa] stats route failed: " + err)
-        return e.json(500, { error: "Failed to load stats" })
-    }
-})
-
-
 // GET /api/fifa/feed?limit=50 — recent feed events, newest first.
 // Public, unauthenticated. The client also subscribes via SSE to
 // fifa_feed_events for live updates; this route is the SSR initial load.
@@ -610,88 +657,6 @@ routerAdd("GET", "/api/fifa/feed", function (e) {
 // Payout logic is the JS mirror of src/lib/fifa-payout.ts. The unit tests
 // cover the TS version; this hook re-implements the same math because PB
 // JS hooks can't import TS modules.
-
-// ─── Payout math (mirror of fifa-payout.ts) ─────────────────────────
-
-var judgeBetJS = function(selection, status, marketType, line, result, customWinners) {
-    // Idempotent: already-settled bets keep their status
-    if (status === "won" || status === "lost" || status === "void") {
-        return status
-    }
-    switch (marketType) {
-        case "match_winner": {
-            // Knockouts: settle on who advanced (result_advance). Falls back
-            // to the 90-min result_winner when result_advance isn't set.
-            // A 90-min draw with no result_advance → void (the admin must
-            // pick who advanced; "draw" is not a valid match-winner outcome
-            // in a knockout).
-            var winner = result.result_advance || result.result_winner
-            if (!winner || winner === "draw") return "void"
-            return selection === winner ? "won" : "lost"
-        }
-        case "total_goals_ou": {
-            var total = (result.result_home_goals || 0) + (result.result_away_goals || 0)
-            if (selection === "over") {
-                if (total > line) return "won"
-                if (total < line) return "lost"
-                return "void"
-            }
-            if (selection === "under") {
-                if (total < line) return "won"
-                if (total > line) return "lost"
-                return "void"
-            }
-            return "lost"
-        }
-        case "correct_score": {
-            var expected = (result.result_home_goals || 0) + "-" + (result.result_away_goals || 0)
-            return selection === expected ? "won" : "lost"
-        }
-        case "any_scorer": {
-            var scorers = result.result_scorers || []
-            if (scorers.length === 0) return "void"
-            return scorers.indexOf(selection) !== -1 ? "won" : "lost"
-        }
-        case "cards_ou": {
-            var cards = (result.result_yellow_cards || 0) + (result.result_red_cards || 0)
-            if (selection === "over") {
-                if (cards > line) return "won"
-                if (cards < line) return "lost"
-                return "void"
-            }
-            if (selection === "under") {
-                if (cards < line) return "won"
-                if (cards > line) return "lost"
-                return "void"
-            }
-            return "lost"
-        }
-        case "clean_sheet": {
-            if (selection === "home") return result.result_home_clean_sheet ? "won" : "lost"
-            if (selection === "away") return result.result_away_clean_sheet ? "won" : "lost"
-            return "lost"
-        }
-        case "custom": {
-            if (!customWinners || customWinners.length === 0) return "void"
-            return customWinners.indexOf(selection) !== -1 ? "won" : "lost"
-        }
-        default:
-            return "void"
-    }
-}
-
-var computePayoutJS = function(stake, mode, oddsLocked, outcome, totalPool, totalWinningStakes, houseCutPercent) {
-    if (outcome === "lost") return 0
-    if (outcome === "void") return stake // refund
-    if (mode === "fixed") {
-        return Math.round(stake * oddsLocked)
-    }
-    // pool
-    if (totalWinningStakes <= 0) return 0
-    var cut = houseCutPercent / 100
-    var pool = totalPool * (1 - cut)
-    return Math.round((stake / totalWinningStakes) * pool)
-}
 
 routerAdd("POST", "/api/fifa/settle", function (e) {
   try {
@@ -749,8 +714,10 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
                 return "lost"
             }
             case "clean_sheet": {
-                if (selection === "home") return result.result_home_clean_sheet ? "won" : "lost"
-                if (selection === "away") return result.result_away_clean_sheet ? "won" : "lost"
+                var homeClean = (result.result_away_goals || 0) === 0
+                var awayClean = (result.result_home_goals || 0) === 0
+                if (selection === "home") return homeClean ? "won" : "lost"
+                if (selection === "away") return awayClean ? "won" : "lost"
                 return "lost"
             }
             case "custom": {
@@ -799,29 +766,22 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
         return e.json(404, { error: "Match not found" })
     }
 
-    // Idempotency: skip only when fully settled (no stranded pending bets).
-    // Allows re-settle to recover from partial payout failures.
+    // Idempotency: if already settled, return success with no-op
     if (match.getBool("settled")) {
-        var alreadyPending = $app.findRecordsByFilter(
-            "fifa_bets",
-            "match = {:matchId} && status = {:pending}",
-            "", 1, 0,
-            { matchId: matchId, pending: "pending" }
-        )
-        if (alreadyPending.length === 0) {
-            return e.json(200, { success: true, message: "Already settled", matchId: matchId })
-        }
+        return e.json(200, { success: true, message: "Already settled", matchId: matchId })
     }
 
+    var homeGoals = Number(body.result_home_goals) || 0
+    var awayGoals = Number(body.result_away_goals) || 0
     var result = {
         result_winner: body.result_winner || "",
-        result_home_goals: Number(body.result_home_goals) || 0,
-        result_away_goals: Number(body.result_away_goals) || 0,
+        result_home_goals: homeGoals,
+        result_away_goals: awayGoals,
         result_scorers: body.result_scorers || [],
         result_yellow_cards: Number(body.result_yellow_cards) || 0,
         result_red_cards: Number(body.result_red_cards) || 0,
-        result_home_clean_sheet: !!body.result_home_clean_sheet,
-        result_away_clean_sheet: !!body.result_away_clean_sheet,
+        result_home_clean_sheet: awayGoals === 0,
+        result_away_clean_sheet: homeGoals === 0,
         result_advance: body.result_advance || "",
         result_after_extra_time: !!body.result_after_extra_time,
         result_after_penalties: !!body.result_after_penalties,
@@ -870,7 +830,7 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
         var marketId = market.id
         var marketType = market.getString("market_type") || ""
         var marketMode = market.getString("mode") || "pool"
-        var line = market.getInt("line") || 0
+        var line = getRecordFloat(market, "line")
         var customWinners = customWinnersMap[marketId] || []
 
         // Skip voided markets — their bets were already refunded by the
@@ -913,15 +873,10 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
                     var b = judged[k].bet
                     if (b.getString("status") !== "pending") continue
                     var refundStake = b.getInt("stake") || 0
-                    var refunded = _applyDelta(b.getString("user"), "bet_refund", refundStake, b.id, "Pool voided — refund")
-                    if (refunded === null) {
-                        console.log("[fifa] settle: pool void refund failed for bet " + b.id + " — leaving pending")
-                        continue
-                    }
                     b.set("status", "void")
                     b.set("payout", refundStake)
                     $app.saveNoValidate(b)
-                    settledCount++
+                    _applyDelta(b.getString("user"), "bet_refund", refundStake, b.id, "Pool voided — refund")
                 }
                 continue
             }
@@ -942,61 +897,41 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
             var jb = judged[j3]
             var stake = jb.bet.getInt("stake") || 0
             var mode = jb.bet.getString("mode") || "pool"
-            // Number(), not getInt — fixed odds are decimals (1.5, 2.5).
-            var oddsLocked = Number(jb.bet.get("odds_locked")) || 0
+            var oddsLocked = getRecordFloat(jb.bet, "odds_locked")
             var wasPending = jb.bet.getString("status") === "pending"
             var payout = _computePayout(stake, mode, oddsLocked, jb.outcome, totalPool, totalWinningStakes, houseCutPercent)
-
-            // Credit balance BEFORE flipping status when money moves. If credit
-            // fails, leave the bet pending so a re-settle can retry
-            // (match.settled is only set after this loop).
-            if (wasPending && payout > 0) {
-                var newBalance = _applyDelta(jb.bet.getString("user"), "bet_payout", payout, jb.bet.id, "Match settlement")
-                if (newBalance === null) {
-                    console.log("[fifa] settle: payout credit failed for bet " + jb.bet.id + " — leaving pending")
-                    continue
-                }
-                totalPayout += payout
-            }
 
             jb.bet.set("status", jb.outcome)
             jb.bet.set("payout", payout)
             $app.saveNoValidate(jb.bet)
             settledCount++
+
+            if (wasPending && payout > 0) {
+                var newBalance = _applyDelta(jb.bet.getString("user"), "bet_payout", payout, jb.bet.id, "Match settlement")
+                if (newBalance === null) {
+                    jb.bet.set("status", "pending")
+                    jb.bet.set("payout", 0)
+                    $app.saveNoValidate(jb.bet)
+                    console.log("[fifa] settlement payout failed for bet " + jb.bet.id)
+                } else {
+                    totalPayout += payout
+                }
+            }
         }
     }
 
-    // ─── Mark match as settled only when no pending bets remain ───
-    var pendingRemaining = $app.findRecordsByFilter(
-        "fifa_bets",
-        "match = {:matchId} && status = {:pending}",
-        "", 0, 0,
-        { matchId: matchId, pending: "pending" }
-    )
-    var pendingCount = pendingRemaining.length
+    // ─── Mark match as settled ────────────────────────────────────
+    match.set("settled", true)
+    $app.saveNoValidate(match)
 
-    if (pendingCount === 0) {
-        match.set("settled", true)
-        $app.saveNoValidate(match)
-        _emitFeedEvent("settlement", "", matchId, "Match settled — " + settledCount + " bets processed")
-        return e.json(200, {
-            success: true,
-            matchId: matchId,
-            settledCount: settledCount,
-            totalPayout: totalPayout,
-            marketsProcessed: marketsProcessed,
-        })
-    }
+    _emitFeedEvent("settlement", "", matchId, "Match settled — " + settledCount + " bets processed")
 
-    console.log("[fifa] settle: " + pendingCount + " bets still pending on match " + matchId + " — not marking settled")
     return e.json(200, {
-        success: false,
-        partial: true,
+        success: true,
         matchId: matchId,
         settledCount: settledCount,
         totalPayout: totalPayout,
         marketsProcessed: marketsProcessed,
-        pendingRemaining: pendingCount,
     })
   } catch (err) {
     console.log("[fifa] settle error: " + err)
@@ -1096,12 +1031,15 @@ cronAdd("fifa-daily-topup", "0 9 * * *", function () {
             }
         } catch (err) { /* no existing — proceed */ }
 
-        var currentBalance = user.getInt("balance") || 0
+        var freshUser = $app.findRecordById("users", userId)
+        if (!freshUser) { continue }
+        var currentBalance = freshUser.getInt("balance") || 0
         var topupAmount = target - currentBalance
         if (topupAmount <= 0) { continue }
 
-        _applyTransaction(userId, "daily_topup", topupAmount, target, "", "Daily top-up")
-        toppedUp++
+        if (_applyDelta(userId, "daily_topup", topupAmount, "", "Daily top-up") !== null) {
+            toppedUp++
+        }
     }
 
     if (toppedUp > 0) {
@@ -1117,9 +1055,8 @@ cronAdd("fifa-daily-topup", "0 9 * * *", function () {
 //   status=upcoming|live  and kickoff_at > auto_void_hours ago  → void
 //   status=finished       and settled=false and kickoff > 48h ago → void
 //
-// Setting match.status=void triggers onRecordAfterUpdateSuccess cascade
-// (phase 4c) which voids markets → market-void hook refunds pending bets.
-// Idempotent — voided matches are skipped.
+// Voids the match (sets status=void) which triggers the market-void refund
+// hook on each open market. Idempotent — voided matches are skipped.
 
 cronAdd("fifa-auto-void", "*/30 * * * *", function () {
     // ─── Inlined helpers (PB 0.39 goja doesn't share top-level scope with callbacks) ───
@@ -1246,6 +1183,7 @@ routerAdd("POST", "/api/fifa/admin-adjust", function (e) {
             var u = $app.findRecordById("users", userId)
             if (!u) return null
             var newBal = (u.getInt("balance") || 0) + delta
+            if (newBal < 0) return null
             var txCol = $app.findCollectionByNameOrId("fifa_transactions")
             var tx = new Record(txCol, { user: userId, type: type, amount: delta, balance_after: newBal, ref_bet: refBetId || "", note: note || "", timestamp: new Date().toISOString() })
             $app.saveNoValidate(tx)
@@ -1278,6 +1216,13 @@ routerAdd("POST", "/api/fifa/admin-adjust", function (e) {
     var note = body.note || "Admin adjustment"
     if (!userId) { return e.json(400, { error: "userId is required" }) }
     if (amount === 0) { return e.json(400, { error: "amount must be non-zero" }) }
+
+    var uCheck = null
+    try { uCheck = $app.findRecordById("users", userId) } catch (err) { uCheck = null }
+    if (!uCheck) { return e.json(404, { error: "User not found" }) }
+    if ((uCheck.getInt("balance") || 0) + amount < 0) {
+        return e.json(400, { error: "Adjustment would result in negative balance" })
+    }
 
     var newBalance = _applyDelta(userId, "admin_adjust", amount, "", note)
     if (newBalance === null) { return e.json(404, { error: "User not found" }) }
@@ -1358,6 +1303,16 @@ routerAdd("POST", "/api/fifa/admin-reset", function (e) {
         var allTx = $app.findRecordsByFilter("fifa_transactions", "1 = 1", "", 0, 0, {})
         for (var j = 0; j < allTx.length; j++) { $app.deleteRecord(allTx[j]) }
     } catch (err) { console.log("[fifa] reset: tx delete failed: " + err) }
+
+    // 2b. Delete feed events and raffle draws
+    try {
+        var allFeed = $app.findRecordsByFilter("fifa_feed_events", "1 = 1", "", 0, 0, {})
+        for (var fi = 0; fi < allFeed.length; fi++) { $app.deleteRecord(allFeed[fi]) }
+    } catch (err) { console.log("[fifa] reset: feed delete failed: " + err) }
+    try {
+        var allRaffle = $app.findRecordsByFilter("fifa_raffle_draws", "1 = 1", "", 0, 0, {})
+        for (var ri = 0; ri < allRaffle.length; ri++) { $app.deleteRecord(allRaffle[ri]) }
+    } catch (err) { console.log("[fifa] reset: raffle delete failed: " + err) }
 
     // 3. Void all matches + clear results
     try {
