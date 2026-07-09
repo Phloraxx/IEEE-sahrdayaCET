@@ -51,6 +51,19 @@ function addSecurityHeaders(res) {
   }
 }
 
+/** Add security headers after SSR without touching writeHead. */
+function addSecurityHeadersSafely(res) {
+  for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
+    if (res.getHeader(key)) continue;
+    try {
+      res.setHeader(key, value);
+    } catch (err) {
+      // Streaming SSR may flush headers before the handler promise resolves.
+      if (err?.code !== 'ERR_HTTP_HEADERS_SENT') throw err;
+    }
+  }
+}
+
 const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB
 
 /** Read request body with a size cap. Returns Buffer or null for empty bodies. */
@@ -67,20 +80,12 @@ async function readBodyLimited(req, maxBytes = MAX_BODY_SIZE) {
 
 function wrapHandlerWithSecurityHeaders(handler) {
   return async (req, res) => {
-    const originalWriteHead = res.writeHead.bind(res);
-    res.writeHead = function (statusCode, statusMessage, headers) {
-      let merged = headers;
-      let reason = statusMessage;
-      if (typeof statusMessage === 'object' && statusMessage !== null) {
-        merged = statusMessage;
-        reason = undefined;
-      }
-      const out = { ...SECURITY_HEADERS, ...(merged || {}) };
-      if (reason !== undefined) return originalWriteHead(statusCode, reason, out);
-      return originalWriteHead(statusCode, out);
-    };
+    // Never patch res.writeHead. srvx passes headers as a flat string array
+    // (e.g. ['content-type', 'text/html; charset=utf-8']). Spreading that
+    // array into an object yields { 0: 'content-type', 1: 'text/html...' },
+    // so browsers show raw HTML instead of rendering the page.
     await handler(req, res);
-    if (!res.headersSent) addSecurityHeaders(res);
+    addSecurityHeadersSafely(res);
   };
 }
 
