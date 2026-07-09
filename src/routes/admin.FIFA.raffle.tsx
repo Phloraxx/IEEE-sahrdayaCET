@@ -4,6 +4,8 @@ import { AlertCircle, Loader2, Trophy, Info, PartyPopper } from "lucide-react"
 import { PanelHeader } from "@/components/admin/panel-header"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { type FifaSettings } from "@/schemas/fifa"
+import { fetchSettings } from "@/lib/api/fifa"
 import { Badge } from "@/components/ui/badge"
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
@@ -38,13 +40,6 @@ interface LeaderboardEntry {
   bets_count: number
 }
 
-interface Settings {
-  raffle_tickets_base: number
-  raffle_tickets_decay: number
-  raffle_active_participant_min_bets: number
-  registration_open: boolean
-}
-
 async function fetchDraws(): Promise<{ draws: RaffleDraw[] }> {
   const res = await fetch('/api/admin/fifa/raffle-draws')
   if (!res.ok) throw new Error('Failed to load draws')
@@ -57,21 +52,18 @@ async function fetchLeaderboard(): Promise<LeaderboardEntry[]> {
   return res.json()
 }
 
-async function fetchSettings(): Promise<Settings> {
-  const res = await fetch('/api/admin/fifa/settings')
-  if (!res.ok) throw new Error('Failed to load settings')
-  const data = await res.json()
-  return data.settings
-}
-
 function AdminFifaRaffle() {
   const { data: drawsData, isLoading: drawsLoading } = useQuery({ queryKey: ['admin-fifa-raffle-draws'], queryFn: fetchDraws })
   const { data: lbData, isLoading: lbLoading } = useQuery({ queryKey: ['admin-fifa-leaderboard'], queryFn: fetchLeaderboard })
   const { data: settingsData, isLoading: settingsLoading } = useQuery({ queryKey: ['admin-fifa-settings'], queryFn: fetchSettings })
-  
+  const [settings, setSettings] = useState<FifaSettings | null>(null)
   const [winnerResult, setWinnerResult] = useState<any>(null)
   const [isDrawing, setIsDrawing] = useState(false)
   const queryClient = useQueryClient()
+
+  useEffect(() => {
+    if (settingsData) setSettings(settingsData)
+  }, [settingsData])
 
   const runDraw = useMutation({
     mutationFn: async () => {
@@ -181,7 +173,7 @@ function PreDrawView({
   onRunDraw 
 }: { 
   leaderboard: LeaderboardEntry[], 
-  settings: Settings, 
+  settings: FifaSettings, 
   onRunDraw: () => void 
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false)
