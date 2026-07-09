@@ -10,7 +10,7 @@ function RulesPage() {
   return (
     <FifaLayout active="rules">
       <div className="mx-auto max-w-2xl px-4 py-8">
-        <h1 className="font-display text-3xl text-ieee-blue mb-6">Rules</h1>
+        <h1 className="font-display text-3xl text-ieee-light-blue mb-6 uppercase">Rules</h1>
 
         <section className="mb-8">
           <h2 className="font-display text-xl text-foreground mb-3">The basics</h2>

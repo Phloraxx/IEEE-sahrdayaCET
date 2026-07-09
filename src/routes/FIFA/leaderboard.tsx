@@ -32,7 +32,7 @@ function LeaderboardPage() {
   return (
     <FifaLayout active="leaderboard">
       <div className="mx-auto max-w-2xl px-4 py-6">
-        <h1 className="font-display text-3xl text-ieee-blue mb-1">Leaderboard</h1>
+        <h1 className="font-display text-3xl text-ieee-light-blue mb-1 uppercase">Leaderboard</h1>
         <p className="text-xs text-muted-foreground mb-3">Ranked by balance (tiebreak: more bets = higher). Updates every 15s.</p>
         <div className="rounded-xl border border-ieee-light-blue/30 bg-ieee-light-blue/5 p-3 mb-5 text-xs text-muted-foreground">
           <p className="font-semibold text-foreground mb-1">Raffle tickets</p>
