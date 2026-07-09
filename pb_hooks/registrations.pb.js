@@ -11,12 +11,14 @@
 // DB access — no admin token, no network round-trip, atomic with the write.
 
 // ─── Helpers ────────────────────────────────────────────────────────
+// PB 0.39 goja does not hoist top-level `function` declarations into hook
+// callback scopes (see fifa.pb.js). Use var + function expressions.
 
 /**
  * Re-computes registeredCount and checkedInCount on the event from live
  * DB counts. Self-healing: concurrent callers all write the same value (M-5).
  */
-function recomputeEventCounters(eventId) {
+var recomputeEventCounters = function(eventId) {
     try {
         var confirmed = $app.findRecordsByFilter(
             "registrations",
@@ -43,7 +45,7 @@ function recomputeEventCounters(eventId) {
  * Re-computes coupon usedCount from active (non-cancelled) registrations.
  * Self-healing: called after create (reserve) and after cancel (release) (M-1).
  */
-function recomputeCouponUsedCount(couponCode, eventId) {
+var recomputeCouponUsedCount = function(couponCode, eventId) {
     if (!couponCode) return
     try {
         var active = $app.findRecordsByFilter(
@@ -65,12 +67,12 @@ function recomputeCouponUsedCount(couponCode, eventId) {
 }
 
 /** Generates a user-facing ticket ID: TKT-<16 random chars>. */
-function generateTicketId() {
+var generateTicketId = function() {
     return "TKT-" + $security.randomString(16)
 }
 
 /** Generates a payment webhook lookup key (UUID-like). */
-function generatePaymentTicketId() {
+var generatePaymentTicketId = function() {
     return $security.randomString(32)
 }
 
