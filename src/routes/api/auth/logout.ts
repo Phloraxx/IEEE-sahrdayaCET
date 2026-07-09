@@ -1,7 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { serialize } from "cookie";
-import { PB_AUTH_COOKIE, PB_OAUTH_PROVIDER_COOKIE } from "@/lib/constants";
+import { APP_URL, PB_AUTH_COOKIE, PB_OAUTH_PROVIDER_COOKIE } from "@/lib/constants";
 import { verifySameOrigin } from "@/lib/verify-same-origin";
+
+function getCookieDomain(appUrl: string): string | undefined {
+  try {
+    const hostname = new URL(appUrl).hostname;
+    const parts = hostname.split(".");
+    if (parts.length <= 1 || hostname === "localhost") return undefined;
+    return `.${parts.slice(-2).join(".")}`;
+  } catch {
+    return undefined;
+  }
+}
 
 export const Route = createFileRoute("/api/auth/logout")({
   server: {
@@ -20,28 +31,28 @@ export const Route = createFileRoute("/api/auth/logout")({
         }
 
         const response = Response.json({ success: true });
-        // Clear the pb_auth cookie (Secure in prod, plain in dev for HTTP).
-        response.headers.set(
-          "Set-Cookie",
-          serialize(PB_AUTH_COOKIE, "", {
-            httpOnly: true,
-            secure: isProduction,
-            sameSite: "lax",
-            path: "/",
-            maxAge: 0,
-          }),
-        );
-        // Also clear the one-time OAuth provider cookie if still present.
-        response.headers.append(
-          "Set-Cookie",
-          serialize(PB_OAUTH_PROVIDER_COOKIE, "", {
-            httpOnly: true,
-            secure: isProduction,
-            sameSite: "lax",
-            path: "/",
-            maxAge: 0,
-          }),
-        );
+        const cookieDomain = getCookieDomain(APP_URL);
+        const clearOpts = {
+          httpOnly: true,
+          secure: isProduction,
+          sameSite: "lax" as const,
+          path: "/",
+          maxAge: 0,
+        };
+        // Clear host-only cookies
+        response.headers.set("Set-Cookie", serialize(PB_AUTH_COOKIE, "", clearOpts));
+        response.headers.append("Set-Cookie", serialize(PB_OAUTH_PROVIDER_COOKIE, "", clearOpts));
+        // Clear domain-wide variants (set at login with Domain=.ieeesahrdaya.com)
+        if (cookieDomain) {
+          response.headers.append(
+            "Set-Cookie",
+            serialize(PB_AUTH_COOKIE, "", { ...clearOpts, domain: cookieDomain }),
+          );
+          response.headers.append(
+            "Set-Cookie",
+            serialize(PB_OAUTH_PROVIDER_COOKIE, "", { ...clearOpts, domain: cookieDomain }),
+          );
+        }
         return response;
       },
     },

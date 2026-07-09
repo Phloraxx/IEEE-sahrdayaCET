@@ -237,7 +237,26 @@ function normalizeOpenfootballMatch(m: unknown): LiveMatch {
   const timeStr = String(rec.time || '')
   // Build an ISO-ish kickoff string (best-effort — openfootball times have
   // timezone offsets like "UTC-6", not ISO format).
-  const kickoffAt = dateStr ? `${dateStr}T${timeStr.replace(' UTC', 'Z').replace(/UTC([+-]\d+)/, '')}` : null
+  let kickoffAt: string | null = null
+  if (dateStr) {
+    const utcOffsetMatch = timeStr.match(/(\d{1,2}):(\d{2})\s*UTC([+-]?\d+)/)
+    if (utcOffsetMatch) {
+      const hours = parseInt(utcOffsetMatch[1], 10)
+      const mins = parseInt(utcOffsetMatch[2], 10)
+      const offsetHours = parseInt(utcOffsetMatch[3], 10)
+      const utcMs = Date.UTC(
+        parseInt(dateStr.slice(0, 4), 10),
+        parseInt(dateStr.slice(5, 7), 10) - 1,
+        parseInt(dateStr.slice(8, 10), 10),
+        hours - offsetHours,
+        mins,
+      )
+      kickoffAt = new Date(utcMs).toISOString()
+    } else {
+      const cleanTime = timeStr.replace(/\s*UTC.*$/i, '').trim() || '12:00'
+      kickoffAt = `${dateStr}T${cleanTime}:00.000Z`
+    }
+  }
   // ET / penalties: openfootball uses score.et and score.p arrays.
   const hasEt = !!score.et
   const hasPens = !!score.p

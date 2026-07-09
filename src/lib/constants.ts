@@ -18,7 +18,7 @@ export type PaymentStatus = (typeof PAYMENT_STATUS)[number]
 export const EVENT_STATUS = ['draft', 'published', 'completed', 'cancelled'] as const
 export type EventStatus = (typeof EVENT_STATUS)[number]
 
-export const USER_ROLES = ['admin', 'chair', 'user'] as const
+export const USER_ROLES = ['admin', 'chair', 'user', 'content'] as const
 export type UserRole = (typeof USER_ROLES)[number]
 
 /** Default pagination limits per resource. */

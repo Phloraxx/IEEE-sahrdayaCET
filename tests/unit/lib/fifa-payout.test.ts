@@ -127,12 +127,13 @@ describe('judgeBet — cards_ou', () => {
 })
 
 describe('judgeBet — clean_sheet', () => {
-  it('home wins when result_home_clean_sheet is true', () => {
-    const r = { ...baseResult, result_home_clean_sheet: true }
+  it('home wins when away scored 0 in 90 min', () => {
+    const r = { ...baseResult, result_home_goals: 2, result_away_goals: 0 }
     expect(judgeBet(pendingBet('home'), { market_type: 'clean_sheet', line: 0, options: [] }, r)).toBe('won')
   })
-  it('away loses when result_away_clean_sheet is false', () => {
-    expect(judgeBet(pendingBet('away'), { market_type: 'clean_sheet', line: 0, options: [] }, baseResult)).toBe('lost')
+  it('away loses when home scored in 90 min', () => {
+    const r = { ...baseResult, result_home_goals: 1, result_away_goals: 0 }
+    expect(judgeBet(pendingBet('away'), { market_type: 'clean_sheet', line: 0, options: [] }, r)).toBe('lost')
   })
 })
 

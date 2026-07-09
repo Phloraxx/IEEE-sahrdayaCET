@@ -33,8 +33,7 @@ onRecordUpdateRequest(function (e) {
     try {
         oldRecord = $app.findRecordById("events", newRecord.id)
     } catch (err) {
-        e.next()
-        return
+        throw e.notFoundError("Event not found", err)
     }
 
     if (newRecord.getInt("registeredCount") !== oldRecord.getInt("registeredCount")) {

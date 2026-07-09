@@ -101,7 +101,6 @@ export const Route = createFileRoute("/api/fifa/bets")({
                 'Authorization': `Bearer ${token}`,
               },
               body: JSON.stringify({
-                user: user.id,
                 match: parsed.match,
                 market: parsed.market,
                 selection: parsed.selection,
@@ -110,6 +109,7 @@ export const Route = createFileRoute("/api/fifa/bets")({
             });
             const bet = await res.json();
             if (!res.ok) {
+              refundToken({ key: `fifa-bet:${user.id}`, max: FIFA_RATE_LIMITS.bet.max, windowMs: FIFA_RATE_LIMITS.bet.windowMs });
               const errMsg = bet?.message || bet?.error || 'Bet rejected';
               return Response.json({ error: errMsg }, { status: res.status });
             }

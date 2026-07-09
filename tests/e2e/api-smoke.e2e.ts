@@ -139,6 +139,7 @@ test.describe('Unauthenticated Registration API', () => {
   test('GET /api/admin/events/{id}/registrations-csv → 401 without auth', async ({ baseURL }) => {
     const ctx = await request.newContext({ baseURL })
     const res = await ctx.get('/api/admin/events/test/registrations-csv')
+    expect(res.status()).toBe(401)
   })
 
   test('GET /api/events/{id}/export → 401 without auth', async ({ baseURL }) => {

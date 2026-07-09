@@ -44,6 +44,21 @@ export const Route = createFileRoute("/api/ticket/$ticketId")({
           const pb = createPB(request.headers.get('cookie') || undefined);
           const auth = await requireAuth(pb).catch(() => null);
 
+          if (!auth) {
+            return Response.json({
+              found: true,
+              ticket: {
+                id: getField(reg, 'ticketId', ticketId),
+                registrationStatus: getField(reg, 'registrationStatus', ''),
+              },
+              event: event ? {
+                title: event.title,
+                date: event.date,
+                venue: event.venue,
+              } : null,
+            });
+          }
+
           const response: Record<string, unknown> = {
             found: true,
             ticket: data.ticket,

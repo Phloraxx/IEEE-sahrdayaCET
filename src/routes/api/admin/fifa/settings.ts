@@ -45,6 +45,10 @@ export const Route = createFileRoute("/api/admin/fifa/settings")({
       },
       PATCH: async ({ request }) => {
         try {
+          const ct = request.headers.get('content-type') || '';
+          if (!ct.includes('application/json')) {
+            return Response.json({ error: 'Unsupported media type' }, { status: 415 });
+          }
           verifySameOrigin(request);
           const pb = createPB(request.headers.get("cookie") || undefined);
           await requireRole(["admin"], pb);

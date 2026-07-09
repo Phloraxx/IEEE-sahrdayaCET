@@ -125,9 +125,10 @@ export function judgeBet(
     }
 
     case 'clean_sheet': {
-      // selection is "home" or "away"
-      if (sel === 'home') return result.result_home_clean_sheet ? 'won' : 'lost'
-      if (sel === 'away') return result.result_away_clean_sheet ? 'won' : 'lost'
+      const homeClean = (result.result_away_goals ?? 0) === 0
+      const awayClean = (result.result_home_goals ?? 0) === 0
+      if (sel === 'home') return homeClean ? 'won' : 'lost'
+      if (sel === 'away') return awayClean ? 'won' : 'lost'
       return 'lost'
     }
 

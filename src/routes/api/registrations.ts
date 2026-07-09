@@ -111,7 +111,31 @@ export const Route = createFileRoute("/api/registrations")({
           const parsed = RegistrationBodySchema.parse(await request.json());
           const { eventId, formResponses, couponCode } = parsed;
 
-          // Business rules enforced in pb_hooks/registrations.pb.js (authoritative).
+          // Fast-fail UX checks — pb_hooks/registrations.pb.js is authoritative.
+          const eventRecord = await userPb.collection("events").getOne(eventId, {
+            fields: "maxCapacity,formTemplate",
+          });
+          const maxCapacity = Number(getField(eventRecord, 'maxCapacity', 0)) || 0;
+          if (maxCapacity > 0) {
+            const confirmed = await userPb.collection("registrations").getList(1, 1, {
+              filter: `event = ${escapeFilterValue(eventId)} && registrationStatus = 'confirmed'`,
+            });
+            if (confirmed.totalItems >= maxCapacity) {
+              return Response.json({ error: 'Event is at full capacity' }, { status: 400 });
+            }
+          }
+          const formTemplate = getField<Array<{id: string; name?: string; required?: boolean}>>(eventRecord, 'formTemplate', []);
+          if (Array.isArray(formTemplate) && formTemplate.length > 0) {
+            const requiredFields = formTemplate
+              .filter((f: {required?: boolean}) => f.required)
+              .map((f: {id: string; name?: string}) => f.name || f.id);
+            for (const fieldId of requiredFields) {
+              const val = formResponses?.[fieldId];
+              if (val === undefined || val === null || val === '') {
+                return Response.json({ error: `Required field "${fieldId}" is missing` }, { status: 400 });
+              }
+            }
+          }
           const registration = await userPb.collection("registrations").create({
             user: user.id,
             event: eventId,

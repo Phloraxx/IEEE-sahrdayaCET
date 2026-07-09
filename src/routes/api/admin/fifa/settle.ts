@@ -1,10 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB } from "@/lib/pb.server"
+import { createPB, getPBUrl } from "@/lib/pb.server"
 import { requireRole } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 import { verifySameOrigin } from "@/lib/verify-same-origin";
 import { FifaSettleSchema } from "@/schemas/fifa";
-import { PB_AUTH_COOKIE } from "@/lib/constants";
 
 // Admin-only: enter match result + trigger settlement. The PB custom route
 // /api/fifa/settle does the actual payout math (see pb_hooks/fifa.pb.js).
@@ -34,6 +33,9 @@ export const Route = createFileRoute("/api/admin/fifa/settle")({
           ) {
             body.result_advance = parsed.result_winner;
           }
+          // Derive clean-sheet flags from 90-min goals (FIFA-GAME.md §4).
+          body.result_home_clean_sheet = parsed.result_away_goals === 0;
+          body.result_away_clean_sheet = parsed.result_home_goals === 0;
 
           // Extract the auth token from the cookie and pass it as a Bearer
           // token. The pb_auth cookie value is URL-encoded JSON; PocketBase
@@ -50,7 +52,7 @@ export const Route = createFileRoute("/api/admin/fifa/settle")({
             headers['cookie'] = cookieStr;
           }
 
-          const res = await fetch(`${process.env.POCKETBASE_URL}/api/fifa/settle`, {
+          const res = await fetch(`${getPBUrl().replace(/\/+$/, '')}/api/fifa/settle`, {
             method: 'POST',
             headers,
             body: JSON.stringify(body),

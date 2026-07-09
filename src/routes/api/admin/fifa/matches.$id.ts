@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createPB } from "@/lib/pb.server"
+import { escapeFilterValue } from "@/lib/pb";
 import { requireRole } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 import { verifySameOrigin } from "@/lib/verify-same-origin";
@@ -30,7 +31,9 @@ export const Route = createFileRoute("/api/admin/fifa/matches/$id")({
           const pb = createPB(request.headers.get("cookie") || undefined);
           await requireRole(["admin"], pb);
           const parsed = FifaMatchUpdateSchema.parse(await request.json());
-          const match = await pb.collection("fifa_matches").update(id, parsed);
+          // Strip server-authoritative fields — only the settle route sets these.
+          const { settled: _s, ...safeFields } = parsed as Record<string, unknown>;
+          const match = await pb.collection("fifa_matches").update(id, safeFields);
           return Response.json({ match });
         } catch (error) {
           return handleError(error, "admin-fifa-match-update");
@@ -42,6 +45,15 @@ export const Route = createFileRoute("/api/admin/fifa/matches/$id")({
           verifySameOrigin(request);
           const pb = createPB(request.headers.get("cookie") || undefined);
           await requireRole(["admin"], pb);
+          const pending = await pb.collection("fifa_bets").getList(1, 1, {
+            filter: `match = ${escapeFilterValue(id)} && status = 'pending'`,
+          });
+          if (pending.totalItems > 0) {
+            return Response.json(
+              { error: "Cannot delete match with pending bets — void the match instead" },
+              { status: 409 },
+            );
+          }
           await pb.collection("fifa_matches").delete(id);
           return Response.json({ success: true });
         } catch (error) {
