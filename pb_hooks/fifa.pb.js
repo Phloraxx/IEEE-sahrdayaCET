@@ -385,15 +385,7 @@ onRecordAfterCreateSuccess(function (e) {
         console.log("[fifa] pool recompute failed for market " + marketId + ": " + err)
     }
 
-    // Emit feed event (inline to avoid scope issues)
-    try {
-        var displayName = fh.displayName(user)
-        var feedCol = $app.findCollectionByNameOrId("fifa_feed_events")
-        var feedEv = new Record(feedCol, { type: "bet_placed", user: userId, match: matchId, message: displayName + " bet " + stake + " on " + selection })
-        $app.saveNoValidate(feedEv)
-    } catch (err) {
-        console.log("[fifa] emitFeedEvent failed: " + err)
-    }
+    // Feed removed from product (FIFA-AUTOMATION.md PR1) — no feed write on bet.
 
     e.next()
 }, "fifa_bets")
