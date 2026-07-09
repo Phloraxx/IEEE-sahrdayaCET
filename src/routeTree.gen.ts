@@ -59,8 +59,9 @@ import { Route as AdminEventsNewRouteImport } from './routes/admin.events.new'
 import { Route as AdminFIFATestingRouteImport } from './routes/admin.FIFA.testing'
 import { Route as AdminFIFASettingsRouteImport } from './routes/admin.FIFA.settings'
 import { Route as AdminFIFARaffleRouteImport } from './routes/admin.FIFA.raffle'
+import { Route as AdminFIFAMatchesRouteImport } from './routes/admin.FIFA.matches'
+import { Route as AdminFIFAFeedRouteImport } from './routes/admin.FIFA.feed'
 import { Route as FIFAMatchesIdRouteImport } from './routes/FIFA/matches.$id'
-import { Route as AdminFIFAMatchesIndexRouteImport } from './routes/admin.FIFA.matches.index'
 import { Route as ApiEventsIdExportRouteImport } from './routes/api/events.$id.export'
 import { Route as ApiAuthCallbackGoogleRouteImport } from './routes/api/auth/callback/google'
 import { Route as ApiAdminSocietiesIdRouteImport } from './routes/api/admin/societies.$id'
@@ -72,6 +73,7 @@ import { Route as ApiAdminFifaRaffleDrawsRouteImport } from './routes/api/admin/
 import { Route as ApiAdminFifaRaffleRouteImport } from './routes/api/admin/fifa/raffle'
 import { Route as ApiAdminFifaMatchesRouteImport } from './routes/api/admin/fifa/matches'
 import { Route as ApiAdminFifaMarketsRouteImport } from './routes/api/admin/fifa/markets'
+import { Route as ApiAdminFifaFeedRouteImport } from './routes/api/admin/fifa/feed'
 import { Route as ApiAdminFifaBetsRouteImport } from './routes/api/admin/fifa/bets'
 import { Route as ApiAdminExecomIdRouteImport } from './routes/api/admin/execom.$id'
 import { Route as ApiAdminEventsIdRouteImport } from './routes/api/admin/events.$id'
@@ -81,6 +83,7 @@ import { Route as AdminEventsIdEditRouteImport } from './routes/admin.events.$id
 import { Route as AdminFIFAMatchesIdRouteImport } from './routes/admin.FIFA.matches.$id'
 import { Route as ApiAdminFifaMatchesIdRouteImport } from './routes/api/admin/fifa/matches.$id'
 import { Route as ApiAdminFifaMarketsIdRouteImport } from './routes/api/admin/fifa/markets.$id'
+import { Route as ApiAdminFifaFeedIdRouteImport } from './routes/api/admin/fifa/feed.$id'
 import { Route as ApiAdminEventsIdRegistrationsCsvRouteImport } from './routes/api/admin.events.$id.registrations-csv'
 import { Route as ApiAdminEventsIdCouponsRouteImport } from './routes/api/admin/events.$id.coupons'
 
@@ -334,15 +337,20 @@ const AdminFIFARaffleRoute = AdminFIFARaffleRouteImport.update({
   path: '/FIFA/raffle',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminFIFAMatchesRoute = AdminFIFAMatchesRouteImport.update({
+  id: '/FIFA/matches',
+  path: '/FIFA/matches',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminFIFAFeedRoute = AdminFIFAFeedRouteImport.update({
+  id: '/FIFA/feed',
+  path: '/FIFA/feed',
+  getParentRoute: () => AdminRoute,
+} as any)
 const FIFAMatchesIdRoute = FIFAMatchesIdRouteImport.update({
   id: '/$id',
   path: '/$id',
   getParentRoute: () => FIFAMatchesRoute,
-} as any)
-const AdminFIFAMatchesIndexRoute = AdminFIFAMatchesIndexRouteImport.update({
-  id: '/FIFA/matches/',
-  path: '/FIFA/matches/',
-  getParentRoute: () => AdminRoute,
 } as any)
 const ApiEventsIdExportRoute = ApiEventsIdExportRouteImport.update({
   id: '/export',
@@ -399,6 +407,11 @@ const ApiAdminFifaMarketsRoute = ApiAdminFifaMarketsRouteImport.update({
   path: '/api/admin/fifa/markets',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminFifaFeedRoute = ApiAdminFifaFeedRouteImport.update({
+  id: '/api/admin/fifa/feed',
+  path: '/api/admin/fifa/feed',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAdminFifaBetsRoute = ApiAdminFifaBetsRouteImport.update({
   id: '/api/admin/fifa/bets',
   path: '/api/admin/fifa/bets',
@@ -430,9 +443,9 @@ const AdminEventsIdEditRoute = AdminEventsIdEditRouteImport.update({
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminFIFAMatchesIdRoute = AdminFIFAMatchesIdRouteImport.update({
-  id: '/FIFA/matches/$id',
-  path: '/FIFA/matches/$id',
-  getParentRoute: () => AdminRoute,
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AdminFIFAMatchesRoute,
 } as any)
 const ApiAdminFifaMatchesIdRoute = ApiAdminFifaMatchesIdRouteImport.update({
   id: '/$id',
@@ -443,6 +456,11 @@ const ApiAdminFifaMarketsIdRoute = ApiAdminFifaMarketsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
   getParentRoute: () => ApiAdminFifaMarketsRoute,
+} as any)
+const ApiAdminFifaFeedIdRoute = ApiAdminFifaFeedIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiAdminFifaFeedRoute,
 } as any)
 const ApiAdminEventsIdRegistrationsCsvRoute =
   ApiAdminEventsIdRegistrationsCsvRouteImport.update({
@@ -478,6 +496,8 @@ export interface FileRoutesByFullPath {
   '/FIFA/': typeof FIFAIndexRoute
   '/blog/': typeof BlogIndexRoute
   '/FIFA/matches/$id': typeof FIFAMatchesIdRoute
+  '/admin/FIFA/feed': typeof AdminFIFAFeedRoute
+  '/admin/FIFA/matches': typeof AdminFIFAMatchesRouteWithChildren
   '/admin/FIFA/raffle': typeof AdminFIFARaffleRoute
   '/admin/FIFA/settings': typeof AdminFIFASettingsRoute
   '/admin/FIFA/testing': typeof AdminFIFATestingRoute
@@ -515,6 +535,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/events/$id': typeof ApiAdminEventsIdRouteWithChildren
   '/api/admin/execom/$id': typeof ApiAdminExecomIdRoute
   '/api/admin/fifa/bets': typeof ApiAdminFifaBetsRoute
+  '/api/admin/fifa/feed': typeof ApiAdminFifaFeedRouteWithChildren
   '/api/admin/fifa/markets': typeof ApiAdminFifaMarketsRouteWithChildren
   '/api/admin/fifa/matches': typeof ApiAdminFifaMatchesRouteWithChildren
   '/api/admin/fifa/raffle': typeof ApiAdminFifaRaffleRoute
@@ -526,9 +547,9 @@ export interface FileRoutesByFullPath {
   '/api/admin/societies/$id': typeof ApiAdminSocietiesIdRoute
   '/api/auth/callback/google': typeof ApiAuthCallbackGoogleRoute
   '/api/events/$id/export': typeof ApiEventsIdExportRoute
-  '/admin/FIFA/matches/': typeof AdminFIFAMatchesIndexRoute
   '/api/admin/events/$id/coupons': typeof ApiAdminEventsIdCouponsRoute
   '/api/admin/events/$id/registrations-csv': typeof ApiAdminEventsIdRegistrationsCsvRoute
+  '/api/admin/fifa/feed/$id': typeof ApiAdminFifaFeedIdRoute
   '/api/admin/fifa/markets/$id': typeof ApiAdminFifaMarketsIdRoute
   '/api/admin/fifa/matches/$id': typeof ApiAdminFifaMatchesIdRoute
 }
@@ -554,6 +575,8 @@ export interface FileRoutesByTo {
   '/FIFA': typeof FIFAIndexRoute
   '/blog': typeof BlogIndexRoute
   '/FIFA/matches/$id': typeof FIFAMatchesIdRoute
+  '/admin/FIFA/feed': typeof AdminFIFAFeedRoute
+  '/admin/FIFA/matches': typeof AdminFIFAMatchesRouteWithChildren
   '/admin/FIFA/raffle': typeof AdminFIFARaffleRoute
   '/admin/FIFA/settings': typeof AdminFIFASettingsRoute
   '/admin/FIFA/testing': typeof AdminFIFATestingRoute
@@ -591,6 +614,7 @@ export interface FileRoutesByTo {
   '/api/admin/events/$id': typeof ApiAdminEventsIdRouteWithChildren
   '/api/admin/execom/$id': typeof ApiAdminExecomIdRoute
   '/api/admin/fifa/bets': typeof ApiAdminFifaBetsRoute
+  '/api/admin/fifa/feed': typeof ApiAdminFifaFeedRouteWithChildren
   '/api/admin/fifa/markets': typeof ApiAdminFifaMarketsRouteWithChildren
   '/api/admin/fifa/matches': typeof ApiAdminFifaMatchesRouteWithChildren
   '/api/admin/fifa/raffle': typeof ApiAdminFifaRaffleRoute
@@ -602,9 +626,9 @@ export interface FileRoutesByTo {
   '/api/admin/societies/$id': typeof ApiAdminSocietiesIdRoute
   '/api/auth/callback/google': typeof ApiAuthCallbackGoogleRoute
   '/api/events/$id/export': typeof ApiEventsIdExportRoute
-  '/admin/FIFA/matches': typeof AdminFIFAMatchesIndexRoute
   '/api/admin/events/$id/coupons': typeof ApiAdminEventsIdCouponsRoute
   '/api/admin/events/$id/registrations-csv': typeof ApiAdminEventsIdRegistrationsCsvRoute
+  '/api/admin/fifa/feed/$id': typeof ApiAdminFifaFeedIdRoute
   '/api/admin/fifa/markets/$id': typeof ApiAdminFifaMarketsIdRoute
   '/api/admin/fifa/matches/$id': typeof ApiAdminFifaMatchesIdRoute
 }
@@ -631,6 +655,8 @@ export interface FileRoutesById {
   '/FIFA/': typeof FIFAIndexRoute
   '/blog/': typeof BlogIndexRoute
   '/FIFA/matches/$id': typeof FIFAMatchesIdRoute
+  '/admin/FIFA/feed': typeof AdminFIFAFeedRoute
+  '/admin/FIFA/matches': typeof AdminFIFAMatchesRouteWithChildren
   '/admin/FIFA/raffle': typeof AdminFIFARaffleRoute
   '/admin/FIFA/settings': typeof AdminFIFASettingsRoute
   '/admin/FIFA/testing': typeof AdminFIFATestingRoute
@@ -668,6 +694,7 @@ export interface FileRoutesById {
   '/api/admin/events/$id': typeof ApiAdminEventsIdRouteWithChildren
   '/api/admin/execom/$id': typeof ApiAdminExecomIdRoute
   '/api/admin/fifa/bets': typeof ApiAdminFifaBetsRoute
+  '/api/admin/fifa/feed': typeof ApiAdminFifaFeedRouteWithChildren
   '/api/admin/fifa/markets': typeof ApiAdminFifaMarketsRouteWithChildren
   '/api/admin/fifa/matches': typeof ApiAdminFifaMatchesRouteWithChildren
   '/api/admin/fifa/raffle': typeof ApiAdminFifaRaffleRoute
@@ -679,9 +706,9 @@ export interface FileRoutesById {
   '/api/admin/societies/$id': typeof ApiAdminSocietiesIdRoute
   '/api/auth/callback/google': typeof ApiAuthCallbackGoogleRoute
   '/api/events/$id/export': typeof ApiEventsIdExportRoute
-  '/admin/FIFA/matches/': typeof AdminFIFAMatchesIndexRoute
   '/api/admin/events/$id/coupons': typeof ApiAdminEventsIdCouponsRoute
   '/api/admin/events/$id/registrations-csv': typeof ApiAdminEventsIdRegistrationsCsvRoute
+  '/api/admin/fifa/feed/$id': typeof ApiAdminFifaFeedIdRoute
   '/api/admin/fifa/markets/$id': typeof ApiAdminFifaMarketsIdRoute
   '/api/admin/fifa/matches/$id': typeof ApiAdminFifaMatchesIdRoute
 }
@@ -709,6 +736,8 @@ export interface FileRouteTypes {
     | '/FIFA/'
     | '/blog/'
     | '/FIFA/matches/$id'
+    | '/admin/FIFA/feed'
+    | '/admin/FIFA/matches'
     | '/admin/FIFA/raffle'
     | '/admin/FIFA/settings'
     | '/admin/FIFA/testing'
@@ -746,6 +775,7 @@ export interface FileRouteTypes {
     | '/api/admin/events/$id'
     | '/api/admin/execom/$id'
     | '/api/admin/fifa/bets'
+    | '/api/admin/fifa/feed'
     | '/api/admin/fifa/markets'
     | '/api/admin/fifa/matches'
     | '/api/admin/fifa/raffle'
@@ -757,9 +787,9 @@ export interface FileRouteTypes {
     | '/api/admin/societies/$id'
     | '/api/auth/callback/google'
     | '/api/events/$id/export'
-    | '/admin/FIFA/matches/'
     | '/api/admin/events/$id/coupons'
     | '/api/admin/events/$id/registrations-csv'
+    | '/api/admin/fifa/feed/$id'
     | '/api/admin/fifa/markets/$id'
     | '/api/admin/fifa/matches/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -785,6 +815,8 @@ export interface FileRouteTypes {
     | '/FIFA'
     | '/blog'
     | '/FIFA/matches/$id'
+    | '/admin/FIFA/feed'
+    | '/admin/FIFA/matches'
     | '/admin/FIFA/raffle'
     | '/admin/FIFA/settings'
     | '/admin/FIFA/testing'
@@ -822,6 +854,7 @@ export interface FileRouteTypes {
     | '/api/admin/events/$id'
     | '/api/admin/execom/$id'
     | '/api/admin/fifa/bets'
+    | '/api/admin/fifa/feed'
     | '/api/admin/fifa/markets'
     | '/api/admin/fifa/matches'
     | '/api/admin/fifa/raffle'
@@ -833,9 +866,9 @@ export interface FileRouteTypes {
     | '/api/admin/societies/$id'
     | '/api/auth/callback/google'
     | '/api/events/$id/export'
-    | '/admin/FIFA/matches'
     | '/api/admin/events/$id/coupons'
     | '/api/admin/events/$id/registrations-csv'
+    | '/api/admin/fifa/feed/$id'
     | '/api/admin/fifa/markets/$id'
     | '/api/admin/fifa/matches/$id'
   id:
@@ -861,6 +894,8 @@ export interface FileRouteTypes {
     | '/FIFA/'
     | '/blog/'
     | '/FIFA/matches/$id'
+    | '/admin/FIFA/feed'
+    | '/admin/FIFA/matches'
     | '/admin/FIFA/raffle'
     | '/admin/FIFA/settings'
     | '/admin/FIFA/testing'
@@ -898,6 +933,7 @@ export interface FileRouteTypes {
     | '/api/admin/events/$id'
     | '/api/admin/execom/$id'
     | '/api/admin/fifa/bets'
+    | '/api/admin/fifa/feed'
     | '/api/admin/fifa/markets'
     | '/api/admin/fifa/matches'
     | '/api/admin/fifa/raffle'
@@ -909,9 +945,9 @@ export interface FileRouteTypes {
     | '/api/admin/societies/$id'
     | '/api/auth/callback/google'
     | '/api/events/$id/export'
-    | '/admin/FIFA/matches/'
     | '/api/admin/events/$id/coupons'
     | '/api/admin/events/$id/registrations-csv'
+    | '/api/admin/fifa/feed/$id'
     | '/api/admin/fifa/markets/$id'
     | '/api/admin/fifa/matches/$id'
   fileRoutesById: FileRoutesById
@@ -953,6 +989,7 @@ export interface RootRouteChildren {
   ApiSocietySlugRoute: typeof ApiSocietySlugRoute
   ApiTicketTicketIdRoute: typeof ApiTicketTicketIdRoute
   ApiAdminFifaBetsRoute: typeof ApiAdminFifaBetsRoute
+  ApiAdminFifaFeedRoute: typeof ApiAdminFifaFeedRouteWithChildren
   ApiAdminFifaMarketsRoute: typeof ApiAdminFifaMarketsRouteWithChildren
   ApiAdminFifaMatchesRoute: typeof ApiAdminFifaMatchesRouteWithChildren
   ApiAdminFifaRaffleRoute: typeof ApiAdminFifaRaffleRoute
@@ -1315,19 +1352,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminFIFARaffleRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/FIFA/matches': {
+      id: '/admin/FIFA/matches'
+      path: '/FIFA/matches'
+      fullPath: '/admin/FIFA/matches'
+      preLoaderRoute: typeof AdminFIFAMatchesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/FIFA/feed': {
+      id: '/admin/FIFA/feed'
+      path: '/FIFA/feed'
+      fullPath: '/admin/FIFA/feed'
+      preLoaderRoute: typeof AdminFIFAFeedRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/FIFA/matches/$id': {
       id: '/FIFA/matches/$id'
       path: '/$id'
       fullPath: '/FIFA/matches/$id'
       preLoaderRoute: typeof FIFAMatchesIdRouteImport
       parentRoute: typeof FIFAMatchesRoute
-    }
-    '/admin/FIFA/matches/': {
-      id: '/admin/FIFA/matches/'
-      path: '/FIFA/matches'
-      fullPath: '/admin/FIFA/matches/'
-      preLoaderRoute: typeof AdminFIFAMatchesIndexRouteImport
-      parentRoute: typeof AdminRoute
     }
     '/api/events/$id/export': {
       id: '/api/events/$id/export'
@@ -1406,6 +1450,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminFifaMarketsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/admin/fifa/feed': {
+      id: '/api/admin/fifa/feed'
+      path: '/api/admin/fifa/feed'
+      fullPath: '/api/admin/fifa/feed'
+      preLoaderRoute: typeof ApiAdminFifaFeedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/admin/fifa/bets': {
       id: '/api/admin/fifa/bets'
       path: '/api/admin/fifa/bets'
@@ -1450,10 +1501,10 @@ declare module '@tanstack/react-router' {
     }
     '/admin/FIFA/matches/$id': {
       id: '/admin/FIFA/matches/$id'
-      path: '/FIFA/matches/$id'
+      path: '/$id'
       fullPath: '/admin/FIFA/matches/$id'
       preLoaderRoute: typeof AdminFIFAMatchesIdRouteImport
-      parentRoute: typeof AdminRoute
+      parentRoute: typeof AdminFIFAMatchesRoute
     }
     '/api/admin/fifa/matches/$id': {
       id: '/api/admin/fifa/matches/$id'
@@ -1468,6 +1519,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/admin/fifa/markets/$id'
       preLoaderRoute: typeof ApiAdminFifaMarketsIdRouteImport
       parentRoute: typeof ApiAdminFifaMarketsRoute
+    }
+    '/api/admin/fifa/feed/$id': {
+      id: '/api/admin/fifa/feed/$id'
+      path: '/$id'
+      fullPath: '/api/admin/fifa/feed/$id'
+      preLoaderRoute: typeof ApiAdminFifaFeedIdRouteImport
+      parentRoute: typeof ApiAdminFifaFeedRoute
     }
     '/api/admin/events/$id/registrations-csv': {
       id: '/api/admin/events/$id/registrations-csv'
@@ -1486,11 +1544,24 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AdminFIFAMatchesRouteChildren {
+  AdminFIFAMatchesIdRoute: typeof AdminFIFAMatchesIdRoute
+}
+
+const AdminFIFAMatchesRouteChildren: AdminFIFAMatchesRouteChildren = {
+  AdminFIFAMatchesIdRoute: AdminFIFAMatchesIdRoute,
+}
+
+const AdminFIFAMatchesRouteWithChildren =
+  AdminFIFAMatchesRoute._addFileChildren(AdminFIFAMatchesRouteChildren)
+
 interface AdminRouteChildren {
   AdminBlogsRoute: typeof AdminBlogsRoute
   AdminCheckInRoute: typeof AdminCheckInRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
   AdminUsersRoute: typeof AdminUsersRoute
+  AdminFIFAFeedRoute: typeof AdminFIFAFeedRoute
+  AdminFIFAMatchesRoute: typeof AdminFIFAMatchesRouteWithChildren
   AdminFIFARaffleRoute: typeof AdminFIFARaffleRoute
   AdminFIFASettingsRoute: typeof AdminFIFASettingsRoute
   AdminFIFATestingRoute: typeof AdminFIFATestingRoute
@@ -1502,11 +1573,9 @@ interface AdminRouteChildren {
   AdminExecomIndexRoute: typeof AdminExecomIndexRoute
   AdminRegistrationsIndexRoute: typeof AdminRegistrationsIndexRoute
   AdminSocietiesIndexRoute: typeof AdminSocietiesIndexRoute
-  AdminFIFAMatchesIdRoute: typeof AdminFIFAMatchesIdRoute
   AdminEventsIdEditRoute: typeof AdminEventsIdEditRoute
   AdminExecomIdEditRoute: typeof AdminExecomIdEditRoute
   AdminSocietiesIdEditRoute: typeof AdminSocietiesIdEditRoute
-  AdminFIFAMatchesIndexRoute: typeof AdminFIFAMatchesIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
@@ -1514,6 +1583,8 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminCheckInRoute: AdminCheckInRoute,
   AdminDashboardRoute: AdminDashboardRoute,
   AdminUsersRoute: AdminUsersRoute,
+  AdminFIFAFeedRoute: AdminFIFAFeedRoute,
+  AdminFIFAMatchesRoute: AdminFIFAMatchesRouteWithChildren,
   AdminFIFARaffleRoute: AdminFIFARaffleRoute,
   AdminFIFASettingsRoute: AdminFIFASettingsRoute,
   AdminFIFATestingRoute: AdminFIFATestingRoute,
@@ -1525,11 +1596,9 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminExecomIndexRoute: AdminExecomIndexRoute,
   AdminRegistrationsIndexRoute: AdminRegistrationsIndexRoute,
   AdminSocietiesIndexRoute: AdminSocietiesIndexRoute,
-  AdminFIFAMatchesIdRoute: AdminFIFAMatchesIdRoute,
   AdminEventsIdEditRoute: AdminEventsIdEditRoute,
   AdminExecomIdEditRoute: AdminExecomIdEditRoute,
   AdminSocietiesIdEditRoute: AdminSocietiesIdEditRoute,
-  AdminFIFAMatchesIndexRoute: AdminFIFAMatchesIndexRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
@@ -1619,6 +1688,17 @@ const ApiEventsIdRouteWithChildren = ApiEventsIdRoute._addFileChildren(
   ApiEventsIdRouteChildren,
 )
 
+interface ApiAdminFifaFeedRouteChildren {
+  ApiAdminFifaFeedIdRoute: typeof ApiAdminFifaFeedIdRoute
+}
+
+const ApiAdminFifaFeedRouteChildren: ApiAdminFifaFeedRouteChildren = {
+  ApiAdminFifaFeedIdRoute: ApiAdminFifaFeedIdRoute,
+}
+
+const ApiAdminFifaFeedRouteWithChildren =
+  ApiAdminFifaFeedRoute._addFileChildren(ApiAdminFifaFeedRouteChildren)
+
 interface ApiAdminFifaMarketsRouteChildren {
   ApiAdminFifaMarketsIdRoute: typeof ApiAdminFifaMarketsIdRoute
 }
@@ -1678,6 +1758,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSocietySlugRoute: ApiSocietySlugRoute,
   ApiTicketTicketIdRoute: ApiTicketTicketIdRoute,
   ApiAdminFifaBetsRoute: ApiAdminFifaBetsRoute,
+  ApiAdminFifaFeedRoute: ApiAdminFifaFeedRouteWithChildren,
   ApiAdminFifaMarketsRoute: ApiAdminFifaMarketsRouteWithChildren,
   ApiAdminFifaMatchesRoute: ApiAdminFifaMatchesRouteWithChildren,
   ApiAdminFifaRaffleRoute: ApiAdminFifaRaffleRoute,
