@@ -11,12 +11,8 @@
 //
 // Idempotency: a registration already paid/confirmed is a no-op (200).
 
-/** Generates a user-facing ticket ID: TKT-<16 random chars>. */
-var generateTicketId = function() {
-    return "TKT-" + $security.randomString(16)
-}
-
 routerAdd("POST", "/api/webhooks/payment-confirm", function (e) {
+    var rh = require(__hooks + "/registration-helpers.js")
     // ─── Verify shared secret ────────────────────────────────────
     var webhookSecret = $os.getenv("PAYMENT_WEBHOOK_SECRET")
     if (!webhookSecret) {
@@ -108,7 +104,7 @@ routerAdd("POST", "/api/webhooks/payment-confirm", function (e) {
         reg.set("paymentStatus", "paid")
         reg.set("paymentData", { transactionId: transactionId, status: status })
         if (!reg.getString("ticketId")) {
-            reg.set("ticketId", generateTicketId())
+            reg.set("ticketId", rh.generateTicketId())
         }
         $app.saveNoValidate(reg)
         // Coupon usedCount + registeredCount: onRecordAfterUpdateSuccess hook.

@@ -10,71 +10,8 @@
 // previously ran via createAdminPB(). The hook runs inside PB with direct
 // DB access — no admin token, no network round-trip, atomic with the write.
 
-// ─── Helpers ────────────────────────────────────────────────────────
-// PB 0.39 goja does not hoist top-level `function` declarations into hook
-// callback scopes (see fifa.pb.js). Use var + function expressions.
-
-/**
- * Re-computes registeredCount and checkedInCount on the event from live
- * DB counts. Self-healing: concurrent callers all write the same value (M-5).
- */
-var recomputeEventCounters = function(eventId) {
-    try {
-        var confirmed = $app.findRecordsByFilter(
-            "registrations",
-            "event = {:eventId} && registrationStatus = {:status}",
-            "", 0, 0,
-            { eventId: eventId, status: "confirmed" }
-        )
-        var checkedIn = $app.findRecordsByFilter(
-            "registrations",
-            "event = {:eventId} && checkedIn = {:checked}",
-            "", 0, 0,
-            { eventId: eventId, checked: true }
-        )
-        var event = $app.findRecordById("events", eventId)
-        event.set("registeredCount", confirmed.length)
-        event.set("checkedInCount", checkedIn.length)
-        $app.saveNoValidate(event)
-    } catch (err) {
-        console.log("[hook] failed to recompute counters for " + eventId + ":", err)
-    }
-}
-
-/**
- * Re-computes coupon usedCount from active (non-cancelled) registrations.
- * Self-healing: called after create (reserve) and after cancel (release) (M-1).
- */
-var recomputeCouponUsedCount = function(couponCode, eventId) {
-    if (!couponCode) return
-    try {
-        var active = $app.findRecordsByFilter(
-            "registrations",
-            "couponCode = {:code} && event = {:eventId} && registrationStatus != {:cancelled}",
-            "", 0, 0,
-            { code: couponCode, eventId: eventId, cancelled: "cancelled" }
-        )
-        var coupon = $app.findFirstRecordByFilter(
-            "coupons",
-            "code = {:code} && event = {:eventId}",
-            { code: couponCode, eventId: eventId }
-        )
-        coupon.set("usedCount", active.length)
-        $app.saveNoValidate(coupon)
-    } catch (err) {
-        console.log("[hook] failed to recompute coupon usedCount for " + couponCode + ":", err)
-    }
-}
-
-/** Generates a user-facing ticket ID: TKT-<16 random chars>. */
-var generateTicketId = function() {
-    return "TKT-" + $security.randomString(16)
-}
-
-/** Generates a payment webhook lookup key (UUID-like). */
-var generatePaymentTicketId = function() {
-    return $security.randomString(32)
-}
+// Helpers live in registration-helpers.js — require() inside each handler
+// because PB 0.39 runs hook callbacks in isolated scopes.
 
 // ─── Registration Create ────────────────────────────────────────────
 // Fires BEFORE the INSERT. Validates all business rules and sets
@@ -83,6 +20,7 @@ var generatePaymentTicketId = function() {
 // the create on any validation failure.
 
 onRecordCreateRequest(function (e) {
+    var rh = require(__hooks + "/registration-helpers.js")
     var reg = e.record
 
     // We'll set the correct ticketId after fetching the event below.
@@ -109,7 +47,7 @@ onRecordCreateRequest(function (e) {
         if (eventPrice === 0) {
             reg.set("ticketId", "TKT-" + $security.randomString(16))
         } else {
-            reg.set("paymentTicketId", generatePaymentTicketId())
+            reg.set("paymentTicketId", rh.generatePaymentTicketId())
         }
     }
 
@@ -219,6 +157,7 @@ onRecordCreateRequest(function (e) {
 // itself "reserves" the coupon slot immediately, not on webhook confirm).
 
 onRecordAfterCreateSuccess(function (e) {
+    var rh = require(__hooks + "/registration-helpers.js")
     var reg = e.record
     var eventId = reg.getString("event")
     if (!eventId) { e.next(); return }
@@ -268,10 +207,10 @@ onRecordAfterCreateSuccess(function (e) {
     var existingTicketId = record.getString("ticketId") || ""
     var existingPaymentTicketId = record.getString("paymentTicketId") || ""
     if (existingTicketId.indexOf("temp-") === 0) {
-        record.set("ticketId", isFree ? generateTicketId() : "")
+        record.set("ticketId", isFree ? rh.generateTicketId() : "")
     }
     if (existingPaymentTicketId.indexOf("temp-") === 0) {
-        record.set("paymentTicketId", isFree ? "" : generatePaymentTicketId())
+        record.set("paymentTicketId", isFree ? "" : rh.generatePaymentTicketId())
     }
     // NEW-3: Reset checkedIn/checkedInAt — the createRule only requires
     // user = @request.auth.id, so a direct PB API client could sneak in
@@ -281,7 +220,7 @@ onRecordAfterCreateSuccess(function (e) {
 
     $app.saveNoValidate(record)
 
-    recomputeEventCounters(eventId)
+    rh.recomputeEventCounters(eventId)
 
     // --- Post-commit overflow self-heal (TOCTOU safety net) ---
     var maxCap = event.getInt("maxCapacity") || 0
@@ -299,7 +238,7 @@ onRecordAfterCreateSuccess(function (e) {
                 rec.set("registrationStatus", "cancelled")
                 $app.saveNoValidate(rec)
             }
-            recomputeEventCounters(eventId)
+            rh.recomputeEventCounters(eventId)
         }
     }
     // --- Coupon maxUses post-commit overflow self-heal ---
@@ -330,13 +269,13 @@ onRecordAfterCreateSuccess(function (e) {
                         rec2.set("registrationStatus", "cancelled")
                         $app.saveNoValidate(rec2)
                     }
-                    recomputeEventCounters(eventId)
-                    recomputeCouponUsedCount(couponCode, eventId)
+                    rh.recomputeEventCounters(eventId)
+                    rh.recomputeCouponUsedCount(couponCode, eventId)
                 }
             }
         }
     }
-    if (couponCode && !couponExcess) { recomputeCouponUsedCount(couponCode, eventId) }
+    if (couponCode && !couponExcess) { rh.recomputeCouponUsedCount(couponCode, eventId) }
     e.next()
 }, "registrations")
 
@@ -347,6 +286,7 @@ onRecordAfterCreateSuccess(function (e) {
 // - Bumps/decrements counters after the update is applied.
 
 onRecordUpdateRequest(function (e) {
+    var rh = require(__hooks + "/registration-helpers.js")
     var newReg = e.record
     var auth = null
     try { auth = e.auth || (e.requestInfo && e.requestInfo.auth) || null } catch (err) { auth = null }
@@ -384,7 +324,7 @@ onRecordUpdateRequest(function (e) {
     // ─── Mint ticketId on manual confirm ────────────────────────
     if (oldStatus === "pending" && newStatusCheck === "confirmed") {
         if (!newReg.getString("ticketId")) {
-            newReg.set("ticketId", generateTicketId())
+            newReg.set("ticketId", rh.generateTicketId())
         }
     }
 
@@ -397,16 +337,17 @@ onRecordUpdateRequest(function (e) {
 // so no double-bump / double-decrement is possible (M-5).
 
 onRecordAfterUpdateSuccess(function (e) {
+    var rh = require(__hooks + "/registration-helpers.js")
     var reg = e.record
     var eventId = reg.getString("event")
 
     // Re-compute event counters (registeredCount + checkedInCount)
-    recomputeEventCounters(eventId)
+    rh.recomputeEventCounters(eventId)
 
     // Re-compute coupon usedCount (releases the slot on cancel)
     var couponCode = reg.getString("couponCode") || ""
     if (couponCode) {
-        recomputeCouponUsedCount(couponCode, eventId)
+        rh.recomputeCouponUsedCount(couponCode, eventId)
     }
 
     e.next()
