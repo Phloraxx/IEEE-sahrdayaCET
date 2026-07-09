@@ -67,13 +67,20 @@ async function readBodyLimited(req, maxBytes = MAX_BODY_SIZE) {
 
 function wrapHandlerWithSecurityHeaders(handler) {
   return async (req, res) => {
+    const originalWriteHead = res.writeHead.bind(res);
+    res.writeHead = function (statusCode, statusMessage, headers) {
+      let merged = headers;
+      let reason = statusMessage;
+      if (typeof statusMessage === 'object' && statusMessage !== null) {
+        merged = statusMessage;
+        reason = undefined;
+      }
+      const out = { ...SECURITY_HEADERS, ...(merged || {}) };
+      if (reason !== undefined) return originalWriteHead(statusCode, reason, out);
+      return originalWriteHead(statusCode, out);
+    };
     await handler(req, res);
     if (!res.headersSent) addSecurityHeaders(res);
-    else {
-      for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
-        if (!res.getHeader(key)) res.setHeader(key, value);
-      }
-    }
   };
 }
 
@@ -128,14 +135,7 @@ function wrapHandlerWithSecurityHeaders(handler) {
           let pbBody = undefined;
           if (isRealtimeSubscribe) {
             const buf = await readBodyLimited(req);
-            if (buf && buf.length > 0) {
-              pbBody = new ReadableStream({
-                start(controller) {
-                  controller.enqueue(new Uint8Array(buf));
-                  controller.close();
-                }
-              });
-            }
+            if (buf && buf.length > 0) pbBody = buf;
           }
           const pbRes = await globalFetch(targetUrl, { method: req.method, headers: pbHeaders, body: pbBody });
           addSecurityHeaders(res);
@@ -146,13 +146,15 @@ function wrapHandlerWithSecurityHeaders(handler) {
           res.end();
         } catch (err) {
           console.error('[pb-proxy] Error:', err);
-          addSecurityHeaders(res);
-          if (err.message === 'PAYLOAD_TOO_LARGE') {
-            res.writeHead(413, { 'Content-Type': 'text/plain' });
-            res.end('Payload Too Large');
-          } else {
-            res.writeHead(502, { 'Content-Type': 'text/plain' });
-            res.end('Bad Gateway: ' + (err.message || 'Unknown error'));
+          if (!res.headersSent) {
+            addSecurityHeaders(res);
+            if (err.message === 'PAYLOAD_TOO_LARGE') {
+              res.writeHead(413, { 'Content-Type': 'text/plain' });
+              res.end('Payload Too Large');
+            } else {
+              res.writeHead(502, { 'Content-Type': 'text/plain' });
+              res.end('Bad Gateway: ' + (err.message || 'Unknown error'));
+            }
           }
         }
         return;
@@ -232,14 +234,7 @@ function simpleNodeHandler(fetch) {
     let body = undefined;
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       const buf = await readBodyLimited(req);
-      if (buf && buf.length > 0) {
-        body = new ReadableStream({
-          start(controller) {
-            controller.enqueue(new Uint8Array(buf));
-            controller.close();
-          }
-        });
-      }
+      if (buf && buf.length > 0) body = buf;
     }
 
     const request = new Request(url, {
