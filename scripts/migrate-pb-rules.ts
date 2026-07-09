@@ -1,14 +1,32 @@
 
 const PB_URL = process.env.POCKETBASE_URL?.replace(/\/+$/, '')
-const TOKEN = process.env.POCKETBASE_SUPERUSER_TOKEN
+let TOKEN = process.env.POCKETBASE_SUPERUSER_TOKEN || ''
+const PB_ADMIN_EMAIL = process.env.PB_ADMIN_EMAIL || ''
+const PB_ADMIN_PASSWORD = process.env.PB_ADMIN_PASSWORD || ''
 
 if (!PB_URL) {
   console.error('Missing POCKETBASE_URL environment variable')
   process.exit(1)
 }
-if (!TOKEN) {
-  console.error('Missing POCKETBASE_SUPERUSER_TOKEN environment variable')
-  process.exit(1)
+
+async function ensureSuperuserToken(): Promise<void> {
+  if (TOKEN) return
+  if (!PB_ADMIN_EMAIL || !PB_ADMIN_PASSWORD) {
+    console.error('Set POCKETBASE_SUPERUSER_TOKEN or PB_ADMIN_EMAIL + PB_ADMIN_PASSWORD')
+    process.exit(1)
+  }
+  const res = await fetch(`${PB_URL}/api/collections/_superusers/auth-with-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ identity: PB_ADMIN_EMAIL, password: PB_ADMIN_PASSWORD }),
+  })
+  const data = await res.json().catch(() => ({})) as Record<string, unknown>
+  if (!res.ok || typeof data.token !== 'string') {
+    console.error('Superuser auth failed:', data.message || res.status)
+    process.exit(1)
+  }
+  TOKEN = data.token
+  console.log('[auth] Superuser login OK')
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -202,6 +220,7 @@ const rules: Record<string, CollectionRuleSet> = {
 }
 
 async function main(): Promise<void> {
+  await ensureSuperuserToken()
   const collectionNames = Object.keys(rules)
   let hasError = false
 
