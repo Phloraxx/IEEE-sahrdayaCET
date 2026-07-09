@@ -128,15 +128,19 @@ export const Route = createFileRoute("/api/registrations")({
           }
           const maxCapacity = Number(getField(eventRecord, 'maxCapacity', 0)) || 0;
           if (maxCapacity > 0) {
-            const registeredCount = Number(getField(eventRecord, 'registeredCount', 0)) || 0;
-            if (registeredCount >= maxCapacity) {
+            const confirmed = await userPb.collection("registrations").getList(1, 1, {
+              filter: `event = ${escapeFilterValue(eventId)} && registrationStatus = 'confirmed'`,
+            });
+            if (confirmed.totalItems >= maxCapacity) {
               return Response.json({ error: 'Event is at full capacity' }, { status: 400 });
             }
           }
           // Basic form validation: check required fields if formTemplate defined
-          const formTemplate = getField<Array<{id: string; required?: boolean}>>(eventRecord, 'formTemplate', []);
+          const formTemplate = getField<Array<{id: string; name?: string; required?: boolean}>>(eventRecord, 'formTemplate', []);
           if (Array.isArray(formTemplate) && formTemplate.length > 0) {
-            const requiredFields = formTemplate.filter((f: {required?: boolean}) => f.required).map((f: {id: string}) => f.id);
+            const requiredFields = formTemplate
+              .filter((f: {required?: boolean}) => f.required)
+              .map((f: {id: string; name?: string}) => f.name || f.id);
             for (const fieldId of requiredFields) {
               const val = formResponses?.[fieldId];
               if (val === undefined || val === null || val === '') {

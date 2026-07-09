@@ -91,11 +91,12 @@ routerAdd("POST", "/api/webhooks/payment-confirm", function (e) {
 
     if (isSuccess) {
         // Verify amount is provided and matches (M-3)
-        if (typeof amount !== "number") {
+        var amountNum = Number(amount)
+        if (!isFinite(amountNum)) {
             return e.json(400, { error: "amount is required for success" })
         }
         var expectedAmount = reg.getInt("amount") || 0
-        if (Math.abs(amount - expectedAmount) > 0.01) {
+        if (Math.abs(amountNum - expectedAmount) > 0.01) {
             return e.json(400, { error: "Amount mismatch" })
         }
 

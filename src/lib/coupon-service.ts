@@ -40,9 +40,11 @@ export async function reconcileCoupons(
       .filter((id): id is string => typeof id === "string" && existingMap.has(id)),
   );
 
-  // Delete coupons removed from the UI
+  // Delete coupons removed from the UI (skip if actively used)
   for (const ex of existing) {
     if (!matchedIds.has(ex.id)) {
+      const usedCount = Number(ex.usedCount) || 0;
+      if (usedCount > 0) continue;
       await pb.collection("coupons").delete(ex.id);
     }
   }

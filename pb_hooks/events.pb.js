@@ -14,6 +14,7 @@ onRecordUpdateRequest(function (e) {
 
     // Admins pass unconditionally
     if (role === "admin") {
+        e.next()
         return
     }
 
@@ -23,7 +24,7 @@ onRecordUpdateRequest(function (e) {
     try {
         oldRecord = $app.findRecordById("events", newRecord.id)
     } catch (err) {
-        return
+        throw e.notFoundError("Event not found", err)
     }
 
     if (newRecord.getInt("registeredCount") !== oldRecord.getInt("registeredCount")) {
@@ -35,4 +36,5 @@ onRecordUpdateRequest(function (e) {
     if (newRecord.getBool("isDeleted") !== oldRecord.getBool("isDeleted")) {
         throw e.forbiddenError("Only admins may change event deletion state")
     }
+    e.next()
 }, "events")

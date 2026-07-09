@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createPB } from "@/lib/pb.server"
+import { escapeFilterValue } from "@/lib/pb";
 import { requireRole } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 import { verifySameOrigin } from "@/lib/verify-same-origin";
@@ -45,6 +46,15 @@ export const Route = createFileRoute("/api/admin/fifa/markets/$id")({
           verifySameOrigin(request);
           const pb = createPB(request.headers.get("cookie") || undefined);
           await requireRole(["admin"], pb);
+          const pending = await pb.collection("fifa_bets").getList(1, 1, {
+            filter: `market = ${escapeFilterValue(id)} && status = 'pending'`,
+          });
+          if (pending.totalItems > 0) {
+            return Response.json(
+              { error: "Cannot delete market with pending bets — void the market instead" },
+              { status: 409 },
+            );
+          }
           await pb.collection("fifa_bet_markets").delete(id);
           return Response.json({ success: true });
         } catch (error) {

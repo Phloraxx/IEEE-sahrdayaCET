@@ -188,8 +188,10 @@ onRecordCreateRequest(function (e) {
                 { code: couponCode, eventId: eventId }
             )
         } catch (err) {
-            // Coupon doesn't exist — let the after-create hook handle
-            // the invalid-coupon case (discount just won't apply).
+            coupon = null
+        }
+        if (!coupon) {
+            throw new errors.BadRequestError("Invalid coupon code")
         }
         if (coupon) {
             var maxUses = coupon.getInt("maxUses") || 0
@@ -313,6 +315,7 @@ onRecordAfterCreateSuccess(function (e) {
                 { code: couponCode, eventId: eventId }
             )
         } catch (err) {}
+        var couponExcess = 0
         if (coupon) {
             var maxUses = coupon.getInt("maxUses") || 0
             if (maxUses > 0) {
@@ -322,7 +325,7 @@ onRecordAfterCreateSuccess(function (e) {
                     "created desc, id desc", 0, 0,
                     { code: couponCode, eventId: eventId, cancelled: "cancelled" }
                 )
-                var couponExcess = activeAfter.length - maxUses
+                couponExcess = activeAfter.length - maxUses
                 if (couponExcess > 0) {
                     var healDao2 = $app.dao()
                     for (var k = 0; k < couponExcess; k++) {

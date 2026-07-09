@@ -14,7 +14,9 @@ export const Route = createFileRoute("/api/fifa/matches")({
           const pb = createPB();
           const url = new URL(request.url);
           const stage = url.searchParams.get("stage");
-          const filter = stage ? `stage = ${escapeFilterValue(stage)}` : undefined;
+          const filterParts = ['status != "void"'];
+          if (stage) filterParts.push(`stage = ${escapeFilterValue(stage)}`);
+          const filter = filterParts.join(' && ');
 
           const matches = await pb.collection("fifa_matches").getFullList({
             filter,

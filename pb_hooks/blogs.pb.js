@@ -11,6 +11,7 @@ onRecordCreateRequest((e) => {
             .replace(/(^-|-$)+/g, '');
         record.set("slug", generated);
     }
+    e.next();
 }, "blogs");
 
 onRecordDeleteRequest((e) => {
@@ -24,6 +25,7 @@ onRecordDeleteRequest((e) => {
 
     // Enforce admin-only deletions based on the role check you requested
     if (role !== "admin") {
-        throw new BadRequestError("Only admins can delete blogs.");
+        throw new errors.BadRequestError("Only admins can delete blogs.");
     }
+    e.next();
 }, "blogs");

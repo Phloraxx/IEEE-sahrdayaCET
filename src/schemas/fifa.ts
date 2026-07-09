@@ -64,7 +64,6 @@ export const FifaMatchUpdateSchema = BaseMatchSchema.partial().extend({
   result_advance: z.enum(['home', 'away']).optional(),
   result_after_extra_time: z.boolean().optional(),
   result_after_penalties: z.boolean().optional(),
-  settled: z.boolean().optional(),
 })
 
 // ─── Market schemas ─────────────────────────────────────────────────
@@ -74,7 +73,7 @@ const BaseMarketSchema = z.object({
   market_type: z.enum(FIFA_MARKET_TYPE),
   mode: z.enum(FIFA_MARKET_MODE),
   line: z.number().optional(),
-  fixed_odds: z.record(z.string(), z.number()).optional(),
+  fixed_odds: z.record(z.string(), z.number().positive()).optional(),
   options: z.array(z.string()).default([]),
   is_open: z.boolean().default(true),
 })

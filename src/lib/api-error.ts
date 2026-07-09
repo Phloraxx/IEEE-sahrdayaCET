@@ -64,7 +64,10 @@ export function getErrorStatus(error: unknown): number {
   if (error instanceof AuthError) return error.status
   if (error instanceof RegistrationError) return error.statusCode
   if (error instanceof ParseError) return 400
-  if (error instanceof ClientResponseError) return error.status
+  if (error instanceof ClientResponseError) {
+    const raw = Number(error.status) || 0
+    return raw >= 400 && raw <= 599 ? raw : 502
+  }
   if (error && typeof error === 'object' && 'status' in error && typeof (error as { status: unknown }).status === 'number') {
     return (error as { status: number }).status
   }
