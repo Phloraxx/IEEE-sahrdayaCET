@@ -23,6 +23,7 @@ function escapeCsv(v: unknown): string {
 interface FormFieldDef {
   id: string
   label: string
+  name?: string
   type?: string
 }
 

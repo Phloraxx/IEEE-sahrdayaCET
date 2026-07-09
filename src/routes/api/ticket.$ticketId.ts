@@ -47,15 +47,8 @@ export const Route = createFileRoute("/api/ticket/$ticketId")({
           if (!auth) {
             return Response.json({
               found: true,
-              ticket: {
-                id: getField(reg, 'ticketId', ticketId),
-                registrationStatus: getField(reg, 'registrationStatus', ''),
-              },
-              event: event ? {
-                title: event.title,
-                date: event.date,
-                venue: event.venue,
-              } : null,
+              ticket: data.ticket,
+              event: data.event ?? null,
             });
           }
 

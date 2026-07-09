@@ -241,9 +241,9 @@ function normalizeOpenfootballMatch(m: unknown): LiveMatch {
   if (dateStr) {
     const utcOffsetMatch = timeStr.match(/(\d{1,2}):(\d{2})\s*UTC([+-]?\d+)/)
     if (utcOffsetMatch) {
-      const hours = parseInt(utcOffsetMatch[1], 10)
-      const mins = parseInt(utcOffsetMatch[2], 10)
-      const offsetHours = parseInt(utcOffsetMatch[3], 10)
+      const hours = parseInt(utcOffsetMatch[1] ?? '0', 10)
+      const mins = parseInt(utcOffsetMatch[2] ?? '0', 10)
+      const offsetHours = parseInt(utcOffsetMatch[3] ?? '0', 10)
       const utcMs = Date.UTC(
         parseInt(dateStr.slice(0, 4), 10),
         parseInt(dateStr.slice(5, 7), 10) - 1,
