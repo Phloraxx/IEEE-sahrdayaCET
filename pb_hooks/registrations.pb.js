@@ -28,14 +28,14 @@ onRecordCreateRequest(function (e) {
     // --- Business rule validation (authority lives here, not in route code) ---
     var eventId = reg.getString("event")
     if (!eventId) {
-        throw new errors.BadRequestError("Missing event ID")
+        throw e.badRequestError("Missing event ID")
     }
 
     var event
     try {
         event = $app.findRecordById("events", eventId)
     } catch (err) {
-        throw new errors.BadRequestError("Event not found")
+        throw e.badRequestError("Event not found")
     }
     // Set the correct ticketId based on event price. For free events, set the
     // user-facing ticketId; for paid events, set the paymentTicketId.
@@ -54,12 +54,12 @@ onRecordCreateRequest(function (e) {
     // 1. Status gate: event must be published
     var eventStatus = event.getString("status")
     if (eventStatus === "draft" || eventStatus === "cancelled") {
-        throw new errors.BadRequestError("Event is not available for registration")
+        throw e.badRequestError("Event is not available for registration")
     }
 
     // 2. Registration open gate
     if (!event.getBool("registrationOpen")) {
-        throw new errors.BadRequestError("Registration is closed for this event")
+        throw e.badRequestError("Registration is closed for this event")
     }
 
     // 3. Deadline gate
@@ -67,7 +67,7 @@ onRecordCreateRequest(function (e) {
     if (deadline && deadline !== "") {
         var deadlineDate = new Date(deadline)
         if (deadlineDate < new Date()) {
-            throw new errors.BadRequestError("Registration deadline has passed")
+            throw e.badRequestError("Registration deadline has passed")
         }
     }
 
@@ -93,7 +93,7 @@ onRecordCreateRequest(function (e) {
                 var fieldName = field.name || field.id || ""
                 var value = formResponses[fieldName] || formResponses[field.id] || ""
                 if (!value || (typeof value === "string" && value.trim() === "")) {
-                    throw new errors.BadRequestError("Required field '" + (field.label || fieldName) + "' is missing")
+                    throw e.badRequestError("Required field '" + (field.label || fieldName) + "' is missing")
                 }
             }
         }
@@ -110,7 +110,7 @@ onRecordCreateRequest(function (e) {
             { eventId: eventId, cancelled: "cancelled" }
         )
         if (activeRegs.length >= maxCapacity) {
-            throw new errors.BadRequestError("Event is at full capacity")
+            throw e.badRequestError("Event is at full capacity")
         }
     }
 
@@ -142,7 +142,7 @@ onRecordCreateRequest(function (e) {
                     { code: couponCode, eventId: eventId, cancelled: "cancelled" }
                 )
                 if (activeWithCoupon.length >= maxUses) {
-                    throw new errors.BadRequestError("Coupon '" + couponCode + "' has reached its usage limit")
+                    throw e.badRequestError("Coupon '" + couponCode + "' has reached its usage limit")
                 }
             }
         }
@@ -225,12 +225,12 @@ onRecordAfterCreateSuccess(function (e) {
     // --- Post-commit overflow self-heal (TOCTOU safety net) ---
     var maxCap = event.getInt("maxCapacity") || 0
     if (maxCap > 0) {
-        var activeAfter = $app.findRecordsByFilter(
+        var activeAfter = rh.sortRecordsNewestFirst($app.findRecordsByFilter(
             "registrations",
             "event = {:eventId} && registrationStatus != {:cancelled}",
-            "-created,-id", 0, 0,
+            "", 0, 0,
             { eventId: eventId, cancelled: "cancelled" }
-        )
+        ))
         var excess = activeAfter.length - maxCap
         if (excess > 0) {
             for (var j = 0; j < excess; j++) {
@@ -256,12 +256,12 @@ onRecordAfterCreateSuccess(function (e) {
         if (coupon) {
             var maxUses = coupon.getInt("maxUses") || 0
             if (maxUses > 0) {
-                var activeAfter = $app.findRecordsByFilter(
+                var activeAfter = rh.sortRecordsNewestFirst($app.findRecordsByFilter(
                     "registrations",
                     "couponCode = {:code} && event = {:eventId} && registrationStatus != {:cancelled}",
-                    "-created,-id", 0, 0,
+                    "", 0, 0,
                     { code: couponCode, eventId: eventId, cancelled: "cancelled" }
-                )
+                ))
                 var couponExcess = activeAfter.length - maxUses
                 if (couponExcess > 0) {
                     for (var k = 0; k < couponExcess; k++) {
