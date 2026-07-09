@@ -228,7 +228,7 @@ onRecordAfterCreateSuccess(function (e) {
         var activeAfter = $app.findRecordsByFilter(
             "registrations",
             "event = {:eventId} && registrationStatus != {:cancelled}",
-            "created desc, id desc", 0, 0,
+            "-created,-id", 0, 0,
             { eventId: eventId, cancelled: "cancelled" }
         )
         var excess = activeAfter.length - maxCap
@@ -259,7 +259,7 @@ onRecordAfterCreateSuccess(function (e) {
                 var activeAfter = $app.findRecordsByFilter(
                     "registrations",
                     "couponCode = {:code} && event = {:eventId} && registrationStatus != {:cancelled}",
-                    "created desc, id desc", 0, 0,
+                    "-created,-id", 0, 0,
                     { code: couponCode, eventId: eventId, cancelled: "cancelled" }
                 )
                 var couponExcess = activeAfter.length - maxUses
