@@ -83,10 +83,7 @@ function generatePaymentTicketId() {
 onRecordCreateRequest(function (e) {
     var reg = e.record
 
-    // Set placeholder ticketId to avoid unique constraint violation.
-    if (!reg.getString("ticketId")) {
-        reg.set("ticketId", "temp-" + $security.randomString(16))
-    }
+    // We'll set the correct ticketId after fetching the event below.
 
     // --- Business rule validation (authority lives here, not in route code) ---
     var eventId = reg.getString("event")
@@ -99,6 +96,19 @@ onRecordCreateRequest(function (e) {
         event = $app.findRecordById("events", eventId)
     } catch (err) {
         throw new errors.BadRequestError("Event not found")
+    }
+    // Set the correct ticketId based on event price. For free events, set the
+    // user-facing ticketId; for paid events, set the paymentTicketId.
+    // The after-create hook will null out the unused one.
+    // This avoids a temp-* placeholder that could persist if the after-create
+    // hook fails.
+    if (!reg.getString("ticketId") && !reg.getString("paymentTicketId")) {
+        var eventPrice = event.getInt("price") || 0
+        if (eventPrice === 0) {
+            reg.set("ticketId", "TKT-" + $security.randomString(16))
+        } else {
+            reg.set("paymentTicketId", generatePaymentTicketId())
+        }
     }
 
     // 1. Status gate: event must be published
@@ -150,15 +160,16 @@ onRecordCreateRequest(function (e) {
     }
 
     // 5. Capacity check (live query, not stale counter)
+    // Count pending + confirmed — paid events create as pending and still hold a seat.
     var maxCapacity = event.getInt("maxCapacity") || 0
     if (maxCapacity > 0) {
-        var confirmed = $app.findRecordsByFilter(
+        var activeRegs = $app.findRecordsByFilter(
             "registrations",
-            "event = {:eventId} && registrationStatus = {:status}",
+            "event = {:eventId} && registrationStatus != {:cancelled}",
             "", 0, 0,
-            { eventId: eventId, status: "confirmed" }
+            { eventId: eventId, cancelled: "cancelled" }
         )
-        if (confirmed.length >= maxCapacity) {
+        if (activeRegs.length >= maxCapacity) {
             throw new errors.BadRequestError("Event is at full capacity")
         }
     }
@@ -235,9 +246,8 @@ onRecordAfterCreateSuccess(function (e) {
         } catch (err) {}
     }
 
-    // Re-fetch record from DB and update via dao (bypasses goja's broken set())
-    var dao = $app.dao()
-    var record = dao.findRecordById("registrations", reg.id)
+    // Re-fetch record from DB (PB 0.23+ — $app.dao() was removed)
+    var record = $app.findRecordById("registrations", reg.id)
     if (!record) { e.next(); return }
 
     record.set("amount", finalAmount)
@@ -246,9 +256,20 @@ onRecordAfterCreateSuccess(function (e) {
     record.set("registrationStatus", isFree ? "confirmed" : "pending")
     record.set("registrationDate", new Date().toISOString())
     if (isFree) {
-        record.set("ticketId", generateTicketId())
+        record.set("paymentTicketId", "")  // null out the payment ID for free events
     } else {
-        record.set("paymentTicketId", generatePaymentTicketId())
+        record.set("ticketId", "")  // null out the user-facing ID for paid events
+    }
+    // Safety net: if the pre-commit hook somehow left a temp-* ticketId,
+    // generate the real one now. This prevents temp-* placeholders from
+    // persisting if the pre-commit hook's event fetch failed silently.
+    var existingTicketId = record.getString("ticketId") || ""
+    var existingPaymentTicketId = record.getString("paymentTicketId") || ""
+    if (existingTicketId.indexOf("temp-") === 0) {
+        record.set("ticketId", isFree ? generateTicketId() : "")
+    }
+    if (existingPaymentTicketId.indexOf("temp-") === 0) {
+        record.set("paymentTicketId", isFree ? "" : generatePaymentTicketId())
     }
     // NEW-3: Reset checkedIn/checkedInAt — the createRule only requires
     // user = @request.auth.id, so a direct PB API client could sneak in
@@ -263,24 +284,57 @@ onRecordAfterCreateSuccess(function (e) {
     // --- Post-commit overflow self-heal (TOCTOU safety net) ---
     var maxCap = event.getInt("maxCapacity") || 0
     if (maxCap > 0) {
-        var confirmedAfter = $app.findRecordsByFilter(
+        var activeAfter = $app.findRecordsByFilter(
             "registrations",
-            "event = {:eventId} && registrationStatus = {:status}",
+            "event = {:eventId} && registrationStatus != {:cancelled}",
             "created desc, id desc", 0, 0,
-            { eventId: eventId, status: "confirmed" }
+            { eventId: eventId, cancelled: "cancelled" }
         )
-        var excess = confirmedAfter.length - maxCap
+        var excess = activeAfter.length - maxCap
         if (excess > 0) {
-            var healDao = $app.dao()
             for (var j = 0; j < excess; j++) {
-                var rec = confirmedAfter[j]
+                var rec = activeAfter[j]
                 rec.set("registrationStatus", "cancelled")
-                healDao.saveRecord(rec)
+                $app.saveNoValidate(rec)
             }
             recomputeEventCounters(eventId)
         }
     }
-    if (couponCode) { recomputeCouponUsedCount(couponCode, eventId) }
+    // --- Coupon maxUses post-commit overflow self-heal ---
+    // Mirrors the capacity check above. If concurrent registrations with the
+    // same coupon code raced past the pre-commit check, cancel the excess.
+    if (couponCode) {
+        var coupon = null
+        try {
+            coupon = $app.findFirstRecordByFilter(
+                "coupons",
+                "code = {:code} && event = {:eventId}",
+                { code: couponCode, eventId: eventId }
+            )
+        } catch (err) {}
+        if (coupon) {
+            var maxUses = coupon.getInt("maxUses") || 0
+            if (maxUses > 0) {
+                var activeAfter = $app.findRecordsByFilter(
+                    "registrations",
+                    "couponCode = {:code} && event = {:eventId} && registrationStatus != {:cancelled}",
+                    "created desc, id desc", 0, 0,
+                    { code: couponCode, eventId: eventId, cancelled: "cancelled" }
+                )
+                var couponExcess = activeAfter.length - maxUses
+                if (couponExcess > 0) {
+                    for (var k = 0; k < couponExcess; k++) {
+                        var rec2 = activeAfter[k]
+                        rec2.set("registrationStatus", "cancelled")
+                        $app.saveNoValidate(rec2)
+                    }
+                    recomputeEventCounters(eventId)
+                    recomputeCouponUsedCount(couponCode, eventId)
+                }
+            }
+        }
+    }
+    if (couponCode && !couponExcess) { recomputeCouponUsedCount(couponCode, eventId) }
     e.next()
 }, "registrations")
 
@@ -292,7 +346,8 @@ onRecordAfterCreateSuccess(function (e) {
 
 onRecordUpdateRequest(function (e) {
     var newReg = e.record
-    var auth = e.requestInfo ? e.requestInfo.auth : null
+    var auth = null
+    try { auth = e.auth || (e.requestInfo && e.requestInfo.auth) || null } catch (err) { auth = null }
     // Fetch the OLD state from the DB (before the update applies)
     var oldReg = $app.findRecordById("registrations", newReg.id)
     var oldStatus = oldReg.getString("registrationStatus")
@@ -354,3 +409,64 @@ onRecordAfterUpdateSuccess(function (e) {
 
     e.next()
 }, "registrations")
+
+// ─── Public Ticket Lookup ────────────────────────────────────────────
+// Bypasses registrations listRule so unauthenticated clients (QR scans,
+// shared ticket links) can resolve a ticketId or paymentTicketId without
+// exposing PII. The TanStack /api/ticket route proxies here for public
+// fields and adds owner/admin/chair details when authed separately.
+
+routerAdd("GET", "/api/tickets/lookup", function (e) {
+    var ticketId = e.request.url.query().get("ticketId") || ""
+    if (!ticketId) {
+        return e.json(400, { error: "ticketId query parameter is required" })
+    }
+
+    var reg
+    try {
+        reg = $app.findFirstRecordByFilter(
+            "registrations",
+            "ticketId = {:tid} || paymentTicketId = {:tid}",
+            { tid: ticketId }
+        )
+    } catch (err) {
+        return e.json(200, { found: false })
+    }
+    if (!reg) {
+        return e.json(200, { found: false })
+    }
+
+    var eventId = reg.getString("event") || ""
+    var eventPayload = null
+    if (eventId) {
+        try {
+            var evt = $app.findRecordById("events", eventId)
+            var banner = evt.getString("banner") || ""
+            var bannerUrl = ""
+            if (banner) {
+                bannerUrl = $app.filesystem().fileUrl(evt, banner)
+            }
+            eventPayload = {
+                id: evt.id,
+                title: evt.getString("title") || "",
+                date: evt.getString("date") || "",
+                venue: evt.getString("venue") || "",
+                time: evt.getString("time") || "",
+                bannerUrl: bannerUrl,
+            }
+        } catch (err) {}
+    }
+
+    return e.json(200, {
+        found: true,
+        registrationId: reg.id,
+        user: reg.getString("user") || "",
+        ticket: {
+            id: reg.getString("ticketId") || ticketId,
+            paymentStatus: reg.getString("paymentStatus") || "",
+            registrationStatus: reg.getString("registrationStatus") || "",
+            createdAt: reg.getString("created") || reg.getString("registrationDate") || "",
+        },
+        event: eventPayload,
+    })
+})

@@ -5,11 +5,16 @@
 // this route directly on PocketBase. Verifies a shared secret, looks up
 // the registration by paymentTicketId, and confirms it atomically.
 //
-// The onRecordUpdateRequest hook handles the counter bump and ticketId
-// minting when the registration transitions pending → confirmed.
-// This route only sets paymentStatus, registrationStatus, and paymentData.
+// Mints ticketId inline before save — onRecordUpdateRequest does NOT run
+// for $app.save() / $app.saveNoValidate() (model-hook path only).
+// onRecordAfterUpdateSuccess still recomputes event counters.
 //
 // Idempotency: a registration already paid/confirmed is a no-op (200).
+
+/** Generates a user-facing ticket ID: TKT-<16 random chars>. */
+function generateTicketId() {
+    return "TKT-" + $security.randomString(16)
+}
 
 routerAdd("POST", "/api/webhooks/payment-confirm", function (e) {
     // ─── Verify shared secret ────────────────────────────────────
@@ -62,10 +67,11 @@ routerAdd("POST", "/api/webhooks/payment-confirm", function (e) {
             "paymentTicketId = {:ticketId}",
             { ticketId: ticketId }
         )
-    if (!reg) {
-        return e.json(404, { error: "Registration not found" })
-    }
     } catch (err) {
+        console.log("[webhook] DB error looking up registration: " + err)
+        return e.json(502, { error: "Database error" })
+    }
+    if (!reg) {
         return e.json(404, { error: "Registration not found" })
     }
 
@@ -98,16 +104,14 @@ routerAdd("POST", "/api/webhooks/payment-confirm", function (e) {
             return e.json(400, { error: "Amount mismatch" })
         }
 
-        // Confirm the registration. The onRecordUpdateRequest hook will:
-        // - Detect pending → confirmed transition
-        // - Mint ticketId if missing
-        // - Bump registeredCount (after e.next())
         reg.set("registrationStatus", "confirmed")
         reg.set("paymentStatus", "paid")
         reg.set("paymentData", { transactionId: transactionId, status: status })
-        $app.save(reg)
-        // Coupon usedCount is maintained by the registration hooks
-        // (onRecordAfterUpdateSuccess re-computes it from active registrations).
+        if (!reg.getString("ticketId")) {
+            reg.set("ticketId", generateTicketId())
+        }
+        $app.saveNoValidate(reg)
+        // Coupon usedCount + registeredCount: onRecordAfterUpdateSuccess hook.
     } else {
         // Payment failed — record the failure without changing registration status
         reg.set("paymentStatus", "failed")
