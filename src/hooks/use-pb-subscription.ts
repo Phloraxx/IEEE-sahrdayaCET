@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { getPbClient } from '@/lib/pb-client'
 
 // SSE hook for public collections. Subscribes on mount, unsubscribes on unmount.
@@ -14,6 +14,7 @@ export function usePbSubscription(
   recordId: string,
   onChange: (event: { action: string; record: Record<string, unknown> }) => void,
 ) {
+  const [isConnected, setIsConnected] = useState(true)
   const cbRef = useRef(onChange)
   cbRef.current = onChange
 
@@ -29,16 +30,30 @@ export function usePbSubscription(
         })
         unsub = await unsubPromise
       } catch {
-        // SSE not available (e.g. dev without PB running) — silently fall back
-        // to polling. The page's React Query will keep refreshing.
+        // SSE not available (e.g. dev without PB running)
+        setIsConnected(false)
       }
     }
     subscribe()
 
+    // PB SDK doesn't emit explicit connect/disconnect events for realtime,
+    // so we poll the internal flag to expose status to the UI.
+    const interval = setInterval(() => {
+      try {
+        const pb = getPbClient()
+        setIsConnected(pb.realtime.isConnected)
+      } catch {
+        setIsConnected(false)
+      }
+    }, 2000)
+
     return () => {
+      clearInterval(interval)
       if (unsub) {
         try { unsub() } catch { /* already unsubscribed */ }
       }
     }
   }, [collection, recordId])
+
+  return { isConnected }
 }
