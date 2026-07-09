@@ -10,9 +10,17 @@ services:
     restart: always
     expose:
       - 8090
+    # Swarm/Dokploy: binding ./pb_hooks → /pocketbase/hooks is shadowed by the
+    # named volume on /pocketbase. Sync from /hooks-src on every container start.
     volumes:
       - pocketbase-data:/pocketbase
-      - ./pb_hooks:/pocketbase/hooks
+      - ./pb_hooks:/hooks-src:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        mkdir -p /pocketbase/hooks
+        cp -rf /hooks-src/. /pocketbase/hooks/
+        exec /opt/pocketbase/scripts/entrypoint.sh
     environment:
       - POCKETBASE_ADMIN_EMAIL=${ADMIN_EMAIL:?err}
       - POCKETBASE_ADMIN_PASSWORD=${ADMIN_PASSWORD:?err}
