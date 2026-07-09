@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB } from "@/lib/pb.server"
-import { requireRole } from "@/lib/auth";
+import { authenticateAdmin } from "@/lib/admin-middleware"
+import { AuthError } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 import { getField } from "@/lib/safe-get";
 
@@ -9,8 +9,8 @@ export const Route = createFileRoute("/api/admin/fifa/feed")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const pb = createPB(request.headers.get("cookie") || undefined);
-          await requireRole(["admin"], pb);
+          const { pb, role } = await authenticateAdmin(request);
+          if (role !== "admin") throw new AuthError("Admin only", 403);
 
           const result = await pb.collection("fifa_feed_events").getList(1, 50, {
             sort: "-created",
