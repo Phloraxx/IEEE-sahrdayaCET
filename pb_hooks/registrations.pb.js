@@ -160,15 +160,16 @@ onRecordCreateRequest(function (e) {
     }
 
     // 5. Capacity check (live query, not stale counter)
+    // Count pending + confirmed — paid events create as pending and still hold a seat.
     var maxCapacity = event.getInt("maxCapacity") || 0
     if (maxCapacity > 0) {
-        var confirmed = $app.findRecordsByFilter(
+        var activeRegs = $app.findRecordsByFilter(
             "registrations",
-            "event = {:eventId} && registrationStatus = {:status}",
+            "event = {:eventId} && registrationStatus != {:cancelled}",
             "", 0, 0,
-            { eventId: eventId, status: "confirmed" }
+            { eventId: eventId, cancelled: "cancelled" }
         )
-        if (confirmed.length >= maxCapacity) {
+        if (activeRegs.length >= maxCapacity) {
             throw new errors.BadRequestError("Event is at full capacity")
         }
     }
@@ -245,9 +246,8 @@ onRecordAfterCreateSuccess(function (e) {
         } catch (err) {}
     }
 
-    // Re-fetch record from DB and update via dao (bypasses goja's broken set())
-    var dao = $app.dao()
-    var record = dao.findRecordById("registrations", reg.id)
+    // Re-fetch record from DB (PB 0.23+ — $app.dao() was removed)
+    var record = $app.findRecordById("registrations", reg.id)
     if (!record) { e.next(); return }
 
     record.set("amount", finalAmount)
@@ -284,19 +284,18 @@ onRecordAfterCreateSuccess(function (e) {
     // --- Post-commit overflow self-heal (TOCTOU safety net) ---
     var maxCap = event.getInt("maxCapacity") || 0
     if (maxCap > 0) {
-        var confirmedAfter = $app.findRecordsByFilter(
+        var activeAfter = $app.findRecordsByFilter(
             "registrations",
-            "event = {:eventId} && registrationStatus = {:status}",
+            "event = {:eventId} && registrationStatus != {:cancelled}",
             "created desc, id desc", 0, 0,
-            { eventId: eventId, status: "confirmed" }
+            { eventId: eventId, cancelled: "cancelled" }
         )
-        var excess = confirmedAfter.length - maxCap
+        var excess = activeAfter.length - maxCap
         if (excess > 0) {
-            var healDao = $app.dao()
             for (var j = 0; j < excess; j++) {
-                var rec = confirmedAfter[j]
+                var rec = activeAfter[j]
                 rec.set("registrationStatus", "cancelled")
-                healDao.saveRecord(rec)
+                $app.saveNoValidate(rec)
             }
             recomputeEventCounters(eventId)
         }
@@ -324,11 +323,10 @@ onRecordAfterCreateSuccess(function (e) {
                 )
                 var couponExcess = activeAfter.length - maxUses
                 if (couponExcess > 0) {
-                    var healDao2 = $app.dao()
                     for (var k = 0; k < couponExcess; k++) {
                         var rec2 = activeAfter[k]
                         rec2.set("registrationStatus", "cancelled")
-                        healDao2.saveRecord(rec2)
+                        $app.saveNoValidate(rec2)
                     }
                     recomputeEventCounters(eventId)
                     recomputeCouponUsedCount(couponCode, eventId)
@@ -348,7 +346,8 @@ onRecordAfterCreateSuccess(function (e) {
 
 onRecordUpdateRequest(function (e) {
     var newReg = e.record
-    var auth = e.requestInfo ? e.requestInfo.auth : null
+    var auth = null
+    try { auth = e.auth || (e.requestInfo && e.requestInfo.auth) || null } catch (err) { auth = null }
     // Fetch the OLD state from the DB (before the update applies)
     var oldReg = $app.findRecordById("registrations", newReg.id)
     var oldStatus = oldReg.getString("registrationStatus")
@@ -410,3 +409,64 @@ onRecordAfterUpdateSuccess(function (e) {
 
     e.next()
 }, "registrations")
+
+// ─── Public Ticket Lookup ────────────────────────────────────────────
+// Bypasses registrations listRule so unauthenticated clients (QR scans,
+// shared ticket links) can resolve a ticketId or paymentTicketId without
+// exposing PII. The TanStack /api/ticket route proxies here for public
+// fields and adds owner/admin/chair details when authed separately.
+
+routerAdd("GET", "/api/tickets/lookup", function (e) {
+    var ticketId = e.request.url.query().get("ticketId") || ""
+    if (!ticketId) {
+        return e.json(400, { error: "ticketId query parameter is required" })
+    }
+
+    var reg
+    try {
+        reg = $app.findFirstRecordByFilter(
+            "registrations",
+            "ticketId = {:tid} || paymentTicketId = {:tid}",
+            { tid: ticketId }
+        )
+    } catch (err) {
+        return e.json(200, { found: false })
+    }
+    if (!reg) {
+        return e.json(200, { found: false })
+    }
+
+    var eventId = reg.getString("event") || ""
+    var eventPayload = null
+    if (eventId) {
+        try {
+            var evt = $app.findRecordById("events", eventId)
+            var banner = evt.getString("banner") || ""
+            var bannerUrl = ""
+            if (banner) {
+                bannerUrl = $app.filesystem().fileUrl(evt, banner)
+            }
+            eventPayload = {
+                id: evt.id,
+                title: evt.getString("title") || "",
+                date: evt.getString("date") || "",
+                venue: evt.getString("venue") || "",
+                time: evt.getString("time") || "",
+                bannerUrl: bannerUrl,
+            }
+        } catch (err) {}
+    }
+
+    return e.json(200, {
+        found: true,
+        registrationId: reg.id,
+        user: reg.getString("user") || "",
+        ticket: {
+            id: reg.getString("ticketId") || ticketId,
+            paymentStatus: reg.getString("paymentStatus") || "",
+            registrationStatus: reg.getString("registrationStatus") || "",
+            createdAt: reg.getString("created") || reg.getString("registrationDate") || "",
+        },
+        event: eventPayload,
+    })
+})

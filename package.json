@@ -22,7 +22,8 @@
     "migrate:coupons-to-collection": "bun scripts/migrate-coupons-to-collection.ts",
     "migrate:indexes": "bun scripts/migrate-indexes.ts",
     "migrate:game-schema": "bun scripts/migrate-game-schema.ts",
-    "migrate:game-backfill": "bun scripts/migrate-game-backfill.ts"
+    "migrate:game-backfill": "bun scripts/migrate-game-backfill.ts",
+    "verify:arch": "bun scripts/verify-architecture-live.ts"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.9",

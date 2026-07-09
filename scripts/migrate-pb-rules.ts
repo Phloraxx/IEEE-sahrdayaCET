@@ -67,7 +67,7 @@ const rules: Record<string, CollectionRuleSet> = {
     viewRule: `@request.auth.role = "content" || published = true`,
     createRule: `@request.auth.role = "content"`,
     updateRule: `@request.auth.role = "content"`,
-    deleteRule: `@request.auth.role = "content"`,
+    deleteRule: `@request.auth.role = "admin" || @request.auth.role = "content"`,
   },
   societies: {
     listRule: `isHidden = false || @request.auth.role = "admin" || chairs.id ?= @request.auth.id`,
@@ -121,9 +121,9 @@ const rules: Record<string, CollectionRuleSet> = {
     listRule: `id = @request.auth.id || @request.auth.role = "admin"`,
     viewRule: `id = @request.auth.id || @request.auth.role = "admin"`,
     createRule: `@request.context = "oauth2"`,
-    // FIFA: balance is the game economy — hook-only. A user may edit their
-    // own profile but never their role or balance.
-    updateRule: `(id = @request.auth.id && @request.body.role:changed = false && @request.body.balance:changed = false) || @request.auth.role = "admin"`,
+    // FIFA: balance is hook-only for ALL roles (incl. admin). Economy changes
+    // go through /api/fifa/admin-adjust (custom route + $app internal access).
+    updateRule: `(id = @request.auth.id && @request.body.role:changed = false && @request.body.balance:changed = false) || (@request.auth.role = "admin" && @request.body.balance:changed = false && @request.body.role:changed = false)`,
     deleteRule: null,
   },
   // ─── FIFA WC Predict '26 ───────────────────────────────────────────

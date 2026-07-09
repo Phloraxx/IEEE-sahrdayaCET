@@ -111,41 +111,7 @@ export const Route = createFileRoute("/api/registrations")({
           const parsed = RegistrationBodySchema.parse(await request.json());
           const { eventId, formResponses, couponCode } = parsed;
 
-          // NEW-1: Enforce registration business rules before create
-          const eventRecord = await userPb.collection("events").getOne(eventId, {
-            fields: "price,status,maxCapacity,registrationOpen,registrationDeadline,formTemplate,registeredCount",
-          });
-          const eventStatus = getField<string>(eventRecord, 'status', '');
-          if (eventStatus === 'cancelled' || eventStatus === 'draft') {
-            return Response.json({ error: 'Event is not accepting registrations' }, { status: 400 });
-          }
-          if (!getField<boolean>(eventRecord, 'registrationOpen', false)) {
-            return Response.json({ error: 'Registration is closed for this event' }, { status: 400 });
-          }
-          const deadline = getField<string>(eventRecord, 'registrationDeadline', '');
-          if (deadline && new Date(deadline) < new Date()) {
-            return Response.json({ error: 'Registration deadline has passed' }, { status: 400 });
-          }
-          const maxCapacity = Number(getField(eventRecord, 'maxCapacity', 0)) || 0;
-          if (maxCapacity > 0) {
-            const registeredCount = Number(getField(eventRecord, 'registeredCount', 0)) || 0;
-            if (registeredCount >= maxCapacity) {
-              return Response.json({ error: 'Event is at full capacity' }, { status: 400 });
-            }
-          }
-          // Basic form validation: check required fields if formTemplate defined
-          const formTemplate = getField<Array<{id: string; required?: boolean}>>(eventRecord, 'formTemplate', []);
-          if (Array.isArray(formTemplate) && formTemplate.length > 0) {
-            const requiredFields = formTemplate.filter((f: {required?: boolean}) => f.required).map((f: {id: string}) => f.id);
-            for (const fieldId of requiredFields) {
-              const val = formResponses?.[fieldId];
-              if (val === undefined || val === null || val === '') {
-                return Response.json({ error: `Required field "${fieldId}" is missing` }, { status: 400 });
-              }
-            }
-          }
-
-          // Create with the user's own client. API rules enforce auth + user match.
+          // Business rules enforced in pb_hooks/registrations.pb.js (authoritative).
           const registration = await userPb.collection("registrations").create({
             user: user.id,
             event: eventId,
@@ -156,8 +122,7 @@ export const Route = createFileRoute("/api/registrations")({
             couponCode: couponCode || '',
           });
 
-          // Read back the hook-populated fields (pb_hooks sets amount,
-          // paymentStatus, ticketId, etc. via DAO after create)
+          // Read back hook-populated fields (amount, paymentStatus, ticketId, etc.)
           const created = await userPb.collection("registrations").getOne(registration.id, {
             fields: "id,ticketId,paymentTicketId,paymentStatus,registrationStatus,amount",
           });

@@ -877,9 +877,18 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
         return e.json(404, { error: "Match not found" })
     }
 
-    // Idempotency: if already settled, return success with no-op
+    // Idempotency: skip only when fully settled (no stranded pending bets).
+    // Allows re-settle to recover from partial payout failures.
     if (match.getBool("settled")) {
-        return e.json(200, { success: true, message: "Already settled", matchId: matchId })
+        var alreadyPending = $app.findRecordsByFilter(
+            "fifa_bets",
+            "match = {:matchId} && status = {:pending}",
+            "", 1, 0,
+            { matchId: matchId, pending: "pending" }
+        )
+        if (alreadyPending.length === 0) {
+            return e.json(200, { success: true, message: "Already settled", matchId: matchId })
+        }
     }
 
     var result = {
@@ -1035,18 +1044,37 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
         }
     }
 
-    // ─── Mark match as settled ────────────────────────────────────
-    match.set("settled", true)
-    $app.saveNoValidate(match)
+    // ─── Mark match as settled only when no pending bets remain ───
+    var pendingRemaining = $app.findRecordsByFilter(
+        "fifa_bets",
+        "match = {:matchId} && status = {:pending}",
+        "", 0, 0,
+        { matchId: matchId, pending: "pending" }
+    )
+    var pendingCount = pendingRemaining.length
 
-    _emitFeedEvent("settlement", "", matchId, "Match settled — " + settledCount + " bets processed")
+    if (pendingCount === 0) {
+        match.set("settled", true)
+        $app.saveNoValidate(match)
+        _emitFeedEvent("settlement", "", matchId, "Match settled — " + settledCount + " bets processed")
+        return e.json(200, {
+            success: true,
+            matchId: matchId,
+            settledCount: settledCount,
+            totalPayout: totalPayout,
+            marketsProcessed: marketsProcessed,
+        })
+    }
 
+    console.log("[fifa] settle: " + pendingCount + " bets still pending on match " + matchId + " — not marking settled")
     return e.json(200, {
-        success: true,
+        success: false,
+        partial: true,
         matchId: matchId,
         settledCount: settledCount,
         totalPayout: totalPayout,
         marketsProcessed: marketsProcessed,
+        pendingRemaining: pendingCount,
     })
   } catch (err) {
     console.log("[fifa] settle error: " + err)

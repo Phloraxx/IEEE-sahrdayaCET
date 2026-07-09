@@ -268,7 +268,7 @@ function MatchDetailPage() {
         <div className="space-y-3">
           {match.markets.map((m, i) => (
             <motion.div key={m.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.1 + i * 0.05 }}>
-              <MarketCard market={m} canBet={status === 'authenticated' && !betsLocked && m.is_open && !m.void} matchId={match.id} maxBet={maxBet} balance={balance} />
+              <MarketCard market={m} canBet={status === 'authenticated' && !betsLocked && m.is_open && !m.void} matchId={match.id} maxBet={maxBet} maxBetPercent={maxBetPercent} balance={balance} />
             </motion.div>
           ))}
           {match.markets.length === 0 && (
@@ -280,7 +280,7 @@ function MatchDetailPage() {
   )
 }
 
-function MarketCard({ market, canBet, matchId, maxBet, balance }: { market: Market; canBet: boolean; matchId: string; maxBet: number; balance: number }) {
+function MarketCard({ market, canBet, matchId, maxBet, maxBetPercent, balance }: { market: Market; canBet: boolean; matchId: string; maxBet: number; maxBetPercent: number; balance: number }) {
   const [selection, setSelection] = useState<string | null>(null)
   const [stake, setStake] = useState(Math.min(50, Math.max(1, maxBet)))
   const queryClient = useQueryClient()
