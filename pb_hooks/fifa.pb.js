@@ -690,11 +690,7 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
         } catch (err) { console.log("[fifa] applyDelta failed: " + err); return null }
     }
     var _emitFeedEvent = function(type, userId, matchId, message) {
-        try {
-            var col = $app.findCollectionByNameOrId("fifa_feed_events")
-            var ev = new Record(col, { type: type, user: userId || "", match: matchId || "", message: message || "" })
-            $app.saveNoValidate(ev)
-        } catch (err) { console.log("[fifa] emitFeedEvent failed: " + err) }
+        // Feed removed from product (FIFA-AUTOMATION.md PR1) — no-op.
     }
     var _judgeBet = function(selection, status, marketType, line, result, customWinners) {
         if (status === "won" || status === "lost" || status === "void") { return status }
@@ -1011,11 +1007,7 @@ cronAdd("fifa-daily-topup", "0 9 * * *", function () {
         } catch (err) { console.log("[fifa] applyDelta failed: " + err); return null }
     }
     var _emitFeedEvent = function(type, userId, matchId, message) {
-        try {
-            var col = $app.findCollectionByNameOrId("fifa_feed_events")
-            var ev = new Record(col, { type: type, user: userId || "", match: matchId || "", message: message || "" })
-            $app.saveNoValidate(ev)
-        } catch (err) { console.log("[fifa] emitFeedEvent failed: " + err) }
+        // Feed removed from product (FIFA-AUTOMATION.md PR1) — no-op.
     }
     var _applyTransaction = function(userId, type, amount, balanceAfter, refBetId, note) {
         try {
@@ -1093,125 +1085,6 @@ cronAdd("fifa-daily-topup", "0 9 * * *", function () {
     }
 })
 
-// ─── Phase 8b: Auto-void cron (FIFA-GAME.md §2.3) ───────────────────
-// Runs every 30 minutes. Voids matches that have drifted past their settle
-// window so pending bets don't sit frozen forever if the admin is a no-show.
-//
-//   status=upcoming|live  and kickoff_at > auto_void_hours ago  → void
-//   status=finished       and settled=false and kickoff > 48h ago → void
-//
-// Setting match.status=void triggers onRecordAfterUpdateSuccess cascade
-// (phase 4c) which voids markets → market-void hook refunds pending bets.
-// Idempotent — voided matches are skipped.
-
-cronAdd("fifa-auto-void", "*/30 * * * *", function () {
-    // ─── Inlined helpers (PB 0.39 goja doesn't share top-level scope with callbacks) ───
-    var _getFifaSettings = function() {
-        try { return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (ex) { return null }
-    }
-    var _applyDelta = function(userId, type, delta, refBetId, note) {
-        try {
-            var u = $app.findRecordById("users", userId)
-            if (!u) return null
-            var newBal = (u.getInt("balance") || 0) + delta
-            var txCol = $app.findCollectionByNameOrId("fifa_transactions")
-            var tx = new Record(txCol, { user: userId, type: type, amount: delta, balance_after: newBal, ref_bet: refBetId || "", note: note || "", timestamp: new Date().toISOString() })
-            $app.saveNoValidate(tx)
-            u.set("balance", newBal)
-            $app.saveNoValidate(u)
-            return newBal
-        } catch (err) { console.log("[fifa] applyDelta failed: " + err); return null }
-    }
-    var _emitFeedEvent = function(type, userId, matchId, message) {
-        try {
-            var col = $app.findCollectionByNameOrId("fifa_feed_events")
-            var ev = new Record(col, { type: type, user: userId || "", match: matchId || "", message: message || "" })
-            $app.saveNoValidate(ev)
-        } catch (err) { console.log("[fifa] emitFeedEvent failed: " + err) }
-    }
-
-    var settings = _getFifaSettings()
-    if (!settings) { return }
-    var autoVoidHours = settings.getInt("auto_void_hours") || 6
-    var now = Date.now()
-    var autoVoidMs = autoVoidHours * 3600 * 1000
-    var finishedTimeoutMs = 48 * 3600 * 1000
-
-    var matches
-    try {
-        matches = $app.findRecordsByFilter(
-            "fifa_matches",
-            "status != {:finished} && status != {:void}",
-            "kickoff_at",
-            500, 0,
-            { finished: "finished", void: "void" }
-        )
-    } catch (err) {
-        console.log("[fifa] auto-void: failed to list matches: " + err)
-        return
-    }
-
-    var voided = 0
-    for (var i = 0; i < matches.length; i++) {
-        var m = matches[i]
-        var kickoffStr = m.getString("kickoff_at") || ""
-        if (!kickoffStr) { continue }
-        var kickoffMs = new Date(kickoffStr).getTime()
-        if (isNaN(kickoffMs)) { continue }
-
-        var status = m.getString("status") || "upcoming"
-        var shouldVoid = false
-        if (status === "upcoming" || status === "live") {
-            if (now - kickoffMs > autoVoidMs) shouldVoid = true
-        } else if (status === "finished" && !m.getBool("settled")) {
-            if (now - kickoffMs > finishedTimeoutMs) shouldVoid = true
-        }
-
-        if (shouldVoid) {
-            try {
-                m.set("status", "void")
-                $app.saveNoValidate(m)
-                voided++
-            } catch (err) {
-                console.log("[fifa] auto-void: failed to void match " + m.id + ": " + err)
-            }
-        }
-    }
-
-    // Also handle finished-but-unsettled separately (the filter above
-    // excluded status=finished, so we do a second pass for those).
-    try {
-        var finished = $app.findRecordsByFilter(
-            "fifa_matches",
-            "status = {:finished} && settled = {:false}",
-            "kickoff_at",
-            500, 0,
-            { finished: "finished", false: false }
-        )
-        for (var k = 0; k < finished.length; k++) {
-            var fm = finished[k]
-            var fk = new Date(fm.getString("kickoff_at") || "").getTime()
-            if (isNaN(fk)) { continue }
-            if (now - fk > finishedTimeoutMs) {
-                try {
-                    fm.set("status", "void")
-                    $app.saveNoValidate(fm)
-                    voided++
-                } catch (err) {
-                    console.log("[fifa] auto-void: failed to void finished match " + fm.id + ": " + err)
-                }
-            }
-        }
-    } catch (err) {
-        console.log("[fifa] auto-void: finished pass failed: " + err)
-    }
-
-    if (voided > 0) {
-        _emitFeedEvent("system", "", "", voided + " match(es) auto-voided (settle window expired)")
-        console.log("[fifa] auto-void: voided " + voided + " matches")
-    }
-})
-
 // ─── Phase 9b: Admin balance adjust (FIFA-GAME.md §2.6) ─────────────
 // POST /api/fifa/admin-adjust
 // Body: { userId, amount, note }
@@ -1239,11 +1112,7 @@ routerAdd("POST", "/api/fifa/admin-adjust", function (e) {
         } catch (err) { console.log("[fifa] applyDelta failed: " + err); return null }
     }
     var _emitFeedEvent = function(type, userId, matchId, message) {
-        try {
-            var col = $app.findCollectionByNameOrId("fifa_feed_events")
-            var ev = new Record(col, { type: type, user: userId || "", match: matchId || "", message: message || "" })
-            $app.saveNoValidate(ev)
-        } catch (err) { console.log("[fifa] emitFeedEvent failed: " + err) }
+        // Feed removed from product (FIFA-AUTOMATION.md PR1) — no-op.
     }
 
     var auth = e.auth
@@ -1301,11 +1170,7 @@ routerAdd("POST", "/api/fifa/admin-reset", function (e) {
         } catch (err) { console.log("[fifa] applyDelta failed: " + err); return null }
     }
     var _emitFeedEvent = function(type, userId, matchId, message) {
-        try {
-            var col = $app.findCollectionByNameOrId("fifa_feed_events")
-            var ev = new Record(col, { type: type, user: userId || "", match: matchId || "", message: message || "" })
-            $app.saveNoValidate(ev)
-        } catch (err) { console.log("[fifa] emitFeedEvent failed: " + err) }
+        // Feed removed from product (FIFA-AUTOMATION.md PR1) — no-op.
     }
     var _applyTransaction = function(userId, type, amount, balanceAfter, refBetId, note) {
         try {
@@ -1350,15 +1215,20 @@ routerAdd("POST", "/api/fifa/admin-reset", function (e) {
         for (var j = 0; j < allTx.length; j++) { $app.deleteRecord(allTx[j]) }
     } catch (err) { console.log("[fifa] reset: tx delete failed: " + err) }
 
-    // 2b. Delete feed events and raffle draws
+    // 2b. Delete feed events (legacy) and clear raffle result on settings
     try {
         var allFeed = $app.findRecordsByFilter("fifa_feed_events", "1 = 1", "", 0, 0, {})
         for (var fi = 0; fi < allFeed.length; fi++) { $app.deleteRecord(allFeed[fi]) }
     } catch (err) { console.log("[fifa] reset: feed delete failed: " + err) }
-    try {
-        var allRaffle = $app.findRecordsByFilter("fifa_raffle_draws", "1 = 1", "", 0, 0, {})
-        for (var ri = 0; ri < allRaffle.length; ri++) { $app.deleteRecord(allRaffle[ri]) }
-    } catch (err) { console.log("[fifa] reset: raffle delete failed: " + err) }
+    if (settings) {
+        try {
+            settings.set("raffle_drawn_at", "")
+            settings.set("raffle_winner", "")
+            settings.set("raffle_seed", "")
+            settings.set("raffle_entries_snapshot", null)
+            $app.saveNoValidate(settings)
+        } catch (err) { console.log("[fifa] reset: raffle settings clear failed: " + err) }
+    }
 
     // 3. Void all matches + clear results
     try {
@@ -1441,11 +1311,7 @@ routerAdd("POST", "/api/fifa/raffle", function (e) {
         } catch (err) { console.log("[fifa] applyDelta failed: " + err); return null }
     }
     var _emitFeedEvent = function(type, userId, matchId, message) {
-        try {
-            var col = $app.findCollectionByNameOrId("fifa_feed_events")
-            var ev = new Record(col, { type: type, user: userId || "", match: matchId || "", message: message || "" })
-            $app.saveNoValidate(ev)
-        } catch (err) { console.log("[fifa] emitFeedEvent failed: " + err) }
+        // Feed removed from product (FIFA-AUTOMATION.md PR1) — no-op.
     }
 
     // ─── Admin-only ────────────────────────────────────────────────
@@ -1462,6 +1328,10 @@ routerAdd("POST", "/api/fifa/raffle", function (e) {
     var settings = _getFifaSettings()
     if (!settings) {
         return e.json(400, { error: "Game not configured" })
+    }
+    var drawnAt = settings.getString("raffle_drawn_at") || ""
+    if (drawnAt) {
+        return e.json(400, { error: "Raffle already drawn" })
     }
     var base = settings.getInt("raffle_tickets_base") || 50
     var decay = settings.getInt("raffle_tickets_decay") || 2
@@ -1568,24 +1438,18 @@ routerAdd("POST", "/api/fifa/raffle", function (e) {
     }
     var winner = entries[winnerIndex]
 
-    // ─── Store the draw ────────────────────────────────────────────
+    // ─── Store the draw on fifa_settings (one-time) ────────────────
     try {
-        
-        var col = $app.findCollectionByNameOrId("fifa_raffle_draws")
-        var draw = new Record(col, {
-            drawn_at: new Date().toISOString(),
-            winner: winner.user_id,
-            entries_snapshot: {
-                total_tickets: totalTickets,
-                winning_pick: pick,
-                entries: entries,
-            },
-            seed: seed,
-        })
-        $app.saveNoValidate(draw)
-
-        // Emit feed event
-        _emitFeedEvent("raffle", winner.user_id, "", "🎁 Raffle winner: " + winner.display_name + " (rank #" + winner.rank + ")")
+        var snapshot = {
+            total_tickets: totalTickets,
+            winning_pick: pick,
+            entries: entries,
+        }
+        settings.set("raffle_drawn_at", new Date().toISOString())
+        settings.set("raffle_winner", winner.user_id)
+        settings.set("raffle_seed", seed)
+        settings.set("raffle_entries_snapshot", snapshot)
+        $app.saveNoValidate(settings)
 
         return e.json(200, {
             success: true,
@@ -1597,12 +1461,501 @@ routerAdd("POST", "/api/fifa/raffle", function (e) {
             },
             totalTickets: totalTickets,
             totalEntries: entries.length,
-            drawId: draw.id,
             seed: seed,
         })
     } catch (err) {
         console.log("[fifa] raffle draw failed: " + err)
         return e.json(500, { error: "Failed to store raffle draw" })
+    }
+})
+
+// ─── PR2: ESPN sync + auto-settle cron (FIFA-AUTOMATION.md) ─────────
+// Polls ESPN scoreboard every 2 min, patches match lifecycle, and optionally
+// auto-settles after settle_delay_minutes when auto_settle_enabled is true.
+cronAdd("fifa-espn-sync", "*/2 * * * *", function () {
+    // ─── Inlined helpers (PB 0.39 goja doesn't share top-level scope with callbacks) ───
+    var _getFifaSettings = function() {
+        try { return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (ex) { return null }
+    }
+    var _normalizeTeam = function(name) {
+        return String(name || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "")
+    }
+    var _mapEspnStatus = function(state, statusName) {
+        var name = String(statusName || "").toUpperCase()
+        if (name.indexOf("CANCEL") !== -1 || name.indexOf("POSTPON") !== -1 || name.indexOf("SUSPEND") !== -1 || name.indexOf("DELAYED") !== -1) {
+            return "void"
+        }
+        var s = String(state || "pre").toLowerCase()
+        if (s === "in") return "live"
+        if (s === "post") return "finished"
+        if (s === "canceled" || s === "cancelled" || s === "postponed") return "void"
+        return "upcoming"
+    }
+    var _numOrZero = function(v) {
+        var n = Number(v)
+        return isNaN(n) ? 0 : n
+    }
+    var _parseEspnEvent = function(raw) {
+        if (!raw || typeof raw !== "object") return null
+        var rec = raw
+        var competitions = rec.competitions
+        if (!competitions || typeof competitions.length !== "number" || competitions.length < 1) return null
+        var comp = competitions[0]
+        if (!comp || typeof comp !== "object") return null
+        var competitors = comp.competitors
+        if (!competitors || typeof competitors.length !== "number" || competitors.length < 2) return null
+        var home = null
+        var away = null
+        for (var ci = 0; ci < competitors.length; ci++) {
+            if (competitors[ci].homeAway === "home") home = competitors[ci]
+            if (competitors[ci].homeAway === "away") away = competitors[ci]
+        }
+        if (!home || !away) return null
+        var homeTeamObj = home.team || {}
+        var awayTeamObj = away.team || {}
+        var status = comp.status || {}
+        var statusType = status.type || {}
+        var statusState = String(statusType.state || "pre")
+        var statusName = statusType.name ? String(statusType.name) : ""
+        var mapped = _mapEspnStatus(statusState, statusName)
+        return {
+            id: String(rec.id || ""),
+            homeTeam: String(homeTeamObj.displayName || homeTeamObj.name || homeTeamObj.abbreviation || ""),
+            awayTeam: String(awayTeamObj.displayName || awayTeamObj.name || awayTeamObj.abbreviation || ""),
+            homeGoals: mapped === "upcoming" ? null : _numOrZero(home.score),
+            awayGoals: mapped === "upcoming" ? null : _numOrZero(away.score),
+            statusState: statusState,
+            statusName: statusName,
+            mappedStatus: mapped,
+        }
+    }
+    var _findEventForMatch = function(match, events) {
+        var externalIds = parseJsonField(match.get("external_ids")) || {}
+        var espnId = externalIds.espn ? String(externalIds.espn) : ""
+        if (espnId) {
+            for (var i = 0; i < events.length; i++) {
+                if (events[i].id === espnId) return events[i]
+            }
+        }
+        var mh = _normalizeTeam(match.getString("team_home"))
+        var ma = _normalizeTeam(match.getString("team_away"))
+        for (var j = 0; j < events.length; j++) {
+            var ev = events[j]
+            var eh = _normalizeTeam(ev.homeTeam)
+            var ea = _normalizeTeam(ev.awayTeam)
+            if ((mh === eh && ma === ea) || (mh === ea && ma === eh)) return ev
+        }
+        return null
+    }
+    var _shouldPollMatch = function(matchRec, nowMs) {
+        var status = matchRec.getString("status") || "upcoming"
+        if (status === "void") return false
+        if (status === "live") return true
+        if (status === "finished" && !matchRec.getBool("settled")) return true
+        var kickoffStr = matchRec.getString("kickoff_at") || ""
+        if (!kickoffStr) return false
+        var kickoffMs = new Date(kickoffStr).getTime()
+        if (isNaN(kickoffMs)) return false
+        return Math.abs(nowMs - kickoffMs) <= 2 * 60 * 60 * 1000
+    }
+    var _buildSettlePayload = function(matchRec, ev) {
+        var mh = _normalizeTeam(matchRec.getString("team_home"))
+        var ma = _normalizeTeam(matchRec.getString("team_away"))
+        var eh = _normalizeTeam(ev.homeTeam)
+        var ea = _normalizeTeam(ev.awayTeam)
+        var homeGoals = ev.homeGoals !== null && ev.homeGoals !== undefined ? ev.homeGoals : 0
+        var awayGoals = ev.awayGoals !== null && ev.awayGoals !== undefined ? ev.awayGoals : 0
+        if (mh === ea && ma === eh) {
+            homeGoals = ev.awayGoals !== null && ev.awayGoals !== undefined ? ev.awayGoals : 0
+            awayGoals = ev.homeGoals !== null && ev.homeGoals !== undefined ? ev.homeGoals : 0
+        }
+        var resultWinner = "draw"
+        if (homeGoals > awayGoals) resultWinner = "home"
+        else if (awayGoals > homeGoals) resultWinner = "away"
+        return {
+            result_winner: resultWinner,
+            result_home_goals: homeGoals,
+            result_away_goals: awayGoals,
+            result_scorers: [],
+            result_yellow_cards: 0,
+            result_red_cards: 0,
+            result_home_clean_sheet: awayGoals === 0,
+            result_away_clean_sheet: homeGoals === 0,
+            result_advance: resultWinner !== "draw" ? resultWinner : "",
+        }
+    }
+    var _closeMatchMarkets = function(matchId) {
+        try {
+            var markets = $app.findRecordsByFilter(
+                "fifa_bet_markets",
+                "match = {:matchId}",
+                "", 0, 0,
+                { matchId: matchId }
+            )
+            for (var i = 0; i < markets.length; i++) {
+                var mk = markets[i]
+                if (mk.getBool("is_open")) {
+                    mk.set("is_open", false)
+                    $app.saveNoValidate(mk)
+                }
+            }
+        } catch (err) {
+            console.log("[fifa] espn-sync: close markets failed for " + matchId + ": " + err)
+        }
+    }
+    var _voidMatchMarketsInline = function(matchId) {
+        try {
+            var markets = $app.findRecordsByFilter(
+                "fifa_bet_markets",
+                "match = {:matchId}",
+                "", 0, 0,
+                { matchId: matchId }
+            )
+            for (var i = 0; i < markets.length; i++) {
+                var mk = markets[i]
+                if (!mk.getBool("void")) {
+                    mk.set("void", true)
+                    mk.set("is_open", false)
+                    $app.saveNoValidate(mk)
+                }
+            }
+        } catch (err) {
+            console.log("[fifa] espn-sync: void markets failed for " + matchId + ": " + err)
+        }
+    }
+    var _applyDelta = function(userId, type, delta, refBetId, note) {
+        try {
+            var u = $app.findRecordById("users", userId)
+            if (!u) return null
+            var newBal = (u.getInt("balance") || 0) + delta
+            var txCol = $app.findCollectionByNameOrId("fifa_transactions")
+            var tx = new Record(txCol, { user: userId, type: type, amount: delta, balance_after: newBal, ref_bet: refBetId || "", note: note || "", timestamp: new Date().toISOString() })
+            $app.saveNoValidate(tx)
+            u.set("balance", newBal)
+            $app.saveNoValidate(u)
+            return newBal
+        } catch (err) { console.log("[fifa] applyDelta failed: " + err); return null }
+    }
+    var _emitFeedEvent = function(type, userId, matchId, message) {
+        // Feed removed from product (FIFA-AUTOMATION.md PR1) — no-op.
+    }
+    var _judgeBet = function(selection, status, marketType, line, result, customWinners) {
+        if (status === "won" || status === "lost" || status === "void") { return status }
+        switch (marketType) {
+            case "match_winner": {
+                var winner = result.result_advance || result.result_winner
+                if (!winner || winner === "draw") return "void"
+                return selection === winner ? "won" : "lost"
+            }
+            case "total_goals_ou": {
+                var total = (result.result_home_goals || 0) + (result.result_away_goals || 0)
+                if (selection === "over") { if (total > line) return "won"; if (total < line) return "lost"; return "void" }
+                if (selection === "under") { if (total < line) return "won"; if (total > line) return "lost"; return "void" }
+                return "lost"
+            }
+            case "correct_score": {
+                var expected = (result.result_home_goals || 0) + "-" + (result.result_away_goals || 0)
+                return selection === expected ? "won" : "lost"
+            }
+            case "any_scorer": {
+                var scorers = result.result_scorers || []
+                if (scorers.length === 0) return "void"
+                return scorers.indexOf(selection) !== -1 ? "won" : "lost"
+            }
+            case "cards_ou": {
+                var cards = (result.result_yellow_cards || 0) + (result.result_red_cards || 0)
+                if (selection === "over") { if (cards > line) return "won"; if (cards < line) return "lost"; return "void" }
+                if (selection === "under") { if (cards < line) return "won"; if (cards > line) return "lost"; return "void" }
+                return "lost"
+            }
+            case "clean_sheet": {
+                var homeClean = (result.result_away_goals || 0) === 0
+                var awayClean = (result.result_home_goals || 0) === 0
+                if (selection === "home") return homeClean ? "won" : "lost"
+                if (selection === "away") return awayClean ? "won" : "lost"
+                return "lost"
+            }
+            case "custom": {
+                if (!customWinners || customWinners.length === 0) return "void"
+                return customWinners.indexOf(selection) !== -1 ? "won" : "lost"
+            }
+            default: return "void"
+        }
+    }
+    var _computePayout = function(stake, mode, oddsLocked, outcome, totalPool, totalWinningStakes, houseCutPercent) {
+        if (outcome === "lost") return 0
+        if (outcome === "void") return stake
+        if (mode === "fixed") { return Math.round(stake * oddsLocked) }
+        if (totalWinningStakes <= 0) return 0
+        var cut = houseCutPercent / 100
+        var pool = totalPool * (1 - cut)
+        return Math.round((stake / totalWinningStakes) * pool)
+    }
+    var _shouldAutoSettle = function(matchRec, settingsRec, nowMs) {
+        if (!settingsRec.getBool("auto_settle_enabled")) return false
+        if ((matchRec.getString("status") || "") !== "finished") return false
+        if (matchRec.getBool("settled")) return false
+        var autoAtStr = matchRec.getString("auto_settle_at") || ""
+        if (!autoAtStr) return false
+        var autoAtMs = new Date(autoAtStr).getTime()
+        if (isNaN(autoAtMs) || autoAtMs > nowMs) return false
+        var winner = matchRec.getString("result_winner") || ""
+        if (!winner) return false
+        if (matchRec.getString("result_home_goals") === "" || matchRec.getString("result_away_goals") === "") return false
+        if (winner === "draw" && !(matchRec.getString("result_advance") || "")) return false
+        return true
+    }
+    var _settleMatchFromRecord = function(matchRec, settingsRec) {
+        var matchId = matchRec.id
+        if (matchRec.getBool("settled")) return false
+
+        var result = {
+            result_winner: matchRec.getString("result_winner") || "",
+            result_home_goals: matchRec.getInt("result_home_goals") || 0,
+            result_away_goals: matchRec.getInt("result_away_goals") || 0,
+            result_scorers: parseJsonField(matchRec.get("result_scorers")) || [],
+            result_yellow_cards: matchRec.getInt("result_yellow_cards") || 0,
+            result_red_cards: matchRec.getInt("result_red_cards") || 0,
+            result_home_clean_sheet: matchRec.getBool("result_home_clean_sheet"),
+            result_away_clean_sheet: matchRec.getBool("result_away_clean_sheet"),
+            result_advance: matchRec.getString("result_advance") || "",
+            result_after_extra_time: matchRec.getBool("result_after_extra_time"),
+            result_after_penalties: matchRec.getBool("result_after_penalties"),
+        }
+        if (!result.result_advance && result.result_winner && result.result_winner !== "draw") {
+            result.result_advance = result.result_winner
+        }
+
+        var markets = $app.findRecordsByFilter(
+            "fifa_bet_markets",
+            "match = {:matchId}",
+            "", 0, 0,
+            { matchId: matchId }
+        )
+        var houseCutPercent = settingsRec.getInt("pool_house_cut_percent") || 0
+        var settledCount = 0
+
+        for (var mi = 0; mi < markets.length; mi++) {
+            var market = markets[mi]
+            var marketId = market.id
+            var marketType = market.getString("market_type") || ""
+            var marketMode = market.getString("mode") || "pool"
+            var line = getRecordFloat(market, "line")
+            if (market.getBool("void")) continue
+
+            var bets = $app.findRecordsByFilter(
+                "fifa_bets",
+                "market = {:marketId}",
+                "", 0, 0,
+                { marketId: marketId }
+            )
+
+            var judged = []
+            for (var bi = 0; bi < bets.length; bi++) {
+                var bet = bets[bi]
+                var outcome = _judgeBet(
+                    bet.getString("selection"),
+                    bet.getString("status"),
+                    marketType,
+                    line,
+                    result,
+                    []
+                )
+                judged.push({ bet: bet, outcome: outcome })
+            }
+
+            if (marketMode === "pool" && judged.length > 0) {
+                var anyWinner = false
+                for (var j = 0; j < judged.length; j++) {
+                    if (judged[j].outcome === "won") { anyWinner = true; break }
+                }
+                if (!anyWinner) {
+                    for (var k = 0; k < judged.length; k++) {
+                        var b = judged[k].bet
+                        if (b.getString("status") !== "pending") continue
+                        var refundStake = b.getInt("stake") || 0
+                        var refunded = _applyDelta(b.getString("user"), "bet_refund", refundStake, b.id, "Pool voided — refund")
+                        if (refunded === null) continue
+                        b.set("status", "void")
+                        b.set("payout", refundStake)
+                        $app.saveNoValidate(b)
+                        settledCount++
+                    }
+                    continue
+                }
+            }
+
+            var totalPool = 0
+            var totalWinningStakes = 0
+            for (var j2 = 0; j2 < judged.length; j2++) {
+                totalPool += judged[j2].bet.getInt("stake") || 0
+                if (judged[j2].outcome === "won") {
+                    totalWinningStakes += judged[j2].bet.getInt("stake") || 0
+                }
+            }
+
+            for (var j3 = 0; j3 < judged.length; j3++) {
+                var jb = judged[j3]
+                var stake = jb.bet.getInt("stake") || 0
+                var mode = jb.bet.getString("mode") || "pool"
+                var oddsLocked = getRecordFloat(jb.bet, "odds_locked")
+                var wasPending = jb.bet.getString("status") === "pending"
+                var payout = _computePayout(stake, mode, oddsLocked, jb.outcome, totalPool, totalWinningStakes, houseCutPercent)
+
+                if (wasPending && payout > 0) {
+                    var newBalance = _applyDelta(jb.bet.getString("user"), "bet_payout", payout, jb.bet.id, "Auto-settlement")
+                    if (newBalance === null) continue
+                }
+
+                jb.bet.set("status", jb.outcome)
+                jb.bet.set("payout", payout)
+                $app.saveNoValidate(jb.bet)
+                settledCount++
+            }
+        }
+
+        var pendingRemaining = $app.findRecordsByFilter(
+            "fifa_bets",
+            "match = {:matchId} && status = {:pending}",
+            "", 0, 0,
+            { matchId: matchId, pending: "pending" }
+        )
+        if (pendingRemaining.length === 0) {
+            matchRec.set("settled", true)
+            $app.saveNoValidate(matchRec)
+            _emitFeedEvent("settlement", "", matchId, "Match auto-settled — " + settledCount + " bets processed")
+            return true
+        }
+        return false
+    }
+
+    var settings = _getFifaSettings()
+    if (!settings) { return }
+
+    var nowMs = Date.now()
+    var settleDelayMinutes = settings.getInt("settle_delay_minutes")
+    if (settleDelayMinutes === null || settleDelayMinutes === undefined || settleDelayMinutes < 0) {
+        settleDelayMinutes = 15
+    }
+
+    var allMatches = []
+    try {
+        allMatches = $app.findRecordsByFilter(
+            "fifa_matches",
+            "status != {:void}",
+            "kickoff_at",
+            500, 0,
+            { void: "void" }
+        )
+    } catch (err) {
+        console.log("[fifa] espn-sync: failed to list matches: " + err)
+        return
+    }
+
+    var pollMatches = []
+    var hasUnsettledFinished = false
+    for (var mi = 0; mi < allMatches.length; mi++) {
+        var m = allMatches[mi]
+        if (_shouldPollMatch(m, nowMs)) pollMatches.push(m)
+        if ((m.getString("status") || "") === "finished" && !m.getBool("settled")) {
+            hasUnsettledFinished = true
+        }
+    }
+
+    if (pollMatches.length === 0 && !hasUnsettledFinished) { return }
+
+    // Fetch ESPN scoreboard (primary fifa.world, fallback fifa.worldq.uefa).
+    var espnEvents = []
+    var leagues = ["fifa.world", "fifa.worldq.uefa"]
+    for (var li = 0; li < leagues.length; li++) {
+        try {
+            var resp = $http.send({
+                url: "https://site.api.espn.com/apis/site/v2/sports/soccer/" + leagues[li] + "/scoreboard",
+                method: "GET",
+                headers: { "Accept": "application/json" },
+                timeout: 30,
+            })
+            if (resp.statusCode !== 200) { continue }
+            var body = resp.raw
+            if (!body) { continue }
+            var data = JSON.parse(body)
+            var rawEvents = data.events
+            if (!rawEvents || typeof rawEvents.length !== "number" || rawEvents.length === 0) { continue }
+            for (var ei = 0; ei < rawEvents.length; ei++) {
+                var parsed = _parseEspnEvent(rawEvents[ei])
+                if (parsed) espnEvents.push(parsed)
+            }
+            if (espnEvents.length > 0) { break }
+        } catch (ex) {
+            console.log("[fifa] espn-sync: fetch failed for " + leagues[li] + ": " + ex)
+        }
+    }
+
+    // Apply ESPN lifecycle transitions for polled matches.
+    for (var pi = 0; pi < pollMatches.length; pi++) {
+        var match = pollMatches[pi]
+        var ev = _findEventForMatch(match, espnEvents)
+        if (!ev) { continue }
+
+        var currentStatus = match.getString("status") || "upcoming"
+        var mapped = ev.mappedStatus
+
+        if (mapped === "void" && currentStatus !== "void") {
+            match.set("status", "void")
+            $app.saveNoValidate(match)
+            _voidMatchMarketsInline(match.id)
+            continue
+        }
+
+        if (mapped === "live" && currentStatus !== "live" && currentStatus !== "finished") {
+            match.set("status", "live")
+            $app.saveNoValidate(match)
+            _closeMatchMarkets(match.id)
+            continue
+        }
+
+        if (mapped === "finished" && currentStatus !== "finished" && currentStatus !== "void") {
+            var payload = _buildSettlePayload(match, ev)
+            match.set("status", "finished")
+            match.set("result_winner", payload.result_winner)
+            match.set("result_home_goals", payload.result_home_goals)
+            match.set("result_away_goals", payload.result_away_goals)
+            match.set("result_scorers", payload.result_scorers)
+            match.set("result_yellow_cards", payload.result_yellow_cards)
+            match.set("result_red_cards", payload.result_red_cards)
+            match.set("result_home_clean_sheet", payload.result_home_clean_sheet)
+            match.set("result_away_clean_sheet", payload.result_away_clean_sheet)
+            match.set("result_advance", payload.result_advance)
+            if (!match.getString("auto_settle_at")) {
+                var delayMs = settleDelayMinutes * 60 * 1000
+                match.set("auto_settle_at", new Date(nowMs + delayMs).toISOString())
+            }
+            $app.saveNoValidate(match)
+            _closeMatchMarkets(match.id)
+        }
+    }
+
+    // Auto-settle pass (re-query after sync; kill switch in _shouldAutoSettle).
+    var toSettle = []
+    try {
+        toSettle = $app.findRecordsByFilter(
+            "fifa_matches",
+            "status = {:finished} && settled = {:false}",
+            "kickoff_at",
+            500, 0,
+            { finished: "finished", false: false }
+        )
+    } catch (err) {
+        console.log("[fifa] espn-sync: auto-settle list failed: " + err)
+    }
+    for (var ai = 0; ai < toSettle.length; ai++) {
+        var candidate = toSettle[ai]
+        try {
+            if (!_shouldAutoSettle(candidate, settings, nowMs)) { continue }
+            _settleMatchFromRecord(candidate, settings)
+        } catch (err) {
+            console.log("[fifa] espn-sync: auto-settle failed for " + candidate.id + ": " + err)
+        }
     }
 })
 

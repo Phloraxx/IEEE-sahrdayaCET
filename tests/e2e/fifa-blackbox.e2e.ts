@@ -46,11 +46,8 @@ test.describe('FIFA — Public Pages (no auth)', () => {
     expect(text).toMatch(/rule|point|bet|scoring|prize/i)
   })
 
-  test('GET /FIFA/feed → 200, shows live feed', async ({ page }) => {
-    const res = await page.goto('/FIFA/feed', { waitUntil: 'networkidle' })
-    expect(res?.ok()).toBeTruthy()
-    const text = await page.textContent('body')
-    expect(text).toMatch(/feed|activity|bet|event/i)
+  test.skip('GET /FIFA/feed — feed removed from product (PR1)', async () => {
+    // Route file kept for route-tree stability; nav and UI no longer expose feed.
   })
 })
 

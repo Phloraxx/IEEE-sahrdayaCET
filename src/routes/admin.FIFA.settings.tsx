@@ -24,9 +24,13 @@ interface Settings {
   raffle_tickets_base: number
   raffle_tickets_decay: number
   raffle_active_participant_min_bets: number
-  auto_void_hours: number
+  auto_settle_enabled: boolean
+  settle_delay_minutes: number
   prize: string
   registration_open: boolean
+  raffle_drawn_at: string
+  raffle_winner: string
+  raffle_seed: string
 }
 
 async function fetchSettings(): Promise<Settings> {
@@ -64,7 +68,8 @@ function AdminFifaSettings() {
           raffle_tickets_base: Number(form.raffle_tickets_base),
           raffle_tickets_decay: Number(form.raffle_tickets_decay),
           raffle_active_participant_min_bets: Number(form.raffle_active_participant_min_bets),
-          auto_void_hours: Number(form.auto_void_hours),
+          auto_settle_enabled: form.auto_settle_enabled,
+          settle_delay_minutes: Number(form.settle_delay_minutes),
           prize: form.prize,
           registration_open: form.registration_open,
         }),
@@ -85,9 +90,11 @@ function AdminFifaSettings() {
   if (isLoading) return <Skeleton className="h-64 w-full" />
   if (!form) return <p className="text-muted-foreground">Settings not found.</p>
 
+  const raffleDrawn = Boolean(form.raffle_drawn_at)
+
   return (
     <div>
-      <PanelHeader eyebrow="WC Predict '26" title="Settings" description="Game economy, top-up, and raffle configuration." />
+      <PanelHeader eyebrow="WC Predict '26" title="Settings" description="Game economy, top-up, auto-settle, and raffle configuration." />
       <form onSubmit={(e) => { e.preventDefault(); save.mutate() }} className="max-w-xl space-y-4">
         <div>
           <Label htmlFor="event_name">Event name</Label>
@@ -143,11 +150,50 @@ function AdminFifaSettings() {
           </div>
         </div>
 
-        <h3 className="text-sm font-semibold pt-2">Auto-void</h3>
+        {raffleDrawn && (
+          <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
+            <h4 className="text-sm font-semibold">Raffle result</h4>
+            <p className="text-xs text-muted-foreground">Drawn once at end of tournament — read-only.</p>
+            <div className="grid grid-cols-1 gap-2 text-sm">
+              <div>
+                <span className="text-muted-foreground">Winner: </span>
+                <span className="font-medium">{form.raffle_winner || '—'}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Drawn at: </span>
+                <span className="font-medium">{new Date(form.raffle_drawn_at).toLocaleString()}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Seed: </span>
+                <span className="font-mono text-xs">{form.raffle_seed || '—'}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <h3 className="text-sm font-semibold pt-2">Auto-settle</h3>
+        <label className="flex items-start gap-2">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={form.auto_settle_enabled}
+            onChange={(e) => setForm({ ...form, auto_settle_enabled: e.target.checked })}
+          />
+          <span>
+            <span className="text-sm font-medium">Auto-settle after delay</span>
+            <p className="text-xs text-muted-foreground mt-0.5">When enabled, finished matches settle automatically after the delay below. Disable as a kill switch if ESPN data looks wrong.</p>
+          </span>
+        </label>
         <div>
-          <Label htmlFor="auto_void_hours">Auto-void after (hours)</Label>
-          <Input id="auto_void_hours" type="number" min={1} value={form.auto_void_hours} onChange={(e) => setForm({ ...form, auto_void_hours: Number(e.target.value) })} />
-          <p className="text-xs text-muted-foreground mt-1">Matches not settled this long after kickoff are auto-voided (cron runs every 30 min). Finished-but-unsettled matches void after 48h regardless.</p>
+          <Label htmlFor="settle_delay_minutes">Settle delay (minutes)</Label>
+          <Input
+            id="settle_delay_minutes"
+            type="number"
+            min={1}
+            value={form.settle_delay_minutes}
+            onChange={(e) => setForm({ ...form, settle_delay_minutes: Number(e.target.value) })}
+          />
+          <p className="text-xs text-muted-foreground mt-1">Minutes to wait after full-time before auto-settling. Default 15.</p>
         </div>
 
         <label className="flex items-center gap-2 pt-2">

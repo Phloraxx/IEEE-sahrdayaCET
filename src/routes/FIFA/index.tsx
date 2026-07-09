@@ -9,7 +9,6 @@ import { FifaMatchCarousel } from '@/features/fifa/fifa-match-carousel'
 import { FifaStatsStrip } from '@/features/fifa/fifa-stats-strip'
 import { FifaHowItWorks } from '@/features/fifa/fifa-how-it-works'
 import { FifaLeaderboardPreview } from '@/features/fifa/fifa-leaderboard-preview'
-import { FifaFeedMarquee } from '@/features/fifa/fifa-feed-marquee'
 import { FifaCtaBand } from '@/features/fifa/fifa-cta-band'
 
 interface OverviewData {
@@ -119,7 +118,6 @@ function FifaOverviewPage() {
       <FifaStatsStrip playerCount={data.playerCount} totalBets={data.totalBets} />
       <FifaHowItWorks />
       <FifaLeaderboardPreview />
-      <FifaFeedMarquee />
       <FifaCtaBand />
     </FifaLayout>
   )

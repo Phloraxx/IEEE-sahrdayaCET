@@ -67,7 +67,7 @@ function AdminFifaRaffle() {
         actions={
           <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
             <DialogTrigger asChild>
-              <Button><Trophy className="mr-2 h-4 w-4" /> Draw winner</Button>
+              <Button disabled={Boolean(data?.draws.length)}><Trophy className="mr-2 h-4 w-4" /> Draw winner</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>Run the raffle draw?</DialogTitle></DialogHeader>

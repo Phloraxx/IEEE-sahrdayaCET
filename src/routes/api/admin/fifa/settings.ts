@@ -31,9 +31,14 @@ export const Route = createFileRoute("/api/admin/fifa/settings")({
                 raffle_tickets_base: getField(s, 'raffle_tickets_base', 50),
                 raffle_tickets_decay: getField(s, 'raffle_tickets_decay', 2),
                 raffle_active_participant_min_bets: getField(s, 'raffle_active_participant_min_bets', 5),
-                auto_void_hours: getField(s, 'auto_void_hours', 6),
+                auto_settle_enabled: getField(s, 'auto_settle_enabled', false),
+                settle_delay_minutes: getField(s, 'settle_delay_minutes', 15),
                 prize: getField(s, 'prize', ''),
                 registration_open: getField(s, 'registration_open', true),
+                raffle_drawn_at: getField(s, 'raffle_drawn_at', ''),
+                raffle_winner: getField(s, 'raffle_winner', ''),
+                raffle_seed: getField(s, 'raffle_seed', ''),
+                raffle_entries_snapshot: getField(s, 'raffle_entries_snapshot', null),
               },
             });
           } catch {
