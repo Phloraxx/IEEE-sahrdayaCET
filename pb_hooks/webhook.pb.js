@@ -12,7 +12,7 @@
 // Idempotency: a registration already paid/confirmed is a no-op (200).
 
 /** Generates a user-facing ticket ID: TKT-<16 random chars>. */
-function generateTicketId() {
+var generateTicketId = function() {
     return "TKT-" + $security.randomString(16)
 }
 
