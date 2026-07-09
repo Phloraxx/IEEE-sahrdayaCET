@@ -6,10 +6,12 @@ export function buildFileUrl(collection: string, recordId: string, filename: str
     return ''
   }
   if (filename.startsWith('http')) {
+    // Only allow same-origin relative paths stored as absolute URLs on our domain.
     try {
       const url = new URL(filename)
       if (url.protocol !== 'https:' && url.protocol !== 'http:') return ''
-      return filename
+      if (url.pathname.startsWith('/api/files/')) return url.pathname
+      return ''
     } catch { return '' }
   }
   return `/api/files/${collection}/${recordId}/${filename}`

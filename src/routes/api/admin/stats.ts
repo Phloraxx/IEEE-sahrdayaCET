@@ -17,6 +17,9 @@ export const Route = createFileRoute("/api/admin/stats")({
 
         try {
           const ctx = await authenticateAdmin(request);
+          if (ctx.role === 'content') {
+            return Response.json({ error: 'Forbidden' }, { status: 403 });
+          }
           const { eventFilter: eventScope, registrationFilter: registrationScope } = await getChairScopeFilters(ctx);
 
           const now = new Date();

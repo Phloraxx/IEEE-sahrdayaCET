@@ -113,7 +113,7 @@ async function main() {
   console.log('\nUpdating registrations collection...')
   await pbPatch('/api/collections/registrations', {
     indexes: [
-      'CREATE UNIQUE INDEX idx_registrations_ticketId ON registrations (ticketId)',
+      'CREATE UNIQUE INDEX idx_registrations_ticketId ON registrations (ticketId) WHERE ticketId != ""',
       'CREATE UNIQUE INDEX idx_registrations_user_event ON registrations (user, event) WHERE registrationStatus != "cancelled"',
       'CREATE UNIQUE INDEX idx_registrations_payment_ticket ON registrations (paymentTicketId) WHERE paymentTicketId != ""',
       'CREATE INDEX idx_registrations_event ON registrations (event)',
@@ -123,7 +123,7 @@ async function main() {
       'CREATE INDEX idx_registrations_regdate ON registrations (registrationDate)',
     ],
   })
-  console.log('  Registrations indexes added: (user, event) UNIQUE partial, (ticketId) UNIQUE, (paymentTicketId) UNIQUE partial [excludes empty], (event), (status), (event, ticketId), (event, paymentTicketId)')
+  console.log('  Registrations indexes added: (user, event) UNIQUE partial, (ticketId) UNIQUE partial [excludes empty], (paymentTicketId) UNIQUE partial [excludes empty], (event), (status), (event, ticketId), (event, paymentTicketId)')
 
   // --- Add indexes to coupons ---
   console.log('\nUpdating coupons collection...')

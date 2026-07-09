@@ -48,7 +48,13 @@ export const Route = createFileRoute("/api/events/validate-coupon")({
             body: JSON.stringify({ code, eventId }),
           });
 
-          const result = await pbResponse.json();
+          const result = await pbResponse.json().catch(() => ({}));
+          if (!pbResponse.ok) {
+            return Response.json(
+              { error: result?.error || 'Coupon validation failed' },
+              { status: pbResponse.status >= 400 ? pbResponse.status : 502 },
+            );
+          }
           return Response.json(result);
         } catch (error) {
           return handleError(error, "validate-coupon");

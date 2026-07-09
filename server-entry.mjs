@@ -52,6 +52,31 @@ function addSecurityHeaders(res) {
 }
 
 const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB
+
+/** Read request body with a size cap. Returns Buffer or null for empty bodies. */
+async function readBodyLimited(req, maxBytes = MAX_BODY_SIZE) {
+  const chunks = [];
+  let total = 0;
+  for await (const chunk of req) {
+    total += chunk.length;
+    if (total > maxBytes) throw new Error('PAYLOAD_TOO_LARGE');
+    chunks.push(chunk);
+  }
+  return chunks.length ? Buffer.concat(chunks) : null;
+}
+
+function wrapHandlerWithSecurityHeaders(handler) {
+  return async (req, res) => {
+    await handler(req, res);
+    if (!res.headersSent) addSecurityHeaders(res);
+    else {
+      for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
+        if (!res.getHeader(key)) res.setHeader(key, value);
+      }
+    }
+  };
+}
+
   const server = createServer(async (req, res) => {
     try {
       const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
@@ -64,25 +89,46 @@ const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB
         return;
       }
 
-      // Same-origin proxy for client-side PB SSE subscriptions (public
-      // collections only: fifa_feed_events, fifa_bet_markets, fifa_matches).
-      // POCKETBASE_URL stays server-side; this exposes only the /pb path.
+      // Same-origin proxy for client-side PB SSE + public FIFA read routes.
+      // Allowlist only — never open the whole PB REST surface.
+      // Allowed:
+      //   GET/HEAD realtime SSE: /api/realtime
+      //   GET public FIFA custom routes: /api/fifa/leaderboard|feed|stats
+      //   GET collection reads for public game collections only
       if (url.pathname.startsWith('/pb/')) {
         try {
-          const pbUrl = process.env.POCKETBASE_URL || 'http://127.0.0.1:8090';
+          const method = (req.method || 'GET').toUpperCase();
           const targetPath = url.pathname.replace(/^\/pb/, '') + (url.search || '');
+          const pathOnly = (url.pathname.replace(/^\/pb/, '') || '/').split('?')[0];
+
+          const isGet = method === 'GET' || method === 'HEAD';
+          const isRealtime = pathOnly === '/api/realtime';
+          const isPublicFifaRoute = /^\/api\/fifa\/(leaderboard|feed|stats)\/?$/.test(pathOnly);
+          const isPublicCollection = /^\/api\/collections\/(fifa_feed_events|fifa_bet_markets|fifa_matches)(\/|$)/.test(pathOnly);
+
+          // SSE subscribe is POST on /api/realtime in PB — allow only that write path.
+          const isRealtimeSubscribe = method === 'POST' && pathOnly === '/api/realtime';
+
+          if (!(isRealtimeSubscribe || (isGet && (isRealtime || isPublicFifaRoute || isPublicCollection)))) {
+            addSecurityHeaders(res);
+            res.writeHead(403, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Forbidden: /pb path not allowlisted' }));
+            return;
+          }
+
+          const pbUrl = process.env.POCKETBASE_URL || 'http://127.0.0.1:8090';
           const targetUrl = `${pbUrl}${targetPath}`;
           const pbHeaders = new Headers();
           for (const [key, value] of Object.entries(req.headers)) {
             if (['connection', 'keep-alive', 'transfer-encoding', 'host'].includes(key)) continue;
+            // Drop auth for public proxy — these endpoints are public reads.
+            if (['authorization', 'cookie'].includes(key)) continue;
             pbHeaders.set(key, Array.isArray(value) ? value.join(', ') : value);
           }
           let pbBody = undefined;
-          if (req.method !== 'GET' && req.method !== 'HEAD') {
-            const chunks = [];
-            for await (const chunk of req) chunks.push(chunk);
-            const buf = Buffer.concat(chunks);
-            if (buf.length > 0) {
+          if (isRealtimeSubscribe) {
+            const buf = await readBodyLimited(req);
+            if (buf && buf.length > 0) {
               pbBody = new ReadableStream({
                 start(controller) {
                   controller.enqueue(new Uint8Array(buf));
@@ -101,8 +147,13 @@ const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB
         } catch (err) {
           console.error('[pb-proxy] Error:', err);
           addSecurityHeaders(res);
-          res.writeHead(502, { 'Content-Type': 'text/plain' });
-          res.end('Bad Gateway: ' + (err.message || 'Unknown error'));
+          if (err.message === 'PAYLOAD_TOO_LARGE') {
+            res.writeHead(413, { 'Content-Type': 'text/plain' });
+            res.end('Payload Too Large');
+          } else {
+            res.writeHead(502, { 'Content-Type': 'text/plain' });
+            res.end('Bad Gateway: ' + (err.message || 'Unknown error'));
+          }
         }
         return;
       }
@@ -114,21 +165,21 @@ const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB
           join(__dirname, 'public', url.pathname),
         ];
         for (const filePath of candidates) {
-          try {
-            const ext = extname(filePath).toLowerCase();
-            const mime = MIME_TYPES[ext] || 'application/octet-stream';
-            const cacheControl = url.pathname.startsWith('/assets/')
-              ? 'public, max-age=31536000, immutable'
-              : 'public, max-age=86400';
-            addSecurityHeaders(res);
-            res.writeHead(200, { 'Content-Type': mime, 'Cache-Control': cacheControl });
-            res.end(readFileSync(filePath));
-            return;
-          } catch { /* try next candidate */ }
+          if (!existsSync(filePath)) continue;
+          const ext = extname(filePath).toLowerCase();
+          const mime = MIME_TYPES[ext] || 'application/octet-stream';
+          const cacheControl = url.pathname.startsWith('/assets/')
+            ? 'public, max-age=31536000, immutable'
+            : 'public, max-age=86400';
+          addSecurityHeaders(res);
+          res.writeHead(200, { 'Content-Type': mime, 'Cache-Control': cacheControl });
+          res.end(readFileSync(filePath));
+          return;
         }
       }
       // SSR: forward to TanStack Start handler
-      const nodeHandler = toNodeHandler ? toNodeHandler(tsrFetch) : simpleNodeHandler(tsrFetch);
+      const baseHandler = toNodeHandler ? toNodeHandler(tsrFetch) : simpleNodeHandler(tsrFetch);
+      const nodeHandler = wrapHandlerWithSecurityHeaders(baseHandler);
       await nodeHandler(req, res);
     } catch (err) {
       console.error('Server error:', err);
@@ -180,11 +231,8 @@ function simpleNodeHandler(fetch) {
 
     let body = undefined;
     if (req.method !== 'GET' && req.method !== 'HEAD') {
-      const chunks = [];
-      for await (const chunk of req) chunks.push(chunk);
-      const buf = Buffer.concat(chunks);
-      // Use ReadableStream for body to match Web Fetch API expectations
-      if (buf.length > 0) {
+      const buf = await readBodyLimited(req);
+      if (buf && buf.length > 0) {
         body = new ReadableStream({
           start(controller) {
             controller.enqueue(new Uint8Array(buf));

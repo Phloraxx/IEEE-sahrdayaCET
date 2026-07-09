@@ -1,14 +1,32 @@
 
 const PB_URL = process.env.POCKETBASE_URL?.replace(/\/+$/, '')
-const TOKEN = process.env.POCKETBASE_SUPERUSER_TOKEN
+let TOKEN = process.env.POCKETBASE_SUPERUSER_TOKEN || ''
+const PB_ADMIN_EMAIL = process.env.PB_ADMIN_EMAIL || ''
+const PB_ADMIN_PASSWORD = process.env.PB_ADMIN_PASSWORD || ''
 
 if (!PB_URL) {
   console.error('Missing POCKETBASE_URL environment variable')
   process.exit(1)
 }
-if (!TOKEN) {
-  console.error('Missing POCKETBASE_SUPERUSER_TOKEN environment variable')
-  process.exit(1)
+
+async function ensureSuperuserToken(): Promise<void> {
+  if (TOKEN) return
+  if (!PB_ADMIN_EMAIL || !PB_ADMIN_PASSWORD) {
+    console.error('Set POCKETBASE_SUPERUSER_TOKEN or PB_ADMIN_EMAIL + PB_ADMIN_PASSWORD')
+    process.exit(1)
+  }
+  const res = await fetch(`${PB_URL}/api/collections/_superusers/auth-with-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ identity: PB_ADMIN_EMAIL, password: PB_ADMIN_PASSWORD }),
+  })
+  const data = await res.json().catch(() => ({})) as Record<string, unknown>
+  if (!res.ok || typeof data.token !== 'string') {
+    console.error('Superuser auth failed:', data.message || res.status)
+    process.exit(1)
+  }
+  TOKEN = data.token
+  console.log('[auth] Superuser login OK')
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -67,7 +85,7 @@ const rules: Record<string, CollectionRuleSet> = {
     viewRule: `@request.auth.role = "content" || published = true`,
     createRule: `@request.auth.role = "content"`,
     updateRule: `@request.auth.role = "content"`,
-    deleteRule: `@request.auth.role = "content"`,
+    deleteRule: `@request.auth.role = "admin" || @request.auth.role = "content"`,
   },
   societies: {
     listRule: `isHidden = false || @request.auth.role = "admin" || chairs.id ?= @request.auth.id`,
@@ -121,9 +139,9 @@ const rules: Record<string, CollectionRuleSet> = {
     listRule: `id = @request.auth.id || @request.auth.role = "admin"`,
     viewRule: `id = @request.auth.id || @request.auth.role = "admin"`,
     createRule: `@request.context = "oauth2"`,
-    // FIFA: balance is the game economy — hook-only. A user may edit their
-    // own profile but never their role or balance.
-    updateRule: `(id = @request.auth.id && @request.body.role:changed = false && @request.body.balance:changed = false) || @request.auth.role = "admin"`,
+    // FIFA: balance is hook-only for ALL roles (incl. admin). Economy changes
+    // go through /api/fifa/admin-adjust (custom route + $app internal access).
+    updateRule: `(id = @request.auth.id && @request.body.role:changed = false && @request.body.balance:changed = false) || (@request.auth.role = "admin" && @request.body.balance:changed = false && @request.body.role:changed = false)`,
     deleteRule: null,
   },
   // ─── FIFA WC Predict '26 ───────────────────────────────────────────
@@ -202,6 +220,7 @@ const rules: Record<string, CollectionRuleSet> = {
 }
 
 async function main(): Promise<void> {
+  await ensureSuperuserToken()
   const collectionNames = Object.keys(rules)
   let hasError = false
 

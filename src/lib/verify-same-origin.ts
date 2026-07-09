@@ -49,7 +49,11 @@ export function verifySameOrigin(request: Request): void {
 		// unique preview subdomains per PR; the origin check would otherwise
 		// block all mutations on preview builds.
 		const apexDomain = appHost.split('.').slice(-2).join('.');
-		if (apexDomain.length > 0 && reqHost.endsWith('.' + apexDomain)) return;
+		if (
+			apexDomain.length > 0 &&
+			reqHost.endsWith('.' + apexDomain) &&
+			(reqHost === appHost || reqHost.startsWith('preview-'))
+		) return;
 
 		// Fallback: if PUBLIC_APP_URL is misconfigured (e.g. localhost in preview),
 		// check the Host header against the Origin. A matching Host + Origin pair

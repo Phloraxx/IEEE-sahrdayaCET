@@ -10,7 +10,7 @@ interface Bucket {
 const buckets = new Map<string, Bucket>()
 
 // Cleanup stale entries every 5 minutes
-setInterval(() => {
+const cleanupInterval = setInterval(() => {
   const now = Date.now()
   for (const [key, bucket] of buckets) {
     if (now - bucket.lastRefill > 300_000) {
@@ -18,6 +18,7 @@ setInterval(() => {
     }
   }
 }, 300_000)
+if (typeof cleanupInterval.unref === 'function') cleanupInterval.unref()
 
 export interface RateLimitConfig {
   key: string
