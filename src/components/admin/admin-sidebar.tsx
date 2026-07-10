@@ -1,4 +1,5 @@
 import {
+  Activity,
   Building2,
   Calendar,
   ChevronRight,
@@ -110,8 +111,15 @@ const NAV_ITEMS: NavItem[] = [
   {
     label: "FIFA Raffle",
     href: "/admin/FIFA/raffle/",
-    icon: Gift,
+    icon: Ticket,
     description: "Draw winner",
+    allowedRoles: ["admin"],
+  },
+  {
+    label: "FIFA Feed",
+    href: "/admin/FIFA/feed/",
+    icon: Activity,
+    description: "Feed moderation",
     allowedRoles: ["admin"],
   },
 ];
