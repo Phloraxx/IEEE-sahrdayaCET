@@ -1839,6 +1839,29 @@ cronAdd("fifa-espn-sync", "*/2 * * * *", function () {
         settleDelayMinutes = 15
     }
 
+    // Auto-settle pass (1st: process matches whose delay has expired)
+    var toSettle = []
+    try {
+        toSettle = $app.findRecordsByFilter(
+            "fifa_matches",
+            "status = {:finished} && settled = {:false}",
+            "kickoff_at",
+            500, 0,
+            { finished: "finished", false: false }
+        )
+    } catch (err) {
+        console.log("[fifa] espn-sync: auto-settle list failed: " + err)
+    }
+    for (var ai = 0; ai < toSettle.length; ai++) {
+        var candidate = toSettle[ai]
+        try {
+            if (!_shouldAutoSettle(candidate, settings, nowMs)) { continue }
+            _settleMatchFromRecord(candidate, settings)
+        } catch (err) {
+            console.log("[fifa] espn-sync: auto-settle failed for " + candidate.id + ": " + err)
+        }
+    }
+
     var allMatches = []
     try {
         allMatches = $app.findRecordsByFilter(
@@ -1933,29 +1956,6 @@ cronAdd("fifa-espn-sync", "*/2 * * * *", function () {
             }
             $app.saveNoValidate(match)
             _closeMatchMarkets(match.id)
-        }
-    }
-
-    // Auto-settle pass (re-query after sync; kill switch in _shouldAutoSettle).
-    var toSettle = []
-    try {
-        toSettle = $app.findRecordsByFilter(
-            "fifa_matches",
-            "status = {:finished} && settled = {:false}",
-            "kickoff_at",
-            500, 0,
-            { finished: "finished", false: false }
-        )
-    } catch (err) {
-        console.log("[fifa] espn-sync: auto-settle list failed: " + err)
-    }
-    for (var ai = 0; ai < toSettle.length; ai++) {
-        var candidate = toSettle[ai]
-        try {
-            if (!_shouldAutoSettle(candidate, settings, nowMs)) { continue }
-            _settleMatchFromRecord(candidate, settings)
-        } catch (err) {
-            console.log("[fifa] espn-sync: auto-settle failed for " + candidate.id + ": " + err)
         }
     }
 })
