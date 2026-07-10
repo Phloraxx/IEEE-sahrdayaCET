@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB } from "@/lib/pb.server"
+import { authenticateAdmin } from "@/lib/admin-middleware"
 import { escapeFilterValue } from "@/lib/pb";
-import { requireRole } from "@/lib/auth";
+import { AuthError } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 import { parsePagination, buildFilter } from "@/lib/route-helpers";
 import { verifySameOrigin } from "@/lib/verify-same-origin";
@@ -15,8 +15,8 @@ export const Route = createFileRoute("/api/admin/fifa/matches")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const pb = createPB(request.headers.get("cookie") || undefined);
-          await requireRole(["admin"], pb);
+          const { pb, role } = await authenticateAdmin(request);
+          if (role !== "admin") throw new AuthError("Admin only", 403);
           const url = new URL(request.url);
           const { page, perPage } = parsePagination(url, { defaultPerPage: 50, maxPerPage: 200 });
           const status = url.searchParams.get("status");
@@ -64,8 +64,8 @@ export const Route = createFileRoute("/api/admin/fifa/matches")({
             return Response.json({ error: 'Unsupported media type' }, { status: 415 });
           }
           verifySameOrigin(request);
-          const pb = createPB(request.headers.get("cookie") || undefined);
-          await requireRole(["admin"], pb);
+          const { pb, role } = await authenticateAdmin(request);
+          if (role !== "admin") throw new AuthError("Admin only", 403);
           const parsed = FifaMatchCreateSchema.parse(await request.json());
           // Default betting_locks_at to kickoff_at if not provided.
           const body = {

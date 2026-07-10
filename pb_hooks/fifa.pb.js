@@ -586,23 +586,32 @@ routerAdd("GET", "/api/fifa/stats", function (e) {
         var playerCount = 0
         var totalBets = 0
         try {
-            var players = $app.findRecordsByFilter(
-                "users",
-                "balance > 0",
-                "", 0, 0,
-                {}
-            )
-            playerCount = players.length
-        } catch (err) { playerCount = 0 }
-        try {
             var bets = $app.findRecordsByFilter(
                 "fifa_bets",
                 "1 = 1",
                 "", 0, 0,
                 {}
             )
-            totalBets = bets.length
-        } catch (err) { totalBets = 0 }
+            totalBets = bets ? bets.length : 0
+            
+            var uniqueUsers = {}
+            if (bets) {
+                for (var i = 0; i < bets.length; i++) {
+                    var uid = bets[i].getString("user")
+                    if (uid) {
+                        uniqueUsers[uid] = true
+                    }
+                }
+            }
+            var count = 0;
+            for (var k in uniqueUsers) {
+                if (uniqueUsers.hasOwnProperty(k)) count++;
+            }
+            playerCount = count;
+        } catch (err) { 
+            playerCount = 0
+            totalBets = 0
+        }
         return e.json(200, { playerCount: playerCount, totalBets: totalBets })
     } catch (err) {
         console.log("[fifa] stats route failed: " + err)

@@ -1,7 +1,6 @@
-import { normalizeTeamName } from '@/lib/fifa-team-names'
-
 // Multi-source WC 2026 live scores + fixtures (FIFA-GAME.md §2.7).
 //
+import { normaliseTeamName } from './fifa-team-aliases'
 // Three sources, tried in priority order, mirroring the emrbli/worldcup
 // project's proven strategy:
 //
@@ -288,18 +287,18 @@ function numOrNull(v: unknown): number | null {
   return null
 }
 
-/** Find a live match for a given team pairing, matching case-insensitively on
- *  team names. Returns null if no match. Used by the UI overlay. */
+/** Find a live match for a given team pairing, matching using normalisation
+ *  on team names. Returns null if no match. Used by the UI overlay. */
 export function findLiveMatch(
   live: LiveMatch[],
   teamHome: string,
   teamAway: string,
 ): LiveMatch | null {
-  const h = normalizeTeamName(teamHome)
-  const a = normalizeTeamName(teamAway)
+  const h = normaliseTeamName(teamHome)
+  const a = normaliseTeamName(teamAway)
   return live.find((m) => {
-    const mh = normalizeTeamName(m.homeTeam)
-    const ma = normalizeTeamName(m.awayTeam)
+    const mh = normaliseTeamName(m.homeTeam)
+    const ma = normaliseTeamName(m.awayTeam)
     return (mh === h && ma === a) || (mh === a && ma === h)
   }) || null
 }

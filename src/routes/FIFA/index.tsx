@@ -9,6 +9,7 @@ import { FifaMatchCarousel } from '@/features/fifa/fifa-match-carousel'
 import { FifaStatsStrip } from '@/features/fifa/fifa-stats-strip'
 import { FifaHowItWorks } from '@/features/fifa/fifa-how-it-works'
 import { FifaLeaderboardPreview } from '@/features/fifa/fifa-leaderboard-preview'
+import { FifaFeedMarquee } from '@/features/fifa/fifa-feed-marquee'
 import { FifaCtaBand } from '@/features/fifa/fifa-cta-band'
 
 interface OverviewData {
@@ -23,8 +24,8 @@ interface OverviewData {
     status: string
     openMarkets: number
   } | null
-  playerCount: number
-  totalBets: number
+  playerCount: number | null
+  totalBets: number | null
 }
 
 const fetchOverview = createServerFn().handler(async (): Promise<OverviewData> => {
@@ -74,15 +75,15 @@ const fetchOverview = createServerFn().handler(async (): Promise<OverviewData> =
     }
   } catch { /* no upcoming matches */ }
 
-  let playerCount = 0
-  let totalBets = 0
+  let playerCount: number | null = null
+  let totalBets: number | null = null
   try {
     const pbUrl = (process.env.POCKETBASE_URL || 'http://127.0.0.1:8090').replace(/\/+$/, '')
     const statsRes = await fetch(`${pbUrl}/api/fifa/stats`)
     if (statsRes.ok) {
       const stats = await statsRes.json() as { playerCount?: number; totalBets?: number }
-      playerCount = Number(stats.playerCount) || 0
-      totalBets = Number(stats.totalBets) || 0
+      if (typeof stats.playerCount === 'number') playerCount = stats.playerCount
+      if (typeof stats.totalBets === 'number') totalBets = stats.totalBets
     }
   } catch { /* ignore */ }
 
@@ -118,6 +119,7 @@ function FifaOverviewPage() {
       <FifaStatsStrip playerCount={data.playerCount} totalBets={data.totalBets} />
       <FifaHowItWorks />
       <FifaLeaderboardPreview />
+      <FifaFeedMarquee />
       <FifaCtaBand />
     </FifaLayout>
   )

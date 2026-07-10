@@ -64,10 +64,10 @@ export function FifaMatchCarousel() {
           >
             {isLoading &&
               Array.from({ length: 4 }).map((_, i) => <FifaMatchCardSkeleton key={i} />)}
-            {!isLoading && data?.matches.length === 0 && (
+            {!isLoading && (!data?.matches || data.matches.length === 0) && (
               <p className="py-8 text-sm text-[#9a9aa2]">No matches yet. Check back soon.</p>
             )}
-            {data?.matches.map((m) => (
+            {(data?.matches || []).map((m) => (
               <FifaMatchCard
                 key={m.id}
                 match={m}

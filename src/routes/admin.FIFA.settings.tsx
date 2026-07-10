@@ -1,210 +1,233 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { useState, useEffect } from "react"
-import { Loader2 } from "lucide-react"
+import { Loader2, AlertCircle } from "lucide-react"
 import { PanelHeader } from "@/components/admin/panel-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
+import { FifaSettingsSchema, type FifaSettings } from "@/schemas/fifa"
+import { fetchSettings } from "@/lib/api/fifa"
+import { useEffect } from "react"
 
 export const Route = createFileRoute("/admin/FIFA/settings")({
   component: AdminFifaSettings,
 })
 
-interface Settings {
-  id: string
-  event_name: string
-  starting_balance: number
-  max_bet_percent: number
-  daily_topup_threshold: number
-  daily_topup_target: number
-  pool_house_cut_percent: number
-  raffle_tickets_base: number
-  raffle_tickets_decay: number
-  raffle_active_participant_min_bets: number
-  auto_settle_enabled: boolean
-  settle_delay_minutes: number
-  prize: string
-  registration_open: boolean
-  raffle_drawn_at: string
-  raffle_winner: string
-  raffle_seed: string
-}
 
-async function fetchSettings(): Promise<Settings> {
-  const res = await fetch('/api/admin/fifa/settings')
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.error || 'Failed to load settings')
-  }
-  const data = await res.json()
-  return data.settings
+
+async function fetchDraws() {
+  const res = await fetch('/api/admin/fifa/raffle-draws')
+  if (!res.ok) throw new Error('Failed to load draws')
+  return res.json()
 }
 
 function AdminFifaSettings() {
   const queryClient = useQueryClient()
-  const { data, isLoading } = useQuery({ queryKey: ['admin-fifa-settings'], queryFn: fetchSettings })
-  const [form, setForm] = useState<Settings | null>(null)
+  
+  const { data: settingsData, isLoading: settingsLoading } = useQuery({ 
+    queryKey: ['admin-fifa-settings'], 
+    queryFn: fetchSettings 
+  })
+  
+  const { data: drawsData, isLoading: drawsLoading } = useQuery({ 
+    queryKey: ['admin-fifa-raffle-draws'], 
+    queryFn: fetchDraws 
+  })
+
+  const form = useForm<FifaSettings>({
+    resolver: zodResolver(FifaSettingsSchema) as any,
+    defaultValues: {
+      event_name: "IEEE Sahrdaya WC Predict '26",
+      starting_balance: 1000,
+      max_bet_percent: 25,
+      daily_topup_threshold: 100,
+      daily_topup_target: 200,
+      pool_house_cut_percent: 0,
+      raffle_tickets_base: 50,
+      raffle_tickets_decay: 2,
+      raffle_active_participant_min_bets: 5,
+      auto_void_hours: 6,
+      prize: "",
+      registration_open: true,
+    }
+  })
 
   useEffect(() => {
-    if (data) setForm(data)
-  }, [data])
+    if (settingsData) {
+      form.reset(settingsData)
+    }
+  }, [settingsData, form])
 
   const save = useMutation({
-    mutationFn: async () => {
-      if (!form) return
+    mutationFn: async (values: FifaSettings) => {
       const res = await fetch('/api/admin/fifa/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          event_name: form.event_name,
-          starting_balance: Number(form.starting_balance),
-          max_bet_percent: Number(form.max_bet_percent),
-          daily_topup_threshold: Number(form.daily_topup_threshold),
-          daily_topup_target: Number(form.daily_topup_target),
-          pool_house_cut_percent: Number(form.pool_house_cut_percent),
-          raffle_tickets_base: Number(form.raffle_tickets_base),
-          raffle_tickets_decay: Number(form.raffle_tickets_decay),
-          raffle_active_participant_min_bets: Number(form.raffle_active_participant_min_bets),
-          auto_settle_enabled: form.auto_settle_enabled,
-          settle_delay_minutes: Number(form.settle_delay_minutes),
-          prize: form.prize,
-          registration_open: form.registration_open,
-        }),
+        body: JSON.stringify(values),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        throw new Error(err.message || 'Failed to save settings')
+        throw new Error(err.message || err.error || 'Failed to save settings')
       }
       return res.json()
     },
     onSuccess: () => {
-      toast.success('Settings saved')
+      toast.success('Settings saved successfully')
       queryClient.invalidateQueries({ queryKey: ['admin-fifa-settings'] })
     },
     onError: (e: Error) => toast.error(e.message),
   })
 
-  if (isLoading) return <Skeleton className="h-64 w-full" />
-  if (!form) return <p className="text-muted-foreground">Settings not found.</p>
+  if (settingsLoading || drawsLoading) return <Skeleton className="h-64 w-full" />
 
-  const raffleDrawn = Boolean(form.raffle_drawn_at)
+  const target = form.watch("daily_topup_target")
+  const threshold = form.watch("daily_topup_threshold")
+  const topupWarning = target < threshold
+
+  const regOpen = form.watch("registration_open")
+  const hasDraws = drawsData && drawsData.draws && drawsData.draws.length > 0
+  const raffleWarning = regOpen && hasDraws
+
+  const onSubmit = (values: FifaSettings) => {
+    if (values.daily_topup_target < values.daily_topup_threshold) {
+      toast.error("Top-up target must be greater than or equal to threshold")
+      return
+    }
+    save.mutate(values)
+  }
 
   return (
     <div>
-      <PanelHeader eyebrow="WC Predict '26" title="Settings" description="Game economy, top-up, auto-settle, and raffle configuration." />
-      <form onSubmit={(e) => { e.preventDefault(); save.mutate() }} className="max-w-xl space-y-4">
-        <div>
-          <Label htmlFor="event_name">Event name</Label>
-          <Input id="event_name" value={form.event_name} onChange={(e) => setForm({ ...form, event_name: e.target.value })} />
-        </div>
-        <div>
-          <Label htmlFor="prize">Prize (free text)</Label>
-          <Input id="prize" value={form.prize} onChange={(e) => setForm({ ...form, prize: e.target.value })} placeholder="Sponsor voucher" />
-        </div>
-
-        <h3 className="text-sm font-semibold pt-2">Economy</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label htmlFor="starting_balance">Starting balance</Label>
-            <Input id="starting_balance" type="number" value={form.starting_balance} onChange={(e) => setForm({ ...form, starting_balance: Number(e.target.value) })} />
-          </div>
-          <div>
-            <Label htmlFor="max_bet_percent">Max bet %</Label>
-            <Input id="max_bet_percent" type="number" min={1} max={100} value={form.max_bet_percent} onChange={(e) => setForm({ ...form, max_bet_percent: Number(e.target.value) })} />
-          </div>
-        </div>
-
-        <h3 className="text-sm font-semibold pt-2">Daily top-up</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label htmlFor="daily_topup_threshold">Threshold</Label>
-            <Input id="daily_topup_threshold" type="number" value={form.daily_topup_threshold} onChange={(e) => setForm({ ...form, daily_topup_threshold: Number(e.target.value) })} />
-          </div>
-          <div>
-            <Label htmlFor="daily_topup_target">Target</Label>
-            <Input id="daily_topup_target" type="number" value={form.daily_topup_target} onChange={(e) => setForm({ ...form, daily_topup_target: Number(e.target.value) })} />
-          </div>
-        </div>
-
-        <div>
-          <Label htmlFor="pool_house_cut_percent">Pool house cut %</Label>
-          <Input id="pool_house_cut_percent" type="number" min={0} max={100} value={form.pool_house_cut_percent} onChange={(e) => setForm({ ...form, pool_house_cut_percent: Number(e.target.value) })} />
-        </div>
-
-        <h3 className="text-sm font-semibold pt-2">Raffle</h3>
-        <div className="grid grid-cols-3 gap-3">
-          <div>
-            <Label htmlFor="raffle_tickets_base">Tickets base</Label>
-            <Input id="raffle_tickets_base" type="number" value={form.raffle_tickets_base} onChange={(e) => setForm({ ...form, raffle_tickets_base: Number(e.target.value) })} />
-          </div>
-          <div>
-            <Label htmlFor="raffle_tickets_decay">Decay per rank</Label>
-            <Input id="raffle_tickets_decay" type="number" value={form.raffle_tickets_decay} onChange={(e) => setForm({ ...form, raffle_tickets_decay: Number(e.target.value) })} />
-          </div>
-          <div>
-            <Label htmlFor="raffle_active_participant_min_bets">Min bets to enter</Label>
-            <Input id="raffle_active_participant_min_bets" type="number" min={1} value={form.raffle_active_participant_min_bets} onChange={(e) => setForm({ ...form, raffle_active_participant_min_bets: Number(e.target.value) })} />
-          </div>
-        </div>
-
-        {raffleDrawn && (
-          <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
-            <h4 className="text-sm font-semibold">Raffle result</h4>
-            <p className="text-xs text-muted-foreground">Drawn once at end of tournament — read-only.</p>
-            <div className="grid grid-cols-1 gap-2 text-sm">
-              <div>
-                <span className="text-muted-foreground">Winner: </span>
-                <span className="font-medium">{form.raffle_winner || '—'}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Drawn at: </span>
-                <span className="font-medium">{new Date(form.raffle_drawn_at).toLocaleString()}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Seed: </span>
-                <span className="font-mono text-xs">{form.raffle_seed || '—'}</span>
-              </div>
-            </div>
+      <PanelHeader eyebrow="WC Predict '26" title="Settings" description="Game economy, top-up, and raffle configuration." />
+      
+      <div className="max-w-xl space-y-6">
+        {raffleWarning && (
+          <div className="flex items-start gap-3 text-sm text-amber-600 bg-amber-50 p-4 rounded-md border border-amber-200">
+            <AlertCircle className="h-5 w-5 shrink-0" />
+            <p><strong>Warning:</strong> A raffle has already been drawn but registration is still open. You generally want to close registration before or immediately after drawing the final prize.</p>
           </div>
         )}
 
-        <h3 className="text-sm font-semibold pt-2">Auto-settle</h3>
-        <label className="flex items-start gap-2">
-          <input
-            type="checkbox"
-            className="mt-1"
-            checked={form.auto_settle_enabled}
-            onChange={(e) => setForm({ ...form, auto_settle_enabled: e.target.checked })}
-          />
-          <span>
-            <span className="text-sm font-medium">Auto-settle after delay</span>
-            <p className="text-xs text-muted-foreground mt-0.5">When enabled, finished matches settle automatically after the delay below. Disable as a kill switch if ESPN data looks wrong.</p>
-          </span>
-        </label>
-        <div>
-          <Label htmlFor="settle_delay_minutes">Settle delay (minutes)</Label>
-          <Input
-            id="settle_delay_minutes"
-            type="number"
-            min={1}
-            value={form.settle_delay_minutes}
-            onChange={(e) => setForm({ ...form, settle_delay_minutes: Number(e.target.value) })}
-          />
-          <p className="text-xs text-muted-foreground mt-1">Minutes to wait after full-time before auto-settling. Default 15.</p>
-        </div>
+        {topupWarning && (
+          <div className="flex items-start gap-3 text-sm text-destructive bg-destructive/10 p-4 rounded-md border border-destructive/20">
+            <AlertCircle className="h-5 w-5 shrink-0" />
+            <p><strong>Invalid Configuration:</strong> Top-up target must be greater than or equal to threshold. Saving is currently blocked.</p>
+          </div>
+        )}
 
-        <label className="flex items-center gap-2 pt-2">
-          <input type="checkbox" checked={form.registration_open} onChange={(e) => setForm({ ...form, registration_open: e.target.checked })} />
-          <span className="text-sm">Registration open</span>
-        </label>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="event_name">Event name</Label>
+              <Input id="event_name" {...form.register("event_name")} />
+              <p className="text-xs text-muted-foreground mt-1">The public name shown on the homepage and leaderboard</p>
+              {form.formState.errors.event_name && <p className="text-xs text-destructive mt-1">{form.formState.errors.event_name.message}</p>}
+            </div>
+            
+            <div>
+              <Label htmlFor="prize">Prize</Label>
+              <Input id="prize" {...form.register("prize")} placeholder="Sponsor voucher" />
+              <p className="text-xs text-muted-foreground mt-1">Free text description of the prize (shown publicly)</p>
+              {form.formState.errors.prize && <p className="text-xs text-destructive mt-1">{form.formState.errors.prize.message}</p>}
+            </div>
+          </div>
 
-        <Button type="submit" disabled={save.isPending}>
-          {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save settings
-        </Button>
-      </form>
+          <div className="pt-4 border-t border-border">
+            <h3 className="text-sm font-semibold mb-4">Economy</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="starting_balance">Starting balance</Label>
+                <Input id="starting_balance" type="number" {...form.register("starting_balance", { valueAsNumber: true })} />
+                <p className="text-xs text-muted-foreground mt-1">Points granted to every student on first login</p>
+                {form.formState.errors.starting_balance && <p className="text-xs text-destructive mt-1">{form.formState.errors.starting_balance.message}</p>}
+              </div>
+              <div>
+                <Label htmlFor="max_bet_percent">Max bet %</Label>
+                <Input id="max_bet_percent" type="number" min={1} max={100} {...form.register("max_bet_percent", { valueAsNumber: true })} />
+                <p className="text-xs text-muted-foreground mt-1">Maximum % of a user's current balance they can stake in a single bet (1–100)</p>
+                {form.formState.errors.max_bet_percent && <p className="text-xs text-destructive mt-1">{form.formState.errors.max_bet_percent.message}</p>}
+              </div>
+              <div>
+                <Label htmlFor="pool_house_cut_percent">Pool house cut %</Label>
+                <Input id="pool_house_cut_percent" type="number" min={0} max={100} {...form.register("pool_house_cut_percent", { valueAsNumber: true })} />
+                <p className="text-xs text-muted-foreground mt-1">% of pool taken before distributing to winners. 0 = no cut</p>
+                {form.formState.errors.pool_house_cut_percent && <p className="text-xs text-destructive mt-1">{form.formState.errors.pool_house_cut_percent.message}</p>}
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-border">
+            <h3 className="text-sm font-semibold mb-4">Daily top-up</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="daily_topup_threshold">Threshold</Label>
+                <Input id="daily_topup_threshold" type="number" {...form.register("daily_topup_threshold", { valueAsNumber: true })} />
+                <p className="text-xs text-muted-foreground mt-1">Users below this balance get topped up daily at 09:00 server time</p>
+                {form.formState.errors.daily_topup_threshold && <p className="text-xs text-destructive mt-1">{form.formState.errors.daily_topup_threshold.message}</p>}
+              </div>
+              <div>
+                <Label htmlFor="daily_topup_target">Target</Label>
+                <Input id="daily_topup_target" type="number" {...form.register("daily_topup_target", { valueAsNumber: true })} />
+                <p className="text-xs text-muted-foreground mt-1">What their balance gets topped up to (must be &ge; threshold)</p>
+                {form.formState.errors.daily_topup_target && <p className="text-xs text-destructive mt-1">{form.formState.errors.daily_topup_target.message}</p>}
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-border">
+            <h3 className="text-sm font-semibold mb-4">Raffle</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="raffle_tickets_base">Tickets base</Label>
+                <Input id="raffle_tickets_base" type="number" {...form.register("raffle_tickets_base", { valueAsNumber: true })} />
+                <p className="text-xs text-muted-foreground mt-1">Ticket count for rank 1. Formula: max(1, base - decay &times; (rank-1))</p>
+                {form.formState.errors.raffle_tickets_base && <p className="text-xs text-destructive mt-1">{form.formState.errors.raffle_tickets_base.message}</p>}
+              </div>
+              <div>
+                <Label htmlFor="raffle_tickets_decay">Decay per rank</Label>
+                <Input id="raffle_tickets_decay" type="number" {...form.register("raffle_tickets_decay", { valueAsNumber: true })} />
+                <p className="text-xs text-muted-foreground mt-1">How fast tickets drop off per rank</p>
+                {form.formState.errors.raffle_tickets_decay && <p className="text-xs text-destructive mt-1">{form.formState.errors.raffle_tickets_decay.message}</p>}
+              </div>
+              <div>
+                <Label htmlFor="raffle_active_participant_min_bets">Min bets to enter</Label>
+                <Input id="raffle_active_participant_min_bets" type="number" min={0} {...form.register("raffle_active_participant_min_bets", { valueAsNumber: true })} />
+                <p className="text-xs text-muted-foreground mt-1">Minimum bets a user must have placed to enter the raffle</p>
+                {form.formState.errors.raffle_active_participant_min_bets && <p className="text-xs text-destructive mt-1">{form.formState.errors.raffle_active_participant_min_bets.message}</p>}
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-border">
+            <h3 className="text-sm font-semibold mb-4">System</h3>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="auto_void_hours">Auto-void after (hours)</Label>
+                <Input id="auto_void_hours" type="number" min={1} {...form.register("auto_void_hours", { valueAsNumber: true })} />
+                <p className="text-xs text-muted-foreground mt-1">Hours after kickoff before unsettled markets are auto-voided</p>
+                {form.formState.errors.auto_void_hours && <p className="text-xs text-destructive mt-1">{form.formState.errors.auto_void_hours.message}</p>}
+              </div>
+
+              <label className="flex items-center gap-2 p-3 border rounded-md cursor-pointer hover:bg-muted/50 transition-colors">
+                <input type="checkbox" {...form.register("registration_open")} className="h-4 w-4" />
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium">Registration open</span>
+                  <span className="text-xs text-muted-foreground">When off, no new students can join or place bets</span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <Button type="submit" disabled={save.isPending || topupWarning} className="w-full">
+            {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save settings
+          </Button>
+        </form>
+      </div>
     </div>
   )
 }

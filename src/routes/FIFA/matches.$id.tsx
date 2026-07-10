@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createPB } from '@/lib/pb.server'
 import { escapeFilterValue } from '@/lib/pb'
@@ -105,13 +105,40 @@ function MatchDetailPage() {
   const loaderMatch = Route.useLoaderData()
   const { id: matchId } = Route.useParams()
   const { status, signIn } = useAuth()
+  const [isSessionExpired, setIsSessionExpired] = useState(false)
   const queryClient = useQueryClient()
 
-  const { data: match } = useQuery({
+  const effectiveStatus = isSessionExpired ? 'unauthenticated' : status
+
+  const { isConnected: wsConnected } = usePbSubscription('fifa_bet_markets', '*', (e) => {
+    if (e.action === 'update' && matchId) {
+      queryClient.setQueryData(['fifa-match', matchId], (old: MatchDetail | undefined) => {
+        if (!old) return old
+        return {
+          ...old,
+          markets: old.markets.map((m) =>
+            m.id === (e.record as Record<string, unknown>).id
+              ? { ...m, pool_total: Number(getField(e.record, 'pool_total', 0)), pool_by_option: getField(e.record, 'pool_by_option', {}) as Record<string, number> }
+              : m
+          ),
+        }
+      })
+    }
+  })
+
+  const { data: match, refetch: refetchMatch } = useQuery({
     queryKey: ['fifa-match', matchId],
+    queryFn: () => fetchMatch({ data: matchId }),
     initialData: loaderMatch,
     enabled: !!matchId,
+    refetchInterval: wsConnected ? false : 15_000,
   })
+
+  useEffect(() => {
+    if (wsConnected) {
+      refetchMatch()
+    }
+  }, [wsConnected, refetchMatch])
 
   const { data: liveData } = useQuery({
     queryKey: ['fifa-live-scores'],
@@ -136,31 +163,22 @@ function MatchDetailPage() {
     queryKey: ['fifa-dashboard'],
     queryFn: async () => {
       const res = await fetch('/api/fifa/dashboard')
+      if (res.status === 401 || res.status === 403) {
+        setIsSessionExpired(true)
+        toast.error('Your session expired — please log in again', { id: 'session-expired' })
+        throw new Error('Session expired')
+      }
       if (!res.ok) return null
       return res.json() as Promise<{ user: { balance: number }; max_bet_percent?: number }>
     },
-    enabled: status === 'authenticated',
+    enabled: status === 'authenticated' && !isSessionExpired,
     refetchInterval: 15_000,
   })
   const balance = userBalance?.user?.balance ?? 0
   const maxBetPercent = userBalance?.max_bet_percent ?? 25
   const maxBet = Math.floor(balance * maxBetPercent / 100)
 
-  usePbSubscription('fifa_bet_markets', '*', (e) => {
-    if (e.action === 'update' && match) {
-      queryClient.setQueryData(['fifa-match', match.id], (old: MatchDetail | undefined) => {
-        if (!old) return old
-        return {
-          ...old,
-          markets: old.markets.map((m) =>
-            m.id === (e.record as Record<string, unknown>).id
-              ? { ...m, pool_total: Number(getField(e.record, 'pool_total', 0)), pool_by_option: getField(e.record, 'pool_by_option', {}) as Record<string, number> }
-              : m
-          ),
-        }
-      })
-    }
-  })
+  // usePbSubscription was moved above useQuery
 
   if (!match) {
     return (
@@ -247,13 +265,15 @@ function MatchDetailPage() {
         </motion.header>
 
         {/* Auth gate */}
-        {status !== 'authenticated' && !betsLocked && (
+        {effectiveStatus !== 'authenticated' && !betsLocked && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="mb-4 rounded-xl border border-ieee-light-blue/40 bg-ieee-light-blue/5 p-4 text-center"
           >
-            <p className="text-sm text-foreground mb-3">Sign in with your @sahrdaya.ac.in account to place bets.</p>
+            <p className="text-sm text-foreground mb-3">
+              {isSessionExpired ? 'Your session expired. Please sign in again to place bets.' : 'Sign in with your @sahrdaya.ac.in account to place bets.'}
+            </p>
             <button onClick={signIn} className="px-5 py-2.5 rounded-lg bg-ieee-light-blue text-white text-sm font-semibold hover:bg-ieee-blue transition-colors">Sign in with Google</button>
           </motion.div>
         )}
@@ -264,14 +284,22 @@ function MatchDetailPage() {
           </div>
         )}
 
+        {/* Connection status badge */}
+        {!wsConnected && (
+          <div className="mb-4 flex items-center justify-center gap-2 rounded-lg border border-ieee-warning/30 bg-ieee-warning/10 py-1.5 px-3 text-[11px] font-medium text-ieee-warning">
+            <span className="h-1.5 w-1.5 rounded-full bg-ieee-warning animate-pulse" />
+            Live connection dropped — polling every 15s
+          </div>
+        )}
+
         {/* Markets */}
         <div className="space-y-3">
-          {match.markets.map((m, i) => (
+          {match.markets?.map((m, i) => (
             <motion.div key={m.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.1 + i * 0.05 }}>
-              <MarketCard market={m} canBet={status === 'authenticated' && !betsLocked && m.is_open && !m.void} matchId={match.id} maxBet={maxBet} maxBetPercent={maxBetPercent} balance={balance} />
+              <MarketCard market={m} canBet={effectiveStatus === 'authenticated' && !betsLocked && m.is_open && !m.void} matchId={match.id} maxBet={maxBet} maxBetPercent={maxBetPercent} balance={balance} />
             </motion.div>
           ))}
-          {match.markets.length === 0 && (
+          {(!match.markets || match.markets.length === 0) && (
             <p className="text-muted-foreground text-center py-10">No markets open for this match yet.</p>
           )}
         </div>

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { usePbSubscription } from '@/hooks/use-pb-subscription'
@@ -49,6 +50,7 @@ function FeedItem({ ev }: { ev: FeedEvent }) {
 export function FifaFeedMarquee() {
   const reducedMotion = useReducedMotion()
   const queryClient = useQueryClient()
+  const [isPaused, setIsPaused] = useState(false)
 
   const { data, isLoading } = useQuery({
     queryKey: ['fifa-feed'],
@@ -58,6 +60,9 @@ export function FifaFeedMarquee() {
 
   usePbSubscription('fifa_feed_events', '*', (e) => {
     if (e.action === 'create') {
+      setIsPaused(true)
+      setTimeout(() => setIsPaused(false), 300)
+
       queryClient.setQueryData<{ events: FeedEvent[] } | undefined>(['fifa-feed'], (old) => {
         if (!old) return old
         const rec = e.record as Record<string, unknown>
@@ -125,9 +130,15 @@ export function FifaFeedMarquee() {
               ))}
             </div>
           ) : (
-            <div className="fifa-marquee-track flex w-max gap-3 group-hover:[animation-play-state:paused]">
-              {[...events, ...events].map((ev, i) => (
-                <FeedItem key={`${ev.id}-${i}`} ev={ev} />
+            <div 
+              className="fifa-marquee-track flex w-max gap-3 group-hover:[animation-play-state:paused]"
+              style={isPaused ? { animationPlayState: 'paused' } : undefined}
+            >
+              {events.map((ev) => (
+                <FeedItem key={ev.id} ev={ev} />
+              ))}
+              {events.map((ev) => (
+                <FeedItem key={`${ev.id}-clone`} ev={ev} />
               ))}
             </div>
           )}
