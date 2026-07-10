@@ -57,9 +57,9 @@ function FeedPage() {
   })
 
   return (
-    <FifaLayout active="feed">
+    <FifaLayout active="home">
       <div className="mx-auto max-w-2xl px-4 py-6">
-        <h1 className="font-display text-3xl text-ieee-blue mb-1">Live Feed</h1>
+        <h1 className="font-display text-3xl text-ieee-light-blue mb-1 uppercase">Live Feed</h1>
         <p className="text-xs text-muted-foreground mb-4">
           <span className="inline-flex items-center gap-1.5">
             <motion.span

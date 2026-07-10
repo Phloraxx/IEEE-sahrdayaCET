@@ -1,3 +1,5 @@
+import { normalizeTeamName } from '@/lib/fifa-team-names'
+
 // Multi-source WC 2026 live scores + fixtures (FIFA-GAME.md §2.7).
 //
 // Three sources, tried in priority order, mirroring the emrbli/worldcup
@@ -136,7 +138,7 @@ async function fetchFromEspn(): Promise<{ matches: LiveMatch[] }> {
   return { matches: [] }
 }
 
-function normalizeEspnEvent(e: unknown): LiveMatch | null {
+export function normalizeEspnEvent(e: unknown): LiveMatch | null {
   const rec = (e && typeof e === 'object') ? e as Record<string, unknown> : {}
   const competitions = Array.isArray(rec.competitions) ? rec.competitions : []
   const comp = competitions[0]
@@ -293,11 +295,11 @@ export function findLiveMatch(
   teamHome: string,
   teamAway: string,
 ): LiveMatch | null {
-  const h = teamHome.trim().toLowerCase()
-  const a = teamAway.trim().toLowerCase()
+  const h = normalizeTeamName(teamHome)
+  const a = normalizeTeamName(teamAway)
   return live.find((m) => {
-    const mh = m.homeTeam.trim().toLowerCase()
-    const ma = m.awayTeam.trim().toLowerCase()
+    const mh = normalizeTeamName(m.homeTeam)
+    const ma = normalizeTeamName(m.awayTeam)
     return (mh === h && ma === a) || (mh === a && ma === h)
   }) || null
 }

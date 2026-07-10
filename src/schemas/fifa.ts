@@ -64,6 +64,8 @@ export const FifaMatchUpdateSchema = BaseMatchSchema.partial().extend({
   result_advance: z.enum(['home', 'away']).optional(),
   result_after_extra_time: z.boolean().optional(),
   result_after_penalties: z.boolean().optional(),
+  external_ids: z.record(z.string(), z.string()).optional(),
+  auto_settle_at: z.string().optional(),
 })
 
 // ─── Market schemas ─────────────────────────────────────────────────
@@ -105,10 +107,12 @@ export const FifaSettingsSchema = z.object({
   // Raised from 1 → 5 (FIFA-GAME.md §2.4). Gates raffle entry to actual
   // participants so a non-bettor at 1000 pts can't free-ride the draw.
   raffle_active_participant_min_bets: z.number().int().min(0).default(5),
-  // NEW (FIFA-GAME.md §2.3). Auto-void matches whose kickoff was more than
-  // this many hours ago and are still upcoming/live, or finished-but-unsettled
-  // past 48h. Cron runs every 30 min.
-  auto_void_hours: z.number().int().min(1).default(6),
+  auto_settle_enabled: z.boolean().default(false),
+  settle_delay_minutes: z.number().int().min(1).default(15),
+  raffle_drawn_at: z.string().optional(),
+  raffle_winner: z.string().optional(),
+  raffle_seed: z.string().max(200).optional(),
+  raffle_entries_snapshot: z.record(z.string(), z.unknown()).optional(),
   prize: z.string().max(500).default(''),
   registration_open: z.boolean().default(true),
 })

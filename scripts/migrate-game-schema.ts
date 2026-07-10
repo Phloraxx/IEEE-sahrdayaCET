@@ -128,6 +128,8 @@ function matchFields(usersId: string): Record<string, unknown>[] {
     boolField('result_after_extra_time'),
     boolField('result_after_penalties'),
     boolField('settled'),
+    jsonField('external_ids'),
+    dateField('auto_settle_at'),
   ]
 }
 
@@ -173,7 +175,7 @@ function transactionFields(usersId: string, betsId: string): Record<string, unkn
   ]
 }
 
-function settingsFields(): Record<string, unknown>[] {
+function settingsFields(usersId: string): Record<string, unknown>[] {
   return [
     textField('event_name', { max: 200 }),
     numberField('starting_balance'),
@@ -184,8 +186,12 @@ function settingsFields(): Record<string, unknown>[] {
     numberField('raffle_tickets_base'),
     numberField('raffle_tickets_decay'),
     numberField('raffle_active_participant_min_bets'),
-    // NEW (auto-void — see FIFA-GAME.md §2.3):
-    numberField('auto_void_hours'),
+    boolField('auto_settle_enabled'),
+    numberField('settle_delay_minutes'),
+    dateField('raffle_drawn_at'),
+    relationField('raffle_winner', usersId, { cascadeDelete: false }),
+    textField('raffle_seed', { max: 200 }),
+    jsonField('raffle_entries_snapshot'),
     textField('prize', { max: 500 }),
     boolField('registration_open'),
   ]
@@ -378,8 +384,9 @@ async function main(): Promise<void> {
   await createCollection('fifa_bets', betFields(usersId, matchesId, marketsId), BET_INDEXES)
   const betsId = await getCollectionId('fifa_bets')
   await createCollection('fifa_transactions', transactionFields(usersId, betsId), TRANSACTION_INDEXES)
-  await createCollection('fifa_settings', settingsFields(), [])
-  await createCollection('fifa_raffle_draws', raffleDrawsFields(usersId), RAFFLE_INDEXES)
+  await createCollection('fifa_settings', settingsFields(usersId), [])
+  // fifa_raffle_draws: deprecated — raffle result lives on fifa_settings (PR1).
+  // Collection left in place if it already exists; migration no longer creates it.
   await createCollection('fifa_feed_events', feedEventsFields(usersId, matchesId), FEED_INDEXES)
 
   console.log('\nSchema migration complete.')

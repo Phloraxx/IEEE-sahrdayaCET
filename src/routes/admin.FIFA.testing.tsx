@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
-import { AlertTriangle, Loader2, Plus, RefreshCw, Trash2 } from "lucide-react"
+import { AlertTriangle, Loader2, Plus, Trash2 } from "lucide-react"
 import { PanelHeader } from "@/components/admin/panel-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,8 +14,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 
 // Admin testing console (FIFA-GAME.md §2.6). Lets the admin exercise the full
-// bet→settle→payout flow without a live match, adjust balances, trigger the
-// auto-void sweep, and reset the game for pre-launch testing.
+// bet→settle→payout flow without a live match, adjust balances, and reset
+// the game for pre-launch testing.
 export const Route = createFileRoute("/admin/FIFA/testing")({
   component: AdminFifaTesting,
 })
@@ -74,7 +74,7 @@ function AdminFifaTesting() {
       return res.json()
     },
     onSuccess: () => {
-      toast.success('Test match created with all markets')
+      toast.success('Test match created with 4 default markets')
       queryClient.invalidateQueries({ queryKey: ['admin-fifa-matches'] })
     },
     onError: (e: Error) => toast.error(e.message),
@@ -94,24 +94,7 @@ function AdminFifaTesting() {
       return res.json()
     },
     onSuccess: (data) => {
-      toast.success(`Imported ${data.imported} matches, skipped ${data.skipped}`)
-      queryClient.invalidateQueries({ queryKey: ['admin-fifa-matches'] })
-    },
-    onError: (e: Error) => toast.error(e.message),
-  })
-
-  const triggerAutoVoid = useMutation({
-    mutationFn: async () => {
-      const res = await fetch('/api/admin/fifa/testing', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'trigger-auto-void' }),
-      })
-      if (!res.ok) throw new Error('Failed')
-      return res.json()
-    },
-    onSuccess: (data) => {
-      toast.success(`Voided ${data.voided} drifted match(es)`)
+      toast.success(`Imported ${data.imported}, updated ${data.updated ?? 0}, skipped ${data.skipped}`)
       queryClient.invalidateQueries({ queryKey: ['admin-fifa-matches'] })
     },
     onError: (e: Error) => toast.error(e.message),
@@ -122,7 +105,7 @@ function AdminFifaTesting() {
       <PanelHeader
         eyebrow="WC Predict '26"
         title="Testing Console"
-        description="Exercise the full bet → settle → payout flow, adjust balances, void drifted matches, and reset the game for pre-launch testing."
+        description="Exercise the full bet → settle → payout flow, adjust balances, and reset the game for pre-launch testing."
         actions={
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => importFixtures.mutate()} disabled={importFixtures.isPending}>
@@ -136,15 +119,8 @@ function AdminFifaTesting() {
       />
 
       {/* Quick actions */}
-      <div className="grid gap-3 md:grid-cols-2 mb-6">
+      <div className="mb-6">
         <BalanceAdjustCard />
-        <div className="rounded-lg border bg-card p-4">
-          <h3 className="text-sm font-semibold mb-2">Auto-void sweep</h3>
-          <p className="text-xs text-muted-foreground mb-3">Voids matches whose settle window expired (kickoff &gt; auto_void_hours ago, or finished-but-unsettled &gt; 48h). The cron runs every 30 min; this triggers it immediately.</p>
-          <Button variant="outline" size="sm" onClick={() => triggerAutoVoid.mutate()} disabled={triggerAutoVoid.isPending}>
-            <RefreshCw className="mr-2 h-4 w-4" /> Trigger now
-          </Button>
-        </div>
       </div>
 
       {/* Matches + bets */}

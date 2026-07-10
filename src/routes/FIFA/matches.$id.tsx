@@ -83,7 +83,7 @@ const fetchMatch = createServerFn()
           mode: getField(mkt, 'mode', 'pool'),
           line: getField(mkt, 'line', 0),
           fixed_odds: getField(mkt, 'fixed_odds', null),
-          options: getField(mkt, 'options', []),
+          options: (getField(mkt, 'options', []) ?? []) as string[],
           is_open: getField(mkt, 'is_open', true),
           void: getField(mkt, 'void', false),
           pool_total: getField(mkt, 'pool_total', 0),
@@ -336,7 +336,7 @@ function MarketCard({ market, canBet, matchId, maxBet, maxBetPercent, balance }:
 
       {/* Options */}
       <div className="space-y-2">
-        {market.options.map((opt) => {
+        {(market.options ?? []).map((opt) => {
           const isSelected = selection === opt
           const poolShare = poolTotal > 0 ? ((market.pool_by_option[opt] || 0) / poolTotal) * 100 : 0
           const odds = oddsFor(opt)
