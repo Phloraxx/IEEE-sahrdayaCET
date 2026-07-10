@@ -13,6 +13,7 @@ import {
   ScanLine,
   Settings,
   Sun,
+  Ticket,
   Trophy,
   UserCheck,
   Users,
