@@ -15,6 +15,8 @@ import { FifaCtaBand } from '@/features/fifa/fifa-cta-band'
 interface OverviewData {
   prize: string
   starting_balance: number
+  max_bet_percent: number
+  raffle_active_participant_min_bets: number
   nextMatch: {
     id: string
     team_home: string
@@ -30,12 +32,14 @@ interface OverviewData {
 
 const fetchOverview = createServerFn().handler(async (): Promise<OverviewData> => {
   const pb = createPB()
-  let settings = { prize: '', starting_balance: 1000 }
+  let settings = { prize: '', starting_balance: 1000, max_bet_percent: 25, raffle_active_participant_min_bets: 5 }
   try {
     const s = await pb.collection('fifa_settings').getFirstListItem('1=1')
     settings = {
       prize: getField(s, 'prize', ''),
       starting_balance: Number(getField(s, 'starting_balance', 1000)) || 1000,
+      max_bet_percent: Number(getField(s, 'max_bet_percent', 25)) || 25,
+      raffle_active_participant_min_bets: Number(getField(s, 'raffle_active_participant_min_bets', 5)) || 5,
     }
   } catch { /* not seeded yet */ }
 
@@ -117,7 +121,11 @@ function FifaOverviewPage() {
       />
       <FifaMatchCarousel />
       <FifaStatsStrip playerCount={data.playerCount} totalBets={data.totalBets} />
-      <FifaHowItWorks />
+      <FifaHowItWorks 
+        startingBalance={data.starting_balance}
+        maxBetPercent={data.max_bet_percent}
+        raffleMinBets={data.raffle_active_participant_min_bets}
+      />
       <FifaLeaderboardPreview />
       <FifaFeedMarquee />
       <FifaCtaBand />
