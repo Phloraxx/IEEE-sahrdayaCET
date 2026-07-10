@@ -105,6 +105,7 @@ export const Route = createFileRoute("/api/fifa/bets")({
                 market: parsed.market,
                 selection: parsed.selection,
                 stake: parsed.stake,
+                user: user.id,
               }),
             });
             const bet = await res.json();
