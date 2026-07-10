@@ -63,18 +63,8 @@ function applyDelta(userId, type, delta, refBetId, note) {
 }
 
 function emitFeedEvent(type, userId, matchId, message) {
-    try {
-        var col = $app.findCollectionByNameOrId("fifa_feed_events")
-        var ev = new Record(col, {
-            type: type,
-            user: userId || "",
-            match: matchId || "",
-            message: message || "",
-        })
-        $app.saveNoValidate(ev)
-    } catch (err) {
-        console.log("[fifa] emitFeedEvent failed: " + err)
-    }
+    // No-op — social feed removed (FIFA-AUTOMATION.md PR1).
+    return
 }
 
 // Returns a display name for a user record. Falls back to "Player <short-id>"

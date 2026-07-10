@@ -140,14 +140,7 @@ function wrapHandlerWithSecurityHeaders(handler) {
           let pbBody = undefined;
           if (isRealtimeSubscribe) {
             const buf = await readBodyLimited(req);
-            if (buf && buf.length > 0) {
-              pbBody = new ReadableStream({
-                start(controller) {
-                  controller.enqueue(new Uint8Array(buf));
-                  controller.close();
-                }
-              });
-            }
+            if (buf && buf.length > 0) pbBody = buf;
           }
           const pbRes = await globalFetch(targetUrl, { method: req.method, headers: pbHeaders, body: pbBody });
           addSecurityHeaders(res);
@@ -158,13 +151,15 @@ function wrapHandlerWithSecurityHeaders(handler) {
           res.end();
         } catch (err) {
           console.error('[pb-proxy] Error:', err);
-          addSecurityHeaders(res);
-          if (err.message === 'PAYLOAD_TOO_LARGE') {
-            res.writeHead(413, { 'Content-Type': 'text/plain' });
-            res.end('Payload Too Large');
-          } else {
-            res.writeHead(502, { 'Content-Type': 'text/plain' });
-            res.end('Bad Gateway: ' + (err.message || 'Unknown error'));
+          if (!res.headersSent) {
+            addSecurityHeaders(res);
+            if (err.message === 'PAYLOAD_TOO_LARGE') {
+              res.writeHead(413, { 'Content-Type': 'text/plain' });
+              res.end('Payload Too Large');
+            } else {
+              res.writeHead(502, { 'Content-Type': 'text/plain' });
+              res.end('Bad Gateway: ' + (err.message || 'Unknown error'));
+            }
           }
         }
         return;
@@ -244,14 +239,7 @@ function simpleNodeHandler(fetch) {
     let body = undefined;
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       const buf = await readBodyLimited(req);
-      if (buf && buf.length > 0) {
-        body = new ReadableStream({
-          start(controller) {
-            controller.enqueue(new Uint8Array(buf));
-            controller.close();
-          }
-        });
-      }
+      if (buf && buf.length > 0) body = buf;
     }
 
     const request = new Request(url, {
