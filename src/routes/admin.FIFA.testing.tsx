@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute, Link, redirect } from "@tanstack/react-router"
+import { createServerFn } from '@tanstack/react-start'
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { AlertTriangle, Loader2, Plus, Trash2 } from "lucide-react"
@@ -13,10 +14,27 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 
+const checkAdminAccess = createServerFn().handler(async () => {
+  const { authenticateAdmin } = await import('@/lib/admin-middleware')
+  try {
+    const { role } = await authenticateAdmin()
+    if (role !== "admin") {
+      throw redirect({ to: "/admin" })
+    }
+    return { ok: true }
+  } catch (e) {
+    if (e instanceof Response) throw e
+    throw redirect({ to: '/' })
+  }
+})
+
 // Admin testing console (FIFA-GAME.md §2.6). Lets the admin exercise the full
 // bet→settle→payout flow without a live match, adjust balances, and reset
 // the game for pre-launch testing.
 export const Route = createFileRoute("/admin/FIFA/testing")({
+  beforeLoad: async () => {
+    await checkAdminAccess()
+  },
   component: AdminFifaTesting,
 })
 
@@ -102,6 +120,10 @@ function AdminFifaTesting() {
 
   return (
     <div>
+      <div className="mb-6 flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm font-medium text-destructive">
+        <AlertTriangle className="h-4 w-4" />
+        ⚠️ TESTING ONLY — These tools will directly mutate live balances and game state. Do not use in production.
+      </div>
       <PanelHeader
         eyebrow="WC Predict '26"
         title="Testing Console"
