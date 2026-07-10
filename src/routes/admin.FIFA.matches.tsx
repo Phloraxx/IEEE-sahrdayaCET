@@ -39,6 +39,7 @@ interface MatchRow {
   kickoff_at: string
   status: string
   settled: boolean
+  auto_settle_at?: string
   result_winner?: string
   result_home_goals?: number
   result_away_goals?: number
@@ -429,7 +430,14 @@ function SettleSection({ match }: { match: MatchRow }) {
 
   return (
     <section>
-      <h3 className="text-sm font-semibold mb-3">Settlement</h3>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold">Settlement</h3>
+      </div>
+      {match.auto_settle_at && new Date(match.auto_settle_at).getTime() > Date.now() && (
+        <div className="mb-4 rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-600">
+          <strong>Warning:</strong> This match will be automatically settled via ESPN sync at {new Date(match.auto_settle_at).toLocaleString()}. Manual settlement will override the auto-sync.
+        </div>
+      )}
       <SettleForm matchId={match.id} stage={match.stage} />
     </section>
   )
