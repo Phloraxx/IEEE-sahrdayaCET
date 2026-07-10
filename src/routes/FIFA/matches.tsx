@@ -99,12 +99,12 @@ function MatchesPage() {
           </div>
         )}
 
-        {!isLoading && data?.matches.length === 0 && (
+        {!isLoading && (!data?.matches || data.matches.length === 0) && (
           <p className="text-[#9a9aa2]">No matches yet. Check back soon.</p>
         )}
 
         <div className="flex flex-wrap gap-4">
-          {data?.matches.map((m) => (
+          {(data?.matches || []).map((m) => (
             <FifaMatchCard
               key={m.id}
               match={m}

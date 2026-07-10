@@ -65,7 +65,7 @@ export function FifaMatchCard({
     ? findLiveMatch(match.team_home, match.team_away, liveMatches)
     : null
   const showLive = (liveMatch && isLiveStatus(liveMatch.status)) || match.status === 'live'
-  const openMarkets = match.markets?.filter((m) => m.is_open && !m.void).length ?? 0
+  const openMarkets = (match.markets || []).filter((m) => m.is_open && !m.void).length
 
   return (
     <Link
