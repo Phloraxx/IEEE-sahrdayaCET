@@ -137,7 +137,7 @@ async function fetchFromEspn(): Promise<{ matches: LiveMatch[] }> {
   return { matches: [] }
 }
 
-function normalizeEspnEvent(e: unknown): LiveMatch | null {
+export function normalizeEspnEvent(e: unknown): LiveMatch | null {
   const rec = (e && typeof e === 'object') ? e as Record<string, unknown> : {}
   const competitions = Array.isArray(rec.competitions) ? rec.competitions : []
   const comp = competitions[0]

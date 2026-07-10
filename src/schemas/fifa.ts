@@ -109,6 +109,7 @@ export const FifaSettingsSchema = z.object({
   raffle_active_participant_min_bets: z.number().int().min(0).default(5),
   auto_settle_enabled: z.boolean().default(false),
   settle_delay_minutes: z.number().int().min(1).default(15),
+  auto_void_hours: z.number().int().min(0).max(168).default(48),
   raffle_drawn_at: z.string().optional(),
   raffle_winner: z.string().optional(),
   raffle_seed: z.string().max(200).optional(),
