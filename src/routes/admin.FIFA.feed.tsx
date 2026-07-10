@@ -179,7 +179,7 @@ function AdminFifaFeed() {
                     <span>{event.message}</span>
                     {event.type === 'system' && (
                       <span className="text-[10px] text-muted-foreground flex items-center gap-1 bg-muted/50 p-1 rounded-sm w-fit">
-                        <Info className="h-3 w-3" /> System events trace TOCTOU voids and errors. Do not delete them unless strictly necessary.
+                        <Info className="h-3 w-3" /> This is an automatic audit trace from a concurrent bet race condition. Do not delete — it is required for ledger integrity.
                       </span>
                     )}
                   </div>
