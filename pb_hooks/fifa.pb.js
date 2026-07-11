@@ -617,7 +617,10 @@ routerAdd("GET", "/api/fifa/leaderboard", function (e) {
         var rows = []
         for (var i = 0; i < users.length; i++) {
             var u = users[i]
-            var displayName = displayName(u)
+            // NOTE: use a distinct local name — `var displayName` would hoist
+            // and shadow the top-level displayName() helper, making this call
+            // throw "displayName is not a function".
+            var dName = displayName(u)
             // Count the user's bets. limit=0 means no limit in PB's
             // findRecordsByFilter, so .length is the true count. At ~100
             // players this is fine; would denormalize into a counter at scale.
@@ -633,7 +636,7 @@ routerAdd("GET", "/api/fifa/leaderboard", function (e) {
             } catch (err) { betCount = 0 }
             rows.push({
                 id: u.id,
-                display_name: displayName,
+                display_name: dName,
                 balance: u.getInt("balance") || 0,
                 bets_count: betCount,
             })
@@ -665,12 +668,19 @@ routerAdd("GET", "/api/fifa/leaderboard", function (e) {
                 bets_count: r.bets_count,
             })
         }
-        var settings = fh.getFifaSettings()
+        var settings = getFifaSettings()
+        // Defaults only apply when no fifa_settings record exists at all —
+        // once a record exists, trust its stored values verbatim (0 is a
+        // valid, intentional config, e.g. no minimum-bets requirement).
+        // min_bets default of 5 matches the documented design value
+        // (FIFA-GAME.md §2.4, seeded by scripts/migrate-game-backfill.ts) —
+        // keep it in sync with the /api/fifa/raffle draw route's own
+        // no-settings behavior below.
         var raffleBase = 50, raffleDecay = 2, minBets = 5
         if (settings) {
-            raffleBase = settings.getInt("raffle_tickets_base") || 50
-            raffleDecay = settings.getInt("raffle_tickets_decay") || 2
-            minBets = settings.getInt("raffle_active_participant_min_bets") || 5
+            raffleBase = settings.getInt("raffle_tickets_base")
+            raffleDecay = settings.getInt("raffle_tickets_decay")
+            minBets = settings.getInt("raffle_active_participant_min_bets")
         }
         return e.json(200, { 
             leaderboard: ranked, 
@@ -1194,6 +1204,98 @@ cronAdd("fifa-daily-topup", "0 9 * * *", function () {
     }
 })
 
+// ─── Auto-void safety net cron (FIFA-GAME.md §2.3) ──────────────────
+// Runs every 30 min. Voids matches whose settlement was never entered so
+// stakes don't freeze forever on an admin no-show:
+//   • upcoming | live  and kickoff was > auto_void_hours ago  → void
+//   • finished & !settled and kickoff was > 48h ago           → void (hard net)
+// Setting status='void' + voiding each market triggers the existing
+// market-void refund hook (onRecordAfterUpdateSuccess on fifa_bet_markets),
+// mirroring the proven pattern in fifa-espn-sync.
+cronAdd("fifa-auto-void", "*/30 * * * *", function () {
+    var _getFifaSettings = function() {
+        try { return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (ex) { return null }
+    }
+    // Inline market void — flips void=true so the market-void refund hook fires.
+    var _voidMatchMarketsInline = function(matchId) {
+        try {
+            var markets = $app.findRecordsByFilter(
+                "fifa_bet_markets",
+                "match = {:matchId}",
+                "", 0, 0,
+                { matchId: matchId }
+            )
+            for (var i = 0; i < markets.length; i++) {
+                var mk = markets[i]
+                if (!mk.getBool("void")) {
+                    mk.set("void", true)
+                    mk.set("is_open", false)
+                    $app.saveNoValidate(mk)
+                }
+            }
+        } catch (err) {
+            console.log("[fifa] auto-void: void markets failed for " + matchId + ": " + err)
+        }
+    }
+
+    var settings = _getFifaSettings()
+    if (!settings) { return }
+    var autoVoidHours = settings.getInt("auto_void_hours")
+    if (autoVoidHours === null || autoVoidHours === undefined || autoVoidHours <= 0) {
+        autoVoidHours = 6
+    }
+    var nowMs = Date.now()
+    var upcomingLiveCutoffMs = autoVoidHours * 60 * 60 * 1000
+    var finishedCutoffMs = 48 * 60 * 60 * 1000
+
+    var matches = []
+    try {
+        matches = $app.findRecordsByFilter(
+            "fifa_matches",
+            "status != {:void}",
+            "kickoff_at",
+            500, 0,
+            { void: "void" }
+        )
+    } catch (err) {
+        console.log("[fifa] auto-void: failed to list matches: " + err)
+        return
+    }
+
+    var voided = 0
+    for (var i = 0; i < matches.length; i++) {
+        var m = matches[i]
+        var status = m.getString("status") || "upcoming"
+        var kickoffStr = m.getString("kickoff_at") || ""
+        if (!kickoffStr) { continue }
+        var kickoffMs = new Date(kickoffStr).getTime()
+        if (isNaN(kickoffMs)) { continue }
+        var ageMs = nowMs - kickoffMs
+        if (ageMs <= 0) { continue }
+
+        var shouldVoid = false
+        if ((status === "upcoming" || status === "live") && ageMs > upcomingLiveCutoffMs) {
+            shouldVoid = true
+        } else if (status === "finished" && !m.getBool("settled") && ageMs > finishedCutoffMs) {
+            shouldVoid = true
+        }
+        if (!shouldVoid) { continue }
+
+        try {
+            m.set("status", "void")
+            $app.saveNoValidate(m)
+            _voidMatchMarketsInline(m.id)
+            voided++
+        } catch (err) {
+            console.log("[fifa] auto-void: failed to void match " + m.id + ": " + err)
+        }
+    }
+
+    if (voided > 0) {
+        console.log("[fifa] auto-void: voided " + voided + " unsettled match(es)")
+    }
+})
+
 // ─── Phase 9b: Admin balance adjust (FIFA-GAME.md §2.6) ─────────────
 // POST /api/fifa/admin-adjust
 // Body: { userId, amount, note }
@@ -1442,9 +1544,12 @@ routerAdd("POST", "/api/fifa/raffle", function (e) {
     if (drawnAt) {
         return e.json(400, { error: "Raffle already drawn" })
     }
-    var base = settings.getInt("raffle_tickets_base") || 50
-    var decay = settings.getInt("raffle_tickets_decay") || 2
-    var minBets = settings.getInt("raffle_active_participant_min_bets") || 1
+    // Settings record exists (checked above) — trust its stored values
+    // verbatim, including 0, rather than silently overriding an
+    // intentional zero with a hardcoded default.
+    var base = settings.getInt("raffle_tickets_base")
+    var decay = settings.getInt("raffle_tickets_decay")
+    var minBets = settings.getInt("raffle_active_participant_min_bets")
 
     // ─── Build leaderboard (ranked by balance desc, tiebreak bets_count) ─
     // Mirrors the /api/fifa/leaderboard route so raffle rank == leaderboard
@@ -1844,6 +1949,14 @@ cronAdd("fifa-espn-sync", "*/2 * * * *", function () {
         var houseCutPercent = settingsRec.getInt("pool_house_cut_percent") || 0
         var settledCount = 0
 
+        // ESPN scoreboard only yields the reliable 90-min score — it carries NO
+        // scorer list and NO card counts. Auto-settling scorer/cards/custom
+        // markets from that thin snapshot would void every scorer bet and
+        // settle cards against a phantom 0, paying out the wrong side. So the
+        // ESPN cron only settles markets fully determined by the score; the
+        // rest stay pending for the admin. Because those bets remain pending,
+        // the match is NOT marked settled and admin settlement finishes it.
+        var AUTO_SETTLE_TYPES = { match_winner: true, correct_score: true, total_goals_ou: true, clean_sheet: true }
         for (var mi = 0; mi < markets.length; mi++) {
             var market = markets[mi]
             var marketId = market.id
@@ -1851,6 +1964,7 @@ cronAdd("fifa-espn-sync", "*/2 * * * *", function () {
             var marketMode = market.getString("mode") || "pool"
             var line = getRecordFloat(market, "line")
             if (market.getBool("void")) continue
+            if (!AUTO_SETTLE_TYPES[marketType]) continue
 
             var bets = $app.findRecordsByFilter(
                 "fifa_bets",

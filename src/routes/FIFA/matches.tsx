@@ -92,7 +92,7 @@ function MatchesPage() {
   })
   
   const upcoming = matches.filter(m => !live.includes(m) && (m.status === 'upcoming'))
-  const finished = matches.filter(m => !live.includes(m) && (m.status === 'finished' || m.settled))
+  const finished = matches.filter(m => !live.includes(m) && (m.status === 'finished' || m.status === 'void' || m.settled))
 
   return (
     <FifaLayout active="matches">
@@ -111,7 +111,7 @@ function MatchesPage() {
           {isLoading && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {Array.from({ length: 6 }).map((_, i) => (
-                <FifaMatchCardSkeleton key={i} />
+                <FifaMatchCardSkeleton key={i} className="!w-full" />
               ))}
             </div>
           )}

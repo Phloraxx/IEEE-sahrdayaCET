@@ -103,6 +103,23 @@ export const Route = createFileRoute('/FIFA/matches/$id')({
   component: MatchDetailPage,
 })
 
+function sortCorrectScores(options: string[]) {
+  const common = ['1-0', '2-0', '2-1', '1-1', '0-0', '0-1', '0-2', '1-2']
+  return [...options].sort((a, b) => {
+    const iA = common.indexOf(a)
+    const iB = common.indexOf(b)
+    if (iA !== -1 && iB !== -1) return iA - iB
+    if (iA !== -1) return -1
+    if (iB !== -1) return 1
+    const [hA, aA] = a.split('-').map(Number)
+    const [hB, aB] = b.split('-').map(Number)
+    const tgA = (hA || 0) + (aA || 0)
+    const tgB = (hB || 0) + (aB || 0)
+    if (tgA !== tgB) return tgA - tgB
+    return (hB || 0) - (hA || 0)
+  })
+}
+
 function MatchDetailPage() {
   const loaderMatch = Route.useLoaderData()
   const { id: matchId } = Route.useParams()
@@ -114,7 +131,11 @@ function MatchDetailPage() {
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null)
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
   const [stake, setStake] = useState<number>(0)
-  const [hasSetInitialStake, setHasSetInitialStake] = useState(false)
+  const [hasUserEditedStake, setHasUserEditedStake] = useState(false)
+  const handleSetStake = (v: number) => {
+    setHasUserEditedStake(true)
+    setStake(v)
+  }
 
   const effectiveStatus = isSessionExpired ? 'unauthenticated' : status
 
@@ -126,7 +147,13 @@ function MatchDetailPage() {
           ...old,
           markets: old.markets.map((m) =>
             m.id === (e.record as Record<string, unknown>).id
-              ? { ...m, pool_total: Number(getField(e.record, 'pool_total', 0)), pool_by_option: getField(e.record, 'pool_by_option', {}) as Record<string, number> }
+              ? {
+                  ...m,
+                  pool_total: Number(getField(e.record, 'pool_total', 0)),
+                  pool_by_option: getField(e.record, 'pool_by_option', {}) as Record<string, number>,
+                  is_open: getField(e.record, 'is_open', m.is_open),
+                  void: getField(e.record, 'void', m.void),
+                }
               : m
           ),
         }
@@ -184,13 +211,18 @@ function MatchDetailPage() {
   const maxBetPercent = userBalance?.max_bet_percent ?? 25
   const maxBet = Math.floor(balance * maxBetPercent / 100)
 
-  // Auto-set stake when maxBet changes initially
+  // Keep the default stake pinned to maxBet until the user manually edits
+  // it; once edited, only pull it back down if it's grown invalid (maxBet
+  // shrank below the user's chosen stake) rather than silently overwriting
+  // a deliberate choice.
   useEffect(() => {
-    if (!hasSetInitialStake && maxBet > 0) {
+    if (maxBet <= 0) return
+    if (!hasUserEditedStake) {
       setStake(Math.min(50, Math.max(1, maxBet)))
-      setHasSetInitialStake(true)
+    } else if (stake > maxBet) {
+      setStake(maxBet)
     }
-  }, [maxBet, hasSetInitialStake])
+  }, [maxBet, hasUserEditedStake, stake])
 
   if (!match) {
     return (
@@ -227,6 +259,22 @@ function MatchDetailPage() {
     }
   }
 
+  const bettingSlipProps = {
+    matchId: match.id,
+    canBet: effectiveStatus === 'authenticated' && !betsLocked,
+    market: match.markets.find((m) => m.id === selectedMarketId) || null,
+    selection: selectedOption,
+    stake,
+    setStake: handleSetStake,
+    maxBet,
+    maxBetPercent,
+    balance,
+    onClear: () => {
+      setSelectedMarketId(null)
+      setSelectedOption(null)
+    },
+  }
+
   return (
     <FifaLayout active="matches">
       <div className="w-full flex-1 flex flex-col bg-[#0a0a0b]">
@@ -245,19 +293,18 @@ function MatchDetailPage() {
                 transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
                 className="relative rounded-2xl border border-border bg-[#101823] overflow-hidden shadow-sm"
               >
-                {asset.imageUrl ? (
-                  <div
-                    className="absolute inset-0 bg-cover bg-no-repeat"
-                    style={{
-                      backgroundImage: `url("${asset.imageUrl}")`,
-                      backgroundPosition: asset.position,
-                      opacity: 0.6,
-                    }}
-                  />
-                ) : (
+                <div
+                  className="absolute inset-0 bg-cover bg-no-repeat"
+                  style={{
+                    backgroundImage: `url("${asset.imageUrl}")`,
+                    backgroundPosition: asset.position,
+                    opacity: 0.6,
+                  }}
+                />
+                {asset.isFallback && (
                   <div
                     className="absolute inset-0"
-                    style={{ background: `linear-gradient(135deg, ${stageColor}88, #101823)` }}
+                    style={{ background: `linear-gradient(135deg, ${stageColor}66, transparent)` }}
                   />
                 )}
                 <div
@@ -368,29 +415,30 @@ function MatchDetailPage() {
               </div>
             </div>
 
-            {/* RIGHT COLUMN: Sticky Slip */}
-            <div className="relative">
+            {/* RIGHT COLUMN: Sticky Slip (desktop) */}
+            <div className="relative hidden lg:block">
               <div className="sticky top-24">
-                <BettingSlip
-                  matchId={match.id}
-                  canBet={effectiveStatus === 'authenticated' && !betsLocked}
-                  market={match.markets.find(m => m.id === selectedMarketId) || null}
-                  selection={selectedOption}
-                  stake={stake}
-                  setStake={setStake}
-                  maxBet={maxBet}
-                  maxBetPercent={maxBetPercent}
-                  balance={balance}
-                  onClear={() => {
-                    setSelectedMarketId(null)
-                    setSelectedOption(null)
-                  }}
-                />
+                <BettingSlip {...bettingSlipProps} />
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Mobile Betting Slip Bottom Sheet */}
+      <AnimatePresence>
+        {bettingSlipProps.canBet && selectedMarketId && selectedOption && (
+          <motion.div
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
+            className="fixed inset-x-0 bottom-0 z-50 lg:hidden max-h-[85vh] overflow-y-auto shadow-[0_-10px_40px_rgba(0,0,0,0.5)]"
+          >
+            <BettingSlip {...bettingSlipProps} />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </FifaLayout>
   )
 }
@@ -400,6 +448,7 @@ function MarketCard({ market, canBet, isSelected, selectedOption, onSelectOption
   const oddsFor = (opt: string): number | null => (market.mode === 'fixed' && market.fixed_odds) ? (market.fixed_odds[opt] ?? null) : null
   
   const isCorrectScore = market.market_type === 'correct_score'
+  const options = isCorrectScore ? sortCorrectScores(market.options ?? []) : (market.options ?? [])
 
   return (
     <section className={`rounded-xl border bg-card p-5 h-full flex flex-col transition-colors ${isSelected ? 'border-ieee-blue shadow-[0_0_15px_rgba(30,136,229,0.15)]' : 'border-border'}`}>
@@ -417,7 +466,7 @@ function MarketCard({ market, canBet, isSelected, selectedOption, onSelectOption
       {!market.is_open && !market.void && <p className="text-sm font-semibold text-muted-foreground mb-4 p-2 bg-muted/20 rounded-md border border-border">Market closed.</p>}
 
       <div className={`mt-auto ${isCorrectScore ? 'grid grid-cols-3 md:grid-cols-4 gap-2' : 'space-y-2'}`}>
-        {(market.options ?? []).map((opt) => {
+        {options.map((opt) => {
           const isActive = isSelected && selectedOption === opt
           const poolShare = poolTotal > 0 ? ((market.pool_by_option[opt] || 0) / poolTotal) * 100 : 0
           const odds = oddsFor(opt)
@@ -483,15 +532,19 @@ function BettingSlip({ matchId, canBet, market, selection, stake, setStake, maxB
   matchId: string; canBet: boolean; market: Market | null; selection: string | null; stake: number; setStake: (v: number) => void; maxBet: number; maxBetPercent: number; balance: number; onClear: () => void
 }) {
   const queryClient = useQueryClient()
-  const effectiveStake = stake // Don't silently cap the user's input
+  // Floor once, up front — every displayed number (potential return, quick-
+  // stake highlight, button label, max-limit check) and the submitted
+  // payload must agree on the same integer value.
+  const effectiveStake = Math.max(0, Math.floor(stake))
 
   const placeBet = useMutation({
     mutationFn: async () => {
       if (!market || !selection) throw new Error('Pick an option first')
+      if (market.void || !market.is_open) throw new Error('This market is no longer open for betting')
       const res = await fetch('/api/fifa/bets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ market: market.id, match: matchId, selection, stake: Math.floor(effectiveStake) }),
+        body: JSON.stringify({ market: market.id, match: matchId, selection, stake: effectiveStake }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
@@ -529,6 +582,18 @@ function BettingSlip({ matchId, canBet, market, selection, stake, setStake, maxB
     )
   }
 
+  if (market.void || !market.is_open) {
+    return (
+      <div className="rounded-xl border border-ieee-danger/30 bg-ieee-danger/5 p-8 text-center flex flex-col items-center justify-center min-h-[300px]">
+        <h3 className="font-display text-xl text-foreground mb-2">Betting Slip</h3>
+        <p className="text-sm text-ieee-danger font-medium mb-4">
+          {market.void ? 'This market has been voided.' : 'This market just closed.'}
+        </p>
+        <button onClick={onClear} className="text-xs font-semibold text-muted-foreground hover:text-foreground">Pick another option</button>
+      </div>
+    )
+  }
+
   const odds = (market.mode === 'fixed' && market.fixed_odds) ? market.fixed_odds[selection] : null
   const potentialReturn = odds ? Math.round(effectiveStake * odds) : null
 
@@ -558,11 +623,12 @@ function BettingSlip({ matchId, canBet, market, selection, stake, setStake, maxB
             <input
               type="number"
               min={1}
+              step={1}
               max={maxBet || undefined}
-              value={stake || ''}
+              value={stake}
               onChange={(e) => {
-                const v = e.target.value
-                setStake(v === '' ? 0 : Number(v))
+                const n = Number(e.target.value)
+                setStake(Number.isNaN(n) ? 0 : Math.floor(n))
               }}
               className="w-full rounded-lg border border-border bg-[#111113] px-4 py-3 text-lg font-mono font-bold text-foreground focus:border-ieee-blue focus:ring-1 focus:ring-ieee-blue transition-colors"
             />

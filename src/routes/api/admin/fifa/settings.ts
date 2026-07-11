@@ -33,6 +33,7 @@ export const Route = createFileRoute("/api/admin/fifa/settings")({
                 raffle_active_participant_min_bets: getField(s, 'raffle_active_participant_min_bets', 5),
                 auto_settle_enabled: getField(s, 'auto_settle_enabled', false),
                 settle_delay_minutes: getField(s, 'settle_delay_minutes', 15),
+                auto_void_hours: getField(s, 'auto_void_hours', 6),
                 prize: getField(s, 'prize', ''),
                 registration_open: getField(s, 'registration_open', true),
                 raffle_drawn_at: getField(s, 'raffle_drawn_at', ''),

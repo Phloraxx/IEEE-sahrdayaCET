@@ -6,7 +6,11 @@ import path from 'path'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  Object.assign(process.env, env)
+  // Fill gaps only — never clobber real process.env values (e.g. secrets
+  // injected by the deploy environment) with a stale/placeholder .env entry.
+  for (const key of Object.keys(env)) {
+    if (process.env[key] === undefined) process.env[key] = env[key]
+  }
   const pbUrl = env.POCKETBASE_URL || 'http://127.0.0.1:8090'
 
   return {

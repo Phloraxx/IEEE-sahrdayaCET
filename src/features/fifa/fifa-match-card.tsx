@@ -79,19 +79,18 @@ export function FifaMatchCard({
         style={{ background: stageColor }}
       />
 
-      {asset.imageUrl ? (
-        <div
-          className="absolute inset-0 scale-[1.04] bg-cover transition-[transform,filter] duration-500 group-hover:scale-[1.14]"
-          style={{
-            backgroundImage: `url("${asset.imageUrl}")`,
-            backgroundPosition: asset.position,
-          }}
-        />
-      ) : (
+      <div
+        className="absolute inset-0 scale-[1.04] bg-cover transition-[transform,filter] duration-500 group-hover:scale-[1.14]"
+        style={{
+          backgroundImage: `url("${asset.imageUrl}")`,
+          backgroundPosition: asset.position,
+        }}
+      />
+      {asset.isFallback && (
         <div
           className="absolute inset-0"
           style={{
-            background: `linear-gradient(135deg, ${stageColor}88, #101823)`,
+            background: `linear-gradient(135deg, ${stageColor}66, transparent)`,
           }}
         />
       )}
@@ -103,12 +102,10 @@ export function FifaMatchCard({
             'linear-gradient(180deg, rgba(0,0,0,.62) 0%, rgba(0,0,0,.06) 30%, rgba(0,0,0,.15) 55%, rgba(0,0,0,.92) 100%)',
         }}
       />
-      {asset.imageUrl && (
-        <div
-          className="absolute inset-0 opacity-30 mix-blend-color"
-          style={{ background: stageColor }}
-        />
-      )}
+      <div
+        className="absolute inset-0 opacity-30 mix-blend-color"
+        style={{ background: stageColor }}
+      />
 
       <div className="relative z-[2] flex items-center justify-between">
         <span
@@ -166,8 +163,8 @@ export function FifaMatchCard({
   )
 }
 
-export function FifaMatchCardSkeleton() {
+export function FifaMatchCardSkeleton({ className = '' }: { className?: string }) {
   return (
-    <div className="h-[238px] w-full shrink-0 animate-pulse rounded-[14px] bg-[#131519]" />
+    <div className={`h-[238px] w-[318px] shrink-0 animate-pulse rounded-[14px] bg-[#131519] ${className}`} />
   )
 }

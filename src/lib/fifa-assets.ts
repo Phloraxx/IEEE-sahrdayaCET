@@ -91,16 +91,18 @@ export function getStageColor(stage: string): string {
 }
 
 export function getMatchCardAsset(home: string, away: string, stage?: string): {
-  imageUrl: string | null
+  imageUrl: string
   position: string
   gradient: string
+  isFallback: boolean
 } {
   const key = pairKey(home, away)
   const reversed = pairKey(away, home)
   const fallbackAsset = { imageUrl: '/fifa/hero-poster.jpg', position: '50% 20%' }
-  const asset = MATCH_CARD_IMAGES[key] ?? MATCH_CARD_IMAGES[reversed] ?? fallbackAsset
+  const matched = MATCH_CARD_IMAGES[key] ?? MATCH_CARD_IMAGES[reversed]
+  const asset = matched ?? fallbackAsset
   const gradient = stage ? getStageColor(stage) : '#00629B'
-  return { imageUrl: asset.imageUrl, position: asset.position, gradient }
+  return { imageUrl: asset.imageUrl, position: asset.position, gradient, isFallback: !matched }
 }
 
 export function teamShortName(team: string): string {

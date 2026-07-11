@@ -37,6 +37,21 @@ async function fetchDashboard(): Promise<DashboardData> {
   return res.json()
 }
 
+interface RaffleSettings {
+  raffle_tickets_base: number
+  raffle_tickets_decay: number
+  min_bets: number
+}
+
+const DEFAULT_RAFFLE_SETTINGS: RaffleSettings = { raffle_tickets_base: 50, raffle_tickets_decay: 2, min_bets: 5 }
+
+async function fetchRaffleSettings(): Promise<RaffleSettings> {
+  const res = await fetch('/pb/api/fifa/leaderboard')
+  if (!res.ok) throw new Error('Failed to load raffle settings')
+  const data = await res.json()
+  return data.settings || DEFAULT_RAFFLE_SETTINGS
+}
+
 export const Route = createFileRoute('/FIFA/dashboard')({
   head: () => ({ meta: [{ title: "Dashboard · WC Predict '26" }] }),
   component: DashboardPage,
@@ -50,6 +65,14 @@ function DashboardPage() {
     refetchInterval: 10_000,
     enabled: status === 'authenticated',
   })
+
+  const { data: raffleSettings } = useQuery({
+    queryKey: ['fifa-raffle-settings'],
+    queryFn: fetchRaffleSettings,
+    staleTime: 60_000,
+    enabled: status === 'authenticated',
+  })
+  const { raffle_tickets_base: raffleBase, raffle_tickets_decay: raffleDecay, min_bets: minBets } = raffleSettings || DEFAULT_RAFFLE_SETTINGS
 
   if (status !== 'authenticated') {
     return (
@@ -106,7 +129,7 @@ function DashboardPage() {
   const totalResolved = wonBets + lostBets
   const winRate = totalResolved > 0 ? Math.round((wonBets / totalResolved) * 100) : 0
   const validBetsCount = data.bets.filter(b => b.status !== 'void').length
-  const raffleProgress = Math.min(100, (validBetsCount / 5) * 100)
+  const raffleProgress = minBets > 0 ? Math.min(100, (validBetsCount / minBets) * 100) : 100
 
   return (
     <FifaLayout active="dashboard">
@@ -220,23 +243,23 @@ function DashboardPage() {
 
                 <div className="bg-[#0a0a0b] border border-border rounded-xl p-5 mb-8 text-center flex-1 flex flex-col justify-center">
                   <p className="text-sm text-muted-foreground mb-2">Valid Bets Placed</p>
-                  <p className="font-mono text-5xl font-bold text-foreground mb-4">{validBetsCount} <span className="text-2xl text-muted-foreground">/ 5</span></p>
-                  
+                  <p className="font-mono text-5xl font-bold text-foreground mb-4">{validBetsCount} <span className="text-2xl text-muted-foreground">/ {minBets}</span></p>
+
                   <div className="w-full bg-muted rounded-full h-2.5 mb-2 overflow-hidden border border-border/50">
-                    <div 
-                      className="bg-amber-500 h-2.5 rounded-full transition-all duration-1000 ease-out" 
+                    <div
+                      className="bg-amber-500 h-2.5 rounded-full transition-all duration-1000 ease-out"
                       style={{ width: `${raffleProgress}%` }}
                     ></div>
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
-                    {validBetsCount >= 5 
-                      ? <span className="text-amber-500 font-bold">You are eligible for the raffle! Keep betting to improve your rank.</span> 
-                      : `Place ${5 - validBetsCount} more bets to qualify.`}
+                    {validBetsCount >= minBets
+                      ? <span className="text-amber-500 font-bold">You are eligible for the raffle! Keep betting to improve your rank.</span>
+                      : `Place ${minBets - validBetsCount} more bets to qualify.`}
                   </p>
                 </div>
-                
+
                 <p className="text-xs text-muted-foreground text-center">
-                  At the end of the tournament, rank 1 receives 50 tickets. Decays down to 1 ticket for rank 26+. The winner receives the sponsor voucher!
+                  At the end of the tournament, rank 1 receives {raffleBase} tickets, decaying by {raffleDecay} per rank down to a minimum of 1. The winner receives the sponsor voucher!
                 </p>
               </div>
             </div>
@@ -317,6 +340,14 @@ function BetStatusBadge({ status, payout }: { status: string; payout: number }) 
   )
 }
 
+// Unicode letters/numbers, space, hyphen, apostrophe, period, underscore —
+// covers real human names (incl. accents) while still blocking control
+// chars. Used identically for the live onChange filter and submit
+// validation so nothing that's visibly accepted while typing can fail
+// at save time.
+const DISPLAY_NAME_PATTERN = /^[\p{L}\p{N} '.\-_]+$/u
+const DISPLAY_NAME_STRIP = /[^\p{L}\p{N} '.\-_]/gu
+
 function DisplayNameEditor({ currentName }: { currentName: string }) {
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(currentName)
@@ -325,11 +356,11 @@ function DisplayNameEditor({ currentName }: { currentName: string }) {
   const save = useMutation({
     mutationFn: async () => {
       const trimmed = name.trim()
-      if (trimmed.length < 2 || trimmed.length > 30) {
-        throw new Error('Name must be between 2 and 30 characters.')
+      if (trimmed.length < 2 || trimmed.length > 40) {
+        throw new Error('Name must be between 2 and 40 characters.')
       }
-      if (!/^[a-zA-Z0-9 \-_]+$/.test(trimmed)) {
-        throw new Error('Only letters, numbers, spaces, hyphens and underscores allowed.')
+      if (!DISPLAY_NAME_PATTERN.test(trimmed)) {
+        throw new Error("Only letters, numbers, spaces, hyphens, apostrophes, periods and underscores allowed.")
       }
       const res = await fetch('/api/fifa/dashboard', {
         method: 'PATCH',
@@ -360,8 +391,8 @@ function DisplayNameEditor({ currentName }: { currentName: string }) {
         <div className="flex items-center gap-2 bg-card border border-border p-1.5 rounded-lg">
           <input
             value={name}
-            onChange={(e) => setName(e.target.value.replace(/[^a-zA-Z0-9_\-\s]/g, ''))}
-            maxLength={30}
+            onChange={(e) => setName(e.target.value.replace(DISPLAY_NAME_STRIP, ''))}
+            maxLength={40}
             className="w-48 rounded-md bg-[#0a0a0b] border border-border px-3 py-1.5 text-sm font-medium text-foreground outline-none focus:border-ieee-light-blue transition-colors"
             placeholder="Your Alias"
             autoFocus
