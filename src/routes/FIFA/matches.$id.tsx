@@ -260,7 +260,7 @@ function MatchDetailPage() {
     }
   }
 
-  const selectedMarket = useMemo(() => match.markets?.find((m) => m.id === selectedMarketId), [match.markets, selectedMarketId])
+  const selectedMarket = match.markets?.find((m) => m.id === selectedMarketId)
   const effectiveStake = Math.min(stake, Math.max(1, maxBet || 1))
 
   const renderBettingSlip = (isMobile: boolean) => {

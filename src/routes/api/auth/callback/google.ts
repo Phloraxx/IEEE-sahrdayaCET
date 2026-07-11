@@ -67,7 +67,7 @@ export const Route = createFileRoute("/api/auth/callback/google")({
         const allProviderCookies = rawCookie
           .split(";")
           .map(s => s.trim())
-          .filter(s => s.startsWith(PB_OAUTH_PROVIDER_COOKIE + "="))
+          .filter(s => s.startsWith(`${PB_OAUTH_PROVIDER_COOKIE  }=`))
           .map(s => decodeURIComponent(s.slice(s.indexOf("=") + 1)));
 
         if (!code || !state || allProviderCookies.length === 0) {
@@ -100,7 +100,7 @@ export const Route = createFileRoute("/api/auth/callback/google")({
             const originHost = originUrl.hostname;
             if (
               originUrl.origin === new URL(resolvedAppUrl).origin ||
-              (apex.length > 0 && (originHost === appHost || originHost.endsWith('.' + apex)))
+              (apex.length > 0 && (originHost === appHost || originHost.endsWith(`.${  apex}`)))
             ) {
               finalRedirect = provider.origin;
             }
