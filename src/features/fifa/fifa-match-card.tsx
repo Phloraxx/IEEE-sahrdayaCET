@@ -71,7 +71,7 @@ export function FifaMatchCard({
     <Link
       to="/FIFA/matches/$id/"
       params={{ id: match.id }}
-      className={`group relative flex h-[238px] min-w-[302px] max-w-[302px] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-[14px] p-4 shadow-[0_1px_0_rgba(255,255,255,.04)_inset] transition-[transform,box-shadow] duration-300 hover:-translate-y-[7px] hover:shadow-[0_22px_40px_rgba(0,0,0,.5)] ${className}`}
+      className={`group relative flex h-[238px] w-full shrink-0 snap-start flex-col justify-between overflow-hidden rounded-[14px] p-4 shadow-[0_1px_0_rgba(255,255,255,.04)_inset] transition-[transform,box-shadow] duration-300 hover:-translate-y-[7px] hover:shadow-[0_22px_40px_rgba(0,0,0,.5)] ${className}`}
       style={{ background: '#101823' }}
     >
       <div
@@ -168,6 +168,6 @@ export function FifaMatchCard({
 
 export function FifaMatchCardSkeleton() {
   return (
-    <div className="h-[238px] min-w-[302px] max-w-[302px] shrink-0 animate-pulse rounded-[14px] bg-[#131519]" />
+    <div className="h-[238px] w-full shrink-0 animate-pulse rounded-[14px] bg-[#131519]" />
   )
 }
