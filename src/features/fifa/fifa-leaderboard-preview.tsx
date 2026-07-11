@@ -58,26 +58,33 @@ export function FifaLeaderboardPreview() {
           {top.map((row) => (
             <div
               key={row.id}
-              className={`flex items-center gap-3.5 rounded-xl border p-3 ${
+              className={`flex items-center gap-3.5 rounded-xl border p-3 transition-colors ${
                 row.rank === 1
-                  ? 'border-ieee-blue/40 bg-ieee-blue/5'
-                  : row.rank <= 3
-                    ? 'border-ieee-light-blue/35 bg-ieee-light-blue/5'
-                    : 'border-white/10 bg-[#131519]'
+                  ? 'border-yellow-500/40 bg-yellow-500/5 hover:bg-yellow-500/10'
+                  : row.rank === 2
+                    ? 'border-slate-400/40 bg-slate-400/5 hover:bg-slate-400/10'
+                    : row.rank === 3
+                      ? 'border-orange-500/40 bg-orange-500/5 hover:bg-orange-500/10'
+                      : 'border-white/10 bg-[#131519] hover:bg-white/5'
               }`}
             >
               <span
                 className={`font-display w-8 text-center text-[19px] ${
-                  row.rank <= 3 ? 'text-ieee-light-blue' : 'text-[#9a9aa2]'
+                  row.rank === 1 ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.5)]' :
+                  row.rank === 2 ? 'text-slate-300' :
+                  row.rank === 3 ? 'text-orange-500' :
+                  'text-[#9a9aa2]'
                 }`}
               >
                 {row.rank}
               </span>
               <div className="min-w-0 flex-1">
-                <b className="block truncate text-[13.5px] font-bold">{row.display_name}</b>
+                <b className="block truncate text-[13.5px] font-bold text-white">{row.display_name}</b>
                 <span className="text-[11px] text-[#9a9aa2]">{row.bets_count} bets</span>
               </div>
-              <span className="font-mono text-[15px] font-bold text-ieee-light-blue tabular-nums">
+              <span className={`font-mono text-[15px] font-bold tabular-nums ${
+                row.rank === 1 ? 'text-yellow-400' : 'text-ieee-light-blue'
+              }`}>
                 {row.balance.toLocaleString()}
               </span>
             </div>

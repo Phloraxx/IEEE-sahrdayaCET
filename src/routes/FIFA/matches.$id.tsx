@@ -483,8 +483,8 @@ function BettingSlip({ matchId, canBet, market, selection, stake, setStake, maxB
   matchId: string; canBet: boolean; market: Market | null; selection: string | null; stake: number; setStake: (v: number) => void; maxBet: number; maxBetPercent: number; balance: number; onClear: () => void
 }) {
   const queryClient = useQueryClient()
-  const effectiveStake = Math.min(stake, Math.max(1, maxBet || 1))
-  
+  const effectiveStake = stake // Don't silently cap the user's input
+
   const placeBet = useMutation({
     mutationFn: async () => {
       if (!market || !selection) throw new Error('Pick an option first')
@@ -508,7 +508,7 @@ function BettingSlip({ matchId, canBet, market, selection, stake, setStake, maxB
   })
 
   const quickStakes = [10, 25, 50, 100].filter((s) => s <= maxBet)
-  
+
   if (!canBet) {
     return (
       <div className="rounded-xl border border-dashed border-border bg-card p-6 text-center opacity-50">
@@ -602,8 +602,13 @@ function BettingSlip({ matchId, canBet, market, selection, stake, setStake, maxB
           Stake limit is {maxBetPercent}% of your balance ({balance}).
         </p>
         <button
-          onClick={() => placeBet.mutate()}
-          disabled={placeBet.isPending || effectiveStake <= 0 || effectiveStake > maxBet || stake === 0}
+          onClick={() => {
+            if (balance <= 0) return toast.error('Insufficient balance to place a bet')
+            if (effectiveStake <= 0) return toast.error('Please enter a stake amount')
+            if (effectiveStake > maxBet) return toast.error(`Max bet limit is ${maxBet} pts (${maxBetPercent}% of your balance)`)
+            placeBet.mutate()
+          }}
+          disabled={placeBet.isPending}
           className="w-full rounded-lg bg-ieee-blue px-4 py-4 text-sm font-bold text-white hover:bg-ieee-light-blue hover:-translate-y-0.5 transition-all shadow-lg disabled:opacity-50 disabled:hover:translate-y-0 flex items-center justify-center"
         >
           {placeBet.isPending ? (
