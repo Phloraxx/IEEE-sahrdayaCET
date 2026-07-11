@@ -193,7 +193,7 @@ describe('getChairSocietyIds', () => {
 
     expect(result).toEqual(['soc-1', 'soc-2'])
     expect(societies.getFullList).toHaveBeenCalledWith({
-      filter: expect.stringContaining('chairs ?='),
+      filter: expect.stringContaining('chairs.id ?='),
       fields: 'id',
     })
     expect(mockEscapeFilterValue).toHaveBeenCalledWith('chair-1')

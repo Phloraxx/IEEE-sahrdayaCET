@@ -47,7 +47,13 @@ export function handleError(error: unknown, context: string): Response {
       return Response.json({ error: 'Resource not found' }, { status: 404 })
     }
     if (raw === 400) {
-      return Response.json({ error: error.message || 'Invalid request' }, { status: 400 })
+      const details = error.data && Object.keys(error.data).length > 0
+        ? ` Details: ${JSON.stringify(error.data)}`
+        : ''
+      return Response.json({ error: (error.message || 'Invalid request') + details }, { status: 400 })
+    }
+    if (raw >= 400 && raw < 500) {
+      return Response.json({ error: error.message || 'Request failed' }, { status: raw })
     }
     return Response.json({ error: 'Request failed' }, { status })
   }

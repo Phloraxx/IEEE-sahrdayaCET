@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
+import { useAuth } from "@/lib/auth-context";
 import { Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -97,6 +98,8 @@ export function EventForm({ mode, eventId }: EventFormProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isEdit = mode === "edit";
+  const { user } = useAuth();
+  const isChair = user?.role === "chair";
   const [form, setForm] = useState<EventFormState>(EMPTY_STATE);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [customFields, setCustomFields] = useState<FormField[]>([]);
@@ -195,6 +198,17 @@ export function EventForm({ mode, eventId }: EventFormProps) {
       setCoupons(existingCoupons.coupons);
     }
   }, [existingCoupons, isEdit]);
+
+  // Auto-select society for chairs in create mode
+  useEffect(() => {
+    const list = societies?.societies;
+    if (!isEdit && isChair && list && list.length > 0) {
+      const firstId = list[0]?.id;
+      if (firstId && !form.society) {
+        setForm((prev) => ({ ...prev, society: firstId }));
+      }
+    }
+  }, [isEdit, isChair, societies, form.society]);
   // Warn before navigating away / closing tab with unsaved changes
   useEffect(() => {
     if (!dirty) return;
@@ -662,6 +676,7 @@ export function EventForm({ mode, eventId }: EventFormProps) {
                 <div className="grid gap-1.5">
                   <Label>Host Society *</Label>
                   <Select
+                    disabled={isChair && isEdit}
                     key={form.society || "__none__"}
                     value={form.society || "__none__"}
                     onValueChange={(v) => {

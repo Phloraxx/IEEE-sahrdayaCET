@@ -33,6 +33,8 @@ onRecordUpdateRequest(function (e) {
         throw e.forbiddenError("Only admins may change event counters")
     }
     if (newRecord.getBool("isDeleted") !== oldRecord.getBool("isDeleted")) {
-        throw e.forbiddenError("Only admins may change event deletion state")
+        if (!newRecord.getBool("isDeleted")) {
+            throw e.forbiddenError("Only admins may restore deleted events")
+        }
     }
 }, "events")

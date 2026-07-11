@@ -59,7 +59,7 @@ const rules: Record<string, CollectionRuleSet> = {
     // H3: a chair may only create events under a society they chair.
     createRule: `@request.auth.role = "admin" || (@request.auth.role = "chair" && society.chairs.id ?= @request.auth.id)`,
     // #3: chairs may edit title/date/venue but cannot rewrite counters or un-delete.
-    updateRule: `@request.auth.role = "admin" || (@request.auth.role = "chair" && society.chairs.id ?= @request.auth.id && @request.body.registeredCount:changed = false && @request.body.checkedInCount:changed = false && @request.body.isDeleted:changed = false)`,
+    updateRule: `@request.auth.role = "admin" || (@request.auth.role = "chair" && society.chairs.id ?= @request.auth.id && @request.body.registeredCount:changed = false && @request.body.checkedInCount:changed = false && (@request.body.isDeleted:changed = false || @request.body.isDeleted = true))`,
     deleteRule: `@request.auth.role = "admin"`,
   },
   societies: {

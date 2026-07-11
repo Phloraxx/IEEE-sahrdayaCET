@@ -134,7 +134,10 @@ function AdminEvents() {
           "Content-Type": "application/json",
         },
       });
-      if (!res.ok) throw new Error("Failed to delete event");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || "Failed to delete event");
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-events"] });
