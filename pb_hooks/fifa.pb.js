@@ -1,3 +1,80 @@
+/** Shared FIFA helpers — require() inside each hook handler (PB 0.39 scope isolation). */
+
+function getFifaSettings() {
+    try {
+        return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {})
+    } catch (err) {
+        return null
+    }
+}
+
+function applyTransaction(userId, type, amount, balanceAfter, refBetId, note) {
+    try {
+        var txCol = $app.findCollectionByNameOrId("fifa_transactions")
+        var tx = new Record(txCol, {
+            user: userId,
+            type: type,
+            amount: amount,
+            balance_after: balanceAfter,
+            ref_bet: refBetId || "",
+            note: note || "",
+            timestamp: new Date().toISOString(),
+        })
+        $app.saveNoValidate(tx)
+
+        var user = $app.findRecordById("users", userId)
+        user.set("balance", balanceAfter)
+        $app.saveNoValidate(user)
+        return balanceAfter
+    } catch (err) {
+        console.log("[fifa] applyTransaction failed for " + userId + ": " + err)
+        return null
+    }
+}
+
+function applyDelta(userId, type, delta, refBetId, note) {
+    try {
+        var user = $app.findRecordById("users", userId)
+        if (!user) return null
+        var currentBalance = user.getInt("balance") || 0
+        var newBalance = currentBalance + delta
+
+        var txCol = $app.findCollectionByNameOrId("fifa_transactions")
+        var tx = new Record(txCol, {
+            user: userId,
+            type: type,
+            amount: delta,
+            balance_after: newBalance,
+            ref_bet: refBetId || "",
+            note: note || "",
+            timestamp: new Date().toISOString(),
+        })
+        $app.saveNoValidate(tx)
+
+        user.set("balance", newBalance)
+        $app.saveNoValidate(user)
+        return newBalance
+    } catch (err) {
+        console.log("[fifa] applyDelta failed for " + userId + ": " + err)
+        return null
+    }
+}
+
+function emitFeedEvent(type, userId, matchId, message) {
+    // No-op — social feed removed (FIFA-AUTOMATION.md PR1).
+    return
+}
+
+// Returns a display name for a user record. Falls back to "Player <short-id>"
+// (last 4 of the user id) when display_name is empty — so multiple unset users
+// are distinguishable on the public leaderboard instead of all reading "Player".
+function displayName(user) {
+    var name = user.getString("display_name")
+    if (name) return name
+    var shortId = user.id.length >= 4 ? user.id.slice(-4) : user.id
+    return "Player " + shortId
+}
+
 /// <reference path="../pb_data/types.d.ts" />
 
 // ─── FIFA WC Predict '26 — game logic hooks ─────────────────────────
@@ -15,7 +92,7 @@
 //   Phase 8 — daily top-up cron
 //   Phase 9 — raffle draw custom route
 
-// Helpers in fifa-helpers.js — require() inside each hook handler (PB 0.39).
+
 
 // Decode PB JSON fields (string, object, or goja byte array).
 var parseJsonField = function(raw) {
@@ -72,7 +149,7 @@ var voidMatchMarkets = function(matchId) {
 // silently if settings isn't seeded yet (the backfill script will catch up).
 
 onRecordAfterCreateSuccess(function (e) {
-    var fh = require(__hooks + "/fifa-helpers.js")
+    
     var user = e.record
     if (!user) { e.next(); return }
 
@@ -88,7 +165,7 @@ onRecordAfterCreateSuccess(function (e) {
         if (prior.length > 0) { e.next(); return }
     } catch (err) { /* proceed */ }
 
-    var settings = fh.getFifaSettings()
+    var settings = getFifaSettings()
     if (!settings) {
         // Settings not seeded yet — backfill script will grant on next run.
         e.next()
@@ -120,7 +197,7 @@ onRecordAfterCreateSuccess(function (e) {
     })
     $app.saveNoValidate(tx)
 
-    fh.emitFeedEvent("system", user.id, "", "New player joined the game")
+    emitFeedEvent("system", user.id, "", "New player joined the game")
 
     e.next()
 }, "users")
@@ -311,7 +388,7 @@ onRecordAfterCreateSuccess(function (e) {
     var stake = bet.getInt("stake")
     var selection = bet.getString("selection") || ""
 
-    var fh = require(__hooks + "/fifa-helpers.js")
+    
 
     // Re-read user balance from DB (not the stale auth record)
     var user = $app.findRecordById("users", userId)
@@ -404,7 +481,7 @@ onRecordAfterUpdateSuccess(function (e) {
 // pending bets on that market (idempotent — pending bets clear on first pass).
 
 onRecordAfterUpdateSuccess(function (e) {
-    var fh = require(__hooks + "/fifa-helpers.js")
+    
     var market = e.record
     if (!market) { e.next(); return }
 
@@ -432,7 +509,7 @@ onRecordAfterUpdateSuccess(function (e) {
         var bet = pendingBets[i]
         var stake = bet.getInt("stake") || 0
         // Credit first; leave pending if ledger write fails so a retry can refund.
-        var newBal = fh.applyDelta(bet.getString("user"), "bet_refund", stake, bet.id, "Market voided — refund")
+        var newBal = applyDelta(bet.getString("user"), "bet_refund", stake, bet.id, "Market voided — refund")
         if (newBal === null) {
             console.log("[fifa] void refund: credit failed for bet " + bet.id + " — leaving pending")
             continue
@@ -444,7 +521,7 @@ onRecordAfterUpdateSuccess(function (e) {
     }
 
     if (refundedCount > 0) {
-        fh.emitFeedEvent("system", "", "", "Market voided — " + refundedCount + " bets refunded")
+        emitFeedEvent("system", "", "", "Market voided — " + refundedCount + " bets refunded")
     }
 
 
@@ -509,7 +586,7 @@ onRecordAfterUpdateSuccess(function (e) {
 // Polled by the client every ~15s (SSE can't fire on a custom route).
 routerAdd("GET", "/api/fifa/leaderboard", function (e) {
     try {
-        var fh = require(__hooks + "/fifa-helpers.js")
+        
         // Rank by balance desc, tiebreak by bets_count desc (FIFA-GAME.md §2.4).
         // PB can't sort by a computed field, so we fetch all eligible users
         // and sort in JS. At ~100 players this is trivial.
@@ -523,7 +600,7 @@ routerAdd("GET", "/api/fifa/leaderboard", function (e) {
         var rows = []
         for (var i = 0; i < users.length; i++) {
             var u = users[i]
-            var displayName = fh.displayName(u)
+            var displayName = displayName(u)
             // Count the user's bets. limit=0 means no limit in PB's
             // findRecordsByFilter, so .length is the true count. At ~100
             // players this is fine; would denormalize into a counter at scale.
@@ -1294,7 +1371,7 @@ routerAdd("POST", "/api/fifa/admin-reset", function (e) {
 
 routerAdd("POST", "/api/fifa/raffle", function (e) {
     // ─── Inlined helpers (PB 0.39 goja doesn't share top-level scope with callbacks) ───
-    var fh = require(__hooks + "/fifa-helpers.js")
+    
     var _getFifaSettings = function() {
         try { return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (ex) { return null }
     }
@@ -1374,7 +1451,7 @@ routerAdd("POST", "/api/fifa/raffle", function (e) {
         } catch (err) { betCount = 0 }
         candidates.push({
             id: u.id,
-            display_name: fh.displayName(u),
+            display_name: displayName(u),
             balance: u.getInt("balance") || 0,
             bets_count: betCount,
         })
@@ -1839,6 +1916,29 @@ cronAdd("fifa-espn-sync", "*/2 * * * *", function () {
         settleDelayMinutes = 15
     }
 
+    // Auto-settle pass (1st: process matches whose delay has expired)
+    var toSettle = []
+    try {
+        toSettle = $app.findRecordsByFilter(
+            "fifa_matches",
+            "status = {:finished} && settled = {:false}",
+            "kickoff_at",
+            500, 0,
+            { finished: "finished", false: false }
+        )
+    } catch (err) {
+        console.log("[fifa] espn-sync: auto-settle list failed: " + err)
+    }
+    for (var ai = 0; ai < toSettle.length; ai++) {
+        var candidate = toSettle[ai]
+        try {
+            if (!_shouldAutoSettle(candidate, settings, nowMs)) { continue }
+            _settleMatchFromRecord(candidate, settings)
+        } catch (err) {
+            console.log("[fifa] espn-sync: auto-settle failed for " + candidate.id + ": " + err)
+        }
+    }
+
     var allMatches = []
     try {
         allMatches = $app.findRecordsByFilter(
@@ -1933,29 +2033,6 @@ cronAdd("fifa-espn-sync", "*/2 * * * *", function () {
             }
             $app.saveNoValidate(match)
             _closeMatchMarkets(match.id)
-        }
-    }
-
-    // Auto-settle pass (re-query after sync; kill switch in _shouldAutoSettle).
-    var toSettle = []
-    try {
-        toSettle = $app.findRecordsByFilter(
-            "fifa_matches",
-            "status = {:finished} && settled = {:false}",
-            "kickoff_at",
-            500, 0,
-            { finished: "finished", false: false }
-        )
-    } catch (err) {
-        console.log("[fifa] espn-sync: auto-settle list failed: " + err)
-    }
-    for (var ai = 0; ai < toSettle.length; ai++) {
-        var candidate = toSettle[ai]
-        try {
-            if (!_shouldAutoSettle(candidate, settings, nowMs)) { continue }
-            _settleMatchFromRecord(candidate, settings)
-        } catch (err) {
-            console.log("[fifa] espn-sync: auto-settle failed for " + candidate.id + ": " + err)
         }
     }
 })

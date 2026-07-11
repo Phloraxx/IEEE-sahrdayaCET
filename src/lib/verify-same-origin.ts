@@ -51,7 +51,7 @@ export function verifySameOrigin(request: Request): void {
 		const apexDomain = appHost.split('.').slice(-2).join('.');
 		if (
 			apexDomain.length > 0 &&
-			reqHost.endsWith('.' + apexDomain) &&
+			reqHost.endsWith(`.${  apexDomain}`) &&
 			(reqHost === appHost || reqHost.startsWith('preview-'))
 		) return;
 

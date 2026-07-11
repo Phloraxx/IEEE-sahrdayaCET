@@ -1,47 +1,60 @@
 import { motion } from 'framer-motion'
 
-const STEPS = [
-  {
-    num: '01',
-    text: (
-      <>
-        Sign in with your <strong className="text-[#f5f5f5]">@sahrdaya.ac.in</strong> Google
-        account. You get <strong className="text-[#f5f5f5]">1000 points</strong> to start.
-      </>
-    ),
-  },
-  {
-    num: '02',
-    text: (
-      <>
-        Pick a match, choose a market — <strong className="text-[#f5f5f5]">Match Winner</strong>,{' '}
-        <strong className="text-[#f5f5f5]">Total Goals O/U</strong>,{' '}
-        <strong className="text-[#f5f5f5]">Anytime Scorer</strong> — and place a bet from your
-        points balance.
-      </>
-    ),
-  },
-  {
-    num: '03',
-    text: (
-      <>
-        Win bets earn points. Pool markets split the pot proportional to your stake. Climb the
-        leaderboard.
-      </>
-    ),
-  },
-  {
-    num: '04',
-    text: (
-      <>
-        At the end, a weighted raffle picks the voucher winner. Higher rank = more tickets, but
-        everyone has a shot.
-      </>
-    ),
-  },
-]
+interface HowItWorksProps {
+  startingBalance: number
+  maxBetPercent: number
+  raffleMinBets: number
+}
 
-export function FifaHowItWorks() {
+export function FifaHowItWorks({ startingBalance, maxBetPercent, raffleMinBets }: HowItWorksProps) {
+  const STEPS = [
+    {
+      num: '01',
+      title: 'When you can bet',
+      text: (
+        <>
+          Bets are open from when a market is created until kickoff time (or a specific lock time). Once the match goes live, betting is automatically locked by the system — no late bets accepted.
+        </>
+      ),
+    },
+    {
+      num: '02',
+      title: 'How to place a bet',
+      text: (
+        <>
+          Log in with your college Google account to get <strong className="text-[#f5f5f5]">{startingBalance} points</strong> to start. Pick an upcoming match and choose a market. Enter your stake (maximum <strong className="text-[#f5f5f5]">{maxBetPercent}%</strong> of your balance). Points are deducted immediately.
+        </>
+      ),
+    },
+    {
+      num: '03',
+      title: 'Pool vs Fixed Odds',
+      text: (
+        <>
+          <strong className="text-[#f5f5f5]">Pool markets:</strong> You bet against other students. The total pool is split proportionally among winners. <strong className="text-[#f5f5f5]">Fixed markets:</strong> The payout multiplier is set upfront, so you know exactly what you'll win.
+        </>
+      ),
+    },
+    {
+      num: '04',
+      title: 'How you win points',
+      text: (
+        <>
+          A correct prediction automatically lands the payout in your balance after the match settles. A wrong prediction loses the stake. If a market is voided, your full stake is refunded.
+        </>
+      ),
+    },
+    {
+      num: '05',
+      title: 'The Raffle',
+      text: (
+        <>
+          At the end of the tournament, a prize raffle is drawn. Higher leaderboard rank = more raffle tickets. You need at least <strong className="text-[#f5f5f5]">{raffleMinBets} bets</strong> placed to be eligible, but every active participant gets at least 1 ticket!
+        </>
+      ),
+    },
+  ]
+
   return (
     <motion.section
       initial={{ opacity: 0, y: 16 }}
@@ -55,19 +68,21 @@ export function FifaHowItWorks() {
           How WC Predict &apos;26 works
         </h2>
         <p className="mt-2 max-w-[560px] text-sm text-[#9a9aa2]">
-          Predict FIFA World Cup matches, climb the leaderboard, win a voucher. Sign in with your
-          college Google account to place your first bet.
+          Predict FIFA World Cup matches, climb the leaderboard, win a voucher. Everything you need to know about the game mechanics.
         </p>
       </div>
-      <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-3">
         {STEPS.map((step) => (
           <div
             key={step.num}
             className="rounded-[14px] border border-white/10 bg-[#131519] p-5"
           >
-            <span className="mb-2.5 block font-mono text-[22px] font-extrabold text-ieee-light-blue">
-              {step.num}
-            </span>
+            <div className="flex items-center gap-3 mb-2.5">
+              <span className="font-mono text-[22px] font-extrabold text-ieee-light-blue">
+                {step.num}
+              </span>
+              <h3 className="font-semibold text-white/90">{step.title}</h3>
+            </div>
             <p className="text-[13.5px] leading-relaxed text-[#9a9aa2]">{step.text}</p>
           </div>
         ))}

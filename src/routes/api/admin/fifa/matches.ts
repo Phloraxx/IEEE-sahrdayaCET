@@ -48,6 +48,7 @@ export const Route = createFileRoute("/api/admin/fifa/matches")({
               result_after_extra_time: getField(m, 'result_after_extra_time', false),
               result_after_penalties: getField(m, 'result_after_penalties', false),
               settled: getField(m, 'settled', false),
+              auto_settle_at: getField(m, 'auto_settle_at', ''),
             })),
             total: result.totalItems,
             page: result.page,

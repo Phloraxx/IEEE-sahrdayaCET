@@ -58,6 +58,7 @@ interface MatchData {
   result_after_extra_time: boolean
   result_after_penalties: boolean
   settled: boolean
+  auto_settle_at?: string
 }
 
 async function fetchMatch(id: string): Promise<{ match: MatchData }> {
@@ -126,7 +127,7 @@ function AdminFifaMatchDetail() {
                   </p>
                 </div>
               ) : (
-                <SettleForm matchId={id} />
+                <SettleForm match={match} />
               )}
             </section>
           </div>
@@ -325,7 +326,8 @@ function CreateMarketDialog({ matchId }: { matchId: string }) {
   )
 }
 
-function SettleForm({ matchId }: { matchId: string }) {
+function SettleForm({ match }: { match: MatchData }) {
+  const matchId = match.id
   const queryClient = useQueryClient()
   const [form, setForm] = useState({
     result_winner: 'home',
@@ -356,10 +358,6 @@ function SettleForm({ matchId }: { matchId: string }) {
         toast.error('Live scores not configured (FOOTBALL_DATA_API_TOKEN not set)')
         return
       }
-      // Match by team names — the admin needs to be on the settle form for
-      // the right match. We read the match from the parent query.
-      const match = queryClient.getQueryData<{ match: MatchData }>(['admin-fifa-match', matchId])?.match
-      if (!match) return
       const lm = data.matches.find((m) => {
         const h = m.homeTeam.trim().toLowerCase()
         const a = m.awayTeam.trim().toLowerCase()
@@ -484,6 +482,11 @@ function SettleForm({ matchId }: { matchId: string }) {
           Decided on penalties
         </label>
       </div>
+      {!match.settled && match.auto_settle_at && new Date(match.auto_settle_at).getTime() > Date.now() && (
+        <div className="rounded border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive mt-4">
+          ⚠️ This match is scheduled to auto-settle at {new Date(match.auto_settle_at).toLocaleString()}. Submitting manually will override the automatic settlement.
+        </div>
+      )}
       <Button type="submit" disabled={settle.isPending} className="w-full">
         {settle.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Settle match
       </Button>
