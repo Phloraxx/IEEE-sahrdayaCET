@@ -171,10 +171,17 @@ function DisplayNameEditor({ currentName }: { currentName: string }) {
 
   const save = useMutation({
     mutationFn: async () => {
+      const trimmed = name.trim()
+      if (trimmed.length < 2 || trimmed.length > 30) {
+        throw new Error('Name must be between 2 and 30 characters.')
+      }
+      if (!/^[a-zA-Z0-9 \-_]+$/.test(trimmed)) {
+        throw new Error('Only letters, numbers, spaces, hyphens and underscores allowed.')
+      }
       const res = await fetch('/api/fifa/dashboard', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ display_name: name }),
+        body: JSON.stringify({ display_name: trimmed }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
@@ -182,32 +189,40 @@ function DisplayNameEditor({ currentName }: { currentName: string }) {
       }
       return res.json()
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast.success('Display name updated')
       setEditing(false)
+      queryClient.setQueryData(['fifa-dashboard'], (old: any) => {
+        if (!old) return old
+        return { ...old, user: { ...old.user, display_name: data.display_name } }
+      })
       queryClient.invalidateQueries({ queryKey: ['fifa-dashboard'] })
     },
     onError: (err: Error) => toast.error(err.message),
   })
 
   return (
-    <div className="mb-6 flex items-center gap-3">
+    <div className="mb-8 rounded-lg border border-border bg-card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       {editing ? (
-        <>
+        <div className="flex flex-1 items-center gap-2">
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            maxLength={40}
-            className="flex-1 rounded-md border border-border bg-background px-3 py-1.5 text-sm"
-            placeholder="Your leaderboard alias (2-40 chars)"
+            maxLength={30}
+            className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm max-w-sm"
+            placeholder="Your leaderboard alias (2-30 chars)"
+            autoFocus
           />
-          <button onClick={() => save.mutate()} disabled={save.isPending || name.trim().length < 2} className="rounded-md bg-ieee-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-ieee-light-blue transition-colors disabled:opacity-50">Save</button>
-          <button onClick={() => { setEditing(false); setName(currentName) }} className="rounded-md border border-border px-3 py-1.5 text-sm">Cancel</button>
-        </>
+          <button onClick={() => save.mutate()} disabled={save.isPending || name.trim().length < 2} className="rounded-md bg-ieee-blue px-4 py-2 text-sm font-medium text-white hover:bg-ieee-light-blue transition-colors disabled:opacity-50">Save</button>
+          <button onClick={() => { setEditing(false); setName(currentName) }} className="rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors">Cancel</button>
+        </div>
       ) : (
         <>
-          <p className="text-sm text-muted-foreground">Playing as <strong className="text-foreground">{currentName || '(unset)'}</strong></p>
-          <button onClick={() => setEditing(true)} className="text-xs text-ieee-light-blue hover:underline">Edit</button>
+          <div>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Playing As</p>
+            <p className="font-display text-2xl text-foreground">{currentName || <span className="text-muted-foreground italic">Unnamed Player</span>}</p>
+          </div>
+          <button onClick={() => setEditing(true)} className="rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors whitespace-nowrap">Edit Name</button>
         </>
       )}
     </div>

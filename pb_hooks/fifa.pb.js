@@ -66,6 +66,23 @@ var voidMatchMarkets = function(matchId) {
     }
 }
 
+// ─── Phase X: Google OAuth Display Name ─────────────────────────────────
+// Sets the display_name from the Google profile on first login.
+
+onRecordAuthWithOAuth2Request(function (e) {
+    if (e.isNewRecord && !e.record.get("display_name")) {
+        var name = ""
+        if (e.oAuth2User) {
+            // Check standard PB OAuth2 user fields
+            name = e.oAuth2User.name || (e.oAuth2User.rawUser && e.oAuth2User.rawUser.name) || ""
+        }
+        if (name) {
+            e.record.set("display_name", name)
+        }
+    }
+    e.next()
+}, "users")
+
 // ─── Phase 2: Starting grant on user create ─────────────────────────
 // Fires AFTER a new user is committed. Reads starting_balance from settings,
 // sets the user's balance, and writes a starting_grant transaction. Skips
@@ -571,7 +588,21 @@ routerAdd("GET", "/api/fifa/leaderboard", function (e) {
                 bets_count: r.bets_count,
             })
         }
-        return e.json(200, { leaderboard: ranked })
+        var settings = fh.getFifaSettings()
+        var raffleBase = 50, raffleDecay = 2, minBets = 5
+        if (settings) {
+            raffleBase = settings.getInt("raffle_tickets_base") || 50
+            raffleDecay = settings.getInt("raffle_tickets_decay") || 2
+            minBets = settings.getInt("raffle_active_participant_min_bets") || 5
+        }
+        return e.json(200, { 
+            leaderboard: ranked, 
+            settings: { 
+                raffle_tickets_base: raffleBase, 
+                raffle_tickets_decay: raffleDecay, 
+                min_bets: minBets 
+            } 
+        })
     } catch (err) {
         console.log("[fifa] leaderboard route failed: " + err)
         return e.json(500, { error: "Failed to load leaderboard" })
