@@ -24,13 +24,13 @@ export const Route = createFileRoute("/api/fifa/dashboard")({
 
           const [bets, transactions] = await Promise.all([
             pb.collection("fifa_bets").getList(1, 20, {
-              filter: `user = ${escapeFilterValue(user.id)}`,
+              filter: `user.id = ${escapeFilterValue(user.id)}`,
               sort: "-placed_at",
               expand: "match,market",
               fields: "id,selection,stake,mode,odds_locked,status,payout,placed_at,match,market,expand",
             }),
             pb.collection("fifa_transactions").getList(1, 30, {
-              filter: `user = ${escapeFilterValue(user.id)}`,
+              filter: `user.id = ${escapeFilterValue(user.id)}`,
               sort: "-created",
               fields: "id,type,amount,balance_after,note,created",
             }),

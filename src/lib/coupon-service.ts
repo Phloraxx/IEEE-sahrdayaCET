@@ -28,7 +28,7 @@ export async function reconcileCoupons(
   }>,
 ): Promise<void> {
   const existing = await pb.collection("coupons").getFullList({
-    filter: `event = ${escapeFilterValue(eventId)}`,
+    filter: `event.id = ${escapeFilterValue(eventId)}`,
   });
 
   const existingMap = new Map(existing.map((c) => [c.id, c]));

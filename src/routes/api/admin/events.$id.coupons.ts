@@ -26,8 +26,11 @@ export const Route = createFileRoute("/api/admin/events/$id/coupons")({
               403,
             );
           }
+          // Use the user's own session — the simplified listRule
+          // (admin || chair) accepts chair tokens directly without needing
+          // superuser elevation. requireEventScope already verified scope above.
           const coupons = await pb.collection("coupons").getFullList({
-            filter: `event = ${escapeFilterValue(id)}`,
+            filter: `event.id = ${escapeFilterValue(id)}`,
             sort: "created",
           });
           return Response.json({ coupons }, {

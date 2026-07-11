@@ -38,7 +38,7 @@ export const fetchSocietyEvents = createServerFn()
   .handler(async ({ data: societyId }) => {
     const pb = createPB();
     const res = await pb.collection("events").getList(1, 50, {
-      filter: `society = ${escapeFilterValue(societyId)}`,
+      filter: `society.id = ${escapeFilterValue(societyId)}`,
       sort: "-date",
       fields:
         "id,title,description,date,endDate,venue,price,status,banner,externalFormUrl,registrationOpen",

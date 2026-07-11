@@ -75,7 +75,7 @@ export async function streamRegistrationsCSV(
   const pullBatch = async () => {
     if (exhausted) return
     const result = await pb.collection('registrations').getList(page, CSV_BATCH_SIZE, {
-      filter: `event = ${escapeFilterValue(eventId)}`,
+      filter: `event.id = ${escapeFilterValue(eventId)}`,
       sort: '-registrationDate',
     })
     for (const reg of result.items) {

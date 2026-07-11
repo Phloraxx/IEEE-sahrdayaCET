@@ -1,7 +1,6 @@
 import PocketBase from 'pocketbase'
 import '@tanstack/react-start/server-only'
 import { PB_AUTH_COOKIE } from './constants'
-import { logger } from './logger'
 
 /**
  * Server-only. Reads the PB URL from the server environment.
@@ -24,25 +23,18 @@ export function createPB(cookieString?: string) {
 }
 
 /**
- * Server-only. Creates a PocketBase client authenticated as the superuser,
- * using the POCKETBASE_SUPERUSER_TOKEN env var.
+ * Server-only. Creates a PocketBase client pre-authenticated with the
+ * POCKETBASE_SUPERUSER_TOKEN. Use this in API routes that already enforce
+ * their own scope checks (requireRole + requireEventScope) but need to
+ * bypass PB collection rules that return 400 on multi-hop relation filters.
  *
- * Use this ONLY for operations that have already been authorized at the
- * application layer (e.g. chair soft-deletes their own society's event)
- * but are blocked at the DB rule layer (e.g. `isDeleted:changed = false`).
- *
- * Never expose this client to client-side code or return its responses
- * without re-validating scope first.
+ * Falls back to an unauthenticated client if the token is missing, which
+ * will surface as a PB auth error rather than a misleading 400.
  */
-export function createSuperuserPB(): PocketBase {
-  const token = process.env.POCKETBASE_SUPERUSER_TOKEN
-  if (!token) {
-    logger.warn('[pb.server] POCKETBASE_SUPERUSER_TOKEN is not set — superuser client will be unauthenticated')
-  }
+export function createAdminPB(): PocketBase {
   const pb = new PocketBase(getPBUrl())
+  const token = process.env.POCKETBASE_SUPERUSER_TOKEN
   if (token) {
-    // PocketBase superuser tokens are long-lived API tokens saved directly
-    // into the authStore without a model (null).
     pb.authStore.save(token, null)
   }
   return pb

@@ -2,13 +2,13 @@
 
 // ─── Events Update Hook ────────────────────────────────────────────
 // Defense-in-depth: rejects non-admin writes to server-authoritative
-// fields (registeredCount, checkedInCount) and prevents un-deleting
-// a soft-deleted event (isDeleted: true → false).
+// fields (registeredCount, checkedInCount). Counters are maintained by
+// the registration hooks; chairs must never write them directly.
 //
-// Soft-deletes performed via the app server use the superuser client
-// (no auth record, bypasses this hook's role check). The guard below
-// therefore only triggers for authenticated chair/user sessions trying
-// to write directly to the PB REST API.
+// isDeleted: chairs MAY soft-delete (false→true) their own events —
+// the app-layer (requireEventScope) has already verified ownership before
+// the request reaches PocketBase. What chairs may NOT do is un-delete
+// (true→false) — that remains admin-only.
 
 onRecordUpdateRequest(function (e) {
     var role = ""
@@ -21,8 +21,7 @@ onRecordUpdateRequest(function (e) {
         return
     }
 
-    // For chairs / unauthenticated direct-API calls: reject writes to
-    // server-authoritative fields.
+    // For chairs: reject writes to server-authoritative counter fields
     var newRecord = e.record
     var oldRecord
     try {
@@ -37,11 +36,12 @@ onRecordUpdateRequest(function (e) {
     if (newRecord.getInt("checkedInCount") !== oldRecord.getInt("checkedInCount")) {
         throw e.forbiddenError("Only admins may change event counters")
     }
-    // Block un-deleting (true → false) but allow soft-delete (false → true)
-    // only when explicitly called by the app server. Direct REST calls by
-    // chairs are still rejected here since they won't carry a superuser token.
-    if (oldRecord.getBool("isDeleted") === true && newRecord.getBool("isDeleted") === false) {
-        throw e.forbiddenError("Only admins may restore a deleted event")
-    }
-}, "events")
 
+    // Allow chairs to soft-delete (false→true) but not un-delete (true→false).
+    var wasDeleted = oldRecord.getBool("isDeleted")
+    var isNowDeleted = newRecord.getBool("isDeleted")
+    if (wasDeleted && !isNowDeleted) {
+        throw e.forbiddenError("Only admins may restore deleted events")
+    }
+    // false→true (soft-delete) is allowed for chairs — falls through.
+}, "events")

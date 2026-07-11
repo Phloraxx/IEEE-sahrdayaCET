@@ -30,7 +30,7 @@ export const Route = createFileRoute("/api/society/$slug")({
             pb
               .collection("events")
               .getList(1, 50, {
-                filter: `society = ${escapeFilterValue(society.id)}`,
+                filter: `society.id = ${escapeFilterValue(society.id)}`,
                 sort: "-date",
                 skipTotal: true,
                 fields:
