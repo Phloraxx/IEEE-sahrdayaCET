@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createPB } from '@/lib/pb.server'
 import { escapeFilterValue } from '@/lib/pb'
@@ -11,6 +11,8 @@ import { usePbSubscription } from '@/hooks/use-pb-subscription'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 import { FIFA_MARKET_LABELS, FIFA_MARKET_BLURBS } from '@/schemas/fifa'
+import { getMatchCardAsset, getStageColor } from '@/lib/fifa-assets'
+import { AlertCircle, ChevronLeft } from 'lucide-react'
 
 interface MatchDetail {
   id: string
@@ -101,23 +103,6 @@ export const Route = createFileRoute('/FIFA/matches/$id')({
   component: MatchDetailPage,
 })
 
-function sortCorrectScores(options: string[]) {
-  const common = ['1-0', '2-0', '2-1', '1-1', '0-0', '0-1', '0-2', '1-2']
-  return [...options].sort((a, b) => {
-    const iA = common.indexOf(a)
-    const iB = common.indexOf(b)
-    if (iA !== -1 && iB !== -1) return iA - iB
-    if (iA !== -1) return -1
-    if (iB !== -1) return 1
-    const [hA, aA] = a.split('-').map(Number)
-    const [hB, aB] = b.split('-').map(Number)
-    const tgA = (hA || 0) + (aA || 0)
-    const tgB = (hB || 0) + (aB || 0)
-    if (tgA !== tgB) return tgA - tgB
-    return (hB || 0) - (hA || 0)
-  })
-}
-
 function MatchDetailPage() {
   const loaderMatch = Route.useLoaderData()
   const { id: matchId } = Route.useParams()
@@ -125,9 +110,11 @@ function MatchDetailPage() {
   const [isSessionExpired, setIsSessionExpired] = useState(false)
   const queryClient = useQueryClient()
 
+  // Hoisted betting slip state
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null)
-  const [selection, setSelection] = useState<string | null>(null)
-  const [stake, setStake] = useState<number>(50)
+  const [selectedOption, setSelectedOption] = useState<string | null>(null)
+  const [stake, setStake] = useState<number>(0)
+  const [hasSetInitialStake, setHasSetInitialStake] = useState(false)
 
   const effectiveStatus = isSessionExpired ? 'unauthenticated' : status
 
@@ -197,36 +184,13 @@ function MatchDetailPage() {
   const maxBetPercent = userBalance?.max_bet_percent ?? 25
   const maxBet = Math.floor(balance * maxBetPercent / 100)
 
-  // Ensure stake does not exceed newly fetched maxBet
+  // Auto-set stake when maxBet changes initially
   useEffect(() => {
-    if (stake > maxBet && maxBet > 0) {
-      setStake(Math.max(1, maxBet))
+    if (!hasSetInitialStake && maxBet > 0) {
+      setStake(Math.min(50, Math.max(1, maxBet)))
+      setHasSetInitialStake(true)
     }
-  }, [maxBet, stake])
-
-  const placeBet = useMutation({
-    mutationFn: async () => {
-      if (!selectedMarketId || !selection) throw new Error('Pick an option first')
-      const effectiveStake = Math.min(stake, Math.max(1, maxBet || 1))
-      const res = await fetch('/api/fifa/bets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ market: selectedMarketId, match: matchId, selection, stake: effectiveStake }),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || 'Bet failed')
-      }
-      return res.json()
-    },
-    onSuccess: () => {
-      toast.success('Bet placed!')
-      setSelection(null)
-      setSelectedMarketId(null)
-      queryClient.invalidateQueries({ queryKey: ['fifa-dashboard'] })
-    },
-    onError: (err: Error) => toast.error(err.message),
-  })
+  }, [maxBet, hasSetInitialStake])
 
   if (!match) {
     return (
@@ -244,326 +208,416 @@ function MatchDetailPage() {
   const kickoff = new Date(match.kickoff_at)
   const betsLocked = match.betting_locks_at ? new Date(match.betting_locks_at) <= new Date() : kickoff <= new Date()
   const isKnockout = ['r32', 'r16', 'qf', 'sf', 'third_place', 'final'].includes(match.stage)
-  const canBet = effectiveStatus === 'authenticated' && !betsLocked
+
+  const asset = getMatchCardAsset(match.team_home, match.team_away, match.stage)
+  const stageColor = getStageColor(match.stage)
 
   const liveHomeGoals = liveMatch?.homeGoals ?? match.result_home_goals
   const liveAwayGoals = liveMatch?.awayGoals ?? match.result_away_goals
   const liveMinute = liveMatch?.minute
 
-  const handleSelect = (marketId: string, opt: string) => {
-    if (selectedMarketId === marketId && selection === opt) {
-      setSelection(null)
+  // Handlers for child components
+  const handleOptionSelect = (marketId: string, option: string) => {
+    if (selectedMarketId === marketId && selectedOption === option) {
       setSelectedMarketId(null)
+      setSelectedOption(null)
     } else {
       setSelectedMarketId(marketId)
-      setSelection(opt)
+      setSelectedOption(option)
     }
-  }
-
-  const selectedMarket = match.markets?.find((m) => m.id === selectedMarketId)
-  const effectiveStake = Math.min(stake, Math.max(1, maxBet || 1))
-
-  const renderBettingSlip = (isMobile: boolean) => {
-    const quickStakes = [10, 25, 50, 100].filter((s) => s <= maxBet)
-    return (
-      <div className={`rounded-xl border border-border bg-card shadow-sm ${isMobile ? 'p-4' : 'p-5'}`}>
-        <div className="flex items-center justify-between mb-4 border-b border-border/50 pb-3">
-          <h2 className="font-display text-lg text-foreground">Betting Slip</h2>
-          <div className="text-right">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Balance</p>
-            <p className="font-mono text-sm font-semibold text-ieee-blue">{balance} pts</p>
-          </div>
-        </div>
-
-        {!selectedMarket || !selection ? (
-          <div className="py-8 text-center border-2 border-dashed border-border rounded-lg bg-muted/20">
-            <p className="text-sm text-muted-foreground">Select a market option to place a bet.</p>
-          </div>
-        ) : (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={selectedMarket.id + selection}>
-            <div className="mb-4 rounded-lg border border-ieee-blue/20 bg-ieee-blue/5 p-3">
-              <p className="text-xs text-ieee-light-blue font-medium mb-1">{FIFA_MARKET_LABELS[selectedMarket.market_type] || selectedMarket.market_type}</p>
-              <p className="text-sm text-foreground font-semibold mb-2">
-                {selection}
-              </p>
-              <p className="text-[11px] text-muted-foreground">
-                {selectedMarket.mode === 'fixed' && selectedMarket.fixed_odds?.[selection]
-                  ? <span className="font-mono text-ieee-blue font-medium">{selectedMarket.fixed_odds[selection].toFixed(2)}×</span>
-                  : 'Pool — share of the pot'}
-                {selectedMarket.mode === 'fixed' && selectedMarket.fixed_odds?.[selection] && ` → potential ${Math.round(effectiveStake * (selectedMarket.fixed_odds[selection] || 0))} pts`}
-              </p>
-            </div>
-
-            {quickStakes.length > 0 && (
-              <div className="flex gap-2 mb-3">
-                {quickStakes.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => setStake(s)}
-                    className={`flex-1 rounded-md py-2 text-xs font-mono font-medium transition-colors ${
-                      effectiveStake === s
-                        ? 'bg-ieee-blue text-white shadow-sm'
-                        : 'bg-background border border-border hover:border-ieee-light-blue hover:text-ieee-blue'
-                    }`}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <div className="flex flex-col gap-1.5 mb-4">
-              <label className="text-xs font-medium text-muted-foreground">Stake Amount (pts)</label>
-              <div className="relative">
-                <input
-                  type="number"
-                  min={1}
-                  max={maxBet || undefined}
-                  value={effectiveStake}
-                  onChange={(e) => setStake(Math.max(1, Number(e.target.value) || 0))}
-                  className="w-full rounded-lg border border-border bg-background pl-3 pr-10 py-2.5 text-sm font-mono focus:border-ieee-blue focus:ring-1 focus:ring-ieee-blue outline-none transition-all"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-mono">pts</span>
-              </div>
-              <p className="text-[10px] text-muted-foreground text-right mt-0.5">
-                Max {maxBet} pts ({maxBetPercent}% limit)
-              </p>
-            </div>
-
-            <button
-              onClick={() => placeBet.mutate()}
-              disabled={placeBet.isPending || effectiveStake <= 0 || effectiveStake > maxBet}
-              className="w-full rounded-lg bg-ieee-blue px-4 py-3.5 text-sm font-bold text-white hover:bg-ieee-light-blue hover:shadow-md transition-all disabled:opacity-50 disabled:hover:shadow-none min-h-[48px] active:scale-[0.98]"
-            >
-              {placeBet.isPending ? 'Placing Bet…' : `Place Bet · ${effectiveStake} pts`}
-            </button>
-          </motion.div>
-        )}
-      </div>
-    )
   }
 
   return (
     <FifaLayout active="matches">
-      <div className="mx-auto max-w-[1200px] px-4 py-6 md:py-8">
-        <Link to="/FIFA/matches/" className="text-sm font-medium text-muted-foreground hover:text-foreground mb-6 inline-flex items-center gap-1.5 transition-colors">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-          Back to matches
-        </Link>
+      <div className="w-full flex-1 flex flex-col bg-[#0a0a0b]">
+        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+          <Link to="/FIFA/matches/" className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground mb-6 transition-colors">
+            <ChevronLeft className="w-4 h-4" /> All matches
+          </Link>
 
-        <div className="lg:grid lg:grid-cols-12 lg:gap-8 items-start">
-          {/* Left Column: Hero & Markets */}
-          <div className="lg:col-span-7 xl:col-span-8 space-y-6">
-            
-            {/* Match hero — Redesigned */}
-            <motion.header
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-              className="rounded-2xl border border-border bg-gradient-to-br from-card to-muted/50 overflow-hidden relative shadow-sm"
-            >
-              <div className="px-5 py-6 sm:py-8 text-center relative z-10">
-                <span className="inline-block px-3 py-1 rounded-full bg-ieee-light-blue/10 border border-ieee-light-blue/20 text-ieee-blue font-mono text-[10px] uppercase tracking-[0.2em] mb-5 font-bold">
-                  {STAGE_LABELS[match.stage] || match.stage.toUpperCase()}
-                </span>
+          <div className="grid grid-cols-1 lg:grid-cols-[1.8fr_1fr] xl:grid-cols-[2fr_1fr] gap-6 xl:gap-10">
+            {/* LEFT COLUMN: Hero & Markets */}
+            <div className="space-y-6">
+              {/* Match hero */}
+              <motion.header
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                className="relative rounded-2xl border border-border bg-[#101823] overflow-hidden shadow-sm"
+              >
+                {asset.imageUrl ? (
+                  <div
+                    className="absolute inset-0 bg-cover bg-no-repeat"
+                    style={{
+                      backgroundImage: `url("${asset.imageUrl}")`,
+                      backgroundPosition: asset.position,
+                      opacity: 0.6,
+                    }}
+                  />
+                ) : (
+                  <div
+                    className="absolute inset-0"
+                    style={{ background: `linear-gradient(135deg, ${stageColor}88, #101823)` }}
+                  />
+                )}
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    background: 'linear-gradient(180deg, rgba(10,10,11,.85) 0%, rgba(10,10,11,.6) 40%, rgba(10,10,11,.95) 100%)',
+                  }}
+                />
                 
-                <div className="flex items-center justify-center gap-4 sm:gap-8">
-                  <h1 className="font-display text-3xl sm:text-5xl text-foreground leading-[1.05] flex-1 text-right">
-                    {match.team_home}
-                  </h1>
-                  <div className="flex-shrink-0 flex flex-col items-center justify-center min-w-[80px]">
-                    {(isLive || isFinished) ? (
-                      <div className="text-center">
-                        <p className="font-mono text-4xl sm:text-5xl font-bold text-ieee-blue tracking-tighter leading-none">
-                          {liveHomeGoals}<span className="text-muted-foreground/30 font-light mx-1">-</span>{liveAwayGoals}
-                        </p>
-                        {isLive && liveMinute && <p className="font-mono text-xs font-bold text-ieee-danger mt-2 animate-pulse">'{liveMinute}</p>}
-                        {match.result_after_penalties && <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-2">(Pens)</p>}
-                        {match.result_after_extra_time && !match.result_after_penalties && <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-2">(AET)</p>}
-                      </div>
-                    ) : (
-                      <span className="font-display text-lg text-muted-foreground/60 italic">vs</span>
-                    )}
-                  </div>
-                  <h1 className="font-display text-3xl sm:text-5xl text-foreground leading-[1.05] flex-1 text-left">
-                    {match.team_away}
-                  </h1>
-                </div>
-                
-                <div className="mt-6 flex flex-col items-center gap-2">
-                  <p className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    {kickoff.toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                <div className="relative px-6 pt-8 pb-6 text-center z-10">
+                  <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-ieee-light-blue mb-4 font-semibold">
+                    {STAGE_LABELS[match.stage] || match.stage.toUpperCase()}
                   </p>
+                  <div className="flex items-center justify-center gap-4 sm:gap-8">
+                    <h1 className="font-display text-3xl sm:text-5xl text-foreground leading-[1.05] flex-1 text-right">
+                      {match.team_home}
+                    </h1>
+                    <div className="flex-shrink-0 text-center">
+                      {(isLive || isFinished) ? (
+                        <div className="bg-[#111113] border border-border px-4 py-2 rounded-lg">
+                          <p className="font-mono text-4xl sm:text-5xl text-foreground leading-none">
+                            {liveHomeGoals}<span className="text-muted-foreground mx-2">-</span>{liveAwayGoals}
+                          </p>
+                          {isLive && liveMinute && <p className="font-mono text-sm text-ieee-danger mt-2 font-bold animate-pulse">'{liveMinute}</p>}
+                          {match.result_after_penalties && <p className="text-[11px] text-muted-foreground mt-1 uppercase tracking-wider">(Pens)</p>}
+                          {match.result_after_extra_time && !match.result_after_penalties && <p className="text-[11px] text-muted-foreground mt-1 uppercase tracking-wider">(AET)</p>}
+                        </div>
+                      ) : (
+                        <div className="w-16 h-16 rounded-full bg-muted/30 border border-border flex items-center justify-center">
+                          <p className="font-sans text-sm font-semibold text-muted-foreground">VS</p>
+                        </div>
+                      )}
+                    </div>
+                    <h1 className="font-display text-3xl sm:text-5xl text-foreground leading-[1.05] flex-1 text-left">
+                      {match.team_away}
+                    </h1>
+                  </div>
+                  <div className="mt-6 inline-block bg-muted/30 border border-border/50 rounded-full px-4 py-1.5">
+                    <p className="text-sm font-medium text-foreground">{kickoff.toLocaleString()}</p>
+                  </div>
+
                   {isLive && !isFinished && (
-                    <span className="inline-flex items-center gap-1.5 mt-1 px-2.5 py-1 rounded-md bg-ieee-danger/10 text-[10px] font-bold text-ieee-danger uppercase tracking-widest">
-                      <span className="h-1.5 w-1.5 rounded-full bg-ieee-danger animate-pulse" /> Live Now
-                    </span>
+                    <div className="mt-4">
+                      <span className="inline-flex items-center gap-2 rounded-full bg-ieee-danger/10 border border-ieee-danger/30 px-3 py-1 text-xs font-bold text-ieee-danger uppercase tracking-widest">
+                        <span className="h-2 w-2 rounded-full bg-ieee-danger animate-pulse" /> Live
+                      </span>
+                    </div>
                   )}
-                  {isFinished && <span className="inline-flex px-2.5 py-1 mt-1 rounded-md bg-muted text-[10px] font-bold text-foreground uppercase tracking-widest">Finished</span>}
+                  {isFinished && <div className="mt-4"><span className="inline-flex items-center rounded-full bg-muted border border-border px-3 py-1 text-xs font-bold text-muted-foreground uppercase tracking-widest">Finished</span></div>}
                 </div>
-              </div>
-            </motion.header>
 
-            {/* Auth / Status Guards */}
-            {effectiveStatus !== 'authenticated' && !betsLocked && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-xl border border-ieee-light-blue/30 bg-ieee-light-blue/5 p-5 text-center flex flex-col sm:flex-row items-center justify-between gap-4">
-                <p className="text-sm text-foreground text-left max-w-sm">
-                  {isSessionExpired ? 'Your session expired. Please sign in again to place bets.' : 'You must be signed in with your @sahrdaya.ac.in account to place bets.'}
-                </p>
-                <button onClick={signIn} className="whitespace-nowrap px-6 py-2.5 rounded-lg bg-ieee-blue text-white text-sm font-semibold hover:bg-ieee-light-blue transition-colors shadow-sm">Sign in with Google</button>
-              </motion.div>
-            )}
+                {isKnockout && !isFinished && (
+                  <div className="border-t border-border bg-ieee-light-blue/5 px-6 py-3 text-center flex items-center justify-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-ieee-light-blue" />
+                    <p className="text-sm text-foreground">
+                      <strong>Match Winner</strong> settles on who advances. Score markets are 90-min only.
+                    </p>
+                  </div>
+                )}
+              </motion.header>
 
-            {betsLocked && !isFinished && (
-              <div className="rounded-xl border border-ieee-warning/40 bg-ieee-warning/5 p-4 flex items-center gap-3 text-sm text-ieee-warning font-semibold">
-                <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-                Betting is closed for this match.
-              </div>
-            )}
-
-            {!wsConnected && (
-              <div className="flex items-center gap-2 rounded-lg border border-ieee-warning/30 bg-ieee-warning/10 py-2 px-4 text-xs font-medium text-ieee-warning">
-                <span className="h-1.5 w-1.5 rounded-full bg-ieee-warning animate-pulse flex-shrink-0" />
-                Live connection dropped — falling back to polling.
-              </div>
-            )}
-
-            {/* Markets List */}
-            <div className="space-y-4">
-              <h3 className="font-display text-xl text-foreground border-b border-border pb-2">Available Markets</h3>
-              {(!match.markets || match.markets.length === 0) ? (
-                <div className="text-center py-12 border border-dashed border-border rounded-xl bg-muted/10">
-                  <p className="text-muted-foreground text-sm">No markets open for this match yet.</p>
+              {/* Status gates */}
+              {effectiveStatus !== 'authenticated' && !betsLocked && (
+                <div className="rounded-xl border border-ieee-light-blue/40 bg-ieee-light-blue/5 p-6 text-center shadow-sm">
+                  <p className="text-base text-foreground mb-4">
+                    {isSessionExpired ? 'Your session expired. Please sign in again to place bets.' : 'Sign in with your @sahrdaya.ac.in account to place bets.'}
+                  </p>
+                  <button onClick={signIn} className="px-6 py-3 rounded-lg bg-ieee-blue text-white text-base font-semibold hover:bg-ieee-light-blue transition-colors shadow-sm">Sign in with Google</button>
                 </div>
-              ) : (
-                match.markets.map((m, i) => (
-                  <motion.div key={m.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.1 + i * 0.05 }}>
-                    <MarketCard 
-                      market={m} 
-                      canBet={canBet && m.is_open && !m.void} 
-                      selectedOption={selectedMarketId === m.id ? selection : null}
-                      onSelect={(opt) => handleSelect(m.id, opt)}
-                      isKnockout={isKnockout}
-                    />
-                  </motion.div>
-                ))
               )}
-            </div>
-          </div>
 
-          {/* Right Column: Desktop Betting Slip */}
-          <div className="hidden lg:block lg:col-span-5 xl:col-span-4 sticky top-6 self-start z-20">
-            {renderBettingSlip(false)}
+              {betsLocked && !isFinished && (
+                <div className="rounded-xl border border-ieee-warning/40 bg-ieee-warning/5 p-4 text-center text-sm text-ieee-warning font-semibold">
+                  Betting is closed — kickoff soon
+                </div>
+              )}
+
+              {!wsConnected && (
+                <div className="flex items-center justify-center gap-2 rounded-lg border border-ieee-warning/30 bg-ieee-warning/10 py-2 px-4 text-xs font-medium text-ieee-warning">
+                  <span className="h-2 w-2 rounded-full bg-ieee-warning animate-pulse" />
+                  Live connection dropped — polling every 15s
+                </div>
+              )}
+
+              {/* MARKETS GRID */}
+              <div>
+                <h3 className="font-display text-2xl uppercase text-foreground mb-4">Markets</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {match.markets?.map((m, i) => (
+                    <motion.div key={m.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.1 + i * 0.05 }}
+                      className={`${m.market_type === 'correct_score' ? 'sm:col-span-2' : ''}`}
+                    >
+                      <MarketCard
+                        market={m}
+                        canBet={effectiveStatus === 'authenticated' && !betsLocked && m.is_open && !m.void}
+                        isSelected={selectedMarketId === m.id}
+                        selectedOption={selectedOption}
+                        onSelectOption={(opt) => handleOptionSelect(m.id, opt)}
+                      />
+                    </motion.div>
+                  ))}
+                  {(!match.markets || match.markets.length === 0) && (
+                    <div className="sm:col-span-2 rounded-xl border border-dashed border-border bg-card/50 py-16 text-center">
+                      <p className="text-muted-foreground">No markets open for this match yet.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* RIGHT COLUMN: Sticky Slip */}
+            <div className="relative">
+              <div className="sticky top-24">
+                <BettingSlip
+                  matchId={match.id}
+                  canBet={effectiveStatus === 'authenticated' && !betsLocked}
+                  market={match.markets.find(m => m.id === selectedMarketId) || null}
+                  selection={selectedOption}
+                  stake={stake}
+                  setStake={setStake}
+                  maxBet={maxBet}
+                  maxBetPercent={maxBetPercent}
+                  balance={balance}
+                  onClear={() => {
+                    setSelectedMarketId(null)
+                    setSelectedOption(null)
+                  }}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>
-
-      {/* Mobile Betting Slip Bottom Sheet */}
-      <AnimatePresence>
-        {canBet && selectedMarketId && selection && (
-          <motion.div
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
-            className="fixed inset-x-0 bottom-0 z-50 lg:hidden shadow-[0_-10px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_-10px_40px_rgba(0,0,0,0.5)] border-t border-border"
-          >
-            {renderBettingSlip(true)}
-          </motion.div>
-        )}
-      </AnimatePresence>
     </FifaLayout>
   )
 }
 
-function MarketCard({ market, canBet, selectedOption, onSelect, isKnockout }: { market: Market; canBet: boolean; selectedOption: string | null; onSelect: (opt: string) => void; isKnockout: boolean }) {
+function MarketCard({ market, canBet, isSelected, selectedOption, onSelectOption }: { market: Market; canBet: boolean; isSelected: boolean; selectedOption: string | null; onSelectOption: (opt: string) => void }) {
   const poolTotal = market.pool_total || 0
-  const oddsFor = (opt: string): number | null => {
-    if (market.mode !== 'fixed' || !market.fixed_odds) return null
-    return market.fixed_odds[opt] ?? null
-  }
-
-  // Handle specific grid layouts based on market type
+  const oddsFor = (opt: string): number | null => (market.mode === 'fixed' && market.fixed_odds) ? (market.fixed_odds[opt] ?? null) : null
+  
   const isCorrectScore = market.market_type === 'correct_score'
-  const options = isCorrectScore ? sortCorrectScores(market.options ?? []) : (market.options ?? [])
 
   return (
-    <section className={`rounded-xl border transition-colors bg-card overflow-hidden ${selectedOption ? 'border-ieee-blue ring-1 ring-ieee-blue/20 shadow-sm' : 'border-border'}`}>
-      <div className="px-4 py-3 sm:px-5 sm:py-4 border-b border-border/50 bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <div>
-          <h2 className="font-display text-lg text-foreground flex items-center gap-2">
-            {FIFA_MARKET_LABELS[market.market_type] || market.market_type}
-            {market.void && <span className="px-2 py-0.5 rounded-md bg-ieee-danger/10 text-ieee-danger text-[10px] uppercase font-bold tracking-wider">Voided</span>}
-            {!market.is_open && !market.void && <span className="px-2 py-0.5 rounded-md bg-muted-foreground/10 text-muted-foreground text-[10px] uppercase font-bold tracking-wider">Closed</span>}
-          </h2>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            {FIFA_MARKET_BLURBS[market.market_type] || ''}
-            {isKnockout && (market.market_type === 'match_winner' || market.market_type === 'correct_score') && (
-              <span className="font-medium text-foreground ml-1">
-                {market.market_type === 'match_winner' ? '(Settles on who advances)' : '(90-mins only)'}
-              </span>
-            )}
-          </p>
-        </div>
-        <div className="flex-shrink-0 flex items-center gap-2 sm:flex-col sm:items-end sm:gap-1">
-          <span className={`px-2.5 py-1 rounded-md text-[10px] uppercase font-bold tracking-widest ${market.mode === 'pool' ? 'bg-ieee-light-blue/10 text-ieee-blue border border-ieee-light-blue/20' : 'bg-green-500/10 text-green-600 border border-green-500/20'}`}>
-            {market.mode === 'pool' ? 'Pool' : 'Fixed'}
-          </span>
-          {market.mode === 'pool' && (
-            <span className="text-xs font-mono text-muted-foreground font-medium">
-              {poolTotal} <span className="text-[10px]">PTS</span>
-            </span>
-          )}
-        </div>
+    <section className={`rounded-xl border bg-card p-5 h-full flex flex-col transition-colors ${isSelected ? 'border-ieee-blue shadow-[0_0_15px_rgba(30,136,229,0.15)]' : 'border-border'}`}>
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="font-display text-lg text-foreground">{FIFA_MARKET_LABELS[market.market_type] || market.market_type}</h2>
+        <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] px-2 py-1 bg-muted/50 rounded-md text-muted-foreground border border-border">
+          {market.mode === 'pool' ? `Pool · ${poolTotal} pts` : 'Fixed odds'}
+        </span>
       </div>
+      <p className="text-[12px] text-muted-foreground mb-4 leading-relaxed">
+        {FIFA_MARKET_BLURBS[market.market_type] || ''}
+      </p>
 
-      <div className="p-4 sm:p-5">
-        {market.void ? (
-          <p className="text-sm text-ieee-danger text-center py-4">This market has been voided. All stakes will be refunded.</p>
-        ) : (
-          <div className={`grid gap-2 sm:gap-3 ${isCorrectScore ? 'grid-cols-3 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3'}`}>
-            {options.map((opt) => {
-              const isSelected = selectedOption === opt
-              const poolShare = poolTotal > 0 ? ((market.pool_by_option[opt] || 0) / poolTotal) * 100 : 0
-              const odds = oddsFor(opt)
-              return (
-                <button
-                  key={opt}
-                  disabled={!canBet || !market.is_open}
-                  onClick={() => onSelect(opt)}
-                  className={`relative flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                    isSelected 
-                      ? 'border-ieee-blue bg-ieee-blue/5 shadow-inner' 
-                      : 'border-border/60 bg-background hover:border-ieee-light-blue/50 hover:bg-muted/30'
-                  }`}
-                >
-                  <span className={`font-semibold text-center leading-tight mb-1 ${isCorrectScore ? 'text-lg font-mono tracking-tighter' : 'text-sm'}`}>{opt}</span>
-                  
-                  {market.mode === 'fixed' && odds && (
-                    <span className="font-mono text-xs text-ieee-blue font-medium bg-ieee-blue/10 px-1.5 rounded">{odds.toFixed(2)}×</span>
-                  )}
-                  {market.mode === 'pool' && (
-                    <span className="font-mono text-[10px] text-muted-foreground">{poolShare.toFixed(0)}%</span>
-                  )}
+      {market.void && <p className="text-sm font-semibold text-ieee-danger mb-4 p-2 bg-ieee-danger/10 rounded-md border border-ieee-danger/20">This market has been voided. Stakes refunded.</p>}
+      {!market.is_open && !market.void && <p className="text-sm font-semibold text-muted-foreground mb-4 p-2 bg-muted/20 rounded-md border border-border">Market closed.</p>}
 
-                  {/* Thin pool bar at bottom */}
-                  {market.mode === 'pool' && poolTotal > 0 && (
-                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-border/40 rounded-b-xl overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${poolShare}%` }}
-                        transition={{ duration: 0.5, ease: 'easeOut' }}
-                        className={`h-full ${isSelected ? 'bg-ieee-blue' : 'bg-ieee-light-blue/60'}`}
-                      />
-                    </div>
-                  )}
-                </button>
-              )
-            })}
+      <div className={`mt-auto ${isCorrectScore ? 'grid grid-cols-3 md:grid-cols-4 gap-2' : 'space-y-2'}`}>
+        {(market.options ?? []).map((opt) => {
+          const isActive = isSelected && selectedOption === opt
+          const poolShare = poolTotal > 0 ? ((market.pool_by_option[opt] || 0) / poolTotal) * 100 : 0
+          const odds = oddsFor(opt)
+          
+          if (isCorrectScore) {
+            return (
+              <button
+                key={opt}
+                disabled={!canBet}
+                onClick={() => onSelectOption(opt)}
+                className={`w-full text-center rounded-lg border py-3 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                  isActive ? 'border-ieee-blue bg-ieee-blue text-white shadow-md' : 'border-border bg-[#111113] hover:border-ieee-light-blue text-foreground'
+                }`}
+              >
+                <div className="font-mono font-bold text-lg mb-1">{opt}</div>
+                {market.mode === 'fixed' && odds && (
+                  <div className={`text-[10px] font-mono ${isActive ? 'text-white/80' : 'text-ieee-light-blue'}`}>{odds.toFixed(2)}×</div>
+                )}
+                {market.mode === 'pool' && (
+                  <div className={`text-[10px] font-mono ${isActive ? 'text-white/80' : 'text-muted-foreground'}`}>{poolShare.toFixed(0)}%</div>
+                )}
+              </button>
+            )
+          }
+
+          return (
+            <button
+              key={opt}
+              disabled={!canBet}
+              onClick={() => onSelectOption(opt)}
+              className={`relative w-full text-left rounded-lg border p-3.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[52px] overflow-hidden ${
+                isActive ? 'border-ieee-blue bg-ieee-blue/10 shadow-sm' : 'border-border bg-[#111113] hover:border-ieee-light-blue/50'
+              }`}
+            >
+              <div className="relative z-10 flex items-center justify-between mb-1">
+                <span className={`font-medium text-sm ${isActive ? 'text-ieee-light-blue' : 'text-foreground'}`}>{opt}</span>
+                {market.mode === 'fixed' && odds && (
+                  <span className="font-mono text-sm font-bold text-ieee-light-blue">{odds.toFixed(2)}×</span>
+                )}
+                {market.mode === 'pool' && (
+                  <span className="font-mono text-xs font-semibold text-muted-foreground">{poolShare.toFixed(0)}%</span>
+                )}
+              </div>
+              {market.mode === 'pool' && poolTotal > 0 && (
+                <div className="relative z-10 h-1.5 w-full mt-2 rounded-full bg-black/40 overflow-hidden border border-white/5">
+                  <motion.div
+                    initial={false}
+                    animate={{ width: `${poolShare}%` }}
+                    transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                    className={`h-full ${isActive ? 'bg-ieee-blue' : 'bg-ieee-light-blue/50'}`}
+                  />
+                </div>
+              )}
+            </button>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
+function BettingSlip({ matchId, canBet, market, selection, stake, setStake, maxBet, maxBetPercent, balance, onClear }: {
+  matchId: string; canBet: boolean; market: Market | null; selection: string | null; stake: number; setStake: (v: number) => void; maxBet: number; maxBetPercent: number; balance: number; onClear: () => void
+}) {
+  const queryClient = useQueryClient()
+  const effectiveStake = stake // Don't silently cap the user's input
+
+  const placeBet = useMutation({
+    mutationFn: async () => {
+      if (!market || !selection) throw new Error('Pick an option first')
+      const res = await fetch('/api/fifa/bets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ market: market.id, match: matchId, selection, stake: Math.floor(effectiveStake) }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Bet failed')
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      toast.success('Bet placed successfully!')
+      onClear()
+      queryClient.invalidateQueries({ queryKey: ['fifa-dashboard'] })
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+
+  const quickStakes = [10, 25, 50, 100].filter((s) => s <= maxBet)
+
+  if (!canBet) {
+    return (
+      <div className="rounded-xl border border-dashed border-border bg-card p-6 text-center opacity-50">
+        <p className="text-sm font-medium text-muted-foreground">Betting slip unavailable</p>
+      </div>
+    )
+  }
+
+  if (!market || !selection) {
+    return (
+      <div className="rounded-xl border border-dashed border-border bg-card p-8 text-center flex flex-col items-center justify-center min-h-[300px]">
+        <div className="w-16 h-16 rounded-full bg-muted/20 flex items-center justify-center mb-4 border border-border">
+          <span className="text-2xl opacity-50">🎫</span>
+        </div>
+        <h3 className="font-display text-xl text-foreground mb-2">Betting Slip</h3>
+        <p className="text-sm text-muted-foreground max-w-[200px]">Select an option from the markets to place a bet.</p>
+      </div>
+    )
+  }
+
+  const odds = (market.mode === 'fixed' && market.fixed_odds) ? market.fixed_odds[selection] : null
+  const potentialReturn = odds ? Math.round(effectiveStake * odds) : null
+
+  return (
+    <div className="rounded-xl border border-border bg-card shadow-xl overflow-hidden flex flex-col">
+      <div className="bg-ieee-blue/10 border-b border-border p-4 flex items-center justify-between">
+        <h3 className="font-display text-lg text-foreground">Betting Slip</h3>
+        <button onClick={onClear} className="text-xs font-semibold text-muted-foreground hover:text-foreground">Clear</button>
+      </div>
+      
+      <div className="p-5 flex-1 space-y-5">
+        <div className="rounded-lg bg-[#111113] border border-border p-4">
+          <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1">{FIFA_MARKET_LABELS[market.market_type] || market.market_type}</p>
+          <div className="flex items-center justify-between">
+            <p className="text-base font-bold text-foreground">{selection}</p>
+            {odds && <p className="font-mono text-sm font-bold text-ieee-light-blue">{odds.toFixed(2)}×</p>}
+            {market.mode === 'pool' && <p className="text-[10px] font-mono text-muted-foreground uppercase bg-muted px-2 py-1 rounded">Pool</p>}
+          </div>
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm font-medium text-foreground">Stake Amount</label>
+            <span className="text-xs text-muted-foreground">Max: {maxBet}</span>
+          </div>
+          <div className="relative">
+            <input
+              type="number"
+              min={1}
+              max={maxBet || undefined}
+              value={stake || ''}
+              onChange={(e) => {
+                const v = e.target.value
+                setStake(v === '' ? 0 : Number(v))
+              }}
+              className="w-full rounded-lg border border-border bg-[#111113] px-4 py-3 text-lg font-mono font-bold text-foreground focus:border-ieee-blue focus:ring-1 focus:ring-ieee-blue transition-colors"
+            />
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">pts</span>
+          </div>
+        </div>
+
+        {quickStakes.length > 0 && (
+          <div className="flex gap-2">
+            {quickStakes.map((s) => (
+              <button
+                key={s}
+                onClick={() => setStake(s)}
+                className={`flex-1 rounded-md py-2 text-xs font-mono font-bold transition-colors ${
+                  effectiveStake === s
+                    ? 'bg-ieee-blue text-white shadow-md'
+                    : 'bg-[#111113] border border-border text-muted-foreground hover:border-ieee-light-blue hover:text-foreground'
+                }`}
+              >
+                +{s}
+              </button>
+            ))}
           </div>
         )}
       </div>
-    </section>
+
+      <div className="border-t border-border bg-[#111113] p-5">
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-sm text-muted-foreground">Potential Return</span>
+          {potentialReturn !== null ? (
+            <span className="font-mono text-lg font-bold text-ieee-light-blue">{potentialReturn} pts</span>
+          ) : (
+            <span className="text-xs text-muted-foreground italic">Share of pool</span>
+          )}
+        </div>
+        <p className="text-[10px] text-muted-foreground mb-4 text-center">
+          Stake limit is {maxBetPercent}% of your balance ({balance}).
+        </p>
+        <button
+          onClick={() => {
+            if (balance <= 0) return toast.error('Insufficient balance to place a bet')
+            if (effectiveStake <= 0) return toast.error('Please enter a stake amount')
+            if (effectiveStake > maxBet) return toast.error(`Max bet limit is ${maxBet} pts (${maxBetPercent}% of your balance)`)
+            placeBet.mutate()
+          }}
+          disabled={placeBet.isPending}
+          className="w-full rounded-lg bg-ieee-blue px-4 py-4 text-sm font-bold text-white hover:bg-ieee-light-blue hover:-translate-y-0.5 transition-all shadow-lg disabled:opacity-50 disabled:hover:translate-y-0 flex items-center justify-center"
+        >
+          {placeBet.isPending ? (
+            <span className="flex items-center gap-2"><span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" /> Processing</span>
+          ) : (
+            `Place Bet · ${effectiveStake} pts`
+          )}
+        </button>
+      </div>
+    </div>
   )
 }
