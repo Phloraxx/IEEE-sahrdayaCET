@@ -43,6 +43,12 @@ export const TEAM_FLAG_CODES: Record<string, string> = {
   Ghana: 'gh',
   Australia: 'au',
   'Saudi Arabia': 'sa',
+  Norway: 'no',
+  NOR: 'no',
+  Switzerland: 'ch',
+  SWI: 'ch',
+  ENG: 'gb-eng',
+  ARG: 'ar',
 }
 
 type CardAsset = { imageUrl: string; position: string }
@@ -91,12 +97,10 @@ export function getMatchCardAsset(home: string, away: string, stage?: string): {
 } {
   const key = pairKey(home, away)
   const reversed = pairKey(away, home)
-  const asset = MATCH_CARD_IMAGES[key] ?? MATCH_CARD_IMAGES[reversed]
+  const fallbackAsset = { imageUrl: '/fifa/hero-poster.jpg', position: '50% 20%' }
+  const asset = MATCH_CARD_IMAGES[key] ?? MATCH_CARD_IMAGES[reversed] ?? fallbackAsset
   const gradient = stage ? getStageColor(stage) : '#00629B'
-  if (asset) {
-    return { imageUrl: asset.imageUrl, position: asset.position, gradient }
-  }
-  return { imageUrl: null, position: 'center', gradient }
+  return { imageUrl: asset.imageUrl, position: asset.position, gradient }
 }
 
 export function teamShortName(team: string): string {

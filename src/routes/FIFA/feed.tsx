@@ -89,7 +89,7 @@ function FeedPage() {
   return (
     <FifaLayout active="feed">
       <div className="w-full flex-1 flex flex-col bg-[#0a0a0b]">
-        <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+        <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 lg:px-8 py-4 md:py-6">
           
           <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4 border-b border-border pb-6">
             <div>

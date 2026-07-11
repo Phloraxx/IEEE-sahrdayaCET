@@ -114,6 +114,7 @@ function MatchDetailPage() {
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null)
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
   const [stake, setStake] = useState<number>(0)
+  const [hasSetInitialStake, setHasSetInitialStake] = useState(false)
 
   const effectiveStatus = isSessionExpired ? 'unauthenticated' : status
 
@@ -183,10 +184,13 @@ function MatchDetailPage() {
   const maxBetPercent = userBalance?.max_bet_percent ?? 25
   const maxBet = Math.floor(balance * maxBetPercent / 100)
 
-  // Auto-set stake when maxBet changes if 0
+  // Auto-set stake when maxBet changes initially
   useEffect(() => {
-    if (stake === 0 && maxBet > 0) setStake(Math.min(50, Math.max(1, maxBet)))
-  }, [maxBet, stake])
+    if (!hasSetInitialStake && maxBet > 0) {
+      setStake(Math.min(50, Math.max(1, maxBet)))
+      setHasSetInitialStake(true)
+    }
+  }, [maxBet, hasSetInitialStake])
 
   if (!match) {
     return (
@@ -487,7 +491,7 @@ function BettingSlip({ matchId, canBet, market, selection, stake, setStake, maxB
       const res = await fetch('/api/fifa/bets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ market: market.id, match: matchId, selection, stake: effectiveStake }),
+        body: JSON.stringify({ market: market.id, match: matchId, selection, stake: Math.floor(effectiveStake) }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
@@ -555,8 +559,11 @@ function BettingSlip({ matchId, canBet, market, selection, stake, setStake, maxB
               type="number"
               min={1}
               max={maxBet || undefined}
-              value={effectiveStake}
-              onChange={(e) => setStake(Math.max(1, Number(e.target.value) || 0))}
+              value={stake || ''}
+              onChange={(e) => {
+                const v = e.target.value
+                setStake(v === '' ? 0 : Number(v))
+              }}
               className="w-full rounded-lg border border-border bg-[#111113] px-4 py-3 text-lg font-mono font-bold text-foreground focus:border-ieee-blue focus:ring-1 focus:ring-ieee-blue transition-colors"
             />
             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">pts</span>
@@ -596,7 +603,7 @@ function BettingSlip({ matchId, canBet, market, selection, stake, setStake, maxB
         </p>
         <button
           onClick={() => placeBet.mutate()}
-          disabled={placeBet.isPending || effectiveStake <= 0 || effectiveStake > maxBet}
+          disabled={placeBet.isPending || effectiveStake <= 0 || effectiveStake > maxBet || stake === 0}
           className="w-full rounded-lg bg-ieee-blue px-4 py-4 text-sm font-bold text-white hover:bg-ieee-light-blue hover:-translate-y-0.5 transition-all shadow-lg disabled:opacity-50 disabled:hover:translate-y-0 flex items-center justify-center"
         >
           {placeBet.isPending ? (

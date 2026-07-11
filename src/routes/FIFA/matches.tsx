@@ -97,7 +97,7 @@ function MatchesPage() {
   return (
     <FifaLayout active="matches">
       <div className="w-full flex-1 flex flex-col">
-        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-4 md:py-6">
           
           <div className="mb-10 text-center md:text-left">
             <h1 className="font-display text-4xl sm:text-5xl text-ieee-light-blue uppercase tracking-tight mb-3">

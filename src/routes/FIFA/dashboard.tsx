@@ -111,7 +111,7 @@ function DashboardPage() {
   return (
     <FifaLayout active="dashboard">
       <div className="w-full flex-1 flex flex-col bg-[#0a0a0b]">
-        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8 md:py-12 space-y-8">
+        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-4 md:py-6 space-y-8">
           
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
             <div>

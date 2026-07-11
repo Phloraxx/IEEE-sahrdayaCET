@@ -12,7 +12,7 @@ export function FifaLayout({
   return (
     <div className="fifa-theme min-h-screen bg-[#0a0a0b] text-[#f5f5f5] flex flex-col">
       <Navbar fifaActive={active} />
-      <main className={`flex-1 flex flex-col ${active === 'home' ? '' : 'pt-20 md:pt-28'}`}>{children}</main>
+      <main className={`flex-1 flex flex-col ${active === 'home' ? '' : 'pt-8 md:pt-11'}`}>{children}</main>
       <Footer />
     </div>
   )
