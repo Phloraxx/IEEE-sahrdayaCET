@@ -42,4 +42,5 @@ export default defineConfig(({ mode }) => {
       '@tanstack/react-start/server',
     ],
   },
+  }
 })
