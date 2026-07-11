@@ -11,6 +11,7 @@ import { usePbSubscription } from '@/hooks/use-pb-subscription'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 import { FIFA_MARKET_LABELS, FIFA_MARKET_BLURBS } from '@/schemas/fifa'
+import { getMatchCardAsset, getStageColor } from '@/lib/fifa-assets'
 import { AlertCircle, ChevronLeft } from 'lucide-react'
 
 interface MatchDetail {
@@ -204,6 +205,9 @@ function MatchDetailPage() {
   const betsLocked = match.betting_locks_at ? new Date(match.betting_locks_at) <= new Date() : kickoff <= new Date()
   const isKnockout = ['r32', 'r16', 'qf', 'sf', 'third_place', 'final'].includes(match.stage)
 
+  const asset = getMatchCardAsset(match.team_home, match.team_away, match.stage)
+  const stageColor = getStageColor(match.stage)
+
   const liveHomeGoals = liveMatch?.homeGoals ?? match.result_home_goals
   const liveAwayGoals = liveMatch?.awayGoals ?? match.result_away_goals
   const liveMinute = liveMatch?.minute
@@ -235,9 +239,31 @@ function MatchDetailPage() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-                className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm"
+                className="relative rounded-2xl border border-border bg-[#101823] overflow-hidden shadow-sm"
               >
-                <div className="px-6 pt-8 pb-6 text-center">
+                {asset.imageUrl ? (
+                  <div
+                    className="absolute inset-0 bg-cover bg-no-repeat"
+                    style={{
+                      backgroundImage: `url("${asset.imageUrl}")`,
+                      backgroundPosition: asset.position,
+                      opacity: 0.6,
+                    }}
+                  />
+                ) : (
+                  <div
+                    className="absolute inset-0"
+                    style={{ background: `linear-gradient(135deg, ${stageColor}88, #101823)` }}
+                  />
+                )}
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    background: 'linear-gradient(180deg, rgba(10,10,11,.85) 0%, rgba(10,10,11,.6) 40%, rgba(10,10,11,.95) 100%)',
+                  }}
+                />
+                
+                <div className="relative px-6 pt-8 pb-6 text-center z-10">
                   <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-ieee-light-blue mb-4 font-semibold">
                     {STAGE_LABELS[match.stage] || match.stage.toUpperCase()}
                   </p>

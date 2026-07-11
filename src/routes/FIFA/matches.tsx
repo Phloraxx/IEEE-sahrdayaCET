@@ -141,6 +141,7 @@ function MatchesPage() {
                         match={m}
                         liveMatches={liveMatches}
                         liveConfigured={liveConfigured}
+                        className="!w-full"
                       />
                     ))}
                   </div>
@@ -160,6 +161,7 @@ function MatchesPage() {
                         match={m}
                         liveMatches={liveMatches}
                         liveConfigured={liveConfigured}
+                        className="!w-full"
                       />
                     ))}
                   </div>
@@ -179,6 +181,7 @@ function MatchesPage() {
                         match={m}
                         liveMatches={liveMatches}
                         liveConfigured={liveConfigured}
+                        className="!w-full"
                       />
                     ))}
                   </div>
