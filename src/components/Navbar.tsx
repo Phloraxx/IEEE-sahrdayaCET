@@ -150,7 +150,7 @@ export default function Navbar({ fifaActive }: NavbarProps) {
           </button>
           {showUserMenu && (
             <div
-              className={`absolute top-full right-0 mt-2 rounded-xl shadow-xl min-w-[200px] overflow-hidden z-1000 pointer-events-auto ${
+              className={`absolute top-full right-0 mt-2 rounded-xl shadow-xl min-w-[200px] overflow-hidden z-[1000] pointer-events-auto ${
                 inFifa
                   ? "bg-[#131519] border border-white/10 text-[#f5f5f5]"
                   : "bg-white border border-gray-100"
@@ -264,36 +264,50 @@ export default function Navbar({ fifaActive }: NavbarProps) {
               </div>
             </>
           ) : (
-            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
-              {navItems.map((item) => {
-                const isActive =
-                  pathname === item.href ||
-                  (item.href.startsWith("/#") &&
-                    pathname === "/" &&
-                    activeSection.includes(item.href.replace("/#", "")));
-                return (
-                  <Link key={item.label} to={item.href} className={mainLinkClass(isActive)}>
-                    {item.label}
-                  </Link>
-                );
-              })}
-              <div className="relative" ref={fifaDropRef}>
-                <button
-                  type="button"
-                  onClick={() => setShowFifaDrop(!showFifaDrop)}
-                  className={`flex items-center gap-1 px-3 py-2 rounded-full text-[10px] md:text-xs font-bold tracking-wide transition-all whitespace-nowrap ${
+            <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                {navItems.map((item) => {
+                  const isActive =
+                    pathname === item.href ||
+                    (item.href.startsWith("/#") &&
+                      pathname === "/" &&
+                      activeSection.includes(item.href.replace("/#", "")));
+                  return (
+                    <Link key={item.label} to={item.href} className={mainLinkClass(isActive)}>
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+              <div className="relative shrink-0 flex items-center" ref={fifaDropRef}>
+                <Link
+                  to="/FIFA/"
+                  onClick={() => setShowFifaDrop(false)}
+                  className={`px-3 py-2 rounded-l-full text-[10px] md:text-xs font-bold tracking-wide transition-all whitespace-nowrap ${
                     isFifaPath(pathname)
                       ? "text-gray-900 bg-white shadow-xs"
                       : "text-ieee-blue hover:bg-ieee-blue/10"
                   }`}
                 >
                   WC PREDICT &apos;26
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setShowFifaDrop((open) => !open)}
+                  aria-expanded={showFifaDrop}
+                  aria-label="WC Predict submenu"
+                  className={`flex items-center px-1.5 py-2 rounded-r-full text-[10px] md:text-xs font-bold transition-all ${
+                    isFifaPath(pathname)
+                      ? "text-gray-900 bg-white shadow-xs"
+                      : "text-ieee-blue hover:bg-ieee-blue/10"
+                  }`}
+                >
                   <ChevronDown
                     className={`w-3 h-3 transition-transform ${showFifaDrop ? "rotate-180" : ""}`}
                   />
                 </button>
                 {showFifaDrop && (
-                  <div className="absolute top-full left-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 min-w-[180px] overflow-hidden z-1000">
+                  <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 min-w-[180px] overflow-hidden z-[1000]">
                     {FIFA_NAV_ITEMS.map((item) => (
                       <Link
                         key={item.key}
