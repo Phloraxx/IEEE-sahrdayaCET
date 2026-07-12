@@ -750,7 +750,11 @@ routerAdd("GET", "/api/fifa/leaderboard", function (e) {
         // no-settings behavior below.
         var minBets = 5
         if (settings) {
-            minBets = settings.getInt("raffle_active_participant_min_bets")
+            var minBetsRaw = settings.get("raffle_active_participant_min_bets")
+            if (minBetsRaw != null && minBetsRaw !== "") {
+                var parsed = settings.getInt("raffle_active_participant_min_bets")
+                if (parsed > 0) minBets = parsed
+            }
         }
         return e.json(200, {
             leaderboard: ranked,

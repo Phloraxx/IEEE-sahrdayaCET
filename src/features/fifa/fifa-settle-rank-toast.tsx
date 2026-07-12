@@ -2,37 +2,19 @@ import { useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth-context'
+import { fetchFifaDashboard } from '@/lib/fifa-dashboard-client'
 
-interface DashboardBet {
-  id: string
-  status: string
-}
-
-interface DashboardPayload {
-  bets: DashboardBet[]
-}
-
-async function fetchDashboard(): Promise<DashboardPayload> {
-  const res = await fetch('/api/fifa/dashboard')
-  if (!res.ok) throw new Error('Not authenticated')
-  return res.json()
-}
-
-async function fetchLeaderboardRows() {
-  const res = await fetch('/pb/api/fifa/leaderboard')
-  if (!res.ok) return []
-  const data = await res.json()
-  return data.leaderboard ?? []
-}
-
-function statusById(bets: DashboardBet[]): Record<string, string> {
+function statusById(bets: Array<{ id: string; status: string }>): Record<string, string> {
   const out: Record<string, string> = {}
   for (const b of bets) out[b.id] = b.status
   return out
 }
 
 /** Match settled for this user: at least one bet went pending → won/lost. */
-function hadMatchSettlement(prev: Record<string, string>, next: DashboardBet[]): boolean {
+function hadMatchSettlement(
+  prev: Record<string, string>,
+  next: Array<{ id: string; status: string }>,
+): boolean {
   for (const b of next) {
     const was = prev[b.id]
     if (was === 'pending' && (b.status === 'won' || b.status === 'lost')) {
@@ -52,12 +34,12 @@ export function FifaSettleRankToast() {
 
   const { data: dashboard } = useQuery({
     queryKey: ['fifa-dashboard'],
-    queryFn: fetchDashboard,
+    queryFn: fetchFifaDashboard,
     refetchInterval: 10_000,
     enabled: status === 'authenticated',
   })
 
-  const bets = dashboard?.bets ?? []
+  const betStatuses = dashboard?.bet_statuses ?? []
 
   useEffect(() => {
     if (status !== 'authenticated' || !user?.id) {
@@ -68,23 +50,24 @@ export function FifaSettleRankToast() {
 
     if (lastUserIdRef.current !== user.id) {
       lastUserIdRef.current = user.id
-      prevStatusByIdRef.current = statusById(bets)
+      prevStatusByIdRef.current = statusById(betStatuses)
       return
     }
 
     const prev = prevStatusByIdRef.current
     if (!prev) {
-      prevStatusByIdRef.current = statusById(bets)
+      prevStatusByIdRef.current = statusById(betStatuses)
       return
     }
 
-    const settled = hadMatchSettlement(prev, bets)
-    prevStatusByIdRef.current = statusById(bets)
+    const settled = hadMatchSettlement(prev, betStatuses)
+    prevStatusByIdRef.current = statusById(betStatuses)
 
     if (!settled) return
 
     void (async () => {
-      const rows = await fetchLeaderboardRows()
+      const res = await fetch('/pb/api/fifa/leaderboard')
+      const rows = res.ok ? ((await res.json()).leaderboard ?? []) : []
       const me = rows.find((r: { id: string; rank: number }) => r.id === user.id)
       if (me) {
         toast.success(`Results are in — you're rank #${me.rank}`, { id: 'fifa-settle-rank' })
@@ -92,7 +75,7 @@ export function FifaSettleRankToast() {
         toast.success('Results are in — check your bets on the dashboard', { id: 'fifa-settle-rank' })
       }
     })()
-  }, [bets, status, user?.id])
+  }, [betStatuses, status, user?.id])
 
   return null
 }

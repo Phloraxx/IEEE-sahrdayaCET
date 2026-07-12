@@ -127,6 +127,11 @@ test.describe('FIFA — API endpoints (via /pb proxy)', () => {
     const body = await res.json()
     expect(body).toHaveProperty('leaderboard')
     expect(Array.isArray(body.leaderboard)).toBeTruthy()
+    if (body.settings) {
+      expect(body.settings).not.toHaveProperty('raffle_tickets_base')
+      expect(body.settings).not.toHaveProperty('raffle_tickets_decay')
+      expect(body.settings).toHaveProperty('min_bets')
+    }
   })
 
   test('GET /pb/api/fifa/feed → 200, returns { events: [...] }', async ({ request }) => {

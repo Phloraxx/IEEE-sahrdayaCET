@@ -4,37 +4,8 @@ import { FifaLayout } from '@/features/fifa/fifa-layout'
 import { useAuth } from '@/lib/auth-context'
 import { formatDateTime, formatDateShort } from '@/lib/dates'
 import { formatMarketOptionLabel } from '@/lib/fifa-market-labels'
+import { fetchFifaDashboard } from '@/lib/fifa-dashboard-client'
 import { Ticket, Trophy, Target, TrendingUp, History } from 'lucide-react'
-
-interface DashboardData {
-  user: { id: string; display_name: string; balance: number; email: string }
-  bets: Array<{
-    id: string
-    selection: string
-    stake: number
-    mode: string
-    odds_locked: number
-    status: string
-    payout: number
-    placed_at: string
-    match: { id: string; team_home: string; team_away: string } | null
-    market: { id: string; market_type: string } | null
-  }>
-  transactions: Array<{
-    id: string
-    type: string
-    amount: number
-    balance_after: number
-    note: string
-    timestamp: string
-  }>
-}
-
-async function fetchDashboard(): Promise<DashboardData> {
-  const res = await fetch('/api/fifa/dashboard')
-  if (!res.ok) throw new Error('Not authenticated')
-  return res.json()
-}
 
 async function fetchLeaderboardPayload(): Promise<{ settings?: { min_bets: number } }> {
   const res = await fetch('/pb/api/fifa/leaderboard')
@@ -51,7 +22,7 @@ function DashboardPage() {
   const { status, signIn } = useAuth()
   const { data, isLoading, error } = useQuery({
     queryKey: ['fifa-dashboard'],
-    queryFn: fetchDashboard,
+    queryFn: fetchFifaDashboard,
     refetchInterval: 10_000,
     enabled: status === 'authenticated',
   })
@@ -118,7 +89,7 @@ function DashboardPage() {
   const lostBets = data.bets.filter(b => b.status === 'lost').length
   const totalResolved = wonBets + lostBets
   const winRate = totalResolved > 0 ? Math.round((wonBets / totalResolved) * 100) : 0
-  const validBetsCount = data.bets.filter(b => b.status !== 'void').length
+  const validBetsCount = data.valid_bets_count ?? 0
   const raffleProgress = minBets > 0 ? Math.min(100, (validBetsCount / minBets) * 100) : 100
   const betsToQualify = Math.max(0, minBets - validBetsCount)
 

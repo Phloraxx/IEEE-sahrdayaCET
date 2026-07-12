@@ -272,7 +272,7 @@ function RulesPage() {
                   <Trophy className="w-8 h-8 text-amber-500" />
                 </div>
                 
-                <h2 className="font-display text-3xl sm:text-4xl text-amber-500 uppercase tracking-wider mb-4">Leaderboard & Raffle</h2>
+                <h2 className="font-display text-3xl sm:text-4xl text-amber-500 uppercase tracking-wider mb-4">Leaderboard &amp; prize draw</h2>
                 
                 <p className="text-base text-foreground mb-4">
                   One scoreboard: you rank by <strong className="text-foreground">tickets</strong> (tiebreak: more bets placed). At the end of the tournament, a weighted random draw picks the grand prize winner.

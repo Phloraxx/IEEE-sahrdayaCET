@@ -20,6 +20,7 @@ import {
 } from '@/lib/fifa-market-labels'
 import { getMatchCardAsset, getStageColor } from '@/lib/fifa-assets'
 import { DEFAULT_FIFA_LEADERBOARD_SETTINGS } from '@/lib/fifa-leaderboard'
+import { fetchFifaDashboard, FifaDashboardAuthError } from '@/lib/fifa-dashboard-client'
 import { formatDateTime } from '@/lib/dates'
 import { AlertCircle, ChevronLeft } from 'lucide-react'
 
@@ -201,30 +202,24 @@ function MatchDetailPage() {
       }) || null
     : null
 
-  const { data: userBalance } = useQuery({
+  const { data: userBalance, error: dashboardError } = useQuery({
     queryKey: ['fifa-dashboard'],
-    queryFn: async () => {
-      const res = await fetch('/api/fifa/dashboard')
-      if (res.status === 401 || res.status === 403) {
-        setIsSessionExpired(true)
-        toast.error('Your session expired — please log in again', { id: 'session-expired' })
-        throw new Error('Session expired')
-      }
-      if (!res.ok) return null
-      return res.json() as Promise<{
-        user: { balance: number }
-        max_bet_percent?: number
-        bets?: Array<{ status: string }>
-      }>
-    },
+    queryFn: fetchFifaDashboard,
     enabled: status === 'authenticated' && !isSessionExpired,
     refetchInterval: 15_000,
   })
+
+  useEffect(() => {
+    if (dashboardError instanceof FifaDashboardAuthError) {
+      setIsSessionExpired(true)
+      toast.error('Your session expired — please log in again', { id: 'session-expired' })
+    }
+  }, [dashboardError])
+
   const balance = userBalance?.user?.balance ?? 0
   const maxBetPercent = userBalance?.max_bet_percent ?? 25
   const maxBet = Math.floor((balance * maxBetPercent) / 100)
-  const validBetsCount =
-    userBalance?.bets?.filter((b) => b.status !== 'void').length ?? 0
+  const validBetsCount = userBalance?.valid_bets_count ?? 0
 
   const { data: lbData } = useQuery({
     queryKey: ['fifa-leaderboard'],
