@@ -141,7 +141,10 @@ const rules: Record<string, CollectionRuleSet> = {
     createRule: `@request.context = "oauth2"`,
     // FIFA: balance is hook-only for ALL roles (incl. admin). Economy changes
     // go through /api/fifa/admin-adjust (custom route + $app internal access).
-    updateRule: `(id = @request.auth.id && @request.body.role:changed = false && @request.body.balance:changed = false) || (@request.auth.role = "admin" && @request.body.balance:changed = false && @request.body.role:changed = false)`,
+    // display_name is set once from the Google profile (OAuth2 hook) and is
+    // not self-editable — the public leaderboard shows real identities.
+    // Admins may still correct it.
+    updateRule: `(id = @request.auth.id && @request.body.role:changed = false && @request.body.balance:changed = false && @request.body.display_name:changed = false) || (@request.auth.role = "admin" && @request.body.balance:changed = false && @request.body.role:changed = false)`,
     deleteRule: null,
   },
   // ─── FIFA WC Predict '26 ───────────────────────────────────────────

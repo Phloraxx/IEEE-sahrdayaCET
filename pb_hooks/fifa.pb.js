@@ -509,21 +509,6 @@ onRecordAfterCreateSuccess(function (e) {
     e.next()
 }, "fifa_bets")
 
-// ─── Phase 4b: Match void — void all markets (triggers refunds) ─────
-onRecordAfterUpdateSuccess(function (e) {
-    var match = e.record
-    if (!match) { e.next(); return }
-    if (match.getString("status") !== "void") { e.next(); return }
-    // Inlined voidMatchMarkets (PB 0.39 goja doesn't share top-level scope).
-    try {
-        var markets = $app.findRecordsByFilter("fifa_bet_markets", "match = {:matchId}", "", 0, 0, { matchId: match.id })
-        for (var i = 0; i < markets.length; i++) {
-            var mk = markets[i]
-            if (!mk.getBool("void")) { mk.set("void", true); mk.set("is_open", false); $app.saveNoValidate(mk) }
-        }
-    } catch (err) { console.log("[fifa] voidMatchMarkets failed for " + match.id + ": " + err) }
-    e.next()
-}, "fifa_matches")
 
 // ─── Phase 4c: Market void — refund pending bets ───────────────────
 // Fires AFTER a bet_markets record is updated. When void=true, refund all
@@ -586,6 +571,35 @@ onRecordAfterUpdateSuccess(function (e) {
 
     if (refundedCount > 0) {
         emitFeedEvent("system", "", "", "Market voided — " + refundedCount + " bets refunded")
+
+        // Refresh the displayed pool counters — refunded (void) bets no longer
+        // count. Guarded by refundedCount > 0 so the market save below can't
+        // recurse: the re-entrant hook call finds no pending bets, refunds
+        // nothing, and skips this block.
+        try {
+            var liveBets = $app.findRecordsByFilter(
+                "fifa_bets",
+                "market = {:marketId} && status != {:void}",
+                "", 0, 0,
+                { marketId: marketId, void: "void" }
+            )
+            var poolTotal = 0
+            var poolByOption = {}
+            for (var pi = 0; pi < liveBets.length; pi++) {
+                var lb = liveBets[pi]
+                var ls = lb.getInt("stake") || 0
+                poolTotal += ls
+                var lsel = lb.getString("selection") || ""
+                if (!poolByOption[lsel]) poolByOption[lsel] = 0
+                poolByOption[lsel] += ls
+            }
+            var mkRefresh = $app.findRecordById("fifa_bet_markets", marketId)
+            mkRefresh.set("pool_total", poolTotal)
+            mkRefresh.set("pool_by_option", poolByOption)
+            $app.saveNoValidate(mkRefresh)
+        } catch (err) {
+            console.log("[fifa] void refund: pool recompute failed for " + marketId + ": " + err)
+        }
     }
 
 
@@ -677,16 +691,18 @@ routerAdd("GET", "/api/fifa/leaderboard", function (e) {
             // and shadow the top-level displayName() helper, making this call
             // throw "displayName is not a function".
             var dName = _displayName(u)
-            // Count the user's bets. limit=0 means no limit in PB's
-            // findRecordsByFilter, so .length is the true count. At ~100
-            // players this is fine; would denormalize into a counter at scale.
+            // Count the user's non-void bets (voided/refunded bets don't count
+            // toward raffle eligibility — matches the dashboard's progress
+            // math). limit=0 means no limit in PB's findRecordsByFilter, so
+            // .length is the true count. At ~100 players this is fine; would
+            // denormalize into a counter at scale.
             var betCount = 0
             try {
                 var allUserBets = $app.findRecordsByFilter(
                     "fifa_bets",
-                    "user = {:uid}",
+                    "user = {:uid} && status != {:void}",
                     "", 0, 0,
-                    { uid: u.id }
+                    { uid: u.id, void: "void" }
                 )
                 betCount = allUserBets.length
             } catch (err) { betCount = 0 }
@@ -1023,6 +1039,36 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
     var totalPayout = 0
     var marketsProcessed = 0
 
+    // Refresh a market's displayed pool counters from its non-void bets.
+    // Called after settlement passes that void bets (push refunds, nobody-won
+    // refunds) so the public pool display never counts refunded stakes.
+    var _recomputePool = function(marketId) {
+        try {
+            var liveBets = $app.findRecordsByFilter(
+                "fifa_bets",
+                "market = {:marketId} && status != {:void}",
+                "", 0, 0,
+                { marketId: marketId, void: "void" }
+            )
+            var poolTotal = 0
+            var poolByOption = {}
+            for (var pi = 0; pi < liveBets.length; pi++) {
+                var lb = liveBets[pi]
+                var ls = lb.getInt("stake") || 0
+                poolTotal += ls
+                var lsel = lb.getString("selection") || ""
+                if (!poolByOption[lsel]) poolByOption[lsel] = 0
+                poolByOption[lsel] += ls
+            }
+            var mkRefresh = $app.findRecordById("fifa_bet_markets", marketId)
+            mkRefresh.set("pool_total", poolTotal)
+            mkRefresh.set("pool_by_option", poolByOption)
+            $app.saveNoValidate(mkRefresh)
+        } catch (err) {
+            console.log("[fifa] settle: pool recompute failed for " + marketId + ": " + err)
+        }
+    }
+
     // ─── Settle each market ────────────────────────────────────────
     for (var mi = 0; mi < markets.length; mi++) {
         var market = markets[mi]
@@ -1031,6 +1077,7 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
         var marketMode = market.getString("mode") || "pool"
         var line = _getRecordFloat(market, "line")
         var customWinners = customWinnersMap[marketId] || []
+        var voidedThisMarket = 0
 
         // Skip voided markets — their bets were already refunded by the
         // onRecordAfterUpdateSuccess hook on fifa_bet_markets when void was
@@ -1081,15 +1128,22 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
                     b.set("payout", refundStake)
                     $app.saveNoValidate(b)
                     settledCount++
+                    voidedThisMarket++
                 }
+                if (voidedThisMarket > 0) _recomputePool(marketId)
                 continue
             }
         }
 
-        // Compute pool context
+        // Compute pool context. Void bets are excluded from the pool: their
+        // stakes are refunded (push, or voided before settlement), so winners
+        // must only share money that actually stays in the market — otherwise
+        // settlement pays out more than was collected. Mirrors
+        // src/lib/fifa-payout.ts settleMarket().
         var totalPool = 0
         var totalWinningStakes = 0
         for (var j2 = 0; j2 < judged.length; j2++) {
+            if (judged[j2].outcome === "void") continue
             totalPool += judged[j2].bet.getInt("stake") || 0
             if (judged[j2].outcome === "won") {
                 totalWinningStakes += judged[j2].bet.getInt("stake") || 0
@@ -1121,7 +1175,9 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
             jb.bet.set("payout", payout)
             $app.saveNoValidate(jb.bet)
             settledCount++
+            if (wasPending && jb.outcome === "void") voidedThisMarket++
         }
+        if (voidedThisMarket > 0) _recomputePool(marketId)
     }
 
     // ─── Mark match as settled only when no pending bets remain ───
@@ -1231,22 +1287,21 @@ cronAdd("fifa-daily-topup", "0 9 * * *", function () {
         var user = users[i]
         var userId = user.id
 
-        // Idempotency: skip if already topped up today.
-        // We can't filter by `created` (not a real SQLite column on this
-        // collection), so we fetch today's daily_topup records for this user
-        // and check in JS. At ~100 users this is fine.
+        // Idempotency: skip if already topped up today. Sort by the hook-set
+        // `timestamp` field — PB record ids are random, NOT monotonic, so
+        // "-id" would return an arbitrary top-up row, not the latest one.
         try {
             var todays = $app.findRecordsByFilter(
                 "fifa_transactions",
                 "user = {:uid} && type = {:type}",
-                "-id",
+                "-timestamp",
                 1, 0,
                 { uid: userId, type: "daily_topup" }
             )
             if (todays.length > 0) {
                 var last = todays[0]
-                var lastCreated = last.getString("created") || ""
-                if (lastCreated.indexOf(todayPrefix) === 0) { continue }
+                var lastStamp = last.getString("timestamp") || last.getString("created") || ""
+                if (lastStamp.indexOf(todayPrefix) === 0) { continue }
             }
         } catch (err) { /* no existing — proceed */ }
 
@@ -1644,13 +1699,15 @@ routerAdd("POST", "/api/fifa/raffle", function (e) {
     var candidates = []
     for (var i = 0; i < users.length; i++) {
         var u = users[i]
+        // Non-void bets only — mirrors the leaderboard route so raffle
+        // eligibility (min_bets) matches what players see.
         var betCount = 0
         try {
             var bets = $app.findRecordsByFilter(
                 "fifa_bets",
-                "user = {:uid}",
+                "user = {:uid} && status != {:void}",
                 "", 0, 0,
-                { uid: u.id }
+                { uid: u.id, void: "void" }
             )
             betCount = bets.length
         } catch (err) { betCount = 0 }
@@ -1819,6 +1876,13 @@ cronAdd("fifa-espn-sync", "*/2 * * * *", function () {
         var statusState = String(statusType.state || "pre")
         var statusName = statusType.name ? String(statusType.name) : ""
         var mapped = _mapEspnStatus(statusState, statusName)
+        // ET/pens detection (best-effort from status name, e.g.
+        // STATUS_FINAL_AET / STATUS_FINAL_PEN / STATUS_SHOOTOUT). ESPN's
+        // post-match score includes extra-time goals, so downstream settlement
+        // must know when the 90-min score markets can't be trusted.
+        var upperName = statusName.toUpperCase()
+        var afterPenalties = upperName.indexOf("PEN") !== -1 || upperName.indexOf("SHOOTOUT") !== -1
+        var afterExtraTime = afterPenalties || upperName.indexOf("AET") !== -1 || upperName.indexOf("EXTRA") !== -1
         return {
             id: String(rec.id || ""),
             homeTeam: String(homeTeamObj.displayName || homeTeamObj.name || homeTeamObj.abbreviation || ""),
@@ -1828,6 +1892,10 @@ cronAdd("fifa-espn-sync", "*/2 * * * *", function () {
             statusState: statusState,
             statusName: statusName,
             mappedStatus: mapped,
+            afterExtraTime: afterExtraTime,
+            afterPenalties: afterPenalties,
+            homeWinner: home.winner === true,
+            awayWinner: away.winner === true,
         }
     }
     var _findEventForMatch = function(match, events) {
@@ -1864,15 +1932,30 @@ cronAdd("fifa-espn-sync", "*/2 * * * *", function () {
         var ma = _normalizeTeam(matchRec.getString("team_away"))
         var eh = _normalizeTeam(ev.homeTeam)
         var ea = _normalizeTeam(ev.awayTeam)
+        var swapped = mh === ea && ma === eh
         var homeGoals = ev.homeGoals !== null && ev.homeGoals !== undefined ? ev.homeGoals : 0
         var awayGoals = ev.awayGoals !== null && ev.awayGoals !== undefined ? ev.awayGoals : 0
-        if (mh === ea && ma === eh) {
+        if (swapped) {
             homeGoals = ev.awayGoals !== null && ev.awayGoals !== undefined ? ev.awayGoals : 0
             awayGoals = ev.homeGoals !== null && ev.homeGoals !== undefined ? ev.homeGoals : 0
         }
         var resultWinner = "draw"
         if (homeGoals > awayGoals) resultWinner = "home"
         else if (awayGoals > homeGoals) resultWinner = "away"
+        // Level final score in a knockout means pens decided it — ESPN marks
+        // the shootout winner via competitor.winner, our only advance signal.
+        var resultAdvance = resultWinner !== "draw" ? resultWinner : ""
+        var afterPenalties = !!ev.afterPenalties
+        if (resultWinner === "draw") {
+            var homeWon = ev.homeWinner === true
+            var awayWon = ev.awayWinner === true
+            if (swapped) { var tmpW = homeWon; homeWon = awayWon; awayWon = tmpW }
+            if (homeWon !== awayWon) {
+                resultAdvance = homeWon ? "home" : "away"
+                afterPenalties = true
+            }
+        }
+        var afterExtraTime = !!ev.afterExtraTime || afterPenalties
         return {
             result_winner: resultWinner,
             result_home_goals: homeGoals,
@@ -1882,7 +1965,9 @@ cronAdd("fifa-espn-sync", "*/2 * * * *", function () {
             result_red_cards: 0,
             result_home_clean_sheet: awayGoals === 0,
             result_away_clean_sheet: homeGoals === 0,
-            result_advance: resultWinner !== "draw" ? resultWinner : "",
+            result_advance: resultAdvance,
+            result_after_extra_time: afterExtraTime,
+            result_after_penalties: afterPenalties,
         }
     }
     var _closeMatchMarkets = function(matchId) {
@@ -1922,6 +2007,34 @@ cronAdd("fifa-espn-sync", "*/2 * * * *", function () {
             }
         } catch (err) {
             console.log("[fifa] espn-sync: void markets failed for " + matchId + ": " + err)
+        }
+    }
+    // Refresh a market's displayed pool counters from its non-void bets
+    // (mirrors the settle route — refunded stakes must drop off the display).
+    var _recomputePool = function(marketId) {
+        try {
+            var liveBets = $app.findRecordsByFilter(
+                "fifa_bets",
+                "market = {:marketId} && status != {:void}",
+                "", 0, 0,
+                { marketId: marketId, void: "void" }
+            )
+            var poolTotal = 0
+            var poolByOption = {}
+            for (var pi = 0; pi < liveBets.length; pi++) {
+                var lb = liveBets[pi]
+                var ls = lb.getInt("stake") || 0
+                poolTotal += ls
+                var lsel = lb.getString("selection") || ""
+                if (!poolByOption[lsel]) poolByOption[lsel] = 0
+                poolByOption[lsel] += ls
+            }
+            var mkRefresh = $app.findRecordById("fifa_bet_markets", marketId)
+            mkRefresh.set("pool_total", poolTotal)
+            mkRefresh.set("pool_by_option", poolByOption)
+            $app.saveNoValidate(mkRefresh)
+        } catch (err) {
+            console.log("[fifa] espn-sync: pool recompute failed for " + marketId + ": " + err)
         }
     }
     var _applyDelta = function(userId, type, delta, refBetId, note) {
@@ -2036,14 +2149,24 @@ cronAdd("fifa-espn-sync", "*/2 * * * *", function () {
         var houseCutPercent = settingsRec.getInt("pool_house_cut_percent") || 0
         var settledCount = 0
 
-        // ESPN scoreboard only yields the reliable 90-min score — it carries NO
+        // ESPN scoreboard only yields the reliable final score — it carries NO
         // scorer list and NO card counts. Auto-settling scorer/cards/custom
         // markets from that thin snapshot would void every scorer bet and
         // settle cards against a phantom 0, paying out the wrong side. So the
         // ESPN cron only settles markets fully determined by the score; the
         // rest stay pending for the admin. Because those bets remain pending,
         // the match is NOT marked settled and admin settlement finishes it.
-        var AUTO_SETTLE_TYPES = { match_winner: true, correct_score: true, total_goals_ou: true, clean_sheet: true }
+        //
+        // ET/pens: ESPN's post-match score includes extra-time goals, but the
+        // score markets settle on the 90-MINUTE result (FIFA-GAME.md §4). When
+        // the match went past 90 minutes, only match_winner (settles on who
+        // advances) is safe — goals/correct-score/clean-sheet stay pending for
+        // the admin to enter the true 90-min score. Mirrors
+        // src/lib/fifa-espn-sync.ts autoSettleMarketTypes().
+        var wentExtraTime = result.result_after_extra_time || result.result_after_penalties
+        var AUTO_SETTLE_TYPES = wentExtraTime
+            ? { match_winner: true }
+            : { match_winner: true, correct_score: true, total_goals_ou: true, clean_sheet: true }
         for (var mi = 0; mi < markets.length; mi++) {
             var market = markets[mi]
             var marketId = market.id
@@ -2080,6 +2203,7 @@ cronAdd("fifa-espn-sync", "*/2 * * * *", function () {
                     if (judged[j].outcome === "won") { anyWinner = true; break }
                 }
                 if (!anyWinner) {
+                    var refundedHere = 0
                     for (var k = 0; k < judged.length; k++) {
                         var b = judged[k].bet
                         if (b.getString("status") !== "pending") continue
@@ -2090,20 +2214,27 @@ cronAdd("fifa-espn-sync", "*/2 * * * *", function () {
                         b.set("payout", refundStake)
                         $app.saveNoValidate(b)
                         settledCount++
+                        refundedHere++
                     }
+                    if (refundedHere > 0) _recomputePool(marketId)
                     continue
                 }
             }
 
+            // Void bets are excluded from the pool — their stakes are refunded,
+            // so winners only share money that stays in the market (mirrors the
+            // settle route + src/lib/fifa-payout.ts).
             var totalPool = 0
             var totalWinningStakes = 0
             for (var j2 = 0; j2 < judged.length; j2++) {
+                if (judged[j2].outcome === "void") continue
                 totalPool += judged[j2].bet.getInt("stake") || 0
                 if (judged[j2].outcome === "won") {
                     totalWinningStakes += judged[j2].bet.getInt("stake") || 0
                 }
             }
 
+            var voidedThisMarket = 0
             for (var j3 = 0; j3 < judged.length; j3++) {
                 var jb = judged[j3]
                 var stake = jb.bet.getInt("stake") || 0
@@ -2121,7 +2252,9 @@ cronAdd("fifa-espn-sync", "*/2 * * * *", function () {
                 jb.bet.set("payout", payout)
                 $app.saveNoValidate(jb.bet)
                 settledCount++
+                if (wasPending && jb.outcome === "void") voidedThisMarket++
             }
+            if (voidedThisMarket > 0) _recomputePool(marketId)
         }
 
         var pendingRemaining = $app.findRecordsByFilter(
@@ -2259,6 +2392,8 @@ cronAdd("fifa-espn-sync", "*/2 * * * *", function () {
             match.set("result_home_clean_sheet", payload.result_home_clean_sheet)
             match.set("result_away_clean_sheet", payload.result_away_clean_sheet)
             match.set("result_advance", payload.result_advance)
+            match.set("result_after_extra_time", payload.result_after_extra_time)
+            match.set("result_after_penalties", payload.result_after_penalties)
             if (!match.getString("auto_settle_at")) {
                 var delayMs = settleDelayMinutes * 60 * 1000
                 match.set("auto_settle_at", new Date(nowMs + delayMs).toISOString())

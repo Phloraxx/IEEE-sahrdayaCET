@@ -208,8 +208,13 @@ export function settleMarket(
     }
   }
 
-  // Compute pool context for pool-mode winners
-  const totalPool = bets.reduce((sum, b) => sum + b.stake, 0)
+  // Compute pool context for pool-mode winners. Void bets are excluded from
+  // the pool: their stakes are refunded (push, or voided before settlement),
+  // so winners must only share the money that actually stays in the market —
+  // otherwise settlement pays out more than was collected.
+  const totalPool = judged
+    .filter((j) => j.outcome !== 'void')
+    .reduce((sum, j) => sum + j.bet.stake, 0)
   const totalWinningStakes = judged
     .filter((j) => j.outcome === 'won')
     .reduce((sum, j) => sum + j.bet.stake, 0)
