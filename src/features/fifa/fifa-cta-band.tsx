@@ -27,10 +27,10 @@ export function FifaCtaBand() {
           WC PREDICT &apos;26
         </span>
         <h2 className="font-display mb-3.5 text-[clamp(28px,4.5vw,46px)] leading-[1.05] uppercase">
-          Your bracket. Your points. Your voucher.
+          Your bracket. Your tickets. Your voucher.
         </h2>
         <p className="mb-6 text-sm leading-relaxed opacity-85">
-          Free to enter, fake points only. Sign in with your @sahrdaya.ac.in account and place your
+          Free to enter — fake tickets only. Sign in with your @sahrdaya.ac.in account and place your
           first bet before kickoff.
         </p>
         <button

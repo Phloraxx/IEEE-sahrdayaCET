@@ -36,14 +36,14 @@ test.describe('FIFA — Public Pages (no auth)', () => {
     const res = await page.goto('/FIFA/leaderboard', { waitUntil: 'networkidle' })
     expect(res?.ok()).toBeTruthy()
     const text = await page.textContent('body')
-    expect(text).toMatch(/leaderboard|rank|player|balance|points/i)
+    expect(text).toMatch(/leaderboard|rank|player|tickets/i)
   })
 
   test('GET /FIFA/rules → 200, shows rules', async ({ page }) => {
     const res = await page.goto('/FIFA/rules', { waitUntil: 'networkidle' })
     expect(res?.ok()).toBeTruthy()
     const text = await page.textContent('body')
-    expect(text).toMatch(/rule|point|bet|scoring|prize/i)
+    expect(text).toMatch(/rule|ticket|bet|scoring|prize/i)
   })
 
   test.skip('GET /FIFA/feed — feed removed from product (PR1)', async () => {
@@ -72,7 +72,7 @@ test.describe('FIFA — Authenticated Pages (with pb_auth cookie)', () => {
     const res = await page.goto('/FIFA/dashboard', { waitUntil: 'networkidle' })
     expect(res?.ok()).toBeTruthy()
     const text = await page.textContent('body')
-    expect(text).toMatch(/dashboard|balance|bet|transaction/i)
+    expect(text).toMatch(/dashboard|tickets|bet|transaction/i)
   })
 
   test('GET /FIFA/matches/{id} → 200, shows match detail with betting UI', async ({ page }) => {

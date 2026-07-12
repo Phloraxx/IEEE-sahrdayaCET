@@ -36,19 +36,10 @@ async function fetchDashboard(): Promise<DashboardData> {
   return res.json()
 }
 
-interface RaffleSettings {
-  raffle_tickets_base: number
-  raffle_tickets_decay: number
-  min_bets: number
-}
-
-const DEFAULT_RAFFLE_SETTINGS: RaffleSettings = { raffle_tickets_base: 50, raffle_tickets_decay: 2, min_bets: 5 }
-
-async function fetchRaffleSettings(): Promise<RaffleSettings> {
+async function fetchLeaderboardPayload(): Promise<{ settings?: { min_bets: number } }> {
   const res = await fetch('/pb/api/fifa/leaderboard')
-  if (!res.ok) throw new Error('Failed to load raffle settings')
-  const data = await res.json()
-  return data.settings || DEFAULT_RAFFLE_SETTINGS
+  if (!res.ok) throw new Error('Failed to load leaderboard')
+  return res.json()
 }
 
 export const Route = createFileRoute('/FIFA/dashboard')({
@@ -65,13 +56,13 @@ function DashboardPage() {
     enabled: status === 'authenticated',
   })
 
-  const { data: raffleSettings } = useQuery({
-    queryKey: ['fifa-raffle-settings'],
-    queryFn: fetchRaffleSettings,
-    staleTime: 60_000,
+  const { data: lbPayload } = useQuery({
+    queryKey: ['fifa-leaderboard'],
+    queryFn: fetchLeaderboardPayload,
+    staleTime: 15_000,
     enabled: status === 'authenticated',
   })
-  const { raffle_tickets_base: raffleBase, raffle_tickets_decay: raffleDecay, min_bets: minBets } = raffleSettings || DEFAULT_RAFFLE_SETTINGS
+  const minBets = lbPayload?.settings?.min_bets ?? 5
 
   if (status !== 'authenticated') {
     return (
@@ -80,7 +71,7 @@ function DashboardPage() {
           <div className="rounded-2xl border border-border bg-card p-10 text-center max-w-md w-full shadow-2xl">
             <Trophy className="w-16 h-16 text-ieee-blue mx-auto mb-6 opacity-80" />
             <h1 className="font-display text-3xl text-foreground mb-3 uppercase tracking-wider">Your Dashboard</h1>
-            <p className="text-muted-foreground mb-8">Sign in with your @sahrdaya.ac.in account to view your balance, betting history, and raffle status.</p>
+            <p className="text-muted-foreground mb-8">Sign in with your @sahrdaya.ac.in account to view your tickets, betting history, and prize draw status.</p>
             <button onClick={signIn} className="w-full py-3 rounded-lg bg-ieee-blue text-white text-base font-bold hover:bg-ieee-light-blue transition-colors shadow-lg hover:-translate-y-0.5">
               Sign in with Google
             </button>
@@ -129,6 +120,7 @@ function DashboardPage() {
   const winRate = totalResolved > 0 ? Math.round((wonBets / totalResolved) * 100) : 0
   const validBetsCount = data.bets.filter(b => b.status !== 'void').length
   const raffleProgress = minBets > 0 ? Math.min(100, (validBetsCount / minBets) * 100) : 100
+  const betsToQualify = Math.max(0, minBets - validBetsCount)
 
   return (
     <FifaLayout active="dashboard">
@@ -138,10 +130,8 @@ function DashboardPage() {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
             <div>
               <h1 className="font-display text-4xl text-foreground uppercase tracking-tight">Commander Center</h1>
-              <p className="text-muted-foreground text-sm">Manage your points, track your bets, and secure your raffle tickets.</p>
+              <p className="text-muted-foreground text-sm">Your tickets, bets, and leaderboard rank — one scoreboard.</p>
             </div>
-            {/* Display name comes from the Google account at first sign-in and
-                is not user-editable (kept honest for the public leaderboard). */}
             <div className="flex items-center bg-card/50 border border-border px-4 py-2 rounded-lg">
               <div className="flex flex-col">
                 <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Playing As</span>
@@ -150,17 +140,23 @@ function DashboardPage() {
             </div>
           </div>
 
+          {betsToQualify > 0 && (
+            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200/90">
+              <strong className="text-amber-400">Prize draw:</strong> Place {betsToQualify} more bet{betsToQualify === 1 ? '' : 's'} to qualify (need {minBets} total).
+            </div>
+          )}
+
           {/* TOP SECTION: Balance & Quick Stats */}
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="rounded-2xl border border-ieee-light-blue/20 bg-gradient-to-br from-[#111113] to-ieee-light-blue/10 p-8 flex flex-col justify-center relative overflow-hidden">
               <div className="absolute top-0 right-0 w-48 h-48 bg-ieee-light-blue/10 rounded-full blur-[50px] -translate-y-1/2 translate-x-1/4" />
               <div className="relative z-10">
                 <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-ieee-light-blue mb-2 font-bold flex items-center gap-2">
-                  <Target className="w-4 h-4" /> Available Balance
+                  <Target className="w-4 h-4" /> Your tickets
                 </p>
                 <div className="flex items-baseline gap-3">
                   <p className="font-display text-6xl md:text-7xl text-foreground tracking-tight">{data.user.balance.toLocaleString()}</p>
-                  <p className="text-xl text-muted-foreground font-mono">pts</p>
+                  <p className="text-xl text-muted-foreground font-mono">tickets</p>
                 </div>
               </div>
             </div>
@@ -226,7 +222,7 @@ function DashboardPage() {
                         <div className="flex items-center justify-between border-t border-border/50 pt-2 mt-2">
                           <span className="text-xs font-mono text-muted-foreground">{formatDateShort(b.placed_at)}</span>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold text-foreground">{b.stake} pts</span>
+                            <span className="text-xs font-semibold text-foreground">{b.stake} tickets</span>
                             <span className="text-[10px] uppercase tracking-wider text-muted-foreground px-1.5 py-0.5 bg-muted rounded">
                               {b.mode === 'fixed' ? `${b.odds_locked.toFixed(2)}×` : 'pool'}
                             </span>
@@ -250,11 +246,11 @@ function DashboardPage() {
                   <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
                     <Ticket className="w-5 h-5 text-amber-500" />
                   </div>
-                  <h2 className="font-display text-2xl text-foreground uppercase tracking-wider">Raffle Status</h2>
+                  <h2 className="font-display text-2xl text-foreground uppercase tracking-wider">Prize draw</h2>
                 </div>
 
-                <div className="bg-[#0a0a0b] border border-border rounded-xl p-5 mb-8 text-center flex-1 flex flex-col justify-center">
-                  <p className="text-sm text-muted-foreground mb-2">Valid Bets Placed</p>
+                <div className="bg-[#0a0a0b] border border-border rounded-xl p-5 mb-6 text-center flex-1 flex flex-col justify-center">
+                  <p className="text-sm text-muted-foreground mb-2">Valid bets placed</p>
                   <p className="font-mono text-5xl font-bold text-foreground mb-4">{validBetsCount} <span className="text-2xl text-muted-foreground">/ {minBets}</span></p>
 
                   <div className="w-full bg-muted rounded-full h-2.5 mb-2 overflow-hidden border border-border/50">
@@ -265,13 +261,13 @@ function DashboardPage() {
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
                     {validBetsCount >= minBets
-                      ? <span className="text-amber-500 font-bold">You are eligible for the raffle! Keep betting to improve your rank.</span>
-                      : `Place ${minBets - validBetsCount} more bets to qualify.`}
+                      ? <span className="text-amber-500 font-bold">You qualify for the prize draw.</span>
+                      : `Place ${betsToQualify} more bets to qualify.`}
                   </p>
                 </div>
 
                 <p className="text-xs text-muted-foreground text-center">
-                  At the end of the tournament, rank 1 receives {raffleBase} tickets, decaying by {raffleDecay} per rank down to a minimum of 1. The winner receives the sponsor voucher!
+                  Win more tickets to climb the leaderboard. The voucher winner is picked by a random draw weighted by rank — #1 does not automatically win.
                 </p>
               </div>
             </div>
@@ -291,7 +287,7 @@ function DashboardPage() {
                     <th className="p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Date</th>
                     <th className="p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Type / Note</th>
                     <th className="p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Amount</th>
-                    <th className="p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Balance After</th>
+                    <th className="p-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Tickets after</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/50">

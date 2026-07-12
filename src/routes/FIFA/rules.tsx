@@ -38,15 +38,15 @@ function RulesPage() {
                   <ShieldCheck className="w-6 h-6 text-ieee-success mt-1 shrink-0" />
                   <div>
                     <h4 className="font-bold text-foreground mb-1">Free to Play</h4>
-                    <p className="text-sm text-muted-foreground leading-relaxed">Sign in with your <strong className="text-foreground">@sahrdaya.ac.in</strong> Google account. This game uses fake points — no real money is involved anywhere.</p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">Sign in with your <strong className="text-foreground">@sahrdaya.ac.in</strong> Google account. This game uses fake tickets — no real money is involved anywhere.</p>
                   </div>
                 </div>
                 
                 <div className="rounded-xl bg-[#111113] border border-border p-5 flex items-start gap-4">
                   <Banknote className="w-6 h-6 text-ieee-light-blue mt-1 shrink-0" />
                   <div>
-                    <h4 className="font-bold text-foreground mb-1">Starting Balance</h4>
-                    <p className="text-sm text-muted-foreground leading-relaxed">You start with <strong className="text-foreground">1000 points</strong>. Bet points on matches to earn more points. The higher your balance, the better your rank.</p>
+                    <h4 className="font-bold text-foreground mb-1">Starting tickets</h4>
+                    <p className="text-sm text-muted-foreground leading-relaxed">You start with <strong className="text-foreground">1000 tickets</strong>. Stake tickets on matches to win more. Higher ticket balance means a better leaderboard rank.</p>
                   </div>
                 </div>
               </div>
@@ -67,7 +67,7 @@ function RulesPage() {
                   <div>
                     <h4 className="font-bold text-foreground mb-1">Max Bet is 25%</h4>
                     <p className="text-sm text-muted-foreground leading-relaxed">
-                      You can bet a maximum of <strong className="text-foreground">25% of your current balance</strong> on a single bet. This is a risk limiter to prevent blowing everything on one tap.
+                      You can bet a maximum of <strong className="text-foreground">25% of your current tickets</strong> on a single bet. This is a risk limiter to prevent blowing everything on one tap.
                     </p>
                   </div>
                 </div>
@@ -76,7 +76,7 @@ function RulesPage() {
               <ul className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                 <li className="rounded-full bg-[#111113] border border-border px-4 py-2 flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-ieee-light-blue" />
-                  Minimum stake: 1 point
+                  Minimum stake: 1 ticket
                 </li>
                 <li className="rounded-full bg-[#111113] border border-border px-4 py-2 flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-ieee-light-blue" />
@@ -124,7 +124,7 @@ function RulesPage() {
                       You get <code className="bg-muted px-1.5 py-0.5 rounded text-foreground">stake × odds</code> if you win. The odds are locked in when you place your bet — they will not change afterward.
                     </p>
                     <div className="rounded-lg bg-card border border-border p-3 text-xs text-muted-foreground">
-                      <span className="font-semibold text-foreground">Example:</span> 50 pts at 1.50× pays out 75 pts.
+                      <span className="font-semibold text-foreground">Example:</span> 50 tickets at 1.50× pays out 75 tickets.
                     </div>
                   </div>
                 </div>
@@ -246,7 +246,7 @@ function RulesPage() {
                   <h3 className="font-display text-xl uppercase text-foreground">Daily Top-up</h3>
                 </div>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  If your balance drops below <strong className="text-foreground">100 points</strong>, you are automatically topped up to <strong className="text-foreground">200 points</strong> at 9am the next day. You're never fully out — but you won't catch the leaders by waiting for top-ups alone.
+                  If your ticket balance drops below <strong className="text-foreground">100 tickets</strong>, you are automatically topped up to <strong className="text-foreground">200 tickets</strong> at 9am the next day. You're never fully out — but you won't catch the leaders by waiting for top-ups alone.
                 </p>
               </div>
               
@@ -274,22 +274,21 @@ function RulesPage() {
                 
                 <h2 className="font-display text-3xl sm:text-4xl text-amber-500 uppercase tracking-wider mb-4">Leaderboard & Raffle</h2>
                 
-                <p className="text-base text-foreground mb-8">
-                  The leaderboard ranks by current balance (tiebreak: more bets = higher rank). At the end of the tournament, a weighted raffle picks the grand prize winner.
+                <p className="text-base text-foreground mb-4">
+                  One scoreboard: you rank by <strong className="text-foreground">tickets</strong> (tiebreak: more bets placed). At the end of the tournament, a weighted random draw picks the grand prize winner.
                 </p>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-left">
+                <p className="text-sm text-muted-foreground mb-8 max-w-2xl mx-auto">
+                  <strong className="text-foreground">#1 on the leaderboard does not automatically win the voucher.</strong> Higher rank improves your odds in the draw, but any eligible player can win.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left max-w-xl mx-auto">
                   <div className="bg-[#0a0a0b] border border-amber-500/20 rounded-xl p-4">
                     <h4 className="font-bold text-foreground mb-1 text-sm">Eligibility</h4>
-                    <p className="text-xs text-muted-foreground">You need at least <strong className="text-foreground">5 bets</strong> to enter the raffle.</p>
-                  </div>
-                  <div className="bg-[#0a0a0b] border border-amber-500/20 rounded-xl p-4">
-                    <h4 className="font-bold text-foreground mb-1 text-sm">Tickets</h4>
-                    <p className="text-xs text-muted-foreground">Rank 1 gets 50 tickets. Decays down to 1 ticket for rank 26+.</p>
+                    <p className="text-xs text-muted-foreground">You need at least <strong className="text-foreground">5 bets</strong> to enter the prize draw.</p>
                   </div>
                   <div className="bg-[#0a0a0b] border border-amber-500/20 rounded-xl p-4">
                     <h4 className="font-bold text-foreground mb-1 text-sm">Transparency</h4>
-                    <p className="text-xs text-muted-foreground">The full ticket list and winning pick are stored publicly.</p>
+                    <p className="text-xs text-muted-foreground">The draw snapshot and winning pick are stored for verification.</p>
                   </div>
                 </div>
               </div>

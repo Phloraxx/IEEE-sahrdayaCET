@@ -408,7 +408,7 @@ function SettleForm({ match }: { match: MatchData }) {
       return res.json()
     },
     onSuccess: (data) => {
-      toast.success(`Settled — ${data.betsSettled} bets, ${data.totalPayout} pts paid out`)
+      toast.success(`Settled — ${data.betsSettled} bets, ${data.totalPayout} tickets paid out`)
       queryClient.invalidateQueries({ queryKey: ['admin-fifa-match', matchId] })
       queryClient.invalidateQueries({ queryKey: ['admin-fifa-markets', matchId] })
     },

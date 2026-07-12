@@ -100,7 +100,7 @@ export const Route = createFileRoute('/FIFA/')({
       {
         name: 'description',
         content:
-          'Free-to-enter FIFA World Cup prediction game. Bet fake points, climb the leaderboard, win a sponsor voucher.',
+          'Free-to-enter FIFA World Cup prediction game. Bet fake tickets, climb the leaderboard, win a sponsor voucher.',
       },
     ],
   }),

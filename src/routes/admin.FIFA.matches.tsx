@@ -533,7 +533,7 @@ function SettleForm({
       if (data.partial) {
         toast.warning(`Partial settlement: ${data.pendingRemaining} bets remain pending`)
       } else {
-        toast.success(`Settled — ${data.settledCount} bets processed, ${data.totalPayout} pts paid out`)
+        toast.success(`Settled — ${data.settledCount} bets processed, ${data.totalPayout} tickets paid out`)
       }
       queryClient.invalidateQueries({ queryKey: ['admin-fifa-matches'] })
       queryClient.invalidateQueries({ queryKey: ['admin-fifa-markets', matchId] })
