@@ -748,19 +748,19 @@ routerAdd("GET", "/api/fifa/leaderboard", function (e) {
         // (FIFA-GAME.md §2.4, seeded by scripts/migrate-game-backfill.ts) —
         // keep it in sync with the /api/fifa/raffle draw route's own
         // no-settings behavior below.
-        var raffleBase = 50, raffleDecay = 2, minBets = 5
+        var minBets = 5
         if (settings) {
-            raffleBase = settings.getInt("raffle_tickets_base")
-            raffleDecay = settings.getInt("raffle_tickets_decay")
-            minBets = settings.getInt("raffle_active_participant_min_bets")
+            var minBetsRaw = settings.get("raffle_active_participant_min_bets")
+            if (minBetsRaw != null && minBetsRaw !== "") {
+                var parsed = settings.getInt("raffle_active_participant_min_bets")
+                if (parsed > 0) minBets = parsed
+            }
         }
-        return e.json(200, { 
-            leaderboard: ranked, 
-            settings: { 
-                raffle_tickets_base: raffleBase, 
-                raffle_tickets_decay: raffleDecay, 
-                min_bets: minBets 
-            } 
+        return e.json(200, {
+            leaderboard: ranked,
+            settings: {
+                min_bets: minBets
+            }
         })
     } catch (err) {
         console.log("[fifa] leaderboard route failed: " + err)
