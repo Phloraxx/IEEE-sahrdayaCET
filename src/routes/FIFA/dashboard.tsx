@@ -1,11 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { FifaLayout } from '@/features/fifa/fifa-layout'
 import { useAuth } from '@/lib/auth-context'
-import { toast } from 'sonner'
 import { formatDateTime, formatDateShort } from '@/lib/dates'
-import { Edit2, Check, X, Ticket, Trophy, Target, TrendingUp, History } from 'lucide-react'
+import { Ticket, Trophy, Target, TrendingUp, History } from 'lucide-react'
 
 interface DashboardData {
   user: { id: string; display_name: string; balance: number; email: string }
@@ -141,7 +139,14 @@ function DashboardPage() {
               <h1 className="font-display text-4xl text-foreground uppercase tracking-tight">Commander Center</h1>
               <p className="text-muted-foreground text-sm">Manage your points, track your bets, and secure your raffle tickets.</p>
             </div>
-            <DisplayNameEditor currentName={data.user.display_name} />
+            {/* Display name comes from the Google account at first sign-in and
+                is not user-editable (kept honest for the public leaderboard). */}
+            <div className="flex items-center bg-card/50 border border-border px-4 py-2 rounded-lg">
+              <div className="flex flex-col">
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Playing As</span>
+                <span className="text-sm font-bold text-foreground">{data.user.display_name || '(unset)'}</span>
+              </div>
+            </div>
           </div>
 
           {/* TOP SECTION: Balance & Quick Stats */}
@@ -337,97 +342,5 @@ function BetStatusBadge({ status, payout }: { status: string; payout: number }) 
     <span className={`inline-block rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider shrink-0 ${styles[status] || styles.pending}`}>
       {labels[status] || status}
     </span>
-  )
-}
-
-// Unicode letters/numbers, space, hyphen, apostrophe, period, underscore —
-// covers real human names (incl. accents) while still blocking control
-// chars. Used identically for the live onChange filter and submit
-// validation so nothing that's visibly accepted while typing can fail
-// at save time.
-const DISPLAY_NAME_PATTERN = /^[\p{L}\p{N} '.\-_]+$/u
-const DISPLAY_NAME_STRIP = /[^\p{L}\p{N} '.\-_]/gu
-
-function DisplayNameEditor({ currentName }: { currentName: string }) {
-  const [editing, setEditing] = useState(false)
-  const [name, setName] = useState(currentName)
-  const queryClient = useQueryClient()
-
-  const save = useMutation({
-    mutationFn: async () => {
-      const trimmed = name.trim()
-      if (trimmed.length < 2 || trimmed.length > 40) {
-        throw new Error('Name must be between 2 and 40 characters.')
-      }
-      if (!DISPLAY_NAME_PATTERN.test(trimmed)) {
-        throw new Error("Only letters, numbers, spaces, hyphens, apostrophes, periods and underscores allowed.")
-      }
-      const res = await fetch('/api/fifa/dashboard', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ display_name: trimmed }),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || 'Failed to update name')
-      }
-      return res.json()
-    },
-    onSuccess: (data) => {
-      toast.success('Display name updated')
-      setEditing(false)
-      queryClient.setQueryData(['fifa-dashboard'], (old: any) => {
-        if (!old) return old
-        return { ...old, user: { ...old.user, display_name: data.display_name } }
-      })
-      queryClient.invalidateQueries({ queryKey: ['fifa-dashboard'] })
-    },
-    onError: (err: Error) => toast.error(err.message),
-  })
-
-  return (
-    <div className="flex items-center gap-2">
-      {editing ? (
-        <div className="flex items-center gap-2 bg-card border border-border p-1.5 rounded-lg">
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value.replace(DISPLAY_NAME_STRIP, ''))}
-            maxLength={40}
-            className="w-48 rounded-md bg-[#0a0a0b] border border-border px-3 py-1.5 text-sm font-medium text-foreground outline-none focus:border-ieee-light-blue transition-colors"
-            placeholder="Your Alias"
-            autoFocus
-          />
-          <button 
-            onClick={() => save.mutate()} 
-            disabled={save.isPending || name.trim().length < 2} 
-            className="p-1.5 rounded bg-ieee-success/20 text-ieee-success hover:bg-ieee-success hover:text-white transition-colors disabled:opacity-50"
-            title="Save"
-          >
-            <Check className="w-4 h-4" />
-          </button>
-          <button 
-            onClick={() => { setEditing(false); setName(currentName) }} 
-            className="p-1.5 rounded bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            title="Cancel"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      ) : (
-        <div className="flex items-center gap-2 bg-card/50 border border-border px-4 py-2 rounded-lg group">
-          <div className="flex flex-col">
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Playing As</span>
-            <span className="text-sm font-bold text-foreground">{currentName || '(unset)'}</span>
-          </div>
-          <button 
-            onClick={() => setEditing(true)} 
-            className="ml-2 p-1.5 rounded-md bg-transparent text-muted-foreground group-hover:bg-ieee-light-blue/10 group-hover:text-ieee-light-blue transition-colors"
-            title="Edit Name"
-          >
-            <Edit2 className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-    </div>
   )
 }

@@ -179,19 +179,23 @@ export default function Navbar({ fifaActive }: NavbarProps) {
                   <div className={`h-px ${inFifa ? "bg-white/10" : "bg-gray-100"}`} />
                 </>
               )}
-              <Link
-                to="/admin/dashboard"
-                className={`w-full px-4 py-3 text-left text-xs font-bold transition-colors flex items-center gap-3 tracking-wide ${
-                  inFifa
-                    ? "text-ieee-light-blue hover:bg-white/5"
-                    : "text-blue-600 hover:bg-blue-50"
-                }`}
-                onClick={() => setShowUserMenu(false)}
-              >
-                <LayoutDashboard className="w-4 h-4" />
-                Admin
-              </Link>
-              <div className={`h-px ${inFifa ? "bg-white/10" : "bg-gray-100"}`} />
+              {(user.role === "admin" || user.role === "chair" || user.role === "content") && (
+                <>
+                  <Link
+                    to="/admin/dashboard"
+                    className={`w-full px-4 py-3 text-left text-xs font-bold transition-colors flex items-center gap-3 tracking-wide ${
+                      inFifa
+                        ? "text-ieee-light-blue hover:bg-white/5"
+                        : "text-blue-600 hover:bg-blue-50"
+                    }`}
+                    onClick={() => setShowUserMenu(false)}
+                  >
+                    <LayoutDashboard className="w-4 h-4" />
+                    Admin
+                  </Link>
+                  <div className={`h-px ${inFifa ? "bg-white/10" : "bg-gray-100"}`} />
+                </>
+              )}
               <button
                 onClick={handleLogout}
                 className="w-full px-4 py-3 text-left text-xs font-bold text-red-500 hover:bg-red-500/10 transition-colors flex items-center gap-3 tracking-wide"

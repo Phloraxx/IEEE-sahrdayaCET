@@ -142,7 +142,11 @@ function wrapHandlerWithSecurityHeaders(handler) {
             const buf = await readBodyLimited(req);
             if (buf && buf.length > 0) pbBody = buf;
           }
-          const pbRes = await globalFetch(targetUrl, { method: req.method, headers: pbHeaders, body: pbBody });
+          // Abort the upstream fetch when the client goes away — otherwise a
+          // closed SSE tab leaves this loop reading from PB indefinitely.
+          const upstreamAbort = new AbortController();
+          res.on('close', () => upstreamAbort.abort());
+          const pbRes = await globalFetch(targetUrl, { method: req.method, headers: pbHeaders, body: pbBody, signal: upstreamAbort.signal });
           addSecurityHeaders(res);
           res.writeHead(pbRes.status, Object.fromEntries(pbRes.headers.entries()));
           if (pbRes.body) {
@@ -150,7 +154,22 @@ function wrapHandlerWithSecurityHeaders(handler) {
           }
           res.end();
         } catch (err) {
-          console.error('[pb-proxy] Error:', err);
+          // Long-lived /api/realtime SSE streams always end with a socket
+          // close — client tab gone (abort) or upstream dropping the
+          // connection (undici "terminated"/UND_ERR_SOCKET; routine when
+          // POCKETBASE_URL goes through Cloudflare, which caps stream
+          // lifetimes). The PB client SDK auto-reconnects, so these are not
+          // server faults — one quiet line, no stack trace.
+          const benign =
+            err?.name === 'AbortError' ||
+            err?.message === 'terminated' ||
+            err?.code === 'UND_ERR_SOCKET' ||
+            err?.cause?.code === 'UND_ERR_SOCKET';
+          if (benign) {
+            console.log(`[pb-proxy] stream closed (${url.pathname})`);
+          } else {
+            console.error('[pb-proxy] Error:', err);
+          }
           if (!res.headersSent) {
             addSecurityHeaders(res);
             if (err.message === 'PAYLOAD_TOO_LARGE') {
@@ -160,6 +179,8 @@ function wrapHandlerWithSecurityHeaders(handler) {
               res.writeHead(502, { 'Content-Type': 'text/plain' });
               res.end('Bad Gateway: ' + (err.message || 'Unknown error'));
             }
+          } else {
+            res.end();
           }
         }
         return;

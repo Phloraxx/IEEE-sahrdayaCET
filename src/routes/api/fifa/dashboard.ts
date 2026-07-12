@@ -3,7 +3,6 @@ import { createPB } from "@/lib/pb.server"
 import { escapeFilterValue } from "@/lib/pb";
 import { requireAuth } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
-import { verifySameOrigin } from "@/lib/verify-same-origin";
 import { getField, getExpand } from "@/lib/safe-get";
 
 // Authed: the player's own dashboard — balance, display_name, recent bets,
@@ -88,27 +87,11 @@ export const Route = createFileRoute("/api/fifa/dashboard")({
           return handleError(error, "fifa-dashboard");
         }
       },
-      // PATCH: update display_name (the only user-editable game field)
-      PATCH: async ({ request }) => {
-        try {
-          const ct = request.headers.get('content-type') || '';
-          if (!ct.includes('application/json')) {
-            return Response.json({ error: 'Unsupported media type' }, { status: 415 });
-          }
-          verifySameOrigin(request);
-          const pb = createPB(request.headers.get("cookie") || undefined);
-          const { user } = await requireAuth(pb);
-          const body = await request.json() as { display_name?: string };
-          const name = (body.display_name || '').trim();
-          if (!name || name.length < 2 || name.length > 40) {
-            return Response.json({ error: 'Display name must be 2-40 characters' }, { status: 400 });
-          }
-          await pb.collection("users").update(user.id, { display_name: name });
-          return Response.json({ display_name: name });
-        } catch (error) {
-          return handleError(error, "fifa-dashboard-update");
-        }
-      },
+      // Display names are set from the Google profile at first sign-in
+      // (pb_hooks/fifa.pb.js OAuth2 hook) and are NOT user-editable — the
+      // public leaderboard shows real identities. The users collection
+      // updateRule blocks self-service display_name changes at the DB layer
+      // too; admins can still correct a name via the PB dashboard.
     },
   },
 });
