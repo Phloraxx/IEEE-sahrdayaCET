@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { FifaLayout } from '@/features/fifa/fifa-layout'
 import { useAuth } from '@/lib/auth-context'
 import { formatDateTime, formatDateShort } from '@/lib/dates'
+import { formatMarketOptionLabel } from '@/lib/fifa-market-labels'
 import { Ticket, Trophy, Target, TrendingUp, History } from 'lucide-react'
 
 interface DashboardData {
@@ -209,7 +210,13 @@ function DashboardPage() {
                       <div key={b.id} className="rounded-xl border border-border bg-[#0a0a0b] p-4 hover:border-ieee-light-blue/50 transition-colors">
                         <div className="flex items-start justify-between mb-2">
                           <div className="min-w-0 pr-4">
-                            <span className="text-sm font-bold text-foreground block truncate">{b.selection}</span>
+                            <span className="text-sm font-bold text-foreground block truncate">
+                              {formatMarketOptionLabel(
+                                b.market?.market_type,
+                                b.selection,
+                                b.match,
+                              )}
+                            </span>
                             <span className="text-[11px] text-muted-foreground block truncate">
                               {b.match ? `${b.match.team_home} vs ${b.match.team_away}` : 'Unknown Match'}
                             </span>

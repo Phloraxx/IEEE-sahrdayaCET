@@ -164,7 +164,7 @@ function RulesPage() {
                     Correct Score
                   </h4>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    The exact 90-minute score, like <code className="text-foreground bg-muted px-1 rounded">2-1</code>. Format is always <code className="text-foreground bg-muted px-1 rounded">home-away</code>.
+                    The exact 90-minute score, like <code className="text-foreground bg-muted px-1 rounded">2-1</code>. Order matches the teams as listed on the match (first team–second team).
                   </p>
                 </div>
                 

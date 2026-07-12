@@ -13,9 +13,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { FIFA_MARKET_LABELS, FIFA_MARKET_BLURBS } from '@/schemas/fifa'
 import { getSettledMarketStatus, type SettledMarketStatus } from '@/lib/fifa-market-result'
 import {
+  formatMarketOptionLabel,
   formatOuLineSummary,
   formatOuMarketBlurb,
-  formatOuOptionLabel,
   isOuMarket,
 } from '@/lib/fifa-market-labels'
 import { getMatchCardAsset, getStageColor } from '@/lib/fifa-assets'
@@ -267,11 +267,14 @@ function MatchDetailPage() {
     }
   }
 
+  const teams = { team_home: match.team_home, team_away: match.team_away }
+
   const bettingSlipProps = {
     matchId: match.id,
     canBet: effectiveStatus === 'authenticated' && !betsLocked,
     market: match.markets.find((m) => m.id === selectedMarketId) || null,
     selection: selectedOption,
+    teams,
     stake,
     setStake: handleSetStake,
     maxBet,
@@ -412,6 +415,7 @@ function MatchDetailPage() {
                     >
                       <MarketCard
                         market={m}
+                        teams={teams}
                         matchSettled={match.settled || isFinished}
                         matchResult={
                           isFinished &&
@@ -489,6 +493,7 @@ function getPoolOptionOutcomeLabel(
 
 function MarketCard({
   market,
+  teams,
   matchSettled,
   matchResult,
   canBet,
@@ -497,6 +502,7 @@ function MarketCard({
   onSelectOption,
 }: {
   market: Market
+  teams: { team_home: string; team_away: string }
   matchSettled: boolean
   matchResult: {
     result_winner: 'home' | 'away' | 'draw' | ''
@@ -523,18 +529,8 @@ function MarketCard({
   const isCorrectScore = market.market_type === 'correct_score'
   const options = isCorrectScore ? sortCorrectScores(market.options ?? []) : (market.options ?? [])
 
-  const formatWinningLabel = (sel: string) => {
-    if (market.market_type === 'match_winner') {
-      return sel === 'home' ? 'Home' : sel === 'away' ? 'Away' : sel
-    }
-    if (market.market_type === 'clean_sheet') {
-      return sel === 'home' ? 'Home clean sheet' : sel === 'away' ? 'Away clean sheet' : sel
-    }
-    if (isOuMarket(market.market_type)) {
-      return formatOuOptionLabel(market.market_type, sel, market.line)
-    }
-    return sel
-  }
+  const formatOption = (sel: string) =>
+    formatMarketOptionLabel(market.market_type, sel, teams, market.line)
 
   const ouLineSummary = formatOuLineSummary(market.market_type, market.line)
 
@@ -568,12 +564,12 @@ function MarketCard({
       )}
       {settledStatus === 'pool_refunded' && (
         <p className="text-sm font-semibold text-muted-foreground mb-4 p-2 bg-muted/30 rounded-md border border-border">
-          Winning outcome{winningSelections.length > 0 ? ` was ${winningSelections.map(formatWinningLabel).join(' / ')}` : ''} — nobody in the pool picked it. All stakes refunded.
+          Winning outcome{winningSelections.length > 0 ? ` was ${winningSelections.map(formatOption).join(' / ')}` : ''} — nobody in the pool picked it. All stakes refunded.
         </p>
       )}
       {settledStatus === 'settled' && winningSelections.length > 0 && (
         <p className="text-sm font-semibold text-ieee-success mb-4 p-2 bg-ieee-success/10 rounded-md border border-ieee-success/20">
-          Winning pick: {winningSelections.map(formatWinningLabel).join(' / ')}
+          Winning pick: {winningSelections.map(formatOption).join(' / ')}
         </p>
       )}
       {settledStatus === 'closed' && (
@@ -591,7 +587,7 @@ function MarketCard({
           const odds = oddsFor(opt)
           const outcomeLabel = getPoolOptionOutcomeLabel(settledStatus, isResultPick, hadStakes, poolShare)
           const highlight = isWinner || isResultOnly
-          const displayOpt = formatOuOptionLabel(market.market_type, opt, market.line)
+          const displayOpt = formatOption(opt)
 
           const baseClass = highlight
             ? 'border-ieee-success bg-ieee-success/15 ring-1 ring-ieee-success/40 text-foreground'
@@ -664,8 +660,8 @@ function MarketCard({
   )
 }
 
-function BettingSlip({ matchId, canBet, market, selection, stake, setStake, maxBet, maxBetPercent, balance, onClear }: {
-  matchId: string; canBet: boolean; market: Market | null; selection: string | null; stake: number; setStake: (v: number) => void; maxBet: number; maxBetPercent: number; balance: number; onClear: () => void
+function BettingSlip({ matchId, canBet, market, selection, teams, stake, setStake, maxBet, maxBetPercent, balance, onClear }: {
+  matchId: string; canBet: boolean; market: Market | null; selection: string | null; teams: { team_home: string; team_away: string }; stake: number; setStake: (v: number) => void; maxBet: number; maxBetPercent: number; balance: number; onClear: () => void
 }) {
   const queryClient = useQueryClient()
   // Floor once, up front — every displayed number (potential return, quick-
@@ -745,7 +741,7 @@ function BettingSlip({ matchId, canBet, market, selection, stake, setStake, maxB
           <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1">{FIFA_MARKET_LABELS[market.market_type] || market.market_type}</p>
           <div className="flex items-center justify-between">
             <p className="text-base font-bold text-foreground">
-              {formatOuOptionLabel(market.market_type, selection, market.line)}
+              {formatMarketOptionLabel(market.market_type, selection, teams, market.line)}
             </p>
             {odds && <p className="font-mono text-sm font-bold text-ieee-light-blue">{odds.toFixed(2)}×</p>}
             {market.mode === 'pool' && <p className="text-[10px] font-mono text-muted-foreground uppercase bg-muted px-2 py-1 rounded">Pool</p>}

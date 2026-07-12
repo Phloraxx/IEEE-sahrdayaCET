@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
+import { formatMarketOptionLabel } from "@/lib/fifa-market-labels"
 
 const checkAdminAccess = createServerFn().handler(async () => {
   const { authenticateAdmin } = await import('@/lib/admin-middleware')
@@ -58,6 +59,7 @@ interface BetRow {
   status: string
   payout: number
   placed_at: string
+  match: { id: string; team_home: string; team_away: string } | null
   market: { id: string; market_type: string } | null
 }
 
@@ -224,7 +226,9 @@ function MatchBets({ matchId }: { matchId: string }) {
               <tr key={b.id} className="border-t border-border/50">
                 <td className="py-1.5">{b.user.display_name || b.user.email || b.user.id}</td>
                 <td className="py-1.5">{b.market?.market_type || '—'}</td>
-                <td className="py-1.5">{b.selection}</td>
+                <td className="py-1.5">
+                  {formatMarketOptionLabel(b.market?.market_type, b.selection, b.match)}
+                </td>
                 <td className="py-1.5 text-right font-mono">{b.stake}</td>
                 <td className="py-1.5"><Badge variant="outline">{b.status}</Badge></td>
                 <td className="py-1.5 text-right font-mono">{b.payout}</td>
