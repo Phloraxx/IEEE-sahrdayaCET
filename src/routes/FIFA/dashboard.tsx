@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { FifaLayout } from '@/features/fifa/fifa-layout'
 import { useAuth } from '@/lib/auth-context'
 import { toast } from 'sonner'
-import { formatDateTime } from '@/lib/dates'
+import { formatDateTime, formatDateShort } from '@/lib/dates'
 import { Edit2, Check, X, Ticket, Trophy, Target, TrendingUp, History } from 'lucide-react'
 
 interface DashboardData {
@@ -212,7 +212,7 @@ function DashboardPage() {
                           <BetStatusBadge status={b.status} payout={b.payout} />
                         </div>
                         <div className="flex items-center justify-between border-t border-border/50 pt-2 mt-2">
-                          <span className="text-xs font-mono text-muted-foreground">{new Date(b.placed_at).toLocaleDateString()}</span>
+                          <span className="text-xs font-mono text-muted-foreground">{formatDateShort(b.placed_at)}</span>
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-semibold text-foreground">{b.stake} pts</span>
                             <span className="text-[10px] uppercase tracking-wider text-muted-foreground px-1.5 py-0.5 bg-muted rounded">
@@ -293,7 +293,7 @@ function DashboardPage() {
                     data.transactions.map((t) => (
                       <tr key={t.id} className="hover:bg-muted/30 transition-colors">
                         <td className="p-4 text-xs font-mono text-muted-foreground whitespace-nowrap">
-                          {formatDateTime(t.timestamp) || new Date().toLocaleDateString()}
+                          {formatDateTime(t.timestamp) || '—'}
                         </td>
                         <td className="p-4">
                           <p className="text-sm text-foreground font-medium">{t.note || t.type.replace(/_/g, ' ')}</p>

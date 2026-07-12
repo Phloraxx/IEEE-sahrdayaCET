@@ -4,7 +4,9 @@ export const FIFA_NAV_ITEMS = [
   { key: 'home' as const, label: 'Overview', to: '/FIFA/' as const },
   { key: 'matches' as const, label: 'Matches', to: '/FIFA/matches/' as const },
   { key: 'leaderboard' as const, label: 'Leaderboard', to: '/FIFA/leaderboard/' as const },
-  { key: 'feed' as const, label: 'Feed', to: '/FIFA/feed/' as const },
+  // Feed removed from product (FIFA-AUTOMATION.md PR1) — emitFeedEvent is a no-op,
+  // so the feed only ever shows stale legacy events. Nav item dropped; the /FIFA/feed
+  // route stays reachable by URL (still in FifaNavKey) but is no longer linked.
   { key: 'rules' as const, label: 'Rules', to: '/FIFA/rules/' as const },
 ]
 

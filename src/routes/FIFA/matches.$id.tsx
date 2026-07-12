@@ -12,6 +12,7 @@ import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 import { FIFA_MARKET_LABELS, FIFA_MARKET_BLURBS } from '@/schemas/fifa'
 import { getMatchCardAsset, getStageColor } from '@/lib/fifa-assets'
+import { formatDateTime } from '@/lib/dates'
 import { AlertCircle, ChevronLeft } from 'lucide-react'
 
 interface MatchDetail {
@@ -343,7 +344,12 @@ function MatchDetailPage() {
                     </h1>
                   </div>
                   <div className="mt-6 inline-block bg-muted/30 border border-border/50 rounded-full px-4 py-1.5">
-                    <p className="text-sm font-medium text-foreground">{kickoff.toLocaleString()}</p>
+                    {/* Use the shared en-IN formatter (dates.ts) so SSR and client
+                        render the identical string. Raw toLocaleString() with no locale
+                        picked up Node's default (en-US) on the server vs the browser
+                        locale on the client, and that text mismatch threw React #418 —
+                        which bailed hydration and duplicated the footer. */}
+                    <p className="text-sm font-medium text-foreground">{formatDateTime(match.kickoff_at)}</p>
                   </div>
 
                   {isLive && !isFinished && (
@@ -378,7 +384,7 @@ function MatchDetailPage() {
 
               {betsLocked && !isFinished && (
                 <div className="rounded-xl border border-ieee-warning/40 bg-ieee-warning/5 p-4 text-center text-sm text-ieee-warning font-semibold">
-                  Betting is closed — kickoff soon
+                  Betting is closed for this match
                 </div>
               )}
 
