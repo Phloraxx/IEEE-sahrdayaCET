@@ -109,7 +109,10 @@ export const FifaSettingsSchema = z.object({
   raffle_active_participant_min_bets: z.number().int().min(0).default(5),
   auto_settle_enabled: z.boolean().default(false),
   settle_delay_minutes: z.number().int().min(1).default(15),
-  auto_void_hours: z.number().int().min(0).max(168).default(48),
+  // Hours after kickoff before the fifa-auto-void cron voids an unsettled
+  // upcoming/live match (FIFA-GAME.md §2.3). 6h > a ~2.5h match + ET, giving
+  // the admin ample time. Matches the backfill seed default.
+  auto_void_hours: z.number().int().min(0).max(168).default(6),
   raffle_drawn_at: z.string().optional(),
   raffle_winner: z.string().optional(),
   raffle_seed: z.string().max(200).optional(),

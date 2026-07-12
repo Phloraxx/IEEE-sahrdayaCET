@@ -34,6 +34,11 @@ export const Route = createFileRoute("/api/admin/fifa/markets/$id")({
           // Admin can edit odds/options/open/void, but NOT pool_total/pool_by_option
           // (those are hook-maintained). Strip them defensively.
           const { pool_total: _pt, pool_by_option: _pb, ...safeFields } = parsed as Record<string, unknown>;
+          // Voiding a market must also close it — otherwise the market lingers as
+          // is_open=true while void=true (betting is still blocked by the void check,
+          // but the UI would misrender it as open). The match-void cascade and
+          // auto-void cron already set both; mirror that here for direct voids.
+          if (safeFields.void === true) safeFields.is_open = false;
           const market = await pb.collection("fifa_bet_markets").update(id, safeFields);
           return Response.json({ market });
         } catch (error) {

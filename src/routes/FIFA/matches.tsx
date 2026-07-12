@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, useRouterState } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { FifaLayout } from '@/features/fifa/fifa-layout'
 import { FifaMatchCard, FifaMatchCardSkeleton } from '@/features/fifa/fifa-match-card'
+import { findLiveMatch, isLiveStatus } from '@/lib/fifa-live-match'
 
 interface MatchData {
   id: string
@@ -81,38 +82,114 @@ function MatchesPage() {
     )
   }
 
+  const matches = data?.matches || []
+  const liveMatches = liveData?.matches || []
+  const liveConfigured = liveData?.configured ?? false
+
+  const live = matches.filter(m => {
+    const lm = liveConfigured ? findLiveMatch(m.team_home, m.team_away, liveMatches) : null
+    return m.status === 'live' || (lm && isLiveStatus(lm.status))
+  })
+  
+  const upcoming = matches.filter(m => !live.includes(m) && (m.status === 'upcoming'))
+  const finished = matches.filter(m => !live.includes(m) && (m.status === 'finished' || m.status === 'void' || m.settled))
+
   return (
     <FifaLayout active="matches">
-      <div className="px-[clamp(20px,4vw,48px)] py-8">
-        <h1 className="font-display mb-2 text-[clamp(28px,4vw,38px)] text-ieee-light-blue uppercase">
-          Matches
-        </h1>
-        <p className="mb-8 text-sm text-[#9a9aa2]">
-          All fixtures with open markets. Tap a card to view markets and place a bet.
-        </p>
-
-        {isLoading && (
-          <div className="flex flex-wrap gap-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <FifaMatchCardSkeleton key={i} />
-            ))}
+      <div className="w-full flex-1 flex flex-col">
+        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-4 md:py-6">
+          
+          <div className="mb-10 text-center md:text-left">
+            <h1 className="font-display text-4xl sm:text-5xl text-ieee-light-blue uppercase tracking-tight mb-3">
+              Matches
+            </h1>
+            <p className="text-sm sm:text-base text-muted-foreground max-w-2xl">
+              All active fixtures. Select a match to view open markets and place your bets.
+            </p>
           </div>
-        )}
 
-        {!isLoading && (!data?.matches || data.matches.length === 0) && (
-          <p className="text-[#9a9aa2]">No matches yet. Check back soon.</p>
-        )}
+          {isLoading && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <FifaMatchCardSkeleton key={i} className="!w-full" />
+              ))}
+            </div>
+          )}
 
-        <div className="flex flex-wrap gap-4">
-          {(data?.matches || []).map((m) => (
-            <FifaMatchCard
-              key={m.id}
-              match={m}
-              liveMatches={liveData?.matches ?? []}
-              liveConfigured={liveData?.configured ?? false}
-              className="max-w-none flex-1 min-[340px]:max-w-[302px]"
-            />
-          ))}
+          {!isLoading && matches.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-20 text-center rounded-2xl border border-dashed border-border bg-card/50">
+              <span className="text-4xl mb-4 opacity-50">⚽</span>
+              <h3 className="font-display text-xl uppercase mb-2">No Matches Yet</h3>
+              <p className="text-muted-foreground text-sm max-w-sm">There are currently no active fixtures. Check back closer to kickoff!</p>
+            </div>
+          )}
+
+          {!isLoading && matches.length > 0 && (
+            <div className="space-y-12">
+              
+              {/* LIVE SECTION */}
+              {live.length > 0 && (
+                <section>
+                  <div className="flex items-center gap-2 mb-6 border-b border-border pb-2">
+                    <span className="h-2.5 w-2.5 rounded-full bg-ieee-danger animate-pulse" />
+                    <h2 className="font-display text-2xl uppercase tracking-wider text-foreground">Live Now</h2>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {live.map((m) => (
+                      <FifaMatchCard
+                        key={m.id}
+                        match={m}
+                        liveMatches={liveMatches}
+                        liveConfigured={liveConfigured}
+                        className="!w-full"
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* UPCOMING SECTION */}
+              {upcoming.length > 0 && (
+                <section>
+                  <div className="flex items-center gap-2 mb-6 border-b border-border pb-2">
+                    <h2 className="font-display text-2xl uppercase tracking-wider text-foreground">Upcoming</h2>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {upcoming.map((m) => (
+                      <FifaMatchCard
+                        key={m.id}
+                        match={m}
+                        liveMatches={liveMatches}
+                        liveConfigured={liveConfigured}
+                        className="!w-full"
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* FINISHED SECTION */}
+              {finished.length > 0 && (
+                <section>
+                  <div className="flex items-center gap-2 mb-6 border-b border-border pb-2">
+                    <h2 className="font-display text-2xl uppercase tracking-wider text-muted-foreground">Finished</h2>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 opacity-75 hover:opacity-100 transition-opacity">
+                    {finished.map((m) => (
+                      <FifaMatchCard
+                        key={m.id}
+                        match={m}
+                        liveMatches={liveMatches}
+                        liveConfigured={liveConfigured}
+                        className="!w-full"
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
+            </div>
+          )}
+
         </div>
       </div>
     </FifaLayout>

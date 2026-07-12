@@ -1,9 +1,9 @@
+import { useEffect, useRef } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { flagUrl, getStageLabel } from '@/lib/fifa-assets'
 import { findLiveMatch, isLiveStatus, type LiveScoreMatch } from '@/lib/fifa-live-match'
 import { useCountdown, formatCountdown } from '@/hooks/use-countdown'
-import { useReducedMotion } from '@/hooks/use-reduced-motion'
 
 export interface HeroMatch {
   id: string
@@ -40,8 +40,38 @@ function FlagImg({ team }: { team: string }) {
   )
 }
 
+function useHeroVideoAutoplay() {
+  const videoRef = useRef<HTMLVideoElement>(null)
+
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+
+    const play = () => {
+      if (video.paused) void video.play().catch(() => {})
+    }
+
+    play()
+    video.addEventListener('loadeddata', play)
+    video.addEventListener('canplay', play)
+
+    const onVisibility = () => {
+      if (!document.hidden) play()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+
+    return () => {
+      video.removeEventListener('loadeddata', play)
+      video.removeEventListener('canplay', play)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [])
+
+  return videoRef
+}
+
 export function FifaHero({ nextMatch, startingBalance, prize }: FifaHeroProps) {
-  const reducedMotion = useReducedMotion()
+  const videoRef = useHeroVideoAutoplay()
   const countdown = useCountdown(nextMatch?.kickoff_at)
 
   const { data: liveData } = useQuery({
@@ -111,25 +141,19 @@ export function FifaHero({ nextMatch, startingBalance, prize }: FifaHeroProps) {
 
   return (
     <header className="relative min-h-[85svh] w-full overflow-hidden bg-black md:min-h-svh">
-      {!reducedMotion ? (
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="auto"
-          poster="/fifa/hero-poster.jpg"
-          className="absolute inset-0 h-full w-full object-cover saturate-[1.05] contrast-[1.03]"
-        >
-          <source src="/fifa/worldcup26-hero.mp4" type="video/mp4" />
-        </video>
-      ) : (
-        <img
-          src="/fifa/hero-poster.jpg"
-          alt=""
-          className="absolute inset-0 h-full w-full object-cover"
-        />
-      )}
+      <video
+        ref={videoRef}
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="auto"
+        poster="/fifa/hero-poster.jpg"
+        aria-hidden
+        className="absolute inset-0 h-full w-full object-cover saturate-[1.05] contrast-[1.03]"
+      >
+        <source src="/fifa/worldcup26-hero.mp4" type="video/mp4" />
+      </video>
 
       <div
         className="pointer-events-none absolute inset-0 z-[1]"

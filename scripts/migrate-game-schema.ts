@@ -172,6 +172,13 @@ function transactionFields(usersId: string, betsId: string): Record<string, unkn
     numberField('balance_after'),
     relationField('ref_bet', betsId, { cascadeDelete: false }),
     textField('note', { max: 500 }),
+    // The hooks write an explicit ISO `timestamp` on every ledger row, and the
+    // player dashboard sorts by `-timestamp` — so the column MUST exist or the
+    // sort throws. `created` (autodate) is a DB-authoritative fallback used by
+    // the daily-topup idempotency check (which reads `created`) and guarantees
+    // a sortable date even when `timestamp` wasn't set (e.g. backfill grants).
+    dateField('timestamp'),
+    { name: 'created', type: 'autodate', onCreate: true, onUpdate: false } as Record<string, unknown>,
   ]
 }
 
@@ -188,6 +195,10 @@ function settingsFields(usersId: string): Record<string, unknown>[] {
     numberField('raffle_active_participant_min_bets'),
     boolField('auto_settle_enabled'),
     numberField('settle_delay_minutes'),
+    // Auto-void safety net (FIFA-GAME.md §2.3): matches left upcoming/live past
+    // this many hours (or finished-but-unsettled past 48h) are auto-voided by
+    // the fifa-auto-void cron so stakes never freeze on an admin no-show.
+    numberField('auto_void_hours'),
     dateField('raffle_drawn_at'),
     relationField('raffle_winner', usersId, { cascadeDelete: false }),
     textField('raffle_seed', { max: 200 }),
