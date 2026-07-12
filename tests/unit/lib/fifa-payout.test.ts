@@ -253,6 +253,54 @@ describe('settleMarket — idempotency', () => {
   })
 })
 
+describe('settleMarket — void stakes are excluded from the pool', () => {
+  it('does not let a previously-voided bet inflate the pool winners share', () => {
+    const market = { id: 'm1', market_type: 'match_winner', mode: 'pool' as const, line: 0, options: ['home', 'away'] }
+    const bets = [
+      { id: 'b1', user: 'u1', selection: 'home', stake: 100, mode: 'pool' as const, odds_locked: 0, status: 'pending' },
+      { id: 'b2', user: 'u2', selection: 'away', stake: 100, mode: 'pool' as const, odds_locked: 0, status: 'pending' },
+      // Voided before settlement (e.g. TOCTOU void or refunded) — its stake
+      // was refunded / never collected and must not be shared out.
+      { id: 'b3', user: 'u3', selection: 'away', stake: 500, mode: 'pool' as const, odds_locked: 0, status: 'void' },
+    ]
+    const result = { ...baseResult, result_winner: 'home' }
+    const { updates } = settleMarket(market, bets, result, 0)
+    // Pool = 100 + 100 = 200 (b3's 500 excluded). b1 takes it all.
+    expect(updates.find((u) => u.id === 'b1')!.payout).toBe(200)
+    expect(updates.find((u) => u.id === 'b3')!.status).toBe('void')
+    expect(updates.find((u) => u.id === 'b3')!.payout).toBe(500) // refund only
+  })
+
+  it('excludes pushed (void) over/under stakes from the pool', () => {
+    const market = { id: 'm1', market_type: 'total_goals_ou', mode: 'pool' as const, line: 2, options: ['over', 'under'] }
+    const bets = [
+      { id: 'b1', user: 'u1', selection: 'over', stake: 100, mode: 'pool' as const, odds_locked: 0, status: 'pending' },
+      { id: 'b2', user: 'u2', selection: 'under', stake: 100, mode: 'pool' as const, odds_locked: 0, status: 'pending' },
+    ]
+    // total 2 = line → both push → market voided path (no winner)
+    const r = { ...baseResult, result_home_goals: 1, result_away_goals: 1 }
+    const { updates, marketVoided } = settleMarket(market, bets, r, 0)
+    expect(marketVoided).toBe(true)
+    expect(updates.find((u) => u.id === 'b1')!.payout).toBe(100)
+    expect(updates.find((u) => u.id === 'b2')!.payout).toBe(100)
+  })
+
+  it('payouts never exceed the collected pool', () => {
+    const market = { id: 'm1', market_type: 'total_goals_ou', mode: 'pool' as const, line: 2, options: ['over', 'under'] }
+    const bets = [
+      { id: 'b1', user: 'u1', selection: 'over', stake: 60, mode: 'pool' as const, odds_locked: 0, status: 'pending' },
+      { id: 'b2', user: 'u2', selection: 'under', stake: 40, mode: 'pool' as const, odds_locked: 0, status: 'pending' },
+      { id: 'b3', user: 'u3', selection: 'over', stake: 300, mode: 'pool' as const, odds_locked: 0, status: 'void' },
+    ]
+    const r = { ...baseResult, result_home_goals: 2, result_away_goals: 1 } // total 3 > 2 → over wins
+    const { updates } = settleMarket(market, bets, r, 0)
+    const paidToWinners = updates.filter((u) => u.status === 'won').reduce((s, u) => s + u.payout, 0)
+    // Collected (live) pool is 60 + 40 = 100 — winners can never share more.
+    expect(paidToWinners).toBeLessThanOrEqual(100)
+    expect(updates.find((u) => u.id === 'b1')!.payout).toBe(100)
+  })
+})
+
 describe('settleMarket — over/under push voids only the pushing bet', () => {
   it('voids the over bet on exact push but settles under separately', () => {
     const market = { id: 'm1', market_type: 'total_goals_ou', mode: 'fixed' as const, line: 2, options: ['over', 'under'] }

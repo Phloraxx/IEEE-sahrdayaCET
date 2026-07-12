@@ -16,6 +16,13 @@ export interface EspnSyncEvent {
   statusState: string
   /** ESPN status.type.name — e.g. STATUS_CANCELED */
   statusName?: string
+  /** Match went to extra time (detected from status name, best-effort). */
+  afterExtraTime?: boolean
+  /** Match went to a penalty shootout (status name, or level score + winner flag). */
+  afterPenalties?: boolean
+  /** ESPN competitor.winner flags — the only advance signal for pens matches. */
+  homeWinner?: boolean
+  awayWinner?: boolean
 }
 
 export interface FifaMatchForSync {
@@ -48,6 +55,8 @@ export interface SettlePayload {
   result_home_clean_sheet: boolean
   result_away_clean_sheet: boolean
   result_advance: 'home' | 'away' | ''
+  result_after_extra_time: boolean
+  result_after_penalties: boolean
 }
 
 export { normalizeTeamName, teamNamesMatch } from '@/lib/fifa-team-names'
@@ -103,6 +112,15 @@ export function parseEspnSyncEvent(raw: unknown): EspnSyncEvent | null {
   const awayGoals =
     mapped === 'upcoming' ? null : numOrZero(away.score)
 
+  // ET/pens detection (best-effort, from the status name — e.g.
+  // STATUS_FINAL_AET, STATUS_FINAL_PEN, STATUS_SHOOTOUT). ESPN's post-match
+  // score includes extra-time goals, so the cron must know when the 90-min
+  // score markets can't be settled from this snapshot.
+  const upperName = (statusName || '').toUpperCase()
+  const afterPenalties = upperName.includes('PEN') || upperName.includes('SHOOTOUT')
+  const afterExtraTime =
+    afterPenalties || upperName.includes('AET') || upperName.includes('EXTRA')
+
   return {
     id: String(rec.id || ''),
     homeTeam: String(
@@ -115,6 +133,10 @@ export function parseEspnSyncEvent(raw: unknown): EspnSyncEvent | null {
     awayGoals,
     statusState,
     statusName,
+    afterExtraTime,
+    afterPenalties,
+    homeWinner: home.winner === true,
+    awayWinner: away.winner === true,
   }
 }
 
@@ -166,9 +188,10 @@ export function buildSettlePayload(
   const eh = normalizeTeamName(espnEvent.homeTeam)
   const ea = normalizeTeamName(espnEvent.awayTeam)
 
+  const swapped = mh === ea && ma === eh
   let homeGoals = espnEvent.homeGoals ?? 0
   let awayGoals = espnEvent.awayGoals ?? 0
-  if (mh === ea && ma === eh) {
+  if (swapped) {
     homeGoals = espnEvent.awayGoals ?? 0
     awayGoals = espnEvent.homeGoals ?? 0
   }
@@ -177,6 +200,22 @@ export function buildSettlePayload(
   if (homeGoals > awayGoals) result_winner = 'home'
   else if (awayGoals > homeGoals) result_winner = 'away'
   else result_winner = 'draw'
+
+  // Level final score in a knockout means pens decided it. ESPN marks the
+  // shootout winner via competitor.winner — the only advance signal we get.
+  let result_advance: 'home' | 'away' | '' =
+    result_winner !== 'draw' ? result_winner : ''
+  let afterPenalties = Boolean(espnEvent.afterPenalties)
+  if (result_winner === 'draw') {
+    let homeWon = espnEvent.homeWinner === true
+    let awayWon = espnEvent.awayWinner === true
+    if (swapped) [homeWon, awayWon] = [awayWon, homeWon]
+    if (homeWon !== awayWon) {
+      result_advance = homeWon ? 'home' : 'away'
+      afterPenalties = true
+    }
+  }
+  const afterExtraTime = Boolean(espnEvent.afterExtraTime) || afterPenalties
 
   return {
     result_winner,
@@ -187,8 +226,9 @@ export function buildSettlePayload(
     result_red_cards: 0,
     result_home_clean_sheet: awayGoals === 0,
     result_away_clean_sheet: homeGoals === 0,
-    // Knockout 90-min draw: winner=draw, advance left empty for admin.
-    result_advance: result_winner !== 'draw' ? result_winner : '',
+    result_advance,
+    result_after_extra_time: afterExtraTime,
+    result_after_penalties: afterPenalties,
   }
 }
 
@@ -229,6 +269,17 @@ export function shouldAutoSettle(
 /** Idempotency guard — already-settled matches must not re-settle. */
 export function shouldSkipSettle(match: Pick<FifaMatchForSync, 'settled'>): boolean {
   return Boolean(match.settled)
+}
+
+/** Market types the ESPN cron may auto-settle. When the match went to ET or
+ *  pens, ESPN's final score includes extra-time goals, so the 90-minute score
+ *  markets (total goals / correct score / clean sheet) cannot be settled from
+ *  that snapshot — only match_winner (settles on who advances) is safe; the
+ *  rest stay pending for the admin to enter the 90-min result. */
+export function autoSettleMarketTypes(wentExtraTime: boolean): Set<string> {
+  return wentExtraTime
+    ? new Set(['match_winner'])
+    : new Set(['match_winner', 'correct_score', 'total_goals_ou', 'clean_sheet'])
 }
 
 function numOrZero(v: unknown): number {
