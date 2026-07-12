@@ -30,7 +30,6 @@
   "exclude": [
     "node_modules",
     "migration",
-    "scripts",
-    "tests"
+    "scripts"
   ]
 }

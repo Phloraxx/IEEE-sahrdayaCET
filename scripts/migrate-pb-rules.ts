@@ -75,21 +75,21 @@ const rules: Record<string, CollectionRuleSet> = {
   coupons: {
     // #4: only admins and chairs of the event's society can read coupons.
     // The app validates via the PB internal route (pb_hooks/coupons.pb.js).
-    listRule: `@request.auth.role = "admin" || (@request.auth.role = "chair" && event.society.chairs.id ?= @request.auth.id)`,
-    viewRule: `@request.auth.role = "admin" || (@request.auth.role = "chair" && event.society.chairs.id ?= @request.auth.id)`,
+    listRule: `@request.auth.role = "admin" || (@request.auth.role = "chair" && event.id != "" && event.society.id != "" && event.society.chairs.id ?= @request.auth.id)`,
+    viewRule: `@request.auth.role = "admin" || (@request.auth.role = "chair" && event.id != "" && event.society.id != "" && event.society.chairs.id ?= @request.auth.id)`,
     // Chairs may create/update coupons for their own society's events.
-    createRule: `@request.auth.role = "admin" || (@request.auth.role = "chair" && event.society.chairs.id ?= @request.auth.id)`,
-    updateRule: `@request.auth.role = "admin" || (@request.auth.role = "chair" && event.society.chairs.id ?= @request.auth.id)`,
+    createRule: `@request.auth.role = "admin" || (@request.auth.role = "chair" && event.id != "" && event.society.id != "" && event.society.chairs.id ?= @request.auth.id)`,
+    updateRule: `@request.auth.role = "admin" || (@request.auth.role = "chair" && event.id != "" && event.society.id != "" && event.society.chairs.id ?= @request.auth.id)`,
     deleteRule: `@request.auth.role = "admin"`,
   },
   registrations: {
-    listRule: `user = @request.auth.id || @request.auth.role = "admin" || (@request.auth.role = "chair" && event.society.chairs.id ?= @request.auth.id)`,
-    viewRule: `user = @request.auth.id || @request.auth.role = "admin" || (@request.auth.role = "chair" && event.society.chairs.id ?= @request.auth.id)`,
+    listRule: `user = @request.auth.id || @request.auth.role = "admin" || (@request.auth.role = "chair" && event.id != "" && event.society.id != "" && event.society.chairs.id ?= @request.auth.id)`,
+    viewRule: `user = @request.auth.id || @request.auth.role = "admin" || (@request.auth.role = "chair" && event.id != "" && event.society.id != "" && event.society.chairs.id ?= @request.auth.id)`,
     // C2: createRule is a backstop — the onRecordCreateRequest hook
     // (pb_hooks/registrations.pb.js) enforces all business rules. This rule
     // prevents direct PB REST POSTs from setting paymentStatus or checkedIn.
     createRule: `user = @request.auth.id && @request.body.paymentStatus:changed = false && @request.body.checkedIn:changed = false`,
-    updateRule: `@request.auth.role = "admin" || (@request.auth.role = "chair" && event.society.chairs.id ?= @request.auth.id && @request.body.paymentStatus:changed = false && @request.body.amount:changed = false && @request.body.registrationStatus != "confirmed")`,
+    updateRule: `@request.auth.role = "admin" || (@request.auth.role = "chair" && event.id != "" && event.society.id != "" && event.society.chairs.id ?= @request.auth.id && @request.body.paymentStatus:changed = false && @request.body.amount:changed = false && @request.body.registrationStatus != "confirmed")`,
     deleteRule: `@request.auth.role = "admin"`,
   },
   execom: {
