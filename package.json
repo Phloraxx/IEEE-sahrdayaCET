@@ -1,7 +1,7 @@
 {
   "name": "ieee-sahrdaya",
   "private": true,
-  "version": "2.3.11",
+  "version": "2.3.49",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
@@ -20,7 +20,10 @@
     "generate:sitemap": "bun scripts/generate-sitemap.ts",
     "advance:execom-batch": "bun scripts/advance-execom-batch.ts",
     "migrate:coupons-to-collection": "bun scripts/migrate-coupons-to-collection.ts",
-    "migrate:indexes": "bun scripts/migrate-indexes.ts"
+    "migrate:indexes": "bun scripts/migrate-indexes.ts",
+    "migrate:game-schema": "bun scripts/migrate-game-schema.ts",
+    "migrate:game-backfill": "bun scripts/migrate-game-backfill.ts",
+    "verify:arch": "bun scripts/verify-architecture-live.ts"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.9",
@@ -32,6 +35,9 @@
     "@tanstack/react-query": "^5.101.0",
     "@tanstack/react-router": "^1.170.16",
     "@tanstack/react-start": "^1.168.26",
+    "@tiptap/pm": "^3.27.1",
+    "@tiptap/react": "^3.27.1",
+    "@tiptap/starter-kit": "^3.27.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -54,7 +60,6 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
-    "puppeteer": "^25.2.1",
     "@types/cookie": "^0.6.0",
     "@types/node": "^22.14.0",
     "@types/qrcode": "^1.5.6",
@@ -67,6 +72,7 @@
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "puppeteer": "^25.2.1",
     "shadcn": "^4.11.0",
     "tailwindcss": "^4.3.0",
     "typescript": "~5.8.2",

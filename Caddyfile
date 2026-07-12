@@ -25,6 +25,31 @@
         Cache-Control "public, max-age=31536000, immutable"
     }
 
+    # Same-origin proxy for client-side PocketBase SSE + public FIFA reads.
+    # Allowlist only — never open the whole PB REST surface.
+    @pb_allowed {
+        path /pb/api/realtime*
+        path /pb/api/fifa/leaderboard*
+        path /pb/api/fifa/feed*
+        path /pb/api/fifa/stats*
+        path /pb/api/collections/fifa_feed_events*
+        path /pb/api/collections/fifa_bet_markets*
+        path /pb/api/collections/fifa_matches*
+    }
+    handle @pb_allowed {
+        uri strip_prefix /pb
+        reverse_proxy pb:8090 {
+            flush_interval -1
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+    @pb_blocked path /pb/*
+    handle @pb_blocked {
+        respond "Forbidden: /pb path not allowlisted" 403
+    }
+
     reverse_proxy app:3000 {
         header_up X-Real-IP {remote_host}
         header_up X-Forwarded-For {remote_host}

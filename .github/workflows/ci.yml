@@ -4,10 +4,19 @@ on:
   push:
     branches: [main, dev]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch or SHA to check out'
+        required: false
+        default: ''
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   validate:
@@ -15,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.ref }}
+          ref: ${{ github.event.pull_request.head.sha || inputs.ref || github.ref }}
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
@@ -25,9 +34,19 @@ jobs:
           path: node_modules
           key: node-modules-${{ runner.os }}-${{ hashFiles('bun.lock') }}
       - run: bun install
+      # Cache TS build artifacts so `tsc --noEmit` and `vite build` are faster
+      - uses: actions/cache@v4
+        with:
+          path: |
+            .tanstack
+            tsconfig.tsbuildinfo
+          key: tscache-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            tscache-${{ runner.os }}-
       - run: bun run build
       - run: bunx tsc --noEmit
       - run: bun run lint
+      - run: bun run test
 
   docker-build:
     if: github.event_name == 'pull_request'
@@ -35,7 +54,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.ref }}
+          ref: ${{ github.event.pull_request.head.sha || inputs.ref || github.ref }}
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:

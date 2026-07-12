@@ -17,13 +17,13 @@ test.describe('API Error Handling', () => {
     expect(res.status()).toBe(404)
   })
 
-  test('POST /api/events/validate-coupon returns 401 without auth', async ({ request }) => {
+  test('POST /api/events/validate-coupon returns 401/403 without auth', async ({ request }) => {
     const res = await request.post(`${BASE}/api/events/validate-coupon`, {
       data: 'not-json',
       headers: { 'Content-Type': 'application/json' },
     })
-    // Auth gate fires before body parsing — should return 401
-    expect(res.status()).toBe(401)
+    // 403 without Origin (same-origin guard); 401 when auth runs first
+    expect([401, 403]).toContain(res.status())
   })
 
   test('Large filter values are handled without crash', async ({ request }) => {

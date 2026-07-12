@@ -1,13 +1,20 @@
 import {
+  Activity,
   Building2,
   Calendar,
   ChevronRight,
   ClipboardList,
+  FileText,
+  FlaskConical,
+  Gift,
   LayoutDashboard,
   LogOut,
   Moon,
   ScanLine,
+  Settings,
   Sun,
+  Ticket,
+  Trophy,
   UserCheck,
   Users,
   X,
@@ -21,7 +28,7 @@ interface NavItem {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   description?: string;
-  adminOnly?: boolean;
+  allowedRoles: ("admin" | "chair" | "content")[];
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -30,51 +37,98 @@ const NAV_ITEMS: NavItem[] = [
     href: "/admin/dashboard",
     icon: LayoutDashboard,
     description: "Event pulse",
+    allowedRoles: ["admin", "chair"],
   },
   {
     label: "Events",
     href: "/admin/events",
     icon: Calendar,
     description: "Manage events",
+    allowedRoles: ["admin", "chair"],
   },
   {
     label: "Registrations",
     href: "/admin/registrations",
     icon: ClipboardList,
     description: "Sign-ups & check-ins",
+    allowedRoles: ["admin", "chair"],
   },
   {
     label: "Check-in",
     href: "/admin/check-in",
     icon: ScanLine,
     description: "QR verify",
+    allowedRoles: ["admin", "chair"],
   },
   {
     label: "Societies",
     href: "/admin/societies",
     icon: Building2,
     description: "Chapters",
-    adminOnly: true,
+    allowedRoles: ["admin"],
+  },
+  {
+    label: "Blogs",
+    href: "/admin/blogs/",
+    icon: FileText,
+    description: "Manage posts",
+    allowedRoles: ["admin", "content"],
   },
   {
     label: "Users",
     href: "/admin/users",
     icon: Users,
     description: "Roles",
-    adminOnly: true,
+    allowedRoles: ["admin"],
   },
   {
     label: "Execom",
     href: "/admin/execom",
     icon: UserCheck,
     description: "Committee",
-    adminOnly: true,
+    allowedRoles: ["admin"],
+  },
+  {
+    label: "FIFA Matches",
+    href: "/admin/FIFA/matches/",
+    icon: Trophy,
+    description: "WC Predict '26",
+    allowedRoles: ["admin"],
+  },
+  {
+    label: "FIFA Testing",
+    href: "/admin/FIFA/testing/",
+    icon: FlaskConical,
+    description: "Game console",
+    allowedRoles: ["admin"],
+  },
+  {
+    label: "FIFA Settings",
+    href: "/admin/FIFA/settings/",
+    icon: Settings,
+    description: "Economy + raffle",
+    allowedRoles: ["admin"],
+  },
+  {
+    label: "FIFA Raffle",
+    href: "/admin/FIFA/raffle/",
+    icon: Ticket,
+    description: "Draw winner",
+    allowedRoles: ["admin"],
+  },
+  {
+    label: "FIFA Feed",
+    href: "/admin/FIFA/feed/",
+    icon: Activity,
+    description: "Feed moderation",
+    allowedRoles: ["admin"],
   },
 ];
 
 const ROLE_LABEL: Record<string, string> = {
   admin: "Administrator",
   chair: "Society Chair",
+  content: "Content Team",
 };
 
 interface AdminSidebarProps {
@@ -97,7 +151,7 @@ export function AdminSidebar({
   const location = useLocation();
   const { signOut } = useAuth();
   const items = NAV_ITEMS.filter(
-    (item) => !item.adminOnly || userRole === "admin",
+    (item) => item.allowedRoles.includes(userRole as any),
   );
 
   return (

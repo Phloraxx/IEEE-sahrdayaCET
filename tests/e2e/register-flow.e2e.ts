@@ -28,6 +28,6 @@ test.describe('Registration API', () => {
   test('missing fields: POST /api/registrations → 400', async ({ baseURL }) => {
     const ctx = await request.newContext({ baseURL })
     const res = await ctx.post('/api/registrations', { data: {} })
-    expect(res.status()).toBe(401) // auth gate before validation
+    expect([401, 403]).toContain(res.status()) // auth/origin gate before validation
   })
 })

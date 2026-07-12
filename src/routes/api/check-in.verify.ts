@@ -93,17 +93,20 @@ export const Route = createFileRoute("/api/check-in/verify")({
             checkedIn: true,
             checkedInAt: new Date().toISOString(),
           });
+          const updated = await pb.collection("registrations").getOne(registration.id, {
+            fields: 'id,userName,checkedIn,checkedInAt',
+          });
           return Response.json({
             success: true,
             message: "Checked in successfully",
             registration: {
-              id: registration.id,
-              userName: getField(registration, 'userName', '') as string,
+              id: updated.id,
+              userName: getField(updated, 'userName', '') as string,
               userEmail: '',
               eventTitle: getField(event, 'title', '') as string,
               ticketId: ticketId,
-              checkedIn: true,
-              checkedInAt: new Date().toISOString(),
+              checkedIn: getField(updated, 'checkedIn', true),
+              checkedInAt: getField(updated, 'checkedInAt', '') as string,
             },
           });
         } catch (error) {

@@ -33,7 +33,8 @@ const MIME_TYPES = {
 
 async function main() {
   const { default: handler } = await import(SERVER_ENTRY);
-  const fetch = handler.fetch || handler;
+  const tsrFetch = handler.fetch || handler;
+  const globalFetch = globalThis.fetch;
 
 const SECURITY_HEADERS = {
   'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
@@ -41,7 +42,7 @@ const SECURITY_HEADERS = {
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-  'Content-Security-Policy': "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' data: https:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' https://*.pocketbase.io https://accounts.google.com; frame-src https://accounts.google.com",
+  'Content-Security-Policy': "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' data: https:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' https://*.pocketbase.io https://*.ieeesahrdaya.com https://accounts.google.com https://site.api.espn.com https://api.football-data.org https://raw.githubusercontent.com; frame-src https://accounts.google.com",
 };
 
 function addSecurityHeaders(res) {
@@ -50,7 +51,44 @@ function addSecurityHeaders(res) {
   }
 }
 
+/** Add security headers after SSR without touching writeHead. */
+function addSecurityHeadersSafely(res) {
+  for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
+    if (res.getHeader(key)) continue;
+    try {
+      res.setHeader(key, value);
+    } catch (err) {
+      // Streaming SSR may flush headers before the handler promise resolves.
+      if (err?.code !== 'ERR_HTTP_HEADERS_SENT') throw err;
+    }
+  }
+}
+
 const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB
+
+/** Read request body with a size cap. Returns Buffer or null for empty bodies. */
+async function readBodyLimited(req, maxBytes = MAX_BODY_SIZE) {
+  const chunks = [];
+  let total = 0;
+  for await (const chunk of req) {
+    total += chunk.length;
+    if (total > maxBytes) throw new Error('PAYLOAD_TOO_LARGE');
+    chunks.push(chunk);
+  }
+  return chunks.length ? Buffer.concat(chunks) : null;
+}
+
+function wrapHandlerWithSecurityHeaders(handler) {
+  return async (req, res) => {
+    // Never patch res.writeHead. srvx passes headers as a flat string array
+    // (e.g. ['content-type', 'text/html; charset=utf-8']). Spreading that
+    // array into an object yields { 0: 'content-type', 1: 'text/html...' },
+    // so browsers show raw HTML instead of rendering the page.
+    await handler(req, res);
+    addSecurityHeadersSafely(res);
+  };
+}
+
   const server = createServer(async (req, res) => {
     try {
       const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
@@ -63,6 +101,91 @@ const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB
         return;
       }
 
+      // Same-origin proxy for client-side PB SSE + public FIFA read routes.
+      // Allowlist only — never open the whole PB REST surface.
+      // Allowed:
+      //   GET/HEAD realtime SSE: /api/realtime
+      //   GET public FIFA custom routes: /api/fifa/leaderboard|feed|stats
+      //   GET collection reads for public game collections only
+      if (url.pathname.startsWith('/pb/')) {
+        try {
+          const method = (req.method || 'GET').toUpperCase();
+          const targetPath = url.pathname.replace(/^\/pb/, '') + (url.search || '');
+          const pathOnly = (url.pathname.replace(/^\/pb/, '') || '/').split('?')[0];
+
+          const isGet = method === 'GET' || method === 'HEAD';
+          const isRealtime = pathOnly === '/api/realtime';
+          const isPublicFifaRoute = /^\/api\/fifa\/(leaderboard|feed|stats)\/?$/.test(pathOnly);
+          const isPublicCollection = /^\/api\/collections\/(fifa_feed_events|fifa_bet_markets|fifa_matches)(\/|$)/.test(pathOnly);
+
+          // SSE subscribe is POST on /api/realtime in PB — allow only that write path.
+          const isRealtimeSubscribe = method === 'POST' && pathOnly === '/api/realtime';
+
+          if (!(isRealtimeSubscribe || (isGet && (isRealtime || isPublicFifaRoute || isPublicCollection)))) {
+            addSecurityHeaders(res);
+            res.writeHead(403, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Forbidden: /pb path not allowlisted' }));
+            return;
+          }
+
+          const pbUrl = process.env.POCKETBASE_URL || 'http://127.0.0.1:8090';
+          const targetUrl = `${pbUrl}${targetPath}`;
+          const pbHeaders = new Headers();
+          for (const [key, value] of Object.entries(req.headers)) {
+            if (['connection', 'keep-alive', 'transfer-encoding', 'host'].includes(key)) continue;
+            // Drop auth for public proxy — these endpoints are public reads.
+            if (['authorization', 'cookie'].includes(key)) continue;
+            pbHeaders.set(key, Array.isArray(value) ? value.join(', ') : value);
+          }
+          let pbBody = undefined;
+          if (isRealtimeSubscribe) {
+            const buf = await readBodyLimited(req);
+            if (buf && buf.length > 0) pbBody = buf;
+          }
+          // Abort the upstream fetch when the client goes away — otherwise a
+          // closed SSE tab leaves this loop reading from PB indefinitely.
+          const upstreamAbort = new AbortController();
+          res.on('close', () => upstreamAbort.abort());
+          const pbRes = await globalFetch(targetUrl, { method: req.method, headers: pbHeaders, body: pbBody, signal: upstreamAbort.signal });
+          addSecurityHeaders(res);
+          res.writeHead(pbRes.status, Object.fromEntries(pbRes.headers.entries()));
+          if (pbRes.body) {
+            for await (const chunk of pbRes.body) res.write(chunk);
+          }
+          res.end();
+        } catch (err) {
+          // Long-lived /api/realtime SSE streams always end with a socket
+          // close — client tab gone (abort) or upstream dropping the
+          // connection (undici "terminated"/UND_ERR_SOCKET; routine when
+          // POCKETBASE_URL goes through Cloudflare, which caps stream
+          // lifetimes). The PB client SDK auto-reconnects, so these are not
+          // server faults — one quiet line, no stack trace.
+          const benign =
+            err?.name === 'AbortError' ||
+            err?.message === 'terminated' ||
+            err?.code === 'UND_ERR_SOCKET' ||
+            err?.cause?.code === 'UND_ERR_SOCKET';
+          if (benign) {
+            console.log(`[pb-proxy] stream closed (${url.pathname})`);
+          } else {
+            console.error('[pb-proxy] Error:', err);
+          }
+          if (!res.headersSent) {
+            addSecurityHeaders(res);
+            if (err.message === 'PAYLOAD_TOO_LARGE') {
+              res.writeHead(413, { 'Content-Type': 'text/plain' });
+              res.end('Payload Too Large');
+            } else {
+              res.writeHead(502, { 'Content-Type': 'text/plain' });
+              res.end('Bad Gateway: ' + (err.message || 'Unknown error'));
+            }
+          } else {
+            res.end();
+          }
+        }
+        return;
+      }
+
       // Serve static files: try dist/client (Vite output), then public/ (raw assets)
       if (!url.pathname.startsWith('/api/') && !url.pathname.includes('..') && extname(url.pathname)) {
         const candidates = [
@@ -70,21 +193,21 @@ const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB
           join(__dirname, 'public', url.pathname),
         ];
         for (const filePath of candidates) {
-          try {
-            const ext = extname(filePath).toLowerCase();
-            const mime = MIME_TYPES[ext] || 'application/octet-stream';
-            const cacheControl = url.pathname.startsWith('/assets/')
-              ? 'public, max-age=31536000, immutable'
-              : 'public, max-age=86400';
-            addSecurityHeaders(res);
-            res.writeHead(200, { 'Content-Type': mime, 'Cache-Control': cacheControl });
-            res.end(readFileSync(filePath));
-            return;
-          } catch { /* try next candidate */ }
+          if (!existsSync(filePath)) continue;
+          const ext = extname(filePath).toLowerCase();
+          const mime = MIME_TYPES[ext] || 'application/octet-stream';
+          const cacheControl = url.pathname.startsWith('/assets/')
+            ? 'public, max-age=31536000, immutable'
+            : 'public, max-age=86400';
+          addSecurityHeaders(res);
+          res.writeHead(200, { 'Content-Type': mime, 'Cache-Control': cacheControl });
+          res.end(readFileSync(filePath));
+          return;
         }
       }
       // SSR: forward to TanStack Start handler
-      const nodeHandler = toNodeHandler ? toNodeHandler(fetch) : simpleNodeHandler(fetch);
+      const baseHandler = toNodeHandler ? toNodeHandler(tsrFetch) : simpleNodeHandler(tsrFetch);
+      const nodeHandler = wrapHandlerWithSecurityHeaders(baseHandler);
       await nodeHandler(req, res);
     } catch (err) {
       console.error('Server error:', err);
@@ -136,18 +259,8 @@ function simpleNodeHandler(fetch) {
 
     let body = undefined;
     if (req.method !== 'GET' && req.method !== 'HEAD') {
-      const chunks = [];
-      for await (const chunk of req) chunks.push(chunk);
-      const buf = Buffer.concat(chunks);
-      // Use ReadableStream for body to match Web Fetch API expectations
-      if (buf.length > 0) {
-        body = new ReadableStream({
-          start(controller) {
-            controller.enqueue(new Uint8Array(buf));
-            controller.close();
-          }
-        });
-      }
+      const buf = await readBodyLimited(req);
+      if (buf && buf.length > 0) body = buf;
     }
 
     const request = new Request(url, {

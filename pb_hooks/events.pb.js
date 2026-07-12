@@ -7,13 +7,23 @@
 // them directly. Backstop for the events updateRule in migrate-pb-rules.ts.
 
 onRecordUpdateRequest(function (e) {
+    var auth = null
+    try { auth = e.auth || (e.requestInfo && e.requestInfo.auth) || null } catch (err) { auth = null }
+
     var role = ""
-    try {
-        role = e.requestInfo.auth.getString("role")
-    } catch (err) {}
+    if (auth) {
+        try {
+            if (auth.isSuperuser && auth.isSuperuser()) {
+                role = "admin"
+            } else {
+                role = auth.getString("role") || ""
+            }
+        } catch (err) { role = "" }
+    }
 
     // Admins pass unconditionally
     if (role === "admin") {
+        e.next()
         return
     }
 
@@ -23,7 +33,7 @@ onRecordUpdateRequest(function (e) {
     try {
         oldRecord = $app.findRecordById("events", newRecord.id)
     } catch (err) {
-        return
+        throw e.notFoundError("Event not found", err)
     }
 
     if (newRecord.getInt("registeredCount") !== oldRecord.getInt("registeredCount")) {
@@ -35,4 +45,6 @@ onRecordUpdateRequest(function (e) {
     if (newRecord.getBool("isDeleted") !== oldRecord.getBool("isDeleted")) {
         throw e.forbiddenError("Only admins may change event deletion state")
     }
+
+    e.next()
 }, "events")

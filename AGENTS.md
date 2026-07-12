@@ -31,6 +31,8 @@ College of Engineering & Technology.
 | `bun run migrate:pb-rules` | Apply PocketBase collection API rules (`scripts/migrate-pb-rules.ts`) — source of truth for security rules |
 | `bun run migrate:events` | Migrate events (`scripts/migrate-events.ts`) |
 | `bun run migrate:indexes` | Apply DB indexes (`scripts/migrate-indexes.ts`) |
+| `bun run migrate:game-schema` | Create FIFA game collections (`scripts/migrate-game-schema.ts`) — run once after schema changes |
+| `bun run migrate:game-backfill` | Seed FIFA settings + grant starting balance to existing users (`scripts/migrate-game-backfill.ts`) |
 | `bun run generate:sitemap` | Generate sitemap (`scripts/generate-sitemap.ts`) |
 | `docker compose up` | App via `docker-compose.yml`; PocketBase via separate `docker-compose.pb.yml` |
 
@@ -169,6 +171,46 @@ Browser → Caddy (HTTPS/LB) → TanStack Start (SSR + server functions) → Poc
   (`tests/e2e/`). Vitest config has `@/` alias matching tsconfig.
 - **Components**: Avoid `React.FC` — prefer regular function components. Both
   semicolon and no-semicolon styles coexist.
+- **PR titles**: conventional commits (`feat:`, `fix:`, `chore:`, etc.),
+  enforced by `.github/workflows/pr-lint.yml`. Scope is optional
+  (`feat(auth):`, `fix(fifa):`). Merge commits ("Merge pull request #N") are
+  exempt. The version workflow keys off merge commits, not titles.
+
+## Versioning & CI/CD
+
+- **Semver source of truth = `package.json` `version`** (the frontend reads it
+  at build time via `src/components/TechnicalDetails.tsx`). Bumps are committed
+  by `.github/workflows/bump-version.yml` as `github-actions[bot]`:
+  - PR open/push (base `dev` or `main`) → `package.json` bumped to
+    `<base>+build.<run>.pr<N>` on the PR branch, committed as
+    `chore(version): …`, and `[v<version>]` appended to the PR title. Shows
+    in preview/staging builds.
+  - PR merged into `dev` → build metadata stripped, PATCH bumped, committed
+    to `dev` as `chore(release): vX.Y.(Z+1) (patch bump, …)`, tagged
+    `vX.Y.(Z+1)`.
+  - PR merged into `main` → MINOR bumped (patch reset to 0), committed to
+    `main`, tagged `vX.(Y+1).0`.
+  - Direct push to `main`/`dev` (no PR) → same bump, committed + tagged on
+    the pushed commit. PR merge commits are skipped here (the
+    `pull_request closed` event handles them).
+  - Idempotent: re-runs skip if the commit already carries a `vX.Y.Z` tag.
+- **Bot commits don't loop**: commits made by the default `GITHUB_TOKEN` do
+  not re-trigger workflows (GitHub anti-loop protection), so no PAT/secret
+  is needed. If `dev`/`main` are branch-protected, allow `github-actions[bot]`
+  to push to them (or exempt the `chore(release):`/`chore(version):` commits).
+- **CI** (`.github/workflows/ci.yml`) on push to `main`/`dev` and all PRs:
+  `bun install` → `bun run build` → `tsc --noEmit` → `bun run lint` →
+  `bun run test` (vitest). Caches `node_modules` (keyed on `bun.lock`),
+  `.tanstack/` and `tsconfig.tsbuildinfo` (keyed on SHA). Docker build job
+  runs on PRs only.
+- **CD** (`.github/workflows/cd.yml`) on push to `main`/`dev`: triggers the
+  Dokploy webhook (prod for `main`, staging for `dev`).
+- **PR lint** (`.github/workflows/pr-lint.yml`): enforces conventional-commit
+  PR titles (`feat:`, `fix:`, `chore:`, …). Scope optional. Merge commits
+  exempt. The version workflow appends `[v…]` to the title — the lint action
+  treats the bracketed suffix as part of the subject and tolerates it.
+- **No runtime elevated token in CI**: workflows use the default
+  `GITHUB_TOKEN` with explicit least-privilege `permissions:` blocks.
 
 ## Notes
 
@@ -236,3 +278,151 @@ Current hardening:
   to registeredCount, checkedInCount, isDeleted.
 - **No CSP**: enforced by both Caddy and server-entry.mjs.
 - **Webhook amount**: required on success; failed payments re-confirmable.
+
+## FIFA WC Predict '26
+
+A points-based match prediction game (fake points, no real money) for the
+2026 FIFA World Cup, layered on top of the existing site. Free to enter,
+college-email-only (Google OAuth internal-only), sponsor voucher prize via
+weighted raffle. **Not a gambling product** — no payment integration, no
+real currency anywhere.
+
+### Routes
+
+- **Public (no auth):** `/FIFA` (overview), `/FIFA/matches`,
+  `/FIFA/matches/$id` (betting UI unlocks when logged in), `/FIFA/leaderboard`,
+  `/FIFA/feed`, `/FIFA/rules`.
+- **Authenticated:** `/FIFA/dashboard` (balance, bets, transactions).
+- **Admin (`role = 'admin'` only, NOT chair):** `/admin/FIFA/matches`,
+  `/admin/FIFA/testing` (testing console — create test matches, adjust
+  balances, trigger auto-void, reset game), `/admin/FIFA/settings`,
+  `/admin/FIFA/raffle`.
+
+### PocketBase collections (all prefixed `fifa_`)
+
+| Collection | Type | Key fields |
+|-----------|------|-----------|
+| `fifa_matches` | Base | team_home, team_away, stage, kickoff_at, betting_locks_at, status, result_winner (90-min), result_home/away_goals, result_scorers, result_yellow/red_cards, result_home/away_clean_sheet, **result_advance**, **result_after_extra_time**, **result_after_penalties**, settled |
+| `fifa_bet_markets` | Base | match (rel), market_type (match_winner/total_goals_ou/correct_score/any_scorer/cards_ou/clean_sheet/custom), mode (pool/fixed), line, fixed_odds, options, is_open, void, pool_total, pool_by_option (hook-maintained) |
+| `fifa_bets` | Base | user (rel), match (rel), market (rel), selection, stake, mode, odds_locked, status, payout |
+| `fifa_transactions` | Base | user (rel), type, amount, balance_after, ref_bet (rel), note — ledger, hook-only writes |
+| `fifa_settings` | Base | singleton — event_name, starting_balance, max_bet_percent, daily_topup_*, raffle_*, **auto_void_hours**, prize, registration_open |
+| `fifa_raffle_draws` | Base | drawn_at, winner (rel), entries_snapshot (json), seed |
+| `fifa_feed_events` | Base | type, user (rel), match (rel), message — public live feed |
+| `users` (extended) | Auth | + display_name (unique), balance (hook-only) |
+
+See `FIFA-GAME.md` for the full design doc (knockout modeling, settlement
+semantics, raffle formula, admin testing console, live scores integration).
+
+### Game logic — `pb_hooks/fifa.pb.js` (single file)
+
+All balance-affecting logic runs server-side in PB hooks, mirroring the
+`registrations.pb.js` pattern. The TanStack routes authenticate + scope,
+then write with the user's own client; the hooks enforce invariants at the
+DB layer.
+
+- **Starting grant:** `onRecordAfterCreateSuccess` on `users` sets
+  `balance = starting_balance`, writes a `starting_grant` transaction.
+- **Settings singleton guard:** `onRecordCreateRequest` on `fifa_settings`
+  rejects a second row.
+- **Bet create:** `onRecordCreateRequest` on `fifa_bets` validates market
+  open + before `betting_locks_at` + stake ≤ balance + stake ≤
+  `max_bet_percent`%, snapshots `odds_locked`, pins `user` to caller.
+  `onRecordAfterCreateSuccess` deducts balance, writes `bet_placed`
+  transaction, recomputes market pool counters (self-healing), emits feed
+  event. **TOCTOU self-heal:** re-reads balance post-commit; if negative
+  from concurrent bets, voids + refunds (mirrors `registrations.pb.js:263`).
+- **Settlement:** `routerAdd("POST","/api/fifa/settle")` admin-gated via
+  `e.auth` role. Idempotent (skips settled bets, marks `match.settled=true`
+  LAST). `match_winner` settles on **`result_advance`** (who advanced in a
+  knockout), not the 90-min `result_winner` — falls back to `result_winner`
+  only when `result_advance` isn't set. Per-market-type payout logic mirrors
+  `src/lib/fifa-payout.ts` (unit-tested). Pool:
+  `(stake/total_winning_stakes) × pool × (1−cut)`; no winners → void + refund
+  all. Fixed: `stake × odds_locked`.
+- **Market void:** `onRecordAfterUpdateSuccess` on `fifa_bet_markets` — when
+  `void` flips true, refunds all pending bets on that market.
+- **Daily top-up:** `cronAdd("fifa-daily-topup","0 9 * * *")` tops anyone
+  under `daily_topup_threshold` to `daily_topup_target`, idempotent via
+  today's `daily_topup` transaction check.
+- **Auto-void:** `cronAdd("fifa-auto-void","*/30 * * * *")` voids matches
+  whose kickoff was > `auto_void_hours` ago and are still upcoming/live, or
+  finished-but-unsettled past 48h. Prevents frozen pending bets if the admin
+  is a no-show.
+- **Admin balance adjust:** `routerAdd("POST","/api/fifa/admin-adjust")`
+  admin-gated. Applies a relative balance change via `applyDelta`, writes an
+  `admin_adjust` ledger row. Used by the testing console.
+- **Admin game reset:** `routerAdd("POST","/api/fifa/admin-reset")`
+  admin-gated, requires `{ confirm: "RESET" }`. Wipes all bets/transactions,
+  voids matches, resets every user's balance to `starting_balance`. For
+  pre-launch testing only.
+- **Raffle:** `routerAdd("POST","/api/fifa/raffle")` admin-gated. Builds
+  ticket list from leaderboard (ranked by balance desc, tiebreak bets_count
+  desc): `max(1, base − decay×(rank−1))`. Only players with ≥
+  `raffle_active_participant_min_bets` bets enter. Weighted random pick.
+  Stores `entries_snapshot` + `seed` + `winner` for transparency.
+- **Leaderboard + feed:** `routerAdd("GET","/api/fifa/leaderboard")` and
+  `/api/fifa/feed` — public custom routes using internal `$app` access
+  (bypasses `users` listRule, same bypass as `coupons.pb.js`). Leaderboard
+  ranks by balance desc, tiebreak bets_count desc (competition ranking).
+
+### Live scores (multi-source)
+
+Three sources, tried in priority order (FIFA-GAME.md §2.7), mirroring the
+emrbli/worldcup project:
+1. **ESPN hidden API** (`site.api.espn.com`) — primary, no auth, real-time.
+2. **football-data.org** — fallback, `FOOTBALL_DATA_API_TOKEN` env var
+   (free tier, 10 req/min, WC included, scores ~30-60s delayed).
+3. **openfootball GitHub JSON** — static backbone, complete 104-match WC
+   2026 list, no auth, no rate limits, includes ET/penalty scores.
+
+`src/lib/fifa-live.ts` tries sources in order, caches 60s server-side,
+returns the first success with a `source` field. If all fail, the UI hides
+the overlay gracefully. The public matches list + match-detail pages poll
+`/api/fifa/live-scores` every 60s. The admin settle form has an
+"auto-fill from live" button; the testing console has an "import WC
+fixtures" button (imports R32→final from openfootball). The game works
+without live scores — settlement is admin-manual.
+
+### Admin testing console (`/admin/FIFA/testing`)
+
+One-click test match (creates a match +1h with all 6 standard markets),
+balance adjust (grant/deduct for any user), auto-void trigger (run the sweep
+immediately), and a destructive game reset (behind a type-to-confirm
+"RESET" dialog). Also shows all bets across all matches in an expandable
+table. See `FIFA-GAME.md §2.6`.
+
+### Realtime (SSE)
+
+Public collections (`fifa_feed_events`, `fifa_bet_markets`, `fifa_matches`)
+subscribe via the same-origin `/pb` proxy. `POCKETBASE_URL` stays
+server-side; Caddy rewrites `/pb/*` → `pb:8090` (`flush_interval -1` for
+SSE), Vite dev proxy does the same. Client helper: `src/lib/pb-client.ts`,
+hook: `src/hooks/use-pb-subscription.ts`. Authed data (dashboard, own bets)
+is polled via React Query (HttpOnly cookie blocks authed SSE). Leaderboard
+polled every 15s (custom route, not a collection — SSE can't fire).
+
+### Security rules (`scripts/migrate-pb-rules.ts`)
+
+- `users.updateRule` forbids `balance` changes (hook-only).
+- `fifa_transactions` create/update/delete = `null` (hooks only).
+- `fifa_bets` create pins `user = @request.auth.id`, forbids
+  `status`/`payout`/`odds_locked` writes; update/delete = `null`.
+- `fifa_bet_markets` admin-only writes (pool counters are hook-maintained).
+- Public reads on matches/markets/settings/feed/raffle.
+
+### Design context
+
+`PRODUCT.md` (register, users, brand personality) and `DESIGN.md` (inherited
+tokens, typography, components) at project root — written via the Impeccable
+skill (`/impeccable init`). The FIFA game inherits the IEEE blue palette and
+Anton/Inter typography from `globals.css`; it does not invent new tokens.
+
+### Acceptable risks (small-event scale)
+
+- **Concurrent-bet TOCTOU:** post-commit self-heal voids the loser. Fine for
+  fake points at ~100 students.
+- **Pool counter races:** recompute-from-live-bets (self-healing, not atomic
+  increment). Same pattern as `registeredCount`.
+- **Settlement is sequential saves, not one transaction:** idempotency makes
+  a crash re-runnable.

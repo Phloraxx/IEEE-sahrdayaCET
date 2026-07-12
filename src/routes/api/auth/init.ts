@@ -1,10 +1,32 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { serialize } from "cookie";
+import { parse, serialize } from "cookie";
 import PocketBase from "pocketbase";
-import { signCookie } from "@/lib/cookie-signing";
+import { signCookie, verifySignedCookie } from "@/lib/cookie-signing";
 import { PB_OAUTH_PROVIDER_COOKIE, OAUTH_CALLBACK_PATH } from "@/lib/constants";
 import { logError } from "@/lib/logger";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+
+/**
+ * Returns a wildcard cookie domain for shared parent-domain auth.
+ * e.g. https://test.ieeesahrdaya.com -> .ieeesahrdaya.com
+ *      http://localhost:3000         -> undefined (host-only cookie)
+ */
+function getCookieDomain(appUrl: string): string | undefined {
+  try {
+    const hostname = new URL(appUrl).hostname;
+    // For localhost / IP / single-segment hostnames, don't set Domain
+    // (browser would reject it anyway).
+    const parts = hostname.split(".");
+    if (parts.length <= 1 || hostname === "localhost") return undefined;
+    // Leave the leading dot off in the Set-Cookie options; the `cookie`
+    // package normalizes it, and browsers treat it as a subdomain-wide
+    // cookie regardless.
+    return `.${parts.slice(-2).join(".")}`;
+  } catch {
+    return undefined;
+  }
+}
+
 export const Route = createFileRoute("/api/auth/init")({
   server: {
     handlers: {
@@ -21,9 +43,61 @@ export const Route = createFileRoute("/api/auth/init")({
             );
           }
           const nextUrl = new URL(request.url);
-          const appUrl =
-            process.env.PUBLIC_APP_URL ||
-            `${nextUrl.protocol}//${nextUrl.host}`;
+          // OAuth redirect_uri must be a single stable, pre-registered URL in
+          // Google Cloud Console (Google does NOT allow wildcards). We therefore
+          // use PUBLIC_APP_URL for the OAuth callback and redirect the user back
+          // to their actual origin/preview domain after the exchange.
+          const appUrl = process.env.PUBLIC_APP_URL;
+          if (!appUrl) {
+            return Response.json(
+              { error: "Server configuration error — PUBLIC_APP_URL not set" },
+              { status: 500 },
+            );
+          }
+
+          // Capture the page the user actually started login from (preview
+          // domain, localhost, etc.) so the callback can redirect back there.
+          // Normalize to origin (protocol + host) — the Referer header may
+          // include trailing slashes or query params that would break the
+          // single-flight guard's origin comparison.
+          const rawOrigin = request.headers.get("origin") || request.headers.get("referer") || `${nextUrl.protocol}//${nextUrl.host}`;
+          const origin = new URL(rawOrigin, rawOrigin.startsWith("http") ? undefined : "https://placeholder").origin;
+
+          // ── Single-flight guard (prevents PKCE desync) ───────────────────
+          // pocketBase's `listAuthMethods()` mints a fresh PKCE codeVerifier
+          // + state on every call. If a second init fires before the user
+          // navigates to Google (React StrictMode double-invoke, a prefetch,
+          // a double-click, or a retry), the second call overwrites the
+          // signed provider cookie with a NEW verifier — while the user
+          // opens the FIRST authURL. Google then issues a code bound to
+          // challenge #1, the callback sends verifier #2 → `invalid_grant`
+          // → "Failed to fetch OAuth2 token" 400.
+          //
+          // Fix: if a valid, unexpired provider cookie already exists for
+          // this same origin, reuse it verbatim and return its authURL
+          // WITHOUT calling listAuthMethods() again. The cookie carries the
+          // authURL alongside the PKCE pair, so the cached authURL is
+          // guaranteed to match the cached verifier.
+          //
+          // IMPORTANT: providerCookie from parse() is already URL-decoded.
+          // Do NOT call decodeURIComponent on it — PocketBase's authURL
+          // contains pre-encoded chars (%3A, %2F in the scope param) that
+          // survive single decode but get corrupted by a second decode,
+          // changing the payload string and causing HMAC mismatch.
+          const existingCookies = parse(request.headers.get("cookie") || "");
+          const existingSigned = existingCookies[PB_OAUTH_PROVIDER_COOKIE];
+          if (existingSigned) {
+            const existing = verifySignedCookie(existingSigned);
+            if (
+              existing &&
+              typeof existing.authURL === "string" &&
+              typeof existing.origin === "string" &&
+              existing.origin === origin
+            ) {
+              return Response.json({ authURL: existing.authURL });
+            }
+          }
+
           const pb = new PocketBase(url);
           const authMethods = await pb.collection("users").listAuthMethods();
           const provider = authMethods.oauth2.providers.find(
@@ -44,12 +118,34 @@ export const Route = createFileRoute("/api/auth/init")({
             name: provider.name,
             codeVerifier: provider.codeVerifier,
             state: provider.state,
+            origin,
+            authURL: fullAuthURL,
           });
           const signedCookie = `${payload}.${signCookie(payload)}`;
 
           const isProduction = process.env.NODE_ENV === "production";
           const response = Response.json({ authURL: fullAuthURL });
-          response.headers.set(
+          const cookieDomain = getCookieDomain(appUrl);
+
+          // Clear any existing pb_oauth_provider cookies (both host-only and
+          // domain-wide) BEFORE setting the fresh one. A stale host-only
+          // cookie (from a login before Domain= was added) would otherwise
+          // be sent first by the browser (host-only wins by specificity) and
+          // shadow the fresh domain-wide cookie at the callback, causing a
+          // state/PKCE desync.
+          const clear = (d?: string) =>
+            serialize(PB_OAUTH_PROVIDER_COOKIE, "", {
+              httpOnly: true,
+              secure: isProduction,
+              sameSite: "lax",
+              path: "/",
+              maxAge: 0,
+              ...(d ? { domain: d } : {}),
+            });
+          response.headers.append("Set-Cookie", clear());
+          if (cookieDomain) response.headers.append("Set-Cookie", clear(cookieDomain));
+
+          response.headers.append(
             "Set-Cookie",
             serialize(PB_OAUTH_PROVIDER_COOKIE, signedCookie, {
               httpOnly: true,
@@ -57,6 +153,7 @@ export const Route = createFileRoute("/api/auth/init")({
               sameSite: "lax",
               path: "/",
               maxAge: 300,
+              ...(cookieDomain ? { domain: cookieDomain } : {}),
             }),
           );
 

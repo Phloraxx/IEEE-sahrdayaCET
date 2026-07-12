@@ -1,14 +1,32 @@
 
 const PB_URL = process.env.POCKETBASE_URL?.replace(/\/+$/, '')
-const TOKEN = process.env.POCKETBASE_SUPERUSER_TOKEN
+let TOKEN = process.env.POCKETBASE_SUPERUSER_TOKEN || ''
+const PB_ADMIN_EMAIL = process.env.PB_ADMIN_EMAIL || ''
+const PB_ADMIN_PASSWORD = process.env.PB_ADMIN_PASSWORD || ''
 
 if (!PB_URL) {
   console.error('Missing POCKETBASE_URL environment variable')
   process.exit(1)
 }
-if (!TOKEN) {
-  console.error('Missing POCKETBASE_SUPERUSER_TOKEN environment variable')
-  process.exit(1)
+
+async function ensureSuperuserToken(): Promise<void> {
+  if (TOKEN) return
+  if (!PB_ADMIN_EMAIL || !PB_ADMIN_PASSWORD) {
+    console.error('Set POCKETBASE_SUPERUSER_TOKEN or PB_ADMIN_EMAIL + PB_ADMIN_PASSWORD')
+    process.exit(1)
+  }
+  const res = await fetch(`${PB_URL}/api/collections/_superusers/auth-with-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ identity: PB_ADMIN_EMAIL, password: PB_ADMIN_PASSWORD }),
+  })
+  const data = await res.json().catch(() => ({})) as Record<string, unknown>
+  if (!res.ok || typeof data.token !== 'string') {
+    console.error('Superuser auth failed:', data.message || res.status)
+    process.exit(1)
+  }
+  TOKEN = data.token
+  console.log('[auth] Superuser login OK')
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -62,6 +80,13 @@ const rules: Record<string, CollectionRuleSet> = {
     updateRule: `@request.auth.role = "admin" || (@request.auth.role = "chair" && society.chairs.id ?= @request.auth.id && @request.body.registeredCount:changed = false && @request.body.checkedInCount:changed = false && @request.body.isDeleted:changed = false)`,
     deleteRule: `@request.auth.role = "admin"`,
   },
+  blogs: {
+    listRule: `@request.auth.role = "content" || published = true`,
+    viewRule: `@request.auth.role = "content" || published = true`,
+    createRule: `@request.auth.role = "content"`,
+    updateRule: `@request.auth.role = "content"`,
+    deleteRule: `@request.auth.role = "admin" || @request.auth.role = "content"`,
+  },
   societies: {
     listRule: `isHidden = false || @request.auth.role = "admin" || chairs.id ?= @request.auth.id`,
     viewRule: `isHidden = false || @request.auth.role = "admin" || chairs.id ?= @request.auth.id`,
@@ -114,12 +139,91 @@ const rules: Record<string, CollectionRuleSet> = {
     listRule: `id = @request.auth.id || @request.auth.role = "admin"`,
     viewRule: `id = @request.auth.id || @request.auth.role = "admin"`,
     createRule: `@request.context = "oauth2"`,
-    updateRule: `(id = @request.auth.id && @request.body.role:changed = false) || @request.auth.role = "admin"`,
+    // FIFA: balance is hook-only for ALL roles (incl. admin). Economy changes
+    // go through /api/fifa/admin-adjust (custom route + $app internal access).
+    // display_name is set once from the Google profile (OAuth2 hook) and is
+    // not self-editable — the public leaderboard shows real identities.
+    // Admins may still correct it.
+    updateRule: `(id = @request.auth.id && @request.body.role:changed = false && @request.body.balance:changed = false && @request.body.display_name:changed = false) || (@request.auth.role = "admin" && @request.body.balance:changed = false && @request.body.role:changed = false)`,
     deleteRule: null,
+  },
+  // ─── FIFA WC Predict '26 ───────────────────────────────────────────
+  // Public read collections (anyone can view the game state); writes are
+  // admin-only or hook-only. Direct REST writes that affect the economy
+  // (bets, transactions, balance) are blocked at the rule layer and enforced
+  // by pb_hooks/fifa.pb.js at the DB layer.
+  fifa_matches: {
+    // Public match list/detail (excluding voided matches from public list).
+    listRule: ``,
+    viewRule: ``,
+    createRule: `@request.auth.role = "admin"`,
+    updateRule: `@request.auth.role = "admin"`,
+    deleteRule: `@request.auth.role = "admin"`,
+  },
+  fifa_bet_markets: {
+    // Public market detail (pool totals, odds). Admin-only writes so
+    // chairs/users can't bump pool counters — those are maintained by the
+    // bet hook via $app.dao (bypasses rules).
+    listRule: ``,
+    viewRule: ``,
+    createRule: `@request.auth.role = "admin"`,
+    updateRule: `@request.auth.role = "admin"`,
+    deleteRule: `@request.auth.role = "admin"`,
+  },
+  fifa_bets: {
+    // Owner can read their own bets; everyone else (incl. chairs) cannot.
+    listRule: `user = @request.auth.id || @request.auth.role = "admin"`,
+    viewRule: `user = @request.auth.id || @request.auth.role = "admin"`,
+    // createRule is a backstop — the onRecordCreateRequest hook in
+    // pb_hooks/fifa.pb.js enforces all business rules (market open, deadline,
+    // stake limits). This rule prevents direct PB REST POSTs from setting
+    // status/payout/odds_locked (the hook sets those server-side).
+    createRule: `user = @request.auth.id && @request.body.status:changed = false && @request.body.payout:changed = false && @request.body.odds_locked:changed = false`,
+    // No client updates — settlement runs through the admin-gated
+    // /api/fifa/settle custom route which uses $app.dao (bypasses rules).
+    updateRule: null,
+    deleteRule: null,
+  },
+  fifa_transactions: {
+    // Ledger is hook-only. No client create/update/delete under any
+    // circumstance — every balance change goes through a PB hook or custom
+    // route that writes via $app.dao.
+    listRule: `user = @request.auth.id || @request.auth.role = "admin"`,
+    viewRule: `user = @request.auth.id || @request.auth.role = "admin"`,
+    createRule: null,
+    updateRule: null,
+    deleteRule: null,
+  },
+  fifa_settings: {
+    // Public read (event name, prize, rules) — no PII. Admin-only write.
+    // Singleton enforcement is in the onRecordCreateRequest hook.
+    listRule: ``,
+    viewRule: ``,
+    createRule: `@request.auth.role = "admin"`,
+    updateRule: `@request.auth.role = "admin"`,
+    deleteRule: `@request.auth.role = "admin"`,
+  },
+  fifa_raffle_draws: {
+    // Public draw history (transparency). Admin-only write (trigger draw).
+    listRule: ``,
+    viewRule: ``,
+    createRule: `@request.auth.role = "admin"`,
+    updateRule: `@request.auth.role = "admin"`,
+    deleteRule: `@request.auth.role = "admin"`,
+  },
+  fifa_feed_events: {
+    // Public live feed. Writes are hook-only (bet hook, settle route, raffle
+    // route all emit feed events via $app.dao).
+    listRule: ``,
+    viewRule: ``,
+    createRule: null,
+    updateRule: null,
+    deleteRule: `@request.auth.role = "admin"`,
   },
 }
 
 async function main(): Promise<void> {
+  await ensureSuperuserToken()
   const collectionNames = Object.keys(rules)
   let hasError = false
 

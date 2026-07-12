@@ -7,6 +7,7 @@ import { APP_URL } from '@/lib/constants'
 import '@/features/globals.css'
 import { StarsBackground } from '@/components/ui/stars-background'
 import { ShootingStars } from '@/components/ui/shooting-stars'
+import { Toaster } from '@/components/ui/sonner'
 
 // Fonts — replace next/font/google with @fontsource equivalents
 import '@fontsource-variable/geist'
@@ -191,6 +192,7 @@ function RootComponent() {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <Outlet />
+          <Toaster />
         </AuthProvider>
       </QueryClientProvider>
     </RootDocument>
