@@ -147,15 +147,22 @@ var voidMatchMarkets = function(matchId) {
 // Sets the display_name from the Google profile on first login.
 
 onRecordAuthWithOAuth2Request(function (e) {
-    if (e.isNewRecord && !e.record.get("display_name")) {
-        var name = ""
-        if (e.oAuth2User) {
-            // Check standard PB OAuth2 user fields
-            name = e.oAuth2User.name || (e.oAuth2User.rawUser && e.oAuth2User.rawUser.name) || ""
-        }
-        if (name) {
+    if (!e.isNewRecord) { e.next(); return }
+
+    var name = ""
+    if (e.oAuth2User) {
+        // Check standard PB OAuth2 user fields
+        name = e.oAuth2User.name || (e.oAuth2User.rawUser && e.oAuth2User.rawUser.name) || ""
+    }
+    if (!name) { e.next(); return }
+
+    // e.record is null on first OAuth signup — use createData instead.
+    if (e.record) {
+        if (!e.record.get("display_name")) {
             e.record.set("display_name", name)
         }
+    } else if (e.createData && !e.createData.display_name) {
+        e.createData.display_name = name
     }
     e.next()
 }, "users")
