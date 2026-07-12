@@ -166,7 +166,12 @@ onRecordAuthWithOAuth2Request(function (e) {
 // silently if settings isn't seeded yet (the backfill script will catch up).
 
 onRecordAfterCreateSuccess(function (e) {
-    
+    // ─── Inlined helpers (PB 0.39 goja doesn't share top-level scope with callbacks) ───
+    var getFifaSettings = function() {
+        try { return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (ex) { return null }
+    }
+    var emitFeedEvent = function() { /* feed removed from product (FIFA-AUTOMATION.md PR1) */ }
+
     var user = e.record
     if (!user) { e.next(); return }
 
@@ -245,6 +250,19 @@ onRecordCreateRequest(function (e) {
 
 onRecordCreateRequest(function (e) {
     try {
+    // ─── Inlined helper (PB 0.39 goja doesn't share top-level scope with callbacks) ───
+    var parseJsonField = function(raw) {
+        if (!raw) return null
+        if (typeof raw === "string") { try { return JSON.parse(raw) } catch (ex) { return null } }
+        if (typeof raw === "object" && typeof raw.length === "number") {
+            if (raw.length > 0 && typeof raw[0] === "number") {
+                try { var str = ""; for (var i = 0; i < raw.length; i++) str += String.fromCharCode(raw[i]); return JSON.parse(str) } catch (ex) { return null }
+            }
+            return raw
+        }
+        if (typeof raw === "object") return raw
+        return null
+    }
     var bet = e.record
     var settings = null
     try { settings = $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (err) { settings = null }
@@ -489,7 +507,14 @@ onRecordAfterUpdateSuccess(function (e) {
     var match = e.record
     if (!match) { e.next(); return }
     if (match.getString("status") !== "void") { e.next(); return }
-    voidMatchMarkets(match.id)
+    // Inlined voidMatchMarkets (PB 0.39 goja doesn't share top-level scope).
+    try {
+        var markets = $app.findRecordsByFilter("fifa_bet_markets", "match = {:matchId}", "", 0, 0, { matchId: match.id })
+        for (var i = 0; i < markets.length; i++) {
+            var mk = markets[i]
+            if (!mk.getBool("void")) { mk.set("void", true); mk.set("is_open", false); $app.saveNoValidate(mk) }
+        }
+    } catch (err) { console.log("[fifa] voidMatchMarkets failed for " + match.id + ": " + err) }
     e.next()
 }, "fifa_matches")
 
@@ -498,7 +523,22 @@ onRecordAfterUpdateSuccess(function (e) {
 // pending bets on that market (idempotent — pending bets clear on first pass).
 
 onRecordAfterUpdateSuccess(function (e) {
-    
+    // ─── Inlined helpers (PB 0.39 goja doesn't share top-level scope with callbacks) ───
+    var applyDelta = function(userId, type, delta, refBetId, note) {
+        try {
+            var u = $app.findRecordById("users", userId)
+            if (!u) return null
+            var newBal = (u.getInt("balance") || 0) + delta
+            var txCol = $app.findCollectionByNameOrId("fifa_transactions")
+            var tx = new Record(txCol, { user: userId, type: type, amount: delta, balance_after: newBal, ref_bet: refBetId || "", note: note || "", timestamp: new Date().toISOString() })
+            $app.saveNoValidate(tx)
+            u.set("balance", newBal)
+            $app.saveNoValidate(u)
+            return newBal
+        } catch (err) { console.log("[fifa] applyDelta failed: " + err); return null }
+    }
+    var emitFeedEvent = function() { /* feed removed from product (FIFA-AUTOMATION.md PR1) */ }
+
     var market = e.record
     if (!market) { e.next(); return }
 
@@ -603,7 +643,16 @@ onRecordAfterUpdateSuccess(function (e) {
 // Polled by the client every ~15s (SSE can't fire on a custom route).
 routerAdd("GET", "/api/fifa/leaderboard", function (e) {
     try {
-        
+        // ─── Inlined helpers (PB 0.39 goja doesn't share top-level scope with callbacks) ───
+        var _getFifaSettings = function() {
+            try { return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (ex) { return null }
+        }
+        var _displayName = function(user) {
+            var name = user.getString("display_name")
+            if (name) return name
+            var shortId = user.id.length >= 4 ? user.id.slice(-4) : user.id
+            return "Player " + shortId
+        }
         // Rank by balance desc, tiebreak by bets_count desc (FIFA-GAME.md §2.4).
         // PB can't sort by a computed field, so we fetch all eligible users
         // and sort in JS. At ~100 players this is trivial.
@@ -620,7 +669,7 @@ routerAdd("GET", "/api/fifa/leaderboard", function (e) {
             // NOTE: use a distinct local name — `var displayName` would hoist
             // and shadow the top-level displayName() helper, making this call
             // throw "displayName is not a function".
-            var dName = displayName(u)
+            var dName = _displayName(u)
             // Count the user's bets. limit=0 means no limit in PB's
             // findRecordsByFilter, so .length is the true count. At ~100
             // players this is fine; would denormalize into a counter at scale.
@@ -668,7 +717,7 @@ routerAdd("GET", "/api/fifa/leaderboard", function (e) {
                 bets_count: r.bets_count,
             })
         }
-        var settings = getFifaSettings()
+        var settings = _getFifaSettings()
         // Defaults only apply when no fifa_settings record exists at all —
         // once a record exists, trust its stored values verbatim (0 is a
         // valid, intentional config, e.g. no minimum-bets requirement).
@@ -953,6 +1002,13 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
         { matchId: matchId }
     )
 
+    var _getRecordFloat = function(record, field) {
+        var v = record.get(field)
+        if (v === null || v === undefined || v === "") return 0
+        var n = Number(v)
+        return isNaN(n) ? 0 : n
+    }
+
     var settings = _getFifaSettings()
     var houseCutPercent = settings ? (settings.getInt("pool_house_cut_percent") || 0) : 0
 
@@ -966,7 +1022,7 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
         var marketId = market.id
         var marketType = market.getString("market_type") || ""
         var marketMode = market.getString("mode") || "pool"
-        var line = getRecordFloat(market, "line")
+        var line = _getRecordFloat(market, "line")
         var customWinners = customWinnersMap[marketId] || []
 
         // Skip voided markets — their bets were already refunded by the
@@ -1038,7 +1094,7 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
             var jb = judged[j3]
             var stake = jb.bet.getInt("stake") || 0
             var mode = jb.bet.getString("mode") || "pool"
-            var oddsLocked = getRecordFloat(jb.bet, "odds_locked")
+            var oddsLocked = _getRecordFloat(jb.bet, "odds_locked")
             var wasPending = jb.bet.getString("status") === "pending"
             var payout = _computePayout(stake, mode, oddsLocked, jb.outcome, totalPool, totalWinningStakes, houseCutPercent)
 
@@ -1572,6 +1628,12 @@ routerAdd("POST", "/api/fifa/raffle", function (e) {
     }
 
     // Compute bets_count for each user, then sort by (balance, bets_count).
+    var _displayName = function(user) {
+        var name = user.getString("display_name")
+        if (name) return name
+        var shortId = user.id.length >= 4 ? user.id.slice(-4) : user.id
+        return "Player " + shortId
+    }
     var candidates = []
     for (var i = 0; i < users.length; i++) {
         var u = users[i]
@@ -1587,7 +1649,7 @@ routerAdd("POST", "/api/fifa/raffle", function (e) {
         } catch (err) { betCount = 0 }
         candidates.push({
             id: u.id,
-            display_name: displayName(u),
+            display_name: _displayName(u),
             balance: u.getInt("balance") || 0,
             bets_count: betCount,
         })
@@ -1691,6 +1753,24 @@ cronAdd("fifa-espn-sync", "*/2 * * * *", function () {
     var _getFifaSettings = function() {
         try { return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (ex) { return null }
     }
+    var _parseJsonField = function(raw) {
+        if (!raw) return null
+        if (typeof raw === "string") { try { return JSON.parse(raw) } catch (ex) { return null } }
+        if (typeof raw === "object" && typeof raw.length === "number") {
+            if (raw.length > 0 && typeof raw[0] === "number") {
+                try { var str = ""; for (var i = 0; i < raw.length; i++) str += String.fromCharCode(raw[i]); return JSON.parse(str) } catch (ex) { return null }
+            }
+            return raw
+        }
+        if (typeof raw === "object") return raw
+        return null
+    }
+    var _getRecordFloat = function(record, field) {
+        var v = record.get(field)
+        if (v === null || v === undefined || v === "") return 0
+        var n = Number(v)
+        return isNaN(n) ? 0 : n
+    }
     var _normalizeTeam = function(name) {
         return String(name || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "")
     }
@@ -1744,7 +1824,7 @@ cronAdd("fifa-espn-sync", "*/2 * * * *", function () {
         }
     }
     var _findEventForMatch = function(match, events) {
-        var externalIds = parseJsonField(match.get("external_ids")) || {}
+        var externalIds = _parseJsonField(match.get("external_ids")) || {}
         var espnId = externalIds.espn ? String(externalIds.espn) : ""
         if (espnId) {
             for (var i = 0; i < events.length; i++) {
@@ -1927,7 +2007,7 @@ cronAdd("fifa-espn-sync", "*/2 * * * *", function () {
             result_winner: matchRec.getString("result_winner") || "",
             result_home_goals: matchRec.getInt("result_home_goals") || 0,
             result_away_goals: matchRec.getInt("result_away_goals") || 0,
-            result_scorers: parseJsonField(matchRec.get("result_scorers")) || [],
+            result_scorers: _parseJsonField(matchRec.get("result_scorers")) || [],
             result_yellow_cards: matchRec.getInt("result_yellow_cards") || 0,
             result_red_cards: matchRec.getInt("result_red_cards") || 0,
             result_home_clean_sheet: matchRec.getBool("result_home_clean_sheet"),
@@ -1962,7 +2042,7 @@ cronAdd("fifa-espn-sync", "*/2 * * * *", function () {
             var marketId = market.id
             var marketType = market.getString("market_type") || ""
             var marketMode = market.getString("mode") || "pool"
-            var line = getRecordFloat(market, "line")
+            var line = _getRecordFloat(market, "line")
             if (market.getBool("void")) continue
             if (!AUTO_SETTLE_TYPES[marketType]) continue
 
@@ -2021,7 +2101,7 @@ cronAdd("fifa-espn-sync", "*/2 * * * *", function () {
                 var jb = judged[j3]
                 var stake = jb.bet.getInt("stake") || 0
                 var mode = jb.bet.getString("mode") || "pool"
-                var oddsLocked = getRecordFloat(jb.bet, "odds_locked")
+                var oddsLocked = _getRecordFloat(jb.bet, "odds_locked")
                 var wasPending = jb.bet.getString("status") === "pending"
                 var payout = _computePayout(stake, mode, oddsLocked, jb.outcome, totalPool, totalWinningStakes, houseCutPercent)
 
