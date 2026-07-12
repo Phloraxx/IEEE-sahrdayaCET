@@ -223,16 +223,6 @@ function wrapHandlerWithSecurityHeaders(handler) {
     console.log(`IEEE Sahrdaya app listening on port ${PORT}`);
   });
 
-  // Graceful restart every 25 minutes to prevent TanStack Start router
-  // singleton state corruption (causes 307 redirect loops after ~30 min).
-  // Docker's restart: unless-stopped policy brings the process back in <2s.
-  const RESTART_INTERVAL_MS = 25 * 60 * 1000;
-  const jitter = Math.floor(Math.random() * 5 * 60 * 1000); // 0-5 min jitter
-  setTimeout(() => {
-    console.log(`Scheduled restart after ${Math.round((RESTART_INTERVAL_MS + jitter) / 60000)} min — closing gracefully...`);
-    server.close(() => process.exit(0));
-  }, RESTART_INTERVAL_MS + jitter);
-
   process.on('SIGTERM', () => {
     console.log('SIGTERM received — closing gracefully...');
     server.close(() => process.exit(0));
