@@ -2357,6 +2357,83 @@ cronAdd("fifa-espn-sync", "*/2 * * * *", function () {
         }
     }
 
+    // Merge mock ESPN events (external_ids.mock === true) for test matches.
+    var _mockResolvePhase = function (kickoffAt, endAt, nowMs) {
+        var kickoff = new Date(kickoffAt).getTime()
+        var end = new Date(endAt).getTime()
+        if (isNaN(kickoff) || isNaN(end)) return "pre"
+        if (nowMs < kickoff) return "pre"
+        if (nowMs >= end) return "post"
+        return "in"
+    }
+    var _mockResolveMinute = function (kickoffAt, endAt, nowMs) {
+        var phase = _mockResolvePhase(kickoffAt, endAt, nowMs)
+        if (phase !== "in") return null
+        var kickoff = new Date(kickoffAt).getTime()
+        var end = new Date(endAt).getTime()
+        var total = end - kickoff
+        if (total <= 0) return 0
+        var ratio = (nowMs - kickoff) / total
+        if (ratio < 0) ratio = 0
+        if (ratio > 1) ratio = 1
+        var min = Math.floor(ratio * 90) + 1
+        return min > 95 ? 95 : min
+    }
+    var _mockBuildRawEvent = function (rec, cfg, nowMs) {
+        var phase = _mockResolvePhase(cfg.kickoff_at, cfg.end_at, nowMs)
+        var minute = _mockResolveMinute(cfg.kickoff_at, cfg.end_at, nowMs)
+        var state = phase === "pre" ? "pre" : (phase === "in" ? "in" : "post")
+        var statusName = "STATUS_SCHEDULED"
+        if (phase === "post") statusName = "STATUS_FULL_TIME"
+        else if (phase === "in" && minute !== null && minute > 45) statusName = "STATUS_SECOND_HALF"
+        else if (phase === "in") statusName = "STATUS_FIRST_HALF"
+        var homeGoals = cfg.home_goals
+        var awayGoals = cfg.away_goals
+        if (phase === "in") {
+            homeGoals = cfg.live_home_goals !== undefined && cfg.live_home_goals !== null ? cfg.live_home_goals : cfg.home_goals
+            awayGoals = cfg.live_away_goals !== undefined && cfg.live_away_goals !== null ? cfg.live_away_goals : cfg.away_goals
+        }
+        var ext = _parseJsonField(rec.get("external_ids")) || {}
+        var espnId = ext.espn ? String(ext.espn) : ("mock-" + rec.id)
+        var home = rec.getString("team_home") || "Home"
+        var away = rec.getString("team_away") || "Away"
+        var homeWon = phase === "post" && Number(homeGoals) > Number(awayGoals)
+        var awayWon = phase === "post" && Number(awayGoals) > Number(homeGoals)
+        var compStatus = { type: { state: state, name: statusName } }
+        if (phase === "in" && minute !== null) compStatus.clock = minute * 60
+        var homeComp = { homeAway: "home", team: { displayName: home, name: home } }
+        var awayComp = { homeAway: "away", team: { displayName: away, name: away } }
+        if (phase !== "pre") {
+            homeComp.score = String(homeGoals)
+            awayComp.score = String(awayGoals)
+        }
+        if (phase === "post") {
+            homeComp.winner = homeWon
+            awayComp.winner = awayWon
+        }
+        return {
+            id: espnId,
+            date: cfg.kickoff_at,
+            status: { type: { state: state, name: statusName } },
+            competitions: [{ date: cfg.kickoff_at, status: compStatus, competitors: [homeComp, awayComp] }],
+        }
+    }
+    try {
+        var mockRecords = $app.findRecordsByFilter("fifa_matches", "1 = 1", "kickoff_at", 500, 0, {})
+        for (var mmi = 0; mmi < mockRecords.length; mmi++) {
+            var mrec = mockRecords[mmi]
+            var mext = _parseJsonField(mrec.get("external_ids")) || {}
+            if (!mext.mock) continue
+            var mcfg = mext.mock_config
+            if (!mcfg || !mcfg.kickoff_at || !mcfg.end_at) continue
+            var mraw = _mockBuildRawEvent(mrec, mcfg, nowMs)
+            var mparsed = _parseEspnEvent(mraw)
+            if (mparsed) espnEvents.push(mparsed)
+        }
+    } catch (mockErr) {
+        console.log("[fifa] espn-sync: mock merge failed: " + mockErr)
+    }
+
     // Apply ESPN lifecycle transitions for polled matches.
     for (var pi = 0; pi < pollMatches.length; pi++) {
         var match = pollMatches[pi]

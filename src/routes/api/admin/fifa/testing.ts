@@ -6,6 +6,11 @@ import { requireRole } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 import { verifySameOrigin } from "@/lib/verify-same-origin";
 import { findLiveMatch, getLiveScores, getScheduledFixtures } from "@/lib/fifa-live";
+import {
+  defaultEspnTestMatchConfig,
+  mockPhaseToMatchStatus,
+  resolveMockEspnPhase,
+} from "@/lib/fifa-mock-espn";
 import { teamPairKey } from "@/lib/fifa-team-names";
 import { getField } from "@/lib/safe-get";
 import { z } from "zod";
@@ -31,6 +36,9 @@ export const Route = createFileRoute("/api/admin/fifa/testing")({
 
           if (action === 'create-test-match') {
             return await createTestMatch(pb);
+          }
+          if (action === 'create-espn-test-match') {
+            return await createEspnTestMatch(pb);
           }
           if (action === 'import-fixtures') {
             return await importFixtures(pb);
@@ -91,6 +99,129 @@ async function createTestMatch(pb: PocketBase): Promise<Response> {
     created.push((rec as Record<string, unknown>).id)
   }
   return Response.json({ success: true, matchId, marketsCreated: created.length })
+}
+
+// ─── Create ESPN-mocked test match ───────────────────────────────────
+// France 2–1 England, kickoff 12:30 / FT 1:59 PM local today. The espn-sync
+// cron merges mock scoreboard events from external_ids.mock_config.
+async function createEspnTestMatch(pb: PocketBase): Promise<Response> {
+  const cfg = defaultEspnTestMatchConfig()
+  const now = new Date()
+  const phase = resolveMockEspnPhase(cfg.mock.kickoff_at, cfg.mock.end_at, now)
+  const status = mockPhaseToMatchStatus(phase)
+  const resultFields = phase === 'post' ? buildMockResultFields(cfg.mock) : {}
+
+  const key = teamPairKey(cfg.team_home, cfg.team_away)
+  const allToday = await pb.collection("fifa_matches").getFullList({
+    filter: `team_home = ${escapeFilterValue(cfg.team_home)} && team_away = ${escapeFilterValue(cfg.team_away)}`,
+    fields: 'id,team_home,team_away,external_ids',
+  })
+  const existing = allToday.find((m) => {
+    const ext = getField(m, 'external_ids', {}) as { espn?: string; mock?: boolean }
+    return ext?.mock === true && ext?.espn === cfg.espnId
+      || teamPairKey(String(getField(m, 'team_home', '')), String(getField(m, 'team_away', ''))) === key
+        && ext?.mock === true
+  })
+  if (existing) {
+    const matchId = String(getField(existing, 'id', ''))
+    await pb.collection("fifa_matches").update(matchId, {
+      kickoff_at: cfg.kickoff_at,
+      betting_locks_at: cfg.kickoff_at,
+      status,
+      external_ids: cfg.external_ids,
+      settled: false,
+      ...resultFields,
+    })
+    await ensureDefaultMarkets(pb, matchId, status)
+    return Response.json({
+      success: true,
+      matchId,
+      updated: true,
+      status,
+      team_home: cfg.team_home,
+      team_away: cfg.team_away,
+      espnId: cfg.espnId,
+      kickoff_at: cfg.kickoff_at,
+      end_at: cfg.end_at,
+      mockScoreboard: `${process.env.POCKETBASE_URL}/api/fifa/mock-espn/scoreboard`,
+    })
+  }
+
+  const match = await pb.collection("fifa_matches").create({
+    team_home: cfg.team_home,
+    team_away: cfg.team_away,
+    stage: cfg.stage,
+    kickoff_at: cfg.kickoff_at,
+    betting_locks_at: cfg.kickoff_at,
+    status,
+    external_ids: cfg.external_ids,
+    settled: false,
+    ...resultFields,
+  })
+  const matchId = String(getField(match, 'id', ''))
+  const marketsCreated = await ensureDefaultMarkets(pb, matchId, status)
+  return Response.json({
+    success: true,
+    matchId,
+    marketsCreated,
+    status,
+    team_home: cfg.team_home,
+    team_away: cfg.team_away,
+    espnId: cfg.espnId,
+    kickoff_at: cfg.kickoff_at,
+    end_at: cfg.end_at,
+    mockScoreboard: `${process.env.POCKETBASE_URL}/api/fifa/mock-espn/scoreboard`,
+  })
+}
+
+function buildMockResultFields(mock: { home_goals: number; away_goals: number }) {
+  const home = mock.home_goals
+  const away = mock.away_goals
+  let result_winner: 'home' | 'away' | 'draw' = 'draw'
+  if (home > away) result_winner = 'home'
+  else if (away > home) result_winner = 'away'
+  return {
+    result_winner,
+    result_home_goals: home,
+    result_away_goals: away,
+    result_scorers: [] as string[],
+    result_yellow_cards: 0,
+    result_red_cards: 0,
+    result_home_clean_sheet: away === 0,
+    result_away_clean_sheet: home === 0,
+    result_advance: result_winner !== 'draw' ? result_winner : '',
+    result_after_extra_time: false,
+    result_after_penalties: false,
+  }
+}
+
+async function ensureDefaultMarkets(
+  pb: PocketBase,
+  matchId: string,
+  status: string,
+): Promise<number> {
+  const marketsOpen = status === 'upcoming'
+  const existingMarkets = await pb.collection("fifa_bet_markets").getFullList({
+    filter: `match = ${escapeFilterValue(matchId)}`,
+    fields: 'id,market_type',
+  })
+  const existingTypes = new Set(existingMarkets.map((m) => String(getField(m, 'market_type', ''))))
+  let created = 0
+  for (const tmpl of IMPORT_MARKET_TEMPLATES) {
+    if (existingTypes.has(tmpl.market_type)) continue
+    await pb.collection("fifa_bet_markets").create({
+      match: matchId,
+      market_type: tmpl.market_type,
+      mode: tmpl.mode,
+      line: tmpl.line ?? 0,
+      options: tmpl.options,
+      is_open: marketsOpen,
+      pool_total: 0,
+      pool_by_option: {},
+    })
+    created++
+  }
+  return created
 }
 
 // ─── Import WC fixtures ─────────────────────────────────────────────

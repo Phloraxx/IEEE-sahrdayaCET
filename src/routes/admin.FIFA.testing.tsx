@@ -98,6 +98,26 @@ function AdminFifaTesting() {
     onError: (e: Error) => toast.error(e.message),
   })
 
+  const createEspnTestMatch = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/admin/fifa/testing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create-espn-test-match' }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Failed')
+      }
+      return res.json()
+    },
+    onSuccess: (data) => {
+      toast.success(`ESPN test match (${data.team_home ?? 'France'} vs ${data.team_away ?? 'England'}) — ${data.status}, FT ${new Date(data.end_at).toLocaleTimeString()}`)
+      queryClient.invalidateQueries({ queryKey: ['admin-fifa-matches'] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
   const importFixtures = useMutation({
     mutationFn: async () => {
       const res = await fetch('/api/admin/fifa/testing', {
@@ -132,6 +152,9 @@ function AdminFifaTesting() {
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => importFixtures.mutate()} disabled={importFixtures.isPending}>
               {importFixtures.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Import WC fixtures
+            </Button>
+            <Button variant="outline" onClick={() => createEspnTestMatch.mutate()} disabled={createEspnTestMatch.isPending}>
+              {createEspnTestMatch.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />} ESPN test (FT 1:59 PM)
             </Button>
             <Button onClick={() => createTestMatch.mutate()} disabled={createTestMatch.isPending}>
               {createTestMatch.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />} One-click test match
