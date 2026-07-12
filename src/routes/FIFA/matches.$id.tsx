@@ -11,6 +11,13 @@ import { usePbSubscription } from '@/hooks/use-pb-subscription'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 import { FIFA_MARKET_LABELS, FIFA_MARKET_BLURBS } from '@/schemas/fifa'
+import { getSettledMarketStatus, type SettledMarketStatus } from '@/lib/fifa-market-result'
+import {
+  formatOuLineSummary,
+  formatOuMarketBlurb,
+  formatOuOptionLabel,
+  isOuMarket,
+} from '@/lib/fifa-market-labels'
 import { getMatchCardAsset, getStageColor } from '@/lib/fifa-assets'
 import { formatDateTime } from '@/lib/dates'
 import { AlertCircle, ChevronLeft } from 'lucide-react'
@@ -405,6 +412,19 @@ function MatchDetailPage() {
                     >
                       <MarketCard
                         market={m}
+                        matchSettled={match.settled || isFinished}
+                        matchResult={
+                          isFinished &&
+                          match.result_home_goals != null &&
+                          match.result_away_goals != null
+                            ? {
+                                result_winner: (match.result_winner || '') as 'home' | 'away' | 'draw' | '',
+                                result_home_goals: match.result_home_goals,
+                                result_away_goals: match.result_away_goals,
+                                result_advance: (match.result_advance || '') as 'home' | 'away' | '',
+                              }
+                            : null
+                        }
                         canBet={effectiveStatus === 'authenticated' && !betsLocked && m.is_open && !m.void}
                         isSelected={selectedMarketId === m.id}
                         selectedOption={selectedOption}
@@ -449,74 +469,184 @@ function MatchDetailPage() {
   )
 }
 
-function MarketCard({ market, canBet, isSelected, selectedOption, onSelectOption }: { market: Market; canBet: boolean; isSelected: boolean; selectedOption: string | null; onSelectOption: (opt: string) => void }) {
+function getPoolOptionOutcomeLabel(
+  settledStatus: SettledMarketStatus,
+  isResultPick: boolean,
+  hadStakes: boolean,
+  poolShare: number,
+): string | null {
+  if (settledStatus === 'voided') return hadStakes ? 'Refunded' : '—'
+  if (settledStatus === 'pool_refunded') {
+    if (isResultPick) return 'Winning score · no bets'
+    return hadStakes ? 'Refunded' : '—'
+  }
+  if (settledStatus === 'settled') {
+    if (isResultPick) return hadStakes ? `Winner · ${poolShare.toFixed(0)}%` : 'Winner'
+    return hadStakes ? 'Lost' : '—'
+  }
+  return null
+}
+
+function MarketCard({
+  market,
+  matchSettled,
+  matchResult,
+  canBet,
+  isSelected,
+  selectedOption,
+  onSelectOption,
+}: {
+  market: Market
+  matchSettled: boolean
+  matchResult: {
+    result_winner: 'home' | 'away' | 'draw' | ''
+    result_home_goals: number
+    result_away_goals: number
+    result_advance: 'home' | 'away' | ''
+  } | null
+  canBet: boolean
+  isSelected: boolean
+  selectedOption: string | null
+  onSelectOption: (opt: string) => void
+}) {
   const poolTotal = market.pool_total || 0
   const oddsFor = (opt: string): number | null => (market.mode === 'fixed' && market.fixed_odds) ? (market.fixed_odds[opt] ?? null) : null
-  
+
+  const { status: settledStatus, winningSelections } = getSettledMarketStatus(
+    market,
+    matchResult,
+    matchSettled,
+  )
+  const winningSet = new Set(winningSelections)
+  const isSettledView = settledStatus === 'settled' || settledStatus === 'pool_refunded' || settledStatus === 'voided'
+
   const isCorrectScore = market.market_type === 'correct_score'
   const options = isCorrectScore ? sortCorrectScores(market.options ?? []) : (market.options ?? [])
+
+  const formatWinningLabel = (sel: string) => {
+    if (market.market_type === 'match_winner') {
+      return sel === 'home' ? 'Home' : sel === 'away' ? 'Away' : sel
+    }
+    if (market.market_type === 'clean_sheet') {
+      return sel === 'home' ? 'Home clean sheet' : sel === 'away' ? 'Away clean sheet' : sel
+    }
+    if (isOuMarket(market.market_type)) {
+      return formatOuOptionLabel(market.market_type, sel, market.line)
+    }
+    return sel
+  }
+
+  const ouLineSummary = formatOuLineSummary(market.market_type, market.line)
 
   return (
     <section className={`rounded-xl border bg-card p-5 h-full flex flex-col transition-colors ${isSelected ? 'border-ieee-blue shadow-[0_0_15px_rgba(30,136,229,0.15)]' : 'border-border'}`}>
       <div className="flex items-center justify-between mb-2">
         <h2 className="font-display text-lg text-foreground">{FIFA_MARKET_LABELS[market.market_type] || market.market_type}</h2>
         <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] px-2 py-1 bg-muted/50 rounded-md text-muted-foreground border border-border">
-          {market.mode === 'pool' ? `Pool · ${poolTotal} pts` : 'Fixed odds'}
+          {market.mode === 'pool'
+            ? isSettledView
+              ? `Final pool · ${poolTotal} pts`
+              : `Pool · ${poolTotal} pts`
+            : 'Fixed odds'}
         </span>
       </div>
+      {ouLineSummary && (
+        <p className="text-sm font-semibold text-ieee-light-blue mb-2 font-mono tracking-tight">
+          Line: {ouLineSummary}
+        </p>
+      )}
       <p className="text-[12px] text-muted-foreground mb-4 leading-relaxed">
-        {FIFA_MARKET_BLURBS[market.market_type] || ''}
+        {isOuMarket(market.market_type)
+          ? formatOuMarketBlurb(market.market_type, market.line)
+          : FIFA_MARKET_BLURBS[market.market_type] || ''}
       </p>
 
-      {market.void && <p className="text-sm font-semibold text-ieee-danger mb-4 p-2 bg-ieee-danger/10 rounded-md border border-ieee-danger/20">This market has been voided. Stakes refunded.</p>}
-      {!market.is_open && !market.void && <p className="text-sm font-semibold text-muted-foreground mb-4 p-2 bg-muted/20 rounded-md border border-border">Market closed.</p>}
+      {settledStatus === 'voided' && (
+        <p className="text-sm font-semibold text-ieee-danger mb-4 p-2 bg-ieee-danger/10 rounded-md border border-ieee-danger/20">
+          This market has been voided. Stakes refunded.
+        </p>
+      )}
+      {settledStatus === 'pool_refunded' && (
+        <p className="text-sm font-semibold text-muted-foreground mb-4 p-2 bg-muted/30 rounded-md border border-border">
+          Winning outcome{winningSelections.length > 0 ? ` was ${winningSelections.map(formatWinningLabel).join(' / ')}` : ''} — nobody in the pool picked it. All stakes refunded.
+        </p>
+      )}
+      {settledStatus === 'settled' && winningSelections.length > 0 && (
+        <p className="text-sm font-semibold text-ieee-success mb-4 p-2 bg-ieee-success/10 rounded-md border border-ieee-success/20">
+          Winning pick: {winningSelections.map(formatWinningLabel).join(' / ')}
+        </p>
+      )}
+      {settledStatus === 'closed' && (
+        <p className="text-sm font-semibold text-muted-foreground mb-4 p-2 bg-muted/20 rounded-md border border-border">Market closed.</p>
+      )}
 
       <div className={`mt-auto ${isCorrectScore ? 'grid grid-cols-3 md:grid-cols-4 gap-2' : 'space-y-2'}`}>
         {options.map((opt) => {
           const isActive = isSelected && selectedOption === opt
+          const isResultPick = winningSet.has(opt)
+          const isWinner = settledStatus === 'settled' && isResultPick
+          const isResultOnly = settledStatus === 'pool_refunded' && isResultPick
           const poolShare = poolTotal > 0 ? ((market.pool_by_option[opt] || 0) / poolTotal) * 100 : 0
+          const hadStakes = (market.pool_by_option[opt] || 0) > 0
           const odds = oddsFor(opt)
-          
+          const outcomeLabel = getPoolOptionOutcomeLabel(settledStatus, isResultPick, hadStakes, poolShare)
+          const highlight = isWinner || isResultOnly
+          const displayOpt = formatOuOptionLabel(market.market_type, opt, market.line)
+
+          const baseClass = highlight
+            ? 'border-ieee-success bg-ieee-success/15 ring-1 ring-ieee-success/40 text-foreground'
+            : isSettledView && market.mode === 'pool'
+              ? 'border-border/60 bg-[#111113]/80 text-muted-foreground'
+              : isActive
+                ? 'border-ieee-blue bg-ieee-blue text-white shadow-md'
+                : 'border-border bg-[#111113] hover:border-ieee-light-blue text-foreground'
+
           if (isCorrectScore) {
+            const Tag = isSettledView ? 'div' : 'button'
             return (
-              <button
+              <Tag
                 key={opt}
-                disabled={!canBet}
-                onClick={() => onSelectOption(opt)}
-                className={`w-full text-center rounded-lg border py-3 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                  isActive ? 'border-ieee-blue bg-ieee-blue text-white shadow-md' : 'border-border bg-[#111113] hover:border-ieee-light-blue text-foreground'
-                }`}
+                {...(!isSettledView
+                  ? { type: 'button' as const, disabled: !canBet, onClick: () => onSelectOption(opt) }
+                  : {})}
+                className={`w-full text-center rounded-lg border py-3 transition-all ${!isSettledView ? 'disabled:opacity-50 disabled:cursor-not-allowed' : ''} ${baseClass}`}
               >
-                <div className="font-mono font-bold text-lg mb-1">{opt}</div>
-                {market.mode === 'fixed' && odds && (
+                <div className="font-mono font-bold text-lg mb-1">{displayOpt}</div>
+                {market.mode === 'fixed' && odds && !isSettledView && (
                   <div className={`text-[10px] font-mono ${isActive ? 'text-white/80' : 'text-ieee-light-blue'}`}>{odds.toFixed(2)}×</div>
                 )}
-                {market.mode === 'pool' && (
+                {market.mode === 'pool' && isSettledView && outcomeLabel && (
+                  <div className={`text-[10px] font-mono font-semibold uppercase tracking-wide ${highlight ? 'text-ieee-success' : 'text-muted-foreground'}`}>{outcomeLabel}</div>
+                )}
+                {market.mode === 'pool' && !isSettledView && (
                   <div className={`text-[10px] font-mono ${isActive ? 'text-white/80' : 'text-muted-foreground'}`}>{poolShare.toFixed(0)}%</div>
                 )}
-              </button>
+              </Tag>
             )
           }
 
+          const Tag = isSettledView ? 'div' : 'button'
           return (
-            <button
+            <Tag
               key={opt}
-              disabled={!canBet}
-              onClick={() => onSelectOption(opt)}
-              className={`relative w-full text-left rounded-lg border p-3.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[52px] overflow-hidden ${
-                isActive ? 'border-ieee-blue bg-ieee-blue/10 shadow-sm' : 'border-border bg-[#111113] hover:border-ieee-light-blue/50'
-              }`}
+              {...(!isSettledView
+                ? { type: 'button' as const, disabled: !canBet, onClick: () => onSelectOption(opt) }
+                : {})}
+              className={`relative w-full text-left rounded-lg border p-3.5 transition-all ${!isSettledView ? 'disabled:opacity-50 disabled:cursor-not-allowed' : ''} min-h-[52px] overflow-hidden ${baseClass}`}
             >
               <div className="relative z-10 flex items-center justify-between mb-1">
-                <span className={`font-medium text-sm ${isActive ? 'text-ieee-light-blue' : 'text-foreground'}`}>{opt}</span>
-                {market.mode === 'fixed' && odds && (
+                <span className={`font-medium text-sm ${isActive && !isSettledView ? 'text-ieee-light-blue' : ''}`}>{displayOpt}</span>
+                {market.mode === 'fixed' && odds && !isSettledView && (
                   <span className="font-mono text-sm font-bold text-ieee-light-blue">{odds.toFixed(2)}×</span>
                 )}
-                {market.mode === 'pool' && (
+                {market.mode === 'pool' && isSettledView && outcomeLabel && (
+                  <span className={`font-mono text-[10px] font-semibold uppercase tracking-wide ${highlight ? 'text-ieee-success' : 'text-muted-foreground'}`}>{outcomeLabel}</span>
+                )}
+                {market.mode === 'pool' && !isSettledView && (
                   <span className="font-mono text-xs font-semibold text-muted-foreground">{poolShare.toFixed(0)}%</span>
                 )}
               </div>
-              {market.mode === 'pool' && poolTotal > 0 && (
+              {market.mode === 'pool' && poolTotal > 0 && !isSettledView && (
                 <div className="relative z-10 h-1.5 w-full mt-2 rounded-full bg-black/40 overflow-hidden border border-white/5">
                   <motion.div
                     initial={false}
@@ -526,7 +656,7 @@ function MarketCard({ market, canBet, isSelected, selectedOption, onSelectOption
                   />
                 </div>
               )}
-            </button>
+            </Tag>
           )
         })}
       </div>
@@ -614,7 +744,9 @@ function BettingSlip({ matchId, canBet, market, selection, stake, setStake, maxB
         <div className="rounded-lg bg-[#111113] border border-border p-4">
           <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1">{FIFA_MARKET_LABELS[market.market_type] || market.market_type}</p>
           <div className="flex items-center justify-between">
-            <p className="text-base font-bold text-foreground">{selection}</p>
+            <p className="text-base font-bold text-foreground">
+              {formatOuOptionLabel(market.market_type, selection, market.line)}
+            </p>
             {odds && <p className="font-mono text-sm font-bold text-ieee-light-blue">{odds.toFixed(2)}×</p>}
             {market.mode === 'pool' && <p className="text-[10px] font-mono text-muted-foreground uppercase bg-muted px-2 py-1 rounded">Pool</p>}
           </div>

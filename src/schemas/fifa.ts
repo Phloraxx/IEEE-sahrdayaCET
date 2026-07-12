@@ -30,10 +30,10 @@ export const FIFA_MARKET_LABELS: Record<string, string> = {
 export const FIFA_MARKET_BLURBS: Record<string, string> = {
   match_winner: 'Pick who advances. Knockout only — no draw outcome.',
   total_goals_ou: 'Over/under the 90-minute goal total. Push = refund.',
-  correct_score: 'Exact 90-minute score (e.g. 2-1).',
+  correct_score: 'Exact 90-minute score (e.g. 2-1). Pool: no winner = full refund.',
   any_scorer: 'Wins if your player scores anytime in regulation + extra time.',
   cards_ou: 'Over/under total cards (yellow + red). Push = refund.',
-  clean_sheet: 'Team conceded 0 goals in 90 minutes.',
+  clean_sheet: 'Team conceded 0 goals in 90 minutes. Pool: no winner = full refund.',
   custom: 'Admin-defined market. See options.',
 }
 

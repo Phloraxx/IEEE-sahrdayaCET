@@ -256,6 +256,7 @@ function RulesPage() {
                   <h3 className="font-display text-xl uppercase text-foreground">Voiding & Refunds</h3>
                 </div>
                 <ul className="space-y-2 text-sm text-muted-foreground leading-relaxed">
+                  <li>• <strong className="text-foreground">Pool markets:</strong> if nobody picked the winning option (e.g. correct score was 2-1 but no one bet it), every bet on that market is refunded — not marked as a loss.</li>
                   <li>• If a market is voided (e.g. cancelled match), all pending bets on it are fully refunded.</li>
                   <li>• If a match isn't settled within 6 hours of kickoff, it auto-voids and all bets are refunded.</li>
                   <li>• Voided bets return your full stake — you are never penalized.</li>

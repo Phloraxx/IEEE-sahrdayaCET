@@ -336,7 +336,7 @@ function BetStatusBadge({ status, payout }: { status: string; payout: number }) 
     pending: 'Pending',
     won: `Won +${payout}`,
     lost: 'Lost',
-    void: 'Voided',
+    void: payout > 0 ? `Refunded +${payout}` : 'Voided',
   }
   return (
     <span className={`inline-block rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider shrink-0 ${styles[status] || styles.pending}`}>
