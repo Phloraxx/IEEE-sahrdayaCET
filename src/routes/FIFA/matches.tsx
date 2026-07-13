@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { FifaLayout } from '@/features/fifa/fifa-layout'
 import { FifaMatchCard, FifaMatchCardSkeleton } from '@/features/fifa/fifa-match-card'
 import { findLiveMatch, isLiveStatus } from '@/lib/fifa-live-match'
+import { filterPublicActiveFifaMatches } from '@/lib/fifa-match-filters'
 
 interface MatchData {
   id: string
@@ -82,7 +83,7 @@ function MatchesPage() {
     )
   }
 
-  const matches = data?.matches || []
+  const matches = filterPublicActiveFifaMatches(data?.matches || [])
   const liveMatches = liveData?.matches || []
   const liveConfigured = liveData?.configured ?? false
 
@@ -91,8 +92,7 @@ function MatchesPage() {
     return m.status === 'live' || (lm && isLiveStatus(lm.status))
   })
   
-  const upcoming = matches.filter(m => !live.includes(m) && (m.status === 'upcoming'))
-  const finished = matches.filter(m => !live.includes(m) && (m.status === 'finished' || m.status === 'void' || m.settled))
+  const upcoming = matches.filter((m) => !live.includes(m) && m.status === 'upcoming')
 
   return (
     <FifaLayout active="matches">
@@ -168,25 +168,7 @@ function MatchesPage() {
                 </section>
               )}
 
-              {/* FINISHED SECTION */}
-              {finished.length > 0 && (
-                <section>
-                  <div className="flex items-center gap-2 mb-6 border-b border-border pb-2">
-                    <h2 className="font-display text-2xl uppercase tracking-wider text-muted-foreground">Finished</h2>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 opacity-75 hover:opacity-100 transition-opacity">
-                    {finished.map((m) => (
-                      <FifaMatchCard
-                        key={m.id}
-                        match={m}
-                        liveMatches={liveMatches}
-                        liveConfigured={liveConfigured}
-                        className="!w-full"
-                      />
-                    ))}
-                  </div>
-                </section>
-              )}
+
             </div>
           )}
 
