@@ -19,6 +19,7 @@ import {
   isOuMarket,
 } from '@/lib/fifa-market-labels'
 import { getMatchCardAsset, getStageColor } from '@/lib/fifa-assets'
+import { FifaMatchPlayerCutout } from '@/features/fifa/fifa-match-player-cutout'
 import { DEFAULT_FIFA_LEADERBOARD_SETTINGS } from '@/lib/fifa-leaderboard'
 import { fetchFifaDashboard, FifaDashboardAuthError } from '@/lib/fifa-dashboard-client'
 import { formatDateTime } from '@/lib/dates'
@@ -349,11 +350,14 @@ function MatchDetailPage() {
                   <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-ieee-light-blue mb-4 font-semibold">
                     {STAGE_LABELS[match.stage] || match.stage.toUpperCase()}
                   </p>
-                  <div className="flex items-center justify-center gap-4 sm:gap-8">
-                    <h1 className="font-display text-3xl sm:text-5xl text-foreground leading-[1.05] flex-1 text-right">
-                      {match.team_home}
-                    </h1>
-                    <div className="flex-shrink-0 text-center">
+                  <div className="flex items-end justify-center gap-3 sm:gap-6">
+                    <div className="flex flex-1 flex-col items-end gap-3">
+                      <FifaMatchPlayerCutout team={match.team_home} side="home" size="hero" />
+                      <h1 className="font-display text-3xl sm:text-5xl text-foreground leading-[1.05] text-right">
+                        {match.team_home}
+                      </h1>
+                    </div>
+                    <div className="flex-shrink-0 self-center text-center">
                       {(isLive || isFinished) ? (
                         <div className="bg-[#111113] border border-border px-4 py-2 rounded-lg">
                           <p className="font-mono text-4xl sm:text-5xl text-foreground leading-none">
@@ -369,9 +373,12 @@ function MatchDetailPage() {
                         </div>
                       )}
                     </div>
-                    <h1 className="font-display text-3xl sm:text-5xl text-foreground leading-[1.05] flex-1 text-left">
-                      {match.team_away}
-                    </h1>
+                    <div className="flex flex-1 flex-col items-start gap-3">
+                      <FifaMatchPlayerCutout team={match.team_away} side="away" size="hero" />
+                      <h1 className="font-display text-3xl sm:text-5xl text-foreground leading-[1.05] text-left">
+                        {match.team_away}
+                      </h1>
+                    </div>
                   </div>
                   <div className="mt-6 inline-block bg-muted/30 border border-border/50 rounded-full px-4 py-1.5">
                     {/* Use the shared en-IN formatter (dates.ts) so SSR and client

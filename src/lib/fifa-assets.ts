@@ -115,3 +115,107 @@ export function teamShortName(team: string): string {
   if (team.length <= 4) return team.toUpperCase()
   return team.slice(0, 3).toUpperCase()
 }
+
+/** Canonical full name for 3-letter / alias codes used in some imports. */
+const TEAM_ALIASES: Record<string, string> = {
+  ARG: 'Argentina',
+  ENG: 'England',
+  FRA: 'France',
+  SPA: 'Spain',
+  ESP: 'Spain',
+  SUI: 'Switzerland',
+  SWI: 'Switzerland',
+  GER: 'Germany',
+  BRA: 'Brazil',
+  POR: 'Portugal',
+  NED: 'Netherlands',
+  BEL: 'Belgium',
+  NOR: 'Norway',
+  MEX: 'Mexico',
+  USA: 'United States',
+  CRO: 'Croatia',
+  ITA: 'Italy',
+  URU: 'Uruguay',
+  COL: 'Colombia',
+  JPN: 'Japan',
+  KOR: 'South Korea',
+  MAR: 'Morocco',
+  SEN: 'Senegal',
+  NGA: 'Nigeria',
+  GHA: 'Ghana',
+  AUS: 'Australia',
+  KSA: 'Saudi Arabia',
+  CAN: 'Canada',
+}
+
+export interface TeamStarPlayer {
+  name: string
+  photoUrl: string
+}
+
+function espnHeadshot(playerId: string): string {
+  return `https://a.espncdn.com/i/headshots/soccer/players/full/${playerId}.png`
+}
+
+/** Star player per nation — ESPN headshots with team-logo fallback via getTeamPlayerVisual(). */
+export const TEAM_STAR_PLAYERS: Record<string, TeamStarPlayer> = {
+  Argentina: { name: 'Lionel Messi', photoUrl: espnHeadshot('45843') },
+  France: { name: 'Kylian Mbappé', photoUrl: espnHeadshot('231388') },
+  England: { name: 'Harry Kane', photoUrl: espnHeadshot('142200') },
+  Spain: { name: 'Lamine Yamal', photoUrl: espnHeadshot('362150') },
+  Switzerland: { name: 'Granit Xhaka', photoUrl: espnHeadshot('149656') },
+  Germany: { name: 'Jamal Musiala', photoUrl: espnHeadshot('291808') },
+  Brazil: { name: 'Vinícius Júnior', photoUrl: espnHeadshot('277479') },
+  Portugal: { name: 'Cristiano Ronaldo', photoUrl: espnHeadshot('139437') },
+  Netherlands: { name: 'Virgil van Dijk', photoUrl: espnHeadshot('140553') },
+  Belgium: { name: 'Kevin De Bruyne', photoUrl: espnHeadshot('159543') },
+  Norway: { name: 'Erling Haaland', photoUrl: espnHeadshot('256642') },
+  Mexico: { name: 'Hirving Lozano', photoUrl: espnHeadshot('205498') },
+  'United States': { name: 'Christian Pulisic', photoUrl: espnHeadshot('227363') },
+  USA: { name: 'Christian Pulisic', photoUrl: espnHeadshot('227363') },
+  Canada: { name: 'Alphonso Davies', photoUrl: espnHeadshot('227364') },
+  Croatia: { name: 'Luka Modrić', photoUrl: espnHeadshot('132948') },
+  Italy: { name: 'Federico Chiesa', photoUrl: espnHeadshot('227127') },
+  Uruguay: { name: 'Darwin Núñez', photoUrl: espnHeadshot('256632') },
+  Colombia: { name: 'Luis Díaz', photoUrl: espnHeadshot('256633') },
+  Japan: { name: 'Takefusa Kubo', photoUrl: espnHeadshot('256634') },
+  'South Korea': { name: 'Son Heung-min', photoUrl: espnHeadshot('149945') },
+  Morocco: { name: 'Achraf Hakimi', photoUrl: espnHeadshot('227128') },
+  Senegal: { name: 'Sadio Mané', photoUrl: espnHeadshot('173896') },
+  Nigeria: { name: 'Victor Osimhen', photoUrl: espnHeadshot('256635') },
+  Ghana: { name: 'Mohammed Kudus', photoUrl: espnHeadshot('291809') },
+  Australia: { name: 'Mathew Ryan', photoUrl: espnHeadshot('149657') },
+  'Saudi Arabia': { name: 'Salem Al-Dawsari', photoUrl: espnHeadshot('256636') },
+}
+
+export function normalizeTeamDisplayName(team: string): string {
+  const trimmed = team.trim()
+  return TEAM_ALIASES[trimmed.toUpperCase()] ?? trimmed
+}
+
+export function getTeamStarPlayer(team: string): TeamStarPlayer | null {
+  const name = normalizeTeamDisplayName(team)
+  return TEAM_STAR_PLAYERS[name] ?? TEAM_STAR_PLAYERS[team.trim()] ?? null
+}
+
+export interface TeamPlayerVisual {
+  name: string
+  photoUrl: string
+  isPlayerPhoto: boolean
+}
+
+/** Player headshot when mapped; otherwise a large team crest as a stand-in. */
+export function getTeamPlayerVisual(team: string): TeamPlayerVisual | null {
+  const star = getTeamStarPlayer(team)
+  if (star) {
+    return { name: star.name, photoUrl: star.photoUrl, isPlayerPhoto: true }
+  }
+  const code = getFlagCode(normalizeTeamDisplayName(team)) ?? getFlagCode(team)
+  if (!code) return null
+  const crestCode = code.replace('gb-eng', 'eng')
+  return {
+    name: normalizeTeamDisplayName(team),
+    photoUrl: `https://a.espncdn.com/i/teamlogos/countries/500/${crestCode}.png`,
+    isPlayerPhoto: false,
+  }
+}
