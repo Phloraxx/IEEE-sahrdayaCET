@@ -6,6 +6,7 @@ import {
   formatTime,
   formatDay,
   formatMonth,
+  formatKickoffParts,
   toIso,
 } from '@/lib/dates'
 
@@ -46,5 +47,11 @@ describe('date formatting', () => {
   it('toIso returns ISO string', () => {
     const d = new Date('2026-06-08T00:00:00.000Z')
     expect(toIso(d)).toBe('2026-06-08T00:00:00.000Z')
+  })
+
+  it('formatKickoffParts splits date and time', () => {
+    const { date, time } = formatKickoffParts(TEST_DATE)
+    expect(date).toContain('2026')
+    expect(time).toMatch(/\d{1,2}:\d{2}/)
   })
 })

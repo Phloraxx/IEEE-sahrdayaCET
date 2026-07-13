@@ -76,7 +76,7 @@ export function FifaMatchCard({
     <Link
       to="/FIFA/matches/$id/"
       params={{ id: match.id }}
-      className={`group relative flex h-[238px] w-[318px] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-[14px] p-4 shadow-[0_1px_0_rgba(255,255,255,.04)_inset] transition-[transform,box-shadow] duration-300 hover:-translate-y-[7px] hover:shadow-[0_22px_40px_rgba(0,0,0,.5)] ${className}`}
+      className={`group relative flex h-[238px] w-[min(318px,calc(100vw-2.5rem))] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-[14px] p-4 shadow-[0_1px_0_rgba(255,255,255,.04)_inset] transition-[transform,box-shadow] duration-300 hover:-translate-y-[7px] hover:shadow-[0_22px_40px_rgba(0,0,0,.5)] ${className}`}
       style={{ background: '#101823' }}
     >
       <div
@@ -156,8 +156,10 @@ export function FifaMatchCard({
             </span>
           </div>
         </div>
-        <div className="flex items-center justify-between gap-1 border-t border-white/18 pt-2 text-[11.5px] text-white/82 shadow-[0_1px_4px_rgba(0,0,0,.6)]">
-          <span className="truncate font-semibold text-white">{fmtTime(kickoff)}</span>
+        <div className="flex min-w-0 items-center justify-between gap-2 border-t border-white/18 pt-2 text-[11.5px] text-white/82 shadow-[0_1px_4px_rgba(0,0,0,.6)]">
+          <span className="min-w-0 truncate font-mono text-[11px] font-semibold tabular-nums text-white sm:text-[11.5px]">
+            {fmtTime(kickoff)}
+          </span>
           {openMarkets > 0 && (
             <span className="shrink-0 font-mono text-[10px] text-ieee-light-blue">
               {openMarkets} open
@@ -171,6 +173,6 @@ export function FifaMatchCard({
 
 export function FifaMatchCardSkeleton({ className = '' }: { className?: string }) {
   return (
-    <div className={`h-[238px] w-[318px] shrink-0 animate-pulse rounded-[14px] bg-[#131519] ${className}`} />
+    <div className={`h-[238px] w-[min(318px,calc(100vw-2.5rem))] shrink-0 animate-pulse rounded-[14px] bg-[#131519] ${className}`} />
   )
 }

@@ -22,7 +22,7 @@ import { getStageColor, resolveMatchCardAsset } from '@/lib/fifa-assets'
 import { resolveMatchBackground } from '@/lib/fifa-match-backgrounds'
 import { DEFAULT_FIFA_LEADERBOARD_SETTINGS } from '@/lib/fifa-leaderboard'
 import { fetchFifaDashboard, FifaDashboardAuthError } from '@/lib/fifa-dashboard-client'
-import { formatDateTime } from '@/lib/dates'
+import { formatKickoffParts } from '@/lib/dates'
 import { AlertCircle, ChevronLeft } from 'lucide-react'
 
 interface MatchDetail {
@@ -388,13 +388,21 @@ function MatchDetailPage() {
                       {match.team_away}
                     </h1>
                   </div>
-                  <div className="mt-6 inline-block bg-muted/30 border border-border/50 rounded-full px-4 py-1.5">
-                    {/* Use the shared en-IN formatter (dates.ts) so SSR and client
-                        render the identical string. Raw toLocaleString() with no locale
-                        picked up Node's default (en-US) on the server vs the browser
-                        locale on the client, and that text mismatch threw React #418 —
-                        which bailed hydration and duplicated the footer. */}
-                    <p className="text-sm font-medium text-foreground">{formatDateTime(match.kickoff_at)}</p>
+                  <div className="mt-6 inline-flex max-w-full flex-col items-center gap-0.5 rounded-full border border-border/50 bg-muted/30 px-4 py-2 sm:flex-row sm:gap-1.5">
+                    {/* Split date/time so the kickoff chip doesn't overflow on narrow phones. */}
+                    {(() => {
+                      const kickoffParts = formatKickoffParts(match.kickoff_at)
+                      if (!kickoffParts.date) return null
+                      return (
+                        <p className="text-center text-sm font-medium leading-snug text-foreground">
+                          <span className="block sm:inline">{kickoffParts.date}</span>
+                          <span className="hidden text-muted-foreground sm:inline"> · </span>
+                          <span className="block font-mono text-[13px] tabular-nums sm:inline sm:text-sm">
+                            {kickoffParts.time}
+                          </span>
+                        </p>
+                      )
+                    })()}
                   </div>
 
                   {isLive && !isFinished && (
