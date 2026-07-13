@@ -29,6 +29,25 @@ export function formatDateTime(dateString: string): string {
     });
 }
 
+/** Kickoff chip: date and time split so narrow screens don't overflow. */
+export function formatKickoffParts(dateString: string): { date: string; time: string } {
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return { date: '', time: '' };
+    return {
+        date: d.toLocaleDateString(DATE_LOCALE, {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+        }),
+        time: d.toLocaleTimeString(DATE_LOCALE, {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true,
+        }),
+    };
+}
+
 function parseDate(dateString: string): Date | null {
     const d = new Date(dateString);
     return isNaN(d.getTime()) ? null : d;

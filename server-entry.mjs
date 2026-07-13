@@ -42,7 +42,7 @@ const SECURITY_HEADERS = {
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-  'Content-Security-Policy': "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' data: https:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' https://*.pocketbase.io https://*.ieeesahrdaya.com https://accounts.google.com https://site.api.espn.com https://api.football-data.org https://raw.githubusercontent.com; frame-src https://accounts.google.com",
+  'Content-Security-Policy': "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; media-src 'self'; img-src 'self' data: https:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' https://*.pocketbase.io https://*.ieeesahrdaya.com https://accounts.google.com https://site.api.espn.com https://api.football-data.org https://raw.githubusercontent.com; frame-src https://accounts.google.com",
 };
 
 function addSecurityHeaders(res) {
