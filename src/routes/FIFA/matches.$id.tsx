@@ -18,8 +18,8 @@ import {
   formatOuMarketBlurb,
   isOuMarket,
 } from '@/lib/fifa-market-labels'
-import { getMatchCardAsset, getStageColor } from '@/lib/fifa-assets'
-import { FifaMatchPlayerCutout } from '@/features/fifa/fifa-match-player-cutout'
+import { getStageColor, resolveMatchCardAsset } from '@/lib/fifa-assets'
+import { resolveMatchBackground } from '@/lib/fifa-match-backgrounds'
 import { DEFAULT_FIFA_LEADERBOARD_SETTINGS } from '@/lib/fifa-leaderboard'
 import { fetchFifaDashboard, FifaDashboardAuthError } from '@/lib/fifa-dashboard-client'
 import { formatDateTime } from '@/lib/dates'
@@ -40,6 +40,8 @@ interface MatchDetail {
   result_after_extra_time: boolean
   result_after_penalties: boolean
   settled: boolean
+  background_image_url?: string | null
+  background_position?: string | null
   markets: Market[]
 }
 
@@ -70,10 +72,17 @@ const fetchMatch = createServerFn()
   .handler(async ({ data: id }): Promise<MatchDetail | null> => {
     const pb = createPB()
     try {
-      const m = await pb.collection('fifa_matches').getOne(id, { fields: 'id,team_home,team_away,stage,kickoff_at,betting_locks_at,status,result_winner,result_home_goals,result_away_goals,result_advance,result_after_extra_time,result_after_penalties,settled' })
+      const m = await pb.collection('fifa_matches').getOne(id, { fields: 'id,team_home,team_away,stage,kickoff_at,betting_locks_at,status,result_winner,result_home_goals,result_away_goals,result_advance,result_after_extra_time,result_after_penalties,settled,external_ids' })
       const markets = await pb.collection('fifa_bet_markets').getFullList({
         filter: `match = ${escapeFilterValue(id)}`,
         fields: 'id,market_type,mode,line,fixed_odds,options,is_open,void,pool_total,pool_by_option',
+      })
+      const externalIds = getField(m, 'external_ids', {}) as { espn?: string } | null
+      const background = await resolveMatchBackground({
+        team_home: getField(m, 'team_home', ''),
+        team_away: getField(m, 'team_away', ''),
+        kickoff_at: getField(m, 'kickoff_at', ''),
+        espnId: externalIds?.espn ? String(externalIds.espn) : '',
       })
       return {
         id: getField(m, 'id', ''),
@@ -90,6 +99,8 @@ const fetchMatch = createServerFn()
         result_after_extra_time: getField(m, 'result_after_extra_time', false),
         result_after_penalties: getField(m, 'result_after_penalties', false),
         settled: getField(m, 'settled', false),
+        background_image_url: background?.imageUrl ?? null,
+        background_position: background?.position ?? null,
         markets: markets.map((mkt) => ({
           id: getField(mkt, 'id', ''),
           market_type: getField(mkt, 'market_type', ''),
@@ -267,7 +278,10 @@ function MatchDetailPage() {
   const betsLocked = match.betting_locks_at ? new Date(match.betting_locks_at) <= new Date() : kickoff <= new Date()
   const isKnockout = ['r32', 'r16', 'qf', 'sf', 'third_place', 'final'].includes(match.stage)
 
-  const asset = getMatchCardAsset(match.team_home, match.team_away, match.stage)
+  const asset = resolveMatchCardAsset(match.team_home, match.team_away, match.stage, {
+    imageUrl: match.background_image_url,
+    position: match.background_position,
+  })
   const stageColor = getStageColor(match.stage)
 
   const liveHomeGoals = liveMatch?.homeGoals ?? match.result_home_goals
@@ -330,7 +344,7 @@ function MatchDetailPage() {
                   style={{
                     backgroundImage: `url("${asset.imageUrl}")`,
                     backgroundPosition: asset.position,
-                    opacity: 0.6,
+                    opacity: asset.isFallback ? 0.6 : 0.92,
                   }}
                 />
                 {asset.isFallback && (
@@ -350,14 +364,11 @@ function MatchDetailPage() {
                   <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-ieee-light-blue mb-4 font-semibold">
                     {STAGE_LABELS[match.stage] || match.stage.toUpperCase()}
                   </p>
-                  <div className="flex items-end justify-center gap-3 sm:gap-6">
-                    <div className="flex flex-1 flex-col items-end gap-3">
-                      <FifaMatchPlayerCutout team={match.team_home} side="home" size="hero" />
-                      <h1 className="font-display text-3xl sm:text-5xl text-foreground leading-[1.05] text-right">
-                        {match.team_home}
-                      </h1>
-                    </div>
-                    <div className="flex-shrink-0 self-center text-center">
+                  <div className="flex items-center justify-center gap-4 sm:gap-8">
+                    <h1 className="font-display text-3xl sm:text-5xl text-foreground leading-[1.05] flex-1 text-right">
+                      {match.team_home}
+                    </h1>
+                    <div className="flex-shrink-0 text-center">
                       {(isLive || isFinished) ? (
                         <div className="bg-[#111113] border border-border px-4 py-2 rounded-lg">
                           <p className="font-mono text-4xl sm:text-5xl text-foreground leading-none">
@@ -373,12 +384,9 @@ function MatchDetailPage() {
                         </div>
                       )}
                     </div>
-                    <div className="flex flex-1 flex-col items-start gap-3">
-                      <FifaMatchPlayerCutout team={match.team_away} side="away" size="hero" />
-                      <h1 className="font-display text-3xl sm:text-5xl text-foreground leading-[1.05] text-left">
-                        {match.team_away}
-                      </h1>
-                    </div>
+                    <h1 className="font-display text-3xl sm:text-5xl text-foreground leading-[1.05] flex-1 text-left">
+                      {match.team_away}
+                    </h1>
                   </div>
                   <div className="mt-6 inline-block bg-muted/30 border border-border/50 rounded-full px-4 py-1.5">
                     {/* Use the shared en-IN formatter (dates.ts) so SSR and client
