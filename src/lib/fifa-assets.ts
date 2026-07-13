@@ -90,12 +90,14 @@ export function getStageColor(stage: string): string {
   return STAGE_COLORS[stage] ?? '#00629B'
 }
 
-export function getMatchCardAsset(home: string, away: string, stage?: string): {
+export interface MatchCardAsset {
   imageUrl: string
   position: string
   gradient: string
   isFallback: boolean
-} {
+}
+
+export function getMatchCardAsset(home: string, away: string, stage?: string): MatchCardAsset {
   const key = pairKey(home, away)
   const reversed = pairKey(away, home)
   const fallbackAsset = { imageUrl: '/fifa/hero-poster.jpg', position: '50% 20%' }
@@ -103,6 +105,24 @@ export function getMatchCardAsset(home: string, away: string, stage?: string): {
   const asset = matched ?? fallbackAsset
   const gradient = stage ? getStageColor(stage) : '#00629B'
   return { imageUrl: asset.imageUrl, position: asset.position, gradient, isFallback: !matched }
+}
+
+/** Prefer internet-sourced ESPN promo photo; fall back to local pair art. */
+export function resolveMatchCardAsset(
+  home: string,
+  away: string,
+  stage?: string,
+  remote?: { imageUrl?: string | null; position?: string | null },
+): MatchCardAsset {
+  if (remote?.imageUrl) {
+    return {
+      imageUrl: remote.imageUrl,
+      position: remote.position || '50% 35%',
+      gradient: stage ? getStageColor(stage) : '#00629B',
+      isFallback: false,
+    }
+  }
+  return getMatchCardAsset(home, away, stage)
 }
 
 export function teamShortName(team: string): string {

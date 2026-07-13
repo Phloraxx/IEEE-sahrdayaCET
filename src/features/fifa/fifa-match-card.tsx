@@ -1,14 +1,13 @@
 import { Link } from '@tanstack/react-router'
 import {
   flagUrl,
-  getMatchCardAsset,
   getStageColor,
   getStageLabel,
+  resolveMatchCardAsset,
   teamShortName,
 } from '@/lib/fifa-assets'
 import { findLiveMatch, isLiveStatus } from '@/lib/fifa-live-match'
 import type { LiveScoreMatch } from '@/lib/fifa-live-match'
-import { FifaMatchPlayerCutout } from '@/features/fifa/fifa-match-player-cutout'
 
 export interface FifaMatchCardData {
   id: string
@@ -19,6 +18,8 @@ export interface FifaMatchCardData {
   status: string
   settled?: boolean
   markets?: Array<{ is_open: boolean; void: boolean }>
+  background_image_url?: string | null
+  background_position?: string | null
 }
 
 function fmtDay(d: Date) {
@@ -59,7 +60,10 @@ export function FifaMatchCard({
 }) {
   const kickoff = new Date(match.kickoff_at)
   const day = fmtDay(kickoff)
-  const asset = getMatchCardAsset(match.team_home, match.team_away, match.stage)
+  const asset = resolveMatchCardAsset(match.team_home, match.team_away, match.stage, {
+    imageUrl: match.background_image_url,
+    position: match.background_position,
+  })
   const stageColor = getStageColor(match.stage)
 
   const liveMatch = liveConfigured
@@ -99,19 +103,15 @@ export function FifaMatchCard({
       <div
         className="absolute inset-0"
         style={{
-          background:
-            'linear-gradient(180deg, rgba(0,0,0,.62) 0%, rgba(0,0,0,.06) 30%, rgba(0,0,0,.15) 55%, rgba(0,0,0,.92) 100%)',
+          background: asset.isFallback
+            ? 'linear-gradient(180deg, rgba(0,0,0,.62) 0%, rgba(0,0,0,.06) 30%, rgba(0,0,0,.15) 55%, rgba(0,0,0,.92) 100%)'
+            : 'linear-gradient(180deg, rgba(0,0,0,.45) 0%, rgba(0,0,0,.08) 35%, rgba(0,0,0,.2) 60%, rgba(0,0,0,.88) 100%)',
         }}
       />
       <div
         className="absolute inset-0 opacity-30 mix-blend-color"
         style={{ background: stageColor }}
       />
-
-      <div className="absolute inset-x-1 bottom-[74px] z-[1] flex items-end justify-between">
-        <FifaMatchPlayerCutout team={match.team_home} side="home" size="card" />
-        <FifaMatchPlayerCutout team={match.team_away} side="away" size="card" />
-      </div>
 
       <div className="relative z-[2] flex items-center justify-between">
         <span
