@@ -22,7 +22,8 @@ interface FifaHeroProps {
 }
 
 const HERO_POSTER = '/fifa/hero-poster.jpg'
-const HERO_VIDEO = '/fifa/worldcup26-hero.mp4'
+// #t=0.001 nudges iOS Safari to decode the first frame for inline autoplay.
+const HERO_VIDEO = '/fifa/worldcup26-hero.mp4#t=0.001'
 
 async function fetchLiveScores() {
   const res = await fetch('/api/fifa/live-scores')
@@ -43,38 +44,51 @@ function FlagImg({ team }: { team: string }) {
   )
 }
 
-function useHeroVideoAutoplay(onFallback: () => void) {
+function configureIosInlineVideo(video: HTMLVideoElement) {
+  video.muted = true
+  video.defaultMuted = true
+  video.volume = 0
+  video.setAttribute('muted', '')
+  video.setAttribute('playsinline', '')
+  video.setAttribute('webkit-playsinline', 'true')
+  video.setAttribute('disableRemotePlayback', '')
+}
+
+function useHeroVideoAutoplay(enabled: boolean, onHardError: () => void) {
   const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
+    if (!enabled) return
     const video = videoRef.current
     if (!video) return
 
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      onFallback()
+      onHardError()
       return
     }
 
-    video.muted = true
-    video.defaultMuted = true
-    video.setAttribute('playsinline', '')
-    video.setAttribute('webkit-playsinline', 'true')
+    configureIosInlineVideo(video)
 
     const play = () => {
-      video.muted = true
-      void video.play().catch(() => onFallback())
+      configureIosInlineVideo(video)
+      // iOS often rejects the first autoplay attempt — keep the element mounted
+      // and retry on touch/scroll instead of falling back to a static poster.
+      void video.play().catch(() => {})
     }
 
+    const onError = () => onHardError()
+
     play()
+    video.addEventListener('loadedmetadata', play)
     video.addEventListener('loadeddata', play)
     video.addEventListener('canplay', play)
-    video.addEventListener('error', onFallback)
+    video.addEventListener('error', onError)
 
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0]?.isIntersecting) play()
       },
-      { threshold: 0.15 },
+      { threshold: 0.1 },
     )
     observer.observe(video)
 
@@ -83,33 +97,39 @@ function useHeroVideoAutoplay(onFallback: () => void) {
     }
     document.addEventListener('visibilitychange', onVisibility)
 
-    const unlock = () => {
-      play()
-      document.removeEventListener('touchstart', unlock, true)
-      document.removeEventListener('scroll', unlock, true)
-    }
+    const unlock = () => play()
     document.addEventListener('touchstart', unlock, { capture: true, passive: true })
+    document.addEventListener('touchend', unlock, { capture: true, passive: true })
     document.addEventListener('scroll', unlock, { capture: true, passive: true })
+    window.addEventListener('pageshow', unlock)
 
     return () => {
       observer.disconnect()
+      video.removeEventListener('loadedmetadata', play)
       video.removeEventListener('loadeddata', play)
       video.removeEventListener('canplay', play)
-      video.removeEventListener('error', onFallback)
+      video.removeEventListener('error', onError)
       document.removeEventListener('visibilitychange', onVisibility)
       document.removeEventListener('touchstart', unlock, true)
+      document.removeEventListener('touchend', unlock, true)
       document.removeEventListener('scroll', unlock, true)
+      window.removeEventListener('pageshow', unlock)
     }
-  }, [onFallback])
+  }, [enabled, onHardError])
 
   return videoRef
 }
 
 export function FifaHero({ nextMatch, startingBalance, prize }: FifaHeroProps) {
+  const [mounted, setMounted] = useState(false)
   const [videoFailed, setVideoFailed] = useState(false)
-  const onVideoFallback = useCallback(() => setVideoFailed(true), [])
-  const videoRef = useHeroVideoAutoplay(onVideoFallback)
+  const onVideoHardError = useCallback(() => setVideoFailed(true), [])
+  const videoRef = useHeroVideoAutoplay(mounted && !videoFailed, onVideoHardError)
   const countdown = useCountdown(nextMatch?.kickoff_at)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const { data: liveData } = useQuery({
     queryKey: ['fifa-live-scores'],
@@ -183,9 +203,10 @@ export function FifaHero({ nextMatch, startingBalance, prize }: FifaHeroProps) {
         backgroundPosition: 'center',
       }}
     >
-      {!videoFailed && (
+      {mounted && !videoFailed && (
         <video
           ref={videoRef}
+          src={HERO_VIDEO}
           autoPlay
           muted
           defaultMuted
@@ -195,9 +216,7 @@ export function FifaHero({ nextMatch, startingBalance, prize }: FifaHeroProps) {
           poster={HERO_POSTER}
           aria-hidden
           className="absolute inset-0 h-full w-full object-cover saturate-[1.05] contrast-[1.03]"
-        >
-          <source src={HERO_VIDEO} type="video/mp4; codecs=avc1.42E01E, mp4a.40.2" />
-        </video>
+        />
       )}
 
       <div
