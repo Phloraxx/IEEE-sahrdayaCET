@@ -6,6 +6,9 @@ import {
   autoSettleMarketTypes,
   shouldAutoSettle,
   shouldSkipSettle,
+  shouldPollMatch,
+  espnScoreboardDateParam,
+  espnDatesForPoll,
   type FifaMatchForSync,
   type FifaSettingsForSync,
 } from '@/lib/fifa-espn-sync'
@@ -23,6 +26,55 @@ describe('mapEspnStatus', () => {
   it('maps canceled → void', () => {
     expect(mapEspnStatus('canceled')).toBe('void')
     expect(mapEspnStatus('post', 'STATUS_CANCELED')).toBe('void')
+  })
+})
+
+describe('shouldPollMatch', () => {
+  const base: FifaMatchForSync = {
+    id: 'm1',
+    team_home: 'Argentina',
+    team_away: 'Switzerland',
+    status: 'upcoming',
+    kickoff_at: '2026-07-12T01:00:00.000Z',
+  }
+
+  it('polls upcoming matches within ±2h of kickoff', () => {
+    const now = new Date('2026-07-12T02:00:00.000Z')
+    expect(shouldPollMatch(base, now)).toBe(true)
+  })
+
+  it('polls stale upcoming matches after kickoff has passed', () => {
+    const now = new Date('2026-07-14T12:00:00.000Z')
+    expect(shouldPollMatch(base, now)).toBe(true)
+  })
+
+  it('does not poll upcoming matches far before kickoff', () => {
+    const now = new Date('2026-07-11T20:00:00.000Z')
+    expect(shouldPollMatch(base, now)).toBe(false)
+  })
+
+  it('always polls live matches', () => {
+    const now = new Date('2026-07-20T00:00:00.000Z')
+    expect(shouldPollMatch({ ...base, status: 'live' }, now)).toBe(true)
+  })
+})
+
+describe('espnDatesForPoll', () => {
+  it('includes today and each polled kickoff date', () => {
+    const now = new Date('2026-07-14T12:00:00.000Z')
+    const dates = espnDatesForPoll(
+      [
+        { id: 'a', team_home: 'Argentina', team_away: 'Switzerland', status: 'upcoming', kickoff_at: '2026-07-12T01:00:00.000Z' },
+        { id: 'b', team_home: 'France', team_away: 'Spain', status: 'upcoming', kickoff_at: '2026-07-14T19:00:00.000Z' },
+      ],
+      now,
+    )
+    expect(dates).toContain('20260714')
+    expect(dates).toContain('20260712')
+  })
+
+  it('formats kickoff as ESPN YYYYMMDD UTC', () => {
+    expect(espnScoreboardDateParam('2026-07-12T01:00:00.000Z')).toBe('20260712')
   })
 })
 

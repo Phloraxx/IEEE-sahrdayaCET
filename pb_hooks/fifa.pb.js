@@ -1925,7 +1925,31 @@ cronAdd("fifa-espn-sync", "*/2 * * * *", function () {
         if (!kickoffStr) return false
         var kickoffMs = new Date(kickoffStr).getTime()
         if (isNaN(kickoffMs)) return false
+        // Stale reconciliation: kickoff passed but status never left upcoming.
+        if (status === "upcoming" && nowMs > kickoffMs) return true
         return Math.abs(nowMs - kickoffMs) <= 2 * 60 * 60 * 1000
+    }
+    var _espnDateParam = function(dateMs) {
+        var d = new Date(dateMs)
+        if (isNaN(d.getTime())) return null
+        var y = d.getUTCFullYear()
+        var m = d.getUTCMonth() + 1
+        var day = d.getUTCDate()
+        return String(y) + (m < 10 ? "0" : "") + m + (day < 10 ? "0" : "") + day
+    }
+    var _espnDatesForPoll = function(matches, nowMs) {
+        var dates = {}
+        var today = _espnDateParam(nowMs)
+        if (today) dates[today] = true
+        for (var di = 0; di < matches.length; di++) {
+            var kstr = matches[di].getString("kickoff_at") || ""
+            if (!kstr) continue
+            var kparam = _espnDateParam(new Date(kstr).getTime())
+            if (kparam) dates[kparam] = true
+        }
+        var out = []
+        for (var key in dates) { if (dates.hasOwnProperty(key)) out.push(key) }
+        return out
     }
     var _buildSettlePayload = function(matchRec, ev) {
         var mh = _normalizeTeam(matchRec.getString("team_home"))
@@ -2330,30 +2354,40 @@ cronAdd("fifa-espn-sync", "*/2 * * * *", function () {
 
     if (pollMatches.length === 0 && !hasUnsettledFinished) { return }
 
-    // Fetch ESPN scoreboard (primary fifa.world, fallback fifa.worldq.uefa).
+    // Fetch ESPN scoreboard for today + each polled match's kickoff date.
     var espnEvents = []
+    var espnEventIds = {}
     var leagues = ["fifa.world", "fifa.worldq.uefa"]
-    for (var li = 0; li < leagues.length; li++) {
-        try {
-            var resp = $http.send({
-                url: "https://site.api.espn.com/apis/site/v2/sports/soccer/" + leagues[li] + "/scoreboard",
-                method: "GET",
-                headers: { "Accept": "application/json" },
-                timeout: 30,
-            })
-            if (resp.statusCode !== 200) { continue }
-            var body = resp.raw
-            if (!body) { continue }
-            var data = JSON.parse(body)
-            var rawEvents = data.events
-            if (!rawEvents || typeof rawEvents.length !== "number" || rawEvents.length === 0) { continue }
-            for (var ei = 0; ei < rawEvents.length; ei++) {
-                var parsed = _parseEspnEvent(rawEvents[ei])
-                if (parsed) espnEvents.push(parsed)
+    var pollDates = _espnDatesForPoll(pollMatches, nowMs)
+    for (var pdi = 0; pdi < pollDates.length; pdi++) {
+        var dateParam = pollDates[pdi]
+        for (var li = 0; li < leagues.length; li++) {
+            try {
+                var scoreboardUrl = "https://site.api.espn.com/apis/site/v2/sports/soccer/" + leagues[li] + "/scoreboard"
+                if (dateParam) scoreboardUrl += "?dates=" + dateParam
+                var resp = $http.send({
+                    url: scoreboardUrl,
+                    method: "GET",
+                    headers: { "Accept": "application/json" },
+                    timeout: 30,
+                })
+                if (resp.statusCode !== 200) { continue }
+                var body = resp.raw
+                if (!body) { continue }
+                var data = JSON.parse(body)
+                var rawEvents = data.events
+                if (!rawEvents || typeof rawEvents.length !== "number" || rawEvents.length === 0) { continue }
+                for (var ei = 0; ei < rawEvents.length; ei++) {
+                    var parsed = _parseEspnEvent(rawEvents[ei])
+                    if (parsed && parsed.id && !espnEventIds[parsed.id]) {
+                        espnEventIds[parsed.id] = true
+                        espnEvents.push(parsed)
+                    }
+                }
+                if (espnEvents.length > 0) { break }
+            } catch (ex) {
+                console.log("[fifa] espn-sync: fetch failed for " + leagues[li] + " dates=" + dateParam + ": " + ex)
             }
-            if (espnEvents.length > 0) { break }
-        } catch (ex) {
-            console.log("[fifa] espn-sync: fetch failed for " + leagues[li] + ": " + ex)
         }
     }
 
