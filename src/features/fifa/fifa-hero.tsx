@@ -22,8 +22,9 @@ interface FifaHeroProps {
 }
 
 const HERO_POSTER = '/fifa/hero-poster.jpg'
+// ?v= busts CDN caches of older responses that lacked Content-Length / Range.
 // #t=0.001 nudges iOS Safari to decode the first frame for inline autoplay.
-const HERO_VIDEO = '/fifa/worldcup26-hero.mp4#t=0.001'
+const HERO_VIDEO = '/fifa/worldcup26-hero.mp4?v=3#t=0.001'
 
 async function fetchLiveScores() {
   const res = await fetch('/api/fifa/live-scores')
@@ -206,7 +207,6 @@ export function FifaHero({ nextMatch, startingBalance, prize }: FifaHeroProps) {
       {mounted && !videoFailed && (
         <video
           ref={videoRef}
-          src={HERO_VIDEO}
           autoPlay
           muted
           defaultMuted
@@ -215,8 +215,11 @@ export function FifaHero({ nextMatch, startingBalance, prize }: FifaHeroProps) {
           preload="auto"
           poster={HERO_POSTER}
           aria-hidden
-          className="absolute inset-0 h-full w-full object-cover saturate-[1.05] contrast-[1.03]"
-        />
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover saturate-[1.05] contrast-[1.03]"
+        >
+          {/* Explicit type helps browsers pick the track; codecs left off so High/Main profiles aren't rejected. */}
+          <source src={HERO_VIDEO} type="video/mp4" />
+        </video>
       )}
 
       <div

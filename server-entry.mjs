@@ -5,7 +5,7 @@
  */
 
 import { createServer } from 'node:http';
-import { readFileSync, existsSync } from 'node:fs';
+import { createReadStream, existsSync, statSync } from 'node:fs';
 import { join, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -33,6 +33,119 @@ const MIME_TYPES = {
   '.webm': 'video/webm',
   '.mov': 'video/quicktime',
 };
+
+/** Media types that need Range + Content-Length for reliable browser playback (esp. Safari). */
+const RANGE_MEDIA = new Set(['.mp4', '.webm', '.mov']);
+
+/**
+ * Serve a static file with correct Content-Length.
+ * For media, also supports Accept-Ranges / HTTP 206 partial content so
+ * <video> can stream instead of waiting on chunked transfer encoding
+ * (which lacks Content-Length after writeHead and breaks autoplay).
+ */
+function serveStaticFile(req, res, filePath, { mime, cacheControl, addSecurityHeaders }) {
+  let stat;
+  try {
+    stat = statSync(filePath);
+  } catch {
+    return false;
+  }
+  if (!stat.isFile()) return false;
+
+  const size = stat.size;
+  const isMedia = RANGE_MEDIA.has(extname(filePath).toLowerCase());
+  const method = (req.method || 'GET').toUpperCase();
+  const rangeHeader = req.headers.range;
+
+  addSecurityHeaders(res);
+
+  // HEAD: metadata only
+  if (method === 'HEAD') {
+    res.writeHead(200, {
+      'Content-Type': mime,
+      'Content-Length': size,
+      'Cache-Control': cacheControl,
+      ...(isMedia ? { 'Accept-Ranges': 'bytes' } : {}),
+    });
+    res.end();
+    return true;
+  }
+
+  // Byte-range partial content (required by Safari for progressive video)
+  if (isMedia && rangeHeader) {
+    const match = /^bytes=(\d*)-(\d*)$/i.exec(rangeHeader.trim());
+    if (!match) {
+      res.writeHead(416, {
+        'Content-Type': 'text/plain',
+        'Content-Range': `bytes */${size}`,
+      });
+      res.end('Range Not Satisfiable');
+      return true;
+    }
+
+    let start = match[1] === '' ? NaN : Number(match[1]);
+    let end = match[2] === '' ? NaN : Number(match[2]);
+
+    if (Number.isNaN(start) && Number.isNaN(end)) {
+      res.writeHead(416, {
+        'Content-Type': 'text/plain',
+        'Content-Range': `bytes */${size}`,
+      });
+      res.end('Range Not Satisfiable');
+      return true;
+    }
+
+    // suffix range: bytes=-500 → last 500 bytes
+    if (Number.isNaN(start)) {
+      const suffix = end;
+      start = Math.max(0, size - suffix);
+      end = size - 1;
+    } else if (Number.isNaN(end)) {
+      end = size - 1;
+    }
+
+    if (start >= size || end >= size || start > end) {
+      res.writeHead(416, {
+        'Content-Type': 'text/plain',
+        'Content-Range': `bytes */${size}`,
+      });
+      res.end('Range Not Satisfiable');
+      return true;
+    }
+
+    const chunkSize = end - start + 1;
+    res.writeHead(206, {
+      'Content-Type': mime,
+      'Content-Length': chunkSize,
+      'Content-Range': `bytes ${start}-${end}/${size}`,
+      'Accept-Ranges': 'bytes',
+      'Cache-Control': cacheControl,
+    });
+    const stream = createReadStream(filePath, { start, end });
+    stream.on('error', () => {
+      if (!res.headersSent) res.writeHead(500);
+      res.end();
+    });
+    stream.pipe(res);
+    return true;
+  }
+
+  // Full body — always set Content-Length before writeHead so Node does not
+  // fall back to Transfer-Encoding: chunked (breaks many video players).
+  res.writeHead(200, {
+    'Content-Type': mime,
+    'Content-Length': size,
+    'Cache-Control': cacheControl,
+    ...(isMedia ? { 'Accept-Ranges': 'bytes' } : {}),
+  });
+  const stream = createReadStream(filePath);
+  stream.on('error', () => {
+    if (!res.headersSent) res.writeHead(500);
+    res.end();
+  });
+  stream.pipe(res);
+  return true;
+}
 
 async function main() {
   const { default: handler } = await import(SERVER_ENTRY);
@@ -199,13 +312,17 @@ function wrapHandlerWithSecurityHeaders(handler) {
           if (!existsSync(filePath)) continue;
           const ext = extname(filePath).toLowerCase();
           const mime = MIME_TYPES[ext] || 'application/octet-stream';
+          const isMedia = RANGE_MEDIA.has(ext);
+          // Media: shorter TTL so header fixes (Range/Content-Length) propagate
+          // through CDNs; hashed assets stay immutable.
           const cacheControl = url.pathname.startsWith('/assets/')
             ? 'public, max-age=31536000, immutable'
-            : 'public, max-age=86400';
-          addSecurityHeaders(res);
-          res.writeHead(200, { 'Content-Type': mime, 'Cache-Control': cacheControl });
-          res.end(readFileSync(filePath));
-          return;
+            : isMedia
+              ? 'public, max-age=3600'
+              : 'public, max-age=86400';
+          if (serveStaticFile(req, res, filePath, { mime, cacheControl, addSecurityHeaders })) {
+            return;
+          }
         }
       }
       // SSR: forward to TanStack Start handler
