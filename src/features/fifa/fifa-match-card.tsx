@@ -3,8 +3,8 @@ import {
   flagUrl,
   getStageColor,
   getStageLabel,
+  normalizeTeamDisplayName,
   resolveMatchCardAsset,
-  teamShortName,
 } from '@/lib/fifa-assets'
 import { findLiveMatch, isLiveStatus } from '@/lib/fifa-live-match'
 import type { LiveScoreMatch } from '@/lib/fifa-live-match'
@@ -142,8 +142,8 @@ export function FifaMatchCard({
         <div className="mb-2.5 flex flex-col gap-1.5">
           <div className="flex items-center gap-2">
             <FlagImg team={match.team_home} />
-            <span className="font-display text-[19px] leading-none tracking-[-0.01em] text-white uppercase shadow-[0_2px_10px_rgba(0,0,0,.7)]">
-              {teamShortName(match.team_home)}
+            <span className="font-display truncate text-[19px] leading-none tracking-[-0.01em] text-white shadow-[0_2px_10px_rgba(0,0,0,.7)]">
+              {normalizeTeamDisplayName(match.team_home)}
             </span>
           </div>
           <span className="ml-[35px] font-mono text-[9.5px] font-bold tracking-[0.18em] text-white/55">
@@ -151,8 +151,8 @@ export function FifaMatchCard({
           </span>
           <div className="flex items-center gap-2">
             <FlagImg team={match.team_away} />
-            <span className="font-display text-[19px] leading-none tracking-[-0.01em] text-white uppercase shadow-[0_2px_10px_rgba(0,0,0,.7)]">
-              {teamShortName(match.team_away)}
+            <span className="font-display truncate text-[19px] leading-none tracking-[-0.01em] text-white shadow-[0_2px_10px_rgba(0,0,0,.7)]">
+              {normalizeTeamDisplayName(match.team_away)}
             </span>
           </div>
         </div>
