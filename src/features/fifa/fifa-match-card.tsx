@@ -8,6 +8,7 @@ import {
 } from '@/lib/fifa-assets'
 import { findLiveMatch, isLiveStatus } from '@/lib/fifa-live-match'
 import type { LiveScoreMatch } from '@/lib/fifa-live-match'
+import { FifaMatchPlayerCutout } from '@/features/fifa/fifa-match-player-cutout'
 
 export interface FifaMatchCardData {
   id: string
@@ -106,6 +107,11 @@ export function FifaMatchCard({
         className="absolute inset-0 opacity-30 mix-blend-color"
         style={{ background: stageColor }}
       />
+
+      <div className="absolute inset-x-1 bottom-[74px] z-[1] flex items-end justify-between">
+        <FifaMatchPlayerCutout team={match.team_home} side="home" size="card" />
+        <FifaMatchPlayerCutout team={match.team_away} side="away" size="card" />
+      </div>
 
       <div className="relative z-[2] flex items-center justify-between">
         <span
