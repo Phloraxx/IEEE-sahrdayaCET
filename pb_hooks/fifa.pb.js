@@ -144,14 +144,12 @@ var voidMatchMarkets = function(matchId) {
 }
 
 // ─── Phase X: Google OAuth Display Name ─────────────────────────────────
-// Sets the display_name from the Google profile on first login.
+// Sets display_name from the Google profile at first sign-in (or backfills if
+// still empty on a later OAuth login). Names are not user-editable afterward.
 
 onRecordAuthWithOAuth2Request(function (e) {
-    if (!e.isNewRecord) { e.next(); return }
-
     var name = ""
     if (e.oAuth2User) {
-        // Check standard PB OAuth2 user fields
         name = e.oAuth2User.name || (e.oAuth2User.rawUser && e.oAuth2User.rawUser.name) || ""
     }
     if (!name) { e.next(); return }
@@ -163,6 +161,30 @@ onRecordAuthWithOAuth2Request(function (e) {
         }
     } else if (e.createData && !e.createData.display_name) {
         e.createData.display_name = name
+    }
+    e.next()
+}, "users")
+
+// Block self-service display_name changes — names come from Google OAuth only.
+onRecordUpdateRequest(function (e) {
+    var auth = null
+    try { auth = e.auth || (e.requestInfo && e.requestInfo.auth) || null } catch (ex) { auth = null }
+    var role = ""
+    if (auth) {
+        try {
+            if (auth.isSuperuser && auth.isSuperuser()) {
+                role = "admin"
+            } else {
+                role = auth.getString("role") || ""
+            }
+        } catch (ex) { role = "" }
+    }
+    if (role === "admin") { e.next(); return }
+    var oldRec = $app.findRecordById("users", e.record.id)
+    var oldName = oldRec.getString("display_name") || ""
+    var newName = e.record.getString("display_name") || ""
+    if (oldName !== newName) {
+        throw e.badRequestError("Display name cannot be changed")
     }
     e.next()
 }, "users")
