@@ -268,7 +268,7 @@ function BalanceAdjustCard() {
   return (
     <div className="rounded-lg border bg-card p-4">
       <h3 className="text-sm font-semibold mb-2">Adjust balance</h3>
-      <p className="text-xs text-muted-foreground mb-3">Grant or deduct points for any user (writes an admin_adjust ledger row).</p>
+      <p className="text-xs text-muted-foreground mb-3">Grant or deduct tickets for any user (writes an admin_adjust ledger row).</p>
       <div className="space-y-2">
         <div>
           <Label htmlFor="userId">User ID</Label>

@@ -19,6 +19,8 @@ import {
   isOuMarket,
 } from '@/lib/fifa-market-labels'
 import { getMatchCardAsset, getStageColor } from '@/lib/fifa-assets'
+import { DEFAULT_FIFA_LEADERBOARD_SETTINGS } from '@/lib/fifa-leaderboard'
+import { fetchFifaDashboard, FifaDashboardAuthError } from '@/lib/fifa-dashboard-client'
 import { formatDateTime } from '@/lib/dates'
 import { AlertCircle, ChevronLeft } from 'lucide-react'
 
@@ -131,7 +133,7 @@ function sortCorrectScores(options: string[]) {
 function MatchDetailPage() {
   const loaderMatch = Route.useLoaderData()
   const { id: matchId } = Route.useParams()
-  const { status, signIn } = useAuth()
+  const { status, signIn, user } = useAuth()
   const [isSessionExpired, setIsSessionExpired] = useState(false)
   const queryClient = useQueryClient()
 
@@ -200,25 +202,40 @@ function MatchDetailPage() {
       }) || null
     : null
 
-  const { data: userBalance } = useQuery({
+  const { data: userBalance, error: dashboardError } = useQuery({
     queryKey: ['fifa-dashboard'],
-    queryFn: async () => {
-      const res = await fetch('/api/fifa/dashboard')
-      if (res.status === 401 || res.status === 403) {
-        setIsSessionExpired(true)
-        toast.error('Your session expired — please log in again', { id: 'session-expired' })
-        throw new Error('Session expired')
-      }
-      if (!res.ok) return null
-      return res.json() as Promise<{ user: { balance: number }; max_bet_percent?: number }>
-    },
+    queryFn: fetchFifaDashboard,
     enabled: status === 'authenticated' && !isSessionExpired,
     refetchInterval: 15_000,
   })
+
+  useEffect(() => {
+    if (dashboardError instanceof FifaDashboardAuthError) {
+      setIsSessionExpired(true)
+      toast.error('Your session expired — please log in again', { id: 'session-expired' })
+    }
+  }, [dashboardError])
+
   const balance = userBalance?.user?.balance ?? 0
   const maxBetPercent = userBalance?.max_bet_percent ?? 25
-  const maxBet = Math.floor(balance * maxBetPercent / 100)
+  const maxBet = Math.floor((balance * maxBetPercent) / 100)
+  const validBetsCount = userBalance?.valid_bets_count ?? 0
 
+  const { data: lbData } = useQuery({
+    queryKey: ['fifa-leaderboard'],
+    queryFn: async () => {
+      const res = await fetch('/pb/api/fifa/leaderboard')
+      if (!res.ok) return null
+      return res.json() as Promise<{ leaderboard: Array<{ id: string; rank: number }>; settings?: { min_bets: number } }>
+    },
+    enabled: status === 'authenticated' && !isSessionExpired,
+    staleTime: 15_000,
+  })
+  const minBets = lbData?.settings?.min_bets ?? DEFAULT_FIFA_LEADERBOARD_SETTINGS.min_bets
+  const myRank =
+    user?.id && lbData?.leaderboard
+      ? lbData.leaderboard.find((r) => r.id === user.id)?.rank
+      : undefined
   // Keep the default stake pinned to maxBet until the user manually edits
   // it; once edited, only pull it back down if it's grown invalid (maxBet
   // shrank below the user's chosen stake) rather than silently overwriting
@@ -280,6 +297,9 @@ function MatchDetailPage() {
     maxBet,
     maxBetPercent,
     balance,
+    minBets,
+    myRank,
+    validBetsCount,
     onClear: () => {
       setSelectedMarketId(null)
       setSelectedOption(null)
@@ -541,8 +561,8 @@ function MarketCard({
         <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] px-2 py-1 bg-muted/50 rounded-md text-muted-foreground border border-border">
           {market.mode === 'pool'
             ? isSettledView
-              ? `Final pool · ${poolTotal} pts`
-              : `Pool · ${poolTotal} pts`
+              ? `Final pool · ${poolTotal} tickets`
+              : `Pool · ${poolTotal} tickets`
             : 'Fixed odds'}
         </span>
       </div>
@@ -660,8 +680,8 @@ function MarketCard({
   )
 }
 
-function BettingSlip({ matchId, canBet, market, selection, teams, stake, setStake, maxBet, maxBetPercent, balance, onClear }: {
-  matchId: string; canBet: boolean; market: Market | null; selection: string | null; teams: { team_home: string; team_away: string }; stake: number; setStake: (v: number) => void; maxBet: number; maxBetPercent: number; balance: number; onClear: () => void
+function BettingSlip({ matchId, canBet, market, selection, teams, stake, setStake, maxBet, maxBetPercent, balance, minBets, myRank, validBetsCount, onClear }: {
+  matchId: string; canBet: boolean; market: Market | null; selection: string | null; teams: { team_home: string; team_away: string }; stake: number; setStake: (v: number) => void; maxBet: number; maxBetPercent: number; balance: number; minBets: number; myRank?: number; validBetsCount: number; onClear: () => void
 }) {
   const queryClient = useQueryClient()
   // Floor once, up front — every displayed number (potential return, quick-
@@ -766,7 +786,6 @@ function BettingSlip({ matchId, canBet, market, selection, teams, stake, setStak
               }}
               className="w-full rounded-lg border border-border bg-[#111113] px-4 py-3 text-lg font-mono font-bold text-foreground focus:border-ieee-blue focus:ring-1 focus:ring-ieee-blue transition-colors"
             />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">pts</span>
           </div>
         </div>
 
@@ -793,19 +812,37 @@ function BettingSlip({ matchId, canBet, market, selection, teams, stake, setStak
         <div className="flex items-center justify-between mb-4">
           <span className="text-sm text-muted-foreground">Potential Return</span>
           {potentialReturn !== null ? (
-            <span className="font-mono text-lg font-bold text-ieee-light-blue">{potentialReturn} pts</span>
+            <span className="font-mono text-lg font-bold text-ieee-light-blue">{potentialReturn} tickets</span>
           ) : (
             <span className="text-xs text-muted-foreground italic">Share of pool</span>
           )}
         </div>
-        <p className="text-[10px] text-muted-foreground mb-4 text-center">
-          Stake limit is {maxBetPercent}% of your balance ({balance}).
+        <p className="text-[10px] text-muted-foreground mb-2 text-center">
+          Max stake {maxBetPercent}% of your tickets ({balance.toLocaleString()}).
+          {myRank != null && (
+            <> · Leaderboard rank <span className="font-semibold text-foreground">#{myRank}</span></>
+          )}
         </p>
+        {myRank != null && validBetsCount >= minBets && (
+          <p className="text-[10px] text-muted-foreground/80 mb-4 text-center">
+            Prize draw is weighted by rank — #1 does not automatically win the voucher.
+          </p>
+        )}
+        {myRank != null && validBetsCount < minBets && (
+          <p className="text-[10px] text-muted-foreground mb-4 text-center">
+            Place {minBets - validBetsCount} more bet{minBets - validBetsCount === 1 ? '' : 's'} to enter the prize draw (rank #{myRank}).
+          </p>
+        )}
+        {myRank == null && (
+          <p className="text-[10px] text-muted-foreground mb-4 text-center">
+            Place bets to appear on the leaderboard. Need {minBets} bets to enter the prize draw.
+          </p>
+        )}
         <button
           onClick={() => {
-            if (balance <= 0) return toast.error('Insufficient balance to place a bet')
+            if (balance <= 0) return toast.error('Not enough tickets to place a bet')
             if (effectiveStake <= 0) return toast.error('Please enter a stake amount')
-            if (effectiveStake > maxBet) return toast.error(`Max bet limit is ${maxBet} pts (${maxBetPercent}% of your balance)`)
+            if (effectiveStake > maxBet) return toast.error(`Max bet is ${maxBet} tickets (${maxBetPercent}% of your tickets)`)
             placeBet.mutate()
           }}
           disabled={placeBet.isPending}
@@ -814,7 +851,7 @@ function BettingSlip({ matchId, canBet, market, selection, teams, stake, setStak
           {placeBet.isPending ? (
             <span className="flex items-center gap-2"><span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" /> Processing</span>
           ) : (
-            `Place Bet · ${effectiveStake} pts`
+            `Place Bet · ${effectiveStake} tickets`
           )}
         </button>
       </div>

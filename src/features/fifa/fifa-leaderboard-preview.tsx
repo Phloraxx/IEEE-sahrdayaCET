@@ -10,7 +10,10 @@ interface LeaderboardRow {
   bets_count: number
 }
 
-async function fetchLeaderboard(): Promise<{ leaderboard: LeaderboardRow[] }> {
+async function fetchLeaderboard(): Promise<{
+  leaderboard: LeaderboardRow[]
+  settings?: { min_bets: number }
+}> {
   const res = await fetch('/pb/api/fifa/leaderboard')
   if (!res.ok) throw new Error('Failed to load leaderboard')
   return res.json()
@@ -26,6 +29,7 @@ export function FifaLeaderboardPreview() {
     queryFn: fetchLeaderboard,
     refetchInterval: 15_000,
   })
+  const minBets = data?.settings?.min_bets ?? 5
 
   const top = data?.leaderboard.slice(0, 5) ?? []
 
@@ -42,7 +46,7 @@ export function FifaLeaderboardPreview() {
           Leaderboard
         </h2>
         <p className="mt-2 max-w-[560px] text-sm text-[#9a9aa2]">
-          Ranked by balance (tiebreak: more bets = higher). Updates every 15s.
+          Ranked by tickets (tiebreak: more bets = higher). Updates every 15s.
         </p>
       </div>
 
@@ -92,17 +96,9 @@ export function FifaLeaderboardPreview() {
         </div>
 
         <div className="rounded-[14px] border border-ieee-light-blue/30 bg-gradient-to-br from-ieee-light-blue/10 to-transparent p-[18px] text-[12.5px] text-[#9a9aa2]">
-          <p className="mb-2 text-[13.5px] font-bold text-[#f5f5f5]">Raffle tickets</p>
-          <p>
-            Tickets ={' '}
-            <code className="rounded bg-white/8 px-1.5 py-0.5 font-mono text-[#f5f5f5]">
-              max(1, 50 − 2 × (rank − 1))
-            </code>
-            . Rank 1 → 50 tickets, rank 26+ → 1.
-          </p>
-          <p className="mt-2">
-            Need ≥ <strong className="text-[#f5f5f5]">5 bets</strong> to enter the raffle.
-          </p>
+          <p className="mb-2 text-[13.5px] font-bold text-[#f5f5f5]">Prize draw</p>
+          <p>Climb the leaderboard with more tickets. Need ≥ <strong className="text-[#f5f5f5]">{minBets} bets</strong> to enter the draw.</p>
+          <p className="mt-2 text-[12px]">#1 does not automatically win the voucher.</p>
           <Link
             to="/FIFA/rules/"
             className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-bold text-ieee-light-blue hover:underline"

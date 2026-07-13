@@ -52,9 +52,16 @@ const fetchOverview = createServerFn().handler(async (): Promise<OverviewData> =
     })
     // Skip test matches created by the admin testing console (team_home
     // starts with "Test"). At ~20 rows this client-side filter is cheap.
+    const now = Date.now()
     const realMatch = upcoming.find((mu) => {
       const h = String(getField(mu, 'team_home', '')).toLowerCase()
-      return !h.startsWith('test')
+      if (h.startsWith('test')) return false
+      const status = getField(mu, 'status', 'upcoming')
+      if (status === 'live') return true
+      const kickoff = getField(mu, 'kickoff_at', '')
+      if (!kickoff) return false
+      const kickoffMs = new Date(kickoff).getTime()
+      return !isNaN(kickoffMs) && kickoffMs > now
     })
     if (realMatch) {
       const matchId = getField(realMatch, 'id', '')
@@ -100,7 +107,7 @@ export const Route = createFileRoute('/FIFA/')({
       {
         name: 'description',
         content:
-          'Free-to-enter FIFA World Cup prediction game. Bet fake points, climb the leaderboard, win a sponsor voucher.',
+          'Free-to-enter FIFA World Cup prediction game. Bet fake tickets, climb the leaderboard, win a sponsor voucher.',
       },
     ],
   }),

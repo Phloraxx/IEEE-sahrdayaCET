@@ -190,8 +190,7 @@ export function FifaHero({ nextMatch, startingBalance, prize }: FifaHeroProps) {
             </p>
             <div className="mt-[18px] inline-flex items-center gap-2 rounded-full border border-white/22 bg-white/12 px-[14px] py-2 text-xs font-semibold tracking-[0.02em] text-white backdrop-blur-[10px]">
               Free to play ·{' '}
-              <b className="font-extrabold text-ieee-light-blue">{startingBalance} pts</b> to
-              start
+              <b className="font-extrabold text-ieee-light-blue">{startingBalance} tickets</b> to start
               {prize ? (
                 <>
                   {' '}
