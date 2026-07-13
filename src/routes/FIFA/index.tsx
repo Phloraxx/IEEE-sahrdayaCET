@@ -10,6 +10,7 @@ import { FifaStatsStrip } from '@/features/fifa/fifa-stats-strip'
 import { FifaHowItWorks } from '@/features/fifa/fifa-how-it-works'
 import { FifaLeaderboardPreview } from '@/features/fifa/fifa-leaderboard-preview'
 import { FifaCtaBand } from '@/features/fifa/fifa-cta-band'
+import { filterPublicActiveFifaMatches } from '@/lib/fifa-match-filters'
 
 interface OverviewData {
   prize: string
@@ -50,19 +51,15 @@ const fetchOverview = createServerFn().handler(async (): Promise<OverviewData> =
       fields: 'id,team_home,team_away,stage,kickoff_at,status',
       perPage: 50,
     })
-    // Skip test matches created by the admin testing console (team_home
-    // starts with "Test"). At ~20 rows this client-side filter is cheap.
-    const now = Date.now()
-    const realMatch = upcoming.find((mu) => {
-      const h = String(getField(mu, 'team_home', '')).toLowerCase()
-      if (h.startsWith('test')) return false
-      const status = getField(mu, 'status', 'upcoming')
-      if (status === 'live') return true
-      const kickoff = getField(mu, 'kickoff_at', '')
-      if (!kickoff) return false
-      const kickoffMs = new Date(kickoff).getTime()
-      return !isNaN(kickoffMs) && kickoffMs > now
-    })
+    const active = filterPublicActiveFifaMatches(
+      upcoming.map((mu) => ({
+        ...mu,
+        team_home: getField(mu, 'team_home', ''),
+        status: getField(mu, 'status', 'upcoming'),
+        kickoff_at: getField(mu, 'kickoff_at', ''),
+      })),
+    )
+    const realMatch = active[0]
     if (realMatch) {
       const matchId = getField(realMatch, 'id', '')
       let openMarkets = 0

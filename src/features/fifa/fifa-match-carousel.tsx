@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { FifaMatchCard, FifaMatchCardSkeleton } from '@/features/fifa/fifa-match-card'
 import type { FifaMatchCardData } from '@/features/fifa/fifa-match-card'
+import { filterPublicActiveFifaMatches } from '@/lib/fifa-match-filters'
 
 async function fetchMatches(): Promise<{ matches: FifaMatchCardData[] }> {
   const res = await fetch('/api/fifa/matches')
@@ -36,6 +37,8 @@ export function FifaMatchCarousel() {
     carouselRef.current?.scrollBy({ left: dir === 'left' ? -318 : 318, behavior: 'smooth' })
   }
 
+  const activeMatches = filterPublicActiveFifaMatches(data?.matches ?? [])
+
   return (
     <section className="border-t border-white/10 px-[clamp(20px,4vw,48px)] py-8">
       <div className="flex flex-col gap-8 lg:flex-row lg:gap-10">
@@ -64,10 +67,10 @@ export function FifaMatchCarousel() {
           >
             {isLoading &&
               Array.from({ length: 4 }).map((_, i) => <FifaMatchCardSkeleton key={i} />)}
-            {!isLoading && (!data?.matches || data.matches.length === 0) && (
-              <p className="py-8 text-sm text-[#9a9aa2]">No matches yet. Check back soon.</p>
+            {!isLoading && activeMatches.length === 0 && (
+              <p className="py-8 text-sm text-[#9a9aa2]">No upcoming matches yet. Check back soon.</p>
             )}
-            {(data?.matches || []).map((m) => (
+            {activeMatches.map((m) => (
               <FifaMatchCard
                 key={m.id}
                 match={m}
