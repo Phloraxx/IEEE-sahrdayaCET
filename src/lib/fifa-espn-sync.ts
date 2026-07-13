@@ -174,8 +174,34 @@ export function shouldPollMatch(match: FifaMatchForSync, now: Date): boolean {
   const kickoff = new Date(match.kickoff_at)
   if (isNaN(kickoff.getTime())) return false
 
+  // Stale reconciliation: kickoff passed but status never left upcoming.
+  if (status === 'upcoming' && now.getTime() > kickoff.getTime()) return true
+
   const twoHoursMs = 2 * 60 * 60 * 1000
   return Math.abs(now.getTime() - kickoff.getTime()) <= twoHoursMs
+}
+
+/** ESPN scoreboard `dates` param (YYYYMMDD UTC) for a kickoff instant. */
+export function espnScoreboardDateParam(kickoffAt: string | Date): string | null {
+  const d = kickoffAt instanceof Date ? kickoffAt : new Date(kickoffAt)
+  if (isNaN(d.getTime())) return null
+  const y = d.getUTCFullYear()
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(d.getUTCDate()).padStart(2, '0')
+  return `${y}${m}${day}`
+}
+
+/** Unique ESPN scoreboard dates to fetch for a set of poll candidates (+ today). */
+export function espnDatesForPoll(matches: FifaMatchForSync[], now: Date = new Date()): string[] {
+  const dates = new Set<string>()
+  const today = espnScoreboardDateParam(now)
+  if (today) dates.add(today)
+  for (const m of matches) {
+    if (!m.kickoff_at) continue
+    const param = espnScoreboardDateParam(m.kickoff_at)
+    if (param) dates.add(param)
+  }
+  return [...dates]
 }
 
 /** Build settlement fields from ESPN final score (respects home/away orientation). */

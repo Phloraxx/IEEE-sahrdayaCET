@@ -3,6 +3,7 @@ import { authenticateAdmin } from "@/lib/admin-middleware"
 import { AuthError } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 import { getField } from "@/lib/safe-get";
+import { userDisplayName } from "@/lib/user-display-name";
 
 export const Route = createFileRoute("/api/admin/fifa/feed")({
   server: {
@@ -28,7 +29,10 @@ export const Route = createFileRoute("/api/admin/fifa/feed")({
                 created: getField(e, 'created', ''),
                 user: userObj ? {
                   id: userObj.id,
-                  display_name: userObj.display_name,
+                  display_name: userDisplayName({
+                    name: userObj.name,
+                    display_name: userObj.display_name,
+                  }),
                 } : null,
               }
             }),

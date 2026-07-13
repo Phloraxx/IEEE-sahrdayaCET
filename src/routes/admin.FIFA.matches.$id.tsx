@@ -120,7 +120,7 @@ function AdminFifaMatchDetail() {
                 <div className="rounded-lg border bg-card p-4 text-sm">
                   <p className="font-medium mb-2">Match settled</p>
                   <p className="text-muted-foreground">
-                    90-min: {String(match.result_winner || '—')} · {match.result_home_goals}-{match.result_away_goals}
+                    90-min: {match.result_winner === 'home' ? match.team_home : match.result_winner === 'away' ? match.team_away : match.result_winner || '—'} · {match.result_home_goals}-{match.result_away_goals}
                     {match.result_advance && <span className="ml-2">· Advanced: {match.result_advance}</span>}
                     {match.result_after_penalties && <span className="ml-2">(Pens)</span>}
                     {match.result_after_extra_time && !match.result_after_penalties && <span className="ml-2">(AET)</span>}
@@ -408,7 +408,7 @@ function SettleForm({ match }: { match: MatchData }) {
       return res.json()
     },
     onSuccess: (data) => {
-      toast.success(`Settled — ${data.betsSettled} bets, ${data.totalPayout} pts paid out`)
+      toast.success(`Settled — ${data.betsSettled} bets, ${data.totalPayout} tickets paid out`)
       queryClient.invalidateQueries({ queryKey: ['admin-fifa-match', matchId] })
       queryClient.invalidateQueries({ queryKey: ['admin-fifa-markets', matchId] })
     },
@@ -428,8 +428,8 @@ function SettleForm({ match }: { match: MatchData }) {
         <Select value={form.result_winner} onValueChange={(v) => setForm({ ...form, result_winner: v, result_advance: v !== 'draw' ? v : form.result_advance })}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="home">Home win (90 min)</SelectItem>
-            <SelectItem value="away">Away win (90 min)</SelectItem>
+            <SelectItem value="home">{match.team_home} win (90 min)</SelectItem>
+            <SelectItem value="away">{match.team_away} win (90 min)</SelectItem>
             <SelectItem value="draw">Draw (90 min)</SelectItem>
           </SelectContent>
         </Select>
@@ -441,8 +441,8 @@ function SettleForm({ match }: { match: MatchData }) {
           <Select value={form.result_advance} onValueChange={(v) => setForm({ ...form, result_advance: v })}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="home">Home advanced</SelectItem>
-              <SelectItem value="away">Away advanced</SelectItem>
+              <SelectItem value="home">{match.team_home} advanced</SelectItem>
+              <SelectItem value="away">{match.team_away} advanced</SelectItem>
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground mt-1">Match Winner bets settle on this. Score markets stay on the 90-min result.</p>
@@ -450,11 +450,11 @@ function SettleForm({ match }: { match: MatchData }) {
       )}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label>Home goals (90 min)</Label>
+          <Label>{match.team_home} goals (90 min)</Label>
           <Input type="number" min={0} value={form.result_home_goals} onChange={(e) => setForm({ ...form, result_home_goals: Number(e.target.value) })} />
         </div>
         <div>
-          <Label>Away goals (90 min)</Label>
+          <Label>{match.team_away} goals (90 min)</Label>
           <Input type="number" min={0} value={form.result_away_goals} onChange={(e) => setForm({ ...form, result_away_goals: Number(e.target.value) })} />
         </div>
       </div>

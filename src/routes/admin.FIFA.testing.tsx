@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
+import { formatMarketOptionLabel } from "@/lib/fifa-market-labels"
 
 const checkAdminAccess = createServerFn().handler(async () => {
   const { authenticateAdmin } = await import('@/lib/admin-middleware')
@@ -58,6 +59,7 @@ interface BetRow {
   status: string
   payout: number
   placed_at: string
+  match: { id: string; team_home: string; team_away: string } | null
   market: { id: string; market_type: string } | null
 }
 
@@ -98,6 +100,26 @@ function AdminFifaTesting() {
     onError: (e: Error) => toast.error(e.message),
   })
 
+  const createEspnTestMatch = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/admin/fifa/testing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create-espn-test-match' }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Failed')
+      }
+      return res.json()
+    },
+    onSuccess: (data) => {
+      toast.success(`ESPN test match (${data.team_home ?? 'France'} vs ${data.team_away ?? 'England'}) — ${data.status}, FT ${new Date(data.end_at).toLocaleTimeString()}`)
+      queryClient.invalidateQueries({ queryKey: ['admin-fifa-matches'] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
   const importFixtures = useMutation({
     mutationFn: async () => {
       const res = await fetch('/api/admin/fifa/testing', {
@@ -132,6 +154,9 @@ function AdminFifaTesting() {
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => importFixtures.mutate()} disabled={importFixtures.isPending}>
               {importFixtures.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Import WC fixtures
+            </Button>
+            <Button variant="outline" onClick={() => createEspnTestMatch.mutate()} disabled={createEspnTestMatch.isPending}>
+              {createEspnTestMatch.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />} ESPN test (FT 1:59 PM)
             </Button>
             <Button onClick={() => createTestMatch.mutate()} disabled={createTestMatch.isPending}>
               {createTestMatch.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />} One-click test match
@@ -201,7 +226,9 @@ function MatchBets({ matchId }: { matchId: string }) {
               <tr key={b.id} className="border-t border-border/50">
                 <td className="py-1.5">{b.user.display_name || b.user.email || b.user.id}</td>
                 <td className="py-1.5">{b.market?.market_type || '—'}</td>
-                <td className="py-1.5">{b.selection}</td>
+                <td className="py-1.5">
+                  {formatMarketOptionLabel(b.market?.market_type, b.selection, b.match)}
+                </td>
                 <td className="py-1.5 text-right font-mono">{b.stake}</td>
                 <td className="py-1.5"><Badge variant="outline">{b.status}</Badge></td>
                 <td className="py-1.5 text-right font-mono">{b.payout}</td>
@@ -241,7 +268,7 @@ function BalanceAdjustCard() {
   return (
     <div className="rounded-lg border bg-card p-4">
       <h3 className="text-sm font-semibold mb-2">Adjust balance</h3>
-      <p className="text-xs text-muted-foreground mb-3">Grant or deduct points for any user (writes an admin_adjust ledger row).</p>
+      <p className="text-xs text-muted-foreground mb-3">Grant or deduct tickets for any user (writes an admin_adjust ledger row).</p>
       <div className="space-y-2">
         <div>
           <Label htmlFor="userId">User ID</Label>

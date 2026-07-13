@@ -2,10 +2,9 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { FifaLayout } from '@/features/fifa/fifa-layout'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { useAuth } from '@/lib/auth-context'
-import { Info, Trophy, Medal, Award, Ticket, ArrowUp } from 'lucide-react'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Trophy, Medal } from 'lucide-react'
 
 interface LeaderboardRow {
   rank: number
@@ -18,8 +17,6 @@ interface LeaderboardRow {
 interface LeaderboardData {
   leaderboard: LeaderboardRow[]
   settings: {
-    raffle_tickets_base: number
-    raffle_tickets_decay: number
     min_bets: number
   }
 }
@@ -94,24 +91,17 @@ function LeaderboardPage() {
   const [showAll, setShowAll] = useState(false)
 
   const rows = data?.leaderboard || []
-  
-  const settings = data?.settings || { raffle_tickets_base: 50, raffle_tickets_decay: 2, min_bets: 5 }
-  
+  const settings = data?.settings || { min_bets: 5 }
+
   const totalPlayers = rows.length
   const totalBets = rows.reduce((acc, r) => acc + r.bets_count, 0)
-  const totalPoints = rows.reduce((acc, r) => acc + r.balance, 0)
-  
-  const myRow = user ? rows.find(r => r.id === user.id) : null
+  const totalTickets = rows.reduce((acc, r) => acc + r.balance, 0)
 
-  const getTickets = (rank: number, bets: number) => {
-    if (bets < settings.min_bets) return 0
-    return Math.max(1, settings.raffle_tickets_base - settings.raffle_tickets_decay * (rank - 1))
-  }
+  const myRow = user ? rows.find((r) => r.id === user.id) : null
 
   const top3 = rows.slice(0, 3)
   const rest = showAll ? rows.slice(3) : rows.slice(3, 50)
 
-  // Ensure podium order is [2, 1, 3] visually
   const podiumOrder = [top3[1], top3[0], top3[2]]
 
   return (
@@ -122,27 +112,10 @@ function LeaderboardPage() {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10 text-center md:text-left">
           <div>
             <h1 className="font-display text-5xl sm:text-6xl text-foreground mb-2 uppercase tracking-tight">Leaderboard</h1>
-            <p className="text-sm text-muted-foreground max-w-lg mx-auto md:mx-0">Ranked by points. Tiebreak: more bets placed. Updates every 15s.</p>
-          </div>
-          
-          {/* Raffle Info Strip */}
-          <div className="flex items-center justify-center md:justify-start gap-2 bg-ieee-light-blue/10 border border-ieee-light-blue/20 rounded-full px-4 py-1.5 text-sm text-ieee-blue w-fit mx-auto md:mx-0">
-            <Ticket className="w-4 h-4 shrink-0" />
-            <span className="font-medium">Raffle Entry</span>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button className="text-muted-foreground hover:text-foreground transition-colors outline-none cursor-pointer">
-                    <Info className="w-4 h-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs text-xs">
-                  <p className="font-semibold mb-1">Raffle Tickets Formula</p>
-                  <p className="mb-1 text-muted-foreground">Tickets = max(1, {settings.raffle_tickets_base} - {settings.raffle_tickets_decay} × (rank - 1))</p>
-                  <p className="text-muted-foreground">You need at least {settings.min_bets} bets to qualify for the prize draw.</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <p className="text-sm text-muted-foreground max-w-lg mx-auto md:mx-0">Ranked by tickets (tiebreak: more bets placed). Updates every 15s.</p>
+            <p className="text-xs text-muted-foreground/90 max-w-lg mx-auto md:mx-0 mt-2">
+              The grand prize is one random draw weighted by rank — #1 does not automatically win the voucher.
+            </p>
           </div>
         </div>
 
@@ -163,21 +136,19 @@ function LeaderboardPage() {
                   <h3 className="text-xl font-semibold mb-1 truncate pr-8">{myRow.display_name}</h3>
                   <div className="flex flex-wrap gap-4 mt-4">
                     <div>
-                      <p className="text-[10px] uppercase text-muted-foreground tracking-wider mb-0.5">Points</p>
+                      <p className="text-[10px] uppercase text-muted-foreground tracking-wider mb-0.5">Tickets</p>
                       <p className="font-mono font-bold text-lg text-ieee-blue">{myRow.balance.toLocaleString()}</p>
                     </div>
                     <div>
                       <p className="text-[10px] uppercase text-muted-foreground tracking-wider mb-0.5">Bets</p>
                       <p className="font-mono font-medium text-lg">{myRow.bets_count}</p>
                     </div>
-                    <div>
-                      <p className="text-[10px] uppercase text-muted-foreground tracking-wider mb-0.5">Tickets</p>
-                      <p className="font-mono font-medium text-lg flex items-center gap-1">
-                        {getTickets(myRow.rank, myRow.bets_count)}
-                        <Ticket className="w-3.5 h-3.5 text-muted-foreground" />
-                      </p>
-                    </div>
                   </div>
+                  {myRow.bets_count < settings.min_bets && (
+                    <p className="text-xs text-amber-500/90 mt-3 font-medium">
+                      Place {settings.min_bets - myRow.bets_count} more bet{settings.min_bets - myRow.bets_count === 1 ? '' : 's'} to enter the prize draw.
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="relative z-10 h-full flex flex-col justify-center">
@@ -207,8 +178,8 @@ function LeaderboardPage() {
                 <p className="text-[10px] uppercase text-muted-foreground tracking-wider mt-1">Bets Placed</p>
               </div>
               <div>
-                <p className="font-mono text-xl font-semibold text-ieee-blue truncate px-1">{totalPoints > 99999 ? (totalPoints/1000).toFixed(1)+'k' : totalPoints}</p>
-                <p className="text-[10px] uppercase text-muted-foreground tracking-wider mt-1">Pts in Play</p>
+                <p className="font-mono text-xl font-semibold text-ieee-blue truncate px-1">{totalTickets > 99999 ? `${(totalTickets / 1000).toFixed(1)}k` : totalTickets.toLocaleString()}</p>
+                <p className="text-[10px] uppercase text-muted-foreground tracking-wider mt-1">Tickets in play</p>
               </div>
             </div>
           </div>
@@ -242,12 +213,11 @@ function LeaderboardPage() {
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}
                     className="bg-card border border-border rounded-2xl overflow-hidden shadow-2xl"
                   >
-                    <div className="grid grid-cols-[3rem_1fr_4rem_6rem] sm:grid-cols-[4rem_1fr_6rem_8rem_6rem] gap-4 bg-muted/30 p-4 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    <div className="grid grid-cols-[3rem_1fr_5rem_5rem] gap-4 bg-muted/30 p-4 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       <div className="text-center">Rank</div>
                       <div>Player</div>
-                      <div className="text-right hidden sm:block">Tickets</div>
                       <div className="text-right">Bets</div>
-                      <div className="text-right pr-2">Points</div>
+                      <div className="text-right pr-2">Tickets</div>
                     </div>
                     <div className="divide-y divide-border/50">
                       {rest.map((row, i) => {
@@ -258,7 +228,7 @@ function LeaderboardPage() {
                             initial={{ opacity: 0, x: -10 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ duration: 0.3, delay: 0.7 + Math.min(i * 0.05, 0.5) }}
-                            className={`grid grid-cols-[3rem_1fr_4rem_6rem] sm:grid-cols-[4rem_1fr_6rem_8rem_6rem] gap-4 p-4 items-center transition-colors group ${
+                            className={`grid grid-cols-[3rem_1fr_5rem_5rem] gap-4 p-4 items-center transition-colors group ${
                               isMe ? 'bg-ieee-blue/10 border-l-2 border-l-ieee-blue' : 'hover:bg-muted/10'
                             }`}
                           >
@@ -270,10 +240,6 @@ function LeaderboardPage() {
                                 {row.display_name}
                               </span>
                               {isMe && <span className="shrink-0 text-[9px] uppercase font-bold tracking-wider text-white bg-ieee-blue px-1.5 py-0.5 rounded">You</span>}
-                            </div>
-                            <div className="text-right text-xs sm:text-sm text-muted-foreground hidden sm:flex justify-end items-center gap-1">
-                              {getTickets(row.rank, row.bets_count)}
-                              <Ticket className="w-3.5 h-3.5 opacity-70" />
                             </div>
                             <div className="text-right text-xs sm:text-sm text-muted-foreground">
                               {row.bets_count}

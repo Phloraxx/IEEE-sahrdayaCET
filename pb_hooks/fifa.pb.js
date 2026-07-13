@@ -65,12 +65,13 @@ function emitFeedEvent(type, userId, matchId, message) {
     return
 }
 
-// Returns a display name for a user record. Falls back to "Player <short-id>"
-// (last 4 of the user id) when display_name is empty — so multiple unset users
-// are distinguishable on the public leaderboard instead of all reading "Player".
+// Returns the player's public name: Google OAuth `name` on users (immutable),
+// then legacy display_name, then "Player <short-id>" so unset users differ.
 function displayName(user) {
-    var name = user.getString("display_name")
-    if (name) return name
+    var google = user.getString("name")
+    if (google) return google
+    var legacy = user.getString("display_name")
+    if (legacy) return legacy
     var shortId = user.id.length >= 4 ? user.id.slice(-4) : user.id
     return "Player " + shortId
 }
@@ -144,25 +145,51 @@ var voidMatchMarkets = function(matchId) {
 }
 
 // ─── Phase X: Google OAuth Display Name ─────────────────────────────────
-// Sets the display_name from the Google profile on first login.
+// Sets display_name from the Google profile at first sign-in (or backfills if
+// still empty on a later OAuth login). Names are not user-editable afterward.
 
 onRecordAuthWithOAuth2Request(function (e) {
-    if (!e.isNewRecord) { e.next(); return }
-
     var name = ""
     if (e.oAuth2User) {
-        // Check standard PB OAuth2 user fields
         name = e.oAuth2User.name || (e.oAuth2User.rawUser && e.oAuth2User.rawUser.name) || ""
     }
     if (!name) { e.next(); return }
 
     // e.record is null on first OAuth signup — use createData instead.
+    // Always mirror Google name into display_name so both fields stay aligned.
     if (e.record) {
-        if (!e.record.get("display_name")) {
-            e.record.set("display_name", name)
-        }
-    } else if (e.createData && !e.createData.display_name) {
+        e.record.set("display_name", name)
+    } else if (e.createData) {
         e.createData.display_name = name
+    }
+    e.next()
+}, "users")
+
+// Block self-service display_name changes — names come from Google OAuth only.
+onRecordUpdateRequest(function (e) {
+    var auth = null
+    try { auth = e.auth || (e.requestInfo && e.requestInfo.auth) || null } catch (ex) { auth = null }
+    var role = ""
+    if (auth) {
+        try {
+            if (auth.isSuperuser && auth.isSuperuser()) {
+                role = "admin"
+            } else {
+                role = auth.getString("role") || ""
+            }
+        } catch (ex) { role = "" }
+    }
+    if (role === "admin") { e.next(); return }
+    var oldRec = $app.findRecordById("users", e.record.id)
+    var oldDisplay = oldRec.getString("display_name") || ""
+    var newDisplay = e.record.getString("display_name") || ""
+    if (oldDisplay !== newDisplay) {
+        throw e.badRequestError("Display name cannot be changed")
+    }
+    var oldGoogle = oldRec.getString("name") || ""
+    var newGoogle = e.record.getString("name") || ""
+    if (oldGoogle !== newGoogle) {
+        throw e.badRequestError("Name cannot be changed")
     }
     e.next()
 }, "users")
@@ -669,8 +696,10 @@ routerAdd("GET", "/api/fifa/leaderboard", function (e) {
             try { return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (ex) { return null }
         }
         var _displayName = function(user) {
-            var name = user.getString("display_name")
-            if (name) return name
+            var google = user.getString("name")
+            if (google) return google
+            var legacy = user.getString("display_name")
+            if (legacy) return legacy
             var shortId = user.id.length >= 4 ? user.id.slice(-4) : user.id
             return "Player " + shortId
         }
@@ -748,19 +777,19 @@ routerAdd("GET", "/api/fifa/leaderboard", function (e) {
         // (FIFA-GAME.md §2.4, seeded by scripts/migrate-game-backfill.ts) —
         // keep it in sync with the /api/fifa/raffle draw route's own
         // no-settings behavior below.
-        var raffleBase = 50, raffleDecay = 2, minBets = 5
+        var minBets = 5
         if (settings) {
-            raffleBase = settings.getInt("raffle_tickets_base")
-            raffleDecay = settings.getInt("raffle_tickets_decay")
-            minBets = settings.getInt("raffle_active_participant_min_bets")
+            var minBetsRaw = settings.get("raffle_active_participant_min_bets")
+            if (minBetsRaw != null && minBetsRaw !== "") {
+                var parsed = settings.getInt("raffle_active_participant_min_bets")
+                if (parsed > 0) minBets = parsed
+            }
         }
-        return e.json(200, { 
-            leaderboard: ranked, 
-            settings: { 
-                raffle_tickets_base: raffleBase, 
-                raffle_tickets_decay: raffleDecay, 
-                min_bets: minBets 
-            } 
+        return e.json(200, {
+            leaderboard: ranked,
+            settings: {
+                min_bets: minBets
+            }
         })
     } catch (err) {
         console.log("[fifa] leaderboard route failed: " + err)
@@ -1691,8 +1720,10 @@ routerAdd("POST", "/api/fifa/raffle", function (e) {
 
     // Compute bets_count for each user, then sort by (balance, bets_count).
     var _displayName = function(user) {
-        var name = user.getString("display_name")
-        if (name) return name
+        var google = user.getString("name")
+        if (google) return google
+        var legacy = user.getString("display_name")
+        if (legacy) return legacy
         var shortId = user.id.length >= 4 ? user.id.slice(-4) : user.id
         return "Player " + shortId
     }
@@ -1925,7 +1956,31 @@ cronAdd("fifa-espn-sync", "*/2 * * * *", function () {
         if (!kickoffStr) return false
         var kickoffMs = new Date(kickoffStr).getTime()
         if (isNaN(kickoffMs)) return false
+        // Stale reconciliation: kickoff passed but status never left upcoming.
+        if (status === "upcoming" && nowMs > kickoffMs) return true
         return Math.abs(nowMs - kickoffMs) <= 2 * 60 * 60 * 1000
+    }
+    var _espnDateParam = function(dateMs) {
+        var d = new Date(dateMs)
+        if (isNaN(d.getTime())) return null
+        var y = d.getUTCFullYear()
+        var m = d.getUTCMonth() + 1
+        var day = d.getUTCDate()
+        return String(y) + (m < 10 ? "0" : "") + m + (day < 10 ? "0" : "") + day
+    }
+    var _espnDatesForPoll = function(matches, nowMs) {
+        var dates = {}
+        var today = _espnDateParam(nowMs)
+        if (today) dates[today] = true
+        for (var di = 0; di < matches.length; di++) {
+            var kstr = matches[di].getString("kickoff_at") || ""
+            if (!kstr) continue
+            var kparam = _espnDateParam(new Date(kstr).getTime())
+            if (kparam) dates[kparam] = true
+        }
+        var out = []
+        for (var key in dates) { if (dates.hasOwnProperty(key)) out.push(key) }
+        return out
     }
     var _buildSettlePayload = function(matchRec, ev) {
         var mh = _normalizeTeam(matchRec.getString("team_home"))
@@ -2330,31 +2385,118 @@ cronAdd("fifa-espn-sync", "*/2 * * * *", function () {
 
     if (pollMatches.length === 0 && !hasUnsettledFinished) { return }
 
-    // Fetch ESPN scoreboard (primary fifa.world, fallback fifa.worldq.uefa).
+    // Fetch ESPN scoreboard for today + each polled match's kickoff date.
     var espnEvents = []
+    var espnEventIds = {}
     var leagues = ["fifa.world", "fifa.worldq.uefa"]
-    for (var li = 0; li < leagues.length; li++) {
-        try {
-            var resp = $http.send({
-                url: "https://site.api.espn.com/apis/site/v2/sports/soccer/" + leagues[li] + "/scoreboard",
-                method: "GET",
-                headers: { "Accept": "application/json" },
-                timeout: 30,
-            })
-            if (resp.statusCode !== 200) { continue }
-            var body = resp.raw
-            if (!body) { continue }
-            var data = JSON.parse(body)
-            var rawEvents = data.events
-            if (!rawEvents || typeof rawEvents.length !== "number" || rawEvents.length === 0) { continue }
-            for (var ei = 0; ei < rawEvents.length; ei++) {
-                var parsed = _parseEspnEvent(rawEvents[ei])
-                if (parsed) espnEvents.push(parsed)
+    var pollDates = _espnDatesForPoll(pollMatches, nowMs)
+    for (var pdi = 0; pdi < pollDates.length; pdi++) {
+        var dateParam = pollDates[pdi]
+        for (var li = 0; li < leagues.length; li++) {
+            try {
+                var scoreboardUrl = "https://site.api.espn.com/apis/site/v2/sports/soccer/" + leagues[li] + "/scoreboard"
+                if (dateParam) scoreboardUrl += "?dates=" + dateParam
+                var resp = $http.send({
+                    url: scoreboardUrl,
+                    method: "GET",
+                    headers: { "Accept": "application/json" },
+                    timeout: 30,
+                })
+                if (resp.statusCode !== 200) { continue }
+                var body = resp.raw
+                if (!body) { continue }
+                var data = JSON.parse(body)
+                var rawEvents = data.events
+                if (!rawEvents || typeof rawEvents.length !== "number" || rawEvents.length === 0) { continue }
+                for (var ei = 0; ei < rawEvents.length; ei++) {
+                    var parsed = _parseEspnEvent(rawEvents[ei])
+                    if (parsed && parsed.id && !espnEventIds[parsed.id]) {
+                        espnEventIds[parsed.id] = true
+                        espnEvents.push(parsed)
+                    }
+                }
+                if (espnEvents.length > 0) { break }
+            } catch (ex) {
+                console.log("[fifa] espn-sync: fetch failed for " + leagues[li] + " dates=" + dateParam + ": " + ex)
             }
-            if (espnEvents.length > 0) { break }
-        } catch (ex) {
-            console.log("[fifa] espn-sync: fetch failed for " + leagues[li] + ": " + ex)
         }
+    }
+
+    // Merge mock ESPN events (external_ids.mock === true) for test matches.
+    var _mockResolvePhase = function (kickoffAt, endAt, nowMs) {
+        var kickoff = new Date(kickoffAt).getTime()
+        var end = new Date(endAt).getTime()
+        if (isNaN(kickoff) || isNaN(end)) return "pre"
+        if (nowMs < kickoff) return "pre"
+        if (nowMs >= end) return "post"
+        return "in"
+    }
+    var _mockResolveMinute = function (kickoffAt, endAt, nowMs) {
+        var phase = _mockResolvePhase(kickoffAt, endAt, nowMs)
+        if (phase !== "in") return null
+        var kickoff = new Date(kickoffAt).getTime()
+        var end = new Date(endAt).getTime()
+        var total = end - kickoff
+        if (total <= 0) return 0
+        var ratio = (nowMs - kickoff) / total
+        if (ratio < 0) ratio = 0
+        if (ratio > 1) ratio = 1
+        var min = Math.floor(ratio * 90) + 1
+        return min > 95 ? 95 : min
+    }
+    var _mockBuildRawEvent = function (rec, cfg, nowMs) {
+        var phase = _mockResolvePhase(cfg.kickoff_at, cfg.end_at, nowMs)
+        var minute = _mockResolveMinute(cfg.kickoff_at, cfg.end_at, nowMs)
+        var state = phase === "pre" ? "pre" : (phase === "in" ? "in" : "post")
+        var statusName = "STATUS_SCHEDULED"
+        if (phase === "post") statusName = "STATUS_FULL_TIME"
+        else if (phase === "in" && minute !== null && minute > 45) statusName = "STATUS_SECOND_HALF"
+        else if (phase === "in") statusName = "STATUS_FIRST_HALF"
+        var homeGoals = cfg.home_goals
+        var awayGoals = cfg.away_goals
+        if (phase === "in") {
+            homeGoals = cfg.live_home_goals !== undefined && cfg.live_home_goals !== null ? cfg.live_home_goals : cfg.home_goals
+            awayGoals = cfg.live_away_goals !== undefined && cfg.live_away_goals !== null ? cfg.live_away_goals : cfg.away_goals
+        }
+        var ext = _parseJsonField(rec.get("external_ids")) || {}
+        var espnId = ext.espn ? String(ext.espn) : ("mock-" + rec.id)
+        var home = rec.getString("team_home") || "Home"
+        var away = rec.getString("team_away") || "Away"
+        var homeWon = phase === "post" && Number(homeGoals) > Number(awayGoals)
+        var awayWon = phase === "post" && Number(awayGoals) > Number(homeGoals)
+        var compStatus = { type: { state: state, name: statusName } }
+        if (phase === "in" && minute !== null) compStatus.clock = minute * 60
+        var homeComp = { homeAway: "home", team: { displayName: home, name: home } }
+        var awayComp = { homeAway: "away", team: { displayName: away, name: away } }
+        if (phase !== "pre") {
+            homeComp.score = String(homeGoals)
+            awayComp.score = String(awayGoals)
+        }
+        if (phase === "post") {
+            homeComp.winner = homeWon
+            awayComp.winner = awayWon
+        }
+        return {
+            id: espnId,
+            date: cfg.kickoff_at,
+            status: { type: { state: state, name: statusName } },
+            competitions: [{ date: cfg.kickoff_at, status: compStatus, competitors: [homeComp, awayComp] }],
+        }
+    }
+    try {
+        var mockRecords = $app.findRecordsByFilter("fifa_matches", "1 = 1", "kickoff_at", 500, 0, {})
+        for (var mmi = 0; mmi < mockRecords.length; mmi++) {
+            var mrec = mockRecords[mmi]
+            var mext = _parseJsonField(mrec.get("external_ids")) || {}
+            if (!mext.mock) continue
+            var mcfg = mext.mock_config
+            if (!mcfg || !mcfg.kickoff_at || !mcfg.end_at) continue
+            var mraw = _mockBuildRawEvent(mrec, mcfg, nowMs)
+            var mparsed = _parseEspnEvent(mraw)
+            if (mparsed) espnEvents.push(mparsed)
+        }
+    } catch (mockErr) {
+        console.log("[fifa] espn-sync: mock merge failed: " + mockErr)
     }
 
     // Apply ESPN lifecycle transitions for polled matches.

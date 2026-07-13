@@ -29,6 +29,9 @@ const MIME_TYPES = {
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',
   '.ttf': 'font/ttf',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.mov': 'video/quicktime',
 };
 
 async function main() {
@@ -42,7 +45,7 @@ const SECURITY_HEADERS = {
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-  'Content-Security-Policy': "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' data: https:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' https://*.pocketbase.io https://*.ieeesahrdaya.com https://accounts.google.com https://site.api.espn.com https://api.football-data.org https://raw.githubusercontent.com; frame-src https://accounts.google.com",
+  'Content-Security-Policy': "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; media-src 'self'; img-src 'self' data: https:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' https://*.pocketbase.io https://*.ieeesahrdaya.com https://accounts.google.com https://site.api.espn.com https://api.football-data.org https://raw.githubusercontent.com; frame-src https://accounts.google.com",
 };
 
 function addSecurityHeaders(res) {
@@ -222,16 +225,6 @@ function wrapHandlerWithSecurityHeaders(handler) {
   server.listen(PORT, () => {
     console.log(`IEEE Sahrdaya app listening on port ${PORT}`);
   });
-
-  // Graceful restart every 25 minutes to prevent TanStack Start router
-  // singleton state corruption (causes 307 redirect loops after ~30 min).
-  // Docker's restart: unless-stopped policy brings the process back in <2s.
-  const RESTART_INTERVAL_MS = 25 * 60 * 1000;
-  const jitter = Math.floor(Math.random() * 5 * 60 * 1000); // 0-5 min jitter
-  setTimeout(() => {
-    console.log(`Scheduled restart after ${Math.round((RESTART_INTERVAL_MS + jitter) / 60000)} min — closing gracefully...`);
-    server.close(() => process.exit(0));
-  }, RESTART_INTERVAL_MS + jitter);
 
   process.on('SIGTERM', () => {
     console.log('SIGTERM received — closing gracefully...');

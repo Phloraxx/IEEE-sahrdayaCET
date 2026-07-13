@@ -4,6 +4,7 @@ import { escapeFilterValue } from "@/lib/pb";
 import { requireAuth } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 import { getField, getExpand } from "@/lib/safe-get";
+import { userDisplayName } from "@/lib/user-display-name";
 
 // Authed: the player's own dashboard — balance, display_name, recent bets,
 // and recent transactions. Polled every ~10s by the client.
@@ -19,22 +20,33 @@ export const Route = createFileRoute("/api/fifa/dashboard")({
           // (the auth record from requireAuth may be stale by up to authRefresh
           // interval).
           const userRec = await pb.collection("users").getOne(user.id, {
-            fields: "id,display_name,balance,email",
+            fields: "id,name,display_name,balance,email",
           });
 
-          const [bets, transactions] = await Promise.all([
+          const userIdFilter = escapeFilterValue(user.id)
+          const [bets, transactions, countPage, statusPage] = await Promise.all([
             pb.collection("fifa_bets").getList(1, 20, {
-              filter: `user = ${escapeFilterValue(user.id)}`,
+              filter: `user = ${userIdFilter}`,
               sort: "-placed_at",
               expand: "match,market",
               fields: "id,selection,stake,mode,odds_locked,status,payout,placed_at,match,market,expand",
             }),
             pb.collection("fifa_transactions").getList(1, 30, {
-              filter: `user = ${escapeFilterValue(user.id)}`,
+              filter: `user = ${userIdFilter}`,
               sort: "-timestamp",
               fields: "id,type,amount,balance_after,note,timestamp",
             }),
+            pb.collection("fifa_bets").getList(1, 1, {
+              filter: `user = ${userIdFilter} && status != 'void'`,
+              fields: "id",
+            }),
+            pb.collection("fifa_bets").getList(1, 100, {
+              filter: `user = ${userIdFilter}`,
+              sort: "-placed_at",
+              fields: "id,status",
+            }),
           ]);
+          const validBetsCount = countPage.totalItems ?? 0;
 
           let maxBetPercent = 25;
           try {
@@ -47,11 +59,19 @@ export const Route = createFileRoute("/api/fifa/dashboard")({
           return Response.json({
             user: {
               id: getField(userRec, 'id', ''),
-              display_name: getField(userRec, 'display_name', ''),
+              display_name: userDisplayName({
+                name: getField(userRec, 'name', ''),
+                display_name: getField(userRec, 'display_name', ''),
+              }),
               balance: getField(userRec, 'balance', 0),
               email: getField(userRec, 'email', ''),
             },
             max_bet_percent: maxBetPercent,
+            valid_bets_count: validBetsCount,
+            bet_statuses: statusPage.items.map((b) => ({
+              id: getField(b, 'id', ''),
+              status: getField(b, 'status', 'pending'),
+            })),
             bets: bets.items.map((b) => {
               const expand = getExpand(b);
               return {

@@ -1,10 +1,10 @@
 import { Link } from '@tanstack/react-router'
 import {
   flagUrl,
-  getMatchCardAsset,
   getStageColor,
   getStageLabel,
-  teamShortName,
+  normalizeTeamDisplayName,
+  resolveMatchCardAsset,
 } from '@/lib/fifa-assets'
 import { findLiveMatch, isLiveStatus } from '@/lib/fifa-live-match'
 import type { LiveScoreMatch } from '@/lib/fifa-live-match'
@@ -18,6 +18,8 @@ export interface FifaMatchCardData {
   status: string
   settled?: boolean
   markets?: Array<{ is_open: boolean; void: boolean }>
+  background_image_url?: string | null
+  background_position?: string | null
 }
 
 function fmtDay(d: Date) {
@@ -58,7 +60,10 @@ export function FifaMatchCard({
 }) {
   const kickoff = new Date(match.kickoff_at)
   const day = fmtDay(kickoff)
-  const asset = getMatchCardAsset(match.team_home, match.team_away, match.stage)
+  const asset = resolveMatchCardAsset(match.team_home, match.team_away, match.stage, {
+    imageUrl: match.background_image_url,
+    position: match.background_position,
+  })
   const stageColor = getStageColor(match.stage)
 
   const liveMatch = liveConfigured
@@ -71,7 +76,7 @@ export function FifaMatchCard({
     <Link
       to="/FIFA/matches/$id/"
       params={{ id: match.id }}
-      className={`group relative flex h-[238px] w-[318px] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-[14px] p-4 shadow-[0_1px_0_rgba(255,255,255,.04)_inset] transition-[transform,box-shadow] duration-300 hover:-translate-y-[7px] hover:shadow-[0_22px_40px_rgba(0,0,0,.5)] ${className}`}
+      className={`group relative flex h-[238px] w-[min(318px,calc(100vw-2.5rem))] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-[14px] p-4 shadow-[0_1px_0_rgba(255,255,255,.04)_inset] transition-[transform,box-shadow] duration-300 hover:-translate-y-[7px] hover:shadow-[0_22px_40px_rgba(0,0,0,.5)] ${className}`}
       style={{ background: '#101823' }}
     >
       <div
@@ -98,8 +103,9 @@ export function FifaMatchCard({
       <div
         className="absolute inset-0"
         style={{
-          background:
-            'linear-gradient(180deg, rgba(0,0,0,.62) 0%, rgba(0,0,0,.06) 30%, rgba(0,0,0,.15) 55%, rgba(0,0,0,.92) 100%)',
+          background: asset.isFallback
+            ? 'linear-gradient(180deg, rgba(0,0,0,.62) 0%, rgba(0,0,0,.06) 30%, rgba(0,0,0,.15) 55%, rgba(0,0,0,.92) 100%)'
+            : 'linear-gradient(180deg, rgba(0,0,0,.45) 0%, rgba(0,0,0,.08) 35%, rgba(0,0,0,.2) 60%, rgba(0,0,0,.88) 100%)',
         }}
       />
       <div
@@ -136,8 +142,8 @@ export function FifaMatchCard({
         <div className="mb-2.5 flex flex-col gap-1.5">
           <div className="flex items-center gap-2">
             <FlagImg team={match.team_home} />
-            <span className="font-display text-[19px] leading-none tracking-[-0.01em] text-white uppercase shadow-[0_2px_10px_rgba(0,0,0,.7)]">
-              {teamShortName(match.team_home)}
+            <span className="font-display truncate text-[19px] leading-none tracking-[-0.01em] text-white shadow-[0_2px_10px_rgba(0,0,0,.7)]">
+              {normalizeTeamDisplayName(match.team_home)}
             </span>
           </div>
           <span className="ml-[35px] font-mono text-[9.5px] font-bold tracking-[0.18em] text-white/55">
@@ -145,13 +151,15 @@ export function FifaMatchCard({
           </span>
           <div className="flex items-center gap-2">
             <FlagImg team={match.team_away} />
-            <span className="font-display text-[19px] leading-none tracking-[-0.01em] text-white uppercase shadow-[0_2px_10px_rgba(0,0,0,.7)]">
-              {teamShortName(match.team_away)}
+            <span className="font-display truncate text-[19px] leading-none tracking-[-0.01em] text-white shadow-[0_2px_10px_rgba(0,0,0,.7)]">
+              {normalizeTeamDisplayName(match.team_away)}
             </span>
           </div>
         </div>
-        <div className="flex items-center justify-between gap-1 border-t border-white/18 pt-2 text-[11.5px] text-white/82 shadow-[0_1px_4px_rgba(0,0,0,.6)]">
-          <span className="truncate font-semibold text-white">{fmtTime(kickoff)}</span>
+        <div className="flex min-w-0 items-center justify-between gap-2 border-t border-white/18 pt-2 text-[11.5px] text-white/82 shadow-[0_1px_4px_rgba(0,0,0,.6)]">
+          <span className="min-w-0 truncate font-mono text-[11px] font-semibold tabular-nums text-white sm:text-[11.5px]">
+            {fmtTime(kickoff)}
+          </span>
           {openMarkets > 0 && (
             <span className="shrink-0 font-mono text-[10px] text-ieee-light-blue">
               {openMarkets} open
@@ -165,6 +173,6 @@ export function FifaMatchCard({
 
 export function FifaMatchCardSkeleton({ className = '' }: { className?: string }) {
   return (
-    <div className={`h-[238px] w-[318px] shrink-0 animate-pulse rounded-[14px] bg-[#131519] ${className}`} />
+    <div className={`h-[238px] w-[min(318px,calc(100vw-2.5rem))] shrink-0 animate-pulse rounded-[14px] bg-[#131519] ${className}`} />
   )
 }

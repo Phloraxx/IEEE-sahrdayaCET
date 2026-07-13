@@ -418,7 +418,7 @@ function SettleSection({ match }: { match: MatchRow }) {
         <div className="rounded-lg border bg-card p-4 text-sm">
           <p className="font-medium mb-2">Match settled</p>
           <p className="text-muted-foreground">
-            90-min: {String(match.result_winner || '—')} · {match.result_home_goals ?? 0}-{match.result_away_goals ?? 0}
+            90-min: {match.result_winner === 'home' ? match.team_home : match.result_winner === 'away' ? match.team_away : match.result_winner || '—'} · {match.result_home_goals ?? 0}-{match.result_away_goals ?? 0}
             {match.result_advance && <span className="ml-2">· Advanced: {match.result_advance}</span>}
             {match.result_after_penalties && <span className="ml-2">(Pens)</span>}
             {match.result_after_extra_time && !match.result_after_penalties && <span className="ml-2">(AET)</span>}
@@ -438,12 +438,27 @@ function SettleSection({ match }: { match: MatchRow }) {
           <strong>Warning:</strong> This match will be automatically settled via ESPN sync at {new Date(match.auto_settle_at).toLocaleString()}. Manual settlement will override the auto-sync.
         </div>
       )}
-      <SettleForm matchId={match.id} stage={match.stage} />
+      <SettleForm
+        matchId={match.id}
+        stage={match.stage}
+        teamHome={match.team_home}
+        teamAway={match.team_away}
+      />
     </section>
   )
 }
 
-function SettleForm({ matchId, stage }: { matchId: string, stage: string }) {
+function SettleForm({
+  matchId,
+  stage,
+  teamHome,
+  teamAway,
+}: {
+  matchId: string
+  stage: string
+  teamHome: string
+  teamAway: string
+}) {
   const queryClient = useQueryClient()
 
   const { data: marketsData } = useQuery({ 
@@ -518,7 +533,7 @@ function SettleForm({ matchId, stage }: { matchId: string, stage: string }) {
       if (data.partial) {
         toast.warning(`Partial settlement: ${data.pendingRemaining} bets remain pending`)
       } else {
-        toast.success(`Settled — ${data.settledCount} bets processed, ${data.totalPayout} pts paid out`)
+        toast.success(`Settled — ${data.settledCount} bets processed, ${data.totalPayout} tickets paid out`)
       }
       queryClient.invalidateQueries({ queryKey: ['admin-fifa-matches'] })
       queryClient.invalidateQueries({ queryKey: ['admin-fifa-markets', matchId] })
@@ -536,8 +551,8 @@ function SettleForm({ matchId, stage }: { matchId: string, stage: string }) {
           <Select value={form.result_winner} onValueChange={(v) => setForm({ ...form, result_winner: v, result_advance: v !== 'draw' ? v : form.result_advance })}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="home">Home win</SelectItem>
-              <SelectItem value="away">Away win</SelectItem>
+              <SelectItem value="home">{teamHome} win</SelectItem>
+              <SelectItem value="away">{teamAway} win</SelectItem>
               <SelectItem value="draw">Draw</SelectItem>
             </SelectContent>
           </Select>
@@ -549,8 +564,8 @@ function SettleForm({ matchId, stage }: { matchId: string, stage: string }) {
             <Select value={form.result_advance} onValueChange={(v) => setForm({ ...form, result_advance: v })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="home">Home</SelectItem>
-                <SelectItem value="away">Away</SelectItem>
+                <SelectItem value="home">{teamHome}</SelectItem>
+                <SelectItem value="away">{teamAway}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -559,11 +574,11 @@ function SettleForm({ matchId, stage }: { matchId: string, stage: string }) {
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <Label>Home goals (90 min)</Label>
+          <Label>{teamHome} goals (90 min)</Label>
           <Input type="number" min={0} value={form.result_home_goals} onChange={(e) => setForm({ ...form, result_home_goals: Number(e.target.value) })} />
         </div>
         <div>
-          <Label>Away goals (90 min)</Label>
+          <Label>{teamAway} goals (90 min)</Label>
           <Input type="number" min={0} value={form.result_away_goals} onChange={(e) => setForm({ ...form, result_away_goals: Number(e.target.value) })} />
         </div>
       </div>
@@ -587,11 +602,11 @@ function SettleForm({ matchId, stage }: { matchId: string, stage: string }) {
       <div className="grid grid-cols-2 gap-4">
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={form.result_home_clean_sheet} onChange={(e) => setForm({ ...form, result_home_clean_sheet: e.target.checked })} />
-          Home clean sheet
+          {teamHome} clean sheet
         </label>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={form.result_away_clean_sheet} onChange={(e) => setForm({ ...form, result_away_clean_sheet: e.target.checked })} />
-          Away clean sheet
+          {teamAway} clean sheet
         </label>
       </div>
 

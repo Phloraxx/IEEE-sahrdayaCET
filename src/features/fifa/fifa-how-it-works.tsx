@@ -22,7 +22,7 @@ export function FifaHowItWorks({ startingBalance, maxBetPercent, raffleMinBets }
       title: 'How to place a bet',
       text: (
         <>
-          Log in with your college Google account to get <strong className="text-[#f5f5f5]">{startingBalance} points</strong> to start. Pick an upcoming match and choose a market. Enter your stake (maximum <strong className="text-[#f5f5f5]">{maxBetPercent}%</strong> of your balance). Points are deducted immediately.
+          Log in with your college Google account to get <strong className="text-[#f5f5f5]">{startingBalance} tickets</strong> to start. Pick an upcoming match and choose a market. Enter your stake (maximum <strong className="text-[#f5f5f5]">{maxBetPercent}%</strong> of your tickets). Tickets are deducted immediately.
         </>
       ),
     },
@@ -31,25 +31,25 @@ export function FifaHowItWorks({ startingBalance, maxBetPercent, raffleMinBets }
       title: 'Pool vs Fixed Odds',
       text: (
         <>
-          <strong className="text-[#f5f5f5]">Pool markets:</strong> You bet against other students. The total pool is split proportionally among winners. <strong className="text-[#f5f5f5]">Fixed markets:</strong> The payout multiplier is set upfront, so you know exactly what you'll win.
+          <strong className="text-[#f5f5f5]">Pool markets:</strong> You bet against other students. Winners split the pot. If nobody picked the winning outcome, everyone gets refunded. <strong className="text-[#f5f5f5]">Fixed markets:</strong> The payout multiplier is set upfront — wrong picks lose their stake.
         </>
       ),
     },
     {
       num: '04',
-      title: 'How you win points',
+      title: 'Win or lose tickets',
       text: (
         <>
-          A correct prediction automatically lands the payout in your balance after the match settles. A wrong prediction loses the stake. If a market is voided, your full stake is refunded.
+          A correct prediction pays out tickets after settlement. A wrong pick loses the stake. Refunds (shown as &apos;Refunded&apos; on your dashboard) happen when a pool has no winner or a market is voided — you get your full stake back.
         </>
       ),
     },
     {
       num: '05',
-      title: 'The Raffle',
+      title: 'Prize draw',
       text: (
         <>
-          At the end of the tournament, a prize raffle is drawn. Higher leaderboard rank = more raffle tickets. You need at least <strong className="text-[#f5f5f5]">{raffleMinBets} bets</strong> placed to be eligible, but every active participant gets at least 1 ticket!
+          At the end of the tournament, one sponsor voucher is awarded via a random draw weighted by leaderboard rank. You need at least <strong className="text-[#f5f5f5]">{raffleMinBets} bets</strong> to be eligible. <strong className="text-[#f5f5f5]">#1 does not automatically win.</strong>
         </>
       ),
     },

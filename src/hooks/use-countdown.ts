@@ -21,8 +21,13 @@ function compute(targetMs: number): CountdownParts {
   }
 }
 
-export function formatCountdown(parts: CountdownParts): string {
+export function formatCountdown(parts: CountdownParts, compact = false): string {
   if (parts.expired) return 'Kickoff now'
+  if (compact) {
+    if (parts.days > 0) return `${parts.days}d ${parts.hours}h ${parts.minutes}m`
+    if (parts.hours > 0) return `${parts.hours}h ${parts.minutes}m ${parts.seconds}s`
+    return `${parts.minutes}m ${parts.seconds}s`
+  }
   return `Kicks off in ${parts.days}d ${parts.hours}h ${parts.minutes}m ${parts.seconds}s`
 }
 

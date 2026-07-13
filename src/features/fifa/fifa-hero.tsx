@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { flagUrl, getStageLabel } from '@/lib/fifa-assets'
@@ -21,6 +21,10 @@ interface FifaHeroProps {
   prize?: string
 }
 
+const HERO_POSTER = '/fifa/hero-poster.jpg'
+// #t=0.001 nudges iOS Safari to decode the first frame for inline autoplay.
+const HERO_VIDEO = '/fifa/worldcup26-hero.mp4#t=0.001'
+
 async function fetchLiveScores() {
   const res = await fetch('/api/fifa/live-scores')
   if (!res.ok) return { matches: [], configured: false }
@@ -40,39 +44,92 @@ function FlagImg({ team }: { team: string }) {
   )
 }
 
-function useHeroVideoAutoplay() {
+function configureIosInlineVideo(video: HTMLVideoElement) {
+  video.muted = true
+  video.defaultMuted = true
+  video.volume = 0
+  video.setAttribute('muted', '')
+  video.setAttribute('playsinline', '')
+  video.setAttribute('webkit-playsinline', 'true')
+  video.setAttribute('disableRemotePlayback', '')
+}
+
+function useHeroVideoAutoplay(enabled: boolean, onHardError: () => void) {
   const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
+    if (!enabled) return
     const video = videoRef.current
     if (!video) return
 
-    const play = () => {
-      if (video.paused) void video.play().catch(() => {})
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      onHardError()
+      return
     }
 
+    configureIosInlineVideo(video)
+
+    const play = () => {
+      configureIosInlineVideo(video)
+      // iOS often rejects the first autoplay attempt — keep the element mounted
+      // and retry on touch/scroll instead of falling back to a static poster.
+      void video.play().catch(() => {})
+    }
+
+    const onError = () => onHardError()
+
     play()
+    video.addEventListener('loadedmetadata', play)
     video.addEventListener('loadeddata', play)
     video.addEventListener('canplay', play)
+    video.addEventListener('error', onError)
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) play()
+      },
+      { threshold: 0.1 },
+    )
+    observer.observe(video)
 
     const onVisibility = () => {
       if (!document.hidden) play()
     }
     document.addEventListener('visibilitychange', onVisibility)
 
+    const unlock = () => play()
+    document.addEventListener('touchstart', unlock, { capture: true, passive: true })
+    document.addEventListener('touchend', unlock, { capture: true, passive: true })
+    document.addEventListener('scroll', unlock, { capture: true, passive: true })
+    window.addEventListener('pageshow', unlock)
+
     return () => {
+      observer.disconnect()
+      video.removeEventListener('loadedmetadata', play)
       video.removeEventListener('loadeddata', play)
       video.removeEventListener('canplay', play)
+      video.removeEventListener('error', onError)
       document.removeEventListener('visibilitychange', onVisibility)
+      document.removeEventListener('touchstart', unlock, true)
+      document.removeEventListener('touchend', unlock, true)
+      document.removeEventListener('scroll', unlock, true)
+      window.removeEventListener('pageshow', unlock)
     }
-  }, [])
+  }, [enabled, onHardError])
 
   return videoRef
 }
 
 export function FifaHero({ nextMatch, startingBalance, prize }: FifaHeroProps) {
-  const videoRef = useHeroVideoAutoplay()
+  const [mounted, setMounted] = useState(false)
+  const [videoFailed, setVideoFailed] = useState(false)
+  const onVideoHardError = useCallback(() => setVideoFailed(true), [])
+  const videoRef = useHeroVideoAutoplay(mounted && !videoFailed, onVideoHardError)
   const countdown = useCountdown(nextMatch?.kickoff_at)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const { data: liveData } = useQuery({
     queryKey: ['fifa-live-scores'],
@@ -106,25 +163,23 @@ export function FifaHero({ nextMatch, startingBalance, prize }: FifaHeroProps) {
           <FlagImg team={nextMatch.team_away} />
           <span className="truncate">{nextMatch.team_away}</span>
         </div>
-        <div className="mt-1 flex items-center gap-2 text-xs whitespace-nowrap text-[#9a9aa2]">
-          <span>{getStageLabel(nextMatch.stage)}</span>
+        <div className="mt-1 flex min-w-0 flex-col gap-0.5 text-xs text-[#9a9aa2] sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-0.5">
+          <span className="shrink-0 font-medium">{getStageLabel(nextMatch.stage)}</span>
           {showLive ? (
-            <>
-              <span className="h-[3px] w-[3px] rounded-full bg-[#c9c3b8]" />
-              <span className="font-mono font-semibold text-ieee-danger tabular-nums">
-                {liveMatch!.homeGoals ?? 0} – {liveMatch!.awayGoals ?? 0}
-              </span>
-            </>
+            <span className="min-w-0 font-mono font-semibold text-ieee-danger tabular-nums">
+              {liveMatch!.homeGoals ?? 0} – {liveMatch!.awayGoals ?? 0}
+            </span>
           ) : countdown ? (
             <>
-              <span className="h-[3px] w-[3px] rounded-full bg-[#c9c3b8]" />
-              <span className="font-mono font-semibold text-ieee-blue tabular-nums">
+              <span className="min-w-0 truncate font-mono font-semibold text-ieee-blue tabular-nums sm:hidden">
+                {formatCountdown(countdown, true)}
+              </span>
+              <span className="hidden min-w-0 truncate font-mono font-semibold text-ieee-blue tabular-nums sm:inline">
                 {formatCountdown(countdown)}
               </span>
             </>
           ) : null}
-          <span className="h-[3px] w-[3px] rounded-full bg-[#c9c3b8]" />
-          <span className="font-mono font-semibold text-ieee-light-blue">
+          <span className="shrink-0 font-mono font-semibold text-ieee-light-blue">
             {nextMatch.openMarkets} market{nextMatch.openMarkets === 1 ? '' : 's'} open
           </span>
         </div>
@@ -140,20 +195,29 @@ export function FifaHero({ nextMatch, startingBalance, prize }: FifaHeroProps) {
   )
 
   return (
-    <header className="relative min-h-[85svh] w-full overflow-hidden bg-black md:min-h-svh">
-      <video
-        ref={videoRef}
-        autoPlay
-        muted
-        loop
-        playsInline
-        preload="auto"
-        poster="/fifa/hero-poster.jpg"
-        aria-hidden
-        className="absolute inset-0 h-full w-full object-cover saturate-[1.05] contrast-[1.03]"
-      >
-        <source src="/fifa/worldcup26-hero.mp4" type="video/mp4" />
-      </video>
+    <header
+      className="relative min-h-[85svh] w-full overflow-hidden bg-black md:min-h-svh"
+      style={{
+        backgroundImage: `url("${HERO_POSTER}")`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
+      {mounted && !videoFailed && (
+        <video
+          ref={videoRef}
+          src={HERO_VIDEO}
+          autoPlay
+          muted
+          defaultMuted
+          loop
+          playsInline
+          preload="auto"
+          poster={HERO_POSTER}
+          aria-hidden
+          className="absolute inset-0 h-full w-full object-cover saturate-[1.05] contrast-[1.03]"
+        />
+      )}
 
       <div
         className="pointer-events-none absolute inset-0 z-[1]"
@@ -190,8 +254,7 @@ export function FifaHero({ nextMatch, startingBalance, prize }: FifaHeroProps) {
             </p>
             <div className="mt-[18px] inline-flex items-center gap-2 rounded-full border border-white/22 bg-white/12 px-[14px] py-2 text-xs font-semibold tracking-[0.02em] text-white backdrop-blur-[10px]">
               Free to play ·{' '}
-              <b className="font-extrabold text-ieee-light-blue">{startingBalance} pts</b> to
-              start
+              <b className="font-extrabold text-ieee-light-blue">{startingBalance} tickets</b> to start
               {prize ? (
                 <>
                   {' '}
@@ -207,12 +270,12 @@ export function FifaHero({ nextMatch, startingBalance, prize }: FifaHeroProps) {
             <Link
               to="/FIFA/matches/$id/"
               params={{ id: nextMatch.id }}
-              className="flex w-full min-h-[44px] max-w-[560px] shrink-0 items-center gap-[18px] rounded-2xl bg-white/[0.97] px-[22px] py-[18px] text-[#0a0a0b] shadow-[0_24px_60px_rgba(0,20,40,.35)] backdrop-blur-[14px] transition-transform hover:-translate-y-0.5 md:w-auto"
+              className="flex w-full min-h-[44px] max-w-[560px] shrink-0 items-center gap-[18px] overflow-hidden rounded-2xl bg-white/[0.97] px-[22px] py-[18px] text-[#0a0a0b] shadow-[0_24px_60px_rgba(0,20,40,.35)] backdrop-blur-[14px] transition-transform hover:-translate-y-0.5 md:w-auto"
             >
               {cardContent}
             </Link>
           ) : (
-            <div className="flex w-full max-w-[560px] items-center gap-[18px] rounded-2xl bg-white/[0.97] px-[22px] py-[18px] shadow-[0_24px_60px_rgba(0,20,40,.35)]">
+            <div className="flex w-full max-w-[560px] items-center gap-[18px] overflow-hidden rounded-2xl bg-white/[0.97] px-[22px] py-[18px] shadow-[0_24px_60px_rgba(0,20,40,.35)]">
               {cardContent}
             </div>
           )}

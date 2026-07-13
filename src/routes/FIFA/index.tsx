@@ -10,6 +10,7 @@ import { FifaStatsStrip } from '@/features/fifa/fifa-stats-strip'
 import { FifaHowItWorks } from '@/features/fifa/fifa-how-it-works'
 import { FifaLeaderboardPreview } from '@/features/fifa/fifa-leaderboard-preview'
 import { FifaCtaBand } from '@/features/fifa/fifa-cta-band'
+import { filterPublicActiveFifaMatches } from '@/lib/fifa-match-filters'
 
 interface OverviewData {
   prize: string
@@ -50,12 +51,15 @@ const fetchOverview = createServerFn().handler(async (): Promise<OverviewData> =
       fields: 'id,team_home,team_away,stage,kickoff_at,status',
       perPage: 50,
     })
-    // Skip test matches created by the admin testing console (team_home
-    // starts with "Test"). At ~20 rows this client-side filter is cheap.
-    const realMatch = upcoming.find((mu) => {
-      const h = String(getField(mu, 'team_home', '')).toLowerCase()
-      return !h.startsWith('test')
-    })
+    const active = filterPublicActiveFifaMatches(
+      upcoming.map((mu) => ({
+        ...mu,
+        team_home: getField(mu, 'team_home', ''),
+        status: getField(mu, 'status', 'upcoming'),
+        kickoff_at: getField(mu, 'kickoff_at', ''),
+      })),
+    )
+    const realMatch = active[0]
     if (realMatch) {
       const matchId = getField(realMatch, 'id', '')
       let openMarkets = 0
@@ -100,7 +104,7 @@ export const Route = createFileRoute('/FIFA/')({
       {
         name: 'description',
         content:
-          'Free-to-enter FIFA World Cup prediction game. Bet fake points, climb the leaderboard, win a sponsor voucher.',
+          'Free-to-enter FIFA World Cup prediction game. Bet fake tickets, climb the leaderboard, win a sponsor voucher.',
       },
     ],
   }),

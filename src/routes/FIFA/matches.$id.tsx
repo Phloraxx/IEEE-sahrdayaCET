@@ -11,8 +11,18 @@ import { usePbSubscription } from '@/hooks/use-pb-subscription'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 import { FIFA_MARKET_LABELS, FIFA_MARKET_BLURBS } from '@/schemas/fifa'
-import { getMatchCardAsset, getStageColor } from '@/lib/fifa-assets'
-import { formatDateTime } from '@/lib/dates'
+import { getSettledMarketStatus, type SettledMarketStatus } from '@/lib/fifa-market-result'
+import {
+  formatMarketOptionLabel,
+  formatOuLineSummary,
+  formatOuMarketBlurb,
+  isOuMarket,
+} from '@/lib/fifa-market-labels'
+import { getStageColor, resolveMatchCardAsset } from '@/lib/fifa-assets'
+import { resolveMatchBackground } from '@/lib/fifa-match-backgrounds'
+import { DEFAULT_FIFA_LEADERBOARD_SETTINGS } from '@/lib/fifa-leaderboard'
+import { fetchFifaDashboard, FifaDashboardAuthError } from '@/lib/fifa-dashboard-client'
+import { formatKickoffParts } from '@/lib/dates'
 import { AlertCircle, ChevronLeft } from 'lucide-react'
 
 interface MatchDetail {
@@ -30,6 +40,8 @@ interface MatchDetail {
   result_after_extra_time: boolean
   result_after_penalties: boolean
   settled: boolean
+  background_image_url?: string | null
+  background_position?: string | null
   markets: Market[]
 }
 
@@ -60,10 +72,17 @@ const fetchMatch = createServerFn()
   .handler(async ({ data: id }): Promise<MatchDetail | null> => {
     const pb = createPB()
     try {
-      const m = await pb.collection('fifa_matches').getOne(id, { fields: 'id,team_home,team_away,stage,kickoff_at,betting_locks_at,status,result_winner,result_home_goals,result_away_goals,result_advance,result_after_extra_time,result_after_penalties,settled' })
+      const m = await pb.collection('fifa_matches').getOne(id, { fields: 'id,team_home,team_away,stage,kickoff_at,betting_locks_at,status,result_winner,result_home_goals,result_away_goals,result_advance,result_after_extra_time,result_after_penalties,settled,external_ids' })
       const markets = await pb.collection('fifa_bet_markets').getFullList({
         filter: `match = ${escapeFilterValue(id)}`,
         fields: 'id,market_type,mode,line,fixed_odds,options,is_open,void,pool_total,pool_by_option',
+      })
+      const externalIds = getField(m, 'external_ids', {}) as { espn?: string } | null
+      const background = await resolveMatchBackground({
+        team_home: getField(m, 'team_home', ''),
+        team_away: getField(m, 'team_away', ''),
+        kickoff_at: getField(m, 'kickoff_at', ''),
+        espnId: externalIds?.espn ? String(externalIds.espn) : '',
       })
       return {
         id: getField(m, 'id', ''),
@@ -80,6 +99,8 @@ const fetchMatch = createServerFn()
         result_after_extra_time: getField(m, 'result_after_extra_time', false),
         result_after_penalties: getField(m, 'result_after_penalties', false),
         settled: getField(m, 'settled', false),
+        background_image_url: background?.imageUrl ?? null,
+        background_position: background?.position ?? null,
         markets: markets.map((mkt) => ({
           id: getField(mkt, 'id', ''),
           market_type: getField(mkt, 'market_type', ''),
@@ -124,7 +145,7 @@ function sortCorrectScores(options: string[]) {
 function MatchDetailPage() {
   const loaderMatch = Route.useLoaderData()
   const { id: matchId } = Route.useParams()
-  const { status, signIn } = useAuth()
+  const { status, signIn, user } = useAuth()
   const [isSessionExpired, setIsSessionExpired] = useState(false)
   const queryClient = useQueryClient()
 
@@ -193,25 +214,40 @@ function MatchDetailPage() {
       }) || null
     : null
 
-  const { data: userBalance } = useQuery({
+  const { data: userBalance, error: dashboardError } = useQuery({
     queryKey: ['fifa-dashboard'],
-    queryFn: async () => {
-      const res = await fetch('/api/fifa/dashboard')
-      if (res.status === 401 || res.status === 403) {
-        setIsSessionExpired(true)
-        toast.error('Your session expired — please log in again', { id: 'session-expired' })
-        throw new Error('Session expired')
-      }
-      if (!res.ok) return null
-      return res.json() as Promise<{ user: { balance: number }; max_bet_percent?: number }>
-    },
+    queryFn: fetchFifaDashboard,
     enabled: status === 'authenticated' && !isSessionExpired,
     refetchInterval: 15_000,
   })
+
+  useEffect(() => {
+    if (dashboardError instanceof FifaDashboardAuthError) {
+      setIsSessionExpired(true)
+      toast.error('Your session expired — please log in again', { id: 'session-expired' })
+    }
+  }, [dashboardError])
+
   const balance = userBalance?.user?.balance ?? 0
   const maxBetPercent = userBalance?.max_bet_percent ?? 25
-  const maxBet = Math.floor(balance * maxBetPercent / 100)
+  const maxBet = Math.floor((balance * maxBetPercent) / 100)
+  const validBetsCount = userBalance?.valid_bets_count ?? 0
 
+  const { data: lbData } = useQuery({
+    queryKey: ['fifa-leaderboard'],
+    queryFn: async () => {
+      const res = await fetch('/pb/api/fifa/leaderboard')
+      if (!res.ok) return null
+      return res.json() as Promise<{ leaderboard: Array<{ id: string; rank: number }>; settings?: { min_bets: number } }>
+    },
+    enabled: status === 'authenticated' && !isSessionExpired,
+    staleTime: 15_000,
+  })
+  const minBets = lbData?.settings?.min_bets ?? DEFAULT_FIFA_LEADERBOARD_SETTINGS.min_bets
+  const myRank =
+    user?.id && lbData?.leaderboard
+      ? lbData.leaderboard.find((r) => r.id === user.id)?.rank
+      : undefined
   // Keep the default stake pinned to maxBet until the user manually edits
   // it; once edited, only pull it back down if it's grown invalid (maxBet
   // shrank below the user's chosen stake) rather than silently overwriting
@@ -242,7 +278,10 @@ function MatchDetailPage() {
   const betsLocked = match.betting_locks_at ? new Date(match.betting_locks_at) <= new Date() : kickoff <= new Date()
   const isKnockout = ['r32', 'r16', 'qf', 'sf', 'third_place', 'final'].includes(match.stage)
 
-  const asset = getMatchCardAsset(match.team_home, match.team_away, match.stage)
+  const asset = resolveMatchCardAsset(match.team_home, match.team_away, match.stage, {
+    imageUrl: match.background_image_url,
+    position: match.background_position,
+  })
   const stageColor = getStageColor(match.stage)
 
   const liveHomeGoals = liveMatch?.homeGoals ?? match.result_home_goals
@@ -260,16 +299,22 @@ function MatchDetailPage() {
     }
   }
 
+  const teams = { team_home: match.team_home, team_away: match.team_away }
+
   const bettingSlipProps = {
     matchId: match.id,
     canBet: effectiveStatus === 'authenticated' && !betsLocked,
     market: match.markets.find((m) => m.id === selectedMarketId) || null,
     selection: selectedOption,
+    teams,
     stake,
     setStake: handleSetStake,
     maxBet,
     maxBetPercent,
     balance,
+    minBets,
+    myRank,
+    validBetsCount,
     onClear: () => {
       setSelectedMarketId(null)
       setSelectedOption(null)
@@ -299,7 +344,7 @@ function MatchDetailPage() {
                   style={{
                     backgroundImage: `url("${asset.imageUrl}")`,
                     backgroundPosition: asset.position,
-                    opacity: 0.6,
+                    opacity: asset.isFallback ? 0.6 : 0.92,
                   }}
                 />
                 {asset.isFallback && (
@@ -343,13 +388,21 @@ function MatchDetailPage() {
                       {match.team_away}
                     </h1>
                   </div>
-                  <div className="mt-6 inline-block bg-muted/30 border border-border/50 rounded-full px-4 py-1.5">
-                    {/* Use the shared en-IN formatter (dates.ts) so SSR and client
-                        render the identical string. Raw toLocaleString() with no locale
-                        picked up Node's default (en-US) on the server vs the browser
-                        locale on the client, and that text mismatch threw React #418 —
-                        which bailed hydration and duplicated the footer. */}
-                    <p className="text-sm font-medium text-foreground">{formatDateTime(match.kickoff_at)}</p>
+                  <div className="mt-6 inline-flex max-w-full flex-col items-center gap-0.5 rounded-full border border-border/50 bg-muted/30 px-4 py-2 sm:flex-row sm:gap-1.5">
+                    {/* Split date/time so the kickoff chip doesn't overflow on narrow phones. */}
+                    {(() => {
+                      const kickoffParts = formatKickoffParts(match.kickoff_at)
+                      if (!kickoffParts.date) return null
+                      return (
+                        <p className="text-center text-sm font-medium leading-snug text-foreground">
+                          <span className="block sm:inline">{kickoffParts.date}</span>
+                          <span className="hidden text-muted-foreground sm:inline"> · </span>
+                          <span className="block font-mono text-[13px] tabular-nums sm:inline sm:text-sm">
+                            {kickoffParts.time}
+                          </span>
+                        </p>
+                      )
+                    })()}
                   </div>
 
                   {isLive && !isFinished && (
@@ -405,6 +458,20 @@ function MatchDetailPage() {
                     >
                       <MarketCard
                         market={m}
+                        teams={teams}
+                        matchSettled={match.settled || isFinished}
+                        matchResult={
+                          isFinished &&
+                          match.result_home_goals != null &&
+                          match.result_away_goals != null
+                            ? {
+                                result_winner: (match.result_winner || '') as 'home' | 'away' | 'draw' | '',
+                                result_home_goals: match.result_home_goals,
+                                result_away_goals: match.result_away_goals,
+                                result_advance: (match.result_advance || '') as 'home' | 'away' | '',
+                              }
+                            : null
+                        }
                         canBet={effectiveStatus === 'authenticated' && !betsLocked && m.is_open && !m.void}
                         isSelected={selectedMarketId === m.id}
                         selectedOption={selectedOption}
@@ -449,74 +516,176 @@ function MatchDetailPage() {
   )
 }
 
-function MarketCard({ market, canBet, isSelected, selectedOption, onSelectOption }: { market: Market; canBet: boolean; isSelected: boolean; selectedOption: string | null; onSelectOption: (opt: string) => void }) {
+function getPoolOptionOutcomeLabel(
+  settledStatus: SettledMarketStatus,
+  isResultPick: boolean,
+  hadStakes: boolean,
+  poolShare: number,
+): string | null {
+  if (settledStatus === 'voided') return hadStakes ? 'Refunded' : '—'
+  if (settledStatus === 'pool_refunded') {
+    if (isResultPick) return 'Winning score · no bets'
+    return hadStakes ? 'Refunded' : '—'
+  }
+  if (settledStatus === 'settled') {
+    if (isResultPick) return hadStakes ? `Winner · ${poolShare.toFixed(0)}%` : 'Winner'
+    return hadStakes ? 'Lost' : '—'
+  }
+  return null
+}
+
+function MarketCard({
+  market,
+  teams,
+  matchSettled,
+  matchResult,
+  canBet,
+  isSelected,
+  selectedOption,
+  onSelectOption,
+}: {
+  market: Market
+  teams: { team_home: string; team_away: string }
+  matchSettled: boolean
+  matchResult: {
+    result_winner: 'home' | 'away' | 'draw' | ''
+    result_home_goals: number
+    result_away_goals: number
+    result_advance: 'home' | 'away' | ''
+  } | null
+  canBet: boolean
+  isSelected: boolean
+  selectedOption: string | null
+  onSelectOption: (opt: string) => void
+}) {
   const poolTotal = market.pool_total || 0
   const oddsFor = (opt: string): number | null => (market.mode === 'fixed' && market.fixed_odds) ? (market.fixed_odds[opt] ?? null) : null
-  
+
+  const { status: settledStatus, winningSelections } = getSettledMarketStatus(
+    market,
+    matchResult,
+    matchSettled,
+  )
+  const winningSet = new Set(winningSelections)
+  const isSettledView = settledStatus === 'settled' || settledStatus === 'pool_refunded' || settledStatus === 'voided'
+
   const isCorrectScore = market.market_type === 'correct_score'
   const options = isCorrectScore ? sortCorrectScores(market.options ?? []) : (market.options ?? [])
+
+  const formatOption = (sel: string) =>
+    formatMarketOptionLabel(market.market_type, sel, teams, market.line)
+
+  const ouLineSummary = formatOuLineSummary(market.market_type, market.line)
 
   return (
     <section className={`rounded-xl border bg-card p-5 h-full flex flex-col transition-colors ${isSelected ? 'border-ieee-blue shadow-[0_0_15px_rgba(30,136,229,0.15)]' : 'border-border'}`}>
       <div className="flex items-center justify-between mb-2">
         <h2 className="font-display text-lg text-foreground">{FIFA_MARKET_LABELS[market.market_type] || market.market_type}</h2>
         <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] px-2 py-1 bg-muted/50 rounded-md text-muted-foreground border border-border">
-          {market.mode === 'pool' ? `Pool · ${poolTotal} pts` : 'Fixed odds'}
+          {market.mode === 'pool'
+            ? isSettledView
+              ? `Final pool · ${poolTotal} tickets`
+              : `Pool · ${poolTotal} tickets`
+            : 'Fixed odds'}
         </span>
       </div>
+      {ouLineSummary && (
+        <p className="text-sm font-semibold text-ieee-light-blue mb-2 font-mono tracking-tight">
+          Line: {ouLineSummary}
+        </p>
+      )}
       <p className="text-[12px] text-muted-foreground mb-4 leading-relaxed">
-        {FIFA_MARKET_BLURBS[market.market_type] || ''}
+        {isOuMarket(market.market_type)
+          ? formatOuMarketBlurb(market.market_type, market.line)
+          : FIFA_MARKET_BLURBS[market.market_type] || ''}
       </p>
 
-      {market.void && <p className="text-sm font-semibold text-ieee-danger mb-4 p-2 bg-ieee-danger/10 rounded-md border border-ieee-danger/20">This market has been voided. Stakes refunded.</p>}
-      {!market.is_open && !market.void && <p className="text-sm font-semibold text-muted-foreground mb-4 p-2 bg-muted/20 rounded-md border border-border">Market closed.</p>}
+      {settledStatus === 'voided' && (
+        <p className="text-sm font-semibold text-ieee-danger mb-4 p-2 bg-ieee-danger/10 rounded-md border border-ieee-danger/20">
+          This market has been voided. Stakes refunded.
+        </p>
+      )}
+      {settledStatus === 'pool_refunded' && (
+        <p className="text-sm font-semibold text-muted-foreground mb-4 p-2 bg-muted/30 rounded-md border border-border">
+          Winning outcome{winningSelections.length > 0 ? ` was ${winningSelections.map(formatOption).join(' / ')}` : ''} — nobody in the pool picked it. All stakes refunded.
+        </p>
+      )}
+      {settledStatus === 'settled' && winningSelections.length > 0 && (
+        <p className="text-sm font-semibold text-ieee-success mb-4 p-2 bg-ieee-success/10 rounded-md border border-ieee-success/20">
+          Winning pick: {winningSelections.map(formatOption).join(' / ')}
+        </p>
+      )}
+      {settledStatus === 'closed' && (
+        <p className="text-sm font-semibold text-muted-foreground mb-4 p-2 bg-muted/20 rounded-md border border-border">Market closed.</p>
+      )}
 
       <div className={`mt-auto ${isCorrectScore ? 'grid grid-cols-3 md:grid-cols-4 gap-2' : 'space-y-2'}`}>
         {options.map((opt) => {
           const isActive = isSelected && selectedOption === opt
+          const isResultPick = winningSet.has(opt)
+          const isWinner = settledStatus === 'settled' && isResultPick
+          const isResultOnly = settledStatus === 'pool_refunded' && isResultPick
           const poolShare = poolTotal > 0 ? ((market.pool_by_option[opt] || 0) / poolTotal) * 100 : 0
+          const hadStakes = (market.pool_by_option[opt] || 0) > 0
           const odds = oddsFor(opt)
-          
+          const outcomeLabel = getPoolOptionOutcomeLabel(settledStatus, isResultPick, hadStakes, poolShare)
+          const highlight = isWinner || isResultOnly
+          const displayOpt = formatOption(opt)
+
+          const baseClass = highlight
+            ? 'border-ieee-success bg-ieee-success/15 ring-1 ring-ieee-success/40 text-foreground'
+            : isSettledView && market.mode === 'pool'
+              ? 'border-border/60 bg-[#111113]/80 text-muted-foreground'
+              : isActive
+                ? 'border-ieee-blue bg-ieee-blue text-white shadow-md'
+                : 'border-border bg-[#111113] hover:border-ieee-light-blue text-foreground'
+
           if (isCorrectScore) {
+            const Tag = isSettledView ? 'div' : 'button'
             return (
-              <button
+              <Tag
                 key={opt}
-                disabled={!canBet}
-                onClick={() => onSelectOption(opt)}
-                className={`w-full text-center rounded-lg border py-3 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                  isActive ? 'border-ieee-blue bg-ieee-blue text-white shadow-md' : 'border-border bg-[#111113] hover:border-ieee-light-blue text-foreground'
-                }`}
+                {...(!isSettledView
+                  ? { type: 'button' as const, disabled: !canBet, onClick: () => onSelectOption(opt) }
+                  : {})}
+                className={`w-full text-center rounded-lg border py-3 transition-all ${!isSettledView ? 'disabled:opacity-50 disabled:cursor-not-allowed' : ''} ${baseClass}`}
               >
-                <div className="font-mono font-bold text-lg mb-1">{opt}</div>
-                {market.mode === 'fixed' && odds && (
+                <div className="font-mono font-bold text-lg mb-1">{displayOpt}</div>
+                {market.mode === 'fixed' && odds && !isSettledView && (
                   <div className={`text-[10px] font-mono ${isActive ? 'text-white/80' : 'text-ieee-light-blue'}`}>{odds.toFixed(2)}×</div>
                 )}
-                {market.mode === 'pool' && (
+                {market.mode === 'pool' && isSettledView && outcomeLabel && (
+                  <div className={`text-[10px] font-mono font-semibold uppercase tracking-wide ${highlight ? 'text-ieee-success' : 'text-muted-foreground'}`}>{outcomeLabel}</div>
+                )}
+                {market.mode === 'pool' && !isSettledView && (
                   <div className={`text-[10px] font-mono ${isActive ? 'text-white/80' : 'text-muted-foreground'}`}>{poolShare.toFixed(0)}%</div>
                 )}
-              </button>
+              </Tag>
             )
           }
 
+          const Tag = isSettledView ? 'div' : 'button'
           return (
-            <button
+            <Tag
               key={opt}
-              disabled={!canBet}
-              onClick={() => onSelectOption(opt)}
-              className={`relative w-full text-left rounded-lg border p-3.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[52px] overflow-hidden ${
-                isActive ? 'border-ieee-blue bg-ieee-blue/10 shadow-sm' : 'border-border bg-[#111113] hover:border-ieee-light-blue/50'
-              }`}
+              {...(!isSettledView
+                ? { type: 'button' as const, disabled: !canBet, onClick: () => onSelectOption(opt) }
+                : {})}
+              className={`relative w-full text-left rounded-lg border p-3.5 transition-all ${!isSettledView ? 'disabled:opacity-50 disabled:cursor-not-allowed' : ''} min-h-[52px] overflow-hidden ${baseClass}`}
             >
               <div className="relative z-10 flex items-center justify-between mb-1">
-                <span className={`font-medium text-sm ${isActive ? 'text-ieee-light-blue' : 'text-foreground'}`}>{opt}</span>
-                {market.mode === 'fixed' && odds && (
+                <span className={`font-medium text-sm ${isActive && !isSettledView ? 'text-ieee-light-blue' : ''}`}>{displayOpt}</span>
+                {market.mode === 'fixed' && odds && !isSettledView && (
                   <span className="font-mono text-sm font-bold text-ieee-light-blue">{odds.toFixed(2)}×</span>
                 )}
-                {market.mode === 'pool' && (
+                {market.mode === 'pool' && isSettledView && outcomeLabel && (
+                  <span className={`font-mono text-[10px] font-semibold uppercase tracking-wide ${highlight ? 'text-ieee-success' : 'text-muted-foreground'}`}>{outcomeLabel}</span>
+                )}
+                {market.mode === 'pool' && !isSettledView && (
                   <span className="font-mono text-xs font-semibold text-muted-foreground">{poolShare.toFixed(0)}%</span>
                 )}
               </div>
-              {market.mode === 'pool' && poolTotal > 0 && (
+              {market.mode === 'pool' && poolTotal > 0 && !isSettledView && (
                 <div className="relative z-10 h-1.5 w-full mt-2 rounded-full bg-black/40 overflow-hidden border border-white/5">
                   <motion.div
                     initial={false}
@@ -526,7 +695,7 @@ function MarketCard({ market, canBet, isSelected, selectedOption, onSelectOption
                   />
                 </div>
               )}
-            </button>
+            </Tag>
           )
         })}
       </div>
@@ -534,8 +703,8 @@ function MarketCard({ market, canBet, isSelected, selectedOption, onSelectOption
   )
 }
 
-function BettingSlip({ matchId, canBet, market, selection, stake, setStake, maxBet, maxBetPercent, balance, onClear }: {
-  matchId: string; canBet: boolean; market: Market | null; selection: string | null; stake: number; setStake: (v: number) => void; maxBet: number; maxBetPercent: number; balance: number; onClear: () => void
+function BettingSlip({ matchId, canBet, market, selection, teams, stake, setStake, maxBet, maxBetPercent, balance, minBets, myRank, validBetsCount, onClear }: {
+  matchId: string; canBet: boolean; market: Market | null; selection: string | null; teams: { team_home: string; team_away: string }; stake: number; setStake: (v: number) => void; maxBet: number; maxBetPercent: number; balance: number; minBets: number; myRank?: number; validBetsCount: number; onClear: () => void
 }) {
   const queryClient = useQueryClient()
   // Floor once, up front — every displayed number (potential return, quick-
@@ -614,7 +783,9 @@ function BettingSlip({ matchId, canBet, market, selection, stake, setStake, maxB
         <div className="rounded-lg bg-[#111113] border border-border p-4">
           <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1">{FIFA_MARKET_LABELS[market.market_type] || market.market_type}</p>
           <div className="flex items-center justify-between">
-            <p className="text-base font-bold text-foreground">{selection}</p>
+            <p className="text-base font-bold text-foreground">
+              {formatMarketOptionLabel(market.market_type, selection, teams, market.line)}
+            </p>
             {odds && <p className="font-mono text-sm font-bold text-ieee-light-blue">{odds.toFixed(2)}×</p>}
             {market.mode === 'pool' && <p className="text-[10px] font-mono text-muted-foreground uppercase bg-muted px-2 py-1 rounded">Pool</p>}
           </div>
@@ -638,7 +809,6 @@ function BettingSlip({ matchId, canBet, market, selection, stake, setStake, maxB
               }}
               className="w-full rounded-lg border border-border bg-[#111113] px-4 py-3 text-lg font-mono font-bold text-foreground focus:border-ieee-blue focus:ring-1 focus:ring-ieee-blue transition-colors"
             />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">pts</span>
           </div>
         </div>
 
@@ -665,19 +835,37 @@ function BettingSlip({ matchId, canBet, market, selection, stake, setStake, maxB
         <div className="flex items-center justify-between mb-4">
           <span className="text-sm text-muted-foreground">Potential Return</span>
           {potentialReturn !== null ? (
-            <span className="font-mono text-lg font-bold text-ieee-light-blue">{potentialReturn} pts</span>
+            <span className="font-mono text-lg font-bold text-ieee-light-blue">{potentialReturn} tickets</span>
           ) : (
             <span className="text-xs text-muted-foreground italic">Share of pool</span>
           )}
         </div>
-        <p className="text-[10px] text-muted-foreground mb-4 text-center">
-          Stake limit is {maxBetPercent}% of your balance ({balance}).
+        <p className="text-[10px] text-muted-foreground mb-2 text-center">
+          Max stake {maxBetPercent}% of your tickets ({balance.toLocaleString()}).
+          {myRank != null && (
+            <> · Leaderboard rank <span className="font-semibold text-foreground">#{myRank}</span></>
+          )}
         </p>
+        {myRank != null && validBetsCount >= minBets && (
+          <p className="text-[10px] text-muted-foreground/80 mb-4 text-center">
+            Prize draw is weighted by rank — #1 does not automatically win the voucher.
+          </p>
+        )}
+        {myRank != null && validBetsCount < minBets && (
+          <p className="text-[10px] text-muted-foreground mb-4 text-center">
+            Place {minBets - validBetsCount} more bet{minBets - validBetsCount === 1 ? '' : 's'} to enter the prize draw (rank #{myRank}).
+          </p>
+        )}
+        {myRank == null && (
+          <p className="text-[10px] text-muted-foreground mb-4 text-center">
+            Place bets to appear on the leaderboard. Need {minBets} bets to enter the prize draw.
+          </p>
+        )}
         <button
           onClick={() => {
-            if (balance <= 0) return toast.error('Insufficient balance to place a bet')
+            if (balance <= 0) return toast.error('Not enough tickets to place a bet')
             if (effectiveStake <= 0) return toast.error('Please enter a stake amount')
-            if (effectiveStake > maxBet) return toast.error(`Max bet limit is ${maxBet} pts (${maxBetPercent}% of your balance)`)
+            if (effectiveStake > maxBet) return toast.error(`Max bet is ${maxBet} tickets (${maxBetPercent}% of your tickets)`)
             placeBet.mutate()
           }}
           disabled={placeBet.isPending}
@@ -686,7 +874,7 @@ function BettingSlip({ matchId, canBet, market, selection, stake, setStake, maxB
           {placeBet.isPending ? (
             <span className="flex items-center gap-2"><span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" /> Processing</span>
           ) : (
-            `Place Bet · ${effectiveStake} pts`
+            `Place Bet · ${effectiveStake} tickets`
           )}
         </button>
       </div>

@@ -34,10 +34,12 @@ export async function requireAuth(pb: PocketBase): Promise<AuthResult & { pb: Po
   const role: UserRole = (USER_ROLES as readonly string[]).includes(rawRole)
     ? (rawRole as UserRole)
     : 'user'
+  const googleName = typeof record.name === 'string' ? record.name.trim() : ''
+  const legacyName = typeof record.display_name === 'string' ? record.display_name.trim() : ''
   const user: AuthUser = {
     id: record.id,
     email: record.email,
-    name: record.name,
+    name: googleName || legacyName || record.name,
     role,
   }
   return { user, pb }

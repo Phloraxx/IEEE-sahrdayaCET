@@ -75,8 +75,15 @@ export async function getLiveScores(): Promise<LiveScoresResult> {
   // 1. Try ESPN (real-time, no auth) — best for live matches.
   try {
     const espn = await fetchFromEspn()
-    if (espn.matches.length > 0) {
-      const result: LiveScoresResult = { ...espn, source: 'espn', configured: true, fetchedAt: Date.now() }
+    const mock = await fetchMockEspnScoreboard()
+    const merged = mergeLiveMatches(espn.matches, mock)
+    if (merged.length > 0) {
+      const result: LiveScoresResult = {
+        matches: merged,
+        source: 'espn',
+        configured: true,
+        fetchedAt: Date.now(),
+      }
       _cache = { result, expiresAt: Date.now() + CACHE_TTL_MS }
       return result
     }
@@ -113,6 +120,31 @@ export async function getLiveScores(): Promise<LiveScoresResult> {
   const result: LiveScoresResult = { matches: [], configured: false, fetchedAt: Date.now(), source: 'none' }
   _cache = { result, expiresAt: Date.now() + ERROR_CACHE_TTL_MS }
   return result
+}
+
+// ─── Mock ESPN (PB test matches) ────────────────────────────────────
+
+async function fetchMockEspnScoreboard(): Promise<LiveMatch[]> {
+  const pbUrl = process.env.POCKETBASE_URL
+  if (!pbUrl) return []
+  try {
+    const res = await fetch(`${pbUrl}/api/fifa/mock-espn/scoreboard`, {
+      headers: { Accept: 'application/json' },
+    })
+    if (!res.ok) return []
+    const data = await res.json() as { events?: unknown[] }
+    const events = Array.isArray(data.events) ? data.events : []
+    return events.map((e) => normalizeEspnEvent(e)).filter(Boolean) as LiveMatch[]
+  } catch {
+    return []
+  }
+}
+
+function mergeLiveMatches(primary: LiveMatch[], mock: LiveMatch[]): LiveMatch[] {
+  if (mock.length === 0) return primary
+  const byId = new Map(primary.map((m) => [m.id, m]))
+  for (const m of mock) byId.set(m.id, m)
+  return [...byId.values()]
 }
 
 // ─── ESPN (hidden API, no auth, real-time) ──────────────────────────
