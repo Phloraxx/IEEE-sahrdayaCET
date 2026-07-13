@@ -144,7 +144,7 @@ const rules: Record<string, CollectionRuleSet> = {
     // display_name is set once from the Google profile (OAuth2 hook) and is
     // not self-editable — the public leaderboard shows real identities.
     // Admins may still correct it.
-    updateRule: `(id = @request.auth.id && @request.body.role:changed = false && @request.body.balance:changed = false && @request.body.display_name:changed = false) || (@request.auth.role = "admin" && @request.body.balance:changed = false && @request.body.role:changed = false)`,
+    updateRule: `(id = @request.auth.id && @request.body.role:changed = false && @request.body.balance:changed = false && @request.body.display_name:changed = false && @request.body.name:changed = false) || (@request.auth.role = "admin" && @request.body.balance:changed = false && @request.body.role:changed = false)`,
     deleteRule: null,
   },
   // ─── FIFA WC Predict '26 ───────────────────────────────────────────
