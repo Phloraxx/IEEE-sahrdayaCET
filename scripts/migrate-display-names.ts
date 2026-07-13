@@ -1,8 +1,7 @@
 // FIFA WC Predict '26 — one-time display name backfill
 //
-// Updates users whose display_name is empty or starts with "Player "
-// to their actual name (if available in the 'name' field populated
-// by Google OAuth).
+// Syncs display_name to the Google OAuth `name` on users for every account
+// where they differ (heals old custom nicknames from the retired editor).
 //
 // Run with:
 //   bun scripts/migrate-display-names.ts
@@ -72,7 +71,7 @@ async function main(): Promise<void> {
 
     if (!userId) continue
 
-    if (realName && (!displayName || displayName.startsWith('Player '))) {
+    if (realName && displayName !== realName) {
       await api('PATCH', `/api/collections/users/records/${userId}`, { display_name: realName })
       updated++
     } else {
@@ -80,7 +79,7 @@ async function main(): Promise<void> {
     }
   }
 
-  console.log(`[ok] Updated ${updated} users, skipped ${skipped} (already had custom names or missing real name).`)
+  console.log(`[ok] Updated ${updated} users, skipped ${skipped} (already synced or missing Google name).`)
 }
 
 main().catch((err) => {

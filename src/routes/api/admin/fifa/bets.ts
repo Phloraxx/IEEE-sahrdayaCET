@@ -4,6 +4,7 @@ import { escapeFilterValue } from "@/lib/pb";
 import { requireRole } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 import { getField, getExpand } from "@/lib/safe-get";
+import { userDisplayName } from "@/lib/user-display-name";
 
 // Admin-only: list ALL bets for a match (or a market) with user display names.
 // Used by the admin testing console to see who bet what without digging into
@@ -41,7 +42,10 @@ export const Route = createFileRoute("/api/admin/fifa/bets")({
                 id: getField(b, 'id', ''),
                 user: user ? {
                   id: getField(user, 'id', ''),
-                  display_name: getField(user, 'display_name', ''),
+                  display_name: userDisplayName({
+                    name: getField(user, 'name', ''),
+                    display_name: getField(user, 'display_name', ''),
+                  }),
                   email: getField(user, 'email', ''),
                 } : { id: getField(b, 'user', ''), display_name: '', email: '' },
                 selection: getField(b, 'selection', ''),

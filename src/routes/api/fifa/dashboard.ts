@@ -4,6 +4,7 @@ import { escapeFilterValue } from "@/lib/pb";
 import { requireAuth } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 import { getField, getExpand } from "@/lib/safe-get";
+import { userDisplayName } from "@/lib/user-display-name";
 
 // Authed: the player's own dashboard — balance, display_name, recent bets,
 // and recent transactions. Polled every ~10s by the client.
@@ -19,7 +20,7 @@ export const Route = createFileRoute("/api/fifa/dashboard")({
           // (the auth record from requireAuth may be stale by up to authRefresh
           // interval).
           const userRec = await pb.collection("users").getOne(user.id, {
-            fields: "id,display_name,balance,email",
+            fields: "id,name,display_name,balance,email",
           });
 
           const userIdFilter = escapeFilterValue(user.id)
@@ -58,7 +59,10 @@ export const Route = createFileRoute("/api/fifa/dashboard")({
           return Response.json({
             user: {
               id: getField(userRec, 'id', ''),
-              display_name: getField(userRec, 'display_name', ''),
+              display_name: userDisplayName({
+                name: getField(userRec, 'name', ''),
+                display_name: getField(userRec, 'display_name', ''),
+              }),
               balance: getField(userRec, 'balance', 0),
               email: getField(userRec, 'email', ''),
             },

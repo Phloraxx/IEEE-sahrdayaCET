@@ -65,12 +65,13 @@ function emitFeedEvent(type, userId, matchId, message) {
     return
 }
 
-// Returns a display name for a user record. Falls back to "Player <short-id>"
-// (last 4 of the user id) when display_name is empty — so multiple unset users
-// are distinguishable on the public leaderboard instead of all reading "Player".
+// Returns the player's public name: Google OAuth `name` on users (immutable),
+// then legacy display_name, then "Player <short-id>" so unset users differ.
 function displayName(user) {
-    var name = user.getString("display_name")
-    if (name) return name
+    var google = user.getString("name")
+    if (google) return google
+    var legacy = user.getString("display_name")
+    if (legacy) return legacy
     var shortId = user.id.length >= 4 ? user.id.slice(-4) : user.id
     return "Player " + shortId
 }
@@ -155,11 +156,10 @@ onRecordAuthWithOAuth2Request(function (e) {
     if (!name) { e.next(); return }
 
     // e.record is null on first OAuth signup — use createData instead.
+    // Always mirror Google name into display_name so both fields stay aligned.
     if (e.record) {
-        if (!e.record.get("display_name")) {
-            e.record.set("display_name", name)
-        }
-    } else if (e.createData && !e.createData.display_name) {
+        e.record.set("display_name", name)
+    } else if (e.createData) {
         e.createData.display_name = name
     }
     e.next()
@@ -181,10 +181,15 @@ onRecordUpdateRequest(function (e) {
     }
     if (role === "admin") { e.next(); return }
     var oldRec = $app.findRecordById("users", e.record.id)
-    var oldName = oldRec.getString("display_name") || ""
-    var newName = e.record.getString("display_name") || ""
-    if (oldName !== newName) {
+    var oldDisplay = oldRec.getString("display_name") || ""
+    var newDisplay = e.record.getString("display_name") || ""
+    if (oldDisplay !== newDisplay) {
         throw e.badRequestError("Display name cannot be changed")
+    }
+    var oldGoogle = oldRec.getString("name") || ""
+    var newGoogle = e.record.getString("name") || ""
+    if (oldGoogle !== newGoogle) {
+        throw e.badRequestError("Name cannot be changed")
     }
     e.next()
 }, "users")
@@ -691,8 +696,10 @@ routerAdd("GET", "/api/fifa/leaderboard", function (e) {
             try { return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (ex) { return null }
         }
         var _displayName = function(user) {
-            var name = user.getString("display_name")
-            if (name) return name
+            var google = user.getString("name")
+            if (google) return google
+            var legacy = user.getString("display_name")
+            if (legacy) return legacy
             var shortId = user.id.length >= 4 ? user.id.slice(-4) : user.id
             return "Player " + shortId
         }
@@ -1713,8 +1720,10 @@ routerAdd("POST", "/api/fifa/raffle", function (e) {
 
     // Compute bets_count for each user, then sort by (balance, bets_count).
     var _displayName = function(user) {
-        var name = user.getString("display_name")
-        if (name) return name
+        var google = user.getString("name")
+        if (google) return google
+        var legacy = user.getString("display_name")
+        if (legacy) return legacy
         var shortId = user.id.length >= 4 ? user.id.slice(-4) : user.id
         return "Player " + shortId
     }
