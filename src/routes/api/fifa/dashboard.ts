@@ -30,20 +30,24 @@ export const Route = createFileRoute("/api/fifa/dashboard")({
               sort: "-placed_at",
               expand: "match,market",
               fields: "id,selection,stake,mode,odds_locked,status,payout,placed_at,match,market,expand",
+              $autoCancel: false,
             }),
             pb.collection("fifa_transactions").getList(1, 30, {
               filter: `user = ${userIdFilter}`,
               sort: "-timestamp",
               fields: "id,type,amount,balance_after,note,timestamp",
+              $autoCancel: false,
             }),
             pb.collection("fifa_bets").getList(1, 1, {
               filter: `user = ${userIdFilter} && status != 'void'`,
               fields: "id",
+              $autoCancel: false,
             }),
             pb.collection("fifa_bets").getList(1, 100, {
               filter: `user = ${userIdFilter}`,
               sort: "-placed_at",
               fields: "id,status",
+              $autoCancel: false,
             }),
           ]);
           const validBetsCount = countPage.totalItems ?? 0;
