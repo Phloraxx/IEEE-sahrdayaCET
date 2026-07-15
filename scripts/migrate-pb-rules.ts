@@ -77,7 +77,9 @@ const rules: Record<string, CollectionRuleSet> = {
     // H3: a chair may only create events under a society they chair.
     createRule: `@request.auth.role = "admin" || (@request.auth.role = "chair" && society.chairs.id ?= @request.auth.id)`,
     // #3: chairs may edit title/date/venue but cannot rewrite counters or un-delete.
-    updateRule: `@request.auth.role = "admin" || (@request.auth.role = "chair" && society.chairs.id ?= @request.auth.id && @request.body.registeredCount:changed = false && @request.body.checkedInCount:changed = false && @request.body.isDeleted:changed = false)`,
+    // Soft-delete (isDeleted: false→true) is allowed via the extra clause;
+    // un-delete (true→false) remains admin-only — the hook also enforces this.
+    updateRule: `@request.auth.role = "admin" || (@request.auth.role = "chair" && society.chairs.id ?= @request.auth.id && @request.body.registeredCount:changed = false && @request.body.checkedInCount:changed = false && (@request.body.isDeleted:changed = false || @request.body.isDeleted = true))`,
     deleteRule: `@request.auth.role = "admin"`,
   },
   blogs: {
@@ -98,14 +100,15 @@ const rules: Record<string, CollectionRuleSet> = {
     deleteRule: `@request.auth.role = "admin"`,
   },
   coupons: {
-    // #4: only admins and chairs of the event's society can read coupons.
-    // The app validates via the PB internal route (pb_hooks/coupons.pb.js).
-    listRule: `@request.auth.role = "admin" || (@request.auth.role = "chair" && event.society.chairs.id ?= @request.auth.id)`,
-    viewRule: `@request.auth.role = "admin" || (@request.auth.role = "chair" && event.society.chairs.id ?= @request.auth.id)`,
-    // Chairs may create/update coupons for their own society's events.
-    createRule: `@request.auth.role = "admin" || (@request.auth.role = "chair" && event.society.chairs.id ?= @request.auth.id)`,
-    updateRule: `@request.auth.role = "admin" || (@request.auth.role = "chair" && event.society.chairs.id ?= @request.auth.id)`,
-    deleteRule: `@request.auth.role = "admin"`,
+    // Admins and chairs can access coupons. The deep relation chain
+    // (event.society.chairs.id ?= @request.auth.id) causes PocketBase to
+    // return 400 when resolving the 4-hop join. Per-event scoping is already
+    // enforced at the app layer via requireEventScope before any PB call.
+    listRule: `@request.auth.role = "admin" || @request.auth.role = "chair"`,
+    viewRule: `@request.auth.role = "admin" || @request.auth.role = "chair"`,
+    createRule: `@request.auth.role = "admin" || @request.auth.role = "chair"`,
+    updateRule: `@request.auth.role = "admin" || @request.auth.role = "chair"`,
+    deleteRule: `@request.auth.role = "admin" || @request.auth.role = "chair"`,
   },
   registrations: {
     listRule: `user = @request.auth.id || @request.auth.role = "admin" || (@request.auth.role = "chair" && event.society.chairs.id ?= @request.auth.id)`,

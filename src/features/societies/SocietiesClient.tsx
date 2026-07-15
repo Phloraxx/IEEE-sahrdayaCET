@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from "@tanstack/react-router";
 import {
   Loader2,
   X,
@@ -19,6 +20,7 @@ import { TechnicalDetails } from "@/components/TechnicalDetails";
 import { buildFileUrl } from "@/lib/pb"
 import { fetchSocietyMembers, fetchSocietyEvents } from "@/routes/societies"
 import { formatDate, formatDateCompact } from "@/lib/dates";
+import { getBioText } from "@/lib/safe-get";
 import type { Society, ExecomMember, Event } from "@/types";
 
 /* ------------------------------------------------------------------ */
@@ -150,7 +152,13 @@ interface SocietiesClientProps {
   societies: Society[];
 }
 
+/** Societies that have a dedicated full page instead of the slide-in panel. */
+const DEDICATED_PAGE_SLUGS: Record<string, string> = {
+  wie: "/societies/wie",
+};
+
 export default function SocietiesClient({ societies }: SocietiesClientProps) {
+  const navigate = useNavigate();
   const [selectedSociety, setSelectedSociety] = useState<Society | null>(null);
   const [societyEvents, setSocietyEvents] = useState<Event[]>([]);
   const [societyMembers, setSocietyMembers] = useState<ExecomMember[]>([]);
@@ -211,6 +219,10 @@ export default function SocietiesClient({ societies }: SocietiesClientProps) {
 
   /* ---------- Fetch members & events for selected society ---------- */
   const handleSocietyClick = useCallback(async (society: Society) => {
+    // Redirect all societies to their dedicated page
+    navigate({ to: `/societies/${society.slug.toLowerCase()}` });
+    return;
+
     setSelectedSociety(society);
     setEventActionError(null);
     setSocietyError(null);
@@ -233,7 +245,7 @@ export default function SocietiesClient({ societies }: SocietiesClientProps) {
       setLoadingMembers(false);
       setLoadingEvents(false);
     }
-  }, []);
+  }, [navigate]);
 
   /* ---------- Auto-scroll for events carousel ---------- */
   useEffect(() => {
@@ -512,7 +524,7 @@ export default function SocietiesClient({ societies }: SocietiesClientProps) {
 
                   {/* Bio */}
                   <p className="text-gray-600 leading-relaxed text-lg">
-                    {selectedSociety.bio || "No description available."}
+                    {getBioText(selectedSociety.bio) || "No description available."}
                   </p>
                 </div>
 

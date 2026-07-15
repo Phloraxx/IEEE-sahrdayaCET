@@ -55,7 +55,7 @@ export async function getChairSocietyIds(
   if (isAdmin(user)) return undefined // unscoped
   if (!isChair(user)) return []
   const societies = await pb.collection('societies').getFullList({
-    filter: `chairs ?= ${escapeFilterValue(user.id)}`,
+    filter: `chairs ~ ${escapeFilterValue(user.id)}`,
     fields: 'id',
   })
   return societies.map((s) => s.id)

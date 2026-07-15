@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB } from "@/lib/pb.server"; import { buildFileUrl } from "@/lib/pb"
+import { createPB, serializeToFormData } from "@/lib/pb.server"; import { buildFileUrl } from "@/lib/pb"
 import { requireRole } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 import { getField } from "@/lib/safe-get";
@@ -16,6 +16,7 @@ const SocietyUpdateSchema = z
     isHidden: z.boolean(),
     logo: z.any(),
     banner: z.any(),
+    defaultWhatsappLink: z.string(),
   })
   .partial();
 
@@ -70,14 +71,31 @@ export const Route = createFileRoute("/api/admin/societies/$id")({
           const pb = createPB(request.headers.get("cookie") || undefined);
           verifySameOrigin(request);
           const { user } = await requireRole(["admin", "chair"], pb);
-          if (user.role !== "admin")
-            return Response.json(
-              { error: "Only admins can edit societies" },
-              { status: 403 },
-            );
+
           const body = await parseFormData(request);
+          if (body.bio && typeof body.bio === "object") {
+            body.bio = JSON.stringify(body.bio);
+          }
           const parsed = SocietyUpdateSchema.parse(body);
-          const society = await pb.collection("societies").update(id, parsed);
+
+          // Chairs can only update their own society and only certain fields
+          if (user.role === "chair") {
+            const society = await pb.collection("societies").getOne(id, { fields: "id,chairs" });
+            const chairs = getField<string[]>(society, 'chairs', []);
+            if (!chairs.includes(user.id)) {
+              return Response.json({ error: "Forbidden" }, { status: 403 });
+            }
+            // Chairs can only update bio, logo, banner, defaultWhatsappLink — strip everything else
+            const chairAllowed: Record<string, unknown> = {};
+            if (parsed.bio !== undefined) chairAllowed.bio = parsed.bio;
+            if (parsed.logo !== undefined) chairAllowed.logo = parsed.logo;
+            if (parsed.banner !== undefined) chairAllowed.banner = parsed.banner;
+            if (parsed.defaultWhatsappLink !== undefined) chairAllowed.defaultWhatsappLink = parsed.defaultWhatsappLink;
+            const society2 = await pb.collection("societies").update(id, serializeToFormData(chairAllowed));
+            return Response.json({ society: society2 });
+          }
+
+          const society = await pb.collection("societies").update(id, serializeToFormData(parsed));
           return Response.json({ society });
         } catch (error) {
           return handleError(error, "admin-societies-update");
