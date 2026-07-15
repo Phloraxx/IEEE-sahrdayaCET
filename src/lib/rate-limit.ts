@@ -10,7 +10,7 @@ interface Bucket {
 const buckets = new Map<string, Bucket>()
 
 // Cleanup stale entries every 5 minutes
-setInterval(() => {
+const cleanupInterval = setInterval(() => {
   const now = Date.now()
   for (const [key, bucket] of buckets) {
     if (now - bucket.lastRefill > 300_000) {
@@ -18,6 +18,7 @@ setInterval(() => {
     }
   }
 }, 300_000)
+if (typeof cleanupInterval.unref === 'function') cleanupInterval.unref()
 
 export interface RateLimitConfig {
   key: string
@@ -65,4 +66,17 @@ export function rateLimitResponse(retryAfterMs: number): Response {
       },
     },
   )
+}
+
+/**
+ * Refund a rate limit token — call this when a request consumed a token but
+ * the downstream operation failed (e.g. PB hook rejected the bet). Prevents
+ * failed validations from depleting the user's rate limit budget.
+ */
+export function refundToken(config: RateLimitConfig): void {
+  const { key, max } = config
+  const bucket = buckets.get(key)
+  if (bucket) {
+    bucket.tokens = Math.min(max, bucket.tokens + 1)
+  }
 }

@@ -6,7 +6,9 @@ export function toIso(date: Date): string {
 }
 
 export function formatDate(dateString: string): string {
-    return new Date(dateString).toLocaleDateString(DATE_LOCALE, {
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString(DATE_LOCALE, {
         weekday: 'long',
         month: 'long',
         day: 'numeric',
@@ -14,8 +16,47 @@ export function formatDate(dateString: string): string {
     });
 }
 
+export function formatDateTime(dateString: string): string {
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleString(DATE_LOCALE, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+    });
+}
+
+/** Kickoff chip: date and time split so narrow screens don't overflow. */
+export function formatKickoffParts(dateString: string): { date: string; time: string } {
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return { date: '', time: '' };
+    return {
+        date: d.toLocaleDateString(DATE_LOCALE, {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+        }),
+        time: d.toLocaleTimeString(DATE_LOCALE, {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true,
+        }),
+    };
+}
+
+function parseDate(dateString: string): Date | null {
+    const d = new Date(dateString);
+    return isNaN(d.getTime()) ? null : d;
+}
+
 export function formatDateShort(dateString: string): string {
-    return new Date(dateString).toLocaleDateString(DATE_LOCALE, {
+    const d = parseDate(dateString);
+    if (!d) return '';
+    return d.toLocaleDateString(DATE_LOCALE, {
         month: 'short',
         day: 'numeric',
         year: 'numeric',
@@ -23,12 +64,15 @@ export function formatDateShort(dateString: string): string {
 }
 
 export function formatDateCompact(dateString: string): string {
-    const d = new Date(dateString);
+    const d = parseDate(dateString);
+    if (!d) return '';
     return d.toLocaleDateString(DATE_LOCALE, { month: 'short', day: 'numeric' });
 }
 
 export function formatTime(dateString: string): string {
-    return new Date(dateString).toLocaleTimeString(DATE_LOCALE, {
+    const d = parseDate(dateString);
+    if (!d) return '';
+    return d.toLocaleTimeString(DATE_LOCALE, {
         hour: '2-digit',
         minute: '2-digit',
         hour12: true,
@@ -36,15 +80,21 @@ export function formatTime(dateString: string): string {
 }
 
 export function formatDay(dateString: string): string {
-    return new Date(dateString).getDate().toString().padStart(2, '0');
+    const d = parseDate(dateString);
+    if (!d) return '';
+    return d.getDate().toString().padStart(2, '0');
 }
 
 export function formatMonth(dateString: string): string {
-    return new Date(dateString).toLocaleDateString(DATE_LOCALE, { month: 'short' }).toUpperCase();
+    const d = parseDate(dateString);
+    if (!d) return '';
+    return d.toLocaleDateString(DATE_LOCALE, { month: 'short' }).toUpperCase();
 }
 
 export function formatHour12(dateString: string): string {
-    const t = new Date(dateString).toLocaleTimeString(DATE_LOCALE, { hour: '2-digit', hour12: true });
+    const d = parseDate(dateString);
+    if (!d) return '';
+    const t = d.toLocaleTimeString(DATE_LOCALE, { hour: '2-digit', hour12: true });
     return t.split(' ')[0] ?? '';
 }
 

@@ -67,7 +67,7 @@ export const Route = createFileRoute("/api/auth/callback/google")({
         const allProviderCookies = rawCookie
           .split(";")
           .map(s => s.trim())
-          .filter(s => s.startsWith(PB_OAUTH_PROVIDER_COOKIE + "="))
+          .filter(s => s.startsWith(`${PB_OAUTH_PROVIDER_COOKIE  }=`))
           .map(s => decodeURIComponent(s.slice(s.indexOf("=") + 1)));
 
         if (!code || !state || allProviderCookies.length === 0) {
@@ -80,27 +80,32 @@ export const Route = createFileRoute("/api/auth/callback/google")({
         // if none match (stale state — exchange will fail and surface the
         // real Google error via the diagnostic logging below).
         let provider: Record<string, unknown> | null = null;
-        let fallbackProvider: Record<string, unknown> | null = null;
         for (const val of allProviderCookies) {
           const p = verifySignedCookie(val);
-          if (p) {
-            if (!fallbackProvider) fallbackProvider = p;
-            if (p.state === state) { provider = p; break; }
-          }
+          if (p && p.state === state) { provider = p; break; }
         }
-        provider = provider ?? fallbackProvider;
 
         if (!provider) {
           return new Response(null, { status: 302, headers: { Location: new URL("/?error=auth_failed_bad_sig", resolvedAppUrl).toString() } });
         }
 
         const redirectUrl = `${resolvedAppUrl}${OAUTH_CALLBACK_PATH}`;
-        // Where to send the user after login. Defaults to the stable app URL,
-        // but respects the origin they started from (preview domains, etc.).
-        const finalRedirect =
-          typeof provider.origin === "string" && provider.origin
-            ? provider.origin
-            : resolvedAppUrl;
+        // Where to send the user after login. Only allow origins on our domain.
+        let finalRedirect = resolvedAppUrl;
+        if (typeof provider.origin === "string" && provider.origin) {
+          try {
+            const originUrl = new URL(provider.origin);
+            const appHost = new URL(resolvedAppUrl).hostname;
+            const apex = appHost.split('.').slice(-2).join('.');
+            const originHost = originUrl.hostname;
+            if (
+              originUrl.origin === new URL(resolvedAppUrl).origin ||
+              (apex.length > 0 && (originHost === appHost || originHost.endsWith(`.${  apex}`)))
+            ) {
+              finalRedirect = provider.origin;
+            }
+          } catch { /* keep default */ }
+        }
 
         const cookieDomain = getCookieDomain(resolvedAppUrl);
 

@@ -1,9 +1,29 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB } from "@/lib/pb.server"; import { buildFileUrl, escapeFilterValue } from "@/lib/pb"
+import { createPB, getPBUrl } from "@/lib/pb.server";
 import { handleError } from "@/lib/api-error";
 import { requireAuth } from "@/lib/auth";
 import { requireEventScope } from "@/lib/chair-scope";
-import { getField, getExpand } from '@/lib/safe-get';
+import { getField } from '@/lib/safe-get';
+
+interface TicketLookupPayload {
+  found?: boolean;
+  registrationId?: string;
+  user?: string;
+  ticket?: {
+    id: string;
+    paymentStatus: string;
+    registrationStatus: string;
+    createdAt: string;
+  };
+  event?: {
+    id: string;
+    title: string;
+    date: string;
+    venue: string;
+    time?: string;
+    bannerUrl?: string;
+  } | null;
+}
 
 export const Route = createFileRoute("/api/ticket/$ticketId")({
   server: {
@@ -11,54 +31,39 @@ export const Route = createFileRoute("/api/ticket/$ticketId")({
       GET: async ({ request, params }) => {
         try {
           const { ticketId } = params;
-          const pb = createPB(request.headers.get('cookie') || undefined);
-          const auth = await requireAuth(pb).catch(() => null);
+          const pbUrl = getPBUrl().replace(/\/+$/, "");
+          const lookupRes = await fetch(
+            `${pbUrl}/api/tickets/lookup?ticketId=${encodeURIComponent(ticketId)}`,
+          );
+          const data = (await lookupRes.json()) as TicketLookupPayload;
 
-          const regs = await pb.collection("registrations").getList(1, 1, {
-            filter: `ticketId = ${escapeFilterValue(ticketId)} || paymentTicketId = ${escapeFilterValue(ticketId)}`,
-            expand: "event",
-            fields: "id,user,userName,userEmail,userPhone,registrationStatus,paymentStatus,registrationDate,ticketId,event,created",
-          });
-
-          if (regs.items.length === 0) {
+          if (!lookupRes.ok || !data.found || !data.ticket) {
             return Response.json({ found: false });
           }
 
-          const reg = regs.items[0];
-          const expand = getExpand(reg);
-          const eventData = expand?.event;
+          const pb = createPB(request.headers.get('cookie') || undefined);
+          const auth = await requireAuth(pb).catch(() => null);
 
-          let event = null;
-          if (eventData) {
-            event = {
-              id: getField(eventData, 'id', ''),
-              title: getField(eventData, 'title', ''),
-              date: getField(eventData, 'date', ''),
-              venue: getField(eventData, 'venue', ''),
-              bannerUrl: getField(eventData, 'banner', '')
-                ? buildFileUrl("events", getField(eventData, 'id', ''), getField(eventData, 'banner', ''))
-                : undefined,
-              time: getField(eventData, 'time', undefined),
-            };
+          if (!auth) {
+            return Response.json({
+              found: true,
+              ticket: data.ticket,
+              event: data.event ?? null,
+            });
           }
 
           const response: Record<string, unknown> = {
             found: true,
-            ticket: {
-              id: getField(reg, 'ticketId', ticketId),
-              paymentStatus: getField(reg, 'paymentStatus', ''),
-              registrationStatus: getField(reg, 'registrationStatus', ''),
-              createdAt: getField(reg, 'created', ''),
-            },
-            event,
+            ticket: data.ticket,
+            event: data.event ?? null,
           };
 
           if (auth) {
             const userId = auth.user.id;
             const role = auth.user.role;
             const isAdmin = role === 'admin';
-            const isOwner = getField(reg, 'user', '') === userId;
-            const eventId = getField(eventData, 'id', '') || getField(reg, 'event', '');
+            const isOwner = data.user === userId;
+            const eventId = data.event?.id || '';
             let isChair = false;
             if (role === 'chair' && eventId) {
               try {
@@ -70,15 +75,23 @@ export const Route = createFileRoute("/api/ticket/$ticketId")({
             }
 
             if (isOwner || isAdmin || isChair) {
-              response.registration = {
-                id: getField(reg, 'id', ''),
-                name: getField(reg, 'userName', ''),
-                email: getField(reg, 'userEmail', ''),
-                phone: getField(reg, 'userPhone', ''),
-                registrationStatus: getField(reg, 'registrationStatus', ''),
-                paymentStatus: getField(reg, 'paymentStatus', ''),
-                registrationDate: getField(reg, 'registrationDate', ''),
-              };
+              const regId = data.registrationId || '';
+              if (regId) {
+                const reg = await pb.collection('registrations').getOne(regId, {
+                  fields: 'id,userName,userEmail,userPhone,registrationStatus,paymentStatus,registrationDate',
+                }).catch(() => null);
+                if (reg) {
+                  response.registration = {
+                    id: getField(reg, 'id', ''),
+                    name: getField(reg, 'userName', ''),
+                    email: getField(reg, 'userEmail', ''),
+                    phone: getField(reg, 'userPhone', ''),
+                    registrationStatus: getField(reg, 'registrationStatus', ''),
+                    paymentStatus: getField(reg, 'paymentStatus', ''),
+                    registrationDate: getField(reg, 'registrationDate', '') || data.ticket.createdAt,
+                  };
+                }
+              }
             }
           }
 

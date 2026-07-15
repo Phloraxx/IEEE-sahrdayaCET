@@ -30,16 +30,43 @@ const pendingBet = (selection: string, extra: Partial<BetInfo> = {}): BetInfo =>
 })
 
 describe('judgeBet — match_winner', () => {
-  it('wins when selection matches result_winner', () => {
+  it('wins when selection matches result_winner (no advance field, non-draw)', () => {
     expect(judgeBet(pendingBet('home'), { market_type: 'match_winner', line: 0, options: [] }, { ...baseResult, result_winner: 'home' })).toBe('won')
     expect(judgeBet(pendingBet('away'), { market_type: 'match_winner', line: 0, options: [] }, { ...baseResult, result_winner: 'away' })).toBe('won')
-    expect(judgeBet(pendingBet('draw'), { market_type: 'match_winner', line: 0, options: [] }, { ...baseResult, result_winner: 'draw' })).toBe('won')
   })
   it('loses when selection does not match', () => {
     expect(judgeBet(pendingBet('home'), { market_type: 'match_winner', line: 0, options: [] }, { ...baseResult, result_winner: 'away' })).toBe('lost')
   })
   it('voids when result_winner is empty (not settled)', () => {
     expect(judgeBet(pendingBet('home'), { market_type: 'match_winner', line: 0, options: [] }, baseResult)).toBe('void')
+  })
+  // Knockout-only game: a 90-min draw with no result_advance → void (the
+  // admin must pick who advanced; "draw" is not a valid match-winner outcome
+  // in a knockout). Covered in the knockout describe block below too.
+  it('voids when result_winner is draw and no result_advance (knockout)', () => {
+    expect(judgeBet(pendingBet('home'), { market_type: 'match_winner', line: 0, options: [] }, { ...baseResult, result_winner: 'draw' })).toBe('void')
+    expect(judgeBet(pendingBet('draw'), { market_type: 'match_winner', line: 0, options: [] }, { ...baseResult, result_winner: 'draw' })).toBe('void')
+  })
+})
+
+describe('judgeBet — match_winner knockout (result_advance)', () => {
+  // Knockout: 90-min draw, home advanced on pens. match_winner settles on
+  // result_advance, NOT result_winner (which is "draw").
+  it('settles on result_advance when set, ignoring 90-min draw', () => {
+    const r: MatchResult = { ...baseResult, result_winner: 'draw', result_advance: 'home', result_after_penalties: true }
+    expect(judgeBet(pendingBet('home'), { market_type: 'match_winner', line: 0, options: [] }, r)).toBe('won')
+    expect(judgeBet(pendingBet('away'), { market_type: 'match_winner', line: 0, options: [] }, r)).toBe('lost')
+    // A "draw" selection loses in a knockout — there is no draw outcome.
+    expect(judgeBet(pendingBet('draw'), { market_type: 'match_winner', line: 0, options: [] }, r)).toBe('lost')
+  })
+  it('voids when 90-min was a draw and no result_advance set (admin forgot)', () => {
+    const r: MatchResult = { ...baseResult, result_winner: 'draw' }
+    expect(judgeBet(pendingBet('home'), { market_type: 'match_winner', line: 0, options: [] }, r)).toBe('void')
+  })
+  it('uses result_advance even when result_winner is also set to a non-draw', () => {
+    // 90-min 2-1 home win → advance should be home. result_advance wins.
+    const r: MatchResult = { ...baseResult, result_winner: 'home', result_home_goals: 2, result_away_goals: 1, result_advance: 'home' }
+    expect(judgeBet(pendingBet('home'), { market_type: 'match_winner', line: 0, options: [] }, r)).toBe('won')
   })
 })
 
@@ -74,17 +101,17 @@ describe('judgeBet — correct_score', () => {
   })
 })
 
-describe('judgeBet — first_scorer', () => {
+describe('judgeBet — any_scorer', () => {
   it('wins when selection is in result_scorers', () => {
     const r = { ...baseResult, result_scorers: ['Messi', 'Ronaldo'] }
-    expect(judgeBet(pendingBet('Messi'), { market_type: 'first_scorer', line: 0, options: [] }, r)).toBe('won')
+    expect(judgeBet(pendingBet('Messi'), { market_type: 'any_scorer', line: 0, options: [] }, r)).toBe('won')
   })
   it('loses when selection not in scorers', () => {
     const r = { ...baseResult, result_scorers: ['Messi'] }
-    expect(judgeBet(pendingBet('Neymar'), { market_type: 'first_scorer', line: 0, options: [] }, r)).toBe('lost')
+    expect(judgeBet(pendingBet('Neymar'), { market_type: 'any_scorer', line: 0, options: [] }, r)).toBe('lost')
   })
   it('voids when no scorers recorded', () => {
-    expect(judgeBet(pendingBet('Messi'), { market_type: 'first_scorer', line: 0, options: [] }, baseResult)).toBe('void')
+    expect(judgeBet(pendingBet('Messi'), { market_type: 'any_scorer', line: 0, options: [] }, baseResult)).toBe('void')
   })
 })
 
@@ -100,12 +127,13 @@ describe('judgeBet — cards_ou', () => {
 })
 
 describe('judgeBet — clean_sheet', () => {
-  it('home wins when result_home_clean_sheet is true', () => {
-    const r = { ...baseResult, result_home_clean_sheet: true }
+  it('home wins when away scored 0 in 90 min', () => {
+    const r = { ...baseResult, result_home_goals: 2, result_away_goals: 0 }
     expect(judgeBet(pendingBet('home'), { market_type: 'clean_sheet', line: 0, options: [] }, r)).toBe('won')
   })
-  it('away loses when result_away_clean_sheet is false', () => {
-    expect(judgeBet(pendingBet('away'), { market_type: 'clean_sheet', line: 0, options: [] }, baseResult)).toBe('lost')
+  it('away loses when home scored in 90 min', () => {
+    const r = { ...baseResult, result_home_goals: 1, result_away_goals: 0 }
+    expect(judgeBet(pendingBet('away'), { market_type: 'clean_sheet', line: 0, options: [] }, r)).toBe('lost')
   })
 })
 
@@ -222,6 +250,54 @@ describe('settleMarket — idempotency', () => {
     // b1 stays won (idempotent), b2 newly judged as won
     expect(updates.find((u) => u.id === 'b1')!.status).toBe('won')
     expect(updates.find((u) => u.id === 'b2')!.status).toBe('won')
+  })
+})
+
+describe('settleMarket — void stakes are excluded from the pool', () => {
+  it('does not let a previously-voided bet inflate the pool winners share', () => {
+    const market = { id: 'm1', market_type: 'match_winner', mode: 'pool' as const, line: 0, options: ['home', 'away'] }
+    const bets = [
+      { id: 'b1', user: 'u1', selection: 'home', stake: 100, mode: 'pool' as const, odds_locked: 0, status: 'pending' },
+      { id: 'b2', user: 'u2', selection: 'away', stake: 100, mode: 'pool' as const, odds_locked: 0, status: 'pending' },
+      // Voided before settlement (e.g. TOCTOU void or refunded) — its stake
+      // was refunded / never collected and must not be shared out.
+      { id: 'b3', user: 'u3', selection: 'away', stake: 500, mode: 'pool' as const, odds_locked: 0, status: 'void' },
+    ]
+    const result = { ...baseResult, result_winner: 'home' }
+    const { updates } = settleMarket(market, bets, result, 0)
+    // Pool = 100 + 100 = 200 (b3's 500 excluded). b1 takes it all.
+    expect(updates.find((u) => u.id === 'b1')!.payout).toBe(200)
+    expect(updates.find((u) => u.id === 'b3')!.status).toBe('void')
+    expect(updates.find((u) => u.id === 'b3')!.payout).toBe(500) // refund only
+  })
+
+  it('excludes pushed (void) over/under stakes from the pool', () => {
+    const market = { id: 'm1', market_type: 'total_goals_ou', mode: 'pool' as const, line: 2, options: ['over', 'under'] }
+    const bets = [
+      { id: 'b1', user: 'u1', selection: 'over', stake: 100, mode: 'pool' as const, odds_locked: 0, status: 'pending' },
+      { id: 'b2', user: 'u2', selection: 'under', stake: 100, mode: 'pool' as const, odds_locked: 0, status: 'pending' },
+    ]
+    // total 2 = line → both push → market voided path (no winner)
+    const r = { ...baseResult, result_home_goals: 1, result_away_goals: 1 }
+    const { updates, marketVoided } = settleMarket(market, bets, r, 0)
+    expect(marketVoided).toBe(true)
+    expect(updates.find((u) => u.id === 'b1')!.payout).toBe(100)
+    expect(updates.find((u) => u.id === 'b2')!.payout).toBe(100)
+  })
+
+  it('payouts never exceed the collected pool', () => {
+    const market = { id: 'm1', market_type: 'total_goals_ou', mode: 'pool' as const, line: 2, options: ['over', 'under'] }
+    const bets = [
+      { id: 'b1', user: 'u1', selection: 'over', stake: 60, mode: 'pool' as const, odds_locked: 0, status: 'pending' },
+      { id: 'b2', user: 'u2', selection: 'under', stake: 40, mode: 'pool' as const, odds_locked: 0, status: 'pending' },
+      { id: 'b3', user: 'u3', selection: 'over', stake: 300, mode: 'pool' as const, odds_locked: 0, status: 'void' },
+    ]
+    const r = { ...baseResult, result_home_goals: 2, result_away_goals: 1 } // total 3 > 2 → over wins
+    const { updates } = settleMarket(market, bets, r, 0)
+    const paidToWinners = updates.filter((u) => u.status === 'won').reduce((s, u) => s + u.payout, 0)
+    // Collected (live) pool is 60 + 40 = 100 — winners can never share more.
+    expect(paidToWinners).toBeLessThanOrEqual(100)
+    expect(updates.find((u) => u.id === 'b1')!.payout).toBe(100)
   })
 })
 

@@ -23,6 +23,7 @@ function escapeCsv(v: unknown): string {
 interface FormFieldDef {
   id: string
   label: string
+  name?: string
   type?: string
 }
 
@@ -95,7 +96,7 @@ export async function streamRegistrationsCSV(
         escapeCsv(getField(reg, 'couponCode', '')),
         escapeCsv(getField(reg, 'discountAmount', 0) ? `₹${getField(reg, 'discountAmount', 0)}` : ''),
       ]
-      const customCols = customFields.map((f) => escapeCsv(formResponses[f.id]))
+      const customCols = customFields.map((f) => escapeCsv(formResponses[f.name || f.id]))
       queue.push(`${[...staticCols, ...couponCols, ...customCols].join(',')  }\n`)
     }
     if (result.items.length < CSV_BATCH_SIZE) exhausted = true

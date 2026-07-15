@@ -52,8 +52,11 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# No --mount=type=cache for .tanstack/tmp — TanStack Router generator
-# uses rename() which fails across filesystem boundaries (EXDEV).
+# Generate route tree before build — the Vite plugin's file crawler
+# misses some route files in Docker (pre-existing TanStack Start bug).
+# Generate a complete route tree, then make it read-only so the plugin
+# can't overwrite it with a broken version during the build.
+RUN node scripts/generate-routes.mjs && chmod 444 src/routeTree.gen.ts
 RUN bun run build
 
 # ─── Fix TanStack Start singleton getRouter() bug (#6924) ─────────

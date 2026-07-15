@@ -60,8 +60,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         fetchUser()
     }, [fetchUser])
 
-    const signIn = useCallback(() => {
-        window.location.href = '/api/auth/init'
+    const signIn = useCallback(async () => {
+        try {
+            const res = await fetch('/api/auth/init', { credentials: 'include' })
+            const data = await res.json().catch(() => ({} as { authURL?: string; error?: string }))
+            if (res.ok && typeof data.authURL === 'string' && data.authURL) {
+                window.location.href = data.authURL
+                return
+            }
+            logError('auth-signin', data.error || `${res.status} ${res.statusText}`)
+        } catch (err) {
+            logError('auth-signin', err)
+        }
     }, [])
 
     const signOut = useCallback(async () => {

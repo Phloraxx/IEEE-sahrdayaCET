@@ -30,9 +30,16 @@ export const Route = createFileRoute("/api/admin/fifa/settings")({
                 pool_house_cut_percent: getField(s, 'pool_house_cut_percent', 0),
                 raffle_tickets_base: getField(s, 'raffle_tickets_base', 50),
                 raffle_tickets_decay: getField(s, 'raffle_tickets_decay', 2),
-                raffle_active_participant_min_bets: getField(s, 'raffle_active_participant_min_bets', 1),
+                raffle_active_participant_min_bets: getField(s, 'raffle_active_participant_min_bets', 5),
+                auto_settle_enabled: getField(s, 'auto_settle_enabled', false),
+                settle_delay_minutes: getField(s, 'settle_delay_minutes', 15),
+                auto_void_hours: getField(s, 'auto_void_hours', 6),
                 prize: getField(s, 'prize', ''),
                 registration_open: getField(s, 'registration_open', true),
+                raffle_drawn_at: getField(s, 'raffle_drawn_at', ''),
+                raffle_winner: getField(s, 'raffle_winner', ''),
+                raffle_seed: getField(s, 'raffle_seed', ''),
+                raffle_entries_snapshot: getField(s, 'raffle_entries_snapshot', null),
               },
             });
           } catch {
@@ -44,6 +51,10 @@ export const Route = createFileRoute("/api/admin/fifa/settings")({
       },
       PATCH: async ({ request }) => {
         try {
+          const ct = request.headers.get('content-type') || '';
+          if (!ct.includes('application/json')) {
+            return Response.json({ error: 'Unsupported media type' }, { status: 415 });
+          }
           verifySameOrigin(request);
           const pb = createPB(request.headers.get("cookie") || undefined);
           await requireRole(["admin"], pb);

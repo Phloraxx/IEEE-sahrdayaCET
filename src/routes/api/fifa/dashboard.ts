@@ -4,6 +4,7 @@ import { escapeFilterValue } from "@/lib/pb";
 import { requireAuth } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 import { getField, getExpand } from "@/lib/safe-get";
+import { userDisplayName } from "@/lib/user-display-name";
 
 // Authed: the player's own dashboard — balance, display_name, recent bets,
 // and recent transactions. Polled every ~10s by the client.
@@ -19,30 +20,58 @@ export const Route = createFileRoute("/api/fifa/dashboard")({
           // (the auth record from requireAuth may be stale by up to authRefresh
           // interval).
           const userRec = await pb.collection("users").getOne(user.id, {
-            fields: "id,display_name,balance,email",
+            fields: "id,name,display_name,balance,email",
           });
 
-          const [bets, transactions] = await Promise.all([
+          const userIdFilter = escapeFilterValue(user.id)
+          const [bets, transactions, countPage, statusPage] = await Promise.all([
             pb.collection("fifa_bets").getList(1, 20, {
-              filter: `user.id = ${escapeFilterValue(user.id)}`,
+              filter: `user = ${userIdFilter}`,
               sort: "-placed_at",
               expand: "match,market",
               fields: "id,selection,stake,mode,odds_locked,status,payout,placed_at,match,market,expand",
             }),
             pb.collection("fifa_transactions").getList(1, 30, {
-              filter: `user.id = ${escapeFilterValue(user.id)}`,
-              sort: "-created",
-              fields: "id,type,amount,balance_after,note,created",
+              filter: `user = ${userIdFilter}`,
+              sort: "-timestamp",
+              fields: "id,type,amount,balance_after,note,timestamp",
+            }),
+            pb.collection("fifa_bets").getList(1, 1, {
+              filter: `user = ${userIdFilter} && status != 'void'`,
+              fields: "id",
+            }),
+            pb.collection("fifa_bets").getList(1, 100, {
+              filter: `user = ${userIdFilter}`,
+              sort: "-placed_at",
+              fields: "id,status",
             }),
           ]);
+          const validBetsCount = countPage.totalItems ?? 0;
+
+          let maxBetPercent = 25;
+          try {
+            const settings = await pb.collection("fifa_settings").getFirstListItem("1=1", {
+              fields: "max_bet_percent",
+            });
+            maxBetPercent = Number(getField(settings, 'max_bet_percent', 25)) || 25;
+          } catch { /* settings not seeded — keep default */ }
 
           return Response.json({
             user: {
               id: getField(userRec, 'id', ''),
-              display_name: getField(userRec, 'display_name', ''),
+              display_name: userDisplayName({
+                name: getField(userRec, 'name', ''),
+                display_name: getField(userRec, 'display_name', ''),
+              }),
               balance: getField(userRec, 'balance', 0),
               email: getField(userRec, 'email', ''),
             },
+            max_bet_percent: maxBetPercent,
+            valid_bets_count: validBetsCount,
+            bet_statuses: statusPage.items.map((b) => ({
+              id: getField(b, 'id', ''),
+              status: getField(b, 'status', 'pending'),
+            })),
             bets: bets.items.map((b) => {
               const expand = getExpand(b);
               return {
@@ -71,33 +100,18 @@ export const Route = createFileRoute("/api/fifa/dashboard")({
               amount: getField(t, 'amount', 0),
               balance_after: getField(t, 'balance_after', 0),
               note: getField(t, 'note', ''),
-              created: getField(t, 'created', ''),
+              timestamp: getField(t, 'timestamp', ''),
             })),
           });
         } catch (error) {
           return handleError(error, "fifa-dashboard");
         }
       },
-      // PATCH: update display_name (the only user-editable game field)
-      PATCH: async ({ request }) => {
-        try {
-          const ct = request.headers.get('content-type') || '';
-          if (!ct.includes('application/json')) {
-            return Response.json({ error: 'Unsupported media type' }, { status: 415 });
-          }
-          const pb = createPB(request.headers.get("cookie") || undefined);
-          const { user } = await requireAuth(pb);
-          const body = await request.json() as { display_name?: string };
-          const name = (body.display_name || '').trim();
-          if (!name || name.length < 2 || name.length > 40) {
-            return Response.json({ error: 'Display name must be 2-40 characters' }, { status: 400 });
-          }
-          await pb.collection("users").update(user.id, { display_name: name });
-          return Response.json({ display_name: name });
-        } catch (error) {
-          return handleError(error, "fifa-dashboard-update");
-        }
-      },
+      // Display names are set from the Google profile at first sign-in
+      // (pb_hooks/fifa.pb.js OAuth2 hook) and are NOT user-editable — the
+      // public leaderboard shows real identities. The users collection
+      // updateRule blocks self-service display_name changes at the DB layer
+      // too; admins can still correct a name via the PB dashboard.
     },
   },
 });

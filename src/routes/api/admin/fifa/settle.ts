@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB } from "@/lib/pb.server"
+import { createPB, getPBUrl } from "@/lib/pb.server"
 import { requireRole } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 import { verifySameOrigin } from "@/lib/verify-same-origin";
@@ -22,15 +22,40 @@ export const Route = createFileRoute("/api/admin/fifa/settle")({
           await requireRole(["admin"], pb);
           const parsed = FifaSettleSchema.parse(await request.json());
 
-          // Call the PB custom route. The pb_auth cookie auto-attaches, so
-          // the route's e.auth check sees the admin role.
-          const res = await fetch(`${process.env.POCKETBASE_URL}/api/fifa/settle`, {
+          // Auto-fill result_advance from result_winner when the 90-min result
+          // wasn't a draw (FIFA-GAME.md §2.1). The PB hook does this too —
+          // belt and braces.
+          const body: Record<string, unknown> = { ...parsed };
+          if (
+            !parsed.result_advance &&
+            parsed.result_winner &&
+            parsed.result_winner !== 'draw'
+          ) {
+            body.result_advance = parsed.result_winner;
+          }
+          // Derive clean-sheet flags from 90-min goals (FIFA-GAME.md §4).
+          body.result_home_clean_sheet = parsed.result_away_goals === 0;
+          body.result_away_clean_sheet = parsed.result_home_goals === 0;
+
+          // Extract the auth token from the cookie and pass it as a Bearer
+          // token. The pb_auth cookie value is URL-encoded JSON; PocketBase
+          // may not decode it when received via forwarded header, but it
+          // always accepts Authorization: Bearer.
+          const cookieStr = request.headers.get('cookie') || '';
+          const token = pb.authStore.token;
+          const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+          };
+          if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+          } else {
+            headers['cookie'] = cookieStr;
+          }
+
+          const res = await fetch(`${getPBUrl().replace(/\/+$/, '')}/api/fifa/settle`, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              cookie: request.headers.get('cookie') || '',
-            },
-            body: JSON.stringify(parsed),
+            headers,
+            body: JSON.stringify(body),
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) {

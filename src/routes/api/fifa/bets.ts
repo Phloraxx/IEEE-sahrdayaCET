@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB } from "@/lib/pb.server"
+import { createPB, getPBUrl } from "@/lib/pb.server"
 import { escapeFilterValue } from "@/lib/pb";
 import { requireAuth } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 import { verifySameOrigin } from "@/lib/verify-same-origin";
-import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { checkRateLimit, rateLimitResponse, refundToken } from "@/lib/rate-limit";
 import { FIFA_RATE_LIMITS } from "@/lib/constants";
 import { FifaBetCreateSchema } from "@/schemas/fifa";
 import { getField, getExpand } from "@/lib/safe-get";
@@ -79,40 +79,58 @@ export const Route = createFileRoute("/api/fifa/bets")({
           const pb = createPB(request.headers.get("cookie") || undefined);
           const { user } = await requireAuth(pb);
 
+          const parsed = FifaBetCreateSchema.parse(await request.json());
+
+          // Rate limit BEFORE creating — only allow the bet if the user has
+          // tokens. If the PB hook rejects the bet (e.g. market closed), we
+          // refund the token so failed validations don't deplete the budget.
           const rl = checkRateLimit({ key: `fifa-bet:${user.id}`, max: FIFA_RATE_LIMITS.bet.max, windowMs: FIFA_RATE_LIMITS.bet.windowMs });
           if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
 
-          const parsed = FifaBetCreateSchema.parse(await request.json());
+          try {
+            // Use raw fetch with Bearer token so PB 0.39's onRecordCreateRequest
+            // hook has e.auth populated (cookie-based auth doesn't set e.auth
+            // in hook callbacks). The SDK's create() sends the token as a cookie,
+            // which PB 0.39 doesn't decode into e.auth for hooks.
+            const token = pb.authStore.token;
+            const pbUrl = getPBUrl().replace(/\/+$/, '');
+            const res = await fetch(`${pbUrl}/api/collections/fifa_bets/records`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                match: parsed.match,
+                market: parsed.market,
+                selection: parsed.selection,
+                stake: parsed.stake,
+                user: user.id,
+              }),
+            });
+            const bet = await res.json();
+            if (!res.ok) {
+              refundToken({ key: `fifa-bet:${user.id}`, max: FIFA_RATE_LIMITS.bet.max, windowMs: FIFA_RATE_LIMITS.bet.windowMs });
+              const errMsg = bet?.message || bet?.error || 'Bet rejected';
+              return Response.json({ error: errMsg }, { status: res.status });
+            }
 
-          // Create with the user's own client. The createRule + onRecordCreate
-          // hook enforce everything else. If the hook throws (e.g. insufficient
-          // balance, market closed), PB returns a 400 that handleError maps.
-          const bet = await pb.collection("fifa_bets").create({
-            user: user.id,
-            match: parsed.match,
-            market: parsed.market,
-            selection: parsed.selection,
-            stake: parsed.stake,
-          });
-
-          // Read back the hook-populated fields (mode, odds_locked, status,
-          // placed_at are set by the hook, not the client)
-          const created = await pb.collection("fifa_bets").getOne(bet.id, {
-            fields: "id,selection,stake,mode,odds_locked,status,payout,placed_at",
-          });
-
-          return Response.json({
-            bet: {
-              id: getField(created, 'id', ''),
-              selection: getField(created, 'selection', ''),
-              stake: getField(created, 'stake', 0),
-              mode: getField(created, 'mode', 'pool'),
-              odds_locked: getField(created, 'odds_locked', 0),
-              status: getField(created, 'status', 'pending'),
-              payout: getField(created, 'payout', 0),
-              placed_at: getField(created, 'placed_at', ''),
-            },
-          }, { status: 201 });
+            return Response.json({
+              bet: {
+                id: bet.id,
+                selection: bet.selection,
+                stake: bet.stake,
+                mode: bet.mode || 'pool',
+                odds_locked: bet.odds_locked || 0,
+                status: bet.status || 'pending',
+                payout: bet.payout || 0,
+                placed_at: bet.placed_at || '',
+              },
+            }, { status: 201 });
+          } catch (createError) {
+            refundToken({ key: `fifa-bet:${user.id}`, max: FIFA_RATE_LIMITS.bet.max, windowMs: FIFA_RATE_LIMITS.bet.windowMs });
+            throw createError;
+          }
         } catch (error) {
           return handleError(error, "fifa-bets-create");
         }

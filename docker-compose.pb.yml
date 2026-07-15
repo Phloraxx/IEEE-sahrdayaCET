@@ -10,9 +10,32 @@ services:
     restart: always
     expose:
       - 8090
+    # Attach explicitly to Dokploy's shared overlay so the container gets BOTH
+    # inbound routing (Traefik) AND outbound internet egress. Without this a
+    # Compose-deployed service lands on an isolated stack network: Traefik can
+    # still route inbound (so db.ieeesahrdaya.com works), but there's no egress
+    # route — so the fifa-espn-sync cron's $http.send to site.api.espn.com
+    # silently failed and matches never auto-synced/settled.
+    networks:
+      - dokploy-network
+    # Force public resolvers. On Swarm overlay networks the embedded resolver
+    # (127.0.0.11) sometimes can't resolve EXTERNAL hostnames even when it
+    # resolves internal service names — pin explicit upstreams so PB can look
+    # up site.api.espn.com.
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    # Swarm/Dokploy: binding ./pb_hooks → /pocketbase/hooks is shadowed by the
+    # named volume on /pocketbase. Sync from /hooks-src on every container start.
     volumes:
       - pocketbase-data:/pocketbase
-      - ./pb_hooks:/pocketbase/hooks
+      - ./pb_hooks:/hooks-src:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        mkdir -p /pocketbase/hooks
+        cp -rf /hooks-src/. /pocketbase/hooks/
+        exec /opt/pocketbase/scripts/entrypoint.sh
     environment:
       - POCKETBASE_ADMIN_EMAIL=${ADMIN_EMAIL:?err}
       - POCKETBASE_ADMIN_PASSWORD=${ADMIN_PASSWORD:?err}
@@ -28,6 +51,13 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+networks:
+  # Dokploy creates this overlay network; join it as external so we don't
+  # spawn a second, isolated one. This is the same network the app service
+  # and Traefik are on.
+  dokploy-network:
+    external: true
 
 volumes:
   pocketbase-data:

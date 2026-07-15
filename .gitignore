@@ -35,7 +35,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 # TanStack Start (generated route tree)
-src/routeTree.gen.ts
 
 # IDE
 .vscode/*
@@ -191,7 +190,6 @@ test-screenshots/
 /.omp/
 /local/
 # Generated build artifacts
-routeTree.gen.ts
 # Dev reports & docs
 /COMPREHENSIVE-AUDIT.md
 /ADMIN-MIGRATION-STATUS.md
@@ -215,3 +213,11 @@ routeTree.gen.ts
 /v2.log
 /dev.log
 /regen.log
+
+# Raw FIFA design media (served copies live in public/fifa/)
+/fifa/
+# Local tool/terminal dumps
+/terminals/
+/mcps/
+# Temporary PB diagnostics
+/pb_hooks/_egress_check.pb.js

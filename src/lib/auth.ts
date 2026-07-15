@@ -1,5 +1,6 @@
 import type PocketBase from 'pocketbase'
 import type { AuthUser } from '@/types'
+import { USER_ROLES, type UserRole } from '@/lib/constants'
 
 export interface AuthResult {
   user: AuthUser
@@ -29,11 +30,17 @@ export async function requireAuth(pb: PocketBase): Promise<AuthResult & { pb: Po
   const record = pb.authStore.record
   if (!record) throw new AuthError('Invalid or expired session', 401)
 
+  const rawRole = typeof record.role === 'string' ? record.role : 'user'
+  const role: UserRole = (USER_ROLES as readonly string[]).includes(rawRole)
+    ? (rawRole as UserRole)
+    : 'user'
+  const googleName = typeof record.name === 'string' ? record.name.trim() : ''
+  const legacyName = typeof record.display_name === 'string' ? record.display_name.trim() : ''
   const user: AuthUser = {
     id: record.id,
     email: record.email,
-    name: record.name,
-    role: record.role,
+    name: googleName || legacyName || record.name,
+    role,
   }
   return { user, pb }
 }

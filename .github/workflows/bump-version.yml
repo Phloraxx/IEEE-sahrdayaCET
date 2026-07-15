@@ -8,9 +8,8 @@ name: Version
 #
 # Triggers:
 # - PR opened/reopened/synchronize (base dev or main)
-#     -> bump package.json on the PR branch to <base>+build.<run>.pr<N>
-#     -> commit to the PR branch as github-actions[bot]
-#     -> append "[v<version>]" to the PR title
+#     -> compute <base>+build.<run>.pr<N> and append "[v<version>]" to the PR title
+#     -> does NOT commit to the PR branch (bot pushes stall CI with action_required)
 # - PR merged into dev  -> strip build metadata, bump PATCH, commit to dev, tag vX.Y.(Z+1)
 # - PR merged into main -> strip build metadata, bump MINOR (patch=0), commit to main, tag vX.(Y+1).0
 # - Direct push to main/dev (no PR) -> same bump as merge, tagged on the pushed commit
@@ -58,17 +57,6 @@ jobs:
           echo "version=${BUILD}" >> "$GITHUB_OUTPUT"
           jq --arg v "$BUILD" '.version = $v' package.json > package.json.tmp
           mv package.json.tmp package.json
-      - name: Commit bump to PR branch
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json
-          if git diff --cached --quiet; then
-            echo "No version change, skipping commit"
-          else
-            git commit -m "chore(version): ${{ steps.ver.outputs.version }}"
-            git push
-          fi
       - name: Append version to PR title
         uses: actions/github-script@v7
         with:

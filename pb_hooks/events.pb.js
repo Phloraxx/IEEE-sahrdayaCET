@@ -11,13 +11,23 @@
 // (true→false) — that remains admin-only.
 
 onRecordUpdateRequest(function (e) {
+    var auth = null
+    try { auth = e.auth || (e.requestInfo && e.requestInfo.auth) || null } catch (err) { auth = null }
+
     var role = ""
-    try {
-        role = e.requestInfo.auth.getString("role")
-    } catch (err) {}
+    if (auth) {
+        try {
+            if (auth.isSuperuser && auth.isSuperuser()) {
+                role = "admin"
+            } else {
+                role = auth.getString("role") || ""
+            }
+        } catch (err) { role = "" }
+    }
 
     // Admins pass unconditionally
     if (role === "admin") {
+        e.next()
         return
     }
 
@@ -27,7 +37,7 @@ onRecordUpdateRequest(function (e) {
     try {
         oldRecord = $app.findRecordById("events", newRecord.id)
     } catch (err) {
-        return
+        throw e.notFoundError("Event not found", err)
     }
 
     if (newRecord.getInt("registeredCount") !== oldRecord.getInt("registeredCount")) {
@@ -44,4 +54,5 @@ onRecordUpdateRequest(function (e) {
         throw e.forbiddenError("Only admins may restore deleted events")
     }
     // false→true (soft-delete) is allowed for chairs — falls through.
+    e.next()
 }, "events")

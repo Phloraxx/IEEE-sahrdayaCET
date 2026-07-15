@@ -1,6 +1,9 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Outlet, useRouterState } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { FifaLayout } from '@/features/fifa/fifa-layout'
+import { FifaMatchCard, FifaMatchCardSkeleton } from '@/features/fifa/fifa-match-card'
+import { findLiveMatch, isLiveStatus } from '@/lib/fifa-live-match'
+import { filterPublicActiveFifaMatches } from '@/lib/fifa-match-filters'
 
 interface MatchData {
   id: string
@@ -13,6 +16,7 @@ interface MatchData {
   result_winner: string
   result_home_goals: number
   result_away_goals: number
+  result_advance: string
   settled: boolean
   markets: Array<{
     id: string
@@ -31,70 +35,145 @@ async function fetchMatches(): Promise<{ matches: MatchData[] }> {
   return res.json()
 }
 
+async function fetchLiveScores(): Promise<{
+  matches: Array<{
+    id: string
+    homeTeam: string
+    awayTeam: string
+    homeGoals: number | null
+    awayGoals: number | null
+    status: string
+    minute: number | null
+  }>
+  configured: boolean
+}> {
+  const res = await fetch('/api/fifa/live-scores')
+  if (!res.ok) return { matches: [], configured: false }
+  return res.json()
+}
+
 export const Route = createFileRoute('/FIFA/matches')({
   head: () => ({ meta: [{ title: "Matches · WC Predict '26" }] }),
   component: MatchesPage,
 })
 
 function MatchesPage() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const isDetail = /^\/FIFA\/matches\/[^/]+\/?$/.test(pathname)
+
   const { data, isLoading } = useQuery({
     queryKey: ['fifa-matches'],
     queryFn: fetchMatches,
     refetchInterval: 15_000,
+    enabled: !isDetail,
   })
+
+  const { data: liveData } = useQuery({
+    queryKey: ['fifa-live-scores'],
+    queryFn: fetchLiveScores,
+    refetchInterval: 60_000,
+    enabled: !isDetail,
+  })
+
+  if (isDetail) {
+    return (
+      <FifaLayout active="matches">
+        <Outlet />
+      </FifaLayout>
+    )
+  }
+
+  const matches = filterPublicActiveFifaMatches(data?.matches || [])
+  const liveMatches = liveData?.matches || []
+  const liveConfigured = liveData?.configured ?? false
+
+  const live = matches.filter(m => {
+    const lm = liveConfigured ? findLiveMatch(m.team_home, m.team_away, liveMatches) : null
+    return m.status === 'live' || (lm && isLiveStatus(lm.status))
+  })
+  
+  const upcoming = matches.filter((m) => !live.includes(m) && m.status === 'upcoming')
 
   return (
     <FifaLayout active="matches">
-      <div className="mx-auto max-w-2xl px-4 py-8">
-        <h1 className="font-display text-3xl text-ieee-blue mb-6">Matches</h1>
-        {isLoading && <p className="text-muted-foreground">Loading…</p>}
-        {data?.matches.length === 0 && (
-          <p className="text-muted-foreground">No matches yet. Check back soon.</p>
-        )}
-        <div className="space-y-3">
-          {data?.matches.map((m) => (
-            <MatchCard key={m.id} match={m} />
-          ))}
+      <div className="w-full flex-1 flex flex-col">
+        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-4 md:py-6">
+          
+          <div className="mb-10 text-center md:text-left">
+            <h1 className="font-display text-4xl sm:text-5xl text-ieee-light-blue uppercase tracking-tight mb-3">
+              Matches
+            </h1>
+            <p className="text-sm sm:text-base text-muted-foreground max-w-2xl">
+              All active fixtures. Select a match to view open markets and place your bets.
+            </p>
+          </div>
+
+          {isLoading && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <FifaMatchCardSkeleton key={i} className="!w-full" />
+              ))}
+            </div>
+          )}
+
+          {!isLoading && matches.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-20 text-center rounded-2xl border border-dashed border-border bg-card/50">
+              <span className="text-4xl mb-4 opacity-50">⚽</span>
+              <h3 className="font-display text-xl uppercase mb-2">No Matches Yet</h3>
+              <p className="text-muted-foreground text-sm max-w-sm">There are currently no active fixtures. Check back closer to kickoff!</p>
+            </div>
+          )}
+
+          {!isLoading && matches.length > 0 && (
+            <div className="space-y-12">
+              
+              {/* LIVE SECTION */}
+              {live.length > 0 && (
+                <section>
+                  <div className="flex items-center gap-2 mb-6 border-b border-border pb-2">
+                    <span className="h-2.5 w-2.5 rounded-full bg-ieee-danger animate-pulse" />
+                    <h2 className="font-display text-2xl uppercase tracking-wider text-foreground">Live Now</h2>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {live.map((m) => (
+                      <FifaMatchCard
+                        key={m.id}
+                        match={m}
+                        liveMatches={liveMatches}
+                        liveConfigured={liveConfigured}
+                        className="!w-full"
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* UPCOMING SECTION */}
+              {upcoming.length > 0 && (
+                <section>
+                  <div className="flex items-center gap-2 mb-6 border-b border-border pb-2">
+                    <h2 className="font-display text-2xl uppercase tracking-wider text-foreground">Upcoming</h2>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {upcoming.map((m) => (
+                      <FifaMatchCard
+                        key={m.id}
+                        match={m}
+                        liveMatches={liveMatches}
+                        liveConfigured={liveConfigured}
+                        className="!w-full"
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+
+            </div>
+          )}
+
         </div>
       </div>
     </FifaLayout>
-  )
-}
-
-function MatchCard({ match }: { match: MatchData }) {
-  const kickoff = new Date(match.kickoff_at)
-  const isLive = match.status === 'live'
-  const isFinished = match.status === 'finished' || match.settled
-  const openMarkets = match.markets.filter((m) => m.is_open && !m.void)
-
-  return (
-    <Link
-      to="/FIFA/matches/$id/"
-      params={{ id: match.id }}
-      className="block rounded-lg border border-border bg-card p-4 hover:border-ieee-light-blue transition-colors"
-    >
-      <div className="flex items-center justify-between mb-2">
-        <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-          {match.stage.toUpperCase()}
-        </span>
-        {isLive && (
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-ieee-danger">
-            <span className="h-1.5 w-1.5 rounded-full bg-ieee-danger animate-pulse" /> LIVE
-          </span>
-        )}
-        {isFinished && (
-          <span className="text-xs font-medium text-muted-foreground">Finished</span>
-        )}
-      </div>
-      <p className="font-display text-xl text-foreground">
-        {match.team_home} <span className="text-muted-foreground font-sans text-base">vs</span> {match.team_away}
-      </p>
-      <div className="flex items-center justify-between mt-3 text-sm text-muted-foreground">
-        <span>{kickoff.toLocaleString()}</span>
-        {openMarkets.length > 0 && (
-          <span className="text-ieee-light-blue font-medium">{openMarkets.length} open markets →</span>
-        )}
-      </div>
-    </Link>
   )
 }

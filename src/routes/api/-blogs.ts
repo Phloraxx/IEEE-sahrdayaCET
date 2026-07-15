@@ -2,8 +2,9 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeader } from "@tanstack/react-start/server";
 import { createPB } from "@/lib/pb.server";
 import { authenticateAdmin } from "@/lib/admin-middleware";
+import { requireRole } from "@/lib/auth";
 import { getField, getExpand } from "@/lib/safe-get";
-import { buildFileUrl } from "@/lib/pb";
+import { buildFileUrl, escapeFilterValue } from "@/lib/pb";
 import { z } from "zod";
 
 function getPB() {
@@ -92,7 +93,7 @@ export const getBlogBySlug = createServerFn({ method: "GET" })
   .handler(async ({ data: slug }) => {
     try {
       const pb = getPB();
-      const result = await pb.collection("blogs").getFirstListItem(`slug = "${slug}" && published = true`, {
+      const result = await pb.collection("blogs").getFirstListItem(`slug = ${escapeFilterValue(slug)} && published = true`, {
         expand: "relation,society,event",
       });
       return mapBlog(result);
@@ -205,6 +206,7 @@ export const deleteBlog = createServerFn({ method: "POST" })
   .validator((id: string) => id)
   .handler(async ({ data: id }) => {
     const ctx = await authenticateAdmin();
+    await requireRole(["admin"], ctx.pb);
     await ctx.pb.collection("blogs").delete(id);
     return { success: true };
   });
