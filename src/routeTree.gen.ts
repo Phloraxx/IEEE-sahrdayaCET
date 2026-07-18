@@ -9,97 +9,89 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SocietiesRouteImport } from './routes/societies'
-import { Route as FullExecomRouteImport } from './routes/full-execom'
-import { Route as EventsRouteImport } from './routes/events'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as BlogIndexRouteImport } from './routes/blog.index'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as EventsRouteImport } from './routes/events'
+import { Route as FullExecomRouteImport } from './routes/full-execom'
+import { Route as SocietiesRouteImport } from './routes/societies'
 import { Route as FIFAIndexRouteImport } from './routes/FIFA/index'
-import { Route as TicketTicketIdRouteImport } from './routes/ticket.$ticketId'
-import { Route as RegisterEventIdRouteImport } from './routes/register.$eventId'
-import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
-import { Route as ApiRegistrationsRouteImport } from './routes/api/registrations'
-import { Route as AdminUsersRouteImport } from './routes/admin.users'
-import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
-import { Route as AdminCheckInRouteImport } from './routes/admin.check-in'
-import { Route as AdminBlogsRouteImport } from './routes/admin.blogs'
-import { Route as FIFARulesRouteImport } from './routes/FIFA/rules'
-import { Route as FIFAMatchesRouteImport } from './routes/FIFA/matches'
-import { Route as FIFALeaderboardRouteImport } from './routes/FIFA/leaderboard'
-import { Route as FIFAFeedRouteImport } from './routes/FIFA/feed'
 import { Route as FIFADashboardRouteImport } from './routes/FIFA/dashboard'
-import { Route as AdminSocietiesIndexRouteImport } from './routes/admin.societies.index'
-import { Route as AdminRegistrationsIndexRouteImport } from './routes/admin.registrations.index'
-import { Route as AdminExecomIndexRouteImport } from './routes/admin.execom.index'
-import { Route as AdminEventsIndexRouteImport } from './routes/admin.events.index'
-import { Route as ApiTicketTicketIdRouteImport } from './routes/api/ticket.$ticketId'
-import { Route as ApiSocietySlugRouteImport } from './routes/api/society.$slug'
-import { Route as ApiFilesSplatRouteImport } from './routes/api/files.$'
-import { Route as ApiFifaMatchesRouteImport } from './routes/api/fifa/matches'
-import { Route as ApiFifaLiveScoresRouteImport } from './routes/api/fifa/live-scores'
-import { Route as ApiFifaDashboardRouteImport } from './routes/api/fifa/dashboard'
-import { Route as ApiFifaBetsRouteImport } from './routes/api/fifa/bets'
-import { Route as ApiEventsValidateCouponRouteImport } from './routes/api/events.validate-coupon'
-import { Route as ApiEventsIdRouteImport } from './routes/api/events.$id'
-import { Route as ApiCheckInVerifyRouteImport } from './routes/api/check-in.verify'
-import { Route as ApiAuthMeRouteImport } from './routes/api/auth/me'
-import { Route as ApiAuthLogoutRouteImport } from './routes/api/auth/logout'
-import { Route as ApiAuthInitRouteImport } from './routes/api/auth/init'
-import { Route as ApiAdminUsersRouteImport } from './routes/api/admin/users'
-import { Route as ApiAdminStatsRouteImport } from './routes/api/admin/stats'
-import { Route as ApiAdminSocietiesRouteImport } from './routes/api/admin/societies'
-import { Route as ApiAdminRegistrationsRouteImport } from './routes/api/admin/registrations'
-import { Route as ApiAdminExecomRouteImport } from './routes/api/admin/execom'
-import { Route as ApiAdminEventsRouteImport } from './routes/api/admin/events'
-import { Route as AdminSocietiesNewRouteImport } from './routes/admin.societies.new'
-import { Route as AdminRegistrationsIdRouteImport } from './routes/admin.registrations.$id'
-import { Route as AdminExecomNewRouteImport } from './routes/admin.execom.new'
-import { Route as AdminEventsNewRouteImport } from './routes/admin.events.new'
-import { Route as AdminFIFATestingRouteImport } from './routes/admin.FIFA.testing'
-import { Route as AdminFIFASettingsRouteImport } from './routes/admin.FIFA.settings'
-import { Route as AdminFIFARaffleRouteImport } from './routes/admin.FIFA.raffle'
-import { Route as AdminFIFAMatchesRouteImport } from './routes/admin.FIFA.matches'
-import { Route as AdminFIFAFeedRouteImport } from './routes/admin.FIFA.feed'
+import { Route as FIFAFeedRouteImport } from './routes/FIFA/feed'
+import { Route as FIFALeaderboardRouteImport } from './routes/FIFA/leaderboard'
+import { Route as FIFAMatchesRouteImport } from './routes/FIFA/matches'
+import { Route as FIFARulesRouteImport } from './routes/FIFA/rules'
+import { Route as AdminBlogsRouteImport } from './routes/admin.blogs'
+import { Route as AdminCheckInRouteImport } from './routes/admin.check-in'
+import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
+import { Route as AdminUsersRouteImport } from './routes/admin.users'
+import { Route as ApiRegistrationsRouteImport } from './routes/api/registrations'
+import { Route as BlogIndexRouteImport } from './routes/blog.index'
+import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
+import { Route as RegisterEventIdRouteImport } from './routes/register.$eventId'
+import { Route as SocietiesSlugRouteImport } from './routes/societies_.$slug'
+import { Route as SocietiesWieRouteImport } from './routes/societies_.wie'
+import { Route as TicketTicketIdRouteImport } from './routes/ticket.$ticketId'
 import { Route as FIFAMatchesIdRouteImport } from './routes/FIFA/matches.$id'
-import { Route as ApiEventsIdExportRouteImport } from './routes/api/events.$id.export'
-import { Route as ApiAuthCallbackGoogleRouteImport } from './routes/api/auth/callback/google'
-import { Route as ApiAdminSocietiesIdRouteImport } from './routes/api/admin/societies.$id'
-import { Route as ApiAdminRegistrationsIdRouteImport } from './routes/api/admin/registrations.$id'
-import { Route as ApiAdminFifaTestingRouteImport } from './routes/api/admin/fifa/testing'
-import { Route as ApiAdminFifaSettleRouteImport } from './routes/api/admin/fifa/settle'
-import { Route as ApiAdminFifaSettingsRouteImport } from './routes/api/admin/fifa/settings'
-import { Route as ApiAdminFifaRaffleDrawsRouteImport } from './routes/api/admin/fifa/raffle-draws'
-import { Route as ApiAdminFifaRaffleRouteImport } from './routes/api/admin/fifa/raffle'
-import { Route as ApiAdminFifaMatchesRouteImport } from './routes/api/admin/fifa/matches'
-import { Route as ApiAdminFifaMarketsRouteImport } from './routes/api/admin/fifa/markets'
-import { Route as ApiAdminFifaFeedRouteImport } from './routes/api/admin/fifa/feed'
-import { Route as ApiAdminFifaBetsRouteImport } from './routes/api/admin/fifa/bets'
-import { Route as ApiAdminExecomIdRouteImport } from './routes/api/admin/execom.$id'
-import { Route as ApiAdminEventsIdRouteImport } from './routes/api/admin/events.$id'
-import { Route as AdminSocietiesIdEditRouteImport } from './routes/admin.societies.$id.edit'
-import { Route as AdminExecomIdEditRouteImport } from './routes/admin.execom.$id.edit'
-import { Route as AdminEventsIdEditRouteImport } from './routes/admin.events.$id.edit'
+import { Route as AdminFIFAFeedRouteImport } from './routes/admin.FIFA.feed'
+import { Route as AdminFIFAMatchesRouteImport } from './routes/admin.FIFA.matches'
+import { Route as AdminFIFARaffleRouteImport } from './routes/admin.FIFA.raffle'
+import { Route as AdminFIFASettingsRouteImport } from './routes/admin.FIFA.settings'
+import { Route as AdminFIFATestingRouteImport } from './routes/admin.FIFA.testing'
+import { Route as AdminEventsIndexRouteImport } from './routes/admin.events.index'
+import { Route as AdminEventsNewRouteImport } from './routes/admin.events.new'
+import { Route as AdminExecomIndexRouteImport } from './routes/admin.execom.index'
+import { Route as AdminExecomNewRouteImport } from './routes/admin.execom.new'
+import { Route as AdminRegistrationsIndexRouteImport } from './routes/admin.registrations.index'
+import { Route as AdminRegistrationsIdRouteImport } from './routes/admin.registrations.$id'
+import { Route as AdminSocietiesIndexRouteImport } from './routes/admin.societies.index'
+import { Route as AdminSocietiesNewRouteImport } from './routes/admin.societies.new'
+import { Route as ApiAdminEventsRouteImport } from './routes/api/admin/events'
+import { Route as ApiAdminExecomRouteImport } from './routes/api/admin/execom'
+import { Route as ApiAdminRegistrationsRouteImport } from './routes/api/admin/registrations'
+import { Route as ApiAdminSocietiesRouteImport } from './routes/api/admin/societies'
+import { Route as ApiAdminStatsRouteImport } from './routes/api/admin/stats'
+import { Route as ApiAdminUsersRouteImport } from './routes/api/admin/users'
+import { Route as ApiAuthInitRouteImport } from './routes/api/auth/init'
+import { Route as ApiAuthLogoutRouteImport } from './routes/api/auth/logout'
+import { Route as ApiAuthMeRouteImport } from './routes/api/auth/me'
+import { Route as ApiCheckInVerifyRouteImport } from './routes/api/check-in.verify'
+import { Route as ApiEventsIdRouteImport } from './routes/api/events.$id'
+import { Route as ApiEventsValidateCouponRouteImport } from './routes/api/events.validate-coupon'
+import { Route as ApiFifaBetsRouteImport } from './routes/api/fifa/bets'
+import { Route as ApiFifaDashboardRouteImport } from './routes/api/fifa/dashboard'
+import { Route as ApiFifaLiveScoresRouteImport } from './routes/api/fifa/live-scores'
+import { Route as ApiFifaMatchesRouteImport } from './routes/api/fifa/matches'
+import { Route as ApiFilesSplatRouteImport } from './routes/api/files.$'
+import { Route as ApiSocietySlugRouteImport } from './routes/api/society.$slug'
+import { Route as ApiTicketTicketIdRouteImport } from './routes/api/ticket.$ticketId'
 import { Route as AdminFIFAMatchesIdRouteImport } from './routes/admin.FIFA.matches.$id'
-import { Route as ApiAdminFifaMatchesIdRouteImport } from './routes/api/admin/fifa/matches.$id'
-import { Route as ApiAdminFifaMarketsIdRouteImport } from './routes/api/admin/fifa/markets.$id'
-import { Route as ApiAdminFifaFeedIdRouteImport } from './routes/api/admin/fifa/feed.$id'
-import { Route as ApiAdminEventsIdRegistrationsCsvRouteImport } from './routes/api/admin.events.$id.registrations-csv'
+import { Route as AdminEventsIdEditRouteImport } from './routes/admin.events.$id.edit'
+import { Route as AdminExecomIdEditRouteImport } from './routes/admin.execom.$id.edit'
+import { Route as AdminSocietiesIdEditRouteImport } from './routes/admin.societies.$id.edit'
+import { Route as ApiAdminEventsIdRouteImport } from './routes/api/admin/events.$id'
+import { Route as ApiAdminExecomIdRouteImport } from './routes/api/admin/execom.$id'
+import { Route as ApiAdminFifaBetsRouteImport } from './routes/api/admin/fifa/bets'
+import { Route as ApiAdminFifaFeedRouteImport } from './routes/api/admin/fifa/feed'
+import { Route as ApiAdminFifaMarketsRouteImport } from './routes/api/admin/fifa/markets'
+import { Route as ApiAdminFifaMatchesRouteImport } from './routes/api/admin/fifa/matches'
+import { Route as ApiAdminFifaRaffleRouteImport } from './routes/api/admin/fifa/raffle'
+import { Route as ApiAdminFifaRaffleDrawsRouteImport } from './routes/api/admin/fifa/raffle-draws'
+import { Route as ApiAdminFifaSettingsRouteImport } from './routes/api/admin/fifa/settings'
+import { Route as ApiAdminFifaSettleRouteImport } from './routes/api/admin/fifa/settle'
+import { Route as ApiAdminFifaTestingRouteImport } from './routes/api/admin/fifa/testing'
+import { Route as ApiAdminRegistrationsIdRouteImport } from './routes/api/admin/registrations.$id'
+import { Route as ApiAdminSocietiesIdRouteImport } from './routes/api/admin/societies.$id'
+import { Route as ApiAuthCallbackGoogleRouteImport } from './routes/api/auth/callback/google'
+import { Route as ApiEventsIdExportRouteImport } from './routes/api/events.$id.export'
 import { Route as ApiAdminEventsIdCouponsRouteImport } from './routes/api/admin/events.$id.coupons'
+import { Route as ApiAdminEventsIdRegistrationsCsvRouteImport } from './routes/api/admin.events.$id.registrations-csv'
+import { Route as ApiAdminFifaFeedIdRouteImport } from './routes/api/admin/fifa/feed.$id'
+import { Route as ApiAdminFifaMarketsIdRouteImport } from './routes/api/admin/fifa/markets.$id'
+import { Route as ApiAdminFifaMatchesIdRouteImport } from './routes/api/admin/fifa/matches.$id'
 
-const SocietiesRoute = SocietiesRouteImport.update({
-  id: '/societies',
-  path: '/societies',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const FullExecomRoute = FullExecomRouteImport.update({
-  id: '/full-execom',
-  path: '/full-execom',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EventsRoute = EventsRouteImport.update({
-  id: '/events',
-  path: '/events',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -107,14 +99,19 @@ const AdminRoute = AdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const EventsRoute = EventsRouteImport.update({
+  id: '/events',
+  path: '/events',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BlogIndexRoute = BlogIndexRouteImport.update({
-  id: '/blog/',
-  path: '/blog/',
+const FullExecomRoute = FullExecomRouteImport.update({
+  id: '/full-execom',
+  path: '/full-execom',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SocietiesRoute = SocietiesRouteImport.update({
+  id: '/societies',
+  path: '/societies',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FIFAIndexRoute = FIFAIndexRouteImport.update({
@@ -122,59 +119,9 @@ const FIFAIndexRoute = FIFAIndexRouteImport.update({
   path: '/FIFA/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TicketTicketIdRoute = TicketTicketIdRouteImport.update({
-  id: '/ticket/$ticketId',
-  path: '/ticket/$ticketId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RegisterEventIdRoute = RegisterEventIdRouteImport.update({
-  id: '/register/$eventId',
-  path: '/register/$eventId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BlogSlugRoute = BlogSlugRouteImport.update({
-  id: '/blog/$slug',
-  path: '/blog/$slug',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiRegistrationsRoute = ApiRegistrationsRouteImport.update({
-  id: '/api/registrations',
-  path: '/api/registrations',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminUsersRoute = AdminUsersRouteImport.update({
-  id: '/users',
-  path: '/users',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminDashboardRoute = AdminDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminCheckInRoute = AdminCheckInRouteImport.update({
-  id: '/check-in',
-  path: '/check-in',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminBlogsRoute = AdminBlogsRouteImport.update({
-  id: '/blogs',
-  path: '/blogs',
-  getParentRoute: () => AdminRoute,
-} as any)
-const FIFARulesRoute = FIFARulesRouteImport.update({
-  id: '/FIFA/rules',
-  path: '/FIFA/rules',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const FIFAMatchesRoute = FIFAMatchesRouteImport.update({
-  id: '/FIFA/matches',
-  path: '/FIFA/matches',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const FIFALeaderboardRoute = FIFALeaderboardRouteImport.update({
-  id: '/FIFA/leaderboard',
-  path: '/FIFA/leaderboard',
+const FIFADashboardRoute = FIFADashboardRouteImport.update({
+  id: '/FIFA/dashboard',
+  path: '/FIFA/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FIFAFeedRoute = FIFAFeedRouteImport.update({
@@ -182,159 +129,84 @@ const FIFAFeedRoute = FIFAFeedRouteImport.update({
   path: '/FIFA/feed',
   getParentRoute: () => rootRouteImport,
 } as any)
-const FIFADashboardRoute = FIFADashboardRouteImport.update({
-  id: '/FIFA/dashboard',
-  path: '/FIFA/dashboard',
+const FIFALeaderboardRoute = FIFALeaderboardRouteImport.update({
+  id: '/FIFA/leaderboard',
+  path: '/FIFA/leaderboard',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminSocietiesIndexRoute = AdminSocietiesIndexRouteImport.update({
-  id: '/societies/',
-  path: '/societies/',
+const FIFAMatchesRoute = FIFAMatchesRouteImport.update({
+  id: '/FIFA/matches',
+  path: '/FIFA/matches',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FIFARulesRoute = FIFARulesRouteImport.update({
+  id: '/FIFA/rules',
+  path: '/FIFA/rules',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminBlogsRoute = AdminBlogsRouteImport.update({
+  id: '/blogs',
+  path: '/blogs',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminRegistrationsIndexRoute = AdminRegistrationsIndexRouteImport.update({
-  id: '/registrations/',
-  path: '/registrations/',
+const AdminCheckInRoute = AdminCheckInRouteImport.update({
+  id: '/check-in',
+  path: '/check-in',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminExecomIndexRoute = AdminExecomIndexRouteImport.update({
-  id: '/execom/',
-  path: '/execom/',
+const AdminDashboardRoute = AdminDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminEventsIndexRoute = AdminEventsIndexRouteImport.update({
-  id: '/events/',
-  path: '/events/',
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
   getParentRoute: () => AdminRoute,
 } as any)
-const ApiTicketTicketIdRoute = ApiTicketTicketIdRouteImport.update({
-  id: '/api/ticket/$ticketId',
-  path: '/api/ticket/$ticketId',
+const ApiRegistrationsRoute = ApiRegistrationsRouteImport.update({
+  id: '/api/registrations',
+  path: '/api/registrations',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiSocietySlugRoute = ApiSocietySlugRouteImport.update({
-  id: '/api/society/$slug',
-  path: '/api/society/$slug',
+const BlogIndexRoute = BlogIndexRouteImport.update({
+  id: '/blog/',
+  path: '/blog/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiFilesSplatRoute = ApiFilesSplatRouteImport.update({
-  id: '/api/files/$',
-  path: '/api/files/$',
+const BlogSlugRoute = BlogSlugRouteImport.update({
+  id: '/blog/$slug',
+  path: '/blog/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiFifaMatchesRoute = ApiFifaMatchesRouteImport.update({
-  id: '/api/fifa/matches',
-  path: '/api/fifa/matches',
+const RegisterEventIdRoute = RegisterEventIdRouteImport.update({
+  id: '/register/$eventId',
+  path: '/register/$eventId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiFifaLiveScoresRoute = ApiFifaLiveScoresRouteImport.update({
-  id: '/api/fifa/live-scores',
-  path: '/api/fifa/live-scores',
+const SocietiesSlugRoute = SocietiesSlugRouteImport.update({
+  id: '/societies_/$slug',
+  path: '/societies/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiFifaDashboardRoute = ApiFifaDashboardRouteImport.update({
-  id: '/api/fifa/dashboard',
-  path: '/api/fifa/dashboard',
+const SocietiesWieRoute = SocietiesWieRouteImport.update({
+  id: '/societies_/wie',
+  path: '/societies/wie',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiFifaBetsRoute = ApiFifaBetsRouteImport.update({
-  id: '/api/fifa/bets',
-  path: '/api/fifa/bets',
+const TicketTicketIdRoute = TicketTicketIdRouteImport.update({
+  id: '/ticket/$ticketId',
+  path: '/ticket/$ticketId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiEventsValidateCouponRoute = ApiEventsValidateCouponRouteImport.update({
-  id: '/api/events/validate-coupon',
-  path: '/api/events/validate-coupon',
-  getParentRoute: () => rootRouteImport,
+const FIFAMatchesIdRoute = FIFAMatchesIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => FIFAMatchesRoute,
 } as any)
-const ApiEventsIdRoute = ApiEventsIdRouteImport.update({
-  id: '/api/events/$id',
-  path: '/api/events/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiCheckInVerifyRoute = ApiCheckInVerifyRouteImport.update({
-  id: '/api/check-in/verify',
-  path: '/api/check-in/verify',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAuthMeRoute = ApiAuthMeRouteImport.update({
-  id: '/api/auth/me',
-  path: '/api/auth/me',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAuthLogoutRoute = ApiAuthLogoutRouteImport.update({
-  id: '/api/auth/logout',
-  path: '/api/auth/logout',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAuthInitRoute = ApiAuthInitRouteImport.update({
-  id: '/api/auth/init',
-  path: '/api/auth/init',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminUsersRoute = ApiAdminUsersRouteImport.update({
-  id: '/api/admin/users',
-  path: '/api/admin/users',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminStatsRoute = ApiAdminStatsRouteImport.update({
-  id: '/api/admin/stats',
-  path: '/api/admin/stats',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminSocietiesRoute = ApiAdminSocietiesRouteImport.update({
-  id: '/api/admin/societies',
-  path: '/api/admin/societies',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminRegistrationsRoute = ApiAdminRegistrationsRouteImport.update({
-  id: '/api/admin/registrations',
-  path: '/api/admin/registrations',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminExecomRoute = ApiAdminExecomRouteImport.update({
-  id: '/api/admin/execom',
-  path: '/api/admin/execom',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminEventsRoute = ApiAdminEventsRouteImport.update({
-  id: '/api/admin/events',
-  path: '/api/admin/events',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminSocietiesNewRoute = AdminSocietiesNewRouteImport.update({
-  id: '/societies/new',
-  path: '/societies/new',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminRegistrationsIdRoute = AdminRegistrationsIdRouteImport.update({
-  id: '/registrations/$id',
-  path: '/registrations/$id',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminExecomNewRoute = AdminExecomNewRouteImport.update({
-  id: '/execom/new',
-  path: '/execom/new',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminEventsNewRoute = AdminEventsNewRouteImport.update({
-  id: '/events/new',
-  path: '/events/new',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminFIFATestingRoute = AdminFIFATestingRouteImport.update({
-  id: '/FIFA/testing',
-  path: '/FIFA/testing',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminFIFASettingsRoute = AdminFIFASettingsRouteImport.update({
-  id: '/FIFA/settings',
-  path: '/FIFA/settings',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminFIFARaffleRoute = AdminFIFARaffleRouteImport.update({
-  id: '/FIFA/raffle',
-  path: '/FIFA/raffle',
+const AdminFIFAFeedRoute = AdminFIFAFeedRouteImport.update({
+  id: '/FIFA/feed',
+  path: '/FIFA/feed',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminFIFAMatchesRoute = AdminFIFAMatchesRouteImport.update({
@@ -342,94 +214,164 @@ const AdminFIFAMatchesRoute = AdminFIFAMatchesRouteImport.update({
   path: '/FIFA/matches',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminFIFAFeedRoute = AdminFIFAFeedRouteImport.update({
-  id: '/FIFA/feed',
-  path: '/FIFA/feed',
+const AdminFIFARaffleRoute = AdminFIFARaffleRouteImport.update({
+  id: '/FIFA/raffle',
+  path: '/FIFA/raffle',
   getParentRoute: () => AdminRoute,
 } as any)
-const FIFAMatchesIdRoute = FIFAMatchesIdRouteImport.update({
+const AdminFIFASettingsRoute = AdminFIFASettingsRouteImport.update({
+  id: '/FIFA/settings',
+  path: '/FIFA/settings',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminFIFATestingRoute = AdminFIFATestingRouteImport.update({
+  id: '/FIFA/testing',
+  path: '/FIFA/testing',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminEventsIndexRoute = AdminEventsIndexRouteImport.update({
+  id: '/events/',
+  path: '/events/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminEventsNewRoute = AdminEventsNewRouteImport.update({
+  id: '/events/new',
+  path: '/events/new',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminExecomIndexRoute = AdminExecomIndexRouteImport.update({
+  id: '/execom/',
+  path: '/execom/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminExecomNewRoute = AdminExecomNewRouteImport.update({
+  id: '/execom/new',
+  path: '/execom/new',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminRegistrationsIndexRoute = AdminRegistrationsIndexRouteImport.update({
+  id: '/registrations/',
+  path: '/registrations/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminRegistrationsIdRoute = AdminRegistrationsIdRouteImport.update({
+  id: '/registrations/$id',
+  path: '/registrations/$id',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSocietiesIndexRoute = AdminSocietiesIndexRouteImport.update({
+  id: '/societies/',
+  path: '/societies/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSocietiesNewRoute = AdminSocietiesNewRouteImport.update({
+  id: '/societies/new',
+  path: '/societies/new',
+  getParentRoute: () => AdminRoute,
+} as any)
+const ApiAdminEventsRoute = ApiAdminEventsRouteImport.update({
+  id: '/api/admin/events',
+  path: '/api/admin/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminExecomRoute = ApiAdminExecomRouteImport.update({
+  id: '/api/admin/execom',
+  path: '/api/admin/execom',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminRegistrationsRoute = ApiAdminRegistrationsRouteImport.update({
+  id: '/api/admin/registrations',
+  path: '/api/admin/registrations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminSocietiesRoute = ApiAdminSocietiesRouteImport.update({
+  id: '/api/admin/societies',
+  path: '/api/admin/societies',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminStatsRoute = ApiAdminStatsRouteImport.update({
+  id: '/api/admin/stats',
+  path: '/api/admin/stats',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminUsersRoute = ApiAdminUsersRouteImport.update({
+  id: '/api/admin/users',
+  path: '/api/admin/users',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthInitRoute = ApiAuthInitRouteImport.update({
+  id: '/api/auth/init',
+  path: '/api/auth/init',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthLogoutRoute = ApiAuthLogoutRouteImport.update({
+  id: '/api/auth/logout',
+  path: '/api/auth/logout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthMeRoute = ApiAuthMeRouteImport.update({
+  id: '/api/auth/me',
+  path: '/api/auth/me',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCheckInVerifyRoute = ApiCheckInVerifyRouteImport.update({
+  id: '/api/check-in/verify',
+  path: '/api/check-in/verify',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiEventsIdRoute = ApiEventsIdRouteImport.update({
+  id: '/api/events/$id',
+  path: '/api/events/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiEventsValidateCouponRoute = ApiEventsValidateCouponRouteImport.update({
+  id: '/api/events/validate-coupon',
+  path: '/api/events/validate-coupon',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFifaBetsRoute = ApiFifaBetsRouteImport.update({
+  id: '/api/fifa/bets',
+  path: '/api/fifa/bets',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFifaDashboardRoute = ApiFifaDashboardRouteImport.update({
+  id: '/api/fifa/dashboard',
+  path: '/api/fifa/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFifaLiveScoresRoute = ApiFifaLiveScoresRouteImport.update({
+  id: '/api/fifa/live-scores',
+  path: '/api/fifa/live-scores',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFifaMatchesRoute = ApiFifaMatchesRouteImport.update({
+  id: '/api/fifa/matches',
+  path: '/api/fifa/matches',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFilesSplatRoute = ApiFilesSplatRouteImport.update({
+  id: '/api/files/$',
+  path: '/api/files/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSocietySlugRoute = ApiSocietySlugRouteImport.update({
+  id: '/api/society/$slug',
+  path: '/api/society/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTicketTicketIdRoute = ApiTicketTicketIdRouteImport.update({
+  id: '/api/ticket/$ticketId',
+  path: '/api/ticket/$ticketId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminFIFAMatchesIdRoute = AdminFIFAMatchesIdRouteImport.update({
   id: '/$id',
   path: '/$id',
-  getParentRoute: () => FIFAMatchesRoute,
+  getParentRoute: () => AdminFIFAMatchesRoute,
 } as any)
-const ApiEventsIdExportRoute = ApiEventsIdExportRouteImport.update({
-  id: '/export',
-  path: '/export',
-  getParentRoute: () => ApiEventsIdRoute,
-} as any)
-const ApiAuthCallbackGoogleRoute = ApiAuthCallbackGoogleRouteImport.update({
-  id: '/api/auth/callback/google',
-  path: '/api/auth/callback/google',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminSocietiesIdRoute = ApiAdminSocietiesIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => ApiAdminSocietiesRoute,
-} as any)
-const ApiAdminRegistrationsIdRoute = ApiAdminRegistrationsIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => ApiAdminRegistrationsRoute,
-} as any)
-const ApiAdminFifaTestingRoute = ApiAdminFifaTestingRouteImport.update({
-  id: '/api/admin/fifa/testing',
-  path: '/api/admin/fifa/testing',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminFifaSettleRoute = ApiAdminFifaSettleRouteImport.update({
-  id: '/api/admin/fifa/settle',
-  path: '/api/admin/fifa/settle',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminFifaSettingsRoute = ApiAdminFifaSettingsRouteImport.update({
-  id: '/api/admin/fifa/settings',
-  path: '/api/admin/fifa/settings',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminFifaRaffleDrawsRoute = ApiAdminFifaRaffleDrawsRouteImport.update({
-  id: '/api/admin/fifa/raffle-draws',
-  path: '/api/admin/fifa/raffle-draws',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminFifaRaffleRoute = ApiAdminFifaRaffleRouteImport.update({
-  id: '/api/admin/fifa/raffle',
-  path: '/api/admin/fifa/raffle',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminFifaMatchesRoute = ApiAdminFifaMatchesRouteImport.update({
-  id: '/api/admin/fifa/matches',
-  path: '/api/admin/fifa/matches',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminFifaMarketsRoute = ApiAdminFifaMarketsRouteImport.update({
-  id: '/api/admin/fifa/markets',
-  path: '/api/admin/fifa/markets',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminFifaFeedRoute = ApiAdminFifaFeedRouteImport.update({
-  id: '/api/admin/fifa/feed',
-  path: '/api/admin/fifa/feed',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminFifaBetsRoute = ApiAdminFifaBetsRouteImport.update({
-  id: '/api/admin/fifa/bets',
-  path: '/api/admin/fifa/bets',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminExecomIdRoute = ApiAdminExecomIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => ApiAdminExecomRoute,
-} as any)
-const ApiAdminEventsIdRoute = ApiAdminEventsIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => ApiAdminEventsRoute,
-} as any)
-const AdminSocietiesIdEditRoute = AdminSocietiesIdEditRouteImport.update({
-  id: '/societies/$id/edit',
-  path: '/societies/$id/edit',
+const AdminEventsIdEditRoute = AdminEventsIdEditRouteImport.update({
+  id: '/events/$id/edit',
+  path: '/events/$id/edit',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminExecomIdEditRoute = AdminExecomIdEditRouteImport.update({
@@ -437,30 +379,90 @@ const AdminExecomIdEditRoute = AdminExecomIdEditRouteImport.update({
   path: '/execom/$id/edit',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminEventsIdEditRoute = AdminEventsIdEditRouteImport.update({
-  id: '/events/$id/edit',
-  path: '/events/$id/edit',
+const AdminSocietiesIdEditRoute = AdminSocietiesIdEditRouteImport.update({
+  id: '/societies/$id/edit',
+  path: '/societies/$id/edit',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminFIFAMatchesIdRoute = AdminFIFAMatchesIdRouteImport.update({
+const ApiAdminEventsIdRoute = ApiAdminEventsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
-  getParentRoute: () => AdminFIFAMatchesRoute,
+  getParentRoute: () => ApiAdminEventsRoute,
 } as any)
-const ApiAdminFifaMatchesIdRoute = ApiAdminFifaMatchesIdRouteImport.update({
+const ApiAdminExecomIdRoute = ApiAdminExecomIdRouteImport.update({
   id: '/$id',
   path: '/$id',
-  getParentRoute: () => ApiAdminFifaMatchesRoute,
+  getParentRoute: () => ApiAdminExecomRoute,
 } as any)
-const ApiAdminFifaMarketsIdRoute = ApiAdminFifaMarketsIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => ApiAdminFifaMarketsRoute,
+const ApiAdminFifaBetsRoute = ApiAdminFifaBetsRouteImport.update({
+  id: '/api/admin/fifa/bets',
+  path: '/api/admin/fifa/bets',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAdminFifaFeedIdRoute = ApiAdminFifaFeedIdRouteImport.update({
+const ApiAdminFifaFeedRoute = ApiAdminFifaFeedRouteImport.update({
+  id: '/api/admin/fifa/feed',
+  path: '/api/admin/fifa/feed',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminFifaMarketsRoute = ApiAdminFifaMarketsRouteImport.update({
+  id: '/api/admin/fifa/markets',
+  path: '/api/admin/fifa/markets',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminFifaMatchesRoute = ApiAdminFifaMatchesRouteImport.update({
+  id: '/api/admin/fifa/matches',
+  path: '/api/admin/fifa/matches',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminFifaRaffleRoute = ApiAdminFifaRaffleRouteImport.update({
+  id: '/api/admin/fifa/raffle',
+  path: '/api/admin/fifa/raffle',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminFifaRaffleDrawsRoute = ApiAdminFifaRaffleDrawsRouteImport.update({
+  id: '/api/admin/fifa/raffle-draws',
+  path: '/api/admin/fifa/raffle-draws',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminFifaSettingsRoute = ApiAdminFifaSettingsRouteImport.update({
+  id: '/api/admin/fifa/settings',
+  path: '/api/admin/fifa/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminFifaSettleRoute = ApiAdminFifaSettleRouteImport.update({
+  id: '/api/admin/fifa/settle',
+  path: '/api/admin/fifa/settle',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminFifaTestingRoute = ApiAdminFifaTestingRouteImport.update({
+  id: '/api/admin/fifa/testing',
+  path: '/api/admin/fifa/testing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminRegistrationsIdRoute = ApiAdminRegistrationsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
-  getParentRoute: () => ApiAdminFifaFeedRoute,
+  getParentRoute: () => ApiAdminRegistrationsRoute,
+} as any)
+const ApiAdminSocietiesIdRoute = ApiAdminSocietiesIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiAdminSocietiesRoute,
+} as any)
+const ApiAuthCallbackGoogleRoute = ApiAuthCallbackGoogleRouteImport.update({
+  id: '/api/auth/callback/google',
+  path: '/api/auth/callback/google',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiEventsIdExportRoute = ApiEventsIdExportRouteImport.update({
+  id: '/export',
+  path: '/export',
+  getParentRoute: () => ApiEventsIdRoute,
+} as any)
+const ApiAdminEventsIdCouponsRoute = ApiAdminEventsIdCouponsRouteImport.update({
+  id: '/coupons',
+  path: '/coupons',
+  getParentRoute: () => ApiAdminEventsIdRoute,
 } as any)
 const ApiAdminEventsIdRegistrationsCsvRoute =
   ApiAdminEventsIdRegistrationsCsvRouteImport.update({
@@ -468,10 +470,20 @@ const ApiAdminEventsIdRegistrationsCsvRoute =
     path: '/registrations-csv',
     getParentRoute: () => ApiAdminEventsIdRoute,
   } as any)
-const ApiAdminEventsIdCouponsRoute = ApiAdminEventsIdCouponsRouteImport.update({
-  id: '/coupons',
-  path: '/coupons',
-  getParentRoute: () => ApiAdminEventsIdRoute,
+const ApiAdminFifaFeedIdRoute = ApiAdminFifaFeedIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiAdminFifaFeedRoute,
+} as any)
+const ApiAdminFifaMarketsIdRoute = ApiAdminFifaMarketsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiAdminFifaMarketsRoute,
+} as any)
+const ApiAdminFifaMatchesIdRoute = ApiAdminFifaMatchesIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiAdminFifaMatchesRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -492,6 +504,8 @@ export interface FileRoutesByFullPath {
   '/api/registrations': typeof ApiRegistrationsRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/register/$eventId': typeof RegisterEventIdRoute
+  '/societies/$slug': typeof SocietiesSlugRoute
+  '/societies/wie': typeof SocietiesWieRoute
   '/ticket/$ticketId': typeof TicketTicketIdRoute
   '/FIFA/': typeof FIFAIndexRoute
   '/blog/': typeof BlogIndexRoute
@@ -571,6 +585,8 @@ export interface FileRoutesByTo {
   '/api/registrations': typeof ApiRegistrationsRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/register/$eventId': typeof RegisterEventIdRoute
+  '/societies/$slug': typeof SocietiesSlugRoute
+  '/societies/wie': typeof SocietiesWieRoute
   '/ticket/$ticketId': typeof TicketTicketIdRoute
   '/FIFA': typeof FIFAIndexRoute
   '/blog': typeof BlogIndexRoute
@@ -651,6 +667,8 @@ export interface FileRoutesById {
   '/api/registrations': typeof ApiRegistrationsRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/register/$eventId': typeof RegisterEventIdRoute
+  '/societies_/$slug': typeof SocietiesSlugRoute
+  '/societies_/wie': typeof SocietiesWieRoute
   '/ticket/$ticketId': typeof TicketTicketIdRoute
   '/FIFA/': typeof FIFAIndexRoute
   '/blog/': typeof BlogIndexRoute
@@ -732,6 +750,8 @@ export interface FileRouteTypes {
     | '/api/registrations'
     | '/blog/$slug'
     | '/register/$eventId'
+    | '/societies/$slug'
+    | '/societies/wie'
     | '/ticket/$ticketId'
     | '/FIFA/'
     | '/blog/'
@@ -811,6 +831,8 @@ export interface FileRouteTypes {
     | '/api/registrations'
     | '/blog/$slug'
     | '/register/$eventId'
+    | '/societies/$slug'
+    | '/societies/wie'
     | '/ticket/$ticketId'
     | '/FIFA'
     | '/blog'
@@ -890,6 +912,8 @@ export interface FileRouteTypes {
     | '/api/registrations'
     | '/blog/$slug'
     | '/register/$eventId'
+    | '/societies_/$slug'
+    | '/societies_/wie'
     | '/ticket/$ticketId'
     | '/FIFA/'
     | '/blog/'
@@ -966,6 +990,8 @@ export interface RootRouteChildren {
   ApiRegistrationsRoute: typeof ApiRegistrationsRoute
   BlogSlugRoute: typeof BlogSlugRoute
   RegisterEventIdRoute: typeof RegisterEventIdRoute
+  SocietiesSlugRoute: typeof SocietiesSlugRoute
+  SocietiesWieRoute: typeof SocietiesWieRoute
   TicketTicketIdRoute: typeof TicketTicketIdRoute
   FIFAIndexRoute: typeof FIFAIndexRoute
   BlogIndexRoute: typeof BlogIndexRoute
@@ -1002,25 +1028,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/societies': {
-      id: '/societies'
-      path: '/societies'
-      fullPath: '/societies'
-      preLoaderRoute: typeof SocietiesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/full-execom': {
-      id: '/full-execom'
-      path: '/full-execom'
-      fullPath: '/full-execom'
-      preLoaderRoute: typeof FullExecomRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/events': {
-      id: '/events'
-      path: '/events'
-      fullPath: '/events'
-      preLoaderRoute: typeof EventsRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -1030,18 +1042,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/events': {
+      id: '/events'
+      path: '/events'
+      fullPath: '/events'
+      preLoaderRoute: typeof EventsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/blog/': {
-      id: '/blog/'
-      path: '/blog'
-      fullPath: '/blog/'
-      preLoaderRoute: typeof BlogIndexRouteImport
+    '/full-execom': {
+      id: '/full-execom'
+      path: '/full-execom'
+      fullPath: '/full-execom'
+      preLoaderRoute: typeof FullExecomRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/societies': {
+      id: '/societies'
+      path: '/societies'
+      fullPath: '/societies'
+      preLoaderRoute: typeof SocietiesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/FIFA/': {
@@ -1051,81 +1070,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FIFAIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/ticket/$ticketId': {
-      id: '/ticket/$ticketId'
-      path: '/ticket/$ticketId'
-      fullPath: '/ticket/$ticketId'
-      preLoaderRoute: typeof TicketTicketIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/register/$eventId': {
-      id: '/register/$eventId'
-      path: '/register/$eventId'
-      fullPath: '/register/$eventId'
-      preLoaderRoute: typeof RegisterEventIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/blog/$slug': {
-      id: '/blog/$slug'
-      path: '/blog/$slug'
-      fullPath: '/blog/$slug'
-      preLoaderRoute: typeof BlogSlugRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/registrations': {
-      id: '/api/registrations'
-      path: '/api/registrations'
-      fullPath: '/api/registrations'
-      preLoaderRoute: typeof ApiRegistrationsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/users': {
-      id: '/admin/users'
-      path: '/users'
-      fullPath: '/admin/users'
-      preLoaderRoute: typeof AdminUsersRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/dashboard': {
-      id: '/admin/dashboard'
-      path: '/dashboard'
-      fullPath: '/admin/dashboard'
-      preLoaderRoute: typeof AdminDashboardRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/check-in': {
-      id: '/admin/check-in'
-      path: '/check-in'
-      fullPath: '/admin/check-in'
-      preLoaderRoute: typeof AdminCheckInRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/blogs': {
-      id: '/admin/blogs'
-      path: '/blogs'
-      fullPath: '/admin/blogs'
-      preLoaderRoute: typeof AdminBlogsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/FIFA/rules': {
-      id: '/FIFA/rules'
-      path: '/FIFA/rules'
-      fullPath: '/FIFA/rules'
-      preLoaderRoute: typeof FIFARulesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/FIFA/matches': {
-      id: '/FIFA/matches'
-      path: '/FIFA/matches'
-      fullPath: '/FIFA/matches'
-      preLoaderRoute: typeof FIFAMatchesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/FIFA/leaderboard': {
-      id: '/FIFA/leaderboard'
-      path: '/FIFA/leaderboard'
-      fullPath: '/FIFA/leaderboard'
-      preLoaderRoute: typeof FIFALeaderboardRouteImport
+    '/FIFA/dashboard': {
+      id: '/FIFA/dashboard'
+      path: '/FIFA/dashboard'
+      fullPath: '/FIFA/dashboard'
+      preLoaderRoute: typeof FIFADashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/FIFA/feed': {
@@ -1135,221 +1084,116 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FIFAFeedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/FIFA/dashboard': {
-      id: '/FIFA/dashboard'
-      path: '/FIFA/dashboard'
-      fullPath: '/FIFA/dashboard'
-      preLoaderRoute: typeof FIFADashboardRouteImport
+    '/FIFA/leaderboard': {
+      id: '/FIFA/leaderboard'
+      path: '/FIFA/leaderboard'
+      fullPath: '/FIFA/leaderboard'
+      preLoaderRoute: typeof FIFALeaderboardRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/societies/': {
-      id: '/admin/societies/'
-      path: '/societies'
-      fullPath: '/admin/societies/'
-      preLoaderRoute: typeof AdminSocietiesIndexRouteImport
+    '/FIFA/matches': {
+      id: '/FIFA/matches'
+      path: '/FIFA/matches'
+      fullPath: '/FIFA/matches'
+      preLoaderRoute: typeof FIFAMatchesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/FIFA/rules': {
+      id: '/FIFA/rules'
+      path: '/FIFA/rules'
+      fullPath: '/FIFA/rules'
+      preLoaderRoute: typeof FIFARulesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/blogs': {
+      id: '/admin/blogs'
+      path: '/blogs'
+      fullPath: '/admin/blogs'
+      preLoaderRoute: typeof AdminBlogsRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/registrations/': {
-      id: '/admin/registrations/'
-      path: '/registrations'
-      fullPath: '/admin/registrations/'
-      preLoaderRoute: typeof AdminRegistrationsIndexRouteImport
+    '/admin/check-in': {
+      id: '/admin/check-in'
+      path: '/check-in'
+      fullPath: '/admin/check-in'
+      preLoaderRoute: typeof AdminCheckInRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/execom/': {
-      id: '/admin/execom/'
-      path: '/execom'
-      fullPath: '/admin/execom/'
-      preLoaderRoute: typeof AdminExecomIndexRouteImport
+    '/admin/dashboard': {
+      id: '/admin/dashboard'
+      path: '/dashboard'
+      fullPath: '/admin/dashboard'
+      preLoaderRoute: typeof AdminDashboardRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/events/': {
-      id: '/admin/events/'
-      path: '/events'
-      fullPath: '/admin/events/'
-      preLoaderRoute: typeof AdminEventsIndexRouteImport
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/api/ticket/$ticketId': {
-      id: '/api/ticket/$ticketId'
-      path: '/api/ticket/$ticketId'
-      fullPath: '/api/ticket/$ticketId'
-      preLoaderRoute: typeof ApiTicketTicketIdRouteImport
+    '/api/registrations': {
+      id: '/api/registrations'
+      path: '/api/registrations'
+      fullPath: '/api/registrations'
+      preLoaderRoute: typeof ApiRegistrationsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/society/$slug': {
-      id: '/api/society/$slug'
-      path: '/api/society/$slug'
-      fullPath: '/api/society/$slug'
-      preLoaderRoute: typeof ApiSocietySlugRouteImport
+    '/blog/': {
+      id: '/blog/'
+      path: '/blog'
+      fullPath: '/blog/'
+      preLoaderRoute: typeof BlogIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/files/$': {
-      id: '/api/files/$'
-      path: '/api/files/$'
-      fullPath: '/api/files/$'
-      preLoaderRoute: typeof ApiFilesSplatRouteImport
+    '/blog/$slug': {
+      id: '/blog/$slug'
+      path: '/blog/$slug'
+      fullPath: '/blog/$slug'
+      preLoaderRoute: typeof BlogSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/fifa/matches': {
-      id: '/api/fifa/matches'
-      path: '/api/fifa/matches'
-      fullPath: '/api/fifa/matches'
-      preLoaderRoute: typeof ApiFifaMatchesRouteImport
+    '/register/$eventId': {
+      id: '/register/$eventId'
+      path: '/register/$eventId'
+      fullPath: '/register/$eventId'
+      preLoaderRoute: typeof RegisterEventIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/fifa/live-scores': {
-      id: '/api/fifa/live-scores'
-      path: '/api/fifa/live-scores'
-      fullPath: '/api/fifa/live-scores'
-      preLoaderRoute: typeof ApiFifaLiveScoresRouteImport
+    '/societies_/$slug': {
+      id: '/societies_/$slug'
+      path: '/societies/$slug'
+      fullPath: '/societies/$slug'
+      preLoaderRoute: typeof SocietiesSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/fifa/dashboard': {
-      id: '/api/fifa/dashboard'
-      path: '/api/fifa/dashboard'
-      fullPath: '/api/fifa/dashboard'
-      preLoaderRoute: typeof ApiFifaDashboardRouteImport
+    '/societies_/wie': {
+      id: '/societies_/wie'
+      path: '/societies/wie'
+      fullPath: '/societies/wie'
+      preLoaderRoute: typeof SocietiesWieRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/fifa/bets': {
-      id: '/api/fifa/bets'
-      path: '/api/fifa/bets'
-      fullPath: '/api/fifa/bets'
-      preLoaderRoute: typeof ApiFifaBetsRouteImport
+    '/ticket/$ticketId': {
+      id: '/ticket/$ticketId'
+      path: '/ticket/$ticketId'
+      fullPath: '/ticket/$ticketId'
+      preLoaderRoute: typeof TicketTicketIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/events/validate-coupon': {
-      id: '/api/events/validate-coupon'
-      path: '/api/events/validate-coupon'
-      fullPath: '/api/events/validate-coupon'
-      preLoaderRoute: typeof ApiEventsValidateCouponRouteImport
-      parentRoute: typeof rootRouteImport
+    '/FIFA/matches/$id': {
+      id: '/FIFA/matches/$id'
+      path: '/$id'
+      fullPath: '/FIFA/matches/$id'
+      preLoaderRoute: typeof FIFAMatchesIdRouteImport
+      parentRoute: typeof FIFAMatchesRoute
     }
-    '/api/events/$id': {
-      id: '/api/events/$id'
-      path: '/api/events/$id'
-      fullPath: '/api/events/$id'
-      preLoaderRoute: typeof ApiEventsIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/check-in/verify': {
-      id: '/api/check-in/verify'
-      path: '/api/check-in/verify'
-      fullPath: '/api/check-in/verify'
-      preLoaderRoute: typeof ApiCheckInVerifyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/auth/me': {
-      id: '/api/auth/me'
-      path: '/api/auth/me'
-      fullPath: '/api/auth/me'
-      preLoaderRoute: typeof ApiAuthMeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/auth/logout': {
-      id: '/api/auth/logout'
-      path: '/api/auth/logout'
-      fullPath: '/api/auth/logout'
-      preLoaderRoute: typeof ApiAuthLogoutRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/auth/init': {
-      id: '/api/auth/init'
-      path: '/api/auth/init'
-      fullPath: '/api/auth/init'
-      preLoaderRoute: typeof ApiAuthInitRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/users': {
-      id: '/api/admin/users'
-      path: '/api/admin/users'
-      fullPath: '/api/admin/users'
-      preLoaderRoute: typeof ApiAdminUsersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/stats': {
-      id: '/api/admin/stats'
-      path: '/api/admin/stats'
-      fullPath: '/api/admin/stats'
-      preLoaderRoute: typeof ApiAdminStatsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/societies': {
-      id: '/api/admin/societies'
-      path: '/api/admin/societies'
-      fullPath: '/api/admin/societies'
-      preLoaderRoute: typeof ApiAdminSocietiesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/registrations': {
-      id: '/api/admin/registrations'
-      path: '/api/admin/registrations'
-      fullPath: '/api/admin/registrations'
-      preLoaderRoute: typeof ApiAdminRegistrationsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/execom': {
-      id: '/api/admin/execom'
-      path: '/api/admin/execom'
-      fullPath: '/api/admin/execom'
-      preLoaderRoute: typeof ApiAdminExecomRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/events': {
-      id: '/api/admin/events'
-      path: '/api/admin/events'
-      fullPath: '/api/admin/events'
-      preLoaderRoute: typeof ApiAdminEventsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/societies/new': {
-      id: '/admin/societies/new'
-      path: '/societies/new'
-      fullPath: '/admin/societies/new'
-      preLoaderRoute: typeof AdminSocietiesNewRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/registrations/$id': {
-      id: '/admin/registrations/$id'
-      path: '/registrations/$id'
-      fullPath: '/admin/registrations/$id'
-      preLoaderRoute: typeof AdminRegistrationsIdRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/execom/new': {
-      id: '/admin/execom/new'
-      path: '/execom/new'
-      fullPath: '/admin/execom/new'
-      preLoaderRoute: typeof AdminExecomNewRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/events/new': {
-      id: '/admin/events/new'
-      path: '/events/new'
-      fullPath: '/admin/events/new'
-      preLoaderRoute: typeof AdminEventsNewRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/FIFA/testing': {
-      id: '/admin/FIFA/testing'
-      path: '/FIFA/testing'
-      fullPath: '/admin/FIFA/testing'
-      preLoaderRoute: typeof AdminFIFATestingRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/FIFA/settings': {
-      id: '/admin/FIFA/settings'
-      path: '/FIFA/settings'
-      fullPath: '/admin/FIFA/settings'
-      preLoaderRoute: typeof AdminFIFASettingsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/FIFA/raffle': {
-      id: '/admin/FIFA/raffle'
-      path: '/FIFA/raffle'
-      fullPath: '/admin/FIFA/raffle'
-      preLoaderRoute: typeof AdminFIFARaffleRouteImport
+    '/admin/FIFA/feed': {
+      id: '/admin/FIFA/feed'
+      path: '/FIFA/feed'
+      fullPath: '/admin/FIFA/feed'
+      preLoaderRoute: typeof AdminFIFAFeedRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/FIFA/matches': {
@@ -1359,130 +1203,228 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminFIFAMatchesRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/FIFA/feed': {
-      id: '/admin/FIFA/feed'
-      path: '/FIFA/feed'
-      fullPath: '/admin/FIFA/feed'
-      preLoaderRoute: typeof AdminFIFAFeedRouteImport
+    '/admin/FIFA/raffle': {
+      id: '/admin/FIFA/raffle'
+      path: '/FIFA/raffle'
+      fullPath: '/admin/FIFA/raffle'
+      preLoaderRoute: typeof AdminFIFARaffleRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/FIFA/matches/$id': {
-      id: '/FIFA/matches/$id'
+    '/admin/FIFA/settings': {
+      id: '/admin/FIFA/settings'
+      path: '/FIFA/settings'
+      fullPath: '/admin/FIFA/settings'
+      preLoaderRoute: typeof AdminFIFASettingsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/FIFA/testing': {
+      id: '/admin/FIFA/testing'
+      path: '/FIFA/testing'
+      fullPath: '/admin/FIFA/testing'
+      preLoaderRoute: typeof AdminFIFATestingRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/events/': {
+      id: '/admin/events/'
+      path: '/events'
+      fullPath: '/admin/events/'
+      preLoaderRoute: typeof AdminEventsIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/events/new': {
+      id: '/admin/events/new'
+      path: '/events/new'
+      fullPath: '/admin/events/new'
+      preLoaderRoute: typeof AdminEventsNewRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/execom/': {
+      id: '/admin/execom/'
+      path: '/execom'
+      fullPath: '/admin/execom/'
+      preLoaderRoute: typeof AdminExecomIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/execom/new': {
+      id: '/admin/execom/new'
+      path: '/execom/new'
+      fullPath: '/admin/execom/new'
+      preLoaderRoute: typeof AdminExecomNewRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/registrations/': {
+      id: '/admin/registrations/'
+      path: '/registrations'
+      fullPath: '/admin/registrations/'
+      preLoaderRoute: typeof AdminRegistrationsIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/registrations/$id': {
+      id: '/admin/registrations/$id'
+      path: '/registrations/$id'
+      fullPath: '/admin/registrations/$id'
+      preLoaderRoute: typeof AdminRegistrationsIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/societies/': {
+      id: '/admin/societies/'
+      path: '/societies'
+      fullPath: '/admin/societies/'
+      preLoaderRoute: typeof AdminSocietiesIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/societies/new': {
+      id: '/admin/societies/new'
+      path: '/societies/new'
+      fullPath: '/admin/societies/new'
+      preLoaderRoute: typeof AdminSocietiesNewRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/api/admin/events': {
+      id: '/api/admin/events'
+      path: '/api/admin/events'
+      fullPath: '/api/admin/events'
+      preLoaderRoute: typeof ApiAdminEventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/execom': {
+      id: '/api/admin/execom'
+      path: '/api/admin/execom'
+      fullPath: '/api/admin/execom'
+      preLoaderRoute: typeof ApiAdminExecomRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/registrations': {
+      id: '/api/admin/registrations'
+      path: '/api/admin/registrations'
+      fullPath: '/api/admin/registrations'
+      preLoaderRoute: typeof ApiAdminRegistrationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/societies': {
+      id: '/api/admin/societies'
+      path: '/api/admin/societies'
+      fullPath: '/api/admin/societies'
+      preLoaderRoute: typeof ApiAdminSocietiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/stats': {
+      id: '/api/admin/stats'
+      path: '/api/admin/stats'
+      fullPath: '/api/admin/stats'
+      preLoaderRoute: typeof ApiAdminStatsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/users': {
+      id: '/api/admin/users'
+      path: '/api/admin/users'
+      fullPath: '/api/admin/users'
+      preLoaderRoute: typeof ApiAdminUsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/init': {
+      id: '/api/auth/init'
+      path: '/api/auth/init'
+      fullPath: '/api/auth/init'
+      preLoaderRoute: typeof ApiAuthInitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/logout': {
+      id: '/api/auth/logout'
+      path: '/api/auth/logout'
+      fullPath: '/api/auth/logout'
+      preLoaderRoute: typeof ApiAuthLogoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/me': {
+      id: '/api/auth/me'
+      path: '/api/auth/me'
+      fullPath: '/api/auth/me'
+      preLoaderRoute: typeof ApiAuthMeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/check-in/verify': {
+      id: '/api/check-in/verify'
+      path: '/api/check-in/verify'
+      fullPath: '/api/check-in/verify'
+      preLoaderRoute: typeof ApiCheckInVerifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/events/$id': {
+      id: '/api/events/$id'
+      path: '/api/events/$id'
+      fullPath: '/api/events/$id'
+      preLoaderRoute: typeof ApiEventsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/events/validate-coupon': {
+      id: '/api/events/validate-coupon'
+      path: '/api/events/validate-coupon'
+      fullPath: '/api/events/validate-coupon'
+      preLoaderRoute: typeof ApiEventsValidateCouponRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/fifa/bets': {
+      id: '/api/fifa/bets'
+      path: '/api/fifa/bets'
+      fullPath: '/api/fifa/bets'
+      preLoaderRoute: typeof ApiFifaBetsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/fifa/dashboard': {
+      id: '/api/fifa/dashboard'
+      path: '/api/fifa/dashboard'
+      fullPath: '/api/fifa/dashboard'
+      preLoaderRoute: typeof ApiFifaDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/fifa/live-scores': {
+      id: '/api/fifa/live-scores'
+      path: '/api/fifa/live-scores'
+      fullPath: '/api/fifa/live-scores'
+      preLoaderRoute: typeof ApiFifaLiveScoresRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/fifa/matches': {
+      id: '/api/fifa/matches'
+      path: '/api/fifa/matches'
+      fullPath: '/api/fifa/matches'
+      preLoaderRoute: typeof ApiFifaMatchesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/files/$': {
+      id: '/api/files/$'
+      path: '/api/files/$'
+      fullPath: '/api/files/$'
+      preLoaderRoute: typeof ApiFilesSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/society/$slug': {
+      id: '/api/society/$slug'
+      path: '/api/society/$slug'
+      fullPath: '/api/society/$slug'
+      preLoaderRoute: typeof ApiSocietySlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ticket/$ticketId': {
+      id: '/api/ticket/$ticketId'
+      path: '/api/ticket/$ticketId'
+      fullPath: '/api/ticket/$ticketId'
+      preLoaderRoute: typeof ApiTicketTicketIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/FIFA/matches/$id': {
+      id: '/admin/FIFA/matches/$id'
       path: '/$id'
-      fullPath: '/FIFA/matches/$id'
-      preLoaderRoute: typeof FIFAMatchesIdRouteImport
-      parentRoute: typeof FIFAMatchesRoute
+      fullPath: '/admin/FIFA/matches/$id'
+      preLoaderRoute: typeof AdminFIFAMatchesIdRouteImport
+      parentRoute: typeof AdminFIFAMatchesRoute
     }
-    '/api/events/$id/export': {
-      id: '/api/events/$id/export'
-      path: '/export'
-      fullPath: '/api/events/$id/export'
-      preLoaderRoute: typeof ApiEventsIdExportRouteImport
-      parentRoute: typeof ApiEventsIdRoute
-    }
-    '/api/auth/callback/google': {
-      id: '/api/auth/callback/google'
-      path: '/api/auth/callback/google'
-      fullPath: '/api/auth/callback/google'
-      preLoaderRoute: typeof ApiAuthCallbackGoogleRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/societies/$id': {
-      id: '/api/admin/societies/$id'
-      path: '/$id'
-      fullPath: '/api/admin/societies/$id'
-      preLoaderRoute: typeof ApiAdminSocietiesIdRouteImport
-      parentRoute: typeof ApiAdminSocietiesRoute
-    }
-    '/api/admin/registrations/$id': {
-      id: '/api/admin/registrations/$id'
-      path: '/$id'
-      fullPath: '/api/admin/registrations/$id'
-      preLoaderRoute: typeof ApiAdminRegistrationsIdRouteImport
-      parentRoute: typeof ApiAdminRegistrationsRoute
-    }
-    '/api/admin/fifa/testing': {
-      id: '/api/admin/fifa/testing'
-      path: '/api/admin/fifa/testing'
-      fullPath: '/api/admin/fifa/testing'
-      preLoaderRoute: typeof ApiAdminFifaTestingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/fifa/settle': {
-      id: '/api/admin/fifa/settle'
-      path: '/api/admin/fifa/settle'
-      fullPath: '/api/admin/fifa/settle'
-      preLoaderRoute: typeof ApiAdminFifaSettleRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/fifa/settings': {
-      id: '/api/admin/fifa/settings'
-      path: '/api/admin/fifa/settings'
-      fullPath: '/api/admin/fifa/settings'
-      preLoaderRoute: typeof ApiAdminFifaSettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/fifa/raffle-draws': {
-      id: '/api/admin/fifa/raffle-draws'
-      path: '/api/admin/fifa/raffle-draws'
-      fullPath: '/api/admin/fifa/raffle-draws'
-      preLoaderRoute: typeof ApiAdminFifaRaffleDrawsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/fifa/raffle': {
-      id: '/api/admin/fifa/raffle'
-      path: '/api/admin/fifa/raffle'
-      fullPath: '/api/admin/fifa/raffle'
-      preLoaderRoute: typeof ApiAdminFifaRaffleRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/fifa/matches': {
-      id: '/api/admin/fifa/matches'
-      path: '/api/admin/fifa/matches'
-      fullPath: '/api/admin/fifa/matches'
-      preLoaderRoute: typeof ApiAdminFifaMatchesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/fifa/markets': {
-      id: '/api/admin/fifa/markets'
-      path: '/api/admin/fifa/markets'
-      fullPath: '/api/admin/fifa/markets'
-      preLoaderRoute: typeof ApiAdminFifaMarketsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/fifa/feed': {
-      id: '/api/admin/fifa/feed'
-      path: '/api/admin/fifa/feed'
-      fullPath: '/api/admin/fifa/feed'
-      preLoaderRoute: typeof ApiAdminFifaFeedRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/fifa/bets': {
-      id: '/api/admin/fifa/bets'
-      path: '/api/admin/fifa/bets'
-      fullPath: '/api/admin/fifa/bets'
-      preLoaderRoute: typeof ApiAdminFifaBetsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/execom/$id': {
-      id: '/api/admin/execom/$id'
-      path: '/$id'
-      fullPath: '/api/admin/execom/$id'
-      preLoaderRoute: typeof ApiAdminExecomIdRouteImport
-      parentRoute: typeof ApiAdminExecomRoute
-    }
-    '/api/admin/events/$id': {
-      id: '/api/admin/events/$id'
-      path: '/$id'
-      fullPath: '/api/admin/events/$id'
-      preLoaderRoute: typeof ApiAdminEventsIdRouteImport
-      parentRoute: typeof ApiAdminEventsRoute
-    }
-    '/admin/societies/$id/edit': {
-      id: '/admin/societies/$id/edit'
-      path: '/societies/$id/edit'
-      fullPath: '/admin/societies/$id/edit'
-      preLoaderRoute: typeof AdminSocietiesIdEditRouteImport
+    '/admin/events/$id/edit': {
+      id: '/admin/events/$id/edit'
+      path: '/events/$id/edit'
+      fullPath: '/admin/events/$id/edit'
+      preLoaderRoute: typeof AdminEventsIdEditRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/execom/$id/edit': {
@@ -1492,40 +1434,124 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminExecomIdEditRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/events/$id/edit': {
-      id: '/admin/events/$id/edit'
-      path: '/events/$id/edit'
-      fullPath: '/admin/events/$id/edit'
-      preLoaderRoute: typeof AdminEventsIdEditRouteImport
+    '/admin/societies/$id/edit': {
+      id: '/admin/societies/$id/edit'
+      path: '/societies/$id/edit'
+      fullPath: '/admin/societies/$id/edit'
+      preLoaderRoute: typeof AdminSocietiesIdEditRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/FIFA/matches/$id': {
-      id: '/admin/FIFA/matches/$id'
+    '/api/admin/events/$id': {
+      id: '/api/admin/events/$id'
       path: '/$id'
-      fullPath: '/admin/FIFA/matches/$id'
-      preLoaderRoute: typeof AdminFIFAMatchesIdRouteImport
-      parentRoute: typeof AdminFIFAMatchesRoute
+      fullPath: '/api/admin/events/$id'
+      preLoaderRoute: typeof ApiAdminEventsIdRouteImport
+      parentRoute: typeof ApiAdminEventsRoute
     }
-    '/api/admin/fifa/matches/$id': {
-      id: '/api/admin/fifa/matches/$id'
+    '/api/admin/execom/$id': {
+      id: '/api/admin/execom/$id'
       path: '/$id'
-      fullPath: '/api/admin/fifa/matches/$id'
-      preLoaderRoute: typeof ApiAdminFifaMatchesIdRouteImport
-      parentRoute: typeof ApiAdminFifaMatchesRoute
+      fullPath: '/api/admin/execom/$id'
+      preLoaderRoute: typeof ApiAdminExecomIdRouteImport
+      parentRoute: typeof ApiAdminExecomRoute
     }
-    '/api/admin/fifa/markets/$id': {
-      id: '/api/admin/fifa/markets/$id'
-      path: '/$id'
-      fullPath: '/api/admin/fifa/markets/$id'
-      preLoaderRoute: typeof ApiAdminFifaMarketsIdRouteImport
-      parentRoute: typeof ApiAdminFifaMarketsRoute
+    '/api/admin/fifa/bets': {
+      id: '/api/admin/fifa/bets'
+      path: '/api/admin/fifa/bets'
+      fullPath: '/api/admin/fifa/bets'
+      preLoaderRoute: typeof ApiAdminFifaBetsRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/api/admin/fifa/feed/$id': {
-      id: '/api/admin/fifa/feed/$id'
+    '/api/admin/fifa/feed': {
+      id: '/api/admin/fifa/feed'
+      path: '/api/admin/fifa/feed'
+      fullPath: '/api/admin/fifa/feed'
+      preLoaderRoute: typeof ApiAdminFifaFeedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/fifa/markets': {
+      id: '/api/admin/fifa/markets'
+      path: '/api/admin/fifa/markets'
+      fullPath: '/api/admin/fifa/markets'
+      preLoaderRoute: typeof ApiAdminFifaMarketsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/fifa/matches': {
+      id: '/api/admin/fifa/matches'
+      path: '/api/admin/fifa/matches'
+      fullPath: '/api/admin/fifa/matches'
+      preLoaderRoute: typeof ApiAdminFifaMatchesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/fifa/raffle': {
+      id: '/api/admin/fifa/raffle'
+      path: '/api/admin/fifa/raffle'
+      fullPath: '/api/admin/fifa/raffle'
+      preLoaderRoute: typeof ApiAdminFifaRaffleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/fifa/raffle-draws': {
+      id: '/api/admin/fifa/raffle-draws'
+      path: '/api/admin/fifa/raffle-draws'
+      fullPath: '/api/admin/fifa/raffle-draws'
+      preLoaderRoute: typeof ApiAdminFifaRaffleDrawsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/fifa/settings': {
+      id: '/api/admin/fifa/settings'
+      path: '/api/admin/fifa/settings'
+      fullPath: '/api/admin/fifa/settings'
+      preLoaderRoute: typeof ApiAdminFifaSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/fifa/settle': {
+      id: '/api/admin/fifa/settle'
+      path: '/api/admin/fifa/settle'
+      fullPath: '/api/admin/fifa/settle'
+      preLoaderRoute: typeof ApiAdminFifaSettleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/fifa/testing': {
+      id: '/api/admin/fifa/testing'
+      path: '/api/admin/fifa/testing'
+      fullPath: '/api/admin/fifa/testing'
+      preLoaderRoute: typeof ApiAdminFifaTestingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/registrations/$id': {
+      id: '/api/admin/registrations/$id'
       path: '/$id'
-      fullPath: '/api/admin/fifa/feed/$id'
-      preLoaderRoute: typeof ApiAdminFifaFeedIdRouteImport
-      parentRoute: typeof ApiAdminFifaFeedRoute
+      fullPath: '/api/admin/registrations/$id'
+      preLoaderRoute: typeof ApiAdminRegistrationsIdRouteImport
+      parentRoute: typeof ApiAdminRegistrationsRoute
+    }
+    '/api/admin/societies/$id': {
+      id: '/api/admin/societies/$id'
+      path: '/$id'
+      fullPath: '/api/admin/societies/$id'
+      preLoaderRoute: typeof ApiAdminSocietiesIdRouteImport
+      parentRoute: typeof ApiAdminSocietiesRoute
+    }
+    '/api/auth/callback/google': {
+      id: '/api/auth/callback/google'
+      path: '/api/auth/callback/google'
+      fullPath: '/api/auth/callback/google'
+      preLoaderRoute: typeof ApiAuthCallbackGoogleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/events/$id/export': {
+      id: '/api/events/$id/export'
+      path: '/export'
+      fullPath: '/api/events/$id/export'
+      preLoaderRoute: typeof ApiEventsIdExportRouteImport
+      parentRoute: typeof ApiEventsIdRoute
+    }
+    '/api/admin/events/$id/coupons': {
+      id: '/api/admin/events/$id/coupons'
+      path: '/coupons'
+      fullPath: '/api/admin/events/$id/coupons'
+      preLoaderRoute: typeof ApiAdminEventsIdCouponsRouteImport
+      parentRoute: typeof ApiAdminEventsIdRoute
     }
     '/api/admin/events/$id/registrations-csv': {
       id: '/api/admin/events/$id/registrations-csv'
@@ -1534,12 +1560,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminEventsIdRegistrationsCsvRouteImport
       parentRoute: typeof ApiAdminEventsIdRoute
     }
-    '/api/admin/events/$id/coupons': {
-      id: '/api/admin/events/$id/coupons'
-      path: '/coupons'
-      fullPath: '/api/admin/events/$id/coupons'
-      preLoaderRoute: typeof ApiAdminEventsIdCouponsRouteImport
-      parentRoute: typeof ApiAdminEventsIdRoute
+    '/api/admin/fifa/feed/$id': {
+      id: '/api/admin/fifa/feed/$id'
+      path: '/$id'
+      fullPath: '/api/admin/fifa/feed/$id'
+      preLoaderRoute: typeof ApiAdminFifaFeedIdRouteImport
+      parentRoute: typeof ApiAdminFifaFeedRoute
+    }
+    '/api/admin/fifa/markets/$id': {
+      id: '/api/admin/fifa/markets/$id'
+      path: '/$id'
+      fullPath: '/api/admin/fifa/markets/$id'
+      preLoaderRoute: typeof ApiAdminFifaMarketsIdRouteImport
+      parentRoute: typeof ApiAdminFifaMarketsRoute
+    }
+    '/api/admin/fifa/matches/$id': {
+      id: '/api/admin/fifa/matches/$id'
+      path: '/$id'
+      fullPath: '/api/admin/fifa/matches/$id'
+      preLoaderRoute: typeof ApiAdminFifaMatchesIdRouteImport
+      parentRoute: typeof ApiAdminFifaMatchesRoute
     }
   }
 }
@@ -1735,6 +1775,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiRegistrationsRoute: ApiRegistrationsRoute,
   BlogSlugRoute: BlogSlugRoute,
   RegisterEventIdRoute: RegisterEventIdRoute,
+  SocietiesSlugRoute: SocietiesSlugRoute,
+  SocietiesWieRoute: SocietiesWieRoute,
   TicketTicketIdRoute: TicketTicketIdRoute,
   FIFAIndexRoute: FIFAIndexRoute,
   BlogIndexRoute: BlogIndexRoute,

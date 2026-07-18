@@ -65,7 +65,7 @@ const NAV_ITEMS: NavItem[] = [
     href: "/admin/societies",
     icon: Building2,
     description: "Chapters",
-    allowedRoles: ["admin"],
+    allowedRoles: ["admin", "chair"],
   },
   {
     label: "Blogs",

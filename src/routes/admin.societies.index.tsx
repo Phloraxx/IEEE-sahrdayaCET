@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth-context";
+import { getBioText } from "@/lib/safe-get";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/admin/societies/")({
@@ -130,7 +131,7 @@ function AdminSocieties() {
           }
         />
       ) : (
-        <SocietyList rows={data.societies} canEdit={user?.role === "admin"} onDelete={(id) => deleteMutation.mutate(id)} deletingPending={deleteMutation.isPending} />
+        <SocietyList rows={data.societies} canEdit={user?.role === "admin" || user?.role === "chair"} onDelete={(id) => deleteMutation.mutate(id)} deletingPending={deleteMutation.isPending} userRole={user?.role} />
       )}
       {deleteMutation.isPending && (
         <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-card border border-border px-4 py-2 shadow-lg">
@@ -147,9 +148,10 @@ interface SocietyListProps {
   canEdit: boolean;
   onDelete: (id: string) => void;
   deletingPending: boolean;
+  userRole?: string;
 }
 
-function SocietyList({ rows, canEdit, onDelete, deletingPending }: SocietyListProps) {
+function SocietyList({ rows, canEdit, onDelete, deletingPending, userRole }: SocietyListProps) {
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card divide-y divide-border">
       <div className="hidden grid-cols-[1fr_120px_88px_72px_56px] gap-4 px-4 py-2.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground sm:grid">
@@ -174,7 +176,7 @@ function SocietyList({ rows, canEdit, onDelete, deletingPending }: SocietyListPr
             </Link>
             {s.bio && (
               <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground sm:max-w-2xl">
-                {s.bio}
+                {getBioText(s.bio)}
               </p>
             )}
           </div>
@@ -219,18 +221,20 @@ function SocietyList({ rows, canEdit, onDelete, deletingPending }: SocietyListPr
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </Link>
-                <ConfirmButton
-                  label=""
-                  confirmMessage={`Delete "${s.name}"?`}
-                  variant="destructive"
-                  icon={<Trash2 className="h-3.5 w-3.5" />}
-                  onConfirm={() => {
-                    onDelete(s.id);
-                    return true;
-                  }}
-                  disabled={deletingPending}
-                  className="h-8 w-8 p-0"
-                />
+                {userRole === "admin" && (
+                  <ConfirmButton
+                    label=""
+                    confirmMessage={`Delete "${s.name}"?`}
+                    variant="destructive"
+                    icon={<Trash2 className="h-3.5 w-3.5" />}
+                    onConfirm={() => {
+                      onDelete(s.id);
+                      return true;
+                    }}
+                    disabled={deletingPending}
+                    className="h-8 w-8 p-0"
+                  />
+                )}
               </>
             ) : (
               <ChevronRight className="h-4 w-4 text-muted-foreground/40" />

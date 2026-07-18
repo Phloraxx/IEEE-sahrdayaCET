@@ -15,5 +15,14 @@ export function logError(context: string, error: unknown, meta?: Record<string, 
     console.error(safeStringify({ level: 'error', context, message, stack, ...meta }))
   } else {
     console.error(`[${context}]`, message)
+    if (stack) console.error(stack)
+    if (error && typeof error === 'object') {
+      if ('response' in error) {
+        console.error('Response details:', JSON.stringify((error as any).response, null, 2))
+      }
+      if ('status' in error) {
+        console.error('Status:', (error as any).status)
+      }
+    }
   }
 }

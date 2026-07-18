@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FormSection } from "@/features/admin/shared/form-section";
 import { ImageUpload } from "@/components/admin/image-upload";
+import { useAuth } from "@/lib/auth-context";
 
 interface UserOption {
   id: string;
@@ -47,6 +48,7 @@ interface SocietyFormProps {
 export function SocietyForm({ mode, societyId }: SocietyFormProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user: authUser } = useAuth();
   const isEdit = mode === "edit";
   const [form, setForm] = useState<SocietyFormState>(EMPTY_STATE);
   const [slugTouched, setSlugTouched] = useState(false);
@@ -66,6 +68,7 @@ export function SocietyForm({ mode, societyId }: SocietyFormProps) {
       if (!res.ok) throw new Error("Failed to load users");
       return res.json();
     },
+    enabled: authUser?.role === "admin",
     staleTime: 60_000,
   });
 
@@ -219,6 +222,7 @@ export function SocietyForm({ mode, societyId }: SocietyFormProps) {
                   placeholder="IEEE Computer Society"
                   maxLength={100}
                   required
+                  disabled={authUser?.role === "chair"}
                 />
               </div>
               <div className="grid gap-1.5">
@@ -233,13 +237,16 @@ export function SocietyForm({ mode, societyId }: SocietyFormProps) {
                   placeholder="computer-society"
                   required
                   title="Lowercase letters, digits, and hyphens only"
+                  disabled={authUser?.role === "chair"}
                 />
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              The slug is used in the public URL. Lowercase letters, digits,
-              and hyphens only.
-            </p>
+            {authUser?.role === "admin" && (
+              <p className="text-xs text-muted-foreground">
+                The slug is used in the public URL. Lowercase letters, digits,
+                and hyphens only.
+              </p>
+            )}
 
             <div className="grid gap-4 sm:grid-cols-2">
               <ImageUpload
@@ -273,7 +280,6 @@ export function SocietyForm({ mode, societyId }: SocietyFormProps) {
                 value={form.bio}
                 onChange={(e) => setForm({ ...form, bio: e.target.value })}
                 placeholder="Short description of the society."
-                maxLength={200}
               />
             </div>
 
@@ -293,23 +299,27 @@ export function SocietyForm({ mode, societyId }: SocietyFormProps) {
               </p>
             </div>
 
-            <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-border accent-primary"
-                checked={form.isHidden}
-                onChange={(e) =>
-                  setForm({ ...form, isHidden: e.target.checked })
-                }
-              />
-              <span>Hidden from public listings</span>
-            </label>
+            {authUser?.role === "admin" && (
+              <>
+                <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-border accent-primary"
+                    checked={form.isHidden}
+                    onChange={(e) =>
+                      setForm({ ...form, isHidden: e.target.checked })
+                    }
+                  />
+                  <span>Hidden from public listings</span>
+                </label>
+              </>
+            )}
           </FormSection>
         </CardContent>
       </Card>
 
-      {/* Society Chairs (edit mode only) */}
-      {isEdit && (
+      {/* Society Chairs (edit mode only, admin-only) */}
+      {isEdit && authUser?.role === "admin" && (
         <Card>
           <CardContent className="p-6">
             <FormSection title="Society Chairs">

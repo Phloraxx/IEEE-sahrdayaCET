@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { serializeToFormData } from "@/lib/pb.server";
 import { authenticateAdmin, buildChairFilter } from "@/lib/admin-middleware";
 import { escapeFilterValue } from "@/lib/pb";
 import { handleError } from "@/lib/api-error";
@@ -66,8 +67,11 @@ export const Route = createFileRoute("/api/admin/societies")({
               { status: 403 },
             );
           const body = await parseFormData(request);
+          if (body.bio && typeof body.bio === "object") {
+            body.bio = JSON.stringify(body.bio);
+          }
           const parsed = SocietyCreateSchema.parse(body);
-          const society = await ctx.pb.collection("societies").create(parsed);
+          const society = await ctx.pb.collection("societies").create(serializeToFormData(parsed));
           return Response.json({ society }, { status: 201 });
         } catch (error) {
           return handleError(error, "admin-societies-create");

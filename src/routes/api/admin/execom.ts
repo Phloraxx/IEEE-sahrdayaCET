@@ -1,12 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB } from "@/lib/pb.server"
+import { createPB, serializeToFormData } from "@/lib/pb.server"
 import { requireRole } from "@/lib/auth";
 import { handleError } from "@/lib/api-error";
 import { parseFormData } from "@/lib/parse-form-data";
 import { parsePagination } from "@/lib/route-helpers";
 import { ExecomCreateSchema } from "@/schemas/execom";
 import { verifySameOrigin } from "@/lib/verify-same-origin";
-
 export const Route = createFileRoute("/api/admin/execom")({
   server: {
     handlers: {
@@ -46,7 +45,7 @@ export const Route = createFileRoute("/api/admin/execom")({
           await requireRole(["admin"], pb);
           const body = await parseFormData(request);
           const parsed = ExecomCreateSchema.parse(body);
-          const member = await pb.collection("execom").create(parsed);
+          const member = await pb.collection("execom").create(serializeToFormData(parsed));
           return Response.json({ member }, { status: 201 });
         } catch (error) {
           return handleError(error, "admin-execom-create");

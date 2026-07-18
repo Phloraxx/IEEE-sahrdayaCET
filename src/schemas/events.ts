@@ -31,7 +31,7 @@ const BaseEventSchema = z.object({
   registrationStart: z.string().optional(),
   registrationDeadline: z.string().optional(),
   formTemplate: z.array(z.record(z.string(), z.unknown())).optional(),
-  banner: z.string().optional(),
+  banner: z.any().optional(),
   checkInEnabled: z.boolean().default(false),
   collectIeeeMember: z.boolean().default(false),
   contactEmail: z.string().optional(),
@@ -46,6 +46,6 @@ export const EventCreateSchema = BaseEventSchema
 
 export const EventUpdateSchema = BaseEventSchema.partial().extend({
   // society must remain a valid string when provided on update
-  society: z.string().min(1),
+  society: z.string().min(1).optional(),
   whatsappLink: z.string().optional(),
 })

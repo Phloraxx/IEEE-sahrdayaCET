@@ -2,9 +2,13 @@
 
 // ─── Events Update Hook ────────────────────────────────────────────
 // Defense-in-depth: rejects non-admin writes to server-authoritative
-// fields (registeredCount, checkedInCount, isDeleted). These counters
-// are maintained by the registration hooks; chairs must never write
-// them directly. Backstop for the events updateRule in migrate-pb-rules.ts.
+// fields (registeredCount, checkedInCount). Counters are maintained by
+// the registration hooks; chairs must never write them directly.
+//
+// isDeleted: chairs MAY soft-delete (false→true) their own events —
+// the app-layer (requireEventScope) has already verified ownership before
+// the request reaches PocketBase. What chairs may NOT do is un-delete
+// (true→false) — that remains admin-only.
 
 onRecordUpdateRequest(function (e) {
     var auth = null
@@ -27,7 +31,7 @@ onRecordUpdateRequest(function (e) {
         return
     }
 
-    // For chairs: reject writes to server-authoritative fields
+    // For chairs: reject writes to server-authoritative counter fields
     var newRecord = e.record
     var oldRecord
     try {
@@ -42,9 +46,13 @@ onRecordUpdateRequest(function (e) {
     if (newRecord.getInt("checkedInCount") !== oldRecord.getInt("checkedInCount")) {
         throw e.forbiddenError("Only admins may change event counters")
     }
-    if (newRecord.getBool("isDeleted") !== oldRecord.getBool("isDeleted")) {
-        throw e.forbiddenError("Only admins may change event deletion state")
-    }
 
+    // Allow chairs to soft-delete (false→true) but not un-delete (true→false).
+    var wasDeleted = oldRecord.getBool("isDeleted")
+    var isNowDeleted = newRecord.getBool("isDeleted")
+    if (wasDeleted && !isNowDeleted) {
+        throw e.forbiddenError("Only admins may restore deleted events")
+    }
+    // false→true (soft-delete) is allowed for chairs — falls through.
     e.next()
 }, "events")
