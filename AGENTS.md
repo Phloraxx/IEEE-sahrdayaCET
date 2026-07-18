@@ -328,13 +328,6 @@ DB layer.
 - **Bet create:** `onRecordCreateRequest` on `fifa_bets` validates market
   open + before `betting_locks_at` + stake ≤ balance + stake ≤
   `max_bet_percent`%, snapshots `odds_locked`, pins `user` to caller.
-- **Starting grant:** `onRecordAfterCreateSuccess` on `users` sets
-  `balance = starting_balance`, writes a `starting_grant` transaction.
-- **Settings singleton guard:** `onRecordCreateRequest` on `fifa_settings`
-  rejects a second row.
-- **Bet create:** `onRecordCreateRequest` on `fifa_bets` validates market
-  open + before `betting_locks_at` + stake ≤ balance + stake ≤
-  `max_bet_percent`%, snapshots `odds_locked`, pins `user` to caller.
   `onRecordAfterCreateSuccess` deducts balance, writes `bet_placed`
   transaction, recomputes market pool counters (self-healing), emits feed
   event. **TOCTOU self-heal:** re-reads balance post-commit; if negative
