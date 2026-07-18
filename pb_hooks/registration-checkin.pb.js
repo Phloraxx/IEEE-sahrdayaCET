@@ -7,27 +7,25 @@
 // check-in state by bypassing the application routes.
 
 onRecordUpdate(function (e) {
+    var invariants = require(__hooks + "/registration-checkin-invariants.js")
     var reg = e.record
     var oldReg = reg.original()
 
-    var wasCheckedIn = oldReg.getBool("checkedIn")
-    var isCheckedIn = reg.getBool("checkedIn")
-    var oldCheckedInAt = oldReg.getString("checkedInAt") || ""
-    var newCheckedInAt = reg.getString("checkedInAt") || ""
+    var decision = invariants.resolveCheckInTransition({
+        oldCheckedIn: oldReg.getBool("checkedIn"),
+        newCheckedIn: reg.getBool("checkedIn"),
+        newStatus: reg.getString("registrationStatus"),
+        oldCheckedInAt: oldReg.getString("checkedInAt") || "",
+        newCheckedInAt: reg.getString("checkedInAt") || "",
+    })
 
-    // checkedInAt is server-authoritative. Callers cannot rewrite the timestamp
-    // independently of a check-in state transition.
-    if (wasCheckedIn === isCheckedIn && oldCheckedInAt !== newCheckedInAt) {
-        throw new BadRequestError("Check-in timestamp is managed by the server")
+    if (decision.action === "error") {
+        throw new BadRequestError(decision.message)
     }
 
-    // false -> true: only confirmed registrations for check-in-enabled events
-    // may be checked in. Stamp the time here so callers cannot forge it.
-    if (!wasCheckedIn && isCheckedIn) {
-        if (reg.getString("registrationStatus") !== "confirmed") {
-            throw new BadRequestError("Only confirmed registrations can be checked in")
-        }
-
+    // false -> true: the pure transition rule has already verified that the
+    // registration is confirmed. Validate the event-level gate here.
+    if (decision.action === "check_in") {
         var eventId = reg.getString("event") || ""
         if (!eventId) {
             throw new BadRequestError("Registration has no event")
@@ -44,12 +42,14 @@ onRecordUpdate(function (e) {
             throw new BadRequestError("Check-in is not enabled for this event")
         }
 
+        // PocketBase owns the timestamp; callers cannot forge it.
         reg.set("checkedInAt", new Date().toISOString())
     }
 
-    // true -> false: keep the two fields consistent if an authorized workflow
-    // ever supports undoing a check-in.
-    if (wasCheckedIn && !isCheckedIn) {
+    // Explicit uncheck, or a status transition (for example confirmed ->
+    // cancelled) that makes an existing check-in invalid.
+    if (decision.action === "clear") {
+        reg.set("checkedIn", false)
         reg.set("checkedInAt", "")
     }
 
