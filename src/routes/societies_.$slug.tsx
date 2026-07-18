@@ -24,13 +24,46 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { buildFileUrl } from "@/lib/pb";
 import { createPB } from "@/lib/pb.server";
-import { APP_URL } from "@/lib/constants";
 import { formatDate } from "@/lib/dates";
+
+interface SocietyPageData {
+  society: {
+    id: string;
+    name: string;
+    slug: string;
+    bio: string;
+    chairs: string[];
+    defaultWhatsappLink: string;
+    logoUrl: string;
+    bannerUrl: string;
+  };
+  events: Array<{
+    id: string;
+    title: string;
+    description: string;
+    date: string;
+    venue: string;
+    price: number;
+    status: string;
+    bannerUrl: string;
+    externalFormUrl: string;
+  }>;
+  members: Array<{
+    id: string;
+    name: string;
+    position: string;
+    department: string;
+    batch: string;
+    photoUrl: string;
+    linkedin: string;
+    instagram: string;
+  }>;
+}
 
 // Fetch dynamic society data
 const fetchSocietyData = createServerFn()
   .validator((slug: string) => slug)
-  .handler(async ({ data: slug }) => {
+  .handler(async ({ data: slug }): Promise<SocietyPageData> => {
     const pb = createPB();
     const society = await pb
       .collection("societies")
@@ -252,23 +285,29 @@ const SOCIETY_THEMES: Record<string, Partial<ThemeConfig>> = {
 };
 
 export const Route = createFileRoute("/societies_/$slug")({
-  head: ({ loaderData }) => ({
-    meta: [
-      { title: `${loaderData?.society?.name || "Society"} | IEEE Sahrdaya` },
-      {
-        name: "description",
-        content: loaderData?.society?.bio || "IEEE Sahrdaya Student Branch Society Page",
-      },
-    ],
-  }),
-  loader: async ({ params }) => {
+  head: ({ loaderData }) => {
+    // The generated route union also contains the static /societies/wie route,
+    // so TanStack cannot infer this dynamic route's loader data here.
+    const data = loaderData as SocietyPageData | undefined;
+    return {
+      meta: [
+        { title: `${data?.society.name || "Society"} | IEEE Sahrdaya` },
+        {
+          name: "description",
+          content: data?.society.bio || "IEEE Sahrdaya Student Branch Society Page",
+        },
+      ],
+    };
+  },
+  loader: async ({ params }): Promise<SocietyPageData> => {
     return fetchSocietyData({ data: params.slug });
   },
   component: SocietyPage,
 });
 
 function SocietyPage() {
-  const data = Route.useLoaderData();
+  // See the route-union note in head() above.
+  const data = Route.useLoaderData() as SocietyPageData;
   const params = Route.useParams();
   const { user } = useAuth();
 
