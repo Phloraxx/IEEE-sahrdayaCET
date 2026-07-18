@@ -209,7 +209,6 @@ export function FifaHero({ nextMatch, startingBalance, prize }: FifaHeroProps) {
           ref={videoRef}
           autoPlay
           muted
-          defaultMuted
           loop
           playsInline
           preload="auto"

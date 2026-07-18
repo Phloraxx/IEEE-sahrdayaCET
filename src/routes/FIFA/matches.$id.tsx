@@ -230,7 +230,7 @@ function MatchDetailPage() {
 
   const balance = userBalance?.user?.balance ?? 0
   const maxBetPercent = userBalance?.max_bet_percent ?? 25
-  const maxBet = Math.floor((balance * maxBetPercent) / 100)
+  const maxBet = balance > 0 ? Math.max(1, Math.floor((balance * maxBetPercent) / 100)) : 0
   const validBetsCount = userBalance?.valid_bets_count ?? 0
 
   const { data: lbData } = useQuery({

@@ -401,6 +401,7 @@ onRecordCreateRequest(function (e) {
     }
     var maxBetPercent = settings.getInt("max_bet_percent") || 25
     var maxStake = Math.floor(balance * maxBetPercent / 100)
+    if (balance > 0 && maxStake < 1) maxStake = 1
     if (maxBetPercent > 0 && stake > maxStake) {
         throw e.badRequestError("Stake exceeds " + maxBetPercent + "% of your balance")
     }
