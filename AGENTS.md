@@ -342,7 +342,7 @@ DB layer.
   all. Fixed: `stake × odds_locked`.
 - **Market void:** `onRecordAfterUpdateSuccess` on `fifa_bet_markets` — when
   `void` flips true, refunds all pending bets on that market.
-- **Daily top-up:** `cronAdd("fifa-daily-topup","0 9 * * * *")` tops anyone
+- **Daily top-up:** `cronAdd("fifa-daily-topup","0 9 * * *")` tops anyone
   under `daily_topup_threshold` to `daily_topup_target`, idempotent via
   today's `daily_topup` transaction check.
 - **Auto-void:** `cronAdd("fifa-auto-void","*/30 * * * *")` voids matches
