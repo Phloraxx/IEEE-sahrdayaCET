@@ -6,7 +6,7 @@
 
 services:
   pocketbase:
-    image: adrianmusante/pocketbase:latest
+    image: adrianmusante/pocketbase:0.39.1
     restart: always
     expose:
       - 8090
