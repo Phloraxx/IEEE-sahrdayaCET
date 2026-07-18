@@ -20,9 +20,9 @@ function recomputeEventCounters(eventId) {
         )
         var checkedIn = $app.findRecordsByFilter(
             "registrations",
-            "event = {:eventId} && checkedIn = {:checked}",
+            "event = {:eventId} && registrationStatus = {:status} && checkedIn = {:checked}",
             "", 0, 0,
-            { eventId: eventId, checked: true }
+            { eventId: eventId, status: "confirmed", checked: true }
         )
         var event = $app.findRecordById("events", eventId)
         event.set("registeredCount", confirmed.length)
