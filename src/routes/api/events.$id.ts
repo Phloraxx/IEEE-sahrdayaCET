@@ -40,6 +40,7 @@ export const Route = createFileRoute("/api/events/$id")({
           const bannerUrl = bannerFile
             ? buildFileUrl("events", id, getField(event, "banner", ""))
             : "";
+          const externalFormUrl = getField(event, "externalFormUrl", "");
 
           const result = {
             id: event.id,
@@ -50,14 +51,18 @@ export const Route = createFileRoute("/api/events/$id")({
             venue: event.venue || "",
             price: Number(event.price) || 0,
             isPaid: Number(event.price) > 0,
-            registrationOpen: canRegisterForEvent(lifecycle),
+            registrationOpen: canRegisterForEvent({
+              ...lifecycle,
+              registrationOpen:
+                lifecycle.registrationOpen || Boolean(externalFormUrl),
+            }),
             registrationStart: lifecycle.registrationStart,
             registrationDeadline: lifecycle.registrationDeadline,
             maxCapacity: Number(event.maxCapacity) || 0,
             registeredCount: Number(event.registeredCount) || 0,
             formTemplate: event.formTemplate || [],
             collectIeeeMember: !!event.collectIeeeMember,
-            externalFormUrl: event.externalFormUrl || "",
+            externalFormUrl,
             externalLink: event.externalLink || "",
             bannerUrl,
             societyName: getField(society, "name", ""),
