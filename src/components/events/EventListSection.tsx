@@ -120,7 +120,13 @@ export function EventListSection({
           className="grid grid-cols-1 md:grid-cols-2 gap-8 px-4"
         >
           {events.map((event, index) => (
-            <EventCard key={event.id} event={event} index={index} onSelect={onSelectEvent} />
+            <EventCard
+              key={event.id}
+              event={event}
+              index={index}
+              onSelect={onSelectEvent}
+              showAnnotations={showAnnotation}
+            />
           ))}
         </motion.div>
       )}
