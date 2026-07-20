@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import "@/styles/events.css";
 import { AnimatePresence } from "framer-motion";
@@ -32,7 +32,26 @@ interface EventsPageClientProps {
 export default function EventsPageClient({ initialEvents }: EventsPageClientProps) {
   const navigate = useNavigate();
   const router = useRouter();
-  const [selectedEvent, setSelectedEvent] = useState<ExtendedEvent | null>(null);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+
+  // Event status and registration windows are time-dependent. Revalidate while
+  // this page is open so an event automatically moves to Past Events and a
+  // registration action closes/opens without requiring a manual page refresh.
+  useEffect(() => {
+    const refreshLifecycle = () => {
+      if (document.visibilityState === "visible") {
+        void router.invalidate();
+      }
+    };
+
+    const intervalId = window.setInterval(refreshLifecycle, 60_000);
+    document.addEventListener("visibilitychange", refreshLifecycle);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", refreshLifecycle);
+    };
+  }, [router]);
 
   const extendedEvents: ExtendedEvent[] = useMemo(() => {
     return initialEvents.map((event, index) => ({
@@ -42,6 +61,16 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
       ...getEventColor(index),
     }));
   }, [initialEvents]);
+
+  // Resolve the selected event from the latest loader data instead of retaining
+  // a stale object. This keeps an already-open modal in sync after revalidation.
+  const selectedEvent = useMemo(
+    () =>
+      selectedEventId
+        ? extendedEvents.find((event) => event.id === selectedEventId) ?? null
+        : null,
+    [extendedEvents, selectedEventId],
+  );
 
   const { upcomingEvents, pastEvents } = useMemo(() => {
     const now = Date.now();
@@ -56,12 +85,12 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
   }, [extendedEvents]);
 
   const handleSelectEvent = (event: ExtendedEvent) => {
-    setSelectedEvent(event);
+    setSelectedEventId(event.id);
   };
 
   const handleRegister = (event: EventWithSociety) => {
-    // The server already returns an effective registrationOpen flag, but keep
-    // this guard so stale client state cannot navigate to a closed event.
+    // The server returns an effective registrationOpen flag and the page
+    // periodically revalidates it as registration windows change.
     if (!event.registrationOpen) return;
 
     if (event.externalFormUrl) {
@@ -119,7 +148,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
         {selectedEvent && (
           <EventDetailModal
             event={selectedEvent}
-            onClose={() => setSelectedEvent(null)}
+            onClose={() => setSelectedEventId(null)}
             onRegister={handleRegister}
           />
         )}
