@@ -68,6 +68,7 @@ const fetchEvents = createServerFn().handler(async (): Promise<SerializableEvent
       const registrationStart = getField(raw, "registrationStart", "");
       const registrationDeadline = getField(raw, "registrationDeadline", "");
       const rawRegistrationOpen = !!getField(raw, "registrationOpen", false);
+      const externalFormUrl = getField(raw, "externalFormUrl", "") || undefined;
 
       return {
         id: getField(raw, "id", ""),
@@ -84,20 +85,20 @@ const fetchEvents = createServerFn().handler(async (): Promise<SerializableEvent
           ? buildFileUrl("events", getField(raw, "id", ""), getField(raw, "banner", ""))
           : "",
         status,
-        // Expose an effective registration flag to the client. Completed/past
-        // events and events outside their registration window remain visible
-        // but never render an active registration action.
+        // `registrationOpen` controls the internal IEEE form. An external form
+        // is also a valid public registration action, but both paths are still
+        // disabled when the event is completed/past or outside its window.
         registrationOpen: canRegisterForEvent({
           status,
           date,
           endDate,
-          registrationOpen: rawRegistrationOpen,
+          registrationOpen: rawRegistrationOpen || Boolean(externalFormUrl),
           registrationStart,
           registrationDeadline,
         }),
         maxCapacity: getField(raw, "maxCapacity", 0),
         registeredCount: getField(raw, "registeredCount", 0),
-        externalFormUrl: getField(raw, "externalFormUrl", "") || undefined,
+        externalFormUrl,
         collectIeeeMember: !!getField(raw, "collectIeeeMember", false),
         society,
       };
