@@ -66,7 +66,7 @@ src/
 │           ├── registrations.ts #   Registrations admin view
 │           ├── societies.ts     #   Society CRUD
 │           ├── users.ts         #   User management
-│           ├── execom.ts        #   Execom management (no PII)
+│           ├── execom.ts        #   Execom management (public directory/contact data)
 │           └── stats.ts         #   Dashboard KPIs
 ├── features/                    # Feature-specific page components
 │   ├── globals.css              # Tailwind v4 + CSS custom properties
@@ -140,7 +140,7 @@ Browser → Caddy (HTTPS/LB) → TanStack Start (SSR + server functions) → Poc
 | `societies` | Base | name, slug, bio, logo, banner, chairs (relation→users), isHidden |
 | `events` | Base | title, description, date, endDate, venue, price, status, society (relation), maxCapacity, registrationOpen, formTemplate, registeredCount, checkedInCount, isDeleted |
 | `registrations` | Base | user (relation), event (relation), ticketId (unique), paymentStatus, registrationStatus, checkedIn, formResponses, amount |
-| `execom` | Base | name, position, department, batch, section, sectionId, order, photo |
+| `execom` | Base | name, position, department, batch, section, sectionId, order, photo, linkedin, instagram, email, phone, society, category |
 
 ## Conventions
 
@@ -241,7 +241,8 @@ Current hardening:
   Coupon validation runs via PB internal route (`/api/coupons/validate` in
   `pb_hooks/coupons.pb.js`), gated by `INTERNAL_API_SECRET` with timing-safe
   comparison. Returns correct `discountAmount` (not `discountPercent`).
-- `execom`: email/phone fields dropped; directory is name/position/photo only.
+- `execom`: public directory data, including email and phone, is intentionally
+  world-readable and may be shown on public frontend pages.
 - H-2: the `onRecordUpdateRequest` hook in `registrations.pb.js` throws if a
   chair changes `paymentStatus` or `amount` (admin-only).
 - Rate limiting: in-memory sliding-window limiter (`lib/rate-limit.ts`) on
@@ -269,7 +270,6 @@ Current hardening:
 
 - **Rate limiting (H1)**: in-memory sliding-window limiter on registration,
   coupon, check-in, auth endpoints. PB built-in rate limits remain disabled.
-- **Execom PII (M4)**: email/phone fields dropped from schema + all routes.
 - **Coupon enumeration**: listRule scoped to admin/chair-of-event; validation
   via PB internal route with INTERNAL_API_SECRET gating.
 - **Registration bypass**: createRule added; onRecordCreateRequest enforces all
