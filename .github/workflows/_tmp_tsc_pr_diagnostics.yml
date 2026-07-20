@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install >/dev/null 2>&1
-      - run: bunx tsc --noEmit
+        with:
+          show-progress: false
+      - run: npm install --silent --no-audit --no-fund >/dev/null 2>&1
+      - run: npx tsc --noEmit
