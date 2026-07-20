@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { APP_URL } from "@/lib/constants";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import BlogClient from "@/features/blog/BlogClient";
+import BlogClientV2 from "@/features/blog/BlogClientV2";
 import { getPublishedBlogs } from "./api/-blogs";
 
 export const Route = createFileRoute("/blog/")({
@@ -36,13 +36,17 @@ export const Route = createFileRoute("/blog/")({
             { "@type": "ListItem", position: 2, name: "Blog", item: `${APP_URL}/blog` },
           ],
         })
-          .replace(/</g, '\\u003c')
-          .replace(/>/g, '\\u003e')
-          .replace(/&/g, '\\u0026'),
+          .replace(/</g, "\\u003c")
+          .replace(/>/g, "\\u003e")
+          .replace(/&/g, "\\u0026"),
       },
     ],
   }),
-  loader: async () => await getPublishedBlogs(),
+  loader: async ({ context }) => {
+    const response = (context as unknown as { response?: { headers?: Headers } })?.response;
+    response?.headers?.set("Cache-Control", "no-cache, must-revalidate");
+    return getPublishedBlogs();
+  },
   component: BlogPage,
 });
 
@@ -50,7 +54,7 @@ function BlogPage() {
   const blogs = Route.useLoaderData();
   return (
     <ErrorBoundary>
-      <BlogClient blogs={blogs} />
+      <BlogClientV2 blogs={blogs} />
     </ErrorBoundary>
   );
 }
