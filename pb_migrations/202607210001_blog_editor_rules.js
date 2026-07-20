@@ -22,5 +22,5 @@ migrate(
     collection.deleteRule = '@request.auth.role = "admin" || @request.auth.role = "content"'
 
     app.save(collection)
-  },
+  }
 )
