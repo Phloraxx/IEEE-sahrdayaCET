@@ -52,8 +52,9 @@ services:
         sync_runtime_sources() {
           mkdir -p /pocketbase/hooks /pocketbase/migrations
           rm -rf /pocketbase/hooks/* /pocketbase/hooks/.[!.]* /pocketbase/hooks/..?* 2>/dev/null || true
-          rm -rf /pocketbase/migrations/* /pocketbase/migrations/.[!.]* /pocketbase/migrations/..?* 2>/dev/null || true
           cp -rf /hooks-src/. /pocketbase/hooks/
+          # Preserve any existing automigrate history files in the persistent
+          # migration directory and overlay version-controlled migrations.
           cp -rf /migrations-src/. /pocketbase/migrations/
         }
 
