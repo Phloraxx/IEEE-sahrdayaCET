@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB } from "@/lib/pb.server"; import { buildFileUrl } from "@/lib/pb"
+import { createPB } from "@/lib/pb.server";
+import { buildFileUrl } from "@/lib/pb";
 import { handleError } from "@/lib/api-error";
 import { ClientResponseError } from "pocketbase";
 import { getField, getExpand } from "@/lib/safe-get";
+import { canRegisterForEvent, isPublicEvent } from "@/lib/event-lifecycle";
 
 export const Route = createFileRoute("/api/events/$id")({
   server: {
@@ -15,11 +17,20 @@ export const Route = createFileRoute("/api/events/$id")({
           const event = await pb.collection("events").getOne(id, {
             expand: "society",
             fields:
-              "id,title,description,date,endDate,venue,price,registrationOpen,registrationStart,registrationDeadline,maxCapacity,registeredCount,formTemplate,collectIeeeMember,externalFormUrl,externalLink,banner,status,isDeleted,society",
+              "id,title,description,date,endDate,venue,price,registrationOpen,registrationStart,registrationDeadline,maxCapacity,registeredCount,formTemplate,collectIeeeMember,externalFormUrl,externalLink,banner,status,isDeleted,society,expand.society.name",
           });
 
+          const lifecycle = {
+            status: getField(event, "status", ""),
+            date: getField(event, "date", ""),
+            endDate: getField(event, "endDate", ""),
+            registrationOpen: !!getField(event, "registrationOpen", false),
+            registrationStart: getField(event, "registrationStart", ""),
+            registrationDeadline: getField(event, "registrationDeadline", ""),
+            isDeleted: !!getField(event, "isDeleted", false),
+          };
 
-          if (event.isDeleted || (event.status && event.status !== "published")) {
+          if (!isPublicEvent(lifecycle)) {
             return Response.json({ error: "Event not found" }, { status: 404 });
           }
 
@@ -29,31 +40,39 @@ export const Route = createFileRoute("/api/events/$id")({
           const bannerUrl = bannerFile
             ? buildFileUrl("events", id, getField(event, "banner", ""))
             : "";
+          const externalFormUrl = getField(event, "externalFormUrl", "");
 
           const result = {
             id: event.id,
             title: event.title || "",
             description: event.description || "",
-            date: event.date || "",
-            endDate: event.endDate || "",
+            date: lifecycle.date,
+            endDate: lifecycle.endDate,
             venue: event.venue || "",
             price: Number(event.price) || 0,
             isPaid: Number(event.price) > 0,
-            registrationOpen: !!event.registrationOpen,
-            registrationStart: event.registrationStart || "",
-            registrationDeadline: event.registrationDeadline || "",
+            registrationOpen: canRegisterForEvent({
+              ...lifecycle,
+              registrationOpen:
+                lifecycle.registrationOpen || Boolean(externalFormUrl),
+            }),
+            registrationStart: lifecycle.registrationStart,
+            registrationDeadline: lifecycle.registrationDeadline,
             maxCapacity: Number(event.maxCapacity) || 0,
             registeredCount: Number(event.registeredCount) || 0,
             formTemplate: event.formTemplate || [],
             collectIeeeMember: !!event.collectIeeeMember,
-            externalFormUrl: event.externalFormUrl || "",
+            externalFormUrl,
             externalLink: event.externalLink || "",
             bannerUrl,
-            societyName: getField(society, 'name', ''),
-            status: event.status || "",
+            societyName: getField(society, "name", ""),
+            status: lifecycle.status,
           };
 
-          return Response.json({ event: result }, { headers: { 'Cache-Control': 'public, max-age=300' } });
+          return Response.json(
+            { event: result },
+            { headers: { "Cache-Control": "no-cache, must-revalidate" } },
+          );
         } catch (error) {
           if (error instanceof ClientResponseError && error.status === 404) {
             return Response.json({ error: "Event not found" }, { status: 404 });

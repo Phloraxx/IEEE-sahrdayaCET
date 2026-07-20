@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import "@/styles/events.css";
 import { AnimatePresence } from "framer-motion";
@@ -12,6 +12,7 @@ import {
   EventDetailModal,
 } from "@/components/events";
 import type { EventWithSociety, ExtendedEvent } from "@/types";
+import { isPastEvent } from "@/lib/event-lifecycle";
 
 const getEventColor = (index: number): { color: string; textColor: string } => {
   const colors = [
@@ -24,37 +25,76 @@ const getEventColor = (index: number): { color: string; textColor: string } => {
   return colors[index % colors.length]!;
 };
 
-
 interface EventsPageClientProps {
   initialEvents: EventWithSociety[];
 }
 
-export default function EventsPageClient({
-  initialEvents,
-}: EventsPageClientProps) {
+export default function EventsPageClient({ initialEvents }: EventsPageClientProps) {
   const navigate = useNavigate();
   const router = useRouter();
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
-  const [selectedEvent, setSelectedEvent] = useState<ExtendedEvent | null>(null);
-  const [selfEvents] = useState<EventWithSociety[]>(initialEvents);
+  // Event status and registration windows are time-dependent. Revalidate while
+  // this page is open so an event automatically moves to Past Events and a
+  // registration action closes/opens without requiring a manual page refresh.
+  useEffect(() => {
+    const refreshLifecycle = () => {
+      if (document.visibilityState === "visible") {
+        void router.invalidate();
+      }
+    };
 
+    const intervalId = window.setInterval(refreshLifecycle, 60_000);
+    document.addEventListener("visibilitychange", refreshLifecycle);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", refreshLifecycle);
+    };
+  }, [router]);
 
   const extendedEvents: ExtendedEvent[] = useMemo(() => {
-    return selfEvents.map((event, index) => ({
+    return initialEvents.map((event, index) => ({
       ...event,
       about: event.description || "Join us for this exciting IEEE event!",
       tags: event.society?.name || "IEEE Event",
       ...getEventColor(index),
     }));
-  }, [selfEvents]);
+  }, [initialEvents]);
+
+  // Resolve the selected event from the latest loader data instead of retaining
+  // a stale object. This keeps an already-open modal in sync after revalidation.
+  const selectedEvent = useMemo(
+    () =>
+      selectedEventId
+        ? extendedEvents.find((event) => event.id === selectedEventId) ?? null
+        : null,
+    [extendedEvents, selectedEventId],
+  );
+
+  const { upcomingEvents, pastEvents } = useMemo(() => {
+    const now = Date.now();
+    const upcoming = extendedEvents
+      .filter((event) => !isPastEvent(event, now))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const past = extendedEvents
+      .filter((event) => isPastEvent(event, now))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    return { upcomingEvents: upcoming, pastEvents: past };
+  }, [extendedEvents]);
 
   const handleSelectEvent = (event: ExtendedEvent) => {
-    setSelectedEvent(event);
+    setSelectedEventId(event.id);
   };
 
   const handleRegister = (event: EventWithSociety) => {
+    // The server returns an effective registrationOpen flag and the page
+    // periodically revalidates it as registration windows change.
+    if (!event.registrationOpen) return;
+
     if (event.externalFormUrl) {
-      window.open(event.externalFormUrl, "_blank");
+      window.open(event.externalFormUrl, "_blank", "noopener,noreferrer");
     } else {
       navigate({ to: `/register/${event.id}` });
     }
@@ -75,12 +115,31 @@ export default function EventsPageClient({
 
       <section className="px-4 max-w-[1400px] mx-auto">
         <EventListSection
-          events={extendedEvents}
+          events={upcomingEvents}
           loading={false}
           error={null}
           onSelectEvent={handleSelectEvent}
           onRetry={() => router.invalidate()}
+          title="Upcoming Events"
+          emptyTitle="No Upcoming Events"
+          emptyMessage="Check back soon for exciting new events!"
+          sectionId="events-section"
         />
+
+        <div className="mt-24 pb-24">
+          <EventListSection
+            events={pastEvents}
+            loading={false}
+            error={null}
+            onSelectEvent={handleSelectEvent}
+            onRetry={() => router.invalidate()}
+            title="Past Events"
+            emptyTitle="No Past Events Yet"
+            emptyMessage="Completed events will appear here as the branch builds its archive."
+            showAnnotation={false}
+            sectionId="past-events"
+          />
+        </div>
       </section>
 
       <Footer />
@@ -89,7 +148,7 @@ export default function EventsPageClient({
         {selectedEvent && (
           <EventDetailModal
             event={selectedEvent}
-            onClose={() => setSelectedEvent(null)}
+            onClose={() => setSelectedEventId(null)}
             onRegister={handleRegister}
           />
         )}

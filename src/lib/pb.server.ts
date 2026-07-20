@@ -23,24 +23,6 @@ export function createPB(cookieString?: string) {
 }
 
 /**
- * Server-only. Creates a PocketBase client pre-authenticated with the
- * POCKETBASE_SUPERUSER_TOKEN. Use this in API routes that already enforce
- * their own scope checks (requireRole + requireEventScope) but need to
- * bypass PB collection rules that return 400 on multi-hop relation filters.
- *
- * Falls back to an unauthenticated client if the token is missing, which
- * will surface as a PB auth error rather than a misleading 400.
- */
-export function createAdminPB(): PocketBase {
-  const pb = new PocketBase(getPBUrl())
-  const token = process.env.POCKETBASE_SUPERUSER_TOKEN
-  if (token) {
-    pb.authStore.save(token, null)
-  }
-  return pb
-}
-
-/**
  * Converts a plain object containing File objects into a FormData instance.
  * If no File instances are found, returns the original object.
  * This is required because PocketBase JS SDK only uploads files when passed a FormData instance.

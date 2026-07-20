@@ -25,6 +25,7 @@ import Footer from "@/components/Footer";
 import { buildFileUrl } from "@/lib/pb";
 import { createPB } from "@/lib/pb.server";
 import { formatDate } from "@/lib/dates";
+import { canRegisterForEvent } from "@/lib/event-lifecycle";
 
 interface SocietyPageData {
   society: {
@@ -42,6 +43,9 @@ interface SocietyPageData {
     title: string;
     description: string;
     date: string;
+    endDate: string;
+    registrationStart: string;
+    registrationDeadline: string;
     venue: string;
     price: number;
     status: string;
@@ -113,6 +117,9 @@ const fetchSocietyData = createServerFn()
         title: (e.title as string) || "",
         description: (e.description as string) || "",
         date: (e.date as string) || "",
+        endDate: (e.endDate as string) || "",
+        registrationStart: (e.registrationStart as string) || "",
+        registrationDeadline: (e.registrationDeadline as string) || "",
         venue: (e.venue as string) || "",
         price: (e.price as number) || 0,
         status: (e.status as string) || "published",
@@ -670,7 +677,7 @@ function SocietyPage() {
                             Edit
                           </a>
                         )}
-                        {event.externalFormUrl && (
+                        {event.externalFormUrl && canRegisterForEvent({ ...event, registrationOpen: true }) && (
                           <a
                             href={event.externalFormUrl}
                             target="_blank"

@@ -91,13 +91,17 @@ function toIso(value: string): string | undefined {
 interface EventFormProps {
   mode: "create" | "edit";
   eventId?: string;
+  initialSocietyId?: string;
 }
 
-export function EventForm({ mode, eventId }: EventFormProps) {
+export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isEdit = mode === "edit";
-  const [form, setForm] = useState<EventFormState>(EMPTY_STATE);
+  const [form, setForm] = useState<EventFormState>(() => ({
+    ...EMPTY_STATE,
+    society: initialSocietyId || "",
+  }));
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [customFields, setCustomFields] = useState<FormField[]>([]);
   const [coupons, setCoupons] = useState<Coupon[]>([]);

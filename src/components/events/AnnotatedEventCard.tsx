@@ -24,11 +24,12 @@ interface EventCardProps {
     index: number;
     onSelect: (event: ExtendedEvent) => void;
     isMobile?: boolean;
+    showAnnotations?: boolean;
 }
 
-export function AnnotatedEventCard({ event, index, onSelect, isMobile = false }: EventCardProps) {
+export function AnnotatedEventCard({ event, index, onSelect, isMobile = false, showAnnotations = true }: EventCardProps) {
     const prefersReducedMotion = useReducedMotion();
-    const annotation = ANNOTATIONS.find(a => a.index === index);
+    const annotation = showAnnotations ? ANNOTATIONS.find(a => a.index === index) : undefined;
 
     return (
         <motion.div
@@ -55,7 +56,7 @@ export function AnnotatedEventCard({ event, index, onSelect, isMobile = false }:
             )}
 
             {/* Mobile-only tough choice annotation between cards 0 and 1 */}
-            {index === 0 && !isMobile && (
+            {showAnnotations && index === 0 && !isMobile && (
                 <motion.div
                     initial={prefersReducedMotion ? undefined : { opacity: 0, scale: 0.8 }}
                     whileInView={prefersReducedMotion ? undefined : { opacity: 1, scale: 1 }}

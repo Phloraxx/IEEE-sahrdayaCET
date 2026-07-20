@@ -6,7 +6,7 @@
 
 services:
   pocketbase:
-    image: adrianmusante/pocketbase:latest
+    image: adrianmusante/pocketbase:0.39.1
     restart: always
     expose:
       - 8090
@@ -26,16 +26,83 @@ services:
       - 1.1.1.1
       - 8.8.8.8
     # Swarm/Dokploy: binding ./pb_hooks → /pocketbase/hooks is shadowed by the
-    # named volume on /pocketbase. Sync from /hooks-src on every container start.
+    # named volume on /pocketbase. Keep the source mounted read-only, copy it
+    # into the persistent PocketBase hook directory, and watch the source for
+    # changes. Any hook change forcefully restarts the PocketBase process after
+    # re-syncing hooks, without requiring the whole container to be recreated.
     volumes:
       - pocketbase-data:/pocketbase
       - ./pb_hooks:/hooks-src:ro
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
-        mkdir -p /pocketbase/hooks
-        cp -rf /hooks-src/. /pocketbase/hooks/
-        exec /opt/pocketbase/scripts/entrypoint.sh
+        set -eu
+
+        fingerprint_hooks() {
+          find /hooks-src -type f -print \
+            | sort \
+            | while IFS= read -r file; do cksum "$$file"; done \
+            | cksum \
+            | awk '{ print $$1 ":" $$2 }'
+        }
+
+        sync_hooks() {
+          mkdir -p /pocketbase/hooks
+          rm -rf /pocketbase/hooks/* /pocketbase/hooks/.[!.]* /pocketbase/hooks/..?* 2>/dev/null || true
+          cp -rf /hooks-src/. /pocketbase/hooks/
+        }
+
+        stop_pocketbase() {
+          if [ -n "$${pb_pid:-}" ] && kill -0 "$$pb_pid" 2>/dev/null; then
+            kill -TERM "$$pb_pid" 2>/dev/null || true
+            waited=0
+            while kill -0 "$$pb_pid" 2>/dev/null && [ "$$waited" -lt 10 ]; do
+              sleep 1
+              waited=$$((waited + 1))
+            done
+            if kill -0 "$$pb_pid" 2>/dev/null; then
+              echo "[hooks-watch] PocketBase did not stop gracefully; forcing restart"
+              kill -KILL "$$pb_pid" 2>/dev/null || true
+            fi
+          fi
+          if [ -n "$${pb_pid:-}" ]; then
+            wait "$$pb_pid" 2>/dev/null || true
+          fi
+        }
+
+        trap 'stop_pocketbase; exit 0' TERM INT
+
+        sync_hooks
+        hooks_hash="$$(fingerprint_hooks)"
+
+        while true; do
+          echo "[hooks-watch] Starting PocketBase"
+          /opt/pocketbase/scripts/entrypoint.sh &
+          pb_pid=$$!
+          restart_for_hooks=0
+
+          while kill -0 "$$pb_pid" 2>/dev/null; do
+            sleep 2
+            next_hash="$$(fingerprint_hooks)"
+            if [ "$$next_hash" != "$$hooks_hash" ]; then
+              echo "[hooks-watch] pb_hooks changed; syncing hooks and restarting PocketBase"
+              restart_for_hooks=1
+              stop_pocketbase
+              sync_hooks
+              hooks_hash="$$next_hash"
+              break
+            fi
+          done
+
+          if [ "$$restart_for_hooks" -eq 1 ]; then
+            continue
+          fi
+
+          # PocketBase exited for a reason unrelated to hook updates. Exit the
+          # wrapper too so Docker's restart: always policy recreates the service.
+          wait "$$pb_pid"
+          exit $$?
+        done
     environment:
       - POCKETBASE_ADMIN_EMAIL=${ADMIN_EMAIL:?err}
       - POCKETBASE_ADMIN_PASSWORD=${ADMIN_PASSWORD:?err}
