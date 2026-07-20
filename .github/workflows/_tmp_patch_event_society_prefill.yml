@@ -1,0 +1,93 @@
+name: Temporary event society prefill patch
+
+on:
+  push:
+    branches:
+      - fix/events-public-lifecycle
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[event-prefill-patched]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/events-public-lifecycle
+          fetch-depth: 0
+
+      - name: Patch event form preselection
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          form_path = Path('src/features/admin/events/event-form.tsx')
+          text = form_path.read_text()
+
+          old_props = '''interface EventFormProps {
+            mode: "create" | "edit";
+            eventId?: string;
+          }
+
+          export function EventForm({ mode, eventId }: EventFormProps) {
+            const navigate = useNavigate();
+            const queryClient = useQueryClient();
+            const isEdit = mode === "edit";
+            const [form, setForm] = useState<EventFormState>(EMPTY_STATE);'''
+          new_props = '''interface EventFormProps {
+            mode: "create" | "edit";
+            eventId?: string;
+            initialSocietyId?: string;
+          }
+
+          export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
+            const navigate = useNavigate();
+            const queryClient = useQueryClient();
+            const isEdit = mode === "edit";
+            const [form, setForm] = useState<EventFormState>(() => ({
+              ...EMPTY_STATE,
+              society: initialSocietyId || "",
+            }));'''
+
+          if old_props not in text:
+            raise SystemExit('EventForm props/state pattern not found')
+          form_path.write_text(text.replace(old_props, new_props, 1))
+
+          route_path = Path('src/routes/admin.events.new.tsx')
+          route = route_path.read_text()
+          old_route = '''export const Route = createFileRoute("/admin/events/new")({
+            component: NewEventPage,
+          });
+
+          function NewEventPage() {
+            return ('''
+          new_route = '''export const Route = createFileRoute("/admin/events/new")({
+            validateSearch: (search: Record<string, unknown>) => ({
+              society: typeof search.society === "string" ? search.society : undefined,
+            }),
+            component: NewEventPage,
+          });
+
+          function NewEventPage() {
+            const { society } = Route.useSearch();
+            return ('''
+          if old_route not in route:
+            raise SystemExit('New event route pattern not found')
+          route = route.replace(old_route, new_route, 1)
+          route = route.replace(
+            '<EventForm mode="create" />',
+            '<EventForm mode="create" initialSocietyId={society} />',
+            1,
+          )
+          route_path.write_text(route)
+          PY
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/features/admin/events/event-form.tsx src/routes/admin.events.new.tsx
+          git commit -m "fix(events): preselect society from add-event link [event-prefill-patched]"
+          git push origin HEAD:fix/events-public-lifecycle
