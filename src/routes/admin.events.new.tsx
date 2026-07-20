@@ -3,10 +3,14 @@ import { AdminPageHeader } from "@/features/admin/shared/admin-page-header";
 import { EventForm } from "@/features/admin/events/event-form";
 
 export const Route = createFileRoute("/admin/events/new")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    society: typeof search.society === "string" ? search.society : undefined,
+  }),
   component: NewEventPage,
 });
 
 function NewEventPage() {
+  const { society } = Route.useSearch();
   return (
     <div className="space-y-6">
       <AdminPageHeader
@@ -16,7 +20,7 @@ function NewEventPage() {
         backTo="/admin/events"
         backLabel="Back to events"
       />
-      <EventForm mode="create" />
+      <EventForm mode="create" initialSocietyId={society} />
     </div>
   );
 }
