@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Eye, FileText, Pencil, Plus, Search, Trash2 } from "lucide-react";
@@ -15,7 +15,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { useAuth } from "@/lib/auth-context";
 import {
   createBlog,
   deleteBlog,
@@ -28,6 +27,12 @@ import { BlogForm, type BlogFormValues } from "@/components/admin/blog-form";
 import type { BlogPost } from "@/types";
 
 export const Route = createFileRoute("/admin/blogs")({
+  beforeLoad: ({ context }) => {
+    const { user } = context as { user?: { role?: string } };
+    if (user && user.role !== "admin" && user.role !== "content") {
+      throw redirect({ to: "/", replace: true });
+    }
+  },
   component: AdminBlogs,
 });
 
@@ -53,7 +58,6 @@ function formatDate(value?: string): string {
 }
 
 function AdminBlogs() {
-  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [editingBlog, setEditingBlog] = useState<BlogPost | null>(null);
@@ -141,11 +145,6 @@ function AdminBlogs() {
       createMutation.mutate(data);
     }
   };
-
-  if (user && user.role !== "admin" && user.role !== "content") {
-    window.location.href = "/";
-    return null;
-  }
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
