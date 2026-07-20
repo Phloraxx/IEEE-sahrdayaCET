@@ -21,6 +21,7 @@ interface EventListSectionProps {
   emptyTitle?: string;
   emptyMessage?: string;
   showAnnotation?: boolean;
+  sectionId?: string;
 }
 
 export function EventListSection({
@@ -33,9 +34,10 @@ export function EventListSection({
   emptyTitle = 'No Upcoming Events',
   emptyMessage = 'Check back soon for exciting new events!',
   showAnnotation = true,
+  sectionId = 'events-section',
 }: EventListSectionProps) {
   return (
-    <div className="max-w-[1100px] mx-auto relative mt-8" id="events-section">
+    <div className="max-w-[1100px] mx-auto relative mt-8" id={sectionId}>
       <div className="flex items-center justify-between mb-16 px-4">
         <h2 className="text-4xl font-black tracking-tight text-slate-800 flex items-center gap-4">
           {title}
