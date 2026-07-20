@@ -1,0 +1,15 @@
+name: Temporary TypeScript PR diagnostics
+
+on:
+  pull_request:
+    branches:
+      - dev
+
+jobs:
+  tsc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile >/dev/null 2>&1
+      - run: bunx tsc --noEmit
