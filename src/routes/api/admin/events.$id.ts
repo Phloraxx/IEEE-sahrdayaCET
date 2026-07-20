@@ -47,8 +47,27 @@ export const Route = createFileRoute("/api/admin/events/$id")({
           }
           const body = await parseFormData(request);
           const parsed = EventUpdateSchema.parse(body);
+          // The admin event form submits the full editable event shape. Empty
+          // lifecycle fields are intentionally omitted by the client cleanup,
+          // so detect a full-form submission and explicitly clear those fields
+          // instead of leaving stale PocketBase values behind.
+          const isFullEventFormSubmission =
+            Object.prototype.hasOwnProperty.call(body, "title") &&
+            Object.prototype.hasOwnProperty.call(body, "date") &&
+            Object.prototype.hasOwnProperty.call(body, "status") &&
+            Object.prototype.hasOwnProperty.call(body, "society") &&
+            Object.prototype.hasOwnProperty.call(body, "registrationOpen");
+
           // Coupons live in the `coupons` collection, not on the event record.
           const { coupons: incomingCoupons, ...eventFields } = parsed;
+          if (isFullEventFormSubmission) {
+            eventFields.endDate = parsed.endDate ?? "";
+            eventFields.registrationStart = parsed.registrationStart ?? "";
+            eventFields.registrationDeadline = parsed.registrationDeadline ?? "";
+            // Switching from an external form back to internal registration (or
+            // clearing an external URL) must remove the old URL from PocketBase.
+            eventFields.externalFormUrl = parsed.externalFormUrl ?? "";
+          }
           // The chair's own session is sufficient for event field updates.
           // The PB updateRule allows chairs to edit their own events' fields.
           const event = await pb.collection("events").update(id, serializeToFormData(eventFields));
