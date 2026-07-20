@@ -1,0 +1,32 @@
+name: Temporary TypeScript diagnostics
+
+on:
+  push:
+    branches:
+      - fix/events-public-lifecycle
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    if: ${{ !contains(github.event.head_commit.message, '[tsc-captured]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/events-public-lifecycle
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Capture compiler output
+        run: |
+          bunx tsc --noEmit > .tmp-tsc-errors.txt 2>&1 || true
+          if [ ! -s .tmp-tsc-errors.txt ]; then echo "NO_TYPESCRIPT_ERRORS" > .tmp-tsc-errors.txt; fi
+      - name: Commit diagnostics
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .tmp-tsc-errors.txt
+          git commit -m "chore: capture TypeScript diagnostics [tsc-captured]"
+          git push origin HEAD:fix/events-public-lifecycle
