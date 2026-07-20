@@ -140,6 +140,8 @@ export const getAllBlogsAdmin = createServerFn({ method: "GET" }).handler(
   },
 );
 
+const OptionalUrlSchema = z.union([z.literal(""), z.string().trim().url()]);
+
 const BlogCreateSchema = z.object({
   title: z.string().trim().min(1),
   slug: z.string().trim().min(1),
@@ -147,10 +149,9 @@ const BlogCreateSchema = z.object({
   content: z.string().optional(),
   topicLabel: z.string().optional(),
   category: z.enum(["IEEE", "Society", "Event"]).optional(),
-  coverUrl: z.string().optional(),
-  readMinutes: z.number().optional(),
+  coverUrl: OptionalUrlSchema.optional(),
+  readMinutes: z.number().int().min(1).max(240).optional(),
   published: z.boolean().optional(),
-  published_at: z.string().optional(),
   societyId: z.string().optional(),
   eventId: z.string().optional(),
 });
@@ -163,20 +164,20 @@ export const createBlog = createServerFn({ method: "POST" })
 
     const content = sanitizeBlogHtml(data.content);
     const published = data.published ?? false;
-    const publishedAt = resolveBlogPublishedAt({
-      nextPublished: published,
-      submittedPublishedAt: data.published_at,
-    });
+    const slug = normalizeBlogSlug(data.slug) || normalizeBlogSlug(data.title);
+    if (!slug) throw new Error("Blog slug must contain at least one letter or number");
+
+    const publishedAt = resolveBlogPublishedAt({ nextPublished: published });
 
     const dbData: Record<string, unknown> = {
       title: data.title.trim(),
-      slug: normalizeBlogSlug(data.slug || data.title),
+      slug,
       excerpt: data.excerpt?.trim() || "",
       content,
       topic_label: data.topicLabel?.trim() || "",
       category: data.category,
       cover_url: data.coverUrl?.trim() || "",
-      read_minutes: data.readMinutes || estimateBlogReadMinutes(content),
+      read_minutes: data.readMinutes ?? estimateBlogReadMinutes(content),
       published,
       relation: ctx.userId,
       society: data.societyId || null,
@@ -201,7 +202,9 @@ export const updateBlog = createServerFn({ method: "POST" })
     const dbData: Record<string, unknown> = {};
     if (updateData.title !== undefined) dbData.title = updateData.title.trim();
     if (updateData.slug !== undefined) {
-      dbData.slug = normalizeBlogSlug(updateData.slug);
+      const slug = normalizeBlogSlug(updateData.slug);
+      if (!slug) throw new Error("Blog slug must contain at least one letter or number");
+      dbData.slug = slug;
     }
     if (updateData.excerpt !== undefined) {
       dbData.excerpt = updateData.excerpt.trim();
@@ -235,7 +238,6 @@ export const updateBlog = createServerFn({ method: "POST" })
       nextPublished: updateData.published,
       existingPublished: !!getField(existing, "published", false),
       existingPublishedAt: getField(existing, "published_at", ""),
-      submittedPublishedAt: updateData.published_at,
     });
     if (publishedAt !== undefined) dbData.published_at = publishedAt;
 
