@@ -1,0 +1,85 @@
+name: Temporary society event registration lifecycle patch
+
+on:
+  push:
+    branches:
+      - fix/events-public-lifecycle
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[society-event-lifecycle-patched]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/events-public-lifecycle
+          fetch-depth: 0
+
+      - name: Patch society event registration links
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          paths = [
+              Path('src/routes/societies_.$slug.tsx'),
+              Path('src/routes/societies_.wie.tsx'),
+          ]
+
+          for path in paths:
+              text = path.read_text()
+
+              date_import = 'import { formatDate } from "@/lib/dates";'
+              if date_import in text and 'event-lifecycle' not in text:
+                  text = text.replace(
+                      date_import,
+                      date_import + '\nimport { isPastEvent } from "@/lib/event-lifecycle";',
+                      1,
+                  )
+              else:
+                  date_import_single = "import { formatDate } from '@/lib/dates';"
+                  if date_import_single in text and 'event-lifecycle' not in text:
+                      text = text.replace(
+                          date_import_single,
+                          date_import_single + "\nimport { isPastEvent } from '@/lib/event-lifecycle';",
+                          1,
+                      )
+
+              interface_date = '    date: string;\n    venue: string;'
+              if interface_date in text:
+                  text = text.replace(
+                      interface_date,
+                      '    date: string;\n    endDate: string;\n    venue: string;',
+                      1,
+                  )
+
+              mapping_double = '        date: (e.date as string) || "",\n        venue:'
+              if mapping_double in text:
+                  text = text.replace(
+                      mapping_double,
+                      '        date: (e.date as string) || "",\n        endDate: (e.endDate as string) || "",\n        venue:',
+                      1,
+                  )
+
+              # Only show an external Register action while the event is still
+              # an active published/upcoming event. Completed and elapsed events
+              # remain visible in the society archive without a registration CTA.
+              old_condition = '{event.externalFormUrl && ('
+              new_condition = '{event.externalFormUrl && event.status === "published" && !isPastEvent(event) && ('
+              if old_condition in text:
+                  text = text.replace(old_condition, new_condition, 1)
+              else:
+                  raise SystemExit(f'External form condition not found in {path}')
+
+              path.write_text(text)
+          PY
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add 'src/routes/societies_.$slug.tsx' src/routes/societies_.wie.tsx
+          git commit -m "fix(events): hide registration links for past society events [society-event-lifecycle-patched]"
+          git push origin HEAD:fix/events-public-lifecycle
