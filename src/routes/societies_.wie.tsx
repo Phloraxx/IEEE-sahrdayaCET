@@ -19,7 +19,7 @@ import { buildFileUrl } from "@/lib/pb";
 import { createPB } from "@/lib/pb.server";
 import { APP_URL } from "@/lib/constants";
 import { formatDate } from "@/lib/dates";
-import { isPastEvent } from "@/lib/event-lifecycle";
+import { canRegisterForEvent } from "@/lib/event-lifecycle";
 
 // Fetch WIE data
 const fetchWieData = createServerFn().handler(async () => {
@@ -479,7 +479,7 @@ function WIESocietyPage() {
                             Edit
                           </a>
                         )}
-                        {event.externalFormUrl && event.status === "published" && !isPastEvent(event) && (
+                        {event.externalFormUrl && canRegisterForEvent({ ...event, registrationOpen: true }) && (
                           <a
                             href={event.externalFormUrl}
                             target="_blank"
