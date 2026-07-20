@@ -6,6 +6,7 @@ import { requireRole } from "@/lib/auth";
 import { getField, getExpand } from "@/lib/safe-get";
 import { buildFileUrl, escapeFilterValue } from "@/lib/pb";
 import {
+  blogHtmlToPlainText,
   estimateBlogReadMinutes,
   normalizeBlogSlug,
   resolveBlogPublishedAt,
@@ -20,6 +21,12 @@ function getPB() {
 
 async function requireBlogEditor(ctx: AdminContext) {
   await requireRole(["admin", "content"], ctx.pb);
+}
+
+function assertPublishableContent(content: string) {
+  if (!blogHtmlToPlainText(content)) {
+    throw new Error("Add article content before publishing this post");
+  }
 }
 
 export function mapBlog(raw: Record<string, unknown>) {
@@ -164,6 +171,8 @@ export const createBlog = createServerFn({ method: "POST" })
 
     const content = sanitizeBlogHtml(data.content);
     const published = data.published ?? false;
+    if (published) assertPublishableContent(content);
+
     const slug = normalizeBlogSlug(data.slug) || normalizeBlogSlug(data.title);
     if (!slug) throw new Error("Blog slug must contain at least one letter or number");
 
@@ -232,6 +241,14 @@ export const updateBlog = createServerFn({ method: "POST" })
     }
     if (updateData.eventId !== undefined) {
       dbData.event = updateData.eventId || null;
+    }
+
+    if (updateData.published === true) {
+      const effectiveContent =
+        updateData.content !== undefined
+          ? sanitizeBlogHtml(updateData.content)
+          : sanitizeBlogHtml(getField(existing, "content", ""));
+      assertPublishableContent(effectiveContent);
     }
 
     const publishedAt = resolveBlogPublishedAt({
