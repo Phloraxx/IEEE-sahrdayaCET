@@ -1,9 +1,7 @@
-import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { runInNewContext } from 'node:vm'
 import { describe, expect, it } from 'vitest'
-
-const require = createRequire(import.meta.url)
 
 type TransitionInput = {
   oldCheckedIn: boolean
@@ -18,11 +16,25 @@ type TransitionResult = {
   message?: string
 }
 
-const { resolveCheckInTransition } = require(
-  '../../../pb_hooks/registration-checkin-invariants.js',
-) as {
+// The repository is ESM (`type: module`), while PocketBase's Goja `require()`
+// loads hook helper files with CommonJS-style `module.exports`. Evaluate the
+// exact deployed helper in a tiny CommonJS sandbox so Vitest exercises the same
+// source without asking Node's ESM loader to import it directly.
+function loadInvariantModule(): {
   resolveCheckInTransition: (input: TransitionInput) => TransitionResult
+} {
+  const source = readFileSync(
+    resolve(process.cwd(), 'pb_hooks/registration-checkin-invariants.js'),
+    'utf8',
+  )
+  const module = { exports: {} as Record<string, unknown> }
+  runInNewContext(source, { module, exports: module.exports })
+  return module.exports as {
+    resolveCheckInTransition: (input: TransitionInput) => TransitionResult
+  }
 }
+
+const { resolveCheckInTransition } = loadInvariantModule()
 
 describe('registration check-in invariants', () => {
   it('allows a confirmed registration to begin check-in validation', () => {
