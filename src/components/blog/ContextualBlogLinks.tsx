@@ -42,23 +42,34 @@ export function ContextualBlogLinks() {
   useEffect(() => {
     if (!context) {
       setBlogs([]);
+      setLoading(false);
       return;
     }
 
     const controller = new AbortController();
+    let active = true;
+    setBlogs([]);
     setLoading(true);
+
     fetch(`/api/blogs/related?${context.query}`, {
       signal: controller.signal,
       credentials: "same-origin",
     })
       .then((response) => (response.ok ? response.json() : { items: [] }))
-      .then((data) => setBlogs(Array.isArray(data.items) ? data.items : []))
-      .catch((error) => {
-        if (error?.name !== "AbortError") setBlogs([]);
+      .then((data) => {
+        if (active) setBlogs(Array.isArray(data.items) ? data.items : []);
       })
-      .finally(() => setLoading(false));
+      .catch((error) => {
+        if (active && error?.name !== "AbortError") setBlogs([]);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
 
-    return () => controller.abort();
+    return () => {
+      active = false;
+      controller.abort();
+    };
   }, [context]);
 
   if (!context || (!loading && blogs.length === 0)) return null;
