@@ -77,7 +77,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
         className="fixed inset-0 pointer-events-none opacity-[0.02] z-50 mix-blend-overlay"
         style={{
           backgroundImage:
-            'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.65%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25 height=%22100%25 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E")',
+            'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.65%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E")',
         }}
       />
 
@@ -94,6 +94,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
           title="Upcoming Events"
           emptyTitle="No Upcoming Events"
           emptyMessage="Check back soon for exciting new events!"
+          sectionId="events-section"
         />
 
         <div className="mt-24 pb-24">
@@ -107,6 +108,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
             emptyTitle="No Past Events Yet"
             emptyMessage="Completed events will appear here as the branch builds its archive."
             showAnnotation={false}
+            sectionId="past-events"
           />
         </div>
       </section>
