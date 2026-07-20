@@ -11,5 +11,5 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile >/dev/null 2>&1
+      - run: bun install >/dev/null 2>&1
       - run: bunx tsc --noEmit
