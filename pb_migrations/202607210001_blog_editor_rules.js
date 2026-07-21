@@ -9,6 +9,7 @@ migrate(
     collection.createRule = '@request.auth.role = "admin" || (@request.auth.role = "content" && @request.body.relation = @request.auth.id)'
     collection.updateRule = '@request.auth.role = "admin" || (@request.auth.role = "content" && @request.body.relation:changed = false)'
     collection.deleteRule = '@request.auth.role = "admin" || @request.auth.role = "content"'
+    collection.addIndex("idx_blogs_slug_unique", true, "slug", "")
 
     app.save(collection)
   },
@@ -19,7 +20,8 @@ migrate(
     collection.viewRule = '@request.auth.role = "content" || published = true'
     collection.createRule = '@request.auth.role = "content"'
     collection.updateRule = '@request.auth.role = "content"'
-    collection.deleteRule = '@request.auth.role = "admin" || @request.auth.role = "content"'
+    collection.deleteRule = '@request.auth.role = "content"'
+    collection.removeIndex("idx_blogs_slug_unique")
 
     app.save(collection)
   }
