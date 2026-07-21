@@ -50,7 +50,7 @@ export const Route = createFileRoute("/api/blogs/related")({
 
         const result = await pb.collection("blogs").getList(1, limit, {
           filter,
-          sort: "-published_at,-created",
+          sort: "-published_at",
           fields:
             "id,title,slug,excerpt,cover_url,topic_label,category,published_at,read_minutes",
           skipTotal: true,

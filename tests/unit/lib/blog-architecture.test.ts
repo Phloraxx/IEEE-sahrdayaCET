@@ -131,6 +131,7 @@ describe("blog architecture invariants", () => {
     const source = read("src/routes/api/-blogs.ts");
     expect(source).toContain('collection("blogs").getFullList');
     expect(source).not.toContain('collection("blogs").getList(1, 50');
+    expect(source).not.toContain('sort: "-published_at,-created"');
   });
 
   it("renders a complete archive and clears stale contextual story state", () => {

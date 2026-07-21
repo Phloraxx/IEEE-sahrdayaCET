@@ -136,7 +136,7 @@ export const getPublishedBlogs = createServerFn({ method: "GET" }).handler(
       const records = await pb.collection("blogs").getFullList({
         batch: 100,
         filter: "published = true",
-        sort: "-published_at,-created",
+        sort: "-published_at",
         expand: "relation,society,event",
       });
       return records.map(mapBlog);
