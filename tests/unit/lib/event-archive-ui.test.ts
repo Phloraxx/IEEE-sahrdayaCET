@@ -17,6 +17,10 @@ describe("event archive UI", () => {
     expect(source).toContain('aria-label="Filter event archive by society"');
     expect(source).toContain('visibleArchiveEvents = filteredArchiveEvents.slice(0, visibleArchiveCount)');
     expect(source).toContain("Load more events");
+
+    const route = read("src/routes/events.tsx");
+    expect(route).toContain("const appUrl = APP_URL;");
+    expect(route).not.toContain('typeof window !== "undefined" ? window.location.origin : APP_URL');
   });
 
   it("reuses event cards without rendering a duplicate section heading", () => {
