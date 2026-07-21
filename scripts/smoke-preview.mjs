@@ -24,24 +24,6 @@ function internalLinks(html, currentUrl) {
   return links;
 }
 
-async function waitForPreview() {
-  let last = '';
-  for (let attempt = 1; attempt <= 30; attempt++) {
-    try {
-      const { res, text } = await get(new URL('/blog', base));
-      last = `${res.status} ${res.url}`;
-      if (res.ok && !text.includes('No published stories yet')) return;
-    } catch (err) {
-      last = String(err);
-    }
-    console.log(`[wait] preview not ready (${attempt}/30): ${last}`);
-    await sleep(10_000);
-  }
-  throw new Error(`Preview never became ready: ${last}`);
-}
-
-await waitForPreview();
-
 const pbUrl = new URL('/api/collections/blogs/records', pbBase);
 pbUrl.searchParams.set('filter', 'published = true');
 pbUrl.searchParams.set('sort', '-published_at,-created');
@@ -53,6 +35,40 @@ const pb = await fetch(pbUrl).then((r) => {
 });
 const published = Array.isArray(pb.items) ? pb.items : [];
 if (published.length === 0) throw new Error('PocketBase reports zero published blogs');
+console.log(`[diagnostic] canonical PocketBase published blogs: ${published.length}`);
+
+const relatedUrl = new URL('/api/blogs/related?limit=6', base);
+const related = await get(relatedUrl);
+console.log(`[diagnostic] preview related endpoint: HTTP ${related.res.status}`);
+if (!related.res.ok) throw new Error(`Preview related endpoint failed: ${related.res.status} ${related.text.slice(0, 300)}`);
+let relatedItems = [];
+try {
+  const parsed = JSON.parse(related.text);
+  relatedItems = Array.isArray(parsed.items) ? parsed.items : [];
+} catch {
+  throw new Error(`Preview related endpoint returned non-JSON: ${related.text.slice(0, 300)}`);
+}
+console.log(`[diagnostic] preview related stories: ${relatedItems.length}`);
+if (relatedItems.length === 0) throw new Error('Preview server can reach the related endpoint but it returned zero published stories');
+
+async function waitForPreview() {
+  let last = '';
+  for (let attempt = 1; attempt <= 12; attempt++) {
+    try {
+      const { res, text } = await get(new URL('/blog', base));
+      const empty = text.includes('No published stories yet');
+      last = `${res.status} ${res.url} falseEmpty=${empty}`;
+      if (res.ok && !empty) return;
+    } catch (err) {
+      last = String(err);
+    }
+    console.log(`[wait] preview not ready (${attempt}/12): ${last}`);
+    await sleep(5_000);
+  }
+  throw new Error(`Preview never became ready: ${last}`);
+}
+
+await waitForPreview();
 
 const required = new Map([
   ['/', 'home'],
@@ -87,24 +103,16 @@ while (queue.length && seen.size < maxPages) {
       failures.push(`${path}: HTTP ${res.status}`);
       continue;
     }
-    if (path === '/blog' && text.includes('No published stories yet')) {
-      failures.push('/blog: rendered the false empty state');
-    }
+    if (path === '/blog' && text.includes('No published stories yet')) failures.push('/blog: rendered the false empty state');
     const post = published.find((item) => `/blog/${item.slug}` === path);
-    if (post && !text.toLowerCase().includes(String(post.title).trim().toLowerCase())) {
-      failures.push(`${path}: article title missing from SSR HTML`);
-    }
-    for (const next of internalLinks(text, res.url)) {
-      if (!seen.has(next)) queue.push(next);
-    }
+    if (post && !text.toLowerCase().includes(String(post.title).trim().toLowerCase())) failures.push(`${path}: article title missing from SSR HTML`);
+    for (const next of internalLinks(text, res.url)) if (!seen.has(next)) queue.push(next);
   } catch (err) {
     failures.push(`${path}: ${err instanceof Error ? err.message : String(err)}`);
   }
 }
 
-for (const [path, label] of required) {
-  if (!seen.has(path)) failures.push(`${path}: required page not checked (${label})`);
-}
+for (const [path, label] of required) if (!seen.has(path)) failures.push(`${path}: required page not checked (${label})`);
 
 console.log(`\nPreview: ${base.origin}`);
 console.log(`Published blogs expected: ${published.length}`);
