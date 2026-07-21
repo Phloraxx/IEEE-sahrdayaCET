@@ -56,7 +56,16 @@ if (published.length === 0) throw new Error('PocketBase reports zero published b
 
 const required = new Map([
   ['/', 'home'],
+  ['/events', 'events'],
+  ['/full-execom', 'executive committee'],
+  ['/societies', 'societies'],
+  ['/societies/wie', 'WIE society'],
   ['/blog', 'blog archive'],
+  ['/FIFA', 'FIFA home'],
+  ['/FIFA/feed', 'FIFA feed'],
+  ['/FIFA/leaderboard', 'FIFA leaderboard'],
+  ['/FIFA/matches', 'FIFA matches'],
+  ['/FIFA/rules', 'FIFA rules'],
 ]);
 for (const post of published) required.set(`/blog/${post.slug}`, `blog: ${post.title}`);
 
