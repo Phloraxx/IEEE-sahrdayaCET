@@ -22,16 +22,27 @@ export function EventDetailModal({ event, onClose, onRegister }: EventDetailModa
 
     useEffect(() => {
         const controller = new AbortController();
+        let active = true;
+        setRelatedBlogs([]);
+
         fetch(`/api/blogs/related?eventId=${encodeURIComponent(event.id)}&limit=2`, {
             signal: controller.signal,
             credentials: 'same-origin',
         })
             .then((response) => (response.ok ? response.json() : { items: [] }))
-            .then((data) => setRelatedBlogs(Array.isArray(data.items) ? data.items : []))
+            .then((data) => {
+                if (active) {
+                    setRelatedBlogs(Array.isArray(data.items) ? data.items : []);
+                }
+            })
             .catch((error) => {
-                if (error?.name !== 'AbortError') setRelatedBlogs([]);
+                if (active && error?.name !== 'AbortError') setRelatedBlogs([]);
             });
-        return () => controller.abort();
+
+        return () => {
+            active = false;
+            controller.abort();
+        };
     }, [event.id]);
 
     // Body scroll lock & focus trap
