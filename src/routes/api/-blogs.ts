@@ -6,8 +6,8 @@ import { requireRole } from "@/lib/auth";
 import { getField, getExpand } from "@/lib/safe-get";
 import { buildFileUrl, escapeFilterValue } from "@/lib/pb";
 import {
-  blogHtmlToPlainText,
   estimateBlogReadMinutes,
+  hasReadableBlogContent,
   normalizeBlogSlug,
   resolveBlogPublishedAt,
   sanitizeBlogHtml,
@@ -24,10 +24,39 @@ async function requireBlogEditor(ctx: AdminContext) {
 }
 
 function assertPublishableContent(content: string) {
-  if (!blogHtmlToPlainText(content)) {
+  if (!hasReadableBlogContent(content)) {
     throw new Error("Add article content before publishing this post");
   }
 }
+
+async function assertUniqueBlogSlug(
+  pb: AdminContext["pb"],
+  slug: string,
+  excludedId?: string,
+) {
+  const filter = [
+    `slug = ${escapeFilterValue(slug)}`,
+    excludedId ? `id != ${escapeFilterValue(excludedId)}` : "",
+  ]
+    .filter(Boolean)
+    .join(" && ");
+
+  const result = await pb.collection("blogs").getList(1, 1, {
+    filter,
+    fields: "id",
+    skipTotal: true,
+  });
+
+  if (result.items.length > 0) {
+    throw new Error("A blog post with this slug already exists");
+  }
+}
+
+export const checkBlogEditorAccess = createServerFn().handler(async () => {
+  const pb = getPB();
+  await requireRole(["admin", "content"], pb);
+  return { ok: true };
+});
 
 export function mapBlog(raw: Record<string, unknown>) {
   const expand = getExpand(raw);
@@ -175,6 +204,7 @@ export const createBlog = createServerFn({ method: "POST" })
 
     const slug = normalizeBlogSlug(data.slug) || normalizeBlogSlug(data.title);
     if (!slug) throw new Error("Blog slug must contain at least one letter or number");
+    await assertUniqueBlogSlug(ctx.pb, slug);
 
     const publishedAt = resolveBlogPublishedAt({ nextPublished: published });
 
@@ -198,7 +228,9 @@ export const createBlog = createServerFn({ method: "POST" })
     return mapBlog(record);
   });
 
-const BlogUpdateSchema = BlogCreateSchema.partial().extend({ id: z.string() });
+const BlogUpdateSchema = BlogCreateSchema.partial().extend({
+  id: z.string().min(1),
+});
 
 export const updateBlog = createServerFn({ method: "POST" })
   .validator(BlogUpdateSchema)
@@ -207,22 +239,27 @@ export const updateBlog = createServerFn({ method: "POST" })
     await requireBlogEditor(ctx);
     const { id, ...updateData } = data;
     const existing = await ctx.pb.collection("blogs").getOne(id);
+    const existingPublished = !!getField(existing, "published", false);
+    const existingContent = sanitizeBlogHtml(getField(existing, "content", ""));
 
     const dbData: Record<string, unknown> = {};
     if (updateData.title !== undefined) dbData.title = updateData.title.trim();
     if (updateData.slug !== undefined) {
       const slug = normalizeBlogSlug(updateData.slug);
       if (!slug) throw new Error("Blog slug must contain at least one letter or number");
+      await assertUniqueBlogSlug(ctx.pb, slug, id);
       dbData.slug = slug;
     }
     if (updateData.excerpt !== undefined) {
       dbData.excerpt = updateData.excerpt.trim();
     }
+
+    let effectiveContent = existingContent;
     if (updateData.content !== undefined) {
-      const content = sanitizeBlogHtml(updateData.content);
-      dbData.content = content;
+      effectiveContent = sanitizeBlogHtml(updateData.content);
+      dbData.content = effectiveContent;
       if (updateData.readMinutes === undefined) {
-        dbData.read_minutes = estimateBlogReadMinutes(content);
+        dbData.read_minutes = estimateBlogReadMinutes(effectiveContent);
       }
     }
     if (updateData.topicLabel !== undefined) {
@@ -243,17 +280,12 @@ export const updateBlog = createServerFn({ method: "POST" })
       dbData.event = updateData.eventId || null;
     }
 
-    if (updateData.published === true) {
-      const effectiveContent =
-        updateData.content !== undefined
-          ? sanitizeBlogHtml(updateData.content)
-          : sanitizeBlogHtml(getField(existing, "content", ""));
-      assertPublishableContent(effectiveContent);
-    }
+    const effectivePublished = updateData.published ?? existingPublished;
+    if (effectivePublished) assertPublishableContent(effectiveContent);
 
     const publishedAt = resolveBlogPublishedAt({
       nextPublished: updateData.published,
-      existingPublished: !!getField(existing, "published", false),
+      existingPublished,
       existingPublishedAt: getField(existing, "published_at", ""),
     });
     if (publishedAt !== undefined) dbData.published_at = publishedAt;
