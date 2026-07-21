@@ -15,6 +15,7 @@ import { WhatsHappening } from '@/components/WhatsHappening'
 import { Execom } from '@/components/Execom'
 import { EventsShowcase } from '@/components/EventsShowcase'
 import Footer from '@/components/Footer'
+import { ContextualBlogLinks } from '@/components/blog/ContextualBlogLinks'
 import { FloatingAction } from '@/components/FloatingAction'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 
@@ -192,6 +193,7 @@ function Home() {
           <Execom />
           {/* Intentionally hardcoded visual showcase; live event data is used above. */}
           <EventsShowcase />
+          <ContextualBlogLinks />
           <Footer />
         </div>
       </ErrorBoundary>

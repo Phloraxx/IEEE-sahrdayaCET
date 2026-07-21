@@ -8,12 +8,21 @@ export function toIso(date: Date): string {
 export function formatDate(dateString: string): string {
     const d = new Date(dateString);
     if (isNaN(d.getTime())) return '';
-    return d.toLocaleDateString(DATE_LOCALE, {
+
+    // Build the display text from semantic parts instead of Intl punctuation.
+    // Node and Chromium format en-IN punctuation differently, which causes SSR
+    // hydration mismatches even though the underlying date is identical.
+    const parts = new Intl.DateTimeFormat(DATE_LOCALE, {
         weekday: 'long',
         month: 'long',
         day: 'numeric',
         year: 'numeric',
-    });
+        timeZone: 'Asia/Kolkata',
+    }).formatToParts(d);
+    const value = (type: Intl.DateTimeFormatPartTypes) =>
+        parts.find((part) => part.type === type)?.value ?? '';
+
+    return `${value('weekday')}, ${value('day')} ${value('month')} ${value('year')}`;
 }
 
 export function formatDateTime(dateString: string): string {

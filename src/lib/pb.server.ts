@@ -2,16 +2,59 @@ import PocketBase from 'pocketbase'
 import '@tanstack/react-start/server-only'
 import { PB_AUTH_COOKIE } from './constants'
 
+const DEFAULT_PUBLIC_POCKETBASE_URL = 'https://db.ieeesahrdaya.com'
+const LEGACY_OR_AMBIGUOUS_POCKETBASE_URLS = new Set([
+  'https://db.phloraxx.us.to',
+  'http://pocketbase:8090',
+])
+
 /**
  * Server-only. Reads the PB URL from the server environment.
- * Throws at build/import time if this module is pulled into a client bundle.
+ *
+ * Production previews historically inherited either the retired public host or
+ * the generic Docker service name `pocketbase`. The latter is unsafe on the
+ * shared Dokploy overlay because multiple stacks can publish that same network
+ * alias. Route those known deployment values through the canonical PB origin.
+ * Local development still requires an explicit POCKETBASE_URL so it cannot
+ * accidentally mutate production data.
  */
 export function getPBUrl(): string {
-  const url = process.env.POCKETBASE_URL
-  if (!url) {
+  const configured = process.env.POCKETBASE_URL?.trim().replace(/\/+$/, '')
+
+  if (!configured) {
+    if (process.env.NODE_ENV === 'production') return DEFAULT_PUBLIC_POCKETBASE_URL
     throw new Error('POCKETBASE_URL is not configured')
   }
-  return url
+
+  if (
+    process.env.NODE_ENV === 'production' &&
+    LEGACY_OR_AMBIGUOUS_POCKETBASE_URLS.has(configured)
+  ) {
+    return DEFAULT_PUBLIC_POCKETBASE_URL
+  }
+
+  return configured
+}
+
+/**
+ * Public collection reads must not depend on an ambiguous Docker service alias
+ * in production previews. In development, however, reuse the explicitly
+ * configured PocketBase URL so local work can never silently read production.
+ */
+export function getPublicPBUrl(): string {
+  const configured = process.env.PUBLIC_POCKETBASE_URL?.trim().replace(/\/+$/, '')
+  if (configured) {
+    if (
+      process.env.NODE_ENV === 'production' &&
+      LEGACY_OR_AMBIGUOUS_POCKETBASE_URLS.has(configured)
+    ) {
+      return DEFAULT_PUBLIC_POCKETBASE_URL
+    }
+    return configured
+  }
+
+  if (process.env.NODE_ENV === 'production') return DEFAULT_PUBLIC_POCKETBASE_URL
+  return getPBUrl()
 }
 
 export function createPB(cookieString?: string) {
@@ -20,6 +63,10 @@ export function createPB(cookieString?: string) {
     pb.authStore.loadFromCookie(cookieString, PB_AUTH_COOKIE)
   }
   return pb
+}
+
+export function createPublicPB() {
+  return new PocketBase(getPublicPBUrl())
 }
 
 /**

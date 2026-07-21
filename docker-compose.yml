@@ -20,7 +20,10 @@ services:
       - "3000"
     environment:
       - NODE_ENV=${NODE_ENV:-production}
-      - POCKETBASE_URL=${POCKETBASE_URL:-https://db.phloraxx.us.to}
+      # Use the canonical public host by default. A generic `pocketbase` Docker
+      # alias is ambiguous on Dokploy's shared overlay when multiple stacks use it.
+      - POCKETBASE_URL=${POCKETBASE_URL:-https://db.ieeesahrdaya.com}
+      - PUBLIC_POCKETBASE_URL=${PUBLIC_POCKETBASE_URL:-https://db.ieeesahrdaya.com}
       - PAYMENT_API_URL=${PAYMENT_API_URL:-https://pay.mulearnscet.in}
       - PAYMENT_WEBHOOK_SECRET=${PAYMENT_WEBHOOK_SECRET:?err}
       - OAUTH_COOKIE_SECRET=${OAUTH_COOKIE_SECRET:?err}

@@ -36,13 +36,17 @@ export const Route = createFileRoute("/blog/")({
             { "@type": "ListItem", position: 2, name: "Blog", item: `${APP_URL}/blog` },
           ],
         })
-          .replace(/</g, '\\u003c')
-          .replace(/>/g, '\\u003e')
-          .replace(/&/g, '\\u0026'),
+          .replace(/</g, "\\u003c")
+          .replace(/>/g, "\\u003e")
+          .replace(/&/g, "\\u0026"),
       },
     ],
   }),
-  loader: async () => await getPublishedBlogs(),
+  loader: async ({ context }) => {
+    const response = (context as unknown as { response?: { headers?: Headers } })?.response;
+    response?.headers?.set("Cache-Control", "no-cache, must-revalidate");
+    return getPublishedBlogs();
+  },
   component: BlogPage,
 });
 

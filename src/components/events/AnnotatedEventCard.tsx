@@ -25,15 +25,16 @@ interface EventCardProps {
     onSelect: (event: ExtendedEvent) => void;
     isMobile?: boolean;
     showAnnotations?: boolean;
+    animateEntrance?: boolean;
 }
 
-export function AnnotatedEventCard({ event, index, onSelect, isMobile = false, showAnnotations = true }: EventCardProps) {
+export function AnnotatedEventCard({ event, index, onSelect, isMobile = false, showAnnotations = true, animateEntrance = true }: EventCardProps) {
     const prefersReducedMotion = useReducedMotion();
     const annotation = showAnnotations ? ANNOTATIONS.find(a => a.index === index) : undefined;
 
     return (
         <motion.div
-            variants={prefersReducedMotion ? undefined : FADE_UP}
+            variants={prefersReducedMotion || !animateEntrance ? undefined : FADE_UP}
             whileHover={prefersReducedMotion ? undefined : { y: -8 }}
             onClick={() => onSelect(event)}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(event); } }}

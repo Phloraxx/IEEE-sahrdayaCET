@@ -22,6 +22,8 @@ interface EventListSectionProps {
   emptyMessage?: string;
   showAnnotation?: boolean;
   sectionId?: string;
+  showHeader?: boolean;
+  animateCards?: boolean;
 }
 
 export function EventListSection({
@@ -35,17 +37,21 @@ export function EventListSection({
   emptyMessage = 'Check back soon for exciting new events!',
   showAnnotation = true,
   sectionId = 'events-section',
+  showHeader = true,
+  animateCards = true,
 }: EventListSectionProps) {
   return (
     <div className="max-w-[1100px] mx-auto relative mt-8" id={sectionId}>
-      <div className="flex items-center justify-between mb-16 px-4">
-        <h2 className="text-4xl font-black tracking-tight text-slate-800 flex items-center gap-4">
-          {title}
-          <span className="bg-[#EA4335]/10 text-[#EA4335] text-sm px-4 py-1.5 rounded-full font-bold tracking-wide align-middle">
-            {loading ? '...' : events.length}
-          </span>
-        </h2>
-      </div>
+      {showHeader && (
+        <div className="flex items-center justify-between mb-16 px-4">
+          <h2 className="text-4xl font-black tracking-tight text-slate-800 flex items-center gap-4">
+            {title}
+            <span className="bg-[#EA4335]/10 text-[#EA4335] text-sm px-4 py-1.5 rounded-full font-bold tracking-wide align-middle">
+              {loading ? '...' : events.length}
+            </span>
+          </h2>
+        </div>
+      )}
 
       {showAnnotation && !loading && (
         <div className="hidden sm:block absolute top-12 left-1/2 -translate-x-1/2 z-20 pointer-events-none origin-center">
@@ -113,10 +119,10 @@ export function EventListSection({
 
       {!loading && events.length > 0 && (
         <motion.div
-          variants={STAGGER}
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true, margin: '-100px' }}
+          variants={animateCards ? STAGGER : undefined}
+          initial={animateCards ? 'hidden' : false}
+          whileInView={animateCards ? 'show' : undefined}
+          viewport={animateCards ? { once: true, margin: '-100px' } : undefined}
           className="grid grid-cols-1 md:grid-cols-2 gap-8 px-4"
         >
           {events.map((event, index) => (
@@ -126,6 +132,7 @@ export function EventListSection({
               index={index}
               onSelect={onSelectEvent}
               showAnnotations={showAnnotation}
+              animateEntrance={animateCards}
             />
           ))}
         </motion.div>

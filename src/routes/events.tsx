@@ -158,7 +158,7 @@ export const Route = createFileRoute("/events")({
 
 function EventsPage() {
   const initialEvents = Route.useLoaderData();
-  const appUrl = typeof window !== "undefined" ? window.location.origin : APP_URL;
+  const appUrl = APP_URL;
   const itemListSchema =
     initialEvents.length > 0
       ? {

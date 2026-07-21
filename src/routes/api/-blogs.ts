@@ -1,10 +1,18 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeader } from "@tanstack/react-start/server";
 import { createPB } from "@/lib/pb.server";
-import { authenticateAdmin } from "@/lib/admin-middleware";
+import { authenticateAdmin, type AdminContext } from "@/lib/admin-middleware";
 import { requireRole } from "@/lib/auth";
 import { getField, getExpand } from "@/lib/safe-get";
 import { buildFileUrl, escapeFilterValue } from "@/lib/pb";
+import {
+  estimateBlogReadMinutes,
+  hasReadableBlogContent,
+  normalizeBlogSlug,
+  resolveBlogPublishedAt,
+  sanitizeBlogCoverUrl,
+  sanitizeBlogHtml,
+} from "@/lib/blog-content";
 import { z } from "zod";
 
 function getPB() {
@@ -12,90 +20,143 @@ function getPB() {
   return createPB(cookie);
 }
 
-// Map PocketBase record to BlogPost interface
-function mapBlog(raw: Record<string, unknown>) {
+async function requireBlogEditor(ctx: AdminContext) {
+  await requireRole(["admin", "content"], ctx.pb);
+}
+
+function assertPublishableContent(content: string) {
+  if (!hasReadableBlogContent(content)) {
+    throw new Error("Add article content before publishing this post");
+  }
+}
+
+async function assertUniqueBlogSlug(
+  pb: AdminContext["pb"],
+  slug: string,
+  excludedId?: string,
+) {
+  const filter = [
+    `slug = ${escapeFilterValue(slug)}`,
+    excludedId ? `id != ${escapeFilterValue(excludedId)}` : "",
+  ]
+    .filter(Boolean)
+    .join(" && ");
+
+  const result = await pb.collection("blogs").getList(1, 1, {
+    filter,
+    fields: "id",
+    skipTotal: true,
+  });
+
+  if (result.items.length > 0) {
+    throw new Error("A blog post with this slug already exists");
+  }
+}
+
+export const checkBlogEditorAccess = createServerFn().handler(async () => {
+  const pb = getPB();
+  await requireRole(["admin", "content"], pb);
+  return { ok: true };
+});
+
+export function mapBlog(raw: Record<string, unknown>) {
   const expand = getExpand(raw);
-  const authorRaw = expand?.relation; // the relation field is named "relation" in PB
-  
-  let author: { id: string; name: string; role: string; photoUrl?: string } | undefined = undefined;
+  const authorRaw = expand?.relation;
+
+  let author:
+    | { id: string; name: string; role: string; photoUrl?: string }
+    | undefined;
   if (authorRaw) {
     author = {
-      id: getField(authorRaw, 'id', ''),
-      name: getField(authorRaw, 'name', ''),
-      role: getField(authorRaw, 'role', ''),
-      photoUrl: getField(authorRaw, 'avatar', '')
-        ? buildFileUrl("users", getField(authorRaw, 'id', ''), getField(authorRaw, 'avatar', ''))
+      id: getField(authorRaw, "id", ""),
+      name: getField(authorRaw, "name", ""),
+      role: getField(authorRaw, "role", ""),
+      photoUrl: getField(authorRaw, "avatar", "")
+        ? buildFileUrl(
+            "users",
+            getField(authorRaw, "id", ""),
+            getField(authorRaw, "avatar", ""),
+          )
         : undefined,
     };
   }
 
   const societyRaw = expand?.society;
-  let society: { id: string; name: string; slug: string; logoUrl?: string } | undefined = undefined;
+  let society:
+    | { id: string; name: string; slug: string; logoUrl?: string }
+    | undefined;
   if (societyRaw) {
     society = {
-      id: getField(societyRaw, 'id', ''),
-      name: getField(societyRaw, 'name', ''),
-      slug: getField(societyRaw, 'slug', ''),
-      logoUrl: getField(societyRaw, 'logo', '') 
-        ? buildFileUrl("societies", getField(societyRaw, 'id', ''), getField(societyRaw, 'logo', '')) 
+      id: getField(societyRaw, "id", ""),
+      name: getField(societyRaw, "name", ""),
+      slug: getField(societyRaw, "slug", ""),
+      logoUrl: getField(societyRaw, "logo", "")
+        ? buildFileUrl(
+            "societies",
+            getField(societyRaw, "id", ""),
+            getField(societyRaw, "logo", ""),
+          )
         : undefined,
     };
   }
 
   const eventRaw = expand?.event;
-  let event: { id: string; title: string } | undefined = undefined;
-  if (eventRaw) {
-    event = {
-      id: getField(eventRaw, 'id', ''),
-      title: getField(eventRaw, 'title', ''),
-    };
-  }
+  const event = eventRaw
+    ? {
+        id: getField(eventRaw, "id", ""),
+        title: getField(eventRaw, "title", ""),
+      }
+    : undefined;
 
   return {
-    id: getField(raw, 'id', ''),
-    createdAt: getField(raw, 'created', ''),
-    title: getField(raw, 'title', ''),
-    slug: getField(raw, 'slug', ''),
-    excerpt: getField(raw, 'excerpt', ''),
-    content: getField(raw, 'content', ''),
-    coverUrl: getField(raw, 'cover_url', ''), // text URL field
-    readMinutes: Number(getField(raw, 'read_minutes', 0)),
-    topicLabel: getField(raw, 'topic_label', ''),
-    category: getField(raw, 'category', ''),
-    publishedAt: getField(raw, 'published_at', ''),
-    published: getField(raw, 'published', false),
+    id: getField(raw, "id", ""),
+    createdAt: getField(raw, "created", ""),
+    updatedAt: getField(raw, "updated", ""),
+    title: getField(raw, "title", ""),
+    slug: getField(raw, "slug", ""),
+    excerpt: getField(raw, "excerpt", ""),
+    content: sanitizeBlogHtml(getField(raw, "content", "")),
+    coverUrl: sanitizeBlogCoverUrl(getField(raw, "cover_url", "")),
+    readMinutes: Number(getField(raw, "read_minutes", 0)) || 1,
+    topicLabel: getField(raw, "topic_label", ""),
+    category: getField(raw, "category", ""),
+    publishedAt: getField(raw, "published_at", ""),
+    published: !!getField(raw, "published", false),
     author,
-    societyId: getField(raw, 'society', ''),
-    eventId: getField(raw, 'event', ''),
+    societyId: getField(raw, "society", ""),
+    eventId: getField(raw, "event", ""),
     society,
     event,
   };
 }
 
-export const getPublishedBlogs = createServerFn({ method: "GET" })
-  .handler(async () => {
+export const getPublishedBlogs = createServerFn({ method: "GET" }).handler(
+  async () => {
     try {
       const pb = getPB();
-      const result = await pb.collection("blogs").getList(1, 50, {
+      const records = await pb.collection("blogs").getFullList({
+        batch: 100,
         filter: "published = true",
         sort: "-published_at",
         expand: "relation,society,event",
       });
-      return (result.items || []).map(mapBlog);
+      return records.map(mapBlog);
     } catch (err) {
       console.error("Failed to fetch published blogs:", err);
       return [];
     }
-  });
+  },
+);
 
 export const getBlogBySlug = createServerFn({ method: "GET" })
   .validator((slug: string) => slug)
   .handler(async ({ data: slug }) => {
     try {
       const pb = getPB();
-      const result = await pb.collection("blogs").getFirstListItem(`slug = ${escapeFilterValue(slug)} && published = true`, {
-        expand: "relation,society,event",
-      });
+      const result = await pb.collection("blogs").getFirstListItem(
+        `slug = ${escapeFilterValue(slug)} && published = true`,
+        { expand: "relation,society,event" },
+      );
       return mapBlog(result);
     } catch (err) {
       console.error(`Failed to fetch blog by slug ${slug}:`, err);
@@ -103,33 +164,41 @@ export const getBlogBySlug = createServerFn({ method: "GET" })
     }
   });
 
-export const getAllBlogsAdmin = createServerFn({ method: "GET" })
-  .handler(async () => {
-    try {
-      const ctx = await authenticateAdmin();
-      // Admins (and chairs) can see all blogs
-      const result = await ctx.pb.collection("blogs").getList(1, 100, {
-        expand: "relation,society,event", // The relation field in DB + society + event
-      });
-      return (result.items || []).map(mapBlog);
-    } catch (err) {
-      console.error("Failed to fetch admin blogs:", err);
-      throw new Error("Unauthorized or failed to fetch");
-    }
-  });
+export const getAllBlogsAdmin = createServerFn({ method: "GET" }).handler(
+  async () => {
+    const ctx = await authenticateAdmin();
+    await requireBlogEditor(ctx);
+    const records = await ctx.pb.collection("blogs").getFullList({
+      batch: 100,
+      sort: "-updated",
+      expand: "relation,society,event",
+    });
+    return records.map(mapBlog);
+  },
+);
+
+const OptionalUrlSchema = z.union([
+  z.literal(""),
+  z
+    .string()
+    .trim()
+    .url()
+    .refine((value) => {
+      const protocol = new URL(value).protocol;
+      return protocol === "http:" || protocol === "https:";
+    }, "Cover image URL must use HTTP or HTTPS"),
+]);
 
 const BlogCreateSchema = z.object({
-  title: z.string().min(1),
-  slug: z.string().min(1),
+  title: z.string().trim().min(1),
+  slug: z.string().trim().min(1),
   excerpt: z.string().optional(),
   content: z.string().optional(),
   topicLabel: z.string().optional(),
   category: z.enum(["IEEE", "Society", "Event"]).optional(),
-  coverUrl: z.string().optional(),
-  readMinutes: z.number().optional(),
+  coverUrl: OptionalUrlSchema.optional(),
+  readMinutes: z.number().int().min(1).max(240).optional(),
   published: z.boolean().optional(),
-  published_at: z.string().optional(),
-  author: z.string().optional(), // ID of the author
   societyId: z.string().optional(),
   eventId: z.string().optional(),
 });
@@ -138,66 +207,100 @@ export const createBlog = createServerFn({ method: "POST" })
   .validator(BlogCreateSchema)
   .handler(async ({ data }) => {
     const ctx = await authenticateAdmin();
-    
-    // Map camelCase UI fields to snake_case DB fields
-    const dbData: Record<string, any> = {
-      title: data.title,
-      slug: data.slug,
-      excerpt: data.excerpt,
-      content: data.content,
-      topic_label: data.topicLabel,
+    await requireBlogEditor(ctx);
+
+    const content = sanitizeBlogHtml(data.content);
+    const published = data.published ?? false;
+    if (published) assertPublishableContent(content);
+
+    const slug = normalizeBlogSlug(data.slug) || normalizeBlogSlug(data.title);
+    if (!slug) throw new Error("Blog slug must contain at least one letter or number");
+    await assertUniqueBlogSlug(ctx.pb, slug);
+
+    const publishedAt = resolveBlogPublishedAt({ nextPublished: published });
+
+    const dbData: Record<string, unknown> = {
+      title: data.title.trim(),
+      slug,
+      excerpt: data.excerpt?.trim() || "",
+      content,
+      topic_label: data.topicLabel?.trim() || "",
       category: data.category,
-      cover_url: data.coverUrl,
-      read_minutes: data.readMinutes,
-      published: data.published,
-      published_at: data.published_at,
-      relation: data.author || ctx.userId, // use "relation" field
+      cover_url: data.coverUrl?.trim() || "",
+      read_minutes: data.readMinutes ?? estimateBlogReadMinutes(content),
+      published,
+      relation: ctx.userId,
       society: data.societyId || null,
       event: data.eventId || null,
     };
+    if (publishedAt !== undefined) dbData.published_at = publishedAt;
 
-    if (dbData.published && !dbData.published_at) {
-      // Use PB's expected UTC date format "YYYY-MM-DD HH:mm:ss.SSSZ"
-      dbData.published_at = new Date().toISOString().replace('T', ' ');
-    }
-    
     const record = await ctx.pb.collection("blogs").create(dbData);
     return mapBlog(record);
   });
 
 const BlogUpdateSchema = BlogCreateSchema.partial().extend({
-  id: z.string(),
+  id: z.string().min(1),
 });
 
 export const updateBlog = createServerFn({ method: "POST" })
   .validator(BlogUpdateSchema)
   .handler(async ({ data }) => {
     const ctx = await authenticateAdmin();
+    await requireBlogEditor(ctx);
     const { id, ...updateData } = data;
-    
-    // Map camelCase UI fields to snake_case DB fields dynamically
-    const dbData: Record<string, any> = {};
-    if (updateData.title !== undefined) dbData.title = updateData.title;
-    if (updateData.slug !== undefined) dbData.slug = updateData.slug;
-    if (updateData.excerpt !== undefined) dbData.excerpt = updateData.excerpt;
-    if (updateData.content !== undefined) dbData.content = updateData.content;
-    if (updateData.topicLabel !== undefined) dbData.topic_label = updateData.topicLabel;
-    if (updateData.category !== undefined) dbData.category = updateData.category;
-    if (updateData.coverUrl !== undefined) dbData.cover_url = updateData.coverUrl;
-    if (updateData.readMinutes !== undefined) dbData.read_minutes = updateData.readMinutes;
-    if (updateData.published !== undefined) dbData.published = updateData.published;
-    if (updateData.published_at !== undefined) dbData.published_at = updateData.published_at;
-    if (updateData.author !== undefined) dbData.relation = updateData.author;
-    if (updateData.societyId !== undefined) dbData.society = updateData.societyId || null;
-    if (updateData.eventId !== undefined) dbData.event = updateData.eventId || null;
-    
-    // Auto-set published_at if publishing for the first time
-    if (dbData.published === true && !dbData.published_at) {
-      // Check if it already had one in the DB (only overwrite if we need to, but it's simpler to just let PB keep it or we can fetch first)
-      // Since we don't fetch first, let's just set it to now if they check the box and didn't provide a date.
-      dbData.published_at = new Date().toISOString().replace('T', ' ');
+    const existing = await ctx.pb.collection("blogs").getOne(id);
+    const existingPublished = !!getField(existing, "published", false);
+    const existingContent = sanitizeBlogHtml(getField(existing, "content", ""));
+
+    const dbData: Record<string, unknown> = {};
+    if (updateData.title !== undefined) dbData.title = updateData.title.trim();
+    if (updateData.slug !== undefined) {
+      const slug = normalizeBlogSlug(updateData.slug);
+      if (!slug) throw new Error("Blog slug must contain at least one letter or number");
+      await assertUniqueBlogSlug(ctx.pb, slug, id);
+      dbData.slug = slug;
     }
-    
+    if (updateData.excerpt !== undefined) {
+      dbData.excerpt = updateData.excerpt.trim();
+    }
+
+    let effectiveContent = existingContent;
+    if (updateData.content !== undefined) {
+      effectiveContent = sanitizeBlogHtml(updateData.content);
+      dbData.content = effectiveContent;
+      if (updateData.readMinutes === undefined) {
+        dbData.read_minutes = estimateBlogReadMinutes(effectiveContent);
+      }
+    }
+    if (updateData.topicLabel !== undefined) {
+      dbData.topic_label = updateData.topicLabel.trim();
+    }
+    if (updateData.category !== undefined) dbData.category = updateData.category;
+    if (updateData.coverUrl !== undefined) {
+      dbData.cover_url = updateData.coverUrl.trim();
+    }
+    if (updateData.readMinutes !== undefined) {
+      dbData.read_minutes = updateData.readMinutes;
+    }
+    if (updateData.published !== undefined) dbData.published = updateData.published;
+    if (updateData.societyId !== undefined) {
+      dbData.society = updateData.societyId || null;
+    }
+    if (updateData.eventId !== undefined) {
+      dbData.event = updateData.eventId || null;
+    }
+
+    const effectivePublished = updateData.published ?? existingPublished;
+    if (effectivePublished) assertPublishableContent(effectiveContent);
+
+    const publishedAt = resolveBlogPublishedAt({
+      nextPublished: updateData.published,
+      existingPublished,
+      existingPublishedAt: getField(existing, "published_at", ""),
+    });
+    if (publishedAt !== undefined) dbData.published_at = publishedAt;
+
     const record = await ctx.pb.collection("blogs").update(id, dbData);
     return mapBlog(record);
   });
@@ -206,37 +309,39 @@ export const deleteBlog = createServerFn({ method: "POST" })
   .validator((id: string) => id)
   .handler(async ({ data: id }) => {
     const ctx = await authenticateAdmin();
-    await requireRole(["admin"], ctx.pb);
+    await requireBlogEditor(ctx);
     await ctx.pb.collection("blogs").delete(id);
     return { success: true };
   });
 
-export const getSocietiesForSelect = createServerFn({ method: "GET" })
-  .handler(async () => {
-    try {
-      const ctx = await authenticateAdmin();
-      const result = await ctx.pb.collection("societies").getList(1, 100, {
-        sort: "name",
-        fields: "id,name",
-      });
-      return result.items.map((s: any) => ({ id: String(s.id), name: String(s.name) }));
-    } catch (err) {
-      console.error("Failed to fetch societies:", err);
-      return [];
-    }
-  });
+export const getSocietiesForSelect = createServerFn({ method: "GET" }).handler(
+  async () => {
+    const ctx = await authenticateAdmin();
+    await requireBlogEditor(ctx);
+    const records = await ctx.pb.collection("societies").getFullList({
+      batch: 100,
+      sort: "name",
+      fields: "id,name",
+    });
+    return records.map((s: Record<string, unknown>) => ({
+      id: getField(s, "id", ""),
+      name: getField(s, "name", ""),
+    }));
+  },
+);
 
-export const getEventsForSelect = createServerFn({ method: "GET" })
-  .handler(async () => {
-    try {
-      const ctx = await authenticateAdmin();
-      const result = await ctx.pb.collection("events").getList(1, 100, {
-        sort: "-date",
-        fields: "id,title",
-      });
-      return result.items.map((e: any) => ({ id: String(e.id), title: String(e.title) }));
-    } catch (err) {
-      console.error("Failed to fetch events:", err);
-      return [];
-    }
-  });
+export const getEventsForSelect = createServerFn({ method: "GET" }).handler(
+  async () => {
+    const ctx = await authenticateAdmin();
+    await requireBlogEditor(ctx);
+    const records = await ctx.pb.collection("events").getFullList({
+      batch: 100,
+      sort: "-date",
+      fields: "id,title",
+    });
+    return records.map((e: Record<string, unknown>) => ({
+      id: getField(e, "id", ""),
+      title: getField(e, "title", ""),
+    }));
+  },
+);

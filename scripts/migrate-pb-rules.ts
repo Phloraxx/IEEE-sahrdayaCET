@@ -1,4 +1,3 @@
-
 const PB_URL = process.env.POCKETBASE_URL?.replace(/\/+$/, '')
 let TOKEN = process.env.POCKETBASE_SUPERUSER_TOKEN || ''
 const PB_ADMIN_EMAIL = process.env.PB_ADMIN_EMAIL || ''
@@ -83,10 +82,13 @@ const rules: Record<string, CollectionRuleSet> = {
     deleteRule: `@request.auth.role = "admin"`,
   },
   blogs: {
-    listRule: `@request.auth.role = "content" || published = true`,
-    viewRule: `@request.auth.role = "content" || published = true`,
-    createRule: `@request.auth.role = "content"`,
-    updateRule: `@request.auth.role = "content"`,
+    // Public readers only see published posts. Admin/content editors can manage drafts.
+    listRule: `published = true || @request.auth.role = "admin" || @request.auth.role = "content"`,
+    viewRule: `published = true || @request.auth.role = "admin" || @request.auth.role = "content"`,
+    // Both administrative roles exposed by the blog UI may create posts. Content
+    // editors must remain the author of records they create and cannot rewrite authorship.
+    createRule: `@request.auth.role = "admin" || (@request.auth.role = "content" && @request.body.relation = @request.auth.id)`,
+    updateRule: `@request.auth.role = "admin" || (@request.auth.role = "content" && @request.body.relation:changed = false)`,
     deleteRule: `@request.auth.role = "admin" || @request.auth.role = "content"`,
   },
   societies: {
@@ -179,11 +181,9 @@ const rules: Record<string, CollectionRuleSet> = {
     viewRule: `user = @request.auth.id || @request.auth.role = "admin"`,
     // createRule is a backstop — the onRecordCreateRequest hook in
     // pb_hooks/fifa.pb.js enforces all business rules (market open, deadline,
-    // stake limits). This rule prevents direct PB REST POSTs from setting
+    // stake limits). This rule prevents direct REST POSTs from setting
     // status/payout/odds_locked (the hook sets those server-side).
     createRule: `user = @request.auth.id && @request.body.status:changed = false && @request.body.payout:changed = false && @request.body.odds_locked:changed = false`,
-    // No client updates — settlement runs through the admin-gated
-    // /api/fifa/settle custom route which uses $app.dao (bypasses rules).
     updateRule: null,
     deleteRule: null,
   },
@@ -198,8 +198,6 @@ const rules: Record<string, CollectionRuleSet> = {
     deleteRule: null,
   },
   fifa_settings: {
-    // Public read (event name, prize, rules) — no PII. Admin-only write.
-    // Singleton enforcement is in the onRecordCreateRequest hook.
     listRule: ``,
     viewRule: ``,
     createRule: `@request.auth.role = "admin"`,
@@ -207,7 +205,6 @@ const rules: Record<string, CollectionRuleSet> = {
     deleteRule: `@request.auth.role = "admin"`,
   },
   fifa_raffle_draws: {
-    // Public draw history (transparency). Admin-only write (trigger draw).
     listRule: ``,
     viewRule: ``,
     createRule: `@request.auth.role = "admin"`,
@@ -215,8 +212,6 @@ const rules: Record<string, CollectionRuleSet> = {
     deleteRule: `@request.auth.role = "admin"`,
   },
   fifa_feed_events: {
-    // Public live feed. Writes are hook-only (bet hook, settle route, raffle
-    // route all emit feed events via $app.dao).
     listRule: ``,
     viewRule: ``,
     createRule: null,
@@ -233,9 +228,7 @@ async function main(): Promise<void> {
   for (const name of collectionNames) {
     const ruleSet = rules[name]!
     try {
-      // Verify collection exists by reading its current config
       await api('GET', `/api/collections/${name}`)
-      // PATCH with only the rule fields (PB merges partial updates)
       await api('PATCH', `/api/collections/${name}`, { ...ruleSet })
       console.log(`[OK] Updated rules for "${name}"`)
     } catch (err) {

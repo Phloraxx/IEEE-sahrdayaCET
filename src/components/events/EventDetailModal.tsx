@@ -1,10 +1,14 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { CalendarDays, MapPin, X } from 'lucide-react';
+import { BookOpen, CalendarDays, MapPin, X } from 'lucide-react';
 import type { ExtendedEvent, EventWithSociety } from '@/types';
 import { formatDate, formatTime } from '@/lib/dates';
+import {
+    RelatedBlogCards,
+    type RelatedBlogSummary,
+} from '@/components/blog/RelatedBlogCards';
 
 interface EventDetailModalProps {
     event: ExtendedEvent;
@@ -14,12 +18,37 @@ interface EventDetailModalProps {
 
 export function EventDetailModal({ event, onClose, onRegister }: EventDetailModalProps) {
     const dialogRef = useRef<HTMLDivElement>(null);
+    const [relatedBlogs, setRelatedBlogs] = useState<RelatedBlogSummary[]>([]);
+
+    useEffect(() => {
+        const controller = new AbortController();
+        let active = true;
+        setRelatedBlogs([]);
+
+        fetch(`/api/blogs/related?eventId=${encodeURIComponent(event.id)}&limit=2`, {
+            signal: controller.signal,
+            credentials: 'same-origin',
+        })
+            .then((response) => (response.ok ? response.json() : { items: [] }))
+            .then((data) => {
+                if (active) {
+                    setRelatedBlogs(Array.isArray(data.items) ? data.items : []);
+                }
+            })
+            .catch((error) => {
+                if (active && error?.name !== 'AbortError') setRelatedBlogs([]);
+            });
+
+        return () => {
+            active = false;
+            controller.abort();
+        };
+    }, [event.id]);
 
     // Body scroll lock & focus trap
     useEffect(() => {
         document.body.style.overflow = 'hidden';
 
-        // Focus the first focusable element inside the modal
         const dialog = dialogRef.current;
         if (dialog) {
             const focusable = dialog.querySelector<HTMLElement>(
@@ -59,17 +88,14 @@ export function EventDetailModal({ event, onClose, onRegister }: EventDetailModa
                             e.preventDefault();
                             last.focus();
                         }
-                    } else {
-                        if (document.activeElement === last) {
-                            e.preventDefault();
-                            first.focus();
-                        }
+                    } else if (document.activeElement === last) {
+                        e.preventDefault();
+                        first.focus();
                     }
                 }
             }}
             tabIndex={-1}
         >
-            {/* Backdrop */}
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -78,7 +104,6 @@ export function EventDetailModal({ event, onClose, onRegister }: EventDetailModa
                 className="fixed inset-0 bg-slate-900/30 backdrop-blur-md z-100"
             />
 
-            {/* Modal */}
             <motion.div
                 initial={{ y: "100%", opacity: 0.5 }}
                 animate={{ y: 0, opacity: 1 }}
@@ -86,7 +111,6 @@ export function EventDetailModal({ event, onClose, onRegister }: EventDetailModa
                 transition={{ type: "spring", damping: 28, stiffness: 250, mass: 0.8 }}
                 className="fixed bottom-0 left-0 right-0 md:top-0 md:m-auto md:w-[700px] md:h-fit bg-white rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl z-101 max-h-[90vh] md:max-h-[85vh] flex flex-col overflow-hidden"
             >
-                {/* Modal Header */}
                 <div className="relative px-6 pt-8 pb-6 md:px-10 shrink-0 border-b border-slate-100">
                     <button
                         onClick={onClose}
@@ -101,7 +125,6 @@ export function EventDetailModal({ event, onClose, onRegister }: EventDetailModa
                     <h2 className="text-3xl md:text-4xl font-black text-slate-800 leading-tight pr-12">{event.title}</h2>
                 </div>
 
-                {/* Modal Scrollable Content */}
                 <div className="overflow-y-auto px-6 py-6 md:px-10 grow custom-scrollbar">
                     <div className="flex flex-col sm:flex-row gap-6 mb-8 pb-8 border-b border-slate-100">
                         <div className="flex items-center gap-3 text-slate-600">
@@ -110,12 +133,8 @@ export function EventDetailModal({ event, onClose, onRegister }: EventDetailModa
                             </div>
                             <div>
                                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">Date & Time</p>
-                                <p className="text-[15px] font-semibold text-slate-800">
-                                    {formatDate(event.date)}
-                                </p>
-                                <p className="text-sm text-slate-500">
-                                    {formatTime(event.date)}
-                                </p>
+                                <p className="text-[15px] font-semibold text-slate-800">{formatDate(event.date)}</p>
+                                <p className="text-sm text-slate-500">{formatTime(event.date)}</p>
                             </div>
                         </div>
                         {event.venue && (
@@ -137,7 +156,7 @@ export function EventDetailModal({ event, onClose, onRegister }: EventDetailModa
                     </div>
 
                     {event.agenda && (typeof event.agenda === 'string' ? JSON.parse(event.agenda) : event.agenda).length > 0 && (
-                        <div>
+                        <div className="mb-8">
                             <h4 className="text-lg font-bold text-slate-800 mb-4">Agenda</h4>
                             <div className="flex flex-col gap-4">
                                 {(typeof event.agenda === 'string' ? JSON.parse(event.agenda) : event.agenda).map((item: { title: string; time: string }, i: number) => (
@@ -152,26 +171,36 @@ export function EventDetailModal({ event, onClose, onRegister }: EventDetailModa
                             </div>
                         </div>
                     )}
+
+                    {relatedBlogs.length > 0 && (
+                        <div className="border-t border-slate-100 pt-8">
+                            <div className="mb-4 flex items-center gap-2">
+                                <BookOpen className="h-4 w-4 text-ieee-blue" />
+                                <h4 className="text-lg font-bold text-slate-800">Related stories</h4>
+                            </div>
+                            <RelatedBlogCards blogs={relatedBlogs} compact />
+                        </div>
+                    )}
                 </div>
 
                 {onRegister && (
-                <div className="p-6 border-t border-slate-100 bg-white/80 backdrop-blur-md shrink-0">
-                    <button
-                        onClick={() => {
-                            if (event.registrationOpen === false) return;
-                            onRegister(event);
-                            onClose();
-                        }}
-                        disabled={event.registrationOpen === false}
-                        className={`w-full ${event.registrationOpen === false ? 'bg-slate-400 cursor-not-allowed' : event.color} text-white px-8 py-4 rounded-2xl font-bold text-[16px] ${event.registrationOpen === false ? '' : 'hover:opacity-90'} transition-opacity shadow-lg flex items-center justify-center gap-2 group/btn`}
-                    >
-                        {event.registrationOpen === false
-                            ? 'Registration Closed'
-                            : event.price === 0
-                                ? 'Register Now'
-                                : `Get Tickets • ₹${event.price}`}
-                    </button>
-                </div>
+                    <div className="p-6 border-t border-slate-100 bg-white/80 backdrop-blur-md shrink-0">
+                        <button
+                            onClick={() => {
+                                if (event.registrationOpen === false) return;
+                                onRegister(event);
+                                onClose();
+                            }}
+                            disabled={event.registrationOpen === false}
+                            className={`w-full ${event.registrationOpen === false ? 'bg-slate-400 cursor-not-allowed' : event.color} text-white px-8 py-4 rounded-2xl font-bold text-[16px] ${event.registrationOpen === false ? '' : 'hover:opacity-90'} transition-opacity shadow-lg flex items-center justify-center gap-2 group/btn`}
+                        >
+                            {event.registrationOpen === false
+                                ? 'Registration Closed'
+                                : event.price === 0
+                                    ? 'Register Now'
+                                    : `Get Tickets • ₹${event.price}`}
+                        </button>
+                    </div>
                 )}
             </motion.div>
         </div>

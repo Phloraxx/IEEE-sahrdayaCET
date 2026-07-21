@@ -54,6 +54,7 @@ import { Route as ApiAdminUsersRouteImport } from './routes/api/admin/users'
 import { Route as ApiAuthInitRouteImport } from './routes/api/auth/init'
 import { Route as ApiAuthLogoutRouteImport } from './routes/api/auth/logout'
 import { Route as ApiAuthMeRouteImport } from './routes/api/auth/me'
+import { Route as ApiBlogsRelatedRouteImport } from './routes/api/blogs/related'
 import { Route as ApiCheckInVerifyRouteImport } from './routes/api/check-in.verify'
 import { Route as ApiEventsIdRouteImport } from './routes/api/events.$id'
 import { Route as ApiEventsValidateCouponRouteImport } from './routes/api/events.validate-coupon'
@@ -314,6 +315,11 @@ const ApiAuthMeRoute = ApiAuthMeRouteImport.update({
   path: '/api/auth/me',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiBlogsRelatedRoute = ApiBlogsRelatedRouteImport.update({
+  id: '/api/blogs/related',
+  path: '/api/blogs/related',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiCheckInVerifyRoute = ApiCheckInVerifyRouteImport.update({
   id: '/api/check-in/verify',
   path: '/api/check-in/verify',
@@ -528,6 +534,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/init': typeof ApiAuthInitRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
   '/api/auth/me': typeof ApiAuthMeRoute
+  '/api/blogs/related': typeof ApiBlogsRelatedRoute
   '/api/check-in/verify': typeof ApiCheckInVerifyRoute
   '/api/events/$id': typeof ApiEventsIdRouteWithChildren
   '/api/events/validate-coupon': typeof ApiEventsValidateCouponRoute
@@ -609,6 +616,7 @@ export interface FileRoutesByTo {
   '/api/auth/init': typeof ApiAuthInitRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
   '/api/auth/me': typeof ApiAuthMeRoute
+  '/api/blogs/related': typeof ApiBlogsRelatedRoute
   '/api/check-in/verify': typeof ApiCheckInVerifyRoute
   '/api/events/$id': typeof ApiEventsIdRouteWithChildren
   '/api/events/validate-coupon': typeof ApiEventsValidateCouponRoute
@@ -691,6 +699,7 @@ export interface FileRoutesById {
   '/api/auth/init': typeof ApiAuthInitRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
   '/api/auth/me': typeof ApiAuthMeRoute
+  '/api/blogs/related': typeof ApiBlogsRelatedRoute
   '/api/check-in/verify': typeof ApiCheckInVerifyRoute
   '/api/events/$id': typeof ApiEventsIdRouteWithChildren
   '/api/events/validate-coupon': typeof ApiEventsValidateCouponRoute
@@ -774,6 +783,7 @@ export interface FileRouteTypes {
     | '/api/auth/init'
     | '/api/auth/logout'
     | '/api/auth/me'
+    | '/api/blogs/related'
     | '/api/check-in/verify'
     | '/api/events/$id'
     | '/api/events/validate-coupon'
@@ -855,6 +865,7 @@ export interface FileRouteTypes {
     | '/api/auth/init'
     | '/api/auth/logout'
     | '/api/auth/me'
+    | '/api/blogs/related'
     | '/api/check-in/verify'
     | '/api/events/$id'
     | '/api/events/validate-coupon'
@@ -936,6 +947,7 @@ export interface FileRouteTypes {
     | '/api/auth/init'
     | '/api/auth/logout'
     | '/api/auth/me'
+    | '/api/blogs/related'
     | '/api/check-in/verify'
     | '/api/events/$id'
     | '/api/events/validate-coupon'
@@ -1004,6 +1016,7 @@ export interface RootRouteChildren {
   ApiAuthInitRoute: typeof ApiAuthInitRoute
   ApiAuthLogoutRoute: typeof ApiAuthLogoutRoute
   ApiAuthMeRoute: typeof ApiAuthMeRoute
+  ApiBlogsRelatedRoute: typeof ApiBlogsRelatedRoute
   ApiCheckInVerifyRoute: typeof ApiCheckInVerifyRoute
   ApiEventsIdRoute: typeof ApiEventsIdRouteWithChildren
   ApiEventsValidateCouponRoute: typeof ApiEventsValidateCouponRoute
@@ -1341,6 +1354,13 @@ declare module '@tanstack/react-router' {
       path: '/api/auth/me'
       fullPath: '/api/auth/me'
       preLoaderRoute: typeof ApiAuthMeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/blogs/related': {
+      id: '/api/blogs/related'
+      path: '/api/blogs/related'
+      fullPath: '/api/blogs/related'
+      preLoaderRoute: typeof ApiBlogsRelatedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/check-in/verify': {
@@ -1789,6 +1809,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthInitRoute: ApiAuthInitRoute,
   ApiAuthLogoutRoute: ApiAuthLogoutRoute,
   ApiAuthMeRoute: ApiAuthMeRoute,
+  ApiBlogsRelatedRoute: ApiBlogsRelatedRoute,
   ApiCheckInVerifyRoute: ApiCheckInVerifyRoute,
   ApiEventsIdRoute: ApiEventsIdRouteWithChildren,
   ApiEventsValidateCouponRoute: ApiEventsValidateCouponRoute,
