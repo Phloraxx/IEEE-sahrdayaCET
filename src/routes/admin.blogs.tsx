@@ -16,6 +16,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import {
+  checkBlogEditorAccess,
   createBlog,
   deleteBlog,
   getAllBlogsAdmin,
@@ -27,9 +28,10 @@ import { BlogForm, type BlogFormValues } from "@/components/admin/blog-form";
 import type { BlogPost } from "@/types";
 
 export const Route = createFileRoute("/admin/blogs")({
-  beforeLoad: ({ context }) => {
-    const { user } = context as { user?: { role?: string } };
-    if (user && user.role !== "admin" && user.role !== "content") {
+  beforeLoad: async () => {
+    try {
+      await checkBlogEditorAccess();
+    } catch {
       throw redirect({ to: "/", replace: true });
     }
   },
@@ -171,6 +173,7 @@ function AdminBlogs() {
           <button
             key={String(key)}
             type="button"
+            aria-pressed={statusFilter === key}
             onClick={() => setStatusFilter(key as "all" | "published" | "draft")}
             className={`rounded-xl border p-4 text-left transition ${
               statusFilter === key
@@ -189,6 +192,7 @@ function AdminBlogs() {
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="search"
+            aria-label="Search blog posts"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search title, slug, topic or category"
