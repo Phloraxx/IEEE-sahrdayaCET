@@ -56,6 +56,10 @@ export function blogHtmlToPlainText(value: string | null | undefined): string {
     .trim();
 }
 
+export function hasReadableBlogContent(value: string | null | undefined): boolean {
+  return blogHtmlToPlainText(value).length > 0;
+}
+
 export function estimateBlogReadMinutes(value: string | null | undefined): number {
   const words = blogHtmlToPlainText(value)
     .split(/\s+/)
