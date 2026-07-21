@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   public-pages:
@@ -21,4 +22,26 @@ jobs:
         env:
           PREVIEW_BASE: https://preview-ieee-website-rcffnz-4ymcbv.ieeesahrdaya.com
           PUBLIC_POCKETBASE_URL: https://db.ieeesahrdaya.com
-        run: node scripts/smoke-preview.mjs
+        run: |
+          set -o pipefail
+          node scripts/smoke-preview.mjs 2>&1 | tee preview-smoke.log
+      - name: Publish preview smoke report
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs')
+            const marker = '<!-- preview-smoke-report -->'
+            const log = fs.existsSync('preview-smoke.log')
+              ? fs.readFileSync('preview-smoke.log', 'utf8').slice(-12000)
+              : 'Smoke log was not created.'
+            const body = `${marker}\n### Preview Smoke Report\n\n\`\`\`text\n${log}\n\`\`\``
+            const { owner, repo } = context.repo
+            const issue_number = context.issue.number
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number, per_page: 100 })
+            const existing = comments.find((comment) => comment.user?.type === 'Bot' && comment.body?.includes(marker))
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body })
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body })
+            }
