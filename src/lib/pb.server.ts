@@ -3,27 +3,43 @@ import '@tanstack/react-start/server-only'
 import { PB_AUTH_COOKIE } from './constants'
 
 const DEFAULT_PUBLIC_POCKETBASE_URL = 'https://db.ieeesahrdaya.com'
+const LEGACY_OR_AMBIGUOUS_POCKETBASE_URLS = new Set([
+  'https://db.phloraxx.us.to',
+  'http://pocketbase:8090',
+])
 
 /**
- * Server-only. Reads the private/internal PB URL from the server environment.
- * Authenticated/admin operations intentionally require explicit configuration.
+ * Server-only. Reads the PB URL from the server environment.
+ *
+ * Production previews historically inherited either the retired public host or
+ * the generic Docker service name `pocketbase`. The latter is unsafe on the
+ * shared Dokploy overlay because multiple stacks can publish that same network
+ * alias. Route those known deployment values through the canonical PB origin.
+ * Local development still requires an explicit POCKETBASE_URL so it cannot
+ * accidentally mutate production data.
  */
 export function getPBUrl(): string {
-  const url = process.env.POCKETBASE_URL
-  if (!url) {
+  const configured = process.env.POCKETBASE_URL?.trim().replace(/\/+$/, '')
+
+  if (!configured) {
+    if (process.env.NODE_ENV === 'production') return DEFAULT_PUBLIC_POCKETBASE_URL
     throw new Error('POCKETBASE_URL is not configured')
   }
-  return url
+
+  if (LEGACY_OR_AMBIGUOUS_POCKETBASE_URLS.has(configured)) {
+    return DEFAULT_PUBLIC_POCKETBASE_URL
+  }
+
+  return configured
 }
 
 /**
  * Public collection reads must not depend on a Docker-internal service alias.
- * Preview deployments can live in a different stack, and a shared overlay may
- * contain multiple services named `pocketbase`. Use the canonical public PB
- * origin unless an explicit public origin is configured.
+ * Preview deployments can live in a different stack, so use the canonical
+ * public PB origin unless an explicit public origin is configured.
  */
 export function getPublicPBUrl(): string {
-  return process.env.PUBLIC_POCKETBASE_URL?.trim() || DEFAULT_PUBLIC_POCKETBASE_URL
+  return process.env.PUBLIC_POCKETBASE_URL?.trim().replace(/\/+$/, '') || DEFAULT_PUBLIC_POCKETBASE_URL
 }
 
 export function createPB(cookieString?: string) {
