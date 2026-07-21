@@ -19,6 +19,11 @@ describe("blog content helpers", () => {
     expect(result).not.toContain("<img");
   });
 
+  it("preserves legacy h1 headings already stored in live articles", () => {
+    const result = sanitizeBlogHtml("<h1>Legacy section title</h1><p>Body</p>");
+    expect(result).toContain("<h1>Legacy section title</h1>");
+  });
+
   it("removes unsafe link protocols and hardens allowed links", () => {
     const result = sanitizeBlogHtml(
       '<p><a href="javascript:alert(1)" target="_blank">bad</a><a href="https://ieee.org" target="_blank">good</a></p>',
