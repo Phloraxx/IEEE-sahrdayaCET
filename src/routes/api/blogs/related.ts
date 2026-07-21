@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createPB } from "@/lib/pb.server";
+import { createPublicPB } from "@/lib/pb.server";
 import { escapeFilterValue } from "@/lib/pb";
 import { getField } from "@/lib/safe-get";
 
@@ -26,7 +26,7 @@ export const Route = createFileRoute("/api/blogs/related")({
         const eventId = url.searchParams.get("eventId")?.trim() || "";
         const requestedLimit = Number(url.searchParams.get("limit") || 3);
         const limit = Math.min(6, Math.max(1, Number.isFinite(requestedLimit) ? requestedLimit : 3));
-        const pb = createPB();
+        const pb = createPublicPB();
 
         let relationFilter = "";
         if (eventId) {
