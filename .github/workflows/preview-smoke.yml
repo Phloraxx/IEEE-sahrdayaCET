@@ -1,0 +1,24 @@
+name: Preview Smoke
+
+on:
+  pull_request:
+    branches: [dev]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  public-pages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Crawl Dokploy preview
+        env:
+          PREVIEW_BASE: https://preview-ieee-website-rcffnz-4ymcbv.ieeesahrdaya.com
+          PUBLIC_POCKETBASE_URL: https://db.ieeesahrdaya.com
+        run: node scripts/smoke-preview.mjs
