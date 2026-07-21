@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   estimateBlogReadMinutes,
+  hasReadableBlogContent,
   normalizeBlogSlug,
   resolveBlogPublishedAt,
   sanitizeBlogHtml,
@@ -26,6 +27,11 @@ describe("blog content helpers", () => {
     expect(result).not.toContain("javascript:");
     expect(result).toContain('href="https://ieee.org"');
     expect(result).toContain('rel="noopener noreferrer"');
+  });
+
+  it("distinguishes formatting-only HTML from readable article content", () => {
+    expect(hasReadableBlogContent("<p><br></p><hr>")).toBe(false);
+    expect(hasReadableBlogContent("<p>Readable story</p>")).toBe(true);
   });
 
   it("estimates a minimum one-minute reading time", () => {
