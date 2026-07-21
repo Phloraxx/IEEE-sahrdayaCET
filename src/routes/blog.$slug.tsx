@@ -172,6 +172,7 @@ function BlogPostPage() {
             <div
               className="prose-blog mx-auto mt-12 max-w-3xl text-[17px] leading-[1.85] text-foreground/90
                 [&>p]:mb-7
+                [&>h1]:mb-5 [&>h1]:mt-12 [&>h1]:text-3xl [&>h1]:font-black [&>h1]:tracking-tight sm:[&>h1]:text-4xl
                 [&>h2]:mb-5 [&>h2]:mt-12 [&>h2]:text-3xl [&>h2]:font-black [&>h2]:tracking-tight
                 [&>h3]:mb-4 [&>h3]:mt-10 [&>h3]:text-2xl [&>h3]:font-bold
                 [&>ul]:mb-7 [&>ul]:list-disc [&>ul]:pl-6 [&>ul>li]:mb-2
