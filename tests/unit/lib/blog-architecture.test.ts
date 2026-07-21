@@ -169,6 +169,8 @@ describe("blog architecture invariants", () => {
 
     expect(workflow).toContain("Resolve this PR's Dokploy preview URL");
     expect(workflow).toContain("steps.preview-url.outputs.result");
+    expect(workflow).toContain("body.includes('✅ Done')");
+    expect(workflow).toContain("deploymentTime >= synchronizedAt");
     expect(workflow).not.toContain(
       "PREVIEW_BASE: https://preview-ieee-website-rcffnz-4ymcbv.ieeesahrdaya.com",
     );
