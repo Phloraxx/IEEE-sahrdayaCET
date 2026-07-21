@@ -16,6 +16,9 @@ describe("blog architecture invariants", () => {
       'published = true || @request.auth.role = "admin" || @request.auth.role = "content"',
     );
     expect(rules).toContain(
+      '@request.body.relation = @request.auth.id',
+    );
+    expect(rules).toContain(
       'deleteRule: `@request.auth.role = "admin" || @request.auth.role = "content"`',
     );
     expect(migration).toContain(

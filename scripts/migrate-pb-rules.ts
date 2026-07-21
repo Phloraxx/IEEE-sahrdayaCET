@@ -87,7 +87,7 @@ const rules: Record<string, CollectionRuleSet> = {
     viewRule: `published = true || @request.auth.role = "admin" || @request.auth.role = "content"`,
     // Both administrative roles exposed by the blog UI may create posts. Content
     // editors must remain the author of records they create and cannot rewrite authorship.
-    createRule: `@request.auth.role = "admin" || (@request.auth.role = "content" && relation = @request.auth.id)`,
+    createRule: `@request.auth.role = "admin" || (@request.auth.role = "content" && @request.body.relation = @request.auth.id)`,
     updateRule: `@request.auth.role = "admin" || (@request.auth.role = "content" && @request.body.relation:changed = false)`,
     deleteRule: `@request.auth.role = "admin" || @request.auth.role = "content"`,
   },
