@@ -10,6 +10,7 @@ import {
   hasReadableBlogContent,
   normalizeBlogSlug,
   resolveBlogPublishedAt,
+  sanitizeBlogCoverUrl,
   sanitizeBlogHtml,
 } from "@/lib/blog-content";
 import { z } from "zod";
@@ -115,7 +116,7 @@ export function mapBlog(raw: Record<string, unknown>) {
     slug: getField(raw, "slug", ""),
     excerpt: getField(raw, "excerpt", ""),
     content: sanitizeBlogHtml(getField(raw, "content", "")),
-    coverUrl: getField(raw, "cover_url", ""),
+    coverUrl: sanitizeBlogCoverUrl(getField(raw, "cover_url", "")),
     readMinutes: Number(getField(raw, "read_minutes", 0)) || 1,
     topicLabel: getField(raw, "topic_label", ""),
     category: getField(raw, "category", ""),
@@ -176,7 +177,17 @@ export const getAllBlogsAdmin = createServerFn({ method: "GET" }).handler(
   },
 );
 
-const OptionalUrlSchema = z.union([z.literal(""), z.string().trim().url()]);
+const OptionalUrlSchema = z.union([
+  z.literal(""),
+  z
+    .string()
+    .trim()
+    .url()
+    .refine((value) => {
+      const protocol = new URL(value).protocol;
+      return protocol === "http:" || protocol === "https:";
+    }, "Cover image URL must use HTTP or HTTPS"),
+]);
 
 const BlogCreateSchema = z.object({
   title: z.string().trim().min(1),

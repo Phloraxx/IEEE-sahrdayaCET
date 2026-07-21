@@ -18,9 +18,31 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Resolve this PR's Dokploy preview URL
+        id: preview-url
+        uses: actions/github-script@v7
+        with:
+          result-encoding: string
+          script: |
+            const { owner, repo } = context.repo
+            const issue_number = context.issue.number
+            for (let attempt = 1; attempt <= 24; attempt++) {
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner, repo, issue_number, per_page: 100
+              })
+              const deployment = comments.find((comment) =>
+                comment.body?.includes('### Dokploy Preview Deployment')
+              )
+              const match = deployment?.body?.match(/\[Preview URL\]\((https?:\/\/[^)]+)\)/)
+              if (match?.[1]) return match[1].replace(/^http:/, 'https:')
+              core.info(`Dokploy preview URL not available yet (${attempt}/24)`)
+              await new Promise((resolve) => setTimeout(resolve, 5000))
+            }
+            core.setFailed('Dokploy preview URL was not published on this PR')
+            return ''
       - name: Crawl Dokploy preview
         env:
-          PREVIEW_BASE: https://preview-ieee-website-rcffnz-4ymcbv.ieeesahrdaya.com
+          PREVIEW_BASE: ${{ steps.preview-url.outputs.result }}
           PUBLIC_POCKETBASE_URL: https://db.ieeesahrdaya.com
         run: |
           set -o pipefail

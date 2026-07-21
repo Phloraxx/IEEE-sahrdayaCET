@@ -26,7 +26,10 @@ export function getPBUrl(): string {
     throw new Error('POCKETBASE_URL is not configured')
   }
 
-  if (LEGACY_OR_AMBIGUOUS_POCKETBASE_URLS.has(configured)) {
+  if (
+    process.env.NODE_ENV === 'production' &&
+    LEGACY_OR_AMBIGUOUS_POCKETBASE_URLS.has(configured)
+  ) {
     return DEFAULT_PUBLIC_POCKETBASE_URL
   }
 
@@ -34,12 +37,24 @@ export function getPBUrl(): string {
 }
 
 /**
- * Public collection reads must not depend on a Docker-internal service alias.
- * Preview deployments can live in a different stack, so use the canonical
- * public PB origin unless an explicit public origin is configured.
+ * Public collection reads must not depend on an ambiguous Docker service alias
+ * in production previews. In development, however, reuse the explicitly
+ * configured PocketBase URL so local work can never silently read production.
  */
 export function getPublicPBUrl(): string {
-  return process.env.PUBLIC_POCKETBASE_URL?.trim().replace(/\/+$/, '') || DEFAULT_PUBLIC_POCKETBASE_URL
+  const configured = process.env.PUBLIC_POCKETBASE_URL?.trim().replace(/\/+$/, '')
+  if (configured) {
+    if (
+      process.env.NODE_ENV === 'production' &&
+      LEGACY_OR_AMBIGUOUS_POCKETBASE_URLS.has(configured)
+    ) {
+      return DEFAULT_PUBLIC_POCKETBASE_URL
+    }
+    return configured
+  }
+
+  if (process.env.NODE_ENV === 'production') return DEFAULT_PUBLIC_POCKETBASE_URL
+  return getPBUrl()
 }
 
 export function createPB(cookieString?: string) {

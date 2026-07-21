@@ -4,6 +4,7 @@ import {
   hasReadableBlogContent,
   normalizeBlogSlug,
   resolveBlogPublishedAt,
+  sanitizeBlogCoverUrl,
   sanitizeBlogHtml,
 } from "../../../src/lib/blog-content";
 
@@ -22,6 +23,18 @@ describe("blog content helpers", () => {
   it("preserves legacy h1 headings already stored in live articles", () => {
     const result = sanitizeBlogHtml("<h1>Legacy section title</h1><p>Body</p>");
     expect(result).toContain("<h1>Legacy section title</h1>");
+  });
+
+  it("accepts only HTTP(S) cover URLs", () => {
+    expect(sanitizeBlogCoverUrl("https://example.com/cover.jpg")).toBe(
+      "https://example.com/cover.jpg",
+    );
+    expect(sanitizeBlogCoverUrl("http://example.com/cover.jpg")).toBe(
+      "http://example.com/cover.jpg",
+    );
+    expect(sanitizeBlogCoverUrl("javascript:alert(1)")).toBe("");
+    expect(sanitizeBlogCoverUrl("data:image/svg+xml,<svg></svg>")).toBe("");
+    expect(sanitizeBlogCoverUrl("ftp://example.com/cover.jpg")).toBe("");
   });
 
   it("removes unsafe link protocols and hardens allowed links", () => {

@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createPublicPB } from "@/lib/pb.server";
 import { escapeFilterValue } from "@/lib/pb";
 import { getField } from "@/lib/safe-get";
+import { sanitizeBlogCoverUrl } from "@/lib/blog-content";
 
 function mapSummary(raw: Record<string, unknown>) {
   return {
@@ -9,7 +10,7 @@ function mapSummary(raw: Record<string, unknown>) {
     title: getField(raw, "title", ""),
     slug: getField(raw, "slug", ""),
     excerpt: getField(raw, "excerpt", ""),
-    coverUrl: getField(raw, "cover_url", ""),
+    coverUrl: sanitizeBlogCoverUrl(getField(raw, "cover_url", "")),
     topicLabel: getField(raw, "topic_label", ""),
     category: getField(raw, "category", ""),
     publishedAt: getField(raw, "published_at", ""),

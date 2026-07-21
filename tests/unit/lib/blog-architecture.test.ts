@@ -101,6 +101,7 @@ describe("blog architecture invariants", () => {
       "POCKETBASE_URL=${POCKETBASE_URL:-https://db.phloraxx.us.to}",
     );
     expect(related).toContain("createPublicPB()");
+    expect(related).toContain("sanitizeBlogCoverUrl");
   });
 
   it("keeps route and mutation authorization server-enforced", () => {
@@ -154,4 +155,26 @@ describe("blog architecture invariants", () => {
     expect(contextual).toContain("setBlogs([])");
     expect(eventModal).toContain("setRelatedBlogs([])");
   });
+  it("keeps the related API route in the committed route tree", () => {
+    const routeTree = read("src/routeTree.gen.ts");
+    expect(routeTree).toContain(
+      "import { Route as ApiBlogsRelatedRouteImport } from './routes/api/blogs/related'",
+    );
+    expect(routeTree).toContain("'/api/blogs/related': typeof ApiBlogsRelatedRoute");
+  });
+
+  it("smokes the current PR preview instead of a fixed deployment hostname", () => {
+    const workflow = read(".github/workflows/preview-smoke.yml");
+    const smoke = read("scripts/smoke-preview.mjs");
+
+    expect(workflow).toContain("Resolve this PR's Dokploy preview URL");
+    expect(workflow).toContain("steps.preview-url.outputs.result");
+    expect(workflow).not.toContain(
+      "PREVIEW_BASE: https://preview-ieee-website-rcffnz-4ymcbv.ieeesahrdaya.com",
+    );
+    expect(smoke).toContain("PREVIEW_BASE is required");
+    expect(smoke).toContain("perPage: '500'");
+    expect(smoke).toContain("['/FIFA/dashboard', 'FIFA dashboard']");
+  });
+
 });

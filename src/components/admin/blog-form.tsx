@@ -31,7 +31,16 @@ const blogFormSchema = z.object({
   content: z.string().optional(),
   topicLabel: z.string().optional(),
   category: z.enum(["IEEE", "Society", "Event"]).optional(),
-  coverUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
+  coverUrl: z
+    .string()
+    .url("Must be a valid URL")
+    .refine((value) => {
+      if (!value) return true
+      const protocol = new URL(value).protocol
+      return protocol === "http:" || protocol === "https:"
+    }, "Cover image URL must use HTTP or HTTPS")
+    .optional()
+    .or(z.literal("")),
   readMinutes: z.preprocess(
     (value) => (value === "" || value === undefined ? undefined : Number(value)),
     z.number().int().min(1).max(240).optional(),

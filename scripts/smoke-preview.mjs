@@ -1,4 +1,6 @@
-const base = new URL(process.env.PREVIEW_BASE || 'https://preview-ieee-website-rcffnz-4ymcbv.ieeesahrdaya.com');
+const previewBase = process.env.PREVIEW_BASE?.trim();
+if (!previewBase) throw new Error('PREVIEW_BASE is required');
+const base = new URL(previewBase);
 const pbBase = new URL(process.env.PUBLIC_POCKETBASE_URL || 'https://db.ieeesahrdaya.com');
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -40,7 +42,7 @@ await probePb('fields', { fields: 'id,title,slug' });
 await probePb('filter+sort', { filter: 'published = true', sort: '-published_at,-created' });
 await probePb('full', { filter: 'published = true', sort: '-published_at,-created', perPage: '100', fields: 'id,title,slug' });
 
-const baseList = await probePb('authoritative-base-list');
+const baseList = await probePb('authoritative-base-list', { perPage: '500', fields: 'id,title,slug' });
 if (!baseList.res.ok) throw new Error(`PocketBase base list failed: ${baseList.res.status}`);
 const pb = JSON.parse(baseList.text);
 const published = Array.isArray(pb.items) ? pb.items : [];
@@ -88,6 +90,7 @@ const required = new Map([
   ['/societies/wie', 'WIE society'],
   ['/blog', 'blog archive'],
   ['/FIFA', 'FIFA home'],
+  ['/FIFA/dashboard', 'FIFA dashboard'],
   ['/FIFA/feed', 'FIFA feed'],
   ['/FIFA/leaderboard', 'FIFA leaderboard'],
   ['/FIFA/matches', 'FIFA matches'],

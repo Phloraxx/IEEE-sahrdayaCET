@@ -51,6 +51,19 @@ export function sanitizeBlogHtml(value: string | null | undefined): string {
   });
 }
 
+
+export function sanitizeBlogCoverUrl(value: string | null | undefined): string {
+  const trimmed = value?.trim() || "";
+  if (!trimmed) return "";
+
+  try {
+    const url = new URL(trimmed);
+    return url.protocol === "http:" || url.protocol === "https:" ? trimmed : "";
+  } catch {
+    return "";
+  }
+}
+
 export function blogHtmlToPlainText(value: string | null | undefined): string {
   if (!value) return "";
   return sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} })
