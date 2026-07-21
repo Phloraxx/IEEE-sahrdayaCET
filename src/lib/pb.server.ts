@@ -2,9 +2,11 @@ import PocketBase from 'pocketbase'
 import '@tanstack/react-start/server-only'
 import { PB_AUTH_COOKIE } from './constants'
 
+const DEFAULT_PUBLIC_POCKETBASE_URL = 'https://db.ieeesahrdaya.com'
+
 /**
- * Server-only. Reads the PB URL from the server environment.
- * Throws at build/import time if this module is pulled into a client bundle.
+ * Server-only. Reads the private/internal PB URL from the server environment.
+ * Authenticated/admin operations intentionally require explicit configuration.
  */
 export function getPBUrl(): string {
   const url = process.env.POCKETBASE_URL
@@ -14,12 +16,26 @@ export function getPBUrl(): string {
   return url
 }
 
+/**
+ * Public collection reads must not depend on a Docker-internal service alias.
+ * Preview deployments can live in a different stack, and a shared overlay may
+ * contain multiple services named `pocketbase`. Use the canonical public PB
+ * origin unless an explicit public origin is configured.
+ */
+export function getPublicPBUrl(): string {
+  return process.env.PUBLIC_POCKETBASE_URL?.trim() || DEFAULT_PUBLIC_POCKETBASE_URL
+}
+
 export function createPB(cookieString?: string) {
   const pb = new PocketBase(getPBUrl())
   if (cookieString) {
     pb.authStore.loadFromCookie(cookieString, PB_AUTH_COOKIE)
   }
   return pb
+}
+
+export function createPublicPB() {
+  return new PocketBase(getPublicPBUrl())
 }
 
 /**
