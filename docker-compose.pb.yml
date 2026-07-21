@@ -53,9 +53,34 @@ services:
           mkdir -p /pocketbase/hooks /pocketbase/migrations
           rm -rf /pocketbase/hooks/* /pocketbase/hooks/.[!.]* /pocketbase/hooks/..?* 2>/dev/null || true
           cp -rf /hooks-src/. /pocketbase/hooks/
-          # Preserve any existing automigrate history files in the persistent
-          # migration directory and overlay version-controlled migrations.
-          cp -rf /migrations-src/. /pocketbase/migrations/
+
+          # Remove only files copied from the repository on the previous sync.
+          # This prevents deleted/renamed repository migrations from remaining
+          # active while preserving PocketBase-generated or manually retained
+          # migration history files in the persistent volume.
+          managed_manifest=/pocketbase/.repo-managed-migrations
+          if [ -f "$$managed_manifest" ]; then
+            while IFS= read -r relative_path; do
+              [ -n "$$relative_path" ] || continue
+              case "$$relative_path" in
+                /*|*../*) continue ;;
+              esac
+              rm -f "/pocketbase/migrations/$$relative_path"
+            done < "$$managed_manifest"
+          fi
+
+          manifest_tmp="$${managed_manifest}.tmp"
+          : > "$$manifest_tmp"
+          find /migrations-src -type f -print \
+            | sort \
+            | while IFS= read -r file; do
+                relative_path="$${file#/migrations-src/}"
+                destination="/pocketbase/migrations/$$relative_path"
+                mkdir -p "$$(dirname "$$destination")"
+                cp -f "$$file" "$$destination"
+                printf '%s\n' "$$relative_path"
+              done > "$$manifest_tmp"
+          mv "$$manifest_tmp" "$$managed_manifest"
         }
 
         stop_pocketbase() {
