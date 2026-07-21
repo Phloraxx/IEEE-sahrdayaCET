@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { spawnSync } from "node:child_process";
 
 function read(path: string) {
   return readFileSync(resolve(process.cwd(), path), "utf8");
@@ -32,6 +33,30 @@ describe("blog architecture invariants", () => {
     expect(compose).toContain(".repo-managed-migrations");
     expect(compose).toContain('rm -f "/pocketbase/migrations/$$relative_path"');
     expect(compose).toContain("fingerprint_sources");
+  });
+
+  it("keeps the inline PocketBase watcher valid POSIX shell", () => {
+    const compose = read("docker-compose.pb.yml");
+    const marker = "      - |\n";
+    const start = compose.indexOf(marker);
+    const end = compose.indexOf("\n    environment:", start);
+
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+
+    const shell = compose
+      .slice(start + marker.length, end)
+      .split("\n")
+      .map((line) => line.replace(/^ {8}/, ""))
+      .join("\n")
+      .replace(/\$\$/g, "$");
+
+    const syntaxCheck = spawnSync("sh", ["-n"], {
+      input: shell,
+      encoding: "utf8",
+    });
+
+    expect(syntaxCheck.status, syntaxCheck.stderr).toBe(0);
   });
 
   it("keeps route and mutation authorization server-enforced", () => {
