@@ -89,9 +89,19 @@ function BlogPostPage() {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-background text-foreground">
+      <div className="relative min-h-screen w-full overflow-x-hidden bg-background text-foreground font-sans">
         <Navbar />
-        <main className="mx-auto w-full max-w-5xl px-4 pb-24 pt-28 sm:px-6 lg:px-8">
+
+        <div
+          aria-hidden
+          className="pointer-events-none fixed inset-0 z-0 opacity-[0.035] mix-blend-multiply dark:opacity-[0.06] dark:mix-blend-overlay"
+          style={{
+            backgroundImage:
+              "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.55'/></svg>\")",
+          }}
+        />
+
+        <main className="relative z-10 mx-auto w-full max-w-[900px] px-5 pb-24 pt-32 md:px-10">
           <Link
             to="/blog/"
             className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground transition hover:text-foreground"
@@ -114,7 +124,7 @@ function BlogPostPage() {
                 )}
               </div>
 
-              <h1 className="mt-6 text-balance font-display text-5xl leading-[0.92] tracking-tight sm:text-6xl md:text-7xl">
+              <h1 className="mt-6 text-balance font-display text-4xl leading-[0.95] tracking-tight sm:text-5xl md:text-6xl">
                 {post.title}
               </h1>
               {post.excerpt && (
@@ -160,7 +170,7 @@ function BlogPostPage() {
             </header>
 
             {post.coverUrl && (
-              <figure className="mx-auto mt-10 max-w-5xl overflow-hidden rounded-[2rem] border border-border bg-muted shadow-xl shadow-black/5">
+              <figure className="mx-auto mt-10 overflow-hidden rounded-3xl border border-border bg-muted shadow-sm ring-1 ring-black/5">
                 <img
                   src={post.coverUrl}
                   alt=""
@@ -170,7 +180,7 @@ function BlogPostPage() {
             )}
 
             <div
-              className="prose-blog mx-auto mt-12 max-w-3xl text-[17px] leading-[1.85] text-foreground/90
+              className="prose-blog mx-auto mt-12 max-w-[700px] text-[17px] leading-[1.85] text-foreground/90
                 [&>p]:mb-7
                 [&>h1]:mb-5 [&>h1]:mt-12 [&>h1]:text-3xl [&>h1]:font-black [&>h1]:tracking-tight sm:[&>h1]:text-4xl
                 [&>h2]:mb-5 [&>h2]:mt-12 [&>h2]:text-3xl [&>h2]:font-black [&>h2]:tracking-tight

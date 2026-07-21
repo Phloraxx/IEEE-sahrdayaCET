@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { APP_URL } from "@/lib/constants";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import BlogClientV2 from "@/features/blog/BlogClientV2";
+import BlogClient from "@/features/blog/BlogClient";
 import { getPublishedBlogs } from "./api/-blogs";
 
 export const Route = createFileRoute("/blog/")({
@@ -54,7 +54,7 @@ function BlogPage() {
   const blogs = Route.useLoaderData();
   return (
     <ErrorBoundary>
-      <BlogClientV2 blogs={blogs} />
+      <BlogClient blogs={blogs} />
     </ErrorBoundary>
   );
 }

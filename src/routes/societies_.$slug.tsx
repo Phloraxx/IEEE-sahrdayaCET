@@ -22,6 +22,7 @@ import { useAuth } from "@/lib/auth-context";
 import { Instagram, Linkedin } from "@/components/icons";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { ContextualBlogLinks } from "@/components/blog/ContextualBlogLinks";
 import { buildFileUrl } from "@/lib/pb";
 import { createPB } from "@/lib/pb.server";
 import { formatDate } from "@/lib/dates";
@@ -737,6 +738,7 @@ function SocietyPage() {
         </section>
       )}
 
+      <ContextualBlogLinks />
       <Footer />
     </div>
   );

@@ -15,6 +15,7 @@ import { useAuth } from "@/lib/auth-context";
 import { Instagram, Linkedin } from "@/components/icons";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { ContextualBlogLinks } from "@/components/blog/ContextualBlogLinks";
 import { buildFileUrl } from "@/lib/pb";
 import { createPB } from "@/lib/pb.server";
 import { APP_URL } from "@/lib/constants";
@@ -542,6 +543,7 @@ function WIESocietyPage() {
         </section>
       )}
 
+      <ContextualBlogLinks />
       <Footer />
     </div>
   );

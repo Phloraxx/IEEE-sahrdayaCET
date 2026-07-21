@@ -134,15 +134,23 @@ describe("blog architecture invariants", () => {
     expect(source).not.toContain('sort: "-published_at,-created"');
   });
 
-  it("renders a complete archive and clears stale contextual story state", () => {
-    const archive = read("src/features/blog/BlogClientV2.tsx");
+  it("preserves the dev editorial blog shell while keeping the complete archive", () => {
+    const archive = read("src/features/blog/BlogClient.tsx");
+    const blogRoute = read("src/routes/blog.index.tsx");
     const footer = read("src/components/Footer.tsx");
+    const home = read("src/routes/index.tsx");
+    const society = read("src/routes/societies_.$slug.tsx");
     const contextual = read("src/components/blog/ContextualBlogLinks.tsx");
     const eventModal = read("src/components/events/EventDetailModal.tsx");
 
-    expect(archive).toContain("All stories");
-    expect(archive).toContain("filtered.map((post)");
-    expect(footer).toContain("ContextualBlogLinks");
+    expect(archive).toContain('Wordmark text="THE BLOG"');
+    expect(archive).toContain("<MascotScribble />");
+    expect(archive).toContain("Complete archive");
+    expect(archive).toContain("filtered.map((post, index)");
+    expect(blogRoute).toContain('BlogClient from "@/features/blog/BlogClient"');
+    expect(footer).not.toContain("ContextualBlogLinks");
+    expect(home).toContain("<ContextualBlogLinks />");
+    expect(society).toContain("<ContextualBlogLinks />");
     expect(contextual).toContain("setBlogs([])");
     expect(eventModal).toContain("setRelatedBlogs([])");
   });
