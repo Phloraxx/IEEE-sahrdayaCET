@@ -24,15 +24,25 @@ function internalLinks(html, currentUrl) {
   return links;
 }
 
-const pbUrl = new URL('/api/collections/blogs/records', pbBase);
-pbUrl.searchParams.set('filter', 'published = true');
-pbUrl.searchParams.set('sort', '-published_at,-created');
-pbUrl.searchParams.set('perPage', '100');
-pbUrl.searchParams.set('fields', 'id,title,slug');
-const pb = await fetch(pbUrl).then((r) => {
-  if (!r.ok) throw new Error(`PocketBase published list failed: ${r.status}`);
-  return r.json();
-});
+async function probePb(label, params = {}) {
+  const url = new URL('/api/collections/blogs/records', pbBase);
+  for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
+  const { res, text } = await get(url);
+  console.log(`[diagnostic] PB ${label}: HTTP ${res.status}${res.ok ? '' : ` ${text.slice(0, 240)}`}`);
+  return { res, text };
+}
+
+await probePb('base');
+await probePb('perPage', { perPage: '100' });
+await probePb('filter', { filter: 'published = true' });
+await probePb('sort', { sort: '-published_at,-created' });
+await probePb('fields', { fields: 'id,title,slug' });
+await probePb('filter+sort', { filter: 'published = true', sort: '-published_at,-created' });
+await probePb('full', { filter: 'published = true', sort: '-published_at,-created', perPage: '100', fields: 'id,title,slug' });
+
+const baseList = await probePb('authoritative-base-list');
+if (!baseList.res.ok) throw new Error(`PocketBase base list failed: ${baseList.res.status}`);
+const pb = JSON.parse(baseList.text);
 const published = Array.isArray(pb.items) ? pb.items : [];
 if (published.length === 0) throw new Error('PocketBase reports zero published blogs');
 console.log(`[diagnostic] canonical PocketBase published blogs: ${published.length}`);
