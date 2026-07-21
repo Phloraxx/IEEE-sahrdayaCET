@@ -82,6 +82,27 @@ describe("blog architecture invariants", () => {
     expect(syntaxCheck.status, syntaxCheck.stderr).toBe(0);
   });
 
+  it("keeps preview and public reads on the canonical PocketBase origin", () => {
+    const pbServer = read("src/lib/pb.server.ts");
+    const appCompose = read("docker-compose.yml");
+    const related = read("src/routes/api/blogs/related.ts");
+
+    expect(pbServer).toContain("https://db.ieeesahrdaya.com");
+    expect(pbServer).toContain("http://pocketbase:8090");
+    expect(pbServer).toContain("https://db.phloraxx.us.to");
+    expect(pbServer).toContain("process.env.NODE_ENV === 'production'");
+    expect(appCompose).toContain(
+      "POCKETBASE_URL=${POCKETBASE_URL:-https://db.ieeesahrdaya.com}",
+    );
+    expect(appCompose).toContain(
+      "PUBLIC_POCKETBASE_URL=${PUBLIC_POCKETBASE_URL:-https://db.ieeesahrdaya.com}",
+    );
+    expect(appCompose).not.toContain(
+      "POCKETBASE_URL=${POCKETBASE_URL:-https://db.phloraxx.us.to}",
+    );
+    expect(related).toContain("createPublicPB()");
+  });
+
   it("keeps route and mutation authorization server-enforced", () => {
     const api = read("src/routes/api/-blogs.ts");
     const route = read("src/routes/admin.blogs.tsx");
