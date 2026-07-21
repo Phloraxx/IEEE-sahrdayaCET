@@ -272,6 +272,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
               emptyMessage="Try another search, status, or society filter."
               showAnnotation={false}
               showHeader={false}
+              animateCards={false}
               sectionId="event-archive-results"
             />
 

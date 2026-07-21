@@ -23,6 +23,7 @@ interface EventListSectionProps {
   showAnnotation?: boolean;
   sectionId?: string;
   showHeader?: boolean;
+  animateCards?: boolean;
 }
 
 export function EventListSection({
@@ -37,6 +38,7 @@ export function EventListSection({
   showAnnotation = true,
   sectionId = 'events-section',
   showHeader = true,
+  animateCards = true,
 }: EventListSectionProps) {
   return (
     <div className="max-w-[1100px] mx-auto relative mt-8" id={sectionId}>
@@ -117,10 +119,10 @@ export function EventListSection({
 
       {!loading && events.length > 0 && (
         <motion.div
-          variants={STAGGER}
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true, margin: '-100px' }}
+          variants={animateCards ? STAGGER : undefined}
+          initial={animateCards ? 'hidden' : false}
+          whileInView={animateCards ? 'show' : undefined}
+          viewport={animateCards ? { once: true, margin: '-100px' } : undefined}
           className="grid grid-cols-1 md:grid-cols-2 gap-8 px-4"
         >
           {events.map((event, index) => (
@@ -130,6 +132,7 @@ export function EventListSection({
               index={index}
               onSelect={onSelectEvent}
               showAnnotations={showAnnotation}
+              animateEntrance={animateCards}
             />
           ))}
         </motion.div>

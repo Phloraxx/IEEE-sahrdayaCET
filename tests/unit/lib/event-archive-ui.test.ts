@@ -24,8 +24,11 @@ describe("event archive UI", () => {
     const list = read("src/components/events/EventListSection.tsx");
 
     expect(client).toContain('showHeader={false}');
+    expect(client).toContain('animateCards={false}');
     expect(list).toContain('showHeader?: boolean');
     expect(list).toContain('showHeader = true');
+    expect(list).toContain('animateCards?: boolean');
+    expect(list).toContain('animateCards = true');
     expect(list).toContain('{showHeader && (');
   });
 });
