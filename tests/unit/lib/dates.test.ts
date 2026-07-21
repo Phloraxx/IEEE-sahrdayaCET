@@ -15,8 +15,7 @@ const TEST_DATE = '2026-06-08T14:30:00.000Z'
 describe('date formatting', () => {
   it('formatDate returns full date string', () => {
     const result = formatDate(TEST_DATE)
-    expect(result).toContain('June')
-    expect(result).toContain('2026')
+    expect(result).toBe('Monday, 8 June 2026')
   })
 
   it('formatDateShort returns abbreviated date', () => {
