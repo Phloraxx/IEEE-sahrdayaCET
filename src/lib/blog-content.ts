@@ -9,6 +9,7 @@ const ALLOWED_TAGS = [
   "i",
   "s",
   "strike",
+  "h1",
   "h2",
   "h3",
   "ul",
@@ -23,7 +24,8 @@ const ALLOWED_TAGS = [
 
 /**
  * Sanitize rich-text HTML before it is stored or rendered.
- * The allow-list mirrors the formatting exposed by the TipTap StarterKit editor.
+ * The allow-list mirrors the formatting exposed by the TipTap editor and
+ * preserves legacy h1 headings already present in live blog records.
  */
 export function sanitizeBlogHtml(value: string | null | undefined): string {
   if (!value) return "";
