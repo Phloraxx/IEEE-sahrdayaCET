@@ -179,4 +179,11 @@ describe("blog architecture invariants", () => {
     expect(smoke).toContain("['/FIFA/dashboard', 'FIFA dashboard']");
   });
 
+  it("enforces the committed Bun lockfile in CI and Docker", () => {
+    const ci = read(".github/workflows/ci.yml");
+    const dockerfile = read("Dockerfile");
+    expect(ci).toContain("bun install --frozen-lockfile");
+    expect(dockerfile).toContain("bun install --frozen-lockfile");
+  });
+
 });

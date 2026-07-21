@@ -4,7 +4,7 @@
 #  Output:      TanStack Start (runs via server-entry.mjs)
 #
 #  Layer-caching strategy:
-#    deps   — package.json + bun.lock → bun install (cached via BuildKit)
+#    deps   — package.json + bun.lock → bun install --frozen-lockfile (cached via BuildKit)
 #    build  — full source → bun run build
 #    runner — dist only + node_modules (no build tooling)
 # ───────────────────────────────────────────────────────────────
@@ -43,7 +43,7 @@ RUN apk add --no-cache libc6-compat
 
 COPY package.json bun.lock ./
 RUN \
-    bun install
+    bun install --frozen-lockfile
 
 # ─── Build ─────────────────────────────────────────────────────
 FROM base AS builder

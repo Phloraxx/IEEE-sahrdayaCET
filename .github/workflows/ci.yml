@@ -33,7 +33,7 @@ jobs:
         with:
           path: node_modules
           key: node-modules-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-      - run: bun install
+      - run: bun install --frozen-lockfile
       # Cache TS build artifacts so `tsc --noEmit` and `vite build` are faster
       - uses: actions/cache@v4
         with:
