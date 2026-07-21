@@ -8,7 +8,7 @@ function read(path: string) {
 }
 
 describe("blog architecture invariants", () => {
-  it("allows both admin and content editors in PocketBase blog rules", () => {
+  it("allows both admin and content editors with unique public slugs", () => {
     const rules = read("scripts/migrate-pb-rules.ts");
     const migration = read("pb_migrations/202607210001_blog_editor_rules.js");
 
@@ -24,6 +24,26 @@ describe("blog architecture invariants", () => {
     expect(migration).toContain(
       '@request.body.relation:changed = false',
     );
+    expect(migration).toContain(
+      'collection.addIndex("idx_blogs_slug_unique", true, "slug", "")',
+    );
+    expect(migration).toContain(
+      'collection.removeIndex("idx_blogs_slug_unique")',
+    );
+  });
+
+  it("unpublishes only the exact known legacy test article", () => {
+    const migration = read(
+      "pb_migrations/202607210002_unpublish_test_blog.js",
+    );
+
+    expect(migration).toContain('const TEST_BLOG_ID = "qq8mrrnc6uphmw8"');
+    expect(migration).toContain('record.getString("slug") === "test-123"');
+    expect(migration).toContain(
+      'record.getString("title").trim().toUpperCase() === "TEST"',
+    );
+    expect(migration).toContain('record.set("published", false)');
+    expect(migration).toContain('record.set("published", true)');
   });
 
   it("syncs migrations without leaving deleted repository files active", () => {
