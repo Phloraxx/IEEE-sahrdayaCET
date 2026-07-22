@@ -1,5 +1,3 @@
-"use client";
-
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router";
 import Navbar from "@/components/Navbar";

@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect, useRef } from "react";
 import { type NavItem } from "@/types";
 import { motion } from "framer-motion";

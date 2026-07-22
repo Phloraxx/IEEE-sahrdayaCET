@@ -1,5 +1,3 @@
-'use client';
-
 import React from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { CalendarDays, ChevronRight } from 'lucide-react';

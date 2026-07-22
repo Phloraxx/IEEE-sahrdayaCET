@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useMemo, useState } from "react";
 import { useRevalidator } from "react-router";
 import { Search } from "lucide-react";

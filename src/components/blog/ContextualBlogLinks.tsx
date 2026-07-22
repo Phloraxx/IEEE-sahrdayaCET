@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { ArrowRight } from "lucide-react";

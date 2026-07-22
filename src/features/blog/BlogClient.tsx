@@ -1,5 +1,3 @@
-"use client";
-
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, ArrowUpRight, Clock, Search } from "lucide-react";

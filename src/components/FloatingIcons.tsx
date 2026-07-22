@@ -1,5 +1,3 @@
-'use client';
-
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Monitor, Zap, Users, Bot, BarChart3 } from 'lucide-react';

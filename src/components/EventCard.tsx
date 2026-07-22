@@ -1,5 +1,3 @@
-"use client";
-
 import { type Event, type Society } from "@/types";
 import { Calendar, Clock, MapPin, Users } from "lucide-react";
 import { formatDate, formatTime, formatDateCompact } from "@/lib/dates";

@@ -1,5 +1,3 @@
-'use client';
-
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { BookOpen, CalendarDays, MapPin, X } from 'lucide-react';
