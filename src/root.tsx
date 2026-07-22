@@ -94,9 +94,35 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export function headers() {
-  return process.env.DEPLOY_ENV === "production"
-    ? {}
-    : { "X-Robots-Tag": "noindex, nofollow" };
+  const headers: Record<string, string> = {
+    "Content-Security-Policy": [
+      "default-src 'self'",
+      "base-uri 'self'",
+      "object-src 'none'",
+      "frame-ancestors 'none'",
+      "form-action 'self'",
+      "img-src 'self' data: blob: https:",
+      "media-src 'self'",
+      "font-src 'self' data:",
+      "style-src 'self' 'unsafe-inline'",
+      "script-src 'self' 'unsafe-inline'",
+      "connect-src 'self'",
+      "manifest-src 'self'",
+      "worker-src 'self' blob:",
+    ].join("; "),
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+  };
+
+  if (process.env.DEPLOY_ENV === "production") {
+    headers["Strict-Transport-Security"] = "max-age=31536000";
+  } else {
+    headers["X-Robots-Tag"] = "noindex, nofollow";
+  }
+
+  return headers;
 }
 
 export default function App() {

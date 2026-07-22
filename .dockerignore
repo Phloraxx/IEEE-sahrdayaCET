@@ -13,3 +13,7 @@ pb_data
 !.env.example
 *.log
 .DS_Store
+
+# Local coding-agent metadata
+.od-skills/
+**/.od-skills/

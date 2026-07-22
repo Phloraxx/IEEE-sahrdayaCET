@@ -1,22 +1,79 @@
 /// <reference path="../pb_data/types.d.ts" />
 
-// Direct REST writes may edit ordinary market/match fields, but financial voids
-// must use the transactional commands below so refunds cannot be skipped.
+// Request-level defense around the game economy. Internal transactional commands
+// use saveNoValidate() and remain the only writers for financial/result fields.
 onRecordUpdateRequest(function (e) {
   var old = null
   try { old = $app.findRecordById("fifa_bet_markets", e.record.id) } catch (_) {}
-  if (old && !old.getBool("void") && e.record.getBool("void")) {
+  if (!old) { e.next(); return }
+
+  if (old.getBool("void") !== e.record.getBool("void")) {
     throw e.badRequestError("Use the market void command")
   }
+  if (Number(old.get("pool_total") || 0) !== Number(e.record.get("pool_total") || 0) ||
+      JSON.stringify(old.get("pool_by_option") || {}) !== JSON.stringify(e.record.get("pool_by_option") || {})) {
+    throw e.badRequestError("Market pool totals are managed by the betting engine")
+  }
+
+  var bets = $app.findRecordsByFilter("fifa_bets", "market = {:marketId}", "", 1, 0, { marketId: e.record.id })
+  if (bets.length > 0) {
+    var immutableText = ["match", "market_type", "mode"]
+    for (var ti = 0; ti < immutableText.length; ti++) {
+      if (old.getString(immutableText[ti]) !== e.record.getString(immutableText[ti])) {
+        throw e.badRequestError("Market definition cannot change after bets exist")
+      }
+    }
+    if (Number(old.get("line") || 0) !== Number(e.record.get("line") || 0) ||
+        JSON.stringify(old.get("fixed_odds") || null) !== JSON.stringify(e.record.get("fixed_odds") || null) ||
+        JSON.stringify(old.get("options") || []) !== JSON.stringify(e.record.get("options") || [])) {
+      throw e.badRequestError("Market definition cannot change after bets exist")
+    }
+  }
+  e.next()
+}, "fifa_bet_markets")
+
+onRecordDeleteRequest(function (e) {
+  var bets = $app.findRecordsByFilter("fifa_bets", "market = {:marketId}", "", 1, 0, { marketId: e.record.id })
+  if (bets.length > 0) throw e.badRequestError("Markets with bets cannot be deleted; void them instead")
   e.next()
 }, "fifa_bet_markets")
 
 onRecordUpdateRequest(function (e) {
   var old = null
   try { old = $app.findRecordById("fifa_matches", e.record.id) } catch (_) {}
-  if (old && old.getString("status") !== "void" && e.record.getString("status") === "void") {
+  if (!old) { e.next(); return }
+
+  if (old.getString("status") !== "void" && e.record.getString("status") === "void") {
     throw e.badRequestError("Use the match void command")
   }
+
+  var protectedText = ["result_winner", "result_advance"]
+  for (var ti = 0; ti < protectedText.length; ti++) {
+    if (old.getString(protectedText[ti]) !== e.record.getString(protectedText[ti])) {
+      throw e.badRequestError("Match results are managed by the settlement command")
+    }
+  }
+  var protectedNumbers = ["result_home_goals", "result_away_goals", "result_yellow_cards", "result_red_cards"]
+  for (var ni = 0; ni < protectedNumbers.length; ni++) {
+    if (Number(old.get(protectedNumbers[ni]) || 0) !== Number(e.record.get(protectedNumbers[ni]) || 0)) {
+      throw e.badRequestError("Match results are managed by the settlement command")
+    }
+  }
+  var protectedBools = ["result_home_clean_sheet", "result_away_clean_sheet", "result_after_extra_time", "result_after_penalties", "settled"]
+  for (var bi = 0; bi < protectedBools.length; bi++) {
+    if (old.getBool(protectedBools[bi]) !== e.record.getBool(protectedBools[bi])) {
+      throw e.badRequestError("Match results are managed by the settlement command")
+    }
+  }
+  if (JSON.stringify(old.get("result_scorers") || []) !== JSON.stringify(e.record.get("result_scorers") || [])) {
+    throw e.badRequestError("Match results are managed by the settlement command")
+  }
+  e.next()
+}, "fifa_matches")
+
+onRecordDeleteRequest(function (e) {
+  var bets = $app.findRecordsByFilter("fifa_bets", "match = {:matchId}", "", 1, 0, { matchId: e.record.id })
+  if (bets.length > 0) throw e.badRequestError("Matches with bets cannot be deleted; void them instead")
   e.next()
 }, "fifa_matches")
 

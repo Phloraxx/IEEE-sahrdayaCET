@@ -1,11 +1,9 @@
 import {
-  Activity,
   Building2,
   Calendar,
   ChevronRight,
   ClipboardList,
   FileText,
-  FlaskConical,
   LayoutDashboard,
   LogOut,
   Moon,
@@ -95,13 +93,6 @@ const NAV_ITEMS: NavItem[] = [
     allowedRoles: ["admin"],
   },
   {
-    label: "FIFA Testing",
-    href: "/admin/FIFA/testing/",
-    icon: FlaskConical,
-    description: "Game console",
-    allowedRoles: ["admin"],
-  },
-  {
     label: "FIFA Settings",
     href: "/admin/FIFA/settings/",
     icon: Settings,
@@ -113,13 +104,6 @@ const NAV_ITEMS: NavItem[] = [
     href: "/admin/FIFA/raffle/",
     icon: Ticket,
     description: "Draw winner",
-    allowedRoles: ["admin"],
-  },
-  {
-    label: "FIFA Feed",
-    href: "/admin/FIFA/feed/",
-    icon: Activity,
-    description: "Feed moderation",
     allowedRoles: ["admin"],
   },
 ];

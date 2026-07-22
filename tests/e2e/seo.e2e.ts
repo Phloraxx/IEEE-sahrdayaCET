@@ -26,4 +26,17 @@ test.describe('SSR and SEO', () => {
     const response = await page.goto('/definitely-not-a-real-page')
     expect(response?.status()).toBe(404)
   })
+
+  test('document responses include browser security headers', async ({ request }) => {
+    const response = await request.get('/')
+    expect(response.ok()).toBeTruthy()
+    const headers = response.headers()
+    expect(headers['content-security-policy']).toContain("frame-ancestors 'none'")
+    expect(headers['content-security-policy']).toContain("connect-src 'self'")
+    expect(headers['x-content-type-options']).toBe('nosniff')
+    expect(headers['x-frame-options']).toBe('DENY')
+    expect(headers['referrer-policy']).toBe('strict-origin-when-cross-origin')
+    expect(headers['permissions-policy']).toContain('camera=()')
+    expect(headers['x-robots-tag']).toBe('noindex, nofollow')
+  })
 })

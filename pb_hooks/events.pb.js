@@ -1,6 +1,14 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 onRecordCreateRequest(function (e) {
+    var urlFields = ["externalLink", "externalFormUrl", "whatsappLink"]
+    for (var ui = 0; ui < urlFields.length; ui++) {
+        var urlValue = e.record.getString(urlFields[ui]) || ""
+        if (urlValue && !/^https?:\/\//i.test(urlValue)) {
+            throw e.badRequestError(urlFields[ui] + " must start with http:// or https://")
+        }
+    }
+
     if (!e.record.getString("slug")) {
         var base = String(e.record.getString("title") || "")
             .toLowerCase()
@@ -37,6 +45,14 @@ onRecordCreateRequest(function (e) {
 onRecordUpdateRequest(function (e) {
     var auth = null
     try { auth = e.auth || (e.requestInfo && e.requestInfo.auth) || null } catch (err) { auth = null }
+
+    var urlFields = ["externalLink", "externalFormUrl", "whatsappLink"]
+    for (var ui = 0; ui < urlFields.length; ui++) {
+        var urlValue = e.record.getString(urlFields[ui]) || ""
+        if (urlValue && !/^https?:\/\//i.test(urlValue)) {
+            throw e.badRequestError(urlFields[ui] + " must start with http:// or https://")
+        }
+    }
 
     var oldForSlug
     try { oldForSlug = $app.findRecordById("events", e.record.id) } catch (_) { oldForSlug = null }

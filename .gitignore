@@ -45,3 +45,7 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# Local coding-agent metadata
+.od-skills/
+**/.od-skills/

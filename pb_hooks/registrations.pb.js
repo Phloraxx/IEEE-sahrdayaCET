@@ -39,6 +39,20 @@ onRecordUpdateRequest(function (e) {
     if (auth && auth.id) {
         var role = auth.getString("role") || ""
         if (role === "chair") {
+            var info = null
+            try { info = e.requestInfo ? e.requestInfo() : null } catch (_) { info = null }
+            var body = info && info.body && typeof info.body === "object" ? info.body : {}
+            var allowedChairFields = { checkedIn: true, registrationStatus: true }
+            var keys = Object.keys(body)
+            for (var ki = 0; ki < keys.length; ki++) {
+                if (!allowedChairFields[keys[ki]]) {
+                    throw e.badRequestError("Chairs may only check in or cancel registrations")
+                }
+            }
+            if (Object.prototype.hasOwnProperty.call(body, "registrationStatus") && newStatusCheck !== oldStatus && newStatusCheck !== "cancelled") {
+                throw e.badRequestError("Chairs may only cancel registrations")
+            }
+
             var oldPayment = oldReg.getString("paymentStatus")
             var newPayment = newReg.getString("paymentStatus")
             if (oldPayment !== newPayment) {
@@ -135,10 +149,8 @@ routerAdd("GET", "/api/tickets/lookup", function (e) {
         } catch (err) {}
     }
 
-    return e.json(200, {
+    var response = {
         found: true,
-        registrationId: reg.id,
-        user: reg.getString("user") || "",
         ticket: {
             id: reg.getString("ticketId") || ticketId,
             paymentStatus: reg.getString("paymentStatus") || "",
@@ -146,5 +158,20 @@ routerAdd("GET", "/api/tickets/lookup", function (e) {
             createdAt: reg.getString("created") || reg.getString("registrationDate") || "",
         },
         event: eventPayload,
-    })
+    }
+
+    var auth = null
+    try { auth = e.auth || null } catch (_) { auth = null }
+    var mayReadRegistration = false
+    if (auth && auth.id) {
+        var isAdmin = false
+        try { isAdmin = auth.getString("role") === "admin" } catch (_) {}
+        try {
+            if (typeof auth.isSuperuser === "function" && auth.isSuperuser()) isAdmin = true
+        } catch (_) {}
+        mayReadRegistration = isAdmin || auth.id === reg.getString("user")
+    }
+    if (mayReadRegistration) response.registrationId = reg.id
+
+    return e.json(200, response)
 })

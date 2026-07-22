@@ -65,6 +65,8 @@ The clean-room job starts with an empty PocketBase database. This is the proof t
 - it disables Dokploy auto-deploy for that Compose project;
 - it calls Dokploy's Compose deploy API with `curl --fail-with-body`.
 
+Dokploy's Compose deploy endpoint deploys the Compose project's configured Git branch and does not accept a commit SHA. The workflow therefore performs the branch-head SHA check immediately before triggering Dokploy. There remains a very narrow check-to-deploy race if a new push lands in that window; eliminating it completely would require an immutable artifact flow such as SHA-tagged registry images. That extra machinery is intentionally deferred until it is justified.
+
 Required GitHub environment/repository secrets:
 
 ```text

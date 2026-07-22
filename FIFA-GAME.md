@@ -16,7 +16,7 @@ A player signs in with the site's PocketBase OAuth account and receives a points
 | `fifa_bets` | immutable placement snapshot and eventual outcome/payout |
 | `fifa_transactions` | append-style points ledger |
 | `fifa_settings` | singleton game/raffle/top-up configuration |
-| `fifa_feed_events` | public game activity feed |
+| `fifa_feed_events` | retired legacy rows; all API rules locked |
 
 The schema is defined in `pb_migrations/202607200000_baseline_schema.js`; there is no separate game-schema script.
 
@@ -107,17 +107,11 @@ is a display-only PocketBase server route. It tries ESPN first, optionally footb
 
 This separation is intentional: an upstream sports-data error cannot directly issue payouts.
 
-## Daily top-up and admin adjustment
+## Daily top-up
 
 The daily top-up job may credit users below the configured threshold. Each balance change and its ledger row are committed together.
 
-Admin testing/support can perform a relative balance adjustment through:
-
-```text
-POST /api/fifa/admin-adjust
-```
-
-Negative resulting balances are rejected. The old destructive web-dashboard game-reset command has been removed; disposable environments should reset their PocketBase volume instead.
+There is no production balance-adjustment or game-reset console. Disposable environments should use disposable PocketBase data instead of mutating production economy state for testing.
 
 ## Raffle
 
@@ -143,7 +137,6 @@ Admin:
 - `/admin/FIFA/matches/:id`
 - `/admin/FIFA/settings`
 - `/admin/FIFA/raffle`
-- `/admin/FIFA/testing`
 
 Admin pages use the PocketBase SDK directly for ordinary CRUD and the custom commands above for financial state transitions.
 

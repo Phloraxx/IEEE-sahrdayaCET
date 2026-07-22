@@ -50,6 +50,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
+    "@react-router/dev": "7.18.0",
     "@types/node": "^22.14.0",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.0.10",
@@ -60,12 +61,10 @@
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "shadcn": "^4.11.0",
     "tailwindcss": "^4.3.0",
     "typescript": "~5.8.2",
     "vite": "^7.3.5",
     "vite-tsconfig-paths": "^6.1.1",
-    "vitest": "^4.1.8",
-    "@react-router/dev": "7.18.0"
+    "vitest": "^4.1.8"
   }
 }

@@ -78,6 +78,18 @@ other_society = request("POST", "/api/collections/societies/records", {
     "name": f"Other Society {suffix}", "slug": f"other-society-{suffix}", "bio": "CI smoke",
     "isHidden": False, "chairs": [],
 }, super_token)
+
+# Chairs can edit their society content but cannot delegate chair access or store unsafe links.
+request("PATCH", f"/api/collections/societies/records/{society['id']}", {
+    "chairs": [chair["id"], second_user["id"]],
+}, chair_token, (400, 403, 404))
+request("PATCH", f"/api/collections/societies/records/{society['id']}", {
+    "defaultWhatsappLink": "javascript:alert(1)",
+}, chair_token, (400,))
+society = request("PATCH", f"/api/collections/societies/records/{society['id']}", {
+    "defaultWhatsappLink": "https://wa.me/1234567890",
+}, chair_token)
+assert society["defaultWhatsappLink"] == "https://wa.me/1234567890"
 now = dt.datetime.now(dt.timezone.utc)
 start = (now + dt.timedelta(days=1)).isoformat().replace("+00:00", "Z")
 end = (now + dt.timedelta(days=1, hours=2)).isoformat().replace("+00:00", "Z")
@@ -102,15 +114,47 @@ chair_event = request("POST", "/api/collections/events/records", {
 }, chair_token)
 assert chair_event["society"] == society["id"]
 request("POST", "/api/collections/events/records", {
+    "title": f"Unsafe Link {suffix}", "description": "must fail",
+    "date": start, "society": society["id"], "status": "draft",
+    "registrationOpen": False, "isDeleted": False,
+    "externalLink": "javascript:alert(1)",
+}, chair_token, (400,))
+request("PATCH", f"/api/collections/events/records/{chair_event['id']}", {
+    "externalLink": "javascript:alert(1)",
+}, chair_token, (400,))
+chair_event = request("PATCH", f"/api/collections/events/records/{chair_event['id']}", {
+    "externalLink": "https://example.test/register",
+}, chair_token)
+assert chair_event["externalLink"] == "https://example.test/register"
+
+request("POST", "/api/collections/events/records", {
     "title": f"Out of Scope {suffix}", "description": "must fail",
     "date": start, "society": other_society["id"], "status": "draft",
     "registrationOpen": False, "isDeleted": False,
 }, chair_token, (400, 403))
+other_event = request("POST", "/api/collections/events/records", {
+    "title": f"Other Society Event {suffix}", "description": "scope test",
+    "date": start, "society": other_society["id"], "status": "draft",
+    "registrationOpen": False, "isDeleted": False,
+}, super_token)
+request("PATCH", f"/api/collections/events/records/{other_event['id']}", {
+    "society": society["id"],
+}, chair_token, (400, 403, 404))
 chair_list = request("GET", "/api/collections/events/records?filter=status%3D%27draft%27", token=chair_token)
 assert all(row["society"] == society["id"] for row in chair_list["items"])
 
 # Event URLs are immutable after creation.
 request("PATCH", f"/api/collections/events/records/{event['id']}", {"slug": "changed"}, super_token, (403,))
+
+# Coupon writes are command-only; direct REST cannot bypass event/society scope.
+request("POST", "/api/collections/coupons/records", {
+    "event": event["id"], "society": society["id"], "code": "BYPASS",
+    "discountPercent": 50, "isActive": True,
+}, admin_token, (403,))
+request("POST", "/api/collections/coupons/records", {
+    "event": event["id"], "society": society["id"], "code": "CHAIRBYPASS",
+    "discountPercent": 50, "isActive": True,
+}, chair_token, (403,))
 
 # Coupon set reconciliation is atomic and normalizes codes.
 sync = request("PUT", f"/api/app/events/{event['id']}/coupons", {
@@ -141,12 +185,44 @@ request("POST", f"/api/app/events/{event['id']}/register", {
 updated_event = request("GET", f"/api/collections/events/records/{event['id']}")
 assert updated_event["registeredCount"] == 1
 
+# Anonymous ticket lookup never exposes a stable account/registration identifier.
+ticket_path = "/api/tickets/lookup?ticketId=" + urllib.parse.quote(registration["ticketId"])
+anonymous_ticket = request("GET", ticket_path)
+assert anonymous_ticket["found"] is True
+assert "user" not in anonymous_ticket and "registrationId" not in anonymous_ticket
+owner_ticket = request("GET", ticket_path, token=user_token)
+assert owner_ticket["registrationId"] == registration["registrationId"]
+
+# Chairs may perform the intended operational state changes, but cannot edit attendee/audit fields.
+request("PATCH", f"/api/collections/registrations/records/{registration['registrationId']}", {
+    "userEmail": "forged@example.test",
+}, chair_token, (400,))
+request("PATCH", f"/api/collections/registrations/records/{registration['registrationId']}", {
+    "registrationStatus": "pending",
+}, chair_token, (400,))
+request("DELETE", f"/api/collections/registrations/records/{registration['registrationId']}", token=admin_token, expected=(403,))
+
 checked = request("PATCH", f"/api/collections/registrations/records/{registration['registrationId']}", {
     "checkedIn": True,
-}, admin_token)
+}, chair_token)
 assert checked["checkedIn"] is True and checked["checkedInAt"]
 updated_event = request("GET", f"/api/collections/events/records/{event['id']}")
 assert updated_event["checkedInCount"] == 1
+
+# Public execom records hide private contact fields at the PocketBase boundary.
+execom = request("POST", "/api/collections/execom/records", {
+    "name": f"Private Contact {suffix}", "position": "Tester", "order": 999,
+    "section": "Student Branch", "sectionId": "student-branch",
+    "email": f"private-{suffix}@example.test", "phone": "9999999999",
+}, super_token)
+public_execom = request("GET", f"/api/collections/execom/records/{execom['id']}")
+assert not public_execom.get("email") and not public_execom.get("phone")
+private_execom = request("GET", f"/api/collections/execom/records/{execom['id']}", token=super_token)
+assert private_execom["email"] == execom["email"] and private_execom["phone"] == "9999999999"
+
+# Retired social-feed data is preserved but no longer exposed.
+request("GET", "/api/collections/fifa_feed_events/records", expected=(403,))
+request("GET", "/api/fifa/feed", expected=(404,))
 
 # Role changes use the dedicated admin command.
 role_change = request("POST", f"/api/app/admin/users/{second_user['id']}/role", {"role": "content"}, admin_token)
@@ -170,6 +246,14 @@ assert bet["balance"] == 900
 request("POST", "/api/fifa/bets", {
     "match": match["id"], "market": market["id"], "selection": "away", "stake": 300,
 }, user_token, (400,))
+
+# Raw admin REST cannot rewrite economy/result history after bets exist.
+request("PATCH", f"/api/collections/fifa_bet_markets/records/{market['id']}", {"pool_total": 9999}, admin_token, (400,))
+request("PATCH", f"/api/collections/fifa_bet_markets/records/{market['id']}", {"options": ["home", "away", "draw"]}, admin_token, (400,))
+request("DELETE", f"/api/collections/fifa_bet_markets/records/{market['id']}", token=admin_token, expected=(400,))
+request("PATCH", f"/api/collections/fifa_matches/records/{match['id']}", {"settled": True}, admin_token, (400,))
+request("PATCH", f"/api/collections/fifa_matches/records/{match['id']}", {"result_winner": "away"}, admin_token, (400,))
+request("DELETE", f"/api/collections/fifa_matches/records/{match['id']}", token=admin_token, expected=(400,))
 
 settlement = request("POST", "/api/fifa/settle", {
     "matchId": match["id"], "result_winner": "home",
@@ -209,9 +293,14 @@ assert request("POST", f"/api/fifa/markets/{market2['id']}/void", {}, admin_toke
 # Raffle response contains the same auditable snapshot persisted in settings.
 settings = request("GET", "/api/collections/fifa_settings/records?page=1&perPage=1", token=admin_token)["items"][0]
 request("PATCH", f"/api/collections/fifa_settings/records/{settings['id']}", {
+    "raffle_seed": "forged-audit-value",
+}, admin_token, (400,))
+normal_settings = request("PATCH", f"/api/collections/fifa_settings/records/{settings['id']}", {
+    "prize": "CI prize",
     "registration_open": False,
     "raffle_active_participant_min_bets": 1,
 }, admin_token)
+assert normal_settings["prize"] == "CI prize"
 raffle = request("POST", "/api/fifa/raffle", {}, admin_token)
 assert raffle["success"] is True
 assert raffle["entries_snapshot"]["total_tickets"] == raffle["totalTickets"]

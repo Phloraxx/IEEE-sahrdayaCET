@@ -8,5 +8,5 @@ export const SocietyCreateSchema = z.object({
   isHidden: z.boolean().optional(),
   logo: z.any().optional(),
   banner: z.any().optional(),
-  defaultWhatsappLink: z.string().optional(),
+  defaultWhatsappLink: z.string().trim().refine((value) => value === '' || /^https?:\/\//i.test(value), 'URL must start with http:// or https://').optional(),
 })

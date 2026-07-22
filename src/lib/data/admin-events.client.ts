@@ -134,9 +134,9 @@ export async function saveAdminEvent(input: {
       isActive: coupon.isActive,
     })));
   } catch (error) {
-    // Creation can be safely rolled back when coupon creation fails. Updates are
-    // intentionally left intact; the upcoming transactional event command will
-    // make event+coupon edits atomic before production cut-over.
+    // The coupon set itself is atomic. On new-event failure we can safely remove
+    // the just-created event; on edits, the event update remains and the coupon
+    // reconciliation can be retried without partially applying the coupon set.
     if (!input.id) {
       try { await pb.collection("events").delete(event.id); } catch { /* best effort */ }
     }

@@ -17,6 +17,12 @@ export const CouponSchema = z.object({
 // ─── Event Schemas ─────────────────────────────────────────────
 // Shared base schema — derive create (required) and update (partial) from it.
 
+const OptionalHttpUrlSchema = z
+  .string()
+  .trim()
+  .refine((value) => value === '' || /^https?:\/\//i.test(value), 'URL must start with http:// or https://')
+  .optional()
+
 const BaseEventSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().optional().default(''),
@@ -37,8 +43,8 @@ const BaseEventSchema = z.object({
   contactEmail: z.string().optional(),
   contactPhone: z.string().optional(),
   coupons: z.array(CouponSchema).optional(),
-  externalLink: z.string().optional(),
-  externalFormUrl: z.string().optional(),
+  externalLink: OptionalHttpUrlSchema,
+  externalFormUrl: OptionalHttpUrlSchema,
   tags: z.string().optional(),
 })
 
@@ -47,5 +53,5 @@ export const EventCreateSchema = BaseEventSchema
 export const EventUpdateSchema = BaseEventSchema.partial().extend({
   // society must remain a valid string when provided on update
   society: z.string().min(1).optional(),
-  whatsappLink: z.string().optional(),
+  whatsappLink: OptionalHttpUrlSchema,
 })

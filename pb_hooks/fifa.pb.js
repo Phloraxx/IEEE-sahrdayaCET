@@ -1,94 +1,15 @@
-/** Shared FIFA helpers — require() inside each hook handler (PB 0.39 scope isolation). */
-
-function getFifaSettings() {
-    try {
-        return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {})
-    } catch (err) {
-        return null
-    }
-}
-
-function applyTransaction(userId, type, amount, balanceAfter, refBetId, note) {
-    try {
-        var txCol = $app.findCollectionByNameOrId("fifa_transactions")
-        var tx = new Record(txCol, {
-            user: userId,
-            type: type,
-            amount: amount,
-            balance_after: balanceAfter,
-            ref_bet: refBetId || "",
-            note: note || "",
-            timestamp: new Date().toISOString(),
-        })
-        $app.saveNoValidate(tx)
-
-        var user = $app.findRecordById("users", userId)
-        user.set("balance", balanceAfter)
-        $app.saveNoValidate(user)
-        return balanceAfter
-    } catch (err) {
-        console.log("[fifa] applyTransaction failed for " + userId + ": " + err)
-        return null
-    }
-}
-
-function applyDelta(userId, type, delta, refBetId, note) {
-    try {
-        var user = $app.findRecordById("users", userId)
-        if (!user) return null
-        var currentBalance = user.getInt("balance") || 0
-        var newBalance = currentBalance + delta
-
-        var txCol = $app.findCollectionByNameOrId("fifa_transactions")
-        var tx = new Record(txCol, {
-            user: userId,
-            type: type,
-            amount: delta,
-            balance_after: newBalance,
-            ref_bet: refBetId || "",
-            note: note || "",
-            timestamp: new Date().toISOString(),
-        })
-        $app.saveNoValidate(tx)
-
-        user.set("balance", newBalance)
-        $app.saveNoValidate(user)
-        return newBalance
-    } catch (err) {
-        console.log("[fifa] applyDelta failed for " + userId + ": " + err)
-        return null
-    }
-}
-
-function emitFeedEvent(type, userId, matchId, message) {
-    // Activity emission is intentionally disabled for this path.
-    return
-}
-
-// Returns the player's public name: Google OAuth `name` on users (immutable),
-// then legacy display_name, then "Player <short-id>" so unset users differ.
-function displayName(user) {
-    var google = user.getString("name")
-    if (google) return google
-    var legacy = user.getString("display_name")
-    if (legacy) return legacy
-    var shortId = user.id.length >= 4 ? user.id.slice(-4) : user.id
-    return "Player " + shortId
-}
-
 /// <reference path="../pb_data/types.d.ts" />
 
 // ─── FIFA WC Predict '26 — game logic hooks ─────────────────────────
-// Touch this file to trigger PB hook reload (auto-watch enabled).
 // All balance-affecting logic runs server-side here, never trusting client-
 // submitted values for stake validation, payout, or balance. Mirrors the
 // pattern in registrations.pb.js: hooks enforce invariants at the DB layer
-// with direct $app access, and the TanStack routes authenticate + scope
-// before writing with the user's own client.
+// with direct $app access; browser clients use PocketBase rules and the
+// dedicated command routes below for sensitive mutations.
 //
 // Sections (added incrementally per phase):
 //   Phase 2 — starting grant on user create + settings singleton guard
-//   Phase 4 — bet create (validate, deduct, transaction, pool bump, feed)
+//   Phase 4 — bet create (validate, deduct, transaction, pool bump)
 //   Phase 7 — settle match custom route (idempotent, per-market payouts)
 //   Phase 8 — daily top-up cron
 //   Phase 9 — raffle draw custom route
@@ -197,14 +118,13 @@ onRecordUpdateRequest(function (e) {
 // ─── Phase 2: Starting grant on user create ─────────────────────────
 // Fires AFTER a new user is committed. Reads starting_balance from settings,
 // sets the user's balance, and writes a starting_grant transaction. Skips
-// silently if settings isn't seeded yet (the backfill script will catch up).
+// silently if settings is not seeded yet.
 
 onRecordAfterCreateSuccess(function (e) {
     // ─── Inlined helpers (PB 0.39 goja doesn't share top-level scope with callbacks) ───
     var getFifaSettings = function() {
         try { return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (ex) { return null }
     }
-    var emitFeedEvent = function() { /* activity emission intentionally disabled */ }
 
     var user = e.record
     if (!user) { e.next(); return }
@@ -223,7 +143,7 @@ onRecordAfterCreateSuccess(function (e) {
 
     var settings = getFifaSettings()
     if (!settings) {
-        // Settings not seeded yet — backfill script will grant on next run.
+        // Settings not seeded yet; user balance remains unchanged.
         e.next()
         return
     }
@@ -253,14 +173,12 @@ onRecordAfterCreateSuccess(function (e) {
     })
     $app.saveNoValidate(tx)
 
-    emitFeedEvent("system", user.id, "", "New player joined the game")
-
     e.next()
 }, "users")
 
 // ─── Phase 2: Settings singleton guard ──────────────────────────────
-// Rejects creation of a second fifa_settings row. The backfill script
-// creates the one and only row; admin edits it via the admin route.
+// Rejects creation of a second fifa_settings row. The baseline migration
+// creates the singleton; admins edit that record.
 
 onRecordCreateRequest(function (e) {
     var existing = null
@@ -269,6 +187,20 @@ onRecordCreateRequest(function (e) {
     } catch (err) { existing = null }
     if (existing) {
         throw e.badRequestError("Settings already exist — edit the existing row instead")
+    }
+    e.next()
+}, "fifa_settings")
+
+// Raffle evidence is written only by the raffle command. Ordinary settings
+// edits may change configuration, but cannot rewrite the recorded draw.
+onRecordUpdateRequest(function (e) {
+    var old = $app.findRecordById("fifa_settings", e.record.id)
+    var auditFields = ["raffle_drawn_at", "raffle_winner", "raffle_seed", "raffle_entries_snapshot"]
+    for (var i = 0; i < auditFields.length; i++) {
+        var field = auditFields[i]
+        if (JSON.stringify(old.get(field) || null) !== JSON.stringify(e.record.get(field) || null)) {
+            throw e.badRequestError("Raffle audit fields are managed by the raffle command")
+        }
     }
     e.next()
 }, "fifa_settings")
@@ -283,7 +215,7 @@ onRecordCreateRequest(function (e) {
 // fifa-void.pb.js. Ordinary CRUD never owns wallet mutations.
 
 // ─── Phase 5: Public custom routes ──────────────────────────────────
-// Leaderboard + live feed. These bypass collection API rules (users.listRule
+// Leaderboard/stats routes. These bypass collection API rules (users.listRule
 // is self+admin, so a public leaderboard can't read users via REST) using
 // internal $app access — same bypass pattern as coupons.pb.js.
 
@@ -317,9 +249,6 @@ routerAdd("GET", "/api/fifa/leaderboard", function (e) {
         var rows = []
         for (var i = 0; i < users.length; i++) {
             var u = users[i]
-            // NOTE: use a distinct local name — `var displayName` would hoist
-            // and shadow the top-level displayName() helper, making this call
-            // throw "displayName is not a function".
             var dName = _displayName(u)
             // Count the user's non-void bets (voided/refunded bets don't count
             // toward raffle eligibility — matches the dashboard's progress
@@ -440,43 +369,6 @@ routerAdd("GET", "/api/fifa/stats", function (e) {
 })
 
 
-// GET /api/fifa/feed?limit=50 — recent feed events, newest first.
-// Public, unauthenticated. The client also subscribes via SSE to
-// fifa_feed_events for live updates; this route is the SSR initial load.
-routerAdd("GET", "/api/fifa/feed", function (e) {
-    try {
-        var limit = 50
-        var qLimit = e.request.url.query().get("limit")
-        if (qLimit) {
-            var n = parseInt(qLimit, 10)
-            if (!isNaN(n) && n > 0 && n <= 200) limit = n
-        }
-        var events = $app.findRecordsByFilter(
-            "fifa_feed_events",
-            "1 = 1",
-            "-created",
-            limit, 0,
-            {}
-        )
-        var rows = []
-        for (var i = 0; i < events.length; i++) {
-            var ev = events[i]
-            rows.push({
-                id: ev.id,
-                type: ev.getString("type") || "",
-                user: ev.getString("user") || "",
-                match: ev.getString("match") || "",
-                message: ev.getString("message") || "",
-                created: ev.get("created") ? ev.get("created").toString() : "",
-            })
-        }
-        return e.json(200, { events: rows })
-    } catch (err) {
-        console.log("[fifa] feed route failed: " + err)
-        return e.json(500, { error: "Failed to load feed" })
-    }
-})
-
 // ─── Phase 7: Settlement ────────────────────────────────────────────
 // Implemented atomically in fifa-settlement.pb.js.
 
@@ -575,7 +467,6 @@ cronAdd("fifa-daily-topup", "0 9 * * *", function () {
     }
 
     if (toppedUp > 0) {
-        _emitFeedEvent("system", "", "", toppedUp + " players received their daily top-up")
         console.log("[fifa] daily topup: " + toppedUp + " users topped up to " + target)
     }
 })
@@ -583,41 +474,6 @@ cronAdd("fifa-daily-topup", "0 9 * * *", function () {
 // Automatic financial voiding intentionally disabled.
 // Live scores are read from /api/fifa/live-scores. Refunds only happen via
 // the atomic admin market/match void commands in fifa-void.pb.js.
-
-// ─── Admin balance adjustment ───────────────────────────────────────
-routerAdd("POST", "/api/fifa/admin-adjust", function (e) {
-    var auth = e.auth
-    if (!auth) return e.json(401, { error: "Authentication required" })
-    if (auth.getString("role") !== "admin") return e.json(403, { error: "Admin only" })
-    var body = {}
-    try { body = e.requestInfo().body || {} } catch (_) { body = {} }
-    var userId = String(body.userId || "")
-    var amount = Number(body.amount || 0)
-    var note = String(body.note || "Admin adjustment")
-    if (!userId) return e.json(400, { error: "userId is required" })
-    if (!isFinite(amount) || amount === 0) return e.json(400, { error: "amount must be non-zero" })
-    var out = null
-    try {
-        $app.runInTransaction(function (txApp) {
-            var user
-            try { user = txApp.findRecordById("users", userId) } catch (_) { throw new Error("User not found") }
-            var next = (user.getInt("balance") || 0) + amount
-            if (next < 0) throw new Error("Adjustment would result in negative balance")
-            user.set("balance", next)
-            txApp.saveNoValidate(user)
-            var ledger = new Record(txApp.findCollectionByNameOrId("fifa_transactions"), {
-                user: userId, type: "admin_adjust", amount: amount, balance_after: next,
-                ref_bet: "", note: note, timestamp: new Date().toISOString(),
-            })
-            txApp.saveNoValidate(ledger)
-            out = { success: true, userId: userId, newBalance: next }
-        })
-    } catch (err) {
-        var message = err && err.message ? String(err.message) : String(err)
-        return e.json(message === "User not found" ? 404 : 400, { error: message })
-    }
-    return e.json(200, out)
-})
 
 // ─── Phase 9: Raffle draw — admin-only custom route ─────────────────
 // POST /api/fifa/raffle

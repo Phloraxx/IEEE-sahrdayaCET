@@ -32,7 +32,7 @@ Hooks own state-transition invariants such as immutable event URLs, check-in val
 
 Any operation that moves a wallet balance, reserves event capacity, consumes a coupon, creates a ticket, or refunds/pays several records must be all-or-nothing.
 
-PocketBase `runInTransaction` is used for registration, FIFA betting/settlement/voiding, coupon reconciliation, and balance adjustments. All writes inside the transaction use the transaction app.
+PocketBase `runInTransaction` is used for registration, FIFA betting/settlement/voiding, coupon reconciliation, and the raffle draw. All writes inside the transaction use the transaction app.
 
 ## Runtime privilege policy
 
@@ -59,12 +59,20 @@ WC Predict uses fake points, but its ledger is still treated as financial-style 
 - bet placement is atomic;
 - settlement has exactly one payout engine;
 - settlement is idempotent;
+- direct pool/result/settlement edits and destructive deletes are rejected once bets exist;
 - direct financial void edits are rejected;
 - market/match void commands refund exactly once;
-- admin adjustments update balance and ledger together;
-- no background score synchronizer is allowed to issue payouts.
+- raffle evidence fields can only be written by the raffle command;
+- no background score synchronizer or production testing console is allowed to issue payouts or rewrite balances.
 
 Live-score APIs provide display data only. Admin settlement is explicit.
+
+
+## Browser response hardening
+
+React Router document responses set the browser security policy directly so it is not lost when the reverse proxy changes. The current baseline includes CSP, HSTS in production, frame denial, MIME sniffing protection, a strict-origin referrer policy, and a restrictive Permissions-Policy.
+
+The CSP intentionally still allows inline scripts/styles because the current theme bootstrap and UI stack rely on them. Moving to nonce-based CSP would be a separate hardening project, not a prerequisite for this deployment.
 
 ## Deployment isolation
 

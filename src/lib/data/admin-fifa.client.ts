@@ -139,32 +139,6 @@ export async function deleteAdminFifaMarket(id: string) {
   await pb.collection("fifa_bet_markets").delete(id);
 }
 
-export async function listAdminFifaFeed() {
-  const result = await getPbClient().collection("fifa_feed_events").getList(1, 50, {
-    sort: "-created",
-    expand: "user",
-  });
-  return {
-    events: result.items.map((record) => {
-      const user = record.expand?.user;
-      return {
-        id: record.id,
-        type: String(record.type || "system"),
-        message: String(record.message || ""),
-        created: String(record.created || ""),
-        user: user
-          ? { id: user.id, display_name: userDisplayName({ name: user.name, display_name: user.display_name }) }
-          : null,
-      };
-    }),
-    total: result.totalItems,
-  };
-}
-
-export async function deleteAdminFifaFeedEvent(id: string) {
-  await getPbClient().collection("fifa_feed_events").delete(id);
-}
-
 export interface FifaRaffleResult {
   success: boolean;
   winner: { user_id: string; display_name: string; rank: number; tickets: number; bets_count: number };
@@ -220,7 +194,12 @@ export async function getFifaSettings(): Promise<FifaSettings> {
 export async function updateFifaSettings(values: Partial<FifaSettings>) {
   const pb = getPbClient();
   const s = await pb.collection("fifa_settings").getFirstListItem("1=1", { fields: "id" });
-  await pb.collection("fifa_settings").update(s.id, values);
+  const body = { ...values } as Record<string, unknown>;
+  delete body.raffle_drawn_at;
+  delete body.raffle_winner;
+  delete body.raffle_seed;
+  delete body.raffle_entries_snapshot;
+  await pb.collection("fifa_settings").update(s.id, body);
 }
 
 export async function settleFifaMatch(payload: Record<string, unknown>) {
@@ -255,113 +234,4 @@ export async function listAdminFifaBets(matchId?: string) {
     })),
     total: result.totalItems,
   };
-}
-
-const TEST_MARKETS = [
-  { market_type: "match_winner", mode: "pool", options: ["home", "away"] },
-  { market_type: "total_goals_ou", mode: "pool", line: 2.5, options: ["over", "under"] },
-  { market_type: "correct_score", mode: "pool", options: ["1-0", "2-1", "1-1", "0-0", "2-0", "0-1", "1-2", "0-2", "3-0", "0-3", "2-2"] },
-  { market_type: "clean_sheet", mode: "pool", options: ["home", "away"] },
-] as const;
-
-async function ensureTestMarkets(matchId: string, isOpen = true) {
-  const pb = getPbClient();
-  const existing = await pb.collection("fifa_bet_markets").getFullList({
-    filter: `match = ${escapeFilterValue(matchId)}`,
-    fields: "id,market_type",
-  });
-  const types = new Set(existing.map((m) => String(m.market_type || "")));
-  let created = 0;
-  for (const template of TEST_MARKETS) {
-    if (types.has(template.market_type)) continue;
-    await pb.collection("fifa_bet_markets").create({
-      match: matchId,
-      ...template,
-      line: "line" in template ? template.line : 0,
-      is_open: isOpen,
-      pool_total: 0,
-      pool_by_option: {},
-    });
-    created += 1;
-  }
-  return created;
-}
-
-export async function createFifaTestMatch() {
-  const pb = getPbClient();
-  const now = new Date();
-  const kickoff = new Date(now.getTime() + 60 * 60 * 1000).toISOString();
-  const ts = now.toISOString().replace(/[:.]/g, "-").slice(0, 19);
-  const match = await pb.collection("fifa_matches").create({
-    team_home: `Test Home (${ts})`,
-    team_away: `Test Away (${ts})`,
-    stage: "qf",
-    kickoff_at: kickoff,
-    betting_locks_at: kickoff,
-    status: "upcoming",
-  });
-  const marketsCreated = await ensureTestMarkets(match.id);
-  return { success: true, matchId: match.id, marketsCreated };
-}
-
-export async function createEspnFifaTestMatch() {
-  const pb = getPbClient();
-  const now = new Date();
-  const kickoff = new Date(now.getTime() - 30 * 60 * 1000).toISOString();
-  const endAt = new Date(now.getTime() + 60 * 60 * 1000).toISOString();
-  const match = await pb.collection("fifa_matches").create({
-    team_home: "France",
-    team_away: "England",
-    stage: "qf",
-    kickoff_at: kickoff,
-    betting_locks_at: kickoff,
-    status: "live",
-    external_ids: { mock: true, mock_end_at: endAt },
-    settled: false,
-  });
-  await ensureTestMarkets(match.id, false);
-  return { success: true, matchId: match.id, team_home: "France", team_away: "England", status: "live", end_at: endAt };
-}
-
-export async function importFifaFixturesFromPublicFeed() {
-  const pb = getPbClient();
-  const response = await fetch("/api/fifa/live-scores");
-  if (!response.ok) throw new Error("Live fixture source unavailable");
-  const payload = await response.json() as { matches?: Array<{ homeTeam?: string; awayTeam?: string; kickoffAt?: string | null; stage?: string | null; status?: string }> };
-  const rows = payload.matches ?? [];
-  let imported = 0, updated = 0, skipped = 0, marketsCreated = 0;
-  for (const row of rows) {
-    if (!row.homeTeam || !row.awayTeam || !row.kickoffAt) { skipped += 1; continue; }
-    const keyFilter = `team_home = ${escapeFilterValue(row.homeTeam)} && team_away = ${escapeFilterValue(row.awayTeam)}`;
-    const existing = await pb.collection("fifa_matches").getFirstListItem(keyFilter, { fields: "id" }).catch(() => null);
-    let matchId: string;
-    if (existing) {
-      matchId = existing.id;
-      await pb.collection("fifa_matches").update(matchId, {
-        kickoff_at: row.kickoffAt,
-        betting_locks_at: row.kickoffAt,
-      });
-      updated += 1;
-    } else {
-      const created = await pb.collection("fifa_matches").create({
-        team_home: row.homeTeam,
-        team_away: row.awayTeam,
-        stage: row.stage || "group",
-        kickoff_at: row.kickoffAt,
-        betting_locks_at: row.kickoffAt,
-        status: row.status === "FINISHED" ? "finished" : row.status === "IN_PLAY" ? "live" : "upcoming",
-      });
-      matchId = created.id;
-      imported += 1;
-    }
-    marketsCreated += await ensureTestMarkets(matchId, row.status !== "FINISHED");
-  }
-  return { success: true, imported, updated, skipped, marketsCreated };
-}
-
-export async function adjustFifaBalance(userId: string, amount: number, note?: string) {
-  return getPbClient().send("/api/fifa/admin-adjust", {
-    method: "POST",
-    body: { userId, amount, note },
-  });
 }
