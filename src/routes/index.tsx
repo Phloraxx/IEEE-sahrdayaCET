@@ -1,11 +1,6 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { createServerFn } from '@tanstack/react-start'
-import { getField } from '@/lib/safe-get'
-import type { Society } from '@/types'
-import { createPB } from '@/lib/pb.server'
-import { buildFileUrl } from '@/lib/pb'
+import { useLoaderData } from 'react-router'
 import { APP_URL } from '@/lib/constants'
-import { isPastEvent } from '@/lib/event-lifecycle'
+import { fetchHomeData, type HomeData } from '@/server/public/home.server'
 import Navbar from '@/components/Navbar'
 import { Hero } from '@/components/Hero'
 import { StarsBackground } from '@/components/ui/stars-background'
@@ -19,158 +14,22 @@ import { ContextualBlogLinks } from '@/components/blog/ContextualBlogLinks'
 import { FloatingAction } from '@/components/FloatingAction'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 
-interface HomeData {
-  latestEvent: {
-    id: string
-    title: string
-    description: string
-    date: string
-    bannerUrl: string
-  } | null
-  societies: Society[]
+
+export const meta = () => [
+  { title: "Home | IEEE Sahrdaya Student Branch" },
+  { name: "description", content: "Official IEEE Sahrdaya Student Branch — technical events, workshops, societies & execom directory. Sahrdaya College of Engineering, Thrissur, Kerala." },
+  { property: "og:title", content: "Home | IEEE Sahrdaya Student Branch" },
+  { property: "og:description", content: "Official IEEE Sahrdaya Student Branch — technical events, workshops, societies & execom directory." },
+  { property: "og:image", content: `${APP_URL}/web.png` },
+  { property: "og:url", content: `${APP_URL}/` },
+];
+
+export async function loader(): Promise<HomeData> {
+  return fetchHomeData();
 }
 
-const fetchHomeData = createServerFn().handler(async (): Promise<HomeData> => {
-  try {
-    const pb = createPB()
-    const [eventsResult, societiesRes] = await Promise.allSettled([
-      pb.collection('events').getFullList({
-        batch: 100,
-        filter: 'status="published"',
-        sort: 'date',
-        fields: 'id,title,description,date,endDate,banner,status',
-      }),
-      pb.collection('societies').getList(1, 200, {
-        skipTotal: true,
-        fields: 'id,name,slug,logo',
-      }),
-    ])
-
-    const societies: Society[] =
-      societiesRes.status === 'fulfilled'
-        ? (societiesRes.value.items || []).map((s: Record<string, unknown>) => ({
-            id: getField(s, 'id', ''),
-            name: getField(s, 'name', ''),
-            slug: getField(s, 'slug', ''),
-            logoUrl: s.logo
-              ? buildFileUrl('societies', getField(s, 'id', ''), getField(s, 'logo', ''))
-              : undefined,
-          }))
-        : []
-
-    // Events are sorted ascending, so the first event whose effective end time
-    // has not elapsed is the actual next/upcoming event. This avoids featuring
-    // the furthest-future event on the homepage.
-    const nextEventRecord =
-      eventsResult.status === 'fulfilled'
-        ? eventsResult.value.find((event) =>
-            !isPastEvent({
-              status: getField(event, 'status', 'published'),
-              date: getField(event, 'date', ''),
-              endDate: getField(event, 'endDate', ''),
-            }),
-          )
-        : undefined
-
-    const latestEvent = nextEventRecord
-      ? {
-          id: getField(nextEventRecord, 'id', ''),
-          title: getField(nextEventRecord, 'title', ''),
-          description: getField(
-            nextEventRecord,
-            'description',
-            'Join us for this exciting IEEE event!',
-          ),
-          date: getField(nextEventRecord, 'date', ''),
-          bannerUrl: nextEventRecord.banner
-            ? buildFileUrl(
-                'events',
-                getField(nextEventRecord, 'id', ''),
-                getField(nextEventRecord, 'banner', ''),
-              )
-            : '',
-        }
-      : null
-
-    return { latestEvent, societies }
-  } catch {
-    return { latestEvent: null, societies: [] }
-  }
-})
-
-export const Route = createFileRoute('/')({
-  head: ({ loaderData }) => {
-    const data = loaderData as unknown as HomeData | undefined
-    const preload = data?.latestEvent?.bannerUrl
-      ? [{ rel: 'preload', as: 'image', href: data.latestEvent.bannerUrl }]
-      : []
-    return {
-      meta: [
-        {
-          title: 'Home | IEEE Sahrdaya Student Branch',
-        },
-        {
-          name: 'description',
-          content:
-            'Official IEEE Sahrdaya Student Branch — technical events, workshops, societies & execom directory. Sahrdaya College of Engineering, Thrissur, Kerala.',
-        },
-        { property: 'og:title', content: 'Home | IEEE Sahrdaya Student Branch' },
-        {
-          property: 'og:description',
-          content:
-            'Official IEEE Sahrdaya Student Branch — technical events, workshops, societies & execom directory. Sahrdaya College of Engineering, Thrissur, Kerala.',
-        },
-        { property: 'og:image', content: `${APP_URL}/web.png` },
-        { property: 'og:image:width', content: '1200' },
-        { property: 'og:image:height', content: '630' },
-        { property: 'og:url', content: `${APP_URL}/` },
-      ],
-      links: [
-        { rel: 'canonical', href: `${APP_URL}/` },
-        ...preload,
-      ],
-      scripts: [
-        {
-          type: 'application/ld+json',
-          children: JSON.stringify({
-            '@context': 'https://schema.org',
-            '@type': 'BreadcrumbList',
-            itemListElement: [
-              { '@type': 'ListItem', position: 1, name: 'Home', item: APP_URL },
-            ],
-          })
-            .replace(/</g, '\\u003c')
-            .replace(/>/g, '\\u003e')
-            .replace(/&/g, '\\u0026'),
-        },
-      ],
-    }
-  },
-  loader: async ({ context }): Promise<HomeData> => {
-    const response = (context as unknown as { response?: { headers?: Headers } })?.response
-    response?.headers?.set('Cache-Control', 'no-cache, must-revalidate')
-    try {
-      return await fetchHomeData()
-    } catch {
-      return { latestEvent: null, societies: [] }
-    }
-  },
-  component: Home,
-  errorComponent: ({ error }) => (
-    <div className="flex items-center justify-center min-h-screen bg-white px-4">
-      <div className="text-center max-w-md">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
-          <span className="text-2xl font-bold text-red-600">!</span>
-        </div>
-        <h2 className="text-xl font-bold text-gray-900 mb-2">Something went wrong</h2>
-        <p className="text-gray-500 mb-4">{error?.message || 'An unexpected error occurred'}</p>
-      </div>
-    </div>
-  ),
-})
-
-function Home() {
-  const loaderData = (Route.useLoaderData() || {}) as HomeData
+export default function Home() {
+  const loaderData = (useLoaderData<typeof loader>() || {}) as HomeData
   const latestEvent = loaderData.latestEvent ?? null
   const societies = loaderData.societies ?? []
 

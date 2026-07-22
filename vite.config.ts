@@ -1,52 +1,23 @@
-import { defineConfig, loadEnv } from 'vite'
-import { tanstackStart } from '@tanstack/react-start/plugin/vite'
-import viteReact from '@vitejs/plugin-react-swc'
-import tsconfigPaths from 'vite-tsconfig-paths'
-import path from 'path'
+import { reactRouter } from "@react-router/dev/vite";
+import { defineConfig, loadEnv } from "vite";
+import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '')
-  // Fill gaps only — never clobber real process.env values (e.g. secrets
-  // injected by the deploy environment) with a stale/placeholder .env entry.
-  for (const key of Object.keys(env)) {
-    if (process.env[key] === undefined) process.env[key] = env[key]
-  }
-  const pbUrl = env.POCKETBASE_URL || 'http://127.0.0.1:8090'
+  const env = loadEnv(mode, process.cwd(), "");
+  const pocketBaseUrl = env.POCKETBASE_INTERNAL_URL || process.env.POCKETBASE_INTERNAL_URL || "http://127.0.0.1:8090";
 
   return {
     server: {
+      host: "0.0.0.0",
       port: 3000,
       proxy: {
-        // Same-origin proxy for client-side PB SSE subscriptions (public
-        // collections only: fifa_feed_events, fifa_bet_markets, fifa_matches).
-        // POCKETBASE_URL stays server-side; this is dev-only. Caddy does the
-        // same in production (see Caddyfile).
-        '/pb': {
-          target: pbUrl,
+        "/api": {
+          target: pocketBaseUrl,
           changeOrigin: true,
-          secure: true,
-          rewrite: (p) => p.replace(/^\/pb/, ''),
           ws: true,
         },
       },
     },
-    plugins: [
-      tanstackStart(),
-      viteReact(),
-      tsconfigPaths(),
-    ],
-    resolve: {
-      alias: {
-        '@': path.resolve(__dirname, './src'),
-      },
-    },
-    optimizeDeps: {
-      exclude: [
-        '@tanstack/start-server-core',
-        '@tanstack/react-start',
-        '@tanstack/react-start/client',
-        '@tanstack/react-start/server',
-      ],
-    }
-  }
-})
+    plugins: [reactRouter(), tsconfigPaths()],
+  };
+});

@@ -4,9 +4,9 @@
   "version": "2.8.7",
   "type": "module",
   "scripts": {
-    "dev": "vite dev",
-    "build": "vite build",
-    "start": "node dist/server/server.js",
+    "dev": "react-router dev",
+    "build": "react-router build",
+    "start": "react-router-serve ./build/server/index.js",
     "lint": "eslint src",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -24,7 +24,8 @@
     "migrate:game-schema": "bun scripts/migrate-game-schema.ts",
     "migrate:game-backfill": "bun scripts/migrate-game-backfill.ts",
     "fifa:create-espn-test": "bun src/scripts/create-espn-test-match.ts",
-    "verify:arch": "bun scripts/verify-architecture-live.ts"
+    "verify:arch": "bun scripts/verify-architecture-live.ts",
+    "typecheck": "react-router typegen && tsc --noEmit"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.9",
@@ -58,7 +59,11 @@
     "sanitize-html": "^2.17.5",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "react-router": "7.18.0",
+    "@react-router/node": "7.18.0",
+    "@react-router/serve": "7.18.0",
+    "isbot": "^5"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
@@ -80,6 +85,7 @@
     "typescript": "~5.8.2",
     "vite": "^7.3.5",
     "vite-tsconfig-paths": "^6.1.1",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.8",
+    "@react-router/dev": "7.18.0"
   }
 }

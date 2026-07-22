@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+
 import { useQuery } from '@tanstack/react-query'
 import { FifaLayout } from '@/features/fifa/fifa-layout'
 import { useAuth } from '@/lib/auth-context'
@@ -13,12 +13,7 @@ async function fetchLeaderboardPayload(): Promise<{ settings?: { min_bets: numbe
   return res.json()
 }
 
-export const Route = createFileRoute('/FIFA/dashboard')({
-  head: () => ({ meta: [{ title: "Dashboard · WC Predict '26" }] }),
-  component: DashboardPage,
-})
-
-function DashboardPage() {
+export default function DashboardPage() {
   const { status, signIn } = useAuth()
   const { data, isLoading, error } = useQuery({
     queryKey: ['fifa-dashboard'],

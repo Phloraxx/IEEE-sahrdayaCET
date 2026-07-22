@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { Link } from '@tanstack/react-router'
+import { Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { FifaMatchCard, FifaMatchCardSkeleton } from '@/features/fifa/fifa-match-card'

@@ -1,13 +1,9 @@
-import { createFileRoute, useParams } from "@tanstack/react-router";
+import { useParams } from "react-router";
 import { AdminPageHeader } from "@/features/admin/shared/admin-page-header";
 import { ExecomForm } from "@/features/admin/execom/execom-form";
 
-export const Route = createFileRoute("/admin/execom/$id/edit")({
-  component: EditExecomPage,
-});
-
-function EditExecomPage() {
-  const { id } = useParams({ from: "/admin/execom/$id/edit" });
+export default function EditExecomPage() {
+  const { id = "" } = useParams();
   return (
     <div className="space-y-6">
       <AdminPageHeader

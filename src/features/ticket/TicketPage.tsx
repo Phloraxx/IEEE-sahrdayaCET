@@ -13,7 +13,7 @@ import {
   CheckCircle2,
   Ticket,
 } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { Link } from "react-router";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { generateQRDataUrl, downloadQR as downloadQRFile } from "@/lib/qr-utils";

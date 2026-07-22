@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router"
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { AlertCircle, Loader2, Trophy, Info, PartyPopper } from "lucide-react"
 import { PanelHeader } from "@/components/admin/panel-header"
@@ -15,10 +15,6 @@ import {
 } from "@/components/ui/table"
 import { toast } from "sonner"
 import { useState, useEffect, useRef } from "react"
-
-export const Route = createFileRoute("/admin/FIFA/raffle")({
-  component: AdminFifaRaffle,
-})
 
 interface RaffleDraw {
   id: string
@@ -52,7 +48,7 @@ async function fetchLeaderboard(): Promise<LeaderboardEntry[]> {
   return res.json()
 }
 
-function AdminFifaRaffle() {
+export default function AdminFifaRaffle() {
   const { data: drawsData, isLoading: drawsLoading } = useQuery({ queryKey: ['admin-fifa-raffle-draws'], queryFn: fetchDraws })
   const { data: lbData, isLoading: lbLoading } = useQuery({ queryKey: ['admin-fifa-leaderboard'], queryFn: fetchLeaderboard })
   const { data: settingsData, isLoading: settingsLoading } = useQuery({ queryKey: ['admin-fifa-settings'], queryFn: fetchSettings })

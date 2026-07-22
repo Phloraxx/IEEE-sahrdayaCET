@@ -1,13 +1,8 @@
-import { createFileRoute } from '@tanstack/react-router'
+
 import { FifaLayout } from '@/features/fifa/fifa-layout'
 import { AlertCircle, ArrowRight, ShieldCheck, Trophy, Banknote, HelpCircle, Activity, Gift, Clock, RefreshCcw, Scale, Users } from 'lucide-react'
 
-export const Route = createFileRoute('/FIFA/rules')({
-  head: () => ({ meta: [{ title: "Rules · WC Predict '26" }] }),
-  component: RulesPage,
-})
-
-function RulesPage() {
+export default function RulesPage() {
   return (
     <FifaLayout active="rules">
       <div className="w-full flex-1 flex flex-col bg-[#0a0a0b]">

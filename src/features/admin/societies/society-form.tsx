@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "react-router";
 import { Search, Plus, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -170,7 +170,7 @@ export function SocietyForm({ mode, societyId }: SocietyFormProps) {
 
       queryClient.invalidateQueries({ queryKey: ["admin-societies"] });
       queryClient.invalidateQueries({ queryKey: ["admin-societies-options"] });
-      navigate({ to: "/admin/societies" });
+      navigate("/admin/societies" );
     } catch (err) {
       setSubmitError(
         err instanceof Error ? err.message : "An error occurred",
@@ -429,7 +429,7 @@ export function SocietyForm({ mode, societyId }: SocietyFormProps) {
         <Button
           type="button"
           variant="outline"
-          onClick={() => navigate({ to: "/admin/societies" })}
+          onClick={() => navigate("/admin/societies" )}
         >
           Cancel
         </Button>

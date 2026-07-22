@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link } from "react-router";
 import { ArrowUpRight, Clock } from "lucide-react";
 
 export interface RelatedBlogSummary {
@@ -36,8 +36,7 @@ export function RelatedBlogCards({
       {blogs.map((blog) => (
         <Link
           key={blog.id}
-          to="/blog/$slug/"
-          params={{ slug: blog.slug }}
+          to={`/blog/${blog.slug }`}
           className="group overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
         >
           <div className={`${compact ? "aspect-[16/8]" : "aspect-[16/9]"} overflow-hidden bg-muted`}>

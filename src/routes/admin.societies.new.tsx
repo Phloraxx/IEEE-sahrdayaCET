@@ -1,12 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+
 import { AdminPageHeader } from "@/features/admin/shared/admin-page-header";
 import { SocietyForm } from "@/features/admin/societies/society-form";
 
-export const Route = createFileRoute("/admin/societies/new")({
-  component: NewSocietyPage,
-});
-
-function NewSocietyPage() {
+export default function NewSocietyPage() {
   return (
     <div className="space-y-6">
       <AdminPageHeader

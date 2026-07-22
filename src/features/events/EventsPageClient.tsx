@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useRouter } from "@tanstack/react-router";
+import { useNavigate, useRevalidator } from "react-router";
 import { Search } from "lucide-react";
 import "@/styles/events.css";
 import { AnimatePresence } from "framer-motion";
@@ -36,7 +36,7 @@ interface EventsPageClientProps {
 
 export default function EventsPageClient({ initialEvents }: EventsPageClientProps) {
   const navigate = useNavigate();
-  const router = useRouter();
+  const revalidator = useRevalidator();
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [archiveSearch, setArchiveSearch] = useState("");
   const [archiveFilter, setArchiveFilter] = useState<ArchiveFilter>("past");
@@ -49,7 +49,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
   useEffect(() => {
     const refreshLifecycle = () => {
       if (document.visibilityState === "visible") {
-        void router.invalidate();
+        void revalidator.revalidate();
       }
     };
 
@@ -60,7 +60,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
       window.clearInterval(intervalId);
       document.removeEventListener("visibilitychange", refreshLifecycle);
     };
-  }, [router]);
+  }, [revalidator]);
 
   useEffect(() => {
     setVisibleArchiveCount(ARCHIVE_PAGE_SIZE);
@@ -149,7 +149,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
     if (event.externalFormUrl) {
       window.open(event.externalFormUrl, "_blank", "noopener,noreferrer");
     } else {
-      navigate({ to: `/register/${event.id}` });
+      navigate(`/register/${event.id}`);
     }
   };
 
@@ -172,7 +172,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
           loading={false}
           error={null}
           onSelectEvent={handleSelectEvent}
-          onRetry={() => router.invalidate()}
+          onRetry={() => revalidator.revalidate()}
           title="Upcoming Events"
           emptyTitle="No Upcoming Events"
           emptyMessage="Check back soon for exciting new events!"
@@ -267,7 +267,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
               loading={false}
               error={null}
               onSelectEvent={handleSelectEvent}
-              onRetry={() => router.invalidate()}
+              onRetry={() => revalidator.revalidate()}
               emptyTitle="No Events Found"
               emptyMessage="Try another search, status, or society filter."
               showAnnotation={false}

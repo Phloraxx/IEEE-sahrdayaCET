@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link } from "react-router";
 
 const eventImages = [
   '/Events/503658167_18144990655399954_4943514208253057479_n.webp?v=1',

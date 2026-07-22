@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "react-router";
 import { Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -142,7 +142,7 @@ export function ExecomForm({ mode, memberId }: ExecomFormProps) {
           queryKey: ["admin-execom-member", memberId],
         });
       }
-      navigate({ to: "/admin/execom" });
+      navigate("/admin/execom" );
     },
     onError: (err: Error) => setSubmitError(err.message),
   });
@@ -355,7 +355,7 @@ export function ExecomForm({ mode, memberId }: ExecomFormProps) {
             <Button
               type="button"
               variant="outline"
-              onClick={() => navigate({ to: "/admin/execom" })}
+              onClick={() => navigate("/admin/execom" )}
               disabled={mutation.isPending}
             >
               Cancel

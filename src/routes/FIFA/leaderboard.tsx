@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { Link } from "react-router";
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { FifaLayout } from '@/features/fifa/fifa-layout'
@@ -26,11 +26,6 @@ async function fetchLeaderboard(): Promise<LeaderboardData> {
   if (!res.ok) throw new Error('Failed to load leaderboard')
   return res.json()
 }
-
-export const Route = createFileRoute('/FIFA/leaderboard')({
-  head: () => ({ meta: [{ title: "Leaderboard · WC Predict '26" }] }),
-  component: LeaderboardPage,
-})
 
 function PodiumStep({ player, rank, delay }: { player?: LeaderboardRow; rank: 1 | 2 | 3; delay: number }) {
   if (!player) return <div className="w-24 sm:w-32" />
@@ -80,7 +75,7 @@ function PodiumStep({ player, rank, delay }: { player?: LeaderboardRow; rank: 1 
   )
 }
 
-function LeaderboardPage() {
+export default function LeaderboardPage() {
   const { user, status } = useAuth()
   const { data, isLoading } = useQuery({
     queryKey: ['fifa-leaderboard'],

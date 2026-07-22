@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { Link } from "react-router";
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { FifaLayout } from '@/features/fifa/fifa-layout'
 import { usePbSubscription } from '@/hooks/use-pb-subscription'
@@ -19,11 +19,6 @@ async function fetchFeed(): Promise<{ events: FeedEvent[] }> {
   if (!res.ok) throw new Error('Failed to load feed')
   return res.json()
 }
-
-export const Route = createFileRoute('/FIFA/feed')({
-  head: () => ({ meta: [{ title: "Live Feed · WC Predict '26" }] }),
-  component: FeedPage,
-})
 
 function getEventIcon(type: string) {
   switch (type) {
@@ -61,7 +56,7 @@ function timeAgo(iso: string): string {
   return `${Math.floor(hrs / 24)}d ago`
 }
 
-function FeedPage() {
+export default function FeedPage() {
   const queryClient = useQueryClient()
   const { data, isLoading } = useQuery({
     queryKey: ['fifa-feed'],

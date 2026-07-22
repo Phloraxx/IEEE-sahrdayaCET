@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import {
@@ -24,29 +24,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 const registrationStatusValues = ["all", "confirmed", "pending", "cancelled"] as const;
 type RegistrationStatus = (typeof registrationStatusValues)[number];
-
-export const Route = createFileRoute("/admin/registrations/")({
-  validateSearch: (search: Record<string, unknown>): { status?: string } => {
-    const raw = search.status;
-    if (typeof raw === "string" && registrationStatusValues.includes(raw as RegistrationStatus)) {
-      return { status: raw as RegistrationStatus };
-    }
-    return { status: undefined };
-  },
-  component: AdminRegistrations,
-  errorComponent: ({ error }: { error: Error }) => (
-    <div className="flex min-h-[50vh] items-center justify-center p-8">
-      <div className="mx-auto max-w-md text-center">
-        <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-destructive">
-          Error
-        </p>
-        <h1 className="mb-2 text-xl font-semibold tracking-tight">
-          {error?.message ?? "Something went wrong"}
-        </h1>
-      </div>
-    </div>
-  ),
-});
 
 interface RegistrationRow {
   id: string;
@@ -81,9 +58,14 @@ function RegistrationsSkeleton() {
     </div>
   );
 }
-function AdminRegistrations() {
+export default function AdminRegistrations() {
   const queryClient = useQueryClient();
-  const { status: urlStatus } = Route.useSearch();
+  const [searchParams] = useSearchParams();
+  const rawStatus = searchParams.get("status");
+  const urlStatus: RegistrationStatus | undefined =
+    rawStatus && registrationStatusValues.includes(rawStatus as RegistrationStatus)
+      ? (rawStatus as RegistrationStatus)
+      : undefined;
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState(urlStatus ?? "all");
   const [page, setPage] = useState(1);
@@ -269,8 +251,7 @@ function RegistrationsList({
         >
           <div className="min-w-0">
             <Link
-              to="/admin/registrations/$id"
-              params={{ id: reg.id }}
+              to={`/admin/registrations/${reg.id}`}
               className="text-sm font-medium text-foreground hover:underline line-clamp-1"
             >
               {reg.userName || "—"}
@@ -296,8 +277,7 @@ function RegistrationsList({
           </div>
           <div className="flex items-center justify-end gap-1">
             <Link
-              to="/admin/registrations/$id"
-              params={{ id: reg.id }}
+              to={`/admin/registrations/${reg.id}`}
               aria-label="View registration"
               className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >

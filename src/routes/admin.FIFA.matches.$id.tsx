@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { Link, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { ArrowLeft, Loader2, Plus } from "lucide-react"
@@ -16,18 +16,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { FIFA_MARKET_LABELS } from "@/schemas/fifa"
-
-export const Route = createFileRoute("/admin/FIFA/matches/$id")({
-  component: AdminFifaMatchDetail,
-  errorComponent: ({ error }: { error: Error }) => (
-    <div className="flex min-h-[50vh] items-center justify-center p-8 text-center">
-      <div className="mx-auto max-w-md">
-        <h1 className="text-xl font-semibold mb-2">{error?.message ?? "Something went wrong"}</h1>
-        <Link to="/admin/FIFA/matches/" className="text-sm text-primary hover:underline">← Back to matches</Link>
-      </div>
-    </div>
-  ),
-})
 
 interface MarketRow {
   id: string
@@ -73,8 +61,8 @@ async function fetchMarkets(matchId: string): Promise<{ markets: MarketRow[] }> 
   return res.json()
 }
 
-function AdminFifaMatchDetail() {
-  const { id } = Route.useParams()
+export default function AdminFifaMatchDetail() {
+  const { id = "" } = useParams();
   const { data: matchData, isLoading } = useQuery({ queryKey: ['admin-fifa-match', id], queryFn: () => fetchMatch(id) })
   const { data: marketsData, isLoading: marketsLoading } = useQuery({ queryKey: ['admin-fifa-markets', id], queryFn: () => fetchMarkets(id) })
   const match = matchData?.match

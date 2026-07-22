@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "react-router";
 import { Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -314,7 +314,7 @@ export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
       queryClient.invalidateQueries({ queryKey: ["admin-events"] });
       queryClient.invalidateQueries({ queryKey: ["admin-event-coupons"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
-      navigate({ to: "/admin/events" });
+      navigate("/admin/events" );
     } catch (err) {
       setSubmitError(
         err instanceof Error ? err.message : "An error occurred",
@@ -817,7 +817,7 @@ export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
                   )
                 )
                   return;
-                navigate({ to: "/admin/events" });
+                navigate("/admin/events" );
               }}
               disabled={submitting}
             >

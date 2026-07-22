@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import {
@@ -17,22 +17,6 @@ import { ConfirmButton } from "@/components/admin/confirm-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth-context";
 import { buildFileUrl } from "@/lib/pb";
-
-export const Route = createFileRoute("/admin/execom/")({
-  component: AdminExecom,
-  errorComponent: ({ error }: { error: Error }) => (
-    <div className="flex min-h-[50vh] items-center justify-center p-8">
-      <div className="mx-auto max-w-md text-center">
-        <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-destructive">
-          Error
-        </p>
-        <h1 className="mb-2 text-xl font-semibold tracking-tight">
-          {error?.message ?? "Something went wrong"}
-        </h1>
-      </div>
-    </div>
-  ),
-});
 
 interface ExecomMember {
   id: string;
@@ -71,7 +55,7 @@ function ExecomSkeleton() {
     </div>
   );
 }
-function AdminExecom() {
+export default function AdminExecom() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -132,7 +116,7 @@ function AdminExecom() {
             <Button
               size="sm"
               className="gap-1.5"
-              onClick={() => navigate({ to: "/admin/execom/new" })}
+              onClick={() => navigate("/admin/execom/new" )}
             >
               <Plus className="h-3.5 w-3.5" />
               Add member
@@ -231,8 +215,7 @@ function ExecomList({
             <div className="min-w-0">
               {canEdit ? (
                 <Link
-                  to="/admin/execom/$id/edit"
-                  params={{ id: m.id }}
+                  to={`/admin/execom/${m.id}/edit`}
                   className="text-sm font-medium text-foreground hover:underline line-clamp-1"
                 >
                   {m.name}
@@ -269,8 +252,7 @@ function ExecomList({
             {canEdit ? (
               <>
                 <Link
-                  to="/admin/execom/$id/edit"
-                  params={{ id: m.id }}
+                  to={`/admin/execom/${m.id}/edit`}
                   aria-label="Edit member"
                   className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >

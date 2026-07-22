@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from '@tanstack/react-router'
+import { Link } from 'react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { usePbSubscription } from '@/hooks/use-pb-subscription'
 import { useReducedMotion } from '@/hooks/use-reduced-motion'

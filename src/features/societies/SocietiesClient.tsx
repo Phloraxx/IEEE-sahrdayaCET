@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "react-router";
 import {
   Loader2,
   X,
@@ -18,7 +18,6 @@ import { GridBackground } from "@/components/GridBackground";
 import { FloatingIcons } from "@/components/FloatingIcons";
 import { TechnicalDetails } from "@/components/TechnicalDetails";
 import { buildFileUrl } from "@/lib/pb"
-import { fetchSocietyMembers, fetchSocietyEvents } from "@/routes/societies"
 import { formatDate, formatDateCompact } from "@/lib/dates";
 import { getBioText } from "@/lib/safe-get";
 import type { Society, ExecomMember, Event } from "@/types";
@@ -220,7 +219,7 @@ export default function SocietiesClient({ societies }: SocietiesClientProps) {
   /* ---------- Fetch members & events for selected society ---------- */
   const handleSocietyClick = useCallback(async (society: Society) => {
     // Redirect all societies to their dedicated page
-    navigate({ to: `/societies/${society.slug.toLowerCase()}` });
+    navigate(`/societies/${society.slug.toLowerCase()}`);
     return;
 
     setSelectedSociety(society);

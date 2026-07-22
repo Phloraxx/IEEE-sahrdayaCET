@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Link } from "@tanstack/react-router";
+import { Link } from "react-router";
 import { Users, ArrowUpRight, Mail, Phone } from "lucide-react";
 import { Linkedin } from "@/components/icons";
 

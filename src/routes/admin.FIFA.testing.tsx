@@ -1,5 +1,4 @@
-import { createFileRoute, Link, redirect } from "@tanstack/react-router"
-import { createServerFn } from '@tanstack/react-start'
+import { Link } from "react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { AlertTriangle, Loader2, Plus, Trash2 } from "lucide-react"
@@ -15,30 +14,9 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { formatMarketOptionLabel } from "@/lib/fifa-market-labels"
 
-const checkAdminAccess = createServerFn().handler(async () => {
-  const { authenticateAdmin } = await import('@/lib/admin-middleware')
-  try {
-    const { role } = await authenticateAdmin()
-    if (role !== "admin") {
-      throw redirect({ to: "/admin" })
-    }
-    return { ok: true }
-  } catch (e) {
-    if (e instanceof Response) throw e
-    throw redirect({ to: '/' })
-  }
-})
-
 // Admin testing console (FIFA-GAME.md §2.6). Lets the admin exercise the full
 // bet→settle→payout flow without a live match, adjust balances, and reset
 // the game for pre-launch testing.
-export const Route = createFileRoute("/admin/FIFA/testing")({
-  beforeLoad: async () => {
-    await checkAdminAccess()
-  },
-  component: AdminFifaTesting,
-})
-
 interface MatchRow {
   id: string
   team_home: string
@@ -75,7 +53,7 @@ async function fetchBets(matchId: string): Promise<{ bets: BetRow[] }> {
   return res.json()
 }
 
-function AdminFifaTesting() {
+export default function AdminFifaTesting() {
   const queryClient = useQueryClient()
   const { data: matchesData, isLoading } = useQuery({ queryKey: ['admin-fifa-matches'], queryFn: fetchMatches })
   const [expandedMatch, setExpandedMatch] = useState<string | null>(null)
@@ -189,7 +167,7 @@ function AdminFifaTesting() {
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant={m.settled ? 'secondary' : m.status === 'live' ? 'destructive' : 'outline'}>{m.settled ? 'Settled' : m.status}</Badge>
-                <Link to="/admin/FIFA/matches/$id/" params={{ id: m.id }} className="text-xs text-primary hover:underline" onClick={(e) => e.stopPropagation()}>Open →</Link>
+                <Link to={`/admin/FIFA/matches/${m.id}`} className="text-xs text-primary hover:underline" onClick={(e) => e.stopPropagation()}>Open →</Link>
               </div>
             </button>
             {expandedMatch === m.id && <MatchBets matchId={m.id} />}

@@ -1,10 +1,4 @@
-import {
-  createFileRoute,
-  Link,
-  Outlet,
-  useLocation,
-  useRouterState,
-} from "@tanstack/react-router";
+import { Link, Outlet, useLocation, useNavigation } from "react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AdminGuard } from "@/components/admin/admin-guard";
 import { AdminSidebar } from "@/components/admin/admin-sidebar";
@@ -13,43 +7,10 @@ import { PageTransition } from "@/components/admin/page-transition";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 
-import { checkAdminAccess } from "@/lib/admin-guard";
-import { redirect } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/admin")({
-  head: () => ({
-    meta: [
-      { name: "robots", content: "noindex, nofollow" },
-    ],
-  }),
-  beforeLoad: async () => {
-    try {
-      await checkAdminAccess();
-    } catch {
-      throw redirect({ to: "/", replace: true });
-    }
-  },
-  component: AdminLayout,
-  notFoundComponent: () => (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 p-8 text-center">
-      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-primary">
-        404
-      </p>
-      <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-        Page not found
-      </h1>
-      <p className="max-w-sm text-sm text-muted-foreground">
-        This admin page doesn't exist or may have been moved.
-      </p>
-      <Link
-        to="/admin/dashboard"
-        className="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-      >
-        Back to dashboard
-      </Link>
-    </div>
-  ),
-});
+export const meta = () => [
+  { name: "robots", content: "noindex, nofollow" },
+];
 
 function useTheme() {
   // Admin defaults to dark. The inline script in __root.tsx already
@@ -80,12 +41,11 @@ function useTheme() {
   return { theme, toggle };
 }
 
-function AdminLayout() {
+export default function AdminLayout() {
   const { user } = useAuth();
   const location = useLocation();
-  const isNavigating = useRouterState({
-    select: (s) => s.status === "pending",
-  });
+  const navigation = useNavigation();
+  const isNavigating = navigation.state !== "idle";
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { theme, toggle } = useTheme();
   const openTriggerRef = useRef<HTMLElement | null>(null);

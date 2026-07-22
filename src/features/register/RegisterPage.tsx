@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "@tanstack/react-router";
+import { useNavigate, Link } from "react-router";
 import { motion } from "framer-motion";
 import { CalendarDays, MapPin, Loader2, ArrowLeft, Ticket } from "lucide-react";
 import Navbar from "@/components/Navbar";
@@ -549,7 +549,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
       }
 
       toast.success("Registration successful!");
-      navigate({ to: `/ticket/${result.ticketId}` });
+      navigate(`/ticket/${result.ticketId}`);
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Something went wrong",

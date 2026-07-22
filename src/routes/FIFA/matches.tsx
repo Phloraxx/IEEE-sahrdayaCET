@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, useRouterState } from '@tanstack/react-router'
+import { Outlet, useLocation } from "react-router";
 import { useQuery } from '@tanstack/react-query'
 import { FifaLayout } from '@/features/fifa/fifa-layout'
 import { FifaMatchCard, FifaMatchCardSkeleton } from '@/features/fifa/fifa-match-card'
@@ -52,13 +52,8 @@ async function fetchLiveScores(): Promise<{
   return res.json()
 }
 
-export const Route = createFileRoute('/FIFA/matches')({
-  head: () => ({ meta: [{ title: "Matches · WC Predict '26" }] }),
-  component: MatchesPage,
-})
-
-function MatchesPage() {
-  const pathname = useRouterState({ select: (s) => s.location.pathname })
+export default function MatchesPage() {
+  const { pathname } = useLocation()
   const isDetail = /^\/FIFA\/matches\/[^/]+\/?$/.test(pathname)
 
   const { data, isLoading } = useQuery({

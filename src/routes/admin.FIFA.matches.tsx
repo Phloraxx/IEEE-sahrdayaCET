@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router"
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { ChevronDown, ChevronUp, Loader2, Plus, Trophy } from "lucide-react"
@@ -17,19 +17,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { FIFA_MARKET_LABELS, FifaMarketCreateSchema, FifaSettleSchema } from "@/schemas/fifa"
-
-export const Route = createFileRoute("/admin/FIFA/matches")({
-  component: AdminFifaMatches,
-  errorComponent: ({ error }: { error: Error }) => (
-    <div className="flex min-h-[50vh] items-center justify-center p-8">
-      <div className="mx-auto max-w-md text-center">
-        <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-destructive">Error</p>
-        <h1 className="mb-2 text-xl font-semibold tracking-tight">{error?.message ?? "Something went wrong"}</h1>
-        <button type="button" onClick={() => window.location.reload()} className="mt-6 inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90">Try again</button>
-      </div>
-    </div>
-  ),
-})
 
 interface MatchRow {
   id: string
@@ -67,7 +54,7 @@ async function fetchMatches(): Promise<{ matches: MatchRow[] }> {
   return res.json()
 }
 
-function AdminFifaMatches() {
+export default function AdminFifaMatches() {
   const { data, isLoading } = useQuery({ queryKey: ['admin-fifa-matches'], queryFn: fetchMatches })
   const [expandedId, setExpandedId] = useState<string | null>(null)
 

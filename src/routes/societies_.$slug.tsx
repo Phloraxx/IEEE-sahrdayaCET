@@ -1,5 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
+import { useLoaderData, useParams, type LoaderFunctionArgs } from "react-router";
 import React, { useMemo } from "react";
 import { motion } from "framer-motion";
 import {
@@ -23,10 +22,9 @@ import { Instagram, Linkedin } from "@/components/icons";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { ContextualBlogLinks } from "@/components/blog/ContextualBlogLinks";
-import { buildFileUrl } from "@/lib/pb";
-import { createPB } from "@/lib/pb.server";
 import { formatDate } from "@/lib/dates";
 import { canRegisterForEvent } from "@/lib/event-lifecycle";
+import { fetchSocietyData } from "@/server/public/society-detail.server";
 
 interface SocietyPageData {
   society: {
@@ -66,84 +64,6 @@ interface SocietyPageData {
 }
 
 // Fetch dynamic society data
-const fetchSocietyData = createServerFn()
-  .validator((slug: string) => slug)
-  .handler(async ({ data: slug }): Promise<SocietyPageData> => {
-    const pb = createPB();
-    const society = await pb
-      .collection("societies")
-      .getFirstListItem(`slug = '${slug.toLowerCase()}'`)
-      .catch(() => null);
-
-    if (!society) {
-      throw new Error("Society not found");
-    }
-
-    const [events, members] = await Promise.all([
-      pb
-        .collection("events")
-        .getList(1, 100, {
-          filter: `society = '${society.id}'`,
-          sort: "-date",
-        })
-        .then((res) => res.items)
-        .catch(() => []),
-      pb
-        .collection("execom")
-        .getList(1, 100, {
-          filter: `sectionId = '${slug.toLowerCase()}'`,
-          sort: "order",
-        })
-        .then((res) => res.items)
-        .catch(() => []),
-    ]);
-
-    return {
-      society: {
-        id: society.id,
-        name: society.name,
-        slug: society.slug,
-        bio: (society.bio as string) || "",
-        chairs: Array.isArray(society.chairs) ? society.chairs : [],
-        defaultWhatsappLink: (society.defaultWhatsappLink as string) || "",
-        logoUrl: society.logo
-          ? buildFileUrl("societies", society.id, society.logo as string)
-          : "",
-        bannerUrl: society.banner
-          ? buildFileUrl("societies", society.id, society.banner as string)
-          : "",
-      },
-      events: events.map((e) => ({
-        id: e.id,
-        title: (e.title as string) || "",
-        description: (e.description as string) || "",
-        date: (e.date as string) || "",
-        endDate: (e.endDate as string) || "",
-        registrationStart: (e.registrationStart as string) || "",
-        registrationDeadline: (e.registrationDeadline as string) || "",
-        venue: (e.venue as string) || "",
-        price: (e.price as number) || 0,
-        status: (e.status as string) || "published",
-        bannerUrl: e.banner
-          ? buildFileUrl("events", e.id, e.banner as string)
-          : "",
-        externalFormUrl: (e.externalFormUrl as string) || "",
-      })),
-      members: members.map((m) => ({
-        id: m.id,
-        name: (m.name as string) || "",
-        position: (m.position as string) || "",
-        department: (m.department as string) || "",
-        batch: (m.batch as string) || "",
-        photoUrl: m.photo
-          ? buildFileUrl("execom", m.id, m.photo as string)
-          : "",
-        linkedin: (m.linkedin as string) || "",
-        instagram: (m.instagram as string) || "",
-      })),
-    };
-  });
-
 interface ThemeConfig {
   accentText: string;
   accentBg: string;
@@ -292,31 +212,21 @@ const SOCIETY_THEMES: Record<string, Partial<ThemeConfig>> = {
   },
 };
 
-export const Route = createFileRoute("/societies_/$slug")({
-  head: ({ loaderData }) => {
-    // The generated route union also contains the static /societies/wie route,
-    // so TanStack cannot infer this dynamic route's loader data here.
-    const data = loaderData as SocietyPageData | undefined;
-    return {
-      meta: [
-        { title: `${data?.society.name || "Society"} | IEEE Sahrdaya` },
-        {
-          name: "description",
-          content: data?.society.bio || "IEEE Sahrdaya Student Branch Society Page",
-        },
-      ],
-    };
-  },
-  loader: async ({ params }): Promise<SocietyPageData> => {
-    return fetchSocietyData({ data: params.slug });
-  },
-  component: SocietyPage,
-});
+export const meta = ({ data }: { data?: SocietyPageData }) => [
+  { title: `${data?.society.name || "Society"} | IEEE Sahrdaya` },
+  { name: "description", content: data?.society.bio || "IEEE Sahrdaya Student Branch Society Page" },
+];
 
-function SocietyPage() {
+export async function loader({ params }: LoaderFunctionArgs): Promise<SocietyPageData> {
+  if (!params.slug) throw new Response("Society not found", { status: 404 });
+  try { return await fetchSocietyData(params.slug); }
+  catch { throw new Response("Society not found", { status: 404 }); }
+}
+
+export default function SocietyPage() {
   // See the route-union note in head() above.
-  const data = Route.useLoaderData() as SocietyPageData;
-  const params = Route.useParams();
+  const data = useLoaderData<typeof loader>();
+  const params = useParams();
   const { user } = useAuth();
 
   const canEdit = useMemo(() => {
@@ -335,13 +245,13 @@ function SocietyPage() {
   }, [canEdit, data.events]);
 
   const theme: ThemeConfig = useMemo(() => {
-    const slugKey = params.slug.toLowerCase();
+    const slugKey = (params.slug ?? data.society.slug).toLowerCase();
     const config = SOCIETY_THEMES[slugKey] || {};
     return {
       ...DEFAULT_THEME,
       ...config,
     } as ThemeConfig;
-  }, [params.slug]);
+  }, [params.slug, data.society.slug]);
 
   const IconComponent = theme.icon;
 

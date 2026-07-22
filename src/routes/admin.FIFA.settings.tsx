@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router"
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Loader2, AlertCircle } from "lucide-react"
 import { PanelHeader } from "@/components/admin/panel-header"
@@ -14,19 +14,13 @@ import { FifaSettingsSchema, type FifaSettings } from "@/schemas/fifa"
 import { fetchSettings } from "@/lib/api/fifa"
 import { useEffect } from "react"
 
-export const Route = createFileRoute("/admin/FIFA/settings")({
-  component: AdminFifaSettings,
-})
-
-
-
 async function fetchDraws() {
   const res = await fetch('/api/admin/fifa/raffle-draws')
   if (!res.ok) throw new Error('Failed to load draws')
   return res.json()
 }
 
-function AdminFifaSettings() {
+export default function AdminFifaSettings() {
   const queryClient = useQueryClient()
   
   const { data: settingsData, isLoading: settingsLoading } = useQuery({ 

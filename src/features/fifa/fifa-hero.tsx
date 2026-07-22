@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link } from '@tanstack/react-router'
+import { Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { flagUrl, getStageLabel } from '@/lib/fifa-assets'
 import { findLiveMatch, isLiveStatus, type LiveScoreMatch } from '@/lib/fifa-live-match'
@@ -270,8 +270,7 @@ export function FifaHero({ nextMatch, startingBalance, prize }: FifaHeroProps) {
 
           {nextMatch ? (
             <Link
-              to="/FIFA/matches/$id/"
-              params={{ id: nextMatch.id }}
+              to={`/FIFA/matches/${nextMatch.id}`}
               className="flex w-full min-h-[44px] max-w-[560px] shrink-0 items-center gap-[18px] overflow-hidden rounded-2xl bg-white/[0.97] px-[22px] py-[18px] text-[#0a0a0b] shadow-[0_24px_60px_rgba(0,20,40,.35)] backdrop-blur-[14px] transition-transform hover:-translate-y-0.5 md:w-auto"
             >
               {cardContent}

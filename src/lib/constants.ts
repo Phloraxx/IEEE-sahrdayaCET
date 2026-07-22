@@ -1,4 +1,4 @@
-export const APP_URL = process.env.PUBLIC_APP_URL || 'https://ieeesahrdaya.com'
+export const APP_URL = 'https://ieeesahrdaya.com'
 export const PB_AUTH_COOKIE = 'pb_auth'
 export const PB_OAUTH_PROVIDER_COOKIE = 'pb_oauth_provider'
 export const OAUTH_CALLBACK_PATH = '/api/auth/callback/google'
@@ -39,7 +39,7 @@ export const MS_PER_DAY = 24 * 60 * 60 * 1000
 // Public proxy path for client-side PB SSE subscriptions. Caddy rewrites
 // /pb/* -> PB :8090; Vite dev proxy does the same. POCKETBASE_URL itself
 // stays server-side (see .env.example).
-export const PB_PUBLIC_URL = '/pb'
+export const PB_PUBLIC_URL = ''
 
 /** Rate limits (per-user, in-memory sliding window via lib/rate-limit.ts). */
 export const FIFA_RATE_LIMITS = {

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router"
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Trash2, RefreshCw, Info, Loader2 } from "lucide-react"
 import { PanelHeader } from "@/components/admin/panel-header"
@@ -11,10 +11,6 @@ import {
 } from "@/components/ui/table"
 import { toast } from "sonner"
 import { useState, useMemo } from "react"
-
-export const Route = createFileRoute("/admin/FIFA/feed")({
-  component: AdminFifaFeed,
-})
 
 interface FeedEvent {
   id: string
@@ -47,7 +43,7 @@ function getTypeClass(type: string) {
   return ''
 }
 
-function AdminFifaFeed() {
+export default function AdminFifaFeed() {
   const queryClient = useQueryClient()
   const { data, isLoading, isFetching, refetch } = useQuery({ 
     queryKey: ['admin-fifa-feed'], 

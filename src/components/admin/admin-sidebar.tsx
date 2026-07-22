@@ -19,7 +19,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { Link, useLocation } from "@tanstack/react-router";
+import { Link, useLocation } from "react-router";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 

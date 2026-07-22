@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Building2, ChevronRight, Loader2, Pencil, Plus, Search, Trash2 } from "lucide-react";
@@ -10,22 +10,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth-context";
 import { getBioText } from "@/lib/safe-get";
 import { cn } from "@/lib/utils";
-
-export const Route = createFileRoute("/admin/societies/")({
-  component: AdminSocieties,
-  errorComponent: ({ error }: { error: Error }) => (
-    <div className="flex min-h-[50vh] items-center justify-center p-8">
-      <div className="mx-auto max-w-md text-center">
-        <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-destructive">
-          Error
-        </p>
-        <h1 className="mb-2 text-xl font-semibold tracking-tight">
-          {error?.message ?? "Something went wrong"}
-        </h1>
-      </div>
-    </div>
-  ),
-});
 
 interface SocietyRow {
   id: string;
@@ -53,7 +37,7 @@ function SocietiesSkeleton() {
     </div>
   );
 }
-function AdminSocieties() {
+export default function AdminSocieties() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -99,7 +83,7 @@ function AdminSocieties() {
             <Button
               size="sm"
               className="gap-1.5"
-              onClick={() => navigate({ to: "/admin/societies/new" })}
+              onClick={() => navigate("/admin/societies/new" )}
             >
               <Plus className="h-3.5 w-3.5" />
               Create society
@@ -168,8 +152,7 @@ function SocietyList({ rows, canEdit, onDelete, deletingPending, userRole }: Soc
         >
           <div className="min-w-0">
             <Link
-              to="/admin/societies/$id/edit"
-              params={{ id: s.id }}
+              to={`/admin/societies/${s.id}/edit`}
               className="text-sm font-medium text-foreground hover:underline"
             >
               {s.name}
@@ -214,8 +197,7 @@ function SocietyList({ rows, canEdit, onDelete, deletingPending, userRole }: Soc
             {canEdit ? (
               <>
                 <Link
-                  to="/admin/societies/$id/edit"
-                  params={{ id: s.id }}
+                  to={`/admin/societies/${s.id}/edit`}
                   aria-label={`Edit ${s.name}`}
                   className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >

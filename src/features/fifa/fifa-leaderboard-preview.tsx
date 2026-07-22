@@ -1,4 +1,4 @@
-import { Link } from '@tanstack/react-router'
+import { Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 
