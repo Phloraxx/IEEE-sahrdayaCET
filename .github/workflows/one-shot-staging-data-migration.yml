@@ -1,0 +1,128 @@
+name: One-shot staging production-data migration
+
+on:
+  push:
+    branches: [ops/staging-prod-data-import]
+
+permissions:
+  contents: write
+
+jobs:
+  migrate-staging:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
+      DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+      COMPOSE_ID: ${{ secrets.DOKPLOY_COMPOSE_STAGING_ID }}
+      OPS_BRANCH: ops/staging-prod-data-import
+      NORMAL_BRANCH: rewrite/react-router-pocketbase
+      STAGING_URL: https://staging.ieeesahrdaya.com
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ops/staging-prod-data-import
+          fetch-depth: 0
+
+      - name: Validate control plane and target
+        id: target
+        run: |
+          set -euo pipefail
+          : "${DOKPLOY_URL:?DOKPLOY_URL is required}"
+          : "${DOKPLOY_API_KEY:?DOKPLOY_API_KEY is required}"
+          : "${COMPOSE_ID:?DOKPLOY_COMPOSE_STAGING_ID is required}"
+          API="${DOKPLOY_URL%/}/api"
+          state="$(curl --fail-with-body --silent --show-error \
+            -H "x-api-key: $DOKPLOY_API_KEY" \
+            "$API/compose.one?composeId=$COMPOSE_ID")"
+          current_branch="$(printf '%s' "$state" | jq -r '.branch // empty')"
+          if [ "$current_branch" != "$NORMAL_BRANCH" ]; then
+            echo "Refusing migration: staging Compose is on '$current_branch', expected '$NORMAL_BRANCH'." >&2
+            exit 1
+          fi
+          echo "api=$API" >> "$GITHUB_OUTPUT"
+
+      - name: Point staging at migration branch
+        run: |
+          set -euo pipefail
+          API='${{ steps.target.outputs.api }}'
+          curl --fail-with-body --silent --show-error \
+            -X POST "$API/compose.update" \
+            -H "x-api-key: $DOKPLOY_API_KEY" \
+            -H 'Content-Type: application/json' \
+            --data "$(jq -nc --arg id "$COMPOSE_ID" --arg branch "$OPS_BRANCH" \
+              '{composeId:$id,branch:$branch,autoDeploy:false}')"
+          curl --fail-with-body --silent --show-error \
+            -X POST "$API/compose.deploy" \
+            -H "x-api-key: $DOKPLOY_API_KEY" \
+            -H 'Content-Type: application/json' \
+            --data "$(jq -nc --arg id "$COMPOSE_ID" \
+              '{composeId:$id,title:"Staging production-data migration rehearsal",description:"Read-only production snapshot into isolated staging volume"}')"
+
+      - name: Wait for imported and migrated staging data
+        run: |
+          set -euo pipefail
+          ok=0
+          for attempt in $(seq 1 120); do
+            health="$(curl -fsS "$STAGING_URL/api/health" 2>/dev/null || true)"
+            events="$(curl -fsS "$STAGING_URL/api/collections/events/records?perPage=1" 2>/dev/null || true)"
+            societies="$(curl -fsS "$STAGING_URL/api/collections/societies/records?perPage=1" 2>/dev/null || true)"
+            if printf '%s' "$health" | jq -e '.code == 200' >/dev/null 2>&1 \
+              && printf '%s' "$events" | jq -e '.totalItems > 0' >/dev/null 2>&1 \
+              && printf '%s' "$societies" | jq -e '.totalItems > 0' >/dev/null 2>&1; then
+              ok=1
+              break
+            fi
+            sleep 5
+          done
+          [ "$ok" -eq 1 ] || { echo 'Migrated staging data did not become healthy/public in time.' >&2; exit 1; }
+
+          # Known existing production event banner: proves both record data and PB storage copied.
+          curl -fsS -o /dev/null \
+            "$STAGING_URL/api/files/events/6nf000tgyzcpq49/pb_1780865822897_ae77hvt3wgm_i3j53n1qol.jpg"
+
+      - name: Return staging to normal rewrite branch
+        run: |
+          set -euo pipefail
+          API='${{ steps.target.outputs.api }}'
+          curl --fail-with-body --silent --show-error \
+            -X POST "$API/compose.update" \
+            -H "x-api-key: $DOKPLOY_API_KEY" \
+            -H 'Content-Type: application/json' \
+            --data "$(jq -nc --arg id "$COMPOSE_ID" --arg branch "$NORMAL_BRANCH" \
+              '{composeId:$id,branch:$branch,autoDeploy:false}')"
+          curl --fail-with-body --silent --show-error \
+            -X POST "$API/compose.deploy" \
+            -H "x-api-key: $DOKPLOY_API_KEY" \
+            -H 'Content-Type: application/json' \
+            --data "$(jq -nc --arg id "$COMPOSE_ID" \
+              '{composeId:$id,title:"Restore normal staging branch",description:"Keep migrated staging volume; remove temporary read-only production mount"}')"
+
+      - name: Verify normal staging after migration
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 120); do
+            health="$(curl -fsS "$STAGING_URL/api/health" 2>/dev/null || true)"
+            events="$(curl -fsS "$STAGING_URL/api/collections/events/records?perPage=1" 2>/dev/null || true)"
+            if printf '%s' "$health" | jq -e '.code == 200' >/dev/null 2>&1 \
+              && printf '%s' "$events" | jq -e '.totalItems > 0' >/dev/null 2>&1 \
+              && curl -fsS -o /dev/null "$STAGING_URL/api/files/events/6nf000tgyzcpq49/pb_1780865822897_ae77hvt3wgm_i3j53n1qol.jpg"; then
+              mkdir -p .tmp
+              events_total="$(printf '%s' "$events" | jq -r '.totalItems')"
+              printf 'success\npublic_events=%s\nnormal_branch=%s\n' "$events_total" "$NORMAL_BRANCH" > .tmp/staging-migration-result.txt
+              exit 0
+            fi
+            sleep 5
+          done
+          echo 'Normal staging branch did not become healthy with migrated data.' >&2
+          exit 1
+
+      - name: Record successful rehearsal
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .tmp/staging-migration-result.txt
+          git commit -m 'ops: record successful staging data migration'
+          git push origin HEAD:ops/staging-prod-data-import
