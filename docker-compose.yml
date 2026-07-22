@@ -34,6 +34,7 @@ services:
     restart: unless-stopped
     environment:
       PB_ENCRYPTION_KEY: ${PB_ENCRYPTION_KEY:?PB_ENCRYPTION_KEY is required}
+      STAGING_IMPORT_FROM_PROD: "1"
       PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:-}
       FOOTBALL_DATA_API_TOKEN: ${FOOTBALL_DATA_API_TOKEN:-}
       SMTP_HOST: ${SMTP_HOST:-}
@@ -41,8 +42,11 @@ services:
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
+    entrypoint: ["/pb/import-prod-snapshot.sh"]
+    command: []
     volumes:
       - pb_data:/pb/pb_data
+      - prod_pb_data:/legacy-prod:ro
     expose:
       - "8090"
     healthcheck:
@@ -50,13 +54,16 @@ services:
       interval: 30s
       timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 120s
     networks:
       - app-internal
       - dokploy-network
 
 volumes:
   pb_data:
+  prod_pb_data:
+    external: true
+    name: ieee-pocketbase-8wt381_pocketbase-data
 
 networks:
   app-internal:
