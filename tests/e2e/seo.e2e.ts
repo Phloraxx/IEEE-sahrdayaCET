@@ -37,6 +37,12 @@ test.describe('SSR and SEO', () => {
     expect(headers['x-frame-options']).toBe('DENY')
     expect(headers['referrer-policy']).toBe('strict-origin-when-cross-origin')
     expect(headers['permissions-policy']).toContain('camera=()')
-    expect(headers['x-robots-tag']).toBe('noindex, nofollow')
+    if (process.env.DEPLOY_ENV === 'production') {
+      expect(headers['strict-transport-security']).toBe('max-age=31536000')
+      expect(headers['x-robots-tag']).toBeUndefined()
+    } else {
+      expect(headers['x-robots-tag']).toBe('noindex, nofollow')
+      expect(headers['strict-transport-security']).toBeUndefined()
+    }
   })
 })
