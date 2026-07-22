@@ -7,6 +7,7 @@ import {
   RelatedBlogCards,
   type RelatedBlogSummary,
 } from "@/components/blog/RelatedBlogCards";
+import { listRelatedBlogs } from "@/lib/data/public-client";
 
 function getContext(pathname: string) {
   if (pathname === "/") {
@@ -46,30 +47,19 @@ export function ContextualBlogLinks() {
       return;
     }
 
-    const controller = new AbortController();
     let active = true;
     setBlogs([]);
     setLoading(true);
-
-    fetch(`/api/blogs/related?${context.query}`, {
-      signal: controller.signal,
-      credentials: "same-origin",
+    const params = new URLSearchParams(context.query);
+    void listRelatedBlogs({
+      societySlug: params.get("societySlug") || undefined,
+      eventId: params.get("eventId") || undefined,
+      limit: Number(params.get("limit") || 3),
     })
-      .then((response) => (response.ok ? response.json() : { items: [] }))
-      .then((data) => {
-        if (active) setBlogs(Array.isArray(data.items) ? data.items : []);
-      })
-      .catch((error) => {
-        if (active && error?.name !== "AbortError") setBlogs([]);
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-
-    return () => {
-      active = false;
-      controller.abort();
-    };
+      .then((data) => { if (active) setBlogs(data.items); })
+      .catch(() => { if (active) setBlogs([]); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [context]);
 
   if (!context || (!loading && blogs.length === 0)) return null;

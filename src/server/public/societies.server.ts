@@ -19,7 +19,7 @@ export async function fetchSocieties(): Promise<Society[]> {
         ? buildFileUrl("societies", s.id as string, s.logo as string)
         : undefined,
     }));
-  } catch (nodeError) {
+  } catch {
     return [];
   }
 }

@@ -11,6 +11,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FormSection } from "@/features/admin/shared/form-section";
 import { ImageUpload } from "@/components/admin/image-upload";
 import { useAuth } from "@/lib/auth-context";
+import { getAdminSociety, saveAdminSociety } from "@/lib/data/admin-societies.client";
+import { listAdminUsers } from "@/lib/data/admin-users.client";
 
 interface UserOption {
   id: string;
@@ -61,13 +63,7 @@ export function SocietyForm({ mode, societyId }: SocietyFormProps) {
   // Users for chair search
   const { data: usersData } = useQuery<{ users: UserOption[] }>({
     queryKey: ["admin-users-options"],
-    queryFn: async () => {
-      const res = await fetch("/api/admin/users?perPage=500", {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to load users");
-      return res.json();
-    },
+    queryFn: () => listAdminUsers({ perPage: 100 }),
     enabled: authUser?.role === "admin",
     staleTime: 60_000,
   });
@@ -77,13 +73,7 @@ export function SocietyForm({ mode, societyId }: SocietyFormProps) {
     society: Record<string, unknown>;
   }>({
     queryKey: ["admin-society", societyId],
-    queryFn: async () => {
-      const res = await fetch(`/api/admin/societies/${societyId}`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to load society");
-      return res.json();
-    },
+    queryFn: () => getAdminSociety(societyId!),
     enabled: isEdit && Boolean(societyId),
   });
 
@@ -129,44 +119,15 @@ export function SocietyForm({ mode, societyId }: SocietyFormProps) {
         chairs,
       };
 
-      const hasFile = logoFile || bannerFile;
-      let res: Response;
-      const url = isEdit
-        ? `/api/admin/societies/${societyId}`
-        : "/api/admin/societies";
+      await saveAdminSociety({
+        id: isEdit ? societyId : undefined,
+        payload,
+        logo: logoFile,
+        banner: bannerFile,
+        role: authUser?.role,
+      });
 
-      if (hasFile) {
-        const fd = new FormData();
-        Object.entries(payload).forEach(([key, val]) => {
-          if (val !== undefined && val !== null) {
-            fd.append(
-              key,
-              typeof val === "object" ? JSON.stringify(val) : String(val),
-            );
-          }
-        });
-        if (logoFile) fd.append("logo", logoFile);
-        if (bannerFile) fd.append("banner", bannerFile);
-        res = await fetch(url, {
-          method: isEdit ? "PUT" : "POST",
-          credentials: "include",
-          body: fd,
-        });
-      } else {
-        res = await fetch(url, {
-          method: isEdit ? "PUT" : "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        });
-      }
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error || `Request failed (${res.status})`);
-      }
 
       queryClient.invalidateQueries({ queryKey: ["admin-societies"] });
       queryClient.invalidateQueries({ queryKey: ["admin-societies-options"] });

@@ -20,7 +20,7 @@ const FEED_ICONS: Record<string, string> = {
 }
 
 async function fetchFeed(): Promise<{ events: FeedEvent[] }> {
-  const res = await fetch('/pb/api/fifa/feed?limit=20')
+  const res = await fetch('/api/fifa/feed?limit=20')
   if (!res.ok) throw new Error('Failed to load feed')
   return res.json()
 }

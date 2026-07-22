@@ -1,0 +1,28 @@
+# Local development intentionally runs only the stateful backend in Docker.
+# Run `bun run dev` on the host; Vite serves :3000 and proxies /api to :8090.
+services:
+  pocketbase:
+    build:
+      context: .
+      dockerfile: pocketbase/Dockerfile
+      args:
+        PB_VERSION: "0.39.8"
+    environment:
+      PB_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef
+      PAYMENT_WEBHOOK_SECRET: local-development-only
+      FOOTBALL_DATA_API_TOKEN: ${FOOTBALL_DATA_API_TOKEN:-}
+    ports:
+      - "127.0.0.1:8090:8090"
+    volumes:
+      - local_pb_data:/pb/pb_data
+      - ./pb_hooks:/pb/pb_hooks:ro
+      - ./pb_migrations:/pb/pb_migrations:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8090/api/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+volumes:
+  local_pb_data:

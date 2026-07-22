@@ -3,6 +3,7 @@ import { APP_URL } from "@/lib/constants";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import BlogClient from "@/features/blog/BlogClient";
 import { getPublishedBlogs } from "@/lib/blog-public.server";
+import { CanonicalLink } from "@/components/CanonicalLink";
 
 export const meta = () => [
   { title: "Blog | IEEE Sahrdaya Student Branch" },
@@ -18,8 +19,11 @@ export async function loader() {
 export default function BlogPage() {
   const blogs = useLoaderData<typeof loader>();
   return (
+    <>
+      <CanonicalLink path="/blog" />
     <ErrorBoundary>
       <BlogClient blogs={blogs} />
     </ErrorBoundary>
+    </>
   );
 }

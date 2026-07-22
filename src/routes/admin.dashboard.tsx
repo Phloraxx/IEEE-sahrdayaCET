@@ -1,4 +1,4 @@
-import { Link, redirect } from "react-router";
+import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
@@ -14,24 +14,8 @@ import { MetricCard } from "@/components/admin/metric-card";
 import { PanelHeader } from "@/components/admin/panel-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getAdminStats, type AdminStats } from "@/lib/data/admin-stats.client";
 
-interface StatsResponse {
-  events: {
-    total: number;
-    published: number;
-    upcoming: number;
-    live: number;
-    recentlyCompleted: number;
-  };
-  registrations: {
-    total: number;
-    confirmed: number;
-    pending: number;
-    today: number;
-  };
-  execom: { total: number };
-  societies: { total: number; active: number };
-}
 
 function DashboardSkeleton() {
   return (
@@ -53,16 +37,9 @@ function DashboardSkeleton() {
 }
 
 export default function AdminDashboard() {
-  const { data: stats, isLoading, isError, error } = useQuery<StatsResponse>({
+  const { data: stats, isLoading, isError, error } = useQuery<AdminStats>({
     queryKey: ["admin-stats"],
-    queryFn: async () => {
-      const res = await fetch("/api/admin/stats", { credentials: "include" });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.error || `Failed to load stats (${res.status})`);
-      }
-      return res.json();
-    },
+    queryFn: getAdminStats,
     retry: 1,
     staleTime: 30_000,
   });
@@ -176,17 +153,17 @@ export default function AdminDashboard() {
         />
         <MetricCard
           label="Societies"
-          value={stats.societies.total}
+          value={stats.societies.total ?? 0}
           icon={Building2}
           context={
-            stats.societies.total > 0
+            (stats.societies.total ?? 0) > 0
               ? `${stats.societies.active} active`
               : "—"
           }
         />
         <MetricCard
           label="Execom"
-          value={stats.execom.total}
+          value={stats.execom.total ?? 0}
           icon={UserCheck}
           context="Committee members"
         />
@@ -241,8 +218,7 @@ export default function AdminDashboard() {
                 return (
                   <Link
                     key={segment.key}
-                    to="/admin/registrations"
-                    search={{ status: segment.key }}
+                    to={`/admin/registrations?status=${encodeURIComponent(segment.key)}`}
                     className="group flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2 transition-colors hover:border-foreground/20"
                   >
                     <div className="flex items-center gap-2 min-w-0">

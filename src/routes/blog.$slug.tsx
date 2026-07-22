@@ -17,6 +17,10 @@ export const meta = ({ data }: { data?: BlogPost }) => {
     { property: "og:url", content: `${APP_URL}/blog/${data.slug}` },
     { property: "og:image", content: data.coverUrl || `${APP_URL}/web.png` },
     { property: "og:type", content: "article" },
+    { name: "twitter:card", content: "summary_large_image" },
+    { name: "twitter:title", content: data.title },
+    { name: "twitter:description", content: data.excerpt || "" },
+    { name: "twitter:image", content: data.coverUrl || `${APP_URL}/web.png` },
   ];
 };
 
@@ -46,10 +50,29 @@ export default function BlogPostPage() {
       : post.author?.name || "IEEE Sahrdaya";
   const society = typeof post.society === "string" ? undefined : post.society;
   const event = typeof post.event === "string" ? undefined : post.event;
+  const canonicalUrl = `${APP_URL}/blog/${post.slug}`;
+  const blogSchema = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: post.title,
+    description: post.excerpt || undefined,
+    image: post.coverUrl ? [post.coverUrl] : [`${APP_URL}/web.png`],
+    datePublished: post.publishedAt || undefined,
+    dateModified: post.updatedAt || post.publishedAt || undefined,
+    mainEntityOfPage: { "@type": "WebPage", "@id": canonicalUrl },
+    author: { "@type": "Person", name: author },
+    publisher: {
+      "@type": "Organization",
+      name: "IEEE Sahrdaya Student Branch",
+      logo: { "@type": "ImageObject", url: `${APP_URL}/ieee-logo-square.png` },
+    },
+  };
 
   return (
     <ErrorBoundary>
       <div className="relative min-h-screen w-full overflow-x-hidden bg-background text-foreground font-sans">
+        <link rel="canonical" href={canonicalUrl} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(blogSchema).replace(/</g, "\u003c") }} />
         <Navbar />
 
         <div
@@ -118,7 +141,7 @@ export default function BlogPostPage() {
                   )}
                   {event && (
                     <Link
-                      to="/events"
+                      to={event.slug ? `/events/${event.slug}` : "/events"}
                       className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition hover:border-ieee-blue/30 hover:text-ieee-blue"
                     >
                       <CalendarDays className="h-3.5 w-3.5" /> {event.title}

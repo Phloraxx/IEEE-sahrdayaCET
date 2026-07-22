@@ -1,4 +1,4 @@
-import { Link, Outlet, useLocation, useNavigation } from "react-router";
+import { Outlet, useLocation, useNavigation } from "react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AdminGuard } from "@/components/admin/admin-guard";
 import { AdminSidebar } from "@/components/admin/admin-sidebar";

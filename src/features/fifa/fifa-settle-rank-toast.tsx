@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth-context'
@@ -34,12 +34,12 @@ export function FifaSettleRankToast() {
 
   const { data: dashboard } = useQuery({
     queryKey: ['fifa-dashboard'],
-    queryFn: fetchFifaDashboard,
+    queryFn: () => fetchFifaDashboard(),
     refetchInterval: 10_000,
-    enabled: status === 'authenticated',
+    enabled: typeof window !== 'undefined' && status === 'authenticated',
   })
 
-  const betStatuses = dashboard?.bet_statuses ?? []
+  const betStatuses = useMemo(() => dashboard?.bet_statuses ?? [], [dashboard?.bet_statuses])
 
   useEffect(() => {
     if (status !== 'authenticated' || !user?.id) {
@@ -66,7 +66,7 @@ export function FifaSettleRankToast() {
     if (!settled) return
 
     void (async () => {
-      const res = await fetch('/pb/api/fifa/leaderboard')
+      const res = await fetch('/api/fifa/leaderboard')
       const rows = res.ok ? ((await res.json()).leaderboard ?? []) : []
       const me = rows.find((r: { id: string; rank: number }) => r.id === user.id)
       if (me) {

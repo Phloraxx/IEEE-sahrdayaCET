@@ -205,8 +205,8 @@ export default function MatchDetailPage() {
 
   const { data: userBalance, error: dashboardError } = useQuery({
     queryKey: ['fifa-dashboard'],
-    queryFn: fetchFifaDashboard,
-    enabled: status === 'authenticated' && !isSessionExpired,
+    queryFn: () => fetchFifaDashboard(),
+    enabled: typeof window !== 'undefined' && status === 'authenticated' && !isSessionExpired,
     refetchInterval: 15_000,
   })
 
@@ -229,7 +229,7 @@ export default function MatchDetailPage() {
       if (!res.ok) return null
       return res.json() as Promise<{ leaderboard: Array<{ id: string; rank: number }>; settings?: { min_bets: number } }>
     },
-    enabled: status === 'authenticated' && !isSessionExpired,
+    enabled: typeof window !== 'undefined' && status === 'authenticated' && !isSessionExpired,
     staleTime: 15_000,
   })
   const minBets = lbData?.settings?.min_bets ?? DEFAULT_FIFA_LEADERBOARD_SETTINGS.min_bets

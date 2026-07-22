@@ -12,11 +12,13 @@ interface AuthContextValue {
   signOut: () => void;
 }
 
+const noop = () => undefined;
+
 const AuthContext = createContext<AuthContextValue>({
   user: null,
   status: "loading",
-  signIn: () => {},
-  signOut: () => {},
+  signIn: noop,
+  signOut: noop,
 });
 
 function mapUser(record: RecordModel | null): AuthUser | null {

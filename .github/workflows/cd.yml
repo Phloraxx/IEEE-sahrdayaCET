@@ -1,36 +1,87 @@
 name: CD
-# Triggers Dokploy to deploy from source on push to main or dev branches.
-# Dokploy clones the repo, builds the Docker image from Dockerfile, and deploys.
 
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main, dev]
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref_name }}
+  group: deploy-${{ github.event.workflow_run.head_branch }}
   cancel-in-progress: false
 
 jobs:
   deploy:
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    environment: ${{ github.event.workflow_run.head_branch == 'main' && 'production' || 'staging' }}
     steps:
-      - name: Select webhook by branch
-        id: webhook
+      - name: Select Dokploy target
+        id: target
+        env:
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          PROD_ID: ${{ secrets.DOKPLOY_COMPOSE_PROD_ID }}
+          STAGING_ID: ${{ secrets.DOKPLOY_COMPOSE_STAGING_ID }}
         run: |
-          if [ "${{ github.ref_name }}" = "main" ]; then
-            echo "url=${{ secrets.DOCKPLOY_WEBHOOK_PROD }}" >> "$GITHUB_OUTPUT"
-            echo "env=production" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          if [ "$BRANCH" = "main" ]; then
+            echo "compose_id=$PROD_ID" >> "$GITHUB_OUTPUT"
+            echo "environment=production" >> "$GITHUB_OUTPUT"
           else
-            echo "url=${{ secrets.DOCKPLOY_WEBHOOK_DEV }}" >> "$GITHUB_OUTPUT"
-            echo "env=staging" >> "$GITHUB_OUTPUT"
+            echo "compose_id=$STAGING_ID" >> "$GITHUB_OUTPUT"
+            echo "environment=staging" >> "$GITHUB_OUTPUT"
           fi
-      - name: Trigger Dokploy deployment
+
+      - name: Verify tested SHA is still branch head
+        id: freshness
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          echo "Deploying to ${{ steps.webhook.outputs.env }} via ${{ steps.webhook.outputs.url }}"
-          curl -sSf -X POST "${{ steps.webhook.outputs.url }}" \
-            -H "X-GitHub-Event: push" \
+          set -euo pipefail
+          CURRENT_SHA=$(curl --fail-with-body --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/commits/$BRANCH" | jq -r .sha)
+          if [ "$CURRENT_SHA" != "$TESTED_SHA" ]; then
+            echo "A newer commit is already on $BRANCH; its CI run will deploy instead."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy tested branch through Dokploy API
+        if: steps.freshness.outputs.skip != 'true'
+        env:
+          DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
+          DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+          COMPOSE_ID: ${{ steps.target.outputs.compose_id }}
+          DEPLOY_ENV: ${{ steps.target.outputs.environment }}
+          TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          : "${DOKPLOY_URL:?DOKPLOY_URL is required}"
+          : "${DOKPLOY_API_KEY:?DOKPLOY_API_KEY is required}"
+          : "${COMPOSE_ID:?Dokploy compose ID is required}"
+          API="${DOKPLOY_URL%/}/api"
+
+          # GitHub/Dokploy native auto-deploy must not race this CI-gated workflow.
+          curl --fail-with-body --silent --show-error \
+            -X POST "$API/compose.update" \
+            -H "x-api-key: $DOKPLOY_API_KEY" \
             -H "Content-Type: application/json" \
-            -d '{"ref": "refs/heads/${{ github.ref_name }}"}' || echo "Webhook call completed"
+            --data "$(jq -nc --arg id "$COMPOSE_ID" '{composeId:$id,autoDeploy:false}')"
+
+          curl --fail-with-body --silent --show-error \
+            -X POST "$API/compose.deploy" \
+            -H "x-api-key: $DOKPLOY_API_KEY" \
+            -H "Content-Type: application/json" \
+            --data "$(jq -nc \
+              --arg id "$COMPOSE_ID" \
+              --arg title "Deploy ${TESTED_SHA:0:12}" \
+              --arg description "CI-approved $DEPLOY_ENV deployment of $TESTED_SHA" \
+              '{composeId:$id,title:$title,description:$description}')"

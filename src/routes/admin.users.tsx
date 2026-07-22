@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth-context";
+import { listAdminUsers, updateAdminUserRole } from "@/lib/data/admin-users.client";
 
 interface UserRow {
   id: string;
@@ -72,27 +73,11 @@ export default function AdminUsers() {
 
   const { data, isLoading } = useQuery<UsersResponse>({
     queryKey: ["admin-users", { search }],
-    queryFn: async () => {
-      const params = new URLSearchParams({ perPage: "200" });
-      if (search) params.set("search", search);
-      const res = await fetch(`/api/admin/users?${params}`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to load users");
-      return res.json();
-    },
+    queryFn: () => listAdminUsers({ search, perPage: 100 }),
   });
 
   const roleMutation = useMutation({
-    mutationFn: async ({ id, role }: { id: string; role: string }) => {
-      const res = await fetch("/api/admin/users", {
-        method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, role }),
-      });
-      if (!res.ok) throw new Error("Failed to update role");
-    },
+    mutationFn: ({ id, role }: { id: string; role: string }) => updateAdminUserRole(id, role),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
     },

@@ -6,6 +6,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import ExecomClient, {
   type ExecomMemberDoc,
 } from "@/features/execom/ExecomClient";
+import { CanonicalLink } from "@/components/CanonicalLink";
 
 export const meta = () => [
   { title: "Execom Directory | IEEE Sahrdaya Student Branch" },
@@ -23,8 +24,11 @@ export async function loader(): Promise<ExecomMemberDoc[]> {
 export default function FullExecomPage() {
   const docs = useLoaderData<typeof loader>();
   return (
+    <>
+      <CanonicalLink path="/full-execom" />
     <ErrorBoundary>
       <ExecomClient initialDocs={docs} />
     </ErrorBoundary>
+    </>
   );
 }

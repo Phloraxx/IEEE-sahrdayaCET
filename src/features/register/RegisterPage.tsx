@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 import type { FormField } from "@/types";
 import { formatDate } from "@/lib/dates";
+import { createRegistration, getPublicEvent } from "@/lib/data/public-client";
 
 interface PageProps {
   eventId: string;
@@ -483,12 +484,10 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
     }
     const fetchEvent = async () => {
       try {
-        const res = await fetch(`/api/events/${eventId}`);
-        if (!res.ok) throw new Error("Event not found");
-        const data = await res.json();
-        if (data.event) {
-          setEvent(data.event);
-          const formTemplate = data.event.formTemplate || data.event.formFields;
+        const eventData = await getPublicEvent(eventId);
+        if (eventData) {
+          setEvent(eventData as typeof event);
+          const formTemplate = eventData.formTemplate;
           if (Array.isArray(formTemplate)) {
             const initial: Record<string, string> = {};
             formTemplate.forEach((f: FormField) => {
@@ -536,17 +535,12 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
         },
       };
 
-      const res = await fetch("/api/registrations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+      if (!user?.id) throw new Error("Please sign in before registering");
+      const result = await createRegistration({
+        userId: user.id,
+        eventId: body.eventId,
+        formResponses: body.formResponses,
       });
-
-      const result = await res.json();
-
-      if (!res.ok) {
-        throw new Error(result.error || "Registration failed");
-      }
 
       toast.success("Registration successful!");
       navigate(`/ticket/${result.ticketId}`);

@@ -22,6 +22,8 @@ import { CustomFieldBuilder } from "@/components/admin/custom-field-builder";
 import type { FormField } from "@/components/admin/custom-field-builder";
 import { CouponManager } from "@/components/admin/coupon-manager";
 import type { Coupon } from "@/types";
+import { getAdminEvent, listEventCoupons, saveAdminEvent } from "@/lib/data/admin-events.client";
+import { listAdminSocieties } from "@/lib/data/admin-societies.client";
 
 interface SocietyOption {
   id: string;
@@ -113,13 +115,7 @@ export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
   // Societies dropdown
   const { data: societies } = useQuery<{ societies: SocietyOption[] }>({
     queryKey: ["admin-societies-options"],
-    queryFn: async () => {
-      const res = await fetch("/api/admin/societies?perPage=200", {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to load societies");
-      return res.json();
-    },
+    queryFn: () => listAdminSocieties({ perPage: 200 }),
     staleTime: 60_000,
   });
 
@@ -128,13 +124,7 @@ export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
     event: Record<string, unknown>;
   }>({
     queryKey: ["admin-event", eventId],
-    queryFn: async () => {
-      const res = await fetch(`/api/admin/events/${eventId}`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to load event");
-      return res.json();
-    },
+    queryFn: () => getAdminEvent(eventId!),
     enabled: isEdit && Boolean(eventId),
   });
 
@@ -142,13 +132,7 @@ export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
   // which is the single source of truth (not the event JSON field).
   const { data: existingCoupons } = useQuery<{ coupons: Coupon[] }>({
     queryKey: ["admin-event-coupons", eventId],
-    queryFn: async () => {
-      const res = await fetch(`/api/admin/events/${eventId}/coupons`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to load coupons");
-      return res.json();
-    },
+    queryFn: () => listEventCoupons(eventId!),
     enabled: isEdit && Boolean(eventId),
   });
 
@@ -273,42 +257,13 @@ export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
           delete payload[k];
       });
 
-      const url = isEdit
-        ? `/api/admin/events/${eventId}`
-        : "/api/admin/events";
+      await saveAdminEvent({
+        id: isEdit ? eventId : undefined,
+        payload,
+        bannerFile,
+      });
 
-      let res: Response;
-      if (bannerFile) {
-        const fd = new FormData();
-        Object.entries(payload).forEach(([key, val]) => {
-          if (val !== undefined && val !== null) {
-            fd.append(
-              key,
-              typeof val === "object" ? JSON.stringify(val) : String(val),
-            );
-          }
-        });
-        fd.append("banner", bannerFile);
-        res = await fetch(url, {
-          method: isEdit ? "PUT" : "POST",
-          credentials: "include",
-          body: fd,
-        });
-      } else {
-        res = await fetch(url, {
-          method: isEdit ? "PUT" : "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        });
-      }
 
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.error || `Request failed (${res.status})`);
-      }
 
       setDirty(false);
       queryClient.invalidateQueries({ queryKey: ["admin-events"] });

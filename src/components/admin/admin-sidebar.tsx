@@ -6,7 +6,6 @@ import {
   ClipboardList,
   FileText,
   FlaskConical,
-  Gift,
   LayoutDashboard,
   LogOut,
   Moon,
@@ -151,7 +150,7 @@ export function AdminSidebar({
   const location = useLocation();
   const { signOut } = useAuth();
   const items = NAV_ITEMS.filter(
-    (item) => item.allowedRoles.includes(userRole as any),
+    (item) => item.allowedRoles.includes(userRole as NavItem["allowedRoles"][number]),
   );
 
   return (

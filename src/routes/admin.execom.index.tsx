@@ -17,6 +17,7 @@ import { ConfirmButton } from "@/components/admin/confirm-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth-context";
 import { buildFileUrl } from "@/lib/pb";
+import { deleteAdminExecomMember, listAdminExecom } from "@/lib/data/admin-execom.client";
 
 interface ExecomMember {
   id: string;
@@ -63,26 +64,11 @@ export default function AdminExecom() {
 
   const { data, isLoading } = useQuery<ExecomResponse>({
     queryKey: ["admin-execom"],
-    queryFn: async () => {
-      const res = await fetch("/api/admin/execom?perPage=200", {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to load execom");
-      return res.json();
-    },
+    queryFn: listAdminExecom,
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`/api/admin/execom/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-      if (!res.ok) throw new Error("Failed to delete member");
-    },
+    mutationFn: deleteAdminExecomMember,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-execom"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });

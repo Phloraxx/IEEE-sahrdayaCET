@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { listAdminRegistrations, runRegistrationAdminCommand } from "@/lib/data/admin-registrations.client";
 
 const registrationStatusValues = ["all", "confirmed", "pending", "cancelled"] as const;
 type RegistrationStatus = (typeof registrationStatusValues)[number];
@@ -33,7 +34,7 @@ interface RegistrationRow {
   registrationStatus: string;
   paymentStatus: string;
   checkedIn: boolean;
-  checkedInAt: string;
+  checkedInAt: string | null;
   ticketId: string;
   amount: number;
   createdAt: string;
@@ -77,33 +78,11 @@ export default function AdminRegistrations() {
 
   const { data, isLoading } = useQuery<RegistrationsResponse>({
     queryKey: ["admin-registrations", { search, status, page }],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        page: String(page),
-        perPage: String(perPage),
-      });
-      if (search) params.set("search", search);
-      if (status !== "all") params.set("status", status);
-      const res = await fetch(`/api/admin/registrations?${params}`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to load registrations");
-      return res.json();
-    },
+    queryFn: () => listAdminRegistrations({ page, perPage, search, status }),
   });
 
   const checkInMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`/api/admin/registrations/${id}`, {
-        method: "PUT",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ checkedIn: true }),
-      });
-      if (!res.ok) throw new Error("Failed to check in");
-    },
+    mutationFn: (id: string) => runRegistrationAdminCommand(id, "check-in"),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-registrations"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
@@ -111,17 +90,7 @@ export default function AdminRegistrations() {
   });
 
   const cancelMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`/api/admin/registrations/${id}`, {
-        method: "PUT",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ registrationStatus: "cancelled" }),
-      });
-      if (!res.ok) throw new Error("Failed to cancel");
-    },
+    mutationFn: (id: string) => runRegistrationAdminCommand(id, "cancel"),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-registrations"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
@@ -152,7 +121,7 @@ export default function AdminRegistrations() {
         <Select
           value={status}
           onValueChange={(v) => {
-            setStatus(v);
+            setStatus(v as RegistrationStatus);
             setPage(1);
           }}
         >

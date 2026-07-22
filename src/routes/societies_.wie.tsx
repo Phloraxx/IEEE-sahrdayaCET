@@ -1,12 +1,11 @@
 import { useLoaderData } from "react-router";
-import React, { useState, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import React, { useMemo } from "react";
+import { motion } from "framer-motion";
 import {
   Users,
   Calendar,
   Heart,
   ExternalLink,
-  X,
   Plus,
   Pencil,
 } from "lucide-react";
@@ -18,7 +17,8 @@ import { ContextualBlogLinks } from "@/components/blog/ContextualBlogLinks";
 import { APP_URL } from "@/lib/constants";
 import { formatDate } from "@/lib/dates";
 import { canRegisterForEvent } from "@/lib/event-lifecycle";
-import { fetchSocietyData } from "@/server/public/society-detail.server";
+import { fetchSocietyData, type SocietyPageData } from "@/server/public/society-detail.server";
+import { CanonicalLink } from "@/components/CanonicalLink";
 
 // Fetch WIE data
 export const meta = () => [
@@ -28,18 +28,17 @@ export const meta = () => [
   { property: "og:image", content: `${APP_URL}/web.png` },
   { property: "og:url", content: `${APP_URL}/societies/wie` },
 ];
-export async function loader() { return fetchSocietyData("wie"); }
+export async function loader(): Promise<SocietyPageData> { return fetchSocietyData("wie"); }
 
 export default function WIESocietyPage() {
   const data = useLoaderData<typeof loader>();
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const { user } = useAuth();
 
   const canEdit = useMemo(() => {
     if (!user) return false;
     if (user.role === "admin") return true;
     if (user.role === "chair") {
-      const chairsList = (data.society as any).chairs || [];
+      const chairsList = data.society.chairs || [];
       return chairsList.includes(user.id);
     }
     return false;
@@ -68,6 +67,8 @@ export default function WIESocietyPage() {
   }, [data.members, advisor]);
 
   return (
+    <>
+      <CanonicalLink path="/societies/wie" />
     <div className="min-h-screen bg-[#F8F9FA] text-slate-800 font-sans selection:bg-purple-500/20 selection:text-purple-900">
       <Navbar />
 
@@ -451,5 +452,6 @@ export default function WIESocietyPage() {
       <ContextualBlogLinks />
       <Footer />
     </div>
+    </>
   );
 }

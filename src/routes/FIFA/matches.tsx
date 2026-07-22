@@ -4,36 +4,7 @@ import { FifaLayout } from '@/features/fifa/fifa-layout'
 import { FifaMatchCard, FifaMatchCardSkeleton } from '@/features/fifa/fifa-match-card'
 import { findLiveMatch, isLiveStatus } from '@/lib/fifa-live-match'
 import { filterPublicActiveFifaMatches } from '@/lib/fifa-match-filters'
-
-interface MatchData {
-  id: string
-  team_home: string
-  team_away: string
-  stage: string
-  kickoff_at: string
-  betting_locks_at: string
-  status: string
-  result_winner: string
-  result_home_goals: number
-  result_away_goals: number
-  result_advance: string
-  settled: boolean
-  markets: Array<{
-    id: string
-    market_type: string
-    mode: string
-    line: number
-    is_open: boolean
-    void: boolean
-    pool_total: number
-  }>
-}
-
-async function fetchMatches(): Promise<{ matches: MatchData[] }> {
-  const res = await fetch('/api/fifa/matches')
-  if (!res.ok) throw new Error('Failed to load matches')
-  return res.json()
-}
+import { listFifaMatches } from '@/lib/data/fifa.client'
 
 async function fetchLiveScores(): Promise<{
   matches: Array<{
@@ -58,16 +29,16 @@ export default function MatchesPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['fifa-matches'],
-    queryFn: fetchMatches,
+    queryFn: () => listFifaMatches(),
     refetchInterval: 15_000,
-    enabled: !isDetail,
+    enabled: typeof window !== 'undefined' && !isDetail,
   })
 
   const { data: liveData } = useQuery({
     queryKey: ['fifa-live-scores'],
     queryFn: fetchLiveScores,
     refetchInterval: 60_000,
-    enabled: !isDetail,
+    enabled: typeof window !== 'undefined' && !isDetail,
   })
 
   if (isDetail) {

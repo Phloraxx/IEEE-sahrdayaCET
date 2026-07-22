@@ -22,7 +22,7 @@ interface LeaderboardData {
 }
 
 async function fetchLeaderboard(): Promise<LeaderboardData> {
-  const res = await fetch('/pb/api/fifa/leaderboard')
+  const res = await fetch('/api/fifa/leaderboard')
   if (!res.ok) throw new Error('Failed to load leaderboard')
   return res.json()
 }

@@ -1,6 +1,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { Trash2, RefreshCw, Info, Loader2 } from "lucide-react"
+import { deleteAdminFifaFeedEvent, listAdminFifaFeed } from "@/lib/data/admin-fifa.client";
+import { Trash2, RefreshCw, Info } from "lucide-react"
 import { PanelHeader } from "@/components/admin/panel-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,13 +21,7 @@ interface FeedEvent {
   user: { id: string; display_name: string } | null
 }
 
-async function fetchFeed(): Promise<{ events: FeedEvent[]; total: number }> {
-  const res = await fetch('/api/admin/fifa/feed')
-  if (!res.ok) throw new Error('Failed to load feed')
-  return res.json()
-}
-
-function getTypeColor(type: string) {
+function getTypeColor(type: string): "default" | "secondary" | "destructive" | "outline" {
   switch (type) {
     case 'bet_placed': return 'default'
     case 'result': return 'secondary'
@@ -47,7 +42,7 @@ export default function AdminFifaFeed() {
   const queryClient = useQueryClient()
   const { data, isLoading, isFetching, refetch } = useQuery({ 
     queryKey: ['admin-fifa-feed'], 
-    queryFn: fetchFeed,
+    queryFn: listAdminFifaFeed,
     refetchInterval: 15000, // Optional: keep fresh, but filtering is client-side
   })
   
@@ -61,16 +56,7 @@ export default function AdminFifaFeed() {
   }, [data?.events, filterText])
 
   const deleteEvent = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`/api/admin/fifa/feed/${id}`, {
-        method: 'DELETE',
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || 'Failed to delete event')
-      }
-      return id
-    },
+    mutationFn: async (id: string) => { await deleteAdminFifaFeedEvent(id); return id },
     onMutate: async (id: string) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['admin-fifa-feed'] })
@@ -163,7 +149,7 @@ export default function AdminFifaFeed() {
                   {new Date(event.created).toLocaleString()}
                 </TableCell>
                 <TableCell>
-                  <Badge variant={getTypeColor(event.type) as any} className={getTypeClass(event.type)}>
+                  <Badge variant={getTypeColor(event.type)} className={getTypeClass(event.type)}>
                     {event.type}
                   </Badge>
                 </TableCell>

@@ -20,6 +20,7 @@ import { generateQRDataUrl, downloadQR as downloadQRFile } from "@/lib/qr-utils"
 import { getTicketStatusInfo } from "@/lib/ticketStatus";
 import { formatDateShort } from "@/lib/dates";
 import { logError } from "@/lib/logger";
+import { getTicket } from "@/lib/data/public-client";
 
 interface TicketData {
   found?: boolean;
@@ -62,9 +63,8 @@ export default function TicketPage({ ticketId }: PageProps) {
   useEffect(() => {
     const fetchTicket = async () => {
       try {
-        const res = await fetch(`/api/ticket/${ticketId}`);
-        if (!res.ok) throw new Error("Ticket not found");
-        const data = await res.json();
+        const data = await getTicket(ticketId) as unknown as TicketData;
+        if (!data.found || !data.ticket) throw new Error("Ticket not found");
         setTicketData(data);
 
         if (data.ticket) {

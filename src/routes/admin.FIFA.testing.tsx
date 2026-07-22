@@ -1,32 +1,20 @@
 import { Link } from "react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
-import { AlertTriangle, Loader2, Plus, Trash2 } from "lucide-react"
+import { AlertTriangle, Loader2, Plus } from "lucide-react"
 import { PanelHeader } from "@/components/admin/panel-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
-} from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { formatMarketOptionLabel } from "@/lib/fifa-market-labels"
+import { adjustFifaBalance, createEspnFifaTestMatch, createFifaTestMatch, importFifaFixturesFromPublicFeed, listAdminFifaBets, listAdminFifaMatches } from "@/lib/data/admin-fifa.client"
 
 // Admin testing console (FIFA-GAME.md §2.6). Lets the admin exercise the full
 // bet→settle→payout flow without a live match, adjust balances, and reset
 // the game for pre-launch testing.
-interface MatchRow {
-  id: string
-  team_home: string
-  team_away: string
-  stage: string
-  kickoff_at: string
-  status: string
-  settled: boolean
-}
-
 interface BetRow {
   id: string
   user: { id: string; display_name: string; email: string }
@@ -41,36 +29,13 @@ interface BetRow {
   market: { id: string; market_type: string } | null
 }
 
-async function fetchMatches(): Promise<{ matches: MatchRow[] }> {
-  const res = await fetch('/api/admin/fifa/matches?perPage=100')
-  if (!res.ok) throw new Error('Failed to load matches')
-  return res.json()
-}
-
-async function fetchBets(matchId: string): Promise<{ bets: BetRow[] }> {
-  const res = await fetch(`/api/admin/fifa/bets?match=${matchId}`)
-  if (!res.ok) throw new Error('Failed to load bets')
-  return res.json()
-}
-
 export default function AdminFifaTesting() {
   const queryClient = useQueryClient()
-  const { data: matchesData, isLoading } = useQuery({ queryKey: ['admin-fifa-matches'], queryFn: fetchMatches })
+  const { data: matchesData, isLoading } = useQuery({ queryKey: ['admin-fifa-matches'], queryFn: listAdminFifaMatches })
   const [expandedMatch, setExpandedMatch] = useState<string | null>(null)
 
   const createTestMatch = useMutation({
-    mutationFn: async () => {
-      const res = await fetch('/api/admin/fifa/testing', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'create-test-match' }),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || 'Failed')
-      }
-      return res.json()
-    },
+    mutationFn: createFifaTestMatch,
     onSuccess: () => {
       toast.success('Test match created with 4 default markets')
       queryClient.invalidateQueries({ queryKey: ['admin-fifa-matches'] })
@@ -79,18 +44,7 @@ export default function AdminFifaTesting() {
   })
 
   const createEspnTestMatch = useMutation({
-    mutationFn: async () => {
-      const res = await fetch('/api/admin/fifa/testing', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'create-espn-test-match' }),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || 'Failed')
-      }
-      return res.json()
-    },
+    mutationFn: createEspnFifaTestMatch,
     onSuccess: (data) => {
       toast.success(`ESPN test match (${data.team_home ?? 'France'} vs ${data.team_away ?? 'England'}) — ${data.status}, FT ${new Date(data.end_at).toLocaleTimeString()}`)
       queryClient.invalidateQueries({ queryKey: ['admin-fifa-matches'] })
@@ -99,18 +53,7 @@ export default function AdminFifaTesting() {
   })
 
   const importFixtures = useMutation({
-    mutationFn: async () => {
-      const res = await fetch('/api/admin/fifa/testing', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'import-fixtures' }),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || 'Failed')
-      }
-      return res.json()
-    },
+    mutationFn: importFifaFixturesFromPublicFeed,
     onSuccess: (data) => {
       toast.success(`Imported ${data.imported}, updated ${data.updated ?? 0}, skipped ${data.skipped}`)
       queryClient.invalidateQueries({ queryKey: ['admin-fifa-matches'] })
@@ -176,13 +119,12 @@ export default function AdminFifaTesting() {
       </div>
 
       {/* Danger zone */}
-      <DangerZone />
     </div>
   )
 }
 
 function MatchBets({ matchId }: { matchId: string }) {
-  const { data, isLoading } = useQuery({ queryKey: ['admin-fifa-bets', matchId], queryFn: () => fetchBets(matchId) })
+  const { data, isLoading } = useQuery({ queryKey: ['admin-fifa-bets', matchId], queryFn: () => listAdminFifaBets(matchId) as Promise<{ bets: BetRow[]; total: number }> })
   return (
     <div className="border-t px-3 py-2 bg-muted/30">
       {isLoading && <p className="text-xs text-muted-foreground py-2">Loading bets…</p>}
@@ -224,18 +166,7 @@ function BalanceAdjustCard() {
   const [amount, setAmount] = useState(100)
   const [note, setNote] = useState('')
   const adjust = useMutation({
-    mutationFn: async () => {
-      const res = await fetch('/api/admin/fifa/testing', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'adjust-balance', userId, amount: Number(amount), note: note || undefined }),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || 'Failed')
-      }
-      return res.json()
-    },
+    mutationFn: () => adjustFifaBalance(userId, Number(amount), note || undefined),
     onSuccess: (data) => {
       toast.success(`Balance adjusted — new balance: ${data.newBalance}`)
       setUserId('')
@@ -266,62 +197,6 @@ function BalanceAdjustCard() {
           {adjust.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Apply
         </Button>
       </div>
-    </div>
-  )
-}
-
-function DangerZone() {
-  const queryClient = useQueryClient()
-  const [resetOpen, setResetOpen] = useState(false)
-  const [confirmText, setConfirmText] = useState('')
-
-  const reset = useMutation({
-    mutationFn: async () => {
-      const res = await fetch('/api/admin/fifa/testing', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'reset', confirm: confirmText }),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || 'Failed')
-      }
-      return res.json()
-    },
-    onSuccess: () => {
-      toast.success('Game reset complete')
-      setResetOpen(false)
-      setConfirmText('')
-      queryClient.invalidateQueries({ queryKey: ['admin-fifa-matches'] })
-    },
-    onError: (e: Error) => toast.error(e.message),
-  })
-
-  return (
-    <div className="mt-8 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
-      <div className="flex items-center gap-2 mb-2">
-        <AlertTriangle className="h-4 w-4 text-destructive" />
-        <h3 className="text-sm font-semibold text-destructive">Danger zone</h3>
-      </div>
-      <p className="text-xs text-muted-foreground mb-3">Reset the entire game: voids all bets, refunds all stakes, resets every user's balance to starting_balance, wipes transactions. For pre-launch testing only.</p>
-      <Dialog open={resetOpen} onOpenChange={setResetOpen}>
-        <DialogTrigger asChild>
-          <Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" /> Reset game</Button>
-        </DialogTrigger>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Reset the entire game?</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground py-2">
-            This will: delete all bets, delete all transactions, void all matches (clear results), close all markets, and reset every user's balance to starting_balance. <strong>This cannot be undone.</strong>
-          </p>
-          <div>
-            <Label htmlFor="confirm">Type RESET to confirm</Label>
-            <Input id="confirm" value={confirmText} onChange={(e) => setConfirmText(e.target.value)} placeholder="RESET" />
-          </div>
-          <Button variant="destructive" onClick={() => reset.mutate()} disabled={reset.isPending || confirmText !== 'RESET'}>
-            {reset.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Reset everything
-          </Button>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

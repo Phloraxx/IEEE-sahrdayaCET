@@ -1,62 +1,73 @@
 # Security Architecture
 
-## Trust model
+## Trust boundary
 
-- `admin` accounts are privileged operators.
-- `chair` accounts are trusted internal staff.
-- Society scoping in TanStack admin routes is primarily an operational and UX boundary that prevents accidental cross-society actions. It is not a hostile-user isolation guarantee unless the corresponding PocketBase API rule explicitly enforces the same scope.
-- Preview deployments under the shared application parent domain are protected and run trusted code. The domain-wide PocketBase auth cookie is an intentional part of cross-subdomain OAuth/session continuity.
-- Public execom contact information and public ticket lookup are intentional product behavior.
+The PocketBase API is an application security boundary, not a private database hidden behind React Router. Direct API access must be safe under collection rules and hooks.
+
+Roles are `user`, `chair`, `content`, and `admin`.
+
+- `user`: own protected records plus public data.
+- `chair`: staff access scoped by PocketBase relations to societies they chair.
+- `content`: owns editorial blog records they create.
+- `admin`: administrative access and privileged commands.
 
 ## Enforcement layers
 
-### PocketBase API rules
+### Collection API rules
 
-API rules answer: **who may perform the base CRUD operation?**
+Rules answer who may list/view/create/update/delete records. They must remain correct if a caller bypasses the UI completely.
 
-Keep them as simple as the product threat model allows. Rules remain the first guard for direct REST access. Where trusted staff are intentionally broader than the admin UI, document that explicitly rather than adding complex relation chains solely for hostile isolation between trusted staff.
+Examples:
 
-### PocketBase hooks
+- chairs cannot enumerate another society's private events;
+- users can read only their own protected records;
+- content editors can mutate only their own posts;
+- direct `registrations` and `fifa_bets` creation is disabled because those are commands.
 
-Hooks answer: **is this state transition valid?**
+### Request/model hooks
 
-Any invariant involving money, ticket validity, registration state, counters, check-in integrity, coupons, or FIFA balances must remain valid even when TanStack routes are bypassed. Therefore the authoritative check belongs in a PocketBase hook, with TanStack optionally duplicating cheap checks for better UX.
+Hooks own state-transition invariants such as immutable event URLs, check-in validity, counter protection, payment/ticket transitions, privacy enrichment, and singleton restrictions.
 
-Examples include:
+### Transactional custom routes
 
-- registration capacity and deadline
-- payment and ticket state
-- coupon usage
-- event counters
-- FIFA balances and settlement
-- check-in validity
+Any operation that moves a wallet balance, reserves event capacity, consumes a coupon, creates a ticket, or refunds/pays several records must be all-or-nothing.
 
-For check-in, PocketBase enforces that a `false -> true` transition is only allowed for a confirmed registration whose event has `checkInEnabled = true`, and PocketBase owns `checkedInAt`.
-
-### PocketBase custom routes
-
-Use custom routes when collection CRUD is not a good fit for the operation, such as payment webhooks, coupon validation, public ticket lookup, and FIFA settlement. Do not move ordinary CRUD into custom routes just to duplicate existing PocketBase authorization.
-
-### TanStack Start
-
-TanStack is the BFF and UX layer. It should handle:
-
-- authentication checks
-- admin/chair dashboard scoping
-- CSRF checks
-- schema validation
-- rate limiting
-- response shaping
-- friendly errors
-
-It is not the only enforcement point for load-bearing business invariants.
+PocketBase `runInTransaction` is used for registration, FIFA betting/settlement/voiding, coupon reconciliation, and balance adjustments. All writes inside the transaction use the transaction app.
 
 ## Runtime privilege policy
 
-The application runtime must never receive or use `POCKETBASE_SUPERUSER_TOKEN`. Elevated PocketBase credentials are migration-only. Runtime application code uses the authenticated user's PocketBase client; privileged state transitions are implemented inside PocketBase hooks or properly authenticated PocketBase custom routes.
+The web runtime must never receive PocketBase superuser credentials. `src/lib/pb.server.ts` creates only an unauthenticated public SSR client.
 
-## Small-scale operational choices
+A superuser exists only for administrative operations outside the app and for disposable CI fixture setup. CI credentials are created inside the throwaway PocketBase container.
 
-The current in-memory rate limiter is intentional for a single application instance. Introduce a shared store such as Redis only when the application is horizontally scaled.
+## Authentication
 
-PocketBase container versions should be pinned to the version the repository is developed and tested against instead of using an unbounded `latest` tag.
+Browser authentication is direct PocketBase OAuth on the same public origin. There is no domain-wide custom auth cookie, OAuth callback BFF, or server-side token forwarding layer.
+
+User role changes cannot be performed through generic user updates. Admins use `POST /api/app/admin/users/:id/role`.
+
+## Private fields
+
+Execom records are publicly readable for the directory, but PocketBase enrichment hides `email` and `phone` from non-admin responses.
+
+Ticket lookup intentionally returns the minimum public ticket/event state. Authenticated callers may separately read registration details when collection rules permit it.
+
+## Financial game integrity
+
+WC Predict uses fake points, but its ledger is still treated as financial-style state:
+
+- bet placement is atomic;
+- settlement has exactly one payout engine;
+- settlement is idempotent;
+- direct financial void edits are rejected;
+- market/match void commands refund exactly once;
+- admin adjustments update balance and ledger together;
+- no background score synchronizer is allowed to issue payouts.
+
+Live-score APIs provide display data only. Admin settlement is explicit.
+
+## Deployment isolation
+
+Staging and production must never share PocketBase data. Staging is also marked `noindex, nofollow` at the web response layer.
+
+Public routing should expose `/api` to PocketBase but not map `/_/` to the PocketBase service on the public hostname.

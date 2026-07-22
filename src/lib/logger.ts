@@ -17,11 +17,12 @@ export function logError(context: string, error: unknown, meta?: Record<string, 
     console.error(`[${context}]`, message)
     if (stack) console.error(stack)
     if (error && typeof error === 'object') {
-      if ('response' in error) {
-        console.error('Response details:', JSON.stringify((error as any).response, null, 2))
+      const details = error as Record<string, unknown>
+      if ('response' in details) {
+        console.error('Response details:', JSON.stringify(details.response, null, 2))
       }
-      if ('status' in error) {
-        console.error('Status:', (error as any).status)
+      if ('status' in details) {
+        console.error('Status:', details.status)
       }
     }
   }

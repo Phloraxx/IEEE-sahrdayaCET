@@ -1,35 +1,24 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getPBUrl, getPublicPBUrl } from "../../../src/lib/pb.server";
+import { getPBUrl } from "../../../src/lib/pb.server";
 
-afterEach(() => {
-  vi.unstubAllEnvs();
-});
+afterEach(() => vi.unstubAllEnvs());
 
-describe("PocketBase URL resolution", () => {
-  it("preserves an explicit local Docker URL during development", () => {
-    vi.stubEnv("NODE_ENV", "development");
-    vi.stubEnv("POCKETBASE_URL", "http://pocketbase:8090");
-    vi.stubEnv("PUBLIC_POCKETBASE_URL", "");
-
-    expect(getPBUrl()).toBe("http://pocketbase:8090");
-    expect(getPublicPBUrl()).toBe("http://pocketbase:8090");
-  });
-
-  it("rewrites ambiguous shared-network aliases only in production", () => {
+describe("PocketBase internal URL resolution", () => {
+  it("uses the explicit internal URL verbatim", () => {
     vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("POCKETBASE_URL", "http://pocketbase:8090");
-    vi.stubEnv("PUBLIC_POCKETBASE_URL", "http://pocketbase:8090");
-
-    expect(getPBUrl()).toBe("https://db.ieeesahrdaya.com");
-    expect(getPublicPBUrl()).toBe("https://db.ieeesahrdaya.com");
+    vi.stubEnv("POCKETBASE_INTERNAL_URL", "http://pocketbase:8090/");
+    expect(getPBUrl()).toBe("http://pocketbase:8090");
   });
 
-  it("does not silently default local development to production", () => {
+  it("uses localhost only for local development", () => {
     vi.stubEnv("NODE_ENV", "development");
-    vi.stubEnv("POCKETBASE_URL", "");
-    vi.stubEnv("PUBLIC_POCKETBASE_URL", "");
+    vi.stubEnv("POCKETBASE_INTERNAL_URL", "");
+    expect(getPBUrl()).toBe("http://127.0.0.1:8090");
+  });
 
-    expect(() => getPBUrl()).toThrow("POCKETBASE_URL is not configured");
-    expect(() => getPublicPBUrl()).toThrow("POCKETBASE_URL is not configured");
+  it("fails closed when production has no backend configured", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("POCKETBASE_INTERNAL_URL", "");
+    expect(() => getPBUrl()).toThrow("POCKETBASE_INTERNAL_URL is required in production");
   });
 });

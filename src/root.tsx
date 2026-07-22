@@ -93,6 +93,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
+export function headers() {
+  return process.env.DEPLOY_ENV === "production"
+    ? {}
+    : { "X-Robots-Tag": "noindex, nofollow" };
+}
+
 export default function App() {
   const [queryClient] = useState(
     () =>

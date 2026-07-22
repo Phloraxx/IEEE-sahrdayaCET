@@ -4,6 +4,7 @@ import { APP_URL } from "@/lib/constants";
 import { fetchEvents, type SerializableEvent } from "@/server/public/events.server";
 import EventsPageClient from "@/features/events/EventsPageClient";
 import type { EventWithSociety } from "@/types";
+import { CanonicalLink } from "@/components/CanonicalLink";
 
 
 export const meta = () => [
@@ -29,12 +30,14 @@ export default function EventsPage() {
           itemListElement: initialEvents.slice(0, 50).map((ev, i) => ({
             "@type": "ListItem",
             position: i + 1,
-            url: `${appUrl}/events`,
+            url: `${appUrl}/events/${ev.slug}`,
             name: ev.title,
           })),
         }
       : null;
   return (
+    <>
+      <CanonicalLink path="/events" />
     <>
       {itemListSchema && (
         <script
@@ -50,6 +53,7 @@ export default function EventsPage() {
       <ErrorBoundary>
         <EventsPageClient initialEvents={initialEvents as EventWithSociety[]} />
       </ErrorBoundary>
+    </>
     </>
   );
 }

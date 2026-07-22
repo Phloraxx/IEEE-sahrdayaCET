@@ -1,5 +1,5 @@
 import { useLoaderData } from 'react-router'
-import { fetchOverview } from '@/server/public/fifa-overview.server'
+import { fetchOverview, type OverviewData } from '@/server/public/fifa-overview.server'
 import { FifaLayout } from '@/features/fifa/fifa-layout'
 import { FifaHero } from '@/features/fifa/fifa-hero'
 import { FifaMatchCarousel } from '@/features/fifa/fifa-match-carousel'
@@ -8,23 +8,6 @@ import { FifaHowItWorks } from '@/features/fifa/fifa-how-it-works'
 import { FifaLeaderboardPreview } from '@/features/fifa/fifa-leaderboard-preview'
 import { FifaCtaBand } from '@/features/fifa/fifa-cta-band'
 
-interface OverviewData {
-  prize: string
-  starting_balance: number
-  max_bet_percent: number
-  raffle_active_participant_min_bets: number
-  nextMatch: {
-    id: string
-    team_home: string
-    team_away: string
-    stage: string
-    kickoff_at: string
-    status: string
-    openMarkets: number
-  } | null
-  playerCount: number | null
-  totalBets: number | null
-}
 
 export const meta = () => [
   { title: "WC Predict '26 · IEEE Sahrdaya SB" },

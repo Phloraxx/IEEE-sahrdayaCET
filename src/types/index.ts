@@ -48,6 +48,7 @@ export interface Event {
     createdAt?: string;
     updatedAt?: string;
     title: string;
+    slug: string;
     description?: string;
     date: string;
     endDate?: string;
@@ -178,7 +179,7 @@ export interface BlogPost {
   societyId?: string;
   eventId?: string;
   society?: { id: string; name?: string; slug?: string; logoUrl?: string } | string;
-  event?: { id: string; title: string } | string;
+  event?: { id: string; title: string; slug?: string } | string;
   category?: "IEEE" | "Society" | "Event" | string;
   publishedAt?: string;
   published?: boolean;

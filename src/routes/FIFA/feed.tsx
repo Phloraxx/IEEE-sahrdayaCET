@@ -15,7 +15,7 @@ interface FeedEvent {
 }
 
 async function fetchFeed(): Promise<{ events: FeedEvent[] }> {
-  const res = await fetch('/pb/api/fifa/feed?limit=50')
+  const res = await fetch('/api/fifa/feed?limit=50')
   if (!res.ok) throw new Error('Failed to load feed')
   return res.json()
 }

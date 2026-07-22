@@ -4,6 +4,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import SocietiesClient from "@/features/societies/SocietiesClient";
 import type { Society } from "@/types";
 import { fetchSocieties } from "@/server/public/societies.server";
+import { CanonicalLink } from "@/components/CanonicalLink";
 
 export const meta = () => [
   { title: "Societies | IEEE Sahrdaya Student Branch" },
@@ -18,8 +19,11 @@ export async function loader(): Promise<Society[]> { return fetchSocieties(); }
 export default function SocietiesPage() {
   const societies = useLoaderData<typeof loader>();
   return (
+    <>
+      <CanonicalLink path="/societies" />
     <ErrorBoundary>
       <SocietiesClient societies={societies} />
     </ErrorBoundary>
+    </>
   );
 }

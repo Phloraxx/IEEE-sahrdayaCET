@@ -1,5 +1,6 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { listFifaRaffleDraws, runFifaRaffle, type FifaRaffleResult } from "@/lib/data/admin-fifa.client";
 import { AlertCircle, Loader2, Trophy, Info, PartyPopper } from "lucide-react"
 import { PanelHeader } from "@/components/admin/panel-header"
 import { Button } from "@/components/ui/button"
@@ -14,19 +15,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import { toast } from "sonner"
-import { useState, useEffect, useRef } from "react"
-
-interface RaffleDraw {
-  id: string
-  drawn_at: string
-  winner: string
-  entries_snapshot: {
-    total_tickets: number
-    winning_pick: number
-    entries: Array<{ user_id: string; display_name: string; rank: number; tickets: number; bets_count: number }>
-  }
-  seed: string
-}
+import { useState, useEffect } from "react"
 
 interface LeaderboardEntry {
   rank: number
@@ -36,43 +25,22 @@ interface LeaderboardEntry {
   bets_count: number
 }
 
-async function fetchDraws(): Promise<{ draws: RaffleDraw[] }> {
-  const res = await fetch('/api/admin/fifa/raffle-draws')
-  if (!res.ok) throw new Error('Failed to load draws')
-  return res.json()
-}
-
 async function fetchLeaderboard(): Promise<LeaderboardEntry[]> {
-  const res = await fetch('/pb/api/fifa/leaderboard')
+  const res = await fetch('/api/fifa/leaderboard')
   if (!res.ok) throw new Error('Failed to load leaderboard')
   return res.json()
 }
 
 export default function AdminFifaRaffle() {
-  const { data: drawsData, isLoading: drawsLoading } = useQuery({ queryKey: ['admin-fifa-raffle-draws'], queryFn: fetchDraws })
+  const { data: drawsData, isLoading: drawsLoading } = useQuery({ queryKey: ['admin-fifa-raffle-draws'], queryFn: listFifaRaffleDraws })
   const { data: lbData, isLoading: lbLoading } = useQuery({ queryKey: ['admin-fifa-leaderboard'], queryFn: fetchLeaderboard })
   const { data: settingsData, isLoading: settingsLoading } = useQuery({ queryKey: ['admin-fifa-settings'], queryFn: fetchSettings })
-  const [settings, setSettings] = useState<FifaSettings | null>(null)
-  const [winnerResult, setWinnerResult] = useState<any>(null)
+  const [winnerResult, setWinnerResult] = useState<FifaRaffleResult | null>(null)
   const [isDrawing, setIsDrawing] = useState(false)
   const queryClient = useQueryClient()
 
-  useEffect(() => {
-    if (settingsData) setSettings(settingsData)
-  }, [settingsData])
-
   const runDraw = useMutation({
-    mutationFn: async () => {
-      const res = await fetch('/api/admin/fifa/raffle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        throw new Error(data.error || 'Raffle failed')
-      }
-      return data
-    },
+    mutationFn: runFifaRaffle,
     onSuccess: (data) => {
       // Intentionally delay showing the winner so the animation can play out
       setTimeout(() => {
@@ -139,7 +107,7 @@ export default function AdminFifaRaffle() {
           <h3 className="text-lg font-semibold mb-4">Past Draws</h3>
           <div className="space-y-3">
             {drawsData.draws.map((d) => {
-              const winner = d.entries_snapshot?.entries?.find((e) => e.user_id === d.winner)
+              const winner = d.entries_snapshot?.entries?.find((e: { user_id: string; display_name: string }) => e.user_id === d.winner)
               return (
                 <div key={d.id} className="rounded-lg border bg-card p-4">
                   <div className="flex items-center justify-between mb-2">
@@ -286,7 +254,7 @@ function DrawAnimation({ names }: { names: string[] }) {
   )
 }
 
-function WinnerView({ result, onReset }: { result: any, onReset: () => void }) {
+function WinnerView({ result, onReset }: { result: FifaRaffleResult; onReset: () => void }) {
   const snapshot = result.entries_snapshot
   const winner = result.winner
 
@@ -331,7 +299,7 @@ function WinnerView({ result, onReset }: { result: any, onReset: () => void }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {snapshot.entries.map((entry: any) => {
+              {snapshot.entries.map((entry) => {
                 const isWinner = entry.user_id === winner.user_id
                 return (
                   <TableRow key={entry.user_id} className={isWinner ? "bg-primary/5 font-medium" : ""}>

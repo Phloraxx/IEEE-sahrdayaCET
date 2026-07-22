@@ -24,31 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth-context";
-
-interface EventRow {
-  id: string;
-  title: string;
-  date: string;
-  endDate: string;
-  venue: string;
-  price: number;
-  status: string;
-  registrationOpen: boolean;
-  maxCapacity: number;
-  registeredCount: number;
-  checkedInCount: number;
-  isPaid: boolean;
-  societyName: string;
-  societyId: string;
-}
-
-interface EventsResponse {
-  events: EventRow[];
-  total: number;
-  page: number;
-  perPage: number;
-  hasMore: boolean;
-}
+import { deleteAdminEvent, listAdminEvents, type AdminEventListItem, type AdminEventsResponse } from "@/lib/data/admin-events.client";
 
 function EventsSkeleton() {
   return (
@@ -82,33 +58,12 @@ export default function AdminEvents() {
   const [page, setPage] = useState(1);
   const perPage = 20;
 
-  const { data, isLoading } = useQuery<EventsResponse>({
+  const { data, isLoading } = useQuery<AdminEventsResponse>({
     queryKey: ["admin-events", { search, status, page }],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        page: String(page),
-        perPage: String(perPage),
-      });
-      if (search) params.set("search", search);
-      if (status !== "all") params.set("status", status);
-      const res = await fetch(`/api/admin/events?${params}`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to load events");
-      return res.json();
-    },
+    queryFn: () => listAdminEvents({ page, perPage, search, status }),
   });
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`/api/admin/events/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-      if (!res.ok) throw new Error("Failed to delete event");
-    },
+    mutationFn: deleteAdminEvent,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-events"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
@@ -230,7 +185,7 @@ export default function AdminEvents() {
 }
 
 interface EventsListProps {
-  rows: EventRow[];
+  rows: AdminEventListItem[];
   canEdit: boolean;
   onDelete: (id: string) => void;
   deletingPending: boolean;

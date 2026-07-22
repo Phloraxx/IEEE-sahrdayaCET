@@ -1,11 +1,27 @@
 import { createPublicPB } from "@/lib/pb.server";
-import { buildFileUrl } from "@/lib/pb";
+import { buildFileUrl, escapeFilterValue } from "@/lib/pb";
+
+export interface SocietyPageData {
+  society: {
+    id: string; name: string; slug: string; bio: string; chairs: string[];
+    defaultWhatsappLink: string; logoUrl: string; bannerUrl: string;
+  };
+  events: Array<{
+    id: string; title: string; description: string; date: string; endDate: string;
+    registrationStart: string; registrationDeadline: string; venue: string; price: number;
+    status: string; bannerUrl: string; externalFormUrl: string;
+  }>;
+  members: Array<{
+    id: string; name: string; position: string; department: string; batch: string;
+    photoUrl: string; linkedin: string; instagram: string;
+  }>;
+}
 
 export async function fetchSocietyData(slug: string): Promise<SocietyPageData> {
     const pb = createPublicPB();
     const society = await pb
       .collection("societies")
-      .getFirstListItem(`slug = '${slug.toLowerCase()}'`)
+      .getFirstListItem(`slug = ${escapeFilterValue(slug.toLowerCase())}`)
       .catch(() => null);
 
     if (!society) {
@@ -16,7 +32,7 @@ export async function fetchSocietyData(slug: string): Promise<SocietyPageData> {
       pb
         .collection("events")
         .getList(1, 100, {
-          filter: `society = '${society.id}'`,
+          filter: `society = ${escapeFilterValue(society.id)}`,
           sort: "-date",
         })
         .then((res) => res.items)
@@ -24,7 +40,7 @@ export async function fetchSocietyData(slug: string): Promise<SocietyPageData> {
       pb
         .collection("execom")
         .getList(1, 100, {
-          filter: `sectionId = '${slug.toLowerCase()}'`,
+          filter: `sectionId = ${escapeFilterValue(slug.toLowerCase())}`,
           sort: "order",
         })
         .then((res) => res.items)

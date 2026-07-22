@@ -5,6 +5,7 @@ import { PanelHeader } from "@/components/admin/panel-header";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { checkInByTicket } from "@/lib/data/admin-registrations.client";
 
 
 interface VerifyResult {
@@ -36,20 +37,10 @@ export default function AdminCheckIn() {
     setResult(null);
 
     try {
-      const res = await fetch("/api/check-in/verify", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ticketId: id }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || "Verification failed");
-      } else {
-        setResult(data);
-      }
-    } catch {
-      setError("Network error — try again.");
+      const data = await checkInByTicket(id);
+      setResult(data);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Verification failed");
     } finally {
       setLoading(false);
     }

@@ -24,44 +24,11 @@ import Footer from "@/components/Footer";
 import { ContextualBlogLinks } from "@/components/blog/ContextualBlogLinks";
 import { formatDate } from "@/lib/dates";
 import { canRegisterForEvent } from "@/lib/event-lifecycle";
-import { fetchSocietyData } from "@/server/public/society-detail.server";
+import { fetchSocietyData, type SocietyPageData } from "@/server/public/society-detail.server";
+import { APP_URL } from "@/lib/constants";
+import { blogHtmlToPlainText } from "@/lib/blog-content";
+import { CanonicalLink } from "@/components/CanonicalLink";
 
-interface SocietyPageData {
-  society: {
-    id: string;
-    name: string;
-    slug: string;
-    bio: string;
-    chairs: string[];
-    defaultWhatsappLink: string;
-    logoUrl: string;
-    bannerUrl: string;
-  };
-  events: Array<{
-    id: string;
-    title: string;
-    description: string;
-    date: string;
-    endDate: string;
-    registrationStart: string;
-    registrationDeadline: string;
-    venue: string;
-    price: number;
-    status: string;
-    bannerUrl: string;
-    externalFormUrl: string;
-  }>;
-  members: Array<{
-    id: string;
-    name: string;
-    position: string;
-    department: string;
-    batch: string;
-    photoUrl: string;
-    linkedin: string;
-    instagram: string;
-  }>;
-}
 
 // Fetch dynamic society data
 interface ThemeConfig {
@@ -75,7 +42,7 @@ interface ThemeConfig {
   gradientText: string;
   gradientBg: string;
   borderHighlight: string;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<{ className?: string }>;
 }
 
 const DEFAULT_THEME = {
@@ -212,10 +179,20 @@ const SOCIETY_THEMES: Record<string, Partial<ThemeConfig>> = {
   },
 };
 
-export const meta = ({ data }: { data?: SocietyPageData }) => [
-  { title: `${data?.society.name || "Society"} | IEEE Sahrdaya` },
-  { name: "description", content: data?.society.bio || "IEEE Sahrdaya Student Branch Society Page" },
-];
+export const meta = ({ data }: { data?: SocietyPageData }) => {
+  const name = data?.society.name || "Society";
+  const description = blogHtmlToPlainText(data?.society.bio || "").slice(0, 160) || `Learn about ${name} at IEEE Sahrdaya Student Branch.`;
+  const url = data?.society.slug ? `${APP_URL}/societies/${data.society.slug}` : `${APP_URL}/societies`;
+  return [
+    { title: `${name} | IEEE Sahrdaya` },
+    { name: "description", content: description },
+    { property: "og:title", content: `${name} | IEEE Sahrdaya` },
+    { property: "og:description", content: description },
+    { property: "og:url", content: url },
+    { property: "og:image", content: data?.society.bannerUrl || data?.society.logoUrl || `${APP_URL}/web.png` },
+    { name: "twitter:card", content: "summary_large_image" },
+  ];
+};
 
 export async function loader({ params }: LoaderFunctionArgs): Promise<SocietyPageData> {
   if (!params.slug) throw new Response("Society not found", { status: 404 });
@@ -233,7 +210,7 @@ export default function SocietyPage() {
     if (!user) return false;
     if (user.role === "admin") return true;
     if (user.role === "chair") {
-      const chairsList = (data.society as any).chairs || [];
+      const chairsList = data.society.chairs || [];
       return chairsList.includes(user.id);
     }
     return false;
@@ -272,7 +249,19 @@ export default function SocietyPage() {
     );
   }, [data.members, advisor]);
 
+  const organizationSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: data.society.name,
+    url: `${APP_URL}/societies/${data.society.slug}`,
+    parentOrganization: { "@type": "Organization", name: "IEEE Sahrdaya Student Branch", url: APP_URL },
+    ...(data.society.logoUrl ? { logo: data.society.logoUrl } : {}),
+  };
+
   return (
+    <>
+      <CanonicalLink path={`/societies/${data.society.slug}`} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema).replace(/</g, "\u003c") }} />
     <div className="min-h-screen bg-[#F8F9FA] text-slate-800 font-sans selection:bg-blue-500/20 selection:text-blue-900">
       <Navbar />
 
@@ -651,5 +640,6 @@ export default function SocietyPage() {
       <ContextualBlogLinks />
       <Footer />
     </div>
+    </>
   );
 }

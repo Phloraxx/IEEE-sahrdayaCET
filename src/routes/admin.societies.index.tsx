@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth-context";
 import { getBioText } from "@/lib/safe-get";
 import { cn } from "@/lib/utils";
+import { deleteAdminSociety, listAdminSocieties } from "@/lib/data/admin-societies.client";
 
 interface SocietyRow {
   id: string;
@@ -45,27 +46,10 @@ export default function AdminSocieties() {
 
   const { data, isLoading } = useQuery<SocietiesResponse>({
     queryKey: ["admin-societies", { search }],
-    queryFn: async () => {
-      const params = new URLSearchParams({ perPage: "100" });
-      if (search) params.set("search", search);
-      const res = await fetch(`/api/admin/societies?${params}`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to load societies");
-      return res.json();
-    },
+    queryFn: () => listAdminSocieties({ search, perPage: 100 }),
   });
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`/api/admin/societies/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-      if (!res.ok) throw new Error("Failed to delete society");
-    },
+    mutationFn: deleteAdminSociety,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-societies"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });

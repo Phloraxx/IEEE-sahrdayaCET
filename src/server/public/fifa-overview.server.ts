@@ -3,6 +3,24 @@ import { escapeFilterValue } from "@/lib/pb";
 import { getField } from "@/lib/safe-get";
 import { filterPublicActiveFifaMatches } from "@/lib/fifa-match-filters";
 
+export interface OverviewData {
+  prize: string
+  starting_balance: number
+  max_bet_percent: number
+  raffle_active_participant_min_bets: number
+  nextMatch: {
+    id: string
+    team_home: string
+    team_away: string
+    stage: string
+    kickoff_at: string
+    status: string
+    openMarkets: number
+  } | null
+  playerCount: number | null
+  totalBets: number | null
+}
+
 export async function fetchOverview(): Promise<OverviewData> {
   const pb = createPublicPB()
   let settings = { prize: '', starting_balance: 1000, max_bet_percent: 25, raffle_active_participant_min_bets: 5 }
@@ -58,7 +76,7 @@ export async function fetchOverview(): Promise<OverviewData> {
   let playerCount: number | null = null
   let totalBets: number | null = null
   try {
-    const stats = await pb.send('/api/fifa/stats') as { playerCount?: number; totalBets?: number }
+    const stats = await pb.send('/api/fifa/stats', {}) as { playerCount?: number; totalBets?: number }
     if (typeof stats.playerCount === 'number') playerCount = stats.playerCount
     if (typeof stats.totalBets === 'number') totalBets = stats.totalBets
   } catch { /* ignore */ }

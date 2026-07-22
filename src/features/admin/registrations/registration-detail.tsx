@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
+import { getAdminRegistration, runRegistrationAdminCommand } from "@/lib/data/admin-registrations.client";
 import { Loader2, Mail, Phone, Ticket, UserCheck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -52,32 +53,13 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
     registration: RegistrationDetail;
   }>({
     queryKey: ["admin-registration", registrationId],
-    queryFn: async () => {
-      const res = await fetch(`/api/admin/registrations/${registrationId}`, {
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.error || `Failed (${res.status})`);
-      }
-      return res.json();
-    },
+    queryFn: () => getAdminRegistration(registrationId),
   });
 
   const reg = data?.registration;
 
   const checkInMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`/api/admin/registrations/${registrationId}`, {
-        method: "PUT",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ checkedIn: true }),
-      });
-      if (!res.ok) throw new Error("Failed to check in");
-    },
+    mutationFn: () => runRegistrationAdminCommand(registrationId, "check-in"),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["admin-registration", registrationId],
@@ -88,17 +70,7 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
   });
 
   const cancelMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`/api/admin/registrations/${registrationId}`, {
-        method: "PUT",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ registrationStatus: "cancelled" }),
-      });
-      if (!res.ok) throw new Error("Failed to cancel");
-    },
+    mutationFn: () => runRegistrationAdminCommand(registrationId, "cancel"),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["admin-registration", registrationId],

@@ -45,7 +45,7 @@ export function mapBlogRecord(raw: Record<string, unknown>) {
         }
       : undefined,
     event: eventRaw
-      ? { id: getField(eventRaw, "id", ""), title: getField(eventRaw, "title", "") }
+      ? { id: getField(eventRaw, "id", ""), title: getField(eventRaw, "title", ""), slug: getField(eventRaw, "slug", "") }
       : undefined,
   };
 }

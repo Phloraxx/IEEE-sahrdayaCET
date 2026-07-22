@@ -3,14 +3,8 @@ import { Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { FifaMatchCard, FifaMatchCardSkeleton } from '@/features/fifa/fifa-match-card'
-import type { FifaMatchCardData } from '@/features/fifa/fifa-match-card'
 import { filterPublicActiveFifaMatches } from '@/lib/fifa-match-filters'
-
-async function fetchMatches(): Promise<{ matches: FifaMatchCardData[] }> {
-  const res = await fetch('/api/fifa/matches')
-  if (!res.ok) throw new Error('Failed to load matches')
-  return res.json()
-}
+import { listFifaMatches } from '@/lib/data/fifa.client'
 
 async function fetchLiveScores() {
   const res = await fetch('/api/fifa/live-scores')
@@ -23,7 +17,8 @@ export function FifaMatchCarousel() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['fifa-matches'],
-    queryFn: fetchMatches,
+    queryFn: () => listFifaMatches(),
+    enabled: typeof window !== 'undefined',
     refetchInterval: 15_000,
   })
 

@@ -1,5 +1,29 @@
 /// <reference path="../pb_data/types.d.ts" />
 
+onRecordCreateRequest(function (e) {
+    if (!e.record.getString("slug")) {
+        var base = String(e.record.getString("title") || "")
+            .toLowerCase()
+            .replace(/&/g, " and ")
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "")
+            .slice(0, 180) || "event"
+        var candidate = base
+        var attempt = 0
+        while (attempt < 20) {
+            try {
+                $app.findFirstRecordByFilter("events", "slug = {:slug}", { slug: candidate })
+                attempt++
+                candidate = base + "-" + $security.randomString(6).toLowerCase()
+            } catch (_) {
+                break
+            }
+        }
+        e.record.set("slug", candidate)
+    }
+    e.next()
+}, "events")
+
 // ─── Events Update Hook ────────────────────────────────────────────
 // Defense-in-depth: rejects non-admin writes to server-authoritative
 // fields (registeredCount, checkedInCount). Counters are maintained by
@@ -13,6 +37,12 @@
 onRecordUpdateRequest(function (e) {
     var auth = null
     try { auth = e.auth || (e.requestInfo && e.requestInfo.auth) || null } catch (err) { auth = null }
+
+    var oldForSlug
+    try { oldForSlug = $app.findRecordById("events", e.record.id) } catch (_) { oldForSlug = null }
+    if (oldForSlug && e.record.getString("slug") !== oldForSlug.getString("slug")) {
+        throw e.forbiddenError("Event URLs are immutable")
+    }
 
     var role = ""
     if (auth) {

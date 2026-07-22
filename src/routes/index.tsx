@@ -13,6 +13,7 @@ import Footer from '@/components/Footer'
 import { ContextualBlogLinks } from '@/components/blog/ContextualBlogLinks'
 import { FloatingAction } from '@/components/FloatingAction'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { CanonicalLink } from "@/components/CanonicalLink";
 
 
 export const meta = () => [
@@ -34,6 +35,8 @@ export default function Home() {
   const societies = loaderData.societies ?? []
 
   return (
+    <>
+      <CanonicalLink path="/" />
     <div className="relative w-full bg-white text-gray-900 font-sans selection:bg-ieee-blue/20">
       <div className="fixed inset-0 z-0 h-dvh overflow-hidden">
         <StarsBackground starDensity={0.0004} allStarsTwinkle starColor="#1e293b" />
@@ -58,5 +61,6 @@ export default function Home() {
       </ErrorBoundary>
       <FloatingAction />
     </div>
+    </>
   )
 }

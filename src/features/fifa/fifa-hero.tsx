@@ -74,7 +74,7 @@ function useHeroVideoAutoplay(enabled: boolean, onHardError: () => void) {
       configureIosInlineVideo(video)
       // iOS often rejects the first autoplay attempt — keep the element mounted
       // and retry on touch/scroll instead of falling back to a static poster.
-      void video.play().catch(() => {})
+      void video.play().catch(() => undefined)
     }
 
     const onError = () => onHardError()

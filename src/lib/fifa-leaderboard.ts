@@ -1,4 +1,4 @@
-/** Shared leaderboard row shape from GET /pb/api/fifa/leaderboard */
+/** Shared leaderboard row shape from GET /api/fifa/leaderboard */
 export interface FifaLeaderboardRow {
   rank: number
   id: string
