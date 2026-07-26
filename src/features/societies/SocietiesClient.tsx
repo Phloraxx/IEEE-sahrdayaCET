@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router";
+import { Link } from "react-router";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { GridBackground } from "@/components/GridBackground";
@@ -12,8 +12,6 @@ interface SocietiesClientProps {
 }
 
 export default function SocietiesClient({ societies }: SocietiesClientProps) {
-  const navigate = useNavigate();
-
   return (
     <div className="relative min-h-screen w-full bg-white font-sans text-gray-900">
       <div className="pointer-events-none fixed inset-0 z-0">
@@ -55,8 +53,7 @@ export default function SocietiesClient({ societies }: SocietiesClientProps) {
               variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.05 } } }}
             >
               {societies.map((society) => (
-                <motion.button
-                  type="button"
+                <motion.div
                   key={society.id}
                   variants={{
                     hidden: { opacity: 0, scale: 0.8, y: 20 },
@@ -69,10 +66,13 @@ export default function SocietiesClient({ societies }: SocietiesClientProps) {
                   }}
                   whileHover={{ scale: 1.05, y: -8, transition: { duration: 0.2 } }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => navigate(`/societies/${society.slug.toLowerCase()}`)}
-                  className="group relative cursor-pointer text-left"
-                  aria-label={`View ${society.name}`}
+                  className="group relative"
                 >
+                  <Link
+                    to={`/societies/${society.slug.toLowerCase()}`}
+                    className="block cursor-pointer text-left"
+                    aria-label={`View ${society.name}`}
+                  >
                   <div className="relative overflow-hidden rounded-xl border-2 border-gray-200 bg-white shadow-lg transition-all duration-300 hover:border-ieee-blue hover:shadow-2xl">
                     <div className="absolute inset-0 z-0 bg-gradient-to-br from-ieee-blue/0 to-purple-600/0 transition-all duration-300 group-hover:from-ieee-blue/10 group-hover:to-purple-600/10" />
                     <div className="relative flex aspect-square items-center justify-center p-6">
@@ -106,7 +106,8 @@ export default function SocietiesClient({ societies }: SocietiesClientProps) {
                       transition={{ repeat: Infinity, duration: 1.5 }}
                     />
                   </div>
-                </motion.button>
+                  </Link>
+                </motion.div>
               ))}
             </motion.div>
           )}

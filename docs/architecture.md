@@ -22,6 +22,7 @@ There are two deployable services and one persistent volume.
 React Router v7 Framework Mode owns HTML routes, SSR loaders, metadata, resource routes, and the React UI. It does not own an application API namespace.
 
 Public SSR loaders use an unauthenticated PocketBase client over `POCKETBASE_INTERNAL_URL`. This is only for data that PocketBase rules already permit publicly.
+The Compose deployment resolves that URL through the private-network-only alias `pocketbase-internal`; it must not use the generic `pocketbase` service name because multiple Dokploy projects share `dokploy-network` and Docker DNS service aliases can collide there.
 
 ### PocketBase service
 

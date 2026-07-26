@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test'
 test.describe('SSR and SEO', () => {
   test('events list exposes crawlable event detail links', async ({ page }) => {
     await page.goto('/events')
-    const eventLink = page.locator('a[href^="/events/"]').first()
+    const eventLink = page.locator('a[href^="/events/"]:not([href="/events/"])').first()
     await expect(eventLink).toBeVisible()
     const href = await eventLink.getAttribute('href')
     expect(href).toMatch(/^\/events\/[a-z0-9-]+$/)
@@ -13,6 +13,19 @@ test.describe('SSR and SEO', () => {
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', new RegExp(`/events/${href!.split('/').pop()}$`))
     expect(await page.content()).toContain('\"@type\":\"Event\"')
     await expect(page.locator('h1')).not.toBeEmpty()
+  })
+
+  test('raw SSR HTML exposes crawlable event and society detail URLs', async ({ request }) => {
+    const eventsResponse = await request.get('/events')
+    expect(eventsResponse.ok()).toBeTruthy()
+    const eventsHtml = await eventsResponse.text()
+    expect(eventsHtml).toMatch(/href="\/events\/[a-z0-9][a-z0-9-]+"/)
+    expect(eventsHtml).toMatch(/https:\/\/ieeesahrdaya\.com\/events\/[a-z0-9][a-z0-9-]+/)
+
+    const societiesResponse = await request.get('/societies')
+    expect(societiesResponse.ok()).toBeTruthy()
+    const societiesHtml = await societiesResponse.text()
+    expect(societiesHtml).toMatch(/href="\/societies\/[a-z0-9][a-z0-9-]+"/)
   })
 
   test('blog and society listings have canonical URLs', async ({ page }) => {

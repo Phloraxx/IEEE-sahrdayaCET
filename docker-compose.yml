@@ -9,7 +9,7 @@ services:
       PORT: "3000"
       DEPLOY_ENV: ${DEPLOY_ENV:?DEPLOY_ENV is required}
       SITE_URL: ${SITE_URL:?SITE_URL is required}
-      POCKETBASE_INTERNAL_URL: http://pocketbase:8090
+      POCKETBASE_INTERNAL_URL: http://pocketbase-internal:8090
     expose:
       - "3000"
     depends_on:
@@ -52,8 +52,10 @@ services:
       retries: 5
       start_period: 10s
     networks:
-      - app-internal
-      - dokploy-network
+      app-internal:
+        aliases:
+          - pocketbase-internal
+      dokploy-network:
 
 volumes:
   pb_data:

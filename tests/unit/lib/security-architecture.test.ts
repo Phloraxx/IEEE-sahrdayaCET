@@ -34,7 +34,9 @@ describe("security architecture invariants", () => {
     const compose = read("docker-compose.yml");
     const server = read("src/lib/pb.server.ts");
     expect(compose).toContain("DEPLOY_ENV: ${DEPLOY_ENV:?");
-    expect(compose).toContain("POCKETBASE_INTERNAL_URL: http://pocketbase:8090");
+    expect(compose).toContain("POCKETBASE_INTERNAL_URL: http://pocketbase-internal:8090");
+    expect(compose).toContain("- pocketbase-internal");
+    expect(compose).not.toContain("POCKETBASE_INTERNAL_URL: http://pocketbase:8090");
     expect(server).not.toContain("https://db.");
   });
 });
