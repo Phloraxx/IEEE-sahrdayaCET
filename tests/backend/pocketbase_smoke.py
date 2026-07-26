@@ -76,6 +76,15 @@ chair_token = impersonate(super_token, chair["id"])
 user_token = impersonate(super_token, user["id"])
 second_token = impersonate(super_token, second_user["id"])
 
+# Blog admin listing relies on explicit PocketBase auto-date fields; this catches
+# schema drift that would otherwise surface as a generic 400 in the admin UI.
+blog_admin_list = request(
+    "GET",
+    "/api/collections/blogs/records?sort=-updated,-published_at,-id&expand=relation,society,event",
+    token=admin_token,
+)
+assert isinstance(blog_admin_list.get("items"), list)
+
 # The daily FIFA top-up cron is executable, transactional, and idempotent per IST day.
 cron_settings = request("GET", "/api/collections/fifa_settings/records?page=1&perPage=1", token=super_token)["items"][0]
 request("PATCH", f"/api/collections/fifa_settings/records/{cron_settings['id']}", {

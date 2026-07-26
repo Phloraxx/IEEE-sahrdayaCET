@@ -37,7 +37,7 @@ export async function listAdminBlogs() {
   const pb = requireEditorRole();
   const records = await pb.collection("blogs").getFullList({
     batch: 100,
-    sort: "-updated",
+    sort: "-updated,-published_at,-id",
     expand: "relation,society,event",
   });
   return records.map(mapBlogRecord);

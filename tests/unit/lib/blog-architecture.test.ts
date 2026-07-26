@@ -28,6 +28,14 @@ describe("blog architecture invariants", () => {
     expect(existsSync(resolve(process.cwd(), "src/routes/api"))).toBe(false);
   });
 
+  it("keeps admin blog timestamps explicit and sortable", () => {
+    const client = read("src/lib/admin-blog-client.ts");
+    const migration = read("pb_migrations/202607260001_blog_timestamps.js");
+    expect(client).toContain('sort: "-updated,-published_at,-id"');
+    expect(migration).toContain('new AutodateField({ name: "created", onCreate: true })');
+    expect(migration).toContain('new AutodateField({ name: "updated", onCreate: true, onUpdate: true })');
+  });
+
   it("keeps the full public archive and stable unique slugs", () => {
     const publicSource = read("src/lib/blog-public.server.ts");
     const baseline = read("pb_migrations/202607200000_baseline_schema.js");
