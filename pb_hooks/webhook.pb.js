@@ -16,7 +16,7 @@ routerAdd("POST", "/api/webhooks/payment-confirm", function (e) {
     // ─── Verify shared secret ────────────────────────────────────
     var webhookSecret = $os.getenv("PAYMENT_WEBHOOK_SECRET")
     if (!webhookSecret) {
-        return e.json(500, { error: "Webhook not configured" })
+        return e.json(503, { error: "Webhook not configured" })
     }
 
     var headerSecret = e.request.header.get("x-webhook-secret")

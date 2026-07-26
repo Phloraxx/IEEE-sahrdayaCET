@@ -24,6 +24,12 @@ describe("security architecture invariants", () => {
     expect(migration).toContain("registrations.createRule = null");
   });
 
+  it("fails closed when the payment webhook integration is not configured", () => {
+    const webhook = read("pb_hooks/webhook.pb.js");
+    expect(webhook).toContain('e.json(503, { error: "Webhook not configured" })');
+    expect(webhook).toContain('e.json(401, { error: "Invalid webhook secret" })');
+  });
+
   it("keeps deployment environments explicitly isolated", () => {
     const compose = read("docker-compose.yml");
     const server = read("src/lib/pb.server.ts");

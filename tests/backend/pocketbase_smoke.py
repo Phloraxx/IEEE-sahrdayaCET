@@ -85,6 +85,14 @@ blog_admin_list = request(
 )
 assert isinstance(blog_admin_list.get("items"), list)
 
+# Coupon edit screens sort by creation time; keep those timestamps explicit too.
+coupon_admin_list = request(
+    "GET",
+    "/api/collections/coupons/records?sort=created",
+    token=admin_token,
+)
+assert isinstance(coupon_admin_list.get("items"), list)
+
 # The daily FIFA top-up cron is executable, transactional, and idempotent per IST day.
 cron_settings = request("GET", "/api/collections/fifa_settings/records?page=1&perPage=1", token=super_token)["items"][0]
 request("PATCH", f"/api/collections/fifa_settings/records/{cron_settings['id']}", {
