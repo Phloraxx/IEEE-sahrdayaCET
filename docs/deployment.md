@@ -23,7 +23,7 @@ Required environment values:
 ```text
 DEPLOY_ENV=production|staging
 SITE_URL=https://...
-PB_ENCRYPTION_KEY=<32-byte high-entropy key>
+PB_ENCRYPTION_KEY=<32-character high-entropy key>
 ```
 
 Add optional payment/live-score/SMTP secrets only where those integrations are enabled.

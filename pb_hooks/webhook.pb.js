@@ -73,9 +73,16 @@ routerAdd("POST", "/api/webhooks/payment-confirm", function (e) {
 
     // ─── Idempotency: already processed ──────────────────────────
     var paymentStatus = reg.getString("paymentStatus")
+    var registrationStatus = reg.getString("registrationStatus")
 
     if (paymentStatus === "paid") {
         return e.json(200, { success: true, message: "Already processed" })
+    }
+
+    // Cancellation is terminal. A delayed/retried payment callback must never
+    // resurrect a seat that has already been released for another attendee.
+    if (registrationStatus === "cancelled") {
+        return e.json(200, { success: true, ignored: true, message: "Registration is cancelled" })
     }
 
     // Replay of a specific transaction we already persisted?
@@ -110,8 +117,11 @@ routerAdd("POST", "/api/webhooks/payment-confirm", function (e) {
         $app.saveNoValidate(reg)
         // Coupon usedCount + registeredCount: onRecordAfterUpdateSuccess hook.
     } else {
-        // Payment failed — record the failure without changing registration status
+        // A failed payment releases the reservation immediately. Keeping the
+        // registration as pending would continue consuming event capacity and
+        // would also block the attendee from retrying registration.
         reg.set("paymentStatus", "failed")
+        reg.set("registrationStatus", "cancelled")
         reg.set("paymentData", { transactionId: transactionId, status: status })
         $app.save(reg)
     }

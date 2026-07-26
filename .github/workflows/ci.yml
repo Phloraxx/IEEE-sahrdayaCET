@@ -52,6 +52,7 @@ jobs:
           docker run -d --name ieee-pocketbase-ci \
             -p 127.0.0.1:8090:8090 \
             -e PB_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef' \
+            -e PAYMENT_WEBHOOK_SECRET='CI-Payment-Webhook-2026!' \
             ieee-pocketbase-ci
           for i in {1..60}; do
             curl -fsS http://127.0.0.1:8090/api/health >/dev/null && exit 0
@@ -68,6 +69,7 @@ jobs:
           PB_BASE_URL: http://127.0.0.1:8090
           PB_SUPERUSER_EMAIL: ci-super@example.test
           PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
+          PAYMENT_WEBHOOK_SECRET: CI-Payment-Webhook-2026!
         run: python3 tests/backend/pocketbase_smoke.py
       - name: Install Playwright Chromium
         run: bunx playwright install --with-deps chromium

@@ -11,12 +11,15 @@ import urllib.request
 BASE = os.environ.get("PB_BASE_URL", "http://127.0.0.1:8090").rstrip("/")
 SUPER_EMAIL = os.environ.get("PB_SUPERUSER_EMAIL", "ci-super@example.test")
 SUPER_PASS = os.environ.get("PB_SUPERUSER_PASSWORD", "CI-PocketBase-Smoke-2026!")
+WEBHOOK_SECRET = os.environ.get("PAYMENT_WEBHOOK_SECRET", "CI-Payment-Webhook-2026!")
 
 
-def request(method, path, body=None, token=None, expected=(200, 201, 204)):
+def request(method, path, body=None, token=None, expected=(200, 201, 204), extra_headers=None):
     headers = {"Content-Type": "application/json"}
     if token:
         headers["Authorization"] = token
+    if extra_headers:
+        headers.update(extra_headers)
     data = None if body is None else json.dumps(body).encode()
     req = urllib.request.Request(BASE + path, data=data, headers=headers, method=method)
     try:
@@ -184,6 +187,72 @@ request("POST", f"/api/app/events/{event['id']}/register", {
 }, second_token, (400,))
 updated_event = request("GET", f"/api/collections/events/records/{event['id']}")
 assert updated_event["registeredCount"] == 1
+
+# Paid registration lifecycle: failure releases capacity, retry works, and a late
+# success callback cannot resurrect the cancelled registration.
+payment_user = create_user("payer", "user")
+payment_user_token = impersonate(super_token, payment_user["id"])
+paid_event = request("POST", "/api/collections/events/records", {
+    "title": f"CI Paid Event {suffix}", "description": "payment lifecycle",
+    "date": start, "endDate": end, "venue": "CI Lab", "price": 100,
+    "society": society["id"], "status": "published", "maxCapacity": 1,
+    "registeredCount": 0, "checkedInCount": 0, "registrationOpen": True,
+    "checkInEnabled": True, "isDeleted": False,
+    "formTemplate": [
+        {"id": "name", "name": "name", "label": "Name", "required": True},
+        {"id": "email", "name": "email", "label": "Email", "required": True},
+    ],
+}, super_token)
+first_paid = request("POST", f"/api/app/events/{paid_event['id']}/register", {
+    "formResponses": {"name": "Payer", "email": payment_user["email"]},
+}, payment_user_token)
+assert first_paid["paymentRequired"] is True
+assert first_paid["registrationStatus"] == "pending"
+assert request("GET", f"/api/collections/events/records/{paid_event['id']}")["registeredCount"] == 1
+
+webhook_headers = {"x-webhook-secret": WEBHOOK_SECRET}
+request("POST", "/api/webhooks/payment-confirm", {
+    "ticketId": first_paid["ticketId"], "status": "failed",
+    "transactionId": f"failed-{suffix}", "amount": 100,
+}, extra_headers=webhook_headers)
+failed_reg = request("GET", f"/api/collections/registrations/records/{first_paid['registrationId']}", token=payment_user_token)
+assert failed_reg["paymentStatus"] == "failed" and failed_reg["registrationStatus"] == "cancelled"
+assert request("GET", f"/api/collections/events/records/{paid_event['id']}")["registeredCount"] == 0
+
+retry_paid = request("POST", f"/api/app/events/{paid_event['id']}/register", {
+    "formResponses": {"name": "Payer", "email": payment_user["email"]},
+}, payment_user_token)
+assert retry_paid["registrationId"] != first_paid["registrationId"]
+assert request("GET", f"/api/collections/events/records/{paid_event['id']}")["registeredCount"] == 1
+
+late = request("POST", "/api/webhooks/payment-confirm", {
+    "ticketId": first_paid["ticketId"], "status": "success",
+    "transactionId": f"late-{suffix}", "amount": 100,
+}, extra_headers=webhook_headers)
+assert late.get("ignored") is True
+failed_reg = request("GET", f"/api/collections/registrations/records/{first_paid['registrationId']}", token=payment_user_token)
+assert failed_reg["registrationStatus"] == "cancelled" and failed_reg["paymentStatus"] == "failed"
+
+request("POST", "/api/webhooks/payment-confirm", {
+    "ticketId": retry_paid["ticketId"], "status": "success",
+    "transactionId": f"wrong-amount-{suffix}", "amount": 99,
+}, expected=(400,), extra_headers=webhook_headers)
+retry_reg = request("GET", f"/api/collections/registrations/records/{retry_paid['registrationId']}", token=payment_user_token)
+assert retry_reg["registrationStatus"] == "pending" and retry_reg["paymentStatus"] == "pending"
+
+paid = request("POST", "/api/webhooks/payment-confirm", {
+    "ticketId": retry_paid["ticketId"], "status": "success",
+    "transactionId": f"paid-{suffix}", "amount": 100,
+}, extra_headers=webhook_headers)
+assert paid["success"] is True
+retry_reg = request("GET", f"/api/collections/registrations/records/{retry_paid['registrationId']}", token=payment_user_token)
+assert retry_reg["registrationStatus"] == "confirmed" and retry_reg["paymentStatus"] == "paid" and retry_reg["ticketId"]
+assert request("GET", f"/api/collections/events/records/{paid_event['id']}")["registeredCount"] == 1
+replayed = request("POST", "/api/webhooks/payment-confirm", {
+    "ticketId": retry_paid["ticketId"], "status": "success",
+    "transactionId": f"paid-{suffix}", "amount": 100,
+}, extra_headers=webhook_headers)
+assert replayed.get("message") == "Already processed"
 
 # Anonymous ticket lookup never exposes a stable account/registration identifier.
 ticket_path = "/api/tickets/lookup?ticketId=" + urllib.parse.quote(registration["ticketId"])

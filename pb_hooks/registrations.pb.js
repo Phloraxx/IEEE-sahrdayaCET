@@ -105,8 +105,8 @@ onRecordAfterUpdateSuccess(function (e) {
 // ─── Public Ticket Lookup ────────────────────────────────────────────
 // Bypasses registrations listRule so unauthenticated clients (QR scans,
 // shared ticket links) can resolve a ticketId or paymentTicketId without
-// exposing PII. The TanStack /api/ticket route proxies here for public
-// fields; authenticated clients can fetch their permitted registration record directly.
+// exposing PII. The public ticket page calls this route for minimal ticket/event fields;
+// authenticated clients can fetch their permitted registration record directly.
 
 routerAdd("GET", "/api/tickets/lookup", function (e) {
     var ticketId = e.request.url.query().get("ticketId") || ""
