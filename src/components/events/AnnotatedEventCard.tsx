@@ -2,7 +2,6 @@ import React from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { CalendarDays, ChevronRight } from 'lucide-react';
 import type { ExtendedEvent } from '@/types';
-import { Link } from 'react-router';
 import { formatDate } from '@/lib/dates';
 
 const FADE_UP = {
@@ -21,12 +20,13 @@ const ANNOTATIONS: { index: number; text: string; color: string; rotate: string;
 interface EventCardProps {
     event: ExtendedEvent;
     index: number;
+    onSelect: (event: ExtendedEvent) => void;
     isMobile?: boolean;
     showAnnotations?: boolean;
     animateEntrance?: boolean;
 }
 
-export function AnnotatedEventCard({ event, index, isMobile = false, showAnnotations = true, animateEntrance = true }: EventCardProps) {
+export function AnnotatedEventCard({ event, index, onSelect, isMobile = false, showAnnotations = true, animateEntrance = true }: EventCardProps) {
     const prefersReducedMotion = useReducedMotion();
     const annotation = showAnnotations ? ANNOTATIONS.find(a => a.index === index) : undefined;
 
@@ -34,12 +34,12 @@ export function AnnotatedEventCard({ event, index, isMobile = false, showAnnotat
         <motion.div
             variants={prefersReducedMotion || !animateEntrance ? undefined : FADE_UP}
             whileHover={prefersReducedMotion ? undefined : { y: -8 }}
-            className="relative"
-        >
-          <Link
-            to={`/events/${event.slug}`}
+            onClick={() => onSelect(event)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(event); } }}
+            role="button"
+            tabIndex={0}
             className="bg-white rounded-[2.5rem] p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] transition-all duration-500 cursor-pointer flex flex-col relative group"
-          >
+        >
             {/* Annotation */}
             {annotation && (
                 <motion.div
@@ -105,7 +105,6 @@ export function AnnotatedEventCard({ event, index, isMobile = false, showAnnotat
                     </div>
                 </div>
             </div>
-          </Link>
         </motion.div>
     );
 }

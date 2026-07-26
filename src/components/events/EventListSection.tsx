@@ -13,6 +13,7 @@ interface EventListSectionProps {
   events: ExtendedEvent[];
   loading: boolean;
   error: string | null;
+  onSelectEvent: (event: ExtendedEvent) => void;
   onRetry: () => void;
   title?: string;
   emptyTitle?: string;
@@ -27,6 +28,7 @@ export function EventListSection({
   events,
   loading,
   error,
+  onSelectEvent,
   onRetry,
   title = 'Upcoming Events',
   emptyTitle = 'No Upcoming Events',
@@ -126,6 +128,7 @@ export function EventListSection({
               key={event.id}
               event={event}
               index={index}
+              onSelect={onSelectEvent}
               showAnnotations={showAnnotation}
               animateEntrance={animateCards}
             />

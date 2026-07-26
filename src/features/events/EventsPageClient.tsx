@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { useRevalidator } from "react-router";
+import { useNavigate, useRevalidator } from "react-router";
 import { Search } from "lucide-react";
 import "@/styles/events.css";
+import { AnimatePresence } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import {
   EventHeroSection,
   EventListSection,
+  EventDetailModal,
 } from "@/components/events";
 import type { EventWithSociety, ExtendedEvent } from "@/types";
 import { isPastEvent } from "@/lib/event-lifecycle";
@@ -31,7 +33,9 @@ interface EventsPageClientProps {
 }
 
 export default function EventsPageClient({ initialEvents }: EventsPageClientProps) {
+  const navigate = useNavigate();
   const revalidator = useRevalidator();
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [archiveSearch, setArchiveSearch] = useState("");
   const [archiveFilter, setArchiveFilter] = useState<ArchiveFilter>("past");
   const [archiveSociety, setArchiveSociety] = useState("All societies");
@@ -68,6 +72,16 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
       ...getEventColor(index),
     }));
   }, [initialEvents]);
+
+  // Resolve the selected event from the latest loader data instead of retaining
+  // a stale object. This keeps an already-open modal in sync after revalidation.
+  const selectedEvent = useMemo(
+    () =>
+      selectedEventId
+        ? extendedEvents.find((event) => event.id === selectedEventId) ?? null
+        : null,
+    [extendedEvents, selectedEventId],
+  );
 
   const upcomingEvents = useMemo(() => {
     const now = Date.now();
@@ -121,6 +135,22 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
   const visibleArchiveEvents = filteredArchiveEvents.slice(0, visibleArchiveCount);
   const hasMoreArchiveEvents = visibleArchiveCount < filteredArchiveEvents.length;
 
+  const handleSelectEvent = (event: ExtendedEvent) => {
+    setSelectedEventId(event.id);
+  };
+
+  const handleRegister = (event: EventWithSociety) => {
+    // The server returns an effective registrationOpen flag and the page
+    // periodically revalidates it as registration windows change.
+    if (!event.registrationOpen) return;
+
+    if (event.externalFormUrl) {
+      window.open(event.externalFormUrl, "_blank", "noopener,noreferrer");
+    } else {
+      navigate(`/register/${event.id}`);
+    }
+  };
+
   return (
     <main className="min-h-screen text-slate-800 font-sans selection:bg-ieee-blue selection:text-white overflow-x-hidden relative bg-[#F8F9FA]">
       <div
@@ -139,6 +169,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
           events={upcomingEvents}
           loading={false}
           error={null}
+          onSelectEvent={handleSelectEvent}
           onRetry={() => revalidator.revalidate()}
           title="Upcoming Events"
           emptyTitle="No Upcoming Events"
@@ -233,7 +264,8 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
               events={visibleArchiveEvents}
               loading={false}
               error={null}
-                  onRetry={() => revalidator.revalidate()}
+              onSelectEvent={handleSelectEvent}
+              onRetry={() => revalidator.revalidate()}
               emptyTitle="No Events Found"
               emptyMessage="Try another search, status, or society filter."
               showAnnotation={false}
@@ -259,6 +291,15 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
 
       <Footer />
 
+      <AnimatePresence>
+        {selectedEvent && (
+          <EventDetailModal
+            event={selectedEvent}
+            onClose={() => setSelectedEventId(null)}
+            onRegister={handleRegister}
+          />
+        )}
+      </AnimatePresence>
     </main>
   );
 }
