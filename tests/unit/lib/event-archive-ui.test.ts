@@ -33,7 +33,9 @@ describe("event archive UI", () => {
     expect(client).toContain("selectedEventId");
     expect(client).toContain("onSelectEvent={handleSelectEvent}");
     expect(list).toContain("onSelectEvent: (event: ExtendedEvent) => void");
-    expect(card).toContain("onClick={() => onSelect(event)}");
+    expect(card).toContain('to={`/events/${event.slug}`}');
+    expect(card).toContain("e.preventDefault()");
+    expect(card).toContain("onSelect(event)");
 
     expect(detailRoute).toContain("fetchEventBySlug");
     expect(detailRoute).toContain('rel="canonical"');
