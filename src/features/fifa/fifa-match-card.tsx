@@ -8,6 +8,7 @@ import {
 } from '@/lib/fifa-assets'
 import { findLiveMatch, isLiveStatus } from '@/lib/fifa-live-match'
 import type { LiveScoreMatch } from '@/lib/fifa-live-match'
+import { APP_TIME_ZONE } from '@/lib/dates'
 
 export interface FifaMatchCardData {
   id: string
@@ -23,15 +24,27 @@ export interface FifaMatchCardData {
 }
 
 function fmtDay(d: Date) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    timeZone: APP_TIME_ZONE,
+  }).formatToParts(d)
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((item) => item.type === type)?.value ?? ''
   return {
-    dow: d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
-    dom: d.getDate(),
-    mon: d.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(),
+    dow: part('weekday').toUpperCase(),
+    dom: Number(part('day')) || 0,
+    mon: part('month').toUpperCase(),
   }
 }
 
 function fmtTime(d: Date) {
-  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  return d.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: APP_TIME_ZONE,
+  })
 }
 
 function FlagImg({ team }: { team: string }) {

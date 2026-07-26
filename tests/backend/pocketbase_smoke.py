@@ -48,6 +48,9 @@ super_auth = request("POST", "/api/collections/_superusers/auth-with-password", 
     "password": SUPER_PASS,
 })
 super_token = super_auth["token"]
+crons = request("GET", "/api/crons", token=super_token)
+topup_cron = next((cron for cron in crons if cron.get("id") == "fifa-daily-topup"), None)
+assert topup_cron and topup_cron.get("expression") == "30 3 * * *"
 suffix = str(int(time.time() * 1000))
 fixture_password = "FixturePass-2026!"
 
@@ -72,6 +75,38 @@ admin_token = impersonate(super_token, admin["id"])
 chair_token = impersonate(super_token, chair["id"])
 user_token = impersonate(super_token, user["id"])
 second_token = impersonate(super_token, second_user["id"])
+
+# The daily FIFA top-up cron is executable, transactional, and idempotent per IST day.
+cron_settings = request("GET", "/api/collections/fifa_settings/records?page=1&perPage=1", token=super_token)["items"][0]
+request("PATCH", f"/api/collections/fifa_settings/records/{cron_settings['id']}", {
+    "daily_topup_threshold": 100,
+    "daily_topup_target": 200,
+}, super_token)
+# User creation intentionally applies the starting grant, so explicitly lower one
+# fixture after creation to exercise the daily top-up path.
+request("PATCH", f"/api/collections/users/records/{admin['id']}", {"balance": 0}, super_token)
+request("POST", "/api/crons/fifa-daily-topup", token=super_token, expected=(204,))
+admin_after_topup = None
+for _ in range(30):
+    admin_after_topup = request("GET", f"/api/collections/users/records/{admin['id']}", token=super_token)
+    if admin_after_topup["balance"] == 200:
+        break
+    time.sleep(0.1)
+assert admin_after_topup and admin_after_topup["balance"] == 200
+topup_ledger = request(
+    "GET",
+    f"/api/collections/fifa_transactions/records?filter=" + urllib.parse.quote(f'user="{admin["id"]}" && type="daily_topup"'),
+    token=super_token,
+)
+assert topup_ledger["totalItems"] == 1 and topup_ledger["items"][0]["amount"] == 200
+request("POST", "/api/crons/fifa-daily-topup", token=super_token, expected=(204,))
+time.sleep(0.5)
+topup_ledger_again = request(
+    "GET",
+    f"/api/collections/fifa_transactions/records?filter=" + urllib.parse.quote(f'user="{admin["id"]}" && type="daily_topup"'),
+    token=super_token,
+)
+assert topup_ledger_again["totalItems"] == 1
 
 society = request("POST", "/api/collections/societies/records", {
     "name": f"CI Society {suffix}", "slug": f"ci-society-{suffix}", "bio": "CI smoke",
@@ -364,6 +399,11 @@ settings = request("GET", "/api/collections/fifa_settings/records?page=1&perPage
 request("PATCH", f"/api/collections/fifa_settings/records/{settings['id']}", {
     "raffle_seed": "forged-audit-value",
 }, admin_token, (400,))
+request("PATCH", f"/api/collections/fifa_settings/records/{settings['id']}", {
+    "raffle_active_participant_min_bets": 0,
+}, admin_token)
+leaderboard_zero_min = request("GET", "/api/fifa/leaderboard")
+assert leaderboard_zero_min["settings"]["min_bets"] == 0
 normal_settings = request("PATCH", f"/api/collections/fifa_settings/records/{settings['id']}", {
     "prize": "CI prize",
     "registration_open": False,
@@ -378,5 +418,7 @@ assert any(entry["user_id"] == raffle["winner"]["user_id"] for entry in raffle["
 settings_after = request("GET", f"/api/collections/fifa_settings/records/{settings['id']}", token=admin_token)
 assert settings_after["raffle_seed"] == raffle["seed"]
 assert settings_after["raffle_entries_snapshot"]["winning_pick"] == raffle["entries_snapshot"]["winning_pick"]
+second_raffle = request("POST", "/api/fifa/raffle", {}, admin_token, (400,))
+assert "already drawn" in second_raffle.get("error", "").lower()
 
 print(json.dumps({"ok": True, "eventSlug": event["slug"], "registrationId": registration["registrationId"], "raffleWinner": raffle["winner"]["user_id"]}))

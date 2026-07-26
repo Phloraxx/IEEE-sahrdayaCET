@@ -25,6 +25,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth-context";
 import { deleteAdminEvent, listAdminEvents, type AdminEventListItem, type AdminEventsResponse } from "@/lib/data/admin-events.client";
+import { formatDateShort } from "@/lib/dates";
 
 function EventsSkeleton() {
   return (
@@ -38,17 +39,8 @@ function EventsSkeleton() {
 
 
 function formatDate(d: string): string {
-  if (!d) return "—";
-  try {
-    return new Date(d).toLocaleDateString("en-IN", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
-  } catch {
-    return d;
-  }
-  }
+  return d ? formatDateShort(d) || d : "—";
+}
 export default function AdminEvents() {
   const { user } = useAuth();
   const navigate = useNavigate();

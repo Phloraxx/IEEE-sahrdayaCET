@@ -13,7 +13,7 @@ describe("security architecture invariants", () => {
 
   it("pins and verifies the PocketBase release", () => {
     const dockerfile = read("pocketbase/Dockerfile");
-    expect(dockerfile).toContain("PB_VERSION=0.39.8");
+    expect(dockerfile).toContain("PB_VERSION=0.39.9");
     expect(dockerfile).toContain("sha256sum -c -");
     expect(dockerfile).not.toContain(":latest");
   });

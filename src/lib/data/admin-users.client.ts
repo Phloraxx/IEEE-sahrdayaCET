@@ -29,10 +29,6 @@ export async function listAdminUsers(input: { search?: string; id?: string; page
   };
 }
 
-export async function updateAdminUserProfile(id: string, data: { name?: string; email?: string }) {
-  return getPbClient().collection("users").update(id, data);
-}
-
 export async function updateAdminUserRole(id: string, role: string) {
   const pb = getPbClient();
   return pb.send(`/api/app/admin/users/${encodeURIComponent(id)}/role`, {

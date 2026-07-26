@@ -1,7 +1,7 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 // ─── Registration Check-in Invariants ───────────────────────────────
-// Check-in validity is a database-layer invariant, not just a TanStack route
+// Check-in validity is a database-layer invariant, not just a browser/UI
 // concern. This lower-level model hook runs for REST updates and internal
 // $app.save()/saveNoValidate() updates, so no caller can persist an invalid
 // check-in state by bypassing the application routes.

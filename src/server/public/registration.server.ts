@@ -38,9 +38,10 @@ export async function fetchEventForRegistration(eventId: string) {
       maxCapacity: getField(record, "maxCapacity", 0),
       registeredCount: getField(record, "registeredCount", 0),
       collectIeeeMember: !!getField(record, "collectIeeeMember", false),
-      formFields:
-        getField(record, "formFields", undefined) ||
-        getField(record, "formTemplate", undefined),
+      formFields: (() => {
+        const fields = getField(record, "formTemplate", undefined);
+        return Array.isArray(fields) ? fields : [];
+      })(),
     };
     return { event };
 }

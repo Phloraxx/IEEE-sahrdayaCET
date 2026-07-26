@@ -25,6 +25,7 @@ import {
 } from "@/lib/admin-blog-client";
 import { BlogForm, type BlogFormValues } from "@/components/admin/blog-form";
 import type { BlogPost } from "@/types";
+import { formatDateShort } from "@/lib/dates";
 
 function BlogsSkeleton() {
   return (
@@ -37,14 +38,7 @@ function BlogsSkeleton() {
 }
 
 function formatDate(value?: string): string {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  return value ? formatDateShort(value) : "—";
 }
 
 export default function AdminBlogs() {

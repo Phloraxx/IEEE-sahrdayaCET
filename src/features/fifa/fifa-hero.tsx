@@ -2,10 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { flagUrl, getStageLabel } from '@/lib/fifa-assets'
-import { findLiveMatch, isLiveStatus, type LiveScoreMatch } from '@/lib/fifa-live-match'
+import { fetchFifaLiveScores, findLiveMatch, isLiveStatus } from '@/lib/fifa-live-match'
 import { useCountdown, formatCountdown } from '@/hooks/use-countdown'
 
-export interface HeroMatch {
+interface HeroMatch {
   id: string
   team_home: string
   team_away: string
@@ -25,12 +25,6 @@ const HERO_POSTER = '/fifa/hero-poster.jpg'
 // ?v= busts CDN caches of older responses that lacked Content-Length / Range.
 // #t=0.001 nudges iOS Safari to decode the first frame for inline autoplay.
 const HERO_VIDEO = '/fifa/worldcup26-hero.mp4?v=3#t=0.001'
-
-async function fetchLiveScores() {
-  const res = await fetch('/api/fifa/live-scores')
-  if (!res.ok) return { matches: [], configured: false }
-  return res.json() as Promise<{ matches: LiveScoreMatch[]; configured: boolean }>
-}
 
 function FlagImg({ team }: { team: string }) {
   const src = flagUrl(team)
@@ -134,7 +128,7 @@ export function FifaHero({ nextMatch, startingBalance, prize }: FifaHeroProps) {
 
   const { data: liveData } = useQuery({
     queryKey: ['fifa-live-scores'],
-    queryFn: fetchLiveScores,
+    queryFn: () => fetchFifaLiveScores(),
     refetchInterval: 60_000,
     enabled: !!nextMatch,
   })

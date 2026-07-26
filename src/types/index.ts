@@ -43,7 +43,7 @@ export interface Coupon {
     updatedAt?: string
 }
 
-export interface Event {
+interface Event {
     id: string;
     createdAt?: string;
     updatedAt?: string;
@@ -81,13 +81,9 @@ export interface Event {
 }
 
 export type EventWithSociety = Event & { society: Society };
-export type EventExtended = EventWithSociety & { about?: string; agenda?: string; color?: string; textColor?: string };
+type EventExtended = EventWithSociety & { about?: string; agenda?: string; color?: string; textColor?: string };
 export type ExtendedEvent = EventExtended;
 
-export interface AgendaItem {
-    time: string;
-    title: string;
-}
 
 export interface AuthUser {
     id: string
@@ -96,27 +92,6 @@ export interface AuthUser {
     role?: 'admin' | 'chair' | 'user' | 'content'
 }
 
-/**
- * Execom member — matches the `execom` PocketBase collection schema.
- * Used by home page, society pages, and full execom page.
- */
-export interface ExecomMember {
-    id: string;
-    name: string;
-    position: string;
-    department?: string;
-    batch?: string;
-    section?: string;
-    sectionId?: string;
-    order?: number;
-    photo?: string;
-    photoUrl?: string;
-    linkedin?: string;
-    instagram?: string;
-    email?: string;
-    phone?: string;
-    category?: string;
-}
 
 
 export interface LatestEvent {
@@ -130,29 +105,6 @@ export interface LatestEvent {
     tag?: string;
 }
 
-/**
- * Canonical Registration type — superset of all registration display variants.
- * Use Pick<> or Partial<> where not all fields are needed.
- */
-export interface Registration {
-  id: string;
-  userName: string;
-  userEmail: string;
-  userPhone: string;
-  registrationStatus: string;
-  paymentStatus: string;
-  checkedIn: boolean;
-  checkedInAt?: string;
-  ticketId?: string;
-  amount: number;
-  couponCode?: string;
-  discountAmount?: number;
-  paymentData?: unknown;
-  formResponses?: unknown;
-  createdAt: string;
-  eventTitle?: string;
-  eventId?: string;
-}
 /**
  * Blog post — content for the public `/blog` page.
  * Author and society are stored as expanded objects (when available)

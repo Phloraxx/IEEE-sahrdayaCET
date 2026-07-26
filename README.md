@@ -25,7 +25,7 @@ web ── private network ── PocketBase ── pb_data volume
 ```
 
 - **React Router v7 Framework Mode** owns SSR, HTML routes, metadata, and UI.
-- **PocketBase 0.39.8** owns auth, SQLite data, files, API authorization, migrations, hooks, and custom transactional commands.
+- **PocketBase 0.39.9** owns auth, SQLite data, files, API authorization, migrations, hooks, and custom transactional commands.
 - The browser authenticates directly with PocketBase through same-origin `/api`.
 - There is no React-side BFF and no runtime PocketBase superuser credential.
 - `pb_migrations/` is the only schema/rule/index source of truth.
@@ -39,7 +39,7 @@ See [docs/architecture.md](docs/architecture.md), [docs/security-architecture.md
 | Web | React 19, React Router 7.18, TypeScript, Vite |
 | UI | Tailwind CSS 4, shadcn/ui, Framer Motion, Lucide |
 | Client data | PocketBase JS SDK, TanStack Query |
-| Backend | PocketBase 0.39.8, SQLite, JS hooks/migrations |
+| Backend | PocketBase 0.39.9, SQLite, JS hooks/migrations |
 | Auth | Google OAuth through PocketBase |
 | Deployment | Docker Compose on Dokploy/Traefik |
 

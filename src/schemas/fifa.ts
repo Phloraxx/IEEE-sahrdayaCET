@@ -4,12 +4,8 @@ import { z } from 'zod'
 // Shared client-side validation and strongly typed game contracts.
 // Authoritative write invariants remain in PocketBase rules/hooks.
 
-export const FIFA_STAGE = ['r32', 'r16', 'qf', 'sf', 'third_place', 'final'] as const
-export const FIFA_MATCH_STATUS = ['upcoming', 'live', 'finished', 'void'] as const
 export const FIFA_MARKET_TYPE = ['match_winner', 'total_goals_ou', 'correct_score', 'any_scorer', 'cards_ou', 'clean_sheet', 'custom'] as const
 export const FIFA_MARKET_MODE = ['pool', 'fixed'] as const
-export const FIFA_BET_STATUS = ['pending', 'won', 'lost', 'void'] as const
-export const FIFA_BET_MODE = ['pool', 'fixed'] as const
 
 // Human-readable labels for market types — shared between the public match
 // page and the admin match-detail page so they never diverge.
@@ -36,36 +32,6 @@ export const FIFA_MARKET_BLURBS: Record<string, string> = {
   custom: 'Admin-defined market. See options.',
 }
 
-// ─── Match schemas ──────────────────────────────────────────────────
-
-const BaseMatchSchema = z.object({
-  team_home: z.string().min(1).max(100),
-  team_away: z.string().min(1).max(100),
-  stage: z.enum(FIFA_STAGE),
-  kickoff_at: z.string().min(1),
-  betting_locks_at: z.string().optional().default(''),
-  status: z.enum(FIFA_MATCH_STATUS).default('upcoming'),
-})
-
-export const FifaMatchCreateSchema = BaseMatchSchema
-export const FifaMatchUpdateSchema = BaseMatchSchema.partial().extend({
-  // Settlement-only fields — only set by the settle route, but the admin
-  // "enter result" form uses the update route before triggering settle.
-  result_winner: z.enum(['home', 'away', 'draw']).optional(),
-  result_home_goals: z.number().int().min(0).optional(),
-  result_away_goals: z.number().int().min(0).optional(),
-  result_scorers: z.array(z.string()).optional(),
-  result_yellow_cards: z.number().int().min(0).optional(),
-  result_red_cards: z.number().int().min(0).optional(),
-  result_home_clean_sheet: z.boolean().optional(),
-  result_away_clean_sheet: z.boolean().optional(),
-  // NEW — knockout football (FIFA-GAME.md §2.1):
-  result_advance: z.enum(['home', 'away']).optional(),
-  result_after_extra_time: z.boolean().optional(),
-  result_after_penalties: z.boolean().optional(),
-  external_ids: z.record(z.string(), z.string()).optional(),
-})
-
 // ─── Market schemas ─────────────────────────────────────────────────
 
 const BaseMarketSchema = z.object({
@@ -75,25 +41,13 @@ const BaseMarketSchema = z.object({
   line: z.number().optional(),
   fixed_odds: z.record(z.string(), z.number().positive()).optional(),
   options: z.array(z.string()).default([]),
-  is_open: z.boolean().default(true),
+  is_open: z.boolean(),
 })
 
 export const FifaMarketCreateSchema = BaseMarketSchema
-export const FifaMarketUpdateSchema = BaseMarketSchema.partial()
-
-// ─── Bet schema (client-submitted) ──────────────────────────────────
-// The hook enforces the real rules; this just shapes the request body.
-
-export const FifaBetCreateSchema = z.object({
-  market: z.string().min(1),
-  match: z.string().min(1),
-  selection: z.string().min(1),
-  stake: z.number().int().positive(),
-})
-
 // ─── Settings schema ────────────────────────────────────────────────
 
-export const FifaRaffleEntrySchema = z.object({
+const FifaRaffleEntrySchema = z.object({
   user_id: z.string(),
   display_name: z.string(),
   rank: z.number().int().min(1),
@@ -107,26 +61,25 @@ export const FifaRaffleSnapshotSchema = z.object({
   entries: z.array(FifaRaffleEntrySchema),
 })
 
-export type FifaRaffleEntry = z.infer<typeof FifaRaffleEntrySchema>
 export type FifaRaffleSnapshot = z.infer<typeof FifaRaffleSnapshotSchema>
 
 export const FifaSettingsSchema = z.object({
-  event_name: z.string().max(200).default("IEEE Sahrdaya WC Predict '26"),
-  starting_balance: z.number().int().positive().default(1000),
-  max_bet_percent: z.number().int().min(1).max(100).default(25),
-  daily_topup_threshold: z.number().int().min(0).default(100),
-  daily_topup_target: z.number().int().min(0).default(200),
-  pool_house_cut_percent: z.number().int().min(0).max(100).default(0),
-  raffle_tickets_base: z.number().int().positive().default(50),
-  raffle_tickets_decay: z.number().int().min(0).default(2),
+  event_name: z.string().max(200),
+  starting_balance: z.number().int().positive(),
+  max_bet_percent: z.number().int().min(1).max(100),
+  daily_topup_threshold: z.number().int().min(0),
+  daily_topup_target: z.number().int().min(0),
+  pool_house_cut_percent: z.number().int().min(0).max(100),
+  raffle_tickets_base: z.number().int().positive(),
+  raffle_tickets_decay: z.number().int().min(0),
   // Gates raffle entry to actual participants rather than passive accounts.
-  raffle_active_participant_min_bets: z.number().int().min(0).default(5),
+  raffle_active_participant_min_bets: z.number().int().min(0),
   raffle_drawn_at: z.string().optional(),
   raffle_winner: z.string().optional(),
   raffle_seed: z.string().max(200).optional(),
   raffle_entries_snapshot: FifaRaffleSnapshotSchema.nullish(),
-  prize: z.string().max(500).default(''),
-  registration_open: z.boolean().default(true),
+  prize: z.string().max(500),
+  registration_open: z.boolean(),
 })
 
 export type FifaSettings = z.infer<typeof FifaSettingsSchema>

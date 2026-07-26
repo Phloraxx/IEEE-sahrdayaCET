@@ -187,12 +187,12 @@ describe('settleMarket — pool void-and-refund', () => {
       { id: 'b1', user: 'u1', selection: 'home', stake: 100, mode: 'pool' as const, odds_locked: 0, status: 'pending' },
       { id: 'b2', user: 'u2', selection: 'away', stake: 50, mode: 'pool' as const, odds_locked: 0, status: 'pending' },
     ]
-    const result = { ...baseResult, result_winner: 'draw' } // nobody picked draw
+    const result: MatchResult = { ...baseResult, result_winner: 'draw' } // nobody picked draw
     const { updates, marketVoided } = settleMarket(market, bets, result, 0)
     expect(marketVoided).toBe(true)
     expect(updates.every((u) => u.status === 'void')).toBe(true)
-    expect(updates[0].payout).toBe(100) // refund
-    expect(updates[1].payout).toBe(50) // refund
+    expect(updates[0]!.payout).toBe(100) // refund
+    expect(updates[1]!.payout).toBe(50) // refund
   })
 })
 
@@ -204,7 +204,7 @@ describe('settleMarket — pool with winners', () => {
       { id: 'b2', user: 'u2', selection: 'home', stake: 50, mode: 'pool' as const, odds_locked: 0, status: 'pending' },
       { id: 'b3', user: 'u3', selection: 'away', stake: 200, mode: 'pool' as const, odds_locked: 0, status: 'pending' },
     ]
-    const result = { ...baseResult, result_winner: 'home' }
+    const result: MatchResult = { ...baseResult, result_winner: 'home' }
     const { updates, marketVoided } = settleMarket(market, bets, result, 0)
     expect(marketVoided).toBe(false)
     // Total pool = 350. Winning stakes = 150. No cut.
@@ -230,7 +230,7 @@ describe('settleMarket — fixed mode', () => {
       { id: 'b1', user: 'u1', selection: 'home', stake: 100, mode: 'fixed' as const, odds_locked: 1.5, status: 'pending' },
       { id: 'b2', user: 'u2', selection: 'away', stake: 100, mode: 'fixed' as const, odds_locked: 4, status: 'pending' },
     ]
-    const result = { ...baseResult, result_winner: 'home' }
+    const result: MatchResult = { ...baseResult, result_winner: 'home' }
     const { updates, marketVoided } = settleMarket(market, bets, result, 0)
     expect(marketVoided).toBe(false)
     expect(updates.find((u) => u.id === 'b1')!.payout).toBe(150)
@@ -245,7 +245,7 @@ describe('settleMarket — idempotency', () => {
       { id: 'b1', user: 'u1', selection: 'home', stake: 100, mode: 'fixed' as const, odds_locked: 2, status: 'won' },
       { id: 'b2', user: 'u2', selection: 'away', stake: 100, mode: 'fixed' as const, odds_locked: 2, status: 'pending' },
     ]
-    const result = { ...baseResult, result_winner: 'away' } // would make b1 lose if re-judged
+    const result: MatchResult = { ...baseResult, result_winner: 'away' } // would make b1 lose if re-judged
     const { updates } = settleMarket(market, bets, result, 0)
     // b1 stays won (idempotent), b2 newly judged as won
     expect(updates.find((u) => u.id === 'b1')!.status).toBe('won')
@@ -263,7 +263,7 @@ describe('settleMarket — void stakes are excluded from the pool', () => {
       // was refunded / never collected and must not be shared out.
       { id: 'b3', user: 'u3', selection: 'away', stake: 500, mode: 'pool' as const, odds_locked: 0, status: 'void' },
     ]
-    const result = { ...baseResult, result_winner: 'home' }
+    const result: MatchResult = { ...baseResult, result_winner: 'home' }
     const { updates } = settleMarket(market, bets, result, 0)
     // Pool = 100 + 100 = 200 (b3's 500 excluded). b1 takes it all.
     expect(updates.find((u) => u.id === 'b1')!.payout).toBe(200)

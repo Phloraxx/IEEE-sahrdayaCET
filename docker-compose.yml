@@ -30,7 +30,7 @@ services:
       context: .
       dockerfile: pocketbase/Dockerfile
       args:
-        PB_VERSION: "0.39.8"
+        PB_VERSION: "0.39.9"
     restart: unless-stopped
     environment:
       PB_ENCRYPTION_KEY: ${PB_ENCRYPTION_KEY:?PB_ENCRYPTION_KEY is required}

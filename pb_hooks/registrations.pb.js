@@ -142,6 +142,7 @@ routerAdd("GET", "/api/tickets/lookup", function (e) {
                 id: evt.id,
                 title: evt.getString("title") || "",
                 date: evt.getString("date") || "",
+                endDate: evt.getString("endDate") || "",
                 venue: evt.getString("venue") || "",
                 time: evt.getString("time") || "",
                 bannerUrl: bannerUrl,

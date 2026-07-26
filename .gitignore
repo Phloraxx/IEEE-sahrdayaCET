@@ -4,7 +4,6 @@ node_modules/
 build/
 dist/
 .react-router/
-.tanstack/
 .vite/
 *.tsbuildinfo
 

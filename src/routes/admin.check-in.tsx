@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { checkInByTicket } from "@/lib/data/admin-registrations.client";
+import { formatDateTime } from "@/lib/dates";
 
 
 interface VerifyResult {
@@ -128,9 +129,7 @@ export default function AdminCheckIn() {
                   <div>
                     <span className="text-muted-foreground">Checked in at: </span>
                     <span className="text-foreground">
-                      {new Date(
-                        result.registration.checkedInAt,
-                      ).toLocaleString("en-IN")}
+                      {formatDateTime(result.registration.checkedInAt)}
                     </span>
                   </div>
                 )}

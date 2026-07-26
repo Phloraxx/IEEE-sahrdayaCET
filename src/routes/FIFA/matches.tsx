@@ -2,26 +2,9 @@ import { Outlet, useLocation } from "react-router";
 import { useQuery } from '@tanstack/react-query'
 import { FifaLayout } from '@/features/fifa/fifa-layout'
 import { FifaMatchCard, FifaMatchCardSkeleton } from '@/features/fifa/fifa-match-card'
-import { findLiveMatch, isLiveStatus } from '@/lib/fifa-live-match'
+import { fetchFifaLiveScores, findLiveMatch, isLiveStatus } from '@/lib/fifa-live-match'
 import { filterPublicActiveFifaMatches } from '@/lib/fifa-match-filters'
 import { listFifaMatches } from '@/lib/data/fifa.client'
-
-async function fetchLiveScores(): Promise<{
-  matches: Array<{
-    id: string
-    homeTeam: string
-    awayTeam: string
-    homeGoals: number | null
-    awayGoals: number | null
-    status: string
-    minute: number | null
-  }>
-  configured: boolean
-}> {
-  const res = await fetch('/api/fifa/live-scores')
-  if (!res.ok) return { matches: [], configured: false }
-  return res.json()
-}
 
 export default function MatchesPage() {
   const { pathname } = useLocation()
@@ -36,7 +19,7 @@ export default function MatchesPage() {
 
   const { data: liveData } = useQuery({
     queryKey: ['fifa-live-scores'],
-    queryFn: fetchLiveScores,
+    queryFn: () => fetchFifaLiveScores(),
     refetchInterval: 60_000,
     enabled: typeof window !== 'undefined' && !isDetail,
   })

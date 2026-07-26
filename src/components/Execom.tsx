@@ -495,6 +495,7 @@ export const Execom: React.FC = () => {
           <a
             href="https://students.ieee.org/"
             target="_blank"
+            rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-6 py-2.5 bg-gray-900 text-white text-xs font-mono tracking-wider rounded-full hover:bg-ieee-blue transition-colors duration-300 uppercase"
           >
             Join IEEE <ArrowUpRight className="w-3.5 h-3.5" />

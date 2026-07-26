@@ -19,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { FIFA_MARKET_LABELS, FifaMarketCreateSchema, FifaSettleSchema } from "@/schemas/fifa";
 import type { FIFA_MARKET_MODE, FIFA_MARKET_TYPE } from "@/schemas/fifa"
+import { formatDateTime } from "@/lib/dates";
 
 interface MatchRow {
   id: string
@@ -99,7 +100,7 @@ function MatchItem({ match, isExpanded, onToggle }: { match: MatchRow; isExpande
         <div className="min-w-0">
           <p className="font-medium truncate">{match.team_home} vs {match.team_away}</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {match.stage.toUpperCase()} · {match.kickoff_at ? new Date(match.kickoff_at).toLocaleString() : '—'}
+            {match.stage.toUpperCase()} · {match.kickoff_at ? formatDateTime(match.kickoff_at) : '—'}
           </p>
         </div>
         <div className="flex items-center gap-3">

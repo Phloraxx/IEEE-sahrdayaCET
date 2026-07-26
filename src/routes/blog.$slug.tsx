@@ -5,6 +5,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { APP_URL } from "@/lib/constants";
+import { formatDateLong } from "@/lib/dates";
 import type { BlogPost } from "@/types";
 
 export const meta = ({ data }: { data?: BlogPost }) => {
@@ -32,14 +33,7 @@ export async function loader({ params }: LoaderFunctionArgs): Promise<BlogPost> 
 }
 
 function formatPublishedDate(value?: string) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  return value ? formatDateLong(value) : "";
 }
 
 export default function BlogPostPage() {

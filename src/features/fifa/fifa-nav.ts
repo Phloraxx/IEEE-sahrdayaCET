@@ -7,16 +7,6 @@ export const FIFA_NAV_ITEMS = [
   { key: 'rules' as const, label: 'Rules', to: '/FIFA/rules/' as const },
 ]
 
-export function fifaNavKeyFromPath(pathname: string): FifaNavKey {
-  const p = pathname.replace(/\/+$/, '') || '/'
-  if (p === '/FIFA') return 'home'
-  if (p.startsWith('/FIFA/matches')) return 'matches'
-  if (p.startsWith('/FIFA/leaderboard')) return 'leaderboard'
-  if (p.startsWith('/FIFA/rules')) return 'rules'
-  if (p.startsWith('/FIFA/dashboard')) return 'dashboard'
-  return 'home'
-}
-
 export function isFifaPath(pathname: string): boolean {
   return pathname.toLowerCase().startsWith('/fifa')
 }

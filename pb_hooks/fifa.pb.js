@@ -16,56 +16,7 @@
 
 
 
-// Decode PB JSON fields (string, object, or goja byte array).
-var parseJsonField = function(raw) {
-    if (!raw) return null
-    if (typeof raw === "string") {
-        try { return JSON.parse(raw) } catch (ex) { return null }
-    }
-    if (typeof raw === "object" && typeof raw.length === "number") {
-        if (raw.length > 0 && typeof raw[0] === "number") {
-            try {
-                var str = ""
-                for (var i = 0; i < raw.length; i++) str += String.fromCharCode(raw[i])
-                return JSON.parse(str)
-            } catch (ex) { return null }
-        }
-        return raw
-    }
-    if (typeof raw === "object") return raw
-    return null
-}
-
-var getRecordFloat = function(record, field) {
-    var v = record.get(field)
-    if (v === null || v === undefined || v === "") return 0
-    var n = Number(v)
-    return isNaN(n) ? 0 : n
-}
-
-// Void all markets on a match — triggers market-void refund hook per market.
-var voidMatchMarkets = function(matchId) {
-    try {
-        var markets = $app.findRecordsByFilter(
-            "fifa_bet_markets",
-            "match = {:matchId}",
-            "", 0, 0,
-            { matchId: matchId }
-        )
-        for (var i = 0; i < markets.length; i++) {
-            var mk = markets[i]
-            if (!mk.getBool("void")) {
-                mk.set("void", true)
-                mk.set("is_open", false)
-                $app.saveNoValidate(mk)
-            }
-        }
-    } catch (err) {
-        console.log("[fifa] voidMatchMarkets failed for " + matchId + ": " + err)
-    }
-}
-
-// ─── Phase X: Google OAuth Display Name ─────────────────────────────────
+// ─── Google OAuth display name ─────────────────────────────────────
 // Sets display_name from the Google profile at first sign-in (or backfills if
 // still empty on a later OAuth login). Names are not user-editable afterward.
 
@@ -214,7 +165,7 @@ onRecordUpdateRequest(function (e) {
 // Market and match void/refund operations are atomic custom commands in
 // fifa-void.pb.js. Ordinary CRUD never owns wallet mutations.
 
-// ─── Phase 5: Public custom routes ──────────────────────────────────
+// ─── Public leaderboard and stats routes ───────────────────────────
 // Leaderboard/stats routes. These bypass collection API rules (users.listRule
 // is self+admin, so a public leaderboard can't read users via REST) using
 // internal $app access — same bypass pattern as coupons.pb.js.
@@ -238,12 +189,12 @@ routerAdd("GET", "/api/fifa/leaderboard", function (e) {
         }
         // Rank by balance desc, tiebreak by bets_count desc (FIFA-GAME.md §2.4).
         // PB can't sort by a computed field, so we fetch all eligible users
-        // and sort in JS. At ~100 players this is trivial.
+        // and sort in JS. This is intentionally simple for the event-scale dataset.
         var users = $app.findRecordsByFilter(
             "users",
             "balance > 0",
             "-balance",
-            500, 0,
+            0, 0,
             {}
         )
         var rows = []
@@ -253,8 +204,8 @@ routerAdd("GET", "/api/fifa/leaderboard", function (e) {
             // Count the user's non-void bets (voided/refunded bets don't count
             // toward raffle eligibility — matches the dashboard's progress
             // math). limit=0 means no limit in PB's findRecordsByFilter, so
-            // .length is the true count. At ~100 players this is fine; would
-            // denormalize into a counter at scale.
+            // .length is the true count. At event scale this is simpler and safer than
+            // maintaining another denormalized counter.
             var betCount = 0
             try {
                 var allUserBets = $app.findRecordsByFilter(
@@ -311,8 +262,7 @@ routerAdd("GET", "/api/fifa/leaderboard", function (e) {
         if (settings) {
             var minBetsRaw = settings.get("raffle_active_participant_min_bets")
             if (minBetsRaw != null && minBetsRaw !== "") {
-                var parsed = settings.getInt("raffle_active_participant_min_bets")
-                if (parsed > 0) minBets = parsed
+                minBets = settings.getInt("raffle_active_participant_min_bets")
             }
         }
         return e.json(200, {
@@ -369,53 +319,70 @@ routerAdd("GET", "/api/fifa/stats", function (e) {
 })
 
 
-// ─── Phase 7: Settlement ────────────────────────────────────────────
-// Implemented atomically in fifa-settlement.pb.js.
+// ─── Daily top-up cron ──────────────────────────────────────────────
+// PocketBase's scheduler runs in UTC by default. 03:30 UTC is 09:00 IST.
+// Each user's idempotency check, balance change, and ledger row are committed
+// in one transaction so a manual trigger cannot double-credit the same day.
 
-// ─── Phase 8: Daily top-up cron ─────────────────────────────────────
-// Runs daily at 09:00. Tops up anyone whose balance is below
-// daily_topup_threshold to daily_topup_target. Idempotent: skips users who
-// already received a daily_topup transaction today.
-//
-// "Today" is by calendar date in the DB's created timestamp, not a rolling
-// 24h — so re-running on the same day is a no-op.
-
-cronAdd("fifa-daily-topup", "0 9 * * *", function () {
-    // ─── Inlined helpers (PB 0.39 goja doesn't share top-level scope with callbacks) ───
+cronAdd("fifa-daily-topup", "30 3 * * *", function () {
     var _getFifaSettings = function() {
         try { return $app.findFirstRecordByFilter("fifa_settings", "1 = 1", {}) } catch (ex) { return null }
     }
-    var _applyDelta = function(userId, type, delta, refBetId, note) {
-        var nextBalance = null
+    var _istDateKey = function(value) {
+        var date = value instanceof Date ? value : new Date(value)
+        if (isNaN(date.getTime())) return ""
+        return new Date(date.getTime() + 330 * 60 * 1000).toISOString().slice(0, 10)
+    }
+    var _topUpUser = function(userId, threshold, target, todayKey) {
+        var applied = false
         try {
             $app.runInTransaction(function (txApp) {
-                var u = txApp.findRecordById("users", userId)
-                var newBal = (u.getInt("balance") || 0) + delta
-                if (newBal < 0) throw new Error("Negative balance")
-                u.set("balance", newBal)
-                txApp.saveNoValidate(u)
-                var tx = new Record(txApp.findCollectionByNameOrId("fifa_transactions"), {
-                    user: userId, type: type, amount: delta, balance_after: newBal,
-                    ref_bet: refBetId || "", note: note || "", timestamp: new Date().toISOString()
-                })
-                txApp.saveNoValidate(tx)
-                nextBalance = newBal
-            })
-        } catch (err) { console.log("[fifa] applyDelta failed: " + err); return null }
-        return nextBalance
-    }
-    var _emitFeedEvent = function(type, userId, matchId, message) {
-        // Activity emission is intentionally disabled for this path.
-    }
+                var user = txApp.findRecordById("users", userId)
+                var currentBalance = user.getInt("balance") || 0
+                if (currentBalance >= threshold) return
 
+                var prior = txApp.findRecordsByFilter(
+                    "fifa_transactions",
+                    "user = {:uid} && type = {:type}",
+                    "-timestamp",
+                    1, 0,
+                    { uid: userId, type: "daily_topup" }
+                )
+                if (prior.length > 0) {
+                    var stamp = prior[0].getString("timestamp") || prior[0].getString("created") || ""
+                    if (_istDateKey(stamp) === todayKey) return
+                }
+
+                var delta = target - currentBalance
+                if (delta <= 0) return
+                var nextBalance = currentBalance + delta
+                user.set("balance", nextBalance)
+                txApp.saveNoValidate(user)
+
+                var transaction = new Record(txApp.findCollectionByNameOrId("fifa_transactions"), {
+                    user: userId,
+                    type: "daily_topup",
+                    amount: delta,
+                    balance_after: nextBalance,
+                    ref_bet: "",
+                    note: "Daily top-up",
+                    timestamp: new Date().toISOString(),
+                })
+                txApp.saveNoValidate(transaction)
+                applied = true
+            })
+        } catch (err) {
+            console.log("[fifa] daily topup failed for " + userId + ": " + err)
+        }
+        return applied
+    }
 
     var settings = _getFifaSettings()
-    if (!settings) { return }
+    if (!settings) return
     var threshold = settings.getInt("daily_topup_threshold") || 0
     var target = settings.getInt("daily_topup_target") || 0
-    if (threshold <= 0 || target <= 0 || target <= threshold) { return }
+    if (threshold <= 0 || target <= threshold) return
 
-    // Find users below threshold
     var users
     try {
         users = $app.findRecordsByFilter(
@@ -429,41 +396,10 @@ cronAdd("fifa-daily-topup", "0 9 * * *", function () {
         return
     }
 
-    // Today's date prefix (YYYY-MM-DD) for idempotency check
-    var todayPrefix = new Date().toISOString().slice(0, 10)
-
+    var todayKey = _istDateKey(new Date())
     var toppedUp = 0
     for (var i = 0; i < users.length; i++) {
-        var user = users[i]
-        var userId = user.id
-
-        // Idempotency: skip if already topped up today. Sort by the hook-set
-        // `timestamp` field — PB record ids are random, NOT monotonic, so
-        // "-id" would return an arbitrary top-up row, not the latest one.
-        try {
-            var todays = $app.findRecordsByFilter(
-                "fifa_transactions",
-                "user = {:uid} && type = {:type}",
-                "-timestamp",
-                1, 0,
-                { uid: userId, type: "daily_topup" }
-            )
-            if (todays.length > 0) {
-                var last = todays[0]
-                var lastStamp = last.getString("timestamp") || last.getString("created") || ""
-                if (lastStamp.indexOf(todayPrefix) === 0) { continue }
-            }
-        } catch (err) { /* no existing — proceed */ }
-
-        var freshUser = $app.findRecordById("users", userId)
-        if (!freshUser) { continue }
-        var currentBalance = freshUser.getInt("balance") || 0
-        var topupAmount = target - currentBalance
-        if (topupAmount <= 0) { continue }
-
-        if (_applyDelta(userId, "daily_topup", topupAmount, "", "Daily top-up") !== null) {
-            toppedUp++
-        }
+        if (_topUpUser(users[i].id, threshold, target, todayKey)) toppedUp++
     }
 
     if (toppedUp > 0) {
@@ -475,7 +411,7 @@ cronAdd("fifa-daily-topup", "0 9 * * *", function () {
 // Live scores are read from /api/fifa/live-scores. Refunds only happen via
 // the atomic admin market/match void commands in fifa-void.pb.js.
 
-// ─── Phase 9: Raffle draw — admin-only custom route ─────────────────
+// ─── Raffle draw — admin-only custom route ──────────────────────────
 // POST /api/fifa/raffle
 // Body: {} (no params — reads settings + leaderboard)
 //
@@ -527,7 +463,7 @@ routerAdd("POST", "/api/fifa/raffle", function (e) {
             "users",
             "balance > 0",
             "-balance",
-            500, 0,
+            0, 0,
             {}
         )
     } catch (err) {
@@ -607,56 +543,82 @@ routerAdd("POST", "/api/fifa/raffle", function (e) {
     }
 
     // ─── Weighted random pick ──────────────────────────────────────
-    // PocketBase's security RNG supplies the entropy. Fold the random token
-    // into the ticket range and persist it with the snapshot for audit.
-    var seed = $security.randomString(32)
-    var pick = 0
-    for (var si = 0; si < seed.length; si++) {
-        pick = (pick * 131 + seed.charCodeAt(si)) % totalTickets
+    // Use cryptographic base62 entropy with rejection sampling. The rejection
+    // step removes modulo bias so every ticket has exactly the same chance.
+    var alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+    var sampleChars = 8
+    var sampleSpace = Math.pow(alphabet.length, sampleChars)
+    if (totalTickets > sampleSpace) {
+        return e.json(400, { error: "Raffle ticket range is too large" })
     }
+    var acceptanceLimit = Math.floor(sampleSpace / totalTickets) * totalTickets
+    var seed = ""
+    var sample = 0
+    do {
+        seed = $security.randomStringWithAlphabet(32, alphabet)
+        sample = 0
+        for (var si = 0; si < sampleChars; si++) {
+            sample = sample * alphabet.length + alphabet.indexOf(seed.charAt(si))
+        }
+    } while (sample >= acceptanceLimit)
+    var pick = sample % totalTickets
+
     var winnerIndex = 0
     var acc = 0
-    for (var j = 0; j < entries.length; j++) {
-        acc += entries[j].tickets
+    for (var wi = 0; wi < entries.length; wi++) {
+        acc += entries[wi].tickets
         if (pick < acc) {
-            winnerIndex = j
+            winnerIndex = wi
             break
         }
     }
     var winner = entries[winnerIndex]
+    var snapshot = {
+        total_tickets: totalTickets,
+        winning_pick: pick,
+        entries: entries,
+    }
 
-    // ─── Store the draw on fifa_settings (one-time) ────────────────
+    // Recheck the one-time guard inside the same transaction as the persisted
+    // winner. Concurrent/manual draw requests therefore cannot overwrite each
+    // other after both passed the initial fast-path check above.
+    var storedDrawnAt = ""
     try {
-        var snapshot = {
-            total_tickets: totalTickets,
-            winning_pick: pick,
-            entries: entries,
-        }
-        settings.set("raffle_drawn_at", new Date().toISOString())
-        settings.set("raffle_winner", winner.user_id)
-        settings.set("raffle_seed", seed)
-        settings.set("raffle_entries_snapshot", snapshot)
-        $app.saveNoValidate(settings)
-
-        return e.json(200, {
-            success: true,
-            winner: {
-                user_id: winner.user_id,
-                display_name: winner.display_name,
-                rank: winner.rank,
-                tickets: winner.tickets,
-                bets_count: winner.bets_count,
-            },
-            totalTickets: totalTickets,
-            totalEntries: entries.length,
-            seed: seed,
-            drawn_at: settings.getString("raffle_drawn_at"),
-            entries_snapshot: snapshot,
+        $app.runInTransaction(function (txApp) {
+            var freshSettings = txApp.findRecordById("fifa_settings", settings.id)
+            if (freshSettings.getString("raffle_drawn_at")) {
+                throw new Error("RAFFLE_ALREADY_DRAWN")
+            }
+            storedDrawnAt = new Date().toISOString()
+            freshSettings.set("raffle_drawn_at", storedDrawnAt)
+            freshSettings.set("raffle_winner", winner.user_id)
+            freshSettings.set("raffle_seed", seed)
+            freshSettings.set("raffle_entries_snapshot", snapshot)
+            txApp.saveNoValidate(freshSettings)
         })
     } catch (err) {
+        if (String(err).indexOf("RAFFLE_ALREADY_DRAWN") >= 0) {
+            return e.json(400, { error: "Raffle already drawn" })
+        }
         console.log("[fifa] raffle draw failed: " + err)
         return e.json(500, { error: "Failed to store raffle draw" })
     }
+
+    return e.json(200, {
+        success: true,
+        winner: {
+            user_id: winner.user_id,
+            display_name: winner.display_name,
+            rank: winner.rank,
+            tickets: winner.tickets,
+            bets_count: winner.bets_count,
+        },
+        totalTickets: totalTickets,
+        totalEntries: entries.length,
+        seed: seed,
+        drawn_at: storedDrawnAt,
+        entries_snapshot: snapshot,
+    })
 })
 
 // ESPN database synchronization and auto-settlement were removed.

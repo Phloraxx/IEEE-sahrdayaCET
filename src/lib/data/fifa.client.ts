@@ -92,7 +92,7 @@ export async function listFifaMatches(): Promise<{ matches: FifaMatchData[] }> {
   };
 }
 
-export interface FifaDashboardPayload {
+interface FifaDashboardPayload {
   user: { id: string; display_name: string; balance: number; email: string };
   max_bet_percent: number;
   valid_bets_count: number;
@@ -205,19 +205,6 @@ export async function fetchFifaDashboardDirect(): Promise<FifaDashboardPayload> 
       timestamp: String(t.timestamp || ""),
     })),
   };
-}
-
-export async function listMyFifaBets(matchId?: string) {
-  const pb = getPbClient();
-  if (!pb.authStore.record?.id) throw new Error("Not authenticated");
-  const parts = [`user = ${escapeFilterValue(pb.authStore.record.id)}`];
-  if (matchId) parts.push(`match = ${escapeFilterValue(matchId)}`);
-  const result = await pb.collection("fifa_bets").getList(1, 100, {
-    filter: parts.join(" && "),
-    sort: "-placed_at",
-    expand: "match,market",
-  });
-  return { bets: result.items, total: result.totalItems };
 }
 
 export async function placeFifaBet(input: {

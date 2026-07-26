@@ -5,7 +5,7 @@
 - React 19 + React Router 7 Framework Mode
 - TypeScript + Vite + Tailwind CSS 4
 - TanStack Query for browser query caching only
-- PocketBase 0.39.8 for auth, data, files, API rules, hooks, and migrations
+- PocketBase 0.39.9 for auth, data, files, API rules, hooks, and migrations
 - Docker Compose on Dokploy
 
 ## Hard boundaries
@@ -58,6 +58,6 @@ Browser E2E is for navigation/SSR/SEO/guards; backend authorization and transact
 
 ## Deployment
 
-Web builds with Bun 1.2.9 but runs SSR on Node 22. PocketBase is pinned to 0.39.8 with release SHA verification. Do not switch either to an unbounded `latest` tag.
+Web builds with Bun 1.2.9 but runs SSR on Node 22. PocketBase is pinned to 0.39.9 with release SHA verification. Do not switch either to an unbounded `latest` tag.
 
 CD runs only after successful CI and calls the Dokploy Compose API. Do not reintroduce independent branch webhooks or swallowed deployment failures.

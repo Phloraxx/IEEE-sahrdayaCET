@@ -1,6 +1,6 @@
 import { createPublicPB } from "@/lib/pb.server";
 import { escapeFilterValue } from "@/lib/pb";
-import { getField } from "@/lib/safe-get";
+import { getField, getNumberField } from "@/lib/safe-get";
 import { filterPublicActiveFifaMatches } from "@/lib/fifa-match-filters";
 
 export interface OverviewData {
@@ -28,9 +28,9 @@ export async function fetchOverview(): Promise<OverviewData> {
     const s = await pb.collection('fifa_settings').getFirstListItem('1=1')
     settings = {
       prize: getField(s, 'prize', ''),
-      starting_balance: Number(getField(s, 'starting_balance', 1000)) || 1000,
-      max_bet_percent: Number(getField(s, 'max_bet_percent', 25)) || 25,
-      raffle_active_participant_min_bets: Number(getField(s, 'raffle_active_participant_min_bets', 5)) || 5,
+      starting_balance: getNumberField(s, 'starting_balance', 1000),
+      max_bet_percent: getNumberField(s, 'max_bet_percent', 25),
+      raffle_active_participant_min_bets: getNumberField(s, 'raffle_active_participant_min_bets', 5),
     }
   } catch { /* not seeded yet */ }
 
@@ -40,7 +40,7 @@ export async function fetchOverview(): Promise<OverviewData> {
       filter: '(status = "upcoming" || status = "live") && status != "void"',
       sort: 'kickoff_at',
       fields: 'id,team_home,team_away,stage,kickoff_at,status',
-      perPage: 50,
+      batch: 100,
     })
     const active = filterPublicActiveFifaMatches(
       upcoming.map((mu) => ({

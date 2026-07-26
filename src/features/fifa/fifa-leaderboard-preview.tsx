@@ -1,23 +1,7 @@
 import { Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-
-interface LeaderboardRow {
-  rank: number
-  id: string
-  display_name: string
-  balance: number
-  bets_count: number
-}
-
-async function fetchLeaderboard(): Promise<{
-  leaderboard: LeaderboardRow[]
-  settings?: { min_bets: number }
-}> {
-  const res = await fetch('/api/fifa/leaderboard')
-  if (!res.ok) throw new Error('Failed to load leaderboard')
-  return res.json()
-}
+import { fetchFifaLeaderboard } from '@/lib/fifa-leaderboard'
 
 function RowSkeleton() {
   return <div className="h-[52px] animate-pulse rounded-xl bg-[#131519]" />
@@ -26,7 +10,7 @@ function RowSkeleton() {
 export function FifaLeaderboardPreview() {
   const { data, isLoading } = useQuery({
     queryKey: ['fifa-leaderboard'],
-    queryFn: fetchLeaderboard,
+    queryFn: fetchFifaLeaderboard,
     refetchInterval: 15_000,
   })
   const minBets = data?.settings?.min_bets ?? 5

@@ -19,10 +19,12 @@ import {
   isOuMarket,
 } from '@/lib/fifa-market-labels'
 import { getStageColor, resolveMatchCardAsset } from '@/lib/fifa-assets'
-import { DEFAULT_FIFA_LEADERBOARD_SETTINGS } from '@/lib/fifa-leaderboard'
+import { DEFAULT_FIFA_LEADERBOARD_SETTINGS, fetchFifaLeaderboard } from '@/lib/fifa-leaderboard'
+import { fetchFifaLiveScores, findLiveMatch } from '@/lib/fifa-live-match'
 import { fetchFifaDashboard, FifaDashboardAuthError } from '@/lib/fifa-dashboard-client'
 import { formatKickoffParts } from '@/lib/dates'
 import { AlertCircle, ChevronLeft } from 'lucide-react'
+import { placeFifaBet } from '@/lib/data/fifa.client'
 
 interface MatchDetail {
   id: string
@@ -186,21 +188,11 @@ export default function MatchDetailPage() {
 
   const { data: liveData } = useQuery({
     queryKey: ['fifa-live-scores'],
-    queryFn: async () => {
-      const res = await fetch('/api/fifa/live-scores')
-      if (!res.ok) return { matches: [], configured: false }
-      return res.json() as Promise<{ matches: Array<{ id: string; homeTeam: string; awayTeam: string; homeGoals: number | null; awayGoals: number | null; status: string; minute: number | null }>; configured: boolean }>
-    },
+    queryFn: () => fetchFifaLiveScores(),
     refetchInterval: 60_000,
   })
   const liveMatch = match && liveData?.configured
-    ? liveData.matches.find((lm) => {
-        const h = lm.homeTeam.trim().toLowerCase()
-        const a = lm.awayTeam.trim().toLowerCase()
-        const mh = match.team_home.trim().toLowerCase()
-        const ma = match.team_away.trim().toLowerCase()
-        return (mh === h && ma === a) || (mh === a && ma === h)
-      }) || null
+    ? findLiveMatch(match.team_home, match.team_away, liveData.matches)
     : null
 
   const { data: userBalance, error: dashboardError } = useQuery({
@@ -224,11 +216,7 @@ export default function MatchDetailPage() {
 
   const { data: lbData } = useQuery({
     queryKey: ['fifa-leaderboard'],
-    queryFn: async () => {
-      const res = await fetch('/api/fifa/leaderboard')
-      if (!res.ok) return null
-      return res.json() as Promise<{ leaderboard: Array<{ id: string; rank: number }>; settings?: { min_bets: number } }>
-    },
+    queryFn: fetchFifaLeaderboard,
     enabled: typeof window !== 'undefined' && status === 'authenticated' && !isSessionExpired,
     staleTime: 15_000,
   })
@@ -705,16 +693,7 @@ function BettingSlip({ matchId, canBet, market, selection, teams, stake, setStak
     mutationFn: async () => {
       if (!market || !selection) throw new Error('Pick an option first')
       if (market.void || !market.is_open) throw new Error('This market is no longer open for betting')
-      const res = await fetch('/api/fifa/bets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ market: market.id, match: matchId, selection, stake: effectiveStake }),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || 'Bet failed')
-      }
-      return res.json()
+      return placeFifaBet({ market: market.id, match: matchId, selection, stake: effectiveStake })
     },
     onSuccess: () => {
       toast.success('Bet placed successfully!')

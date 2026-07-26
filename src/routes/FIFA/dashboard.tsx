@@ -5,13 +5,8 @@ import { useAuth } from '@/lib/auth-context'
 import { formatDateTime, formatDateShort } from '@/lib/dates'
 import { formatMarketOptionLabel } from '@/lib/fifa-market-labels'
 import { fetchFifaDashboard } from '@/lib/fifa-dashboard-client'
+import { fetchFifaLeaderboard } from '@/lib/fifa-leaderboard'
 import { Ticket, Trophy, Target, TrendingUp, History } from 'lucide-react'
-
-async function fetchLeaderboardPayload(): Promise<{ settings?: { min_bets: number } }> {
-  const res = await fetch('/api/fifa/leaderboard')
-  if (!res.ok) throw new Error('Failed to load leaderboard')
-  return res.json()
-}
 
 export default function DashboardPage() {
   const { status, signIn } = useAuth()
@@ -24,7 +19,7 @@ export default function DashboardPage() {
 
   const { data: lbPayload } = useQuery({
     queryKey: ['fifa-leaderboard'],
-    queryFn: fetchLeaderboardPayload,
+    queryFn: fetchFifaLeaderboard,
     staleTime: 15_000,
     enabled: typeof window !== 'undefined' && status === 'authenticated',
   })

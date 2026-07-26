@@ -1,7 +1,7 @@
 import { getPbClient } from "@/lib/pb-client";
 import { escapeFilterValue } from "@/lib/pb";
 import { MS_PER_DAY, RECENT_WINDOW_DAYS, UPCOMING_WINDOW_DAYS } from "@/lib/constants";
-import { toIso } from "@/lib/dates";
+import { getAppDayBounds, toIso } from "@/lib/dates";
 
 export interface AdminStats {
   events: { total: number; published: number; upcoming: number; live: number; recentlyCompleted: number };
@@ -18,8 +18,7 @@ export async function getAdminStats(): Promise<AdminStats> {
   const nowIso = toIso(now);
   const futureIso = toIso(new Date(now.getTime() + UPCOMING_WINDOW_DAYS * MS_PER_DAY));
   const pastIso = toIso(new Date(now.getTime() - RECENT_WINDOW_DAYS * MS_PER_DAY));
-  const startOfToday = toIso(new Date(now.getFullYear(), now.getMonth(), now.getDate()));
-  const endOfToday = toIso(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
+  const { startIso: startOfToday, endIso: endOfToday } = getAppDayBounds(now);
   const count = async (collection: string, filter?: string) =>
     (await pb.collection(collection).getList(1, 1, { filter, fields: "id", requestKey: null })).totalItems;
 

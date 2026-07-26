@@ -19,15 +19,15 @@ export async function fetchHomeData(): Promise<HomeData> {
         sort: 'date',
         fields: 'id,title,description,date,endDate,banner,status',
       }),
-      pb.collection('societies').getList(1, 200, {
-        skipTotal: true,
+      pb.collection('societies').getFullList({
+        batch: 200,
         fields: 'id,name,slug,logo',
       }),
     ])
 
     const societies: Society[] =
       societiesRes.status === 'fulfilled'
-        ? (societiesRes.value.items || []).map((s: Record<string, unknown>) => ({
+        ? societiesRes.value.map((s: Record<string, unknown>) => ({
             id: getField(s, 'id', ''),
             name: getField(s, 'name', ''),
             slug: getField(s, 'slug', ''),

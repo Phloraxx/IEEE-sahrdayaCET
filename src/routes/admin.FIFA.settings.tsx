@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
-import { useForm, type Resolver } from "react-hook-form"
+import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { FifaSettingsSchema, type FifaSettings } from "@/schemas/fifa"
 import { fetchSettings } from "@/lib/api/fifa"
@@ -28,7 +28,7 @@ export default function AdminFifaSettings() {
   })
 
   const form = useForm<FifaSettings>({
-    resolver: zodResolver(FifaSettingsSchema) as unknown as Resolver<FifaSettings>,
+    resolver: zodResolver(FifaSettingsSchema),
     defaultValues: {
       event_name: "IEEE Sahrdaya WC Predict '26",
       starting_balance: 1000,
@@ -143,7 +143,7 @@ export default function AdminFifaSettings() {
               <div>
                 <Label htmlFor="daily_topup_threshold">Threshold</Label>
                 <Input id="daily_topup_threshold" type="number" {...form.register("daily_topup_threshold", { valueAsNumber: true })} />
-                <p className="text-xs text-muted-foreground mt-1">Users below this balance get topped up daily at 09:00 server time</p>
+                <p className="text-xs text-muted-foreground mt-1">Users below this balance get topped up daily at 09:00 IST</p>
                 {form.formState.errors.daily_topup_threshold && <p className="text-xs text-destructive mt-1">{form.formState.errors.daily_topup_threshold.message}</p>}
               </div>
               <div>

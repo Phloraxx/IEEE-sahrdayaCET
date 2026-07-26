@@ -20,7 +20,7 @@ export default defineConfig({
   webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined
     : {
-        command: 'npm run dev',
+        command: 'bun run dev',
         url: `${baseURL}/healthz`,
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,

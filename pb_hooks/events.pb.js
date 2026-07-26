@@ -38,8 +38,8 @@ onRecordCreateRequest(function (e) {
 // the registration hooks; chairs must never write them directly.
 //
 // isDeleted: chairs MAY soft-delete (false→true) their own events —
-// the app-layer (requireEventScope) has already verified ownership before
-// the request reaches PocketBase. What chairs may NOT do is un-delete
+// the PocketBase collection rule verifies society ownership before this
+// request hook runs. What chairs may NOT do is un-delete
 // (true→false) — that remains admin-only.
 
 onRecordUpdateRequest(function (e) {

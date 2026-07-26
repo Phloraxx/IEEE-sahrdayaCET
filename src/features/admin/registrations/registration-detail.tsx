@@ -6,6 +6,7 @@ import { Loader2, Mail, Phone, Ticket, UserCheck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ConfirmButton } from "@/components/admin/confirm-button";
+import { formatDateTime } from "@/lib/dates";
 
 interface RegistrationDetail {
   id: string;
@@ -28,18 +29,7 @@ interface RegistrationDetail {
 }
 
 function formatDate(d: string | null): string {
-  if (!d) return "—";
-  try {
-    return new Date(d).toLocaleString("en-IN", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return d;
-  }
+  return d ? formatDateTime(d) || d : "—";
 }
 interface RegistrationDetailProps {
   registrationId: string;

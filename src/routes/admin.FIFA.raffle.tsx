@@ -6,6 +6,7 @@ import { PanelHeader } from "@/components/admin/panel-header"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { type FifaSettings } from "@/schemas/fifa"
+import { fetchFifaLeaderboard, raffleDrawWeight, type FifaLeaderboardRow } from "@/lib/fifa-leaderboard"
 import { fetchSettings } from "@/lib/api/fifa"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -16,24 +17,11 @@ import {
 } from "@/components/ui/table"
 import { toast } from "sonner"
 import { useState, useEffect } from "react"
-
-interface LeaderboardEntry {
-  rank: number
-  id: string
-  display_name: string
-  balance: number
-  bets_count: number
-}
-
-async function fetchLeaderboard(): Promise<LeaderboardEntry[]> {
-  const res = await fetch('/api/fifa/leaderboard')
-  if (!res.ok) throw new Error('Failed to load leaderboard')
-  return res.json()
-}
+import { formatDateTime } from "@/lib/dates";
 
 export default function AdminFifaRaffle() {
   const { data: drawsData, isLoading: drawsLoading } = useQuery({ queryKey: ['admin-fifa-raffle-draws'], queryFn: listFifaRaffleDraws })
-  const { data: lbData, isLoading: lbLoading } = useQuery({ queryKey: ['admin-fifa-leaderboard'], queryFn: fetchLeaderboard })
+  const { data: lbData, isLoading: lbLoading } = useQuery({ queryKey: ['admin-fifa-leaderboard'], queryFn: fetchFifaLeaderboard })
   const { data: settingsData, isLoading: settingsLoading } = useQuery({ queryKey: ['admin-fifa-settings'], queryFn: fetchSettings })
   const [winnerResult, setWinnerResult] = useState<FifaRaffleResult | null>(null)
   const [isDrawing, setIsDrawing] = useState(false)
@@ -85,20 +73,20 @@ export default function AdminFifaRaffle() {
       />
 
       {isDrawing ? (
-        <DrawAnimation names={lbData.map(l => l.display_name)} />
+        <DrawAnimation names={lbData.leaderboard.map((row) => row.display_name)} />
       ) : winnerResult ? (
-        <WinnerView 
-          result={winnerResult} 
-          onReset={() => setWinnerResult(null)} 
+        <WinnerView
+          result={winnerResult}
+          onReset={() => setWinnerResult(null)}
         />
       ) : (
-        <PreDrawView 
-          leaderboard={lbData} 
-          settings={settingsData} 
+        <PreDrawView
+          leaderboard={lbData.leaderboard}
+          settings={settingsData}
           onRunDraw={() => {
             setIsDrawing(true)
             runDraw.mutate()
-          }} 
+          }}
         />
       )}
 
@@ -118,7 +106,7 @@ export default function AdminFifaRaffle() {
                     <Badge variant="secondary">{d.entries_snapshot?.total_tickets || 0} total tickets in pool</Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Drawn {new Date(d.drawn_at).toLocaleString()} · Pick #{d.entries_snapshot?.winning_pick} · {d.entries_snapshot?.entries?.length || 0} players entered
+                    Drawn {formatDateTime(d.drawn_at)} · Pick #{d.entries_snapshot?.winning_pick} · {d.entries_snapshot?.entries?.length || 0} players entered
                   </p>
                   <p className="text-[10px] text-muted-foreground mt-1 font-mono uppercase">SEED: {d.seed}</p>
                 </div>
@@ -131,24 +119,28 @@ export default function AdminFifaRaffle() {
   )
 }
 
-function PreDrawView({ 
-  leaderboard, 
-  settings, 
-  onRunDraw 
-}: { 
-  leaderboard: LeaderboardEntry[], 
-  settings: FifaSettings, 
-  onRunDraw: () => void 
+function PreDrawView({
+  leaderboard,
+  settings,
+  onRunDraw
+}: {
+  leaderboard: FifaLeaderboardRow[],
+  settings: FifaSettings,
+  onRunDraw: () => void
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false)
-  
+
   // Calculate eligible entries and tickets based on formula
   const entries = []
   let totalTickets = 0
 
   for (const lb of leaderboard) {
-    if (lb.bets_count < settings.raffle_active_participant_min_bets) continue
-    const tickets = Math.max(1, settings.raffle_tickets_base - settings.raffle_tickets_decay * (lb.rank - 1))
+    const tickets = raffleDrawWeight(lb.rank, lb.bets_count, {
+      raffle_tickets_base: settings.raffle_tickets_base,
+      raffle_tickets_decay: settings.raffle_tickets_decay,
+      min_bets: settings.raffle_active_participant_min_bets,
+    })
+    if (tickets <= 0) continue
     entries.push({ ...lb, tickets })
     totalTickets += tickets
   }
@@ -164,7 +156,7 @@ function PreDrawView({
             {entries.length} eligible players · {totalTickets} total tickets in pool
           </p>
         </div>
-        
+
         <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
           <DialogTrigger asChild>
             <Button disabled={isRegistrationOpen || entries.length === 0} size="lg">
@@ -233,7 +225,7 @@ function PreDrawView({
 
 function DrawAnimation({ names }: { names: string[] }) {
   const [currentName, setCurrentName] = useState("...")
-  
+
   useEffect(() => {
     if (names.length === 0) return
     const interval = setInterval(() => {
@@ -283,7 +275,7 @@ function WinnerView({ result, onReset }: { result: FifaRaffleResult; onReset: ()
             <Info className="h-4 w-4" /> Transparency Snapshot
           </h3>
           <p className="text-xs text-muted-foreground mt-1">
-            The winning pick was #{snapshot.winning_pick} out of {snapshot.total_tickets} total tickets. 
+            The winning pick was #{snapshot.winning_pick} out of {snapshot.total_tickets} total tickets.
             Selection utilized standard <code>Math.random()</code> weighted distribution at the time of draw.
           </p>
           <p className="text-[10px] font-mono text-muted-foreground mt-2 break-all">SEED: {result.seed}</p>

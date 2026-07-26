@@ -5,29 +5,9 @@ import { FifaLayout } from '@/features/fifa/fifa-layout'
 import { motion } from 'framer-motion'
 import { useAuth } from '@/lib/auth-context'
 import { Trophy, Medal } from 'lucide-react'
+import { fetchFifaLeaderboard, type FifaLeaderboardRow } from '@/lib/fifa-leaderboard'
 
-interface LeaderboardRow {
-  rank: number
-  id: string
-  display_name: string
-  balance: number
-  bets_count: number
-}
-
-interface LeaderboardData {
-  leaderboard: LeaderboardRow[]
-  settings: {
-    min_bets: number
-  }
-}
-
-async function fetchLeaderboard(): Promise<LeaderboardData> {
-  const res = await fetch('/api/fifa/leaderboard')
-  if (!res.ok) throw new Error('Failed to load leaderboard')
-  return res.json()
-}
-
-function PodiumStep({ player, rank, delay }: { player?: LeaderboardRow; rank: 1 | 2 | 3; delay: number }) {
+function PodiumStep({ player, rank, delay }: { player?: FifaLeaderboardRow; rank: 1 | 2 | 3; delay: number }) {
   if (!player) return <div className="w-24 sm:w-32" />
 
   const isFirst = rank === 1
@@ -79,7 +59,7 @@ export default function LeaderboardPage() {
   const { user, status } = useAuth()
   const { data, isLoading } = useQuery({
     queryKey: ['fifa-leaderboard'],
-    queryFn: fetchLeaderboard,
+    queryFn: fetchFifaLeaderboard,
     refetchInterval: 15_000,
   })
 

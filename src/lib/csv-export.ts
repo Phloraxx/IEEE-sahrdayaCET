@@ -1,6 +1,7 @@
 import type PocketBase from 'pocketbase'
 import { escapeFilterValue } from './pb'
 import { getField } from './safe-get'
+import { formatDateShort } from './dates'
 
 /** CSV batch size for streaming exports. */
 const CSV_BATCH_SIZE = 500
@@ -85,11 +86,11 @@ export async function streamRegistrationsCSV(
         escapeCsv(getField(reg, 'userName', '')),
         escapeCsv(getField(reg, 'userEmail', '')),
         escapeCsv(getField(reg, 'userPhone', '')),
-        isAdmin ? escapeCsv(formatter(getField(reg, 'registrationDate', ''))) : escapeCsv(getField(reg, 'registrationDate', '') ? new Date(getField(reg, 'registrationDate', '')).toLocaleDateString('en-IN') : ''),
+        isAdmin ? escapeCsv(formatter(getField(reg, 'registrationDate', ''))) : escapeCsv(formatDateShort(getField(reg, 'registrationDate', ''))),
         escapeCsv(getField(reg, 'paymentStatus', '')),
         escapeCsv(getField(reg, 'registrationStatus', '')),
         isAdmin ? escapeCsv(getField(reg, 'checkedIn', false) ? 'yes' : 'no') : (getField(reg, 'checkedIn', false) ? 'Yes' : 'No'),
-        isAdmin ? escapeCsv(formatter(getField(reg, 'checkedInAt', ''))) : escapeCsv(getField(reg, 'checkedInAt', '') ? new Date(getField(reg, 'checkedInAt', '')).toLocaleDateString('en-IN') : ''),
+        isAdmin ? escapeCsv(formatter(getField(reg, 'checkedInAt', ''))) : escapeCsv(formatDateShort(getField(reg, 'checkedInAt', ''))),
         isAdmin ? escapeCsv(getField(reg, 'ticketId', '') || getField(reg, 'paymentTicketId', '')) : escapeCsv(getField(reg, 'ticketId', '')),
       ]
       const couponCols = [

@@ -91,7 +91,20 @@ export async function listEventCoupons(eventId: string): Promise<{ coupons: Coup
     filter: `event = ${escapeFilterValue(eventId)}`,
     sort: "created",
   });
-  return { coupons: records as unknown as Coupon[] };
+  return {
+    coupons: records.map((record) => ({
+      id: record.id,
+      event: String(record.event || ""),
+      code: String(record.code || ""),
+      discountPercent: Number(record.discountPercent) || 0,
+      maxUses: Number(record.maxUses) || 0,
+      usedCount: Number(record.usedCount) || 0,
+      expiresAt: record.expiresAt ? String(record.expiresAt) : undefined,
+      isActive: Boolean(record.isActive),
+      createdAt: record.created ? String(record.created) : undefined,
+      updatedAt: record.updated ? String(record.updated) : undefined,
+    } satisfies Coupon)),
+  };
 }
 
 function eventPayloadToBody(

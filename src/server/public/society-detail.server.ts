@@ -1,94 +1,117 @@
 import { createPublicPB } from "@/lib/pb.server";
 import { buildFileUrl, escapeFilterValue } from "@/lib/pb";
+import { getField } from "@/lib/safe-get";
 
 export interface SocietyPageData {
   society: {
-    id: string; name: string; slug: string; bio: string; chairs: string[];
-    defaultWhatsappLink: string; logoUrl: string; bannerUrl: string;
+    id: string;
+    name: string;
+    slug: string;
+    bio: string;
+    chairs: string[];
+    defaultWhatsappLink: string;
+    logoUrl: string;
+    bannerUrl: string;
   };
   events: Array<{
-    id: string; title: string; description: string; date: string; endDate: string;
-    registrationStart: string; registrationDeadline: string; venue: string; price: number;
-    status: string; bannerUrl: string; externalFormUrl: string;
+    id: string;
+    title: string;
+    description: string;
+    date: string;
+    endDate: string;
+    registrationStart: string;
+    registrationDeadline: string;
+    venue: string;
+    price: number;
+    status: string;
+    bannerUrl: string;
+    externalFormUrl: string;
   }>;
   members: Array<{
-    id: string; name: string; position: string; department: string; batch: string;
-    photoUrl: string; linkedin: string; instagram: string;
+    id: string;
+    name: string;
+    position: string;
+    department: string;
+    batch: string;
+    photoUrl: string;
+    linkedin: string;
+    instagram: string;
   }>;
 }
 
 export async function fetchSocietyData(slug: string): Promise<SocietyPageData> {
-    const pb = createPublicPB();
-    const society = await pb
-      .collection("societies")
-      .getFirstListItem(`slug = ${escapeFilterValue(slug.toLowerCase())}`)
-      .catch(() => null);
+  const pb = createPublicPB();
+  const society = await pb.collection("societies").getFirstListItem(
+    `slug = ${escapeFilterValue(slug.toLowerCase())}`,
+    { fields: "id,name,slug,bio,chairs,defaultWhatsappLink,logo,banner" },
+  ).catch(() => null);
 
-    if (!society) {
-      throw new Error("Society not found");
-    }
+  if (!society) throw new Error("Society not found");
 
-    const [events, members] = await Promise.all([
-      pb
-        .collection("events")
-        .getList(1, 100, {
-          filter: `society = ${escapeFilterValue(society.id)}`,
-          sort: "-date",
-        })
-        .then((res) => res.items)
-        .catch(() => []),
-      pb
-        .collection("execom")
-        .getList(1, 100, {
-          filter: `sectionId = ${escapeFilterValue(slug.toLowerCase())}`,
-          sort: "order",
-        })
-        .then((res) => res.items)
-        .catch(() => []),
-    ]);
+  const [events, members] = await Promise.all([
+    pb.collection("events").getFullList({
+      batch: 100,
+      filter: `society = ${escapeFilterValue(society.id)}`,
+      sort: "-date",
+      fields:
+        "id,title,description,date,endDate,registrationStart,registrationDeadline,venue,price,status,banner,externalFormUrl",
+    }).catch(() => []),
+    // `society` is the canonical relation. `sectionId` is a legacy display/grouping
+    // key and is not guaranteed to match the society slug (for example CAS).
+    pb.collection("execom").getFullList({
+      batch: 100,
+      filter: `society = ${escapeFilterValue(society.id)}`,
+      sort: "order",
+      fields: "id,name,position,department,batch,photo,linkedin,instagram",
+    }).catch(() => []),
+  ]);
 
-    return {
-      society: {
-        id: society.id,
-        name: society.name,
-        slug: society.slug,
-        bio: (society.bio as string) || "",
-        chairs: Array.isArray(society.chairs) ? society.chairs : [],
-        defaultWhatsappLink: (society.defaultWhatsappLink as string) || "",
-        logoUrl: society.logo
-          ? buildFileUrl("societies", society.id, society.logo as string)
-          : "",
-        bannerUrl: society.banner
-          ? buildFileUrl("societies", society.id, society.banner as string)
-          : "",
-      },
-      events: events.map((e) => ({
-        id: e.id,
-        title: (e.title as string) || "",
-        description: (e.description as string) || "",
-        date: (e.date as string) || "",
-        endDate: (e.endDate as string) || "",
-        registrationStart: (e.registrationStart as string) || "",
-        registrationDeadline: (e.registrationDeadline as string) || "",
-        venue: (e.venue as string) || "",
-        price: (e.price as number) || 0,
-        status: (e.status as string) || "published",
-        bannerUrl: e.banner
-          ? buildFileUrl("events", e.id, e.banner as string)
-          : "",
-        externalFormUrl: (e.externalFormUrl as string) || "",
-      })),
-      members: members.map((m) => ({
-        id: m.id,
-        name: (m.name as string) || "",
-        position: (m.position as string) || "",
-        department: (m.department as string) || "",
-        batch: (m.batch as string) || "",
-        photoUrl: m.photo
-          ? buildFileUrl("execom", m.id, m.photo as string)
-          : "",
-        linkedin: (m.linkedin as string) || "",
-        instagram: (m.instagram as string) || "",
-      })),
-    };
+  const societyId = society.id;
+  const societyLogo = getField(society, "logo", "");
+  const societyBanner = getField(society, "banner", "");
+
+  return {
+    society: {
+      id: societyId,
+      name: getField(society, "name", ""),
+      slug: getField(society, "slug", ""),
+      bio: getField(society, "bio", ""),
+      chairs: Array.isArray(society.chairs) ? society.chairs.map(String) : [],
+      defaultWhatsappLink: getField(society, "defaultWhatsappLink", ""),
+      logoUrl: societyLogo ? buildFileUrl("societies", societyId, societyLogo) : "",
+      bannerUrl: societyBanner ? buildFileUrl("societies", societyId, societyBanner) : "",
+    },
+    events: events.map((event) => {
+      const id = event.id;
+      const banner = getField(event, "banner", "");
+      return {
+        id,
+        title: getField(event, "title", ""),
+        description: getField(event, "description", ""),
+        date: getField(event, "date", ""),
+        endDate: getField(event, "endDate", ""),
+        registrationStart: getField(event, "registrationStart", ""),
+        registrationDeadline: getField(event, "registrationDeadline", ""),
+        venue: getField(event, "venue", ""),
+        price: Number(getField(event, "price", 0)) || 0,
+        status: getField(event, "status", "published"),
+        bannerUrl: banner ? buildFileUrl("events", id, banner) : "",
+        externalFormUrl: getField(event, "externalFormUrl", ""),
+      };
+    }),
+    members: members.map((member) => {
+      const id = member.id;
+      const photo = getField(member, "photo", "");
+      return {
+        id,
+        name: getField(member, "name", ""),
+        position: getField(member, "position", ""),
+        department: getField(member, "department", ""),
+        batch: getField(member, "batch", ""),
+        photoUrl: photo ? buildFileUrl("execom", id, photo) : "",
+        linkedin: getField(member, "linkedin", ""),
+        instagram: getField(member, "instagram", ""),
+      };
+    }),
+  };
 }

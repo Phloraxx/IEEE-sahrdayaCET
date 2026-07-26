@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import { ArrowUpRight, Clock } from "lucide-react";
+import { formatDateShort } from "@/lib/dates";
 
 export interface RelatedBlogSummary {
   id: string;
@@ -14,14 +15,7 @@ export interface RelatedBlogSummary {
 }
 
 function formatDate(value?: string) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  return value ? formatDateShort(value) : "";
 }
 
 export function RelatedBlogCards({

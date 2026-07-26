@@ -7,6 +7,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import type { BlogPost, BlogTopic } from "@/types";
 import { cn } from "@/lib/utils";
+import { formatDateShort } from "@/lib/dates";
 
 export default function BlogClient({ blogs = [] }: { blogs?: BlogPost[] }) {
   const [hovered, setHovered] = useState<string | null>(null);
@@ -658,14 +659,7 @@ const ARCHIVE_CATEGORIES = ["All", "IEEE", "Society", "Event"] as const;
 type ArchiveCategory = (typeof ARCHIVE_CATEGORIES)[number];
 
 function formatArchiveDate(value?: string) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  return value ? formatDateShort(value) : "";
 }
 
 function CompleteArchive({ blogs }: { blogs: BlogPost[] }) {

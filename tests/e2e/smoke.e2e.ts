@@ -17,7 +17,8 @@ test.describe('Public pages smoke', () => {
     expect(response?.ok()).toBeTruthy()
   })
 
-  test('full execom page loads', { timeout: 60000 }, async ({ page }) => {
+  test('full execom page loads', async ({ page }) => {
+    test.setTimeout(60_000)
     const response = await page.goto('/full-execom')
     expect(response?.ok()).toBeTruthy()
   })

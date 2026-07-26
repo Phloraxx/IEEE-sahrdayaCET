@@ -17,6 +17,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { FIFA_MARKET_LABELS } from "@/schemas/fifa"
+import { formatDateTime } from "@/lib/dates";
+import { fetchFifaLiveScores, findLiveMatch } from "@/lib/fifa-live-match";
 
 interface MarketRow {
   id: string
@@ -68,7 +70,7 @@ export default function AdminFifaMatchDetail() {
           <PanelHeader
             eyebrow={match.stage.toUpperCase()}
             title={`${match.team_home} vs ${match.team_away}`}
-            description={`Kickoff: ${match.kickoff_at ? new Date(match.kickoff_at).toLocaleString() : '—'}`}
+            description={`Kickoff: ${match.kickoff_at ? formatDateTime(match.kickoff_at) : '—'}`}
           />
 
           <div className="grid gap-6 lg:grid-cols-2">
@@ -300,21 +302,14 @@ function SettleForm({ match }: { match: MatchData }) {
   // Auto-fill from live scores (football-data.org).
   const autoFill = useMutation({
     mutationFn: async () => {
-      const res = await fetch('/api/fifa/live-scores')
-      if (!res.ok) throw new Error('Live scores unavailable')
-      return res.json() as Promise<{ matches: Array<{ homeTeam: string; awayTeam: string; homeGoals: number | null; awayGoals: number | null; status: string }>; configured: boolean }>
+      return fetchFifaLiveScores({ throwOnError: true })
     },
     onSuccess: (data) => {
       if (!data.configured) {
         toast.error('Live scores not configured (FOOTBALL_DATA_API_TOKEN not set)')
         return
       }
-      const lm = data.matches.find((m) => {
-        const h = m.homeTeam.trim().toLowerCase()
-        const a = m.awayTeam.trim().toLowerCase()
-        return (h === match.team_home.toLowerCase() && a === match.team_away.toLowerCase())
-          || (h === match.team_away.toLowerCase() && a === match.team_home.toLowerCase())
-      })
+      const lm = findLiveMatch(match.team_home, match.team_away, data.matches)
       if (!lm || lm.homeGoals === null || lm.awayGoals === null) {
         toast.error('No live score found for this match yet')
         return

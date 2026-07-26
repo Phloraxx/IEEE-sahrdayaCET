@@ -8,11 +8,11 @@ import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 import type { FormField } from "@/types";
 import { formatDate } from "@/lib/dates";
-import { createRegistration, getPublicEvent } from "@/lib/data/public-client";
+import { createRegistration, getPublicEvent, type PublicRegistrationEvent } from "@/lib/data/public-client";
 
 interface PageProps {
   eventId: string;
-  initialEvent?: Record<string, unknown> | null;
+  initialEvent?: PublicRegistrationEvent | null;
 }
 
 // ─── Dynamic Field Renderer ─────────────────────────────────────────
@@ -430,22 +430,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
   const navigate = useNavigate();
   const { user, signIn } = useAuth();
 
-  const [event, setEvent] = useState<{
-    id: string;
-    title: string;
-    description: string;
-    date: string;
-    endDate: string;
-    venue: string;
-    price: number;
-    isPaid: boolean;
-    bannerUrl: string;
-    registrationOpen: boolean;
-    maxCapacity: number;
-    registeredCount: number;
-    collectIeeeMember?: boolean;
-    formFields?: FormField[];
-  } | null>(null);
+  const [event, setEvent] = useState<PublicRegistrationEvent | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -468,8 +453,8 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   useEffect(() => {
     if (initialEvent) {
-      setEvent(initialEvent as unknown as typeof event);
-      const formTemplate = (initialEvent as Record<string, unknown>).formTemplate || (initialEvent as Record<string, unknown>).formFields;
+      setEvent(initialEvent);
+      const formTemplate = initialEvent.formFields;
       if (Array.isArray(formTemplate)) {
         const initial: Record<string, string> = {};
         formTemplate.forEach((f: FormField) => {
@@ -484,8 +469,8 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
       try {
         const eventData = await getPublicEvent(eventId);
         if (eventData) {
-          setEvent(eventData as typeof event);
-          const formTemplate = eventData.formTemplate;
+          setEvent(eventData);
+          const formTemplate = eventData.formFields;
           if (Array.isArray(formTemplate)) {
             const initial: Record<string, string> = {};
             formTemplate.forEach((f: FormField) => {

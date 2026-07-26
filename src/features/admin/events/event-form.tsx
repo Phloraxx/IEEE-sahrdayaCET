@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EVENT_STATUS } from "@/lib/constants";
+import { fromAppDateTimeLocal, toAppDateTimeLocal } from "@/lib/dates";
 import { FormSection } from "@/features/admin/shared/form-section";
 import { ImageUpload } from "@/components/admin/image-upload";
 import { CustomFieldBuilder } from "@/components/admin/custom-field-builder";
@@ -76,20 +77,6 @@ const EMPTY_STATE: EventFormState = {
   externalFormUrl: "",
 };
 
-function toLocalInput(dateString: string | undefined): string {
-  if (!dateString) return "";
-  const d = new Date(dateString);
-  if (Number.isNaN(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function toIso(value: string): string | undefined {
-  if (!value) return undefined;
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return undefined;
-  return d.toISOString();
-}
 interface EventFormProps {
   mode: "create" | "edit";
   eventId?: string;
@@ -144,8 +131,8 @@ export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
       setForm({
         title: String(e.title ?? ""),
         description: String(e.description ?? ""),
-        date: toLocalInput(e.date as string | undefined),
-        endDate: toLocalInput(e.endDate as string | undefined),
+        date: toAppDateTimeLocal(e.date as string | undefined),
+        endDate: toAppDateTimeLocal(e.endDate as string | undefined),
         venue: String(e.venue ?? ""),
         price: String(e.price ?? "0"),
         maxCapacity:
@@ -157,10 +144,10 @@ export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
         registrationOpen: e.registrationOpen !== false,
         checkInEnabled: e.checkInEnabled !== false,
         collectIeeeMember: Boolean(e.collectIeeeMember),
-        registrationStart: toLocalInput(
+        registrationStart: toAppDateTimeLocal(
           e.registrationStart as string | undefined,
         ),
-        registrationDeadline: toLocalInput(
+        registrationDeadline: toAppDateTimeLocal(
           e.registrationDeadline as string | undefined,
         ),
         contactEmail: String(e.contactEmail ?? ""),
@@ -201,9 +188,9 @@ export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
 
     // Validate end date >= start date
     if (form.date && form.endDate) {
-      const start = new Date(form.date);
-      const end = new Date(form.endDate);
-      if (end <= start) {
+      const start = fromAppDateTimeLocal(form.date);
+      const end = fromAppDateTimeLocal(form.endDate);
+      if (!start || !end || Date.parse(end) <= Date.parse(start)) {
         setDateError("End date must be after the start date");
         setSubmitting(false);
         return;
@@ -230,10 +217,10 @@ export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
         registrationOpen: form.registrationOpen,
         checkInEnabled: form.checkInEnabled,
         collectIeeeMember: form.collectIeeeMember,
-        date: toIso(form.date),
-        endDate: toIso(form.endDate),
-        registrationStart: toIso(form.registrationStart),
-        registrationDeadline: toIso(form.registrationDeadline),
+        date: fromAppDateTimeLocal(form.date),
+        endDate: fromAppDateTimeLocal(form.endDate),
+        registrationStart: fromAppDateTimeLocal(form.registrationStart),
+        registrationDeadline: fromAppDateTimeLocal(form.registrationDeadline),
         contactEmail: form.contactEmail || undefined,
         contactPhone: form.contactPhone || undefined,
         externalLink: form.externalLink || undefined,

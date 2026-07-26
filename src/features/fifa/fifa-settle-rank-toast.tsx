@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth-context'
 import { fetchFifaDashboard } from '@/lib/fifa-dashboard-client'
+import { fetchFifaLeaderboard } from '@/lib/fifa-leaderboard'
 
 function statusById(bets: Array<{ id: string; status: string }>): Record<string, string> {
   const out: Record<string, string> = {}
@@ -66,9 +67,8 @@ export function FifaSettleRankToast() {
     if (!settled) return
 
     void (async () => {
-      const res = await fetch('/api/fifa/leaderboard')
-      const rows = res.ok ? ((await res.json()).leaderboard ?? []) : []
-      const me = rows.find((r: { id: string; rank: number }) => r.id === user.id)
+      const { leaderboard } = await fetchFifaLeaderboard().catch(() => ({ leaderboard: [] }))
+      const me = leaderboard.find((row) => row.id === user.id)
       if (me) {
         toast.success(`Results are in — you're rank #${me.rank}`, { id: 'fifa-settle-rank' })
       } else {

@@ -15,6 +15,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth-context";
 import { listAdminUsers, updateAdminUserRole } from "@/lib/data/admin-users.client";
+import { formatDateShort } from "@/lib/dates";
 
 interface UserRow {
   id: string;
@@ -51,16 +52,7 @@ function UsersSkeleton() {
   );
 }
 function formatDate(d: string): string {
-  if (!d) return "—";
-  try {
-    return new Date(d).toLocaleDateString("en-IN", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
-  } catch {
-    return d;
-  }
+  return d ? formatDateShort(d) || d : "—";
 }
 
 export default function AdminUsers() {

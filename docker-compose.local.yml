@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: pocketbase/Dockerfile
       args:
-        PB_VERSION: "0.39.8"
+        PB_VERSION: "0.39.9"
     environment:
       PB_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef
       PAYMENT_WEBHOOK_SECRET: local-development-only

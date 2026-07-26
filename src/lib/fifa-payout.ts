@@ -30,16 +30,6 @@ export interface MatchResult {
   result_after_penalties?: boolean
 }
 
-export interface MarketInfo {
-  market_type: string
-  mode: 'pool' | 'fixed'
-  line: number
-  fixed_odds: Record<string, number> | null
-  options: string[]
-  // custom_winners is only used for custom markets — admin marks which
-  // option(s) won. Map of marketId -> winning option strings.
-}
-
 export interface BetInfo {
   id: string
   user: string

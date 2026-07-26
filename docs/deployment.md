@@ -10,7 +10,7 @@ Node is intentional: runtime smoke testing showed that serving React Router SSR 
 
 ### PocketBase
 
-`pocketbase/Dockerfile` pins PocketBase 0.39.8, supports amd64/arm64, and verifies the downloaded release archive by SHA-256 before extraction.
+`pocketbase/Dockerfile` pins PocketBase 0.39.9, supports amd64/arm64, and verifies the downloaded release archive by SHA-256 before extraction.
 
 Hooks and migrations are baked into the image. Only `/pb/pb_data` is persistent.
 

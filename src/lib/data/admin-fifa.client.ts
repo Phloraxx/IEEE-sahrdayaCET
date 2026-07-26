@@ -1,9 +1,9 @@
 import { getPbClient } from "@/lib/pb-client";
 import { escapeFilterValue } from "@/lib/pb";
-import { userDisplayName } from "@/lib/user-display-name";
 import { FifaRaffleSnapshotSchema, type FifaRaffleSnapshot, type FifaSettings } from "@/schemas/fifa";
+import { getNumberField } from "@/lib/safe-get";
 
-export interface AdminFifaMatchRecord {
+interface AdminFifaMatchRecord {
   id: string;
   team_home: string;
   team_away: string;
@@ -20,7 +20,7 @@ export interface AdminFifaMatchRecord {
   result_after_penalties: boolean;
 }
 
-export interface AdminFifaMarketRecord {
+interface AdminFifaMarketRecord {
   id: string;
   match: string;
   market_type: string;
@@ -79,27 +79,6 @@ export async function getAdminFifaMatch(id: string) {
   return { match: mapMatch(record) };
 }
 
-export async function saveAdminFifaMatch(id: string | undefined, data: Record<string, unknown>) {
-  const pb = getPbClient();
-  const body = { ...data };
-  delete body.settled;
-  if (!body.betting_locks_at && body.kickoff_at) body.betting_locks_at = body.kickoff_at;
-  const match = id
-    ? await pb.collection("fifa_matches").update(id, body)
-    : await pb.collection("fifa_matches").create(body);
-  return { match };
-}
-
-export async function deleteAdminFifaMatch(id: string) {
-  const pb = getPbClient();
-  const pending = await pb.collection("fifa_bets").getList(1, 1, {
-    filter: `match = ${escapeFilterValue(id)} && status = 'pending'`,
-    fields: "id",
-  });
-  if (pending.totalItems > 0) throw new Error("Cannot delete match with pending bets — void the match instead");
-  await pb.collection("fifa_matches").delete(id);
-}
-
 export async function listAdminFifaMarkets(matchId?: string) {
   const records = await getPbClient().collection("fifa_bet_markets").getFullList({
     filter: matchId ? `match = ${escapeFilterValue(matchId)}` : undefined,
@@ -127,16 +106,6 @@ export async function updateAdminFifaMarket(id: string, data: Record<string, unk
   delete body.pool_by_option;
   const market = await pb.collection("fifa_bet_markets").update(id, body);
   return { market: mapMarket(market) };
-}
-
-export async function deleteAdminFifaMarket(id: string) {
-  const pb = getPbClient();
-  const pending = await pb.collection("fifa_bets").getList(1, 1, {
-    filter: `market = ${escapeFilterValue(id)} && status = 'pending'`,
-    fields: "id",
-  });
-  if (pending.totalItems > 0) throw new Error("Cannot delete market with pending bets — void it instead");
-  await pb.collection("fifa_bet_markets").delete(id);
 }
 
 export interface FifaRaffleResult {
@@ -174,14 +143,14 @@ export async function getFifaSettings(): Promise<FifaSettings> {
   const s = await getPbClient().collection("fifa_settings").getFirstListItem("1=1");
   return {
     event_name: String(s.event_name || ""),
-    starting_balance: Number(s.starting_balance) || 1000,
-    max_bet_percent: Number(s.max_bet_percent) || 25,
-    daily_topup_threshold: Number(s.daily_topup_threshold) || 100,
-    daily_topup_target: Number(s.daily_topup_target) || 200,
-    pool_house_cut_percent: Number(s.pool_house_cut_percent) || 0,
-    raffle_tickets_base: Number(s.raffle_tickets_base) || 50,
-    raffle_tickets_decay: Number(s.raffle_tickets_decay) || 2,
-    raffle_active_participant_min_bets: Number(s.raffle_active_participant_min_bets) || 5,
+    starting_balance: getNumberField(s, "starting_balance", 1000),
+    max_bet_percent: getNumberField(s, "max_bet_percent", 25),
+    daily_topup_threshold: getNumberField(s, "daily_topup_threshold", 100),
+    daily_topup_target: getNumberField(s, "daily_topup_target", 200),
+    pool_house_cut_percent: getNumberField(s, "pool_house_cut_percent", 0),
+    raffle_tickets_base: getNumberField(s, "raffle_tickets_base", 50),
+    raffle_tickets_decay: getNumberField(s, "raffle_tickets_decay", 2),
+    raffle_active_participant_min_bets: getNumberField(s, "raffle_active_participant_min_bets", 5),
     prize: String(s.prize || ""),
     registration_open: Boolean(s.registration_open),
     raffle_drawn_at: String(s.raffle_drawn_at || ""),
@@ -208,30 +177,4 @@ export async function settleFifaMatch(payload: Record<string, unknown>) {
 
 export async function runFifaRaffle(): Promise<FifaRaffleResult> {
   return getPbClient().send("/api/fifa/raffle", { method: "POST" }) as Promise<FifaRaffleResult>;
-}
-
-export async function listAdminFifaBets(matchId?: string) {
-  const result = await getPbClient().collection("fifa_bets").getList(1, 200, {
-    filter: matchId ? `match = ${escapeFilterValue(matchId)}` : undefined,
-    sort: "-placed_at",
-    expand: "match,market,user",
-  });
-  return {
-    bets: result.items.map((b) => ({
-      id: b.id,
-      user: b.expand?.user
-        ? { id: b.expand.user.id, display_name: userDisplayName({ name: b.expand.user.name, display_name: b.expand.user.display_name }), email: String(b.expand.user.email || "") }
-        : { id: String(b.user || ""), display_name: "", email: "" },
-      selection: String(b.selection || ""),
-      stake: Number(b.stake) || 0,
-      mode: String(b.mode || "pool"),
-      odds_locked: Number(b.odds_locked) || 0,
-      status: String(b.status || "pending"),
-      payout: Number(b.payout) || 0,
-      placed_at: String(b.placed_at || ""),
-      match: b.expand?.match ? { id: b.expand.match.id, team_home: String(b.expand.match.team_home || ""), team_away: String(b.expand.match.team_away || "") } : null,
-      market: b.expand?.market ? { id: b.expand.market.id, market_type: String(b.expand.market.market_type || "") } : null,
-    })),
-    total: result.totalItems,
-  };
 }
