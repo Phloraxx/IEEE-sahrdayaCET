@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router";
 import { useQuery } from '@tanstack/react-query'
 import { FifaLayout } from '@/features/fifa/fifa-layout'
@@ -9,19 +10,22 @@ import { listFifaMatches } from '@/lib/data/fifa.client'
 export default function MatchesPage() {
   const { pathname } = useLocation()
   const isDetail = /^\/FIFA\/matches\/[^/]+\/?$/.test(pathname)
+  const [clientReady, setClientReady] = useState(false)
+
+  useEffect(() => setClientReady(true), [])
 
   const { data, isLoading } = useQuery({
     queryKey: ['fifa-matches'],
     queryFn: () => listFifaMatches(),
     refetchInterval: 15_000,
-    enabled: typeof window !== 'undefined' && !isDetail,
+    enabled: clientReady && !isDetail,
   })
 
   const { data: liveData } = useQuery({
     queryKey: ['fifa-live-scores'],
     queryFn: () => fetchFifaLiveScores(),
     refetchInterval: 60_000,
-    enabled: typeof window !== 'undefined' && !isDetail,
+    enabled: clientReady && !isDetail,
   })
 
   if (isDetail) {

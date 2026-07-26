@@ -8,9 +8,14 @@ test.describe("FIFA public experience", () => {
     ['/FIFA/rules', /rule|ticket|bet|scoring|prize/i],
   ] as const) {
     test(`${path} renders without authentication`, async ({ page }) => {
+      const pageErrors: Error[] = []
+      page.on('pageerror', (error) => pageErrors.push(error))
+
       const response = await page.goto(path, { waitUntil: 'domcontentloaded' })
       expect(response?.ok()).toBeTruthy()
       await expect(page.locator('body')).toContainText(pattern)
+      await page.waitForTimeout(100)
+      expect(pageErrors).toEqual([])
     })
   }
 

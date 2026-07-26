@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
@@ -9,11 +9,14 @@ import { fetchFifaLiveScores } from '@/lib/fifa-live-match'
 
 export function FifaMatchCarousel() {
   const carouselRef = useRef<HTMLDivElement>(null)
+  const [clientReady, setClientReady] = useState(false)
+
+  useEffect(() => setClientReady(true), [])
 
   const { data, isLoading } = useQuery({
     queryKey: ['fifa-matches'],
     queryFn: () => listFifaMatches(),
-    enabled: typeof window !== 'undefined',
+    enabled: clientReady,
     refetchInterval: 15_000,
   })
 
