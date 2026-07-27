@@ -65,15 +65,15 @@ https://staging.ieeesahrdaya.com
 
 Staging has its own PocketBase volume and OAuth redirect configuration. Non-production document responses emit `X-Robots-Tag: noindex, nofollow`, and staging does not expose the production sitemap.
 
-During the React Router/PocketBase rewrite, `rewrite/react-router-pocketbase` is an accepted staging source branch alongside `dev`. After the migration is complete, remove temporary branch-specific deployment wiring when it is no longer needed.
+`dev` is the canonical staging source branch.
 
 ### Production
 
-`main` is the production source branch. Production deployments must use production-only secrets and the production PocketBase volume.
+`main` is the canonical production source branch. Production deployments must use production-only secrets and the production PocketBase volume.
 
 ## CI
 
-`.github/workflows/ci.yml` runs on pushes to `main`, `dev`, and `rewrite/react-router-pocketbase`, on pull requests, and on manual dispatch.
+`.github/workflows/ci.yml` runs on pushes to `main` and `dev`, on pull requests, and on manual dispatch.
 
 It has three gates:
 
@@ -90,15 +90,13 @@ The clean-room backend starts with an empty PocketBase data directory. A success
 ```text
 main
 dev
-rewrite/react-router-pocketbase
 ```
 
 Branch mapping:
 
 ```text
-main                            → production webhook
-dev                             → staging webhook
-rewrite/react-router-pocketbase → staging webhook
+main → production webhook
+dev  → staging webhook
 ```
 
 Before deployment, CD queries GitHub and verifies that the SHA tested by CI is still the current head of the source branch. If a newer commit exists, that older deployment is skipped.
@@ -114,7 +112,7 @@ The secret names intentionally preserve the repository's existing `DOCKPLOY_*` s
 
 `workflow_run` workflows are evaluated from the repository default branch. Therefore the CD workflow definition needed to trigger deployments must also exist on the default branch.
 
-The webhook is a deployment trigger, not an immutable image reference. The Dokploy project must be configured to track the intended Git branch. There remains a narrow branch-head-check-to-build race if another push lands immediately after the freshness check. Eliminating that completely would require immutable SHA-tagged registry images.
+The webhook is a deployment trigger, not an immutable image reference. Each Dokploy project must be configured to track its intended Git branch. There remains a narrow branch-head-check-to-build race if another push lands immediately after the freshness check. Eliminating that completely would require immutable SHA-tagged registry images.
 
 ## Do not manually replace Dokploy services
 
@@ -122,18 +120,18 @@ Do not launch a second Compose file, fallback image, or manually created contain
 
 A manual container can appear healthy while serving stale code and can shadow the service that Dokploy believes it manages. Source deployments must be performed through the repository CI/CD path or the canonical Dokploy project Compose configuration.
 
-If staging appears stale, verify the running container labels before debugging application code. The web service should point to the Dokploy project working directory and canonical `docker-compose.yml`, not a temporary file elsewhere on the server.
+If an environment appears stale, verify the running container labels before debugging application code. The web service should point to the Dokploy project working directory and canonical `docker-compose.yml`, not a temporary file elsewhere on the server.
 
 ## Production release procedure
 
-Before merging the rewrite into production:
+Before a production deployment:
 
-1. reconcile `main` into the release branch and resolve divergence intentionally;
-2. run the full CI suite on the exact release candidate;
-3. complete authenticated staging acceptance for admin CRUD, registrations, tickets/check-in, coupons, blogs, societies, users, and FIFA flows;
+1. promote accepted changes to `dev`;
+2. complete staging acceptance and get full CI green;
+3. open and review the `dev` → `main` production PR, resolving divergence intentionally;
 4. validate enabled OAuth/payment/live-score/SMTP integrations in the target environment;
 5. take a fresh production PocketBase backup;
-6. confirm production environment variables, domains, volumes, and OAuth redirects;
+6. confirm production environment variables, domains, volumes, OAuth redirects, and the production Dokploy project tracks `main`;
 7. merge to `main` and let CI-gated CD deploy production;
 8. verify `/`, `/healthz`, `/api/health`, critical public routes, login, and one safe authenticated read after deployment.
 
