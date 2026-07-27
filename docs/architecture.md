@@ -96,7 +96,7 @@ Event slugs are backfilled for old records, generated on create, uniquely indexe
 
 ## Environment isolation
 
-Each environment has separate:
+Each deployed environment has separate:
 
 - Dokploy Compose project;
 - `pb_data` volume;
@@ -106,6 +106,8 @@ Each environment has separate:
 - public domain.
 
 The web container must not fall back to a production PocketBase hostname. Missing or incorrect internal routing is a configuration error, not a reason to couple staging to production.
+
+After the 2026 rewrite production cutover, no isolated new-architecture staging Compose is currently assigned. `dev` remains an integration/CI branch until one is provisioned; it must not share the production Compose or production `pb_data`.
 
 ## Deployment ownership
 
@@ -119,7 +121,7 @@ Source changes belong in Git/GitHub and are deployed through CI-gated CD. See `d
 
 ```text
 main → production
-dev  → staging
+dev  → integration + CI only (staging deployment paused)
 ```
 
-CI runs before any CD trigger. The CD workflow verifies that the tested SHA is still branch head and then calls the appropriate Dokploy webhook.
+CI runs on both branches. CD currently reacts only to successful `main` CI and calls the production Dokploy webhook after verifying the tested SHA is still current.

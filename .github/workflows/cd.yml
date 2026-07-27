@@ -4,7 +4,7 @@ on:
   workflow_run:
     workflows: [CI]
     types: [completed]
-    branches: [main, dev]
+    branches: [main]
 
 permissions:
   contents: read
@@ -17,7 +17,7 @@ jobs:
   deploy:
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    environment: ${{ github.event.workflow_run.head_branch == 'main' && 'production' || 'staging' }}
+    environment: production
     steps:
       - name: Verify tested SHA is still branch head
         id: freshness
@@ -38,27 +38,18 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Deploy tested branch through Dokploy webhook
+      - name: Deploy tested main through Dokploy webhook
         if: steps.freshness.outputs.skip != 'true'
         env:
           BRANCH: ${{ github.event.workflow_run.head_branch }}
           TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
           PROD_WEBHOOK: ${{ secrets.DOCKPLOY_WEBHOOK_PROD }}
-          STAGING_WEBHOOK: ${{ secrets.DOCKPLOY_WEBHOOK_DEV }}
         run: |
           set -euo pipefail
-          if [ "$BRANCH" = "main" ]; then
-            WEBHOOK="$PROD_WEBHOOK"
-            DEPLOY_ENV="production"
-          else
-            WEBHOOK="$STAGING_WEBHOOK"
-            DEPLOY_ENV="staging"
-          fi
-
-          : "${WEBHOOK:?Dokploy webhook is required}"
-          echo "Triggering CI-approved $DEPLOY_ENV deployment for ${TESTED_SHA:0:12}"
+          : "${PROD_WEBHOOK:?Dokploy production webhook is required}"
+          echo "Triggering CI-approved production deployment for ${TESTED_SHA:0:12}"
           curl --fail-with-body --silent --show-error \
-            -X POST "$WEBHOOK" \
+            -X POST "$PROD_WEBHOOK" \
             -H "X-GitHub-Event: push" \
             -H "Content-Type: application/json" \
             --data "$(jq -nc --arg ref "refs/heads/$BRANCH" '{ref:$ref}')"

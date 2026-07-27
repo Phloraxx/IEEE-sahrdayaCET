@@ -154,27 +154,28 @@ For regressions found on staging, add a test when practical before declaring the
 
 CI runs on pushes to `main` and `dev`, and on pull requests/manual dispatch.
 
-CD is triggered only by a successful `CI` workflow run. It verifies that the tested SHA is still the branch head, then calls a Dokploy webhook.
+Production CD is triggered only by a successful `CI` workflow run on `main`. It verifies that the tested SHA is still the branch head, then calls the production Dokploy webhook.
 
-Canonical branch mapping:
+Current post-cutover branch model:
 
 ```text
-main → production
-dev  → staging
+main → production deployment
+dev  → integration + CI only
 ```
 
-Required deployment secrets are:
+`dev` must not deploy into the production Compose project. Automatic dev deployment stays disabled until a separate new-architecture staging Compose project, volume, domain, OAuth configuration, and secrets are provisioned.
+
+Required production deployment secret:
 
 ```text
 DOCKPLOY_WEBHOOK_PROD
-DOCKPLOY_WEBHOOK_DEV
 ```
 
-The spelling above is intentional and matches the repository secrets.
+`DOCKPLOY_WEBHOOK_DEV` is not used while staging deployment is paused.
 
 Because CD uses `workflow_run`, the trigger workflow must also exist on the repository default branch. Do not replace this with an independent auto-deploy path that can deploy untested pushes.
 
-The Dokploy project must track the intended Git branch. The webhook is only the deployment trigger; it is not an immutable SHA image deployment.
+The Dokploy production project must track `main`. The deployment webhook is a CI-approved trigger; it is not an immutable SHA image deployment.
 
 ## Environment and container safety
 
@@ -196,16 +197,17 @@ Never point staging at the production `pb_data` volume.
 
 Do not call a release production-ready only because public routes return 200.
 
-Before production:
+Before future production releases:
 
 1. promote accepted work through `dev` and review the `dev` → `main` production diff;
-2. resolve any `main`/`dev` divergence intentionally in the production PR;
-3. get full CI green on the exact release candidate;
-4. complete authenticated staging acceptance for admin CRUD, registration/payment/ticket/check-in, coupons, blogs, societies/users, and FIFA flows;
-5. verify enabled production integrations and OAuth configuration;
-6. take a fresh production PocketBase/files backup;
-7. merge to `main` and let CI-gated CD deploy;
-8. perform post-deploy health, public-route, login, and safe authenticated checks.
+2. provision/use an isolated staging environment before schema-sensitive or authenticated acceptance work;
+3. resolve any `main`/`dev` divergence intentionally in the production PR;
+4. get full CI green on the exact release candidate;
+5. complete authenticated staging acceptance for admin CRUD, registration/payment/ticket/check-in, coupons, blogs, societies/users, and FIFA flows;
+6. verify enabled production integrations and OAuth configuration;
+7. take a fresh production PocketBase/files backup;
+8. merge to `main` and let CI-gated CD deploy;
+9. perform post-deploy health, public-route, login, and safe authenticated checks.
 
 See `docs/release-checklist.md` for the detailed procedure.
 
