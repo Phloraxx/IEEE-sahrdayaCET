@@ -6,7 +6,7 @@
 
 **Public website, event platform, administration tools, and WC Predict '26 for IEEE Sahrdaya.**
 
-[Production](https://ieeesahrdaya.com)
+[Production](https://ieeesahrdaya.com) · [Staging](https://staging.ieeesahrdaya.com)
 
 </div>
 
@@ -21,27 +21,29 @@ Cloudflare / Dokploy / Traefik
   ├── /*     → React Router v7 web container
   └── /api/* → PocketBase container
 
-web ── private network ── PocketBase ── pb_data volume
+web ── private app-internal network ── PocketBase ── pb_data volume
 ```
 
-- **React Router v7 Framework Mode** owns SSR, HTML routes, metadata, and UI.
+- **React Router v7 Framework Mode** owns SSR, HTML routes, metadata/resource routes, and UI.
 - **PocketBase 0.39.9** owns auth, SQLite data, files, API authorization, migrations, hooks, and custom transactional commands.
 - The browser authenticates directly with PocketBase through same-origin `/api`.
+- Public SSR reads use the private `pocketbase-internal` network alias.
 - There is no React-side BFF and no runtime PocketBase superuser credential.
 - `pb_migrations/` is the only schema/rule/index source of truth.
 
-See [docs/architecture.md](docs/architecture.md), [docs/security-architecture.md](docs/security-architecture.md), and [docs/deployment.md](docs/deployment.md).
+See [docs/architecture.md](docs/architecture.md), [docs/security-architecture.md](docs/security-architecture.md), [docs/deployment.md](docs/deployment.md), and [docs/release-checklist.md](docs/release-checklist.md).
 
 ## Stack
 
 | Layer | Technology |
 | --- | --- |
-| Web | React 19, React Router 7.18, TypeScript, Vite |
-| UI | Tailwind CSS 4, shadcn/ui, Framer Motion, Lucide |
+| Web | React 19, React Router 7.18, TypeScript, Vite 7 |
+| UI | Tailwind CSS 4, shadcn/ui/Radix, Framer Motion, Lucide |
 | Client data | PocketBase JS SDK, TanStack Query |
 | Backend | PocketBase 0.39.9, SQLite, JS hooks/migrations |
 | Auth | Google OAuth through PocketBase |
 | Deployment | Docker Compose on Dokploy/Traefik |
+| Edge | Cloudflare |
 
 ## Repository layout
 
@@ -60,7 +62,7 @@ pb_hooks/                   authoritative backend invariants and commands
 pocketbase/Dockerfile       pinned PocketBase runtime image
 Dockerfile                  web build + Node 22 SSR runtime
 docker-compose.yml          production/staging stack
-docker-compose.local.yml    local PocketBase only
+docker-compose.local.yml    local PocketBase stack
 tests/backend/              clean-room PocketBase integration suite
 tests/e2e/                  browser/SSR/SEO tests
 ```
@@ -158,20 +160,42 @@ Registration is a transaction, not generic CRUD. One PocketBase command validate
 
 ## SEO
 
-Public content is server-rendered. Published events have immutable crawlable URLs under `/events/:slug`, canonical links, Open Graph/Twitter metadata, and Event JSON-LD. Blog posts use BlogPosting JSON-LD. Production exposes a dynamic `sitemap.xml` and `robots.txt`; non-production HTML responses emit `X-Robots-Tag: noindex, nofollow`.
+Public content is server-rendered. Published events have immutable crawlable URLs under `/events/:slug`, canonical links, Open Graph/Twitter metadata, and Event JSON-LD. Blog posts use BlogPosting JSON-LD. Production exposes dynamic sitemap/robots resources; non-production HTML responses emit `X-Robots-Tag: noindex, nofollow`.
 
-## Deployment
+## CI/CD
 
-`docker-compose.yml` contains both services. Dokploy should route:
+CI runs on pushes to `main`, `dev`, and `rewrite/react-router-pocketbase`, plus pull requests and manual dispatch. It gates lint/typecheck/tests/build, fresh-PocketBase backend tests + Playwright, and both production Docker builds.
+
+CD runs only after a successful CI workflow. It verifies the tested SHA is still the source branch head, then calls the existing Dokploy webhook:
+
+```text
+main                           → DOCKPLOY_WEBHOOK_PROD → production
+ dev                            → DOCKPLOY_WEBHOOK_DEV  → staging
+rewrite/react-router-pocketbase → DOCKPLOY_WEBHOOK_DEV  → staging
+```
+
+The rewrite branch is a temporary staging source during the migration. The canonical deployment remains the Dokploy-managed `docker-compose.yml`; do not shadow a service with a manually created fallback container or temporary Compose file.
+
+## Environment isolation
+
+Production and staging must use different Compose projects, volumes, OAuth configuration, encryption keys, payment secrets, and domains. Never point staging at production `pb_data`.
+
+Dokploy should route:
 
 - `/api` → `pocketbase:8090` without stripping the path
 - `/` → `web:3000`
 
-Do not expose PocketBase's `/_/` dashboard through the public host.
+Do not expose PocketBase `/_/` through the public host.
 
-Production and staging must use different Compose projects, volumes, OAuth configuration, encryption keys, payment secrets, and domains. Never point staging at production `pb_data`.
+## Release process
 
-CI must pass before CD calls Dokploy. Dokploy auto-deploy is disabled by the CD workflow to avoid racing the CI-gated deployment.
+A public 200/healthy check is necessary but not sufficient for production. Before a schema-sensitive release, reconcile `main`, get full CI green on the exact release candidate, complete authenticated staging acceptance, verify enabled production integrations, take a fresh production PocketBase/files backup, then deploy through the CI-gated `main` path.
+
+Use [docs/release-checklist.md](docs/release-checklist.md) as the release runbook.
+
+## Contributor/agent contract
+
+Read [AGENTS.md](AGENTS.md) before architectural, backend, deployment, or security-sensitive changes.
 
 ## License
 
