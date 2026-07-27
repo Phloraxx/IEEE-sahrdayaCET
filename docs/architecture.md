@@ -117,14 +117,9 @@ Source changes belong in Git/GitHub and are deployed through CI-gated CD. See `d
 
 ## Branch deployment model
 
-While the rewrite is active:
-
 ```text
-main                           → production
- dev                            → staging
-rewrite/react-router-pocketbase → staging
+main → production
+dev  → staging
 ```
 
 CI runs before any CD trigger. The CD workflow verifies that the tested SHA is still branch head and then calls the appropriate Dokploy webhook.
-
-The rewrite branch is temporary deployment wiring; after the migration is complete, remove branch-specific staging behavior that is no longer needed.
