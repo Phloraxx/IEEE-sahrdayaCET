@@ -9,10 +9,10 @@ const LEGACY = [
 ] as const;
 
 const INGREDIENTS = [
-  { label: "ideas", className: "left-[8%] top-[38%] -rotate-12 text-[#EA4335]" },
-  { label: "tech", className: "left-[31%] top-[31%] rotate-6 text-ieee-blue" },
-  { label: "people", className: "left-[23%] top-[48%] -rotate-6 text-[#34A853]" },
-  { label: "chaos", className: "left-[43%] top-[43%] rotate-12 text-[#FBBC05]" },
+  { label: "ideas", className: "left-[7%] top-[48%] -rotate-12 text-[#EA4335]" },
+  { label: "tech", className: "left-[31%] top-[41%] rotate-6 text-ieee-blue" },
+  { label: "people", className: "left-[20%] top-[57%] -rotate-6 text-[#34A853]" },
+  { label: "chaos", className: "left-[45%] top-[52%] rotate-12 text-[#FBBC05]" },
 ] as const;
 
 export function InfiniaTeaserSection() {
@@ -38,7 +38,7 @@ export function InfiniaTeaserSection() {
         </div>
 
         <div className="relative z-10 grid items-end gap-2 lg:grid-cols-[0.9fr_1.1fr]">
-          <div className="relative order-2 min-h-[500px] self-end lg:order-1 lg:min-h-[640px]">
+          <div className="relative order-2 min-h-[500px] self-end sm:min-h-[650px] lg:order-1 lg:min-h-[720px]">
             <motion.img
               src="/images/infinia-chef.svg"
               alt="Chef flipping food in a pan"
@@ -46,7 +46,7 @@ export function InfiniaTeaserSection() {
               whileInView={reduceMotion ? undefined : { opacity: 1, y: 0, rotate: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.12, duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
-              className="absolute bottom-0 left-1/2 w-[min(96vw,560px)] max-w-none -translate-x-1/2 select-none drop-shadow-[0_28px_30px_rgba(15,23,42,0.16)] lg:left-[44%] lg:w-[590px]"
+              className="absolute bottom-0 left-1/2 w-[min(94vw,460px)] max-w-none -translate-x-1/2 select-none drop-shadow-[0_28px_30px_rgba(15,23,42,0.16)] sm:w-[480px] lg:left-[44%] lg:w-[540px]"
             />
 
             <div aria-hidden="true" className="pointer-events-none absolute inset-0 hidden sm:block">
