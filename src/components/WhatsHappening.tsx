@@ -48,9 +48,9 @@ export const WhatsHappening: React.FC<WhatsHappeningProps> = ({
           <div className="absolute inset-0 bg-blue-900 bg-opacity-20 z-0">
             <img
               loading="lazy"
-              alt={latestEvent?.title || "Upcoming Event"}
+              alt="IEEE Sahrdaya event highlight"
               className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-              src={latestEvent?.bannerUrl || "/AGM.webp"}
+              src="/AGM.webp"
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
             />
           </div>
@@ -263,7 +263,7 @@ export const WhatsHappening: React.FC<WhatsHappeningProps> = ({
             href="https://www.ieee.org/membership"
             target="_blank"
             rel="noopener noreferrer"
-            className="bg-white text-ieee-blue text-xs font-bold py-2 px-6 rounded-full shadow-md hover:shadow-lg hover:scale-105 transition-all uppercase tracking-wider"
+            className="bg-white text-ieee-blue text-xs font-bold py-2 px-6 rounded-full shadow-md hover:shadow-lg hover:scale-105 transition-all"
           >
             Join IEEE
           </a>
