@@ -9,6 +9,7 @@ import {
   EventHeroSection,
   EventListSection,
   EventDetailModal,
+  InfiniaTeaserSection,
 } from "@/components/events";
 import type { EventWithSociety, ExtendedEvent } from "@/types";
 import { isPastEvent } from "@/lib/event-lifecycle";
@@ -176,6 +177,8 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
           emptyMessage="Check back soon for exciting new events!"
           sectionId="events-section"
         />
+
+        <InfiniaTeaserSection />
 
         <section id="event-archive" className="mx-auto mt-24 max-w-[1100px] pb-24 px-4">
           <div className="border-t border-slate-200 pt-12">
