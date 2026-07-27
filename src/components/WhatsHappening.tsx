@@ -263,7 +263,7 @@ export const WhatsHappening: React.FC<WhatsHappeningProps> = ({
             href="https://www.ieee.org/membership"
             target="_blank"
             rel="noopener noreferrer"
-            className="bg-white text-ieee-blue text-xs font-bold py-2 px-6 rounded-full shadow-md hover:shadow-lg hover:scale-105 transition-all"
+            className="bg-white text-ieee-blue text-xs font-bold py-2 px-6 rounded-full shadow-md hover:shadow-lg hover:scale-105 transition-all uppercase tracking-wider"
           >
             Join IEEE
           </a>
