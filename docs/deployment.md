@@ -1,10 +1,10 @@
 # Deployment
 
-## Images
+## Runtime images
 
 ### Web
 
-The web image builds dependencies and React Router output with Bun 1.2.9. The final SSR runtime is Node 22 Alpine.
+The web image installs and builds with Bun 1.2.9. The final SSR runtime is Node 22 Alpine.
 
 Node is intentional: runtime smoke testing showed that serving React Router SSR under Bun selected React DOM's Bun server build, which did not provide the stream API expected by `@react-router/serve`.
 
@@ -14,9 +14,9 @@ Node is intentional: runtime smoke testing showed that serving React Router SSR 
 
 Hooks and migrations are baked into the image. Only `/pb/pb_data` is persistent.
 
-## Dokploy Compose project
+## Dokploy Compose projects
 
-Create separate Compose projects for staging and production using `docker-compose.yml`.
+Production and staging are separate Dokploy Compose projects built from `docker-compose.yml`.
 
 Required environment values:
 
@@ -26,60 +26,121 @@ SITE_URL=https://...
 PB_ENCRYPTION_KEY=<32-character high-entropy key>
 ```
 
-Add optional payment/live-score/SMTP secrets only where those integrations are enabled.
-
-## Domains
-
-Configure the public host with two routes:
+Optional backend integrations are configured only where enabled:
 
 ```text
-/api  → pocketbase, container port 8090, do not strip path
-/     → web,        container port 3000
+PAYMENT_WEBHOOK_SECRET
+FOOTBALL_DATA_API_TOKEN
+SMTP_HOST
+SMTP_PORT
+SMTP_USERNAME
+SMTP_PASSWORD
+SMTP_FROM
 ```
 
-Do not publish host ports from Compose. Both services also join Dokploy's proxy network; web and PocketBase share an internal network for SSR reads.
+Never reuse a production encryption key, OAuth application, payment secret, or `pb_data` volume in staging.
 
-Do not add a public route for PocketBase `/_/`.
+## Routing and networks
 
-## Staging
+The public host has two routes:
 
-Use a different domain and a different `pb_data` volume. Configure the OAuth provider with staging redirect origins separately. The web app emits `X-Robots-Tag: noindex, nofollow` outside production and does not expose a staging sitemap.
+```text
+/api  → pocketbase:8090, path preserved
+/     → web:3000
+```
+
+Do not publish host ports from Compose and do not expose PocketBase `/_/` through the public hostname.
+
+Both services join Dokploy's proxy network. Web and PocketBase also share the private `app-internal` network. SSR uses `POCKETBASE_INTERNAL_URL=http://pocketbase-internal:8090`; the explicit alias avoids service-name collisions between multiple Dokploy projects attached to the same proxy network.
+
+## Environments
+
+### Staging
+
+Current public staging URL:
+
+```text
+https://staging.ieeesahrdaya.com
+```
+
+Staging has its own PocketBase volume and OAuth redirect configuration. Non-production document responses emit `X-Robots-Tag: noindex, nofollow`, and staging does not expose the production sitemap.
+
+During the React Router/PocketBase rewrite, `rewrite/react-router-pocketbase` is an accepted staging source branch alongside `dev`. After the migration is complete, remove temporary branch-specific deployment wiring when it is no longer needed.
+
+### Production
+
+`main` is the production source branch. Production deployments must use production-only secrets and the production PocketBase volume.
 
 ## CI
 
-`.github/workflows/ci.yml` has three gates:
+`.github/workflows/ci.yml` runs on pushes to `main`, `dev`, and `rewrite/react-router-pocketbase`, on pull requests, and on manual dispatch.
 
-1. lint, typecheck, unit tests, production build;
-2. clean-room PocketBase boot + backend smoke + Playwright;
-3. production Docker builds for both services.
+It has three gates:
 
-The clean-room job starts with an empty PocketBase database. This is the proof that migrations are complete.
+1. lint, typecheck, unit tests, and production web build;
+2. a clean-room PocketBase boot, backend invariant smoke suite, and Playwright Chromium tests;
+3. production Docker builds for the web and PocketBase images.
+
+The clean-room backend starts with an empty PocketBase data directory. A successful run proves that committed migrations and hooks can construct a usable backend without depending on a long-lived database.
 
 ## CD
 
-`.github/workflows/cd.yml` reacts only to a successful CI workflow on `dev` or `main`.
-
-- `dev` → staging Dokploy Compose project.
-- `main` → production Dokploy Compose project.
-- it verifies the tested SHA is still branch head;
-- it disables Dokploy auto-deploy for that Compose project;
-- it calls Dokploy's Compose deploy API with `curl --fail-with-body`.
-
-Dokploy's Compose deploy endpoint deploys the Compose project's configured Git branch and does not accept a commit SHA. The workflow therefore performs the branch-head SHA check immediately before triggering Dokploy. There remains a very narrow check-to-deploy race if a new push lands in that window; eliminating it completely would require an immutable artifact flow such as SHA-tagged registry images. That extra machinery is intentionally deferred until it is justified.
-
-Required GitHub environment/repository secrets:
+`.github/workflows/cd.yml` is CI-gated. It reacts only when the `CI` workflow completes successfully for one of these branches:
 
 ```text
-DOKPLOY_URL
-DOKPLOY_API_KEY
-DOKPLOY_COMPOSE_STAGING_ID
-DOKPLOY_COMPOSE_PROD_ID
+main
+ dev
+rewrite/react-router-pocketbase
 ```
 
-Production should additionally use GitHub Environment protection/approval as appropriate.
+Branch mapping:
+
+```text
+main                         → production webhook
+ dev                          → staging webhook
+rewrite/react-router-pocketbase → staging webhook
+```
+
+Before deployment, CD queries GitHub and verifies that the SHA tested by CI is still the current head of the source branch. If a newer commit exists, that older deployment is skipped.
+
+The workflow then calls the existing Dokploy deployment webhook with a GitHub-style push payload. Required repository/environment secrets are:
+
+```text
+DOCKPLOY_WEBHOOK_PROD
+DOCKPLOY_WEBHOOK_DEV
+```
+
+The secret names intentionally preserve the repository's existing `DOCKPLOY_*` spelling. Do not add a parallel `DOKPLOY_URL`/API-key deployment path unless the deployment design is intentionally changed everywhere.
+
+`workflow_run` workflows are evaluated from the repository default branch. Therefore the CD workflow definition needed to trigger deployments must also exist on the default branch.
+
+The webhook is a deployment trigger, not an immutable image reference. The Dokploy project must be configured to track the intended Git branch. There remains a narrow branch-head-check-to-build race if another push lands immediately after the freshness check. Eliminating that completely would require immutable SHA-tagged registry images.
+
+## Do not manually replace Dokploy services
+
+Do not launch a second Compose file, fallback image, or manually created container under the same Dokploy Compose project/service name.
+
+A manual container can appear healthy while serving stale code and can shadow the service that Dokploy believes it manages. Source deployments must be performed through the repository CI/CD path or the canonical Dokploy project Compose configuration.
+
+If staging appears stale, verify the running container labels before debugging application code. The web service should point to the Dokploy project working directory and canonical `docker-compose.yml`, not a temporary file elsewhere on the server.
+
+## Production release procedure
+
+Before merging the rewrite into production:
+
+1. reconcile `main` into the release branch and resolve divergence intentionally;
+2. run the full CI suite on the exact release candidate;
+3. complete authenticated staging acceptance for admin CRUD, registrations, tickets/check-in, coupons, blogs, societies, users, and FIFA flows;
+4. validate enabled OAuth/payment/live-score/SMTP integrations in the target environment;
+5. take a fresh production PocketBase backup;
+6. confirm production environment variables, domains, volumes, and OAuth redirects;
+7. merge to `main` and let CI-gated CD deploy production;
+8. verify `/`, `/healthz`, `/api/health`, critical public routes, login, and one safe authenticated read after deployment.
+
+See `docs/release-checklist.md` for the detailed acceptance list.
 
 ## Backup and rollback
 
-Back up the PocketBase data volume before production schema deployments. Migrations must be forward-safe on a copy of production data before rollout.
+Back up the production PocketBase data volume before schema deployments. Migrations must be forward-safe on a copy of production data before rollout.
 
 Application rollback is a Git/Dokploy deployment operation. Database rollback is not assumed to be safe automatically after destructive schema changes; prefer additive migrations and explicit data migrations.
