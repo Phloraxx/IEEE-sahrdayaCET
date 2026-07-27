@@ -4,7 +4,7 @@ on:
   workflow_run:
     workflows: [CI]
     types: [completed]
-    branches: [main, dev]
+    branches: [main, dev, rewrite/react-router-pocketbase]
 
 permissions:
   contents: read
