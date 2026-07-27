@@ -4,6 +4,7 @@ import { CalendarDays, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router';
 import type { ExtendedEvent } from '@/types';
 import { formatDate } from '@/lib/dates';
+import { EventBannerFallback } from './EventBannerFallback';
 
 const FADE_UP = {
   hidden: { opacity: 0, y: 20 },
@@ -88,9 +89,11 @@ export function AnnotatedEventCard({ event, index, onSelect, isMobile = false, s
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                     />
                 ) : (
-                    <div className="w-full h-full bg-linear-to-br from-ieee-blue to-[#4285F4] flex items-center justify-center">
-                        <CalendarDays className="w-16 h-16 text-white/50" />
-                    </div>
+                    <EventBannerFallback
+                        title={event.title}
+                        societyName={typeof event.society === 'object' ? event.society.name : undefined}
+                        societySlug={typeof event.society === 'object' ? event.society.slug : undefined}
+                    />
                 )}
                 <div className="absolute top-4 left-4 z-20 flex gap-2">
                     <span className={`${event.color} text-white text-xs font-bold px-4 py-2 rounded-full uppercase tracking-wider shadow-xs backdrop-blur-md`}>

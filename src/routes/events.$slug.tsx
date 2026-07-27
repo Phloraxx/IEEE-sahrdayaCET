@@ -2,6 +2,7 @@ import { Link, useLoaderData, type LoaderFunctionArgs } from "react-router";
 import { ArrowLeft, CalendarDays, ExternalLink, MapPin, Users } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { EventBannerFallback } from "@/components/events/EventBannerFallback";
 import { APP_URL } from "@/lib/constants";
 import { blogHtmlToPlainText, sanitizeBlogHtml } from "@/lib/blog-content";
 import { formatDate, formatTime } from "@/lib/dates";
@@ -95,11 +96,17 @@ export default function EventDetailPage() {
           <ArrowLeft className="h-4 w-4" /> All events
         </Link>
 
-        {event.bannerUrl && (
-          <div className="mb-8 overflow-hidden rounded-[2rem] bg-slate-200 shadow-sm">
-            <img src={event.bannerUrl} alt={event.title} className="aspect-[16/8] w-full object-cover" />
-          </div>
-        )}
+        <div className="mb-8 aspect-[16/8] overflow-hidden rounded-[2rem] bg-slate-200 shadow-sm">
+          {event.bannerUrl ? (
+            <img src={event.bannerUrl} alt={event.title} className="h-full w-full object-cover" />
+          ) : (
+            <EventBannerFallback
+              title={event.title}
+              societyName={event.society?.name}
+              societySlug={event.society?.slug}
+            />
+          )}
+        </div>
 
         <div className="grid gap-10 lg:grid-cols-[1fr_320px]">
           <div>
