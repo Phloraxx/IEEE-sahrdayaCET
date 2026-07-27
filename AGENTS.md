@@ -40,7 +40,7 @@ pb_migrations/                schema/rules/index history
 pb_hooks/                     backend invariants and custom commands
 Dockerfile                    web build + Node 22 SSR runtime
 pocketbase/Dockerfile         pinned PocketBase image
-Docker-compose.yml            production/staging service topology
+docker-compose.yml            production/staging service topology
 .github/workflows/ci.yml      automated quality gates
 .github/workflows/cd.yml      CI-gated Dokploy deployment trigger
 ```
@@ -156,7 +156,7 @@ CI runs on pushes to:
 
 ```text
 main
- dev
+dev
 rewrite/react-router-pocketbase
 ```
 
@@ -167,8 +167,8 @@ CD is triggered only by a successful `CI` workflow run. It verifies that the tes
 Branch mapping while the rewrite is active:
 
 ```text
-main                           → production
- dev                            → staging
+main                            → production
+dev                             → staging
 rewrite/react-router-pocketbase → staging
 ```
 
