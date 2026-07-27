@@ -169,8 +169,8 @@ CI runs on pushes to `main`, `dev`, and `rewrite/react-router-pocketbase`, plus 
 CD runs only after a successful CI workflow. It verifies the tested SHA is still the source branch head, then calls the existing Dokploy webhook:
 
 ```text
-main                           → DOCKPLOY_WEBHOOK_PROD → production
- dev                            → DOCKPLOY_WEBHOOK_DEV  → staging
+main                            → DOCKPLOY_WEBHOOK_PROD → production
+dev                             → DOCKPLOY_WEBHOOK_DEV  → staging
 rewrite/react-router-pocketbase → DOCKPLOY_WEBHOOK_DEV  → staging
 ```
 
