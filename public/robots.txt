@@ -1,8 +1,0 @@
-User-agent: *
-Allow: /
-Disallow: /auth/
-Disallow: /admin/
-Disallow: /ticket/
-Disallow: /api/
-
-Sitemap: https://ieeesahrdaya.com/sitemap.xml

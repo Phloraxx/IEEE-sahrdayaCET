@@ -5,61 +5,103 @@ on:
     branches: [main, dev]
   pull_request:
   workflow_dispatch:
-    inputs:
-      ref:
-        description: 'Branch or SHA to check out'
-        required: false
-        default: ''
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BUN_VERSION: 1.2.9
+
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha || inputs.ref || github.ref }}
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
-      - uses: actions/cache@v4
-        id: cache-node-modules
-        with:
-          path: node_modules
-          key: node-modules-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-      - run: bun install
-      # Cache TS build artifacts so `tsc --noEmit` and `vite build` are faster
-      - uses: actions/cache@v4
-        with:
-          path: |
-            .tanstack
-            tsconfig.tsbuildinfo
-          key: tscache-${{ runner.os }}-${{ github.sha }}
-          restore-keys: |
-            tscache-${{ runner.os }}-
-      - run: bun run build
-      - run: bunx tsc --noEmit
-      - run: bun run lint
-      - run: bun run test
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Lint
+        run: bun run lint
+      - name: Typecheck
+        run: bun run typecheck
+      - name: Unit tests
+        run: bun run test
+      - name: Production build
+        run: bun run build
 
-  docker-build:
-    if: github.event_name == 'pull_request'
+  clean-room-backend:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
         with:
-          ref: ${{ github.event.pull_request.head.sha || inputs.ref || github.ref }}
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v6
+          bun-version: ${{ env.BUN_VERSION }}
+      - run: bun install --frozen-lockfile
+      - name: Build PocketBase image
+        run: docker build -t ieee-pocketbase-ci -f pocketbase/Dockerfile .
+      - name: Start fresh PocketBase
+        run: |
+          docker run -d --name ieee-pocketbase-ci \
+            -p 127.0.0.1:8090:8090 \
+            -e PB_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef' \
+            -e PAYMENT_WEBHOOK_SECRET='CI-Payment-Webhook-2026!' \
+            ieee-pocketbase-ci
+          for i in {1..60}; do
+            curl -fsS http://127.0.0.1:8090/api/health >/dev/null && exit 0
+            sleep 1
+          done
+          docker logs ieee-pocketbase-ci
+          exit 1
+      - name: Create CI superuser
+        run: |
+          docker exec ieee-pocketbase-ci ./pocketbase superuser upsert \
+            ci-super@example.test 'CI-PocketBase-Smoke-2026!' --encryptionEnv=PB_ENCRYPTION_KEY
+      - name: Exercise backend invariants
+        env:
+          PB_BASE_URL: http://127.0.0.1:8090
+          PB_SUPERUSER_EMAIL: ci-super@example.test
+          PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
+          PAYMENT_WEBHOOK_SECRET: CI-Payment-Webhook-2026!
+        run: python3 tests/backend/pocketbase_smoke.py
+      - name: Install Playwright Chromium
+        run: bunx playwright install --with-deps chromium
+      - name: Browser E2E
+        env:
+          CI: "true"
+          DEPLOY_ENV: production
+          SITE_URL: https://ieeesahrdaya.com
+          POCKETBASE_INTERNAL_URL: http://127.0.0.1:8090
+        run: bun run test:e2e
+      - name: Backend logs on failure
+        if: failure()
+        run: docker logs ieee-pocketbase-ci || true
+
+  container-builds:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      matrix:
+        include:
+          - name: web
+            dockerfile: Dockerfile
+          - name: pocketbase
+            dockerfile: pocketbase/Dockerfile
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
         with:
           context: .
+          file: ${{ matrix.dockerfile }}
           push: false
-          tags: ieee-sahrdaya/app:pr-${{ github.event.number }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: ieee-sahrdaya/${{ matrix.name }}:ci-${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}

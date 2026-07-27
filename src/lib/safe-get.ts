@@ -9,6 +9,14 @@ export function getField<T = string>(obj: unknown, key: string, fallback: T): T 
   return fallback;
 }
 
+/** Read a finite numeric field while distinguishing a missing value from 0. */
+export function getNumberField(obj: unknown, key: string, fallback: number): number {
+  const value = getField<unknown>(obj, key, undefined);
+  if (value == null || value === '') return fallback;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
 /**
  * Extracts expand data from a PocketBase record.
  */

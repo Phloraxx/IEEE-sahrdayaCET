@@ -50,8 +50,3 @@ export function normalizeTeamName(name: string): string {
 export function teamNamesMatch(a: string, b: string): boolean {
   return normalizeTeamName(a) === normalizeTeamName(b)
 }
-
-/** Stable dedupe key for a home/away pair (order-preserving). */
-export function teamPairKey(home: string, away: string): string {
-  return `${normalizeTeamName(home)}|${normalizeTeamName(away)}`
-}

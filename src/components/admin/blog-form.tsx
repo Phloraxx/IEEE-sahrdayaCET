@@ -1,4 +1,5 @@
-import { useForm } from "react-hook-form"
+import { useState } from "react"
+import { useForm, type Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { Button } from "@/components/ui/button"
@@ -24,14 +25,26 @@ import { Loader2 } from "lucide-react"
 import type { BlogPost } from "@/types"
 
 const blogFormSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  slug: z.string().min(1, "Slug is required"),
+  title: z.string().trim().min(1, "Title is required"),
+  slug: z.string().trim().min(1, "Slug is required"),
   excerpt: z.string().optional(),
   content: z.string().optional(),
   topicLabel: z.string().optional(),
   category: z.enum(["IEEE", "Society", "Event"]).optional(),
-  coverUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
-  readMinutes: z.coerce.number().min(1).optional(),
+  coverUrl: z
+    .string()
+    .url("Must be a valid URL")
+    .refine((value) => {
+      if (!value) return true
+      const protocol = new URL(value).protocol
+      return protocol === "http:" || protocol === "https:"
+    }, "Cover image URL must use HTTP or HTTPS")
+    .optional()
+    .or(z.literal("")),
+  readMinutes: z.preprocess(
+    (value) => (value === "" || value === undefined ? undefined : Number(value)),
+    z.number().int().min(1).max(240).optional(),
+  ),
   published: z.boolean().optional(),
   societyId: z.string().optional(),
   eventId: z.string().optional(),
@@ -48,44 +61,59 @@ interface BlogFormProps {
   onCancel: () => void
 }
 
-export function BlogForm({ initialData, societies = [], events = [], onSubmit, isPending, onCancel }: BlogFormProps) {
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)+/g, "")
+}
+
+export function BlogForm({
+  initialData,
+  societies = [],
+  events = [],
+  onSubmit,
+  isPending,
+  onCancel,
+}: BlogFormProps) {
+  const [slugTouched, setSlugTouched] = useState(Boolean(initialData?.id))
   const form = useForm<BlogFormValues>({
-    resolver: zodResolver(blogFormSchema) as any,
+    resolver: zodResolver(blogFormSchema) as unknown as Resolver<BlogFormValues>,
     defaultValues: {
       title: initialData?.title || "",
       slug: initialData?.slug || "",
       excerpt: initialData?.excerpt || "",
       content: initialData?.content || "",
       topicLabel: initialData?.topicLabel || "",
-      category: (initialData?.category as "IEEE" | "Society" | "Event") || undefined,
+      category:
+        (initialData?.category as "IEEE" | "Society" | "Event") || undefined,
       coverUrl: initialData?.coverUrl || "",
-      readMinutes: initialData?.readMinutes || 5,
+      readMinutes: initialData?.readMinutes || undefined,
       published: initialData?.published ?? false,
       societyId: initialData?.societyId || "none",
       eventId: initialData?.eventId || "none",
     },
   })
 
-  // Auto-generate slug from title if slug is empty and title is typed
-  const slugValue = form.watch("slug")
-  
-  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value
-    form.setValue("title", val)
-    if (!initialData?.id && (!slugValue || slugValue === form.getValues("slug"))) {
-      form.setValue("slug", val.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, ""))
+  const handleTitleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value
+    form.setValue("title", value, { shouldValidate: true })
+    if (!initialData?.id && !slugTouched) {
+      form.setValue("slug", slugify(value), { shouldValidate: true })
     }
   }
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit((data) => {
-        // Map "none" back to empty string before submitting
-        const submitData = { ...data };
-        if (submitData.societyId === "none") submitData.societyId = "";
-        if (submitData.eventId === "none") submitData.eventId = "";
-        onSubmit(submitData);
-      })} className="space-y-6">
+      <form
+        onSubmit={form.handleSubmit((data) => {
+          const submitData = { ...data }
+          if (submitData.societyId === "none") submitData.societyId = ""
+          if (submitData.eventId === "none") submitData.eventId = ""
+          onSubmit(submitData)
+        })}
+        className="space-y-6"
+      >
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField
             control={form.control}
@@ -94,7 +122,11 @@ export function BlogForm({ initialData, societies = [], events = [], onSubmit, i
               <FormItem className="sm:col-span-2">
                 <FormLabel>Title</FormLabel>
                 <FormControl>
-                  <Input placeholder="Post title" {...field} onChange={handleTitleChange} />
+                  <Input
+                    placeholder="Post title"
+                    {...field}
+                    onChange={handleTitleChange}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -108,8 +140,18 @@ export function BlogForm({ initialData, societies = [], events = [], onSubmit, i
               <FormItem>
                 <FormLabel>Slug</FormLabel>
                 <FormControl>
-                  <Input placeholder="post-url-slug" {...field} />
+                  <Input
+                    placeholder="post-url-slug"
+                    {...field}
+                    onChange={(event) => {
+                      setSlugTouched(true)
+                      field.onChange(slugify(event.target.value))
+                    }}
+                  />
                 </FormControl>
+                <FormDescription>
+                  Used in the public URL. It auto-follows the title until you edit it.
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -120,19 +162,22 @@ export function BlogForm({ initialData, societies = [], events = [], onSubmit, i
             name="category"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Category (Placement)</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormLabel>Category</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a category" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="IEEE">IEEE (Featured Top Row)</SelectItem>
-                    <SelectItem value="Society">Society (Sidebar Row)</SelectItem>
-                    <SelectItem value="Event">Event (General Pool)</SelectItem>
+                    <SelectItem value="IEEE">IEEE — Branch / featured stories</SelectItem>
+                    <SelectItem value="Society">Society — Chapter & affinity-group stories</SelectItem>
+                    <SelectItem value="Event">Event — Recaps & event coverage</SelectItem>
                   </SelectContent>
                 </Select>
+                <FormDescription>
+                  Category influences featured placement; every published post still appears in the full archive.
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -147,6 +192,9 @@ export function BlogForm({ initialData, societies = [], events = [], onSubmit, i
                 <FormControl>
                   <Input placeholder="e.g. AI / ML" {...field} />
                 </FormControl>
+                <FormDescription>
+                  Optional reader-facing topic used by the public topic filter.
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -158,7 +206,7 @@ export function BlogForm({ initialData, societies = [], events = [], onSubmit, i
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Linked Society (Optional)</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value || "none"}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a society" />
@@ -166,13 +214,16 @@ export function BlogForm({ initialData, societies = [], events = [], onSubmit, i
                   </FormControl>
                   <SelectContent>
                     <SelectItem value="none">None</SelectItem>
-                    {societies.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.name}
+                    {societies.map((society) => (
+                      <SelectItem key={society.id} value={society.id}>
+                        {society.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                <FormDescription>
+                  Published posts linked here are surfaced on that society page.
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -184,7 +235,7 @@ export function BlogForm({ initialData, societies = [], events = [], onSubmit, i
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Linked Event (Optional)</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value || "none"}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select an event" />
@@ -192,13 +243,16 @@ export function BlogForm({ initialData, societies = [], events = [], onSubmit, i
                   </FormControl>
                   <SelectContent>
                     <SelectItem value="none">None</SelectItem>
-                    {events.map((e) => (
-                      <SelectItem key={e.id} value={e.id}>
-                        {e.title}
+                    {events.map((event) => (
+                      <SelectItem key={event.id} value={event.id}>
+                        {event.title}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                <FormDescription>
+                  Published posts linked here appear in the event detail view.
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -212,7 +266,7 @@ export function BlogForm({ initialData, societies = [], events = [], onSubmit, i
             <FormItem>
               <FormLabel>Excerpt</FormLabel>
               <FormControl>
-                <Input placeholder="Brief summary of the post" {...field} />
+                <Input placeholder="Brief summary shown on story cards" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -225,10 +279,13 @@ export function BlogForm({ initialData, societies = [], events = [], onSubmit, i
             name="coverUrl"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Cover Image URL (Unsplash, etc.)</FormLabel>
+                <FormLabel>Cover Image URL</FormLabel>
                 <FormControl>
                   <Input placeholder="https://..." {...field} />
                 </FormControl>
+                <FormDescription>
+                  Optional HTTPS/HTTP image URL used on cards and the article header.
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -239,10 +296,20 @@ export function BlogForm({ initialData, societies = [], events = [], onSubmit, i
             name="readMinutes"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Read Minutes</FormLabel>
+                <FormLabel>Read Minutes (Optional)</FormLabel>
                 <FormControl>
-                  <Input type="number" min={1} {...field} />
+                  <Input
+                    type="number"
+                    min={1}
+                    max={240}
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    placeholder="Auto"
+                  />
                 </FormControl>
+                <FormDescription>
+                  Leave blank to estimate from the article content.
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -256,11 +323,11 @@ export function BlogForm({ initialData, societies = [], events = [], onSubmit, i
             <FormItem>
               <FormLabel>Content</FormLabel>
               <FormControl>
-                <BlogEditor 
-                  value={field.value || ""} 
-                  onChange={field.onChange} 
-                />
+                <BlogEditor value={field.value || ""} onChange={field.onChange} />
               </FormControl>
+              <FormDescription>
+                Rich text is sanitized on the server before it is stored and rendered publicly.
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -271,17 +338,17 @@ export function BlogForm({ initialData, societies = [], events = [], onSubmit, i
           name="published"
           render={({ field }) => (
             <FormItem className="flex flex-row items-center justify-between rounded-lg border border-border p-4">
-              <div className="space-y-0.5">
+              <div className="space-y-0.5 pr-4">
                 <FormLabel className="text-base">Publish Post</FormLabel>
                 <FormDescription>
-                  Make this post visible to the public.
+                  Published posts become publicly readable and appear in the blog archive. Drafts remain editor-only.
                 </FormDescription>
               </div>
               <FormControl>
                 <input
                   type="checkbox"
                   className="h-5 w-5 rounded border-input bg-background accent-primary"
-                  checked={field.value}
+                  checked={field.value ?? false}
                   onChange={field.onChange}
                 />
               </FormControl>

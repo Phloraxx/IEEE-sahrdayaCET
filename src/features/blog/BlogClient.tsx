@@ -1,25 +1,33 @@
-"use client";
-
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowRight, ArrowUpRight, Clock } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { ArrowRight, ArrowUpRight, Clock, Search } from "lucide-react";
+import { Link } from "react-router";
 
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import type { BlogPost, BlogTopic } from "@/types";
 import { cn } from "@/lib/utils";
+import { formatDateShort } from "@/lib/dates";
 
 export default function BlogClient({ blogs = [] }: { blogs?: BlogPost[] }) {
   const [hovered, setHovered] = useState<string | null>(null);
-  
+
   const featured = useMemo(() => {
-    return blogs.filter((b) => b.category === "IEEE").slice(0, 3);
+    const ieee = blogs.filter((blog) => blog.category === "IEEE");
+    const fallback = blogs.filter((blog) => blog.category !== "IEEE");
+    return [...ieee, ...fallback].slice(0, 3);
   }, [blogs]);
-  
+
   const sidebar = useMemo(() => {
-    return blogs.filter((b) => b.category === "Society").slice(0, 4);
-  }, [blogs]);
+    const featuredIds = new Set(featured.map((post) => post.id));
+    const society = blogs.filter(
+      (blog) => blog.category === "Society" && !featuredIds.has(blog.id),
+    );
+    const fallback = blogs.filter(
+      (blog) => !featuredIds.has(blog.id) && !society.some((post) => post.id === blog.id),
+    );
+    return [...society, ...fallback].slice(0, 4);
+  }, [blogs, featured]);
 
   const dynamicTopics = useMemo(() => {
     // Group all blogs by topicLabel
@@ -30,16 +38,16 @@ export default function BlogClient({ blogs = [] }: { blogs?: BlogPost[] }) {
       if (!counts[label]) counts[label] = [];
       counts[label]!.push(b);
     }
-    
+
     // Sort by number of posts descending
     const sortedLabels = Object.keys(counts).sort(
       (a, b) => (counts[b]?.length ?? 0) - (counts[a]?.length ?? 0)
     );
-    
+
     // Take top 3 topics
     const top3 = sortedLabels.slice(0, 3);
     const tones: ("cream" | "lavender" | "dark")[] = ["cream", "lavender", "dark"];
-    
+
     return top3.map((label, idx) => ({
       key: label,
       label: label,
@@ -105,8 +113,8 @@ export default function BlogClient({ blogs = [] }: { blogs?: BlogPost[] }) {
           )}
         </section>
 
-        {/* ── Newsletter ribbon ────────────────────────────────── */}
-        <NewsletterRibbon />
+        {/* ── Complete archive: preserve the editorial shell while making every story discoverable ── */}
+        <CompleteArchive blogs={blogs} />
       </main>
 
       <Footer />
@@ -354,8 +362,7 @@ function FeaturedCard({
           </h3>
 
           <Link
-            to="/blog/$slug/"
-            params={{ slug: post.slug }}
+            to={`/blog/${post.slug }`}
             aria-label={`Read ${post.title}`}
             className={cn(
               "relative z-20 grid h-12 w-12 shrink-0 place-items-center rounded-full text-accent-foreground shadow-lg transition-all",
@@ -430,8 +437,7 @@ function SidebarColumn({ posts }: { posts: BlogPost[] }) {
             return (
               <li key={p.id} className="group">
                 <Link
-                  to="/blog/$slug/"
-                  params={{ slug: p.slug }}
+                  to={`/blog/${p.slug }`}
                   className="block border-b border-border/70 pb-3 last:border-b-0"
                 >
                   <p className="text-sm font-semibold leading-snug text-foreground transition-colors group-hover:text-accent">
@@ -538,8 +544,7 @@ function TopicCard({ topic, index }: { topic: BlogTopic; index: number }) {
           return (
             <li key={p.id}>
               <Link
-                to="/blog/$slug/"
-                params={{ slug: p.slug }}
+                to={`/blog/${p.slug }`}
                 className={cn(
                   "group flex items-center gap-3 border-t px-5 py-3.5 transition-colors",
                   i === 0 ? "" : "",
@@ -650,55 +655,186 @@ function TopicDoodle({ tone }: { tone: BlogTopic["tone"] }) {
   );
 }
 
-/* ============================================================
-   Newsletter ribbon — a closing CTA strip
-   ============================================================ */
+const ARCHIVE_CATEGORIES = ["All", "IEEE", "Society", "Event"] as const;
+type ArchiveCategory = (typeof ARCHIVE_CATEGORIES)[number];
 
-function NewsletterRibbon() {
+function formatArchiveDate(value?: string) {
+  return value ? formatDateShort(value) : "";
+}
+
+function CompleteArchive({ blogs }: { blogs: BlogPost[] }) {
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState<ArchiveCategory>("All");
+  const [topic, setTopic] = useState("All topics");
+
+  const topics = useMemo(
+    () => [
+      "All topics",
+      ...Array.from(
+        new Set(
+          blogs
+            .map((blog) => blog.topicLabel?.trim())
+            .filter((label): label is string => Boolean(label)),
+        ),
+      ).sort((a, b) => a.localeCompare(b)),
+    ],
+    [blogs],
+  );
+
+  const filtered = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    return blogs.filter((blog) => {
+      const author =
+        typeof blog.author === "string" ? blog.author : blog.author?.name || "IEEE Sahrdaya";
+      const matchesCategory = category === "All" || blog.category === category;
+      const matchesTopic = topic === "All topics" || blog.topicLabel === topic;
+      const matchesSearch =
+        !needle ||
+        [blog.title, blog.excerpt, blog.topicLabel, blog.category, author]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(needle));
+      return matchesCategory && matchesTopic && matchesSearch;
+    });
+  }, [blogs, category, search, topic]);
+
+  if (blogs.length === 0) return null;
+
   return (
-    <motion.section
-      initial={{ opacity: 0, y: 18 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.4 }}
-      transition={{ duration: 0.5 }}
-      className="mt-16 overflow-hidden rounded-3xl border border-border bg-card p-6 sm:p-10"
-    >
-      <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
-        <div className="max-w-xl">
-          <p className="text-[10px] font-extrabold uppercase tracking-[0.3em] text-accent">
-            Stay in the loop
+    <section id="all-stories" className="mt-16 border-t border-border pt-10">
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="text-[10px] font-extrabold uppercase tracking-[0.28em] text-accent">
+            Complete archive
           </p>
-          <h3 className="mt-2 font-display text-4xl leading-[0.9] sm:text-5xl">
-            ONE EMAIL.<br />NO SPAM.
-          </h3>
-          <p className="mt-3 max-w-md text-sm text-muted-foreground">
-            Monthly drop with new posts, event recaps and the occasional
-            unhinged engineering rant from the branch.
+          <h2 className="mt-2 font-display text-4xl tracking-tight text-foreground sm:text-5xl">
+            All Stories
+          </h2>
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+            Featured placement can change, but every published IEEE Sahrdaya story stays available here.
           </p>
         </div>
-
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            alert("Thanks for subscribing! We'll be in touch.");
-          }}
-          className="flex w-full max-w-md flex-col gap-3 sm:flex-row"
-        >
-          <input
-            type="email"
-            required
-            placeholder="you@sahrdaya.ac.in"
-            className="h-12 flex-1 rounded-full border border-border bg-background px-5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/40"
-          />
-          <button
-            type="submit"
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-accent px-6 text-xs font-bold uppercase tracking-[0.18em] text-accent-foreground transition-transform hover:scale-[1.02] active:scale-95"
-          >
-            Subscribe
-            <ArrowRight className="h-3.5 w-3.5" />
-          </button>
-        </form>
+        <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+          {filtered.length} of {blogs.length} {blogs.length === 1 ? "story" : "stories"}
+        </div>
       </div>
-    </motion.section>
+
+      <div className="mt-7 grid gap-3 border-y border-border/70 py-5 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-center">
+        <label className="relative block">
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search title, topic or author"
+            aria-label="Search blog stories"
+            className="h-11 w-full rounded-full border border-border bg-background/80 pl-11 pr-4 text-sm outline-none transition focus:border-accent/50 focus:ring-4 focus:ring-accent/10"
+          />
+        </label>
+
+        <div className="flex flex-wrap gap-2">
+          {ARCHIVE_CATEGORIES.map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => setCategory(option)}
+              aria-pressed={category === option}
+              className={cn(
+                "rounded-full px-4 py-2 text-[10px] font-extrabold uppercase tracking-[0.16em] transition",
+                category === option
+                  ? "bg-foreground text-background"
+                  : "border border-border bg-background/70 text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+
+        <select
+          value={topic}
+          onChange={(event) => setTopic(event.target.value)}
+          aria-label="Filter blog stories by topic"
+          className="h-10 rounded-full border border-border bg-background/80 px-4 text-[10px] font-extrabold uppercase tracking-[0.14em] text-foreground outline-none focus:border-accent/50"
+        >
+          {topics.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {filtered.length > 0 ? (
+        <div className="mt-8 grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.map((post, index) => (
+            <ArchiveStoryCard key={post.id} post={post} index={index} />
+          ))}
+        </div>
+      ) : (
+        <div className="mt-8 rounded-2xl border border-dashed border-border px-6 py-16 text-center">
+          <p className="font-display text-2xl text-foreground">No matching stories</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Try another search term, category, or topic.
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ArchiveStoryCard({ post, index }: { post: BlogPost; index: number }) {
+  const author =
+    typeof post.author === "string" ? post.author : post.author?.name || "IEEE Sahrdaya";
+  const published = formatArchiveDate(post.publishedAt);
+
+  return (
+    <motion.article
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, delay: Math.min(index, 6) * 0.04 }}
+      className="group"
+    >
+      <Link to={`/blog/${post.slug}`} className="block">
+        <div className="relative aspect-[16/10] overflow-hidden rounded-2xl border border-border bg-muted shadow-sm">
+          {post.coverUrl ? (
+            <img
+              src={post.coverUrl}
+              alt=""
+              loading="lazy"
+              className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
+            />
+          ) : (
+            <div className="grid h-full place-items-center bg-accent/10 font-pixel text-2xl text-accent">
+              IEEE
+            </div>
+          )}
+          <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/60 to-transparent" />
+          <span className="absolute bottom-3 left-3 rounded-full bg-background/90 px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-[0.16em] text-foreground backdrop-blur-sm">
+            {post.topicLabel || post.category || "Story"}
+          </span>
+        </div>
+
+        <div className="pt-4">
+          <div className="flex items-start justify-between gap-4">
+            <h3 className="text-balance text-xl font-extrabold leading-tight text-foreground transition-colors group-hover:text-accent">
+              {post.title}
+            </h3>
+            <ArrowUpRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-accent" />
+          </div>
+          {post.excerpt ? (
+            <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+              {post.excerpt}
+            </p>
+          ) : null}
+          <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border/70 pt-3 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+            <span className="text-foreground/80">{author}</span>
+            {published ? <span>{published}</span> : null}
+            <span className="inline-flex items-center gap-1">
+              <Clock className="h-3 w-3" /> {post.readMinutes || 1} min
+            </span>
+          </div>
+        </div>
+      </Link>
+    </motion.article>
   );
 }

@@ -1,13 +1,8 @@
-import { createFileRoute } from '@tanstack/react-router'
+
 import { FifaLayout } from '@/features/fifa/fifa-layout'
-import { AlertCircle, ArrowRight, ShieldCheck, Trophy, Banknote, HelpCircle, Activity, Gift, Clock, RefreshCcw, Scale, Users } from 'lucide-react'
+import { AlertCircle, ArrowRight, ShieldCheck, Trophy, Banknote, Clock, RefreshCcw, Scale, Users } from 'lucide-react'
 
-export const Route = createFileRoute('/FIFA/rules')({
-  head: () => ({ meta: [{ title: "Rules · WC Predict '26" }] }),
-  component: RulesPage,
-})
-
-function RulesPage() {
+export default function RulesPage() {
   return (
     <FifaLayout active="rules">
       <div className="w-full flex-1 flex flex-col bg-[#0a0a0b]">
@@ -258,7 +253,7 @@ function RulesPage() {
                 <ul className="space-y-2 text-sm text-muted-foreground leading-relaxed">
                   <li>• <strong className="text-foreground">Pool markets:</strong> if nobody picked the winning option (e.g. correct score was 2-1 but no one bet it), every bet on that market is refunded — not marked as a loss.</li>
                   <li>• If a market is voided (e.g. cancelled match), all pending bets on it are fully refunded.</li>
-                  <li>• If a match isn't settled within 6 hours of kickoff, it auto-voids and all bets are refunded.</li>
+                  <li>• If a match cannot be settled normally, an admin may void it; all pending bets are refunded atomically.</li>
                   <li>• Voided bets return your full stake — you are never penalized.</li>
                 </ul>
               </div>

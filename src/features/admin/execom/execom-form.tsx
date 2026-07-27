@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "react-router";
 import { Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getAdminExecomMember, saveAdminExecomMember } from "@/lib/data/admin-execom.client";
+import { listAdminSocieties } from "@/lib/data/admin-societies.client";
 
 interface SocietyOption {
   id: string;
@@ -61,13 +63,7 @@ export function ExecomForm({ mode, memberId }: ExecomFormProps) {
 
   const { data: societies } = useQuery<{ societies: SocietyOption[] }>({
     queryKey: ["admin-societies-options"],
-    queryFn: async () => {
-      const res = await fetch("/api/admin/societies?perPage=200", {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to load societies");
-      return res.json();
-    },
+    queryFn: () => listAdminSocieties({ perPage: 200 }),
     staleTime: 60_000,
   });
 
@@ -75,13 +71,7 @@ export function ExecomForm({ mode, memberId }: ExecomFormProps) {
     member: Record<string, unknown>;
   }>({
     queryKey: ["admin-execom-member", memberId],
-    queryFn: async () => {
-      const res = await fetch(`/api/admin/execom/${memberId}`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to load member");
-      return res.json();
-    },
+    queryFn: () => getAdminExecomMember(memberId!),
     enabled: isEdit && Boolean(memberId),
   });
 
@@ -120,19 +110,7 @@ export function ExecomForm({ mode, memberId }: ExecomFormProps) {
       if (form.society) fd.set("society", form.society);
       if (form.photoFile) fd.set("photo", form.photoFile);
 
-      const url = isEdit
-        ? `/api/admin/execom/${memberId}`
-        : "/api/admin/execom";
-      const res = await fetch(url, {
-        method: isEdit ? "PUT" : "POST",
-        credentials: "include",
-        body: fd,
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error || `Request failed (${res.status})`);
-      }
-      return res.json();
+      return saveAdminExecomMember(isEdit ? memberId : undefined, fd);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-execom"] });
@@ -142,7 +120,7 @@ export function ExecomForm({ mode, memberId }: ExecomFormProps) {
           queryKey: ["admin-execom-member", memberId],
         });
       }
-      navigate({ to: "/admin/execom" });
+      navigate("/admin/execom" );
     },
     onError: (err: Error) => setSubmitError(err.message),
   });
@@ -355,7 +333,7 @@ export function ExecomForm({ mode, memberId }: ExecomFormProps) {
             <Button
               type="button"
               variant="outline"
-              onClick={() => navigate({ to: "/admin/execom" })}
+              onClick={() => navigate("/admin/execom" )}
               disabled={mutation.isPending}
             >
               Cancel

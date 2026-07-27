@@ -1,7 +1,5 @@
-"use client";
-
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "@tanstack/react-router";
+import { useNavigate, Link } from "react-router";
 import { motion } from "framer-motion";
 import { CalendarDays, MapPin, Loader2, ArrowLeft, Ticket } from "lucide-react";
 import Navbar from "@/components/Navbar";
@@ -10,10 +8,11 @@ import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 import type { FormField } from "@/types";
 import { formatDate } from "@/lib/dates";
+import { createRegistration, getPublicEvent, type PublicRegistrationEvent } from "@/lib/data/public-client";
 
 interface PageProps {
   eventId: string;
-  initialEvent?: Record<string, unknown> | null;
+  initialEvent?: PublicRegistrationEvent | null;
 }
 
 // ─── Dynamic Field Renderer ─────────────────────────────────────────
@@ -431,22 +430,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
   const navigate = useNavigate();
   const { user, signIn } = useAuth();
 
-  const [event, setEvent] = useState<{
-    id: string;
-    title: string;
-    description: string;
-    date: string;
-    endDate: string;
-    venue: string;
-    price: number;
-    isPaid: boolean;
-    bannerUrl: string;
-    registrationOpen: boolean;
-    maxCapacity: number;
-    registeredCount: number;
-    collectIeeeMember?: boolean;
-    formFields?: FormField[];
-  } | null>(null);
+  const [event, setEvent] = useState<PublicRegistrationEvent | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -469,8 +453,8 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   useEffect(() => {
     if (initialEvent) {
-      setEvent(initialEvent as unknown as typeof event);
-      const formTemplate = (initialEvent as Record<string, unknown>).formTemplate || (initialEvent as Record<string, unknown>).formFields;
+      setEvent(initialEvent);
+      const formTemplate = initialEvent.formFields;
       if (Array.isArray(formTemplate)) {
         const initial: Record<string, string> = {};
         formTemplate.forEach((f: FormField) => {
@@ -483,12 +467,10 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
     }
     const fetchEvent = async () => {
       try {
-        const res = await fetch(`/api/events/${eventId}`);
-        if (!res.ok) throw new Error("Event not found");
-        const data = await res.json();
-        if (data.event) {
-          setEvent(data.event);
-          const formTemplate = data.event.formTemplate || data.event.formFields;
+        const eventData = await getPublicEvent(eventId);
+        if (eventData) {
+          setEvent(eventData);
+          const formTemplate = eventData.formFields;
           if (Array.isArray(formTemplate)) {
             const initial: Record<string, string> = {};
             formTemplate.forEach((f: FormField) => {
@@ -536,20 +518,15 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
         },
       };
 
-      const res = await fetch("/api/registrations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+      if (!user?.id) throw new Error("Please sign in before registering");
+      const result = await createRegistration({
+        userId: user.id,
+        eventId: body.eventId,
+        formResponses: body.formResponses,
       });
 
-      const result = await res.json();
-
-      if (!res.ok) {
-        throw new Error(result.error || "Registration failed");
-      }
-
       toast.success("Registration successful!");
-      navigate({ to: `/ticket/${result.ticketId}` });
+      navigate(`/ticket/${result.ticketId}`);
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Something went wrong",

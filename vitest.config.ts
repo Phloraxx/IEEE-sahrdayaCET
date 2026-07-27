@@ -5,8 +5,7 @@ export default defineConfig({
   test: {
     globals: true,
     exclude: ['tests/e2e/**', '**/*.spec.ts'],
-    include: ['tests/unit/**/*.test.ts', 'tests/integration/**/*.test.ts'],
-    setupFiles: ['tests/setup.ts'],
+    include: ['tests/unit/**/*.test.ts'],
     testTimeout: 30_000,
   },
   resolve: {

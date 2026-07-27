@@ -4,9 +4,8 @@ name: PR Lint
 # labels. Runs on PR open/edit. Non-blocking annotation (warning) unless
 # the title is non-conventional, in which case the job fails.
 #
-# Conventional commits are how the version workflow (bump-version.yml)
-# and any future release-please/semantic-release integration determine
-# bump levels. Enforcing them now keeps that option open.
+# Conventional PR titles keep history readable and leave automated release
+# tooling as an option without coupling this repository to a version-bump bot.
 
 on:
   pull_request:
@@ -21,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Validate PR title
-        uses: amannn/action-semantic-pull-request@v5
+        uses: amannn/action-semantic-pull-request@v6
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:

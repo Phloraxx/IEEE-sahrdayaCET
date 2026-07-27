@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { DEFAULT_FIFA_LEADERBOARD_SETTINGS, raffleDrawWeight } from '@/lib/fifa-leaderboard'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { DEFAULT_FIFA_LEADERBOARD_SETTINGS, fetchFifaLeaderboard, raffleDrawWeight } from '@/lib/fifa-leaderboard'
 
 describe('raffleDrawWeight', () => {
   const s = DEFAULT_FIFA_LEADERBOARD_SETTINGS
@@ -16,5 +16,30 @@ describe('raffleDrawWeight', () => {
     expect(raffleDrawWeight(3, s.min_bets, s)).toBe(
       Math.max(1, s.raffle_tickets_base - s.raffle_tickets_decay * 2),
     )
+  })
+})
+
+describe('fetchFifaLeaderboard', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('normalizes the endpoint contract and preserves min_bets=0', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      leaderboard: [
+        { rank: 1, id: 'u1', display_name: 'A', balance: 1000, bets_count: 0 },
+        { rank: 'bad', id: '', display_name: 'invalid', balance: 0, bets_count: 0 },
+      ],
+      settings: { min_bets: 0 },
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } })))
+
+    const payload = await fetchFifaLeaderboard()
+    expect(payload.settings.min_bets).toBe(0)
+    expect(payload.leaderboard).toEqual([
+      { rank: 1, id: 'u1', display_name: 'A', balance: 1000, bets_count: 0 },
+    ])
+  })
+
+  it('throws on an unsuccessful response', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status: 500 })))
+    await expect(fetchFifaLeaderboard()).rejects.toThrow('Failed to load leaderboard')
   })
 })

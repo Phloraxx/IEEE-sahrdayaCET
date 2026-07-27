@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "react-router";
 import { useAuth } from "@/lib/auth-context";
 
 /**
@@ -13,11 +13,11 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (status === "loading") return;
     if (status === "unauthenticated" || !user) {
-      navigate({ to: "/" });
+      navigate("/" );
       return;
     }
     if (user.role !== "admin" && user.role !== "chair" && user.role !== "content") {
-      navigate({ to: "/" });
+      navigate("/" );
     }
   }, [status, user, navigate]);
 

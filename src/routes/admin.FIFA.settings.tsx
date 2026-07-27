@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router"
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Loader2, AlertCircle } from "lucide-react"
 import { PanelHeader } from "@/components/admin/panel-header"
@@ -9,38 +9,26 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
 import { FifaSettingsSchema, type FifaSettings } from "@/schemas/fifa"
 import { fetchSettings } from "@/lib/api/fifa"
+import { listFifaRaffleDraws, updateFifaSettings } from "@/lib/data/admin-fifa.client"
 import { useEffect } from "react"
 
-export const Route = createFileRoute("/admin/FIFA/settings")({
-  component: AdminFifaSettings,
-})
-
-
-
-async function fetchDraws() {
-  const res = await fetch('/api/admin/fifa/raffle-draws')
-  if (!res.ok) throw new Error('Failed to load draws')
-  return res.json()
-}
-
-function AdminFifaSettings() {
+export default function AdminFifaSettings() {
   const queryClient = useQueryClient()
-  
-  const { data: settingsData, isLoading: settingsLoading } = useQuery({ 
-    queryKey: ['admin-fifa-settings'], 
-    queryFn: fetchSettings 
+
+  const { data: settingsData, isLoading: settingsLoading } = useQuery({
+    queryKey: ['admin-fifa-settings'],
+    queryFn: fetchSettings
   })
-  
-  const { data: drawsData, isLoading: drawsLoading } = useQuery({ 
-    queryKey: ['admin-fifa-raffle-draws'], 
-    queryFn: fetchDraws 
+
+  const { data: drawsData, isLoading: drawsLoading } = useQuery({
+    queryKey: ['admin-fifa-raffle-draws'],
+    queryFn: listFifaRaffleDraws
   })
 
   const form = useForm<FifaSettings>({
-    resolver: zodResolver(FifaSettingsSchema) as any,
+    resolver: zodResolver(FifaSettingsSchema),
     defaultValues: {
       event_name: "IEEE Sahrdaya WC Predict '26",
       starting_balance: 1000,
@@ -51,7 +39,6 @@ function AdminFifaSettings() {
       raffle_tickets_base: 50,
       raffle_tickets_decay: 2,
       raffle_active_participant_min_bets: 5,
-      auto_void_hours: 6,
       prize: "",
       registration_open: true,
     }
@@ -64,18 +51,7 @@ function AdminFifaSettings() {
   }, [settingsData, form])
 
   const save = useMutation({
-    mutationFn: async (values: FifaSettings) => {
-      const res = await fetch('/api/admin/fifa/settings', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.message || err.error || 'Failed to save settings')
-      }
-      return res.json()
-    },
+    mutationFn: updateFifaSettings,
     onSuccess: () => {
       toast.success('Settings saved successfully')
       queryClient.invalidateQueries({ queryKey: ['admin-fifa-settings'] })
@@ -104,7 +80,7 @@ function AdminFifaSettings() {
   return (
     <div>
       <PanelHeader eyebrow="WC Predict '26" title="Settings" description="Game economy, top-up, and raffle configuration." />
-      
+
       <div className="max-w-xl space-y-6">
         {raffleWarning && (
           <div className="flex items-start gap-3 text-sm text-amber-600 bg-amber-50 p-4 rounded-md border border-amber-200">
@@ -128,7 +104,7 @@ function AdminFifaSettings() {
               <p className="text-xs text-muted-foreground mt-1">The public name shown on the homepage and leaderboard</p>
               {form.formState.errors.event_name && <p className="text-xs text-destructive mt-1">{form.formState.errors.event_name.message}</p>}
             </div>
-            
+
             <div>
               <Label htmlFor="prize">Prize</Label>
               <Input id="prize" {...form.register("prize")} placeholder="Sponsor voucher" />
@@ -167,7 +143,7 @@ function AdminFifaSettings() {
               <div>
                 <Label htmlFor="daily_topup_threshold">Threshold</Label>
                 <Input id="daily_topup_threshold" type="number" {...form.register("daily_topup_threshold", { valueAsNumber: true })} />
-                <p className="text-xs text-muted-foreground mt-1">Users below this balance get topped up daily at 09:00 server time</p>
+                <p className="text-xs text-muted-foreground mt-1">Users below this balance get topped up daily at 09:00 IST</p>
                 {form.formState.errors.daily_topup_threshold && <p className="text-xs text-destructive mt-1">{form.formState.errors.daily_topup_threshold.message}</p>}
               </div>
               <div>
@@ -206,12 +182,7 @@ function AdminFifaSettings() {
           <div className="pt-4 border-t border-border">
             <h3 className="text-sm font-semibold mb-4">System</h3>
             <div className="space-y-4">
-              <div>
-                <Label htmlFor="auto_void_hours">Auto-void after (hours)</Label>
-                <Input id="auto_void_hours" type="number" min={1} {...form.register("auto_void_hours", { valueAsNumber: true })} />
-                <p className="text-xs text-muted-foreground mt-1">Hours after kickoff before unsettled markets are auto-voided</p>
-                {form.formState.errors.auto_void_hours && <p className="text-xs text-destructive mt-1">{form.formState.errors.auto_void_hours.message}</p>}
-              </div>
+
 
               <label className="flex items-center gap-2 p-3 border rounded-md cursor-pointer hover:bg-muted/50 transition-colors">
                 <input type="checkbox" {...form.register("registration_open")} className="h-4 w-4" />

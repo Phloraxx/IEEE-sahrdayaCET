@@ -1,12 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+
 import { AdminPageHeader } from "@/features/admin/shared/admin-page-header";
 import { ExecomForm } from "@/features/admin/execom/execom-form";
 
-export const Route = createFileRoute("/admin/execom/new")({
-  component: NewExecomPage,
-});
-
-function NewExecomPage() {
+export default function NewExecomPage() {
   return (
     <div className="space-y-6">
       <AdminPageHeader

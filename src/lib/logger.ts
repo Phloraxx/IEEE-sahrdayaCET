@@ -1,4 +1,6 @@
-const isProduction = process.env.NODE_ENV === 'production'
+function isProduction(): boolean {
+  return process.env.NODE_ENV === 'production'
+}
 
 function safeStringify(value: unknown): string {
   try {
@@ -11,17 +13,18 @@ function safeStringify(value: unknown): string {
 export function logError(context: string, error: unknown, meta?: Record<string, unknown>) {
   const message = error instanceof Error ? error.message : String(error)
   const stack = error instanceof Error ? error.stack : undefined
-  if (isProduction) {
+  if (isProduction()) {
     console.error(safeStringify({ level: 'error', context, message, stack, ...meta }))
   } else {
     console.error(`[${context}]`, message)
     if (stack) console.error(stack)
     if (error && typeof error === 'object') {
-      if ('response' in error) {
-        console.error('Response details:', JSON.stringify((error as any).response, null, 2))
+      const details = error as Record<string, unknown>
+      if ('response' in details) {
+        console.error('Response details:', JSON.stringify(details.response, null, 2))
       }
-      if ('status' in error) {
-        console.error('Status:', (error as any).status)
+      if ('status' in details) {
+        console.error('Status:', details.status)
       }
     }
   }

@@ -1,7 +1,5 @@
-"use client";
-
 import React from "react";
-import { Link } from "@tanstack/react-router";
+import { Link } from "react-router";
 import {
   Grid,
   ArrowRight,
@@ -47,13 +45,12 @@ export const WhatsHappening: React.FC<WhatsHappeningProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-4 auto-rows-min md:grid-rows-[300px_200px] gap-4">
         <div className="col-span-1 md:col-span-3 row-span-1 md:row-span-1 bento-card bg-white rounded-xl overflow-hidden border border-gray-200 relative group shadow-xs transition-all hover:shadow-md hover:border-ieee-blue/30 min-h-[400px] md:min-h-0">
           <div className="absolute inset-0 bg-linear-to-r from-gray-900 via-transparent to-transparent z-10 opacity-90"></div>
-          <div className="absolute inset-0 bg-blue-900 bg-opacity-20 z-0">
+          <div className="absolute inset-0 z-0 bg-blue-900">
             <img
               loading="lazy"
-              alt={latestEvent?.title || "Upcoming Event"}
-              className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-              src={latestEvent?.bannerUrl || "/AGM.webp"}
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+              alt="IEEE Sahrdaya event highlight"
+              className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+              src="/AGM.webp"
             />
           </div>
           <div className="relative z-20 p-6 md:p-8 h-full flex flex-col justify-center text-white">

@@ -1,42 +1,83 @@
 # Product
 
-## Register
+## Surface register
 
-brand
-
-The primary public surface (`/FIFA`, `/FIFA/leaderboard`, `/FIFA/feed`, `/FIFA/matches`) is brand: the impression IS the product — a vibrant, game-day experience that makes students want to join. The authenticated dashboard (`/FIFA/dashboard`) and admin panel (`/admin/FIFA`) are product surfaces and follow product conventions, but the default register for the game is brand.
+The primary WC Predict public surfaces (`/FIFA`, `/FIFA/leaderboard`, `/FIFA/matches`) are brand-first: the impression is part of the product. The authenticated dashboard (`/FIFA/dashboard`) and admin routes are product/operations surfaces and prioritise clarity, state, and control.
 
 ## Users
 
-Sahrdaya College of Engineering & Technology students, roughly 18-22, joining a free-to-enter FIFA World Cup prediction game for fun and a sponsor voucher prize. They open it on their phones between classes, during the quarterfinals onward (June 10 start). Context: casual, social, competitive with friends, low attention span, thumb-driven. They want to (1) see the next match and current odds, (2) place a bet in under 15 seconds, (3) watch the live feed and leaderboard move, (4) check their rank. The admin is one or two IEEE student-branch members managing matches, entering results, and triggering the raffle.
+Primary users are Sahrdaya College of Engineering & Technology students joining a free-to-enter football prediction game for fun and sponsor prizes.
 
-## Product Purpose
+Typical usage is mobile, between classes or while matches are active. The important jobs are:
 
-A points-based match prediction game (fake points, no real money) on top of the existing IEEE Sahrdaya site, for the 2026 FIFA World Cup quarterfinals onward. Free to enter, college-email-only via Google OAuth, with a sponsor voucher prize decided by a weighted raffle at the end. Success = high participation (most active students playing every match day), lively live feed, fair settlement, a clean raffle draw. Not a gambling product — keep currency fake and the tone playful.
+1. see upcoming/live/recent matches quickly;
+2. understand available prediction markets;
+3. place a point bet with very little friction;
+4. see current balance, bet state, and leaderboard position;
+5. understand settlement/refund outcomes after a match.
 
-## Brand Personality
+Admins are a small set of IEEE student-branch operators managing matches/markets, results, settlement, settings, and raffle operations.
 
-Lively, competitive, pitch-side. Three words: energetic, social, fair. Voice: punchy, game-day commentator, never preachy. Emotional goals: the thrill of watching your bet come in, the social pull of seeing friends climb the leaderboard, the fairness of a transparent raffle.
+## Product purpose
+
+WC Predict '26 is a points-based match prediction game on top of the IEEE Sahrdaya website.
+
+It is free to enter and uses fake points only. There is no entry fee, deposit, withdrawal, cash stake, or user-to-user money transfer.
+
+Success means:
+
+- students can understand and place predictions quickly;
+- balances and pool/market state remain coherent;
+- settlement and void/refund behaviour are fair and repeatable;
+- leaderboard and raffle outcomes are auditable;
+- the game remains clearly distinguishable from a real-money gambling product.
+
+## Brand personality
+
+Lively, competitive, pitch-side.
+
+Three words: **energetic, social, fair**.
+
+Voice is punchy and game-day oriented without pretending fake points are cash. The emotional goal is friendly competition: seeing a prediction land, watching rank move, and comparing performance with friends.
 
 ## Anti-references
 
-- Sportsbook apps (Bet365, DraftKings) — too slick, too money-coded, too dark-green-on-black. This is a college game, not a gambling product.
-- Generic SaaS dashboards with cards-in-cards and gray-on-purple — the AI slop default.
-- Purple-to-blue gradients, glassmorphism, bounce easing — the 2026 AI-frontend tells.
-- Anything that reads as "real money" — no green-felt-table aesthetic, no chip stacks, no "$" symbols.
+- Real-money sportsbook apps — too money-coded and misleading for this product.
+- Generic SaaS dashboards on public game pages — too sterile for a student event.
+- Green-felt/casino/chip-stack visual language.
+- Deposit/withdrawal/wallet terminology that implies redeemable money.
+- Purple-blue AI-template gradients and gratuitous glassmorphism on every surface.
 
-## Design Principles
+## Product principles
 
-1. **Pitch-side, not sportsbook.** The energy of a stadium scoreboard, not the polish of a betting app. Big type, bold results, live movement — but the currency is fake points and the tone stays student-social.
-2. **Bet in 15 seconds.** The betting UI is the hero. From match page → pick selection → stake → confirm is three taps. Friction kills participation.
-3. **Live is the point.** The feed and pool splits update in real time. Movement = presence = "people are playing right now."
-4. **Fairness is visible.** The raffle snapshot, the settlement math, the leaderboard rank — all transparent. No black-box payouts.
-5. **One thumb.** Mobile-first, thumb-reachable, no hover-dependent interactions. Students are on phones.
+1. **Pitch-side, not sportsbook.** Use stadium/scoreboard energy without mimicking real-money betting UX.
+2. **Fast prediction flow.** Match → selection → stake → confirm should be understandable and thumb-friendly.
+3. **State must be clear.** Upcoming, locked, live, settled, won, lost, void, and refunded states must be explicit.
+4. **Fairness is visible.** Settlement, ledger changes, leaderboard rank, and raffle evidence should be explainable and auditable.
+5. **One thumb.** Public interaction is mobile-first and should not depend on hover.
+6. **Backend truth wins.** UI optimism must never override PocketBase transaction/invariant results.
 
-## Accessibility & Inclusion
+## Economy model
 
-- WCAG 2.1 AA minimum. Body text ≥4.5:1 contrast, large text ≥3:1.
-- Reduced-motion alternatives for every animation (live feed scroll-in, pool-bar transitions).
-- Touch targets ≥44px on the betting controls.
-- No color-only signaling (bet status uses text + icon + color).
-- Kickoff times in the user's local timezone, labeled clearly.
+Fake points are stored on the user record with an append-style transaction ledger.
+
+Load-bearing economy changes happen only through PocketBase commands/hooks that keep balance, bet, pool, payout/refund, and ledger state coherent.
+
+Live-score/display integrations never settle balances automatically. Admin settlement remains explicit.
+
+## Accessibility and inclusion
+
+- WCAG AA contrast target.
+- Reduced-motion alternatives for continuous/entrance animation.
+- Touch targets at least 44px where practical.
+- No color-only status signalling.
+- Kickoff/lock times must be labelled and formatted clearly.
+- Critical controls must remain keyboard accessible.
+
+## Relationship to the main site
+
+WC Predict is a feature inside the same React Router + PocketBase application, not a separate service or database.
+
+It shares the site's PocketBase identity/role model and deployment pipeline while keeping its own `.fifa-theme` visual register and backend transactional rules.
+
+See `FIFA-GAME.md` for the backend/game contract, `DESIGN.md` for the visual contract, and `docs/security-architecture.md` for trust boundaries.

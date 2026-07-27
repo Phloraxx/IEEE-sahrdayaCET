@@ -1,9 +1,7 @@
-"use client";
-
 import { useState, useEffect, useRef } from "react";
 import { type NavItem } from "@/types";
 import { motion } from "framer-motion";
-import { useLocation, Link } from "@tanstack/react-router";
+import { useLocation, Link } from "react-router";
 import { useAuth } from "@/lib/auth-context";
 import { LayoutDashboard, LogOut, User, Menu, X, ChevronDown } from "lucide-react";
 import LoginModal from "./LoginModal";

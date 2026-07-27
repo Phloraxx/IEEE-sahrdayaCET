@@ -1,5 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
+import { useLoaderData, useParams, type LoaderFunctionArgs } from "react-router";
 import React, { useMemo } from "react";
 import { motion } from "framer-motion";
 import {
@@ -22,120 +21,16 @@ import { useAuth } from "@/lib/auth-context";
 import { Instagram, Linkedin } from "@/components/icons";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { buildFileUrl } from "@/lib/pb";
-import { createPB } from "@/lib/pb.server";
+import { ContextualBlogLinks } from "@/components/blog/ContextualBlogLinks";
 import { formatDate } from "@/lib/dates";
+import { canRegisterForEvent } from "@/lib/event-lifecycle";
+import { fetchSocietyData, type SocietyPageData } from "@/server/public/society-detail.server";
+import { APP_URL } from "@/lib/constants";
+import { blogHtmlToPlainText } from "@/lib/blog-content";
+import { CanonicalLink } from "@/components/CanonicalLink";
 
-interface SocietyPageData {
-  society: {
-    id: string;
-    name: string;
-    slug: string;
-    bio: string;
-    chairs: string[];
-    defaultWhatsappLink: string;
-    logoUrl: string;
-    bannerUrl: string;
-  };
-  events: Array<{
-    id: string;
-    title: string;
-    description: string;
-    date: string;
-    venue: string;
-    price: number;
-    status: string;
-    bannerUrl: string;
-    externalFormUrl: string;
-  }>;
-  members: Array<{
-    id: string;
-    name: string;
-    position: string;
-    department: string;
-    batch: string;
-    photoUrl: string;
-    linkedin: string;
-    instagram: string;
-  }>;
-}
 
 // Fetch dynamic society data
-const fetchSocietyData = createServerFn()
-  .validator((slug: string) => slug)
-  .handler(async ({ data: slug }): Promise<SocietyPageData> => {
-    const pb = createPB();
-    const society = await pb
-      .collection("societies")
-      .getFirstListItem(`slug = '${slug.toLowerCase()}'`)
-      .catch(() => null);
-
-    if (!society) {
-      throw new Error("Society not found");
-    }
-
-    const [events, members] = await Promise.all([
-      pb
-        .collection("events")
-        .getList(1, 100, {
-          filter: `society = '${society.id}'`,
-          sort: "-date",
-        })
-        .then((res) => res.items)
-        .catch(() => []),
-      pb
-        .collection("execom")
-        .getList(1, 100, {
-          filter: `sectionId = '${slug.toLowerCase()}'`,
-          sort: "order",
-        })
-        .then((res) => res.items)
-        .catch(() => []),
-    ]);
-
-    return {
-      society: {
-        id: society.id,
-        name: society.name,
-        slug: society.slug,
-        bio: (society.bio as string) || "",
-        chairs: Array.isArray(society.chairs) ? society.chairs : [],
-        defaultWhatsappLink: (society.defaultWhatsappLink as string) || "",
-        logoUrl: society.logo
-          ? buildFileUrl("societies", society.id, society.logo as string)
-          : "",
-        bannerUrl: society.banner
-          ? buildFileUrl("societies", society.id, society.banner as string)
-          : "",
-      },
-      events: events.map((e) => ({
-        id: e.id,
-        title: (e.title as string) || "",
-        description: (e.description as string) || "",
-        date: (e.date as string) || "",
-        venue: (e.venue as string) || "",
-        price: (e.price as number) || 0,
-        status: (e.status as string) || "published",
-        bannerUrl: e.banner
-          ? buildFileUrl("events", e.id, e.banner as string)
-          : "",
-        externalFormUrl: (e.externalFormUrl as string) || "",
-      })),
-      members: members.map((m) => ({
-        id: m.id,
-        name: (m.name as string) || "",
-        position: (m.position as string) || "",
-        department: (m.department as string) || "",
-        batch: (m.batch as string) || "",
-        photoUrl: m.photo
-          ? buildFileUrl("execom", m.id, m.photo as string)
-          : "",
-        linkedin: (m.linkedin as string) || "",
-        instagram: (m.instagram as string) || "",
-      })),
-    };
-  });
-
 interface ThemeConfig {
   accentText: string;
   accentBg: string;
@@ -147,7 +42,7 @@ interface ThemeConfig {
   gradientText: string;
   gradientBg: string;
   borderHighlight: string;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<{ className?: string }>;
 }
 
 const DEFAULT_THEME = {
@@ -284,38 +179,38 @@ const SOCIETY_THEMES: Record<string, Partial<ThemeConfig>> = {
   },
 };
 
-export const Route = createFileRoute("/societies_/$slug")({
-  head: ({ loaderData }) => {
-    // The generated route union also contains the static /societies/wie route,
-    // so TanStack cannot infer this dynamic route's loader data here.
-    const data = loaderData as SocietyPageData | undefined;
-    return {
-      meta: [
-        { title: `${data?.society.name || "Society"} | IEEE Sahrdaya` },
-        {
-          name: "description",
-          content: data?.society.bio || "IEEE Sahrdaya Student Branch Society Page",
-        },
-      ],
-    };
-  },
-  loader: async ({ params }): Promise<SocietyPageData> => {
-    return fetchSocietyData({ data: params.slug });
-  },
-  component: SocietyPage,
-});
+export const meta = ({ data }: { data?: SocietyPageData }) => {
+  const name = data?.society.name || "Society";
+  const description = blogHtmlToPlainText(data?.society.bio || "").slice(0, 160) || `Learn about ${name} at IEEE Sahrdaya Student Branch.`;
+  const url = data?.society.slug ? `${APP_URL}/societies/${data.society.slug}` : `${APP_URL}/societies`;
+  return [
+    { title: `${name} | IEEE Sahrdaya` },
+    { name: "description", content: description },
+    { property: "og:title", content: `${name} | IEEE Sahrdaya` },
+    { property: "og:description", content: description },
+    { property: "og:url", content: url },
+    { property: "og:image", content: data?.society.bannerUrl || data?.society.logoUrl || `${APP_URL}/web.png` },
+    { name: "twitter:card", content: "summary_large_image" },
+  ];
+};
 
-function SocietyPage() {
+export async function loader({ params }: LoaderFunctionArgs): Promise<SocietyPageData> {
+  if (!params.slug) throw new Response("Society not found", { status: 404 });
+  try { return await fetchSocietyData(params.slug); }
+  catch { throw new Response("Society not found", { status: 404 }); }
+}
+
+export default function SocietyPage() {
   // See the route-union note in head() above.
-  const data = Route.useLoaderData() as SocietyPageData;
-  const params = Route.useParams();
+  const data = useLoaderData<typeof loader>();
+  const params = useParams();
   const { user } = useAuth();
 
   const canEdit = useMemo(() => {
     if (!user) return false;
     if (user.role === "admin") return true;
     if (user.role === "chair") {
-      const chairsList = (data.society as any).chairs || [];
+      const chairsList = data.society.chairs || [];
       return chairsList.includes(user.id);
     }
     return false;
@@ -327,13 +222,13 @@ function SocietyPage() {
   }, [canEdit, data.events]);
 
   const theme: ThemeConfig = useMemo(() => {
-    const slugKey = params.slug.toLowerCase();
+    const slugKey = (params.slug ?? data.society.slug).toLowerCase();
     const config = SOCIETY_THEMES[slugKey] || {};
     return {
       ...DEFAULT_THEME,
       ...config,
     } as ThemeConfig;
-  }, [params.slug]);
+  }, [params.slug, data.society.slug]);
 
   const IconComponent = theme.icon;
 
@@ -354,7 +249,19 @@ function SocietyPage() {
     );
   }, [data.members, advisor]);
 
+  const organizationSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: data.society.name,
+    url: `${APP_URL}/societies/${data.society.slug}`,
+    parentOrganization: { "@type": "Organization", name: "IEEE Sahrdaya Student Branch", url: APP_URL },
+    ...(data.society.logoUrl ? { logo: data.society.logoUrl } : {}),
+  };
+
   return (
+    <>
+      <CanonicalLink path={`/societies/${data.society.slug}`} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema).replace(/</g, "\u003c") }} />
     <div className="min-h-screen bg-[#F8F9FA] text-slate-800 font-sans selection:bg-blue-500/20 selection:text-blue-900">
       <Navbar />
 
@@ -670,7 +577,7 @@ function SocietyPage() {
                             Edit
                           </a>
                         )}
-                        {event.externalFormUrl && (
+                        {event.externalFormUrl && canRegisterForEvent({ ...event, registrationOpen: true }) && (
                           <a
                             href={event.externalFormUrl}
                             target="_blank"
@@ -730,7 +637,9 @@ function SocietyPage() {
         </section>
       )}
 
+      <ContextualBlogLinks />
       <Footer />
     </div>
+    </>
   );
 }

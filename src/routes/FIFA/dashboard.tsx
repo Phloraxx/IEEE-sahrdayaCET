@@ -1,37 +1,27 @@
-import { createFileRoute } from '@tanstack/react-router'
+
 import { useQuery } from '@tanstack/react-query'
 import { FifaLayout } from '@/features/fifa/fifa-layout'
 import { useAuth } from '@/lib/auth-context'
 import { formatDateTime, formatDateShort } from '@/lib/dates'
 import { formatMarketOptionLabel } from '@/lib/fifa-market-labels'
 import { fetchFifaDashboard } from '@/lib/fifa-dashboard-client'
+import { fetchFifaLeaderboard } from '@/lib/fifa-leaderboard'
 import { Ticket, Trophy, Target, TrendingUp, History } from 'lucide-react'
 
-async function fetchLeaderboardPayload(): Promise<{ settings?: { min_bets: number } }> {
-  const res = await fetch('/pb/api/fifa/leaderboard')
-  if (!res.ok) throw new Error('Failed to load leaderboard')
-  return res.json()
-}
-
-export const Route = createFileRoute('/FIFA/dashboard')({
-  head: () => ({ meta: [{ title: "Dashboard · WC Predict '26" }] }),
-  component: DashboardPage,
-})
-
-function DashboardPage() {
+export default function DashboardPage() {
   const { status, signIn } = useAuth()
   const { data, isLoading, error } = useQuery({
     queryKey: ['fifa-dashboard'],
-    queryFn: fetchFifaDashboard,
+    queryFn: () => fetchFifaDashboard(),
     refetchInterval: 10_000,
-    enabled: status === 'authenticated',
+    enabled: typeof window !== 'undefined' && status === 'authenticated',
   })
 
   const { data: lbPayload } = useQuery({
     queryKey: ['fifa-leaderboard'],
-    queryFn: fetchLeaderboardPayload,
+    queryFn: fetchFifaLeaderboard,
     staleTime: 15_000,
-    enabled: status === 'authenticated',
+    enabled: typeof window !== 'undefined' && status === 'authenticated',
   })
   const minBets = lbPayload?.settings?.min_bets ?? 5
 

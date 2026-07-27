@@ -1,12 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+
+import { useSearchParams } from "react-router";
 import { AdminPageHeader } from "@/features/admin/shared/admin-page-header";
 import { EventForm } from "@/features/admin/events/event-form";
 
-export const Route = createFileRoute("/admin/events/new")({
-  component: NewEventPage,
-});
-
-function NewEventPage() {
+export default function NewEventPage() {
+  const [searchParams] = useSearchParams();
+  const society = searchParams.get("society") ?? undefined;
   return (
     <div className="space-y-6">
       <AdminPageHeader
@@ -16,7 +15,7 @@ function NewEventPage() {
         backTo="/admin/events"
         backLabel="Back to events"
       />
-      <EventForm mode="create" />
+      <EventForm mode="create" initialSocietyId={society} />
     </div>
   );
 }

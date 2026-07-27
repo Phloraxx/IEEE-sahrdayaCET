@@ -1,9 +1,17 @@
 // Resolve full-bleed match card backgrounds from ESPN's public summary API.
 // Picks promo-style images (video thumbnails, article photos) for each fixture.
 
-import { espnScoreboardDateParam } from '@/lib/fifa-espn-sync'
 import { normalizeTeamName, teamNamesMatch } from '@/lib/fifa-team-names'
 import { normalizeTeamDisplayName, teamShortName } from '@/lib/fifa-assets'
+
+function espnScoreboardDateParam(input: Date | string): string {
+  const date = input instanceof Date ? input : new Date(input)
+  if (Number.isNaN(date.getTime())) return ''
+  const y = date.getUTCFullYear()
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0')
+  const d = String(date.getUTCDate()).padStart(2, '0')
+  return `${y}${m}${d}`
+}
 
 const ESPN_BASE = 'https://site.api.espn.com/apis/site/v2/sports/soccer'
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000

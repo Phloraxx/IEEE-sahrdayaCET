@@ -1,8 +1,4 @@
-import {
-  createFileRoute,
-  Link,
-  useNavigate,
-} from "@tanstack/react-router";
+import { Link, useNavigate } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
@@ -28,54 +24,8 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth-context";
-
-export const Route = createFileRoute("/admin/events/")({
-  component: AdminEvents,
-  errorComponent: ({ error }: { error: Error }) => (
-    <div className="flex min-h-[50vh] items-center justify-center p-8">
-      <div className="mx-auto max-w-md text-center">
-        <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-destructive">
-          Error
-        </p>
-        <h1 className="mb-2 text-xl font-semibold tracking-tight">
-          {error?.message ?? "Something went wrong"}
-        </h1>
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className="mt-6 inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
-        >
-          Try again
-        </button>
-      </div>
-    </div>
-  ),
-});
-
-interface EventRow {
-  id: string;
-  title: string;
-  date: string;
-  endDate: string;
-  venue: string;
-  price: number;
-  status: string;
-  registrationOpen: boolean;
-  maxCapacity: number;
-  registeredCount: number;
-  checkedInCount: number;
-  isPaid: boolean;
-  societyName: string;
-  societyId: string;
-}
-
-interface EventsResponse {
-  events: EventRow[];
-  total: number;
-  page: number;
-  perPage: number;
-  hasMore: boolean;
-}
+import { deleteAdminEvent, listAdminEvents, type AdminEventListItem, type AdminEventsResponse } from "@/lib/data/admin-events.client";
+import { formatDateShort } from "@/lib/dates";
 
 function EventsSkeleton() {
   return (
@@ -89,18 +39,9 @@ function EventsSkeleton() {
 
 
 function formatDate(d: string): string {
-  if (!d) return "—";
-  try {
-    return new Date(d).toLocaleDateString("en-IN", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
-  } catch {
-    return d;
-  }
-  }
-function AdminEvents() {
+  return d ? formatDateShort(d) || d : "—";
+}
+export default function AdminEvents() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -109,33 +50,12 @@ function AdminEvents() {
   const [page, setPage] = useState(1);
   const perPage = 20;
 
-  const { data, isLoading } = useQuery<EventsResponse>({
+  const { data, isLoading } = useQuery<AdminEventsResponse>({
     queryKey: ["admin-events", { search, status, page }],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        page: String(page),
-        perPage: String(perPage),
-      });
-      if (search) params.set("search", search);
-      if (status !== "all") params.set("status", status);
-      const res = await fetch(`/api/admin/events?${params}`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to load events");
-      return res.json();
-    },
+    queryFn: () => listAdminEvents({ page, perPage, search, status }),
   });
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`/api/admin/events/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-      if (!res.ok) throw new Error("Failed to delete event");
-    },
+    mutationFn: deleteAdminEvent,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-events"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
@@ -159,7 +79,7 @@ function AdminEvents() {
             <Button
               size="sm"
               className="gap-1.5"
-              onClick={() => navigate({ to: "/admin/events/new" })}
+              onClick={() => navigate("/admin/events/new")}
             >
               <Plus className="h-3.5 w-3.5" />
               Create event
@@ -257,7 +177,7 @@ function AdminEvents() {
 }
 
 interface EventsListProps {
-  rows: EventRow[];
+  rows: AdminEventListItem[];
   canEdit: boolean;
   onDelete: (id: string) => void;
   deletingPending: boolean;
@@ -286,8 +206,7 @@ function EventsList({
         >
           <div className="min-w-0">
             <Link
-              to="/admin/events/$id/edit"
-              params={{ id: event.id }}
+              to={`/admin/events/${event.id}/edit`}
               className="text-sm font-medium text-foreground hover:underline line-clamp-1"
             >
               {event.title}
@@ -318,8 +237,7 @@ function EventsList({
             {canEdit ? (
               <>
                 <Link
-                  to="/admin/events/$id/edit"
-                  params={{ id: event.id }}
+                  to={`/admin/events/${event.id}/edit`}
                   aria-label="Edit event"
                   className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >

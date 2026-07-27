@@ -1,10 +1,10 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
-import { createServerFn } from '@tanstack/react-start'
-import { useState, useEffect } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createPB } from '@/lib/pb.server'
+import { Link, useLoaderData, useParams, type LoaderFunctionArgs } from 'react-router'
+import { fetchMatch } from '@/server/public/fifa-match.server'
+import { getPbClient } from '@/lib/pb-client'
 import { escapeFilterValue } from '@/lib/pb'
 import { getField } from '@/lib/safe-get'
+import { useState, useEffect } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FifaLayout } from '@/features/fifa/fifa-layout'
 import { useAuth } from '@/lib/auth-context'
 import { usePbSubscription } from '@/hooks/use-pb-subscription'
@@ -19,11 +19,12 @@ import {
   isOuMarket,
 } from '@/lib/fifa-market-labels'
 import { getStageColor, resolveMatchCardAsset } from '@/lib/fifa-assets'
-import { resolveMatchBackground } from '@/lib/fifa-match-backgrounds'
-import { DEFAULT_FIFA_LEADERBOARD_SETTINGS } from '@/lib/fifa-leaderboard'
+import { DEFAULT_FIFA_LEADERBOARD_SETTINGS, fetchFifaLeaderboard } from '@/lib/fifa-leaderboard'
+import { fetchFifaLiveScores, findLiveMatch } from '@/lib/fifa-live-match'
 import { fetchFifaDashboard, FifaDashboardAuthError } from '@/lib/fifa-dashboard-client'
 import { formatKickoffParts } from '@/lib/dates'
 import { AlertCircle, ChevronLeft } from 'lucide-react'
+import { placeFifaBet } from '@/lib/data/fifa.client'
 
 interface MatchDetail {
   id: string
@@ -67,63 +68,13 @@ const STAGE_LABELS: Record<string, string> = {
   final: 'Final',
 }
 
-const fetchMatch = createServerFn()
-  .validator((id: string) => id)
-  .handler(async ({ data: id }): Promise<MatchDetail | null> => {
-    const pb = createPB()
-    try {
-      const m = await pb.collection('fifa_matches').getOne(id, { fields: 'id,team_home,team_away,stage,kickoff_at,betting_locks_at,status,result_winner,result_home_goals,result_away_goals,result_advance,result_after_extra_time,result_after_penalties,settled,external_ids' })
-      const markets = await pb.collection('fifa_bet_markets').getFullList({
-        filter: `match = ${escapeFilterValue(id)}`,
-        fields: 'id,market_type,mode,line,fixed_odds,options,is_open,void,pool_total,pool_by_option',
-      })
-      const externalIds = getField(m, 'external_ids', {}) as { espn?: string } | null
-      const background = await resolveMatchBackground({
-        team_home: getField(m, 'team_home', ''),
-        team_away: getField(m, 'team_away', ''),
-        kickoff_at: getField(m, 'kickoff_at', ''),
-        espnId: externalIds?.espn ? String(externalIds.espn) : '',
-      })
-      return {
-        id: getField(m, 'id', ''),
-        team_home: getField(m, 'team_home', ''),
-        team_away: getField(m, 'team_away', ''),
-        stage: getField(m, 'stage', ''),
-        kickoff_at: getField(m, 'kickoff_at', ''),
-        betting_locks_at: getField(m, 'betting_locks_at', ''),
-        status: getField(m, 'status', 'upcoming'),
-        result_winner: getField(m, 'result_winner', ''),
-        result_home_goals: getField(m, 'result_home_goals', 0),
-        result_away_goals: getField(m, 'result_away_goals', 0),
-        result_advance: getField(m, 'result_advance', ''),
-        result_after_extra_time: getField(m, 'result_after_extra_time', false),
-        result_after_penalties: getField(m, 'result_after_penalties', false),
-        settled: getField(m, 'settled', false),
-        background_image_url: background?.imageUrl ?? null,
-        background_position: background?.position ?? null,
-        markets: markets.map((mkt) => ({
-          id: getField(mkt, 'id', ''),
-          market_type: getField(mkt, 'market_type', ''),
-          mode: getField(mkt, 'mode', 'pool'),
-          line: getField(mkt, 'line', 0),
-          fixed_odds: getField(mkt, 'fixed_odds', null),
-          options: (getField(mkt, 'options', []) ?? []) as string[],
-          is_open: getField(mkt, 'is_open', true),
-          void: getField(mkt, 'void', false),
-          pool_total: getField(mkt, 'pool_total', 0),
-          pool_by_option: getField(mkt, 'pool_by_option', {}),
-        })),
-      }
-    } catch {
-      return null
-    }
-  })
-
-export const Route = createFileRoute('/FIFA/matches/$id')({
-  head: () => ({ meta: [{ title: "Match · WC Predict '26" }] }),
-  loader: async ({ params }) => fetchMatch({ data: params.id }),
-  component: MatchDetailPage,
-})
+export const meta = () => [{ title: "Match · WC Predict '26" }];
+export async function loader({ params }: LoaderFunctionArgs) {
+  if (!params.id) throw new Response("Match not found", { status: 404 });
+  const match = await fetchMatch(params.id);
+  if (!match) throw new Response("Match not found", { status: 404 });
+  return match;
+}
 
 function sortCorrectScores(options: string[]) {
   const common = ['1-0', '2-0', '2-1', '1-1', '0-0', '0-1', '0-2', '1-2']
@@ -142,9 +93,49 @@ function sortCorrectScores(options: string[]) {
   })
 }
 
-function MatchDetailPage() {
-  const loaderMatch = Route.useLoaderData()
-  const { id: matchId } = Route.useParams()
+async function fetchMatchClient(id: string, fallback: MatchDetail): Promise<MatchDetail> {
+  const pb = getPbClient();
+  const m = await pb.collection('fifa_matches').getOne(id, {
+    fields: 'id,team_home,team_away,stage,kickoff_at,betting_locks_at,status,result_winner,result_home_goals,result_away_goals,result_advance,result_after_extra_time,result_after_penalties,settled',
+  });
+  const markets = await pb.collection('fifa_bet_markets').getFullList({
+    filter: `match = ${escapeFilterValue(id)}`,
+    fields: 'id,market_type,mode,line,fixed_odds,options,is_open,void,pool_total,pool_by_option',
+  });
+  return {
+    ...fallback,
+    id: getField(m, 'id', id),
+    team_home: getField(m, 'team_home', fallback.team_home),
+    team_away: getField(m, 'team_away', fallback.team_away),
+    stage: getField(m, 'stage', fallback.stage),
+    kickoff_at: getField(m, 'kickoff_at', fallback.kickoff_at),
+    betting_locks_at: getField(m, 'betting_locks_at', fallback.betting_locks_at),
+    status: getField(m, 'status', fallback.status),
+    result_winner: getField(m, 'result_winner', fallback.result_winner),
+    result_home_goals: getField(m, 'result_home_goals', fallback.result_home_goals),
+    result_away_goals: getField(m, 'result_away_goals', fallback.result_away_goals),
+    result_advance: getField(m, 'result_advance', fallback.result_advance),
+    result_after_extra_time: getField(m, 'result_after_extra_time', fallback.result_after_extra_time),
+    result_after_penalties: getField(m, 'result_after_penalties', fallback.result_after_penalties),
+    settled: getField(m, 'settled', fallback.settled),
+    markets: markets.map((mkt) => ({
+      id: getField(mkt, 'id', ''),
+      market_type: getField(mkt, 'market_type', ''),
+      mode: getField(mkt, 'mode', 'pool'),
+      line: getField(mkt, 'line', 0),
+      fixed_odds: getField(mkt, 'fixed_odds', null),
+      options: (getField(mkt, 'options', []) ?? []) as string[],
+      is_open: getField(mkt, 'is_open', true),
+      void: getField(mkt, 'void', false),
+      pool_total: getField(mkt, 'pool_total', 0),
+      pool_by_option: getField(mkt, 'pool_by_option', {}),
+    })),
+  };
+}
+
+export default function MatchDetailPage() {
+  const loaderMatch = useLoaderData<typeof loader>()
+  const { id: matchId = "" } = useParams()
   const { status, signIn, user } = useAuth()
   const [isSessionExpired, setIsSessionExpired] = useState(false)
   const queryClient = useQueryClient()
@@ -185,7 +176,7 @@ function MatchDetailPage() {
 
   const { data: match, refetch: refetchMatch } = useQuery({
     queryKey: ['fifa-match', matchId],
-    queryFn: () => fetchMatch({ data: matchId }),
+    queryFn: () => fetchMatchClient(matchId, loaderMatch as MatchDetail),
     initialData: loaderMatch,
     enabled: !!matchId,
     refetchInterval: wsConnected ? false : 15_000,
@@ -197,27 +188,17 @@ function MatchDetailPage() {
 
   const { data: liveData } = useQuery({
     queryKey: ['fifa-live-scores'],
-    queryFn: async () => {
-      const res = await fetch('/api/fifa/live-scores')
-      if (!res.ok) return { matches: [], configured: false }
-      return res.json() as Promise<{ matches: Array<{ id: string; homeTeam: string; awayTeam: string; homeGoals: number | null; awayGoals: number | null; status: string; minute: number | null }>; configured: boolean }>
-    },
+    queryFn: () => fetchFifaLiveScores(),
     refetchInterval: 60_000,
   })
   const liveMatch = match && liveData?.configured
-    ? liveData.matches.find((lm) => {
-        const h = lm.homeTeam.trim().toLowerCase()
-        const a = lm.awayTeam.trim().toLowerCase()
-        const mh = match.team_home.trim().toLowerCase()
-        const ma = match.team_away.trim().toLowerCase()
-        return (mh === h && ma === a) || (mh === a && ma === h)
-      }) || null
+    ? findLiveMatch(match.team_home, match.team_away, liveData.matches)
     : null
 
   const { data: userBalance, error: dashboardError } = useQuery({
     queryKey: ['fifa-dashboard'],
-    queryFn: fetchFifaDashboard,
-    enabled: status === 'authenticated' && !isSessionExpired,
+    queryFn: () => fetchFifaDashboard(),
+    enabled: typeof window !== 'undefined' && status === 'authenticated' && !isSessionExpired,
     refetchInterval: 15_000,
   })
 
@@ -235,12 +216,8 @@ function MatchDetailPage() {
 
   const { data: lbData } = useQuery({
     queryKey: ['fifa-leaderboard'],
-    queryFn: async () => {
-      const res = await fetch('/pb/api/fifa/leaderboard')
-      if (!res.ok) return null
-      return res.json() as Promise<{ leaderboard: Array<{ id: string; rank: number }>; settings?: { min_bets: number } }>
-    },
-    enabled: status === 'authenticated' && !isSessionExpired,
+    queryFn: fetchFifaLeaderboard,
+    enabled: typeof window !== 'undefined' && status === 'authenticated' && !isSessionExpired,
     staleTime: 15_000,
   })
   const minBets = lbData?.settings?.min_bets ?? DEFAULT_FIFA_LEADERBOARD_SETTINGS.min_bets
@@ -716,16 +693,7 @@ function BettingSlip({ matchId, canBet, market, selection, teams, stake, setStak
     mutationFn: async () => {
       if (!market || !selection) throw new Error('Pick an option first')
       if (market.void || !market.is_open) throw new Error('This market is no longer open for betting')
-      const res = await fetch('/api/fifa/bets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ market: market.id, match: matchId, selection, stake: effectiveStake }),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || 'Bet failed')
-      }
-      return res.json()
+      return placeFifaBet({ market: market.id, match: matchId, selection, stake: effectiveStake })
     },
     onSuccess: () => {
       toast.success('Bet placed successfully!')

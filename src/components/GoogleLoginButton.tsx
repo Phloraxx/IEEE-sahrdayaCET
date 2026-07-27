@@ -1,6 +1,5 @@
-'use client';
-
 import { useState } from 'react';
+import { useAuth } from '@/lib/auth-context';
 
 interface GoogleLoginButtonProps {
     variant?: 'default' | 'full-width';
@@ -14,22 +13,14 @@ export default function GoogleLoginButton({
     onLogin,
 }: GoogleLoginButtonProps) {
     const [isLoading, setIsLoading] = useState(false);
+    const { signIn } = useAuth();
 
-    const handleClick = async () => {
+    const handleClick = () => {
         setIsLoading(true);
-        if (onLogin) {
-            onLogin();
-        } else {
-            try {
-                const res = await fetch('/api/auth/init')
-                const data = await res.json()
-                if (data.authURL) {
-                    window.location.href = data.authURL
-                }
-            } catch {
-                setIsLoading(false)
-            }
-        }
+        if (onLogin) onLogin();
+        else signIn();
+        // The popup flow owns completion; reset shortly so a blocked popup is recoverable.
+        window.setTimeout(() => setIsLoading(false), 1500);
     };
 
     const baseClasses = variant === 'full-width' ? 'w-full' : '';

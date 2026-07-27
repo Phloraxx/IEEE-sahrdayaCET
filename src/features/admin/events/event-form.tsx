@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "react-router";
 import { Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,12 +16,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EVENT_STATUS } from "@/lib/constants";
+import { fromAppDateTimeLocal, toAppDateTimeLocal } from "@/lib/dates";
 import { FormSection } from "@/features/admin/shared/form-section";
 import { ImageUpload } from "@/components/admin/image-upload";
 import { CustomFieldBuilder } from "@/components/admin/custom-field-builder";
 import type { FormField } from "@/components/admin/custom-field-builder";
 import { CouponManager } from "@/components/admin/coupon-manager";
 import type { Coupon } from "@/types";
+import { getAdminEvent, listEventCoupons, saveAdminEvent } from "@/lib/data/admin-events.client";
+import { listAdminSocieties } from "@/lib/data/admin-societies.client";
 
 interface SocietyOption {
   id: string;
@@ -74,30 +77,20 @@ const EMPTY_STATE: EventFormState = {
   externalFormUrl: "",
 };
 
-function toLocalInput(dateString: string | undefined): string {
-  if (!dateString) return "";
-  const d = new Date(dateString);
-  if (Number.isNaN(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function toIso(value: string): string | undefined {
-  if (!value) return undefined;
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return undefined;
-  return d.toISOString();
-}
 interface EventFormProps {
   mode: "create" | "edit";
   eventId?: string;
+  initialSocietyId?: string;
 }
 
-export function EventForm({ mode, eventId }: EventFormProps) {
+export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isEdit = mode === "edit";
-  const [form, setForm] = useState<EventFormState>(EMPTY_STATE);
+  const [form, setForm] = useState<EventFormState>(() => ({
+    ...EMPTY_STATE,
+    society: initialSocietyId || "",
+  }));
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [customFields, setCustomFields] = useState<FormField[]>([]);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
@@ -109,13 +102,7 @@ export function EventForm({ mode, eventId }: EventFormProps) {
   // Societies dropdown
   const { data: societies } = useQuery<{ societies: SocietyOption[] }>({
     queryKey: ["admin-societies-options"],
-    queryFn: async () => {
-      const res = await fetch("/api/admin/societies?perPage=200", {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to load societies");
-      return res.json();
-    },
+    queryFn: () => listAdminSocieties({ perPage: 200 }),
     staleTime: 60_000,
   });
 
@@ -124,13 +111,7 @@ export function EventForm({ mode, eventId }: EventFormProps) {
     event: Record<string, unknown>;
   }>({
     queryKey: ["admin-event", eventId],
-    queryFn: async () => {
-      const res = await fetch(`/api/admin/events/${eventId}`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to load event");
-      return res.json();
-    },
+    queryFn: () => getAdminEvent(eventId!),
     enabled: isEdit && Boolean(eventId),
   });
 
@@ -138,13 +119,7 @@ export function EventForm({ mode, eventId }: EventFormProps) {
   // which is the single source of truth (not the event JSON field).
   const { data: existingCoupons } = useQuery<{ coupons: Coupon[] }>({
     queryKey: ["admin-event-coupons", eventId],
-    queryFn: async () => {
-      const res = await fetch(`/api/admin/events/${eventId}/coupons`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to load coupons");
-      return res.json();
-    },
+    queryFn: () => listEventCoupons(eventId!),
     enabled: isEdit && Boolean(eventId),
   });
 
@@ -156,8 +131,8 @@ export function EventForm({ mode, eventId }: EventFormProps) {
       setForm({
         title: String(e.title ?? ""),
         description: String(e.description ?? ""),
-        date: toLocalInput(e.date as string | undefined),
-        endDate: toLocalInput(e.endDate as string | undefined),
+        date: toAppDateTimeLocal(e.date as string | undefined),
+        endDate: toAppDateTimeLocal(e.endDate as string | undefined),
         venue: String(e.venue ?? ""),
         price: String(e.price ?? "0"),
         maxCapacity:
@@ -169,10 +144,10 @@ export function EventForm({ mode, eventId }: EventFormProps) {
         registrationOpen: e.registrationOpen !== false,
         checkInEnabled: e.checkInEnabled !== false,
         collectIeeeMember: Boolean(e.collectIeeeMember),
-        registrationStart: toLocalInput(
+        registrationStart: toAppDateTimeLocal(
           e.registrationStart as string | undefined,
         ),
-        registrationDeadline: toLocalInput(
+        registrationDeadline: toAppDateTimeLocal(
           e.registrationDeadline as string | undefined,
         ),
         contactEmail: String(e.contactEmail ?? ""),
@@ -213,9 +188,9 @@ export function EventForm({ mode, eventId }: EventFormProps) {
 
     // Validate end date >= start date
     if (form.date && form.endDate) {
-      const start = new Date(form.date);
-      const end = new Date(form.endDate);
-      if (end <= start) {
+      const start = fromAppDateTimeLocal(form.date);
+      const end = fromAppDateTimeLocal(form.endDate);
+      if (!start || !end || Date.parse(end) <= Date.parse(start)) {
         setDateError("End date must be after the start date");
         setSubmitting(false);
         return;
@@ -242,10 +217,10 @@ export function EventForm({ mode, eventId }: EventFormProps) {
         registrationOpen: form.registrationOpen,
         checkInEnabled: form.checkInEnabled,
         collectIeeeMember: form.collectIeeeMember,
-        date: toIso(form.date),
-        endDate: toIso(form.endDate),
-        registrationStart: toIso(form.registrationStart),
-        registrationDeadline: toIso(form.registrationDeadline),
+        date: fromAppDateTimeLocal(form.date),
+        endDate: fromAppDateTimeLocal(form.endDate),
+        registrationStart: fromAppDateTimeLocal(form.registrationStart),
+        registrationDeadline: fromAppDateTimeLocal(form.registrationDeadline),
         contactEmail: form.contactEmail || undefined,
         contactPhone: form.contactPhone || undefined,
         externalLink: form.externalLink || undefined,
@@ -269,48 +244,19 @@ export function EventForm({ mode, eventId }: EventFormProps) {
           delete payload[k];
       });
 
-      const url = isEdit
-        ? `/api/admin/events/${eventId}`
-        : "/api/admin/events";
+      await saveAdminEvent({
+        id: isEdit ? eventId : undefined,
+        payload,
+        bannerFile,
+      });
 
-      let res: Response;
-      if (bannerFile) {
-        const fd = new FormData();
-        Object.entries(payload).forEach(([key, val]) => {
-          if (val !== undefined && val !== null) {
-            fd.append(
-              key,
-              typeof val === "object" ? JSON.stringify(val) : String(val),
-            );
-          }
-        });
-        fd.append("banner", bannerFile);
-        res = await fetch(url, {
-          method: isEdit ? "PUT" : "POST",
-          credentials: "include",
-          body: fd,
-        });
-      } else {
-        res = await fetch(url, {
-          method: isEdit ? "PUT" : "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        });
-      }
 
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.error || `Request failed (${res.status})`);
-      }
 
       setDirty(false);
       queryClient.invalidateQueries({ queryKey: ["admin-events"] });
       queryClient.invalidateQueries({ queryKey: ["admin-event-coupons"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
-      navigate({ to: "/admin/events" });
+      navigate("/admin/events" );
     } catch (err) {
       setSubmitError(
         err instanceof Error ? err.message : "An error occurred",
@@ -813,7 +759,7 @@ export function EventForm({ mode, eventId }: EventFormProps) {
                   )
                 )
                   return;
-                navigate({ to: "/admin/events" });
+                navigate("/admin/events" );
               }}
               disabled={submitting}
             >

@@ -1,66 +1,140 @@
-# DESIGN.md
+# Design Contract
 
-Inherits the existing IEEE Sahrdaya design system (Tailwind v4 + CSS custom properties in `src/features/globals.css`). The FIFA game does not invent a new palette — it uses the inherited tokens with a brand-register treatment for the public surfaces.
+The site intentionally has several related visual registers instead of one flat SaaS theme. New work should extend the register of the page it belongs to.
 
-## Color
+The implementation source of truth is `src/features/globals.css`, `src/features/shadcn-tailwind.css`, and the existing feature components.
 
-Inherited from `globals.css`:
+## Shared IEEE brand
 
-| Token | Value | Use |
-|-------|-------|-----|
-| `--color-ieee-blue` | `#00629B` | Primary brand, header, primary buttons |
-| `--color-ieee-light-blue` | `#0099D6` | Accent, live indicators, links |
-| `--color-ieee-slate` | `#1e293b` | Ink, body text on light |
-| `--color-ieee-success` | `#16a34a` | Won bet, positive payout |
-| `--color-ieee-warning` | `#d97706` | Pending bet, live match |
-| `--color-ieee-danger` | `#dc2626` | Lost bet, voided market |
-| shadcn semantic tokens | (see globals.css) | background, foreground, card, muted, border, etc. |
+Core Tailwind theme tokens:
 
-FIFA game additions (brand register, pitch-side energy):
-- **Pool bar fill:** `--color-ieee-light-blue` (the "live money" indicator).
-- **Bet status:** success/warning/danger from inherited tokens — never color-only, always text + icon.
-- **No new gradient text, no glassmorphism, no purple.** The inherited tokens are clean; keep them.
+| Token | Value | Typical use |
+| --- | --- | --- |
+| `--color-ieee-blue` | `#00629B` | primary IEEE brand, links, primary public actions |
+| `--color-ieee-light-blue` | `#0099D6` | secondary accent, live/energy details |
+| `--color-ieee-slate` | `#1e293b` | dark ink/body text |
+| `--color-ieee-slate-light` | `#334155` | secondary dark text |
+| `--color-ieee-success` | `#16a34a` | success/won/positive state |
+| `--color-ieee-warning` | `#d97706` | warning/pending/live state |
+| `--color-ieee-danger` | `#dc2626` | error/lost/void state |
+
+Use shadcn semantic variables (`background`, `foreground`, `card`, `muted`, `border`, `primary`, etc.) for admin/product surfaces that already use those tokens.
 
 ## Typography
 
-| Role | Family | Source |
-|------|--------|--------|
-| Display (hero, match teams, "PLACE BET") | `--font-display`: Anton | `globals.css:53` |
-| Body / UI | `--font-sans`: Inter Variable | `globals.css:51` |
-| Mono / numbers (balance, stake, pool totals) | `--font-mono`: Geist Mono | `globals.css:52` |
-| Pixel (retro game accents, "GOAL!") | Press Start 2P | `__root.tsx:13` |
+Fonts bundled from `src/root.tsx` are:
 
-Scale: use Tailwind's fluid clamp utilities. Hero `clamp(2.5rem, 6vw, 5rem)`. Body 1rem / 1.6 line-height. Cap body line length 65-75ch per Impeccable.
+- Geist Variable;
+- Press Start 2P;
+- Caveat.
 
-## Components
+Existing registers use them differently:
 
-Inherited shadcn/ui primitives (`src/components/ui/`): Button, Card, Dialog, Table, Badge, Input, Select, Tabs, Tooltip. Use these for the betting slip, dashboard tables, admin forms — do not reinvent.
+- normal public UI uses the global sans stack;
+- `.vh-admin` explicitly uses Geist Variable;
+- `.font-pixel` uses Press Start 2P for retro IEEE/homepage accents;
+- handwritten event annotations use the Caveat-style handwritten treatment;
+- numeric/admin instrumentation should prefer the existing mono utilities/tokens.
 
-FIFA-specific components (to build in `src/features/fifa/`):
-- `MatchCard` — team vs team, kickoff, stage badge, pool total chip.
-- `MarketRow` — market type, options as tappable chips, pool bar per option, odds (fixed mode).
-- `BettingSlip` — selection summary, stake input (with max-bet slider), confirm button. Mobile-first, thumb-reachable.
-- `LeaderboardRow` — rank, alias, balance, bets count.
-- `FeedItem` — type icon, message, timestamp. Live scroll-in with reduced-motion fallback.
-- `PoolBar` — horizontal stacked bar showing pool split per option.
+Do not introduce remote Google Font requests or a new display family for one isolated component without intentionally updating the global typography system.
+
+## Public homepage
+
+The homepage is expressive/brand-first rather than dashboard-like:
+
+- large IEEE/Sahrdaya pixel hero;
+- restrained star/shooting-star motion;
+- bento-style `WHAT'S HAPPENING` section;
+- current event information remains dynamic, but its homepage hero visual is intentionally the stable `/AGM.webp` image instead of arbitrary event-poster ratios;
+- legacy event-photo marquees remain a separate decorative showcase.
+
+Do not couple homepage card layout to uploaded event-poster aspect ratios.
+
+## Events page
+
+The Events page uses a playful editorial language on a light `#F8F9FA` surface:
+
+- very large type;
+- IEEE blue as the main accent;
+- rounded white event cards;
+- handwritten annotations/doodles;
+- strong whitespace and asymmetrical poster-like compositions;
+- real event banners remain appropriate on event cards/detail surfaces.
+
+The Infinia teaser sits between Upcoming Events and the event archive. It is intentionally a teaser, not a conventional registration card: oversized background type, chef cutout, handwritten leak-style copy, recipe metadata, and the flagship lineage strip.
+
+Do not turn that section into a generic blue CTA block unless the product intent changes from tease to launch.
+
+## Admin register
+
+Admin pages are scoped under `.vh-admin` and use the submissionPortalV2-inspired instrument-panel language:
+
+- Geist Variable;
+- tight information density;
+- warm paper/amber light mode;
+- chrome-warm dark mode;
+- semantic shadcn variables;
+- compact radii;
+- tabular/mono numerics for operational data;
+- cards lift only when interactive.
+
+Prefer existing admin utilities such as `.vh-touch`, `.vh-press`, `.vh-mono`, `.vh-divider`, stagger helpers, and the shared shadcn/Radix primitives that remain in the repository.
+
+## WC Predict / FIFA register
+
+WC Predict is energetic and pitch-side, but must not look like a real-money sportsbook.
+
+Principles:
+
+- scoreboard/game-day energy, not betting-app luxury;
+- fake points are never styled as cash, chips, deposits, or withdrawals;
+- blue/light-blue IEEE accents remain the brand anchor;
+- status always combines text/icon with color;
+- match, pool, balance, rank, and result information must stay readable on mobile;
+- settlement/admin surfaces favour clarity over spectacle.
+
+The current `.fifa-theme` defines the dark game surface and semantic tokens. Reuse it rather than inventing a parallel dark palette.
 
 ## Layout
 
-- Mobile-first single column. Max content width `max-w-2xl` for public pages, `max-w-4xl` for dashboard/admin.
-- Match detail: teams hero → markets list (each a card with options) → betting slip sticky-bottom on mobile.
-- Feed: reverse-chronological list, newest at top, live-prepend on SSE event.
-- Spacing: Tailwind's default scale. Vary spacing for rhythm — don't make every section `py-8`.
+- Mobile-first.
+- Avoid hover-only information on user-critical flows.
+- Keep touch targets at least 44px where practical.
+- Use existing page max-widths rather than forcing one width across the whole site.
+- Preserve meaningful whitespace; avoid nested cards for every grouping.
+- Uploaded media should use an explicit aspect ratio and `object-cover`/`object-contain` based on the content, not accidental intrinsic dimensions.
 
 ## Motion
 
-- Use `framer-motion` (already in deps) for feed item entrance (slide-in + fade, 220ms ease-out-quart), pool bar width transitions (300ms ease-out-quart), and the "bet placed" confirmation burst.
-- Reduced-motion: `@media (prefers-reduced-motion: reduce)` → crossfade or instant. No bounce, no elastic.
-- Live indicators (pulsing dot for "live match"/"pool updating") use opacity pulse, 2s ease-in-out infinite, with reduced-motion fallback to static.
+Framer Motion is available and global CSS defines several motion utilities.
+
+Motion should communicate hierarchy/state, not exist everywhere:
+
+- entrance/reveal motion should be brief;
+- continuous marquee/live indicators must have reduced-motion behaviour;
+- no scroll hijacking;
+- no custom cursor requirement;
+- no heavy WebGL dependency for decorative sections.
+
+Global `prefers-reduced-motion` handling sharply reduces animation/transition duration. Feature code should not deliberately defeat it.
+
+## Accessibility
+
+- WCAG AA contrast is the target.
+- Do not use color alone to communicate state.
+- Keyboard focus must remain visible.
+- Modal/dialog flows must keep focus handling and Escape behaviour.
+- Decorative oversized type/doodles should be hidden from assistive technology when they duplicate visible copy.
+- Images need useful alt text when informative and empty/decorative treatment when they add no content.
 
 ## Icons
 
-`lucide-react` (already in deps) for UI icons. No emoji in the UI unless the user asks.
+Use `lucide-react` for interface icons. Do not mix in arbitrary icon packs for isolated features.
 
-## Z-index scale
+Emoji are acceptable only where the existing playful public/event language calls for them; they should not replace semantic UI icons in admin or transactional flows.
 
-Inherited semantic scale: dropdown (1000) → sticky header (1020) → modal-backdrop (1040) → modal (1050) → toast (1060) → tooltip (1070). Betting slip sticky-bottom on mobile uses `z-30` (below dropdowns).
+## Design-change rule
+
+Before adding a new visual system, identify whether the work belongs to the public IEEE, Events editorial, Admin, or FIFA register. Extend that register first.
+
+When a design change introduces a reusable token, font, motion rule, or layout convention, update this document and the global CSS deliberately rather than leaving the convention trapped in one component.
