@@ -152,24 +152,15 @@ For regressions found on staging, add a test when practical before declaring the
 
 ## Branch and deployment contract
 
-CI runs on pushes to:
-
-```text
-main
-dev
-rewrite/react-router-pocketbase
-```
-
-and on pull requests/manual dispatch.
+CI runs on pushes to `main` and `dev`, and on pull requests/manual dispatch.
 
 CD is triggered only by a successful `CI` workflow run. It verifies that the tested SHA is still the branch head, then calls a Dokploy webhook.
 
-Branch mapping while the rewrite is active:
+Canonical branch mapping:
 
 ```text
-main                            → production
-dev                             → staging
-rewrite/react-router-pocketbase → staging
+main → production
+dev  → staging
 ```
 
 Required deployment secrets are:
@@ -197,23 +188,23 @@ http://pocketbase-internal:8090
 
 The explicit alias is important because multiple Dokploy projects share the proxy network and generic Docker service aliases can collide.
 
-If staging serves stale code, inspect running container provenance before changing application code. A container created from a temporary Compose file can shadow the canonical service even when it is healthy.
+If staging or production serves stale code, inspect running container provenance before changing application code. A container created from a temporary Compose file can shadow the canonical service even when it is healthy.
 
 Never point staging at the production `pb_data` volume.
 
 ## Production release gate
 
-Do not call the rewrite production-ready only because public routes return 200.
+Do not call a release production-ready only because public routes return 200.
 
 Before production:
 
-1. reconcile the latest `main` into the release branch;
-2. get full CI green on the exact release candidate;
-3. complete authenticated staging acceptance for admin CRUD, registration/payment/ticket/check-in, coupons, blogs, societies/users, and FIFA flows;
-4. verify enabled production integrations and OAuth configuration;
-5. take a fresh production PocketBase/files backup;
-6. review the production diff and environment mapping;
-7. merge/push `main` and let CI-gated CD deploy;
+1. promote accepted work through `dev` and review the `dev` → `main` production diff;
+2. resolve any `main`/`dev` divergence intentionally in the production PR;
+3. get full CI green on the exact release candidate;
+4. complete authenticated staging acceptance for admin CRUD, registration/payment/ticket/check-in, coupons, blogs, societies/users, and FIFA flows;
+5. verify enabled production integrations and OAuth configuration;
+6. take a fresh production PocketBase/files backup;
+7. merge to `main` and let CI-gated CD deploy;
 8. perform post-deploy health, public-route, login, and safe authenticated checks.
 
 See `docs/release-checklist.md` for the detailed procedure.
