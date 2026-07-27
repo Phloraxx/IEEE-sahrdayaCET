@@ -89,15 +89,15 @@ The clean-room backend starts with an empty PocketBase data directory. A success
 
 ```text
 main
- dev
+dev
 rewrite/react-router-pocketbase
 ```
 
 Branch mapping:
 
 ```text
-main                         → production webhook
- dev                          → staging webhook
+main                            → production webhook
+dev                             → staging webhook
 rewrite/react-router-pocketbase → staging webhook
 ```
 
