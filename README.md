@@ -164,17 +164,16 @@ Public content is server-rendered. Published events have immutable crawlable URL
 
 ## CI/CD
 
-CI runs on pushes to `main`, `dev`, and `rewrite/react-router-pocketbase`, plus pull requests and manual dispatch. It gates lint/typecheck/tests/build, fresh-PocketBase backend tests + Playwright, and both production Docker builds.
+CI runs on pushes to `main` and `dev`, plus pull requests and manual dispatch. It gates lint/typecheck/tests/build, fresh-PocketBase backend tests + Playwright, and both production Docker builds.
 
 CD runs only after a successful CI workflow. It verifies the tested SHA is still the source branch head, then calls the existing Dokploy webhook:
 
 ```text
-main                            → DOCKPLOY_WEBHOOK_PROD → production
-dev                             → DOCKPLOY_WEBHOOK_DEV  → staging
-rewrite/react-router-pocketbase → DOCKPLOY_WEBHOOK_DEV  → staging
+main → DOCKPLOY_WEBHOOK_PROD → production
+dev  → DOCKPLOY_WEBHOOK_DEV  → staging
 ```
 
-The rewrite branch is a temporary staging source during the migration. The canonical deployment remains the Dokploy-managed `docker-compose.yml`; do not shadow a service with a manually created fallback container or temporary Compose file.
+The canonical deployment remains the Dokploy-managed `docker-compose.yml`; do not shadow a service with a manually created fallback container or temporary Compose file.
 
 ## Environment isolation
 
@@ -189,7 +188,7 @@ Do not expose PocketBase `/_/` through the public host.
 
 ## Release process
 
-A public 200/healthy check is necessary but not sufficient for production. Before a schema-sensitive release, reconcile `main`, get full CI green on the exact release candidate, complete authenticated staging acceptance, verify enabled production integrations, take a fresh production PocketBase/files backup, then deploy through the CI-gated `main` path.
+Normal promotion is `feature/release branch → dev → main`. A public 200/healthy check is necessary but not sufficient for production. Before a schema-sensitive release, get full CI green on the exact release candidate, complete authenticated staging acceptance, verify enabled production integrations, take a fresh production PocketBase/files backup, review the `dev` → `main` diff, then deploy through the CI-gated `main` path.
 
 Use [docs/release-checklist.md](docs/release-checklist.md) as the release runbook.
 
