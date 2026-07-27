@@ -19,22 +19,6 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ github.event.workflow_run.head_branch == 'main' && 'production' || 'staging' }}
     steps:
-      - name: Select Dokploy target
-        id: target
-        env:
-          BRANCH: ${{ github.event.workflow_run.head_branch }}
-          PROD_ID: ${{ secrets.DOKPLOY_COMPOSE_PROD_ID }}
-          STAGING_ID: ${{ secrets.DOKPLOY_COMPOSE_STAGING_ID }}
-        run: |
-          set -euo pipefail
-          if [ "$BRANCH" = "main" ]; then
-            echo "compose_id=$PROD_ID" >> "$GITHUB_OUTPUT"
-            echo "environment=production" >> "$GITHUB_OUTPUT"
-          else
-            echo "compose_id=$STAGING_ID" >> "$GITHUB_OUTPUT"
-            echo "environment=staging" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Verify tested SHA is still branch head
         id: freshness
         env:
@@ -54,34 +38,27 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Deploy tested branch through Dokploy API
+      - name: Deploy tested branch through Dokploy webhook
         if: steps.freshness.outputs.skip != 'true'
         env:
-          DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
-          DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
-          COMPOSE_ID: ${{ steps.target.outputs.compose_id }}
-          DEPLOY_ENV: ${{ steps.target.outputs.environment }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
           TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
+          PROD_WEBHOOK: ${{ secrets.DOCKPLOY_WEBHOOK_PROD }}
+          STAGING_WEBHOOK: ${{ secrets.DOCKPLOY_WEBHOOK_DEV }}
         run: |
           set -euo pipefail
-          : "${DOKPLOY_URL:?DOKPLOY_URL is required}"
-          : "${DOKPLOY_API_KEY:?DOKPLOY_API_KEY is required}"
-          : "${COMPOSE_ID:?Dokploy compose ID is required}"
-          API="${DOKPLOY_URL%/}/api"
+          if [ "$BRANCH" = "main" ]; then
+            WEBHOOK="$PROD_WEBHOOK"
+            DEPLOY_ENV="production"
+          else
+            WEBHOOK="$STAGING_WEBHOOK"
+            DEPLOY_ENV="staging"
+          fi
 
-          # GitHub/Dokploy native auto-deploy must not race this CI-gated workflow.
+          : "${WEBHOOK:?Dokploy webhook is required}"
+          echo "Triggering CI-approved $DEPLOY_ENV deployment for ${TESTED_SHA:0:12}"
           curl --fail-with-body --silent --show-error \
-            -X POST "$API/compose.update" \
-            -H "x-api-key: $DOKPLOY_API_KEY" \
+            -X POST "$WEBHOOK" \
+            -H "X-GitHub-Event: push" \
             -H "Content-Type: application/json" \
-            --data "$(jq -nc --arg id "$COMPOSE_ID" '{composeId:$id,autoDeploy:false}')"
-
-          curl --fail-with-body --silent --show-error \
-            -X POST "$API/compose.deploy" \
-            -H "x-api-key: $DOKPLOY_API_KEY" \
-            -H "Content-Type: application/json" \
-            --data "$(jq -nc \
-              --arg id "$COMPOSE_ID" \
-              --arg title "Deploy ${TESTED_SHA:0:12}" \
-              --arg description "CI-approved $DEPLOY_ENV deployment of $TESTED_SHA" \
-              '{composeId:$id,title:$title,description:$description}')"
+            --data "$(jq -nc --arg ref "refs/heads/$BRANCH" '{ref:$ref}')"
