@@ -1,35 +1,28 @@
-import { useRef } from 'react'
-import { Link } from '@tanstack/react-router'
+import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { FifaMatchCard, FifaMatchCardSkeleton } from '@/features/fifa/fifa-match-card'
-import type { FifaMatchCardData } from '@/features/fifa/fifa-match-card'
 import { filterPublicActiveFifaMatches } from '@/lib/fifa-match-filters'
-
-async function fetchMatches(): Promise<{ matches: FifaMatchCardData[] }> {
-  const res = await fetch('/api/fifa/matches')
-  if (!res.ok) throw new Error('Failed to load matches')
-  return res.json()
-}
-
-async function fetchLiveScores() {
-  const res = await fetch('/api/fifa/live-scores')
-  if (!res.ok) return { matches: [], configured: false }
-  return res.json()
-}
+import { listFifaMatches } from '@/lib/data/fifa.client'
+import { fetchFifaLiveScores } from '@/lib/fifa-live-match'
 
 export function FifaMatchCarousel() {
   const carouselRef = useRef<HTMLDivElement>(null)
+  const [clientReady, setClientReady] = useState(false)
+
+  useEffect(() => setClientReady(true), [])
 
   const { data, isLoading } = useQuery({
     queryKey: ['fifa-matches'],
-    queryFn: fetchMatches,
+    queryFn: () => listFifaMatches(),
+    enabled: clientReady,
     refetchInterval: 15_000,
   })
 
   const { data: liveData } = useQuery({
     queryKey: ['fifa-live-scores'],
-    queryFn: fetchLiveScores,
+    queryFn: () => fetchFifaLiveScores(),
     refetchInterval: 60_000,
   })
 
@@ -56,7 +49,7 @@ export function FifaMatchCarousel() {
           </Link>
           <div className="flex items-center gap-2.5 text-[13px] font-semibold text-[#9a9aa2]">
             <span className="live-dot" />
-            All times in your local timezone
+            All times in IST
           </div>
         </div>
 

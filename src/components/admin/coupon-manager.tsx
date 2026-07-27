@@ -1,5 +1,6 @@
 import { Plus, X, Copy } from "lucide-react";
 import type { Coupon } from "@/types";
+import { fromAppDateTimeLocal, toAppDateTimeLocal } from "@/lib/dates";
 
 function generateId() {
   return crypto.randomUUID();
@@ -124,7 +125,7 @@ export function CouponManager({ coupons, onChange }: CouponManagerProps) {
                   type="datetime-local"
                   value={
                     coupon.expiresAt
-                      ? coupon.expiresAt.substring(0, 16)
+                      ? toAppDateTimeLocal(coupon.expiresAt)
                       : ""
                   }
                   onChange={(e) => {
@@ -133,7 +134,7 @@ export function CouponManager({ coupons, onChange }: CouponManagerProps) {
                       return;
                     }
                     updateCoupon(coupon.id, {
-                      expiresAt: new Date(e.target.value).toISOString(),
+                      expiresAt: fromAppDateTimeLocal(e.target.value) || "",
                     });
                   }}
                   className="w-full rounded-md border border-input bg-background px-2 py-1 text-xs outline-none"

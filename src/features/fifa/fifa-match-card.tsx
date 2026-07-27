@@ -1,4 +1,4 @@
-import { Link } from '@tanstack/react-router'
+import { Link } from 'react-router'
 import {
   flagUrl,
   getStageColor,
@@ -8,6 +8,7 @@ import {
 } from '@/lib/fifa-assets'
 import { findLiveMatch, isLiveStatus } from '@/lib/fifa-live-match'
 import type { LiveScoreMatch } from '@/lib/fifa-live-match'
+import { APP_TIME_ZONE } from '@/lib/dates'
 
 export interface FifaMatchCardData {
   id: string
@@ -23,15 +24,27 @@ export interface FifaMatchCardData {
 }
 
 function fmtDay(d: Date) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    timeZone: APP_TIME_ZONE,
+  }).formatToParts(d)
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((item) => item.type === type)?.value ?? ''
   return {
-    dow: d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
-    dom: d.getDate(),
-    mon: d.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(),
+    dow: part('weekday').toUpperCase(),
+    dom: Number(part('day')) || 0,
+    mon: part('month').toUpperCase(),
   }
 }
 
 function fmtTime(d: Date) {
-  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  return d.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: APP_TIME_ZONE,
+  })
 }
 
 function FlagImg({ team }: { team: string }) {
@@ -74,8 +87,7 @@ export function FifaMatchCard({
 
   return (
     <Link
-      to="/FIFA/matches/$id/"
-      params={{ id: match.id }}
+      to={`/FIFA/matches/${match.id}`}
       className={`group relative flex h-[238px] w-[min(318px,calc(100vw-2.5rem))] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-[14px] p-4 shadow-[0_1px_0_rgba(255,255,255,.04)_inset] transition-[transform,box-shadow] duration-300 hover:-translate-y-[7px] hover:shadow-[0_22px_40px_rgba(0,0,0,.5)] ${className}`}
       style={{ background: '#101823' }}
     >

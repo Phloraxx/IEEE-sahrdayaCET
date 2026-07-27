@@ -1,5 +1,5 @@
 import { ArrowLeft } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { Link } from "react-router";
 import { cn } from "@/lib/utils";
 
 interface AdminPageHeaderProps {

@@ -1,39 +1,42 @@
-import { describe, expect, it } from 'vitest'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
-function readRepoFile(path: string): string {
-  return readFileSync(resolve(process.cwd(), path), 'utf8')
-}
+const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
 
-describe('security architecture invariants', () => {
-  it('does not expose a runtime PocketBase superuser client', () => {
-    const source = readRepoFile('src/lib/pb.server.ts')
-    expect(source).not.toContain('createAdminPB')
-    expect(source).not.toContain('POCKETBASE_SUPERUSER_TOKEN')
-  })
+describe("security architecture invariants", () => {
+  it("has no runtime PocketBase superuser client", () => {
+    const source = read("src/lib/pb.server.ts");
+    expect(source).not.toContain("createAdminPB");
+    expect(source).not.toContain("POCKETBASE_SUPERUSER");
+  });
 
-  it('pins the PocketBase container to the documented version', () => {
-    const compose = readRepoFile('docker-compose.pb.yml')
-    expect(compose).toContain('image: adrianmusante/pocketbase:0.39.1')
-    expect(compose).not.toContain('adrianmusante/pocketbase:latest')
-  })
+  it("pins and verifies the PocketBase release", () => {
+    const dockerfile = read("pocketbase/Dockerfile");
+    expect(dockerfile).toContain("PB_VERSION=0.39.9");
+    expect(dockerfile).toContain("sha256sum -c -");
+    expect(dockerfile).not.toContain(":latest");
+  });
 
-  it('enforces check-in validity at the PocketBase model-hook layer', () => {
-    const hook = readRepoFile('pb_hooks/registration-checkin.pb.js')
-    expect(hook).toContain('onRecordUpdate(function')
-    expect(hook).toContain('reg.original()')
-    expect(hook).toContain('registrationStatus')
-    expect(hook).toContain('confirmed')
-    expect(hook).toContain('checkInEnabled')
-    expect(hook).toContain('reg.set("checkedInAt", new Date().toISOString())')
-  })
+  it("locks transactional records against direct creation", () => {
+    const migration = read("pb_migrations/202607220001_rewrite_access_rules.js");
+    expect(migration).toContain("fifaBets.createRule = null");
+    expect(migration).toContain("registrations.createRule = null");
+  });
 
-  it('documents trusted-chair and PocketBase enforcement boundaries', () => {
-    const docs = readRepoFile('docs/security-architecture.md')
-    expect(docs).toContain('chair` accounts are trusted internal staff')
-    expect(docs).toContain('PocketBase API rules')
-    expect(docs).toContain('PocketBase hooks')
-    expect(docs).toContain('TanStack Start')
-  })
-})
+  it("fails closed when the payment webhook integration is not configured", () => {
+    const webhook = read("pb_hooks/webhook.pb.js");
+    expect(webhook).toContain('e.json(503, { error: "Webhook not configured" })');
+    expect(webhook).toContain('e.json(401, { error: "Invalid webhook secret" })');
+  });
+
+  it("keeps deployment environments explicitly isolated", () => {
+    const compose = read("docker-compose.yml");
+    const server = read("src/lib/pb.server.ts");
+    expect(compose).toContain("DEPLOY_ENV: ${DEPLOY_ENV:?");
+    expect(compose).toContain("POCKETBASE_INTERNAL_URL: http://pocketbase-internal:8090");
+    expect(compose).toContain("- pocketbase-internal");
+    expect(compose).not.toContain("POCKETBASE_INTERNAL_URL: http://pocketbase:8090");
+    expect(server).not.toContain("https://db.");
+  });
+});

@@ -1,14 +1,13 @@
-"use client";
-
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, ArrowUpRight, Clock, Search } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { Link } from "react-router";
 
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import type { BlogPost, BlogTopic } from "@/types";
 import { cn } from "@/lib/utils";
+import { formatDateShort } from "@/lib/dates";
 
 export default function BlogClient({ blogs = [] }: { blogs?: BlogPost[] }) {
   const [hovered, setHovered] = useState<string | null>(null);
@@ -363,8 +362,7 @@ function FeaturedCard({
           </h3>
 
           <Link
-            to="/blog/$slug/"
-            params={{ slug: post.slug }}
+            to={`/blog/${post.slug }`}
             aria-label={`Read ${post.title}`}
             className={cn(
               "relative z-20 grid h-12 w-12 shrink-0 place-items-center rounded-full text-accent-foreground shadow-lg transition-all",
@@ -439,8 +437,7 @@ function SidebarColumn({ posts }: { posts: BlogPost[] }) {
             return (
               <li key={p.id} className="group">
                 <Link
-                  to="/blog/$slug/"
-                  params={{ slug: p.slug }}
+                  to={`/blog/${p.slug }`}
                   className="block border-b border-border/70 pb-3 last:border-b-0"
                 >
                   <p className="text-sm font-semibold leading-snug text-foreground transition-colors group-hover:text-accent">
@@ -547,8 +544,7 @@ function TopicCard({ topic, index }: { topic: BlogTopic; index: number }) {
           return (
             <li key={p.id}>
               <Link
-                to="/blog/$slug/"
-                params={{ slug: p.slug }}
+                to={`/blog/${p.slug }`}
                 className={cn(
                   "group flex items-center gap-3 border-t px-5 py-3.5 transition-colors",
                   i === 0 ? "" : "",
@@ -663,14 +659,7 @@ const ARCHIVE_CATEGORIES = ["All", "IEEE", "Society", "Event"] as const;
 type ArchiveCategory = (typeof ARCHIVE_CATEGORIES)[number];
 
 function formatArchiveDate(value?: string) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  return value ? formatDateShort(value) : "";
 }
 
 function CompleteArchive({ blogs }: { blogs: BlogPost[] }) {
@@ -805,7 +794,7 @@ function ArchiveStoryCard({ post, index }: { post: BlogPost; index: number }) {
       transition={{ duration: 0.35, delay: Math.min(index, 6) * 0.04 }}
       className="group"
     >
-      <Link to="/blog/$slug/" params={{ slug: post.slug }} className="block">
+      <Link to={`/blog/${post.slug}`} className="block">
         <div className="relative aspect-[16/10] overflow-hidden rounded-2xl border border-border bg-muted shadow-sm">
           {post.coverUrl ? (
             <img

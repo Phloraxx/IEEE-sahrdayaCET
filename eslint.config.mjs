@@ -56,10 +56,4 @@ export default [
       "prefer-template": "warn",
     },
   },
-  {
-    ignores: [
-      "src/routeTree.gen.ts",
-      "src/app/**",       // old Next.js app (being deleted during migration)
-    ],
-  },
 ]

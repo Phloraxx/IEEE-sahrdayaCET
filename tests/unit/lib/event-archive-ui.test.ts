@@ -23,6 +23,25 @@ describe("event archive UI", () => {
     expect(route).not.toContain('typeof window !== "undefined" ? window.location.origin : APP_URL');
   });
 
+  it("preserves the event modal interaction while keeping crawlable detail routes", () => {
+    const client = read("src/features/events/EventsPageClient.tsx");
+    const list = read("src/components/events/EventListSection.tsx");
+    const card = read("src/components/events/AnnotatedEventCard.tsx");
+    const detailRoute = read("src/routes/events.$slug.tsx");
+
+    expect(client).toContain("EventDetailModal");
+    expect(client).toContain("selectedEventId");
+    expect(client).toContain("onSelectEvent={handleSelectEvent}");
+    expect(list).toContain("onSelectEvent: (event: ExtendedEvent) => void");
+    expect(card).toContain('to={`/events/${event.slug}`}');
+    expect(card).toContain("e.preventDefault()");
+    expect(card).toContain("onSelect(event)");
+
+    expect(detailRoute).toContain("fetchEventBySlug");
+    expect(detailRoute).toContain('rel="canonical"');
+    expect(detailRoute).toContain('type="application/ld+json"');
+  });
+
   it("reuses event cards without rendering a duplicate section heading", () => {
     const client = read("src/features/events/EventsPageClient.tsx");
     const list = read("src/components/events/EventListSection.tsx");

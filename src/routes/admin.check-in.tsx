@@ -1,24 +1,13 @@
-import { createFileRoute } from "@tanstack/react-router";
+
 import { useState } from "react";
 import { CheckCircle, Loader2, ScanLine, XCircle } from "lucide-react";
 import { PanelHeader } from "@/components/admin/panel-header";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { checkInByTicket } from "@/lib/data/admin-registrations.client";
+import { formatDateTime } from "@/lib/dates";
 
-
-export const Route = createFileRoute("/admin/check-in")({
-  component: AdminCheckIn,
-  errorComponent: ({ error }: { error: Error }) => (
-    <div className="flex min-h-[50vh] items-center justify-center p-8">
-      <div className="mx-auto max-w-md text-center">
-        <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-destructive">Error</p>
-        <h1 className="mb-2 text-xl font-semibold tracking-tight">{error?.message ?? "Something went wrong"}</h1>
-        <button type="button" onClick={() => window.location.reload()} className="mt-6 inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity">Try again</button>
-      </div>
-    </div>
-  ),
-});
 
 interface VerifyResult {
   success: boolean;
@@ -34,7 +23,7 @@ interface VerifyResult {
   };
 }
 
-function AdminCheckIn() {
+export default function AdminCheckIn() {
   const [ticketId, setTicketId] = useState("");
   const [result, setResult] = useState<VerifyResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -49,20 +38,10 @@ function AdminCheckIn() {
     setResult(null);
 
     try {
-      const res = await fetch("/api/check-in/verify", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ticketId: id }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || "Verification failed");
-      } else {
-        setResult(data);
-      }
-    } catch {
-      setError("Network error — try again.");
+      const data = await checkInByTicket(id);
+      setResult(data);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Verification failed");
     } finally {
       setLoading(false);
     }
@@ -150,9 +129,7 @@ function AdminCheckIn() {
                   <div>
                     <span className="text-muted-foreground">Checked in at: </span>
                     <span className="text-foreground">
-                      {new Date(
-                        result.registration.checkedInAt,
-                      ).toLocaleString("en-IN")}
+                      {formatDateTime(result.registration.checkedInAt)}
                     </span>
                   </div>
                 )}

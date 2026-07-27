@@ -1,10 +1,12 @@
 import { Fragment } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "react-router";
+import { getAdminRegistration, runRegistrationAdminCommand } from "@/lib/data/admin-registrations.client";
 import { Loader2, Mail, Phone, Ticket, UserCheck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ConfirmButton } from "@/components/admin/confirm-button";
+import { formatDateTime } from "@/lib/dates";
 
 interface RegistrationDetail {
   id: string;
@@ -27,18 +29,7 @@ interface RegistrationDetail {
 }
 
 function formatDate(d: string | null): string {
-  if (!d) return "—";
-  try {
-    return new Date(d).toLocaleString("en-IN", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return d;
-  }
+  return d ? formatDateTime(d) || d : "—";
 }
 interface RegistrationDetailProps {
   registrationId: string;
@@ -52,32 +43,13 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
     registration: RegistrationDetail;
   }>({
     queryKey: ["admin-registration", registrationId],
-    queryFn: async () => {
-      const res = await fetch(`/api/admin/registrations/${registrationId}`, {
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.error || `Failed (${res.status})`);
-      }
-      return res.json();
-    },
+    queryFn: () => getAdminRegistration(registrationId),
   });
 
   const reg = data?.registration;
 
   const checkInMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`/api/admin/registrations/${registrationId}`, {
-        method: "PUT",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ checkedIn: true }),
-      });
-      if (!res.ok) throw new Error("Failed to check in");
-    },
+    mutationFn: () => runRegistrationAdminCommand(registrationId, "check-in"),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["admin-registration", registrationId],
@@ -88,24 +60,14 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
   });
 
   const cancelMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`/api/admin/registrations/${registrationId}`, {
-        method: "PUT",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ registrationStatus: "cancelled" }),
-      });
-      if (!res.ok) throw new Error("Failed to cancel");
-    },
+    mutationFn: () => runRegistrationAdminCommand(registrationId, "cancel"),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["admin-registration", registrationId],
       });
       queryClient.invalidateQueries({ queryKey: ["admin-registrations"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
-      navigate({ to: "/admin/registrations" });
+      navigate("/admin/registrations" );
     },
   });
 

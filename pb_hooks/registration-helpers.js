@@ -14,9 +14,9 @@ function recomputeEventCounters(eventId) {
     try {
         var confirmed = $app.findRecordsByFilter(
             "registrations",
-            "event = {:eventId} && registrationStatus = {:status}",
+            "event = {:eventId} && registrationStatus != {:status}",
             "", 0, 0,
-            { eventId: eventId, status: "confirmed" }
+            { eventId: eventId, status: "cancelled" }
         )
         var checkedIn = $app.findRecordsByFilter(
             "registrations",

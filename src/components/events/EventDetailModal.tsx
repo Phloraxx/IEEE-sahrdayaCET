@@ -1,5 +1,3 @@
-'use client';
-
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { BookOpen, CalendarDays, MapPin, X } from 'lucide-react';
@@ -9,6 +7,7 @@ import {
     RelatedBlogCards,
     type RelatedBlogSummary,
 } from '@/components/blog/RelatedBlogCards';
+import { listRelatedBlogs } from '@/lib/data/public-client';
 
 interface EventDetailModalProps {
     event: ExtendedEvent;
@@ -21,28 +20,12 @@ export function EventDetailModal({ event, onClose, onRegister }: EventDetailModa
     const [relatedBlogs, setRelatedBlogs] = useState<RelatedBlogSummary[]>([]);
 
     useEffect(() => {
-        const controller = new AbortController();
         let active = true;
         setRelatedBlogs([]);
-
-        fetch(`/api/blogs/related?eventId=${encodeURIComponent(event.id)}&limit=2`, {
-            signal: controller.signal,
-            credentials: 'same-origin',
-        })
-            .then((response) => (response.ok ? response.json() : { items: [] }))
-            .then((data) => {
-                if (active) {
-                    setRelatedBlogs(Array.isArray(data.items) ? data.items : []);
-                }
-            })
-            .catch((error) => {
-                if (active && error?.name !== 'AbortError') setRelatedBlogs([]);
-            });
-
-        return () => {
-            active = false;
-            controller.abort();
-        };
+        void listRelatedBlogs({ eventId: event.id, limit: 2 })
+            .then((data) => { if (active) setRelatedBlogs(data.items); })
+            .catch(() => { if (active) setRelatedBlogs([]); });
+        return () => { active = false; };
     }, [event.id]);
 
     // Body scroll lock & focus trap

@@ -1,5 +1,6 @@
-import { Link } from "@tanstack/react-router";
+import { Link } from "react-router";
 import { ArrowUpRight, Clock } from "lucide-react";
+import { formatDateShort } from "@/lib/dates";
 
 export interface RelatedBlogSummary {
   id: string;
@@ -14,14 +15,7 @@ export interface RelatedBlogSummary {
 }
 
 function formatDate(value?: string) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  return value ? formatDateShort(value) : "";
 }
 
 export function RelatedBlogCards({
@@ -36,8 +30,7 @@ export function RelatedBlogCards({
       {blogs.map((blog) => (
         <Link
           key={blog.id}
-          to="/blog/$slug/"
-          params={{ slug: blog.slug }}
+          to={`/blog/${blog.slug }`}
           className="group overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
         >
           <div className={`${compact ? "aspect-[16/8]" : "aspect-[16/9]"} overflow-hidden bg-muted`}>

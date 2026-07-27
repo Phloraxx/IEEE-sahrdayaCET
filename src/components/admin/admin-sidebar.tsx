@@ -1,12 +1,9 @@
 import {
-  Activity,
   Building2,
   Calendar,
   ChevronRight,
   ClipboardList,
   FileText,
-  FlaskConical,
-  Gift,
   LayoutDashboard,
   LogOut,
   Moon,
@@ -19,7 +16,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { Link, useLocation } from "@tanstack/react-router";
+import { Link, useLocation } from "react-router";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 
@@ -96,13 +93,6 @@ const NAV_ITEMS: NavItem[] = [
     allowedRoles: ["admin"],
   },
   {
-    label: "FIFA Testing",
-    href: "/admin/FIFA/testing/",
-    icon: FlaskConical,
-    description: "Game console",
-    allowedRoles: ["admin"],
-  },
-  {
     label: "FIFA Settings",
     href: "/admin/FIFA/settings/",
     icon: Settings,
@@ -114,13 +104,6 @@ const NAV_ITEMS: NavItem[] = [
     href: "/admin/FIFA/raffle/",
     icon: Ticket,
     description: "Draw winner",
-    allowedRoles: ["admin"],
-  },
-  {
-    label: "FIFA Feed",
-    href: "/admin/FIFA/feed/",
-    icon: Activity,
-    description: "Feed moderation",
     allowedRoles: ["admin"],
   },
 ];
@@ -151,7 +134,7 @@ export function AdminSidebar({
   const location = useLocation();
   const { signOut } = useAuth();
   const items = NAV_ITEMS.filter(
-    (item) => item.allowedRoles.includes(userRole as any),
+    (item) => item.allowedRoles.includes(userRole as NavItem["allowedRoles"][number]),
   );
 
   return (

@@ -1,10 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router"
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { listFifaRaffleDraws, runFifaRaffle, type FifaRaffleResult } from "@/lib/data/admin-fifa.client";
 import { AlertCircle, Loader2, Trophy, Info, PartyPopper } from "lucide-react"
 import { PanelHeader } from "@/components/admin/panel-header"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { type FifaSettings } from "@/schemas/fifa"
+import { fetchFifaLeaderboard, raffleDrawWeight, type FifaLeaderboardRow } from "@/lib/fifa-leaderboard"
 import { fetchSettings } from "@/lib/api/fifa"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -14,69 +16,19 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import { toast } from "sonner"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
+import { formatDateTime } from "@/lib/dates";
 
-export const Route = createFileRoute("/admin/FIFA/raffle")({
-  component: AdminFifaRaffle,
-})
-
-interface RaffleDraw {
-  id: string
-  drawn_at: string
-  winner: string
-  entries_snapshot: {
-    total_tickets: number
-    winning_pick: number
-    entries: Array<{ user_id: string; display_name: string; rank: number; tickets: number; bets_count: number }>
-  }
-  seed: string
-}
-
-interface LeaderboardEntry {
-  rank: number
-  id: string
-  display_name: string
-  balance: number
-  bets_count: number
-}
-
-async function fetchDraws(): Promise<{ draws: RaffleDraw[] }> {
-  const res = await fetch('/api/admin/fifa/raffle-draws')
-  if (!res.ok) throw new Error('Failed to load draws')
-  return res.json()
-}
-
-async function fetchLeaderboard(): Promise<LeaderboardEntry[]> {
-  const res = await fetch('/pb/api/fifa/leaderboard')
-  if (!res.ok) throw new Error('Failed to load leaderboard')
-  return res.json()
-}
-
-function AdminFifaRaffle() {
-  const { data: drawsData, isLoading: drawsLoading } = useQuery({ queryKey: ['admin-fifa-raffle-draws'], queryFn: fetchDraws })
-  const { data: lbData, isLoading: lbLoading } = useQuery({ queryKey: ['admin-fifa-leaderboard'], queryFn: fetchLeaderboard })
+export default function AdminFifaRaffle() {
+  const { data: drawsData, isLoading: drawsLoading } = useQuery({ queryKey: ['admin-fifa-raffle-draws'], queryFn: listFifaRaffleDraws })
+  const { data: lbData, isLoading: lbLoading } = useQuery({ queryKey: ['admin-fifa-leaderboard'], queryFn: fetchFifaLeaderboard })
   const { data: settingsData, isLoading: settingsLoading } = useQuery({ queryKey: ['admin-fifa-settings'], queryFn: fetchSettings })
-  const [settings, setSettings] = useState<FifaSettings | null>(null)
-  const [winnerResult, setWinnerResult] = useState<any>(null)
+  const [winnerResult, setWinnerResult] = useState<FifaRaffleResult | null>(null)
   const [isDrawing, setIsDrawing] = useState(false)
   const queryClient = useQueryClient()
 
-  useEffect(() => {
-    if (settingsData) setSettings(settingsData)
-  }, [settingsData])
-
   const runDraw = useMutation({
-    mutationFn: async () => {
-      const res = await fetch('/api/admin/fifa/raffle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        throw new Error(data.error || 'Raffle failed')
-      }
-      return data
-    },
+    mutationFn: runFifaRaffle,
     onSuccess: (data) => {
       // Intentionally delay showing the winner so the animation can play out
       setTimeout(() => {
@@ -121,20 +73,20 @@ function AdminFifaRaffle() {
       />
 
       {isDrawing ? (
-        <DrawAnimation names={lbData.map(l => l.display_name)} />
+        <DrawAnimation names={lbData.leaderboard.map((row) => row.display_name)} />
       ) : winnerResult ? (
-        <WinnerView 
-          result={winnerResult} 
-          onReset={() => setWinnerResult(null)} 
+        <WinnerView
+          result={winnerResult}
+          onReset={() => setWinnerResult(null)}
         />
       ) : (
-        <PreDrawView 
-          leaderboard={lbData} 
-          settings={settingsData} 
+        <PreDrawView
+          leaderboard={lbData.leaderboard}
+          settings={settingsData}
           onRunDraw={() => {
             setIsDrawing(true)
             runDraw.mutate()
-          }} 
+          }}
         />
       )}
 
@@ -143,7 +95,7 @@ function AdminFifaRaffle() {
           <h3 className="text-lg font-semibold mb-4">Past Draws</h3>
           <div className="space-y-3">
             {drawsData.draws.map((d) => {
-              const winner = d.entries_snapshot?.entries?.find((e) => e.user_id === d.winner)
+              const winner = d.entries_snapshot?.entries?.find((e: { user_id: string; display_name: string }) => e.user_id === d.winner)
               return (
                 <div key={d.id} className="rounded-lg border bg-card p-4">
                   <div className="flex items-center justify-between mb-2">
@@ -154,7 +106,7 @@ function AdminFifaRaffle() {
                     <Badge variant="secondary">{d.entries_snapshot?.total_tickets || 0} total tickets in pool</Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Drawn {new Date(d.drawn_at).toLocaleString()} · Pick #{d.entries_snapshot?.winning_pick} · {d.entries_snapshot?.entries?.length || 0} players entered
+                    Drawn {formatDateTime(d.drawn_at)} · Pick #{d.entries_snapshot?.winning_pick} · {d.entries_snapshot?.entries?.length || 0} players entered
                   </p>
                   <p className="text-[10px] text-muted-foreground mt-1 font-mono uppercase">SEED: {d.seed}</p>
                 </div>
@@ -167,24 +119,28 @@ function AdminFifaRaffle() {
   )
 }
 
-function PreDrawView({ 
-  leaderboard, 
-  settings, 
-  onRunDraw 
-}: { 
-  leaderboard: LeaderboardEntry[], 
-  settings: FifaSettings, 
-  onRunDraw: () => void 
+function PreDrawView({
+  leaderboard,
+  settings,
+  onRunDraw
+}: {
+  leaderboard: FifaLeaderboardRow[],
+  settings: FifaSettings,
+  onRunDraw: () => void
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false)
-  
+
   // Calculate eligible entries and tickets based on formula
   const entries = []
   let totalTickets = 0
 
   for (const lb of leaderboard) {
-    if (lb.bets_count < settings.raffle_active_participant_min_bets) continue
-    const tickets = Math.max(1, settings.raffle_tickets_base - settings.raffle_tickets_decay * (lb.rank - 1))
+    const tickets = raffleDrawWeight(lb.rank, lb.bets_count, {
+      raffle_tickets_base: settings.raffle_tickets_base,
+      raffle_tickets_decay: settings.raffle_tickets_decay,
+      min_bets: settings.raffle_active_participant_min_bets,
+    })
+    if (tickets <= 0) continue
     entries.push({ ...lb, tickets })
     totalTickets += tickets
   }
@@ -200,7 +156,7 @@ function PreDrawView({
             {entries.length} eligible players · {totalTickets} total tickets in pool
           </p>
         </div>
-        
+
         <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
           <DialogTrigger asChild>
             <Button disabled={isRegistrationOpen || entries.length === 0} size="lg">
@@ -269,7 +225,7 @@ function PreDrawView({
 
 function DrawAnimation({ names }: { names: string[] }) {
   const [currentName, setCurrentName] = useState("...")
-  
+
   useEffect(() => {
     if (names.length === 0) return
     const interval = setInterval(() => {
@@ -290,7 +246,7 @@ function DrawAnimation({ names }: { names: string[] }) {
   )
 }
 
-function WinnerView({ result, onReset }: { result: any, onReset: () => void }) {
+function WinnerView({ result, onReset }: { result: FifaRaffleResult; onReset: () => void }) {
   const snapshot = result.entries_snapshot
   const winner = result.winner
 
@@ -319,7 +275,7 @@ function WinnerView({ result, onReset }: { result: any, onReset: () => void }) {
             <Info className="h-4 w-4" /> Transparency Snapshot
           </h3>
           <p className="text-xs text-muted-foreground mt-1">
-            The winning pick was #{snapshot.winning_pick} out of {snapshot.total_tickets} total tickets. 
+            The winning pick was #{snapshot.winning_pick} out of {snapshot.total_tickets} total tickets.
             Selection utilized standard <code>Math.random()</code> weighted distribution at the time of draw.
           </p>
           <p className="text-[10px] font-mono text-muted-foreground mt-2 break-all">SEED: {result.seed}</p>
@@ -335,7 +291,7 @@ function WinnerView({ result, onReset }: { result: any, onReset: () => void }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {snapshot.entries.map((entry: any) => {
+              {snapshot.entries.map((entry) => {
                 const isWinner = entry.user_id === winner.user_id
                 return (
                   <TableRow key={entry.user_id} className={isWinner ? "bg-primary/5 font-medium" : ""}>

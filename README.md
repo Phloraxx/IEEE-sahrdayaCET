@@ -4,272 +4,198 @@
 
 # IEEE Sahrdaya Student Branch
 
-[![TanStack Start](https://img.shields.io/badge/TanStack_Start-1.x-black?style=flat-square)](https://tanstack.com/start)
-[![PocketBase](https://img.shields.io/badge/PocketBase-0.39.1-BB2B2B?style=flat-square&logo=pocketbase)](https://pocketbase.io/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind-4.x-38B2AC?style=flat-square&logo=tailwind-css)](https://tailwindcss.com/)
-[![License](https://img.shields.io/badge/License-Proprietary-red?style=flat-square)]()
+**Public website, event platform, administration tools, and WC Predict '26 for IEEE Sahrdaya.**
 
-**Event management platform for the 14 IEEE technical societies of Sahrdaya College of Engineering & Technology.**
-
-[Live Site](https://ieeesahrdaya.com)
+[Production](https://ieeesahrdaya.com) · [Staging](https://staging.ieeesahrdaya.com)
 
 </div>
 
----
+## Architecture
 
-## Overview
+The application deliberately has only two runtime services:
 
-The IEEE Sahrdaya Event Management System is a comprehensive platform for managing technical events, workshops, hackathons, and symposiums organized by the IEEE Sahrdaya Student Branch and its 14 technical societies.
+```text
+Browser
+  │
+Cloudflare / Dokploy / Traefik
+  ├── /*     → React Router v7 web container
+  └── /api/* → PocketBase container
 
-### Key Capabilities
+web ── private app-internal network ── PocketBase ── pb_data volume
+```
 
-| Feature | Description |
-|---------|-------------|
-| **Event Discovery** | Browse upcoming events with filters by society and date |
-| **Online Registration** | Custom registration forms per event |
-| **Digital Tickets** | QR code-based tickets |
-| **Check-in System** | Real-time QR scanning with status tracking |
-| **Email Automation** | Confirmations and updates |
-| **Analytics Dashboard** | Registration stats and revenue tracking |
-| **Multi-Society Support** | 14 societies with independent chair management |
+- **React Router v7 Framework Mode** owns SSR, HTML routes, metadata/resource routes, and UI.
+- **PocketBase 0.39.9** owns auth, SQLite data, files, API authorization, migrations, hooks, and custom transactional commands.
+- The browser authenticates directly with PocketBase through same-origin `/api`.
+- Public SSR reads use the private `pocketbase-internal` network alias.
+- There is no React-side BFF and no runtime PocketBase superuser credential.
+- `pb_migrations/` is the only schema/rule/index source of truth.
 
----
+See [docs/architecture.md](docs/architecture.md), [docs/security-architecture.md](docs/security-architecture.md), [docs/deployment.md](docs/deployment.md), and [docs/release-checklist.md](docs/release-checklist.md).
 
 ## Stack
 
 | Layer | Technology |
-|-------|------------|
-| Framework | TanStack Start (file-based routes, server functions, SSR) |
-| UI | React 19, Tailwind CSS 4, Framer Motion, shadcn/ui, Lucide |
-| Backend | PocketBase 0.39.1 (embedded SQLite, built-in auth, file storage, REST API) |
-| Auth | Google OAuth2 via PocketBase (roles: admin/chair/user) |
+| --- | --- |
+| Web | React 19, React Router 7.18, TypeScript, Vite 7 |
+| UI | Tailwind CSS 4, shadcn/ui/Radix, Framer Motion, Lucide |
+| Client data | PocketBase JS SDK, TanStack Query |
+| Backend | PocketBase 0.39.9, SQLite, JS hooks/migrations |
+| Auth | Google OAuth through PocketBase |
+| Deployment | Docker Compose on Dokploy/Traefik |
+| Edge | Cloudflare |
 
----
+## Repository layout
 
-## Project Structure
-
-```
+```text
 src/
-├── routes/                      # File-based dot-delimited routes (TanStack Start)
-│   ├── __root.tsx               # Root route (HTML shell, AuthProvider, QueryClientProvider, head/SEO)
-│   ├── index.tsx                # Home page (SSR)
-│   ├── events.tsx               # Events listing (SSR)
-│   ├── societies.tsx            # Societies listing (SSR)
-│   ├── full-execom.tsx          # Full execom page (SSR)
-│   ├── register.$eventId.tsx    # Event registration (CSR)
-│   ├── ticket.$ticketId.tsx     # Ticket view (CSR)
-│   ├── admin.tsx                # Admin layout (AdminGuard, sidebar, topbar)
-│   ├── admin.*.tsx              # Admin pages (events, registrations, societies, users, execom, check-in, payments)
-│   └── api/                     # Server function handlers
-│       ├── auth/                #   OAuth2 init, callback, me, logout
-│       ├── registrations.ts     #   GET (list user's), POST (register)
-│       ├── events.*.ts          #   Event detail, CSV export, coupon validation
-│       ├── check-in.verify.ts   #   QR check-in verification
-│       ├── orders/webhook.ts    #   Payment webhook
-│       └── admin/               #   Admin API handlers
-├── features/                    # Feature-specific page components
-│   ├── globals.css              # Tailwind v4 + CSS custom properties
-│   ├── admin/                   # Admin page components
-│   ├── events/                  # Event page components
-│   └── ...
-├── components/
-│   ├── ui/                      # shadcn/ui primitives (button, dialog, table, card, form, etc.)
-│   └── admin/                   # Admin UI (sidebar, guards, keyboard shortcuts)
-├── lib/                         # Utilities (see below)
-├── types/                       # Shared TypeScript interfaces
-└── hooks/                      # React hooks (use-mobile)
+  routes.ts                 explicit React Router route config
+  root.tsx                  document shell, providers, global metadata
+  routes/                   HTML/resource route modules
+  server/public/            credential-free SSR PocketBase readers
+  lib/data/                 browser PocketBase data modules
+  components/               shared UI
+  features/                 feature UI
 
-Business logic lives in src/lib/registration-service.ts — there are no PocketBase hooks.
+pb_migrations/              complete baseline + incremental migrations
+pb_hooks/                   authoritative backend invariants and commands
+pocketbase/Dockerfile       pinned PocketBase runtime image
+Dockerfile                  web build + Node 22 SSR runtime
+docker-compose.yml          production/staging stack
+docker-compose.local.yml    local PocketBase stack
+tests/backend/              clean-room PocketBase integration suite
+tests/e2e/                  browser/SSR/SEO tests
 ```
 
-### Key `src/lib/` utilities
+## Request ownership
 
-| File | Purpose |
-|------|---------|
-| `pb.ts` | PocketBase client factories: `createPB()`, `createAdminPB()`, `buildFileUrl()`, `escapeFilterValue()` |
-| `auth.ts` | `requireAuth()`, `requireAdmin()`, `requireRole()`, `AuthError` for server-side auth |
-| `chair-scope.ts` | Centralized chair scoping: `requireEventScope()`, `requireRegistrationScope()`, `scopeEventFilter()` |
-| `registration-service.ts` | Business logic: create/confirm/cancel/checkIn, coupon validation, counter bumps (retry-on-conflict) |
-| `auth-context.tsx` | Client-side auth context (React Context + cookie) |
-| `api-error.ts` | Centralized error-to-Response mapping (`handleError()`) |
-| `logger.ts` | Structured error logging (JSON in prod, console in dev) |
-| `dates.ts` | Date formatting utilities (en-IN locale) |
-| `csv-export.ts` | CSV generation with formula-injection protection |
-| `ticketStatus.ts` | Ticket status label/color/icon mapping |
-| `qr-utils.ts` | QR code generation and download |
-| `webhook.ts` | Payment webhook body schema + idempotency guard |
+`/api` belongs exclusively to PocketBase.
 
----
+Normal record operations use PocketBase collections directly. Custom routes exist only for operations that need transactional or privileged semantics, including:
 
-## Collections
+- `POST /api/app/events/:id/register`
+- `PUT /api/app/events/:id/coupons`
+- `POST /api/app/admin/users/:id/role`
+- `POST /api/fifa/bets`
+- `POST /api/fifa/settle`
+- `POST /api/fifa/markets/:id/void`
+- `POST /api/fifa/matches/:id/void`
+- `GET /api/fifa/live-scores`
 
-### `users` (Auth)
-Google OAuth, roles (admin/chair/user).
+## Local development
 
-### `societies` (Base)
-| Field | Type |
-|-------|------|
-| `name` | text |
-| `slug` | text (unique index) |
-| `bio` | text |
-| `logo` | file |
-| `banner` | file |
-| `chairs` | relation → users |
-
-### `execom` (Base)
-| Field | Type |
-|-------|------|
-| `name` | text |
-| `position` | text |
-| `department` | text |
-| `batch` | text |
-| `section` | text |
-| `sectionId` | text (indexed) |
-| `order` | number |
-| `photo` | file |
-| `linkedin` | url |
-| `instagram` | url |
-| `email` | email |
-| `phone` | text |
-
-### `events` (Base)
-| Field | Type | Notes |
-|-------|------|-------|
-| `title` | text | |
-| `description` | text (rich) | |
-| `date` | date | |
-| `endDate` | date | |
-| `venue` | text | |
-| `price` | number | |
-| `status` | select | draft / published / completed |
-| `society` | relation → societies | |
-| `banner` | file | |
-| `maxCapacity` | number | |
-| `registrationOpen` | bool | |
-| `registrationDeadline` | date | |
-| `checkInEnabled` | bool | |
-| `isDeleted` | bool | |
- | `registeredCount` | number | Maintained by `registration-service.ts` |
- | `checkedInCount` | number | Maintained by `registration-service.ts` |
- | `formTemplate` | json | |
-| `tags` | text | |
-
-Indexes: `(status, date)`, `(date, endDate)`, `(society)`
-
-### `registrations` (Base)
-| Field | Type | Notes |
-|-------|------|-------|
-| `user` | relation → users | |
-| `event` | relation → events | |
-| `userName` | text | |
-| `userEmail` | email | |
-| `userPhone` | text | |
-| `formResponses` | json | |
-| `paymentStatus` | select | pending / paid / failed / not_required |
-| `registrationStatus` | select | pending / confirmed / cancelled |
- | `ticketId` | text | Generated by `registration-service.ts` |
-| `paymentTicketId` | text | Used by payment webhook |
-| `amount` | number | |
-| `registrationDate` | date | |
-| `checkedIn` | bool | |
-| `checkedInAt` | date | |
-| `paymentData` | json | Raw webhook payload |
-
-Indexes:
-- `(ticketId)` UNIQUE
-- `(user, event)` UNIQUE
-- `(event)`, `(paymentTicketId)`, `(registrationStatus)`
-- `(event, ticketId)`, `(event, paymentTicketId)`
-
----
-
-## API Routes
-
-| Method | Path | Auth | Purpose |
-|--------|------|------|---------|
-| GET | `/api/auth/init` | — | OAuth2 init — returns PB Google auth URL |
-| GET | `/api/auth/callback/google` | — | OAuth2 callback — code exchange, sets PB auth cookie |
-| GET | `/api/auth/me` | cookie | Current user from PB |
-| POST | `/api/auth/logout` | cookie | Clears PB auth cookie |
-| GET | `/api/registrations` | cookie | User's registrations (optional `?eventId=` filter) |
-| POST | `/api/registrations` | cookie | Register for an event |
-| PATCH | `/api/registrations/[id]` | cookie | Update registration (payment status etc.) |
-| GET | `/api/society/[slug]` | — | Society detail + events + execom members |
-| POST | `/api/check-in/verify` | chair/admin | Verify and mark check-in |
-| POST | `/api/orders/webhook` | webhook secret | Payment status webhook |
-| GET | `/api/events/[eventId]/export` | chair/admin | CSV export of registrations |
-| GET | `/api/admin/registrations.csv/[id]` | chair/admin | CSV export (admin format) |
-| GET | `/api/admin/stats` | admin | Dashboard KPI aggregates |
-| GET | `/api/admin/events/dashboard` | admin | Live/upcoming/recent events |
-
----
-
-## Auth & Roles
-
-Google OAuth only (no email/password). Roles stored in PB user `role` field.
-
-| Role | Access |
-|------|--------|
-| Guest | Browse events, societies, execom |
-| User | Register for events, view tickets |
-| Chair | Manage own society's events and registrations |
-| Admin | Full admin dashboard |
-
----
-
-## Setup
+Requirements: Bun 1.2.9+, Docker, and Docker Compose.
 
 ```bash
-# 1. Install dependencies
-npm install
-
-# 2. Configure environment
 cp .env.example .env.local
-# Edit .env.local with your PocketBase URL and superuser token
 
-# 3. Run PocketBase (download from https://pocketbase.io)
-# Start your PocketBase instance and apply the schema:
-npm run migrate:pb
-
-# 4. Add indexes (existing DB only — fresh migrate:pb includes them)
-export PB_ADMIN_EMAIL=admin@example.com
-export PB_ADMIN_PASSWORD=yourpassword
-npm run migrate:indexes
-
-# 5. Start the dev server
-npm run dev
+docker compose -f docker-compose.local.yml up --build
+bun install --frozen-lockfile
+bun run dev
 ```
 
+The web app runs on `http://127.0.0.1:3000` by default. Vite proxies `/api` to the local PocketBase instance on `127.0.0.1:8090`.
 
----
+For another local port:
 
-## Societies
+```bash
+PORT=3100 bun run dev
+```
 
-| Society | Slug | Society | Slug |
-|---------|------|---------|------|
-| Computer Society | `cs` | Robotics & Automation | `ras` |
-| Women in Engineering | `wie` | Industry Applications | `ias` |
-| Power & Energy | `pes` | SIGHT | `sight` |
-| Engineering in Medicine & Biology | `embs` | Signal Processing | `sps` |
-| Circuits and Systems | `cas` | Communication | `css` |
-| Education | `edsoc` | Industrial Electronics | `ies` |
-| Nuclear & Plasma Sciences | `npss` | Photonics | `ps` |
+Create the first local PocketBase superuser with the PocketBase CLI inside the container when needed. End-user authentication is Google OAuth; password auth is not an application login path.
 
----
+## Commands
+
+```bash
+bun run dev          # React Router/Vite development server
+bun run build        # production web build
+bun run start        # serve the built app
+bun run lint         # ESLint
+bun run typecheck    # React Router typegen + TypeScript
+bun run test         # Vitest
+bun run test:e2e     # Playwright Chromium suite
+```
+
+Backend clean-room smoke test:
+
+```bash
+PB_BASE_URL=http://127.0.0.1:8090 \
+PB_SUPERUSER_EMAIL=... \
+PB_SUPERUSER_PASSWORD=... \
+python3 tests/backend/pocketbase_smoke.py
+```
+
+CI performs this against a newly created PocketBase database, not a long-lived development database.
+
+## Database changes
+
+Do not create one-off schema scripts or edit production first.
+
+1. Add an incremental file to `pb_migrations/`.
+2. Make it safe for both an existing database and a fresh database where applicable.
+3. Update `202607200000_baseline_schema.js` when the field belongs in every new installation.
+4. Run the migration against a disposable empty database.
+5. Run `tests/backend/pocketbase_smoke.py`.
+
+PocketBase applies committed migrations when the container starts.
+
+## Authorization model
+
+Roles are `user`, `chair`, `content`, and `admin`.
+
+- Public users can read intentionally public records.
+- Signed-in users can access their own protected records.
+- Chairs are scoped by PocketBase rules to societies they chair.
+- Content editors own their blog posts.
+- Admins have administrative access.
+- User role changes go through the dedicated admin command; ordinary user record updates cannot change `role`.
+
+Business invariants must remain correct when the React UI is bypassed. Put load-bearing checks in PocketBase rules/hooks/transactional routes.
+
+## Event registration
+
+Registration is a transaction, not generic CRUD. One PocketBase command validates the event/form/capacity/coupon, creates the registration and ticket/payment state, and updates counters. If any step fails, no seat is reserved.
+
+`registeredCount` means active seat reservations (`pending + confirmed`). Cancelled registrations do not occupy capacity.
+
+## SEO
+
+Public content is server-rendered. Published events have immutable crawlable URLs under `/events/:slug`, canonical links, Open Graph/Twitter metadata, and Event JSON-LD. Blog posts use BlogPosting JSON-LD. Production exposes dynamic sitemap/robots resources; non-production HTML responses emit `X-Robots-Tag: noindex, nofollow`.
+
+## CI/CD
+
+CI runs on pushes to `main` and `dev`, plus pull requests and manual dispatch. It gates lint/typecheck/tests/build, fresh-PocketBase backend tests + Playwright, and both production Docker builds.
+
+CD runs only after a successful CI workflow. It verifies the tested SHA is still the source branch head, then calls the existing Dokploy webhook:
+
+```text
+main → DOCKPLOY_WEBHOOK_PROD → production
+dev  → DOCKPLOY_WEBHOOK_DEV  → staging
+```
+
+The canonical deployment remains the Dokploy-managed `docker-compose.yml`; do not shadow a service with a manually created fallback container or temporary Compose file.
+
+## Environment isolation
+
+Production and staging must use different Compose projects, volumes, OAuth configuration, encryption keys, payment secrets, and domains. Never point staging at production `pb_data`.
+
+Dokploy should route:
+
+- `/api` → `pocketbase:8090` without stripping the path
+- `/` → `web:3000`
+
+Do not expose PocketBase `/_/` through the public host.
+
+## Release process
+
+Normal promotion is `feature/release branch → dev → main`. A public 200/healthy check is necessary but not sufficient for production. Before a schema-sensitive release, get full CI green on the exact release candidate, complete authenticated staging acceptance, verify enabled production integrations, take a fresh production PocketBase/files backup, review the `dev` → `main` diff, then deploy through the CI-gated `main` path.
+
+Use [docs/release-checklist.md](docs/release-checklist.md) as the release runbook.
+
+## Contributor/agent contract
+
+Read [AGENTS.md](AGENTS.md) before architectural, backend, deployment, or security-sensitive changes.
 
 ## License
 
-<div align="center">
-
-© 2025-2026 IEEE Sahrdaya Student Branch. Proprietary — all rights reserved.
-
-</div>
-
----
-
-<div align="center">
-
-[Website](https://ieeesahrdaya.com) • [Instagram](https://www.instagram.com/ieeesahrdaya/) • [LinkedIn](https://www.linkedin.com/company/ieeesahrdaya)
-
-</div>
+© 2025–2026 IEEE Sahrdaya Student Branch. Proprietary — all rights reserved.

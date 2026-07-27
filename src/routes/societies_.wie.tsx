@@ -1,13 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
-import React, { useState, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useLoaderData } from "react-router";
+import React, { useMemo } from "react";
+import { motion } from "framer-motion";
 import {
   Users,
   Calendar,
   Heart,
   ExternalLink,
-  X,
   Plus,
   Pencil,
 } from "lucide-react";
@@ -16,125 +14,31 @@ import { Instagram, Linkedin } from "@/components/icons";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { ContextualBlogLinks } from "@/components/blog/ContextualBlogLinks";
-import { buildFileUrl } from "@/lib/pb";
-import { createPB } from "@/lib/pb.server";
 import { APP_URL } from "@/lib/constants";
 import { formatDate } from "@/lib/dates";
 import { canRegisterForEvent } from "@/lib/event-lifecycle";
+import { fetchSocietyData, type SocietyPageData } from "@/server/public/society-detail.server";
+import { CanonicalLink } from "@/components/CanonicalLink";
 
 // Fetch WIE data
-const fetchWieData = createServerFn().handler(async () => {
-  const pb = createPB();
-  const society = await pb
-    .collection("societies")
-    .getFirstListItem("slug = 'wie'")
-    .catch(() => null);
+export const meta = () => [
+  { title: "IEEE Women in Engineering (WIE) | IEEE Sahrdaya" },
+  { name: "description", content: "IEEE Women in Engineering (WIE) Sahrdaya SB. Promoting women engineers and scientists and inspiring future engineers." },
+  { property: "og:title", content: "IEEE Women in Engineering (WIE) | IEEE Sahrdaya" },
+  { property: "og:image", content: `${APP_URL}/web.png` },
+  { property: "og:url", content: `${APP_URL}/societies/wie` },
+];
+export async function loader(): Promise<SocietyPageData> { return fetchSocietyData("wie"); }
 
-  if (!society) {
-    throw new Error("WIE society not found");
-  }
-
-  const [events, members] = await Promise.all([
-    pb
-      .collection("events")
-      .getList(1, 100, {
-        filter: `society = '${society.id}'`,
-        sort: "-date",
-      })
-      .then((res) => res.items)
-      .catch(() => []),
-    pb
-      .collection("execom")
-      .getList(1, 100, {
-        filter: `sectionId = 'wie'`,
-        sort: "order",
-      })
-      .then((res) => res.items)
-      .catch(() => []),
-  ]);
-
-  return {
-    society: {
-      id: society.id,
-      name: society.name,
-      slug: society.slug,
-      bio: (society.bio as string) || "",
-      chairs: Array.isArray(society.chairs) ? society.chairs : [],
-      defaultWhatsappLink: (society.defaultWhatsappLink as string) || "",
-      logoUrl: society.logo
-        ? buildFileUrl("societies", society.id, society.logo as string)
-        : "",
-      bannerUrl: society.banner
-        ? buildFileUrl("societies", society.id, society.banner as string)
-        : "",
-    },
-    events: events.map((e) => ({
-      id: e.id,
-      title: (e.title as string) || "",
-      description: (e.description as string) || "",
-      date: (e.date as string) || "",
-      endDate: (e.endDate as string) || "",
-      registrationStart: (e.registrationStart as string) || "",
-      registrationDeadline: (e.registrationDeadline as string) || "",
-      venue: (e.venue as string) || "",
-      price: (e.price as number) || 0,
-      status: (e.status as string) || "published",
-      bannerUrl: e.banner
-        ? buildFileUrl("events", e.id, e.banner as string)
-        : "",
-      externalFormUrl: (e.externalFormUrl as string) || "",
-    })),
-    members: members.map((m) => ({
-      id: m.id,
-      name: (m.name as string) || "",
-      position: (m.position as string) || "",
-      department: (m.department as string) || "",
-      batch: (m.batch as string) || "",
-      photoUrl: m.photo
-        ? buildFileUrl("execom", m.id, m.photo as string)
-        : "",
-      linkedin: (m.linkedin as string) || "",
-      instagram: (m.instagram as string) || "",
-    })),
-  };
-});
-
-export const Route = createFileRoute("/societies_/wie")({
-  head: () => ({
-    meta: [
-      { title: "IEEE Women in Engineering (WIE) | IEEE Sahrdaya" },
-      {
-        name: "description",
-        content:
-          "IEEE Women in Engineering (WIE) Sahrdaya SB. Promoting women engineers and scientists, inspiring girls to follow their academic interests in engineering.",
-      },
-      { property: "og:title", content: "IEEE Women in Engineering (WIE) | IEEE Sahrdaya" },
-      {
-        property: "og:description",
-        content:
-          "IEEE Women in Engineering (WIE) Sahrdaya SB. Promoting women engineers and scientists, inspiring girls to follow their academic interests in engineering.",
-      },
-      { property: "og:url", content: `${APP_URL}/societies/wie` },
-      { property: "og:image", content: `${APP_URL}/web.png` },
-    ],
-    links: [{ rel: "canonical", href: `${APP_URL}/societies/wie` }],
-  }),
-  loader: async () => {
-    return fetchWieData();
-  },
-  component: WIESocietyPage,
-});
-
-function WIESocietyPage() {
-  const data = Route.useLoaderData();
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+export default function WIESocietyPage() {
+  const data = useLoaderData<typeof loader>();
   const { user } = useAuth();
 
   const canEdit = useMemo(() => {
     if (!user) return false;
     if (user.role === "admin") return true;
     if (user.role === "chair") {
-      const chairsList = (data.society as any).chairs || [];
+      const chairsList = data.society.chairs || [];
       return chairsList.includes(user.id);
     }
     return false;
@@ -163,6 +67,8 @@ function WIESocietyPage() {
   }, [data.members, advisor]);
 
   return (
+    <>
+      <CanonicalLink path="/societies/wie" />
     <div className="min-h-screen bg-[#F8F9FA] text-slate-800 font-sans selection:bg-purple-500/20 selection:text-purple-900">
       <Navbar />
 
@@ -546,5 +452,6 @@ function WIESocietyPage() {
       <ContextualBlogLinks />
       <Footer />
     </div>
+    </>
   );
 }

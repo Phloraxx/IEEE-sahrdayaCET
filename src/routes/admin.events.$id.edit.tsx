@@ -1,13 +1,9 @@
-import { createFileRoute, useParams } from "@tanstack/react-router";
+import { useParams } from "react-router";
 import { AdminPageHeader } from "@/features/admin/shared/admin-page-header";
 import { EventForm } from "@/features/admin/events/event-form";
 
-export const Route = createFileRoute("/admin/events/$id/edit")({
-  component: EditEventPage,
-});
-
-function EditEventPage() {
-  const { id } = useParams({ from: "/admin/events/$id/edit" });
+export default function EditEventPage() {
+  const { id = "" } = useParams();
   return (
     <div className="space-y-6">
       <AdminPageHeader

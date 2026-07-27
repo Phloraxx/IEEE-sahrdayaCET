@@ -1,5 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router"
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { createAdminFifaMarket, listAdminFifaMarkets, listAdminFifaMatches, settleFifaMatch, updateAdminFifaMarket } from "@/lib/data/admin-fifa.client";
 import { useState } from "react"
 import { ChevronDown, ChevronUp, Loader2, Plus, Trophy } from "lucide-react"
 import { PanelHeader } from "@/components/admin/panel-header"
@@ -16,20 +17,9 @@ import {
 } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
-import { FIFA_MARKET_LABELS, FifaMarketCreateSchema, FifaSettleSchema } from "@/schemas/fifa"
-
-export const Route = createFileRoute("/admin/FIFA/matches")({
-  component: AdminFifaMatches,
-  errorComponent: ({ error }: { error: Error }) => (
-    <div className="flex min-h-[50vh] items-center justify-center p-8">
-      <div className="mx-auto max-w-md text-center">
-        <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-destructive">Error</p>
-        <h1 className="mb-2 text-xl font-semibold tracking-tight">{error?.message ?? "Something went wrong"}</h1>
-        <button type="button" onClick={() => window.location.reload()} className="mt-6 inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90">Try again</button>
-      </div>
-    </div>
-  ),
-})
+import { FIFA_MARKET_LABELS, FifaMarketCreateSchema, FifaSettleSchema } from "@/schemas/fifa";
+import type { FIFA_MARKET_MODE, FIFA_MARKET_TYPE } from "@/schemas/fifa"
+import { formatDateTime } from "@/lib/dates";
 
 interface MatchRow {
   id: string
@@ -39,7 +29,6 @@ interface MatchRow {
   kickoff_at: string
   status: string
   settled: boolean
-  auto_settle_at?: string
   result_winner?: string
   result_home_goals?: number
   result_away_goals?: number
@@ -61,14 +50,8 @@ interface MarketRow {
   pool_total: number
 }
 
-async function fetchMatches(): Promise<{ matches: MatchRow[] }> {
-  const res = await fetch('/api/admin/fifa/matches?perPage=100')
-  if (!res.ok) throw new Error('Failed to load matches')
-  return res.json()
-}
-
-function AdminFifaMatches() {
-  const { data, isLoading } = useQuery({ queryKey: ['admin-fifa-matches'], queryFn: fetchMatches })
+export default function AdminFifaMatches() {
+  const { data, isLoading } = useQuery({ queryKey: ['admin-fifa-matches'], queryFn: listAdminFifaMatches })
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   return (
@@ -117,7 +100,7 @@ function MatchItem({ match, isExpanded, onToggle }: { match: MatchRow; isExpande
         <div className="min-w-0">
           <p className="font-medium truncate">{match.team_home} vs {match.team_away}</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {match.stage.toUpperCase()} · {match.kickoff_at ? new Date(match.kickoff_at).toLocaleString() : '—'}
+            {match.stage.toUpperCase()} · {match.kickoff_at ? formatDateTime(match.kickoff_at) : '—'}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -141,11 +124,7 @@ function MatchItem({ match, isExpanded, onToggle }: { match: MatchRow; isExpande
 function MarketsSection({ matchId }: { matchId: string }) {
   const { data, isLoading } = useQuery({ 
     queryKey: ['admin-fifa-markets', matchId], 
-    queryFn: async () => {
-      const res = await fetch(`/api/admin/fifa/markets?match=${matchId}`)
-      if (!res.ok) throw new Error('Failed to load markets')
-      return res.json() as Promise<{ markets: MarketRow[] }>
-    }
+    queryFn: () => listAdminFifaMarkets(matchId)
   })
 
   return (
@@ -172,15 +151,7 @@ function MarketCard({ market }: { market: MarketRow }) {
   const [open, setOpen] = useState(false)
 
   const toggleOpen = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`/api/admin/fifa/markets/${market.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_open: !market.is_open }),
-      })
-      if (!res.ok) throw new Error('Failed to toggle')
-      return res.json()
-    },
+    mutationFn: () => updateAdminFifaMarket(market.id, { is_open: !market.is_open }),
     onSuccess: () => {
       toast.success(market.is_open ? 'Market closed' : 'Market opened')
       queryClient.invalidateQueries({ queryKey: ['admin-fifa-markets', market.match] })
@@ -189,15 +160,7 @@ function MarketCard({ market }: { market: MarketRow }) {
   })
 
   const voidMarket = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`/api/admin/fifa/markets/${market.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ void: true, is_open: false }),
-      })
-      if (!res.ok) throw new Error('Failed to void')
-      return res.json()
-    },
+    mutationFn: () => updateAdminFifaMarket(market.id, { void: true, is_open: false }),
     onSuccess: () => {
       toast.success('Market voided — pending bets refunded')
       queryClient.invalidateQueries({ queryKey: ['admin-fifa-markets', market.match] })
@@ -287,9 +250,11 @@ function TagInput({ tags, setTags, placeholder }: { tags: string[]; setTags: (t:
 function CreateMarketDialog({ matchId }: { matchId: string }) {
   const [open, setOpen] = useState(false)
   const queryClient = useQueryClient()
+  type MarketType = (typeof FIFA_MARKET_TYPE)[number]
+  type MarketMode = (typeof FIFA_MARKET_MODE)[number]
   const initialForm = {
-    market_type: 'match_winner',
-    mode: 'pool',
+    market_type: 'match_winner' as MarketType,
+    mode: 'pool' as MarketMode,
     line: 0,
     options: [] as string[],
     fixed_odds_json: '{\n  "home": 1.5,\n  "draw": 3.2,\n  "away": 4.5\n}',
@@ -311,7 +276,7 @@ function CreateMarketDialog({ matchId }: { matchId: string }) {
       if (form.mode === 'fixed') {
         try {
           body.fixed_odds = JSON.parse(form.fixed_odds_json)
-        } catch (e) {
+        } catch {
           throw new Error('Invalid JSON in fixed odds')
         }
       }
@@ -319,19 +284,10 @@ function CreateMarketDialog({ matchId }: { matchId: string }) {
       // Validate with schema
       const parsed = FifaMarketCreateSchema.safeParse(body)
       if (!parsed.success) {
-        throw new Error(parsed.error.issues.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', '))
+        throw new Error(parsed.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join(', '))
       }
 
-      const res = await fetch('/api/admin/fifa/markets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(parsed.data),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || 'Failed to create market')
-      }
-      return res.json()
+      return createAdminFifaMarket(parsed.data as Record<string, unknown>)
     },
     onSuccess: () => {
       toast.success('Market created')
@@ -352,7 +308,7 @@ function CreateMarketDialog({ matchId }: { matchId: string }) {
         <form onSubmit={(e) => { e.preventDefault(); create.mutate() }} className="space-y-4 pt-2">
           <div>
             <Label>Market type</Label>
-            <Select value={form.market_type} onValueChange={(v: any) => setForm({ ...form, market_type: v })}>
+            <Select value={form.market_type} onValueChange={(value) => setForm({ ...form, market_type: value as MarketType })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 {Object.entries(FIFA_MARKET_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
@@ -361,7 +317,7 @@ function CreateMarketDialog({ matchId }: { matchId: string }) {
           </div>
           <div>
             <Label>Mode</Label>
-            <Select value={form.mode} onValueChange={(v: any) => setForm({ ...form, mode: v })}>
+            <Select value={form.mode} onValueChange={(value) => setForm({ ...form, mode: value as MarketMode })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="pool">Pool (pari-mutuel)</SelectItem>
@@ -433,11 +389,7 @@ function SettleSection({ match }: { match: MatchRow }) {
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold">Settlement</h3>
       </div>
-      {match.auto_settle_at && new Date(match.auto_settle_at).getTime() > Date.now() && (
-        <div className="mb-4 rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-600">
-          <strong>Warning:</strong> This match will be automatically settled via ESPN sync at {new Date(match.auto_settle_at).toLocaleString()}. Manual settlement will override the auto-sync.
-        </div>
-      )}
+
       <SettleForm
         matchId={match.id}
         stage={match.stage}
@@ -463,11 +415,7 @@ function SettleForm({
 
   const { data: marketsData } = useQuery({ 
     queryKey: ['admin-fifa-markets', matchId], 
-    queryFn: async () => {
-      const res = await fetch(`/api/admin/fifa/markets?match=${matchId}`)
-      if (!res.ok) return { markets: [] }
-      return res.json() as Promise<{ markets: MarketRow[] }>
-    }
+    queryFn: () => listAdminFifaMarkets(matchId).catch(() => ({ markets: [] }))
   })
 
   const customMarkets = marketsData?.markets.filter(m => m.market_type === 'custom') || []
@@ -513,21 +461,10 @@ function SettleForm({
       
       const parsed = FifaSettleSchema.safeParse(payload)
       if (!parsed.success) {
-        throw new Error(parsed.error.issues.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', '))
+        throw new Error(parsed.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join(', '))
       }
 
-      const res = await fetch('/api/admin/fifa/settle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(parsed.data),
-      })
-      
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        throw new Error(data.error || 'Settlement failed')
-      }
-      
-      return data
+      return settleFifaMatch(parsed.data as Record<string, unknown>)
     },
     onSuccess: (data) => {
       if (data.partial) {

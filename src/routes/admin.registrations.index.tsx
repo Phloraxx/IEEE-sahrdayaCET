@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import {
@@ -21,32 +21,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { listAdminRegistrations, runRegistrationAdminCommand } from "@/lib/data/admin-registrations.client";
 
 const registrationStatusValues = ["all", "confirmed", "pending", "cancelled"] as const;
 type RegistrationStatus = (typeof registrationStatusValues)[number];
-
-export const Route = createFileRoute("/admin/registrations/")({
-  validateSearch: (search: Record<string, unknown>): { status?: string } => {
-    const raw = search.status;
-    if (typeof raw === "string" && registrationStatusValues.includes(raw as RegistrationStatus)) {
-      return { status: raw as RegistrationStatus };
-    }
-    return { status: undefined };
-  },
-  component: AdminRegistrations,
-  errorComponent: ({ error }: { error: Error }) => (
-    <div className="flex min-h-[50vh] items-center justify-center p-8">
-      <div className="mx-auto max-w-md text-center">
-        <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-destructive">
-          Error
-        </p>
-        <h1 className="mb-2 text-xl font-semibold tracking-tight">
-          {error?.message ?? "Something went wrong"}
-        </h1>
-      </div>
-    </div>
-  ),
-});
 
 interface RegistrationRow {
   id: string;
@@ -56,7 +34,7 @@ interface RegistrationRow {
   registrationStatus: string;
   paymentStatus: string;
   checkedIn: boolean;
-  checkedInAt: string;
+  checkedInAt: string | null;
   ticketId: string;
   amount: number;
   createdAt: string;
@@ -81,9 +59,14 @@ function RegistrationsSkeleton() {
     </div>
   );
 }
-function AdminRegistrations() {
+export default function AdminRegistrations() {
   const queryClient = useQueryClient();
-  const { status: urlStatus } = Route.useSearch();
+  const [searchParams] = useSearchParams();
+  const rawStatus = searchParams.get("status");
+  const urlStatus: RegistrationStatus | undefined =
+    rawStatus && registrationStatusValues.includes(rawStatus as RegistrationStatus)
+      ? (rawStatus as RegistrationStatus)
+      : undefined;
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState(urlStatus ?? "all");
   const [page, setPage] = useState(1);
@@ -95,33 +78,11 @@ function AdminRegistrations() {
 
   const { data, isLoading } = useQuery<RegistrationsResponse>({
     queryKey: ["admin-registrations", { search, status, page }],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        page: String(page),
-        perPage: String(perPage),
-      });
-      if (search) params.set("search", search);
-      if (status !== "all") params.set("status", status);
-      const res = await fetch(`/api/admin/registrations?${params}`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to load registrations");
-      return res.json();
-    },
+    queryFn: () => listAdminRegistrations({ page, perPage, search, status }),
   });
 
   const checkInMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`/api/admin/registrations/${id}`, {
-        method: "PUT",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ checkedIn: true }),
-      });
-      if (!res.ok) throw new Error("Failed to check in");
-    },
+    mutationFn: (id: string) => runRegistrationAdminCommand(id, "check-in"),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-registrations"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
@@ -129,17 +90,7 @@ function AdminRegistrations() {
   });
 
   const cancelMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`/api/admin/registrations/${id}`, {
-        method: "PUT",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ registrationStatus: "cancelled" }),
-      });
-      if (!res.ok) throw new Error("Failed to cancel");
-    },
+    mutationFn: (id: string) => runRegistrationAdminCommand(id, "cancel"),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-registrations"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
@@ -170,7 +121,7 @@ function AdminRegistrations() {
         <Select
           value={status}
           onValueChange={(v) => {
-            setStatus(v);
+            setStatus(v as RegistrationStatus);
             setPage(1);
           }}
         >
@@ -269,8 +220,7 @@ function RegistrationsList({
         >
           <div className="min-w-0">
             <Link
-              to="/admin/registrations/$id"
-              params={{ id: reg.id }}
+              to={`/admin/registrations/${reg.id}`}
               className="text-sm font-medium text-foreground hover:underline line-clamp-1"
             >
               {reg.userName || "—"}
@@ -296,8 +246,7 @@ function RegistrationsList({
           </div>
           <div className="flex items-center justify-end gap-1">
             <Link
-              to="/admin/registrations/$id"
-              params={{ id: reg.id }}
+              to={`/admin/registrations/${reg.id}`}
               aria-label="View registration"
               className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >

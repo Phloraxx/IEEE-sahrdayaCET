@@ -1,10 +1,10 @@
-'use client';
-
 import React from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { CalendarDays, ChevronRight } from 'lucide-react';
+import { Link } from 'react-router';
 import type { ExtendedEvent } from '@/types';
 import { formatDate } from '@/lib/dates';
+import { EventBannerFallback } from './EventBannerFallback';
 
 const FADE_UP = {
   hidden: { opacity: 0, y: 20 },
@@ -36,12 +36,20 @@ export function AnnotatedEventCard({ event, index, onSelect, isMobile = false, s
         <motion.div
             variants={prefersReducedMotion || !animateEntrance ? undefined : FADE_UP}
             whileHover={prefersReducedMotion ? undefined : { y: -8 }}
-            onClick={() => onSelect(event)}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(event); } }}
-            role="button"
-            tabIndex={0}
-            className="bg-white rounded-[2.5rem] p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] transition-all duration-500 cursor-pointer flex flex-col relative group"
+            className="relative"
         >
+          <Link
+            to={`/events/${event.slug}`}
+            onClick={(e) => {
+              // Keep the original in-page modal for ordinary clicks while leaving
+              // a real crawlable URL in the document. Modified clicks still open
+              // the canonical detail page in a new tab/window as users expect.
+              if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+              e.preventDefault();
+              onSelect(event);
+            }}
+            className="bg-white rounded-[2.5rem] p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] transition-all duration-500 cursor-pointer flex flex-col relative group"
+          >
             {/* Annotation */}
             {annotation && (
                 <motion.div
@@ -81,9 +89,11 @@ export function AnnotatedEventCard({ event, index, onSelect, isMobile = false, s
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                     />
                 ) : (
-                    <div className="w-full h-full bg-linear-to-br from-ieee-blue to-[#4285F4] flex items-center justify-center">
-                        <CalendarDays className="w-16 h-16 text-white/50" />
-                    </div>
+                    <EventBannerFallback
+                        title={event.title}
+                        societyName={typeof event.society === 'object' ? event.society.name : undefined}
+                        societySlug={typeof event.society === 'object' ? event.society.slug : undefined}
+                    />
                 )}
                 <div className="absolute top-4 left-4 z-20 flex gap-2">
                     <span className={`${event.color} text-white text-xs font-bold px-4 py-2 rounded-full uppercase tracking-wider shadow-xs backdrop-blur-md`}>
@@ -107,6 +117,7 @@ export function AnnotatedEventCard({ event, index, onSelect, isMobile = false, s
                     </div>
                 </div>
             </div>
+          </Link>
         </motion.div>
     );
 }

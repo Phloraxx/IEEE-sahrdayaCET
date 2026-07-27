@@ -1,4 +1,4 @@
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
@@ -14,53 +14,8 @@ import { MetricCard } from "@/components/admin/metric-card";
 import { PanelHeader } from "@/components/admin/panel-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getAdminStats, type AdminStats } from "@/lib/data/admin-stats.client";
 
-export const Route = createFileRoute("/admin/dashboard")({
-  beforeLoad: ({ context }) => {
-    const { user } = context as { user?: { role?: string } };
-    if (user && user.role === "content") {
-      throw redirect({ to: "/admin/blogs/", replace: true });
-    }
-  },
-  component: AdminDashboard,
-  errorComponent: ({ error }: { error: Error }) => (
-    <div className="flex min-h-[50vh] items-center justify-center p-8">
-      <div className="mx-auto max-w-md text-center">
-        <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-destructive">
-          Error
-        </p>
-        <h1 className="mb-2 text-xl font-semibold tracking-tight">
-          {error?.message ?? "Something went wrong"}
-        </h1>
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className="mt-6 inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
-        >
-          Try again
-        </button>
-      </div>
-    </div>
-  ),
-});
-
-interface StatsResponse {
-  events: {
-    total: number;
-    published: number;
-    upcoming: number;
-    live: number;
-    recentlyCompleted: number;
-  };
-  registrations: {
-    total: number;
-    confirmed: number;
-    pending: number;
-    today: number;
-  };
-  execom: { total: number };
-  societies: { total: number; active: number };
-}
 
 function DashboardSkeleton() {
   return (
@@ -81,17 +36,10 @@ function DashboardSkeleton() {
   );
 }
 
-function AdminDashboard() {
-  const { data: stats, isLoading, isError, error } = useQuery<StatsResponse>({
+export default function AdminDashboard() {
+  const { data: stats, isLoading, isError, error } = useQuery<AdminStats>({
     queryKey: ["admin-stats"],
-    queryFn: async () => {
-      const res = await fetch("/api/admin/stats", { credentials: "include" });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.error || `Failed to load stats (${res.status})`);
-      }
-      return res.json();
-    },
+    queryFn: getAdminStats,
     retry: 1,
     staleTime: 30_000,
   });
@@ -205,17 +153,17 @@ function AdminDashboard() {
         />
         <MetricCard
           label="Societies"
-          value={stats.societies.total}
+          value={stats.societies.total ?? 0}
           icon={Building2}
           context={
-            stats.societies.total > 0
+            (stats.societies.total ?? 0) > 0
               ? `${stats.societies.active} active`
               : "—"
           }
         />
         <MetricCard
           label="Execom"
-          value={stats.execom.total}
+          value={stats.execom.total ?? 0}
           icon={UserCheck}
           context="Committee members"
         />
@@ -270,8 +218,7 @@ function AdminDashboard() {
                 return (
                   <Link
                     key={segment.key}
-                    to="/admin/registrations"
-                    search={{ status: segment.key }}
+                    to={`/admin/registrations?status=${encodeURIComponent(segment.key)}`}
                     className="group flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2 transition-colors hover:border-foreground/20"
                   >
                     <div className="flex items-center gap-2 min-w-0">

@@ -27,19 +27,19 @@ describe('registration form validation', () => {
   })
 
   it('validates department is a known value', () => {
-    const departments = ['Computer Science (CS)', 'Electronics & Communication (EC)', 'Electrical & Electronics (EE)', 'Mechanical (ME)', 'Civil (CE)', 'Robotics & Automation (RA)', 'Artificial Intelligence & DS (AI)'] as const
+    const departments: readonly string[] = ['Computer Science (CS)', 'Electronics & Communication (EC)', 'Electrical & Electronics (EE)', 'Mechanical (ME)', 'Civil (CE)', 'Robotics & Automation (RA)', 'Artificial Intelligence & DS (AI)']
     expect(departments.includes('Computer Science (CS)')).toBe(true)
     expect(departments.includes('Invalid Dept')).toBe(false)
   })
 
   it('validates semester is a known value', () => {
-    const semesters = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8'] as const
+    const semesters: readonly string[] = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8']
     expect(semesters.includes('S3')).toBe(true)
     expect(semesters.includes('S9')).toBe(false)
   })
 
   it('validates section is a known value', () => {
-    const sections = ['A', 'B', 'C', 'D'] as const
+    const sections: readonly string[] = ['A', 'B', 'C', 'D']
     expect(sections.includes('A')).toBe(true)
     expect(sections.includes('E')).toBe(false)
   })

@@ -1,5 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { Link, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { createAdminFifaMarket, getAdminFifaMatch, listAdminFifaMarkets, settleFifaMatch, updateAdminFifaMarket } from "@/lib/data/admin-fifa.client";
 import { useState } from "react"
 import { ArrowLeft, Loader2, Plus } from "lucide-react"
 import { PanelHeader } from "@/components/admin/panel-header"
@@ -16,18 +17,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { FIFA_MARKET_LABELS } from "@/schemas/fifa"
-
-export const Route = createFileRoute("/admin/FIFA/matches/$id")({
-  component: AdminFifaMatchDetail,
-  errorComponent: ({ error }: { error: Error }) => (
-    <div className="flex min-h-[50vh] items-center justify-center p-8 text-center">
-      <div className="mx-auto max-w-md">
-        <h1 className="text-xl font-semibold mb-2">{error?.message ?? "Something went wrong"}</h1>
-        <Link to="/admin/FIFA/matches/" className="text-sm text-primary hover:underline">← Back to matches</Link>
-      </div>
-    </div>
-  ),
-})
+import { formatDateTime } from "@/lib/dates";
+import { fetchFifaLiveScores, findLiveMatch } from "@/lib/fifa-live-match";
 
 interface MarketRow {
   id: string
@@ -58,25 +49,12 @@ interface MatchData {
   result_after_extra_time: boolean
   result_after_penalties: boolean
   settled: boolean
-  auto_settle_at?: string
 }
 
-async function fetchMatch(id: string): Promise<{ match: MatchData }> {
-  const res = await fetch(`/api/admin/fifa/matches/${id}`)
-  if (!res.ok) throw new Error('Failed to load match')
-  return res.json()
-}
-
-async function fetchMarkets(matchId: string): Promise<{ markets: MarketRow[] }> {
-  const res = await fetch(`/api/admin/fifa/markets?match=${matchId}`)
-  if (!res.ok) throw new Error('Failed to load markets')
-  return res.json()
-}
-
-function AdminFifaMatchDetail() {
-  const { id } = Route.useParams()
-  const { data: matchData, isLoading } = useQuery({ queryKey: ['admin-fifa-match', id], queryFn: () => fetchMatch(id) })
-  const { data: marketsData, isLoading: marketsLoading } = useQuery({ queryKey: ['admin-fifa-markets', id], queryFn: () => fetchMarkets(id) })
+export default function AdminFifaMatchDetail() {
+  const { id = "" } = useParams();
+  const { data: matchData, isLoading } = useQuery({ queryKey: ['admin-fifa-match', id], queryFn: () => getAdminFifaMatch(id) })
+  const { data: marketsData, isLoading: marketsLoading } = useQuery({ queryKey: ['admin-fifa-markets', id], queryFn: () => listAdminFifaMarkets(id) })
   const match = matchData?.match
 
   return (
@@ -92,7 +70,7 @@ function AdminFifaMatchDetail() {
           <PanelHeader
             eyebrow={match.stage.toUpperCase()}
             title={`${match.team_home} vs ${match.team_away}`}
-            description={`Kickoff: ${match.kickoff_at ? new Date(match.kickoff_at).toLocaleString() : '—'}`}
+            description={`Kickoff: ${match.kickoff_at ? formatDateTime(match.kickoff_at) : '—'}`}
           />
 
           <div className="grid gap-6 lg:grid-cols-2">
@@ -144,15 +122,7 @@ function MarketCard({ market }: { market: MarketRow }) {
   const [open, setOpen] = useState(false)
 
   const toggleOpen = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`/api/admin/fifa/markets/${market.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_open: !market.is_open }),
-      })
-      if (!res.ok) throw new Error('Failed to toggle')
-      return res.json()
-    },
+    mutationFn: () => updateAdminFifaMarket(market.id, { is_open: !market.is_open }),
     onSuccess: () => {
       toast.success(market.is_open ? 'Market closed' : 'Market opened')
       queryClient.invalidateQueries({ queryKey: ['admin-fifa-markets', market.match] })
@@ -161,15 +131,7 @@ function MarketCard({ market }: { market: MarketRow }) {
   })
 
   const voidMarket = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`/api/admin/fifa/markets/${market.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ void: true, is_open: false }),
-      })
-      if (!res.ok) throw new Error('Failed to void')
-      return res.json()
-    },
+    mutationFn: () => updateAdminFifaMarket(market.id, { void: true, is_open: false }),
     onSuccess: () => {
       toast.success('Market voided — bets refunded')
       queryClient.invalidateQueries({ queryKey: ['admin-fifa-markets', market.match] })
@@ -254,16 +216,7 @@ function CreateMarketDialog({ matchId }: { matchId: string }) {
         }
         body.fixed_odds = odds
       }
-      const res = await fetch('/api/admin/fifa/markets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || 'Failed to create market')
-      }
-      return res.json()
+      return createAdminFifaMarket(body)
     },
     onSuccess: () => {
       toast.success('Market created')
@@ -349,21 +302,14 @@ function SettleForm({ match }: { match: MatchData }) {
   // Auto-fill from live scores (football-data.org).
   const autoFill = useMutation({
     mutationFn: async () => {
-      const res = await fetch('/api/fifa/live-scores')
-      if (!res.ok) throw new Error('Live scores unavailable')
-      return res.json() as Promise<{ matches: Array<{ homeTeam: string; awayTeam: string; homeGoals: number | null; awayGoals: number | null; status: string }>; configured: boolean }>
+      return fetchFifaLiveScores({ throwOnError: true })
     },
     onSuccess: (data) => {
       if (!data.configured) {
         toast.error('Live scores not configured (FOOTBALL_DATA_API_TOKEN not set)')
         return
       }
-      const lm = data.matches.find((m) => {
-        const h = m.homeTeam.trim().toLowerCase()
-        const a = m.awayTeam.trim().toLowerCase()
-        return (h === match.team_home.toLowerCase() && a === match.team_away.toLowerCase())
-          || (h === match.team_away.toLowerCase() && a === match.team_home.toLowerCase())
-      })
+      const lm = findLiveMatch(match.team_home, match.team_away, data.matches)
       if (!lm || lm.homeGoals === null || lm.awayGoals === null) {
         toast.error('No live score found for this match yet')
         return
@@ -383,29 +329,20 @@ function SettleForm({ match }: { match: MatchData }) {
 
   const settle = useMutation({
     mutationFn: async () => {
-      const res = await fetch('/api/admin/fifa/settle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          matchId,
-          result_winner: form.result_winner,
-          result_advance: effectiveAdvance || undefined,
-          result_home_goals: Number(form.result_home_goals),
-          result_away_goals: Number(form.result_away_goals),
-          result_scorers: form.result_scorers.split(',').map((s) => s.trim()).filter(Boolean),
-          result_yellow_cards: Number(form.result_yellow_cards),
-          result_red_cards: Number(form.result_red_cards),
-          result_home_clean_sheet: form.result_away_goals === 0,
-          result_away_clean_sheet: form.result_home_goals === 0,
-          result_after_extra_time: form.result_after_extra_time,
-          result_after_penalties: form.result_after_penalties,
-        }),
+      return settleFifaMatch({
+        matchId,
+        result_winner: form.result_winner,
+        result_advance: effectiveAdvance || undefined,
+        result_home_goals: Number(form.result_home_goals),
+        result_away_goals: Number(form.result_away_goals),
+        result_scorers: form.result_scorers.split(',').map((s) => s.trim()).filter(Boolean),
+        result_yellow_cards: Number(form.result_yellow_cards),
+        result_red_cards: Number(form.result_red_cards),
+        result_home_clean_sheet: form.result_away_goals === 0,
+        result_away_clean_sheet: form.result_home_goals === 0,
+        result_after_extra_time: form.result_after_extra_time,
+        result_after_penalties: form.result_after_penalties,
       })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || 'Settlement failed')
-      }
-      return res.json()
     },
     onSuccess: (data) => {
       toast.success(`Settled — ${data.betsSettled} bets, ${data.totalPayout} tickets paid out`)
@@ -482,11 +419,7 @@ function SettleForm({ match }: { match: MatchData }) {
           Decided on penalties
         </label>
       </div>
-      {!match.settled && match.auto_settle_at && new Date(match.auto_settle_at).getTime() > Date.now() && (
-        <div className="rounded border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive mt-4">
-          ⚠️ This match is scheduled to auto-settle at {new Date(match.auto_settle_at).toLocaleString()}. Submitting manually will override the automatic settlement.
-        </div>
-      )}
+
       <Button type="submit" disabled={settle.isPending} className="w-full">
         {settle.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Settle match
       </Button>

@@ -1,4 +1,4 @@
-export const STAGE_LABELS: Record<string, string> = {
+const STAGE_LABELS: Record<string, string> = {
   r32: 'Round of 32',
   r16: 'Round of 16',
   qf: 'Quarter-final',
@@ -7,7 +7,7 @@ export const STAGE_LABELS: Record<string, string> = {
   final: 'Final',
 }
 
-export const STAGE_COLORS: Record<string, string> = {
+const STAGE_COLORS: Record<string, string> = {
   r32: '#0099D6',
   r16: '#00B8A9',
   qf: '#00629B',
@@ -17,7 +17,7 @@ export const STAGE_COLORS: Record<string, string> = {
 }
 
 /** Team display name → flagcdn.com ISO code */
-export const TEAM_FLAG_CODES: Record<string, string> = {
+const TEAM_FLAG_CODES: Record<string, string> = {
   'United States': 'us',
   USA: 'us',
   Mexico: 'mx',
@@ -73,7 +73,7 @@ function pairKey(home: string, away: string): string {
   return `${home.trim().toLowerCase()}|${away.trim().toLowerCase()}`
 }
 
-export function getFlagCode(team: string): string | null {
+function getFlagCode(team: string): string | null {
   return TEAM_FLAG_CODES[team.trim()] ?? null
 }
 
@@ -97,7 +97,7 @@ export interface MatchCardAsset {
   isFallback: boolean
 }
 
-export function getMatchCardAsset(home: string, away: string, stage?: string): MatchCardAsset {
+function getMatchCardAsset(home: string, away: string, stage?: string): MatchCardAsset {
   const key = pairKey(home, away)
   const reversed = pairKey(away, home)
   const fallbackAsset = { imageUrl: '/fifa/hero-poster.jpg', position: '50% 20%' }
@@ -178,7 +178,7 @@ function espnHeadshot(playerId: string): string {
 }
 
 /** Star player per nation — ESPN headshots with team-logo fallback via getTeamPlayerVisual(). */
-export const TEAM_STAR_PLAYERS: Record<string, TeamStarPlayer> = {
+const TEAM_STAR_PLAYERS: Record<string, TeamStarPlayer> = {
   Argentina: { name: 'Lionel Messi', photoUrl: espnHeadshot('45843') },
   France: { name: 'Kylian Mbappé', photoUrl: espnHeadshot('231388') },
   England: { name: 'Harry Kane', photoUrl: espnHeadshot('142200') },

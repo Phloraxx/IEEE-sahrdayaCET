@@ -1,4 +1,4 @@
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Eye, FileText, Pencil, Plus, Search, Trash2 } from "lucide-react";
@@ -16,27 +16,16 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import {
-  checkBlogEditorAccess,
-  createBlog,
-  deleteBlog,
-  getAllBlogsAdmin,
-  getEventsForSelect,
-  getSocietiesForSelect,
-  updateBlog,
-} from "./api/-blogs";
+  createAdminBlog,
+  deleteAdminBlog,
+  listAdminBlogs,
+  listEventsForBlog,
+  listSocietiesForBlog,
+  updateAdminBlog,
+} from "@/lib/admin-blog-client";
 import { BlogForm, type BlogFormValues } from "@/components/admin/blog-form";
 import type { BlogPost } from "@/types";
-
-export const Route = createFileRoute("/admin/blogs")({
-  beforeLoad: async () => {
-    try {
-      await checkBlogEditorAccess();
-    } catch {
-      throw redirect({ to: "/", replace: true });
-    }
-  },
-  component: AdminBlogs,
-});
+import { formatDateShort } from "@/lib/dates";
 
 function BlogsSkeleton() {
   return (
@@ -49,17 +38,10 @@ function BlogsSkeleton() {
 }
 
 function formatDate(value?: string): string {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  return value ? formatDateShort(value) : "—";
 }
 
-function AdminBlogs() {
+export default function AdminBlogs() {
   const queryClient = useQueryClient();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [editingBlog, setEditingBlog] = useState<BlogPost | null>(null);
@@ -68,17 +50,17 @@ function AdminBlogs() {
 
   const { data: blogs = [], isLoading } = useQuery({
     queryKey: ["admin-blogs"],
-    queryFn: async () => await getAllBlogsAdmin(),
+    queryFn: listAdminBlogs,
   });
 
   const { data: societies = [] } = useQuery({
     queryKey: ["admin-societies-select"],
-    queryFn: async () => await getSocietiesForSelect(),
+    queryFn: listSocietiesForBlog,
   });
 
   const { data: events = [] } = useQuery({
     queryKey: ["admin-events-select"],
-    queryFn: async () => await getEventsForSelect(),
+    queryFn: listEventsForBlog,
   });
 
   const filteredBlogs = useMemo(() => {
@@ -100,7 +82,7 @@ function AdminBlogs() {
   const draftCount = blogs.length - publishedCount;
 
   const createMutation = useMutation({
-    mutationFn: async (data: BlogFormValues) => await createBlog({ data }),
+    mutationFn: createAdminBlog,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-blogs"] });
       setIsSheetOpen(false);
@@ -111,7 +93,7 @@ function AdminBlogs() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<BlogFormValues> }) =>
-      await updateBlog({ data: { id, ...data } }),
+      await updateAdminBlog(id, data),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-blogs"] });
       setIsSheetOpen(false);
@@ -122,7 +104,7 @@ function AdminBlogs() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => await deleteBlog({ data: id }),
+    mutationFn: deleteAdminBlog,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-blogs"] });
       toast.success("Blog post deleted");
@@ -253,7 +235,7 @@ function AdminBlogs() {
               <div className="flex items-center justify-end gap-1">
                 {blog.published && (
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" asChild>
-                    <Link to="/blog/$slug/" params={{ slug: blog.slug }} target="_blank" aria-label={`View ${blog.title}`}>
+                    <Link to={`/blog/${blog.slug}`} target="_blank" aria-label={`View ${blog.title}`}>
                       <Eye className="h-3.5 w-3.5" />
                     </Link>
                   </Button>

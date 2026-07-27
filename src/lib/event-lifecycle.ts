@@ -18,7 +18,7 @@ function toTimestamp(value?: string | null): number | null {
  * Uses endDate when available, otherwise falls back to the event start date.
  * An event is considered past once its effective end time has elapsed.
  */
-export function getEventEndTimestamp(event: EventLifecycleInput): number | null {
+function getEventEndTimestamp(event: EventLifecycleInput): number | null {
   return toTimestamp(event.endDate) ?? toTimestamp(event.date);
 }
 

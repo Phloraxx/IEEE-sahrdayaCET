@@ -6,7 +6,7 @@ export interface FifaMatchListItem {
   kickoff_at?: string
 }
 
-export function isTestFifaMatch(teamHome: string): boolean {
+function isTestFifaMatch(teamHome: string): boolean {
   return teamHome.toLowerCase().startsWith('test')
 }
 

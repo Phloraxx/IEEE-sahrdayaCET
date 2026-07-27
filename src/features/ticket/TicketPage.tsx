@@ -1,5 +1,3 @@
-"use client";
-
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
@@ -13,48 +11,22 @@ import {
   CheckCircle2,
   Ticket,
 } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { Link } from "react-router";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { generateQRDataUrl, downloadQR as downloadQRFile } from "@/lib/qr-utils";
 import { getTicketStatusInfo } from "@/lib/ticketStatus";
 import { formatDateShort } from "@/lib/dates";
 import { logError } from "@/lib/logger";
-
-interface TicketData {
-  found?: boolean;
-  ticket: {
-    id: string;
-    qrCode?: string;
-    paymentStatus: string;
-    registrationStatus: string;
-    createdAt: string;
-  } | null;
-  event: {
-    id: string;
-    title: string;
-    date: string;
-    venue: string;
-    bannerUrl?: string;
-    time?: string;
-  } | null;
-  registration: {
-    id: string;
-    name: string;
-    email: string;
-    phone: string;
-    registrationStatus: string;
-    paymentStatus: string;
-    registrationDate: string;
-  } | null;
-}
+import { getTicket, type PublicTicketData } from "@/lib/data/public-client";
+import { isPastEvent } from "@/lib/event-lifecycle";
 
 interface PageProps {
   ticketId: string;
 }
 
 export default function TicketPage({ ticketId }: PageProps) {
-  const [ticketData, setTicketData] = useState<TicketData | null>(null);
+  const [ticketData, setTicketData] = useState<PublicTicketData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
@@ -62,9 +34,8 @@ export default function TicketPage({ ticketId }: PageProps) {
   useEffect(() => {
     const fetchTicket = async () => {
       try {
-        const res = await fetch(`/api/ticket/${ticketId}`);
-        if (!res.ok) throw new Error("Ticket not found");
-        const data = await res.json();
+        const data = await getTicket(ticketId);
+        if (!data.found || !data.ticket) throw new Error("Ticket not found");
         setTicketData(data);
 
         if (data.ticket) {
@@ -133,8 +104,9 @@ export default function TicketPage({ ticketId }: PageProps) {
   }
 
   const { ticket, event, registration } = ticketData;
-  const eventDate = event ? new Date(event.date) : new Date();
-  const isPast = eventDate < new Date();
+  const isPast = event
+    ? isPastEvent({ status: "published", date: event.date, endDate: event.endDate })
+    : false;
   const status = registration
     ? getTicketStatusInfo(
         registration.registrationStatus || registration.paymentStatus,

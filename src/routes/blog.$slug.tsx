@@ -1,95 +1,72 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link, useLoaderData, type LoaderFunctionArgs } from "react-router";
 import { ArrowLeft, Building2, CalendarDays, Clock } from "lucide-react";
-import { getBlogBySlug } from "./api/-blogs";
+import { getBlogBySlug } from "@/lib/blog-public.server";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { APP_URL } from "@/lib/constants";
+import { formatDateLong } from "@/lib/dates";
 import type { BlogPost } from "@/types";
 
-export const Route = createFileRoute("/blog/$slug")({
-  head: ({ loaderData }) => {
-    const post = loaderData as BlogPost | undefined;
-    if (!post) return { meta: [{ title: "Not Found" }] };
+export const meta = ({ data }: { data?: BlogPost }) => {
+  if (!data) return [{ title: "Article not found | IEEE Sahrdaya" }];
+  return [
+    { title: `${data.title} | IEEE Sahrdaya Blog` },
+    { name: "description", content: data.excerpt || "Read this article on the IEEE Sahrdaya Blog." },
+    { property: "og:title", content: data.title },
+    { property: "og:description", content: data.excerpt || "" },
+    { property: "og:url", content: `${APP_URL}/blog/${data.slug}` },
+    { property: "og:image", content: data.coverUrl || `${APP_URL}/web.png` },
+    { property: "og:type", content: "article" },
+    { name: "twitter:card", content: "summary_large_image" },
+    { name: "twitter:title", content: data.title },
+    { name: "twitter:description", content: data.excerpt || "" },
+    { name: "twitter:image", content: data.coverUrl || `${APP_URL}/web.png` },
+  ];
+};
 
-    return {
-      meta: [
-        { title: `${post.title} | IEEE Sahrdaya Blog` },
-        {
-          name: "description",
-          content: post.excerpt || "Read this article on the IEEE Sahrdaya Blog.",
-        },
-        { property: "og:title", content: post.title },
-        { property: "og:description", content: post.excerpt || "" },
-        { property: "og:url", content: `${APP_URL}/blog/${post.slug}` },
-        { property: "og:image", content: post.coverUrl || `${APP_URL}/web.png` },
-        { property: "og:type", content: "article" },
-        ...(post.publishedAt
-          ? [{ property: "article:published_time", content: post.publishedAt }]
-          : []),
-      ],
-      links: [{ rel: "canonical", href: `${APP_URL}/blog/${post.slug}` }],
-      scripts: [
-        {
-          type: "application/ld+json",
-          children: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "Article",
-            headline: post.title,
-            description: post.excerpt || undefined,
-            image: post.coverUrl || `${APP_URL}/web.png`,
-            datePublished: post.publishedAt || undefined,
-            author: {
-              "@type": "Person",
-              name:
-                typeof post.author === "string"
-                  ? post.author
-                  : post.author?.name || "IEEE Sahrdaya",
-            },
-            publisher: {
-              "@type": "Organization",
-              name: "IEEE Sahrdaya Student Branch",
-              url: APP_URL,
-            },
-          })
-            .replace(/</g, "\\u003c")
-            .replace(/>/g, "\\u003e")
-            .replace(/&/g, "\\u0026"),
-        },
-      ],
-    };
-  },
-  loader: async ({ params }) => {
-    const post = await getBlogBySlug({ data: params.slug });
-    if (!post) throw new Error("Blog post not found");
-    return post;
-  },
-  component: BlogPostPage,
-});
-
-function formatPublishedDate(value?: string) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+export async function loader({ params }: LoaderFunctionArgs): Promise<BlogPost> {
+  if (!params.slug) throw new Response("Article not found", { status: 404 });
+  const post = await getBlogBySlug(params.slug);
+  if (!post) throw new Response("Article not found", { status: 404 });
+  return post as BlogPost;
 }
 
-function BlogPostPage() {
-  const post = Route.useLoaderData() as BlogPost;
+function formatPublishedDate(value?: string) {
+  return value ? formatDateLong(value) : "";
+}
+
+export default function BlogPostPage() {
+  const post = useLoaderData<typeof loader>();
   const author =
     typeof post.author === "string"
       ? post.author
       : post.author?.name || "IEEE Sahrdaya";
   const society = typeof post.society === "string" ? undefined : post.society;
   const event = typeof post.event === "string" ? undefined : post.event;
+  const canonicalUrl = `${APP_URL}/blog/${post.slug}`;
+  const blogSchema = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: post.title,
+    description: post.excerpt || undefined,
+    image: post.coverUrl ? [post.coverUrl] : [`${APP_URL}/web.png`],
+    datePublished: post.publishedAt || undefined,
+    dateModified: post.updatedAt || post.publishedAt || undefined,
+    mainEntityOfPage: { "@type": "WebPage", "@id": canonicalUrl },
+    author: { "@type": "Person", name: author },
+    publisher: {
+      "@type": "Organization",
+      name: "IEEE Sahrdaya Student Branch",
+      logo: { "@type": "ImageObject", url: `${APP_URL}/ieee-logo-square.png` },
+    },
+  };
 
   return (
     <ErrorBoundary>
       <div className="relative min-h-screen w-full overflow-x-hidden bg-background text-foreground font-sans">
+        <link rel="canonical" href={canonicalUrl} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(blogSchema).replace(/</g, "\u003c") }} />
         <Navbar />
 
         <div
@@ -150,8 +127,7 @@ function BlogPostPage() {
                 <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
                   {society?.slug && (
                     <Link
-                      to="/societies/$slug"
-                      params={{ slug: society.slug }}
+                      to={`/societies/${society.slug}`}
                       className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition hover:border-ieee-blue/30 hover:text-ieee-blue"
                     >
                       <Building2 className="h-3.5 w-3.5" /> {society.name || "Society"}
@@ -159,7 +135,7 @@ function BlogPostPage() {
                   )}
                   {event && (
                     <Link
-                      to="/events"
+                      to={event.slug ? `/events/${event.slug}` : "/events"}
                       className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition hover:border-ieee-blue/30 hover:text-ieee-blue"
                     >
                       <CalendarDays className="h-3.5 w-3.5" /> {event.title}

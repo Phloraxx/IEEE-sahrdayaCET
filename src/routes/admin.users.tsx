@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { Search, Users } from "lucide-react";
@@ -14,22 +14,8 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth-context";
-
-export const Route = createFileRoute("/admin/users")({
-  component: AdminUsers,
-  errorComponent: ({ error }: { error: Error }) => (
-    <div className="flex min-h-[50vh] items-center justify-center p-8">
-      <div className="mx-auto max-w-md text-center">
-        <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-destructive">
-          Error
-        </p>
-        <h1 className="mb-2 text-xl font-semibold tracking-tight">
-          {error?.message ?? "Something went wrong"}
-        </h1>
-      </div>
-    </div>
-  ),
-});
+import { listAdminUsers, updateAdminUserRole } from "@/lib/data/admin-users.client";
+import { formatDateShort } from "@/lib/dates";
 
 interface UserRow {
   id: string;
@@ -66,19 +52,10 @@ function UsersSkeleton() {
   );
 }
 function formatDate(d: string): string {
-  if (!d) return "—";
-  try {
-    return new Date(d).toLocaleDateString("en-IN", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
-  } catch {
-    return d;
-  }
+  return d ? formatDateShort(d) || d : "—";
 }
 
-function AdminUsers() {
+export default function AdminUsers() {
   const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -88,27 +65,11 @@ function AdminUsers() {
 
   const { data, isLoading } = useQuery<UsersResponse>({
     queryKey: ["admin-users", { search }],
-    queryFn: async () => {
-      const params = new URLSearchParams({ perPage: "200" });
-      if (search) params.set("search", search);
-      const res = await fetch(`/api/admin/users?${params}`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to load users");
-      return res.json();
-    },
+    queryFn: () => listAdminUsers({ search, perPage: 100 }),
   });
 
   const roleMutation = useMutation({
-    mutationFn: async ({ id, role }: { id: string; role: string }) => {
-      const res = await fetch("/api/admin/users", {
-        method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, role }),
-      });
-      if (!res.ok) throw new Error("Failed to update role");
-    },
+    mutationFn: ({ id, role }: { id: string; role: string }) => updateAdminUserRole(id, role),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
     },

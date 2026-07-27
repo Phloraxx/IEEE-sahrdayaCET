@@ -1,223 +1,50 @@
-# Dependencies
-node_modules
-/.pnp
-.pnp.js
-
-# Testing
-/coverage
-
-# Next.js
-/.next/
-/out/
-
-# Production
-/build
-/dist
-/start-app/dist
-
-# Misc
-.DS_Store
-*.pem
-
-# Debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Local env files
-.env*.local
-.env
-
-# Vercel
-.vercel
-
-# TypeScript
+# Dependencies and framework output
+package-lock.json
+node_modules/
+build/
+dist/
+.react-router/
+.vite/
 *.tsbuildinfo
-next-env.d.ts
-# TanStack Start (generated route tree)
 
-# IDE
-.vscode/*
-!.vscode/extensions.json
-.idea
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
-
-# Temporary files
-*.tmp
-*.temp
-*.log
-
-# SQLite database (runtime)
-data/
-
-# Migration artifacts
-/media/
-
-# One-time migration scripts
-/scripts/
-
-# Image artifacts (migrated to PocketBase file storage)
-
-# Database dumps and SQL files
-*.sql
-
-# Old migration artifacts
-ieee_export.sql
-society-cs.png
-
-# Dev planning
-plan.md
-
-# Unused public assets
-/public/sahrdaya.jpg
-/public/pdf.min.js
-/public/pdf.worker.min.js
-
-# Playwright local artifacts
-.pwerr
-.pwlog
-.pwout
-test-results/
+# Test output
+coverage/
 playwright-report/
+test-results/
+.nyc_output/
 
-# opencode AI tool state
-.opencode/
-.devlog
+# PocketBase runtime state (schema source lives in pb_migrations/)
+pb_data/
+**/pb_data/
+pb_migrations/data.db
+pb_migrations/auxiliary.db
+pb_migrations/types.d.ts
 
-# Local visual verification artifacts
+# Environment and local secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python test artifacts
+__pycache__/
+*.py[cod]
+
+# Logs / temp
+*.log
+*.pid
+*.tmp
+.cache/
 tmp/
 
-# AI/IDE tool state
-.codegraph/
-.reasonix/
+# Editors / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
 
-# Agent memory file (loaded into every session)
-AGENTS.md
-
-# Plaintext credentials (one-time scripts)
-tmp_login.json
-
-# Dev log.devlog
-
-# impeccable-ignore-start
-# Ephemeral output, runtime state, and per-dev overrides.
-# Unanchored: .impeccable may sit at the repo root or under a nested
-# workspace (apps/web/.impeccable/...); anchored patterns would miss it.
-# Shared artifacts stay tracked: config.json, live/config.json,
-# design.json, critique/*.md.
-.impeccable/config.local.json
-.impeccable/hook.cache.json
-.impeccable/hook.pending.json
-.impeccable/*.png
-.impeccable/live/server.json
-.impeccable/live/sessions/
-.impeccable/live/previews/
-.impeccable/live/annotations/
-.impeccable/live/cache/
-.impeccable/live/manual-edit-apply-transaction.json
-.impeccable/live/manual-edit-events.jsonl
-.impeccable/live/manual-edit-evidence/
-.impeccable/live/pending-manual-edits.json
-.impeccable/live/deferred-svelte-component-accepts.json
-.impeccable/live/*.png
-# impeccable-ignore-end
-
-# Windows reserved device names (artifact from Unix-aware tools)
-NUL
-nul
-test-screenshots/
-
-# ── Dev / QA artifacts — not needed for prod or CI ──────────────
-# Ad-hoc screenshots & images (repo root + QA folders)
-/*.png
-/*.webp
-/screenshots/
-/screenshotse2e/
-/oracle3-screenshots/
-/rbac_screenshots/
-/docs/dev-artifacts/
-# Browser / Playwright scratch
-/playwright-artifacts/
-/playwright-tmp/
-/tmp_playwright/
-/.playwright-tmp/
-# Tool state & scratch dirs
-/.claude/
-/.tanstack/
-/local/
-/UsersdrvijDesktoppw-tmp/
-# QA / audit reports
-/*_QA_REPORT.md
-/FINAL_*.md
-/VERIFIED_*.md
-/ROUND2_*.md
-/E2E_TEST_CONTEXT.md
-/REMEDIATION-STATUS.md
-/test-context.md
-/visual-design-audit.md
-# Test-result / findings dumps
-/*-results.json
-/*-findings.json
-/*-report.json
-/*_qa_*.json
-/design_data.json
-/r4_regression_result.json
-/rbac_results_user.json
-# Ad-hoc QA scripts & scratch
-/*.py
-/*test*.txt
-# Stray npm lockfile (this project uses bun.lock)
-/package-lock.json
-# Old/unused files
-/admin-prototype.html
-/mqanafyt-admin-*.html
-/UsersdrvijDesktopMuLearn
-/UsersdrvijDesktoppw-tmptest.txt
-/omp-session-*.html
-/videoframe_355.png
-/original-*.webp
-# Tool state & scratch dirs
-/.od-skills/
-/.omp/
-/local/
-# Generated build artifacts
-# Dev reports & docs
-/COMPREHENSIVE-AUDIT.md
-/ADMIN-MIGRATION-STATUS.md
-/ADMIN-FEATURE-GAP-PLAN.md
-/planner-report.md
-# Test results
-/test-results/
-/societies_execom_qa_report.json
-/events-list-final-report.json
-/users_qa_final.json
-/dashboard-test-results.json
-/events-list-findings.json
-/users_qa_report.json
-/cross-role-results.json
-/unauth-results.json
-# Logs
-*.log
-/vite-server.log
-/vite.log
-/v.log
-/v2.log
-/dev.log
-/regen.log
-
-# Raw FIFA design media (served copies live in public/fifa/)
-/fifa/
-# Local tool/terminal dumps
-/terminals/
-/mcps/
-# Temporary PB diagnostics
-/pb_hooks/_egress_check.pb.js
+# Local coding-agent metadata
+.od-skills/
+**/.od-skills/

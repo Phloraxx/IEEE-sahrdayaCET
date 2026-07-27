@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, type Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { Button } from "@/components/ui/button"
@@ -78,7 +78,7 @@ export function BlogForm({
 }: BlogFormProps) {
   const [slugTouched, setSlugTouched] = useState(Boolean(initialData?.id))
   const form = useForm<BlogFormValues>({
-    resolver: zodResolver(blogFormSchema) as any,
+    resolver: zodResolver(blogFormSchema) as unknown as Resolver<BlogFormValues>,
     defaultValues: {
       title: initialData?.title || "",
       slug: initialData?.slug || "",

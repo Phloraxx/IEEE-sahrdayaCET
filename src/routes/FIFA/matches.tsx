@@ -1,78 +1,31 @@
-import { createFileRoute, Outlet, useRouterState } from '@tanstack/react-router'
+import { useEffect, useState } from "react";
+import { Outlet, useLocation } from "react-router";
 import { useQuery } from '@tanstack/react-query'
 import { FifaLayout } from '@/features/fifa/fifa-layout'
 import { FifaMatchCard, FifaMatchCardSkeleton } from '@/features/fifa/fifa-match-card'
-import { findLiveMatch, isLiveStatus } from '@/lib/fifa-live-match'
+import { fetchFifaLiveScores, findLiveMatch, isLiveStatus } from '@/lib/fifa-live-match'
 import { filterPublicActiveFifaMatches } from '@/lib/fifa-match-filters'
+import { listFifaMatches } from '@/lib/data/fifa.client'
 
-interface MatchData {
-  id: string
-  team_home: string
-  team_away: string
-  stage: string
-  kickoff_at: string
-  betting_locks_at: string
-  status: string
-  result_winner: string
-  result_home_goals: number
-  result_away_goals: number
-  result_advance: string
-  settled: boolean
-  markets: Array<{
-    id: string
-    market_type: string
-    mode: string
-    line: number
-    is_open: boolean
-    void: boolean
-    pool_total: number
-  }>
-}
-
-async function fetchMatches(): Promise<{ matches: MatchData[] }> {
-  const res = await fetch('/api/fifa/matches')
-  if (!res.ok) throw new Error('Failed to load matches')
-  return res.json()
-}
-
-async function fetchLiveScores(): Promise<{
-  matches: Array<{
-    id: string
-    homeTeam: string
-    awayTeam: string
-    homeGoals: number | null
-    awayGoals: number | null
-    status: string
-    minute: number | null
-  }>
-  configured: boolean
-}> {
-  const res = await fetch('/api/fifa/live-scores')
-  if (!res.ok) return { matches: [], configured: false }
-  return res.json()
-}
-
-export const Route = createFileRoute('/FIFA/matches')({
-  head: () => ({ meta: [{ title: "Matches · WC Predict '26" }] }),
-  component: MatchesPage,
-})
-
-function MatchesPage() {
-  const pathname = useRouterState({ select: (s) => s.location.pathname })
+export default function MatchesPage() {
+  const { pathname } = useLocation()
   const isDetail = /^\/FIFA\/matches\/[^/]+\/?$/.test(pathname)
+  const [clientReady, setClientReady] = useState(false)
+
+  useEffect(() => setClientReady(true), [])
 
   const { data, isLoading } = useQuery({
     queryKey: ['fifa-matches'],
-    queryFn: fetchMatches,
+    queryFn: () => listFifaMatches(),
     refetchInterval: 15_000,
-    enabled: !isDetail,
+    enabled: clientReady && !isDetail,
   })
 
   const { data: liveData } = useQuery({
     queryKey: ['fifa-live-scores'],
-    queryFn: fetchLiveScores,
+    queryFn: () => fetchFifaLiveScores(),
     refetchInterval: 60_000,
-    enabled: !isDetail,
+    enabled: clientReady && !isDetail,
   })
 
   if (isDetail) {
