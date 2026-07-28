@@ -40,7 +40,7 @@ export function InfiniaTeaserSection() {
         <div className="relative z-10 grid items-end gap-2 lg:grid-cols-[0.9fr_1.1fr]">
           <div className="relative order-2 min-h-[500px] self-end sm:min-h-[650px] lg:order-1 lg:min-h-[720px]">
             <motion.img
-              src="/images/infinia-chef.svg"
+              src="/images/infinia-chef.webp"
               alt="Chef flipping food in a pan"
               initial={reduceMotion ? false : { opacity: 0, y: 42, rotate: -2 }}
               whileInView={reduceMotion ? undefined : { opacity: 1, y: 0, rotate: 0 }}
