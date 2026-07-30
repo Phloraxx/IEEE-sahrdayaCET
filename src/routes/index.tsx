@@ -15,14 +15,19 @@ import { FloatingAction } from '@/components/FloatingAction'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { CanonicalLink } from "@/components/CanonicalLink";
 
+const description = "Official IEEE Sahrdaya Student Branch — technical events, workshops, societies & execom directory. Sahrdaya College of Engineering, Thrissur, Kerala.";
 
 export const meta = () => [
   { title: "Home | IEEE Sahrdaya Student Branch" },
-  { name: "description", content: "Official IEEE Sahrdaya Student Branch — technical events, workshops, societies & execom directory. Sahrdaya College of Engineering, Thrissur, Kerala." },
+  { name: "description", content: description },
   { property: "og:title", content: "Home | IEEE Sahrdaya Student Branch" },
-  { property: "og:description", content: "Official IEEE Sahrdaya Student Branch — technical events, workshops, societies & execom directory." },
+  { property: "og:description", content: description },
   { property: "og:image", content: `${APP_URL}/web.png` },
   { property: "og:url", content: `${APP_URL}/` },
+  { name: "twitter:card", content: "summary_large_image" },
+  { name: "twitter:title", content: "Home | IEEE Sahrdaya Student Branch" },
+  { name: "twitter:description", content: description },
+  { name: "twitter:image", content: `${APP_URL}/web.png` },
 ];
 
 export async function loader(): Promise<HomeData> {
