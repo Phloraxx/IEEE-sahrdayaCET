@@ -20,9 +20,17 @@ import "@fontsource/caveat";
 const organizationSchema = {
   "@context": "https://schema.org",
   "@type": "Organization",
+  "@id": `${APP_URL}/#organization`,
   name: "IEEE Sahrdaya Student Branch",
+  alternateName: "IEEE Sahrdaya SB",
   url: APP_URL,
-  logo: `${APP_URL}/ieee-logo-square.png`,
+  logo: {
+    "@type": "ImageObject",
+    url: `${APP_URL}/ieee-logo-square.png`,
+    contentUrl: `${APP_URL}/ieee-logo-square.png`,
+    width: 512,
+    height: 512,
+  },
   description:
     "Official IEEE Student Branch at Sahrdaya College of Engineering & Technology, Thrissur, Kerala, India.",
   sameAs: [
@@ -48,8 +56,12 @@ const organizationSchema = {
 const websiteSchema = {
   "@context": "https://schema.org",
   "@type": "WebSite",
+  "@id": `${APP_URL}/#website`,
   name: "IEEE Sahrdaya Student Branch",
+  alternateName: "IEEE Sahrdaya SB",
   url: APP_URL,
+  inLanguage: "en-IN",
+  publisher: { "@id": `${APP_URL}/#organization` },
 };
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -61,8 +73,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta name="theme-color" content="#00629B" />
         <Meta />
         <Links />
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="icon" href="/ieee-logo-square.png" type="image/png" sizes="512x512" />
+        <link rel="apple-touch-icon" href="/ieee-logo-square.png" />
+        <link rel="manifest" href="/site.webmanifest" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema).replace(/</g, "\\u003c") }}

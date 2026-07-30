@@ -20,9 +20,10 @@ describe("blog content helpers", () => {
     expect(result).not.toContain("<img");
   });
 
-  it("preserves legacy h1 headings already stored in live articles", () => {
+  it("demotes legacy article h1 headings so the page title remains the only h1", () => {
     const result = sanitizeBlogHtml("<h1>Legacy section title</h1><p>Body</p>");
-    expect(result).toContain("<h1>Legacy section title</h1>");
+    expect(result).toContain("<h2>Legacy section title</h2>");
+    expect(result).not.toContain("<h1>");
   });
 
   it("accepts only HTTP(S) cover URLs", () => {

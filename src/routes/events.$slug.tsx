@@ -39,6 +39,11 @@ function safeJson(value: unknown): string {
   return JSON.stringify(value).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026");
 }
 
+/** PocketBase timestamps use a space separator; schema.org expects ISO-8601. */
+function toSchemaDate(value: string): string {
+  return value.trim().replace(/^(\d{4}-\d{2}-\d{2})\s+/, "$1T");
+}
+
 export default function EventDetailPage() {
   const event = useLoaderData<typeof loader>();
   const canonicalUrl = `${APP_URL}/events/${event.slug}`;
@@ -50,8 +55,8 @@ export default function EventDetailPage() {
     "@context": "https://schema.org",
     "@type": "Event",
     name: event.title,
-    startDate: event.date,
-    ...(event.endDate ? { endDate: event.endDate } : {}),
+    startDate: toSchemaDate(event.date),
+    ...(event.endDate ? { endDate: toSchemaDate(event.endDate) } : {}),
     eventStatus: "https://schema.org/EventScheduled",
     eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
     description: description || undefined,

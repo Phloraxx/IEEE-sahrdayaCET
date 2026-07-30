@@ -24,8 +24,8 @@ const ALLOWED_TAGS = [
 
 /**
  * Sanitize rich-text HTML before it is stored or rendered.
- * The allow-list mirrors the formatting exposed by the TipTap editor and
- * preserves legacy h1 headings already present in live blog records.
+ * The page title owns the single h1; legacy article h1 elements are rendered
+ * as h2 sections to preserve hierarchy without changing stored records.
  */
 export function sanitizeBlogHtml(value: string | null | undefined): string {
   if (!value) return "";
@@ -39,6 +39,7 @@ export function sanitizeBlogHtml(value: string | null | undefined): string {
     allowProtocolRelative: false,
     disallowedTagsMode: "discard",
     transformTags: {
+      h1: () => ({ tagName: "h2", attribs: {} }),
       a: (_tagName, attribs) => ({
         tagName: "a",
         attribs: {
