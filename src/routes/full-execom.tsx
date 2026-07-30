@@ -8,12 +8,19 @@ import ExecomClient, {
 } from "@/features/execom/ExecomClient";
 import { CanonicalLink } from "@/components/CanonicalLink";
 
+const description = "Meet the IEEE Sahrdaya Student Branch executive committee — browse members across IEEE societies.";
+
 export const meta = () => [
   { title: "Execom Directory | IEEE Sahrdaya Student Branch" },
-  { name: "description", content: "Meet the IEEE Sahrdaya Student Branch executive committee — browse members across IEEE societies." },
+  { name: "description", content: description },
   { property: "og:title", content: "Execom Directory | IEEE Sahrdaya Student Branch" },
+  { property: "og:description", content: description },
   { property: "og:image", content: `${APP_URL}/web.png` },
   { property: "og:url", content: `${APP_URL}/full-execom` },
+  { name: "twitter:card", content: "summary_large_image" },
+  { name: "twitter:title", content: "Execom Directory | IEEE Sahrdaya Student Branch" },
+  { name: "twitter:description", content: description },
+  { name: "twitter:image", content: `${APP_URL}/web.png` },
 ];
 
 export async function loader(): Promise<ExecomMemberDoc[]> {
