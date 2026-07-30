@@ -6,13 +6,19 @@ import EventsPageClient from "@/features/events/EventsPageClient";
 import type { EventWithSociety } from "@/types";
 import { CanonicalLink } from "@/components/CanonicalLink";
 
+const description = "Browse upcoming and past IEEE Sahrdaya events — workshops, hackathons, seminars, conferences and more.";
 
 export const meta = () => [
   { title: "Events | IEEE Sahrdaya Student Branch" },
-  { name: "description", content: "Browse upcoming and past IEEE Sahrdaya events — workshops, hackathons, seminars, conferences and more." },
+  { name: "description", content: description },
   { property: "og:title", content: "Events | IEEE Sahrdaya Student Branch" },
+  { property: "og:description", content: description },
   { property: "og:image", content: `${APP_URL}/web.png` },
   { property: "og:url", content: `${APP_URL}/events` },
+  { name: "twitter:card", content: "summary_large_image" },
+  { name: "twitter:title", content: "Events | IEEE Sahrdaya Student Branch" },
+  { name: "twitter:description", content: description },
+  { name: "twitter:image", content: `${APP_URL}/web.png` },
 ];
 
 export async function loader(): Promise<SerializableEvent[]> {
