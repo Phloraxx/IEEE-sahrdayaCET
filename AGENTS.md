@@ -11,7 +11,7 @@ This file is the operational contract for humans and coding agents working in th
 - Docker Compose on Dokploy/Traefik
 - Cloudflare in front of the public domains
 
-The application intentionally has only two runtime services: `web` and `pocketbase`.
+The application intentionally has only two runtime services per environment: `web` and `pocketbase`.
 
 ## Non-negotiable boundaries
 
@@ -84,7 +84,7 @@ admin
 
 Generic user updates must not be able to change `role`; use the dedicated admin role command.
 
-Google OAuth is the application login path. Password auth is not a normal end-user login flow.
+Google OAuth is the normal production login path. Password auth is not a normal end-user login flow. The isolated staging database has OAuth disabled by default so it cannot reuse production OAuth credentials; configure a separate staging OAuth client or disposable test account before authenticated acceptance.
 
 ## Registration/payment/check-in invariants
 
@@ -154,34 +154,36 @@ For regressions found on staging, add a test when practical before declaring the
 
 CI runs on pushes to `main` and `dev`, and on pull requests/manual dispatch.
 
-Production CD is triggered only by a successful `CI` workflow run on `main`. It verifies that the tested SHA is still the branch head, then calls the production Dokploy webhook.
-
-Current post-cutover branch model:
+Successful branch CI is mapped as follows:
 
 ```text
-main → production deployment
-dev  → integration + CI only
+main → production → https://ieeesahrdaya.com
+dev  → staging    → https://staging.ieeesahrdaya.com
 ```
 
-`dev` must not deploy into the production Compose project. Automatic dev deployment stays disabled until a separate new-architecture staging Compose project, volume, domain, OAuth configuration, and secrets are provisioned.
+CD verifies that the SHA tested by CI is still the current branch head, then calls the matching Dokploy project webhook. The projects and persistent volumes are distinct:
 
-Required production deployment secret:
+```text
+production app/volume: ieee-rewrite-i9ir8q / ieee-rewrite-i9ir8q_pb_data
+staging app/volume:    ieee-dev-staging     / ieee-dev-staging_pb_data
+```
+
+Required deployment secrets:
 
 ```text
 DOCKPLOY_WEBHOOK_PROD
+DOCKPLOY_WEBHOOK_DEV
 ```
 
-`DOCKPLOY_WEBHOOK_DEV` is not used while staging deployment is paused.
+Because CD uses `workflow_run`, the trigger workflow must exist on the repository default branch. Do not replace this with an independent repository auto-deploy path that can deploy untested pushes.
 
-Because CD uses `workflow_run`, the trigger workflow must also exist on the repository default branch. Do not replace this with an independent auto-deploy path that can deploy untested pushes.
-
-The Dokploy production project must track `main`. The deployment webhook is a CI-approved trigger; it is not an immutable SHA image deployment.
+Each Dokploy project must track its matching branch. The deployment webhooks are CI-approved triggers; they are not immutable SHA image deployments. The webhook-only Traefik host exposes only Dokploy's Compose deployment-token path, not the Dokploy dashboard or general API.
 
 ## Environment and container safety
 
-The canonical deployment is `docker-compose.yml` from the Dokploy project checkout.
+The canonical deployment is `docker-compose.yml` from each Dokploy project checkout.
 
-The web service should resolve PocketBase internally as:
+The web service should resolve its own PocketBase internally as:
 
 ```text
 http://pocketbase-internal:8090
@@ -189,9 +191,11 @@ http://pocketbase-internal:8090
 
 The explicit alias is important because multiple Dokploy projects share the proxy network and generic Docker service aliases can collide.
 
+Staging is configured with `DEPLOY_ENV=staging`, `SITE_URL=https://staging.ieeesahrdaya.com`, `noindex`, a staging-only encryption key, and disabled production integrations. Its initial data is a scrubbed snapshot of production; it diverges independently after creation.
+
 If staging or production serves stale code, inspect running container provenance before changing application code. A container created from a temporary Compose file can shadow the canonical service even when it is healthy.
 
-Never point staging at the production `pb_data` volume.
+Never point staging at the production `pb_data` volume and never copy production OAuth, payment, SMTP, or other integration secrets into staging.
 
 ## Production release gate
 
@@ -199,11 +203,11 @@ Do not call a release production-ready only because public routes return 200.
 
 Before future production releases:
 
-1. promote accepted work through `dev` and review the `dev` → `main` production diff;
-2. provision/use an isolated staging environment before schema-sensitive or authenticated acceptance work;
+1. develop and validate accepted work on `dev`/staging;
+2. review the `dev` → `main` production diff;
 3. resolve any `main`/`dev` divergence intentionally in the production PR;
 4. get full CI green on the exact release candidate;
-5. complete authenticated staging acceptance for admin CRUD, registration/payment/ticket/check-in, coupons, blogs, societies/users, and FIFA flows;
+5. complete authenticated staging acceptance for admin CRUD, registration/payment/ticket/check-in, coupons, blogs, societies/users, and FIFA flows after configuring a separate staging login method;
 6. verify enabled production integrations and OAuth configuration;
 7. take a fresh production PocketBase/files backup;
 8. merge to `main` and let CI-gated CD deploy;
@@ -227,4 +231,4 @@ Primary docs:
 - `docs/deployment.md`
 - `docs/release-checklist.md`
 
-Do not commit secrets, production credentials, private backup locations, or temporary server workarounds into documentation.
+Do not commit secrets, production credentials, private backup locations, deployment tokens, or temporary server workarounds into documentation.

@@ -1,12 +1,12 @@
 # Production Release Checklist
 
-Use this checklist for the React Router + PocketBase production cutover and for future schema-sensitive releases.
+Use this checklist for future schema-sensitive releases from `dev` staging to `main` production.
 
 ## 1. Source control
 
 - Release branch contains every intended application, migration, hook, workflow, and documentation change.
-- Reconcile the latest `main` into the release branch before the final production PR/merge.
-- Review unexpected deletions and infrastructure diffs explicitly; do not assume a large rewrite diff is harmless.
+- Reconcile the latest `main` into `dev` before the final production PR when the branches have diverged.
+- Review unexpected deletions and infrastructure diffs explicitly; do not assume a large diff is harmless.
 - The exact release-candidate SHA has a successful CI run.
 
 ## 2. Automated gates
@@ -23,11 +23,11 @@ The required CI jobs must all succeed:
 - web Docker image build;
 - PocketBase Docker image build.
 
-Do not bypass CI by manually recreating production containers.
+Do not bypass CI by manually recreating production or staging containers.
 
 ## 3. Public staging acceptance
 
-Verify from the public staging hostname, not only localhost:
+Verify from `https://staging.ieeesahrdaya.com`, not only localhost:
 
 - `/`;
 - `/events` and at least one `/events/:slug`;
@@ -38,13 +38,15 @@ Verify from the public staging hostname, not only localhost:
 - `/healthz`;
 - `/api/health`.
 
-Check responsive layouts, navigation, browser console/page errors, hydration, canonical/metadata output, file images, and `noindex` behavior on staging.
+Check responsive layouts, navigation, browser console/page errors, hydration, canonical/metadata output, file images, and the required `noindex, nofollow` behavior on staging.
 
 ## 4. Authentication and admin acceptance
 
-Use a staging account with the appropriate role and verify:
+The staging snapshot has production OAuth disabled by design. Before authenticated acceptance, configure a separate staging OAuth client or create a disposable staging-only test account. Never copy production OAuth secrets into staging.
 
-- Google OAuth sign-in and sign-out;
+With the appropriate staging role, verify:
+
+- sign-in and sign-out;
 - admin route guard;
 - dashboard metrics;
 - event create/edit/publish/archive behavior;
@@ -70,7 +72,7 @@ Verify at least one disposable registration flow:
 - invalid/duplicate check-in is rejected;
 - coupon usage is applied once and respects expiry/max-use constraints.
 
-For paid events, verify the enabled production payment integration and webhook secret before cutover. Never copy a production secret into staging merely to make a test pass.
+For paid events, verify the enabled production payment integration and webhook secret before cutover. Never copy a production payment secret into staging merely to make a test pass.
 
 ## 6. WC Predict acceptance
 
@@ -114,7 +116,7 @@ Also verify:
 - production Google OAuth redirect/origin configuration;
 - production domain routes `/api → PocketBase` and `/ → web`;
 - no public PocketBase `/_/` route;
-- production and staging use different `pb_data` volumes;
+- production and staging use different `pb_data` volumes and encryption keys;
 - the production web container has no PocketBase superuser credential.
 
 ## 8. Backup and migration rehearsal
@@ -123,13 +125,24 @@ Immediately before production deployment:
 
 - take a fresh backup of the production PocketBase data volume/database and files;
 - keep the backup outside the volume being upgraded;
-- confirm the migration set has already succeeded against a recent copy of production data;
+- confirm the migration set has already succeeded against a recent scrubbed copy of production data;
 - confirm file storage was included in the rehearsal/backup plan;
 - record the pre-deploy production Git SHA and backup location.
 
 Do not rely on automatic reverse migrations after destructive schema changes.
 
 ## 9. Deployment
+
+Staging deployment path:
+
+```text
+merge/push dev
+  → CI
+  → successful CI workflow_run
+  → CD freshness check
+  → DOCKPLOY_WEBHOOK_DEV
+  → isolated staging Dokploy Compose deployment
+```
 
 Production deployment path:
 
@@ -142,7 +155,7 @@ merge/push main
   → production Dokploy Compose deployment
 ```
 
-Do not start replacement containers manually under the production Compose project name.
+Do not start replacement containers manually under either Compose project name.
 
 ## 10. Post-deploy verification
 
@@ -153,8 +166,9 @@ After Dokploy reports healthy services, verify:
 - `/api/health` returns 200;
 - event/society/blog/FIFA public routes return expected content;
 - production `robots.txt`/sitemap behavior is correct;
-- Google login initializes;
-- one safe authenticated/admin read succeeds;
+- staging remains noindexed;
+- production Google login initializes;
+- one safe authenticated/admin read succeeds where configured;
 - uploaded files resolve;
 - web and PocketBase logs show no migration/startup/runtime error spike.
 

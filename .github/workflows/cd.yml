@@ -4,7 +4,7 @@ on:
   workflow_run:
     workflows: [CI]
     types: [completed]
-    branches: [main]
+    branches: [main, dev]
 
 permissions:
   contents: read
@@ -17,14 +17,17 @@ jobs:
   deploy:
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    environment: production
+    environment: ${{ github.event.workflow_run.head_branch == 'main' && 'production' || 'staging' }}
+    env:
+      BRANCH: ${{ github.event.workflow_run.head_branch }}
+      TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
+      TARGET: ${{ github.event.workflow_run.head_branch == 'main' && 'production' || 'staging' }}
+      DEPLOY_WEBHOOK: ${{ github.event.workflow_run.head_branch == 'main' && secrets.DOCKPLOY_WEBHOOK_PROD || secrets.DOCKPLOY_WEBHOOK_DEV }}
     steps:
       - name: Verify tested SHA is still branch head
         id: freshness
         env:
           GH_TOKEN: ${{ github.token }}
-          BRANCH: ${{ github.event.workflow_run.head_branch }}
-          TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
           CURRENT_SHA=$(curl --fail-with-body --silent --show-error \
@@ -38,18 +41,18 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Deploy tested main through Dokploy webhook
+      - name: Deploy tested branch through Dokploy webhook
         if: steps.freshness.outputs.skip != 'true'
-        env:
-          BRANCH: ${{ github.event.workflow_run.head_branch }}
-          TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
-          PROD_WEBHOOK: ${{ secrets.DOCKPLOY_WEBHOOK_PROD }}
         run: |
           set -euo pipefail
-          : "${PROD_WEBHOOK:?Dokploy production webhook is required}"
-          echo "Triggering CI-approved production deployment for ${TESTED_SHA:0:12}"
+          : "${DEPLOY_WEBHOOK:?Dokploy $TARGET webhook is required}"
+          echo "Triggering CI-approved $TARGET deployment for ${TESTED_SHA:0:12} from $BRANCH"
           curl --fail-with-body --silent --show-error \
-            -X POST "$PROD_WEBHOOK" \
+            -X POST "$DEPLOY_WEBHOOK" \
             -H "X-GitHub-Event: push" \
             -H "Content-Type: application/json" \
-            --data "$(jq -nc --arg ref "refs/heads/$BRANCH" '{ref:$ref}')"
+            --data "$(jq -nc \
+              --arg ref "refs/heads/$BRANCH" \
+              --arg sha "$TESTED_SHA" \
+              --arg message "CI-approved $TARGET deployment" \
+              '{ref:$ref,head_commit:{id:$sha,message:$message},commits:[{modified:[]}]}')"

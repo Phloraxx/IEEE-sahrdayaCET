@@ -16,7 +16,7 @@ Hooks and migrations are baked into the image. Only `/pb/pb_data` is persistent.
 
 ## Dokploy Compose projects
 
-Production and staging must be separate Dokploy Compose projects built from `docker-compose.yml`.
+Production and staging are separate Dokploy Compose projects built from `docker-compose.yml`.
 
 Required environment values:
 
@@ -38,7 +38,7 @@ SMTP_PASSWORD
 SMTP_FROM
 ```
 
-Never reuse a production encryption key, OAuth application, payment secret, or `pb_data` volume in staging.
+Never reuse a production encryption key, OAuth application, payment secret, SMTP credential, or `pb_data` volume in staging.
 
 ## Routing and networks
 
@@ -49,21 +49,44 @@ Each public environment host has two routes:
 /     → web:3000
 ```
 
-Do not publish host ports from Compose and do not expose PocketBase `/_/` through the public hostname.
+Do not publish application host ports from Compose and do not expose PocketBase `/_/` through a public hostname.
 
 Both services join Dokploy's proxy network. Web and PocketBase also share the private `app-internal` network. SSR uses `POCKETBASE_INTERNAL_URL=http://pocketbase-internal:8090`; the explicit alias avoids service-name collisions between multiple Dokploy projects attached to the same proxy network.
+
+Cloudflare terminates public HTTPS for the current hosts and forwards to the matching Traefik HTTP router. Do not enable an origin redirect that sends Cloudflare back to the same HTTPS URL; that creates a redirect loop.
 
 ## Environments
 
 ### Production
 
-`main` is the canonical production source branch. Production deployments use production-only secrets and the production PocketBase volume.
+```text
+branch: main
+host:   https://ieeesahrdaya.com
+app:    ieee-rewrite-i9ir8q
+volume: ieee-rewrite-i9ir8q_pb_data
+```
 
-### Staging
+Production uses production-only OAuth/integration configuration and must never consume staging data or secrets.
 
-`dev` remains the integration branch, but automatic dev deployment is currently paused after the 2026 rewrite cutover. A new staging deployment must be a separate Dokploy Compose project with its own `pb_data`, OAuth configuration, encryption key, secrets, and hostname before CD is re-enabled for `dev`.
+### Staging/development
 
-Do not attach `staging.ieeesahrdaya.com` to the production Compose project.
+```text
+branch: dev
+host:   https://staging.ieeesahrdaya.com
+app:    ieee-dev-staging
+volume: ieee-dev-staging_pb_data
+```
+
+Staging is a separate Dokploy environment and Compose project. It uses:
+
+```text
+DEPLOY_ENV=staging
+SITE_URL=https://staging.ieeesahrdaya.com
+```
+
+The initial staging data was created from a verified, scrubbed production snapshot on 2026-08-01. The copy has its own volume and encryption key, production integrations are empty, and OAuth is disabled so production OAuth credentials are not reused. Configure a separate staging OAuth client or disposable test account before authenticated acceptance.
+
+Staging intentionally returns `X-Robots-Tag: noindex, nofollow`. Its records may be changed or deleted during testing and do not synchronize back to production.
 
 ## CI
 
@@ -79,25 +102,27 @@ The clean-room backend starts with an empty PocketBase data directory. A success
 
 ## CD
 
-`.github/workflows/cd.yml` is CI-gated and currently reacts only to successful `CI` completion on:
+`.github/workflows/cd.yml` reacts only to successful `CI` completion on:
 
 ```text
 main
+dev
 ```
 
-Before deployment, CD queries GitHub and verifies that the SHA tested by CI is still the current `main` head. If a newer commit exists, that older deployment is skipped.
+Before deployment, CD verifies that the SHA tested by CI is still the current head of that branch. If a newer commit exists, the older deployment is skipped.
 
-The workflow then calls the production Dokploy deployment webhook with a GitHub-style push payload. Required repository/environment secret:
+Branch mapping:
 
 ```text
-DOCKPLOY_WEBHOOK_PROD
+main → production environment → DOCKPLOY_WEBHOOK_PROD
+dev  → staging environment    → DOCKPLOY_WEBHOOK_DEV
 ```
 
-`DOCKPLOY_WEBHOOK_DEV` is intentionally unused while isolated staging is not provisioned.
+`workflow_run` workflows are evaluated from the repository default branch. Therefore the CD workflow definition needed to trigger both environments must exist on `main`.
 
-`workflow_run` workflows are evaluated from the repository default branch. Therefore the CD workflow definition needed to trigger deployments must also exist on the default branch.
+Each Dokploy Compose record tracks its matching branch. The webhook is a deployment trigger, not an immutable image reference. There remains a narrow branch-head-check-to-build race if another push lands immediately after the freshness check; eliminating that completely would require immutable SHA-tagged registry images.
 
-The webhook is a deployment trigger, not an immutable image reference. The production Dokploy project must track `main`. There remains a narrow branch-head-check-to-build race if another push lands immediately after the freshness check. Eliminating that completely would require immutable SHA-tagged registry images.
+The deployment endpoint is exposed through a narrow Traefik route on `hooks.ieeesahrdaya.com`. Only `/api/deploy/compose/*` is routed to Dokploy; the dashboard, Swagger UI, and general API are not exposed on that host. The refresh token remains stored only in GitHub Secrets and Dokploy.
 
 ## Do not manually replace Dokploy services
 
@@ -105,25 +130,25 @@ Do not launch a second Compose file, fallback image, or manually created contain
 
 A manual container can appear healthy while serving stale code and can shadow the service that Dokploy believes it manages. Source deployments must be performed through the repository CI/CD path or the canonical Dokploy project Compose configuration.
 
-If an environment appears stale, verify the running container labels before debugging application code. The web service should point to the Dokploy project working directory and canonical `docker-compose.yml`, not a temporary file elsewhere on the server.
+If an environment appears stale, verify the running container labels before debugging application code. The web service should point to the matching Dokploy project working directory and canonical `docker-compose.yml`, not a temporary file elsewhere on the server.
 
-## Production release procedure
+## Normal development/release flow
 
-Before a future production deployment:
-
-1. promote accepted changes to `dev`;
-2. use/provision isolated staging for authenticated and schema-sensitive acceptance;
-3. get full CI green and open/review the `dev` → `main` production PR;
-4. validate enabled OAuth/payment/live-score/SMTP integrations in the target environment;
-5. take a fresh production PocketBase backup;
-6. confirm production environment variables, domains, volumes, OAuth redirects, and that the production Dokploy project tracks `main`;
-7. merge to `main` and let CI-gated CD deploy production;
-8. verify `/`, `/healthz`, `/api/health`, critical public routes, login, and one safe authenticated read after deployment.
+1. Make changes on a feature branch or directly through the agreed development workflow.
+2. Merge accepted work into `dev`.
+3. Let `dev` CI pass and CD deploy `staging.ieeesahrdaya.com`.
+4. Perform public, responsive, schema-sensitive, and authenticated acceptance on staging.
+5. Open and review the `dev` → `main` production PR.
+6. Take a fresh production PocketBase/files backup for schema-sensitive releases.
+7. Merge to `main`; successful main CI deploys production.
+8. Verify production health and critical user flows.
 
 See `docs/release-checklist.md` for the detailed acceptance list.
 
 ## Backup and rollback
 
-Back up the production PocketBase data volume before schema deployments. Migrations must be forward-safe on a copy of production data before rollout.
+Back up the production PocketBase data volume before schema deployments. Migrations must be forward-safe on a recent copy of production data before rollout.
+
+Staging data is disposable but its volume must still remain separate from production. Refreshing staging from production is an explicit scrubbed-copy operation, not continuous replication.
 
 Application rollback is a Git/Dokploy deployment operation. Database rollback is not assumed to be safe automatically after destructive schema changes; prefer additive migrations and explicit data migrations.
