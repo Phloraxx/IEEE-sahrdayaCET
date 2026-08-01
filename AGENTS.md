@@ -177,6 +177,8 @@ DOCKPLOY_WEBHOOK_DEV
 
 Because CD uses `workflow_run`, the trigger workflow must exist on the repository default branch. Do not replace this with an independent repository auto-deploy path that can deploy untested pushes.
 
+Both Dokploy Compose records intentionally use the public repository as a custom Git source (`sourceType=git`) with `customGitBranch=main|dev` and no GitHub App association (`githubId` is unset). Do not reconnect the Dokploy GitHub App or switch the records back to `sourceType=github`: Dokploy would then react to pushes before CI and create a second deployment. The Dokploy deployment toggle remains enabled only because its project-token webhook requires it; the missing GitHub App association is what prevents native pre-CI deployment. After deployment-infrastructure changes, verify there is exactly one deployment record per pushed SHA.
+
 Each Dokploy project must track its matching branch. The deployment webhooks are CI-approved triggers; they are not immutable SHA image deployments. The webhook-only Traefik host exposes only Dokploy's Compose deployment-token path, not the Dokploy dashboard or general API.
 
 ## Environment and container safety
