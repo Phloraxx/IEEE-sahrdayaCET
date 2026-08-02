@@ -18,10 +18,10 @@ const Footer: React.FC = () => {
               <h2 className="font-pixel text-3xl md:text-5xl text-white leading-tight tracking-tight">
                 IEEE
               </h2>
-              <h3 className="font-pixel text-xl md:text-3xl text-ieee-blue leading-tight tracking-tight mt-1">
+              <h3 className="font-pixel text-xl md:text-3xl text-ieee-light-blue leading-tight tracking-tight mt-1">
                 SAHRDAYA
               </h3>
-              <div className="flex gap-3 mt-6 font-mono text-[9px] tracking-[0.3em] text-white/40 uppercase">
+              <div className="flex gap-3 mt-6 font-mono text-[9px] tracking-[0.3em] text-white/60 uppercase">
                 <span>Innovate</span>
                 <span className="text-ieee-blue">~</span>
                 <span>Connect</span>
@@ -36,7 +36,7 @@ const Footer: React.FC = () => {
 
             {/* Quick Links */}
             <div className="md:col-span-3 md:col-start-7">
-              <div className="font-mono text-[10px] tracking-[0.3em] text-white/30 uppercase mb-6">
+              <div className="font-mono text-[10px] tracking-[0.3em] text-white/60 uppercase mb-6">
                 Quick Links
               </div>
               <nav className="flex flex-col space-y-4">
@@ -80,7 +80,7 @@ const Footer: React.FC = () => {
 
             {/* Contact */}
             <div className="md:col-span-4 md:col-start-10">
-              <div className="font-mono text-[10px] tracking-[0.3em] text-white/30 uppercase mb-6">
+              <div className="font-mono text-[10px] tracking-[0.3em] text-white/60 uppercase mb-6">
                 Contact
               </div>
               <div className="space-y-4">
@@ -182,7 +182,7 @@ const Footer: React.FC = () => {
               <div className="font-pixel text-2xl md:text-4xl text-white leading-none">
                 1000<span className="text-ieee-blue">+</span>
               </div>
-              <div className="font-mono text-[9px] tracking-[0.3em] text-white/30 uppercase mt-2">
+              <div className="font-mono text-[9px] tracking-[0.3em] text-white/60 uppercase mt-2">
                 Members
               </div>
             </div>
@@ -190,7 +190,7 @@ const Footer: React.FC = () => {
               <div className="font-pixel text-2xl md:text-4xl text-white leading-none">
                 22<span className="text-ieee-blue">+</span>
               </div>
-              <div className="font-mono text-[9px] tracking-[0.3em] text-white/30 uppercase mt-2">
+              <div className="font-mono text-[9px] tracking-[0.3em] text-white/60 uppercase mt-2">
                 Professionals
               </div>
             </div>
@@ -198,7 +198,7 @@ const Footer: React.FC = () => {
               <div className="font-pixel text-2xl md:text-4xl text-white leading-none">
                 14
               </div>
-              <div className="font-mono text-[9px] tracking-[0.3em] text-white/30 uppercase mt-2">
+              <div className="font-mono text-[9px] tracking-[0.3em] text-white/60 uppercase mt-2">
                 Years
               </div>
             </div>
@@ -207,7 +207,7 @@ const Footer: React.FC = () => {
 
         {/* Bottom Bar */}
         <div className="py-6 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="font-mono text-[10px] tracking-wider text-white/25">
+          <div className="font-mono text-[10px] tracking-wider text-white/60">
             &copy; {currentYear} IEEE SAHRDAYA SB &mdash; ALL RIGHTS RESERVED
           </div>
 
@@ -229,7 +229,7 @@ const Footer: React.FC = () => {
                 href={social.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-mono text-[10px] tracking-[0.2em] text-white/30 uppercase hover:text-ieee-blue transition-colors duration-300"
+                className="font-mono text-[10px] tracking-[0.2em] text-white/60 uppercase hover:text-ieee-blue transition-colors duration-300"
               >
                 {social.label}
               </a>
@@ -243,7 +243,7 @@ const Footer: React.FC = () => {
         className="absolute bottom-0 left-0 right-0 overflow-hidden pointer-events-none select-none"
         aria-hidden="true"
       >
-        <div className="font-pixel text-[8vw] md:text-[6vw] text-white/5 whitespace-nowrap tracking-tighter leading-none translate-y-[30%]">
+        <div className="font-pixel text-[8vw] md:text-[6vw] text-white/35 whitespace-nowrap tracking-tighter leading-none translate-y-[30%]">
           IEEE SAHRDAYA &mdash; ADVANCING TECHNOLOGY FOR HUMANITY
         </div>
       </div>

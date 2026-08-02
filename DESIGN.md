@@ -65,6 +65,19 @@ The Infinia teaser sits between Upcoming Events and the event archive. It is int
 
 Do not turn that section into a generic blue CTA block unless the product intent changes from tease to launch.
 
+## WIE public society page
+
+The dedicated `/societies/wie` route uses the **WIE Field Notes** register: an editorial, human-centred extension of the public IEEE design system.
+
+- Keep the shared Navbar, Footer, IEEE blue parent-brand cues, and existing font system.
+- Use approved WIE purple as a restrained sub-brand accent, never as a generic gradient theme.
+- Lead with verified activities and real people rather than generic empowerment claims.
+- Treat the current wide WIE banner as contained identity artwork; do not crop text-bearing brand artwork as a mobile cover image.
+- Give one verified activity visual priority, then present the rest as accessible links to `/events/:slug`.
+- Missing event media uses an intentional typographic fallback, not an empty grey placeholder.
+- Committee names remain complete on mobile; public contact actions degrade gracefully when optional fields are empty.
+- Do not introduce Infinia, proposal/funding copy, hover-only details, stock or AI-generated people, a separate WIE navigation system, or a second event data source.
+
 ## Admin register
 
 Admin pages are scoped under `.vh-admin` and use the submissionPortalV2-inspired instrument-panel language:
