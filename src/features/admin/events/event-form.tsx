@@ -371,7 +371,7 @@ export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
                       type="datetime-local"
                       value={form.date}
                       onChange={update("date")}
-                      min={new Date().toISOString().slice(0, 16)}
+                      min={isEdit ? undefined : new Date().toISOString().slice(0, 16)}
                       required
                     />
                   </div>

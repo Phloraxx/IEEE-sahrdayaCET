@@ -4,6 +4,7 @@ import { CalendarDays, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router';
 import type { ExtendedEvent } from '@/types';
 import { formatDate } from '@/lib/dates';
+import { resolveEventArtwork } from '@/lib/event-artwork';
 import { EventBannerFallback } from './EventBannerFallback';
 
 const FADE_UP = {
@@ -31,6 +32,7 @@ interface EventCardProps {
 export function AnnotatedEventCard({ event, index, onSelect, isMobile = false, showAnnotations = true, animateEntrance = true }: EventCardProps) {
     const prefersReducedMotion = useReducedMotion();
     const annotation = showAnnotations ? ANNOTATIONS.find(a => a.index === index) : undefined;
+    const artwork = resolveEventArtwork(event);
 
     return (
         <motion.div
@@ -81,12 +83,12 @@ export function AnnotatedEventCard({ event, index, onSelect, isMobile = false, s
             {/* Event Image */}
             <div className="relative rounded-4xl overflow-hidden shrink-0 h-64">
                 <div className="absolute inset-0 bg-slate-900/5 z-10 group-hover:bg-transparent transition-colors duration-500" />
-                {event.bannerUrl ? (
+                {artwork ? (
                     <img
-                        src={event.bannerUrl}
+                        src={artwork.src}
                         alt={event.title}
                         loading="lazy"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                        className={`w-full h-full group-hover:scale-105 transition-transform duration-700 ease-out ${artwork.fit === 'contain' ? 'object-contain p-5' : 'object-cover'}`}
                     />
                 ) : (
                     <EventBannerFallback

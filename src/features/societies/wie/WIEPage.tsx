@@ -350,10 +350,7 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
     );
   }, [canEdit, data.events]);
 
-  const featuredEvent = useMemo(
-    () => visibleEvents.find((event) => event.bannerUrl) || visibleEvents[0],
-    [visibleEvents],
-  );
+  const featuredEvent = visibleEvents[0];
   const archiveEvents = useMemo(
     () => visibleEvents.filter((event) => event.id !== featuredEvent?.id),
     [featuredEvent?.id, visibleEvents],
@@ -476,7 +473,7 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
                   IEEE SAHRDAYA / WIE
                 </span>
                 <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#625568]">
-                  SBA65601 · {archiveYears}
+                  ACTIVITY ARCHIVE · {archiveYears}
                 </span>
               </motion.div>
 

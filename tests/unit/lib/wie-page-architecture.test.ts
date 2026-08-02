@@ -46,10 +46,21 @@ describe("WIE society page architecture", () => {
     expect(page).toContain("getWieEventArtwork(event.slug, event.bannerUrl)");
     expect(media).toContain("DESIGNED_FALLBACK_WIE_EVENT_SLUGS");
     expect(media).toContain('"witech-ideathon-2026-agentic-ai"');
-    expect(eventRoute).toContain(
-      "getWieEventArtwork(event.slug, event.bannerUrl)",
-    );
+    expect(eventRoute).toContain("resolveEventArtwork(event)");
+    expect(eventRoute).not.toContain('from "@/lib/wie-media"');
     expect(page).toContain("aria-label={`${event.title} event artwork`}");
+  });
+
+  it("uses the latest visible record as the featured activity", () => {
+    const page = read("src/features/societies/wie/WIEPage.tsx");
+    expect(page).toContain("const featuredEvent = visibleEvents[0]");
+    expect(page).not.toContain("find((event) => event.bannerUrl)");
+  });
+
+  it("does not publish an unsupported affinity-group code", () => {
+    const page = read("src/features/societies/wie/WIEPage.tsx");
+    expect(page).not.toContain("SBA65601");
+    expect(page).toContain("ACTIVITY ARCHIVE · {archiveYears}");
   });
 
   it("does not render the unapproved PocketBase society banner", () => {

@@ -32,3 +32,19 @@ is approved and uploaded.
 Do not restore report screenshots merely to fill an image slot. Prefer, in
 order: an approved original photograph, an original event poster, then the
 consistent designed fallback.
+
+
+## Poster and design-source audit
+
+The connected Figma file `IEEE SAHRDAYA SB'26` was reviewed. It contains the
+Student Branch and society logo library, including WIE black and white logo
+variants, but no WIE event-poster frames.
+
+Dedicated Google Drive folders named `Poster` were also checked for Beyond
+Business, the Gen AI workshop and Pioneering Safe Cyberspace. Those folders are
+currently empty. The designed WIE fallback remains intentional for those events
+until an approved original poster or photograph is supplied.
+
+The public page must not use `SBA65601`. That value had no supporting source in
+Drive, PocketBase, Figma or an approved IEEE record and was removed from the
+page.
