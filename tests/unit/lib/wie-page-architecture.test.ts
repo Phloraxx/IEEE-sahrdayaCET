@@ -41,7 +41,10 @@ describe("WIE society page architecture", () => {
   it("retains dynamic empty and missing-media states", () => {
     const page = read("src/features/societies/wie/WIEPage.tsx");
     expect(page).toContain("No public activity has been published yet.");
-    expect(page).toContain("if (event.bannerUrl)");
+    expect(page).toContain(
+      "const artworkUrl = HISTORICAL_EVENT_ART[event.slug]",
+    );
+    expect(page).toContain("if (artworkUrl)");
     expect(page).toContain("aria-label={`${event.title} event artwork`}");
   });
 });

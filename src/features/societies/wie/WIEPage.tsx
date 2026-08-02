@@ -1,6 +1,6 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   ArrowDown,
   ArrowUpRight,
@@ -32,7 +32,20 @@ type WIEEvent = SocietyPageData["events"][number];
 type WIEMember = SocietyPageData["members"][number];
 
 const WIE_PUBLIC_EMAIL = "ieee@sahrdaya.ac.in";
-const WIE_INSTAGRAM = "https://instagram.com/ieeesahrdaya";
+const WIE_INSTAGRAM = "https://www.instagram.com/ieeewie_scet/";
+
+const HISTORICAL_EVENT_ART: Record<string, string> = {
+  "tink-her-hack-3-0": "/images/wie/tink-her-hack-3.webp",
+  "elevate-her-breaking-barriers-and-building-bridges":
+    "/images/wie/elevate-her.webp",
+  "beyond-resume-crafting-a-unique-identity-as-women-in-stem":
+    "/images/wie/beyond-resume.webp",
+  "cyberclash-debate-the-digital-dilemma": "/images/wie/cyberclash.webp",
+  "pioneering-safe-cyberspace-bridging-technology-and-light-for-security":
+    "/images/wie/pioneering-safe-cyberspace.webp",
+};
+
+const revealTransition = { duration: 0.68, ease: [0.22, 1, 0.36, 1] } as const;
 
 const focusAreas = [
   {
@@ -132,10 +145,12 @@ function WIEEventArtwork({
   contain?: boolean;
   className?: string;
 }) {
-  if (event.bannerUrl) {
+  const artworkUrl = HISTORICAL_EVENT_ART[event.slug] || event.bannerUrl;
+
+  if (artworkUrl) {
     return (
       <img
-        src={event.bannerUrl}
+        src={artworkUrl}
         alt={`${event.title} event artwork`}
         className={`h-full w-full ${contain ? "object-contain p-4 sm:p-6" : "object-cover"} ${className}`}
       />
@@ -203,9 +218,14 @@ function SocialLink({
 }
 
 function TeamCard({ member, index }: { member: WIEMember; index: number }) {
+  const reduceMotion = useReducedMotion();
   return (
     <motion.article
-      whileHover={{ y: -5 }}
+      variants={{
+        hidden: { y: reduceMotion ? 0 : 20 },
+        visible: { y: 0, transition: revealTransition },
+      }}
+      whileHover={reduceMotion ? undefined : { y: -5 }}
       transition={{ duration: 0.22 }}
       className="group overflow-hidden rounded-[1.75rem] border border-[#2c1a31]/10 bg-[#fbf8fc] shadow-[0_24px_70px_rgba(50,25,58,0.08)]"
     >
@@ -283,6 +303,8 @@ function TeamCard({ member, index }: { member: WIEMember; index: number }) {
 
 export function WIEPage({ data }: { data: SocietyPageData }) {
   const { user } = useAuth();
+  const reduceMotion = useReducedMotion();
+  const [selectedYear, setSelectedYear] = useState("all");
 
   const canEdit = useMemo(() => {
     if (!user) return false;
@@ -304,6 +326,24 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
   const archiveEvents = useMemo(
     () => visibleEvents.filter((event) => event.id !== featuredEvent?.id),
     [featuredEvent?.id, visibleEvents],
+  );
+  const archiveYearOptions = useMemo(
+    () =>
+      [
+        ...new Set(
+          archiveEvents.map((event) => eventYear(event.date)).filter(Boolean),
+        ),
+      ].sort((a, b) => Number(b) - Number(a)),
+    [archiveEvents],
+  );
+  const filteredArchiveEvents = useMemo(
+    () =>
+      selectedYear === "all"
+        ? archiveEvents
+        : archiveEvents.filter(
+            (event) => eventYear(event.date) === selectedYear,
+          ),
+    [archiveEvents, selectedYear],
   );
   const advisor = useMemo(
     () =>
@@ -372,7 +412,12 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
           <div className="absolute left-0 top-0 -z-10 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#d9b8e1]/25 blur-[120px]" />
 
           <div className="mx-auto grid max-w-7xl min-w-0 items-center gap-12 px-5 sm:px-8 lg:grid-cols-[1.06fr_.94fr] lg:gap-16">
-            <div className="min-w-0">
+            <motion.div
+              className="min-w-0"
+              initial={reduceMotion ? false : { opacity: 0, y: 26 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={revealTransition}
+            >
               <div className="mb-8 flex min-w-0 flex-wrap items-center gap-3">
                 <span className="inline-flex items-center gap-2 rounded-full border border-[#7a2d8d]/20 bg-white/80 px-3 py-2 font-pixel text-[7px] leading-relaxed tracking-[0.14em] text-[#632572] shadow-sm">
                   {data.society.logoUrl && (
@@ -423,7 +468,7 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
               <dl className="mt-12 grid max-w-2xl grid-cols-3 border-y border-[#2c1a31]/15 py-5 sm:mt-14">
                 <div className="pr-3">
                   <dt className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[#625568]">
-                    Published work
+                    Published activities
                   </dt>
                   <dd className="mt-2 font-display text-4xl text-[#24152a] sm:text-5xl">
                     {visibleEvents.length}
@@ -446,9 +491,19 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
                   </dd>
                 </div>
               </dl>
-            </div>
+            </motion.div>
 
-            <div className="relative mx-auto min-w-0 w-full max-w-xl lg:mx-0">
+            <motion.div
+              className="relative mx-auto min-w-0 w-full max-w-xl lg:mx-0"
+              initial={
+                reduceMotion ? false : { opacity: 0, scale: 0.97, x: 24 }
+              }
+              animate={{ opacity: 1, scale: 1, x: 0 }}
+              transition={{
+                ...revealTransition,
+                delay: reduceMotion ? 0 : 0.12,
+              }}
+            >
               <div className="absolute -left-3 top-16 hidden h-24 w-px bg-[#7a2d8d]/40 sm:block" />
               <div className="absolute -left-5 top-16 hidden h-px w-5 bg-[#7a2d8d]/40 sm:block" />
               <div className="min-w-0 overflow-hidden rounded-[2rem] border border-[#2c1a31]/15 bg-[#1b101e] shadow-[0_38px_90px_rgba(50,25,58,0.22)]">
@@ -472,57 +527,38 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
                   )}
                 </div>
 
-                {featuredEvent ? (
-                  <div className="grid sm:grid-cols-[minmax(0,1fr)_180px]">
-                    <div className="aspect-[4/5] min-h-[430px] bg-[#120b14] sm:min-h-[520px]">
-                      <WIEEventArtwork event={featuredEvent} contain />
-                    </div>
-                    <div className="flex flex-col justify-between border-t border-white/10 p-5 text-white sm:border-l sm:border-t-0 sm:p-6">
-                      <div>
-                        <p className="font-pixel text-[7px] leading-relaxed tracking-[0.16em] text-[#d9aedf]">
-                          LATEST RECORD
-                        </p>
-                        <p
-                          aria-hidden="true"
-                          className="mt-5 font-display text-5xl leading-none text-white/35"
-                        >
-                          {eventYear(featuredEvent.date)}
-                        </p>
-                        <p className="mt-5 text-sm font-black leading-snug">
-                          {featuredEvent.title}
-                        </p>
-                      </div>
-                      <div className="mt-8 space-y-3 border-t border-white/15 pt-5 text-xs text-white/60">
-                        <p>{formatDateShort(featuredEvent.date)}</p>
-                        {featuredEvent.venue && (
-                          <p className="leading-relaxed">
-                            {featuredEvent.venue}
-                          </p>
-                        )}
-                        <Link
-                          to={eventHref(featuredEvent)}
-                          className="inline-flex items-center gap-1.5 font-bold text-[#e4b9eb] hover:text-white"
-                        >
-                          Open record <ArrowUpRight className="h-3.5 w-3.5" />
-                        </Link>
-                      </div>
-                    </div>
+                <div className="relative aspect-[5/4] min-h-[360px] overflow-hidden bg-[#120b14] sm:min-h-[500px]">
+                  <motion.img
+                    src="/images/wie/wie-community.webp"
+                    alt="IEEE WIE Sahrdaya members and participants together at a campus programme"
+                    className="h-full w-full object-cover"
+                    initial={reduceMotion ? false : { scale: 1.06 }}
+                    animate={{ scale: 1 }}
+                    transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
+                  />
+                  <div className="absolute inset-0 bg-linear-to-t from-[#160b19]/90 via-[#160b19]/10 to-transparent" />
+                  <div className="absolute inset-x-0 bottom-0 p-6 text-white sm:p-8">
+                    <p className="font-pixel text-[7px] leading-relaxed tracking-[0.16em] text-[#e4b9eb]">
+                      COMMUNITY IN ACTION
+                    </p>
+                    <p className="mt-3 max-w-[22ch] text-2xl font-black leading-tight sm:text-3xl">
+                      Learning, building and leading together at Sahrdaya.
+                    </p>
+                    {featuredEvent && (
+                      <Link
+                        to={eventHref(featuredEvent)}
+                        className="mt-5 inline-flex items-center gap-2 text-sm font-black text-white/85 transition hover:text-white"
+                      >
+                        Latest activity <ArrowUpRight className="h-4 w-4" />
+                      </Link>
+                    )}
                   </div>
-                ) : (
-                  <div className="flex min-h-[500px] items-center justify-center p-10 text-center text-white">
-                    <div>
-                      <Sparkles className="mx-auto h-10 w-10 text-[#d9aedf]" />
-                      <p className="mt-5 font-display text-4xl">
-                        Building the next record.
-                      </p>
-                    </div>
-                  </div>
-                )}
+                </div>
               </div>
               <div className="absolute -bottom-5 right-8 rounded-full border border-[#2c1a31]/15 bg-[#fbf8fc] px-4 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.18em] text-[#6b5b70] shadow-sm">
                 Field notes / WIE
               </div>
-            </div>
+            </motion.div>
           </div>
         </section>
 
@@ -565,12 +601,12 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
                   02 / HOW WE WORK
                 </p>
                 <h2 className="mt-5 font-display text-5xl uppercase leading-none tracking-tight text-[#211326] sm:text-7xl">
-                  Three fields of action
+                  What we focus on
                 </h2>
               </div>
               <p className="max-w-md text-sm font-semibold leading-relaxed text-[#6d6071] sm:text-right">
-                The public page is grounded in the work the Affinity Group
-                actually conducts—not generic claims or invented programmes.
+                Our activities combine practical technical learning, leadership
+                development and meaningful collaboration.
               </p>
             </div>
 
@@ -578,8 +614,15 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
               {focusAreas.map((area) => {
                 const Icon = area.icon;
                 return (
-                  <article
+                  <motion.article
                     key={area.number}
+                    initial={reduceMotion ? false : { y: 18 }}
+                    whileInView={{ y: 0 }}
+                    viewport={{ once: true, amount: 0.35 }}
+                    transition={{
+                      ...revealTransition,
+                      delay: Number(area.number) * 0.04,
+                    }}
                     className="group grid gap-5 border-b border-[#2c1a31]/15 py-8 sm:grid-cols-[80px_1fr_1fr_56px] sm:items-center sm:py-10"
                   >
                     <span
@@ -600,7 +643,7 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
                     >
                       <Icon className="h-5 w-5" />
                     </span>
-                  </article>
+                  </motion.article>
                 );
               })}
             </div>
@@ -637,7 +680,13 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
             </div>
 
             {featuredEvent ? (
-              <article className="overflow-hidden rounded-[2.25rem] border border-[#2c1a31]/12 bg-white shadow-[0_30px_90px_rgba(50,25,58,0.1)]">
+              <motion.article
+                initial={reduceMotion ? false : { y: 28 }}
+                whileInView={{ y: 0 }}
+                viewport={{ once: true, amount: 0.15 }}
+                transition={revealTransition}
+                className="overflow-hidden rounded-[2.25rem] border border-[#2c1a31]/12 bg-white shadow-[0_30px_90px_rgba(50,25,58,0.1)]"
+              >
                 <div className="grid lg:grid-cols-[minmax(360px,.82fr)_1.18fr]">
                   <div className="aspect-[4/5] min-h-[420px] bg-[#211326] sm:min-h-[560px] lg:min-h-[670px]">
                     <WIEEventArtwork event={featuredEvent} contain />
@@ -714,7 +763,7 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
                     </div>
                   </div>
                 </div>
-              </article>
+              </motion.article>
             ) : (
               <div className="rounded-[2rem] border border-dashed border-[#7a2d8d]/30 bg-white px-6 py-20 text-center">
                 <Sparkles className="mx-auto h-9 w-9 text-[#7a2d8d]" />
@@ -730,7 +779,7 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
 
             {archiveEvents.length > 0 && (
               <div className="mt-20">
-                <div className="mb-9 flex items-end justify-between gap-6 border-b border-[#2c1a31]/15 pb-5">
+                <div className="mb-9 flex flex-col gap-6 border-b border-[#2c1a31]/15 pb-5 sm:flex-row sm:items-end sm:justify-between">
                   <div>
                     <p className="font-pixel text-[8px] leading-relaxed tracking-[0.18em] text-[#7a2d8d]">
                       ACTIVITY LOG
@@ -739,19 +788,37 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
                       More verified WIE records
                     </h3>
                   </div>
-                  <span
-                    aria-hidden="true"
-                    className="hidden font-display text-5xl text-[#7a2d8d] sm:block"
-                  >
-                    {String(archiveEvents.length).padStart(2, "0")}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {["all", ...archiveYearOptions].map((year) => (
+                      <button
+                        key={year}
+                        type="button"
+                        onClick={() => setSelectedYear(year)}
+                        aria-pressed={selectedYear === year}
+                        className={`min-h-10 rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.12em] transition ${
+                          selectedYear === year
+                            ? "border-[#24152a] bg-[#24152a] text-white"
+                            : "border-[#2c1a31]/15 bg-white text-[#655a69] hover:border-[#7a2d8d]/45 hover:text-[#7a2d8d]"
+                        }`}
+                      >
+                        {year === "all" ? "All years" : year}
+                      </button>
+                    ))}
+                    <span
+                      aria-hidden="true"
+                      className="ml-2 font-display text-4xl text-[#7a2d8d]"
+                    >
+                      {String(filteredArchiveEvents.length).padStart(2, "0")}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="grid gap-7 md:grid-cols-2">
-                  {archiveEvents.map((event, index) => (
+                  {filteredArchiveEvents.map((event, index) => (
                     <motion.article
                       key={event.id}
-                      whileHover={{ y: -5 }}
+                      initial={false}
+                      whileHover={reduceMotion ? undefined : { y: -5 }}
                       transition={{ duration: 0.22 }}
                       className="group overflow-hidden rounded-[1.75rem] border border-[#2c1a31]/10 bg-white shadow-[0_22px_70px_rgba(50,25,58,0.07)]"
                     >
@@ -823,11 +890,22 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
             </div>
 
             {studentLeaders.length > 0 ? (
-              <div className="mt-12 grid gap-7 md:grid-cols-3">
+              <motion.div
+                className="mt-12 grid gap-7 md:grid-cols-3"
+                initial={reduceMotion ? false : "hidden"}
+                whileInView="visible"
+                viewport={{ once: true, amount: 0.12 }}
+                variants={{
+                  hidden: {},
+                  visible: {
+                    transition: { staggerChildren: reduceMotion ? 0 : 0.09 },
+                  },
+                }}
+              >
                 {studentLeaders.map((member, index) => (
                   <TeamCard key={member.id} member={member} index={index} />
                 ))}
-              </div>
+              </motion.div>
             ) : (
               <div className="mt-12 rounded-[2rem] border border-dashed border-[#7a2d8d]/30 bg-white/60 px-6 py-16 text-center">
                 <Users className="mx-auto h-9 w-9 text-[#7a2d8d]" />
