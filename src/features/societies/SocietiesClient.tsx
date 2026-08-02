@@ -2,8 +2,8 @@ import { motion } from "framer-motion";
 import { Link } from "react-router";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { GridBackground } from "@/components/GridBackground";
-import { FloatingIcons } from "@/components/FloatingIcons";
+import { StarsBackground } from "@/components/ui/stars-background";
+import { ShootingStars } from "@/components/ui/shooting-stars";
 import { TechnicalDetails } from "@/components/TechnicalDetails";
 import type { Society } from "@/types";
 
@@ -14,10 +14,14 @@ interface SocietiesClientProps {
 export default function SocietiesClient({ societies }: SocietiesClientProps) {
   return (
     <div className="relative min-h-screen w-full bg-white font-sans text-gray-900">
-      <div className="pointer-events-none fixed inset-0 z-0">
-        <GridBackground />
-        <FloatingIcons />
-        <TechnicalDetails />
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 h-dvh overflow-hidden">
+        <StarsBackground starDensity={0.0004} allStarsTwinkle starColor="#1e293b" />
+        <ShootingStars starColor="#00629b" trailColor="#0099D6" minDelay={1500} maxDelay={4000} minSpeed={8} maxSpeed={20} starWidth={12} starHeight={2} />
+        <ShootingStars starColor="#00629b" trailColor="#0099D6" minDelay={2000} maxDelay={5000} minSpeed={12} maxSpeed={25} starWidth={10} starHeight={1} />
+        <ShootingStars starColor="#0099D6" trailColor="#00629b" minDelay={3000} maxDelay={6000} minSpeed={10} maxSpeed={22} starWidth={8} starHeight={1} />
+        <div className="relative z-10 h-full">
+          <TechnicalDetails />
+        </div>
       </div>
 
       <Navbar />
