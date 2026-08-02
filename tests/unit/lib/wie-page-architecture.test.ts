@@ -38,13 +38,25 @@ describe("WIE society page architecture", () => {
     expect(page).not.toContain("funding");
   });
 
-  it("retains dynamic empty and missing-media states", () => {
+  it("retains curated and designed-fallback media states", () => {
     const page = read("src/features/societies/wie/WIEPage.tsx");
+    const media = read("src/lib/wie-media.ts");
+    const eventRoute = read("src/routes/events.$slug.tsx");
     expect(page).toContain("No public activity has been published yet.");
-    expect(page).toContain(
-      "const artworkUrl = HISTORICAL_EVENT_ART[event.slug]",
+    expect(page).toContain("getWieEventArtwork(event.slug, event.bannerUrl)");
+    expect(media).toContain("DESIGNED_FALLBACK_WIE_EVENT_SLUGS");
+    expect(media).toContain('"witech-ideathon-2026-agentic-ai"');
+    expect(eventRoute).toContain(
+      "getWieEventArtwork(event.slug, event.bannerUrl)",
     );
-    expect(page).toContain("if (artworkUrl)");
     expect(page).toContain("aria-label={`${event.title} event artwork`}");
+  });
+
+  it("does not render the unapproved PocketBase society banner", () => {
+    const page = read("src/features/societies/wie/WIEPage.tsx");
+    const route = read("src/routes/societies_.wie.tsx");
+    expect(page).not.toContain("data.society.bannerUrl");
+    expect(page).toContain("WIE_OFFICIAL_BANNER_PATH");
+    expect(route).toContain("ieee-wie-official-background.webp");
   });
 });

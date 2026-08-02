@@ -18,8 +18,7 @@ export const meta = ({ data }: { data?: SocietyPageData }) => {
   const description = data?.society.bio
     ? blogHtmlToPlainText(data.society.bio).slice(0, 155)
     : "Explore IEEE Women in Engineering at Sahrdaya—technical programmes, leadership initiatives, recent activities and the current WIE team.";
-  const image =
-    data?.society.bannerUrl || data?.society.logoUrl || `${APP_URL}/web.png`;
+  const image = `${APP_URL}/images/wie/ieee-wie-official-background.webp`;
   const url = `${APP_URL}/societies/wie`;
 
   return [

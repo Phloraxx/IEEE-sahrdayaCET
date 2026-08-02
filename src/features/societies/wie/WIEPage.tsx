@@ -1,6 +1,11 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
-import { motion, useReducedMotion } from "framer-motion";
+import {
+  motion,
+  useReducedMotion,
+  useScroll,
+  useTransform,
+} from "framer-motion";
 import {
   ArrowDown,
   ArrowUpRight,
@@ -26,6 +31,11 @@ import { useAuth } from "@/lib/auth-context";
 import { APP_URL } from "@/lib/constants";
 import { blogHtmlToPlainText } from "@/lib/blog-content";
 import { formatDate, formatDateShort } from "@/lib/dates";
+import {
+  getWieEventArtwork,
+  WIE_HERO_IMAGE_PATH,
+  WIE_OFFICIAL_BANNER_PATH,
+} from "@/lib/wie-media";
 import type { SocietyPageData } from "@/server/public/society-detail.server";
 
 type WIEEvent = SocietyPageData["events"][number];
@@ -34,18 +44,22 @@ type WIEMember = SocietyPageData["members"][number];
 const WIE_PUBLIC_EMAIL = "ieee@sahrdaya.ac.in";
 const WIE_INSTAGRAM = "https://www.instagram.com/ieeewie_scet/";
 
-const HISTORICAL_EVENT_ART: Record<string, string> = {
-  "tink-her-hack-3-0": "/images/wie/tink-her-hack-3.webp",
-  "elevate-her-breaking-barriers-and-building-bridges":
-    "/images/wie/elevate-her.webp",
-  "beyond-resume-crafting-a-unique-identity-as-women-in-stem":
-    "/images/wie/beyond-resume.webp",
-  "cyberclash-debate-the-digital-dilemma": "/images/wie/cyberclash.webp",
-  "pioneering-safe-cyberspace-bridging-technology-and-light-for-security":
-    "/images/wie/pioneering-safe-cyberspace.webp",
+const revealTransition = {
+  duration: 0.68,
+  ease: [0.22, 1, 0.36, 1],
+} as const;
+
+const heroContainerVariants = {
+  hidden: {},
+  visible: {
+    transition: { staggerChildren: 0.085, delayChildren: 0.04 },
+  },
 };
 
-const revealTransition = { duration: 0.68, ease: [0.22, 1, 0.36, 1] } as const;
+const heroItemVariants = {
+  hidden: { opacity: 0, y: 22 },
+  visible: { opacity: 1, y: 0, transition: revealTransition },
+};
 
 const focusAreas = [
   {
@@ -145,14 +159,21 @@ function WIEEventArtwork({
   contain?: boolean;
   className?: string;
 }) {
-  const artworkUrl = HISTORICAL_EVENT_ART[event.slug] || event.bannerUrl;
+  const artwork = getWieEventArtwork(event.slug, event.bannerUrl);
+  const fit = artwork?.fit || (contain ? "contain" : "cover");
 
-  if (artworkUrl) {
+  if (artwork) {
     return (
       <img
-        src={artworkUrl}
+        src={artwork.src}
         alt={`${event.title} event artwork`}
-        className={`h-full w-full ${contain ? "object-contain p-4 sm:p-6" : "object-cover"} ${className}`}
+        loading={contain ? "eager" : "lazy"}
+        decoding="async"
+        className={`h-full w-full transition-transform duration-700 ease-out motion-reduce:transition-none ${
+          fit === "contain"
+            ? "object-contain p-4 sm:p-6"
+            : "object-cover group-hover:scale-[1.025] motion-reduce:transform-none"
+        } ${className}`}
       />
     );
   }
@@ -304,7 +325,17 @@ function TeamCard({ member, index }: { member: WIEMember; index: number }) {
 export function WIEPage({ data }: { data: SocietyPageData }) {
   const { user } = useAuth();
   const reduceMotion = useReducedMotion();
+  const heroRef = useRef<HTMLElement>(null);
   const [selectedYear, setSelectedYear] = useState("all");
+  const { scrollYProgress: heroScrollProgress } = useScroll({
+    target: heroRef,
+    offset: ["start start", "end start"],
+  });
+  const heroMediaY = useTransform(
+    heroScrollProgress,
+    [0, 1],
+    [0, reduceMotion ? 0 : 48],
+  );
 
   const canEdit = useMemo(() => {
     if (!user) return false;
@@ -394,7 +425,10 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
       <Navbar />
 
       <main>
-        <section className="relative isolate overflow-hidden border-b border-[#2c1a31]/10 pb-16 pt-28 sm:pb-24 sm:pt-32 lg:min-h-[850px] lg:pb-28">
+        <section
+          ref={heroRef}
+          className="relative isolate overflow-hidden border-b border-[#2c1a31]/10 pb-16 pt-28 sm:pb-24 sm:pt-32 lg:min-h-[850px] lg:pb-28"
+        >
           <div
             className="absolute inset-0 -z-20 opacity-[0.4]"
             style={{
@@ -409,17 +443,29 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
           >
             WIE
           </div>
-          <div className="absolute left-0 top-0 -z-10 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#d9b8e1]/25 blur-[120px]" />
+          <motion.div
+            aria-hidden="true"
+            className="absolute left-0 top-0 -z-10 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#d9b8e1]/25 blur-[120px]"
+            animate={
+              reduceMotion
+                ? undefined
+                : { scale: [1, 1.08, 1], x: [0, 22, 0], y: [0, 14, 0] }
+            }
+            transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+          />
 
           <div className="mx-auto grid max-w-7xl min-w-0 items-center gap-12 px-5 sm:px-8 lg:grid-cols-[1.06fr_.94fr] lg:gap-16">
             <motion.div
               className="min-w-0"
-              initial={reduceMotion ? false : { opacity: 0, y: 26 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={revealTransition}
+              variants={heroContainerVariants}
+              initial={reduceMotion ? false : "hidden"}
+              animate="visible"
             >
-              <div className="mb-8 flex min-w-0 flex-wrap items-center gap-3">
-                <span className="inline-flex items-center gap-2 rounded-full border border-[#7a2d8d]/20 bg-white/80 px-3 py-2 font-pixel text-[7px] leading-relaxed tracking-[0.14em] text-[#632572] shadow-sm">
+              <motion.div
+                variants={heroItemVariants}
+                className="mb-8 flex min-w-0 flex-wrap items-center gap-3"
+              >
+                <span className="inline-flex items-center gap-2 rounded-full border border-[#7a2d8d]/20 bg-white/80 px-3 py-2 font-pixel text-[7px] leading-relaxed tracking-[0.14em] text-[#632572] shadow-sm backdrop-blur-sm">
                   {data.society.logoUrl && (
                     <img
                       src={data.society.logoUrl}
@@ -432,40 +478,54 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
                 <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#625568]">
                   SBA65601 · {archiveYears}
                 </span>
-              </div>
+              </motion.div>
 
-              <h1 className="font-display text-[clamp(3.05rem,7vw,7.2rem)] uppercase leading-[0.82] tracking-[-0.035em] text-[#1c111f]">
+              <motion.h1
+                variants={heroItemVariants}
+                className="font-display text-[clamp(3.05rem,7vw,7.2rem)] uppercase leading-[0.82] tracking-[-0.035em] text-[#1c111f]"
+              >
                 Women in
                 <span className="block text-[#7a2d8d]">Engineering</span>
                 <span className="block text-[0.66em] tracking-[-0.02em]">
                   at Sahrdaya
                 </span>
-              </h1>
+              </motion.h1>
 
-              <div className="mt-8 max-w-2xl border-l-2 border-[#7a2d8d] pl-5 sm:mt-10 sm:pl-7">
+              <motion.div
+                variants={heroItemVariants}
+                className="mt-8 max-w-2xl border-l-2 border-[#7a2d8d] pl-5 sm:mt-10 sm:pl-7"
+              >
                 <p className="text-lg font-semibold leading-relaxed text-[#413448] sm:text-xl">
                   A student community creating space to learn technologies,
                   build confidence, lead with purpose and collaborate across
                   engineering.
                 </p>
-              </div>
+              </motion.div>
 
-              <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <motion.div
+                variants={heroItemVariants}
+                className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center"
+              >
                 <a
                   href="#activities"
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#24152a] px-6 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-[#7a2d8d] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7a2d8d]"
+                  className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#24152a] px-6 py-3 text-sm font-black text-white transition duration-300 hover:-translate-y-0.5 hover:bg-[#7a2d8d] hover:shadow-[0_14px_34px_rgba(93,33,109,.22)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7a2d8d] motion-reduce:transform-none"
                 >
-                  Explore our work <ArrowDown className="h-4 w-4" />
+                  Explore our work
+                  <ArrowDown className="h-4 w-4 transition-transform duration-300 group-hover:translate-y-0.5 motion-reduce:transform-none" />
                 </a>
                 <a
                   href="#team"
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#2c1a31]/20 bg-white/80 px-6 py-3 text-sm font-black text-[#24152a] transition hover:-translate-y-0.5 hover:border-[#7a2d8d]/50 hover:text-[#7a2d8d] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7a2d8d]"
+                  className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#2c1a31]/20 bg-white/80 px-6 py-3 text-sm font-black text-[#24152a] backdrop-blur-sm transition duration-300 hover:-translate-y-0.5 hover:border-[#7a2d8d]/50 hover:text-[#7a2d8d] hover:shadow-[0_14px_34px_rgba(50,25,58,.08)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7a2d8d] motion-reduce:transform-none"
                 >
-                  Meet the team <ArrowUpRight className="h-4 w-4" />
+                  Meet the team
+                  <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 motion-reduce:transform-none" />
                 </a>
-              </div>
+              </motion.div>
 
-              <dl className="mt-12 grid max-w-2xl grid-cols-3 border-y border-[#2c1a31]/15 py-5 sm:mt-14">
+              <motion.dl
+                variants={heroItemVariants}
+                className="mt-12 grid max-w-2xl grid-cols-3 border-y border-[#2c1a31]/15 py-5 sm:mt-14"
+              >
                 <div className="pr-3">
                   <dt className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[#625568]">
                     Published activities
@@ -490,51 +550,56 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
                     {data.members.length}
                   </dd>
                 </div>
-              </dl>
+              </motion.dl>
             </motion.div>
 
             <motion.div
               className="relative mx-auto min-w-0 w-full max-w-xl lg:mx-0"
               initial={
-                reduceMotion ? false : { opacity: 0, scale: 0.97, x: 24 }
+                reduceMotion ? false : { opacity: 0, scale: 0.965, x: 28 }
               }
               animate={{ opacity: 1, scale: 1, x: 0 }}
               transition={{
                 ...revealTransition,
-                delay: reduceMotion ? 0 : 0.12,
+                delay: reduceMotion ? 0 : 0.16,
               }}
+              style={{ y: heroMediaY }}
             >
               <div className="absolute -left-3 top-16 hidden h-24 w-px bg-[#7a2d8d]/40 sm:block" />
               <div className="absolute -left-5 top-16 hidden h-px w-5 bg-[#7a2d8d]/40 sm:block" />
               <div className="min-w-0 overflow-hidden rounded-[2rem] border border-[#2c1a31]/15 bg-[#1b101e] shadow-[0_38px_90px_rgba(50,25,58,0.22)]">
-                <div className="border-b border-[#2c1a31]/10 bg-white p-3 sm:p-4">
-                  {data.society.bannerUrl ? (
-                    <img
-                      src={data.society.bannerUrl}
-                      alt="IEEE Women in Engineering Sahrdaya identity banner"
-                      className="aspect-[4/1] w-full object-contain"
-                    />
-                  ) : data.society.logoUrl ? (
-                    <img
-                      src={data.society.logoUrl}
-                      alt="IEEE Women in Engineering"
-                      className="mx-auto h-28 w-full object-contain p-5"
-                    />
-                  ) : (
-                    <div className="flex aspect-[4/1] items-center justify-center font-display text-4xl text-[#7a2d8d]">
-                      IEEE WIE
-                    </div>
-                  )}
+                <div className="relative overflow-hidden border-b border-white/10 bg-[#6e287e]">
+                  <img
+                    src={WIE_OFFICIAL_BANNER_PATH}
+                    alt="Official IEEE Women in Engineering visual identity"
+                    loading="eager"
+                    decoding="async"
+                    className="aspect-[1920/430] w-full object-cover"
+                  />
+                  <motion.div
+                    aria-hidden="true"
+                    className="absolute inset-y-0 w-1/3 -skew-x-12 bg-linear-to-r from-transparent via-white/15 to-transparent"
+                    initial={reduceMotion ? false : { x: "-160%" }}
+                    animate={reduceMotion ? undefined : { x: "420%" }}
+                    transition={{
+                      duration: 1.45,
+                      delay: 0.72,
+                      ease: "easeOut",
+                    }}
+                  />
                 </div>
 
                 <div className="relative aspect-[5/4] min-h-[360px] overflow-hidden bg-[#120b14] sm:min-h-[500px]">
                   <motion.img
-                    src="/images/wie/wie-community.webp"
-                    alt="IEEE WIE Sahrdaya members and participants together at a campus programme"
+                    src={WIE_HERO_IMAGE_PATH}
+                    alt="IEEE WIE Sahrdaya participants in a technical programme at the campus computer lab"
+                    loading="eager"
+                    fetchPriority="high"
+                    decoding="async"
                     className="h-full w-full object-cover"
-                    initial={reduceMotion ? false : { scale: 1.06 }}
+                    initial={reduceMotion ? false : { scale: 1.055 }}
                     animate={{ scale: 1 }}
-                    transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
+                    transition={{ duration: 1.15, ease: [0.22, 1, 0.36, 1] }}
                   />
                   <div className="absolute inset-0 bg-linear-to-t from-[#160b19]/90 via-[#160b19]/10 to-transparent" />
                   <div className="absolute inset-x-0 bottom-0 p-6 text-white sm:p-8">
@@ -547,9 +612,10 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
                     {featuredEvent && (
                       <Link
                         to={eventHref(featuredEvent)}
-                        className="mt-5 inline-flex items-center gap-2 text-sm font-black text-white/85 transition hover:text-white"
+                        className="group mt-5 inline-flex items-center gap-2 text-sm font-black text-white/85 transition hover:text-white"
                       >
-                        Latest activity <ArrowUpRight className="h-4 w-4" />
+                        Latest activity
+                        <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 motion-reduce:transform-none" />
                       </Link>
                     )}
                   </div>
@@ -616,14 +682,16 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
                 return (
                   <motion.article
                     key={area.number}
-                    initial={reduceMotion ? false : { y: 18 }}
-                    whileInView={{ y: 0 }}
+                    initial={
+                      reduceMotion ? false : { opacity: 0, x: -12, y: 16 }
+                    }
+                    whileInView={{ opacity: 1, x: 0, y: 0 }}
                     viewport={{ once: true, amount: 0.35 }}
                     transition={{
                       ...revealTransition,
                       delay: Number(area.number) * 0.04,
                     }}
-                    className="group grid gap-5 border-b border-[#2c1a31]/15 py-8 sm:grid-cols-[80px_1fr_1fr_56px] sm:items-center sm:py-10"
+                    className="group grid gap-5 border-b border-[#2c1a31]/15 py-8 transition-colors duration-300 hover:bg-white/45 sm:grid-cols-[80px_1fr_1fr_56px] sm:items-center sm:px-4 sm:py-10 sm:hover:px-5 motion-reduce:transition-none"
                   >
                     <span
                       aria-hidden="true"
@@ -638,7 +706,7 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
                       {area.description}
                     </p>
                     <span
-                      className="flex h-12 w-12 items-center justify-center rounded-full border border-[#7a2d8d]/20 bg-white text-[#7a2d8d] transition group-hover:rotate-6 group-hover:bg-[#7a2d8d] group-hover:text-white"
+                      className="flex h-12 w-12 items-center justify-center rounded-full border border-[#7a2d8d]/20 bg-white text-[#7a2d8d] transition duration-300 group-hover:rotate-6 group-hover:bg-[#7a2d8d] group-hover:text-white motion-reduce:transform-none motion-reduce:transition-none"
                       aria-hidden="true"
                     >
                       <Icon className="h-5 w-5" />
@@ -681,15 +749,18 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
 
             {featuredEvent ? (
               <motion.article
-                initial={reduceMotion ? false : { y: 28 }}
-                whileInView={{ y: 0 }}
+                initial={
+                  reduceMotion ? false : { opacity: 0, y: 30, scale: 0.99 }
+                }
+                whileInView={{ opacity: 1, y: 0, scale: 1 }}
                 viewport={{ once: true, amount: 0.15 }}
                 transition={revealTransition}
-                className="overflow-hidden rounded-[2.25rem] border border-[#2c1a31]/12 bg-white shadow-[0_30px_90px_rgba(50,25,58,0.1)]"
+                className="group overflow-hidden rounded-[2.25rem] border border-[#2c1a31]/12 bg-white shadow-[0_30px_90px_rgba(50,25,58,0.1)] transition-shadow duration-500 hover:shadow-[0_38px_110px_rgba(50,25,58,0.15)] motion-reduce:transition-none"
               >
-                <div className="grid lg:grid-cols-[minmax(360px,.82fr)_1.18fr]">
-                  <div className="aspect-[4/5] min-h-[420px] bg-[#211326] sm:min-h-[560px] lg:min-h-[670px]">
-                    <WIEEventArtwork event={featuredEvent} contain />
+                <div className="grid lg:grid-cols-[1.02fr_.98fr]">
+                  <div className="relative aspect-[4/3] min-h-[360px] overflow-hidden bg-[#211326] sm:min-h-[480px] lg:aspect-auto lg:min-h-full">
+                    <WIEEventArtwork event={featuredEvent} />
+                    <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-[#1b101e]/30 via-transparent to-transparent" />
                   </div>
                   <div className="flex flex-col justify-between p-7 sm:p-10 lg:p-14">
                     <div>
@@ -820,7 +891,7 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
                       initial={false}
                       whileHover={reduceMotion ? undefined : { y: -5 }}
                       transition={{ duration: 0.22 }}
-                      className="group overflow-hidden rounded-[1.75rem] border border-[#2c1a31]/10 bg-white shadow-[0_22px_70px_rgba(50,25,58,0.07)]"
+                      className="group overflow-hidden rounded-[1.75rem] border border-[#2c1a31]/10 bg-white shadow-[0_22px_70px_rgba(50,25,58,0.07)] transition-shadow duration-300 hover:shadow-[0_30px_85px_rgba(50,25,58,0.13)] motion-reduce:transition-none"
                     >
                       <Link
                         to={eventHref(event)}
@@ -999,6 +1070,20 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
               backgroundSize: "40px 40px",
             }}
           />
+          <motion.div
+            aria-hidden="true"
+            className="absolute -left-24 top-1/2 -z-10 h-72 w-72 -translate-y-1/2 rounded-full bg-white/15 blur-[100px]"
+            animate={
+              reduceMotion
+                ? undefined
+                : {
+                    x: [0, 90, 20, 0],
+                    y: [0, -28, 24, 0],
+                    scale: [1, 1.1, 0.96, 1],
+                  }
+            }
+            transition={{ duration: 16, repeat: Infinity, ease: "easeInOut" }}
+          />
           <div
             className="absolute -bottom-20 right-0 -z-10 font-display text-[28vw] leading-none text-white/[0.055]"
             aria-hidden="true"
@@ -1023,7 +1108,7 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
               <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <a
                   href={`mailto:${WIE_PUBLIC_EMAIL}?subject=${encodeURIComponent("WIE Sahrdaya collaboration")}`}
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-black text-[#5f216d] transition hover:-translate-y-0.5 hover:bg-[#f3e6f5] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-black text-[#5f216d] transition duration-300 hover:-translate-y-0.5 hover:bg-[#f3e6f5] hover:shadow-[0_16px_38px_rgba(45,15,55,.22)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white motion-reduce:transform-none"
                 >
                   <Mail className="h-4 w-4" /> Email WIE Sahrdaya
                 </a>
@@ -1031,7 +1116,7 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
                   href={WIE_INSTAGRAM}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/35 px-6 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/35 px-6 py-3 text-sm font-black text-white transition duration-300 hover:-translate-y-0.5 hover:bg-white/10 hover:shadow-[0_16px_38px_rgba(45,15,55,.18)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white motion-reduce:transform-none"
                 >
                   <Instagram className="h-4 w-4" /> Instagram{" "}
                   <ExternalLink className="h-3.5 w-3.5" />
@@ -1041,7 +1126,7 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
                     href={data.society.defaultWhatsappLink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/35 px-6 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/35 px-6 py-3 text-sm font-black text-white transition duration-300 hover:-translate-y-0.5 hover:bg-white/10 hover:shadow-[0_16px_38px_rgba(45,15,55,.18)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white motion-reduce:transform-none"
                   >
                     <HeartHandshake className="h-4 w-4" /> Join the community{" "}
                     <ExternalLink className="h-3.5 w-3.5" />
