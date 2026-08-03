@@ -5,7 +5,7 @@ import { canRegisterForEvent } from "@/lib/event-lifecycle";
 import { logError } from "@/lib/logger";
 
 const PUBLIC_EVENT_FIELDS =
-  "id,created,updated,title,slug,description,date,endDate,venue,price,banner,status,registrationOpen,registrationStart,registrationDeadline,maxCapacity,registeredCount,externalFormUrl,collectIeeeMember,society,expand.society.id,expand.society.name,expand.society.slug,expand.society.logo";
+  "id,created,updated,title,slug,description,date,endDate,venue,price,banner,status,registrationOpen,registrationStart,registrationDeadline,maxCapacity,registeredCount,externalFormUrl,externalLink,collectIeeeMember,society,expand.society.id,expand.society.name,expand.society.slug,expand.society.logo";
 
 export interface SerializableEvent {
   id: string;
@@ -25,6 +25,7 @@ export interface SerializableEvent {
   maxCapacity: number;
   registeredCount: number;
   externalFormUrl?: string;
+  externalLink?: string;
   collectIeeeMember?: boolean;
   society?: { id: string; name: string; slug: string; logoUrl: string };
 }
@@ -77,13 +78,15 @@ function mapPublicEvent(raw: Record<string, unknown>): SerializableEvent {
       date,
       endDate,
       registrationOpen:
-        Boolean(getField(raw, "registrationOpen", false)) || Boolean(externalFormUrl),
+        Boolean(getField(raw, "registrationOpen", false)) ||
+        Boolean(externalFormUrl),
       registrationStart,
       registrationDeadline,
     }),
     maxCapacity: getField(raw, "maxCapacity", 0),
     registeredCount: getField(raw, "registeredCount", 0),
     externalFormUrl,
+    externalLink: getField(raw, "externalLink", "") || undefined,
     collectIeeeMember: Boolean(getField(raw, "collectIeeeMember", false)),
     society,
   };
@@ -105,12 +108,16 @@ export async function fetchEvents(): Promise<SerializableEvent[]> {
   }
 }
 
-export async function fetchEventBySlug(slug: string): Promise<SerializableEvent | null> {
+export async function fetchEventBySlug(
+  slug: string,
+): Promise<SerializableEvent | null> {
   try {
-    const record = await createPublicPB().collection("events").getFirstListItem(
-      `slug = ${escapeFilterValue(slug)} && (status = "published" || status = "completed") && isDeleted != true`,
-      { expand: "society", fields: PUBLIC_EVENT_FIELDS },
-    );
+    const record = await createPublicPB()
+      .collection("events")
+      .getFirstListItem(
+        `slug = ${escapeFilterValue(slug)} && (status = "published" || status = "completed") && isDeleted != true`,
+        { expand: "society", fields: PUBLIC_EVENT_FIELDS },
+      );
     return mapPublicEvent(record);
   } catch {
     return null;

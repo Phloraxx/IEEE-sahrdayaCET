@@ -236,6 +236,10 @@ export default function Navbar({ fifaActive }: NavbarProps) {
         <div
           className={`pointer-events-auto rounded-full px-2 py-1.5 flex items-center gap-1 max-w-[98vw] border transition-colors duration-300 ${pillClass}`}
         >
+          <nav
+            aria-label={inFifa ? "WC Predict navigation" : "Primary navigation"}
+            className="flex min-w-0 items-center"
+          >
           {inFifa ? (
             <>
               <Link
@@ -334,6 +338,7 @@ export default function Navbar({ fifaActive }: NavbarProps) {
               </div>
             </div>
           )}
+          </nav>
 
           <div className={`w-px h-4 mx-1 shrink-0 ${inFifa ? "bg-white/15" : "bg-gray-300"}`} />
           {renderAuth()}
