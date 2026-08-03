@@ -23,23 +23,6 @@ export const meta = () => [
   { name: "twitter:image", content: `${APP_URL}/web.png` },
 ];
 
-const midhunPersonSchema = JSON.stringify({
-  "@context": "https://schema.org",
-  "@type": "Person",
-  name: "Midhun P M",
-  jobTitle: "Technical Coordinator",
-  url: "https://midhunpm.in",
-  image: `${APP_URL}/Execom/midhun-pm/midhun-pm.jpg`,
-  affiliation: {
-    "@type": "Organization",
-    name: "IEEE Sahrdaya Student Branch",
-    url: APP_URL,
-  },
-})
-  .replace(/</g, "\\u003c")
-  .replace(/>/g, "\\u003e")
-  .replace(/&/g, "\\u0026");
-
 export async function loader(): Promise<ExecomMemberDoc[]> {
   try { return await fetchExecomData(); }
   catch (error) { logError("full-execom-loader", error); return []; }
@@ -50,10 +33,6 @@ export default function FullExecomPage() {
   return (
     <>
       <CanonicalLink path="/full-execom" />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: midhunPersonSchema }}
-      />
       <ErrorBoundary>
         <ExecomClient initialDocs={docs} />
       </ErrorBoundary>

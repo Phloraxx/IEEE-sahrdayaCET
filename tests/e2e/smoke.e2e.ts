@@ -17,10 +17,34 @@ test.describe('Public pages smoke', () => {
     expect(response?.ok()).toBeTruthy()
   })
 
-  test('full execom page loads', async ({ page }) => {
+  test('full execom page SSRs PocketBase portfolio links', async ({ page }) => {
     test.setTimeout(60_000)
+
+    const rawResponse = await page.request.get('/full-execom')
+    expect(rawResponse.ok()).toBeTruthy()
+    expect(await rawResponse.text()).toContain(
+      'href="https://example.com/execom-portfolio"',
+    )
+
     const response = await page.goto('/full-execom')
     expect(response?.ok()).toBeTruthy()
+
+    const cardPortfolio = page.getByRole('link', {
+      name: /Visit Portfolio Smoke Member's portfolio/i,
+    })
+    await expect(cardPortfolio).toBeVisible()
+
+    const member = page.getByRole('button', {
+      name: 'View details for Portfolio Smoke Member',
+    })
+    await member.click()
+
+    const dialog = page.getByRole('dialog', { name: 'Portfolio Smoke Member' })
+    const modalPortfolio = dialog.getByRole('link', { name: /portfolio/i })
+    await expect(modalPortfolio).toHaveAttribute(
+      'href',
+      'https://example.com/execom-portfolio',
+    )
   })
 })
 

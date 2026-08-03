@@ -32,6 +32,7 @@ interface ExecomFormState {
   order: string;
   linkedin: string;
   instagram: string;
+  portfolio: string;
   society: string;
   photoFile: File | null;
 }
@@ -46,6 +47,7 @@ const EMPTY_STATE: ExecomFormState = {
   order: "0",
   linkedin: "",
   instagram: "",
+  portfolio: "",
   society: "",
   photoFile: null,
 };
@@ -89,6 +91,7 @@ export function ExecomForm({ mode, memberId }: ExecomFormProps) {
         order: String(m.order ?? "0"),
         linkedin: String(m.linkedin ?? ""),
         instagram: String(m.instagram ?? ""),
+        portfolio: String(m.portfolio ?? ""),
         society: String(m.society ?? ""),
         photoFile: null,
       });
@@ -105,8 +108,9 @@ export function ExecomForm({ mode, memberId }: ExecomFormProps) {
       if (form.section) fd.set("section", form.section);
       if (form.sectionId) fd.set("sectionId", form.sectionId);
       if (form.order) fd.set("order", form.order);
-      if (form.linkedin) fd.set("linkedin", form.linkedin);
-      if (form.instagram) fd.set("instagram", form.instagram);
+      fd.set("linkedin", form.linkedin.trim());
+      fd.set("instagram", form.instagram.trim());
+      fd.set("portfolio", form.portfolio.trim());
       if (form.society) fd.set("society", form.society);
       if (form.photoFile) fd.set("photo", form.photoFile);
 
@@ -298,6 +302,18 @@ export function ExecomForm({ mode, memberId }: ExecomFormProps) {
                     setForm({ ...form, instagram: e.target.value })
                   }
                   placeholder="https://instagram.com/…"
+                />
+              </div>
+              <div className="grid gap-1.5 sm:col-span-2">
+                <Label htmlFor="ex-portfolio">Portfolio</Label>
+                <Input
+                  id="ex-portfolio"
+                  type="url"
+                  value={form.portfolio}
+                  onChange={(e) =>
+                    setForm({ ...form, portfolio: e.target.value })
+                  }
+                  placeholder="https://example.com"
                 />
               </div>
             </div>

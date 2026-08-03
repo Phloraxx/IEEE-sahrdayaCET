@@ -188,11 +188,10 @@ const MemberCard: React.FC<{ member: Member; index: number }> = ({
                 href={member.portfolio}
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="View portfolio"
+                aria-label={`Visit ${member.name}'s portfolio`}
                 className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/40 transition-colors"
               >
                 <Globe2 className="w-3.5 h-3.5 text-white" />
-                <span className="sr-only">Midhun P M portfolio</span>
               </a>
             )}
             <a
