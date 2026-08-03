@@ -215,6 +215,7 @@ migrate((app) => {
       { type: "file", name: "photo", maxSelect: 1, maxSize: 5242880, mimeTypes: ["image/jpeg", "image/png", "image/webp", "image/avif"] },
       { type: "text", name: "linkedin", max: 1000 },
       { type: "text", name: "instagram", max: 1000 },
+      { type: "url", name: "portfolio" },
       { type: "email", name: "email" },
       { type: "text", name: "phone", max: 40 },
       { type: "text", name: "category", max: 100 },

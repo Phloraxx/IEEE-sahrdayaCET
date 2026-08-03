@@ -4,7 +4,7 @@ export async function listAdminExecom() {
   const records = await getPbClient().collection("execom").getFullList({
     sort: "order",
     expand: "society",
-    fields: "id,name,position,department,batch,section,sectionId,order,photo,linkedin,instagram,society,created,updated,expand.society.id,expand.society.name",
+    fields: "id,name,position,department,batch,section,sectionId,order,photo,linkedin,instagram,portfolio,email,phone,society,created,updated,expand.society.id,expand.society.name",
   });
   return {
     members: records.map((record) => ({
@@ -19,6 +19,7 @@ export async function listAdminExecom() {
       photo: String(record.photo || ""),
       linkedin: String(record.linkedin || ""),
       instagram: String(record.instagram || ""),
+      portfolio: String(record.portfolio || ""),
       email: String(record.email || ""),
       phone: String(record.phone || ""),
       society: String(record.society || ""),
@@ -38,7 +39,7 @@ export async function listAdminExecom() {
 export async function getAdminExecomMember(id: string) {
   const member = await getPbClient().collection("execom").getOne(id, {
     expand: "society",
-    fields: "id,name,position,department,batch,section,sectionId,order,photo,linkedin,instagram,email,phone,society,created,updated",
+    fields: "id,name,position,department,batch,section,sectionId,order,photo,linkedin,instagram,portfolio,email,phone,society,created,updated",
   });
   return { member };
 }

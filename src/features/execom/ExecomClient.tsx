@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { Link } from "react-router";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { X, Users } from "lucide-react";
+import { Globe2, X, Users } from "lucide-react";
 import { Linkedin, Instagram } from "@/components/icons";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -21,6 +21,7 @@ export interface ExecomMemberDoc {
   photoUrl?: string;
   linkedin?: string;
   instagram?: string;
+  portfolio?: string;
 }
 
 // ===== TYPES =====
@@ -35,6 +36,7 @@ interface Member {
   photoUrl?: string;
   linkedin?: string;
   instagram?: string;
+  portfolio?: string;
 }
 
 interface ExecomClientProps {
@@ -80,6 +82,7 @@ function docToMember(doc: ExecomMemberDoc): Member {
     photoUrl: doc.photoUrl,
     linkedin: doc.linkedin,
     instagram: doc.instagram,
+    portfolio: doc.portfolio,
   };
 }
 
@@ -91,7 +94,7 @@ const MemberDetailModal: React.FC<{ member: Member; onClose: () => void }> = ({
   const [imgError, setImgError] = useState(false);
   const imageSrc = member.photoUrl || "";
   const hasContactInfo = !!(
-    member.linkedin || member.instagram
+    member.linkedin || member.instagram || member.portfolio
   );
 
   return (
@@ -192,6 +195,18 @@ const MemberDetailModal: React.FC<{ member: Member; onClose: () => void }> = ({
                       <span className="text-sm font-medium">Instagram</span>
                     </a>
                   )}
+                  {member.portfolio && (
+                    <a
+                      href={member.portfolio}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Visit ${member.name}'s portfolio`}
+                      className="flex items-center gap-2 rounded-xl bg-[#00629B] px-4 py-2.5 text-white transition hover:scale-[1.03]"
+                    >
+                      <Globe2 className="h-4 w-4" />
+                      <span className="text-sm font-medium">Portfolio</span>
+                    </a>
+                  )}
                 </div>
               </div>
             )}
@@ -212,38 +227,55 @@ const MemberCard: React.FC<{
   const imageSrc = member.photoUrl || "";
 
   return (
-    <motion.button
-      type="button"
+    <motion.article
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay: Math.min(index * 0.025, 0.4) }}
-      onClick={onClick}
-      className="group rounded-2xl text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00629B] focus-visible:ring-offset-2"
+      className="group rounded-2xl"
     >
-      <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-gray-100">
-        {imageSrc && !imgError ? (
-          <img
-            src={imageSrc}
-            alt={member.name}
-            loading="lazy"
-            onError={() => setImgError(true)}
-            className="absolute inset-0 h-full w-full object-cover object-top transition-transform duration-700 group-hover:scale-[1.04]"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
-            <span className="text-4xl font-light text-gray-300">
-              {initials(member.name)}
-            </span>
-          </div>
-        )}
-      </div>
-      <h3 className="mt-3 text-[15px] font-semibold leading-snug text-gray-900">
-        {member.name}
-      </h3>
-      <p className="mt-0.5 text-[13px] text-gray-500">
-        {member.position || "Member"}
-      </p>
-    </motion.button>
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={`View details for ${member.name}`}
+        className="block w-full rounded-2xl text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00629B] focus-visible:ring-offset-2"
+      >
+        <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-gray-100">
+          {imageSrc && !imgError ? (
+            <img
+              src={imageSrc}
+              alt={member.name}
+              loading="lazy"
+              onError={() => setImgError(true)}
+              className="absolute inset-0 h-full w-full object-cover object-top transition-transform duration-700 group-hover:scale-[1.04]"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+              <span className="text-4xl font-light text-gray-300">
+                {initials(member.name)}
+              </span>
+            </div>
+          )}
+        </div>
+        <h3 className="mt-3 text-[15px] font-semibold leading-snug text-gray-900">
+          {member.name}
+        </h3>
+        <p className="mt-0.5 text-[13px] text-gray-500">
+          {member.position || "Member"}
+        </p>
+      </button>
+      {member.portfolio && (
+        <a
+          href={member.portfolio}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`Visit ${member.name}'s portfolio`}
+          className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-[#00629B] underline-offset-4 transition hover:underline"
+        >
+          <Globe2 className="h-3.5 w-3.5" />
+          Portfolio
+        </a>
+      )}
+    </motion.article>
   );
 });
 MemberCard.displayName = "MemberCard";
@@ -272,14 +304,29 @@ const FilterPill: React.FC<{
 // ===== MAIN =====
 const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
   const [docs] = useState(initialDocs);
-  const [activeFilter, setActiveFilter] = useState<string>("core");
-  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
-  // Sections actually present, in canonical order → drives the filter pills.
+  // Keep known sections in the preferred order, then append any new section IDs
+  // from PocketBase so records never disappear behind a frontend-only allowlist.
   const presentSections = useMemo(() => {
-    const present = new Set(docs.map((d) => d.sectionId));
-    return SECTION_ORDER.filter((id) => present.has(id));
+    const remaining = new Set(
+      docs.map((doc) => doc.sectionId.trim()).filter(Boolean),
+    );
+    const ordered = SECTION_ORDER.filter((id) => remaining.delete(id));
+    return [...ordered, ...Array.from(remaining).sort()];
   }, [docs]);
+
+  const [activeFilter, setActiveFilter] = useState<string>(() => {
+    const initialSections = new Set(
+      initialDocs.map((doc) => doc.sectionId.trim()).filter(Boolean),
+    );
+    if (initialSections.has("core")) return "core";
+    return (
+      SECTION_ORDER.find((id) => initialSections.has(id)) ??
+      Array.from(initialSections).sort()[0] ??
+      ""
+    );
+  });
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
   const members = useMemo(
     () =>

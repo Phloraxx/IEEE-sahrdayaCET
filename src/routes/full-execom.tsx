@@ -33,9 +33,9 @@ export default function FullExecomPage() {
   return (
     <>
       <CanonicalLink path="/full-execom" />
-    <ErrorBoundary>
-      <ExecomClient initialDocs={docs} />
-    </ErrorBoundary>
+      <ErrorBoundary>
+        <ExecomClient initialDocs={docs} />
+      </ErrorBoundary>
     </>
   );
 }

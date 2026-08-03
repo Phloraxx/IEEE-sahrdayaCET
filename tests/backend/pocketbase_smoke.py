@@ -332,11 +332,13 @@ assert updated_event["checkedInCount"] == 1
 
 # Public execom records hide private contact fields at the PocketBase boundary.
 execom = request("POST", "/api/collections/execom/records", {
-    "name": f"Private Contact {suffix}", "position": "Tester", "order": 999,
-    "section": "Student Branch", "sectionId": "student-branch",
+    "name": "Portfolio Smoke Member", "position": "Tester", "order": 999,
+    "section": "Portfolio Test", "sectionId": "portfolio-test",
+    "portfolio": "https://example.com/execom-portfolio",
     "email": f"private-{suffix}@example.test", "phone": "9999999999",
 }, super_token)
 public_execom = request("GET", f"/api/collections/execom/records/{execom['id']}")
+assert public_execom["portfolio"] == "https://example.com/execom-portfolio"
 assert not public_execom.get("email") and not public_execom.get("phone")
 private_execom = request("GET", f"/api/collections/execom/records/{execom['id']}", token=super_token)
 assert private_execom["email"] == execom["email"] and private_execom["phone"] == "9999999999"
