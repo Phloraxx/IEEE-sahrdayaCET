@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router";
-import { Users, ArrowUpRight, Mail, Phone } from "lucide-react";
+import { Users, ArrowUpRight, Globe2, Mail, Phone } from "lucide-react";
 import { Linkedin } from "@/components/icons";
 
 /* ── Member type ── */
@@ -11,6 +11,7 @@ interface Member {
   tagline: string;
   image: string;
   linkedin?: string;
+  portfolio?: string;
   email?: string;
   phone?: string;
 }
@@ -76,6 +77,7 @@ const execomMembers: Member[] = [
     role: "Technical Coordinator",
     tagline: "TECH WIZARD",
     image: "/Execom/midhun-pm/midhun-pm.jpg",
+    portfolio: "https://midhunpm.in",
   },
   {
     name: "Angelina Victor",
@@ -181,6 +183,18 @@ const MemberCard: React.FC<{ member: Member; index: number }> = ({
             >
               <Linkedin className="w-3.5 h-3.5 text-white" />
             </a>
+            {member.portfolio && (
+              <a
+                href={member.portfolio}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="View portfolio"
+                className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/40 transition-colors"
+              >
+                <Globe2 className="w-3.5 h-3.5 text-white" />
+                <span className="sr-only">Midhun P M portfolio</span>
+              </a>
+            )}
             <a
               href={member.email ? `mailto:${member.email}` : "#"}
               onClick={(e) => !member.email && e.preventDefault()}

@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { Link } from "react-router";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { X, Users } from "lucide-react";
+import { Globe2, X, Users } from "lucide-react";
 import { Linkedin, Instagram } from "@/components/icons";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -21,6 +21,7 @@ export interface ExecomMemberDoc {
   photoUrl?: string;
   linkedin?: string;
   instagram?: string;
+  portfolio?: string;
 }
 
 // ===== TYPES =====
@@ -35,6 +36,7 @@ interface Member {
   photoUrl?: string;
   linkedin?: string;
   instagram?: string;
+  portfolio?: string;
 }
 
 interface ExecomClientProps {
@@ -58,6 +60,19 @@ const SECTION_LABEL: Record<string, string> = {
 };
 
 const IEEE_BLUE = "#00629B";
+const PORTFOLIO_BY_MEMBER_NAME: Record<string, string> = {
+  midhunpm: "https://midhunpm.in",
+};
+
+function portfolioForMember(name: string): string | undefined {
+  return PORTFOLIO_BY_MEMBER_NAME[name.replace(/[^a-z0-9]/gi, "").toLowerCase()];
+}
+
+function displayNameForMember(name: string): string {
+  return name.replace(/[^a-z0-9]/gi, "").toLowerCase() === "midhunpm"
+    ? "Midhun P M"
+    : name;
+}
 
 function initials(name: string): string {
   return name
@@ -72,7 +87,7 @@ function docToMember(doc: ExecomMemberDoc): Member {
   return {
     id: doc.id,
     slNo: doc.slNo,
-    name: doc.name,
+    name: displayNameForMember(doc.name),
     department: doc.department,
     semester: doc.semester,
     position: doc.position,
@@ -80,6 +95,7 @@ function docToMember(doc: ExecomMemberDoc): Member {
     photoUrl: doc.photoUrl,
     linkedin: doc.linkedin,
     instagram: doc.instagram,
+    portfolio: portfolioForMember(doc.name),
   };
 }
 
@@ -91,7 +107,7 @@ const MemberDetailModal: React.FC<{ member: Member; onClose: () => void }> = ({
   const [imgError, setImgError] = useState(false);
   const imageSrc = member.photoUrl || "";
   const hasContactInfo = !!(
-    member.linkedin || member.instagram
+    member.linkedin || member.instagram || member.portfolio
   );
 
   return (
@@ -190,6 +206,17 @@ const MemberDetailModal: React.FC<{ member: Member; onClose: () => void }> = ({
                     >
                       <Instagram className="h-4 w-4" />
                       <span className="text-sm font-medium">Instagram</span>
+                    </a>
+                  )}
+                  {member.portfolio && (
+                    <a
+                      href={member.portfolio}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 rounded-xl bg-[#00629B] px-4 py-2.5 text-white transition hover:scale-[1.03]"
+                    >
+                      <Globe2 className="h-4 w-4" />
+                      <span className="text-sm font-medium">Portfolio</span>
                     </a>
                   )}
                 </div>
