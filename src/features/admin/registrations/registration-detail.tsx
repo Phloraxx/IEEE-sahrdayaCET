@@ -2,7 +2,7 @@ import { Fragment } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { getAdminRegistration, runRegistrationAdminCommand } from "@/lib/data/admin-registrations.client";
-import { Loader2, Mail, Phone, Ticket, UserCheck } from "lucide-react";
+import { CreditCard, Loader2, Mail, Phone, Ticket, TriangleAlert, UserCheck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ConfirmButton } from "@/components/admin/confirm-button";
@@ -28,9 +28,47 @@ interface RegistrationDetail {
   eventId: string;
 }
 
+interface PayGateAdminData {
+  provider: string;
+  providerStatus: string;
+  paymentId: string;
+  requestedAmountPaise: number;
+  payableAmountPaise: number;
+  payableAmount: string;
+  expiresAt: string;
+  paidAt: string;
+  manualReview: boolean;
+  reviewReason: string;
+}
+
 function formatDate(d: string | null): string {
   return d ? formatDateTime(d) || d : "—";
 }
+
+function paymentDataValue(data: Record<string, unknown> | null, key: string): unknown {
+  return data && typeof data === "object" ? data[key] : undefined;
+}
+
+function getPayGateAdminData(data: Record<string, unknown> | null): PayGateAdminData | null {
+  if (String(paymentDataValue(data, "provider") || "") !== "paygate") return null;
+  return {
+    provider: "paygate",
+    providerStatus: String(paymentDataValue(data, "providerStatus") || "not_initialized"),
+    paymentId: String(paymentDataValue(data, "paymentId") || ""),
+    requestedAmountPaise: Number(paymentDataValue(data, "requestedAmountPaise")) || 0,
+    payableAmountPaise: Number(paymentDataValue(data, "payableAmountPaise")) || 0,
+    payableAmount: String(paymentDataValue(data, "payableAmount") || ""),
+    expiresAt: String(paymentDataValue(data, "expiresAt") || ""),
+    paidAt: String(paymentDataValue(data, "paidAt") || ""),
+    manualReview: paymentDataValue(data, "manualReview") === true,
+    reviewReason: String(paymentDataValue(data, "reviewReason") || ""),
+  };
+}
+
+function formatPaise(value: number): string {
+  return Number.isFinite(value) && value > 0 ? `₹${(value / 100).toFixed(2)}` : "—";
+}
+
 interface RegistrationDetailProps {
   registrationId: string;
 }
@@ -67,7 +105,7 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
       });
       queryClient.invalidateQueries({ queryKey: ["admin-registrations"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
-      navigate("/admin/registrations" );
+      navigate("/admin/registrations");
     },
   });
 
@@ -100,8 +138,27 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
     );
   }
 
+  const payGate = getPayGateAdminData(reg.paymentData);
+
   return (
     <div className="grid gap-6">
+      {payGate?.manualReview && (
+        <Card className="border-amber-300 bg-amber-50/70">
+          <CardContent className="flex gap-3 p-5 text-amber-950">
+            <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+            <div>
+              <p className="font-semibold">PayGate payment needs manual review</p>
+              <p className="mt-1 text-sm leading-6 text-amber-800">
+                {payGate.reviewReason || "PayGate detected payment evidence that was not safe to auto-confirm."}
+              </p>
+              <p className="mt-2 text-xs leading-5 text-amber-700">
+                This registration remains cancelled so a released seat is never silently reassigned. Review the PayGate operator evidence before deciding on any refund or offline resolution.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Identity + actions */}
       <Card>
         <CardContent className="grid gap-4 p-6 md:flex md:items-start md:justify-between">
@@ -193,13 +250,42 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
         </Card>
       </div>
 
+      {payGate && (
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2">
+              <CreditCard className="h-4 w-4 text-primary" />
+              <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                PayGate
+              </p>
+            </div>
+            <dl className="mt-4 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-[max-content_1fr_max-content_1fr]">
+              <dt className="text-muted-foreground">Provider status</dt>
+              <dd className="font-medium text-foreground">{payGate.providerStatus}</dd>
+              <dt className="text-muted-foreground">Payment ID</dt>
+              <dd className="break-all font-mono text-xs text-foreground">{payGate.paymentId || "—"}</dd>
+              <dt className="text-muted-foreground">Registration amount</dt>
+              <dd className="font-mono tabular-nums text-foreground">{formatPaise(payGate.requestedAmountPaise)}</dd>
+              <dt className="text-muted-foreground">Exact payable</dt>
+              <dd className="font-mono tabular-nums text-foreground">
+                {payGate.payableAmount ? `₹${payGate.payableAmount}` : formatPaise(payGate.payableAmountPaise)}
+              </dd>
+              <dt className="text-muted-foreground">Expires</dt>
+              <dd className="font-mono text-xs text-foreground">{formatDate(payGate.expiresAt || null)}</dd>
+              <dt className="text-muted-foreground">Paid at</dt>
+              <dd className="font-mono text-xs text-foreground">{formatDate(payGate.paidAt || null)}</dd>
+            </dl>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Money block */}
       {(reg.amount > 0 || reg.couponCode) && (
         <div className="grid gap-4 sm:grid-cols-2">
           <Card>
             <CardContent className="p-5">
               <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                Amount paid
+                Registration fee
               </p>
               <p className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-foreground">
                 {reg.amount > 0 ? `₹${reg.amount}` : "—"}
