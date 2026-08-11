@@ -19,6 +19,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/lib/auth-context";
 import { downloadQR, generateQRDataUrl } from "@/lib/qr-utils";
+import { getUpiId, toPersonalUpiUri } from "@/lib/upi";
 import {
   createOrResumePayment,
   getPaymentSession,
@@ -53,15 +54,6 @@ function paymentErrorMessage(error: unknown): string {
   return error instanceof Error && error.message
     ? error.message
     : "Unable to load the payment right now.";
-}
-
-function upiIdFromUri(uri: string): string {
-  if (!uri) return "";
-  try {
-    return new URL(uri).searchParams.get("pa") || "";
-  } catch {
-    return "";
-  }
 }
 
 export default function PaymentPage({ registrationId }: PageProps) {
@@ -111,19 +103,24 @@ export default function PaymentPage({ registrationId }: PageProps) {
     void startPayment();
   }, [authStatus, startPayment]);
 
+  const personalUpiUri = useMemo(
+    () => toPersonalUpiUri(session?.upiUri || ""),
+    [session?.upiUri],
+  );
+
   useEffect(() => {
-    if (!session?.upiUri) {
+    if (!personalUpiUri) {
       setQrDataUrl(null);
       return;
     }
     let active = true;
-    void generateQRDataUrl(session.upiUri, { width: 720, margin: 2 }).then((dataUrl) => {
+    void generateQRDataUrl(personalUpiUri, { width: 720, margin: 2 }).then((dataUrl) => {
       if (active) setQrDataUrl(dataUrl);
     });
     return () => {
       active = false;
     };
-  }, [session?.upiUri]);
+  }, [personalUpiUri]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -164,7 +161,7 @@ export default function PaymentPage({ registrationId }: PageProps) {
     ? Math.max(0, Math.ceil((expiresAtMs - now) / 1000))
     : 0;
   const locallyExpired = Number.isFinite(expiresAtMs) && secondsLeft <= 0;
-  const upiId = useMemo(() => upiIdFromUri(session?.upiUri || ""), [session?.upiUri]);
+  const upiId = useMemo(() => getUpiId(session?.upiUri || "") || "", [session?.upiUri]);
   const requestedPaise = session?.requestedAmountPaise || (session?.amount || 0) * 100;
   const payablePaise = session?.payableAmountPaise || 0;
   const adjustmentPaise = Math.max(0, payablePaise - requestedPaise);
@@ -374,20 +371,28 @@ export default function PaymentPage({ registrationId }: PageProps) {
                   </button>
                 </div>
 
-                {qrDataUrl ? (
-                  <div className="mx-auto mt-7 w-full max-w-[290px] rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-                    <img src={qrDataUrl} alt={`UPI QR to pay ${exactAmount ? `₹${exactAmount}` : formatPaise(payablePaise)}`} className="aspect-square w-full" />
-                  </div>
+                {personalUpiUri ? (
+                  qrDataUrl ? (
+                    <div className="mx-auto mt-7 w-full max-w-[290px] rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+                      <img src={qrDataUrl} alt={`UPI QR to pay ${exactAmount ? `₹${exactAmount}` : formatPaise(payablePaise)}`} className="aspect-square w-full" />
+                    </div>
+                  ) : (
+                    <div className="mx-auto mt-7 flex aspect-square w-full max-w-[290px] items-center justify-center rounded-3xl border border-dashed border-gray-300 bg-gray-50">
+                      <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+                    </div>
+                  )
                 ) : (
-                  <div className="mx-auto mt-7 flex aspect-square w-full max-w-[290px] items-center justify-center rounded-3xl border border-dashed border-gray-300 bg-gray-50">
-                    <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+                  <div className="mt-7 rounded-2xl border border-red-200 bg-red-50 p-5 text-center">
+                    <TriangleAlert className="w-8 h-8 text-red-600 mx-auto" />
+                    <p className="mt-3 font-semibold text-red-900">UPI QR unavailable</p>
+                    <p className="mt-1 text-sm leading-6 text-red-700">The payment session did not contain a usable personal-account UPI link. Do not send money manually; refresh the payment or contact an organizer.</p>
                   </div>
                 )}
 
                 <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                  {session.upiUri && (
+                  {personalUpiUri && (
                     <a
-                      href={session.upiUri}
+                      href={personalUpiUri}
                       className="inline-flex items-center justify-center gap-2 rounded-xl bg-ieee-blue px-4 py-3 font-semibold text-white transition hover:bg-blue-700"
                     >
                       Open UPI app
