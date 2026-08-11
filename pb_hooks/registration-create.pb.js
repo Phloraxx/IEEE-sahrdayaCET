@@ -4,8 +4,41 @@
 // reservation, registration creation, ticket/payment state and counters are
 // committed in a single SQLite transaction.
 //
-// Active registrations are returned idempotently. This lets a browser recover
-// from a lost HTTP response without reserving a second seat or coupon use.
+// An identical active registration request is replayed idempotently. A changed
+// request for an already-registered user is still rejected, so retry recovery
+// cannot silently overwrite attendee answers or coupon choices.
+
+function registrationCanonicalJson(value) {
+  if (value === null || value === undefined) return "null"
+  if (typeof value === "string") return JSON.stringify(value)
+  if (typeof value === "number" || typeof value === "boolean") return JSON.stringify(value)
+  if (Array.isArray(value)) {
+    var items = []
+    for (var ai = 0; ai < value.length; ai++) items.push(registrationCanonicalJson(value[ai]))
+    return "[" + items.join(",") + "]"
+  }
+  if (typeof value === "object") {
+    var keys = Object.keys(value).sort()
+    var fields = []
+    for (var oi = 0; oi < keys.length; oi++) {
+      var key = keys[oi]
+      fields.push(JSON.stringify(key) + ":" + registrationCanonicalJson(value[key]))
+    }
+    return "{" + fields.join(",") + "}"
+  }
+  return JSON.stringify(String(value))
+}
+
+function registrationJsonEqual(left, right) {
+  if (typeof left === "string") {
+    try { left = JSON.parse(left) } catch (_) {}
+  }
+  if (typeof right === "string") {
+    try { right = JSON.parse(right) } catch (_) {}
+  }
+  return registrationCanonicalJson(left) === registrationCanonicalJson(right)
+}
+
 routerAdd(
   "POST",
   "/api/app/events/{id}/register",
@@ -39,10 +72,9 @@ routerAdd(
           throw new BadRequestError("Event is not available for registration")
         }
 
-        // Registration creation is idempotent for an existing active record.
-        // This check intentionally runs before registration-window validation so
-        // a user can recover a previously created registration even if the event
-        // closes between the original request and the retry.
+        // Retry recovery intentionally runs before registration-window checks:
+        // an identical request may recover its previously committed response
+        // even if the event closes between the first response and the retry.
         var duplicates = txApp.findRecordsByFilter(
           "registrations",
           "user = {:userId} && event = {:eventId} && registrationStatus != {:cancelled}",
@@ -51,6 +83,12 @@ routerAdd(
         )
         if (duplicates.length) {
           var existing = duplicates[0]
+          var sameCoupon = (existing.getString("couponCode") || "") === couponCode
+          var sameResponses = registrationJsonEqual(existing.get("formResponses"), responses)
+          if (!sameCoupon || !sameResponses) {
+            throw new BadRequestError("You are already registered for this event")
+          }
+
           var existingNeedsPayment =
             existing.getString("registrationStatus") === "pending" &&
             existing.getString("paymentStatus") === "pending" &&
