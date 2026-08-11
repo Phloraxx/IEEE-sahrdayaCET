@@ -4,9 +4,10 @@
 // reservation, registration creation, ticket/payment state and counters are
 // committed in a single SQLite transaction.
 //
-// An identical active registration request is replayed idempotently. A changed
-// request for an already-registered user is still rejected, so retry recovery
-// cannot silently overwrite attendee answers or coupon choices.
+// A non-conflicting retry of an active registration is replayed idempotently.
+// Any value the retry supplies must match the stored record; omitted optional
+// answers do not overwrite anything. Changed answers or coupon choices remain
+// rejected for an already-registered user.
 
 function registrationCanonicalJson(value) {
   if (value === null || value === undefined) return "null"
@@ -29,14 +30,25 @@ function registrationCanonicalJson(value) {
   return JSON.stringify(String(value))
 }
 
-function registrationJsonEqual(left, right) {
-  if (typeof left === "string") {
-    try { left = JSON.parse(left) } catch (_) {}
+function registrationJsonObject(value) {
+  if (typeof value === "string") {
+    try { value = JSON.parse(value) } catch (_) { return {} }
   }
-  if (typeof right === "string") {
-    try { right = JSON.parse(right) } catch (_) {}
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {}
+  return value
+}
+
+function registrationReplayCompatible(stored, incoming) {
+  stored = registrationJsonObject(stored)
+  incoming = registrationJsonObject(incoming)
+  var keys = Object.keys(incoming)
+  for (var i = 0; i < keys.length; i++) {
+    var key = keys[i]
+    if (registrationCanonicalJson(stored[key]) !== registrationCanonicalJson(incoming[key])) {
+      return false
+    }
   }
-  return registrationCanonicalJson(left) === registrationCanonicalJson(right)
+  return true
 }
 
 routerAdd(
@@ -73,8 +85,8 @@ routerAdd(
         }
 
         // Retry recovery intentionally runs before registration-window checks:
-        // an identical request may recover its previously committed response
-        // even if the event closes between the first response and the retry.
+        // a compatible retry may recover its previously committed response even
+        // if the event closes between the first response and the retry.
         var duplicates = txApp.findRecordsByFilter(
           "registrations",
           "user = {:userId} && event = {:eventId} && registrationStatus != {:cancelled}",
@@ -84,8 +96,8 @@ routerAdd(
         if (duplicates.length) {
           var existing = duplicates[0]
           var sameCoupon = (existing.getString("couponCode") || "") === couponCode
-          var sameResponses = registrationJsonEqual(existing.get("formResponses"), responses)
-          if (!sameCoupon || !sameResponses) {
+          var compatibleResponses = registrationReplayCompatible(existing.get("formResponses"), responses)
+          if (!sameCoupon || !compatibleResponses) {
             throw new BadRequestError("You are already registered for this event")
           }
 
