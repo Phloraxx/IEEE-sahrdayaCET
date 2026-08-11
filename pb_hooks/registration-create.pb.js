@@ -3,6 +3,12 @@
 // Registration is a command, not ordinary collection CRUD. Capacity, coupon
 // reservation, registration creation, ticket/payment state and counters are
 // committed in a single SQLite transaction.
+//
+// A non-conflicting retry of an active registration is replayed idempotently.
+// Any value the retry supplies must match the stored record; omitted optional
+// answers do not overwrite anything. Changed answers or coupon choices remain
+// rejected for an already-registered user.
+
 routerAdd(
   "POST",
   "/api/app/events/{id}/register",
@@ -10,6 +16,11 @@ routerAdd(
     var auth = e.auth
     if (!auth || !auth.id) return e.json(401, { error: "Authentication required" })
 
+    // PocketBase 0.39 serializes route handlers into isolated JSVM scopes, so
+    // shared helper functions must be required inside the handler.
+    var rh = require(__hooks + "/registration-helpers.js")
+    var pg = require(__hooks + "/paygate-helpers.js")
+    var payGateConfig = pg.getConfig()
     var eventId = e.request.pathValue("id")
     var body = {}
     try { body = e.requestInfo().body || {} } catch (_) { body = {} }
@@ -21,6 +32,9 @@ routerAdd(
     var couponCode = String(body.couponCode || "").trim()
 
     var payload = null
+    var responseStatus = 201
+    var paymentUnavailable = false
+
     try {
       $app.runInTransaction(function (txApp) {
         var event
@@ -30,6 +44,44 @@ routerAdd(
         if (event.getBool("isDeleted") || event.getString("status") !== "published") {
           throw new BadRequestError("Event is not available for registration")
         }
+
+        // Retry recovery intentionally runs before registration-window checks:
+        // a compatible retry may recover its previously committed response even
+        // if the event closes between the first response and the retry.
+        var duplicates = txApp.findRecordsByFilter(
+          "registrations",
+          "user = {:userId} && event = {:eventId} && registrationStatus != {:cancelled}",
+          "", 1, 0,
+          { userId: auth.id, eventId: eventId, cancelled: "cancelled" }
+        )
+        if (duplicates.length) {
+          var existing = duplicates[0]
+          var sameCoupon = (existing.getString("couponCode") || "") === couponCode
+          var compatibleResponses = rh.registrationReplayCompatible(existing.get("formResponses"), responses)
+          if (!sameCoupon || !compatibleResponses) {
+            throw new BadRequestError("You are already registered for this event")
+          }
+
+          var existingNeedsPayment =
+            existing.getString("registrationStatus") === "pending" &&
+            existing.getString("paymentStatus") === "pending" &&
+            (existing.getInt("amount") || 0) > 0
+
+          payload = {
+            registrationId: existing.id,
+            ticketId: existingNeedsPayment
+              ? existing.getString("paymentTicketId")
+              : existing.getString("ticketId"),
+            paymentRequired: existingNeedsPayment,
+            amount: existing.getInt("amount") || 0,
+            registrationStatus: existing.getString("registrationStatus"),
+            paymentStatus: existing.getString("paymentStatus"),
+            reused: true,
+          }
+          responseStatus = 200
+          return
+        }
+
         if (!event.getBool("registrationOpen")) {
           throw new BadRequestError("Registration is closed for this event")
         }
@@ -75,16 +127,6 @@ routerAdd(
           }
         }
 
-        // A cancelled registration may be recreated; any active registration
-        // for this user/event blocks another seat reservation.
-        var duplicates = txApp.findRecordsByFilter(
-          "registrations",
-          "user = {:userId} && event = {:eventId} && registrationStatus != {:cancelled}",
-          "", 1, 0,
-          { userId: auth.id, eventId: eventId, cancelled: "cancelled" }
-        )
-        if (duplicates.length) throw new BadRequestError("You are already registered for this event")
-
         var activeRegs = txApp.findRecordsByFilter(
           "registrations",
           "event = {:eventId} && registrationStatus != {:cancelled}",
@@ -128,6 +170,11 @@ routerAdd(
         }
 
         var needsPayment = finalAmount > 0
+        if (needsPayment && !pg.paymentConfigured(payGateConfig)) {
+          paymentUnavailable = true
+          throw new Error("PAYGATE_NOT_CONFIGURED")
+        }
+
         var collection = txApp.findCollectionByNameOrId("registrations")
         var registration = new Record(collection, {
           user: auth.id,
@@ -144,6 +191,9 @@ routerAdd(
           registrationDate: now.toISOString(),
           ticketId: needsPayment ? "" : "TKT-" + $security.randomString(16),
           paymentTicketId: needsPayment ? $security.randomString(32) : "",
+          paymentData: needsPayment
+            ? { provider: pg.PAYGATE_PROVIDER, providerStatus: "not_initialized", manualReview: false }
+            : null,
           checkedIn: false,
           checkedInAt: "",
         })
@@ -179,14 +229,21 @@ routerAdd(
           amount: finalAmount,
           registrationStatus: registration.getString("registrationStatus"),
           paymentStatus: registration.getString("paymentStatus"),
+          reused: false,
         }
       })
     } catch (err) {
+      if (paymentUnavailable) {
+        return e.json(503, {
+          code: "PAYGATE_NOT_CONFIGURED",
+          error: "Online payment is temporarily unavailable for paid events",
+        })
+      }
       var message = err && err.message ? String(err.message) : String(err)
       return e.json(400, { error: message })
     }
 
-    return e.json(201, payload)
+    return e.json(responseStatus, payload)
   },
   $apis.requireAuth("users")
 )

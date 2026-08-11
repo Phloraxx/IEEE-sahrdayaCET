@@ -14,6 +14,7 @@ export default [
   route("societies/:slug", "routes/societies_.$slug.tsx"),
   route("full-execom", "routes/full-execom.tsx"),
   route("register/:eventId", "routes/register.$eventId.tsx"),
+  route("payment/:registrationId", "routes/payment.$registrationId.tsx"),
   route("ticket/:ticketId", "routes/ticket.$ticketId.tsx"),
 
   route("FIFA", "routes/FIFA/index.tsx"),

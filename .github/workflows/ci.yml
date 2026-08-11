@@ -50,9 +50,15 @@ jobs:
       - name: Start fresh PocketBase
         run: |
           docker run -d --name ieee-pocketbase-ci \
+            --add-host=host.docker.internal:host-gateway \
             -p 127.0.0.1:8090:8090 \
             -e PB_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef' \
             -e PAYMENT_WEBHOOK_SECRET='CI-Payment-Webhook-2026!' \
+            -e PAYGATE_URL='http://host.docker.internal:18080' \
+            -e PAYGATE_API_KEY='CI-PayGate-Api-Key-2026!!!!' \
+            -e PAYGATE_WEBHOOK_SECRET='CI-PayGate-Webhook-2026!!!!' \
+            -e PAYGATE_REGISTRATION_GRACE_SECONDS='600' \
+            -e PAYGATE_WEBHOOK_TOLERANCE_SECONDS='300' \
             ieee-pocketbase-ci
           for i in {1..60}; do
             curl -fsS http://127.0.0.1:8090/api/health >/dev/null && exit 0
@@ -71,6 +77,22 @@ jobs:
           PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
           PAYMENT_WEBHOOK_SECRET: CI-Payment-Webhook-2026!
         run: python3 tests/backend/pocketbase_smoke.py
+      - name: Exercise PayGate integration
+        env:
+          PB_BASE_URL: http://127.0.0.1:8090
+          PB_SUPERUSER_EMAIL: ci-super@example.test
+          PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
+          PAYGATE_API_KEY: CI-PayGate-Api-Key-2026!!!!
+          PAYGATE_WEBHOOK_SECRET: CI-PayGate-Webhook-2026!!!!
+          PAYGATE_FAKE_PORT: "18080"
+        run: python3 tests/backend/paygate_smoke.py
+      - name: Exercise PayGate cancellation edges
+        env:
+          PB_BASE_URL: http://127.0.0.1:8090
+          PB_SUPERUSER_EMAIL: ci-super@example.test
+          PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
+          PAYGATE_WEBHOOK_SECRET: CI-PayGate-Webhook-2026!!!!
+        run: python3 tests/backend/paygate_edge_smoke.py
       - name: Install Playwright Chromium
         run: bunx playwright install --with-deps chromium
       - name: Browser E2E
