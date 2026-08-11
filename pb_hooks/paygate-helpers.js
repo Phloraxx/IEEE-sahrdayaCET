@@ -302,6 +302,9 @@ function cancelRegistration(registration, payment, eventId, reason, manualReview
 function applyProviderState(registration, payment, eventType, eventId) {
     var data = asObject(registration.get("paymentData"))
     var expectedPaise = expectedRequestedPaise(registration.getInt("amount") || 0)
+    if (eventType !== "payment." + String(payment.status || "")) {
+        return { action: "error", error: "PayGate event type does not match payment status" }
+    }
     var transition = resolveProviderTransition({
         eventType: eventType,
         registrationStatus: registration.getString("registrationStatus"),
@@ -311,6 +314,18 @@ function applyProviderState(registration, payment, eventType, eventId) {
     })
 
     if (transition.action === "error") return transition
+
+    // A noop is intentionally non-mutating for provider state. This prevents a
+    // stale/out-of-order terminal event from regressing a confirmed payment.
+    // We still remember a webhook event ID so valid retries remain idempotent.
+    if (transition.action === "noop") {
+        if (eventId) {
+            var noopData = appendEventId(data, eventId)
+            registration.set("paymentData", noopData)
+            $app.saveNoValidate(registration)
+        }
+        return transition
+    }
 
     if (transition.action === "confirm") {
         confirmRegistration(registration, payment, eventId)
