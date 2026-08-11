@@ -226,14 +226,19 @@ request("PUT", f"/api/app/events/{event['id']}/coupons", {"coupons": [{
 }]}, admin_token)
 request("PUT", f"/api/app/events/{event['id']}/coupons", {"coupons": []}, admin_token)
 
-# Registration command reserves exactly one seat and rejects duplicate/capacity races.
+# Registration command reserves exactly one seat. Replaying the same user's
+# command is idempotent and returns the original record instead of consuming a
+# second seat; another user is still rejected by capacity.
 registration = request("POST", f"/api/app/events/{event['id']}/register", {
     "formResponses": {"name": "Member", "email": user["email"], "phone": "123"},
 }, user_token)
 assert registration["registrationStatus"] == "confirmed" and registration["ticketId"]
-request("POST", f"/api/app/events/{event['id']}/register", {
+replayed_registration = request("POST", f"/api/app/events/{event['id']}/register", {
     "formResponses": {"name": "Member", "email": user["email"]},
-}, user_token, (400,))
+}, user_token, (200,))
+assert replayed_registration.get("reused") is True
+assert replayed_registration["registrationId"] == registration["registrationId"]
+assert replayed_registration["ticketId"] == registration["ticketId"]
 request("POST", f"/api/app/events/{event['id']}/register", {
     "formResponses": {"name": "Member Two", "email": second_user["email"]},
 }, second_token, (400,))
