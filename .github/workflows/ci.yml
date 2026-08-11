@@ -86,6 +86,13 @@ jobs:
           PAYGATE_WEBHOOK_SECRET: CI-PayGate-Webhook-2026!!!!
           PAYGATE_FAKE_PORT: "18080"
         run: python3 tests/backend/paygate_smoke.py
+      - name: Exercise PayGate cancellation edges
+        env:
+          PB_BASE_URL: http://127.0.0.1:8090
+          PB_SUPERUSER_EMAIL: ci-super@example.test
+          PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
+          PAYGATE_WEBHOOK_SECRET: CI-PayGate-Webhook-2026!!!!
+        run: python3 tests/backend/paygate_edge_smoke.py
       - name: Install Playwright Chromium
         run: bunx playwright install --with-deps chromium
       - name: Browser E2E
