@@ -9,48 +9,6 @@
 // answers do not overwrite anything. Changed answers or coupon choices remain
 // rejected for an already-registered user.
 
-function registrationCanonicalJson(value) {
-  if (value === null || value === undefined) return "null"
-  if (typeof value === "string") return JSON.stringify(value)
-  if (typeof value === "number" || typeof value === "boolean") return JSON.stringify(value)
-  if (Array.isArray(value)) {
-    var items = []
-    for (var ai = 0; ai < value.length; ai++) items.push(registrationCanonicalJson(value[ai]))
-    return "[" + items.join(",") + "]"
-  }
-  if (typeof value === "object") {
-    var keys = Object.keys(value).sort()
-    var fields = []
-    for (var oi = 0; oi < keys.length; oi++) {
-      var key = keys[oi]
-      fields.push(JSON.stringify(key) + ":" + registrationCanonicalJson(value[key]))
-    }
-    return "{" + fields.join(",") + "}"
-  }
-  return JSON.stringify(String(value))
-}
-
-function registrationJsonObject(value) {
-  if (typeof value === "string") {
-    try { value = JSON.parse(value) } catch (_) { return {} }
-  }
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {}
-  return value
-}
-
-function registrationReplayCompatible(stored, incoming) {
-  stored = registrationJsonObject(stored)
-  incoming = registrationJsonObject(incoming)
-  var keys = Object.keys(incoming)
-  for (var i = 0; i < keys.length; i++) {
-    var key = keys[i]
-    if (registrationCanonicalJson(stored[key]) !== registrationCanonicalJson(incoming[key])) {
-      return false
-    }
-  }
-  return true
-}
-
 routerAdd(
   "POST",
   "/api/app/events/{id}/register",
@@ -58,6 +16,9 @@ routerAdd(
     var auth = e.auth
     if (!auth || !auth.id) return e.json(401, { error: "Authentication required" })
 
+    // PocketBase 0.39 serializes route handlers into isolated JSVM scopes, so
+    // shared helper functions must be required inside the handler.
+    var rh = require(__hooks + "/registration-helpers.js")
     var pg = require(__hooks + "/paygate-helpers.js")
     var payGateConfig = pg.getConfig()
     var eventId = e.request.pathValue("id")
@@ -96,7 +57,7 @@ routerAdd(
         if (duplicates.length) {
           var existing = duplicates[0]
           var sameCoupon = (existing.getString("couponCode") || "") === couponCode
-          var compatibleResponses = registrationReplayCompatible(existing.get("formResponses"), responses)
+          var compatibleResponses = rh.registrationReplayCompatible(existing.get("formResponses"), responses)
           if (!sameCoupon || !compatibleResponses) {
             throw new BadRequestError("You are already registered for this event")
           }
