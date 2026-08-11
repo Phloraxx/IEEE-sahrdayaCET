@@ -13,18 +13,17 @@ var SUPPORTED_STATUSES = {
 function asObject(value) {
     if (!value) return {}
 
-    // PocketBase JSON fields are stored as types.JSONRaw. On a persisted
-    // record JSVM can expose that value as a byte-array-like object rather
-    // than the plain object originally passed to record.set(). Decode it at
-    // this boundary so every caller works with one stable representation.
-    if (Array.isArray(value)) {
+    // PocketBase JSON fields are stored as types.JSONRaw. Prefer JSONRaw's
+    // own UTF-8-safe string() conversion when available; keep a byte-array
+    // fallback for plain arrays used by tests/serialization boundaries.
+    if (typeof value === "object" && typeof value.string === "function") {
+        try { value = JSON.parse(String(value.string() || "{}")) } catch (_) { return {} }
+    } else if (Array.isArray(value)) {
         try {
             var jsonText = ""
             for (var bi = 0; bi < value.length; bi++) jsonText += String.fromCharCode(Number(value[bi]) || 0)
             value = JSON.parse(jsonText)
         } catch (_) { return {} }
-    } else if (typeof value === "object" && typeof value.string === "function") {
-        try { value = JSON.parse(String(value.string() || "{}")) } catch (_) { return {} }
     } else if (typeof value === "string") {
         try { value = JSON.parse(value) } catch (_) { return {} }
     }
@@ -113,7 +112,7 @@ function validateProviderPayment(raw, expectedAmountRupees, options) {
     }
 
     var externalId = typeof raw.externalId === "string" ? raw.externalId.trim() : ""
-    if (options.externalId && externalId && externalId !== options.externalId) {
+    if (options.externalId && externalId !== options.externalId) {
         return { ok: false, error: "PayGate registration identity mismatch" }
     }
 
