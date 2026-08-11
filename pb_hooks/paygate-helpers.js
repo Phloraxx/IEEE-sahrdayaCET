@@ -12,10 +12,24 @@ var SUPPORTED_STATUSES = {
 
 function asObject(value) {
     if (!value) return {}
-    if (typeof value === "string") {
+
+    // PocketBase JSON fields are stored as types.JSONRaw. On a persisted
+    // record JSVM can expose that value as a byte-array-like object rather
+    // than the plain object originally passed to record.set(). Decode it at
+    // this boundary so every caller works with one stable representation.
+    if (Array.isArray(value)) {
+        try {
+            var jsonText = ""
+            for (var bi = 0; bi < value.length; bi++) jsonText += String.fromCharCode(Number(value[bi]) || 0)
+            value = JSON.parse(jsonText)
+        } catch (_) { return {} }
+    } else if (typeof value === "object" && typeof value.string === "function") {
+        try { value = JSON.parse(String(value.string() || "{}")) } catch (_) { return {} }
+    } else if (typeof value === "string") {
         try { value = JSON.parse(value) } catch (_) { return {} }
     }
-    if (typeof value !== "object" || Array.isArray(value)) return {}
+
+    if (!value || typeof value !== "object" || Array.isArray(value)) return {}
     var copy = {}
     var keys = Object.keys(value)
     for (var i = 0; i < keys.length; i++) copy[keys[i]] = value[keys[i]]
