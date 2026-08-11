@@ -230,6 +230,19 @@ routerAdd("POST", "/api/webhooks/paygate", function (e) {
     return e.json(400, { code: "INVALID_PAYGATE_EVENT", error: "Invalid PayGate event envelope" })
   }
 
+  // A PayGate destination can receive refund and future lifecycle events too.
+  // Authenticate the envelope first, then acknowledge event families IEEE does
+  // not consume so PayGate doesn't retry a valid-but-irrelevant notification.
+  var handledEventTypes = {
+    "payment.paid": true,
+    "payment.expired": true,
+    "payment.cancelled": true,
+    "payment.late": true,
+  }
+  if (!handledEventTypes[body.type]) {
+    return e.json(200, { success: true, ignored: true, type: body.type })
+  }
+
   var rawPayment = body.data && body.data.payment
   var externalId = rawPayment && rawPayment.externalId
   var registrationId = pg.registrationIdFromExternalId(externalId)
