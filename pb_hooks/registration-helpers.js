@@ -82,10 +82,71 @@ function sortRecordsNewestFirst(records) {
     return records
 }
 
+/** Stable JSON comparison for idempotent registration-command recovery. */
+function registrationCanonicalJson(value) {
+    if (value === null || value === undefined) return "null"
+    if (typeof value === "string") return JSON.stringify(value)
+    if (typeof value === "number" || typeof value === "boolean") return JSON.stringify(value)
+    if (Array.isArray(value)) {
+        var items = []
+        for (var ai = 0; ai < value.length; ai++) items.push(registrationCanonicalJson(value[ai]))
+        return "[" + items.join(",") + "]"
+    }
+    if (typeof value === "object") {
+        var keys = Object.keys(value).sort()
+        var fields = []
+        for (var oi = 0; oi < keys.length; oi++) {
+            var key = keys[oi]
+            fields.push(JSON.stringify(key) + ":" + registrationCanonicalJson(value[key]))
+        }
+        return "{" + fields.join(",") + "}"
+    }
+    return JSON.stringify(String(value))
+}
+
+function registrationJsonObject(value) {
+    if (!value) return {}
+    // Persisted PocketBase JSON fields can be types.JSONRaw in JSVM.
+    if (typeof value === "object" && typeof value.string === "function") {
+        try { value = JSON.parse(String(value.string() || "{}")) } catch (_) { return {} }
+    } else if (Array.isArray(value)) {
+        try {
+            var text = ""
+            for (var i = 0; i < value.length; i++) text += String.fromCharCode(Number(value[i]) || 0)
+            value = JSON.parse(text)
+        } catch (_) { return {} }
+    } else if (typeof value === "string") {
+        try { value = JSON.parse(value) } catch (_) { return {} }
+    }
+    if (!value || typeof value !== "object" || Array.isArray(value)) return {}
+    return value
+}
+
+/**
+ * A retry may omit optional answers, but any answer it does supply must equal
+ * the already committed response. This makes lost-response recovery safe
+ * without turning a replay into an edit path.
+ */
+function registrationReplayCompatible(stored, incoming) {
+    stored = registrationJsonObject(stored)
+    incoming = registrationJsonObject(incoming)
+    var keys = Object.keys(incoming)
+    for (var i = 0; i < keys.length; i++) {
+        var key = keys[i]
+        if (registrationCanonicalJson(stored[key]) !== registrationCanonicalJson(incoming[key])) {
+            return false
+        }
+    }
+    return true
+}
+
 module.exports = {
     recomputeEventCounters: recomputeEventCounters,
     recomputeCouponUsedCount: recomputeCouponUsedCount,
     generateTicketId: generateTicketId,
     generatePaymentTicketId: generatePaymentTicketId,
     sortRecordsNewestFirst: sortRecordsNewestFirst,
+    registrationCanonicalJson: registrationCanonicalJson,
+    registrationJsonObject: registrationJsonObject,
+    registrationReplayCompatible: registrationReplayCompatible,
 }
