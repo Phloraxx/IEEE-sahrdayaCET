@@ -5,8 +5,11 @@
 // normal paygate-registration-expiry cron handles providerStatus=expired and
 // not_initialized; this reconciler handles a locally stale providerStatus=pending.
 //
-// Re-read immediately before cancellation so a concurrent payment confirmation
-// cannot be overwritten by a stale record captured at the start of the scan.
+// The final re-read and cancellation happen inside one transaction. PocketBase
+// permits only one writer/transaction at a time, so a concurrent payment
+// confirmation either commits first (and this check skips it) or this
+// cancellation commits first (and the later paid evidence becomes manual
+// review without resurrecting the released seat).
 cronAdd("paygate-stale-pending-expiry", "* * * * *", function () {
   var pg = require(__hooks + "/paygate-helpers.js")
   var stale = require(__hooks + "/paygate-stale-pending-helpers.js")
@@ -40,23 +43,24 @@ cronAdd("paygate-stale-pending-expiry", "* * * * *", function () {
     )) continue
 
     try {
-      // Re-read current state to avoid cancelling a registration that was paid
-      // while this cron was iterating its initial snapshot.
-      var registration = $app.findRecordById("registrations", candidate.id)
-      var data = pg.asObject(registration.get("paymentData"))
-      if (!stale.shouldReleaseStalePending(
-        registration.getString("registrationStatus"),
-        registration.getString("paymentStatus"),
-        data,
-        Date.now(),
-        config.registrationGraceSeconds
-      )) continue
+      var candidateId = candidate.id
+      $app.runInTransaction(function (txApp) {
+        var registration = txApp.findRecordById("registrations", candidateId)
+        var data = pg.asObject(registration.get("paymentData"))
+        if (!stale.shouldReleaseStalePending(
+          registration.getString("registrationStatus"),
+          registration.getString("paymentStatus"),
+          data,
+          Date.now(),
+          config.registrationGraceSeconds
+        )) return
 
-      data.releaseReason = "PayGate payment remained pending beyond its expiry and the IEEE grace window elapsed"
-      registration.set("paymentStatus", "failed")
-      registration.set("registrationStatus", "cancelled")
-      registration.set("paymentData", data)
-      $app.save(registration)
+        data.releaseReason = "PayGate payment remained pending beyond its expiry and the IEEE grace window elapsed"
+        registration.set("paymentStatus", "failed")
+        registration.set("registrationStatus", "cancelled")
+        registration.set("paymentData", data)
+        txApp.save(registration)
+      })
     } catch (err) {
       console.log("[paygate] failed to release stale pending registration " + candidate.id + ":", err)
     }
