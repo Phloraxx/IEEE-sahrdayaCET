@@ -120,6 +120,7 @@ routerAdd(
   "/api/app/registrations/{id}/payment",
   function (e) {
     var pg = require(__hooks + "/paygate-helpers.js")
+    var guard = require(__hooks + "/paygate-registration-guard.js")
     var config = pg.getConfig()
 
     var id = e.request.pathValue("id") || ""
@@ -174,6 +175,15 @@ routerAdd(
     }
 
     var payment = validated.payment
+    if (payment.status === "paid") {
+      var disposition = guard.paymentConfirmationDisposition(registration)
+      if (disposition.blocked) {
+        guard.recordPaidManualReview(registration, payment, "", disposition.reason)
+        try { registration = $app.findRecordById("registrations", id) } catch (_) {}
+        return e.json(200, pg.paymentSession(registration, registration.get("paymentData"), true))
+      }
+    }
+
     var eventType = "payment." + payment.status
     var result = pg.applyProviderState(registration, payment, eventType, "")
     if (result.action === "error") {
@@ -190,6 +200,7 @@ routerAdd(
 
 routerAdd("POST", "/api/webhooks/paygate", function (e) {
   var pg = require(__hooks + "/paygate-helpers.js")
+  var guard = require(__hooks + "/paygate-registration-guard.js")
   var config = pg.getConfig()
   if (!pg.webhookConfigured(config)) {
     return e.json(503, { code: "PAYGATE_WEBHOOK_NOT_CONFIGURED", error: "PayGate webhook is not configured" })
@@ -271,6 +282,14 @@ routerAdd("POST", "/api/webhooks/paygate", function (e) {
   if (!validated.ok) {
     console.log("[paygate] webhook refused:", validated.error)
     return e.json(400, { code: "PAYGATE_EVENT_MISMATCH", error: validated.error })
+  }
+
+  if (validated.payment.status === "paid") {
+    var disposition = guard.paymentConfirmationDisposition(registration)
+    if (disposition.blocked) {
+      guard.recordPaidManualReview(registration, validated.payment, eventId, disposition.reason)
+      return e.json(200, { success: true, action: "paid_manual_review" })
+    }
   }
 
   var result = pg.applyProviderState(registration, validated.payment, body.type, eventId)
