@@ -75,6 +75,7 @@ function ticketEmail(registration, event) {
   var date = htmlEscape(event ? formatDate(event.getString("date")) : "TBA")
   var ticketId = htmlEscape(registration.getString("ticketId") || "")
   var ticketHref = siteUrl() + "/ticket/" + encodeURIComponent(registration.getString("ticketId") || "")
+  var qrHref = ticketHref + "/qr.png"
   var banner = getBannerUrl(event)
   var bannerHtml = banner
     ? '<img src="' + htmlEscape(banner) + '" alt="' + title + '" style="display:block;width:100%;max-height:280px;object-fit:cover">'
@@ -92,7 +93,8 @@ function ticketEmail(registration, event) {
     '<div style="font-size:20px;font-weight:800;margin-bottom:12px">' + title + '</div>' +
     '<div style="font-size:14px;line-height:1.8;color:#475569"><strong>Date:</strong> ' + date + '<br><strong>Venue:</strong> ' + (venue || 'TBA') + '<br><strong>Ticket:</strong> <span style="font-family:monospace">' + ticketId + '</span></div>' +
     '</div>' +
-    '<div style="text-align:center;margin:28px 0 8px"><a href="' + htmlEscape(ticketHref) + '" style="display:inline-block;background:#00629B;color:#fff;text-decoration:none;font-weight:700;padding:14px 24px;border-radius:12px">View your ticket</a></div>' +
+    '<div style="text-align:center;margin:26px 0 8px"><img src="' + htmlEscape(qrHref) + '" width="220" height="220" alt="Ticket QR code" style="display:inline-block;width:220px;height:220px;border:1px solid #e5e7eb;border-radius:18px;padding:10px;background:#fff"><div style="margin-top:10px;font-size:12px;color:#64748b">Show this QR code at event check-in</div></div>' +
+    '<div style="text-align:center;margin:20px 0 8px"><a href="' + htmlEscape(ticketHref) + '" style="display:inline-block;background:#00629B;color:#fff;text-decoration:none;font-weight:700;padding:14px 24px;border-radius:12px">View your ticket</a></div>' +
     '<p style="margin:22px 0 0;font-size:13px;color:#64748b;line-height:1.6">Open the ticket on your phone and show its QR code at the venue for check-in.</p>' +
     '</div></div><p style="text-align:center;color:#94a3b8;font-size:12px;margin:18px 0 0">IEEE Sahrdaya Student Branch · Sahrdaya College of Engineering & Technology</p></div></body></html>'
 
