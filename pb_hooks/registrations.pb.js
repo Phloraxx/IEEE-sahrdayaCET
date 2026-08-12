@@ -102,11 +102,11 @@ onRecordAfterUpdateSuccess(function (e) {
     e.next()
 }, "registrations")
 
-// ─── Public Ticket Lookup ────────────────────────────────────────────
-// Bypasses registrations listRule so unauthenticated clients (QR scans,
-// shared ticket links) can resolve a ticketId or paymentTicketId without
-// exposing PII. The public ticket page calls this route for minimal ticket/event fields;
-// authenticated clients can fetch their permitted registration record directly.
+// ─── Ticket / Payment-Recovery Lookup ───────────────────────────────
+// Real ticket IDs are public so QR scans and shared event tickets can resolve
+// minimal state without PII. paymentTicketId is NOT a ticket: it is a private
+// recovery handle used only by the owning attendee/admin while a paid
+// registration transitions to its real TKT-* identifier.
 
 routerAdd("GET", "/api/tickets/lookup", function (e) {
     var ticketId = e.request.url.query().get("ticketId") || ""
@@ -114,16 +114,41 @@ routerAdd("GET", "/api/tickets/lookup", function (e) {
         return e.json(400, { error: "ticketId query parameter is required" })
     }
 
-    var reg
+    var auth = null
+    try { auth = e.auth || null } catch (_) { auth = null }
+    var isAdmin = false
+    if (auth && auth.id) {
+        try { isAdmin = auth.getString("role") === "admin" } catch (_) {}
+        try {
+            if (typeof auth.isSuperuser === "function" && auth.isSuperuser()) isAdmin = true
+        } catch (_) {}
+    }
+
+    // Public lookup resolves only the real event ticket.
+    var reg = null
     try {
         reg = $app.findFirstRecordByFilter(
             "registrations",
-            "ticketId = {:tid} || paymentTicketId = {:tid}",
+            "ticketId = {:tid}",
             { tid: ticketId }
         )
-    } catch (err) {
-        return e.json(200, { found: false })
+    } catch (_) { reg = null }
+
+    // A temporary payment recovery ID is private to its owner/admin.
+    if (!reg && auth && auth.id) {
+        var paymentReg = null
+        try {
+            paymentReg = $app.findFirstRecordByFilter(
+                "registrations",
+                "paymentTicketId = {:tid}",
+                { tid: ticketId }
+            )
+        } catch (_) { paymentReg = null }
+        if (paymentReg && (isAdmin || paymentReg.getString("user") === auth.id)) {
+            reg = paymentReg
+        }
     }
+
     if (!reg) {
         return e.json(200, { found: false })
     }
@@ -161,15 +186,8 @@ routerAdd("GET", "/api/tickets/lookup", function (e) {
         event: eventPayload,
     }
 
-    var auth = null
-    try { auth = e.auth || null } catch (_) { auth = null }
     var mayReadRegistration = false
     if (auth && auth.id) {
-        var isAdmin = false
-        try { isAdmin = auth.getString("role") === "admin" } catch (_) {}
-        try {
-            if (typeof auth.isSuperuser === "function" && auth.isSuperuser()) isAdmin = true
-        } catch (_) {}
         mayReadRegistration = isAdmin || auth.id === reg.getString("user")
     }
     if (mayReadRegistration) response.registrationId = reg.id

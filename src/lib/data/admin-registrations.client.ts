@@ -79,9 +79,11 @@ export async function checkInByTicket(ticketId: string) {
   const pb = getPbClient();
   let registration;
   try {
+    // paymentTicketId is a private payment-recovery handle, not an event ticket.
+    // Only the real ticketId minted after confirmation is valid for check-in.
     registration = await pb.collection("registrations").getFirstListItem(
-      `ticketId = ${escapeFilterValue(ticketId)} || paymentTicketId = ${escapeFilterValue(ticketId)}`,
-      { expand: "event", fields: "id,event,registrationStatus,checkedIn,checkedInAt,userName,userEmail,ticketId,paymentTicketId,expand.event.id,expand.event.title,expand.event.checkInEnabled" },
+      `ticketId = ${escapeFilterValue(ticketId)}`,
+      { expand: "event", fields: "id,event,registrationStatus,checkedIn,checkedInAt,userName,userEmail,ticketId,expand.event.id,expand.event.title,expand.event.checkInEnabled" },
     );
   } catch {
     throw new Error("Registration not found");

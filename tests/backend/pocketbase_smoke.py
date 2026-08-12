@@ -226,22 +226,27 @@ request("PUT", f"/api/app/events/{event['id']}/coupons", {"coupons": [{
 }]}, admin_token)
 request("PUT", f"/api/app/events/{event['id']}/coupons", {"coupons": []}, admin_token)
 
-# Registration command reserves exactly one seat and rejects duplicate/capacity races.
+# Registration command reserves exactly one seat. Replaying the same user's
+# command is idempotent and returns the original record instead of consuming a
+# second seat; another user is still rejected by capacity.
 registration = request("POST", f"/api/app/events/{event['id']}/register", {
     "formResponses": {"name": "Member", "email": user["email"], "phone": "123"},
 }, user_token)
 assert registration["registrationStatus"] == "confirmed" and registration["ticketId"]
-request("POST", f"/api/app/events/{event['id']}/register", {
+replayed_registration = request("POST", f"/api/app/events/{event['id']}/register", {
     "formResponses": {"name": "Member", "email": user["email"]},
-}, user_token, (400,))
+}, user_token, (200,))
+assert replayed_registration.get("reused") is True
+assert replayed_registration["registrationId"] == registration["registrationId"]
+assert replayed_registration["ticketId"] == registration["ticketId"]
 request("POST", f"/api/app/events/{event['id']}/register", {
     "formResponses": {"name": "Member Two", "email": second_user["email"]},
 }, second_token, (400,))
 updated_event = request("GET", f"/api/collections/events/records/{event['id']}")
 assert updated_event["registeredCount"] == 1
 
-# Paid registration lifecycle: failure releases capacity, retry works, and a late
-# success callback cannot resurrect the cancelled registration.
+# Legacy payment callback compatibility is tested with records explicitly marked
+# as legacy. Native PayGate registrations are not allowed through this route.
 payment_user = create_user("payer", "user")
 payment_user_token = impersonate(super_token, payment_user["id"])
 paid_event = request("POST", "/api/collections/events/records", {
@@ -260,6 +265,9 @@ first_paid = request("POST", f"/api/app/events/{paid_event['id']}/register", {
 }, payment_user_token)
 assert first_paid["paymentRequired"] is True
 assert first_paid["registrationStatus"] == "pending"
+request("PATCH", f"/api/collections/registrations/records/{first_paid['registrationId']}", {
+    "paymentData": {"provider": "legacy"},
+}, super_token)
 assert request("GET", f"/api/collections/events/records/{paid_event['id']}")["registeredCount"] == 1
 
 webhook_headers = {"x-webhook-secret": WEBHOOK_SECRET}
@@ -275,6 +283,9 @@ retry_paid = request("POST", f"/api/app/events/{paid_event['id']}/register", {
     "formResponses": {"name": "Payer", "email": payment_user["email"]},
 }, payment_user_token)
 assert retry_paid["registrationId"] != first_paid["registrationId"]
+request("PATCH", f"/api/collections/registrations/records/{retry_paid['registrationId']}", {
+    "paymentData": {"provider": "legacy"},
+}, super_token)
 assert request("GET", f"/api/collections/events/records/{paid_event['id']}")["registeredCount"] == 1
 
 late = request("POST", "/api/webhooks/payment-confirm", {
@@ -434,7 +445,7 @@ assert raffle["success"] is True
 assert raffle["entries_snapshot"]["total_tickets"] == raffle["totalTickets"]
 assert raffle["winner"]["bets_count"] >= 1
 assert any(entry["user_id"] == raffle["winner"]["user_id"] for entry in raffle["entries_snapshot"]["entries"])
-settings_after = request("GET", f"/api/collections/fifa_settings/records/{settings['id']}", token=admin_token)
+settings_after = request("GET", f"/api/collections/fifa_settings/records/{settings['id']}", token=super_token)
 assert settings_after["raffle_seed"] == raffle["seed"]
 assert settings_after["raffle_entries_snapshot"]["winning_pick"] == raffle["entries_snapshot"]["winning_pick"]
 second_raffle = request("POST", "/api/fifa/raffle", {}, admin_token, (400,))
