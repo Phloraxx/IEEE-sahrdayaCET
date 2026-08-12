@@ -68,6 +68,7 @@ Verify at least one disposable registration flow:
 - registration is rejected when closed, outside its registration window, or full;
 - capacity cannot be oversubscribed;
 - a successful free registration creates a valid ticket;
+- an admin can manually confirm a pending paid registration, with one stable ticket and both ticket/receipt email jobs queued;
 - cancellation releases capacity and cannot be resurrected by an unrelated payment callback;
 - invalid/duplicate check-in is rejected;
 - coupon usage is applied once and respects expiry/max-use constraints.

@@ -57,8 +57,7 @@ export async function getAdminRegistration(id: string) {
 
 export async function runRegistrationAdminCommand(
   id: string,
-  command: "check-in" | "cancel" | "confirm" | "set-payment" | "set-amount",
-  value?: string | number,
+  command: "check-in" | "cancel",
 ) {
   const pb = getPbClient();
   switch (command) {
@@ -66,13 +65,23 @@ export async function runRegistrationAdminCommand(
       return pb.collection("registrations").update(id, { checkedIn: true });
     case "cancel":
       return pb.collection("registrations").update(id, { registrationStatus: "cancelled" });
-    case "confirm":
-      return pb.collection("registrations").update(id, { registrationStatus: "confirmed" });
-    case "set-payment":
-      return pb.collection("registrations").update(id, { paymentStatus: String(value ?? "") });
-    case "set-amount":
-      return pb.collection("registrations").update(id, { amount: Number(value) });
   }
+}
+
+export interface ManualPaymentConfirmationResult {
+  success: boolean;
+  alreadyConfirmed: boolean;
+  registrationId: string;
+  registrationStatus: "confirmed";
+  paymentStatus: "paid";
+  ticketId: string;
+}
+
+export async function confirmRegistrationPayment(id: string) {
+  return getPbClient().send(
+    `/api/admin/registrations/${encodeURIComponent(id)}/confirm-payment`,
+    { method: "POST" },
+  ) as Promise<ManualPaymentConfirmationResult>;
 }
 
 export async function checkInByTicket(ticketId: string) {

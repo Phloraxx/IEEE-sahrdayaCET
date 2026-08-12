@@ -35,7 +35,7 @@ onRecordUpdateRequest(function (e) {
         throw e.badRequestError("Cannot re-confirm a cancelled registration")
     }
 
-    // ─── H-2: Chairs cannot forge payment status or amount ──────
+    // ─── H-2: Direct API callers cannot forge payment state ─────
     if (auth && auth.id) {
         var role = auth.getString("role") || ""
         if (role === "chair") {
@@ -66,6 +66,28 @@ onRecordUpdateRequest(function (e) {
             // H-2 completion: chairs cannot flip registrationStatus to "confirmed"
             if (oldStatus !== "confirmed" && newStatusCheck === "confirmed") {
                 throw e.badRequestError("Only admins can confirm registrations")
+            }
+        }
+
+        if (role === "admin") {
+            var adminInfo = null
+            try { adminInfo = e.requestInfo ? e.requestInfo() : null } catch (_) { adminInfo = null }
+            var adminBody = adminInfo && adminInfo.body && typeof adminInfo.body === "object" ? adminInfo.body : {}
+            var protectedPaymentFields = {
+                paymentStatus: true,
+                paymentData: true,
+                amount: true,
+                ticketId: true,
+                paymentTicketId: true,
+            }
+            var adminKeys = Object.keys(adminBody)
+            for (var ai = 0; ai < adminKeys.length; ai++) {
+                if (protectedPaymentFields[adminKeys[ai]]) {
+                    throw e.badRequestError("Payment state can only be changed through a payment command")
+                }
+            }
+            if (oldStatus !== "confirmed" && newStatusCheck === "confirmed") {
+                throw e.badRequestError("Use the manual payment confirmation command")
             }
         }
     }

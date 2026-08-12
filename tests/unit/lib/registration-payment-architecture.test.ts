@@ -58,6 +58,27 @@ describe("registration/payment experience architecture", () => {
     expect(hook).toContain("/notifications/{kind}/resend");
   });
 
+  it("confirms pending payments through one audited admin command", () => {
+    const command = source("pb_hooks/registration-admin.pb.js");
+    const invariants = source("pb_hooks/registrations.pb.js");
+    const client = source("src/lib/data/admin-registrations.client.ts");
+    const list = source("src/routes/admin.registrations.index.tsx");
+    const detail = source("src/features/admin/registrations/registration-detail.tsx");
+
+    expect(command).toContain('/api/admin/registrations/{id}/confirm-payment');
+    expect(command).toContain('$app.runInTransaction');
+    expect(command).toContain('auth.getString("role") !== "admin"');
+    expect(command).toContain("paymentData.manualConfirmation");
+    expect(command).toContain('registration.set("registrationStatus", "confirmed")');
+    expect(command).toContain('registration.set("paymentStatus", "paid")');
+    expect(command).toContain("enqueueForRegistration");
+    expect(invariants).toContain("Payment state can only be changed through a payment command");
+    expect(client).toContain("confirmRegistrationPayment");
+    expect(client).not.toContain('command: "check-in" | "cancel" | "confirm"');
+    expect(list).toContain('label="Confirm payment"');
+    expect(detail).toContain('label="Confirm payment"');
+  });
+
   it("keeps receipts authenticated and honors reduced-motion preferences globally", () => {
     const notifications = source("pb_hooks/registration-notifications.pb.js");
     const root = source("src/root.tsx");

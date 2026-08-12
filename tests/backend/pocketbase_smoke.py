@@ -307,6 +307,85 @@ paid_event = request("POST", "/api/collections/events/records", {
         {"id": "email", "name": "email", "label": "Email", "required": True},
     ],
 }, super_token)
+
+# A pending paid registration can be confirmed manually only through the
+# dedicated admin command. The transition is atomic, auditable, idempotent, and
+# queues both the ticket and receipt emails. Direct financial PATCHes stay
+# blocked even for application admins.
+manual_payment_user = create_user("manual-payer", "user")
+manual_payment_token = impersonate(super_token, manual_payment_user["id"])
+manual_paid_event = request("POST", "/api/collections/events/records", {
+    "title": f"CI Manual Payment Event {suffix}", "description": "manual payment confirmation",
+    "date": start, "endDate": end, "venue": "CI Lab", "price": 75,
+    "society": society["id"], "status": "published", "maxCapacity": 1,
+    "registeredCount": 0, "checkedInCount": 0, "registrationOpen": True,
+    "checkInEnabled": True, "isDeleted": False,
+    "formTemplate": [
+        {"id": "name", "name": "name", "label": "Name", "required": True},
+        {"id": "email", "name": "email", "label": "Email", "required": True},
+    ],
+}, super_token)
+manual_registration = request("POST", f"/api/app/events/{manual_paid_event['id']}/register", {
+    "formResponses": {"name": "Manual Payer", "email": manual_payment_user["email"]},
+}, manual_payment_token)
+manual_registration_id = manual_registration["registrationId"]
+assert manual_registration["registrationStatus"] == "pending"
+assert manual_registration["paymentStatus"] == "pending"
+request(
+    "PATCH",
+    f"/api/collections/registrations/records/{manual_registration_id}",
+    {"paymentStatus": "paid"},
+    admin_token,
+    (400,),
+)
+request(
+    "POST",
+    f"/api/admin/registrations/{manual_registration_id}/confirm-payment",
+    token=manual_payment_token,
+    expected=(403,),
+)
+request(
+    "POST",
+    f"/api/admin/registrations/{manual_registration_id}/confirm-payment",
+    token=chair_token,
+    expected=(403,),
+)
+manual_confirmed = request(
+    "POST",
+    f"/api/admin/registrations/{manual_registration_id}/confirm-payment",
+    token=admin_token,
+)
+assert manual_confirmed["success"] is True
+assert manual_confirmed["alreadyConfirmed"] is False
+assert manual_confirmed["registrationStatus"] == "confirmed"
+assert manual_confirmed["paymentStatus"] == "paid"
+assert manual_confirmed["ticketId"].startswith("TKT-")
+manual_record = request(
+    "GET",
+    f"/api/collections/registrations/records/{manual_registration_id}",
+    token=admin_token,
+)
+manual_audit = manual_record["paymentData"]["manualConfirmation"]
+assert manual_record["registrationStatus"] == "confirmed"
+assert manual_record["paymentStatus"] == "paid"
+assert manual_audit["confirmedBy"] == admin["id"]
+assert manual_audit["source"] == "admin"
+manual_notification_filter = urllib.parse.quote(f'registration="{manual_registration_id}"')
+manual_notifications = request(
+    "GET",
+    f"/api/collections/notification_outbox/records?filter={manual_notification_filter}",
+    token=super_token,
+)
+assert manual_notifications["totalItems"] == 2
+assert {row["kind"] for row in manual_notifications["items"]} == {"ticket", "receipt"}
+manual_replay = request(
+    "POST",
+    f"/api/admin/registrations/{manual_registration_id}/confirm-payment",
+    token=admin_token,
+)
+assert manual_replay["alreadyConfirmed"] is True
+assert manual_replay["ticketId"] == manual_confirmed["ticketId"]
+
 first_paid = request("POST", f"/api/app/events/{paid_event['id']}/register", {
     "formResponses": {"name": "Payer", "email": payment_user["email"]},
 }, payment_user_token)
