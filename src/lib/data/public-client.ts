@@ -4,6 +4,7 @@ import { sanitizeBlogCoverUrl } from "@/lib/blog-content";
 import { getField } from "@/lib/safe-get";
 import { canRegisterForEvent, isPublicEvent } from "@/lib/event-lifecycle";
 import type { FormField } from "@/types";
+import type { MyEventRegistration } from "@/lib/registration-state";
 
 export async function listRelatedBlogs(input: {
   societySlug?: string;
@@ -119,7 +120,29 @@ export async function createRegistration(input: {
     amount: number;
     registrationStatus: string;
     paymentStatus: string;
+    reused: boolean;
   }>;
+}
+
+export async function getMyEventRegistration(eventId: string): Promise<MyEventRegistration> {
+  const pb = getPbClient();
+  if (!pb.authStore.isValid) throw new Error("Please sign in to view your registration");
+  const raw = await pb.send(`/api/app/events/${encodeURIComponent(eventId)}/my-registration`, {});
+  return {
+    found: raw?.found === true,
+    registrationId: String(raw?.registrationId || ""),
+    registrationStatus: String(raw?.registrationStatus || ""),
+    paymentStatus: String(raw?.paymentStatus || ""),
+    amount: Number(raw?.amount) || 0,
+    paymentRequired: raw?.paymentRequired === true,
+    ticketId: String(raw?.ticketId || ""),
+    manualReview: raw?.manualReview === true,
+    reviewReason: String(raw?.reviewReason || ""),
+    receiptAvailable: raw?.receiptAvailable === true,
+    eventEnded: raw?.eventEnded === true,
+    ticketEmailStatus: String(raw?.ticketEmailStatus || ""),
+    receiptEmailStatus: String(raw?.receiptEmailStatus || ""),
+  };
 }
 
 export interface PublicTicketData {
@@ -147,6 +170,7 @@ export interface PublicTicketData {
     registrationStatus: string;
     paymentStatus: string;
     registrationDate: string;
+    amount: number;
   } | null;
 }
 
@@ -178,7 +202,7 @@ export async function getTicket(ticketId: string): Promise<PublicTicketData> {
   let registration: PublicTicketData["registration"] = null;
   if (pb.authStore.isValid && data.registrationId) {
     const record = await pb.collection("registrations").getOne(data.registrationId, {
-      fields: "id,userName,userEmail,userPhone,registrationStatus,paymentStatus,registrationDate",
+      fields: "id,userName,userEmail,userPhone,registrationStatus,paymentStatus,registrationDate,amount",
     }).catch(() => null);
     if (record) {
       registration = {
@@ -189,6 +213,7 @@ export async function getTicket(ticketId: string): Promise<PublicTicketData> {
         registrationStatus: getField(record, "registrationStatus", ""),
         paymentStatus: getField(record, "paymentStatus", ""),
         registrationDate: getField(record, "registrationDate", "") || ticket.createdAt,
+        amount: Number(getField(record, "amount", 0)) || 0,
       };
     }
   }
