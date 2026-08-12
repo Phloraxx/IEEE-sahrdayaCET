@@ -496,13 +496,13 @@ export default function PaymentPage({ registrationId }: PageProps) {
               qrDataUrl &&
               downloadQR(qrDataUrl, `ieee-payment-${registrationId}.png`)
             }
-            className="mx-auto mt-4 inline-flex w-full max-w-[340px] sm:mt-6 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-3.5 text-sm font-black text-white shadow-lg shadow-slate-200 transition hover:-translate-y-0.5 hover:bg-ieee-blue hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-40"
+            className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-4 right-4 z-30 mx-auto inline-flex max-w-[340px] items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-3.5 text-sm font-black text-white shadow-[0_16px_45px_-16px_rgba(15,23,42,0.65)] transition hover:bg-ieee-blue disabled:cursor-not-allowed disabled:opacity-40 [@media(max-height:640px)]:static [@media(max-height:640px)]:mt-4 [@media(max-height:640px)]:w-full [@media(max-height:640px)]:shadow-lg sm:static sm:mt-6 sm:w-full sm:shadow-lg sm:shadow-slate-200 sm:hover:-translate-y-0.5 sm:hover:shadow-xl"
           >
             <Download className="h-4 w-4" />
             Save QR as PNG
           </button>
 
-          <div className="mx-auto mt-7 w-full max-w-[340px]">
+          <div className="mx-auto mt-7 w-full max-w-[340px] pb-16 [@media(max-height:640px)]:pb-0 sm:pb-0">
             <div className="flex items-center justify-between gap-4 text-xs">
               <span className="font-bold text-slate-500">Seat held for</span>
               <span className="font-mono text-base font-black text-slate-900">
