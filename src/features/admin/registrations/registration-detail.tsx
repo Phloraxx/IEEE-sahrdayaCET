@@ -4,10 +4,12 @@ import { useNavigate } from "react-router";
 import {
   getAdminRegistration,
   getRegistrationNotificationState,
+  confirmRegistrationPayment,
   resendRegistrationNotification,
   runRegistrationAdminCommand,
 } from "@/lib/data/admin-registrations.client";
-import { CreditCard, Loader2, Mail, Phone, ReceiptText, Send, Ticket, TriangleAlert, UserCheck } from "lucide-react";
+import { BadgeCheck, CreditCard, Loader2, Mail, Phone, ReceiptText, Send, Ticket, TriangleAlert, UserCheck } from "lucide-react";
+import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ConfirmButton } from "@/components/admin/confirm-button";
@@ -128,6 +130,18 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
     },
   });
 
+  const confirmPaymentMutation = useMutation({
+    mutationFn: () => confirmRegistrationPayment(registrationId),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-registration", registrationId] });
+      queryClient.invalidateQueries({ queryKey: ["admin-registrations"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-registration-notifications", registrationId] });
+      queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
+      toast.success(result.alreadyConfirmed ? "Payment was already confirmed" : "Payment confirmed and emails queued");
+    },
+    onError: (mutationError: Error) => toast.error(mutationError.message || "Could not confirm payment"),
+  });
+
   if (isLoading) {
     return (
       <Card>
@@ -203,6 +217,18 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            {reg.registrationStatus === "pending" &&
+              reg.paymentStatus === "pending" &&
+              reg.amount > 0 && (
+                <ConfirmButton
+                  label="Confirm payment"
+                  confirmMessage={`Confirm ₹${reg.amount} received? This will issue the ticket and queue the confirmation and receipt emails.`}
+                  icon={<BadgeCheck className="h-3.5 w-3.5" />}
+                  className="border-success/30 text-success hover:bg-success/8"
+                  onConfirm={() => { confirmPaymentMutation.mutate(); return true; }}
+                  disabled={confirmPaymentMutation.isPending}
+                />
+              )}
             {!reg.checkedIn && reg.registrationStatus === "confirmed" && (
               <ConfirmButton
                 label="Check in"

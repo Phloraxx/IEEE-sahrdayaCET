@@ -156,6 +156,8 @@ Business invariants must remain correct when the React UI is bypassed. Put load-
 
 Registration is a transaction, not generic CRUD. One PocketBase command validates the event/form/capacity/coupon, creates the registration and ticket/payment state, and updates counters. If any step fails, no seat is reserved.
 
+Admins can manually confirm an offline-verified pending payment through a dedicated command. The transition atomically marks it paid/confirmed, issues the ticket, records an audit marker, and queues the ticket and PDF receipt emails; generic record edits cannot forge the same state.
+
 `registeredCount` means active seat reservations (`pending + confirmed`). Cancelled registrations do not occupy capacity.
 
 ## SEO

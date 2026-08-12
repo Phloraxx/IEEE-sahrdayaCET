@@ -2,12 +2,14 @@ import { Link, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import {
+  BadgeCheck,
   ChevronRight,
   ClipboardList,
   Eye,
   Search,
   UserCheck,
 } from "lucide-react";
+import { toast } from "sonner";
 import { PanelHeader } from "@/components/admin/panel-header";
 import { ConfirmButton } from "@/components/admin/confirm-button";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -21,7 +23,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { listAdminRegistrations, runRegistrationAdminCommand } from "@/lib/data/admin-registrations.client";
+import {
+  confirmRegistrationPayment,
+  listAdminRegistrations,
+  runRegistrationAdminCommand,
+} from "@/lib/data/admin-registrations.client";
 
 const registrationStatusValues = ["all", "confirmed", "pending", "cancelled"] as const;
 type RegistrationStatus = (typeof registrationStatusValues)[number];
@@ -97,6 +103,18 @@ export default function AdminRegistrations() {
     },
   });
 
+  const confirmPaymentMutation = useMutation({
+    mutationFn: (id: string) => confirmRegistrationPayment(id),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-registrations"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-registration", result.registrationId] });
+      queryClient.invalidateQueries({ queryKey: ["admin-registration-notifications", result.registrationId] });
+      queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
+      toast.success(result.alreadyConfirmed ? "Payment was already confirmed" : "Payment confirmed and emails queued");
+    },
+    onError: (error: Error) => toast.error(error.message || "Could not confirm payment"),
+  });
+
   return (
     <div className="space-y-6">
       <PanelHeader
@@ -154,8 +172,10 @@ export default function AdminRegistrations() {
           rows={data.registrations}
           onCheckIn={(id) => checkInMutation.mutate(id)}
           onCancel={(id) => cancelMutation.mutate(id)}
+          onConfirmPayment={(id) => confirmPaymentMutation.mutate(id)}
           checkInPending={checkInMutation.isPending}
           cancelPending={cancelMutation.isPending}
+          confirmPaymentPending={confirmPaymentMutation.isPending}
         />
       )}
 
@@ -192,20 +212,24 @@ interface RegistrationsListProps {
   rows: RegistrationRow[];
   onCheckIn: (id: string) => void;
   onCancel: (id: string) => void;
+  onConfirmPayment: (id: string) => void;
   checkInPending: boolean;
   cancelPending: boolean;
+  confirmPaymentPending: boolean;
 }
 
 function RegistrationsList({
   rows,
   onCheckIn,
   onCancel,
+  onConfirmPayment,
   checkInPending,
   cancelPending,
+  confirmPaymentPending,
 }: RegistrationsListProps) {
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card divide-y divide-border">
-      <div className="hidden grid-cols-[1.6fr_1.2fr_120px_120px_100px_180px] gap-4 px-4 py-2.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground md:grid">
+      <div className="hidden grid-cols-[1.6fr_1.2fr_120px_120px_100px_260px] gap-4 px-4 py-2.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground md:grid">
         <span>Attendee</span>
         <span>Event</span>
         <span>Status</span>
@@ -216,7 +240,7 @@ function RegistrationsList({
       {rows.map((reg) => (
         <div
           key={reg.id}
-          className="grid grid-cols-1 gap-3 px-4 py-3 transition-colors hover:bg-muted/40 md:grid-cols-[1.6fr_1.2fr_120px_120px_100px_180px] md:items-center md:gap-4"
+          className="grid grid-cols-1 gap-3 px-4 py-3 transition-colors hover:bg-muted/40 md:grid-cols-[1.6fr_1.2fr_120px_120px_100px_260px] md:items-center md:gap-4"
         >
           <div className="min-w-0">
             <Link
@@ -252,6 +276,19 @@ function RegistrationsList({
             >
               <Eye className="h-3.5 w-3.5" />
             </Link>
+            {reg.registrationStatus === "pending" &&
+              reg.paymentStatus === "pending" &&
+              reg.amount > 0 && (
+                <ConfirmButton
+                  label="Confirm payment"
+                  confirmMessage={`Confirm ₹${reg.amount} received and email the ticket and receipt?`}
+                  variant="outline"
+                  className="h-8 gap-1 border-success/30 text-xs text-success hover:bg-success/8"
+                  disabled={confirmPaymentPending}
+                  onConfirm={() => { onConfirmPayment(reg.id); return true; }}
+                  icon={<BadgeCheck className="h-3.5 w-3.5" />}
+                />
+              )}
             {!reg.checkedIn && reg.registrationStatus === "confirmed" && (
               <ConfirmButton
                 label="Check in"

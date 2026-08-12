@@ -63,6 +63,7 @@ Use a PocketBase custom route when the operation is a command:
 | Event registration | capacity, coupon, ticket/payment state and counters commit together |
 | Coupon set sync | multiple coupon records must reconcile atomically |
 | User role change | ordinary users collection rule intentionally forbids role mutation |
+| Manual payment confirmation | registration/payment state, ticket issuance, audit metadata, and notification outbox eligibility move together |
 | FIFA bet | balance, ledger, bet and pool are one transaction |
 | FIFA settlement | payouts, balances, ledgers, bets, markets and match result are one transaction |
 | FIFA void | refunding a market/match is a financial state transition |

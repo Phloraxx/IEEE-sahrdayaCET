@@ -33,7 +33,7 @@ Hooks own state-transition invariants such as immutable event URLs, check-in val
 
 Any operation that moves a wallet balance, reserves event capacity, consumes a coupon, creates a ticket, or refunds/pays several records must be all-or-nothing.
 
-PocketBase `runInTransaction` is used for registration, FIFA betting/settlement/voiding, coupon reconciliation, and raffle operations. All writes inside a transaction use the transaction app.
+PocketBase `runInTransaction` is used for registration, manual payment confirmation, FIFA betting/settlement/voiding, coupon reconciliation, and raffle operations. All writes inside a transaction use the transaction app.
 
 ## Runtime privilege policy
 
@@ -67,6 +67,8 @@ Security-sensitive invariants include:
 - cancelled registrations do not occupy capacity;
 - an unrelated payment callback cannot resurrect a cancelled registration;
 - payment confirmation must reject missing/invalid webhook secrets when the integration is enabled;
+- manual confirmation is admin-only, rejects cancelled/non-pending registrations, and records the confirming admin and timestamp;
+- generic registration PATCH requests cannot directly rewrite payment, amount, provider, or ticket fields;
 - coupon expiry/max-use rules are enforced server-side;
 - ticket/check-in validation rejects invalid state and duplicate check-ins.
 

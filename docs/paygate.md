@@ -86,6 +86,12 @@ PayGate event IDs are retained in `registration.paymentData` for webhook replay 
 
 Cancellation is terminal. If PayGate later reports money after IEEE has released the seat, the evidence is retained for organizer review/refund handling rather than automatically taking a seat from another attendee.
 
+## Manual admin confirmation
+
+An application admin can confirm a still-active `pending / pending` paid registration from the registration list or detail screen when payment has been verified offline. The UI calls `POST /api/admin/registrations/{id}/confirm-payment`; generic collection PATCHes cannot perform this financial transition.
+
+The command atomically changes the registration to `confirmed / paid`, mints its `TKT-*` ticket, and stores `paymentData.manualConfirmation` with the confirming admin and timestamp. It preserves the last provider-reported status as provider truth. The existing idempotent notification outbox then queues both the ticket confirmation and PDF receipt emails. Repeating the command returns the existing confirmation, while cancelled registrations remain terminal and cannot be resurrected.
+
 ## Grace window
 
 PayGate evaluates the bank/provider occurrence timestamp, not only SMS arrival time. A transaction performed before PayGate expiry can therefore become `paid` even if the bank SMS arrives later.
@@ -162,6 +168,7 @@ Before enabling paid registrations in an environment:
 3. verify the PayGate UPI destination/payee is correct for that environment;
 4. confirm the PayGate connector/bank evidence path is healthy;
 5. make a controlled low-value test registration and verify `pending → paid → confirmed → TKT-*`;
-6. verify a bad webhook signature is rejected;
-7. verify an expired/late payment does not incorrectly consume or resurrect a seat;
-8. check fingerprint-pool capacity before opening a high-volume paid event.
+6. verify a pending disposable registration can be manually confirmed by an admin and queues both emails;
+7. verify a bad webhook signature is rejected;
+8. verify an expired/late payment does not incorrectly consume or resurrect a seat;
+9. check fingerprint-pool capacity before opening a high-volume paid event.
