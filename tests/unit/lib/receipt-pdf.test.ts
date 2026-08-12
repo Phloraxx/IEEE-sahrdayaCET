@@ -4,6 +4,7 @@ import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
 
 interface ReceiptHelpers {
+  formatDate: (value: string) => string;
   paidAmount: (registration: FakeRecord) => string;
   receiptPdfBytes: (registration: FakeRecord, event: FakeRecord) => number[];
 }
@@ -53,4 +54,9 @@ describe("payment receipt PDF", () => {
     expect(text).toContain("Event: Test Workshop");
     expect(text.endsWith("%%EOF\n")).toBe(true);
   });
+  it("formats event and payment timestamps in India Standard Time", () => {
+    expect(helpers.formatDate("2026-08-12T07:00:00Z")).toBe("12 Aug 2026, 12:30 PM IST");
+    expect(helpers.formatDate("2026-08-11T20:45:00Z")).toBe("12 Aug 2026, 2:15 AM IST");
+  });
+
 });
