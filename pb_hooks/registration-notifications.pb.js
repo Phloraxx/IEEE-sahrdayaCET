@@ -83,14 +83,16 @@ cronAdd("registration-notification-outbox", "* * * * *", function () {
       record.set("sentAt", new Date().toISOString())
       record.set("nextAttemptAt", "")
       record.set("lastError", "")
-      $app.save(record)
+      $app.saveNoValidate(record)
     } catch (err) {
       try {
         record.set("status", "failed")
         record.set("nextAttemptAt", nh.nextRetryIso(record.getInt("attempts") || 1))
         record.set("lastError", String(err && err.message ? err.message : err).slice(0, 3900))
-        $app.save(record)
-      } catch (_) {}
+        $app.saveNoValidate(record)
+      } catch (persistErr) {
+        console.log("[mail] failed to persist notification failure state for " + record.id + ":", persistErr)
+      }
       console.log("[mail] notification send failed for " + record.id + ":", err)
     }
   }

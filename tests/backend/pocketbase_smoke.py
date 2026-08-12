@@ -239,6 +239,53 @@ replayed_registration = request("POST", f"/api/app/events/{event['id']}/register
 assert replayed_registration.get("reused") is True
 assert replayed_registration["registrationId"] == registration["registrationId"]
 assert replayed_registration["ticketId"] == registration["ticketId"]
+
+# Confirmed free registrations enqueue exactly one ticket email job. With SMTP
+# intentionally absent in clean-room CI, the worker must fail durably into the
+# outbox instead of dropping the message, and an admin resend must requeue it.
+notification_filter = urllib.parse.quote(
+    f'registration="{registration["registrationId"]}"'
+)
+notification_list = request(
+    "GET",
+    f"/api/collections/notification_outbox/records?filter={notification_filter}",
+    token=super_token,
+)
+assert notification_list["totalItems"] == 1
+notification_job = notification_list["items"][0]
+assert notification_job["kind"] == "ticket" and notification_job["status"] == "pending"
+request(
+    "POST",
+    "/api/crons/registration-notification-outbox",
+    token=super_token,
+    expected=(204,),
+)
+for _ in range(30):
+    notification_job = request(
+        "GET",
+        f"/api/collections/notification_outbox/records/{notification_job['id']}",
+        token=super_token,
+    )
+    if notification_job["status"] == "failed":
+        break
+    time.sleep(0.1)
+assert notification_job["status"] == "failed"
+assert notification_job["attempts"] == 1
+assert "SMTP delivery is not configured" in notification_job["lastError"]
+resend = request(
+    "POST",
+    f"/api/admin/registrations/{registration['registrationId']}/notifications/ticket/resend",
+    token=admin_token,
+    expected=(202,),
+)
+assert resend["success"] is True and resend["status"] == "pending"
+notification_job = request(
+    "GET",
+    f"/api/collections/notification_outbox/records/{notification_job['id']}",
+    token=super_token,
+)
+assert notification_job["status"] == "pending"
+
 request("POST", f"/api/app/events/{event['id']}/register", {
     "formResponses": {"name": "Member Two", "email": second_user["email"]},
 }, second_token, (400,))

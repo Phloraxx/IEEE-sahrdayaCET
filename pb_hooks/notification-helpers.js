@@ -37,13 +37,17 @@ function asObject(value) {
 function formatDate(value) {
   var d = new Date(String(value || ""))
   if (isNaN(d.getTime())) return "TBA"
-  var day = String(d.getDate()).padStart(2, "0")
+  // Event operations are based in Kerala. PocketBase runs in UTC, so format
+  // mail and receipt timestamps explicitly in India Standard Time instead of
+  // inheriting the container timezone. IST has no daylight-saving transition.
+  var ist = new Date(d.getTime() + (5 * 60 + 30) * 60 * 1000)
+  var day = String(ist.getUTCDate()).padStart(2, "0")
   var monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-  var hours = d.getHours()
-  var minutes = String(d.getMinutes()).padStart(2, "0")
+  var hours = ist.getUTCHours()
+  var minutes = String(ist.getUTCMinutes()).padStart(2, "0")
   var ampm = hours >= 12 ? "PM" : "AM"
   hours = hours % 12 || 12
-  return day + " " + monthNames[d.getMonth()] + " " + d.getFullYear() + ", " + hours + ":" + minutes + " " + ampm
+  return day + " " + monthNames[ist.getUTCMonth()] + " " + ist.getUTCFullYear() + ", " + hours + ":" + minutes + " " + ampm + " IST"
 }
 
 function getEvent(registration) {
@@ -339,6 +343,7 @@ function snapshot(registrationId) {
 
 module.exports = {
   asObject: asObject,
+  formatDate: formatDate,
   siteUrl: siteUrl,
   paidAmount: paidAmount,
   receiptNumber: receiptNumber,

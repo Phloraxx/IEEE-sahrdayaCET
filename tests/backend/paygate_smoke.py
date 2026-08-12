@@ -212,6 +212,29 @@ def raw_request(method, path, raw_body, expected=(200,), extra_headers=None):
     return payload
 
 
+def binary_request(method, path, token=None, expected=(200,), extra_headers=None):
+    headers = {}
+    if token:
+        headers["Authorization"] = token
+    if extra_headers:
+        headers.update(extra_headers)
+    req = urllib.request.Request(BASE + path, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(req, timeout=15) as response:
+            status = response.status
+            raw = response.read()
+            response_headers = dict(response.headers.items())
+    except urllib.error.HTTPError as error:
+        status = error.code
+        raw = error.read()
+        response_headers = dict(error.headers.items())
+    if status not in expected:
+        raise AssertionError(
+            f"{method} {path}: expected {expected}, got {status}: {raw[:200]!r}"
+        )
+    return raw, response_headers
+
+
 def impersonate(super_token, user_id):
     return request(
         "POST",
@@ -418,6 +441,29 @@ def main():
             token=token1,
         )
         assert owner_temp_after_paid["ticket"]["id"] == real_ticket
+
+        # A confirmed paid registration owns two durable notification jobs and
+        # exposes its receipt only to the authenticated owner/admin.
+        paid_notification_filter = urllib.parse.quote(
+            f'registration="{reg1["registrationId"]}"'
+        )
+        paid_notifications = request(
+            "GET",
+            f"/api/collections/notification_outbox/records?filter={paid_notification_filter}",
+            token=super_token,
+        )
+        assert paid_notifications["totalItems"] == 2
+        assert {row["kind"] for row in paid_notifications["items"]} == {"ticket", "receipt"}
+        assert all(row["status"] == "pending" for row in paid_notifications["items"])
+
+        receipt_path = f"/api/app/registrations/{reg1['registrationId']}/receipt"
+        request("GET", receipt_path, expected=(401,))
+        receipt_pdf, receipt_headers = binary_request("GET", receipt_path, token=token1)
+        assert receipt_headers.get("Content-Type", "").startswith("application/pdf")
+        assert receipt_pdf.startswith(b"%PDF-1.4")
+        assert b"PAYMENT RECEIPT" in receipt_pdf
+        assert b"Amount received: INR 100.31" in receipt_pdf
+        assert real_ticket.encode() in receipt_pdf
 
         # Native webhook path: fail closed on bad/stale signatures and monetary
         # mismatch, then confirm exactly once on a valid signed event.
