@@ -276,6 +276,7 @@ resend = request(
     "POST",
     f"/api/admin/registrations/{registration['registrationId']}/notifications/ticket/resend",
     token=admin_token,
+    expected=(202,),
 )
 assert resend["success"] is True and resend["status"] == "pending"
 notification_job = request(
