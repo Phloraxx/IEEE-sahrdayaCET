@@ -10,8 +10,8 @@ describe("registration/payment experience architecture", () => {
   it("routes paid registrations directly to payment and free registrations to tickets", () => {
     const register = source("src/features/register/RegisterPage.tsx");
     expect(register).toContain("if (result.paymentRequired)");
-    expect(register).toContain("navigate(`/payment/${result.registrationId}`)");
-    expect(register).toContain("navigate(`/ticket/${result.ticketId}`)");
+    expect(register).toContain("navigate(`/payment/${result.registrationId}`, { replace: true })");
+    expect(register).toContain("navigate(`/ticket/${result.ticketId}`, { replace: true })");
     expect(register).not.toContain('toast.success("Registration successful!")');
   });
 
