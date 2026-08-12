@@ -45,6 +45,25 @@ routerAdd(
           throw new BadRequestError("Event is not available for registration")
         }
 
+        // A successful payment that needs organizer review is financially real
+        // even though its seat was released. Never allow a second registration
+        // (and therefore a possible second charge) while that payment is open.
+        var previous = txApp.findRecordsByFilter(
+          "registrations",
+          "user = {:userId} && event = {:eventId}",
+          "", 0, 0,
+          { userId: auth.id, eventId: eventId }
+        )
+        for (var previousIndex = 0; previousIndex < previous.length; previousIndex++) {
+          var previousRegistration = previous[previousIndex]
+          if (previousRegistration.getString("registrationStatus") !== "cancelled") continue
+          if (previousRegistration.getString("paymentStatus") !== "paid") continue
+          var previousPaymentData = pg.asObject(previousRegistration.get("paymentData"))
+          if (previousPaymentData.manualReview === true) {
+            throw new BadRequestError("A previous payment for this event is under organizer review")
+          }
+        }
+
         // Retry recovery intentionally runs before registration-window checks:
         // a compatible retry may recover its previously committed response even
         // if the event closes between the first response and the retry.

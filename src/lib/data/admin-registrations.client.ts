@@ -110,3 +110,25 @@ export async function checkInByTicket(ticketId: string) {
     },
   };
 }
+
+export interface RegistrationNotificationState {
+  ticketAvailable: boolean;
+  receiptAvailable: boolean;
+  notifications: {
+    ticket: { status: string; attempts: number; sentAt: string; lastError: string } | null;
+    receipt: { status: string; attempts: number; sentAt: string; lastError: string } | null;
+  };
+}
+
+export async function getRegistrationNotificationState(id: string): Promise<RegistrationNotificationState> {
+  const pb = getPbClient();
+  return pb.send(`/api/admin/registrations/${encodeURIComponent(id)}/notifications`, {}) as Promise<RegistrationNotificationState>;
+}
+
+export async function resendRegistrationNotification(id: string, kind: "ticket" | "receipt") {
+  const pb = getPbClient();
+  return pb.send(
+    `/api/admin/registrations/${encodeURIComponent(id)}/notifications/${kind}/resend`,
+    { method: "POST" },
+  ) as Promise<{ success: boolean; status: string }>;
+}

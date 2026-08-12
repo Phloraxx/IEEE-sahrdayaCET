@@ -1,8 +1,13 @@
 import { Fragment } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
-import { getAdminRegistration, runRegistrationAdminCommand } from "@/lib/data/admin-registrations.client";
-import { CreditCard, Loader2, Mail, Phone, Ticket, TriangleAlert, UserCheck } from "lucide-react";
+import {
+  getAdminRegistration,
+  getRegistrationNotificationState,
+  resendRegistrationNotification,
+  runRegistrationAdminCommand,
+} from "@/lib/data/admin-registrations.client";
+import { CreditCard, Loader2, Mail, Phone, ReceiptText, Send, Ticket, TriangleAlert, UserCheck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ConfirmButton } from "@/components/admin/confirm-button";
@@ -85,6 +90,20 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
   });
 
   const reg = data?.registration;
+
+  const notificationQuery = useQuery({
+    queryKey: ["admin-registration-notifications", registrationId],
+    queryFn: () => getRegistrationNotificationState(registrationId),
+    enabled: Boolean(reg),
+    retry: false,
+  });
+
+  const resendMutation = useMutation({
+    mutationFn: (kind: "ticket" | "receipt") => resendRegistrationNotification(registrationId, kind),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-registration-notifications", registrationId] });
+    },
+  });
 
   const checkInMutation = useMutation({
     mutationFn: () => runRegistrationAdminCommand(registrationId, "check-in"),
@@ -249,6 +268,45 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
           </CardContent>
         </Card>
       </div>
+
+      {notificationQuery.data && (
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2">
+              <Mail className="h-4 w-4 text-primary" />
+              <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">Email delivery</p>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {([
+                ["ticket", "Ticket email", notificationQuery.data.notifications.ticket, notificationQuery.data.ticketAvailable, Send],
+                ["receipt", "Receipt email", notificationQuery.data.notifications.receipt, notificationQuery.data.receiptAvailable, ReceiptText],
+              ] as const).map(([kind, label, state, available, Icon]) => (
+                <div key={kind} className="rounded-xl border border-border p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2"><Icon className="h-4 w-4 text-primary" /><p className="text-sm font-semibold">{label}</p></div>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {state?.status === "sent" ? `Sent${state.sentAt ? ` · ${formatDate(state.sentAt)}` : ""}` : state?.status === "failed" ? `Failed after ${state.attempts} attempt${state.attempts === 1 ? "" : "s"}` : state?.status ? state.status.charAt(0).toUpperCase() + state.status.slice(1) : available ? "Not queued yet" : "Not available"}
+                      </p>
+                    </div>
+                    {available && (
+                      <button
+                        type="button"
+                        onClick={() => resendMutation.mutate(kind)}
+                        disabled={resendMutation.isPending}
+                        className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold hover:bg-muted disabled:opacity-50"
+                      >
+                        Resend
+                      </button>
+                    )}
+                  </div>
+                  {state?.lastError && <p className="mt-3 break-words rounded-lg bg-destructive/5 px-3 py-2 text-xs text-destructive">{state.lastError}</p>}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {payGate && (
         <Card>

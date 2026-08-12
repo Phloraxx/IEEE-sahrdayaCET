@@ -1,510 +1,326 @@
-import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router";
-import { motion } from "framer-motion";
-import { CalendarDays, MapPin, Loader2, ArrowLeft, Ticket } from "lucide-react";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
-import { useAuth } from "@/lib/auth-context";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  ArrowLeft,
+  CalendarDays,
+  Check,
+  CheckCircle2,
+  Clock3,
+  CreditCard,
+  Loader2,
+  MapPin,
+  ShieldCheck,
+  Ticket,
+} from "lucide-react";
 import { toast } from "sonner";
-import type { FormField } from "@/types";
+
+import Footer from "@/components/Footer";
+import Navbar from "@/components/Navbar";
+import { useAuth } from "@/lib/auth-context";
+import {
+  createRegistration,
+  getMyEventRegistration,
+  getPublicEvent,
+  type PublicRegistrationEvent,
+} from "@/lib/data/public-client";
+import { downloadRegistrationReceipt } from "@/lib/data/receipt.client";
 import { formatDate } from "@/lib/dates";
-import { createRegistration, getPublicEvent, type PublicRegistrationEvent } from "@/lib/data/public-client";
+import {
+  clearRegistrationDraft,
+  loadRegistrationDraft,
+  loadRegistrationProfile,
+  saveRegistrationDraft,
+  saveRegistrationProfile,
+  type RegistrationProfileMemory,
+} from "@/lib/registration-memory";
+import { registrationAction, type MyEventRegistration } from "@/lib/registration-state";
+import type { FormField } from "@/types";
 
 interface PageProps {
   eventId: string;
   initialEvent?: PublicRegistrationEvent | null;
 }
 
-// ─── Dynamic Field Renderer ─────────────────────────────────────────
+const fieldClass =
+  "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-ieee-blue/60 focus:ring-4 focus:ring-ieee-blue/10 disabled:bg-slate-50 disabled:text-slate-500";
 
-function DynamicField({
-  field,
-  value,
-  onChange,
-  error,
-}: {
+function BookingProgress({ paid, stage = "details" }: { paid: boolean; stage?: "details" | "payment" | "ticket" }) {
+  const steps = paid ? ["Details", "Payment", "Ticket"] : ["Details", "Ticket"];
+  const stageIndex = paid
+    ? { details: 0, payment: 1, ticket: 2 }[stage]
+    : stage === "ticket" ? 1 : 0;
+
+  return (
+    <div className="flex items-center gap-2" aria-label="Registration progress">
+      {steps.map((step, index) => (
+        <div key={step} className="contents">
+          {index > 0 && <div className={`h-px w-5 sm:w-8 ${index <= stageIndex ? "bg-ieee-blue" : "bg-white/30"}`} />}
+          <div className={`flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] ${index <= stageIndex ? "text-white" : "text-white/55"}`}>
+            <span className={`flex h-5 w-5 items-center justify-center rounded-full border ${index < stageIndex ? "border-white bg-white text-ieee-blue" : index === stageIndex ? "border-white bg-white/15" : "border-white/30"}`}>
+              {index < stageIndex ? <Check className="h-3 w-3" /> : index + 1}
+            </span>
+            <span className="hidden sm:inline">{step}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EventHero({ event }: { event: PublicRegistrationEvent }) {
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: 18 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="relative min-h-[310px] overflow-hidden rounded-[2rem] bg-slate-950 shadow-2xl shadow-slate-300/40 sm:min-h-[390px] lg:min-h-[450px]"
+    >
+      {event.bannerUrl ? (
+        <img src={event.bannerUrl} alt={event.title} className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,#0ea5e9_0,transparent_35%),linear-gradient(135deg,#00629B,#0f172a_70%)]" />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/35 to-slate-950/5" />
+      <div className="absolute inset-x-0 top-0 flex items-center justify-between gap-4 p-5 sm:p-7">
+        <span className="rounded-full border border-white/20 bg-black/20 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-md">
+          {event.isPaid ? `₹${event.price}` : "Free event"}
+        </span>
+        <BookingProgress paid={event.isPaid} />
+      </div>
+      <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8 lg:p-10">
+        <h1 className="max-w-4xl text-3xl font-black leading-[1.05] tracking-tight text-white sm:text-4xl lg:text-5xl">
+          {event.title}
+        </h1>
+        <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm font-medium text-white/85">
+          <span className="inline-flex items-center gap-2"><CalendarDays className="h-4 w-4" />{formatDate(event.date)}</span>
+          <span className="inline-flex items-center gap-2"><MapPin className="h-4 w-4" />{event.venue}</span>
+          {event.maxCapacity > 0 && (
+            <span className="inline-flex items-center gap-2"><Ticket className="h-4 w-4" />{Math.max(0, event.maxCapacity - event.registeredCount)} seats left</span>
+          )}
+        </div>
+      </div>
+    </motion.section>
+  );
+}
+
+function DynamicField({ field, value, onChange, error }: {
   field: FormField;
   value: string;
   onChange: (value: string) => void;
   error?: string;
 }) {
-  const baseInput =
-    "w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50";
-  const errorBorder = error ? "border-destructive" : "border-input";
-
-  const sharedInput = `${baseInput} ${errorBorder}`;
-
-  switch (field.type) {
-    case "text":
-    case "email":
-    case "phone":
-      return (
-        <input
-          type={field.type}
-          id={field.id}
-          placeholder={field.placeholder}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className={sharedInput}
-          required={field.required}
-          aria-invalid={!!error}
-          aria-describedby={error ? `${field.id}-error` : undefined}
-        />
-      );
-    case "textarea":
-      return (
-        <textarea
-          id={field.id}
-          placeholder={field.placeholder}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className={`${sharedInput} min-h-[80px] resize-y`}
-          required={field.required}
-          aria-invalid={!!error}
-          aria-describedby={error ? `${field.id}-error` : undefined}
-        />
-      );
-    case "number":
-      return (
-        <input
-          type="number"
-          id={field.id}
-          placeholder={field.placeholder}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className={sharedInput}
-          required={field.required}
-          aria-invalid={!!error}
-          aria-describedby={error ? `${field.id}-error` : undefined}
-        />
-      );
-    case "date":
-      return (
-        <input
-          type="date"
-          id={field.id}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className={sharedInput}
-          required={field.required}
-          aria-invalid={!!error}
-          aria-describedby={error ? `${field.id}-error` : undefined}
-        />
-      );
-    case "select":
-      return (
-        <select
-          id={field.id}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className={sharedInput}
-          required={field.required}
-          aria-invalid={!!error}
-          aria-describedby={error ? `${field.id}-error` : undefined}
-        >
-          <option value="">Select...</option>
-          {field.options?.map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
-            </option>
-          ))}
-        </select>
-      );
-    case "radio":
-      return (
-        <div className="space-y-2" role="radiogroup" aria-label={field.label} aria-invalid={!!error} aria-describedby={error ? `${field.id}-error` : undefined}>
-          {field.options?.map((opt) => (
-            <label
-              key={opt}
-              className="flex items-center gap-2 cursor-pointer"
-            >
-              <input
-                type="radio"
-                id={`${field.id}-${opt}`}
-                name={`field_${field.label}`}
-                value={opt}
-                checked={value === opt}
-                onChange={(e) => onChange(e.target.value)}
-                className="accent-ieee-blue"
-              />
-              <span className="text-sm">{opt}</span>
-            </label>
-          ))}
-        </div>
-      );
-    case "checkbox":
-      return (
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            id={field.id}
-            checked={value === "true"}
-            onChange={(e) => onChange(e.target.checked ? "true" : "false")}
-            className="accent-ieee-blue rounded"
-            aria-invalid={!!error}
-            aria-describedby={error ? `${field.id}-error` : undefined}
-          />
-          <span className="text-sm">{field.label}</span>
-        </label>
-      );
-    case "boolean":
-      return (
-        <div className="flex items-center gap-4" role="radiogroup" aria-label={field.label} aria-invalid={!!error} aria-describedby={error ? `${field.id}-error` : undefined}>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="radio"
-              id={`${field.id}-yes`}
-              name={`field_${field.label}`}
-              value="yes"
-              checked={value === "yes"}
-              onChange={() => onChange("yes")}
-              className="accent-ieee-blue"
-            />
-            <span className="text-sm">Yes</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="radio"
-              id={`${field.id}-no`}
-              name={`field_${field.label}`}
-              value="no"
-              checked={value === "no"}
-              onChange={() => onChange("no")}
-              className="accent-ieee-blue"
-            />
-            <span className="text-sm">No</span>
-          </label>
-        </div>
-      );
-    default:
-      return (
-        <input
-          type="text"
-          id={field.id}
-          placeholder={field.placeholder}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className={sharedInput}
-          required={field.required}
-          aria-invalid={!!error}
-          aria-describedby={error ? `${field.id}-error` : undefined}
-        />
-      );
+  const classes = `${fieldClass} ${error ? "border-rose-400 focus:border-rose-400 focus:ring-rose-100" : ""}`;
+  const common = { id: field.id, value, required: field.required, "aria-invalid": !!error };
+  if (["text", "email", "phone"].includes(field.type)) {
+    const type = field.type === "phone" ? "tel" : field.type;
+    return <input {...common} type={type} placeholder={field.placeholder} onChange={(e) => onChange(e.target.value)} className={classes} />;
   }
+  if (field.type === "textarea") {
+    return <textarea {...common} placeholder={field.placeholder} onChange={(e) => onChange(e.target.value)} className={`${classes} min-h-28 resize-y`} />;
+  }
+  if (field.type === "number" || field.type === "date") {
+    return <input {...common} type={field.type} placeholder={field.placeholder} onChange={(e) => onChange(e.target.value)} className={classes} />;
+  }
+  if (field.type === "select") {
+    return (
+      <select {...common} onChange={(e) => onChange(e.target.value)} className={classes}>
+        <option value="">Select an option</option>
+        {field.options?.map((option) => <option key={option} value={option}>{option}</option>)}
+      </select>
+    );
+  }
+  if (field.type === "checkbox") {
+    return (
+      <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+        <input id={field.id} type="checkbox" checked={value === "true"} onChange={(e) => onChange(e.target.checked ? "true" : "false")} className="mt-0.5 h-4 w-4 accent-ieee-blue" />
+        <span className="text-sm leading-6 text-slate-700">{field.label}</span>
+      </label>
+    );
+  }
+  if (field.type === "radio" || field.type === "boolean") {
+    const options = field.type === "boolean" ? ["Yes", "No"] : field.options || [];
+    return (
+      <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label={field.label}>
+        {options.map((option) => {
+          const normalized = field.type === "boolean" ? option.toLowerCase() : option;
+          return (
+            <label key={option} className={`flex cursor-pointer items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-medium transition ${value === normalized ? "border-ieee-blue bg-ieee-blue/5 text-ieee-blue" : "border-slate-200 bg-white text-slate-700"}`}>
+              <input type="radio" name={`field-${field.id}`} value={normalized} checked={value === normalized} onChange={() => onChange(normalized)} className="accent-ieee-blue" />
+              {option}
+            </label>
+          );
+        })}
+      </div>
+    );
+  }
+  return <input {...common} type="text" placeholder={field.placeholder} onChange={(e) => onChange(e.target.value)} className={classes} />;
 }
 
-// ─── Registration Form Fields ─────────────────────────────────────────
-
-function RegistrationFormFields({
-  name,
-  setName,
-  email,
-  setEmail,
-  phone,
-  setPhone,
-  college,
-  setCollege,
-  branch,
-  setBranch,
-  semester,
-  setSemester,
-  isIeeeMember,
-  setIsIeeeMember,
-  ieeeMembershipId,
-  setIeeeMembershipId,
-  errors,
-  event,
-  customFields,
-  setCustomFields,
-}: {
-  name: string;
-  setName: (v: string) => void;
-  email: string;
-  setEmail: (v: string) => void;
-  phone: string;
-  setPhone: (v: string) => void;
-  college: string;
-  setCollege: (v: string) => void;
-  branch: string;
-  setBranch: (v: string) => void;
-  semester: string;
-  setSemester: (v: string) => void;
-  isIeeeMember: boolean;
-  setIsIeeeMember: (v: boolean) => void;
-  ieeeMembershipId: string;
-  setIeeeMembershipId: (v: string) => void;
-  errors: Record<string, string>;
-  event: { collectIeeeMember?: boolean; formFields?: FormField[] };
-  customFields: Record<string, string>;
-  setCustomFields: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+function StatusCard({ event, state, onReceipt }: {
+  event: PublicRegistrationEvent;
+  state: MyEventRegistration;
+  onReceipt: () => void;
 }) {
+  const action = registrationAction(state, event.registrationOpen);
+  const isPast = state.eventEnded;
+  if (action === "review") {
+    return (
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-[2rem] border border-amber-200 bg-white p-7 shadow-sm sm:p-9">
+        <Clock3 className="h-11 w-11 text-amber-500" />
+        <h2 className="mt-5 text-2xl font-black text-slate-950">Payment under review</h2>
+        <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
+          We received payment information for this event, but an organizer needs to review it before a ticket can be issued. Please don&apos;t register or pay again.
+        </p>
+      </motion.div>
+    );
+  }
+  if (action === "payment") {
+    return (
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-[2rem] border border-sky-200 bg-white p-7 shadow-sm sm:p-9">
+        <CreditCard className="h-11 w-11 text-ieee-blue" />
+        <h2 className="mt-5 text-2xl font-black text-slate-950">Your registration is waiting for payment</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">Your details are already saved. Continue the existing payment instead of registering again.</p>
+        <Link to={`/payment/${state.registrationId}`} className="mt-6 inline-flex w-full items-center justify-center rounded-2xl bg-ieee-blue px-5 py-3.5 font-bold text-white sm:w-auto sm:min-w-56">
+          Continue payment
+        </Link>
+      </motion.div>
+    );
+  }
   return (
-    <>
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-lg font-bold text-gray-900 mb-4">
-          Personal Information
-        </h2>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="name">
-              Full Name *
-            </label>
-            <input
-              type="text"
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
-              placeholder="Enter your full name"
-              aria-invalid={!!errors.name}
-              aria-describedby={errors.name ? "name-error" : undefined}
-            />
-            {errors.name && (
-              <p id="name-error" className="text-xs text-red-500 mt-1" role="alert">{errors.name}</p>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="email">
-                Email *
-              </label>
-              <input
-                type="email"
-                id="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
-                placeholder="your.email@example.com"
-                aria-invalid={!!errors.email}
-                aria-describedby={errors.email ? "email-error" : undefined}
-              />
-              {errors.email && (
-                <p id="email-error" className="text-xs text-red-500 mt-1" role="alert">{errors.email}</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="phone">
-                Phone *
-              </label>
-              <input
-                type="tel"
-                id="phone"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
-                placeholder="+91 98765 43210"
-                aria-invalid={!!errors.phone}
-                aria-describedby={errors.phone ? "phone-error" : undefined}
-              />
-              {errors.phone && (
-                <p id="phone-error" className="text-xs text-red-500 mt-1" role="alert">{errors.phone}</p>
-              )}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="college">
-              College / Institution *
-            </label>
-            <input
-              type="text"
-              id="college"
-              value={college}
-              onChange={(e) => setCollege(e.target.value)}
-              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
-              placeholder="Enter your college name"
-              aria-invalid={!!errors.college}
-              aria-describedby={errors.college ? "college-error" : undefined}
-            />
-            {errors.college && (
-              <p id="college-error" className="text-xs text-red-500 mt-1" role="alert">{errors.college}</p>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="branch">
-                Branch / Department
-              </label>
-              <input
-                type="text"
-                id="branch"
-                value={branch}
-                onChange={(e) => setBranch(e.target.value)}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
-                placeholder="e.g. Computer Science"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="semester">
-                Semester
-              </label>
-              <input
-                type="text"
-                id="semester"
-                value={semester}
-                onChange={(e) => setSemester(e.target.value)}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
-                placeholder="e.g. S6"
-              />
-            </div>
-          </div>
-
-          {/* IEEE Member Section */}
-          {(event.collectIeeeMember === undefined ||
-            event.collectIeeeMember) && (
-            <div className="pt-4 border-t border-gray-100">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isIeeeMember}
-                  onChange={(e) => setIsIeeeMember(e.target.checked)}
-                  className="accent-ieee-blue w-4 h-4"
-                  id="ieee-member"
-                />
-                <span className="text-sm font-medium text-gray-700">
-                  I am an IEEE Member
-                </span>
-              </label>
-
-              {isIeeeMember && (
-                <div className="mt-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="ieee-membership-id">
-                    IEEE Membership ID
-                  </label>
-                  <input
-                    type="text"
-                    id="ieee-membership-id"
-                    value={ieeeMembershipId}
-                    onChange={(e) => setIeeeMembershipId(e.target.value)}
-                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
-                    placeholder="Enter your IEEE membership ID"
-                  />
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-[2rem] border border-emerald-200 bg-white p-7 shadow-sm sm:p-9">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50"><CheckCircle2 className="h-7 w-7 text-emerald-600" /></div>
+      <h2 className="mt-5 text-2xl font-black text-slate-950">You&apos;re registered</h2>
+      <p className="mt-2 text-sm leading-6 text-slate-600">
+        {isPast ? "This event has ended, but your ticket and payment receipt remain available here." : "Your place is confirmed. Keep your ticket ready for event check-in."}
+      </p>
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+        <Link to={`/ticket/${state.ticketId}`} className="inline-flex items-center justify-center rounded-2xl bg-ieee-blue px-5 py-3.5 font-bold text-white">View ticket</Link>
+        {state.receiptAvailable && (
+          <button type="button" onClick={onReceipt} className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3.5 font-bold text-slate-800 hover:bg-slate-50">Download receipt</button>
+        )}
       </div>
-
-      {/* Custom Fields (if any) */}
-      {event.formFields && event.formFields.length > 0 && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-bold text-gray-900 mb-4">
-            Additional Information
-          </h2>
-          <div className="space-y-4">
-            {event.formFields.map((field) => (
-              <div key={field.label}>
-                <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor={field.id}>
-                  {field.label}
-                  {field.required && " *"}
-                </label>
-                <DynamicField
-                  field={field}
-                  value={customFields[field.label] || ""}
-                  onChange={(value) =>
-                    setCustomFields((prev) => ({
-                      ...prev,
-                      [field.label]: value,
-                    }))
-                  }
-                  error={errors[field.id]}
-                />
-                {errors[field.id] && (
-                  <p id={`${field.id}-error`} className="text-xs text-red-500 mt-1" role="alert">{errors[field.id]}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </>
+    </motion.div>
   );
 }
 
-// ─── Event Registration Page ──────────────────────────────────────────
-
 export default function RegisterPage({ eventId, initialEvent }: PageProps) {
   const navigate = useNavigate();
-  const { user, signIn } = useAuth();
-
-  const [event, setEvent] = useState<PublicRegistrationEvent | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, status: authStatus, signIn } = useAuth();
+  const [event, setEvent] = useState<PublicRegistrationEvent | null>(initialEvent ?? null);
+  const [loading, setLoading] = useState(!initialEvent);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [registrationState, setRegistrationState] = useState<MyEventRegistration | null>(null);
+  const [registrationStateLoading, setRegistrationStateLoading] = useState(false);
+  const [memoryReady, setMemoryReady] = useState(false);
 
-  // Core form fields
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [college, setCollege] = useState("");
   const [branch, setBranch] = useState("");
   const [semester, setSemester] = useState("");
   const [isIeeeMember, setIsIeeeMember] = useState(false);
   const [ieeeMembershipId, setIeeeMembershipId] = useState("");
+  const [customFields, setCustomFields] = useState<Record<string, string>>({});
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Dynamic custom fields
-  const [customFields, setCustomFields] = useState<Record<string, string>>({});
-
-  // Form validity
-  const [acceptedTerms, setAcceptedTerms] = useState(false);
   useEffect(() => {
-    if (initialEvent) {
-      setEvent(initialEvent);
-      const formTemplate = initialEvent.formFields;
-      if (Array.isArray(formTemplate)) {
-        const initial: Record<string, string> = {};
-        formTemplate.forEach((f: FormField) => {
-          initial[f.label] = f.type === "checkbox" ? "false" : "";
-        });
-        setCustomFields(initial);
-      }
-      setLoading(false);
-      return;
-    }
-    const fetchEvent = async () => {
-      try {
-        const eventData = await getPublicEvent(eventId);
-        if (eventData) {
-          setEvent(eventData);
-          const formTemplate = eventData.formFields;
-          if (Array.isArray(formTemplate)) {
-            const initial: Record<string, string> = {};
-            formTemplate.forEach((f: FormField) => {
-              initial[f.label] = f.type === "checkbox" ? "false" : "";
-            });
-            setCustomFields(initial);
-          }
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load event");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchEvent();
+    if (initialEvent) return;
+    let active = true;
+    void getPublicEvent(eventId)
+      .then((next) => { if (active) setEvent(next); })
+      .catch((err) => { if (active) setError(err instanceof Error ? err.message : "Failed to load event"); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [eventId, initialEvent]);
 
+  useEffect(() => {
+    if (!event) return;
+    setCustomFields((current) => {
+      const next = { ...current };
+      for (const field of event.formFields || []) {
+        if (next[field.id] === undefined) next[field.id] = field.defaultValue || (field.type === "checkbox" ? "false" : "");
+      }
+      return next;
+    });
+  }, [event]);
+
+  useEffect(() => {
+    if (!user?.id || !event) {
+      setMemoryReady(false);
+      return;
+    }
+    const profile = loadRegistrationProfile(user.id);
+    const draft = loadRegistrationDraft(user.id, event.id);
+    const source = draft || profile;
+    setName(source.name || user.name || "");
+    setPhone(source.phone);
+    setCollege(source.college);
+    setBranch(source.branch);
+    setSemester(source.semester);
+    setIsIeeeMember(source.isIeeeMember);
+    setIeeeMembershipId(source.ieeeMembershipId);
+    if (draft) setCustomFields((current) => ({ ...current, ...draft.customFields }));
+    setMemoryReady(true);
+  }, [event, user?.id, user?.name]);
+
+  useEffect(() => {
+    if (!memoryReady || !user?.id || !event) return;
+    const timer = window.setTimeout(() => {
+      const profile: RegistrationProfileMemory = { name, phone, college, branch, semester, isIeeeMember, ieeeMembershipId };
+      saveRegistrationProfile(user.id, profile);
+      saveRegistrationDraft(user.id, event.id, { ...profile, customFields });
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [branch, college, customFields, event, ieeeMembershipId, isIeeeMember, memoryReady, name, phone, semester, user?.id]);
+
+  useEffect(() => {
+    if (authStatus !== "authenticated" || !user?.id || !event) {
+      setRegistrationState(null);
+      setRegistrationStateLoading(false);
+      return;
+    }
+    let active = true;
+    setRegistrationStateLoading(true);
+    void getMyEventRegistration(event.id)
+      .then((state) => { if (active) setRegistrationState(state); })
+      .catch(() => { if (active) setRegistrationState(null); })
+      .finally(() => { if (active) setRegistrationStateLoading(false); });
+    return () => { active = false; };
+  }, [authStatus, event, user?.id]);
+
+  const email = user?.email || "";
+  const capacityFull = !!event?.maxCapacity && event.registeredCount >= event.maxCapacity;
+  const action = useMemo(
+    () => registrationAction(registrationState, !!event?.registrationOpen && !capacityFull),
+    [capacityFull, event?.registrationOpen, registrationState],
+  );
+
   const validate = (): boolean => {
-    const newErrors: Record<string, string> = {};
-    if (!name.trim()) newErrors.name = "Name is required";
-    if (!email.trim()) newErrors.email = "Email is required";
-    if (!phone.trim()) newErrors.phone = "Phone is required";
-    if (!college.trim()) newErrors.college = "College is required";
-    if (!acceptedTerms) newErrors.terms = "You must accept the terms";
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    const next: Record<string, string> = {};
+    if (!name.trim()) next.name = "Full name is required";
+    if (!email.trim()) next.email = "Your signed-in account needs an email address";
+    if (!phone.trim()) next.phone = "Phone number is required";
+    if (!college.trim()) next.college = "College or institution is required";
+    for (const field of event?.formFields || []) {
+      if (!field.required) continue;
+      const value = customFields[field.id];
+      if (!value || (field.type === "checkbox" && value !== "true")) next[field.id] = `${field.label} is required`;
+    }
+    if (!acceptedTerms) next.terms = "Please confirm the information before continuing";
+    setErrors(next);
+    return Object.keys(next).length === 0;
   };
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
+
+  const handleSubmit = async (submitEvent: React.FormEvent) => {
+    submitEvent.preventDefault();
+    if (!event || !user?.id || !validate()) return;
     setSubmitting(true);
     try {
-      const body = {
-        eventId,
+      const result = await createRegistration({
+        userId: user.id,
+        eventId: event.id,
         formResponses: {
           name: name.trim(),
           email: email.trim(),
@@ -516,283 +332,134 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
           ieeeMembershipId: ieeeMembershipId.trim() || undefined,
           ...customFields,
         },
-      };
-
-      if (!user?.id) throw new Error("Please sign in before registering");
-      const result = await createRegistration({
-        userId: user.id,
-        eventId: body.eventId,
-        formResponses: body.formResponses,
       });
-
-      toast.success("Registration successful!");
-      navigate(`/ticket/${result.ticketId}`);
+      saveRegistrationProfile(user.id, { name: name.trim(), phone: phone.trim(), college: college.trim(), branch: branch.trim(), semester: semester.trim(), isIeeeMember, ieeeMembershipId: ieeeMembershipId.trim() });
+      clearRegistrationDraft(user.id, event.id);
+      if (result.paymentRequired) {
+        toast.info("Details saved. Complete payment to confirm your registration.");
+        navigate(`/payment/${result.registrationId}`);
+      } else if (result.ticketId) {
+        toast.success("Registration confirmed");
+        navigate(`/ticket/${result.ticketId}`);
+      } else {
+        throw new Error("Registration was saved but no ticket was returned");
+      }
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Something went wrong",
-      );
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setSubmitting(false);
     }
   };
 
-  // ── Loading State ──
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 text-ieee-blue animate-spin mx-auto mb-4" />
-          <p className="text-gray-600 font-medium">Loading event details...</p>
-        </div>
-      </div>
-    );
-  }
+  const handleReceipt = async () => {
+    if (!registrationState?.registrationId) return;
+    try { await downloadRegistrationReceipt(registrationState.registrationId); }
+    catch (err) { toast.error(err instanceof Error ? err.message : "Receipt could not be downloaded"); }
+  };
 
-  // ── Error State ──
+  if (loading) {
+    return <div className="min-h-screen bg-slate-50 flex items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-ieee-blue" /></div>;
+  }
   if (error || !event) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center max-w-md mx-auto px-4">
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-8">
-            <h1 className="text-xl font-bold text-red-700 mb-2">
-              {error || "Event not found"}
-            </h1>
-            <p className="text-red-600/80 mb-6">
-              The event you're looking for doesn't exist or has been removed.
-            </p>
-            <Link
-              to="/events"
-              className="inline-flex items-center gap-2 bg-ieee-blue text-white px-6 py-2.5 rounded-xl hover:bg-blue-700 transition-colors font-medium"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Browse Events
-            </Link>
-          </div>
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
+        <div className="max-w-md rounded-3xl border border-rose-200 bg-white p-8 text-center shadow-sm">
+          <h1 className="text-xl font-black text-slate-950">{error || "Event not found"}</h1>
+          <p className="mt-2 text-sm text-slate-600">This event is unavailable or has been removed.</p>
+          <Link to="/events" className="mt-6 inline-flex rounded-xl bg-ieee-blue px-5 py-3 font-bold text-white">Browse events</Link>
         </div>
       </div>
     );
   }
 
-  // ── Registration Closed ──
-  if (!event.registrationOpen) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center max-w-md mx-auto px-4">
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-8">
-            <h1 className="text-xl font-bold text-amber-700 mb-2">
-              Registration Closed
-            </h1>
-            <p className="text-amber-600/80 mb-6">
-              Registration for this event is currently closed.
-            </p>
-            <Link
-              to="/events"
-              className="inline-flex items-center gap-2 bg-ieee-blue text-white px-6 py-2.5 rounded-xl hover:bg-blue-700 transition-colors font-medium"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Browse Events
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Capacity Full ──
-  if (
-    event.maxCapacity > 0 &&
-    event.registeredCount >= event.maxCapacity
-  ) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center max-w-md mx-auto px-4">
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-8">
-            <h1 className="text-xl font-bold text-red-700 mb-2">
-              Event Full
-            </h1>
-            <p className="text-red-600/80 mb-6">
-              All seats for this event have been filled.
-            </p>
-            <Link
-              to="/events"
-              className="inline-flex items-center gap-2 bg-ieee-blue text-white px-6 py-2.5 rounded-xl hover:bg-blue-700 transition-colors font-medium"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Browse Events
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Registration Form ──
   return (
-    <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-[#F5F7FA] text-slate-900">
       <Navbar />
+      <main className="mx-auto max-w-6xl px-4 pb-24 pt-24 sm:px-6 lg:px-8">
+        <Link to="/events" className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-900"><ArrowLeft className="h-4 w-4" />Back to events</Link>
+        <EventHero event={event} />
 
-      <main className="max-w-3xl mx-auto px-4 py-8">
-        {/* Back button */}
-        <Link
-          to="/events"
-          className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors mb-6"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span className="text-sm font-medium">Back to Events</span>
-        </Link>
-
-        {/* Event Header Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-6"
-        >
-          {event.bannerUrl ? (
-            <div className="relative h-40 sm:h-48">
-              <img
-                src={event.bannerUrl}
-                alt={event.title}
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-                className="absolute inset-0 w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent" />
-              <div className="absolute bottom-4 left-4 right-4">
-                <h1 className="text-xl sm:text-2xl font-bold text-white mb-1">
-                  {event.title}
-                </h1>
-                <div className="flex flex-wrap items-center gap-3 text-white/80 text-xs sm:text-sm">
-                  <span className="flex items-center gap-1">
-                    <CalendarDays className="w-3.5 h-3.5" />
-                    {formatDate(event.date)}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5" />
-                    {event.venue}
-                  </span>
-                </div>
+        <div className="mt-8 grid gap-7 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div>
+            {authStatus === "loading" || registrationStateLoading ? (
+              <div className="rounded-[2rem] border border-slate-200 bg-white p-10 text-center"><Loader2 className="mx-auto h-8 w-8 animate-spin text-ieee-blue" /><p className="mt-3 text-sm text-slate-500">Checking your registration…</p></div>
+            ) : !user ? (
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-[2rem] border border-slate-200 bg-white p-8 text-center shadow-sm sm:p-10">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-ieee-blue/10"><ShieldCheck className="h-7 w-7 text-ieee-blue" /></div>
+                <h2 className="mt-5 text-2xl font-black">Sign in to register</h2>
+                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">Your Google account keeps your registration and ticket tied to you and lets us prevent duplicate registrations.</p>
+                <button type="button" onClick={signIn} className="mt-6 rounded-2xl bg-ieee-blue px-6 py-3.5 font-bold text-white">Sign in with Google</button>
+              </motion.div>
+            ) : registrationState?.found ? (
+              <StatusCard event={event} state={registrationState} onReceipt={() => void handleReceipt()} />
+            ) : action === "closed" ? (
+              <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
+                <Clock3 className="h-10 w-10 text-slate-400" />
+                <h2 className="mt-4 text-2xl font-black">{capacityFull ? "Event full" : "Registration closed"}</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{capacityFull ? "All available seats are currently reserved." : "This event is no longer accepting new registrations."}</p>
               </div>
-            </div>
-          ) : (
-            <div className="p-6 bg-linear-to-br from-ieee-blue to-purple-600">
-              <h1 className="text-xl sm:text-2xl font-bold text-white mb-1">
-                {event.title}
-              </h1>
-              <div className="flex flex-wrap items-center gap-3 text-white/80 text-xs sm:text-sm">
-                <span className="flex items-center gap-1">
-                  <CalendarDays className="w-3.5 h-3.5" />
-                  {formatDate(event.date)}
-                </span>
-                <span className="flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5" />
-                  {event.venue}
-                </span>
-              </div>
-            </div>
-          )}
-          <div className="px-6 py-4 flex items-center justify-between bg-gray-50 border-t border-gray-100">
-            <div className="flex items-center gap-4 text-sm text-gray-600">
-              <span>
-                <strong>{event.registeredCount}</strong> /{" "}
-                {event.maxCapacity > 0 ? event.maxCapacity : "∞"} registered
-              </span>
-              {event.isPaid && (
-                <span className="font-semibold text-ieee-blue">
-                  ₹{event.price}
-                </span>
-              )}
-            </div>
-          </div>
-        </motion.div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+                  <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-ieee-blue">Your details</p>
+                  <h2 className="mt-2 text-2xl font-black">Tell us who&apos;s attending</h2>
+                  <p className="mt-1 text-sm text-slate-500">Saved securely in this browser for your next IEEE event too.</p>
+                  <div className="mt-6 grid gap-5 sm:grid-cols-2">
+                    <label className="sm:col-span-2"><span className="mb-2 block text-sm font-semibold">Full name *</span><input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" className={`${fieldClass} ${errors.name ? "border-rose-400" : ""}`} placeholder="Your full name" />{errors.name && <span className="mt-1.5 block text-xs text-rose-600">{errors.name}</span>}</label>
+                    <label><span className="mb-2 block text-sm font-semibold">Email</span><input value={email} readOnly autoComplete="email" className={fieldClass} /><span className="mt-1.5 block text-xs text-slate-400">From your signed-in Google account</span></label>
+                    <label><span className="mb-2 block text-sm font-semibold">Phone *</span><input value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" inputMode="tel" autoComplete="tel" className={`${fieldClass} ${errors.phone ? "border-rose-400" : ""}`} placeholder="+91 98765 43210" />{errors.phone && <span className="mt-1.5 block text-xs text-rose-600">{errors.phone}</span>}</label>
+                    <label className="sm:col-span-2"><span className="mb-2 block text-sm font-semibold">College / Institution *</span><input value={college} onChange={(e) => setCollege(e.target.value)} autoComplete="organization" className={`${fieldClass} ${errors.college ? "border-rose-400" : ""}`} placeholder="Your college or institution" />{errors.college && <span className="mt-1.5 block text-xs text-rose-600">{errors.college}</span>}</label>
+                    <label><span className="mb-2 block text-sm font-semibold">Branch / Department</span><input value={branch} onChange={(e) => setBranch(e.target.value)} className={fieldClass} placeholder="Computer Science" /></label>
+                    <label><span className="mb-2 block text-sm font-semibold">Semester</span><input value={semester} onChange={(e) => setSemester(e.target.value)} className={fieldClass} placeholder="S6" /></label>
+                  </div>
 
-        {/* Registration Form */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-        >
-          {!user ? (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center">
-              <Ticket className="w-16 h-16 text-ieee-blue mx-auto mb-4" />
-              <h2 className="text-xl font-bold text-gray-900 mb-2">
-                Sign in to Register
-              </h2>
-              <p className="text-gray-600 mb-6">
-                Please sign in with your Google account to register for this
-                event.
-              </p>
-              <button
-                onClick={signIn}
-                className="inline-flex items-center gap-2 bg-ieee-blue text-white px-6 py-3 rounded-xl hover:bg-blue-700 transition-colors font-medium"
-              >
-                Sign in with Google
-              </button>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <RegistrationFormFields
-                name={name}
-                setName={setName}
-                email={email}
-                setEmail={setEmail}
-                phone={phone}
-                setPhone={setPhone}
-                college={college}
-                setCollege={setCollege}
-                branch={branch}
-                setBranch={setBranch}
-                semester={semester}
-                setSemester={setSemester}
-                isIeeeMember={isIeeeMember}
-                setIsIeeeMember={setIsIeeeMember}
-                ieeeMembershipId={ieeeMembershipId}
-                setIeeeMembershipId={setIeeeMembershipId}
-                errors={errors}
-                event={event}
-                customFields={customFields}
-                setCustomFields={setCustomFields}
-              />
+                  {event.collectIeeeMember && (
+                    <div className="mt-6 border-t border-slate-100 pt-6">
+                      <label className="flex cursor-pointer items-center gap-3"><input type="checkbox" checked={isIeeeMember} onChange={(e) => setIsIeeeMember(e.target.checked)} className="h-4 w-4 accent-ieee-blue" /><span className="text-sm font-semibold">I am an IEEE member</span></label>
+                      <AnimatePresence initial={false}>{isIeeeMember && <motion.label initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mt-4 block overflow-hidden"><span className="mb-2 block text-sm font-semibold">IEEE Membership ID</span><input value={ieeeMembershipId} onChange={(e) => setIeeeMembershipId(e.target.value)} className={fieldClass} placeholder="Membership ID" /></motion.label>}</AnimatePresence>
+                    </div>
+                  )}
+                </motion.section>
 
-              {/* Terms and Submit */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                <label className="flex items-start gap-3 cursor-pointer mb-6">
-                  <input
-                    type="checkbox"
-                    checked={acceptedTerms}
-                    onChange={(e) => setAcceptedTerms(e.target.checked)}
-                    className="accent-ieee-blue w-4 h-4 mt-0.5"
-                  />
-                  <span className="text-sm text-gray-600">
-                    I confirm that the information provided is accurate and I
-                    agree to the terms and conditions of the event. *
-                  </span>
-                </label>
-                {errors.terms && (
-                  <p className="text-xs text-red-500 mb-4">{errors.terms}</p>
+                {event.formFields.length > 0 && (
+                  <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+                    <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-ieee-blue">Event questions</p>
+                    <h2 className="mt-2 text-2xl font-black">A few more details</h2>
+                    <div className="mt-6 space-y-5">
+                      {event.formFields.map((field) => (
+                        <div key={field.id}>
+                          {field.type !== "checkbox" && <label htmlFor={field.id} className="mb-2 block text-sm font-semibold">{field.label}{field.required ? " *" : ""}</label>}
+                          <DynamicField field={field} value={customFields[field.id] || ""} onChange={(value) => setCustomFields((current) => ({ ...current, [field.id]: value }))} error={errors[field.id]} />
+                          {errors[field.id] && <p className="mt-1.5 text-xs text-rose-600">{errors[field.id]}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </motion.section>
                 )}
 
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="w-full bg-ieee-blue hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white py-3 rounded-xl transition-colors font-semibold flex items-center justify-center gap-2"
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <Ticket className="w-5 h-5" />
-                      {event.isPaid ? "Proceed to Payment" : "Register Now"}
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          )}
-        </motion.div>
-      </main>
+                <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="sticky bottom-3 z-20 rounded-[2rem] border border-slate-200 bg-white/95 p-5 shadow-xl shadow-slate-300/30 backdrop-blur sm:static sm:p-6">
+                  <label className="flex cursor-pointer items-start gap-3"><input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} className="mt-0.5 h-4 w-4 accent-ieee-blue" /><span className="text-sm leading-6 text-slate-600">I confirm that the information above is accurate and agree to the event terms.</span></label>
+                  {errors.terms && <p className="mt-2 text-xs text-rose-600">{errors.terms}</p>}
+                  <button type="submit" disabled={submitting} className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-ieee-blue px-5 py-4 font-black text-white transition hover:-translate-y-0.5 hover:shadow-lg disabled:translate-y-0 disabled:bg-slate-300 disabled:shadow-none">
+                    {submitting ? <><Loader2 className="h-5 w-5 animate-spin" />Saving your details…</> : event.isPaid ? <><CreditCard className="h-5 w-5" />Continue to payment · ₹{event.price}</> : <><Ticket className="h-5 w-5" />Confirm free registration</>}
+                  </button>
+                </motion.section>
+              </form>
+            )}
+          </div>
 
+          <aside className="h-fit rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-24">
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-slate-400">Registration summary</p>
+            <h3 className="mt-3 text-lg font-black leading-snug">{event.title}</h3>
+            <div className="mt-5 space-y-3 text-sm text-slate-600">
+              <div className="flex gap-3"><CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-ieee-blue" /><span>{formatDate(event.date)}</span></div>
+              <div className="flex gap-3"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-ieee-blue" /><span>{event.venue}</span></div>
+            </div>
+            <div className="mt-6 border-t border-dashed border-slate-200 pt-5"><div className="flex items-end justify-between"><span className="text-sm text-slate-500">Registration fee</span><strong className="text-2xl font-black">{event.isPaid ? `₹${event.price}` : "Free"}</strong></div></div>
+            {memoryReady && user && action === "register" && <p className="mt-5 rounded-2xl bg-sky-50 px-4 py-3 text-xs leading-5 text-sky-800">Your form is automatically saved on this device while you type.</p>}
+          </aside>
+        </div>
+      </main>
       <Footer />
     </div>
   );
