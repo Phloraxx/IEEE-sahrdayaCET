@@ -337,10 +337,10 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
       clearRegistrationDraft(user.id, event.id);
       if (result.paymentRequired) {
         toast.info("Details saved. Complete payment to confirm your registration.");
-        navigate(`/payment/${result.registrationId}`);
+        navigate(`/payment/${result.registrationId}`, { replace: true });
       } else if (result.ticketId) {
         toast.success("Registration confirmed");
-        navigate(`/ticket/${result.ticketId}`);
+        navigate(`/ticket/${result.ticketId}`, { replace: true });
       } else {
         throw new Error("Registration was saved but no ticket was returned");
       }

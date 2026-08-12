@@ -82,7 +82,7 @@ function PaymentShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative min-h-dvh overflow-hidden bg-[#F4F7FA] text-slate-950">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_10%,rgba(0,98,155,0.09),transparent_28%),radial-gradient(circle_at_90%_85%,rgba(14,165,233,0.08),transparent_26%)]" />
-      <main className="relative mx-auto flex min-h-dvh w-full max-w-6xl items-center px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
+      <main className="relative mx-auto flex min-h-dvh w-full max-w-6xl items-center px-4 py-4 sm:px-6 sm:py-10 lg:px-8">
         {children}
       </main>
     </div>
@@ -95,7 +95,7 @@ function EventVisual({ session }: { session: RegistrationPaymentSession }) {
     <motion.aside
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
-      className="relative min-h-[260px] overflow-hidden rounded-[2.25rem] bg-slate-950 shadow-[0_30px_80px_-36px_rgba(15,23,42,0.55)] sm:min-h-[320px] lg:min-h-[650px]"
+      className="relative min-h-[230px] overflow-hidden rounded-[2.25rem] bg-slate-950 shadow-[0_30px_80px_-36px_rgba(15,23,42,0.55)] sm:min-h-[320px] lg:min-h-[650px]"
     >
       {event?.bannerUrl ? (
         <img
@@ -450,7 +450,7 @@ export default function PaymentPage({ registrationId }: PageProps) {
           <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-ieee-blue via-sky-400 to-ieee-blue" />
           <PaymentProgress />
 
-          <div className="mt-8 text-center sm:mt-10">
+          <div className="mt-6 text-center sm:mt-10">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
               Pay exactly
             </p>
@@ -469,7 +469,7 @@ export default function PaymentPage({ registrationId }: PageProps) {
               delay: reduceMotion ? 0 : 0.12,
               duration: reduceMotion ? 0 : 0.35,
             }}
-            className="relative mx-auto mt-7 aspect-square w-full max-w-[320px] rounded-[2rem] bg-[#F7F9FB] p-3 sm:max-w-[340px]"
+            className="relative mx-auto mt-5 aspect-square w-full max-w-[286px] rounded-[2rem] bg-[#F7F9FB] p-3 sm:mt-7 sm:max-w-[340px]"
           >
             <div className="relative flex h-full w-full items-center justify-center rounded-[1.55rem] bg-white p-4 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.32)]">
               <span className="pointer-events-none absolute left-3 top-3 h-7 w-7 rounded-tl-xl border-l-2 border-t-2 border-ieee-blue/60" />
@@ -496,7 +496,7 @@ export default function PaymentPage({ registrationId }: PageProps) {
               qrDataUrl &&
               downloadQR(qrDataUrl, `ieee-payment-${registrationId}.png`)
             }
-            className="mx-auto mt-6 inline-flex w-full max-w-[340px] items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-3.5 text-sm font-black text-white shadow-lg shadow-slate-200 transition hover:-translate-y-0.5 hover:bg-ieee-blue hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-40"
+            className="mx-auto mt-4 inline-flex w-full max-w-[340px] sm:mt-6 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-3.5 text-sm font-black text-white shadow-lg shadow-slate-200 transition hover:-translate-y-0.5 hover:bg-ieee-blue hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Download className="h-4 w-4" />
             Save QR as PNG
