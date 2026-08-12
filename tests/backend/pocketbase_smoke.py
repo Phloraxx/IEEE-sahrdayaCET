@@ -274,7 +274,7 @@ assert notification_job["attempts"] == 1
 assert "SMTP delivery is not configured" in notification_job["lastError"]
 resend = request(
     "POST",
-    f"/api/app/registrations/{registration['registrationId']}/notifications/ticket/resend",
+    f"/api/admin/registrations/{registration['registrationId']}/notifications/ticket/resend",
     token=admin_token,
 )
 assert resend["success"] is True and resend["status"] == "pending"
