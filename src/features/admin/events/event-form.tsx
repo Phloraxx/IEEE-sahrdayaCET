@@ -38,6 +38,7 @@ interface EventFormState {
   endDate: string;
   venue: string;
   price: string;
+  paymentProvider: "kotak" | "slice" | "razorpay";
   maxCapacity: string;
   status: string;
   society: string;
@@ -61,6 +62,7 @@ const EMPTY_STATE: EventFormState = {
   endDate: "",
   venue: "",
   price: "0",
+  paymentProvider: "kotak",
   maxCapacity: "",
   status: "draft",
   society: "",
@@ -135,6 +137,10 @@ export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
         endDate: toAppDateTimeLocal(e.endDate as string | undefined),
         venue: String(e.venue ?? ""),
         price: String(e.price ?? "0"),
+        paymentProvider:
+          e.paymentProvider === "slice" || e.paymentProvider === "razorpay"
+            ? e.paymentProvider
+            : "kotak",
         maxCapacity:
           e.maxCapacity != null && Number(e.maxCapacity) > 0
             ? String(e.maxCapacity)
@@ -210,6 +216,12 @@ export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
       return;
     }
 
+    if (form.paymentProvider === "razorpay" && Number(form.price) > 100_000) {
+      setSubmitError("Razorpay event prices cannot exceed ₹1,00,000");
+      setSubmitting(false);
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -218,6 +230,7 @@ export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
         description: form.description,
         venue: form.venue.trim(),
         price: Number(form.price) || 0,
+        paymentProvider: form.paymentProvider,
         status: form.status,
         society: form.society || undefined,
         registrationOpen: form.registrationOpen,
@@ -519,6 +532,34 @@ export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
                         onChange={update("price")}
                       />
                     </div>
+                    {Number(form.price) > 0 && (
+                      <div className="grid gap-1.5">
+                        <Label htmlFor="evt-payment-provider">
+                          Payment route
+                        </Label>
+                        <Select
+                          value={form.paymentProvider}
+                          onValueChange={(value: "kotak" | "slice" | "razorpay") => {
+                            setDirty(true);
+                            setForm((prev) => ({ ...prev, paymentProvider: value }));
+                          }}
+                        >
+                          <SelectTrigger id="evt-payment-provider">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="razorpay">Razorpay Checkout</SelectItem>
+                            <SelectItem value="kotak">Kotak UPI — SMS verified</SelectItem>
+                            <SelectItem value="slice">Slice UPI — email verified</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs leading-5 text-muted-foreground">
+                          New registrations use this route. Existing registrations
+                          stay locked to their original route. Slice pays to
+                          souravpbijoy-3@okicici.
+                        </p>
+                      </div>
+                    )}
                     <div className="grid gap-1.5">
                       <Label htmlFor="evt-capacity">Max Capacity</Label>
                       <Input

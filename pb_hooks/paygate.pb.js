@@ -19,10 +19,9 @@ routerAdd(
   "/api/app/registrations/{id}/payment",
   function (e) {
     var pg = require(__hooks + "/paygate-helpers.js")
+    var providers = require(__hooks + "/payment-provider-helpers.js")
     var config = pg.getConfig()
-    if (!pg.paymentConfigured(config)) {
-      return e.json(503, { code: "PAYGATE_NOT_CONFIGURED", error: "Online payment is not configured" })
-    }
+    var razorpayConfig = providers.getRazorpayConfig()
 
     var id = e.request.pathValue("id") || ""
     var registration
@@ -49,8 +48,53 @@ routerAdd(
     }
 
     var current = pg.asObject(registration.get("paymentData"))
+
+    if (current.provider === providers.RAZORPAY_PROVIDER) {
+      if (!providers.razorpayConfigured(razorpayConfig)) {
+        return e.json(503, { code: "RAZORPAY_NOT_CONFIGURED", error: "Razorpay is not configured" })
+      }
+      if (current.paymentId) {
+        return e.json(200, pg.paymentSession(registration, current, true))
+      }
+
+      var razorpayResponse
+      try {
+        razorpayResponse = providers.request(
+          razorpayConfig,
+          "/api/razorpay/live/orders",
+          "POST",
+          {
+            amountPaise: providers.expectedPaise(registration),
+            externalId: providers.razorpayExternalId(registration.id),
+          },
+          { "Idempotency-Key": providers.razorpayIdempotencyKey(registration.id) }
+        )
+      } catch (razorpayErr) {
+        console.log("[razorpay] order creation request failed:", razorpayErr)
+        return e.json(502, { code: "RAZORPAY_UNAVAILABLE", error: "Razorpay is temporarily unavailable" })
+      }
+      if (razorpayResponse.statusCode !== 200 && razorpayResponse.statusCode !== 201) {
+        return e.json(502, { code: "RAZORPAY_ORDER_FAILED", error: "Razorpay could not prepare this payment" })
+      }
+      var validatedOrder = providers.validateOrder(razorpayResponse.json, registration, { requireCheckout: true })
+      if (!validatedOrder.ok) {
+        console.log("[razorpay] invalid create response:", validatedOrder.error)
+        return e.json(502, { code: "RAZORPAY_INVALID_RESPONSE", error: validatedOrder.error })
+      }
+      var razorpayData = providers.updateOrderData(registration, validatedOrder.order, {
+        manualReview: false,
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+      })
+      registration.set("paymentData", razorpayData)
+      $app.saveNoValidate(registration)
+      return e.json(razorpayResponse.statusCode === 201 ? 201 : 200, pg.paymentSession(registration, razorpayData, true))
+    }
+
     if (current.provider && current.provider !== pg.PAYGATE_PROVIDER) {
       return e.json(409, { code: "PAYMENT_PROVIDER_CONFLICT", error: "This registration uses a different payment provider" })
+    }
+    if (!pg.paymentConfigured(config)) {
+      return e.json(503, { code: "PAYGATE_NOT_CONFIGURED", error: "Online payment is not configured" })
     }
 
     // A previously created session is immutable for this registration. Reusing
@@ -63,6 +107,7 @@ routerAdd(
     var payload = {
       amount: amount,
       externalId: externalId,
+      paymentAccount: current.paymentAccount || current.eventPaymentProvider || "kotak",
       metadata: {
         registrationId: registration.id,
         eventId: registration.getString("event") || "",
@@ -121,7 +166,9 @@ routerAdd(
   function (e) {
     var pg = require(__hooks + "/paygate-helpers.js")
     var guard = require(__hooks + "/paygate-registration-guard.js")
+    var providers = require(__hooks + "/payment-provider-helpers.js")
     var config = pg.getConfig()
+    var razorpayConfig = providers.getRazorpayConfig()
 
     var id = e.request.pathValue("id") || ""
     var registration
@@ -138,6 +185,41 @@ routerAdd(
     }
 
     var data = pg.asObject(registration.get("paymentData"))
+    if (data.provider === providers.RAZORPAY_PROVIDER) {
+      if (!data.paymentId) {
+        return e.json(200, pg.paymentSession(registration, data, providers.razorpayConfigured(razorpayConfig)))
+      }
+      if (!providers.razorpayConfigured(razorpayConfig)) {
+        return e.json(200, pg.paymentSession(registration, data, false))
+      }
+      var razorpayResponse
+      try {
+        razorpayResponse = providers.request(
+          razorpayConfig,
+          "/api/razorpay/live/orders/" + encodeURIComponent(String(data.paymentId)),
+          "GET",
+          null,
+          {}
+        )
+      } catch (razorpayErr) {
+        console.log("[razorpay] order status request failed:", razorpayErr)
+        return e.json(200, pg.paymentSession(registration, data, false))
+      }
+      if (razorpayResponse.statusCode !== 200) {
+        return e.json(200, pg.paymentSession(registration, data, false))
+      }
+      var validatedOrder = providers.validateOrder(razorpayResponse.json, registration, {
+        localOrderId: String(data.paymentId),
+        razorpayOrderId: String(data.razorpayOrderId || ""),
+      })
+      if (!validatedOrder.ok) {
+        console.log("[razorpay] invalid status response:", validatedOrder.error)
+        return e.json(200, pg.paymentSession(registration, data, false))
+      }
+      providers.applyOrderState(registration, validatedOrder.order)
+      try { registration = $app.findRecordById("registrations", id) } catch (_) {}
+      return e.json(200, pg.paymentSession(registration, registration.get("paymentData"), true))
+    }
     if (data.provider !== pg.PAYGATE_PROVIDER) {
       return e.json(404, { code: "PAYMENT_NOT_INITIALIZED", error: "Payment has not been initialized" })
     }
@@ -192,6 +274,81 @@ routerAdd(
     }
 
     // applyProviderState may have saved a newer registration state.
+    try { registration = $app.findRecordById("registrations", id) } catch (_) {}
+    return e.json(200, pg.paymentSession(registration, registration.get("paymentData"), true))
+  },
+  $apis.requireAuth("users")
+)
+
+routerAdd(
+  "POST",
+  "/api/app/registrations/{id}/payment/razorpay-verify",
+  function (e) {
+    var pg = require(__hooks + "/paygate-helpers.js")
+    var providers = require(__hooks + "/payment-provider-helpers.js")
+    var config = providers.getRazorpayConfig()
+    if (!providers.razorpayConfigured(config)) {
+      return e.json(503, { code: "RAZORPAY_NOT_CONFIGURED", error: "Razorpay is not configured" })
+    }
+
+    var id = e.request.pathValue("id") || ""
+    var registration
+    try { registration = $app.findRecordById("registrations", id) }
+    catch (_) { return e.json(404, { code: "REGISTRATION_NOT_FOUND", error: "Registration not found" }) }
+
+    var auth = e.auth
+    var isAdmin = auth && auth.getString("role") === "admin"
+    if (!auth || (registration.getString("user") !== auth.id && !isAdmin)) {
+      return e.json(403, { code: "FORBIDDEN", error: "You cannot access this registration" })
+    }
+
+    var data = pg.asObject(registration.get("paymentData"))
+    if (data.provider !== providers.RAZORPAY_PROVIDER || !data.paymentId || !data.razorpayOrderId) {
+      return e.json(409, { code: "RAZORPAY_ORDER_NOT_INITIALIZED", error: "Razorpay payment has not been initialized" })
+    }
+
+    var body = {}
+    try { body = e.requestInfo().body || {} } catch (_) { body = {} }
+    var orderId = String(body.razorpay_order_id || "").trim()
+    var paymentId = String(body.razorpay_payment_id || "").trim()
+    var signature = String(body.razorpay_signature || "").trim()
+    if (orderId !== String(data.razorpayOrderId) || paymentId.indexOf("pay_") !== 0 || !signature) {
+      return e.json(400, { code: "RAZORPAY_CALLBACK_INVALID", error: "Razorpay checkout response is invalid" })
+    }
+
+    var response
+    try {
+      response = providers.request(
+        config,
+        "/api/razorpay/live/orders/" + encodeURIComponent(String(data.paymentId)) + "/verify",
+        "POST",
+        {
+          razorpay_order_id: orderId,
+          razorpay_payment_id: paymentId,
+          razorpay_signature: signature,
+        },
+        {}
+      )
+    } catch (err) {
+      console.log("[razorpay] checkout verification request failed:", err)
+      return e.json(502, { code: "RAZORPAY_UNAVAILABLE", error: "Razorpay verification is temporarily unavailable" })
+    }
+    if (response.statusCode !== 200) {
+      return e.json(response.statusCode >= 400 && response.statusCode < 500 ? 400 : 502, {
+        code: "RAZORPAY_VERIFICATION_FAILED",
+        error: "Razorpay could not verify this payment",
+      })
+    }
+
+    var validatedOrder = providers.validateOrder(response.json, registration, {
+      localOrderId: String(data.paymentId),
+      razorpayOrderId: String(data.razorpayOrderId),
+    })
+    if (!validatedOrder.ok) {
+      console.log("[razorpay] invalid verification response:", validatedOrder.error)
+      return e.json(502, { code: "RAZORPAY_INVALID_RESPONSE", error: validatedOrder.error })
+    }
+    providers.applyOrderState(registration, validatedOrder.order)
     try { registration = $app.findRecordById("registrations", id) } catch (_) {}
     return e.json(200, pg.paymentSession(registration, registration.get("paymentData"), true))
   },
@@ -336,5 +493,69 @@ cronAdd("paygate-registration-expiry", "* * * * *", function () {
     } catch (err) {
       console.log("[paygate] failed to release registration " + registration.id + ":", err)
     }
+  }
+})
+
+cronAdd("razorpay-registration-reconciliation", "* * * * *", function () {
+  var pg = require(__hooks + "/paygate-helpers.js")
+  var providers = require(__hooks + "/payment-provider-helpers.js")
+  var config = providers.getRazorpayConfig()
+  if (!providers.razorpayConfigured(config)) return
+
+  var records = []
+  try {
+    records = $app.findRecordsByFilter(
+      "registrations",
+      "registrationStatus = {:registrationStatus} && paymentStatus = {:paymentStatus}",
+      "registrationDate",
+      0,
+      0,
+      { registrationStatus: "pending", paymentStatus: "pending" }
+    )
+  } catch (err) {
+    console.log("[razorpay] failed to scan pending registrations:", err)
+    return
+  }
+
+  for (var i = 0; i < records.length; i++) {
+    var registration = records[i]
+    var data = pg.asObject(registration.get("paymentData"))
+    if (data.provider !== providers.RAZORPAY_PROVIDER) continue
+
+    if (data.paymentId) {
+      try {
+        var response = providers.request(
+          config,
+          "/api/razorpay/live/orders/" + encodeURIComponent(String(data.paymentId)),
+          "GET",
+          null,
+          {}
+        )
+        if (response.statusCode === 200) {
+          var validated = providers.validateOrder(response.json, registration, {
+            localOrderId: String(data.paymentId),
+            razorpayOrderId: String(data.razorpayOrderId || ""),
+          })
+          if (validated.ok) providers.applyOrderState(registration, validated.order)
+        }
+      } catch (statusErr) {
+        console.log("[razorpay] reconciliation failed for " + registration.id + ":", statusErr)
+        continue
+      }
+    }
+
+    try { registration = $app.findRecordById("registrations", registration.id) } catch (_) { continue }
+    if (registration.getString("registrationStatus") !== "pending") continue
+    data = pg.asObject(registration.get("paymentData"))
+    var expiresAt = Date.parse(String(data.expiresAt || ""))
+    if (!isFinite(expiresAt) || Date.now() <= expiresAt) continue
+
+    data.releaseReason = "Razorpay checkout window ended before a captured payment was confirmed"
+    data.providerStatus = data.providerStatus || "expired"
+    registration.set("paymentStatus", "failed")
+    registration.set("registrationStatus", "cancelled")
+    registration.set("paymentData", data)
+    try { $app.save(registration) }
+    catch (saveErr) { console.log("[razorpay] failed to release registration " + registration.id + ":", saveErr) }
   }
 })
