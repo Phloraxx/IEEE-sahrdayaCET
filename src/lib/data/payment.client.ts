@@ -13,11 +13,22 @@ export interface RegistrationPaymentSession {
   requestedAmountPaise: number;
   payableAmountPaise: number;
   payableAmount: string;
+  createdAt: string;
   expiresAt: string;
   paidAt: string;
   upiUri: string;
   manualReview: boolean;
+  reviewReason: string;
   providerReachable: boolean;
+  attendeeEmail: string;
+  event: {
+    id: string;
+    title: string;
+    date: string;
+    endDate: string;
+    venue: string;
+    bannerUrl: string;
+  } | null;
 }
 
 function normalizePaymentSession(value: unknown): RegistrationPaymentSession {
@@ -38,11 +49,24 @@ function normalizePaymentSession(value: unknown): RegistrationPaymentSession {
     requestedAmountPaise: Number(raw.requestedAmountPaise) || 0,
     payableAmountPaise: Number(raw.payableAmountPaise) || 0,
     payableAmount: String(raw.payableAmount || ""),
+    createdAt: String(raw.createdAt || ""),
     expiresAt: String(raw.expiresAt || ""),
     paidAt: String(raw.paidAt || ""),
     upiUri: String(raw.upiUri || ""),
     manualReview: raw.manualReview === true,
+    reviewReason: String(raw.reviewReason || ""),
     providerReachable: raw.providerReachable !== false,
+    attendeeEmail: String(raw.attendeeEmail || ""),
+    event: raw.event && typeof raw.event === "object" && !Array.isArray(raw.event)
+      ? {
+          id: String((raw.event as Record<string, unknown>).id || ""),
+          title: String((raw.event as Record<string, unknown>).title || ""),
+          date: String((raw.event as Record<string, unknown>).date || ""),
+          endDate: String((raw.event as Record<string, unknown>).endDate || ""),
+          venue: String((raw.event as Record<string, unknown>).venue || ""),
+          bannerUrl: String((raw.event as Record<string, unknown>).bannerUrl || ""),
+        }
+      : null,
   };
 }
 

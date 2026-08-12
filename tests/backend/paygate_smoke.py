@@ -540,6 +540,28 @@ def main():
         assert reg4_record["paymentStatus"] == "failed"
         assert reg4_record["paymentData"]["manualReview"] is True
 
+        late_owner_state = request(
+            "GET", f"/api/app/events/{event['id']}/my-registration", token=token4
+        )
+        assert late_owner_state["found"] is True
+        assert late_owner_state["manualReview"] is True
+        assert late_owner_state["registrationId"] == reg4["registrationId"]
+        duplicate_after_late = request(
+            "POST",
+            f"/api/app/events/{event['id']}/register",
+            {
+                "formResponses": {
+                    "name": user4["name"],
+                    "email": user4["email"],
+                    "phone": "9999999999",
+                    "college": "CI College",
+                }
+            },
+            token4,
+            expected=(400,),
+        )
+        assert "under organizer review" in duplicate_after_late["error"]
+
         crons = request("GET", "/api/crons", token=super_token)
         assert any(c.get("id") == "paygate-registration-expiry" for c in crons)
 

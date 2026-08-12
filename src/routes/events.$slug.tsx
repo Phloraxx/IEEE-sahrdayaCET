@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link, useLoaderData, type LoaderFunctionArgs } from "react-router";
 import {
   ArrowLeft,
@@ -5,11 +6,17 @@ import {
   CheckCircle2,
   ExternalLink,
   Globe2,
+  Clock3,
+  ReceiptText,
   MapPin,
   Users,
   XCircle,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import { useAuth } from "@/lib/auth-context";
+import { getMyEventRegistration } from "@/lib/data/public-client";
+import { downloadRegistrationReceipt } from "@/lib/data/receipt.client";
+import type { MyEventRegistration } from "@/lib/registration-state";
 import Footer from "@/components/Footer";
 import { EventBannerFallback } from "@/components/events/EventBannerFallback";
 import { APP_URL } from "@/lib/constants";
@@ -108,6 +115,29 @@ function physicalLocation(event: SerializableEvent) {
 
 export default function EventDetailPage() {
   const event = useLoaderData<typeof loader>();
+  const { user, status: authStatus } = useAuth();
+  const [myRegistration, setMyRegistration] = useState<MyEventRegistration | null>(null);
+  const [myRegistrationLoading, setMyRegistrationLoading] = useState(false);
+
+  useEffect(() => {
+    if (authStatus !== "authenticated" || !user?.id || event.externalFormUrl) {
+      setMyRegistration(null);
+      setMyRegistrationLoading(false);
+      return;
+    }
+    let active = true;
+    setMyRegistrationLoading(true);
+    void getMyEventRegistration(event.id)
+      .then((state) => { if (active) setMyRegistration(state); })
+      .catch(() => { if (active) setMyRegistration(null); })
+      .finally(() => { if (active) setMyRegistrationLoading(false); });
+    return () => { active = false; };
+  }, [authStatus, event.externalFormUrl, event.id, user?.id]);
+
+  const downloadReceipt = () => {
+    if (!myRegistration?.registrationId) return;
+    void downloadRegistrationReceipt(myRegistration.registrationId).catch(() => undefined);
+  };
   const canonicalUrl = `${APP_URL}/events/${event.slug}`;
   const isWieEvent = getEventSocietySlug(event) === "wie";
   const backHref = isWieEvent ? "/societies/wie#activities" : "/events";
@@ -258,77 +288,58 @@ export default function EventDetailPage() {
           </div>
 
           <aside className="h-fit rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-28">
-            {lifecycle === "completed" ? (
+            {myRegistrationLoading ? (
+              <div className="py-8 text-center text-sm font-semibold text-slate-500">Checking your registration…</div>
+            ) : myRegistration?.found ? (
+              myRegistration.manualReview ? (
+                <>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-amber-600">Your registration</p>
+                  <Clock3 className="mt-5 h-9 w-9 text-amber-500" />
+                  <p className="mt-3 text-2xl font-black text-slate-900">Payment under review</p>
+                  <p className="mt-3 text-sm leading-6 text-slate-500">An organizer needs to review your payment before a ticket can be issued. Please don&apos;t register or pay again.</p>
+                </>
+              ) : myRegistration.paymentRequired ? (
+                <>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-ieee-blue">Your registration</p>
+                  <p className="mt-2 text-2xl font-black text-slate-900">Payment pending</p>
+                  <p className="mt-3 text-sm leading-6 text-slate-500">Your details are saved. Continue the existing payment to confirm your place.</p>
+                  <Link to={`/payment/${myRegistration.registrationId}`} className="mt-6 flex w-full items-center justify-center rounded-2xl bg-ieee-blue px-5 py-3 font-bold text-white">Continue payment</Link>
+                </>
+              ) : myRegistration.ticketId ? (
+                <>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-600">Your registration</p>
+                  <div className="mt-4 flex items-center gap-2 rounded-2xl bg-emerald-50 px-4 py-3 font-bold text-emerald-800"><CheckCircle2 className="h-5 w-5" /> You&apos;re registered</div>
+                  <p className="mt-4 text-sm leading-6 text-slate-500">{myRegistration.eventEnded ? "This event has ended, but your ticket remains available." : "Your place is confirmed and your ticket is ready."}</p>
+                  <Link to={`/ticket/${myRegistration.ticketId}`} className="mt-6 flex w-full items-center justify-center rounded-2xl bg-ieee-blue px-5 py-3 font-bold text-white">View your ticket</Link>
+                  {myRegistration.receiptAvailable && <button type="button" onClick={downloadReceipt} className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 py-3 font-bold text-slate-700 hover:border-ieee-blue hover:text-ieee-blue"><ReceiptText className="h-4 w-4" />Payment receipt</button>}
+                </>
+              ) : null
+            ) : lifecycle === "completed" ? (
               <>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-600">
-                  Event status
-                </p>
-                <p className="mt-2 text-3xl font-black text-slate-900">
-                  Completed
-                </p>
-                <div className="mt-5 flex items-center gap-2 rounded-2xl bg-emerald-50 px-4 py-3 font-bold text-emerald-800">
-                  <CheckCircle2 className="h-5 w-5" /> Activity concluded
-                </div>
-                <p className="mt-5 text-sm leading-relaxed text-slate-500">
-                  This activity was held on {formatDate(event.date)}. Its report
-                  and outcomes are preserved here as part of the public archive.
-                </p>
-                <Link
-                  to={backHref}
-                  className="mt-6 flex w-full items-center justify-center rounded-2xl border border-slate-200 px-5 py-3 font-bold text-slate-700 hover:border-ieee-blue hover:text-ieee-blue"
-                >
-                  {backLabel}
-                </Link>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-600">Event status</p>
+                <p className="mt-2 text-3xl font-black text-slate-900">Completed</p>
+                <div className="mt-5 flex items-center gap-2 rounded-2xl bg-emerald-50 px-4 py-3 font-bold text-emerald-800"><CheckCircle2 className="h-5 w-5" /> Activity concluded</div>
+                <p className="mt-5 text-sm leading-relaxed text-slate-500">This activity was held on {formatDate(event.date)}. Its report and outcomes are preserved here as part of the public archive.</p>
+                <Link to={backHref} className="mt-6 flex w-full items-center justify-center rounded-2xl border border-slate-200 px-5 py-3 font-bold text-slate-700 hover:border-ieee-blue hover:text-ieee-blue">{backLabel}</Link>
               </>
             ) : lifecycle === "cancelled" ? (
               <>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-600">
-                  Event status
-                </p>
-                <p className="mt-2 text-3xl font-black text-slate-900">
-                  Cancelled
-                </p>
-                <div className="mt-5 flex items-center gap-2 rounded-2xl bg-rose-50 px-4 py-3 font-bold text-rose-800">
-                  <XCircle className="h-5 w-5" /> Event cancelled
-                </div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-600">Event status</p>
+                <p className="mt-2 text-3xl font-black text-slate-900">Cancelled</p>
+                <div className="mt-5 flex items-center gap-2 rounded-2xl bg-rose-50 px-4 py-3 font-bold text-rose-800"><XCircle className="h-5 w-5" /> Event cancelled</div>
               </>
             ) : (
               <>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-600">
-                  Registration
-                </p>
-                <p className="mt-2 text-3xl font-black text-slate-900">
-                  {event.price > 0 ? `₹${event.price}` : "Free"}
-                </p>
-                {event.maxCapacity > 0 && (
-                  <div className="mt-4 flex items-center gap-2 text-sm text-slate-500">
-                    <Users className="h-4 w-4" /> {event.registeredCount} /{" "}
-                    {event.maxCapacity} seats reserved
-                  </div>
-                )}
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-600">Registration</p>
+                <p className="mt-2 text-3xl font-black text-slate-900">{event.price > 0 ? `₹${event.price}` : "Free"}</p>
+                {event.maxCapacity > 0 && <div className="mt-4 flex items-center gap-2 text-sm text-slate-500"><Users className="h-4 w-4" /> {event.registeredCount} / {event.maxCapacity} seats reserved</div>}
                 {registrationAvailable ? (
                   event.externalFormUrl ? (
-                    <a
-                      href={registerUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-ieee-blue px-5 py-3 font-bold text-white hover:opacity-90"
-                    >
-                      Register <ExternalLink className="h-4 w-4" />
-                    </a>
+                    <a href={registerUrl} target="_blank" rel="noopener noreferrer" className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-ieee-blue px-5 py-3 font-bold text-white hover:opacity-90">Register <ExternalLink className="h-4 w-4" /></a>
                   ) : (
-                    <Link
-                      to={registerUrl}
-                      className="mt-6 flex w-full items-center justify-center rounded-2xl bg-ieee-blue px-5 py-3 font-bold text-white hover:opacity-90"
-                    >
-                      Register now
-                    </Link>
+                    <Link to={registerUrl} className="mt-6 flex w-full items-center justify-center rounded-2xl bg-ieee-blue px-5 py-3 font-bold text-white hover:opacity-90">Register now</Link>
                   )
-                ) : (
-                  <div className="mt-6 rounded-2xl bg-slate-100 px-5 py-3 text-center font-bold text-slate-500">
-                    Registration closed
-                  </div>
-                )}
+                ) : <div className="mt-6 rounded-2xl bg-slate-100 px-5 py-3 text-center font-bold text-slate-500">Registration closed</div>}
               </>
             )}
           </aside>

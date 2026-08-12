@@ -244,6 +244,26 @@ function safeProviderError(response) {
 
 function paymentSession(registration, data, providerReachable) {
     data = asObject(data)
+    var eventPayload = null
+    var eventId = registration.getString("event") || ""
+    if (eventId) {
+        try {
+            var event = $app.findRecordById("events", eventId)
+            var banner = event.getString("banner") || ""
+            var bannerUrl = ""
+            if (banner) {
+                try { bannerUrl = $app.filesystem().fileUrl(event, banner) } catch (_) {}
+            }
+            eventPayload = {
+                id: event.id,
+                title: event.getString("title") || "",
+                date: event.getString("date") || "",
+                endDate: event.getString("endDate") || "",
+                venue: event.getString("venue") || "",
+                bannerUrl: bannerUrl,
+            }
+        } catch (_) {}
+    }
     return {
         registrationId: registration.id,
         registrationStatus: registration.getString("registrationStatus") || "",
@@ -257,11 +277,15 @@ function paymentSession(registration, data, providerReachable) {
         requestedAmountPaise: Number(data.requestedAmountPaise) || 0,
         payableAmountPaise: Number(data.payableAmountPaise) || 0,
         payableAmount: data.payableAmount || "",
+        createdAt: data.createdAt || "",
         expiresAt: data.expiresAt || "",
         paidAt: data.paidAt || "",
         upiUri: data.upiUri || "",
         manualReview: data.manualReview === true,
+        reviewReason: data.reviewReason || "",
         providerReachable: providerReachable !== false,
+        attendeeEmail: registration.getString("userEmail") || "",
+        event: eventPayload,
     }
 }
 

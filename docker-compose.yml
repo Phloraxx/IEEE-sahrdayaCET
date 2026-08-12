@@ -34,6 +34,7 @@ services:
     restart: unless-stopped
     environment:
       PB_ENCRYPTION_KEY: ${PB_ENCRYPTION_KEY:?PB_ENCRYPTION_KEY is required}
+      SITE_URL: ${SITE_URL:?SITE_URL is required}
       PAYGATE_URL: ${PAYGATE_URL:-}
       PAYGATE_API_KEY: ${PAYGATE_API_KEY:-}
       PAYGATE_WEBHOOK_SECRET: ${PAYGATE_WEBHOOK_SECRET:-}
@@ -46,6 +47,9 @@ services:
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_TLS: ${SMTP_TLS:-}
+      SMTP_AUTH_METHOD: ${SMTP_AUTH_METHOD:-}
+      SMTP_LOCAL_NAME: ${SMTP_LOCAL_NAME:-}
     volumes:
       - pb_data:/pb/pb_data
     expose:

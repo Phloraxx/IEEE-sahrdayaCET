@@ -197,6 +197,12 @@ export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
       }
     }
 
+    if (!form.venue.trim()) {
+      setSubmitError("Please enter a venue");
+      setSubmitting(false);
+      return;
+    }
+
     // Validate society is selected
     if (!form.society) {
       setSubmitError("Please select a host society");
@@ -210,7 +216,7 @@ export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
       const payload: Record<string, unknown> = {
         title: form.title.trim(),
         description: form.description,
-        venue: form.venue,
+        venue: form.venue.trim(),
         price: Number(form.price) || 0,
         status: form.status,
         society: form.society || undefined,
@@ -405,12 +411,13 @@ export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
                 </div>
 
                 <div className="grid gap-1.5">
-                  <Label htmlFor="evt-venue">Venue</Label>
+                  <Label htmlFor="evt-venue">Venue *</Label>
                   <Input
                     id="evt-venue"
                     value={form.venue}
                     onChange={update("venue")}
                     placeholder="Main Auditorium"
+                    required
                   />
                 </div>
               </FormSection>
