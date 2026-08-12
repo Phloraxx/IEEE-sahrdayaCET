@@ -17,7 +17,11 @@ migrate((app) => {
   for (const row of rows) {
     if (row.getString("paymentProvider")) continue
     row.set("paymentProvider", "kotak")
-    app.save(row)
+    // Production contains historical events that predate today's required
+    // fields (for example, an event with no society). A normal save validates
+    // the entire legacy record and prevents PocketBase from starting. Only
+    // persist this additive backfill; leave unrelated legacy data untouched.
+    app.saveNoValidate(row)
   }
 
   field = events.fields.getByName("paymentProvider")

@@ -75,6 +75,15 @@ describe("event payment-provider locking", () => {
     );
     expect(migration).toContain("field.required = false");
   });
+
+  it("backfills legacy events without validating unrelated historical fields", () => {
+    const migration = readFileSync(
+      resolve(process.cwd(), "pb_migrations/202608120002_event_payment_providers.js"),
+      "utf8",
+    );
+    expect(migration).toContain("app.saveNoValidate(row)");
+    expect(migration).not.toContain("app.save(row)");
+  });
 });
 
 describe("Razorpay order boundaries", () => {
