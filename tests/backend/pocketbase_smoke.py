@@ -260,11 +260,15 @@ request(
     token=super_token,
     expected=(204,),
 )
-notification_job = request(
-    "GET",
-    f"/api/collections/notification_outbox/records/{notification_job['id']}",
-    token=super_token,
-)
+for _ in range(30):
+    notification_job = request(
+        "GET",
+        f"/api/collections/notification_outbox/records/{notification_job['id']}",
+        token=super_token,
+    )
+    if notification_job["status"] == "failed":
+        break
+    time.sleep(0.1)
 assert notification_job["status"] == "failed"
 assert notification_job["attempts"] == 1
 assert "SMTP delivery is not configured" in notification_job["lastError"]
