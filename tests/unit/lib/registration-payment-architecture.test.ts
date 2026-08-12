@@ -51,4 +51,16 @@ describe("registration/payment experience architecture", () => {
     expect(notifications).toContain('$apis.requireAuth("users")');
     expect(root).toContain('<MotionConfig reducedMotion="user">');
   });
+  it("renders the real ticket QR in confirmation email through a first-party PNG endpoint", () => {
+    const routes = source("src/routes.ts");
+    const qrRoute = source("src/routes/ticket-qr.$ticketId.ts");
+    const notifications = source("pb_hooks/notification-helpers.js");
+    expect(routes).toContain('route("ticket/:ticketId/qr.png"');
+    expect(qrRoute).toContain('QRCode.toBuffer');
+    expect(qrRoute).toContain('/api/tickets/lookup?ticketId=');
+    expect(qrRoute).toContain('"Content-Type": "image/png"');
+    expect(notifications).toContain('var qrHref = ticketHref + "/qr.png"');
+    expect(notifications).toContain('alt="Ticket QR code"');
+  });
+
 });

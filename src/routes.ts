@@ -15,6 +15,7 @@ export default [
   route("full-execom", "routes/full-execom.tsx"),
   route("register/:eventId", "routes/register.$eventId.tsx"),
   route("payment/:registrationId", "routes/payment.$registrationId.tsx"),
+  route("ticket/:ticketId/qr.png", "routes/ticket-qr.$ticketId.ts"),
   route("ticket/:ticketId", "routes/ticket.$ticketId.tsx"),
 
   route("FIFA", "routes/FIFA/index.tsx"),
