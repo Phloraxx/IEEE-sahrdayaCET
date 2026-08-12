@@ -67,6 +67,14 @@ describe("event payment-provider locking", () => {
     expect(providers.eventProvider(new FakeEvent(""))).toBe("kotak");
     expect(providers.eventProvider(new FakeEvent("other"))).toBe("kotak");
   });
+
+  it("keeps legacy event creation compatible while registration defaults safely", () => {
+    const migration = readFileSync(
+      resolve(process.cwd(), "pb_migrations/202608120003_relax_event_payment_provider_requirement.js"),
+      "utf8",
+    );
+    expect(migration).toContain("field.required = false");
+  });
 });
 
 describe("Razorpay order boundaries", () => {
