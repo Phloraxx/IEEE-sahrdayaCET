@@ -7,6 +7,7 @@ routerAdd(
     var auth = e.auth
     if (!auth || !auth.id) return e.json(401, { error: "Authentication required" })
     var eventId = e.request.pathValue("id") || ""
+    var pg = require(__hooks + "/paygate-helpers.js")
 
     var event
     try { event = $app.findRecordById("events", eventId) }
@@ -38,11 +39,8 @@ routerAdd(
         selected = row
         break
       }
-      var data = row.get("paymentData")
-      if (typeof data === "string") {
-        try { data = JSON.parse(data) } catch (_) { data = {} }
-      }
-      if (row.getString("paymentStatus") === "paid" && data && data.manualReview === true) {
+      var data = pg.asObject(row.get("paymentData"))
+      if (data && data.manualReview === true) {
         selected = row
         manualReview = true
         break
@@ -57,11 +55,7 @@ routerAdd(
       return e.json(200, { found: false, eventEnded: eventEnded })
     }
 
-    var paymentData = selected.get("paymentData")
-    if (typeof paymentData === "string") {
-      try { paymentData = JSON.parse(paymentData) } catch (_) { paymentData = {} }
-    }
-    if (!paymentData || typeof paymentData !== "object") paymentData = {}
+    var paymentData = pg.asObject(selected.get("paymentData"))
     manualReview = manualReview || paymentData.manualReview === true
     var amount = selected.getInt("amount") || 0
     var status = selected.getString("registrationStatus") || ""

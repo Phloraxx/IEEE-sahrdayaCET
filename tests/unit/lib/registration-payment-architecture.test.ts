@@ -28,8 +28,8 @@ describe("registration/payment experience architecture", () => {
 
   it("blocks a second registration when a paid cancelled record is under manual review", () => {
     const command = source("pb_hooks/registration-create.pb.js");
-    expect(command).toContain('previousRegistration.getString("paymentStatus") !== "paid"');
     expect(command).toContain("previousPaymentData.manualReview === true");
+    expect(command).not.toContain('previousRegistration.getString("paymentStatus") !== "paid"');
     expect(command).toContain("under organizer review");
   });
 
