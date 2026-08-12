@@ -57,7 +57,6 @@ routerAdd(
         for (var previousIndex = 0; previousIndex < previous.length; previousIndex++) {
           var previousRegistration = previous[previousIndex]
           if (previousRegistration.getString("registrationStatus") !== "cancelled") continue
-          if (previousRegistration.getString("paymentStatus") !== "paid") continue
           var previousPaymentData = pg.asObject(previousRegistration.get("paymentData"))
           if (previousPaymentData.manualReview === true) {
             throw new BadRequestError("A previous payment for this event is under organizer review")

@@ -260,7 +260,7 @@ export default function PaymentPage({ registrationId }: PageProps) {
               </motion.div>
               <motion.h1 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: reduceMotion ? 0 : 0.18 }} className="mt-6 text-3xl font-black tracking-tight text-slate-950">Payment confirmed</motion.h1>
               <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: reduceMotion ? 0 : 0.3 }} className="mx-auto mt-3 max-w-lg text-sm leading-6 text-slate-600">
-                You&apos;re registered for <strong className="text-slate-900">{session.event?.title || "the event"}</strong>. Your ticket is ready{session.attendeeEmail ? ` and we'll send the ticket and receipt to ${session.attendeeEmail}.` : "."}
+                You&apos;re registered for <strong className="text-slate-900">{session.event?.title || "the event"}</strong>. Your ticket is ready, and your payment receipt is available below.
               </motion.p>
               <div className="mx-auto mt-7 grid max-w-md gap-3 sm:grid-cols-2">
                 {session.ticketId && <Link to={`/ticket/${session.ticketId}`} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-ieee-blue px-5 py-3.5 font-bold text-white">View ticket <Ticket className="h-4 w-4" /></Link>}

@@ -16,14 +16,22 @@ function siteUrl() {
 
 function asObject(value) {
   if (!value) return {}
-  if (typeof value === "object" && !Array.isArray(value)) return value
-  if (typeof value === "string") {
+  if (typeof value === "object" && typeof value.string === "function") {
+    try { value = JSON.parse(String(value.string() || "{}")) } catch (_) { return {} }
+  } else if (Array.isArray(value)) {
     try {
-      var parsed = JSON.parse(value)
-      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {}
-    } catch (_) {}
+      var jsonText = ""
+      for (var bi = 0; bi < value.length; bi++) jsonText += String.fromCharCode(Number(value[bi]) || 0)
+      value = JSON.parse(jsonText)
+    } catch (_) { return {} }
+  } else if (typeof value === "string") {
+    try { value = JSON.parse(value) } catch (_) { return {} }
   }
-  return {}
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {}
+  var copy = {}
+  var keys = Object.keys(value)
+  for (var i = 0; i < keys.length; i++) copy[keys[i]] = value[keys[i]]
+  return copy
 }
 
 function formatDate(value) {
@@ -56,6 +64,7 @@ function sender() {
   return {
     address: String(settings.meta.senderAddress || ""),
     name: String(settings.meta.senderName || "IEEE Sahrdaya Student Branch"),
+    smtpEnabled: settings.smtp && settings.smtp.enabled === true,
   }
 }
 
@@ -276,6 +285,7 @@ function sendOutbox(record) {
   var event = getEvent(registration)
   var template = kind === "receipt" ? receiptEmail(registration, event) : ticketEmail(registration, event)
   var from = sender()
+  if (!from.smtpEnabled) throw new Error("SMTP delivery is not configured")
   if (!from.address) throw new Error("Email sender is not configured")
 
   var reader = null

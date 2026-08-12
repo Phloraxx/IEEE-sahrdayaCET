@@ -27,7 +27,7 @@ describe("registration action", () => {
   });
 
   it("blocks a second payment while a previous paid registration is under review", () => {
-    expect(registrationAction({ ...base, registrationStatus: "cancelled", paymentStatus: "paid", manualReview: true, ticketId: "" }, true)).toBe("review");
+    expect(registrationAction({ ...base, registrationStatus: "cancelled", paymentStatus: "failed", manualReview: true, ticketId: "" }, true)).toBe("review");
   });
 
   it("allows a fresh registration only when there is no active/review state and registration is open", () => {
