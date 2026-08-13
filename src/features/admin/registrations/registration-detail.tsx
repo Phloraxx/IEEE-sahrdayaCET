@@ -1,6 +1,6 @@
 import { Fragment } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router";
+import { Link } from "react-router";
 import {
   getAdminRegistration,
   getRegistrationNotificationState,
@@ -11,6 +11,8 @@ import {
 import { BadgeCheck, CreditCard, Loader2, Mail, Phone, ReceiptText, Send, Ticket, TriangleAlert, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth-context";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ConfirmButton } from "@/components/admin/confirm-button";
 import { formatDateTime } from "@/lib/dates";
@@ -33,6 +35,13 @@ interface RegistrationDetail {
   createdAt: string;
   eventTitle: string;
   eventId: string;
+  provider: string;
+  providerStatus: string;
+  manualReview: boolean;
+  reviewReason: string;
+  manualConfirmation: Record<string, unknown> | null;
+  registrationSource: string;
+  internalNotes: string;
 }
 
 interface PayGateAdminData {
@@ -82,7 +91,8 @@ interface RegistrationDetailProps {
 
 export function RegistrationDetail({ registrationId }: RegistrationDetailProps) {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
 
   const { data, isLoading, isError, error } = useQuery<{
     registration: RegistrationDetail;
@@ -118,6 +128,16 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
     },
   });
 
+  const undoCheckInMutation = useMutation({
+    mutationFn: () => runRegistrationAdminCommand(registrationId, "undo-check-in"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-registration", registrationId] });
+      queryClient.invalidateQueries({ queryKey: ["admin-registrations"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-event-operations"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
+    },
+  });
+
   const cancelMutation = useMutation({
     mutationFn: () => runRegistrationAdminCommand(registrationId, "cancel"),
     onSuccess: () => {
@@ -126,7 +146,7 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
       });
       queryClient.invalidateQueries({ queryKey: ["admin-registrations"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
-      navigate("/admin/registrations");
+      queryClient.invalidateQueries({ queryKey: ["admin-payment-desk"] });
     },
   });
 
@@ -172,21 +192,23 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
   }
 
   const payGate = getPayGateAdminData(reg.paymentData);
+  const needsResolution = reg.manualReview ||
+    (reg.registrationStatus === "cancelled" && reg.paymentStatus === "paid");
 
   return (
     <div className="grid gap-6">
-      {payGate?.manualReview && (
-        <Card className="border-amber-300 bg-amber-50/70">
-          <CardContent className="flex gap-3 p-5 text-amber-950">
+      {needsResolution && (
+        <Card className="border-amber-500/30 bg-amber-500/5">
+          <CardContent className="flex gap-3 p-5">
             <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-            <div>
-              <p className="font-semibold">PayGate payment needs manual review</p>
-              <p className="mt-1 text-sm leading-6 text-amber-800">
-                {payGate.reviewReason || "PayGate detected payment evidence that was not safe to auto-confirm."}
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold">This registration needs an organizer decision</p>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                {reg.reviewReason || payGate?.reviewReason || "The registration is cancelled but the payment is recorded as paid."}
               </p>
-              <p className="mt-2 text-xs leading-5 text-amber-700">
-                This registration remains cancelled so a released seat is never silently reassigned. Review the PayGate operator evidence before deciding on any refund or offline resolution.
-              </p>
+              <Button variant="outline" size="sm" className="mt-3" asChild>
+                <Link to={`/admin/events/${reg.eventId}`}>Resolve in event workspace</Link>
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -217,7 +239,7 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            {reg.registrationStatus === "pending" &&
+            {isAdmin && reg.registrationStatus === "pending" &&
               reg.paymentStatus === "pending" &&
               reg.amount > 0 && (
                 <ConfirmButton
@@ -238,24 +260,33 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
                 disabled={checkInMutation.isPending}
               />
             )}
-            {reg.registrationStatus !== "cancelled" && (
+            {reg.checkedIn && (
+              <ConfirmButton
+                label="Undo check-in"
+                confirmMessage="Undo this attendee's check-in?"
+                variant="outline"
+                onConfirm={() => { undoCheckInMutation.mutate(); return true; }}
+                disabled={undoCheckInMutation.isPending}
+              />
+            )}
+            {reg.registrationStatus !== "cancelled" && !reg.checkedIn && (
               <ConfirmButton
                 label="Cancel registration"
-                confirmMessage="Cancel this registration?"
+                confirmMessage="Cancel this registration? Paid records remain visible for finance review."
                 variant="destructive"
-                onConfirm={() => {
-                  cancelMutation.mutate();
-                  return true;
-                }}
+                onConfirm={() => { cancelMutation.mutate(); return true; }}
                 disabled={cancelMutation.isPending}
               />
             )}
+            <Button variant="outline" asChild>
+              <Link to={`/admin/events/${reg.eventId}`}>Event workspace</Link>
+            </Button>
           </div>
         </CardContent>
       </Card>
 
       {/* Status grid */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardContent className="p-5">
             <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -291,6 +322,15 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
                 <span className="text-muted-foreground">No</span>
               )}
             </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-5">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Source</p>
+            <p className="mt-2 text-sm font-semibold">
+              {reg.registrationSource === "admin" ? "Manual / admin" : "Self-service"}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">{reg.provider || "legacy"}</p>
           </CardContent>
         </Card>
       </div>
@@ -333,6 +373,25 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex items-center gap-2">
+            <CreditCard className="h-4 w-4 text-primary" />
+            <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">Payment provenance</p>
+          </div>
+          <dl className="mt-4 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-[max-content_1fr_max-content_1fr]">
+            <dt className="text-muted-foreground">Rail</dt>
+            <dd className="font-medium">{reg.provider || "legacy"}</dd>
+            <dt className="text-muted-foreground">Provider status</dt>
+            <dd className="font-medium">{reg.providerStatus || "—"}</dd>
+            <dt className="text-muted-foreground">Confirmation</dt>
+            <dd>{reg.manualConfirmation ? "Admin confirmed" : "Provider / automatic"}</dd>
+            <dt className="text-muted-foreground">Internal note</dt>
+            <dd className="break-words">{reg.internalNotes || "—"}</dd>
+          </dl>
+        </CardContent>
+      </Card>
 
       {payGate && (
         <Card>
@@ -398,7 +457,7 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
             Event
           </p>
           <h3 className="mt-1 text-lg font-semibold tracking-tight">
-            {reg.eventTitle || "—"}
+            <Link to={`/admin/events/${reg.eventId}`} className="hover:underline">{reg.eventTitle || "—"}</Link>
           </h3>
           <dl className="mt-4 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 text-sm border-t border-border pt-4">
             <dt className="text-muted-foreground">Registered</dt>

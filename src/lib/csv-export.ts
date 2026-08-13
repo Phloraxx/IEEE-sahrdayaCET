@@ -131,3 +131,145 @@ export function csvFilename(eventTitle: string | undefined, eventId: string): st
   const base = (eventTitle || `registrations-${eventId}`).replace(/[^a-zA-Z0-9]/g, '_')
   return `${base}_registrations.csv`
 }
+
+function paymentProviderForExport(value: unknown, paymentStatus: unknown): string {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return String(paymentStatus || '') === 'not_required' ? 'not_required' : 'unknown'
+  }
+  const data = value as Record<string, unknown>
+  if (data.manualConfirmation || data.provider === 'manual') return 'manual'
+  if (data.provider === 'razorpay_live') return 'razorpay'
+  if (data.provider === 'paygate') return String(data.eventPaymentProvider || data.paymentAccount || 'paygate')
+  return String(data.provider || 'unknown')
+}
+
+/** Cross-event admin registration ledger export. */
+export async function streamAdminRegistrationsCSV(
+  pb: PocketBase,
+  filter?: string,
+): Promise<ReadableStream<Uint8Array>> {
+  const encoder = new TextEncoder()
+  const headers = [
+    'event', 'event_id', 'name', 'email', 'phone', 'registration_status',
+    'payment_status', 'provider', 'amount', 'coupon_code', 'discount_amount',
+    'ticket_id', 'checked_in', 'checked_in_at', 'registration_date',
+    'source', 'internal_notes',
+  ]
+  const queue: string[] = [`${headers.join(',')}\n`]
+  let page = 1
+  let exhausted = false
+  const pullBatch = async () => {
+    if (exhausted) return
+    const result = await pb.collection('registrations').getList(page, CSV_BATCH_SIZE, {
+      filter: filter || undefined,
+      sort: '-registrationDate',
+      expand: 'event',
+    })
+    for (const reg of result.items) {
+      const event = reg.expand?.event as Record<string, unknown> | undefined
+      const paymentData = getField(reg, 'paymentData', null)
+      const paymentStatus = getField(reg, 'paymentStatus', '')
+      const cols = [
+        escapeCsv(getField(event, 'title', '')),
+        escapeCsv(getField(reg, 'event', '')),
+        escapeCsv(getField(reg, 'userName', '')),
+        escapeCsv(getField(reg, 'userEmail', '')),
+        escapeCsv(getField(reg, 'userPhone', '')),
+        escapeCsv(getField(reg, 'registrationStatus', '')),
+        escapeCsv(paymentStatus),
+        escapeCsv(paymentProviderForExport(paymentData, paymentStatus)),
+        escapeCsv(getField(reg, 'amount', 0)),
+        escapeCsv(getField(reg, 'couponCode', '')),
+        escapeCsv(getField(reg, 'discountAmount', 0)),
+        escapeCsv(getField(reg, 'ticketId', '')),
+        escapeCsv(getField(reg, 'checkedIn', false) ? 'yes' : 'no'),
+        escapeCsv(getField(reg, 'checkedInAt', '')),
+        escapeCsv(getField(reg, 'registrationDate', '')),
+        escapeCsv(getField(reg, 'registrationSource', 'self_service')),
+        escapeCsv(getField(reg, 'internalNotes', '')),
+      ]
+      queue.push(`${cols.join(',')}\n`)
+    }    if (result.items.length < CSV_BATCH_SIZE) exhausted = true
+    page++
+  }
+
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        if (queue.length > 0) {
+          controller.enqueue(encoder.encode(queue.shift()!))
+          return
+        }
+        if (!exhausted) {
+          await pullBatch()
+          if (queue.length > 0) {
+            controller.enqueue(encoder.encode(queue.shift()!))
+            return
+          }
+        }
+        controller.close()
+      } catch (error) {
+        controller.error(error)
+      }
+    },
+  })
+}
+
+/** Cross-event admin event catalogue export. */
+export async function streamAdminEventsCSV(pb: PocketBase): Promise<ReadableStream<Uint8Array>> {
+  const encoder = new TextEncoder()
+  const headers = ['id', 'title', 'slug', 'society', 'date', 'end_date', 'venue', 'status', 'price', 'payment_provider', 'registration_open', 'max_capacity', 'registered_count', 'checked_in_count']
+  const queue: string[] = [`${headers.join(',')}\n`]
+  let page = 1
+  let exhausted = false
+  const pullBatch = async () => {
+    if (exhausted) return
+    const result = await pb.collection('events').getList(page, CSV_BATCH_SIZE, {
+      filter: 'isDeleted = false',
+      sort: '-date',
+      expand: 'society',
+    })
+    for (const event of result.items) {
+      const society = event.expand?.society as Record<string, unknown> | undefined
+      const cols = [
+        escapeCsv(event.id),
+        escapeCsv(getField(event, 'title', '')),
+        escapeCsv(getField(event, 'slug', '')),
+        escapeCsv(getField(society, 'name', '')),
+        escapeCsv(getField(event, 'date', '')),
+        escapeCsv(getField(event, 'endDate', '')),
+        escapeCsv(getField(event, 'venue', '')),
+        escapeCsv(getField(event, 'status', '')),
+        escapeCsv(getField(event, 'price', 0)),
+        escapeCsv(getField(event, 'paymentProvider', '')),
+        escapeCsv(getField(event, 'registrationOpen', false) ? 'yes' : 'no'),
+        escapeCsv(getField(event, 'maxCapacity', 0)),
+        escapeCsv(getField(event, 'registeredCount', 0)),
+        escapeCsv(getField(event, 'checkedInCount', 0)),
+      ]
+      queue.push(`${cols.join(',')}\n`)
+    }    if (result.items.length < CSV_BATCH_SIZE) exhausted = true
+    page++
+  }
+
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        if (queue.length > 0) {
+          controller.enqueue(encoder.encode(queue.shift()!))
+          return
+        }
+        if (!exhausted) {
+          await pullBatch()
+          if (queue.length > 0) {
+            controller.enqueue(encoder.encode(queue.shift()!))
+            return
+          }
+        }
+        controller.close()
+      } catch (error) {
+        controller.error(error)
+      }
+    },
+  })
+}

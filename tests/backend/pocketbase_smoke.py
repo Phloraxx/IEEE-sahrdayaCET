@@ -151,7 +151,7 @@ end = (now + dt.timedelta(days=1, hours=2)).isoformat().replace("+00:00", "Z")
 event = request("POST", "/api/collections/events/records", {
     "title": f"CI Smoke Event {suffix}", "description": "<p>Clean-room integration event</p>",
     "date": start, "endDate": end, "venue": "CI Lab", "price": 0,
-    "society": society["id"], "status": "published", "maxCapacity": 1,
+    "society": society["id"], "status": "published", "paymentProvider": "kotak", "maxCapacity": 1,
     "registeredCount": 0, "checkedInCount": 0, "registrationOpen": True,
     "checkInEnabled": True, "isDeleted": False,
     "formTemplate": [
@@ -164,13 +164,13 @@ assert event["slug"].startswith("ci-smoke-event-")
 # Chair scoping is enforced by PocketBase, not by UI filtering.
 chair_event = request("POST", "/api/collections/events/records", {
     "title": f"Chair Event {suffix}", "description": "chair scope",
-    "date": start, "society": society["id"], "status": "draft",
+    "date": start, "society": society["id"], "status": "draft", "paymentProvider": "kotak",
     "registrationOpen": False, "isDeleted": False,
 }, chair_token)
 assert chair_event["society"] == society["id"]
 request("POST", "/api/collections/events/records", {
     "title": f"Unsafe Link {suffix}", "description": "must fail",
-    "date": start, "society": society["id"], "status": "draft",
+    "date": start, "society": society["id"], "status": "draft", "paymentProvider": "kotak",
     "registrationOpen": False, "isDeleted": False,
     "externalLink": "javascript:alert(1)",
 }, chair_token, (400,))
@@ -184,12 +184,12 @@ assert chair_event["externalLink"] == "https://example.test/register"
 
 request("POST", "/api/collections/events/records", {
     "title": f"Out of Scope {suffix}", "description": "must fail",
-    "date": start, "society": other_society["id"], "status": "draft",
+    "date": start, "society": other_society["id"], "status": "draft", "paymentProvider": "kotak",
     "registrationOpen": False, "isDeleted": False,
 }, chair_token, (400, 403))
 other_event = request("POST", "/api/collections/events/records", {
     "title": f"Other Society Event {suffix}", "description": "scope test",
-    "date": start, "society": other_society["id"], "status": "draft",
+    "date": start, "society": other_society["id"], "status": "draft", "paymentProvider": "kotak",
     "registrationOpen": False, "isDeleted": False,
 }, super_token)
 request("PATCH", f"/api/collections/events/records/{other_event['id']}", {
@@ -299,7 +299,7 @@ payment_user_token = impersonate(super_token, payment_user["id"])
 paid_event = request("POST", "/api/collections/events/records", {
     "title": f"CI Paid Event {suffix}", "description": "payment lifecycle",
     "date": start, "endDate": end, "venue": "CI Lab", "price": 100,
-    "society": society["id"], "status": "published", "maxCapacity": 1,
+    "society": society["id"], "status": "published", "paymentProvider": "kotak", "maxCapacity": 1,
     "registeredCount": 0, "checkedInCount": 0, "registrationOpen": True,
     "checkInEnabled": True, "isDeleted": False,
     "formTemplate": [
@@ -317,7 +317,7 @@ manual_payment_token = impersonate(super_token, manual_payment_user["id"])
 manual_paid_event = request("POST", "/api/collections/events/records", {
     "title": f"CI Manual Payment Event {suffix}", "description": "manual payment confirmation",
     "date": start, "endDate": end, "venue": "CI Lab", "price": 75,
-    "society": society["id"], "status": "published", "maxCapacity": 1,
+    "society": society["id"], "status": "published", "paymentProvider": "kotak", "maxCapacity": 1,
     "registeredCount": 0, "checkedInCount": 0, "registrationOpen": True,
     "checkInEnabled": True, "isDeleted": False,
     "formTemplate": [
@@ -325,10 +325,14 @@ manual_paid_event = request("POST", "/api/collections/events/records", {
         {"id": "email", "name": "email", "label": "Email", "required": True},
     ],
 }, super_token)
-manual_registration = request("POST", f"/api/app/events/{manual_paid_event['id']}/register", {
-    "formResponses": {"name": "Manual Payer", "email": manual_payment_user["email"]},
-}, manual_payment_token)
-manual_registration_id = manual_registration["registrationId"]
+manual_registration = request("POST", f"/api/admin/events/{manual_paid_event['id']}/registrations/manual", {
+    "name": "Manual Payer",
+    "email": manual_payment_user["email"],
+    "userId": manual_payment_user["id"],
+    "paymentMode": "pending",
+    "note": "CI fixture awaiting manual payment confirmation",
+}, admin_token)["registration"]
+manual_registration_id = manual_registration["id"]
 assert manual_registration["registrationStatus"] == "pending"
 assert manual_registration["paymentStatus"] == "pending"
 request(
@@ -386,10 +390,92 @@ manual_replay = request(
 assert manual_replay["alreadyConfirmed"] is True
 assert manual_replay["ticketId"] == manual_confirmed["ticketId"]
 
-first_paid = request("POST", f"/api/app/events/{paid_event['id']}/register", {
-    "formResponses": {"name": "Payer", "email": payment_user["email"]},
-}, payment_user_token)
-assert first_paid["paymentRequired"] is True
+# Event operations are explicit admin commands: walk-ins, finance corrections,
+# restores, check-in reversals and refunds are auditable and recoverable.
+ops_event = request("POST", "/api/collections/events/records", {
+    "title": f"CI Event Operations {suffix}", "description": "admin event operations",
+    "date": start, "endDate": end, "venue": "CI Ops Lab", "price": 120,
+    "society": society["id"], "status": "published", "paymentProvider": "razorpay",
+    "maxCapacity": 3, "registeredCount": 0, "checkedInCount": 0,
+    "registrationOpen": True, "checkInEnabled": True, "isDeleted": False,
+}, admin_token)
+ops_manual = request("POST", f"/api/admin/events/{ops_event['id']}/registrations/manual", {
+    "name": "Walk In Student", "email": f"walkin-{suffix}@example.test",
+    "phone": "9999999999", "paymentMode": "paid",
+    "paymentReference": f"UTR-{suffix}", "note": "Receipt verified at registration desk",
+}, admin_token)["registration"]
+assert ops_manual["registrationSource"] == "admin"
+assert ops_manual["registrationStatus"] == "confirmed"
+assert ops_manual["paymentStatus"] == "paid" and ops_manual["amount"] == 120
+assert ops_manual["user"] == "" and ops_manual["ticketId"].startswith("TKT-")
+ops_summary = request("GET", f"/api/admin/events/{ops_event['id']}/operations", token=admin_token)
+assert ops_summary["summary"]["manualPaidAmount"] == 120
+assert ops_summary["summary"]["adminCreatedCount"] == 1
+assert any(row["action"] == "registration.manual-create" for row in ops_summary["audit"])
+
+ops_cancelled = request("POST", f"/api/admin/registrations/{ops_manual['id']}/command", {
+    "action": "cancel",
+}, admin_token)["registration"]
+assert ops_cancelled["registrationStatus"] == "cancelled" and ops_cancelled["paymentStatus"] == "paid"
+ops_summary = request("GET", f"/api/admin/events/{ops_event['id']}/operations", token=admin_token)
+assert ops_summary["summary"]["cancelledPaidCount"] == 1
+assert any(row["id"] == ops_manual["id"] for row in ops_summary["attention"])
+
+ops_restored = request("POST", f"/api/admin/registrations/{ops_manual['id']}/command", {
+    "action": "restore", "note": "Payment is valid; restore seat",
+}, admin_token)["registration"]
+assert ops_restored["registrationStatus"] == "confirmed"
+ops_checked = request("POST", f"/api/admin/registrations/{ops_manual['id']}/command", {
+    "action": "check-in",
+}, admin_token)["registration"]
+assert ops_checked["checkedIn"] is True
+ops_unchecked = request("POST", f"/api/admin/registrations/{ops_manual['id']}/command", {
+    "action": "undo-check-in",
+}, admin_token)["registration"]
+assert ops_unchecked["checkedIn"] is False
+ops_refunded = request("POST", f"/api/admin/registrations/{ops_manual['id']}/command", {
+    "action": "mark-refunded", "note": "Refund sent after cancellation",
+    "reference": f"REF-{suffix}",
+}, admin_token)["registration"]
+assert ops_refunded["registrationStatus"] == "cancelled"
+assert ops_refunded["paymentStatus"] == "refunded"
+
+ops_pending = request("POST", f"/api/admin/events/{ops_event['id']}/registrations/manual", {
+    "name": "Pending Walk In", "email": f"pending-walkin-{suffix}@example.test",
+    "paymentMode": "pending", "note": "Awaiting desk verification",
+}, admin_token)["registration"]
+assert ops_pending["registrationStatus"] == "pending" and ops_pending["paymentStatus"] == "pending"
+ops_confirmed = request("POST", f"/api/admin/registrations/{ops_pending['id']}/command", {
+    "action": "confirm-payment", "reference": f"UTR2-{suffix}",
+    "note": "Receipt checked at help desk",
+}, admin_token)["registration"]
+assert ops_confirmed["registrationStatus"] == "confirmed" and ops_confirmed["manualConfirmation"]
+ops_reopened = request("POST", f"/api/admin/registrations/{ops_pending['id']}/command", {
+    "action": "reopen-manual-payment", "note": "Receipt belonged to another attendee",
+}, admin_token)["registration"]
+assert ops_reopened["registrationStatus"] == "pending"
+assert ops_reopened["paymentStatus"] == "pending" and ops_reopened["ticketId"] == ""
+ops_recompute = request("POST", f"/api/admin/events/{ops_event['id']}/recompute", {}, admin_token)
+assert ops_recompute["success"] is True
+ops_payment_desk = request("GET", "/api/admin/payments/summary", token=admin_token)
+assert ops_payment_desk["summary"]["refundedCount"] >= 1
+assert ops_payment_desk["summary"]["pendingPaymentCount"] >= 1
+ops_cancelled_event = request("PATCH", f"/api/collections/events/records/{ops_event['id']}", {
+    "status": "cancelled",
+}, admin_token)
+assert ops_cancelled_event["status"] == "cancelled"
+
+first_paid_created = request("POST", f"/api/admin/events/{paid_event['id']}/registrations/manual", {
+    "name": "Payer", "email": payment_user["email"], "userId": payment_user["id"],
+    "paymentMode": "pending", "note": "Legacy webhook CI fixture",
+}, admin_token)["registration"]
+first_paid_record = request("GET", f"/api/collections/registrations/records/{first_paid_created['id']}", token=super_token)
+first_paid = {
+    "registrationId": first_paid_created["id"],
+    "ticketId": first_paid_record["paymentTicketId"],
+    "registrationStatus": first_paid_created["registrationStatus"],
+}
+assert first_paid["ticketId"]
 assert first_paid["registrationStatus"] == "pending"
 request("PATCH", f"/api/collections/registrations/records/{first_paid['registrationId']}", {
     "paymentData": {"provider": "legacy"},
@@ -405,10 +491,17 @@ failed_reg = request("GET", f"/api/collections/registrations/records/{first_paid
 assert failed_reg["paymentStatus"] == "failed" and failed_reg["registrationStatus"] == "cancelled"
 assert request("GET", f"/api/collections/events/records/{paid_event['id']}")["registeredCount"] == 0
 
-retry_paid = request("POST", f"/api/app/events/{paid_event['id']}/register", {
-    "formResponses": {"name": "Payer", "email": payment_user["email"]},
-}, payment_user_token)
+retry_paid_created = request("POST", f"/api/admin/events/{paid_event['id']}/registrations/manual", {
+    "name": "Payer", "email": payment_user["email"], "userId": payment_user["id"],
+    "paymentMode": "pending", "note": "Legacy webhook retry CI fixture",
+}, admin_token)["registration"]
+retry_paid_record = request("GET", f"/api/collections/registrations/records/{retry_paid_created['id']}", token=super_token)
+retry_paid = {
+    "registrationId": retry_paid_created["id"],
+    "ticketId": retry_paid_record["paymentTicketId"],
+}
 assert retry_paid["registrationId"] != first_paid["registrationId"]
+assert retry_paid["ticketId"]
 request("PATCH", f"/api/collections/registrations/records/{retry_paid['registrationId']}", {
     "paymentData": {"provider": "legacy"},
 }, super_token)

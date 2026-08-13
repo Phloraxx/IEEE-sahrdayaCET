@@ -17,6 +17,7 @@ export interface AdminEventListItem {
   maxCapacity: number;
   registeredCount: number;
   checkedInCount: number;
+  paymentProvider: string;
   isPaid: boolean;
   societyName: string;
   societyId: string;
@@ -48,7 +49,7 @@ export async function listAdminEvents(input: {
     sort: "-date",
     expand: "society",
     fields:
-      "id,title,date,endDate,venue,price,status,registrationOpen,maxCapacity,registeredCount,checkedInCount,society,expand.society.id,expand.society.name",
+      "id,title,date,endDate,venue,price,status,registrationOpen,maxCapacity,registeredCount,checkedInCount,paymentProvider,society,expand.society.id,expand.society.name",
   });
 
   const events = result.items.map((record) => {
@@ -65,6 +66,7 @@ export async function listAdminEvents(input: {
       maxCapacity: Number(record.maxCapacity) || 0,
       registeredCount: Number(record.registeredCount) || 0,
       checkedInCount: Number(record.checkedInCount) || 0,
+      paymentProvider: String(record.paymentProvider || ""),
       isPaid: Number(record.price) > 0,
       societyName: String(society?.name || ""),
       societyId: String(society?.id || record.society || ""),
