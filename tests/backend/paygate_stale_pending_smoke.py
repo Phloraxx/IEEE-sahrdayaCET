@@ -135,6 +135,7 @@ def main():
             "price": 100,
             "society": society["id"],
             "status": "published",
+            "paymentProvider": "kotak",
             "maxCapacity": 1,
             "registeredCount": 0,
             "checkedInCount": 0,

@@ -263,41 +263,70 @@ routerAdd("POST", "/api/webhooks/paygate", function (e) {
     return e.json(200, { success: true, ignored: true })
   }
 
-  var registration
+  // Serialize the final registration transition with expiry/cancellation jobs.
+  // The webhook body/signature is validated above, but the registration itself
+  // is re-read under the SQLite writer transaction so stale in-memory state can
+  // never resurrect a seat that an expiry transaction already released.
+  var outcome = { action: "noop", duplicate: false }
+  var transitionFailure = null
   try {
-    registration = $app.findRecordById("registrations", registrationId)
-  } catch (_) {
-    return e.json(404, { code: "REGISTRATION_NOT_FOUND", error: "Registration not found" })
+    $app.runInTransaction(function (txApp) {
+      var registration
+      try {
+        registration = txApp.findRecordById("registrations", registrationId)
+      } catch (_) {
+        transitionFailure = { status: 404, code: "REGISTRATION_NOT_FOUND", error: "Registration not found" }
+        return
+      }
+
+      var current = pg.asObject(registration.get("paymentData"))
+      if (pg.hasEventId(current, eventId)) {
+        outcome.duplicate = true
+        return
+      }
+
+      var validated = pg.validateProviderPayment(rawPayment, registration.getInt("amount") || 0, {
+        paymentId: current.paymentId ? String(current.paymentId) : "",
+        externalId: pg.externalIdForRegistration(registration.id),
+      })
+      if (!validated.ok) {
+        transitionFailure = { status: 400, code: "PAYGATE_EVENT_MISMATCH", error: validated.error }
+        return
+      }
+
+      if (validated.payment.status === "paid") {
+        var disposition = guard.paymentConfirmationDisposition(registration, txApp)
+        if (disposition.blocked) {
+          guard.recordPaidManualReview(
+            registration, validated.payment, eventId, disposition.reason, txApp
+          )
+          outcome.action = "paid_manual_review"
+          return
+        }
+      }
+
+      var result = pg.applyProviderState(
+        registration, validated.payment, body.type, eventId, txApp
+      )
+      if (result.action === "error") {
+        transitionFailure = { status: 400, code: "PAYGATE_EVENT_MISMATCH", error: result.error }
+        return
+      }
+      outcome.action = result.action
+    })
+  } catch (transitionErr) {
+    console.log("[paygate] webhook transition failed:", transitionErr)
+    return e.json(500, { code: "PAYGATE_TRANSITION_FAILED", error: "Could not apply PayGate event" })
   }
 
-  var current = pg.asObject(registration.get("paymentData"))
-  if (pg.hasEventId(current, eventId)) {
+  if (transitionFailure) {
+    console.log("[paygate] webhook refused:", transitionFailure.error)
+    return e.json(transitionFailure.status, { code: transitionFailure.code, error: transitionFailure.error })
+  }
+  if (outcome.duplicate) {
     return e.json(200, { success: true, message: "Already processed" })
   }
-
-  var validated = pg.validateProviderPayment(rawPayment, registration.getInt("amount") || 0, {
-    paymentId: current.paymentId ? String(current.paymentId) : "",
-    externalId: pg.externalIdForRegistration(registration.id),
-  })
-  if (!validated.ok) {
-    console.log("[paygate] webhook refused:", validated.error)
-    return e.json(400, { code: "PAYGATE_EVENT_MISMATCH", error: validated.error })
-  }
-
-  if (validated.payment.status === "paid") {
-    var disposition = guard.paymentConfirmationDisposition(registration)
-    if (disposition.blocked) {
-      guard.recordPaidManualReview(registration, validated.payment, eventId, disposition.reason)
-      return e.json(200, { success: true, action: "paid_manual_review" })
-    }
-  }
-
-  var result = pg.applyProviderState(registration, validated.payment, body.type, eventId)
-  if (result.action === "error") {
-    return e.json(400, { code: "PAYGATE_EVENT_MISMATCH", error: result.error })
-  }
-
-  return e.json(200, { success: true, action: result.action })
+  return e.json(200, { success: true, action: outcome.action })
 })
 
 cronAdd("paygate-registration-expiry", "* * * * *", function () {

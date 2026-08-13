@@ -308,7 +308,8 @@ function updateProviderData(registration, payment, extra) {
     return mergePaymentData(current, patch)
 }
 
-function confirmRegistration(registration, payment, eventId) {
+function confirmRegistration(registration, payment, eventId, app) {
+    var store = app || $app
     var rh = require(__hooks + "/registration-helpers.js")
     var data = updateProviderData(registration, payment, {
         providerStatus: "paid",
@@ -319,11 +320,12 @@ function confirmRegistration(registration, payment, eventId) {
     registration.set("paymentStatus", "paid")
     registration.set("paymentData", data)
     if (!registration.getString("ticketId")) registration.set("ticketId", rh.generateTicketId())
-    $app.saveNoValidate(registration)
+    store.saveNoValidate(registration)
     return data
 }
 
-function cancelRegistration(registration, payment, eventId, reason, manualReview) {
+function cancelRegistration(registration, payment, eventId, reason, manualReview, app) {
+    var store = app || $app
     var data = updateProviderData(registration, payment, {
         manualReview: manualReview === true,
         reviewReason: reason || "",
@@ -332,11 +334,12 @@ function cancelRegistration(registration, payment, eventId, reason, manualReview
     registration.set("registrationStatus", "cancelled")
     registration.set("paymentStatus", "failed")
     registration.set("paymentData", data)
-    $app.save(registration)
+    store.save(registration)
     return data
 }
 
-function applyProviderState(registration, payment, eventType, eventId) {
+function applyProviderState(registration, payment, eventType, eventId, app) {
+    var store = app || $app
     var data = asObject(registration.get("paymentData"))
     var expectedPaise = expectedRequestedPaise(registration.getInt("amount") || 0)
     if (eventType !== "payment." + String(payment.status || "")) {
@@ -359,18 +362,18 @@ function applyProviderState(registration, payment, eventType, eventId) {
         if (eventId) {
             var noopData = appendEventId(data, eventId)
             registration.set("paymentData", noopData)
-            $app.saveNoValidate(registration)
+            store.saveNoValidate(registration)
         }
         return transition
     }
 
     if (transition.action === "confirm") {
-        confirmRegistration(registration, payment, eventId)
+        confirmRegistration(registration, payment, eventId, store)
         return transition
     }
 
     if (transition.action === "cancel") {
-        cancelRegistration(registration, payment, eventId, "PayGate payment was cancelled", false)
+        cancelRegistration(registration, payment, eventId, "PayGate payment was cancelled", false, store)
         return transition
     }
 
@@ -381,7 +384,7 @@ function applyProviderState(registration, payment, eventType, eventId) {
         })
         if (eventId) expiredData = appendEventId(expiredData, eventId)
         registration.set("paymentData", expiredData)
-        $app.saveNoValidate(registration)
+        store.saveNoValidate(registration)
         return transition
     }
 
@@ -398,9 +401,9 @@ function applyProviderState(registration, payment, eventType, eventId) {
             })
             if (eventId) reviewData = appendEventId(reviewData, eventId)
             registration.set("paymentData", reviewData)
-            $app.saveNoValidate(registration)
+            store.saveNoValidate(registration)
         } else {
-            cancelRegistration(registration, payment, eventId, reviewReason, true)
+            cancelRegistration(registration, payment, eventId, reviewReason, true, store)
         }
         return transition
     }
@@ -408,7 +411,7 @@ function applyProviderState(registration, payment, eventType, eventId) {
     var nextData = updateProviderData(registration, payment, {})
     if (eventId) nextData = appendEventId(nextData, eventId)
     registration.set("paymentData", nextData)
-    $app.saveNoValidate(registration)
+    store.saveNoValidate(registration)
     return transition
 }
 
