@@ -8,6 +8,8 @@ export interface RegistrationPaymentSession {
   ticketId: string;
   paymentTicketId: string;
   provider: string;
+  eventPaymentProvider: "kotak" | "slice" | "razorpay";
+  paymentAccount: string;
   providerStatus: string;
   paymentId: string;
   requestedAmountPaise: number;
@@ -17,6 +19,10 @@ export interface RegistrationPaymentSession {
   expiresAt: string;
   paidAt: string;
   upiUri: string;
+  razorpayOrderId: string;
+  razorpayPaymentId: string;
+  razorpayKeyId: string;
+  providerDisplayName: string;
   manualReview: boolean;
   reviewReason: string;
   providerReachable: boolean;
@@ -44,6 +50,11 @@ function normalizePaymentSession(value: unknown): RegistrationPaymentSession {
     ticketId: String(raw.ticketId || ""),
     paymentTicketId: String(raw.paymentTicketId || ""),
     provider: String(raw.provider || ""),
+    eventPaymentProvider:
+      raw.eventPaymentProvider === "slice" || raw.eventPaymentProvider === "razorpay"
+        ? raw.eventPaymentProvider
+        : "kotak",
+    paymentAccount: String(raw.paymentAccount || ""),
     providerStatus: String(raw.providerStatus || "not_initialized"),
     paymentId: String(raw.paymentId || ""),
     requestedAmountPaise: Number(raw.requestedAmountPaise) || 0,
@@ -53,6 +64,10 @@ function normalizePaymentSession(value: unknown): RegistrationPaymentSession {
     expiresAt: String(raw.expiresAt || ""),
     paidAt: String(raw.paidAt || ""),
     upiUri: String(raw.upiUri || ""),
+    razorpayOrderId: String(raw.razorpayOrderId || ""),
+    razorpayPaymentId: String(raw.razorpayPaymentId || ""),
+    razorpayKeyId: String(raw.razorpayKeyId || ""),
+    providerDisplayName: String(raw.providerDisplayName || ""),
     manualReview: raw.manualReview === true,
     reviewReason: String(raw.reviewReason || ""),
     providerReachable: raw.providerReachable !== false,
@@ -90,6 +105,25 @@ export async function getPaymentSession(
   const response = await pb.send(
     `/api/app/registrations/${encodeURIComponent(registrationId)}/payment`,
     { method: "GET" },
+  );
+  return normalizePaymentSession(response);
+}
+
+export interface RazorpayCheckoutResponse {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+}
+
+export async function verifyRazorpayPayment(
+  registrationId: string,
+  checkout: RazorpayCheckoutResponse,
+): Promise<RegistrationPaymentSession> {
+  const pb = getPbClient();
+  if (!pb.authStore.isValid) throw new Error("Please sign in to verify this payment");
+  const response = await pb.send(
+    `/api/app/registrations/${encodeURIComponent(registrationId)}/payment/razorpay-verify`,
+    { method: "POST", body: checkout },
   );
   return normalizePaymentSession(response);
 }

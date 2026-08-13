@@ -20,7 +20,9 @@ routerAdd(
     // shared helper functions must be required inside the handler.
     var rh = require(__hooks + "/registration-helpers.js")
     var pg = require(__hooks + "/paygate-helpers.js")
+    var providers = require(__hooks + "/payment-provider-helpers.js")
     var payGateConfig = pg.getConfig()
+    var razorpayConfig = providers.getRazorpayConfig()
     var eventId = e.request.pathValue("id")
     var body = {}
     try { body = e.requestInfo().body || {} } catch (_) { body = {} }
@@ -188,9 +190,22 @@ routerAdd(
         }
 
         var needsPayment = finalAmount > 0
-        if (needsPayment && !pg.paymentConfigured(payGateConfig)) {
+        var lockedPaymentData = needsPayment ? providers.registrationPaymentData(event) : null
+        if (
+          needsPayment &&
+          lockedPaymentData.provider === providers.RAZORPAY_PROVIDER &&
+          finalAmount > 100000
+        ) {
+          throw new BadRequestError("Razorpay event payments cannot exceed ₹1,00,000")
+        }
+        var selectedProviderConfigured = !needsPayment || (
+          lockedPaymentData.provider === providers.RAZORPAY_PROVIDER
+            ? providers.razorpayConfigured(razorpayConfig)
+            : pg.paymentConfigured(payGateConfig)
+        )
+        if (!selectedProviderConfigured) {
           paymentUnavailable = true
-          throw new Error("PAYGATE_NOT_CONFIGURED")
+          throw new Error("PAYMENT_PROVIDER_NOT_CONFIGURED")
         }
 
         var collection = txApp.findCollectionByNameOrId("registrations")
@@ -209,9 +224,10 @@ routerAdd(
           registrationDate: now.toISOString(),
           ticketId: needsPayment ? "" : "TKT-" + $security.randomString(16),
           paymentTicketId: needsPayment ? $security.randomString(32) : "",
-          paymentData: needsPayment
-            ? { provider: pg.PAYGATE_PROVIDER, providerStatus: "not_initialized", manualReview: false }
-            : null,
+          // This locks the event's current rail into the registration. Editing
+          // the event later only affects new registrations and cannot reroute
+          // a pending payment to another bank or processor.
+          paymentData: lockedPaymentData,
           checkedIn: false,
           checkedInAt: "",
         })
@@ -253,7 +269,7 @@ routerAdd(
     } catch (err) {
       if (paymentUnavailable) {
         return e.json(503, {
-          code: "PAYGATE_NOT_CONFIGURED",
+          code: "PAYMENT_PROVIDER_NOT_CONFIGURED",
           error: "Online payment is temporarily unavailable for paid events",
         })
       }

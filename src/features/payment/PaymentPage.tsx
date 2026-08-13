@@ -5,6 +5,7 @@ import {
   Check,
   CheckCircle2,
   Clock3,
+  CreditCard,
   Download,
   Loader2,
   LockKeyhole,
@@ -17,6 +18,8 @@ import {
   createOrResumePayment,
   getPaymentSession,
   type RegistrationPaymentSession,
+  type RazorpayCheckoutResponse,
+  verifyRazorpayPayment,
 } from "@/lib/data/payment.client";
 import { formatDate } from "@/lib/dates";
 import { downloadQR, generateQRDataUrl } from "@/lib/qr-utils";
@@ -24,6 +27,37 @@ import { toPersonalUpiUri } from "@/lib/upi";
 
 interface PageProps {
   registrationId: string;
+}
+
+interface RazorpayCheckoutInstance {
+  open(): void;
+  on(event: "payment.failed", handler: () => void): void;
+}
+
+declare global {
+  interface Window {
+    Razorpay?: new (options: Record<string, unknown>) => RazorpayCheckoutInstance;
+  }
+}
+
+function loadRazorpayCheckout(): Promise<void> {
+  if (window.Razorpay) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>(
+      'script[src="https://checkout.razorpay.com/v1/checkout.js"]',
+    );
+    if (existing) {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => reject(new Error("Razorpay Checkout could not load")), { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Razorpay Checkout could not load"));
+    document.head.appendChild(script);
+  });
 }
 
 function paymentErrorMessage(error: unknown): string {
@@ -173,6 +207,7 @@ export default function PaymentPage({ registrationId }: PageProps) {
   const [error, setError] = useState<string | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
   const reduceMotion = useReducedMotion();
 
   const startPayment = useCallback(async () => {
@@ -297,6 +332,49 @@ export default function PaymentPage({ registrationId }: PageProps) {
     session?.manualReview ||
     (session?.registrationStatus === "cancelled" &&
       session?.paymentStatus === "paid");
+
+  const openRazorpayCheckout = useCallback(async () => {
+    if (
+      !session ||
+      session.provider !== "razorpay_live" ||
+      !session.razorpayKeyId ||
+      !session.razorpayOrderId
+    ) return;
+    setCheckoutLoading(true);
+    setError(null);
+    try {
+      await loadRazorpayCheckout();
+      if (!window.Razorpay) throw new Error("Razorpay Checkout is unavailable");
+      const checkout = new window.Razorpay({
+        key: session.razorpayKeyId,
+        order_id: session.razorpayOrderId,
+        amount: session.requestedAmountPaise,
+        currency: "INR",
+        name: "IEEE Sahrdaya",
+        description: session.event?.title || "Event registration",
+        prefill: { email: session.attendeeEmail },
+        theme: { color: "#00629B" },
+        modal: { ondismiss: () => setCheckoutLoading(false) },
+        handler: async (response: RazorpayCheckoutResponse) => {
+          try {
+            setSession(await verifyRazorpayPayment(registrationId, response));
+          } catch (verifyError) {
+            setError(paymentErrorMessage(verifyError));
+          } finally {
+            setCheckoutLoading(false);
+          }
+        },
+      });
+      checkout.on("payment.failed", () => {
+        setCheckoutLoading(false);
+        setError("Razorpay reported that the payment failed. You can try again safely.");
+      });
+      checkout.open();
+    } catch (checkoutError) {
+      setCheckoutLoading(false);
+      setError(paymentErrorMessage(checkoutError));
+    }
+  }, [registrationId, session]);
 
   if (authStatus === "loading" || loading) {
     return (
@@ -431,6 +509,67 @@ export default function PaymentPage({ registrationId }: PageProps) {
               automatically in case a payment already made is being confirmed.
             </p>
           </section>
+        </div>
+      </PaymentShell>
+    );
+  }
+
+  if (session.provider === "razorpay_live") {
+    return (
+      <PaymentShell>
+        <div className="grid w-full items-stretch gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(400px,500px)] lg:gap-7">
+          <EventVisual session={session} />
+          <motion.section
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="relative flex flex-col justify-center overflow-hidden rounded-[2.5rem] border border-white/70 bg-white p-8 text-center shadow-[0_30px_80px_-36px_rgba(15,23,42,0.28)] sm:p-10"
+          >
+            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-ieee-blue via-sky-400 to-ieee-blue" />
+            <PaymentProgress />
+            <div className="mx-auto mt-9 flex h-16 w-16 items-center justify-center rounded-2xl bg-ieee-blue/10 text-ieee-blue">
+              <CreditCard className="h-8 w-8" />
+            </div>
+            <p className="mt-7 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+              Secure Razorpay Checkout
+            </p>
+            <p className="mt-2 text-5xl font-black tracking-[-0.055em] text-slate-950 sm:text-6xl">
+              ₹{payable || "—"}
+            </p>
+            <p className="mx-auto mt-4 max-w-sm text-sm leading-6 text-slate-500">
+              Pay by UPI, card or another method enabled on the IEEE Sahrdaya
+              Razorpay account. Your ticket is issued only after server-side
+              capture verification.
+            </p>
+            <button
+              type="button"
+              onClick={() => void openRazorpayCheckout()}
+              disabled={checkoutLoading || !session.razorpayKeyId || !session.razorpayOrderId}
+              className="mx-auto mt-8 inline-flex w-full max-w-sm items-center justify-center gap-2 rounded-2xl bg-ieee-blue px-5 py-4 text-sm font-black text-white shadow-lg shadow-sky-100 transition hover:-translate-y-0.5 hover:bg-[#004f7c] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {checkoutLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <LockKeyhole className="h-4 w-4" />}
+              {checkoutLoading ? "Opening Razorpay…" : "Pay securely with Razorpay"}
+            </button>
+            <div className="mx-auto mt-7 w-full max-w-sm">
+              <div className="flex items-center justify-between gap-4 text-xs">
+                <span className="font-bold text-slate-500">Seat held for</span>
+                <span className="font-mono text-base font-black text-slate-900">
+                  {formatCountdown(secondsLeft)}
+                </span>
+              </div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                <motion.div
+                  className="h-full rounded-full bg-ieee-blue"
+                  animate={{ width: `${remainingPercent}%` }}
+                  transition={{ duration: reduceMotion ? 0 : 0.35 }}
+                />
+              </div>
+              {error && (
+                <p className="mt-4 text-xs leading-5 text-amber-700" role="alert">
+                  {error}
+                </p>
+              )}
+            </div>
+          </motion.section>
         </div>
       </PaymentShell>
     );

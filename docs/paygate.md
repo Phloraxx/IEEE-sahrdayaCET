@@ -1,6 +1,19 @@
 # PayGate event payments
 
-IEEE event payments use the separately deployed PayGate service for direct-UPI verification. PocketBase is the integration boundary; the React application never receives the PayGate API key and never decides a payment amount.
+IEEE event payments support three event-level routes: Razorpay Checkout, Kotak
+direct UPI (SMS verified), and Slice direct UPI (email verified). PocketBase is
+the integration boundary; the React application never receives a server API key
+and never decides a payment amount.
+
+The selected route is copied into `registration.paymentData` when registration
+is created. Changing the event later affects only new registrations, so an
+existing pending payment cannot be rerouted to another bank or processor.
+
+| Event choice | Registration provider | Verification |
+| --- | --- | --- |
+| `kotak` | `paygate`, account `kotak` | Kotak transaction SMS |
+| `slice` | `paygate`, account `slice` | Slice credit email |
+| `razorpay` | `razorpay_live` | Razorpay signature plus captured provider state |
 
 ## Flow
 
@@ -45,9 +58,19 @@ PAYGATE_API_KEY=<server-to-server key>
 PAYGATE_WEBHOOK_SECRET=<outgoing PayGate HMAC secret>
 PAYGATE_REGISTRATION_GRACE_SECONDS=600
 PAYGATE_WEBHOOK_TOLERANCE_SECONDS=300
+RAZORPAY_LIVE_URL=https://razorpay-live.example.org
+RAZORPAY_LIVE_API_KEY=<separate server-to-server key>
 ```
 
-`PAYGATE_API_KEY` and `PAYGATE_WEBHOOK_SECRET` are backend-only credentials. Do not put them in `VITE_*`, React Router web-service environment variables, client-side code, logs, screenshots, or repository files.
+`PAYGATE_API_KEY`, `PAYGATE_WEBHOOK_SECRET`, and `RAZORPAY_LIVE_API_KEY` are
+backend-only credentials. Do not put them in `VITE_*`, React Router web-service
+environment variables, client-side code, logs, screenshots, or repository files.
+
+For Razorpay, PocketBase creates the order using the registration's server-side
+amount. The browser receives only the public key and order ID. The checkout
+callback is verified server-to-server and a ticket is issued only when the
+isolated Razorpay service reports `captured`. A minute cron reconciles pending
+orders and releases an unpaid seat after the ten-minute checkout window.
 
 `PAYMENT_WEBHOOK_SECRET` is the older generic payment callback secret and remains separate during migration.
 
