@@ -8,7 +8,8 @@
  * cancelled the event, or soft-deleted it. In those cases the money is real,
  * but issuing a ticket would resurrect released capacity or a cancelled event.
  */
-function paymentConfirmationDisposition(registration) {
+function paymentConfirmationDisposition(registration, app) {
+    var store = app || $app
     if (!registration) {
         return { blocked: true, reason: "PayGate payment arrived for an unavailable registration" }
     }
@@ -27,7 +28,7 @@ function paymentConfirmationDisposition(registration) {
 
     var event
     try {
-        event = $app.findRecordById("events", eventId)
+        event = store.findRecordById("events", eventId)
     } catch (_) {
         return { blocked: true, reason: "PayGate payment arrived after the event became unavailable" }
     }
@@ -47,7 +48,8 @@ function paymentConfirmationDisposition(registration) {
  * No ticket is minted. Existing cancelled tickets, if any, remain invalid via
  * registrationStatus and the database-layer check-in invariant.
  */
-function recordPaidManualReview(registration, payment, payGateEventId, reason) {
+function recordPaidManualReview(registration, payment, payGateEventId, reason, app) {
+    var store = app || $app
     var pg = require(__hooks + "/paygate-helpers.js")
     var data = pg.updateProviderData(registration, payment, {
         providerStatus: "paid",
@@ -59,7 +61,7 @@ function recordPaidManualReview(registration, payment, payGateEventId, reason) {
     registration.set("registrationStatus", "cancelled")
     registration.set("paymentStatus", "paid")
     registration.set("paymentData", data)
-    $app.save(registration)
+    store.save(registration)
     return data
 }
 

@@ -1,41 +1,104 @@
 import { getPbClient } from "@/lib/pb-client";
 import { escapeFilterValue } from "@/lib/pb";
 import { getField } from "@/lib/safe-get";
+import {
+  runAdminRegistrationCommand,
+  type RegistrationAdminAction,
+} from "@/lib/data/admin-event-operations.client";
+
+function asPaymentData(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function providerLabel(paymentData: Record<string, unknown>, paymentStatus: string) {
+  if (paymentData.manualConfirmation || paymentData.provider === "manual") return "manual";
+  if (paymentData.provider === "razorpay_live") return "razorpay";
+  if (paymentData.provider === "paygate") {
+    return String(paymentData.eventPaymentProvider || paymentData.paymentAccount || "paygate");
+  }
+  return paymentStatus === "not_required" ? "not_required" : "unknown";
+}
 
 function mapRegistration(record: Record<string, unknown> & { id: string; expand?: Record<string, unknown> }) {
   const event = record.expand?.event as Record<string, unknown> | undefined;
+  const paymentStatus = String(getField(record, "paymentStatus", ""));
+  const paymentData = asPaymentData(getField(record, "paymentData", null));
+  const registrationStatus = String(getField(record, "registrationStatus", ""));
   return {
     id: record.id,
+    event: String(getField(record, "event", "")),
+    user: String(getField(record, "user", "")),
     userName: getField(record, "userName", ""),
     userEmail: getField(record, "userEmail", ""),
     userPhone: getField(record, "userPhone", ""),
-    registrationStatus: getField(record, "registrationStatus", ""),
-    paymentStatus: getField(record, "paymentStatus", ""),
+    registrationStatus,
+    paymentStatus,
     checkedIn: Boolean(getField(record, "checkedIn", false)),
     checkedInAt: getField<string | null>(record, "checkedInAt", null),
     ticketId: getField(record, "ticketId", ""),
+    paymentTicketId: getField(record, "paymentTicketId", ""),
     amount: Number(getField(record, "amount", 0)) || 0,
     couponCode: getField(record, "couponCode", ""),
     discountAmount: Number(getField(record, "discountAmount", 0)) || 0,
-    paymentData: getField(record, "paymentData", null),
+    paymentData,
+    provider: providerLabel(paymentData, paymentStatus),
+    providerStatus: String(paymentData.providerStatus || ""),
+    manualReview: paymentData.manualReview === true ||
+      (registrationStatus === "cancelled" && paymentStatus === "paid"),
+    reviewReason: String(paymentData.reviewReason || ""),
+    manualConfirmation:
+      paymentData.manualConfirmation && typeof paymentData.manualConfirmation === "object"
+        ? paymentData.manualConfirmation as Record<string, unknown>
+        : null,
     formResponses: getField(record, "formResponses", null),
-    createdAt: getField(record, "created", ""),
+    registrationSource: getField(record, "registrationSource", "self_service"),
+    internalNotes: getField(record, "internalNotes", ""),
+    createdBy: getField(record, "createdBy", ""),
+    registrationDate: String(getField(record, "registrationDate", "") || getField(record, "created", "")),
+    createdAt:
+      getField(record, "registrationDate", "") ||
+      getField(record, "created", ""),
     eventTitle: getField(event, "title", ""),
-    eventId: getField(event, "id", ""),
+    eventId: getField(event, "id", getField(record, "event", "")),
   };
 }
 
-export async function listAdminRegistrations(input: {
+export interface AdminRegistrationFilters {
   page: number;
   perPage: number;
   eventId?: string;
   status?: string;
+  paymentStatus?: string;
+  source?: string;
   search?: string;
-}) {
+  attentionOnly?: boolean;
+}
+
+export async function listAdminRegistrations(input: AdminRegistrationFilters) {
   const filters: string[] = [];
   if (input.eventId) filters.push(`event = ${escapeFilterValue(input.eventId)}`);
-  if (input.status && input.status !== "all") filters.push(`registrationStatus = ${escapeFilterValue(input.status)}`);
-  if (input.search) filters.push(`userName ~ ${escapeFilterValue(input.search)}`);
+  if (input.status && input.status !== "all") {
+    filters.push(`registrationStatus = ${escapeFilterValue(input.status)}`);
+  }
+  if (input.paymentStatus && input.paymentStatus !== "all") {
+    filters.push(`paymentStatus = ${escapeFilterValue(input.paymentStatus)}`);
+  }
+  if (input.source && input.source !== "all") {
+    filters.push(`registrationSource = ${escapeFilterValue(input.source)}`);
+  }
+  if (input.attentionOnly) {
+    filters.push(
+      `((registrationStatus = "cancelled" && paymentStatus = "paid") || (registrationStatus = "pending" && paymentStatus = "pending"))`,
+    );
+  }
+  if (input.search) {
+    const search = escapeFilterValue(input.search);
+    filters.push(
+      `(userName ~ ${search} || userEmail ~ ${search} || userPhone ~ ${search} || ticketId ~ ${search})`,
+    );
+  }
   const result = await getPbClient().collection("registrations").getList(input.page, input.perPage, {
     filter: filters.join(" && ") || undefined,
     sort: "-registrationDate",
@@ -57,17 +120,10 @@ export async function getAdminRegistration(id: string) {
 
 export async function runRegistrationAdminCommand(
   id: string,
-  command: "check-in" | "cancel",
+  command: "check-in" | "cancel" | "undo-check-in",
 ) {
-  const pb = getPbClient();
-  switch (command) {
-    case "check-in":
-      return pb.collection("registrations").update(id, { checkedIn: true });
-    case "cancel":
-      return pb.collection("registrations").update(id, { registrationStatus: "cancelled" });
-  }
+  return runAdminRegistrationCommand(id, { action: command });
 }
-
 export interface ManualPaymentConfirmationResult {
   success: boolean;
   alreadyConfirmed: boolean;
@@ -88,8 +144,6 @@ export async function checkInByTicket(ticketId: string) {
   const pb = getPbClient();
   let registration;
   try {
-    // paymentTicketId is a private payment-recovery handle, not an event ticket.
-    // Only the real ticketId minted after confirmation is valid for check-in.
     registration = await pb.collection("registrations").getFirstListItem(
       `ticketId = ${escapeFilterValue(ticketId)}`,
       { expand: "event", fields: "id,event,registrationStatus,checkedIn,checkedInAt,userName,userEmail,ticketId,expand.event.id,expand.event.title,expand.event.checkInEnabled" },
@@ -97,29 +151,27 @@ export async function checkInByTicket(ticketId: string) {
   } catch {
     throw new Error("Registration not found");
   }
-
   const event = registration.expand?.event as Record<string, unknown> | undefined;
   if (!event) throw new Error("Event not found");
   if (!Boolean(event.checkInEnabled)) throw new Error("Check-in is not enabled for this event");
   if (String(registration.registrationStatus || "") !== "confirmed") throw new Error("Registration is not confirmed");
   if (Boolean(registration.checkedIn)) throw new Error("Already checked in");
 
-  const updated = await pb.collection("registrations").update(registration.id, { checkedIn: true });
+  const result = await runAdminRegistrationCommand(registration.id, { action: "check-in" });
   return {
     success: true,
     message: "Checked in successfully",
     registration: {
-      id: updated.id,
-      userName: String(updated.userName || registration.userName || ""),
-      userEmail: String(updated.userEmail || registration.userEmail || ""),
+      id: result.registration.id,
+      userName: result.registration.userName,
+      userEmail: result.registration.userEmail,
       eventTitle: String(event.title || ""),
       ticketId,
-      checkedIn: Boolean(updated.checkedIn),
-      checkedInAt: String(updated.checkedInAt || ""),
+      checkedIn: result.registration.checkedIn,
+      checkedInAt: result.registration.checkedInAt,
     },
   };
 }
-
 export interface RegistrationNotificationState {
   ticketAvailable: boolean;
   receiptAvailable: boolean;
@@ -141,3 +193,5 @@ export async function resendRegistrationNotification(id: string, kind: "ticket" 
     { method: "POST" },
   ) as Promise<{ success: boolean; status: string }>;
 }
+
+export type { RegistrationAdminAction };

@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   Calendar,
   ChevronRight,
+  Download,
   Loader2,
   Pencil,
   Plus,
@@ -26,6 +27,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth-context";
 import { deleteAdminEvent, listAdminEvents, type AdminEventListItem, type AdminEventsResponse } from "@/lib/data/admin-events.client";
 import { formatDateShort } from "@/lib/dates";
+import { getPbClient } from "@/lib/pb-client";
+import { streamAdminEventsCSV } from "@/lib/csv-export";
 
 function EventsSkeleton() {
   return (
@@ -68,6 +71,17 @@ export default function AdminEvents() {
 
   const canEdit = user?.role === "admin" || user?.role === "chair";
 
+  const exportEvents = async () => {
+    const stream = await streamAdminEventsCSV(getPbClient());
+    const blob = await new Response(stream).blob();
+    const href = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = href;
+    anchor.download = `ieee-events-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(href);
+  };
+
   return (
     <div className="space-y-6">
       <PanelHeader
@@ -75,16 +89,16 @@ export default function AdminEvents() {
         title="Manage Events"
         description={`${data?.total ?? 0} event${data?.total === 1 ? "" : "s"} in the catalogue.`}
         actions={
-          canEdit ? (
-            <Button
-              size="sm"
-              className="gap-1.5"
-              onClick={() => navigate("/admin/events/new")}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Create event
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => void exportEvents()}>
+              <Download className="h-3.5 w-3.5" /> Export CSV
             </Button>
-          ) : undefined
+            {canEdit && (
+              <Button size="sm" className="gap-1.5" onClick={() => navigate("/admin/events/new")}>
+                <Plus className="h-3.5 w-3.5" /> Create event
+              </Button>
+            )}
+          </div>
         }
       />
 
@@ -206,7 +220,7 @@ function EventsList({
         >
           <div className="min-w-0">
             <Link
-              to={`/admin/events/${event.id}/edit`}
+              to={`/admin/events/${event.id}`}
               className="text-sm font-medium text-foreground hover:underline line-clamp-1"
             >
               {event.title}

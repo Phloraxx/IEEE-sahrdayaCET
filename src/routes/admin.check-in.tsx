@@ -19,7 +19,7 @@ interface VerifyResult {
     eventTitle: string;
     ticketId: string;
     checkedIn: boolean;
-    checkedInAt: string;
+    checkedInAt: string | null;
   };
 }
 
@@ -129,7 +129,7 @@ export default function AdminCheckIn() {
                   <div>
                     <span className="text-muted-foreground">Checked in at: </span>
                     <span className="text-foreground">
-                      {formatDateTime(result.registration.checkedInAt)}
+                      {formatDateTime(result.registration.checkedInAt || "")}
                     </span>
                   </div>
                 )}

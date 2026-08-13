@@ -14,6 +14,7 @@ import {
   Trophy,
   UserCheck,
   Users,
+  WalletCards,
   X,
 } from "lucide-react";
 import { Link, useLocation } from "react-router";
@@ -44,11 +45,18 @@ const NAV_ITEMS: NavItem[] = [
     allowedRoles: ["admin", "chair"],
   },
   {
-    label: "Registrations",
+    label: "Registration Queue",
     href: "/admin/registrations",
     icon: ClipboardList,
-    description: "Sign-ups & check-ins",
+    description: "Attendee operations",
     allowedRoles: ["admin", "chair"],
+  },
+  {
+    label: "Payment Desk",
+    href: "/admin/payments",
+    icon: WalletCards,
+    description: "Money & exceptions",
+    allowedRoles: ["admin"],
   },
   {
     label: "Check-in",
