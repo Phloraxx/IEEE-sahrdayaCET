@@ -159,7 +159,7 @@ assert expired_payment["status"]=="cancelled"
 
 # Stress capture vs hold-expiry reconciliation. The provider capture and the
 # expiry cron start together; verification then converges any late capture.
-race_outcomes={"confirmed":0,"refund":0}
+race_outcomes={"confirmed":0,"manual_refund":0}
 for race_index in range(10):
     race_event=make_event(f"Razorpay Race {race_index}")
     race_reg=register(race_event,user2,user2_token); race_id=race_reg["registrationId"]
@@ -186,12 +186,14 @@ for race_index in range(10):
         race_outcomes["confirmed"]+=1
     else:
         assert final_reg["registrationStatus"]=="cancelled" and final_reg["paymentStatus"]=="paid" and not final_reg["ticketId"]
-        race_refunds=filter_records("payment_refunds",f'payment="{final_ledger["id"]}" && source="late_capture"')["items"]
-        assert len(race_refunds)==1 and race_refunds[0]["status"] in ("queued","submitted","processed")
-        race_outcomes["refund"]+=1
+        race_refunds=filter_records("payment_refunds",f'payment="{final_ledger["id"]}"')["items"]
+        assert len(race_refunds)==0
+        assert final_ledger["manualReview"] is True and "Razorpay Dashboard" in final_ledger["reviewReason"]
+        race_outcomes["manual_refund"]+=1
 
 print("direct Razorpay smoke ok", json.dumps({
     "normal_order":session["razorpayOrderId"],"normal_payment":captured["id"],
-    "refund":refund["providerRefundId"],"late_refund":late_refunds[0]["id"],
+    "manual_refund_required":cancel["manualRefundRequired"],
+    "late_manual_review":late_ledger["manualReview"],
     "expiry_order":expiry_session["razorpayOrderId"],"race":race_outcomes
 }))
