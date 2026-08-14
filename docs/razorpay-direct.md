@@ -15,13 +15,13 @@ RAZORPAY_CHECKOUT_HOLD_SECONDS=600
 PAYMENTS_ENABLED=true
 ```
 
-`RAZORPAY_KEY_SECRET` and `RAZORPAY_WEBHOOK_SECRET` are server-only. `PAYMENTS_ENABLED=false` pauses new paid registrations/orders but does not stop reconciliation, webhook processing, or refunds.
+`RAZORPAY_KEY_SECRET` and `RAZORPAY_WEBHOOK_SECRET` are server-only. `PAYMENTS_ENABLED=false` pauses new paid registrations/orders but does not stop reconciliation or webhook processing.
 
 ## Flow
 
 1. Paid internal registration snapshots the exact fee in integer paise.
 2. PocketBase creates or recovers one Razorpay Order using a deterministic receipt.
-3. Standard Checkout returns order ID, payment ID and signature.
+3. The public payment page uses Razorpay Custom Checkout in UPI-only mode. Mobile web launches UPI Intent apps; desktop requests the non-redirect UPI QR flow and renders Razorpay's returned intent URL as an IEEE-branded QR.
 4. PocketBase verifies the signature using the server-stored Order ID, then fetches canonical payment state from Razorpay.
 5. Only `captured` confirms the registration and mints a ticket.
 6. Signed webhooks are deduped into a small inbox and processed asynchronously from canonical Razorpay API state.
@@ -37,4 +37,4 @@ IEEE never initiates Razorpay refunds. Event cancellation and late captures flag
 
 ## Release gate
 
-Before production cutover, verify there are no unresolved active legacy PayGate sessions. Historical completed rows may remain read-only. Run the direct Razorpay fake-provider integration suite, concurrency/refund tests, migration tests, and authenticated Admin V2 browser tests before enabling paid registrations.
+Before production cutover, verify there are no unresolved active legacy PayGate sessions. Historical completed rows may remain read-only. UPI must be enabled for the merchant account, and Razorpay must enable the Custom Checkout UPI QR non-redirect flow for the fully first-party desktop QR experience. Run the direct Razorpay fake-provider integration suite, concurrency/manual-refund tests, migration tests, and authenticated Admin V2 browser tests before enabling paid registrations.

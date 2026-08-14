@@ -317,6 +317,7 @@ function paymentSession(registration, payment, config, providerReachable) {
     reviewReason: data.reviewReason || "",
     providerReachable: providerReachable !== false,
     attendeeEmail: registration.getString("userEmail") || "",
+    attendeePhone: registration.getString("userPhone") || "",
     event: eventPayload,
   }
 }
