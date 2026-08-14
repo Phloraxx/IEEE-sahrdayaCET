@@ -111,9 +111,9 @@ export default function AdminRegistrations() {
   });
   const confirmMutation = useMutation({
     mutationFn: (id: string) => confirmRegistrationPayment(id),
-    onSuccess: (result) => {
+    onSuccess: () => {
       invalidate();
-      toast.success(result.alreadyConfirmed ? "Payment was already confirmed" : "Payment confirmed and emails queued");
+      toast.success("Payment confirmed and notifications queued");
     },
     onError: (error: Error) => toast.error(error.message || "Could not confirm payment"),
   });

@@ -114,6 +114,25 @@ describe('streamRegistrationsCSV', () => {
     expect(lines[1]).toContain('₹50')
   })
 
+  it('keeps admin headers aligned with row values', async () => {
+    const pb = makeMockPB([{
+      userName: 'Header Check', userEmail: 'header@test.com', userPhone: '9999999990',
+      registrationDate: '2026-06-10T10:00:00.000Z', paymentStatus: 'paid',
+      registrationStatus: 'confirmed', checkedIn: true, checkedInAt: '2026-06-11T12:00:00.000Z',
+      ticketId: 'TKT-header', couponCode: '', discountAmount: 0, formResponses: {},
+    }])
+    const csv = await readStream(await streamRegistrationsCSV(pb as any, 'evt-1', { adminFormat: true }))
+    const [headerLine, rowLine] = csv.trim().split('\n')
+    const headers = headerLine!.split(',')
+    const values = rowLine!.split(',')
+    const row = Object.fromEntries(headers.map((header, index) => [header, values[index]]))
+    expect(row.registration_date).toBe('2026-06-10T10:00:00.000Z')
+    expect(row.payment_status).toBe('paid')
+    expect(row.registration_status).toBe('confirmed')
+    expect(row.checked_in).toBe('yes')
+    expect(row.ticket_id).toBe('TKT-header')
+  })
+
   it('handles empty registrations', async () => {
     const pb = makeMockPB([])
     const stream = await streamRegistrationsCSV(pb as any, 'evt-1')

@@ -1,13 +1,14 @@
 import { getPbClient } from "@/lib/pb-client";
 import { buildFileUrl, escapeFilterValue } from "@/lib/pb";
 
-export async function listAdminUsers(input: { search?: string; id?: string; page?: number; perPage?: number } = {}) {
+export async function listAdminUsers(input: { search?: string; role?: string; id?: string; page?: number; perPage?: number } = {}) {
   const pb = getPbClient();
   const filters: string[] = [];
   if (input.search) {
     const value = escapeFilterValue(input.search);
     filters.push(`(name ~ ${value} || email ~ ${value})`);
   }
+  if (input.role && input.role !== "all") filters.push(`role = ${escapeFilterValue(input.role)}`);
   if (input.id) filters.push(`id = ${escapeFilterValue(input.id)}`);
   const result = await pb.collection("users").getList(input.page ?? 1, Math.min(input.perPage ?? 100, 100), {
     filter: filters.join(" && ") || undefined,
@@ -25,6 +26,8 @@ export async function listAdminUsers(input: { search?: string; id?: string; page
       registrationsCount: 0,
     })),
     total: result.totalItems,
+    page: result.page,
+    perPage: result.perPage,
     hasMore: result.totalPages > result.page,
   };
 }

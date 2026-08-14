@@ -1,9 +1,11 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
+import { useSearchParams } from "react-router";
 import { Search, Users } from "lucide-react";
 import { PanelHeader } from "@/components/admin/panel-header";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -30,6 +32,8 @@ interface UserRow {
 interface UsersResponse {
   users: UserRow[];
   total: number;
+  page: number;
+  perPage: number;
   hasMore: boolean;
 }
 
@@ -39,6 +43,7 @@ const ROLE_BADGE: Record<
 > = {
   admin: "default",
   chair: "secondary",
+  content: "secondary",
   user: "outline",
 };
 
@@ -60,12 +65,14 @@ export default function AdminUsers() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [inputValue, setInputValue] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const page = Math.max(1, Number(searchParams.get("page") || 1) || 1);
   const [roleFilter, setRoleFilter] = useState("all");
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data, isLoading } = useQuery<UsersResponse>({
-    queryKey: ["admin-users", { search }],
-    queryFn: () => listAdminUsers({ search, perPage: 100 }),
+    queryKey: ["admin-users", { search, roleFilter, page }],
+    queryFn: () => listAdminUsers({ search, role: roleFilter, page, perPage: 40 }),
   });
 
   const roleMutation = useMutation({
@@ -78,9 +85,12 @@ export default function AdminUsers() {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
     },
   });
-  const filteredUsers = (data?.users ?? []).filter(
-    (u) => roleFilter === "all" || u.role === roleFilter,
-  );
+  const filteredUsers = data?.users ?? [];
+  const setPage = (nextPage: number) => {
+    const next = new URLSearchParams(searchParams);
+    if (nextPage <= 1) next.delete("page"); else next.set("page", String(nextPage));
+    setSearchParams(next, { replace: true });
+  };
 
   return (
     <div className="space-y-6">
@@ -99,12 +109,12 @@ export default function AdminUsers() {
             onChange={(e) => {
               setInputValue(e.target.value);
               if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-              searchTimeoutRef.current = setTimeout(() => setSearch(e.target.value), 300);
+              searchTimeoutRef.current = setTimeout(() => { setSearch(e.target.value); setPage(1); }, 300);
             }}
             className="pl-9"
           />
         </div>
-        <Select value={roleFilter} onValueChange={setRoleFilter}>
+        <Select value={roleFilter} onValueChange={(value) => { setRoleFilter(value); setPage(1); }}>
           <SelectTrigger className="w-[160px]">
             <SelectValue placeholder="All roles" />
           </SelectTrigger>
@@ -112,6 +122,7 @@ export default function AdminUsers() {
             <SelectItem value="all">All roles</SelectItem>
             <SelectItem value="admin">Admin</SelectItem>
             <SelectItem value="chair">Chair</SelectItem>
+            <SelectItem value="content">Content</SelectItem>
             <SelectItem value="user">User</SelectItem>
           </SelectContent>
         </Select>
@@ -131,6 +142,15 @@ export default function AdminUsers() {
           isAdmin={currentUser?.role === "admin"}
           onRoleChange={(id, role) => roleMutation.mutate({ id, role })}
         />
+      )}
+      {data && data.total > data.perPage && (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground">Page {data.page} · {data.total} users</p>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" size="sm" disabled={data.page <= 1} onClick={() => setPage(data.page - 1)}>Previous</Button>
+            <Button type="button" variant="outline" size="sm" disabled={!data.hasMore} onClick={() => setPage(data.page + 1)}>Next</Button>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -200,6 +220,7 @@ function UserList({
                   <SelectContent>
                     <SelectItem value="admin">Admin</SelectItem>
                     <SelectItem value="chair">Chair</SelectItem>
+                    <SelectItem value="content">Content</SelectItem>
                     <SelectItem value="user">User</SelectItem>
                   </SelectContent>
                 </Select>

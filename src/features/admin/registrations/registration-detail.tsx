@@ -44,7 +44,7 @@ interface RegistrationDetail {
   internalNotes: string;
 }
 
-interface PayGateAdminData {
+interface LegacyPayGateData {
   provider: string;
   providerStatus: string;
   paymentId: string;
@@ -65,10 +65,11 @@ function paymentDataValue(data: Record<string, unknown> | null, key: string): un
   return data && typeof data === "object" ? data[key] : undefined;
 }
 
-function getPayGateAdminData(data: Record<string, unknown> | null): PayGateAdminData | null {
-  if (String(paymentDataValue(data, "provider") || "") !== "paygate") return null;
+function getLegacyPayGateData(data: Record<string, unknown> | null): LegacyPayGateData | null {
+  const provider = String(paymentDataValue(data, "provider") || "");
+  if (provider !== "paygate" && provider !== "legacy_paygate") return null;
   return {
-    provider: "paygate",
+    provider: "legacy_paygate",
     providerStatus: String(paymentDataValue(data, "providerStatus") || "not_initialized"),
     paymentId: String(paymentDataValue(data, "paymentId") || ""),
     requestedAmountPaise: Number(paymentDataValue(data, "requestedAmountPaise")) || 0,
@@ -152,12 +153,12 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
 
   const confirmPaymentMutation = useMutation({
     mutationFn: () => confirmRegistrationPayment(registrationId),
-    onSuccess: (result) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-registration", registrationId] });
       queryClient.invalidateQueries({ queryKey: ["admin-registrations"] });
       queryClient.invalidateQueries({ queryKey: ["admin-registration-notifications", registrationId] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
-      toast.success(result.alreadyConfirmed ? "Payment was already confirmed" : "Payment confirmed and emails queued");
+      toast.success("Payment confirmed and notifications queued");
     },
     onError: (mutationError: Error) => toast.error(mutationError.message || "Could not confirm payment"),
   });
@@ -191,7 +192,7 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
     );
   }
 
-  const payGate = getPayGateAdminData(reg.paymentData);
+  const legacyPayGate = getLegacyPayGateData(reg.paymentData);
   const needsResolution = reg.manualReview ||
     (reg.registrationStatus === "cancelled" && reg.paymentStatus === "paid");
 
@@ -204,7 +205,7 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
             <div className="min-w-0 flex-1">
               <p className="font-semibold">This registration needs an organizer decision</p>
               <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                {reg.reviewReason || payGate?.reviewReason || "The registration is cancelled but the payment is recorded as paid."}
+                {reg.reviewReason || legacyPayGate?.reviewReason || "The registration is cancelled but the payment is recorded as paid."}
               </p>
               <Button variant="outline" size="sm" className="mt-3" asChild>
                 <Link to={`/admin/events/${reg.eventId}`}>Resolve in event workspace</Link>
@@ -393,30 +394,30 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
         </CardContent>
       </Card>
 
-      {payGate && (
+      {legacyPayGate && (
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-2">
               <CreditCard className="h-4 w-4 text-primary" />
               <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                PayGate
+                Legacy PayGate record
               </p>
             </div>
             <dl className="mt-4 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-[max-content_1fr_max-content_1fr]">
               <dt className="text-muted-foreground">Provider status</dt>
-              <dd className="font-medium text-foreground">{payGate.providerStatus}</dd>
+              <dd className="font-medium text-foreground">{legacyPayGate.providerStatus}</dd>
               <dt className="text-muted-foreground">Payment ID</dt>
-              <dd className="break-all font-mono text-xs text-foreground">{payGate.paymentId || "—"}</dd>
+              <dd className="break-all font-mono text-xs text-foreground">{legacyPayGate.paymentId || "—"}</dd>
               <dt className="text-muted-foreground">Registration amount</dt>
-              <dd className="font-mono tabular-nums text-foreground">{formatPaise(payGate.requestedAmountPaise)}</dd>
+              <dd className="font-mono tabular-nums text-foreground">{formatPaise(legacyPayGate.requestedAmountPaise)}</dd>
               <dt className="text-muted-foreground">Exact payable</dt>
               <dd className="font-mono tabular-nums text-foreground">
-                {payGate.payableAmount ? `₹${payGate.payableAmount}` : formatPaise(payGate.payableAmountPaise)}
+                {legacyPayGate.payableAmount ? `₹${legacyPayGate.payableAmount}` : formatPaise(legacyPayGate.payableAmountPaise)}
               </dd>
               <dt className="text-muted-foreground">Expires</dt>
-              <dd className="font-mono text-xs text-foreground">{formatDate(payGate.expiresAt || null)}</dd>
+              <dd className="font-mono text-xs text-foreground">{formatDate(legacyPayGate.expiresAt || null)}</dd>
               <dt className="text-muted-foreground">Paid at</dt>
-              <dd className="font-mono text-xs text-foreground">{formatDate(payGate.paidAt || null)}</dd>
+              <dd className="font-mono text-xs text-foreground">{formatDate(legacyPayGate.paidAt || null)}</dd>
             </dl>
           </CardContent>
         </Card>

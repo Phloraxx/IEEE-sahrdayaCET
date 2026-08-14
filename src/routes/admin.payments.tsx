@@ -1,167 +1,90 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import {
-  BadgeCheck,
-  Banknote,
-  CheckCircle2,
-  ReceiptText,
-  Search,
-} from "lucide-react";
-import { PanelHeader } from "@/components/admin/panel-header";
-import { Card, CardContent } from "@/components/ui/card";
+import { AlertTriangle, Banknote, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  getAdminPaymentDesk,
-  type AdminRegistrationOperationRow,
-} from "@/lib/data/admin-event-operations.client";
-import { listAdminRegistrations } from "@/lib/data/admin-registrations.client";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { getAdminPaymentDesk } from "@/lib/data/admin-event-operations.client";
+import { listAdminPayments, type AdminPaymentLedgerRow } from "@/lib/data/admin-payments.client";
 import { formatDateTime } from "@/lib/dates";
-const money = (value: number) => `₹${Math.max(0, value || 0).toLocaleString("en-IN")}`;
 
-function Metric({ label, value, detail, icon: Icon }: { label: string; value: string; detail: string; icon: React.ComponentType<{ className?: string }> }) {
-  return (
-    <Card>
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
-            <p className="mt-2 text-2xl font-semibold tracking-tight tabular-nums">{value}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
-          </div>
-          <div className="rounded-xl border border-border bg-muted/40 p-2.5"><Icon className="h-4 w-4 text-primary" /></div>
-        </div>
-      </CardContent>
-    </Card>
-  );
+const money = (value: number) => new Intl.NumberFormat("en-IN", {
+  style: "currency", currency: "INR", minimumFractionDigits: 2,
+}).format(Math.max(0, value || 0));
+
+function providerLabel(provider: string) {
+  if (provider === "razorpay") return "Razorpay";
+  if (provider === "manual") return "Manual";
+  if (provider === "legacy_paygate") return "Legacy PayGate";
+  return provider || "Unknown";
 }
 
-function PaymentRow({ row, onResolve }: { row: AdminRegistrationOperationRow; onResolve?: (row: AdminRegistrationOperationRow) => void }) {
-  const paidCancelled = row.registrationStatus === "cancelled" && row.paymentStatus === "paid";
-  return (
-    <div className={`grid gap-3 rounded-xl border p-4 lg:grid-cols-[1.3fr_1.1fr_120px_150px_auto] lg:items-center ${row.manualReview || paidCancelled ? "border-amber-500/30 bg-amber-500/5" : "border-border"}`}>
-      <div className="min-w-0">
-        <Link to={`/admin/registrations/${row.id}`} className="truncate text-sm font-semibold hover:underline">{row.userName || "Unnamed attendee"}</Link>
-        <p className="mt-0.5 truncate text-xs text-muted-foreground">{row.userEmail}</p>
-      </div>      <div className="min-w-0">
-        <Link to={`/admin/events/${row.event}`} className="line-clamp-1 text-xs font-medium text-muted-foreground hover:text-foreground hover:underline">{row.eventTitle || "Unknown event"}</Link>
-        <p className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">{row.provider} · {row.providerStatus || row.paymentStatus}</p>
-      </div>
-      <div className="flex flex-wrap gap-1.5">
-        <StatusBadge status={row.registrationStatus} kind="registration" />
-        <StatusBadge status={row.paymentStatus} kind="payment" />
-      </div>
-      <div>
-        <p className="font-mono text-sm font-semibold tabular-nums">{money(row.amount)}</p>
-        <p className="mt-0.5 text-[10px] text-muted-foreground">{formatDateTime(row.registrationDate)}</p>
-      </div>
-      <div className="flex items-center justify-end gap-2">
-        {row.manualConfirmation && <span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-primary">Manual</span>}
-        {onResolve && (
-          <Button size="sm" variant={row.manualReview || paidCancelled ? "default" : "outline"} onClick={() => onResolve(row)}>
-            Resolve
-          </Button>
-        )}
-      </div>
-      {(row.reviewReason || paidCancelled) && (
-        <p className="text-xs text-amber-700 lg:col-span-5 dark:text-amber-300">
-          {row.reviewReason || "Payment is marked paid while the registration is cancelled."}
-        </p>
-      )}
+function PaymentRow({ row, attention = false }: { row: AdminPaymentLedgerRow; attention?: boolean }) {
+  return <div className="grid gap-3 border-b border-border px-4 py-3.5 last:border-b-0 lg:grid-cols-[1.2fr_1fr_190px_150px_120px] lg:items-center">
+    <div className="min-w-0">
+      <Link to={`/admin/registrations/${row.registrationId}`} className="truncate text-sm font-medium hover:underline">{row.attendeeName || "Unnamed attendee"}</Link>
+      <p className="mt-0.5 truncate text-xs text-muted-foreground">{row.attendeeEmail || row.registrationId}</p>
     </div>
-  );
+    <div className="min-w-0">
+      <Link to={`/admin/events/${row.eventId}`} className="truncate text-xs font-medium text-muted-foreground hover:text-foreground">{row.eventTitle || "Unknown event"}</Link>
+      <p className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">{providerLabel(row.provider)}{row.paymentMethod ? ` · ${row.paymentMethod}` : ""}</p>
+      {(row.capturedPaymentId || row.providerOrderId) && <p className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">{row.capturedPaymentId || row.providerOrderId}</p>}
+    </div>
+    <div className="grid grid-cols-3 gap-2 font-mono text-xs tabular-nums">
+      <div><p className="text-[9px] uppercase tracking-wide text-muted-foreground">Fee</p><p>{money(row.feeAmount)}</p></div>
+      <div><p className="text-[9px] uppercase tracking-wide text-muted-foreground">Collected</p><p className="font-semibold">{money(row.collectedAmount)}</p></div>
+      <div><p className="text-[9px] uppercase tracking-wide text-muted-foreground">Refunded</p><p>{money(row.refundedAmount)}</p></div>
+    </div>
+    <div className="flex flex-wrap gap-1.5">
+      <Badge variant={row.manualReview ? "destructive" : "outline"}>{row.status.replaceAll("_", " ")}</Badge>
+      {row.registrationStatus && <StatusBadge status={row.registrationStatus} kind="registration" />}
+    </div>
+    <div className="text-right"><p className="text-[10px] text-muted-foreground">{formatDateTime(row.capturedAt || row.createdAt)}</p>{attention && <Link to={`/admin/registrations/${row.registrationId}`} className="mt-1 inline-block text-xs font-medium text-primary hover:underline">Resolve</Link>}</div>
+    {(row.reviewReason || attention) && <p className="text-xs text-warning lg:col-span-5">{row.reviewReason || "This financial state requires administrator review."}</p>}
+  </div>;
 }
+
 export default function AdminPayments() {
   const [search, setSearch] = useState("");
-  const desk = useQuery({
-    queryKey: ["admin-payment-desk"],
-    queryFn: getAdminPaymentDesk,
-    refetchInterval: 20_000,
-  });
-  const paid = useQuery({
-    queryKey: ["admin-payment-records", search],
-    queryFn: () => listAdminRegistrations({
-      page: 1,
-      perPage: 100,
-      paymentStatus: "paid",
-      search,
-    }),
-  });
-
-  if (desk.isLoading) {
-    return <div className="space-y-4"><Skeleton className="h-32" /><Skeleton className="h-72" /></div>;
-  }
-  if (!desk.data) {
-    return <Card><CardContent className="p-8"><p className="font-semibold">Could not load payment operations.</p></CardContent></Card>;
-  }
-
+  const [page, setPage] = useState(1);
+  const desk = useQuery({ queryKey: ["admin-payment-desk"], queryFn: getAdminPaymentDesk, refetchInterval: 20_000 });
+  const ledger = useQuery({ queryKey: ["admin-payment-ledger", search, page], queryFn: () => listAdminPayments({ page, perPage: 40, search }) });
+  const attention = useQuery({ queryKey: ["admin-payment-attention"], queryFn: () => listAdminPayments({ page: 1, perPage: 25, attentionOnly: true }), refetchInterval: 20_000 });
+  if (desk.isLoading) return <div className="space-y-4"><Skeleton className="h-24" /><Skeleton className="h-72" /></div>;
+  if (!desk.data) return <div className="rounded-lg border border-border p-8">Could not load payment operations.</div>;
   const { summary } = desk.data;
-  return (
-    <div className="space-y-7">
-      <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-6 md:p-8">
-        <div className="absolute inset-0 vh-grid-bg opacity-30" aria-hidden="true" />
-        <div className="relative max-w-3xl">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">Finance operations</p>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">Payment Desk</h1>
-          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">One cross-event queue for collections, manual confirmations, pending payments, refunds and records that require an organizer decision.</p>
-        </div>
-      </div>      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Recorded collected" value={money(summary.paidAmount)} detail={`${summary.paidCount} paid registrations`} icon={Banknote} />
-        <Metric label="Provider confirmed" value={money(summary.providerPaidAmount)} detail={`${summary.providerPaidCount} processor/PayGate`} icon={CheckCircle2} />
-        <Metric label="Manual confirmed" value={money(summary.manualPaidAmount)} detail={`${summary.manualPaidCount} admin overrides`} icon={BadgeCheck} />
-        <Metric label="Refunded / recorded" value={money(summary.refundedAmount)} detail={`${summary.refundedCount} refund records`} icon={ReceiptText} />
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
-        <Card>
-          <CardContent className="p-6">
-            <PanelHeader
-              eyebrow="Exception queue"
-              title="Payments requiring attention"
-              description="These states stay visible until an organizer resolves them inside the event workspace."
-            />
-            <div className="mt-5 space-y-2">
-              {desk.data.attention.length ? desk.data.attention.map((row) => (
-                <PaymentRow key={row.id} row={row} onResolve={(item) => { window.location.href = `/admin/events/${item.event}`; }} />
-              )) : (
-                <div className="rounded-xl border border-dashed border-border px-4 py-12 text-center text-sm text-muted-foreground">Nothing needs attention right now.</div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <PanelHeader eyebrow="Ledger notes" title="What these numbers mean" />
-            <div className="mt-5 space-y-3 text-sm text-muted-foreground">
-              <p className="rounded-xl bg-muted/40 p-3 leading-relaxed">{desk.data.financeDisclaimer}</p>
-              <p><strong className="text-foreground">Recorded collected</strong> means registrations currently marked paid.</p>
-              <p><strong className="text-foreground">Manual confirmed</strong> means a human admin asserted receipt; it is kept distinct from provider truth.</p>
-              <p><strong className="text-foreground">Paid + cancelled</strong> remains an exception until restored or recorded as refunded.</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>      <Card>
-        <CardContent className="p-6">
-          <PanelHeader eyebrow="Paid ledger" title="Who has paid" description="Latest paid registrations across every event." />
-          <div className="mt-5 relative max-w-lg">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, email, phone or ticket" className="pl-9" />
-          </div>
-          <div className="mt-5 space-y-2">
-            {paid.isLoading ? (
-              <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-16" />)}</div>
-            ) : paid.data?.registrations.length ? (
-              paid.data.registrations.map((row) => <PaymentRow key={row.id} row={row} />)
-            ) : (
-              <div className="rounded-xl border border-dashed border-border px-4 py-12 text-center text-sm text-muted-foreground">No paid records match this search.</div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+  const metrics = [
+    ["Gross collected", money(summary.grossCollectedAmount), `${summary.paymentCount} ledger records`],
+    ["Net after refunds", money(summary.netCollectedAmount), `${summary.queuedRefundCount} refund${summary.queuedRefundCount === 1 ? "" : "s"} in progress`],
+    ["Refunded", money(summary.refundedAmount), `${summary.failedRefundCount} failed refund${summary.failedRefundCount === 1 ? "" : "s"}`],
+    ["Needs attention", String(summary.attentionCount), `${money(summary.razorpayCollectedAmount)} through Razorpay`],
+  ];
+  return <div className="space-y-7">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div><p className="text-xs font-medium text-muted-foreground">Operate</p><h1 className="mt-1 text-2xl font-semibold tracking-tight">Payment Desk</h1><p className="mt-1 max-w-2xl text-sm text-muted-foreground">Canonical financial ledger for Razorpay, manual confirmations and preserved legacy history.</p></div>
+      <Banknote className="hidden h-5 w-5 text-muted-foreground sm:block" />
     </div>
-  );
+    <div className="grid overflow-hidden rounded-lg border border-border bg-card sm:grid-cols-2 xl:grid-cols-4">
+      {metrics.map(([label, value, detail], index) => <div key={label} className={`p-4 ${index < metrics.length - 1 ? "border-b border-border sm:border-r xl:border-b-0" : ""}`}><div className="text-xs text-muted-foreground">{label}</div><div className="mt-1 font-mono text-xl font-semibold tabular-nums">{value}</div><div className="mt-1 text-[11px] text-muted-foreground">{detail}</div></div>)}
+    </div>
+    <div className="grid gap-3 sm:grid-cols-3">
+      <div className="rounded-lg border border-border bg-card p-3 text-xs"><span className="text-muted-foreground">Razorpay</span><p className="mt-1 font-mono font-semibold">{money(summary.razorpayCollectedAmount)} · {summary.razorpayCount}</p></div>
+      <div className="rounded-lg border border-border bg-card p-3 text-xs"><span className="text-muted-foreground">Manual</span><p className="mt-1 font-mono font-semibold">{money(summary.manualCollectedAmount)} · {summary.manualCount}</p></div>
+      <div className="rounded-lg border border-border bg-card p-3 text-xs"><span className="text-muted-foreground">Legacy history</span><p className="mt-1 font-mono font-semibold">{money(summary.legacyCollectedAmount)} · {summary.legacyCount}</p></div>
+    </div>
+    <section className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3"><div><h2 className="text-sm font-semibold">Needs attention</h2><p className="text-xs text-muted-foreground">Partial refunds, exhausted refund retries, disputes and explicit review flags</p></div><span className="font-mono text-xs">{summary.attentionCount}</span></div>
+      {attention.isLoading ? <div className="p-4"><Skeleton className="h-16" /></div> : attention.data?.payments.length ? attention.data.payments.map((row) => <PaymentRow key={row.id} row={row} attention />) : <div className="px-4 py-10 text-center text-sm text-muted-foreground">No payment exceptions right now.</div>}
+    </section>
+    <section className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="border-b border-border px-4 py-3"><h2 className="text-sm font-semibold">Ledger</h2><p className="text-xs text-muted-foreground">Fee, actually collected amount and refunded amount are stored separately in integer paise.</p></div>
+      <div className="border-b border-border p-4"><div className="relative max-w-lg"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Search attendee, event, ticket, Order ID or Payment ID" className="pl-9" /></div></div>
+      {ledger.isLoading ? <div className="space-y-2 p-4">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-16" />)}</div> : ledger.data?.payments.length ? ledger.data.payments.map((row) => <PaymentRow key={row.id} row={row} />) : <div className="px-4 py-12 text-center text-sm text-muted-foreground">No payment records match this search.</div>}
+      {ledger.data && ledger.data.total > ledger.data.perPage && <div className="flex items-center justify-between border-t border-border px-4 py-3"><span className="text-xs text-muted-foreground">Page {ledger.data.page} · {ledger.data.total} records</span><div className="flex gap-2"><Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}><ChevronLeft className="h-3.5 w-3.5" />Previous</Button><Button size="sm" variant="outline" disabled={!ledger.data.hasMore} onClick={() => setPage((value) => value + 1)}>Next<ChevronRight className="h-3.5 w-3.5" /></Button></div></div>}
+    </section>
+    <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/20 px-4 py-3 text-xs leading-5 text-muted-foreground"><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /><p>{desk.data.financeDisclaimer}</p></div>
+  </div>;
 }

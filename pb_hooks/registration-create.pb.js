@@ -19,8 +19,8 @@ routerAdd(
     // PocketBase 0.39 serializes route handlers into isolated JSVM scopes, so
     // shared helper functions must be required inside the handler.
     var rh = require(__hooks + "/registration-helpers.js")
-    var pg = require(__hooks + "/paygate-helpers.js")
-    var payGateConfig = pg.getConfig()
+    var razorpay = require(__hooks + "/razorpay-direct-helpers.js")
+    var razorpayConfig = razorpay.getConfig()
     var eventId = e.request.pathValue("id")
     var body = {}
     try { body = e.requestInfo().body || {} } catch (_) { body = {} }
@@ -83,7 +83,7 @@ routerAdd(
           var existingNeedsPayment =
             existing.getString("registrationStatus") === "pending" &&
             existing.getString("paymentStatus") === "pending" &&
-            (existing.getInt("amount") || 0) > 0
+            rh.registrationFinalFeePaise(existing) > 0
 
           payload = {
             registrationId: existing.id,
@@ -91,7 +91,7 @@ routerAdd(
               ? existing.getString("paymentTicketId")
               : existing.getString("ticketId"),
             paymentRequired: existingNeedsPayment,
-            amount: existing.getInt("amount") || 0,
+            amount: rh.registrationAmount(existing),
             registrationStatus: existing.getString("registrationStatus"),
             paymentStatus: existing.getString("paymentStatus"),
             reused: true,
@@ -100,6 +100,14 @@ routerAdd(
           return
         }
 
+        var registrationMode = event.getString("registrationMode") || (
+          event.getString("externalFormUrl") ? "external" : (event.getBool("registrationOpen") ? "internal" : "closed")
+        )
+        if (registrationMode !== "internal") {
+          throw new BadRequestError(registrationMode === "external"
+            ? "This event uses external registration"
+            : "Registration is closed for this event")
+        }
         if (!event.getBool("registrationOpen")) {
           throw new BadRequestError("Registration is closed for this event")
         }
@@ -156,9 +164,10 @@ routerAdd(
           throw new BadRequestError("Event is at full capacity")
         }
 
-        var price = event.getInt("price") || 0
-        var discountAmount = 0
-        var finalAmount = price
+        var baseFeePaise = Number(event.getInt("baseFeePaise") || 0)
+        if (!baseFeePaise) baseFeePaise = Math.max(0, Math.round(Number(event.get("price") || 0) * 100))
+        var discountPaise = 0
+        var finalFeePaise = baseFeePaise
         var coupon = null
         if (couponCode) {
           try {
@@ -183,14 +192,21 @@ routerAdd(
             }
           }
           var percent = coupon.getInt("discountPercent") || 0
-          discountAmount = Math.round(price * percent / 100)
-          finalAmount = Math.max(0, price - discountAmount)
+          discountPaise = Math.round(baseFeePaise * percent / 100)
+          finalFeePaise = Math.max(0, baseFeePaise - discountPaise)
         }
 
-        var needsPayment = finalAmount > 0
-        if (needsPayment && !pg.paymentConfigured(payGateConfig)) {
+        var discountAmount = discountPaise / 100
+        var finalAmount = finalFeePaise / 100
+        var needsPayment = finalFeePaise > 0
+        var lockedPaymentData = needsPayment ? {
+          provider: "razorpay",
+          providerStatus: "not_initialized",
+          manualReview: false,
+        } : null
+        if (needsPayment && (!razorpay.apiConfigured(razorpayConfig) || !razorpayConfig.paymentsEnabled)) {
           paymentUnavailable = true
-          throw new Error("PAYGATE_NOT_CONFIGURED")
+          throw new Error("RAZORPAY_NOT_AVAILABLE")
         }
 
         var collection = txApp.findCollectionByNameOrId("registrations")
@@ -204,16 +220,20 @@ routerAdd(
           couponCode: couponCode,
           amount: finalAmount,
           discountAmount: discountAmount,
+          baseFeePaise: baseFeePaise,
+          discountPaise: discountPaise,
+          finalFeePaise: finalFeePaise,
           paymentStatus: needsPayment ? "pending" : "not_required",
           registrationStatus: needsPayment ? "pending" : "confirmed",
           registrationDate: now.toISOString(),
           ticketId: needsPayment ? "" : "TKT-" + $security.randomString(16),
           paymentTicketId: needsPayment ? $security.randomString(32) : "",
-          paymentData: needsPayment
-            ? { provider: pg.PAYGATE_PROVIDER, providerStatus: "not_initialized", manualReview: false }
-            : null,
+          // New paid registrations use Razorpay directly. The normalized
+          // payment ledger becomes canonical once an Order is created.
+          paymentData: lockedPaymentData,
           checkedIn: false,
           checkedInAt: "",
+          registrationSource: "self_service",
         })
         txApp.save(registration)
 
@@ -253,7 +273,7 @@ routerAdd(
     } catch (err) {
       if (paymentUnavailable) {
         return e.json(503, {
-          code: "PAYGATE_NOT_CONFIGURED",
+          code: "RAZORPAY_NOT_AVAILABLE",
           error: "Online payment is temporarily unavailable for paid events",
         })
       }

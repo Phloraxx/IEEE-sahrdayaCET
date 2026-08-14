@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   Check,
   CheckCircle2,
   Clock3,
-  Download,
+  CreditCard,
   Loader2,
   LockKeyhole,
   TriangleAlert,
@@ -17,13 +17,44 @@ import {
   createOrResumePayment,
   getPaymentSession,
   type RegistrationPaymentSession,
+  type RazorpayCheckoutResponse,
+  verifyRazorpayPayment,
 } from "@/lib/data/payment.client";
 import { formatDate } from "@/lib/dates";
-import { downloadQR, generateQRDataUrl } from "@/lib/qr-utils";
-import { toPersonalUpiUri } from "@/lib/upi";
 
 interface PageProps {
   registrationId: string;
+}
+
+interface RazorpayCheckoutInstance {
+  open(): void;
+  on(event: "payment.failed", handler: () => void): void;
+}
+
+declare global {
+  interface Window {
+    Razorpay?: new (options: Record<string, unknown>) => RazorpayCheckoutInstance;
+  }
+}
+
+function loadRazorpayCheckout(): Promise<void> {
+  if (window.Razorpay) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>(
+      'script[src="https://checkout.razorpay.com/v1/checkout.js"]',
+    );
+    if (existing) {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => reject(new Error("Razorpay Checkout could not load")), { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Razorpay Checkout could not load"));
+    document.head.appendChild(script);
+  });
 }
 
 function paymentErrorMessage(error: unknown): string {
@@ -171,8 +202,8 @@ export default function PaymentPage({ registrationId }: PageProps) {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
   const reduceMotion = useReducedMotion();
 
   const startPayment = useCallback(async () => {
@@ -206,26 +237,6 @@ export default function PaymentPage({ registrationId }: PageProps) {
     }
     void startPayment();
   }, [authStatus, startPayment]);
-
-  const personalUpiUri = useMemo(
-    () => toPersonalUpiUri(session?.upiUri || ""),
-    [session?.upiUri],
-  );
-  useEffect(() => {
-    if (!personalUpiUri) {
-      setQrDataUrl(null);
-      return;
-    }
-    let active = true;
-    void generateQRDataUrl(personalUpiUri, { width: 1024, margin: 4 }).then(
-      (url) => {
-        if (active) setQrDataUrl(url);
-      },
-    );
-    return () => {
-      active = false;
-    };
-  }, [personalUpiUri]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -297,6 +308,49 @@ export default function PaymentPage({ registrationId }: PageProps) {
     session?.manualReview ||
     (session?.registrationStatus === "cancelled" &&
       session?.paymentStatus === "paid");
+
+  const openRazorpayCheckout = useCallback(async () => {
+    if (
+      !session ||
+      session.provider !== "razorpay" ||
+      !session.razorpayKeyId ||
+      !session.razorpayOrderId
+    ) return;
+    setCheckoutLoading(true);
+    setError(null);
+    try {
+      await loadRazorpayCheckout();
+      if (!window.Razorpay) throw new Error("Razorpay Checkout is unavailable");
+      const checkout = new window.Razorpay({
+        key: session.razorpayKeyId,
+        order_id: session.razorpayOrderId,
+        amount: session.requestedAmountPaise,
+        currency: "INR",
+        name: "IEEE Sahrdaya",
+        description: session.event?.title || "Event registration",
+        prefill: { email: session.attendeeEmail },
+        theme: { color: "#00629B" },
+        modal: { ondismiss: () => setCheckoutLoading(false) },
+        handler: async (response: RazorpayCheckoutResponse) => {
+          try {
+            setSession(await verifyRazorpayPayment(registrationId, response));
+          } catch (verifyError) {
+            setError(paymentErrorMessage(verifyError));
+          } finally {
+            setCheckoutLoading(false);
+          }
+        },
+      });
+      checkout.on("payment.failed", () => {
+        setCheckoutLoading(false);
+        setError("Razorpay reported that the payment failed. You can try again safely.");
+      });
+      checkout.open();
+    } catch (checkoutError) {
+      setCheckoutLoading(false);
+      setError(paymentErrorMessage(checkoutError));
+    }
+  }, [registrationId, session]);
 
   if (authStatus === "loading" || loading) {
     return (
@@ -436,106 +490,72 @@ export default function PaymentPage({ registrationId }: PageProps) {
     );
   }
 
-  return (
-    <PaymentShell>
-      <div className="grid w-full items-stretch gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(410px,510px)] lg:gap-7">
-        <EventVisual session={session} />
-
-        <motion.section
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: reduceMotion ? 0 : 0.06 }}
-          className="relative flex flex-col justify-center overflow-hidden rounded-[2.5rem] border border-white/70 bg-white p-6 shadow-[0_30px_80px_-36px_rgba(15,23,42,0.28)] sm:p-8 lg:p-9"
-        >
-          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-ieee-blue via-sky-400 to-ieee-blue" />
-          <PaymentProgress />
-
-          <div className="mt-6 text-center sm:mt-10">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-              Pay exactly
+  if (session.provider === "razorpay") {
+    return (
+      <PaymentShell>
+        <div className="grid w-full items-stretch gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(400px,500px)] lg:gap-7">
+          <EventVisual session={session} />
+          <motion.section
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="relative flex flex-col justify-center overflow-hidden rounded-[2.5rem] border border-white/70 bg-white p-8 text-center shadow-[0_30px_80px_-36px_rgba(15,23,42,0.28)] sm:p-10"
+          >
+            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-ieee-blue via-sky-400 to-ieee-blue" />
+            <PaymentProgress />
+            <div className="mx-auto mt-9 flex h-16 w-16 items-center justify-center rounded-2xl bg-ieee-blue/10 text-ieee-blue">
+              <CreditCard className="h-8 w-8" />
+            </div>
+            <p className="mt-7 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+              Secure Razorpay Checkout
             </p>
             <p className="mt-2 text-5xl font-black tracking-[-0.055em] text-slate-950 sm:text-6xl">
               ₹{payable || "—"}
             </p>
-            <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-slate-500">
-              Scan this QR with your preferred UPI app.
+            <p className="mx-auto mt-4 max-w-sm text-sm leading-6 text-slate-500">
+              Pay by UPI, card or another method enabled on the IEEE Sahrdaya
+              Razorpay account. Your ticket is issued only after server-side
+              capture verification.
             </p>
-          </div>
-
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{
-              delay: reduceMotion ? 0 : 0.12,
-              duration: reduceMotion ? 0 : 0.35,
-            }}
-            className="relative mx-auto mt-5 aspect-square w-full max-w-[286px] rounded-[2rem] bg-[#F7F9FB] p-3 sm:mt-7 sm:max-w-[340px]"
-          >
-            <div className="relative flex h-full w-full items-center justify-center rounded-[1.55rem] bg-white p-4 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.32)]">
-              <span className="pointer-events-none absolute left-3 top-3 h-7 w-7 rounded-tl-xl border-l-2 border-t-2 border-ieee-blue/60" />
-              <span className="pointer-events-none absolute right-3 top-3 h-7 w-7 rounded-tr-xl border-r-2 border-t-2 border-ieee-blue/60" />
-              <span className="pointer-events-none absolute bottom-3 left-3 h-7 w-7 rounded-bl-xl border-b-2 border-l-2 border-ieee-blue/60" />
-              <span className="pointer-events-none absolute bottom-3 right-3 h-7 w-7 rounded-br-xl border-b-2 border-r-2 border-ieee-blue/60" />
-              {qrDataUrl ? (
-                <img
-                  src={qrDataUrl}
-                  alt={`UPI QR to pay ₹${payable}`}
-                  draggable={false}
-                  className="h-full w-full select-none object-contain"
+            <button
+              type="button"
+              onClick={() => void openRazorpayCheckout()}
+              disabled={checkoutLoading || !session.razorpayKeyId || !session.razorpayOrderId}
+              className="mx-auto mt-8 inline-flex w-full max-w-sm items-center justify-center gap-2 rounded-2xl bg-ieee-blue px-5 py-4 text-sm font-black text-white shadow-lg shadow-sky-100 transition hover:-translate-y-0.5 hover:bg-[#004f7c] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {checkoutLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <LockKeyhole className="h-4 w-4" />}
+              {checkoutLoading ? "Opening Razorpay…" : "Pay securely with Razorpay"}
+            </button>
+            <div className="mx-auto mt-7 w-full max-w-sm">
+              <div className="flex items-center justify-between gap-4 text-xs">
+                <span className="font-bold text-slate-500">Seat held for</span>
+                <span className="font-mono text-base font-black text-slate-900">
+                  {formatCountdown(secondsLeft)}
+                </span>
+              </div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                <motion.div
+                  className="h-full rounded-full bg-ieee-blue"
+                  animate={{ width: `${remainingPercent}%` }}
+                  transition={{ duration: reduceMotion ? 0 : 0.35 }}
                 />
-              ) : (
-                <Loader2 className="h-9 w-9 animate-spin text-slate-300" />
+              </div>
+              {error && (
+                <p className="mt-4 text-xs leading-5 text-amber-700" role="alert">
+                  {error}
+                </p>
               )}
             </div>
-          </motion.div>
+          </motion.section>
+        </div>
+      </PaymentShell>
+    );
+  }
 
-          <button
-            type="button"
-            disabled={!qrDataUrl}
-            onClick={() =>
-              qrDataUrl &&
-              downloadQR(qrDataUrl, `ieee-payment-${registrationId}.png`)
-            }
-            className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-4 right-4 z-30 mx-auto inline-flex max-w-[340px] items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-3.5 text-sm font-black text-white shadow-[0_16px_45px_-16px_rgba(15,23,42,0.65)] transition hover:bg-ieee-blue disabled:cursor-not-allowed disabled:opacity-40 [@media(max-height:640px)]:static [@media(max-height:640px)]:mt-4 [@media(max-height:640px)]:w-full [@media(max-height:640px)]:shadow-lg sm:static sm:mt-6 sm:w-full sm:shadow-lg sm:shadow-slate-200 sm:hover:-translate-y-0.5 sm:hover:shadow-xl"
-          >
-            <Download className="h-4 w-4" />
-            Save QR as PNG
-          </button>
-
-          <div className="mx-auto mt-7 w-full max-w-[340px] pb-16 [@media(max-height:640px)]:pb-0 sm:pb-0">
-            <div className="flex items-center justify-between gap-4 text-xs">
-              <span className="font-bold text-slate-500">Seat held for</span>
-              <span className="font-mono text-base font-black text-slate-900">
-                {formatCountdown(secondsLeft)}
-              </span>
-            </div>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
-              <motion.div
-                className="h-full rounded-full bg-ieee-blue"
-                animate={{ width: `${remainingPercent}%` }}
-                transition={{ duration: reduceMotion ? 0 : 0.35 }}
-              />
-            </div>
-            <div
-              className="mt-4 flex items-center justify-center gap-2 text-xs font-semibold text-slate-500"
-              aria-live="polite"
-            >
-              <span className="flex gap-1" aria-hidden="true">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ieee-blue" />
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ieee-blue [animation-delay:150ms]" />
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ieee-blue [animation-delay:300ms]" />
-              </span>
-              Waiting for payment confirmation
-            </div>
-            {(!session.providerReachable || error) && (
-              <p className="mt-3 text-center text-xs leading-5 text-amber-700">
-                Status checking is temporarily delayed. Keep this page open; it
-                will continue automatically.
-              </p>
-            )}
-          </div>
-        </motion.section>
-      </div>
-    </PaymentShell>
+  return (
+    <PassiveState
+      icon={<XCircle className="h-8 w-8 text-rose-500" />}
+      title="Legacy payment unavailable"
+      description="This registration uses a retired payment route. Please contact the event organizer before making another payment."
+    />
   );
 }

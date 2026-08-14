@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   canRegisterForEvent,
+  canUseExternalRegistration,
+  canUseInternalRegistration,
+  getRegistrationMode,
   isPastEvent,
   isPublicEvent,
 } from '@/lib/event-lifecycle'
@@ -85,4 +88,31 @@ describe('event lifecycle', () => {
       ),
     ).toBe(false)
   })
+  it('distinguishes internal, external, and closed registration modes', () => {
+    const base = {
+      status: 'published',
+      date: '2026-07-25T10:00:00.000Z',
+      registrationOpen: true,
+    }
+
+    expect(getRegistrationMode({ ...base, registrationMode: 'internal' })).toBe('internal')
+    expect(getRegistrationMode({ ...base, registrationMode: 'external' })).toBe('external')
+    expect(getRegistrationMode({ ...base, registrationMode: 'closed' })).toBe('closed')
+    expect(canUseInternalRegistration({ ...base, registrationMode: 'internal' }, NOW)).toBe(true)
+    expect(canUseInternalRegistration({ ...base, registrationMode: 'external' }, NOW)).toBe(false)
+    expect(canUseExternalRegistration({ ...base, registrationMode: 'external' }, NOW)).toBe(true)
+    expect(canRegisterForEvent({ ...base, registrationMode: 'closed' }, NOW)).toBe(false)
+  })
+
+  it('keeps legacy external-form events compatible before migration', () => {
+    const event = {
+      status: 'published',
+      date: '2026-07-25T10:00:00.000Z',
+      registrationOpen: false,
+      externalFormUrl: 'https://example.test/form',
+    }
+    expect(getRegistrationMode(event)).toBe('external')
+    expect(canUseExternalRegistration(event, NOW)).toBe(true)
+  })
+
 })

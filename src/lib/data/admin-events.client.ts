@@ -1,6 +1,6 @@
 import type { RecordModel } from "pocketbase";
 import { getPbClient } from "@/lib/pb-client";
-import { escapeFilterValue } from "@/lib/pb";
+import { buildFileUrl, escapeFilterValue } from "@/lib/pb";
 import { reconcileCoupons } from "@/lib/coupon-service";
 import { softDeleteEvent } from "@/lib/event-service";
 import type { Coupon } from "@/types";
@@ -17,7 +17,6 @@ export interface AdminEventListItem {
   maxCapacity: number;
   registeredCount: number;
   checkedInCount: number;
-  paymentProvider: string;
   isPaid: boolean;
   societyName: string;
   societyId: string;
@@ -49,7 +48,7 @@ export async function listAdminEvents(input: {
     sort: "-date",
     expand: "society",
     fields:
-      "id,title,date,endDate,venue,price,status,registrationOpen,maxCapacity,registeredCount,checkedInCount,paymentProvider,society,expand.society.id,expand.society.name",
+      "id,title,date,endDate,venue,price,status,registrationOpen,maxCapacity,registeredCount,checkedInCount,society,expand.society.id,expand.society.name",
   });
 
   const events = result.items.map((record) => {
@@ -66,7 +65,6 @@ export async function listAdminEvents(input: {
       maxCapacity: Number(record.maxCapacity) || 0,
       registeredCount: Number(record.registeredCount) || 0,
       checkedInCount: Number(record.checkedInCount) || 0,
-      paymentProvider: String(record.paymentProvider || ""),
       isPaid: Number(record.price) > 0,
       societyName: String(society?.name || ""),
       societyId: String(society?.id || record.society || ""),
@@ -84,7 +82,13 @@ export async function listAdminEvents(input: {
 
 export async function getAdminEvent(id: string) {
   const pb = getPbClient();
-  return { event: await pb.collection("events").getOne(id, { expand: "society" }) };
+  const event = await pb.collection("events").getOne(id, { expand: "society" });
+  return {
+    event: {
+      ...event,
+      bannerUrl: event.banner ? buildFileUrl("events", event.id, String(event.banner)) : null,
+    },
+  };
 }
 
 export async function listEventCoupons(eventId: string): Promise<{ coupons: Coupon[] }> {
@@ -127,9 +131,11 @@ export async function saveAdminEvent(input: {
   id?: string;
   payload: Record<string, unknown>;
   bannerFile?: File | null;
+  removeBanner?: boolean;
 }) {
   const pb = getPbClient();
   const { coupons = [], ...eventFields } = input.payload;
+  if (input.removeBanner && !input.bannerFile) eventFields.banner = "";
   const body = eventPayloadToBody(eventFields, input.bannerFile);
 
   let event: RecordModel;
@@ -163,4 +169,11 @@ export async function saveAdminEvent(input: {
 
 export async function deleteAdminEvent(id: string) {
   await softDeleteEvent(id, getPbClient());
+}
+
+export async function cancelAdminEvent(id: string, reason: string) {
+  return getPbClient().send(`/api/admin/events/${encodeURIComponent(id)}/cancel`, {
+    method: "POST",
+    body: { reason },
+  }) as Promise<{ alreadyCancelled: boolean; cancelled: number; refundReview: number; refundQueued: number; manualRefundRequired: number; releasedPending: number }>;
 }

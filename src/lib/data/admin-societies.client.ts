@@ -60,10 +60,14 @@ export async function saveAdminSociety(input: {
   payload: Record<string, unknown>;
   logo?: File | null;
   banner?: File | null;
+  removeLogo?: boolean;
+  removeBanner?: boolean;
   role?: string;
 }) {
   const pb = getPbClient();
-  let payload = input.payload;
+  let payload = { ...input.payload };
+  if (input.removeLogo && !input.logo) payload.logo = "";
+  if (input.removeBanner && !input.banner) payload.banner = "";
   if (input.role === "chair") {
     payload = {
       bio: input.payload.bio,
@@ -77,6 +81,6 @@ export async function saveAdminSociety(input: {
   return { society };
 }
 
-export async function deleteAdminSociety(id: string) {
-  await getPbClient().collection("societies").delete(id);
+export async function archiveAdminSociety(id: string) {
+  await getPbClient().collection("societies").update(id, { isHidden: true });
 }

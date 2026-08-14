@@ -1,7 +1,7 @@
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Building2, ChevronRight, Loader2, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Archive, Building2, ChevronRight, Loader2, Pencil, Plus, Search } from "lucide-react";
 import { PanelHeader } from "@/components/admin/panel-header";
 import { ConfirmButton } from "@/components/admin/confirm-button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth-context";
 import { getBioText } from "@/lib/safe-get";
 import { cn } from "@/lib/utils";
-import { deleteAdminSociety, listAdminSocieties } from "@/lib/data/admin-societies.client";
+import { archiveAdminSociety, listAdminSocieties } from "@/lib/data/admin-societies.client";
 
 interface SocietyRow {
   id: string;
@@ -42,14 +42,21 @@ export default function AdminSocieties() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const page = Math.max(1, Number(searchParams.get("page") || 1) || 1);
   const [search, setSearch] = useState("");
 
   const { data, isLoading } = useQuery<SocietiesResponse>({
-    queryKey: ["admin-societies", { search }],
-    queryFn: () => listAdminSocieties({ search, perPage: 100 }),
+    queryKey: ["admin-societies", { search, page }],
+    queryFn: () => listAdminSocieties({ search, page, perPage: 40 }),
   });
-  const deleteMutation = useMutation({
-    mutationFn: deleteAdminSociety,
+  const setPage = (nextPage: number) => {
+    const next = new URLSearchParams(searchParams);
+    if (nextPage <= 1) next.delete("page"); else next.set("page", String(nextPage));
+    setSearchParams(next, { replace: true });
+  };
+  const archiveMutation = useMutation({
+    mutationFn: archiveAdminSociety,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-societies"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
@@ -81,7 +88,7 @@ export default function AdminSocieties() {
         <Input
           placeholder="Search societies…"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           className="pl-9"
         />
       </div>
@@ -99,12 +106,21 @@ export default function AdminSocieties() {
           }
         />
       ) : (
-        <SocietyList rows={data.societies} canEdit={user?.role === "admin" || user?.role === "chair"} onDelete={(id) => deleteMutation.mutate(id)} deletingPending={deleteMutation.isPending} userRole={user?.role} />
+        <SocietyList rows={data.societies} canEdit={user?.role === "admin" || user?.role === "chair"} onArchive={(id) => archiveMutation.mutate(id)} archivingPending={archiveMutation.isPending} userRole={user?.role} />
       )}
-      {deleteMutation.isPending && (
+      {data && data.total > data.perPage && (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground">Page {data.page} · {data.total} societies</p>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" size="sm" disabled={data.page <= 1} onClick={() => setPage(data.page - 1)}>Previous</Button>
+            <Button type="button" variant="outline" size="sm" disabled={!data.hasMore} onClick={() => setPage(data.page + 1)}>Next</Button>
+          </div>
+        </div>
+      )}
+      {archiveMutation.isPending && (
         <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-card border border-border px-4 py-2 shadow-lg">
           <Loader2 className="h-4 w-4 animate-spin text-primary" />
-          <span className="text-sm text-muted-foreground">Deleting…</span>
+          <span className="text-sm text-muted-foreground">Archiving…</span>
         </div>
       )}
     </div>
@@ -114,12 +130,12 @@ export default function AdminSocieties() {
 interface SocietyListProps {
   rows: SocietyRow[];
   canEdit: boolean;
-  onDelete: (id: string) => void;
-  deletingPending: boolean;
+  onArchive: (id: string) => void;
+  archivingPending: boolean;
   userRole?: string;
 }
 
-function SocietyList({ rows, canEdit, onDelete, deletingPending, userRole }: SocietyListProps) {
+function SocietyList({ rows, canEdit, onArchive, archivingPending, userRole }: SocietyListProps) {
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card divide-y divide-border">
       <div className="hidden grid-cols-[1fr_120px_88px_72px_56px] gap-4 px-4 py-2.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground sm:grid">
@@ -190,14 +206,14 @@ function SocietyList({ rows, canEdit, onDelete, deletingPending, userRole }: Soc
                 {userRole === "admin" && (
                   <ConfirmButton
                     label=""
-                    confirmMessage={`Delete "${s.name}"?`}
+                    confirmMessage={`Archive "${s.name}"? It will be hidden from public views but historical references remain intact.`}
                     variant="destructive"
-                    icon={<Trash2 className="h-3.5 w-3.5" />}
+                    icon={<Archive className="h-3.5 w-3.5" />}
                     onConfirm={() => {
-                      onDelete(s.id);
+                      onArchive(s.id);
                       return true;
                     }}
-                    disabled={deletingPending}
+                    disabled={archivingPending}
                     className="h-8 w-8 p-0"
                   />
                 )}

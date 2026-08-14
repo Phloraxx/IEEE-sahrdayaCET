@@ -11,6 +11,9 @@ export interface AdminRegistrationOperationRow {
   registrationStatus: string;
   paymentStatus: string;
   amount: number;
+  collectedAmount: number;
+  refundedAmount: number;
+  paymentMethod: string;
   couponCode: string;
   discountAmount: number;
   ticketId: string;
@@ -65,8 +68,10 @@ export interface AdminEventOperations {
     venue: string;
     status: string;
     price: number;
-    paymentProvider: "kotak" | "slice" | "razorpay";
     registrationOpen: boolean;
+    registrationMode: "internal" | "external" | "closed" | string;
+    collectIeeeMember: boolean;
+    formTemplate: Array<{ id: string; name?: string; label: string; type?: string; required?: boolean; options?: string[] }>;
     checkInEnabled: boolean;
     maxCapacity: number;
     registeredCount: number;
@@ -96,9 +101,24 @@ export interface AdminEventOperations {
   financeDisclaimer: string;
 }
 
+export interface PaymentDeskSummary {
+  paymentCount: number;
+  grossCollectedAmount: number;
+  refundedAmount: number;
+  netCollectedAmount: number;
+  razorpayCount: number;
+  razorpayCollectedAmount: number;
+  manualCount: number;
+  manualCollectedAmount: number;
+  legacyCount: number;
+  legacyCollectedAmount: number;
+  attentionCount: number;
+  queuedRefundCount: number;
+  failedRefundCount: number;
+}
+
 export interface PaymentDeskResponse {
-  summary: EventFinanceSummary;
-  attention: AdminRegistrationOperationRow[];
+  summary: PaymentDeskSummary;
   financeDisclaimer: string;
 }
 

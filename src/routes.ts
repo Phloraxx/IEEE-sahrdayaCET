@@ -44,6 +44,7 @@ export default [
     route("blogs", "routes/admin.blogs.tsx"),
     route("users", "routes/admin.users.tsx"),
     route("check-in", "routes/admin.check-in.tsx"),
+    route("data-health", "routes/admin.data-health.tsx"),
     route("FIFA/matches", "routes/admin.FIFA.matches.tsx"),
     route("FIFA/matches/:id", "routes/admin.FIFA.matches.$id.tsx"),
     route("FIFA/raffle", "routes/admin.FIFA.raffle.tsx"),

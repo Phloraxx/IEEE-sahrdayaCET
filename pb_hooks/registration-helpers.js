@@ -140,6 +140,40 @@ function registrationReplayCompatible(stored, incoming) {
     return true
 }
 
+
+function registrationFinalFeePaise(registration) {
+    if (!registration) return 0
+    var paise = Number(registration.getInt("finalFeePaise") || 0)
+    if (isFinite(paise) && Math.floor(paise) === paise && paise >= 0) {
+        if (paise > 0) return paise
+        var legacyZero = Number(registration.get("amount") || 0)
+        if (!isFinite(legacyZero) || legacyZero <= 0) return 0
+    }
+    var rupees = Number(registration.get("amount") || 0)
+    return isFinite(rupees) && rupees > 0 ? Math.round(rupees * 100) : 0
+}
+
+function registrationDiscountPaise(registration) {
+    if (!registration) return 0
+    var paise = Number(registration.getInt("discountPaise") || 0)
+    if (isFinite(paise) && Math.floor(paise) === paise && paise > 0) return paise
+    var rupees = Number(registration.get("discountAmount") || 0)
+    return isFinite(rupees) && rupees > 0 ? Math.round(rupees * 100) : 0
+}
+
+function registrationAmount(registration) { return registrationFinalFeePaise(registration) / 100 }
+function registrationDiscountAmount(registration) { return registrationDiscountPaise(registration) / 100 }
+
+function eventFeePaise(event) {
+    if (!event) return 0
+    var paise = Number(event.getInt("baseFeePaise") || 0)
+    if (isFinite(paise) && Math.floor(paise) === paise && paise > 0) return paise
+    var rupees = Number(event.get("price") || 0)
+    return isFinite(rupees) && rupees > 0 ? Math.round(rupees * 100) : 0
+}
+
+function eventPrice(event) { return eventFeePaise(event) / 100 }
+
 module.exports = {
     recomputeEventCounters: recomputeEventCounters,
     recomputeCouponUsedCount: recomputeCouponUsedCount,
@@ -149,4 +183,10 @@ module.exports = {
     registrationCanonicalJson: registrationCanonicalJson,
     registrationJsonObject: registrationJsonObject,
     registrationReplayCompatible: registrationReplayCompatible,
+    registrationFinalFeePaise: registrationFinalFeePaise,
+    registrationDiscountPaise: registrationDiscountPaise,
+    registrationAmount: registrationAmount,
+    registrationDiscountAmount: registrationDiscountAmount,
+    eventFeePaise: eventFeePaise,
+    eventPrice: eventPrice,
 }

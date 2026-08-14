@@ -31,12 +31,12 @@ test.describe('Public pages smoke', () => {
 
     const cardPortfolio = page.getByRole('link', {
       name: /Visit Portfolio Smoke Member's portfolio/i,
-    })
+    }).first()
     await expect(cardPortfolio).toBeVisible()
 
     const member = page.getByRole('button', {
       name: 'View details for Portfolio Smoke Member',
-    })
+    }).first()
     await member.click()
 
     const dialog = page.getByRole('dialog', { name: 'Portfolio Smoke Member' })

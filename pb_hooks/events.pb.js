@@ -93,6 +93,10 @@ onRecordUpdateRequest(function (e) {
         throw e.forbiddenError("Only admins may change event counters")
     }
 
+    if (role === "chair" && newRecord.getString("society") !== oldRecord.getString("society")) {
+        throw e.forbiddenError("Only admins may transfer an event to another society")
+    }
+
     // Allow chairs to soft-delete (false→true) but not un-delete (true→false).
     var wasDeleted = oldRecord.getBool("isDeleted")
     var isNowDeleted = newRecord.getBool("isDeleted")

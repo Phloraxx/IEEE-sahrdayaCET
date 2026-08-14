@@ -39,9 +39,12 @@ routerAdd("GET", "/api/admin/events/{id}/operations", function (e) {
   for (var i = 0; i < records.length; i++) {
     var row = helpers.registrationSnapshot(records[i])
     if (recent.length < 8) recent.push(row)
+    var registrationTime = Date.parse(row.registrationDate || "")
+    var stalePending = row.registrationStatus === "pending" && row.paymentStatus === "pending" &&
+      isFinite(registrationTime) && Date.now() - registrationTime >= 10 * 60 * 1000
     if (row.manualReview ||
         (row.registrationStatus === "cancelled" && row.paymentStatus === "paid") ||
-        (row.registrationStatus === "pending" && row.paymentStatus === "pending")) {
+        stalePending) {
       if (attention.length < 30) attention.push(row)
     }
   }
@@ -100,30 +103,39 @@ routerAdd("GET", "/api/admin/payments/summary", function (e) {
   if (helpers.role(e.auth) !== "admin") {
     return e.json(403, { code: "FORBIDDEN", error: "Only admins can view the payment desk" })
   }
-  var records = $app.findRecordsByFilter("registrations", "amount > 0", "-registrationDate", 0, 0)
-  var summary = helpers.summarizeRegistrations(records)
-  var attention = []
-  for (var i = 0; i < records.length && attention.length < 100; i++) {
-    var row = helpers.registrationSnapshot(records[i])
-    if (row.manualReview ||
-        (row.registrationStatus === "cancelled" && row.paymentStatus === "paid") ||
-        (row.registrationStatus === "pending" && row.paymentStatus === "pending")) {
-      try {
-        var event = $app.findRecordById("events", row.event)
-        row.eventTitle = event.getString("title") || ""
-      } catch (_) { row.eventTitle = "" }
-      attention.push(row)
-    }
+  var rows = $app.findRecordsByFilter("payments", "1 = 1", "-created", 0, 0)
+  var refunds = $app.findRecordsByFilter("payment_refunds", "1 = 1", "-created", 0, 0)
+  var summary = {
+    paymentCount: rows.length, grossCollectedAmount: 0, refundedAmount: 0, netCollectedAmount: 0,
+    razorpayCount: 0, razorpayCollectedAmount: 0, manualCount: 0, manualCollectedAmount: 0,
+    legacyCount: 0, legacyCollectedAmount: 0, attentionCount: 0, queuedRefundCount: 0, failedRefundCount: 0,
   }
+  for (var i = 0; i < rows.length; i++) {
+    var collected = Math.max(0, rows[i].getInt("collectedPaise") || 0) / 100
+    var refunded = Math.max(0, rows[i].getInt("refundedPaise") || 0) / 100
+    var provider = rows[i].getString("provider") || "unknown"
+    summary.grossCollectedAmount += collected
+    summary.refundedAmount += refunded
+    if (provider === "razorpay") { summary.razorpayCount++; summary.razorpayCollectedAmount += collected }
+    else if (provider === "manual") { summary.manualCount++; summary.manualCollectedAmount += collected }
+    else { summary.legacyCount++; summary.legacyCollectedAmount += collected }
+    if (rows[i].getBool("manualReview") || rows[i].getString("status") === "partially_refunded") summary.attentionCount++
+  }
+  for (var r = 0; r < refunds.length; r++) {
+    var refundStatus = refunds[r].getString("status") || ""
+    if (refundStatus === "queued" || refundStatus === "submitted") summary.queuedRefundCount++
+    if (refundStatus === "failed") summary.failedRefundCount++
+  }
+  summary.netCollectedAmount = Math.max(0, summary.grossCollectedAmount - summary.refundedAmount)
   return e.json(200, {
     summary: summary,
-    attention: attention,
-    financeDisclaimer: "Recorded collections are an application ledger, not a live bank balance.",
+    financeDisclaimer: "Gross collection, refunds and net collection are application ledger values reconciled from Razorpay/manual evidence, not a live bank settlement balance.",
   })
 }, $apis.requireAuth("users"))
 routerAdd("POST", "/api/admin/events/{id}/registrations/manual", function (e) {
   var helpers = require(__hooks + "/admin-operations-helpers.js")
   var rh = require(__hooks + "/registration-helpers.js")
+  var paymentState = require(__hooks + "/razorpay-payment-state.js")
   var auth = e.auth
   if (helpers.role(auth) !== "admin") {
     return e.json(403, { code: "FORBIDDEN", error: "Only admins can create manual registrations" })
@@ -138,16 +150,34 @@ routerAdd("POST", "/api/admin/events/{id}/registrations/manual", function (e) {
   var name = String(body.name || "").trim()
   var email = String(body.email || "").trim().toLowerCase()
   var phone = String(body.phone || "").trim()
+  var phoneKey = phone.replace(/\D/g, "")
   var userId = String(body.userId || "").trim()
   var couponCode = String(body.couponCode || "").trim().toUpperCase()
   var paymentMode = String(body.paymentMode || "pending")
+  var paymentMethod = String(body.paymentMethod || (paymentMode === "paid" ? "other" : "")).trim().toLowerCase()
   var note = String(body.note || "").trim()
   var formResponses = body.formResponses || {}
-  if (!name || !email || email.indexOf("@") <= 0) {
-    return e.json(400, { code: "INVALID_ATTENDEE", error: "Name and a valid email are required" })
+  if (typeof formResponses === "string") {
+    try { formResponses = JSON.parse(formResponses) } catch (_) { formResponses = {} }
+  }
+  if (!formResponses || typeof formResponses !== "object") formResponses = {}
+  if (formResponses.name === undefined) formResponses.name = name
+  if (formResponses.email === undefined) formResponses.email = email
+  if (formResponses.phone === undefined) formResponses.phone = phone
+  if (!name || (!email && !phoneKey)) {
+    return e.json(400, { code: "INVALID_ATTENDEE", error: "Name and at least an email or phone number are required" })
+  }
+  if (email && email.indexOf("@") <= 0) {
+    return e.json(400, { code: "INVALID_ATTENDEE", error: "Email address is invalid" })
+  }
+  if (phone && phoneKey.length < 7) {
+    return e.json(400, { code: "INVALID_ATTENDEE", error: "Phone number is too short" })
   }
   if (["paid", "pending", "waived"].indexOf(paymentMode) === -1) {
     return e.json(400, { code: "INVALID_PAYMENT_MODE", error: "Payment mode must be paid, pending, or waived" })
+  }
+  if (paymentMode === "paid" && ["cash", "upi", "bank", "other"].indexOf(paymentMethod) === -1) {
+    return e.json(400, { code: "INVALID_PAYMENT_METHOD", error: "Choose cash, UPI, bank, or other for an offline payment" })
   }
   if (body.capacityOverride === true && !note) {
     return e.json(400, { code: "NOTE_REQUIRED", error: "A note is required when overriding capacity" })
@@ -162,6 +192,24 @@ routerAdd("POST", "/api/admin/events/{id}/registrations/manual", function (e) {
         "registrations", "event = {:eventId} && registrationStatus != {:cancelled}",
         "", 0, 0, { eventId: eventId, cancelled: "cancelled" }
       )
+      var template = currentEvent.get("formTemplate")
+      if (typeof template === "string") {
+        try { template = JSON.parse(template) } catch (_) { template = [] }
+      }
+      if (template && typeof template.length === "number") {
+        for (var fieldIndex = 0; fieldIndex < template.length; fieldIndex++) {
+          var field = template[fieldIndex] || {}
+          if (!field.required) continue
+          var fieldKey = String(field.name || field.id || "")
+          var fieldValue = formResponses[fieldKey]
+          if (fieldValue === undefined && field.id) fieldValue = formResponses[field.id]
+          if (fieldValue === undefined || fieldValue === null || (typeof fieldValue === "string" && fieldValue.trim() === "")) {
+            failure = { status: 400, code: "REQUIRED_FIELD_MISSING", error: "Required field '" + String(field.label || fieldKey) + "' is missing" }
+            return
+          }
+        }
+      }
+
       var maxCapacity = currentEvent.getInt("maxCapacity") || 0
       if (maxCapacity > 0 && active.length >= maxCapacity && body.capacityOverride !== true) {
         failure = { status: 409, code: "EVENT_FULL", error: "Event is at full capacity" }
@@ -177,10 +225,14 @@ routerAdd("POST", "/api/admin/events/{id}/registrations/manual", function (e) {
       }
       var duplicateFilter = userId
         ? "user = {:userId} && event = {:eventId} && registrationStatus != {:cancelled}"
-        : "user = '' && userEmail = {:email} && event = {:eventId} && registrationStatus != {:cancelled}"
+        : email
+          ? "user = '' && userEmail = {:email} && event = {:eventId} && registrationStatus != {:cancelled}"
+          : "user = '' && userPhone = {:phone} && event = {:eventId} && registrationStatus != {:cancelled}"
       var duplicateParams = userId
         ? { userId: userId, eventId: eventId, cancelled: "cancelled" }
-        : { email: email, eventId: eventId, cancelled: "cancelled" }
+        : email
+          ? { email: email, eventId: eventId, cancelled: "cancelled" }
+          : { phone: phone, eventId: eventId, cancelled: "cancelled" }
       var duplicate = null
       try {
         duplicate = txApp.findFirstRecordByFilter("registrations", duplicateFilter, duplicateParams)
@@ -190,9 +242,9 @@ routerAdd("POST", "/api/admin/events/{id}/registrations/manual", function (e) {
         return
       }
 
-      var price = currentEvent.getInt("price") || 0
-      var finalAmount = price
-      var discountAmount = 0
+      var baseFeePaise = rh.eventFeePaise(currentEvent)
+      var finalFeePaise = baseFeePaise
+      var discountPaise = 0
       var coupon = null
       if (couponCode) {
         try {
@@ -202,47 +254,38 @@ routerAdd("POST", "/api/admin/events/{id}/registrations/manual", function (e) {
             { code: couponCode, eventId: eventId }
           )
         } catch (_) { coupon = null }
-        if (!coupon) {
-          failure = { status: 400, code: "INVALID_COUPON", error: "Coupon is invalid or expired" }
-          return
-        }
+        if (!coupon) { failure = { status: 400, code: "INVALID_COUPON", error: "Coupon is invalid or expired" }; return }
         var maxUses = coupon.getInt("maxUses") || 0
         if (maxUses > 0) {
           var used = txApp.findRecordsByFilter(
-            "registrations",
-            "couponCode = {:code} && event = {:eventId} && registrationStatus != {:cancelled}",
-            "", 0, 0,
-            { code: couponCode, eventId: eventId, cancelled: "cancelled" }
+            "registrations", "couponCode = {:code} && event = {:eventId} && registrationStatus != {:cancelled}",
+            "", 0, 0, { code: couponCode, eventId: eventId, cancelled: "cancelled" }
           )
-          if (used.length >= maxUses) {
-            failure = { status: 409, code: "COUPON_EXHAUSTED", error: "Coupon usage limit has been reached" }
-            return
-          }
+          if (used.length >= maxUses) { failure = { status: 409, code: "COUPON_EXHAUSTED", error: "Coupon usage limit has been reached" }; return }
         }
         var percent = coupon.getInt("discountPercent") || 0
-        discountAmount = Math.round(price * percent / 100)
-        finalAmount = Math.max(0, price - discountAmount)
+        discountPaise = Math.round(baseFeePaise * percent / 100)
+        finalFeePaise = Math.max(0, baseFeePaise - discountPaise)
       }
-
       if (body.amountOverride !== undefined && body.amountOverride !== null && body.amountOverride !== "") {
         var overrideAmount = Number(body.amountOverride)
-        if (!isFinite(overrideAmount) || Math.floor(overrideAmount) !== overrideAmount || overrideAmount < 0) {
-          failure = { status: 400, code: "INVALID_AMOUNT", error: "Amount override must be a non-negative whole rupee amount" }
+        var overridePaise = Math.round(overrideAmount * 100)
+        if (!isFinite(overrideAmount) || overrideAmount < 0 || Math.abs(overrideAmount * 100 - overridePaise) > 0.000001) {
+          failure = { status: 400, code: "INVALID_AMOUNT", error: "Amount override must be non-negative with at most two decimal places" }
           return
         }
-        if (!note) {
-          failure = { status: 400, code: "NOTE_REQUIRED", error: "A note is required when overriding the registration amount" }
-          return
-        }
-        finalAmount = overrideAmount
+        if (!note) { failure = { status: 400, code: "NOTE_REQUIRED", error: "A note is required when overriding the registration amount" }; return }
+        finalFeePaise = overridePaise
       }
+      var finalAmount = finalFeePaise / 100
+      var discountAmount = discountPaise / 100
       var now = new Date().toISOString()
       var paymentStatus = "pending"
       var registrationStatus = "pending"
       var paymentData = {
         provider: "manual",
-        eventPaymentProvider: "manual",
         providerStatus: "manual_pending",
+        paymentMethod: paymentMode === "paid" ? paymentMethod : "",
         createdAt: now,
         manualReview: false,
       }
@@ -255,6 +298,7 @@ routerAdd("POST", "/api/admin/events/{id}/registrations/manual", function (e) {
             waivedBy: auth.id,
             note: note,
           }
+          finalFeePaise = 0
           finalAmount = 0
         }
         paymentStatus = "not_required"
@@ -285,6 +329,9 @@ routerAdd("POST", "/api/admin/events/{id}/registrations/manual", function (e) {
         couponCode: couponCode,
         amount: finalAmount,
         discountAmount: discountAmount,
+        baseFeePaise: baseFeePaise,
+        discountPaise: discountPaise,
+        finalFeePaise: finalFeePaise,
         paymentStatus: paymentStatus,
         registrationStatus: registrationStatus,
         registrationDate: now,
@@ -298,30 +345,35 @@ routerAdd("POST", "/api/admin/events/{id}/registrations/manual", function (e) {
         createdBy: auth.id,
       })
       txApp.saveNoValidate(registration)
+      if (paymentStatus === "paid") {
+        var paymentCollection = txApp.findCollectionByNameOrId("payments")
+        var manualPayment = new Record(paymentCollection, {
+          registration: registration.id, event: eventId, provider: "manual",
+          receipt: ("manual_" + registration.id + "_" + Date.now()).slice(0, 120), status: "captured",
+          baseFeePaise: baseFeePaise, discountPaise: discountPaise, finalFeePaise: finalFeePaise,
+          collectedPaise: finalFeePaise, refundedPaise: 0, currency: "INR", paymentMethod: paymentMethod || "other",
+          confirmationSource: "admin", capturedAt: now, lastSyncedAt: now, manualReview: false,
+        })
+        txApp.saveNoValidate(manualPayment)
+      }
       result = helpers.registrationSnapshot(registration)
+      helpers.audit(txApp, {
+        eventId: eventId,
+        actorId: auth.id,
+        action: "registration.manual-create",
+        note: note,
+        before: null,
+        after: result,
+        entityType: "registration",
+        entityId: registration.id,
+        outcome: "success",
+      })
     })
   } catch (err) {
     console.log("[admin-ops] manual registration failed:", err)
     return e.json(500, { code: "MANUAL_REGISTRATION_FAILED", error: "Could not create manual registration" })
   }
   if (failure) return e.json(failure.status, { code: failure.code, error: failure.error })
-
-  // The new registration relation is safest to audit after the create
-  // transaction commits; PocketBase relation resolution may not see a newly
-  // inserted record from a sibling audit save inside the same transaction.
-  try {
-    helpers.audit($app, {
-      eventId: eventId,
-      registrationId: result ? result.id : "",
-      actorId: auth.id,
-      action: "registration.manual-create",
-      note: note,
-      before: null,
-      after: result,
-    })
-  } catch (auditErr) {
-    console.log("[admin-ops] manual registration audit failed:", auditErr)
-  }
 
   rh.recomputeEventCounters(eventId)
   if (couponCode) rh.recomputeCouponUsedCount(couponCode, eventId)
@@ -339,6 +391,7 @@ routerAdd("POST", "/api/admin/events/{id}/registrations/manual", function (e) {
 routerAdd("POST", "/api/admin/registrations/{id}/command", function (e) {
   var helpers = require(__hooks + "/admin-operations-helpers.js")
   var rh = require(__hooks + "/registration-helpers.js")
+  var paymentState = require(__hooks + "/razorpay-payment-state.js")
   var auth = e.auth
   var id = e.request.pathValue("id") || ""
   var registration
@@ -429,16 +482,32 @@ routerAdd("POST", "/api/admin/registrations/{id}/command", function (e) {
           failure = { status: 409, code: "PAYMENT_NOT_PENDING", error: "This registration is not awaiting payment" }
           return
         } else {
+          var existingPayment = paymentState.findLedger(txApp, reg.id)
+          if (existingPayment && existingPayment.getString("provider") === "razorpay" && existingPayment.getString("providerOrderId")) {
+            failure = { status: 409, code: "RAZORPAY_ORDER_EXISTS", error: "A Razorpay order already exists. Reconcile or resolve that online payment instead of manually confirming it." }
+            return
+          }
+          var finalPaise = reg.getInt("finalFeePaise") || ((reg.getInt("amount") || 0) * 100)
+          var basePaise = reg.getInt("baseFeePaise") || finalPaise
+          var discountPaise = reg.getInt("discountPaise") || 0
+          var paymentCollection = txApp.findCollectionByNameOrId("payments")
+          var manualPayment = new Record(paymentCollection, {
+            registration: reg.id, event: eventId, provider: "manual",
+            receipt: ("manual_" + reg.id + "_" + Date.now()).slice(0, 120),
+            status: "captured", baseFeePaise: basePaise, discountPaise: discountPaise, finalFeePaise: finalPaise,
+            collectedPaise: finalPaise, refundedPaise: 0, currency: "INR",
+            paymentMethod: String(body.method || "offline").trim().slice(0, 80),
+            confirmationSource: "admin", capturedAt: now, lastSyncedAt: now, manualReview: false,
+          })
+          txApp.saveNoValidate(manualPayment)
           reg.set("registrationStatus", "confirmed")
           reg.set("paymentStatus", "paid")
           if (!reg.getString("ticketId")) reg.set("ticketId", rh.generateTicketId())
+          data.provider = "manual"
+          data.providerStatus = "manual_paid"
           data.manualConfirmation = {
-            confirmedAt: now,
-            confirmedBy: auth.id,
-            source: "admin",
-            reference: String(body.reference || "").trim(),
-            note: note,
-            providerStatusAtConfirmation: String(data.providerStatus || ""),
+            confirmedAt: now, confirmedBy: auth.id, source: "admin",
+            reference: String(body.reference || "").trim(), note: note,
           }
           if (!data.paidAt) data.paidAt = now
           reg.set("paymentData", data)
@@ -458,9 +527,18 @@ routerAdd("POST", "/api/admin/registrations/{id}/command", function (e) {
           failure = { status: 409, code: "EVENT_FULL", error: "Event is full. Use an explicit capacity override to restore this attendee." }
           return
         }
-        var restoreConfirmed = payStatus === "paid" || payStatus === "not_required"
-        reg.set("registrationStatus", restoreConfirmed ? "confirmed" : "pending")
-        if (restoreConfirmed && !reg.getString("ticketId")) reg.set("ticketId", rh.generateTicketId())
+        if (payStatus !== "paid" && payStatus !== "not_required") {
+          failure = {
+            status: 409,
+            code: payStatus === "refunded" ? "REFUNDED_REGISTRATION" : "PAYMENT_REOPEN_REQUIRED",
+            error: payStatus === "refunded"
+              ? "A refunded registration cannot be restored without a new payment"
+              : "Reopen the payment before restoring this registration",
+          }
+          return
+        }
+        reg.set("registrationStatus", "confirmed")
+        if (!reg.getString("ticketId")) reg.set("ticketId", rh.generateTicketId())
         data.manualReview = false
         data.reviewResolution = {
           action: "restored",
@@ -472,26 +550,38 @@ routerAdd("POST", "/api/admin/registrations/{id}/command", function (e) {
         reg.set("paymentData", data)
       } else if (action === "mark-refunded") {
         if (payStatus !== "paid") {
-          failure = { status: 409, code: "PAYMENT_NOT_PAID", error: "Only a paid registration can be marked refunded" }
+          failure = { status: 409, code: "PAYMENT_NOT_PAID", error: "Only a paid registration can be refunded" }
           return
         }
+        var refundPayment = paymentState.findLedger(txApp, reg.id)
         reg.set("registrationStatus", "cancelled")
-        reg.set("paymentStatus", "refunded")
-        data.manualReview = false
-        data.refund = {
-          status: "recorded",
-          recordedAt: now,
-          recordedBy: auth.id,
-          reference: String(body.reference || "").trim(),
-          note: note,
+        if (refundPayment && refundPayment.getString("provider") === "razorpay" && refundPayment.getString("capturedPaymentId")) {
+          var refundablePaise = Math.max(0, (refundPayment.getInt("collectedPaise") || 0) - (refundPayment.getInt("refundedPaise") || 0))
+          if (refundablePaise > 0) {
+            paymentState.ensureRefund(txApp, refundPayment, refundablePaise, "admin", note, auth.id)
+            data.refund = { status: "queued", requestedAt: now, requestedBy: auth.id, note: note }
+          } else {
+            data.refund = { status: "already_refunded", recordedAt: now, recordedBy: auth.id, note: note }
+          }
+          data.manualReview = false
+          data.reviewResolution = { action: "refund-requested", resolvedAt: now, resolvedBy: auth.id, note: note }
+          reg.set("paymentData", data)
+        } else {
+          reg.set("paymentStatus", "refunded")
+          data.manualReview = false
+          data.refund = {
+            status: "recorded", recordedAt: now, recordedBy: auth.id,
+            reference: String(body.reference || "").trim(), note: note,
+          }
+          data.reviewResolution = { action: "refunded", resolvedAt: now, resolvedBy: auth.id, note: note }
+          reg.set("paymentData", data)
+          if (refundPayment && refundPayment.getString("provider") === "manual") {
+            refundPayment.set("status", "refunded")
+            refundPayment.set("refundedPaise", refundPayment.getInt("collectedPaise") || refundPayment.getInt("finalFeePaise") || 0)
+            refundPayment.set("manualReview", false)
+            txApp.saveNoValidate(refundPayment)
+          }
         }
-        data.reviewResolution = {
-          action: "refunded",
-          resolvedAt: now,
-          resolvedBy: auth.id,
-          note: note,
-        }
-        reg.set("paymentData", data)
       } else if (action === "reopen-manual-payment") {
         if (regStatus !== "confirmed" || payStatus !== "paid" || !data.manualConfirmation) {
           failure = { status: 409, code: "NOT_MANUAL_PAYMENT", error: "Only a manually confirmed payment can be reopened" }
@@ -511,6 +601,13 @@ routerAdd("POST", "/api/admin/registrations/{id}/command", function (e) {
           reversedBy: auth.id,
           note: note,
           previous: data.manualConfirmation,
+        }
+        var manualLedger = paymentState.findLedger(txApp, reg.id)
+        if (manualLedger && manualLedger.getString("provider") === "manual") {
+          manualLedger.set("status", "cancelled")
+          manualLedger.set("collectedPaise", 0)
+          manualLedger.set("manualReview", false)
+          txApp.saveNoValidate(manualLedger)
         }
         delete data.manualConfirmation
         reg.set("registrationStatus", "pending")

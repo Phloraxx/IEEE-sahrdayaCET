@@ -58,7 +58,7 @@ export async function streamRegistrationsCSV(
   }
 
   const staticHeaders = isAdmin
-    ? ['name', 'email', 'phone', 'payment_status', 'registration_status', 'checked_in', 'checked_in_at', 'ticket_id', 'registration_date']
+    ? ['name', 'email', 'phone', 'registration_date', 'payment_status', 'registration_status', 'checked_in', 'checked_in_at', 'ticket_id']
     : ['Name', 'Email', 'Phone', 'Registration Date', 'Payment Status', 'Registration Status', 'Checked In', 'Checked In At', 'Ticket ID']
   const couponHeaders = ['coupon_code', 'discount_amount']
   const customHeaders = customFields.map((f) => f.label || f.id)
@@ -138,8 +138,8 @@ function paymentProviderForExport(value: unknown, paymentStatus: unknown): strin
   }
   const data = value as Record<string, unknown>
   if (data.manualConfirmation || data.provider === 'manual') return 'manual'
-  if (data.provider === 'razorpay_live') return 'razorpay'
-  if (data.provider === 'paygate') return String(data.eventPaymentProvider || data.paymentAccount || 'paygate')
+  if (data.provider === 'razorpay' || data.provider === 'razorpay_live') return 'razorpay'
+  if (data.provider === 'paygate' || data.provider === 'legacy_paygate') return 'legacy_paygate'
   return String(data.provider || 'unknown')
 }
 
@@ -218,7 +218,7 @@ export async function streamAdminRegistrationsCSV(
 /** Cross-event admin event catalogue export. */
 export async function streamAdminEventsCSV(pb: PocketBase): Promise<ReadableStream<Uint8Array>> {
   const encoder = new TextEncoder()
-  const headers = ['id', 'title', 'slug', 'society', 'date', 'end_date', 'venue', 'status', 'price', 'payment_provider', 'registration_open', 'max_capacity', 'registered_count', 'checked_in_count']
+  const headers = ['id', 'title', 'slug', 'society', 'date', 'end_date', 'venue', 'status', 'price', 'registration_open', 'max_capacity', 'registered_count', 'checked_in_count']
   const queue: string[] = [`${headers.join(',')}\n`]
   let page = 1
   let exhausted = false
@@ -241,7 +241,6 @@ export async function streamAdminEventsCSV(pb: PocketBase): Promise<ReadableStre
         escapeCsv(getField(event, 'venue', '')),
         escapeCsv(getField(event, 'status', '')),
         escapeCsv(getField(event, 'price', 0)),
-        escapeCsv(getField(event, 'paymentProvider', '')),
         escapeCsv(getField(event, 'registrationOpen', false) ? 'yes' : 'no'),
         escapeCsv(getField(event, 'maxCapacity', 0)),
         escapeCsv(getField(event, 'registeredCount', 0)),

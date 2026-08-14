@@ -15,24 +15,16 @@ describe("registration/payment experience architecture", () => {
     expect(register).not.toContain('toast.success("Registration successful!")');
   });
 
-  it("keeps pending payment QR-first with a single PNG save action", () => {
+  it("uses Razorpay Standard Checkout without the retired direct-UPI flow", () => {
     const payment = source("src/features/payment/PaymentPage.tsx");
-    const qr = source("src/lib/qr-utils.ts");
-    expect(payment).not.toMatch(/UPI ID/i);
-    expect(payment).not.toMatch(/Payment ID/i);
+    expect(payment).toContain("Pay securely with Razorpay");
+    expect(payment).toContain("server-side");
+    expect(payment).toContain("razorpayOrderId");
+    expect(payment).toContain("razorpayKeyId");
     expect(payment).not.toMatch(/fingerprint/i);
-    expect(payment).not.toMatch(/verification adjustment/i);
-    expect(payment).not.toMatch(/PayGate/i);
+    expect(payment).not.toContain("Save QR as PNG");
     expect(payment).not.toContain("Open UPI app");
-    expect(payment).not.toContain("Check status");
-    expect(payment).not.toContain("downloadRegistrationReceipt");
-    expect(payment).toContain("Save QR as PNG");
-    expect(payment).toContain("`ieee-payment-${registrationId}.png`");
-    expect(payment).toContain("Waiting for payment confirmation");
-    expect(qr).toContain("QRCode.toDataURL");
-    expect(qr).toMatch(/type:\s*["\']image\/png["\']/);
-    expect(qr).not.toContain("QRCode.toString");
-    expect(qr).not.toContain("image/svg+xml");
+    expect(payment).not.toContain("@/lib/upi");
   });
 
   it("blocks a second registration when a paid cancelled record is under manual review", () => {
@@ -59,22 +51,19 @@ describe("registration/payment experience architecture", () => {
   });
 
   it("confirms pending payments through one audited admin command", () => {
-    const command = source("pb_hooks/registration-admin.pb.js");
+    const command = source("pb_hooks/admin-operations.pb.js");
     const invariants = source("pb_hooks/registrations.pb.js");
     const client = source("src/lib/data/admin-registrations.client.ts");
     const list = source("src/routes/admin.registrations.index.tsx");
     const detail = source("src/features/admin/registrations/registration-detail.tsx");
-
-    expect(command).toContain('/api/admin/registrations/{id}/confirm-payment');
-    expect(command).toContain('$app.runInTransaction');
-    expect(command).toContain('auth.getString("role") !== "admin"');
-    expect(command).toContain("paymentData.manualConfirmation");
-    expect(command).toContain('registration.set("registrationStatus", "confirmed")');
-    expect(command).toContain('registration.set("paymentStatus", "paid")');
-    expect(command).toContain("enqueueForRegistration");
+    expect(command).toContain('/api/admin/registrations/{id}/command');
+    expect(command).toContain('action === "confirm-payment"');
+    expect(command).toContain("paymentState.findLedger");
+    expect(command).toContain('provider: "manual"');
+    expect(command).toContain('RAZORPAY_ORDER_EXISTS');
     expect(invariants).toContain("Payment state can only be changed through a payment command");
     expect(client).toContain("confirmRegistrationPayment");
-    expect(client).not.toContain('command: "check-in" | "cancel" | "confirm"');
+    expect(client).not.toContain('/confirm-payment');
     expect(list).toContain('label="Confirm payment"');
     expect(detail).toContain('label="Confirm payment"');
   });

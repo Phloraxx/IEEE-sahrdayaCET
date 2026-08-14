@@ -11,7 +11,6 @@ import urllib.request
 BASE = os.environ.get("PB_BASE_URL", "http://127.0.0.1:8090").rstrip("/")
 SUPER_EMAIL = os.environ.get("PB_SUPERUSER_EMAIL", "ci-super@example.test")
 SUPER_PASS = os.environ.get("PB_SUPERUSER_PASSWORD", "CI-PocketBase-Smoke-2026!")
-WEBHOOK_SECRET = os.environ.get("PAYMENT_WEBHOOK_SECRET", "CI-Payment-Webhook-2026!")
 
 
 def request(method, path, body=None, token=None, expected=(200, 201, 204), extra_headers=None):
@@ -72,6 +71,9 @@ chair = create_user("chair", "chair")
 user = create_user("member", "user", 1000)
 second_user = create_user("member-two", "user", 1000)
 admin_token = impersonate(super_token, admin["id"])
+if github_env := os.environ.get("GITHUB_ENV"):
+    with open(github_env, "a", encoding="utf-8") as env_file:
+        env_file.write(f"E2E_ADMIN_TOKEN={admin_token}\n")
 chair_token = impersonate(super_token, chair["id"])
 user_token = impersonate(super_token, user["id"])
 second_token = impersonate(super_token, second_user["id"])
@@ -94,7 +96,16 @@ coupon_admin_list = request(
 assert isinstance(coupon_admin_list.get("items"), list)
 
 # The daily FIFA top-up cron is executable, transactional, and idempotent per IST day.
-cron_settings = request("GET", "/api/collections/fifa_settings/records?page=1&perPage=1", token=super_token)["items"][0]
+settings_page = request("GET", "/api/collections/fifa_settings/records?page=1&perPage=1", token=super_token)
+if not settings_page["items"]:
+    cron_settings = request("POST", "/api/collections/fifa_settings/records", {
+        "event_name": "WC Predict '26", "starting_balance": 1000, "max_bet_percent": 25,
+        "daily_topup_threshold": 100, "daily_topup_target": 200, "pool_house_cut_percent": 0,
+        "raffle_tickets_base": 50, "raffle_tickets_decay": 2, "raffle_active_participant_min_bets": 5,
+        "prize": "", "registration_open": True,
+    }, super_token)
+else:
+    cron_settings = settings_page["items"][0]
 request("PATCH", f"/api/collections/fifa_settings/records/{cron_settings['id']}", {
     "daily_topup_threshold": 100,
     "daily_topup_target": 200,
@@ -134,6 +145,11 @@ other_society = request("POST", "/api/collections/societies/records", {
     "isHidden": False, "chairs": [],
 }, super_token)
 
+chair_second_society = request("POST", "/api/collections/societies/records", {
+    "name": f"Chair Second Society {suffix}", "slug": f"chair-second-{suffix}", "bio": "CI smoke",
+    "isHidden": False, "chairs": [chair["id"]],
+}, super_token)
+
 # Chairs can edit their society content but cannot delegate chair access or store unsafe links.
 request("PATCH", f"/api/collections/societies/records/{society['id']}", {
     "chairs": [chair["id"], second_user["id"]],
@@ -151,7 +167,7 @@ end = (now + dt.timedelta(days=1, hours=2)).isoformat().replace("+00:00", "Z")
 event = request("POST", "/api/collections/events/records", {
     "title": f"CI Smoke Event {suffix}", "description": "<p>Clean-room integration event</p>",
     "date": start, "endDate": end, "venue": "CI Lab", "price": 0,
-    "society": society["id"], "status": "published", "paymentProvider": "kotak", "maxCapacity": 1,
+    "society": society["id"], "status": "published", "maxCapacity": 1,
     "registeredCount": 0, "checkedInCount": 0, "registrationOpen": True,
     "checkInEnabled": True, "isDeleted": False,
     "formTemplate": [
@@ -160,17 +176,20 @@ event = request("POST", "/api/collections/events/records", {
     ],
 }, super_token)
 assert event["slug"].startswith("ci-smoke-event-")
+if github_env := os.environ.get("GITHUB_ENV"):
+    with open(github_env, "a", encoding="utf-8") as env_file:
+        env_file.write(f"E2E_EVENT_ID={event['id']}\n")
 
 # Chair scoping is enforced by PocketBase, not by UI filtering.
 chair_event = request("POST", "/api/collections/events/records", {
     "title": f"Chair Event {suffix}", "description": "chair scope",
-    "date": start, "society": society["id"], "status": "draft", "paymentProvider": "kotak",
+    "date": start, "society": society["id"], "status": "draft",
     "registrationOpen": False, "isDeleted": False,
 }, chair_token)
 assert chair_event["society"] == society["id"]
 request("POST", "/api/collections/events/records", {
     "title": f"Unsafe Link {suffix}", "description": "must fail",
-    "date": start, "society": society["id"], "status": "draft", "paymentProvider": "kotak",
+    "date": start, "society": society["id"], "status": "draft",
     "registrationOpen": False, "isDeleted": False,
     "externalLink": "javascript:alert(1)",
 }, chair_token, (400,))
@@ -181,15 +200,18 @@ chair_event = request("PATCH", f"/api/collections/events/records/{chair_event['i
     "externalLink": "https://example.test/register",
 }, chair_token)
 assert chair_event["externalLink"] == "https://example.test/register"
+request("PATCH", f"/api/collections/events/records/{chair_event['id']}", {
+    "society": chair_second_society["id"],
+}, chair_token, (400, 403))
 
 request("POST", "/api/collections/events/records", {
     "title": f"Out of Scope {suffix}", "description": "must fail",
-    "date": start, "society": other_society["id"], "status": "draft", "paymentProvider": "kotak",
+    "date": start, "society": other_society["id"], "status": "draft",
     "registrationOpen": False, "isDeleted": False,
 }, chair_token, (400, 403))
 other_event = request("POST", "/api/collections/events/records", {
     "title": f"Other Society Event {suffix}", "description": "scope test",
-    "date": start, "society": other_society["id"], "status": "draft", "paymentProvider": "kotak",
+    "date": start, "society": other_society["id"], "status": "draft",
     "registrationOpen": False, "isDeleted": False,
 }, super_token)
 request("PATCH", f"/api/collections/events/records/{other_event['id']}", {
@@ -292,22 +314,6 @@ request("POST", f"/api/app/events/{event['id']}/register", {
 updated_event = request("GET", f"/api/collections/events/records/{event['id']}")
 assert updated_event["registeredCount"] == 1
 
-# Legacy payment callback compatibility is tested with records explicitly marked
-# as legacy. Native PayGate registrations are not allowed through this route.
-payment_user = create_user("payer", "user")
-payment_user_token = impersonate(super_token, payment_user["id"])
-paid_event = request("POST", "/api/collections/events/records", {
-    "title": f"CI Paid Event {suffix}", "description": "payment lifecycle",
-    "date": start, "endDate": end, "venue": "CI Lab", "price": 100,
-    "society": society["id"], "status": "published", "paymentProvider": "kotak", "maxCapacity": 1,
-    "registeredCount": 0, "checkedInCount": 0, "registrationOpen": True,
-    "checkInEnabled": True, "isDeleted": False,
-    "formTemplate": [
-        {"id": "name", "name": "name", "label": "Name", "required": True},
-        {"id": "email", "name": "email", "label": "Email", "required": True},
-    ],
-}, super_token)
-
 # A pending paid registration can be confirmed manually only through the
 # dedicated admin command. The transition is atomic, auditable, idempotent, and
 # queues both the ticket and receipt emails. Direct financial PATCHes stay
@@ -317,7 +323,7 @@ manual_payment_token = impersonate(super_token, manual_payment_user["id"])
 manual_paid_event = request("POST", "/api/collections/events/records", {
     "title": f"CI Manual Payment Event {suffix}", "description": "manual payment confirmation",
     "date": start, "endDate": end, "venue": "CI Lab", "price": 75,
-    "society": society["id"], "status": "published", "paymentProvider": "kotak", "maxCapacity": 1,
+    "society": society["id"], "status": "published",
     "registeredCount": 0, "checkedInCount": 0, "registrationOpen": True,
     "checkInEnabled": True, "isDeleted": False,
     "formTemplate": [
@@ -342,25 +348,12 @@ request(
     admin_token,
     (400,),
 )
-request(
-    "POST",
-    f"/api/admin/registrations/{manual_registration_id}/confirm-payment",
-    token=manual_payment_token,
-    expected=(403,),
-)
-request(
-    "POST",
-    f"/api/admin/registrations/{manual_registration_id}/confirm-payment",
-    token=chair_token,
-    expected=(403,),
-)
+request("POST", f"/api/admin/registrations/{manual_registration_id}/command", {"action": "confirm-payment"}, manual_payment_token, (403,))
+request("POST", f"/api/admin/registrations/{manual_registration_id}/command", {"action": "confirm-payment"}, chair_token, (403,))
 manual_confirmed = request(
-    "POST",
-    f"/api/admin/registrations/{manual_registration_id}/confirm-payment",
-    token=admin_token,
-)
-assert manual_confirmed["success"] is True
-assert manual_confirmed["alreadyConfirmed"] is False
+    "POST", f"/api/admin/registrations/{manual_registration_id}/command",
+    {"action": "confirm-payment", "reference": "CI-OFFLINE-1", "method": "upi", "note": "CI manual confirmation"}, admin_token
+)["registration"]
 assert manual_confirmed["registrationStatus"] == "confirmed"
 assert manual_confirmed["paymentStatus"] == "paid"
 assert manual_confirmed["ticketId"].startswith("TKT-")
@@ -382,20 +375,21 @@ manual_notifications = request(
 )
 assert manual_notifications["totalItems"] == 2
 assert {row["kind"] for row in manual_notifications["items"]} == {"ticket", "receipt"}
-manual_replay = request(
-    "POST",
-    f"/api/admin/registrations/{manual_registration_id}/confirm-payment",
-    token=admin_token,
-)
-assert manual_replay["alreadyConfirmed"] is True
+manual_replay = request("POST", f"/api/admin/registrations/{manual_registration_id}/command", {"action": "confirm-payment"}, admin_token)["registration"]
 assert manual_replay["ticketId"] == manual_confirmed["ticketId"]
+manual_payment_rows = request(
+    "GET", "/api/collections/payments/records?filter=" + urllib.parse.quote(f'registration="{manual_registration_id}"'), token=super_token
+)
+assert manual_payment_rows["totalItems"] == 1
+assert manual_payment_rows["items"][0]["provider"] == "manual"
+assert manual_payment_rows["items"][0]["status"] == "captured"
 
 # Event operations are explicit admin commands: walk-ins, finance corrections,
 # restores, check-in reversals and refunds are auditable and recoverable.
 ops_event = request("POST", "/api/collections/events/records", {
     "title": f"CI Event Operations {suffix}", "description": "admin event operations",
     "date": start, "endDate": end, "venue": "CI Ops Lab", "price": 120,
-    "society": society["id"], "status": "published", "paymentProvider": "razorpay",
+    "society": society["id"], "status": "published",
     "maxCapacity": 3, "registeredCount": 0, "checkedInCount": 0,
     "registrationOpen": True, "checkInEnabled": True, "isDeleted": False,
 }, admin_token)
@@ -412,6 +406,15 @@ ops_summary = request("GET", f"/api/admin/events/{ops_event['id']}/operations", 
 assert ops_summary["summary"]["manualPaidAmount"] == 120
 assert ops_summary["summary"]["adminCreatedCount"] == 1
 assert any(row["action"] == "registration.manual-create" for row in ops_summary["audit"])
+audit_filter = urllib.parse.quote(
+    f'action="registration.manual-create" && entityId="{ops_manual["id"]}"'
+)
+audit_rows = request(
+    "GET", f"/api/collections/admin_audit_log/records?filter={audit_filter}", token=super_token
+)
+assert audit_rows["totalItems"] == 1
+assert audit_rows["items"][0]["entityType"] == "registration"
+assert audit_rows["items"][0]["outcome"] == "success"
 
 ops_cancelled = request("POST", f"/api/admin/registrations/{ops_manual['id']}/command", {
     "action": "cancel",
@@ -458,83 +461,24 @@ assert ops_reopened["paymentStatus"] == "pending" and ops_reopened["ticketId"] =
 ops_recompute = request("POST", f"/api/admin/events/{ops_event['id']}/recompute", {}, admin_token)
 assert ops_recompute["success"] is True
 ops_payment_desk = request("GET", "/api/admin/payments/summary", token=admin_token)
-assert ops_payment_desk["summary"]["refundedCount"] >= 1
-assert ops_payment_desk["summary"]["pendingPaymentCount"] >= 1
-ops_cancelled_event = request("PATCH", f"/api/collections/events/records/{ops_event['id']}", {
+finance = ops_payment_desk["summary"]
+assert finance["paymentCount"] >= 1
+assert finance["grossCollectedAmount"] >= finance["refundedAmount"] >= 0
+assert abs(finance["netCollectedAmount"] - (finance["grossCollectedAmount"] - finance["refundedAmount"])) < 0.001
+assert finance["manualCount"] >= 1
+assert "queuedRefundCount" in finance and "failedRefundCount" in finance and "attentionCount" in finance
+request("PATCH", f"/api/collections/events/records/{ops_event['id']}", {
     "status": "cancelled",
+}, admin_token, expected=(400,))
+ops_cancel = request("POST", f"/api/admin/events/{ops_event['id']}/cancel", {
+    "reason": "CI validates event cancellation cascade",
 }, admin_token)
+assert ops_cancel["releasedPending"] >= 1
+ops_cancelled_event = request("GET", f"/api/collections/events/records/{ops_event['id']}", token=admin_token)
 assert ops_cancelled_event["status"] == "cancelled"
-
-first_paid_created = request("POST", f"/api/admin/events/{paid_event['id']}/registrations/manual", {
-    "name": "Payer", "email": payment_user["email"], "userId": payment_user["id"],
-    "paymentMode": "pending", "note": "Legacy webhook CI fixture",
-}, admin_token)["registration"]
-first_paid_record = request("GET", f"/api/collections/registrations/records/{first_paid_created['id']}", token=super_token)
-first_paid = {
-    "registrationId": first_paid_created["id"],
-    "ticketId": first_paid_record["paymentTicketId"],
-    "registrationStatus": first_paid_created["registrationStatus"],
-}
-assert first_paid["ticketId"]
-assert first_paid["registrationStatus"] == "pending"
-request("PATCH", f"/api/collections/registrations/records/{first_paid['registrationId']}", {
-    "paymentData": {"provider": "legacy"},
-}, super_token)
-assert request("GET", f"/api/collections/events/records/{paid_event['id']}")["registeredCount"] == 1
-
-webhook_headers = {"x-webhook-secret": WEBHOOK_SECRET}
-request("POST", "/api/webhooks/payment-confirm", {
-    "ticketId": first_paid["ticketId"], "status": "failed",
-    "transactionId": f"failed-{suffix}", "amount": 100,
-}, extra_headers=webhook_headers)
-failed_reg = request("GET", f"/api/collections/registrations/records/{first_paid['registrationId']}", token=payment_user_token)
-assert failed_reg["paymentStatus"] == "failed" and failed_reg["registrationStatus"] == "cancelled"
-assert request("GET", f"/api/collections/events/records/{paid_event['id']}")["registeredCount"] == 0
-
-retry_paid_created = request("POST", f"/api/admin/events/{paid_event['id']}/registrations/manual", {
-    "name": "Payer", "email": payment_user["email"], "userId": payment_user["id"],
-    "paymentMode": "pending", "note": "Legacy webhook retry CI fixture",
-}, admin_token)["registration"]
-retry_paid_record = request("GET", f"/api/collections/registrations/records/{retry_paid_created['id']}", token=super_token)
-retry_paid = {
-    "registrationId": retry_paid_created["id"],
-    "ticketId": retry_paid_record["paymentTicketId"],
-}
-assert retry_paid["registrationId"] != first_paid["registrationId"]
-assert retry_paid["ticketId"]
-request("PATCH", f"/api/collections/registrations/records/{retry_paid['registrationId']}", {
-    "paymentData": {"provider": "legacy"},
-}, super_token)
-assert request("GET", f"/api/collections/events/records/{paid_event['id']}")["registeredCount"] == 1
-
-late = request("POST", "/api/webhooks/payment-confirm", {
-    "ticketId": first_paid["ticketId"], "status": "success",
-    "transactionId": f"late-{suffix}", "amount": 100,
-}, extra_headers=webhook_headers)
-assert late.get("ignored") is True
-failed_reg = request("GET", f"/api/collections/registrations/records/{first_paid['registrationId']}", token=payment_user_token)
-assert failed_reg["registrationStatus"] == "cancelled" and failed_reg["paymentStatus"] == "failed"
-
-request("POST", "/api/webhooks/payment-confirm", {
-    "ticketId": retry_paid["ticketId"], "status": "success",
-    "transactionId": f"wrong-amount-{suffix}", "amount": 99,
-}, expected=(400,), extra_headers=webhook_headers)
-retry_reg = request("GET", f"/api/collections/registrations/records/{retry_paid['registrationId']}", token=payment_user_token)
-assert retry_reg["registrationStatus"] == "pending" and retry_reg["paymentStatus"] == "pending"
-
-paid = request("POST", "/api/webhooks/payment-confirm", {
-    "ticketId": retry_paid["ticketId"], "status": "success",
-    "transactionId": f"paid-{suffix}", "amount": 100,
-}, extra_headers=webhook_headers)
-assert paid["success"] is True
-retry_reg = request("GET", f"/api/collections/registrations/records/{retry_paid['registrationId']}", token=payment_user_token)
-assert retry_reg["registrationStatus"] == "confirmed" and retry_reg["paymentStatus"] == "paid" and retry_reg["ticketId"]
-assert request("GET", f"/api/collections/events/records/{paid_event['id']}")["registeredCount"] == 1
-replayed = request("POST", "/api/webhooks/payment-confirm", {
-    "ticketId": retry_paid["ticketId"], "status": "success",
-    "transactionId": f"paid-{suffix}", "amount": 100,
-}, extra_headers=webhook_headers)
-assert replayed.get("message") == "Already processed"
+ops_pending_after_cancel = request("GET", f"/api/collections/registrations/records/{ops_pending['id']}", token=admin_token)
+assert ops_pending_after_cancel["registrationStatus"] == "cancelled"
+assert ops_pending_after_cancel["paymentStatus"] == "failed"
 
 # Anonymous ticket lookup never exposes a stable account/registration identifier.
 ticket_path = "/api/tickets/lookup?ticketId=" + urllib.parse.quote(registration["ticketId"])
