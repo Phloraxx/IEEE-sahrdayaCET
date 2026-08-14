@@ -24,10 +24,14 @@ describe("security architecture invariants", () => {
     expect(migration).toContain("registrations.createRule = null");
   });
 
-  it("fails closed when the payment webhook integration is not configured", () => {
-    const webhook = read("pb_hooks/webhook.pb.js");
-    expect(webhook).toContain('e.json(503, { error: "Webhook not configured" })');
-    expect(webhook).toContain('e.json(401, { error: "Invalid webhook secret" })');
+  it("uses a dedicated Razorpay webhook inbox instead of the retired shared-secret callback", () => {
+    const route = read("pb_hooks/razorpay-direct.pb.js");
+    const helpers = read("pb_hooks/razorpay-direct-helpers.js");
+    expect(route).toContain("payment_webhook_events");
+    expect(route).toContain("X-Razorpay-Signature");
+    expect(route).toContain("X-Razorpay-Event-Id");
+    expect(helpers).toContain("RAZORPAY_WEBHOOK_SECRET");
+    expect(read("docs/razorpay-direct.md")).toContain("Signed webhooks");
   });
 
   it("keeps deployment environments explicitly isolated", () => {

@@ -14,7 +14,7 @@ function asPaymentData(value: unknown): Record<string, unknown> {
 
 function providerLabel(paymentData: Record<string, unknown>, paymentStatus: string) {
   if (paymentData.manualConfirmation || paymentData.provider === "manual") return "manual";
-  if (paymentData.provider === "razorpay_live") return "razorpay";
+  if (paymentData.provider === "razorpay" || paymentData.provider === "razorpay_live") return "razorpay";
   if (paymentData.provider === "paygate") {
     return String(paymentData.eventPaymentProvider || paymentData.paymentAccount || "paygate");
   }
@@ -26,6 +26,16 @@ function mapRegistration(record: Record<string, unknown> & { id: string; expand?
   const paymentStatus = String(getField(record, "paymentStatus", ""));
   const paymentData = asPaymentData(getField(record, "paymentData", null));
   const registrationStatus = String(getField(record, "registrationStatus", ""));
+  const nominalAmount = Number(getField(record, "amount", 0)) || 0;
+  const payablePaise = Number(paymentData.payableAmountPaise);
+  const payableAmount = Number(paymentData.payableAmount);
+  const collectedAmount = Number.isFinite(payablePaise) && payablePaise >= 0
+    ? payablePaise / 100
+    : Number.isFinite(payableAmount) && payableAmount >= 0 ? payableAmount : nominalAmount;
+  const refundedPaise = Number(paymentData.amountRefundedPaise);
+  const refundedAmount = Number.isFinite(refundedPaise) && refundedPaise >= 0
+    ? refundedPaise / 100
+    : paymentStatus === "refunded" ? collectedAmount : 0;
   return {
     id: record.id,
     event: String(getField(record, "event", "")),
@@ -39,7 +49,10 @@ function mapRegistration(record: Record<string, unknown> & { id: string; expand?
     checkedInAt: getField<string | null>(record, "checkedInAt", null),
     ticketId: getField(record, "ticketId", ""),
     paymentTicketId: getField(record, "paymentTicketId", ""),
-    amount: Number(getField(record, "amount", 0)) || 0,
+    amount: nominalAmount,
+    collectedAmount,
+    refundedAmount,
+    paymentMethod: String(paymentData.paymentMethod || ""),
     couponCode: getField(record, "couponCode", ""),
     discountAmount: Number(getField(record, "discountAmount", 0)) || 0,
     paymentData,
@@ -89,8 +102,9 @@ export async function listAdminRegistrations(input: AdminRegistrationFilters) {
     filters.push(`registrationSource = ${escapeFilterValue(input.source)}`);
   }
   if (input.attentionOnly) {
+    const staleCutoff = escapeFilterValue(new Date(Date.now() - 10 * 60_000).toISOString());
     filters.push(
-      `((registrationStatus = "cancelled" && paymentStatus = "paid") || (registrationStatus = "pending" && paymentStatus = "pending"))`,
+      `((registrationStatus = "cancelled" && paymentStatus = "paid") || (registrationStatus = "pending" && paymentStatus = "pending" && registrationDate < ${staleCutoff}))`,
     );
   }
   if (input.search) {
@@ -124,20 +138,8 @@ export async function runRegistrationAdminCommand(
 ) {
   return runAdminRegistrationCommand(id, { action: command });
 }
-export interface ManualPaymentConfirmationResult {
-  success: boolean;
-  alreadyConfirmed: boolean;
-  registrationId: string;
-  registrationStatus: "confirmed";
-  paymentStatus: "paid";
-  ticketId: string;
-}
-
 export async function confirmRegistrationPayment(id: string) {
-  return getPbClient().send(
-    `/api/admin/registrations/${encodeURIComponent(id)}/confirm-payment`,
-    { method: "POST" },
-  ) as Promise<ManualPaymentConfirmationResult>;
+  return runAdminRegistrationCommand(id, { action: "confirm-payment" });
 }
 
 export async function checkInByTicket(ticketId: string) {

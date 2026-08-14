@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { ImageUp, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -7,6 +7,7 @@ interface ImageUploadProps {
   accept?: string;
   currentUrl?: string | null;
   onChange: (file: File | null) => void;
+  onRemove?: () => void;
   className?: string;
   previewClassName?: string;
 }
@@ -20,11 +21,16 @@ export function ImageUpload({
   accept = "image/*",
   currentUrl,
   onChange,
+  onRemove,
   className,
   previewClassName,
 }: ImageUploadProps) {
   const [preview, setPreview] = useState<string | null>(currentUrl ?? null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setPreview(currentUrl ?? null);
+  }, [currentUrl]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
@@ -39,6 +45,7 @@ export function ImageUpload({
   };
 
   const handleRemove = () => {
+    onRemove?.();
     onChange(null);
     setPreview(null);
     if (inputRef.current) inputRef.current.value = "";

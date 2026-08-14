@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -47,6 +47,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { PanelHeader } from "@/components/admin/panel-header";
 import { ConfirmButton } from "@/components/admin/confirm-button";
+import { EventCancelDialog } from "@/components/admin/event-cancel-dialog";
 import { useAuth } from "@/lib/auth-context";
 import { getPbClient } from "@/lib/pb-client";
 import { csvFilename, streamRegistrationsCSV } from "@/lib/csv-export";
@@ -60,8 +61,10 @@ import {
   type RegistrationAdminAction,
 } from "@/lib/data/admin-event-operations.client";
 import { listAdminRegistrations } from "@/lib/data/admin-registrations.client";
+import { cancelAdminEvent } from "@/lib/data/admin-events.client";
 
 type Tab = "overview" | "attendees" | "payments" | "coupons" | "activity";
+const VALID_TABS: Tab[] = ["overview", "attendees", "payments", "coupons", "activity"];
 
 const money = (value: number) => `₹${Math.max(0, value || 0).toLocaleString("en-IN")}`;
 function OpsMetric({
@@ -98,8 +101,8 @@ function OpsMetric({
 function ProviderPill({ provider }: { provider: string }) {
   const labels: Record<string, string> = {
     razorpay: "Razorpay",
-    kotak: "Kotak · PayGate",
-    slice: "Slice · PayGate",
+    legacy_paygate: "Legacy PayGate",
+    paygate: "Legacy PayGate",
     manual: "Manual",
     not_required: "No payment",
     unknown: "Legacy",
@@ -318,12 +321,21 @@ export default function AdminEventOperationsRoute() {
   const { id = "" } = useParams();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<Tab>("overview");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get("tab") as Tab | null;
+  const tab: Tab = requestedTab && VALID_TABS.includes(requestedTab) ? requestedTab : "overview";
+  const setTab = (next: Tab) => {
+    const params = new URLSearchParams(searchParams);
+    if (next === "overview") params.delete("tab"); else params.set("tab", next);
+    setSearchParams(params, { replace: true });
+  };
   const [manualOpen, setManualOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
   const [resolution, setResolution] = useState<ResolutionState | null>(null);
   const [search, setSearch] = useState("");
   const [registrationStatus, setRegistrationStatus] = useState("all");
   const [paymentStatus, setPaymentStatus] = useState("all");
+  const [attendeePage, setAttendeePage] = useState(1);
 
   const operations = useQuery({
     queryKey: ["admin-event-operations", id],
@@ -332,10 +344,10 @@ export default function AdminEventOperationsRoute() {
     refetchInterval: tab === "overview" || tab === "payments" ? 20_000 : false,
   });
   const registrations = useQuery({
-    queryKey: ["admin-event-registrations", id, search, registrationStatus, paymentStatus],
+    queryKey: ["admin-event-registrations", id, search, registrationStatus, paymentStatus, attendeePage],
     queryFn: () => listAdminRegistrations({
-      page: 1,
-      perPage: 100,
+      page: attendeePage,
+      perPage: 40,
       eventId: id,
       search,
       status: registrationStatus,
@@ -390,6 +402,19 @@ export default function AdminEventOperationsRoute() {
       toast.success("Registration updated");
     },
     onError: (error: Error) => toast.error(error.message || "Could not update registration"),
+  });
+
+  const cancelEventMutation = useMutation({
+    mutationFn: (reason: string) => cancelAdminEvent(id, reason),
+    onSuccess: (result) => {
+      setCancelOpen(false);
+      invalidate();
+      const parts: string[] = [];
+      if (result.refundQueued > 0) parts.push(`${result.refundQueued} Razorpay refund${result.refundQueued === 1 ? "" : "s"} queued`);
+      if (result.manualRefundRequired > 0) parts.push(`${result.manualRefundRequired} manual refund${result.manualRefundRequired === 1 ? "" : "s"} require attention`);
+      toast.success(parts.length ? `Event cancelled. ${parts.join("; ")}.` : "Event cancelled and registrations reconciled");
+    },
+    onError: (error: Error) => toast.error(error.message || "Could not cancel event"),
   });
 
   const recomputeMutation = useMutation({
@@ -451,7 +476,7 @@ export default function AdminEventOperationsRoute() {
               <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge status={event.status} kind="event" />
                 <span className="rounded-full border border-border bg-background/60 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  {event.price > 0 ? `${money(event.price)} · ${event.paymentProvider}` : "Free event"}
+                  {event.price > 0 ? `${money(event.price)} · Razorpay` : "Free event"}
                 </span>
                 <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${event.registrationOpen ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>
                   Registration {event.registrationOpen ? "open" : "closed"}
@@ -473,6 +498,11 @@ export default function AdminEventOperationsRoute() {
               <Button variant="outline" size="sm" className="gap-2" asChild>
                 <Link to={`/admin/events/${event.id}/edit`}><Pencil className="h-4 w-4" /> Edit</Link>
               </Button>
+              {event.status !== "cancelled" && (
+                <Button variant="destructive" size="sm" className="gap-2" onClick={() => setCancelOpen(true)}>
+                  <XCircle className="h-4 w-4" /> Cancel event
+                </Button>
+              )}
               {isAdmin && (
                 <Button size="sm" className="gap-2" onClick={() => setManualOpen(true)}>
                   <Plus className="h-4 w-4" /> Add attendee
@@ -521,7 +551,7 @@ export default function AdminEventOperationsRoute() {
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <OpsMetric label="Active seats" value={summary.active} detail={`${summary.confirmed} confirmed · ${summary.pending} pending`} icon={Users} />
             <OpsMetric label="Recorded collected" value={money(summary.paidAmount)} detail={`${summary.paidCount} paid records`} icon={Banknote} />            <OpsMetric label="Manual confirmations" value={money(summary.manualPaidAmount)} detail={`${summary.manualPaidCount} admin-confirmed`} icon={BadgeCheck} />
-            <OpsMetric label="Needs attention" value={summary.reviewCount + summary.cancelledPaidCount + summary.pendingPaymentCount} detail={`${summary.cancelledPaidCount} paid + cancelled`} icon={AlertTriangle} />
+            <OpsMetric label="Needs attention" value={operations.data.attention.length} detail={`${summary.cancelledPaidCount} paid + cancelled`} icon={AlertTriangle} />
           </div>
 
           <div className="grid gap-6 xl:grid-cols-[1.4fr_0.8fr]">
@@ -594,9 +624,9 @@ export default function AdminEventOperationsRoute() {
             <div className="mt-5 grid gap-3 md:grid-cols-[1fr_170px_170px]">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, email, phone or ticket" className="pl-9" />
+                <Input value={search} onChange={(e) => { setSearch(e.target.value); setAttendeePage(1); }} placeholder="Search name, email, phone or ticket" className="pl-9" />
               </div>
-              <Select value={registrationStatus} onValueChange={setRegistrationStatus}>
+              <Select value={registrationStatus} onValueChange={(value) => { setRegistrationStatus(value); setAttendeePage(1); }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All registration states</SelectItem>
@@ -605,7 +635,7 @@ export default function AdminEventOperationsRoute() {
                   <SelectItem value="cancelled">Cancelled</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={paymentStatus} onValueChange={setPaymentStatus}>
+              <Select value={paymentStatus} onValueChange={(value) => { setPaymentStatus(value); setAttendeePage(1); }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All payment states</SelectItem>                  <SelectItem value="paid">Paid</SelectItem>
@@ -635,13 +665,22 @@ export default function AdminEventOperationsRoute() {
                 </div>
               )}
             </div>
+            {registrations.data && registrations.data.total > registrations.data.perPage && (
+              <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
+                <span className="text-xs text-muted-foreground">Page {registrations.data.page} · {registrations.data.total} registrations</span>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" disabled={attendeePage <= 1} onClick={() => setAttendeePage((value) => Math.max(1, value - 1))}>Previous</Button>
+                  <Button size="sm" variant="outline" disabled={!registrations.data.hasMore} onClick={() => setAttendeePage((value) => value + 1)}>Next</Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}      {tab === "payments" && (
         <div className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <OpsMetric label="Collected" value={money(summary.paidAmount)} detail={`${summary.paidCount} paid records`} icon={Banknote} />
-            <OpsMetric label="Provider confirmed" value={money(summary.providerPaidAmount)} detail={`${summary.providerPaidCount} gateway/PayGate`} icon={CheckCircle2} />
+            <OpsMetric label="Provider confirmed" value={money(summary.providerPaidAmount)} detail={`${summary.providerPaidCount} Razorpay/provider`} icon={CheckCircle2} />
             <OpsMetric label="Manual confirmed" value={money(summary.manualPaidAmount)} detail={`${summary.manualPaidCount} admin overrides`} icon={BadgeCheck} />
             <OpsMetric label="Pending" value={money(summary.pendingPaymentAmount)} detail={`${summary.pendingPaymentCount} awaiting payment`} icon={History} />
           </div>
@@ -745,6 +784,13 @@ export default function AdminEventOperationsRoute() {
         pending={manualMutation.isPending}
         onSubmit={(form) => manualMutation.mutate(form)}
       />
+      <EventCancelDialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        eventTitle={event.title}
+        pending={cancelEventMutation.isPending}
+        onConfirm={(reason) => cancelEventMutation.mutate(reason)}
+      />
       <ResolutionDialog
         state={resolution}
         onClose={() => setResolution(null)}
@@ -772,10 +818,12 @@ function OperationRow({
   pending: boolean;
   onAction: (action: RegistrationAdminAction, title: string) => void;
   onImmediate: (action: RegistrationAdminAction) => void;
-}) {  const isPaidCancelled = row.registrationStatus === "cancelled" && row.paymentStatus === "paid";
-  const canConfirm = isAdmin && row.registrationStatus === "pending" && row.paymentStatus === "pending" && row.amount > 0;
+}) {
+  const isPaidCancelled = row.registrationStatus === "cancelled" && row.paymentStatus === "paid";
+  const canConfirm = isAdmin && row.registrationStatus === "pending" && row.paymentStatus === "pending" && row.amount > 0 && (!row.providerStatus || row.providerStatus === "not_initialized");
   const canRestore = isAdmin && row.registrationStatus === "cancelled";
   const canRefund = isAdmin && row.paymentStatus === "paid";
+  const refundTitle = row.provider === "razorpay" ? "Refund via Razorpay" : "Record external refund";
   const canReopenManual = isAdmin && Boolean(row.manualConfirmation) && row.paymentStatus === "paid";
 
   return (
@@ -822,8 +870,8 @@ function OperationRow({
               Restore
             </Button>
           )}          {canRefund && (
-            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs text-destructive" disabled={pending} onClick={() => onAction("mark-refunded", "Record refund") }>
-              <ReceiptText className="h-3.5 w-3.5" /> Refunded
+            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs text-destructive" disabled={pending} onClick={() => onAction("mark-refunded", refundTitle) }>
+              <ReceiptText className="h-3.5 w-3.5" /> Refund
             </Button>
           )}
           {canReopenManual && (

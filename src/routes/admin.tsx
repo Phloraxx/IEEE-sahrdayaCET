@@ -111,7 +111,7 @@ export default function AdminLayout() {
           >
             <div
               className={cn(
-                "mx-auto w-full max-w-7xl px-4 py-6 sm:px-5 sm:py-8 md:px-8 md:py-10 transition-opacity duration-300 ease-out",
+                "mx-auto w-full max-w-[1600px] px-4 py-5 sm:px-5 sm:py-6 md:px-6 md:py-7 transition-opacity duration-300 ease-out",
                 isNavigating ? "opacity-60" : "opacity-100",
               )}
             >

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { motion, useReducedMotion } from "framer-motion";
 import {
@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   Clock3,
   CreditCard,
-  Download,
   Loader2,
   LockKeyhole,
   TriangleAlert,
@@ -22,8 +21,6 @@ import {
   verifyRazorpayPayment,
 } from "@/lib/data/payment.client";
 import { formatDate } from "@/lib/dates";
-import { downloadQR, generateQRDataUrl } from "@/lib/qr-utils";
-import { toPersonalUpiUri } from "@/lib/upi";
 
 interface PageProps {
   registrationId: string;
@@ -205,7 +202,6 @@ export default function PaymentPage({ registrationId }: PageProps) {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const reduceMotion = useReducedMotion();
@@ -241,26 +237,6 @@ export default function PaymentPage({ registrationId }: PageProps) {
     }
     void startPayment();
   }, [authStatus, startPayment]);
-
-  const personalUpiUri = useMemo(
-    () => toPersonalUpiUri(session?.upiUri || ""),
-    [session?.upiUri],
-  );
-  useEffect(() => {
-    if (!personalUpiUri) {
-      setQrDataUrl(null);
-      return;
-    }
-    let active = true;
-    void generateQRDataUrl(personalUpiUri, { width: 1024, margin: 4 }).then(
-      (url) => {
-        if (active) setQrDataUrl(url);
-      },
-    );
-    return () => {
-      active = false;
-    };
-  }, [personalUpiUri]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -336,7 +312,7 @@ export default function PaymentPage({ registrationId }: PageProps) {
   const openRazorpayCheckout = useCallback(async () => {
     if (
       !session ||
-      session.provider !== "razorpay_live" ||
+      session.provider !== "razorpay" ||
       !session.razorpayKeyId ||
       !session.razorpayOrderId
     ) return;
@@ -514,7 +490,7 @@ export default function PaymentPage({ registrationId }: PageProps) {
     );
   }
 
-  if (session.provider === "razorpay_live") {
+  if (session.provider === "razorpay") {
     return (
       <PaymentShell>
         <div className="grid w-full items-stretch gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(400px,500px)] lg:gap-7">
@@ -576,105 +552,10 @@ export default function PaymentPage({ registrationId }: PageProps) {
   }
 
   return (
-    <PaymentShell>
-      <div className="grid w-full items-stretch gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(410px,510px)] lg:gap-7">
-        <EventVisual session={session} />
-
-        <motion.section
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: reduceMotion ? 0 : 0.06 }}
-          className="relative flex flex-col justify-center overflow-hidden rounded-[2.5rem] border border-white/70 bg-white p-6 shadow-[0_30px_80px_-36px_rgba(15,23,42,0.28)] sm:p-8 lg:p-9"
-        >
-          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-ieee-blue via-sky-400 to-ieee-blue" />
-          <PaymentProgress />
-
-          <div className="mt-6 text-center sm:mt-10">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-              Pay exactly
-            </p>
-            <p className="mt-2 text-5xl font-black tracking-[-0.055em] text-slate-950 sm:text-6xl">
-              ₹{payable || "—"}
-            </p>
-            <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-slate-500">
-              Scan this QR with your preferred UPI app.
-            </p>
-          </div>
-
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{
-              delay: reduceMotion ? 0 : 0.12,
-              duration: reduceMotion ? 0 : 0.35,
-            }}
-            className="relative mx-auto mt-5 aspect-square w-full max-w-[286px] rounded-[2rem] bg-[#F7F9FB] p-3 sm:mt-7 sm:max-w-[340px]"
-          >
-            <div className="relative flex h-full w-full items-center justify-center rounded-[1.55rem] bg-white p-4 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.32)]">
-              <span className="pointer-events-none absolute left-3 top-3 h-7 w-7 rounded-tl-xl border-l-2 border-t-2 border-ieee-blue/60" />
-              <span className="pointer-events-none absolute right-3 top-3 h-7 w-7 rounded-tr-xl border-r-2 border-t-2 border-ieee-blue/60" />
-              <span className="pointer-events-none absolute bottom-3 left-3 h-7 w-7 rounded-bl-xl border-b-2 border-l-2 border-ieee-blue/60" />
-              <span className="pointer-events-none absolute bottom-3 right-3 h-7 w-7 rounded-br-xl border-b-2 border-r-2 border-ieee-blue/60" />
-              {qrDataUrl ? (
-                <img
-                  src={qrDataUrl}
-                  alt={`UPI QR to pay ₹${payable}`}
-                  draggable={false}
-                  className="h-full w-full select-none object-contain"
-                />
-              ) : (
-                <Loader2 className="h-9 w-9 animate-spin text-slate-300" />
-              )}
-            </div>
-          </motion.div>
-
-          <button
-            type="button"
-            disabled={!qrDataUrl}
-            onClick={() =>
-              qrDataUrl &&
-              downloadQR(qrDataUrl, `ieee-payment-${registrationId}.png`)
-            }
-            className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-4 right-4 z-30 mx-auto inline-flex max-w-[340px] items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-3.5 text-sm font-black text-white shadow-[0_16px_45px_-16px_rgba(15,23,42,0.65)] transition hover:bg-ieee-blue disabled:cursor-not-allowed disabled:opacity-40 [@media(max-height:640px)]:static [@media(max-height:640px)]:mt-4 [@media(max-height:640px)]:w-full [@media(max-height:640px)]:shadow-lg sm:static sm:mt-6 sm:w-full sm:shadow-lg sm:shadow-slate-200 sm:hover:-translate-y-0.5 sm:hover:shadow-xl"
-          >
-            <Download className="h-4 w-4" />
-            Save QR as PNG
-          </button>
-
-          <div className="mx-auto mt-7 w-full max-w-[340px] pb-16 [@media(max-height:640px)]:pb-0 sm:pb-0">
-            <div className="flex items-center justify-between gap-4 text-xs">
-              <span className="font-bold text-slate-500">Seat held for</span>
-              <span className="font-mono text-base font-black text-slate-900">
-                {formatCountdown(secondsLeft)}
-              </span>
-            </div>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
-              <motion.div
-                className="h-full rounded-full bg-ieee-blue"
-                animate={{ width: `${remainingPercent}%` }}
-                transition={{ duration: reduceMotion ? 0 : 0.35 }}
-              />
-            </div>
-            <div
-              className="mt-4 flex items-center justify-center gap-2 text-xs font-semibold text-slate-500"
-              aria-live="polite"
-            >
-              <span className="flex gap-1" aria-hidden="true">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ieee-blue" />
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ieee-blue [animation-delay:150ms]" />
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ieee-blue [animation-delay:300ms]" />
-              </span>
-              Waiting for payment confirmation
-            </div>
-            {(!session.providerReachable || error) && (
-              <p className="mt-3 text-center text-xs leading-5 text-amber-700">
-                Status checking is temporarily delayed. Keep this page open; it
-                will continue automatically.
-              </p>
-            )}
-          </div>
-        </motion.section>
-      </div>
-    </PaymentShell>
+    <PassiveState
+      icon={<XCircle className="h-8 w-8 text-rose-500" />}
+      title="Legacy payment unavailable"
+      description="This registration uses a retired payment route. Please contact the event organizer before making another payment."
+    />
   );
 }

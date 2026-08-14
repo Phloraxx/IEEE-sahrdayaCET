@@ -1,11 +1,11 @@
 import { createPublicPB } from "@/lib/pb.server";
 import { buildFileUrl, escapeFilterValue } from "@/lib/pb";
 import { getExpand, getField } from "@/lib/safe-get";
-import { canRegisterForEvent } from "@/lib/event-lifecycle";
+import { canRegisterForEvent, getRegistrationMode, type EventRegistrationMode } from "@/lib/event-lifecycle";
 import { logError } from "@/lib/logger";
 
 const PUBLIC_EVENT_FIELDS =
-  "id,created,updated,title,slug,description,date,endDate,venue,price,banner,status,registrationOpen,registrationStart,registrationDeadline,maxCapacity,registeredCount,externalFormUrl,externalLink,collectIeeeMember,society,expand.society.id,expand.society.name,expand.society.slug,expand.society.logo";
+  "id,created,updated,title,slug,description,date,endDate,venue,price,banner,status,registrationOpen,registrationMode,registrationStart,registrationDeadline,maxCapacity,registeredCount,externalFormUrl,externalLink,collectIeeeMember,society,expand.society.id,expand.society.name,expand.society.slug,expand.society.logo";
 
 export interface SerializableEvent {
   id: string;
@@ -22,6 +22,7 @@ export interface SerializableEvent {
   bannerUrl: string;
   status: string;
   registrationOpen: boolean;
+  registrationMode: EventRegistrationMode;
   maxCapacity: number;
   registeredCount: number;
   externalFormUrl?: string;
@@ -41,6 +42,11 @@ function mapPublicEvent(raw: Record<string, unknown>): SerializableEvent {
   const registrationStart = getField(raw, "registrationStart", "");
   const registrationDeadline = getField(raw, "registrationDeadline", "");
   const externalFormUrl = getField(raw, "externalFormUrl", "") || undefined;
+  const registrationMode = getRegistrationMode({
+    registrationMode: getField(raw, "registrationMode", ""),
+    registrationOpen: Boolean(getField(raw, "registrationOpen", false)),
+    externalFormUrl,
+  });
 
   const society = societyRaw
     ? {
@@ -77,12 +83,13 @@ function mapPublicEvent(raw: Record<string, unknown>): SerializableEvent {
       status,
       date,
       endDate,
-      registrationOpen:
-        Boolean(getField(raw, "registrationOpen", false)) ||
-        Boolean(externalFormUrl),
+      registrationOpen: Boolean(getField(raw, "registrationOpen", false)),
+      registrationMode,
+      externalFormUrl,
       registrationStart,
       registrationDeadline,
     }),
+    registrationMode,
     maxCapacity: getField(raw, "maxCapacity", 0),
     registeredCount: getField(raw, "registeredCount", 0),
     externalFormUrl,

@@ -1,7 +1,7 @@
 import { createPublicPB } from "@/lib/pb.server";
 import { buildFileUrl } from "@/lib/pb";
 import { getField } from "@/lib/safe-get";
-import { canRegisterForEvent, isPublicEvent } from "@/lib/event-lifecycle";
+import { canUseInternalRegistration, isPublicEvent } from "@/lib/event-lifecycle";
 
 export async function fetchEventForRegistration(eventId: string) {
     const pb = createPublicPB();
@@ -13,6 +13,8 @@ export async function fetchEventForRegistration(eventId: string) {
       date: getField(record, "date", ""),
       endDate: getField(record, "endDate", ""),
       registrationOpen: !!getField(record, "registrationOpen", false),
+      registrationMode: getField(record, "registrationMode", ""),
+      externalFormUrl: getField(record, "externalFormUrl", ""),
       registrationStart: getField(record, "registrationStart", ""),
       registrationDeadline: getField(record, "registrationDeadline", ""),
       isDeleted: !!getField(record, "isDeleted", false),
@@ -34,7 +36,7 @@ export async function fetchEventForRegistration(eventId: string) {
       bannerUrl: bannerRaw ? buildFileUrl("events", eventId, bannerRaw) : "",
       // Completed/past events stay publicly viewable, but this route renders the
       // existing Registration Closed state instead of an active form.
-      registrationOpen: canRegisterForEvent(lifecycle),
+      registrationOpen: canUseInternalRegistration(lifecycle),
       maxCapacity: getField(record, "maxCapacity", 0),
       registeredCount: getField(record, "registeredCount", 0),
       collectIeeeMember: !!getField(record, "collectIeeeMember", false),

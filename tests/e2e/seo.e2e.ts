@@ -51,7 +51,7 @@ test.describe('SSR and SEO', () => {
     expect(headers['x-content-type-options']).toBe('nosniff')
     expect(headers['x-frame-options']).toBe('DENY')
     expect(headers['referrer-policy']).toBe('strict-origin-when-cross-origin')
-    expect(headers['permissions-policy']).toContain('camera=()')
+    expect(headers['permissions-policy']).toContain('camera=(self)')
     if (process.env.DEPLOY_ENV === 'production') {
       expect(headers['strict-transport-security']).toBe('max-age=31536000')
       expect(headers['x-robots-tag']).toBeUndefined()

@@ -6,10 +6,9 @@ import {
   ChevronRight,
   Download,
   Loader2,
-  Pencil,
   Plus,
   Search,
-  Trash2,
+  Archive,
 } from "lucide-react";
 import { PanelHeader } from "@/components/admin/panel-header";
 import { ConfirmButton } from "@/components/admin/confirm-button";
@@ -57,14 +56,14 @@ export default function AdminEvents() {
     queryKey: ["admin-events", { search, status, page }],
     queryFn: () => listAdminEvents({ page, perPage, search, status }),
   });
-  const deleteMutation = useMutation({
+  const archiveMutation = useMutation({
     mutationFn: deleteAdminEvent,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-events"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
     },
     onError: (error) => {
-      alert(error?.message ?? "Failed to delete event");
+      alert(error?.message ?? "Failed to archive event");
     },
   });
 
@@ -149,8 +148,8 @@ export default function AdminEvents() {
         <EventsList
           rows={data.events}
           canEdit={canEdit}
-          onDelete={(id) => deleteMutation.mutate(id)}
-          deletingPending={deleteMutation.isPending}
+          onArchive={(id) => archiveMutation.mutate(id)}
+          archivingPending={archiveMutation.isPending}
         />
       )}
 
@@ -179,10 +178,10 @@ export default function AdminEvents() {
           </div>
         </div>
       )}
-      {deleteMutation.isPending && (
+      {archiveMutation.isPending && (
         <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-lg bg-card border border-border px-4 py-2 shadow-lg">
           <Loader2 className="h-4 w-4 animate-spin text-primary" />
-          <span className="text-sm text-muted-foreground">Deleting…</span>
+          <span className="text-sm text-muted-foreground">Archiving…</span>
         </div>
       )}
 
@@ -193,15 +192,15 @@ export default function AdminEvents() {
 interface EventsListProps {
   rows: AdminEventListItem[];
   canEdit: boolean;
-  onDelete: (id: string) => void;
-  deletingPending: boolean;
+  onArchive: (id: string) => void;
+  archivingPending: boolean;
 }
 
 function EventsList({
   rows,
   canEdit,
-  onDelete,
-  deletingPending,
+  onArchive,
+  archivingPending,
 }: EventsListProps) {
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card divide-y divide-border">
@@ -248,31 +247,16 @@ function EventsList({
             )}
           </div>
           <div className="flex items-center justify-end gap-1">
-            {canEdit ? (
-              <>
-                <Link
-                  to={`/admin/events/${event.id}/edit`}
-                  aria-label="Edit event"
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </Link>
-                <ConfirmButton
-                  label=""
-                  confirmMessage="Delete this event?"
-                  variant="destructive"
-                  icon={<Trash2 className="h-3.5 w-3.5" />}
-                  onConfirm={() => {
-                    onDelete(event.id);
-                    return true;
-                  }}
-                  disabled={deletingPending}
-                  className="h-8 w-8 p-0"
-                />
-              </>
-            ) : (
-              <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
-            )}
+            <Link to={`/admin/events/${event.id}`} className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground">Open<ChevronRight className="h-3 w-3" /></Link>
+            {canEdit && <ConfirmButton
+              label=""
+              confirmMessage="Archive this event? It will be hidden from public listings but its historical records remain available."
+              variant="destructive"
+              icon={<Archive className="h-3.5 w-3.5" />}
+              onConfirm={() => { onArchive(event.id); return true; }}
+              disabled={archivingPending}
+              className="h-8 w-8 p-0"
+            />}
           </div>
         </div>
       ))}

@@ -115,7 +115,7 @@ function paidAmount(registration) {
   if (isFinite(exact) && exact > 0) return exact.toFixed(2)
   var paise = Number(data.payableAmountPaise)
   if (isFinite(paise) && paise > 0) return (paise / 100).toFixed(2)
-  return Number(registration.getInt("amount") || 0).toFixed(2)
+  return require(__hooks + "/registration-helpers.js").registrationAmount(registration).toFixed(2)
 }
 
 function receiptNumber(registration) {
@@ -158,6 +158,7 @@ function pdfEscape(value) {
 function receiptPdfBytes(registration, event) {
   var data = asObject(registration.get("paymentData"))
   var paidAt = data.paidAt || registration.getString("updated") || new Date().toISOString()
+  var refundedPaise = Number(data.amountRefundedPaise || 0)
   var rows = [
     { text: "IEEE Sahrdaya Student Branch", size: 18, bold: true, gap: 28 },
     { text: "PAYMENT RECEIPT", size: 14, bold: true, gap: 26 },
@@ -172,6 +173,12 @@ function receiptPdfBytes(registration, event) {
     { text: "Venue: " + (event ? event.getString("venue") : "TBA"), size: 10, gap: 16 },
     { text: "This receipt acknowledges payment for event registration.", size: 9, gap: 16 },
   ]
+  if (isFinite(refundedPaise) && refundedPaise > 0) {
+    rows.splice(8, 0, { text: "Refunded: INR " + (refundedPaise / 100).toFixed(2), size: 10, bold: true, gap: 18 })
+  }
+  if (registration.getString("paymentStatus") === "refunded") {
+    rows.splice(9, 0, { text: "Payment status: REFUNDED", size: 10, bold: true, gap: 18 })
+  }
 
   var y = 760
   var content = "BT\n"
@@ -232,7 +239,7 @@ function findOutbox(registrationId, kind) {
 function enqueue(registration, kind, force) {
   if (!registration || !registration.id) return null
   if (kind === "ticket" && (registration.getString("registrationStatus") !== "confirmed" || !registration.getString("ticketId"))) return null
-  if (kind === "receipt" && (registration.getString("paymentStatus") !== "paid" || (registration.getInt("amount") || 0) <= 0 || !registration.getString("ticketId"))) return null
+  if (kind === "receipt" && ((registration.getString("paymentStatus") !== "paid" && registration.getString("paymentStatus") !== "refunded") || require(__hooks + "/registration-helpers.js").registrationFinalFeePaise(registration) <= 0 || !registration.getString("ticketId"))) return null
 
   var recipient = String(registration.getString("userEmail") || "").trim()
   if (!recipient) return null
@@ -271,7 +278,7 @@ function enqueueForRegistration(registration) {
   if (registration.getString("registrationStatus") === "confirmed" && registration.getString("ticketId")) {
     enqueue(registration, "ticket", false)
   }
-  if (registration.getString("paymentStatus") === "paid" && (registration.getInt("amount") || 0) > 0 && registration.getString("ticketId")) {
+  if (registration.getString("paymentStatus") === "paid" && require(__hooks + "/registration-helpers.js").registrationFinalFeePaise(registration) > 0 && registration.getString("ticketId")) {
     enqueue(registration, "receipt", false)
   }
 }

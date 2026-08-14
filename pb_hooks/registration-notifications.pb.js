@@ -112,7 +112,7 @@ routerAdd(
     if (!auth || (registration.getString("user") !== auth.id && !isAdmin)) {
       return e.json(403, { error: "You cannot access this receipt" })
     }
-    if (registration.getString("paymentStatus") !== "paid" || (registration.getInt("amount") || 0) <= 0 || !registration.getString("ticketId")) {
+    if ((registration.getString("paymentStatus") !== "paid" && registration.getString("paymentStatus") !== "refunded") || require(__hooks + "/registration-helpers.js").registrationFinalFeePaise(registration) <= 0 || !registration.getString("ticketId")) {
       return e.json(404, { error: "A paid receipt is not available for this registration" })
     }
 
@@ -136,7 +136,7 @@ routerAdd(
     if (!nh.canManageRegistration(e.auth, registration)) return e.json(403, { error: "Forbidden" })
     return e.json(200, {
       ticketAvailable: registration.getString("registrationStatus") === "confirmed" && !!registration.getString("ticketId"),
-      receiptAvailable: registration.getString("paymentStatus") === "paid" && (registration.getInt("amount") || 0) > 0 && !!registration.getString("ticketId"),
+      receiptAvailable: (registration.getString("paymentStatus") === "paid" || registration.getString("paymentStatus") === "refunded") && require(__hooks + "/registration-helpers.js").registrationFinalFeePaise(registration) > 0 && !!registration.getString("ticketId"),
       notifications: nh.snapshot(registration.id),
     })
   },

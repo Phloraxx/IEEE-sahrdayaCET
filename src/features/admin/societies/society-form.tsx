@@ -58,6 +58,8 @@ export function SocietyForm({ mode, societyId }: SocietyFormProps) {
   const [userSearch, setUserSearch] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [removeLogo, setRemoveLogo] = useState(false);
+  const [removeBanner, setRemoveBanner] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Users for chair search
@@ -115,7 +117,7 @@ export function SocietyForm({ mode, societyId }: SocietyFormProps) {
         slug: form.slug.trim(),
         bio: form.bio,
         isHidden: form.isHidden,
-        defaultWhatsappLink: form.defaultWhatsappLink || undefined,
+        defaultWhatsappLink: form.defaultWhatsappLink.trim(),
         chairs,
       };
 
@@ -124,6 +126,8 @@ export function SocietyForm({ mode, societyId }: SocietyFormProps) {
         payload,
         logo: logoFile,
         banner: bannerFile,
+        removeLogo,
+        removeBanner,
         role: authUser?.role,
       });
 
@@ -218,7 +222,8 @@ export function SocietyForm({ mode, societyId }: SocietyFormProps) {
                         .logoUrl as string
                     : undefined
                 }
-                onChange={setLogoFile}
+                onChange={(file) => { setLogoFile(file); if (file) setRemoveLogo(false); }}
+                onRemove={() => setRemoveLogo(true)}
                 previewClassName="h-32 w-32"
               />
               <ImageUpload
@@ -229,7 +234,8 @@ export function SocietyForm({ mode, societyId }: SocietyFormProps) {
                         .bannerUrl as string
                     : undefined
                 }
-                onChange={setBannerFile}
+                onChange={(file) => { setBannerFile(file); if (file) setRemoveBanner(false); }}
+                onRemove={() => setRemoveBanner(true)}
               />
             </div>
 

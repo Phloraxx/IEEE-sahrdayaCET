@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EVENT_STATUS } from "@/lib/constants";
+import { getRegistrationMode, type EventRegistrationMode } from "@/lib/event-lifecycle";
 import { fromAppDateTimeLocal, toAppDateTimeLocal } from "@/lib/dates";
 import { FormSection } from "@/features/admin/shared/form-section";
 import { ImageUpload } from "@/components/admin/image-upload";
@@ -38,11 +39,10 @@ interface EventFormState {
   endDate: string;
   venue: string;
   price: string;
-  paymentProvider: "kotak" | "slice" | "razorpay";
   maxCapacity: string;
   status: string;
   society: string;
-  registrationOpen: boolean;
+  registrationMode: EventRegistrationMode;
   checkInEnabled: boolean;
   collectIeeeMember: boolean;
   registrationStart: string;
@@ -62,11 +62,10 @@ const EMPTY_STATE: EventFormState = {
   endDate: "",
   venue: "",
   price: "0",
-  paymentProvider: "kotak",
   maxCapacity: "",
   status: "draft",
   society: "",
-  registrationOpen: true,
+  registrationMode: "internal",
   checkInEnabled: true,
   collectIeeeMember: false,
   registrationStart: "",
@@ -94,6 +93,7 @@ export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
     society: initialSocietyId || "",
   }));
   const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [removeBanner, setRemoveBanner] = useState(false);
   const [customFields, setCustomFields] = useState<FormField[]>([]);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -137,17 +137,17 @@ export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
         endDate: toAppDateTimeLocal(e.endDate as string | undefined),
         venue: String(e.venue ?? ""),
         price: String(e.price ?? "0"),
-        paymentProvider:
-          e.paymentProvider === "slice" || e.paymentProvider === "razorpay"
-            ? e.paymentProvider
-            : "kotak",
         maxCapacity:
           e.maxCapacity != null && Number(e.maxCapacity) > 0
             ? String(e.maxCapacity)
             : "",
         status: String(e.status ?? "draft"),
         society: String(e.society ?? ""),
-        registrationOpen: e.registrationOpen !== false,
+        registrationMode: getRegistrationMode({
+          registrationMode: String(e.registrationMode ?? ""),
+          registrationOpen: e.registrationOpen !== false,
+          externalFormUrl: String(e.externalFormUrl ?? ""),
+        }),
         checkInEnabled: e.checkInEnabled !== false,
         collectIeeeMember: Boolean(e.collectIeeeMember),
         registrationStart: toAppDateTimeLocal(
@@ -216,8 +216,8 @@ export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
       return;
     }
 
-    if (form.paymentProvider === "razorpay" && Number(form.price) > 100_000) {
-      setSubmitError("Razorpay event prices cannot exceed ₹1,00,000");
+    if (form.registrationMode === "external" && !form.externalFormUrl.trim()) {
+      setSubmitError("Please enter the external registration URL");
       setSubmitting(false);
       return;
     }
@@ -225,48 +225,39 @@ export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
     setSubmitting(true);
 
     try {
+      const isInternal = form.registrationMode === "internal";
       const payload: Record<string, unknown> = {
         title: form.title.trim(),
         description: form.description,
         venue: form.venue.trim(),
         price: Number(form.price) || 0,
-        paymentProvider: form.paymentProvider,
+        baseFeePaise: Math.max(0, Math.round((Number(form.price) || 0) * 100)),
         status: form.status,
-        society: form.society || undefined,
-        registrationOpen: form.registrationOpen,
-        checkInEnabled: form.checkInEnabled,
-        collectIeeeMember: form.collectIeeeMember,
+        society: form.society,
+        registrationMode: form.registrationMode,
+        registrationOpen: form.registrationMode !== "closed",
+        checkInEnabled: isInternal ? form.checkInEnabled : false,
+        collectIeeeMember: isInternal ? form.collectIeeeMember : false,
         date: fromAppDateTimeLocal(form.date),
-        endDate: fromAppDateTimeLocal(form.endDate),
-        registrationStart: fromAppDateTimeLocal(form.registrationStart),
-        registrationDeadline: fromAppDateTimeLocal(form.registrationDeadline),
-        contactEmail: form.contactEmail || undefined,
-        contactPhone: form.contactPhone || undefined,
-        externalLink: form.externalLink || undefined,
-        whatsappLink: form.whatsappLink || undefined,
-        tags: form.tags || undefined,
-        externalFormUrl: !form.registrationOpen
-          ? form.externalFormUrl || undefined
-          : undefined,
-        ...(customFields.length > 0 ? { formTemplate: customFields } : {}),
-        // Always send coupons (even when empty) so the server reconcile
-        // can delete removed coupons. An omitted key means "don't touch".
-        ...(coupons.length > 0 ? { coupons } : { coupons: [] }),
+        endDate: fromAppDateTimeLocal(form.endDate) || "",
+        registrationStart: fromAppDateTimeLocal(form.registrationStart) || "",
+        registrationDeadline: fromAppDateTimeLocal(form.registrationDeadline) || "",
+        contactEmail: form.contactEmail.trim(),
+        contactPhone: form.contactPhone.trim(),
+        externalLink: form.externalLink.trim(),
+        whatsappLink: form.whatsappLink.trim(),
+        tags: form.tags.trim(),
+        externalFormUrl: form.registrationMode === "external" ? form.externalFormUrl.trim() : "",
+        formTemplate: isInternal ? customFields : [],
+        maxCapacity: isInternal && form.maxCapacity ? Number(form.maxCapacity) : 0,
+        coupons,
       };
-      if (form.maxCapacity) {
-        payload.maxCapacity = Number(form.maxCapacity);
-      }
-
-      // Clean undefined keys
-      Object.keys(payload).forEach((k) => {
-        if (payload[k] === undefined || payload[k] === "")
-          delete payload[k];
-      });
 
       await saveAdminEvent({
         id: isEdit ? eventId : undefined,
         payload,
         bannerFile,
+        removeBanner,
       });
 
 
@@ -367,7 +358,12 @@ export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
                             .bannerUrl as string
                         : undefined
                     }
-                    onChange={setBannerFile}
+                    onChange={(file) => {
+                      setDirty(true);
+                      setBannerFile(file);
+                      if (file) setRemoveBanner(false);
+                    }}
+                    onRemove={() => { setDirty(true); setRemoveBanner(true); }}
                   />
                 </div>
 
@@ -502,148 +498,67 @@ export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
           <Card>
             <CardContent className="p-6">
               <FormSection title="Registration">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={form.registrationOpen}
-                    onChange={(e) => {
+                <div className="grid gap-1.5">
+                  <Label htmlFor="evt-registration-mode">Registration mode</Label>
+                  <Select
+                    value={form.registrationMode}
+                    onValueChange={(value: EventRegistrationMode) => {
                       setDirty(true);
-                      setForm((prev) => ({
-                        ...prev,
-                        registrationOpen: e.target.checked,
-                      }));
+                      setForm((prev) => ({ ...prev, registrationMode: value }));
                     }}
-                    className="rounded border-input"
-                  />
-                  <span className="text-sm font-medium">
-                    Enable Registration
-                  </span>
-                </label>
+                  >
+                    <SelectTrigger id="evt-registration-mode"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="internal">IEEE website</SelectItem>
+                      <SelectItem value="external">External form</SelectItem>
+                      <SelectItem value="closed">Closed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    Internal registrations use IEEE capacity, coupons, payments, tickets and check-in. External mode only sends visitors to the URL below.
+                  </p>
+                </div>
 
-                {form.registrationOpen ? (
+                {form.registrationMode === "external" && (
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="evt-external-form">External Registration URL *</Label>
+                    <Input id="evt-external-form" type="url" value={form.externalFormUrl} onChange={update("externalFormUrl")} placeholder="https://docs.google.com/forms/..." required />
+                    <p className="text-xs text-muted-foreground">IEEE will not automatically track responses, payment, capacity or check-in for this form.</p>
+                  </div>
+                )}
+
+                {form.registrationMode === "internal" && (
                   <>
                     <div className="grid gap-1.5">
                       <Label htmlFor="evt-price">Price (₹)</Label>
-                      <Input
-                        id="evt-price"
-                        type="number"
-                        min="0"
-                        value={form.price}
-                        onChange={update("price")}
-                      />
+                      <Input id="evt-price" type="number" min="0" step="0.01" value={form.price} onChange={update("price")} />
                     </div>
-                    {Number(form.price) > 0 && (
-                      <div className="grid gap-1.5">
-                        <Label htmlFor="evt-payment-provider">
-                          Payment route
-                        </Label>
-                        <Select
-                          value={form.paymentProvider}
-                          onValueChange={(value: "kotak" | "slice" | "razorpay") => {
-                            setDirty(true);
-                            setForm((prev) => ({ ...prev, paymentProvider: value }));
-                          }}
-                        >
-                          <SelectTrigger id="evt-payment-provider">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="razorpay">Razorpay Checkout</SelectItem>
-                            <SelectItem value="kotak">Kotak UPI — SMS verified</SelectItem>
-                            <SelectItem value="slice">Slice UPI — email verified</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <p className="text-xs leading-5 text-muted-foreground">
-                          New registrations use this route. Existing registrations
-                          stay locked to their original route. Slice pays to
-                          souravpbijoy-3@okicici.
-                        </p>
-                      </div>
-                    )}
                     <div className="grid gap-1.5">
                       <Label htmlFor="evt-capacity">Max Capacity</Label>
-                      <Input
-                        id="evt-capacity"
-                        type="number"
-                        min="1"
-                        value={form.maxCapacity}
-                        onChange={update("maxCapacity")}
-                        placeholder="Unlimited"
-                      />
-                    </div>
-                    <div className="grid gap-1.5">
-                      <Label htmlFor="evt-reg-start">
-                        Registration Start
-                      </Label>
-                      <Input
-                        id="evt-reg-start"
-                        type="datetime-local"
-                        value={form.registrationStart}
-                        onChange={update("registrationStart")}
-                      />
-                    </div>
-                    <div className="grid gap-1.5">
-                      <Label htmlFor="evt-deadline">
-                        Registration Deadline
-                      </Label>
-                      <Input
-                        id="evt-deadline"
-                        type="datetime-local"
-                        value={form.registrationDeadline}
-                        onChange={update("registrationDeadline")}
-                      />
+                      <Input id="evt-capacity" type="number" min="1" value={form.maxCapacity} onChange={update("maxCapacity")} placeholder="Unlimited" />
                     </div>
                     <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={form.checkInEnabled}
-                        onChange={(e) => {
-                          setDirty(true);
-                          setForm((prev) => ({
-                            ...prev,
-                            checkInEnabled: e.target.checked,
-                          }));
-                        }}
-                        className="rounded border-input"
-                      />
-                      <span className="text-sm font-medium">
-                        Enable QR Check-in
-                      </span>
+                      <input type="checkbox" checked={form.checkInEnabled} onChange={(e) => { setDirty(true); setForm((prev) => ({ ...prev, checkInEnabled: e.target.checked })); }} className="rounded border-input" />
+                      <span className="text-sm font-medium">Enable QR Check-in</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={form.collectIeeeMember}
-                        onChange={(e) => {
-                          setDirty(true);
-                          setForm((prev) => ({
-                            ...prev,
-                            collectIeeeMember: e.target.checked,
-                          }));
-                        }}
-                        className="rounded border-input"
-                      />
-                      <span className="text-sm font-medium">
-                        Collect IEEE Membership ID
-                      </span>
+                      <input type="checkbox" checked={form.collectIeeeMember} onChange={(e) => { setDirty(true); setForm((prev) => ({ ...prev, collectIeeeMember: e.target.checked })); }} className="rounded border-input" />
+                      <span className="text-sm font-medium">Collect IEEE Membership ID</span>
                     </label>
                   </>
-                ) : (
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="evt-external-form">
-                      External Registration URL
-                    </Label>
-                    <Input
-                      id="evt-external-form"
-                      type="url"
-                      value={form.externalFormUrl}
-                      onChange={update("externalFormUrl")}
-                      placeholder="https://docs.google.com/forms/..."
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Users will be redirected here instead
-                    </p>
-                  </div>
+                )}
+
+                {form.registrationMode !== "closed" && (
+                  <>
+                    <div className="grid gap-1.5">
+                      <Label htmlFor="evt-reg-start">Registration Start</Label>
+                      <Input id="evt-reg-start" type="datetime-local" value={form.registrationStart} onChange={update("registrationStart")} />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label htmlFor="evt-deadline">Registration Deadline</Label>
+                      <Input id="evt-deadline" type="datetime-local" value={form.registrationDeadline} onChange={update("registrationDeadline")} />
+                    </div>
+                  </>
                 )}
               </FormSection>
             </CardContent>
@@ -748,7 +663,7 @@ export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {EVENT_STATUS.map((s) => (
+                      {EVENT_STATUS.filter((status) => status !== "cancelled" || form.status === "cancelled").map((s) => (
                         <SelectItem key={s} value={s}>
                           {s.charAt(0).toUpperCase() + s.slice(1)}
                         </SelectItem>
@@ -761,7 +676,7 @@ export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
           </Card>
 
           {/* Coupons */}
-          {form.registrationOpen && (
+          {form.registrationMode === "internal" && (
             <Card>
               <CardContent className="p-6">
                 <FormSection title="Coupons">

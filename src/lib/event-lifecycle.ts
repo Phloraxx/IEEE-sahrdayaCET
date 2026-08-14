@@ -1,8 +1,12 @@
+export type EventRegistrationMode = "internal" | "external" | "closed";
+
 export interface EventLifecycleInput {
   status?: string | null;
   date?: string | null;
   endDate?: string | null;
   registrationOpen?: boolean | null;
+  registrationMode?: string | null;
+  externalFormUrl?: string | null;
   registrationStart?: string | null;
   registrationDeadline?: string | null;
   isDeleted?: boolean | null;
@@ -14,12 +18,14 @@ function toTimestamp(value?: string | null): number | null {
   return Number.isFinite(timestamp) ? timestamp : null;
 }
 
-/**
- * Uses endDate when available, otherwise falls back to the event start date.
- * An event is considered past once its effective end time has elapsed.
- */
 function getEventEndTimestamp(event: EventLifecycleInput): number | null {
   return toTimestamp(event.endDate) ?? toTimestamp(event.date);
+}
+
+export function getRegistrationMode(event: EventLifecycleInput): EventRegistrationMode {
+  if (event.registrationMode === "internal" || event.registrationMode === "external" || event.registrationMode === "closed") return event.registrationMode;
+  if (event.externalFormUrl) return "external";
+  return event.registrationOpen ? "internal" : "closed";
 }
 
 export function isPublicEvent(event: EventLifecycleInput): boolean {
@@ -27,33 +33,26 @@ export function isPublicEvent(event: EventLifecycleInput): boolean {
   return event.status === "published" || event.status === "completed";
 }
 
-export function isPastEvent(
-  event: EventLifecycleInput,
-  now: number = Date.now(),
-): boolean {
+export function isPastEvent(event: EventLifecycleInput, now: number = Date.now()): boolean {
   if (event.status === "completed") return true;
   const end = getEventEndTimestamp(event);
   return end !== null && end <= now;
 }
 
-/**
- * Registration is allowed only for a currently published, non-past event
- * whose registration window is open.
- */
-export function canRegisterForEvent(
-  event: EventLifecycleInput,
-  now: number = Date.now(),
-): boolean {
-  if (!isPublicEvent(event)) return false;
-  if (event.status !== "published") return false;
-  if (!event.registrationOpen) return false;
-  if (isPastEvent(event, now)) return false;
-
+export function canRegisterForEvent(event: EventLifecycleInput, now: number = Date.now()): boolean {
+  if (!isPublicEvent(event) || event.status !== "published") return false;
+  if (getRegistrationMode(event) === "closed" || isPastEvent(event, now)) return false;
   const registrationStart = toTimestamp(event.registrationStart);
   if (registrationStart !== null && registrationStart > now) return false;
-
   const registrationDeadline = toTimestamp(event.registrationDeadline);
   if (registrationDeadline !== null && registrationDeadline < now) return false;
-
   return true;
+}
+
+export function canUseInternalRegistration(event: EventLifecycleInput, now: number = Date.now()): boolean {
+  return getRegistrationMode(event) === "internal" && canRegisterForEvent(event, now);
+}
+
+export function canUseExternalRegistration(event: EventLifecycleInput, now: number = Date.now()): boolean {
+  return getRegistrationMode(event) === "external" && canRegisterForEvent(event, now);
 }

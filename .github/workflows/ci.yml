@@ -47,18 +47,32 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: Build PocketBase image
         run: docker build -t ieee-pocketbase-ci -f pocketbase/Dockerfile .
+      - name: Start fake Razorpay API
+        env:
+          RAZORPAY_KEY_ID: rzp_test_ieee
+          RAZORPAY_KEY_SECRET: test_secret_ieee_2026
+          RAZORPAY_FAKE_PORT: "18080"
+        run: |
+          python3 tests/backend/fake_razorpay.py > /tmp/fake-razorpay.log 2>&1 &
+          echo $! > /tmp/fake-razorpay.pid
+          for i in {1..20}; do
+            curl -fsS -u 'rzp_test_ieee:test_secret_ieee_2026' 'http://127.0.0.1:18080/v1/orders?count=1' >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/fake-razorpay.log
+          exit 1
       - name: Start fresh PocketBase
         run: |
           docker run -d --name ieee-pocketbase-ci \
             --add-host=host.docker.internal:host-gateway \
             -p 127.0.0.1:8090:8090 \
             -e PB_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef' \
-            -e PAYMENT_WEBHOOK_SECRET='CI-Payment-Webhook-2026!' \
-            -e PAYGATE_URL='http://host.docker.internal:18080' \
-            -e PAYGATE_API_KEY='CI-PayGate-Api-Key-2026!!!!' \
-            -e PAYGATE_WEBHOOK_SECRET='CI-PayGate-Webhook-2026!!!!' \
-            -e PAYGATE_REGISTRATION_GRACE_SECONDS='600' \
-            -e PAYGATE_WEBHOOK_TOLERANCE_SECONDS='300' \
+            -e RAZORPAY_API_BASE_URL='http://host.docker.internal:18080' \
+            -e RAZORPAY_KEY_ID='rzp_test_ieee' \
+            -e RAZORPAY_KEY_SECRET='test_secret_ieee_2026' \
+            -e RAZORPAY_WEBHOOK_SECRET='test_webhook_ieee_2026' \
+            -e RAZORPAY_CHECKOUT_HOLD_SECONDS='600' \
+            -e PAYMENTS_ENABLED='true' \
             ieee-pocketbase-ci
           for i in {1..60}; do
             curl -fsS http://127.0.0.1:8090/api/health >/dev/null && exit 0
@@ -75,38 +89,22 @@ jobs:
           PB_BASE_URL: http://127.0.0.1:8090
           PB_SUPERUSER_EMAIL: ci-super@example.test
           PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
-          PAYMENT_WEBHOOK_SECRET: CI-Payment-Webhook-2026!
         run: python3 tests/backend/pocketbase_smoke.py
-      - name: Exercise PayGate integration
+      - name: Exercise direct Razorpay integration
         env:
           PB_BASE_URL: http://127.0.0.1:8090
           PB_SUPERUSER_EMAIL: ci-super@example.test
           PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
-          PAYGATE_API_KEY: CI-PayGate-Api-Key-2026!!!!
-          PAYGATE_WEBHOOK_SECRET: CI-PayGate-Webhook-2026!!!!
-          PAYGATE_FAKE_PORT: "18080"
-        run: python3 tests/backend/paygate_smoke.py
-      - name: Exercise PayGate cancellation edges
+          RAZORPAY_FAKE_URL: http://127.0.0.1:18080
+          RAZORPAY_KEY_SECRET: test_secret_ieee_2026
+          RAZORPAY_WEBHOOK_SECRET: test_webhook_ieee_2026
+        run: python3 tests/backend/razorpay_direct_smoke.py
+      - name: Build web app for browser E2E
         env:
-          PB_BASE_URL: http://127.0.0.1:8090
-          PB_SUPERUSER_EMAIL: ci-super@example.test
-          PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
-          PAYGATE_WEBHOOK_SECRET: CI-PayGate-Webhook-2026!!!!
-        run: python3 tests/backend/paygate_edge_smoke.py
-      - name: Exercise PayGate stale pending recovery
-        env:
-          PB_BASE_URL: http://127.0.0.1:8090
-          PB_SUPERUSER_EMAIL: ci-super@example.test
-          PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
-          PAYGATE_WEBHOOK_SECRET: CI-PayGate-Webhook-2026!!!!
-        run: python3 tests/backend/paygate_stale_pending_smoke.py
-      - name: Race PayGate stale expiry against paid webhook
-        env:
-          PB_BASE_URL: http://127.0.0.1:8090
-          PB_SUPERUSER_EMAIL: ci-super@example.test
-          PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
-          PAYGATE_WEBHOOK_SECRET: CI-PayGate-Webhook-2026!!!!
-        run: python3 tests/backend/paygate_stale_pending_race_smoke.py
+          DEPLOY_ENV: production
+          SITE_URL: https://ieeesahrdaya.com
+          POCKETBASE_INTERNAL_URL: http://127.0.0.1:8090
+        run: bun run build
       - name: Install Playwright Chromium
         run: bunx playwright install --with-deps chromium
       - name: Browser E2E

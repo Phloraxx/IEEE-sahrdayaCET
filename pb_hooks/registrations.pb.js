@@ -58,8 +58,8 @@ onRecordUpdateRequest(function (e) {
             if (oldPayment !== newPayment) {
                 throw e.badRequestError("Payment status can only be changed by the payment webhook or an admin")
             }
-            var oldAmount = oldReg.getInt("amount")
-            var newAmount = newReg.getInt("amount")
+            var oldAmount = Number(oldReg.get("amount") || 0)
+            var newAmount = Number(newReg.get("amount") || 0)
             if (oldAmount !== newAmount) {
                 throw e.badRequestError("Amount can only be changed by an admin")
             }

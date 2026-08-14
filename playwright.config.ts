@@ -20,12 +20,13 @@ export default defineConfig({
   webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined
     : {
-        command: 'bun run dev',
+        command: process.env.CI ? 'node tests/e2e/production-proxy.mjs' : 'bun run dev',
         url: `${baseURL}/healthz`,
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,
         env: {
           PORT: String(port),
+          PLAYWRIGHT_PORT: String(port),
           DEPLOY_ENV: process.env.DEPLOY_ENV || 'test',
           SITE_URL: process.env.SITE_URL || 'http://127.0.0.1:3000',
           POCKETBASE_INTERNAL_URL: process.env.POCKETBASE_INTERNAL_URL || 'http://127.0.0.1:8090',

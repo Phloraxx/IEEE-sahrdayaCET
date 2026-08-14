@@ -8,8 +8,6 @@ export interface RegistrationPaymentSession {
   ticketId: string;
   paymentTicketId: string;
   provider: string;
-  eventPaymentProvider: "kotak" | "slice" | "razorpay";
-  paymentAccount: string;
   providerStatus: string;
   paymentId: string;
   requestedAmountPaise: number;
@@ -18,7 +16,6 @@ export interface RegistrationPaymentSession {
   createdAt: string;
   expiresAt: string;
   paidAt: string;
-  upiUri: string;
   razorpayOrderId: string;
   razorpayPaymentId: string;
   razorpayKeyId: string;
@@ -50,11 +47,6 @@ function normalizePaymentSession(value: unknown): RegistrationPaymentSession {
     ticketId: String(raw.ticketId || ""),
     paymentTicketId: String(raw.paymentTicketId || ""),
     provider: String(raw.provider || ""),
-    eventPaymentProvider:
-      raw.eventPaymentProvider === "slice" || raw.eventPaymentProvider === "razorpay"
-        ? raw.eventPaymentProvider
-        : "kotak",
-    paymentAccount: String(raw.paymentAccount || ""),
     providerStatus: String(raw.providerStatus || "not_initialized"),
     paymentId: String(raw.paymentId || ""),
     requestedAmountPaise: Number(raw.requestedAmountPaise) || 0,
@@ -63,7 +55,6 @@ function normalizePaymentSession(value: unknown): RegistrationPaymentSession {
     createdAt: String(raw.createdAt || ""),
     expiresAt: String(raw.expiresAt || ""),
     paidAt: String(raw.paidAt || ""),
-    upiUri: String(raw.upiUri || ""),
     razorpayOrderId: String(raw.razorpayOrderId || ""),
     razorpayPaymentId: String(raw.razorpayPaymentId || ""),
     razorpayKeyId: String(raw.razorpayKeyId || ""),
