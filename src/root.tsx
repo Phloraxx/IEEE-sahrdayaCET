@@ -119,7 +119,7 @@ export function headers() {
       "media-src 'self'",
       "font-src 'self' data: https://*.razorpay.com",
       "style-src 'self' 'unsafe-inline'",
-      "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://checkout.razorpay.com",
+      "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://checkout.razorpay.com https://api.razorpay.com",
       "connect-src 'self' https://cloudflareinsights.com https://api.razorpay.com https://*.razorpay.com",
       "frame-src https://api.razorpay.com https://*.razorpay.com",
       "manifest-src 'self'",
