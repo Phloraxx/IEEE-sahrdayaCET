@@ -175,5 +175,5 @@ export async function cancelAdminEvent(id: string, reason: string) {
   return getPbClient().send(`/api/admin/events/${encodeURIComponent(id)}/cancel`, {
     method: "POST",
     body: { reason },
-  }) as Promise<{ alreadyCancelled: boolean; cancelled: number; refundReview: number; refundQueued: number; manualRefundRequired: number; releasedPending: number }>;
+  }) as Promise<{ alreadyCancelled: boolean; cancelled: number; refundReview: number; manualRefundRequired: number; releasedPending: number }>;
 }

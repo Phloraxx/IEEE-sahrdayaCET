@@ -410,7 +410,6 @@ export default function AdminEventOperationsRoute() {
       setCancelOpen(false);
       invalidate();
       const parts: string[] = [];
-      if (result.refundQueued > 0) parts.push(`${result.refundQueued} Razorpay refund${result.refundQueued === 1 ? "" : "s"} queued`);
       if (result.manualRefundRequired > 0) parts.push(`${result.manualRefundRequired} manual refund${result.manualRefundRequired === 1 ? "" : "s"} require attention`);
       toast.success(parts.length ? `Event cancelled. ${parts.join("; ")}.` : "Event cancelled and registrations reconciled");
     },
@@ -822,8 +821,8 @@ function OperationRow({
   const isPaidCancelled = row.registrationStatus === "cancelled" && row.paymentStatus === "paid";
   const canConfirm = isAdmin && row.registrationStatus === "pending" && row.paymentStatus === "pending" && row.amount > 0 && (!row.providerStatus || row.providerStatus === "not_initialized");
   const canRestore = isAdmin && row.registrationStatus === "cancelled";
-  const canRefund = isAdmin && row.paymentStatus === "paid";
-  const refundTitle = row.provider === "razorpay" ? "Refund via Razorpay" : "Record external refund";
+  const canRefund = isAdmin && row.paymentStatus === "paid" && row.provider !== "razorpay";
+  const refundTitle = "Record external refund";
   const canReopenManual = isAdmin && Boolean(row.manualConfirmation) && row.paymentStatus === "paid";
 
   return (

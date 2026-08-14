@@ -25,7 +25,7 @@ PAYMENTS_ENABLED=true
 4. PocketBase verifies the signature using the server-stored Order ID, then fetches canonical payment state from Razorpay.
 5. Only `captured` confirms the registration and mints a ticket.
 6. Signed webhooks are deduped into a small inbox and processed asynchronously from canonical Razorpay API state.
-7. Late captures never resurrect seats; a full refund is queued automatically.
+7. Late captures never resurrect seats; they are flagged for a manual refund in the Razorpay Dashboard.
 
 ## Financial data
 
@@ -33,7 +33,7 @@ PAYMENTS_ENABLED=true
 
 ## Refunds
 
-Razorpay refunds are provider-backed and idempotent. Event cancellation queues the remaining refundable amount automatically. Manual/legacy payments use an explicit external-refund recording path. Registration payment status becomes `refunded` only after provider reconciliation confirms the refund.
+IEEE never initiates Razorpay refunds. Event cancellation and late captures flag the payment for manual resolution; an admin refunds it in the Razorpay Dashboard, and webhook/reconciliation updates IEEE after Razorpay confirms it. Manual/legacy payments use the explicit external-refund recording path.
 
 ## Release gate
 

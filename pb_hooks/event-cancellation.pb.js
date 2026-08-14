@@ -29,7 +29,7 @@ routerAdd("POST", "/api/admin/events/{id}/cancel", function (e) {
   var reason = String(body.reason || "").trim()
   if (!reason) return e.json(400, { code: "REASON_REQUIRED", error: "A cancellation reason is required" })
 
-  var result = { alreadyCancelled: false, cancelled: 0, refundReview: 0, refundQueued: 0, manualRefundRequired: 0, releasedPending: 0 }
+  var result = { alreadyCancelled: false, cancelled: 0, refundReview: 0, manualRefundRequired: 0, releasedPending: 0 }
   try {
     $app.runInTransaction(function (txApp) {
       var currentEvent = txApp.findRecordById("events", eventId)
@@ -60,21 +60,24 @@ routerAdd("POST", "/api/admin/events/{id}/cancel", function (e) {
           result.releasedPending++
         } else if (payStatus === "paid") {
           var ledger = paymentState.findLedger(txApp, reg.id)
-          var canAutoRefund = ledger && ledger.getString("provider") === "razorpay" && ledger.getString("capturedPaymentId")
-          var remainingRefund = canAutoRefund ? Math.max(0, (ledger.getInt("collectedPaise") || 0) - (ledger.getInt("refundedPaise") || 0)) : 0
-          if (canAutoRefund && remainingRefund > 0) {
-            paymentState.ensureRefund(txApp, ledger, remainingRefund, "event_cancel", "Event cancelled by organizer: " + reason, auth.id)
-            data.manualReview = false
-            data.reviewReason = "Razorpay refund queued automatically after event cancellation"
-            result.refundQueued++
-          } else if (canAutoRefund && remainingRefund === 0) {
+          var collectedPaise = ledger ? Number(ledger.getInt("collectedPaise") || 0) : 0
+          var refundedPaise = ledger ? Number(ledger.getInt("refundedPaise") || 0) : 0
+          var fullyRefunded = ledger && collectedPaise > 0 && refundedPaise >= collectedPaise
+          if (fullyRefunded) {
             data.manualReview = false
             data.reviewReason = "Payment was already fully refunded"
           } else {
             data.manualReview = true
-            data.reviewReason = "Event cancelled; manual or legacy payment requires refund resolution"
+            data.reviewReason = ledger && ledger.getString("provider") === "razorpay"
+              ? "Event cancelled; refund manually in the Razorpay Dashboard. IEEE will reconcile after Razorpay confirms it."
+              : "Event cancelled; manual refund requires organizer resolution"
             result.manualRefundRequired++
             result.refundReview++
+            if (ledger) {
+              ledger.set("manualReview", true)
+              ledger.set("reviewReason", data.reviewReason)
+              txApp.saveNoValidate(ledger)
+            }
           }
           data.eventCancellation = { cancelledAt: now, cancelledBy: auth.id, reason: reason }
         }
