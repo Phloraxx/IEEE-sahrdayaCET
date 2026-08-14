@@ -554,33 +554,29 @@ routerAdd("POST", "/api/admin/registrations/{id}/command", function (e) {
           return
         }
         var refundPayment = paymentState.findLedger(txApp, reg.id)
+        if (refundPayment && refundPayment.getString("provider") === "razorpay") {
+          failure = {
+            status: 409,
+            code: "RAZORPAY_REFUND_MANUAL_ONLY",
+            error: "Refund this payment in the Razorpay Dashboard. IEEE will update automatically after Razorpay confirms the refund.",
+          }
+          return
+        }
         reg.set("registrationStatus", "cancelled")
-        if (refundPayment && refundPayment.getString("provider") === "razorpay" && refundPayment.getString("capturedPaymentId")) {
-          var refundablePaise = Math.max(0, (refundPayment.getInt("collectedPaise") || 0) - (refundPayment.getInt("refundedPaise") || 0))
-          if (refundablePaise > 0) {
-            paymentState.ensureRefund(txApp, refundPayment, refundablePaise, "admin", note, auth.id)
-            data.refund = { status: "queued", requestedAt: now, requestedBy: auth.id, note: note }
-          } else {
-            data.refund = { status: "already_refunded", recordedAt: now, recordedBy: auth.id, note: note }
-          }
-          data.manualReview = false
-          data.reviewResolution = { action: "refund-requested", resolvedAt: now, resolvedBy: auth.id, note: note }
-          reg.set("paymentData", data)
-        } else {
-          reg.set("paymentStatus", "refunded")
-          data.manualReview = false
-          data.refund = {
-            status: "recorded", recordedAt: now, recordedBy: auth.id,
-            reference: String(body.reference || "").trim(), note: note,
-          }
-          data.reviewResolution = { action: "refunded", resolvedAt: now, resolvedBy: auth.id, note: note }
-          reg.set("paymentData", data)
-          if (refundPayment && refundPayment.getString("provider") === "manual") {
-            refundPayment.set("status", "refunded")
-            refundPayment.set("refundedPaise", refundPayment.getInt("collectedPaise") || refundPayment.getInt("finalFeePaise") || 0)
-            refundPayment.set("manualReview", false)
-            txApp.saveNoValidate(refundPayment)
-          }
+        reg.set("paymentStatus", "refunded")
+        data.manualReview = false
+        data.refund = {
+          status: "recorded", recordedAt: now, recordedBy: auth.id,
+          reference: String(body.reference || "").trim(), note: note,
+        }
+        data.reviewResolution = { action: "refunded", resolvedAt: now, resolvedBy: auth.id, note: note }
+        reg.set("paymentData", data)
+        if (refundPayment) {
+          refundPayment.set("status", "refunded")
+          refundPayment.set("refundedPaise", refundPayment.getInt("collectedPaise") || refundPayment.getInt("finalFeePaise") || 0)
+          refundPayment.set("manualReview", false)
+          refundPayment.set("reviewReason", "")
+          txApp.saveNoValidate(refundPayment)
         }
       } else if (action === "reopen-manual-payment") {
         if (regStatus !== "confirmed" || payStatus !== "paid" || !data.manualConfirmation) {

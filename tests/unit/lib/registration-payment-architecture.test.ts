@@ -38,6 +38,18 @@ describe("registration/payment experience architecture", () => {
     expect(command).toContain("under organizer review");
   });
 
+  it("keeps Razorpay refunds manual-only", () => {
+    const direct = source("pb_hooks/razorpay-direct.pb.js");
+    const state = source("pb_hooks/razorpay-payment-state.js");
+    const cancellation = source("pb_hooks/event-cancellation.pb.js");
+    const admin = source("pb_hooks/admin-operations.pb.js");
+    expect(direct).not.toContain('cronAdd("razorpay-refund-worker"');
+    expect(direct).not.toContain('/refund",');
+    expect(state).not.toContain("ensureRefund");
+    expect(cancellation).toContain("refund manually in the Razorpay Dashboard");
+    expect(admin).toContain("RAZORPAY_REFUND_MANUAL_ONLY");
+  });
+
   it("uses an idempotent notification outbox for ticket and receipt delivery", () => {
     const migration = source(
       "pb_migrations/202608120001_registration_notifications.js",

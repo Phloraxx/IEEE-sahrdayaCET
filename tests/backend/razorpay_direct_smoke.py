@@ -112,21 +112,19 @@ req("POST","/api/crons/razorpay-webhook-inbox",token=super_token,expected=(204,)
 time.sleep(.2)
 inbox=filter_records("payment_webhook_events",f'eventId="evt_{suffix}_capture"')["items"][0]
 assert inbox["status"]=="processed" and inbox["attempts"]>=1
-# Cancelling an event with a captured Razorpay payment queues a real provider refund.
-cancel=req("POST",f"/api/admin/events/{event['id']}/cancel",{"reason":"CI refund smoke"},admin_token)
-assert cancel["refundQueued"]==1 and cancel["manualRefundRequired"]==0
+# Cancelling an event with a captured Razorpay payment never calls the provider refund API.
+# It keeps the captured payment visible and flags it for a manual Razorpay Dashboard refund.
+cancel=req("POST",f"/api/admin/events/{event['id']}/cancel",{"reason":"CI manual refund smoke"},admin_token)
+assert cancel["manualRefundRequired"]==1 and cancel["refundReview"]==1
 refunds=filter_records("payment_refunds",f'payment="{ledger[0]["id"]}"')["items"]
-assert len(refunds)==1 and refunds[0]["status"]=="queued" and refunds[0]["amountPaise"]==10000
-req("POST","/api/crons/razorpay-refund-worker",token=super_token,expected=(204,))
-time.sleep(.2)
-refund=get_record("payment_refunds",refunds[0]["id"])
-assert refund["status"]=="processed" and refund["providerRefundId"].startswith("rfnd_")
-refunded_reg=get_record("registrations",reg_id)
-assert refunded_reg["registrationStatus"]=="cancelled" and refunded_reg["paymentStatus"]=="refunded"
-refunded_ledger=get_record("payments",ledger[0]["id"])
-assert refunded_ledger["status"]=="refunded" and refunded_ledger["refundedPaise"]==10000
+assert len(refunds)==0
+cancelled_reg=get_record("registrations",reg_id)
+assert cancelled_reg["registrationStatus"]=="cancelled" and cancelled_reg["paymentStatus"]=="paid"
+cancelled_ledger=get_record("payments",ledger[0]["id"])
+assert cancelled_ledger["status"]=="captured" and cancelled_ledger["manualReview"] is True
+assert "Razorpay Dashboard" in cancelled_ledger["reviewReason"]
 
-# Late capture never resurrects a cancelled seat; it creates an automatic full refund job.
+# Late capture never resurrects a cancelled seat; it requires a manual provider refund.
 late_event=make_event("Razorpay Late Capture")
 late_reg=register(late_event,user2,user2_token); late_id=late_reg["registrationId"]
 late_session=req("POST",f"/api/app/registrations/{late_id}/payment",token=user2_token)
@@ -139,11 +137,11 @@ late_verified=req("POST",f"/api/app/registrations/{late_id}/payment/razorpay-ver
 assert late_verified["registrationStatus"]=="cancelled" and late_verified["paymentStatus"]=="paid" and not late_verified["ticketId"]
 late_ledger=filter_records("payments",f'registration="{late_id}"')["items"][0]
 late_refunds=filter_records("payment_refunds",f'payment="{late_ledger["id"]}"')["items"]
-assert len(late_refunds)==1 and late_refunds[0]["source"]=="late_capture"
-req("POST","/api/crons/razorpay-refund-worker",token=super_token,expected=(204,))
-time.sleep(.2)
+assert len(late_refunds)==0
+assert late_ledger["status"]=="captured" and late_ledger["manualReview"] is True
+assert "Razorpay Dashboard" in late_ledger["reviewReason"]
 late_final=get_record("registrations",late_id)
-assert late_final["registrationStatus"]=="cancelled" and late_final["paymentStatus"]=="refunded" and not late_final["ticketId"]
+assert late_final["registrationStatus"]=="cancelled" and late_final["paymentStatus"]=="paid" and not late_final["ticketId"]
 
 # Hold expiry releases a seat only after a successful provider reconciliation finds no capture.
 expiry_event=make_event("Razorpay Hold Expiry")
@@ -161,7 +159,7 @@ assert expired_payment["status"]=="cancelled"
 
 # Stress capture vs hold-expiry reconciliation. The provider capture and the
 # expiry cron start together; verification then converges any late capture.
-race_outcomes={"confirmed":0,"refund":0}
+race_outcomes={"confirmed":0,"manual_refund":0}
 for race_index in range(10):
     race_event=make_event(f"Razorpay Race {race_index}")
     race_reg=register(race_event,user2,user2_token); race_id=race_reg["registrationId"]
@@ -188,12 +186,14 @@ for race_index in range(10):
         race_outcomes["confirmed"]+=1
     else:
         assert final_reg["registrationStatus"]=="cancelled" and final_reg["paymentStatus"]=="paid" and not final_reg["ticketId"]
-        race_refunds=filter_records("payment_refunds",f'payment="{final_ledger["id"]}" && source="late_capture"')["items"]
-        assert len(race_refunds)==1 and race_refunds[0]["status"] in ("queued","submitted","processed")
-        race_outcomes["refund"]+=1
+        race_refunds=filter_records("payment_refunds",f'payment="{final_ledger["id"]}"')["items"]
+        assert len(race_refunds)==0
+        assert final_ledger["manualReview"] is True and "Razorpay Dashboard" in final_ledger["reviewReason"]
+        race_outcomes["manual_refund"]+=1
 
 print("direct Razorpay smoke ok", json.dumps({
     "normal_order":session["razorpayOrderId"],"normal_payment":captured["id"],
-    "refund":refund["providerRefundId"],"late_refund":late_refunds[0]["id"],
+    "manual_refund_required":cancel["manualRefundRequired"],
+    "late_manual_review":late_ledger["manualReview"],
     "expiry_order":expiry_session["razorpayOrderId"],"race":race_outcomes
 }))

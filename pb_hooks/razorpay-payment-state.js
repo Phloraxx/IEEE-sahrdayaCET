@@ -111,29 +111,6 @@ function ensureAttempt(app, payment, providerPayment) {
   return attempt
 }
 
-function refundKey(paymentId, amountPaise, source) {
-  return ("ieee_refund_" + paymentId + "_" + amountPaise + "_" + String(source || "system")).slice(0, 160)
-}
-function ensureRefund(app, payment, amountPaise, source, reason, requestedBy) {
-  var key = refundKey(payment.id, amountPaise, source)
-  var refund = null
-  try { refund = app.findFirstRecordByFilter("payment_refunds", "idempotencyKey = {:key}", { key: key }) } catch (_) {}
-  if (refund) return refund
-  var collection = app.findCollectionByNameOrId("payment_refunds")
-  refund = new Record(collection, {
-    payment: payment.id,
-    idempotencyKey: key,
-    amountPaise: amountPaise,
-    status: "queued",
-    reason: String(reason || "").slice(0, 4000),
-    source: source || "reconciliation",
-    requestedBy: requestedBy || "",
-    requestedAt: new Date().toISOString(),
-  })
-  app.saveNoValidate(refund)
-  return refund
-}
-
 function paymentStatusRank(status) {
   var ranks = { pending: 0, authorized: 1, captured: 2, partially_refunded: 3, refunded: 4 }
   return Object.prototype.hasOwnProperty.call(ranks, status) ? ranks[status] : 0
@@ -252,11 +229,10 @@ function applyProviderPayment(app, registrationId, rawPayment, expectedOrderId) 
       registration.set("registrationStatus", "cancelled")
       registration.set("paymentStatus", "paid")
       payment.set("manualReview", true)
-      payment.set("reviewReason", disposition.reason)
-      ensureRefund(txApp, payment, providerPayment.amountPaise, "late_capture", disposition.reason, "")
+      payment.set("reviewReason", disposition.reason + "; refund manually in the Razorpay Dashboard")
       txApp.saveNoValidate(payment)
       saveCompatibility(registration, payment, helpers, txApp)
-      result = { ok: true, action: "captured_refund_queued", notify: false, paymentId: payment.id }
+      result = { ok: true, action: "captured_manual_refund_required", notify: false, paymentId: payment.id }
       return
     }
     registration.set("registrationStatus", "confirmed")
@@ -295,36 +271,6 @@ function releaseExpiredPayment(app, paymentId, nowIso) {
   return result
 }
 
-function applyRefundResponse(app, refundId, rawRefund) {
-  var helpers = require(__hooks + "/razorpay-direct-helpers.js")
-  var result = { ok: false, status: 500, error: "Could not apply Razorpay refund" }
-  app.runInTransaction(function(txApp) {
-    var refund = txApp.findRecordById("payment_refunds", refundId)
-    var payment = txApp.findRecordById("payments", refund.getString("payment"))
-    var validated = helpers.validateRefund(rawRefund, payment, refund)
-    if (!validated.ok) { result = { ok: false, status: 502, error: validated.error }; return }
-    var providerRefund = validated.refund
-    refund.set("providerRefundId", providerRefund.id)
-    refund.set("failureReason", "")
-    if (providerRefund.status === "processed") {
-      refund.set("status", "processed")
-      refund.set("processedAt", new Date().toISOString())
-    } else if (providerRefund.status === "failed") {
-      refund.set("status", "failed")
-      refund.set("failedAt", new Date().toISOString())
-      refund.set("failureReason", "Razorpay reported that the refund failed")
-      payment.set("manualReview", true)
-      payment.set("reviewReason", "Razorpay refund failed and requires manual resolution")
-      txApp.saveNoValidate(payment)
-    } else {
-      refund.set("status", "submitted")
-    }
-    txApp.saveNoValidate(refund)
-    result = { ok: true, status: 200, providerStatus: providerRefund.status, paymentId: payment.id, capturedPaymentId: payment.getString("capturedPaymentId") }
-  })
-  return result
-}
-
 function markDispute(app, paymentId, eventType) {
   var attempt = null
   try { attempt = app.findFirstRecordByFilter("payment_attempts", "providerPaymentId = {:id}", { id: paymentId }) } catch (_) {}
@@ -348,13 +294,10 @@ function moduleExports() {
     registrationFees: registrationFees,
     finalizeOrderCreation: finalizeOrderCreation,
     ensureAttempt: ensureAttempt,
-    ensureRefund: ensureRefund,
-    refundKey: refundKey,
     applyProviderPayment: applyProviderPayment,
     findLedger: findLedger,
     findLedgerByOrder: findLedgerByOrder,
     markDispute: markDispute,
-    applyRefundResponse: applyRefundResponse,
     releaseExpiredPayment: releaseExpiredPayment,
   }
 }
