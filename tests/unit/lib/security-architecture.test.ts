@@ -34,6 +34,12 @@ describe("security architecture invariants", () => {
     expect(read("docs/razorpay-direct.md")).toContain("Signed webhooks");
   });
 
+  it("allows Razorpay Custom Checkout preference JSONP through CSP", () => {
+    const root = read("src/root.tsx");
+    expect(root).toContain("https://checkout.razorpay.com");
+    expect(root).toContain("script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://checkout.razorpay.com https://api.razorpay.com");
+  });
+
   it("keeps deployment environments explicitly isolated", () => {
     const compose = read("docker-compose.yml");
     const server = read("src/lib/pb.server.ts");
