@@ -15,16 +15,21 @@ describe("registration/payment experience architecture", () => {
     expect(register).not.toContain('toast.success("Registration successful!")');
   });
 
-  it("uses Razorpay Standard Checkout without the retired direct-UPI flow", () => {
+  it("uses an IEEE-branded Razorpay Custom Checkout that exposes UPI only", () => {
     const payment = source("src/features/payment/PaymentPage.tsx");
-    expect(payment).toContain("Pay securely with Razorpay");
-    expect(payment).toContain("server-side");
-    expect(payment).toContain("razorpayOrderId");
-    expect(payment).toContain("razorpayKeyId");
-    expect(payment).not.toMatch(/fingerprint/i);
-    expect(payment).not.toContain("Save QR as PNG");
-    expect(payment).not.toContain("Open UPI app");
-    expect(payment).not.toContain("@/lib/upi");
+    const custom = source("src/lib/razorpay-upi.client.ts");
+    expect(payment).toContain("IEEE Sahrdaya Secure UPI");
+    expect(payment).toContain("Show UPI QR");
+    expect(payment).toContain("startUpiIntent");
+    expect(payment).toContain('method: "upi"');
+    expect(payment).toContain('flow: "qr"');
+    expect(payment).toContain("Processed securely by Razorpay");
+    expect(payment).not.toContain("Pay securely with Razorpay");
+    expect(payment).not.toContain("card or another method");
+    expect(custom).toContain("https://checkout.razorpay.com/v1/razorpay.js");
+    expect(custom).toContain("methods.upi === true");
+    expect(custom).toContain("getSupportedUpiIntentApps");
+    expect(custom).not.toContain("checkout.js");
   });
 
   it("blocks a second registration when a paid cancelled record is under manual review", () => {

@@ -24,6 +24,7 @@ export interface RegistrationPaymentSession {
   reviewReason: string;
   providerReachable: boolean;
   attendeeEmail: string;
+  attendeePhone: string;
   event: {
     id: string;
     title: string;
@@ -63,6 +64,7 @@ function normalizePaymentSession(value: unknown): RegistrationPaymentSession {
     reviewReason: String(raw.reviewReason || ""),
     providerReachable: raw.providerReachable !== false,
     attendeeEmail: String(raw.attendeeEmail || ""),
+    attendeePhone: String(raw.attendeePhone || ""),
     event: raw.event && typeof raw.event === "object" && !Array.isArray(raw.event)
       ? {
           id: String((raw.event as Record<string, unknown>).id || ""),

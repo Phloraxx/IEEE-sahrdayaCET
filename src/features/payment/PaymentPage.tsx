@@ -1,13 +1,16 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   Check,
   CheckCircle2,
   Clock3,
-  CreditCard,
   Loader2,
   LockKeyhole,
+  QrCode,
+  RefreshCw,
+  ShieldCheck,
+  Smartphone,
   TriangleAlert,
   XCircle,
 } from "lucide-react";
@@ -21,40 +24,17 @@ import {
   verifyRazorpayPayment,
 } from "@/lib/data/payment.client";
 import { formatDate } from "@/lib/dates";
+import {
+  createRazorpayCustom,
+  listSupportedUpiApps,
+  loadRazorpayCustomCheckout,
+  readUpiCapability,
+  type RazorpayCustomError,
+  type RazorpayCustomInstance,
+} from "@/lib/razorpay-upi.client";
 
 interface PageProps {
   registrationId: string;
-}
-
-interface RazorpayCheckoutInstance {
-  open(): void;
-  on(event: "payment.failed", handler: () => void): void;
-}
-
-declare global {
-  interface Window {
-    Razorpay?: new (options: Record<string, unknown>) => RazorpayCheckoutInstance;
-  }
-}
-
-function loadRazorpayCheckout(): Promise<void> {
-  if (window.Razorpay) return Promise.resolve();
-  return new Promise((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>(
-      'script[src="https://checkout.razorpay.com/v1/checkout.js"]',
-    );
-    if (existing) {
-      existing.addEventListener("load", () => resolve(), { once: true });
-      existing.addEventListener("error", () => reject(new Error("Razorpay Checkout could not load")), { once: true });
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Razorpay Checkout could not load"));
-    document.head.appendChild(script);
-  });
 }
 
 function paymentErrorMessage(error: unknown): string {
@@ -76,6 +56,40 @@ function paymentErrorMessage(error: unknown): string {
 function formatCountdown(seconds: number): string {
   const safe = Math.max(0, Math.floor(seconds));
   return `${String(Math.floor(safe / 60)).padStart(2, "0")}:${String(safe % 60).padStart(2, "0")}`;
+}
+
+const UPI_APP_LABELS: Record<string, string> = {
+  gpay: "Google Pay",
+  phonepe: "PhonePe",
+  paytm: "Paytm",
+  bhim: "BHIM",
+  amazon: "Amazon Pay",
+  cred: "CRED",
+  mobikwik: "MobiKwik",
+  super_money: "super.money",
+  any: "Other UPI apps",
+};
+const PREFERRED_UPI_APPS = ["gpay", "phonepe", "paytm", "bhim", "any"];
+
+function normalizeIndianContact(value: string): string {
+  const digits = value.replace(/\D/g, "");
+  if (digits.length === 10) return `+91${digits}`;
+  if (digits.length === 12 && digits.startsWith("91")) return `+${digits}`;
+  return value.trim();
+}
+
+function upiErrorMessage(response: RazorpayCustomError, mobile: boolean): string {
+  const detail = response.error;
+  const description = detail?.description || "UPI payment could not be started.";
+  if (/UPI transactions are not enabled for the merchant/i.test(description)) {
+    return "UPI activation is still pending on the Razorpay merchant account. No other payment method is enabled here.";
+  }
+  if (detail?.reason === "intent_no_apps_error") {
+    return mobile
+      ? "No supported UPI app was available on this device. Try another UPI app or retry after installing one."
+      : "IEEE-branded UPI QR is not enabled on this Razorpay account yet. Razorpay must enable Custom Checkout UPI QR (non-redirect flow).";
+  }
+  return description;
 }
 
 function PaymentProgress({ complete = false }: { complete?: boolean }) {
@@ -204,7 +218,18 @@ export default function PaymentPage({ registrationId }: PageProps) {
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [upiStatus, setUpiStatus] = useState<"checking" | "enabled" | "disabled" | "error">("checking");
+  const [upiApps, setUpiApps] = useState<string[]>([]);
+  const [isMobileUpi, setIsMobileUpi] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState("");
+  const [qrExpiresAt, setQrExpiresAt] = useState(0);
+  const [upiCheckNonce, setUpiCheckNonce] = useState(0);
+  const razorpayRef = useRef<RazorpayCustomInstance | null>(null);
   const reduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    setIsMobileUpi(/Android|iPhone|iPad|iPod/i.test(window.navigator.userAgent));
+  }, []);
 
   const startPayment = useCallback(async () => {
     if (!registrationId || authStatus !== "authenticated") return;
@@ -308,49 +333,149 @@ export default function PaymentPage({ registrationId }: PageProps) {
     session?.manualReview ||
     (session?.registrationStatus === "cancelled" &&
       session?.paymentStatus === "paid");
+  const qrSecondsLeft = qrExpiresAt > 0 ? Math.max(0, Math.ceil((qrExpiresAt - now) / 1000)) : 0;
+  const shownUpiApps = PREFERRED_UPI_APPS.filter((app) => upiApps.includes(app));
 
-  const openRazorpayCheckout = useCallback(async () => {
-    if (
-      !session ||
-      session.provider !== "razorpay" ||
-      !session.razorpayKeyId ||
-      !session.razorpayOrderId
-    ) return;
+  useEffect(() => {
+    const keyId = session?.razorpayKeyId || "";
+    const orderId = session?.razorpayOrderId || "";
+    if (!keyId || !orderId || session?.provider !== "razorpay" || session.registrationStatus !== "pending") {
+      razorpayRef.current = null;
+      return;
+    }
+
+    let disposed = false;
+    setUpiStatus("checking");
+    setUpiApps([]);
+    setQrDataUrl("");
+    setQrExpiresAt(0);
+
+    void (async () => {
+      try {
+        await loadRazorpayCustomCheckout();
+        if (disposed) return;
+        const razorpay = createRazorpayCustom(keyId);
+        razorpayRef.current = razorpay;
+        razorpay.on("payment.success", (response) => {
+          const checkout: RazorpayCheckoutResponse = {
+            razorpay_order_id: String(response.razorpay_order_id || ""),
+            razorpay_payment_id: String(response.razorpay_payment_id || ""),
+            razorpay_signature: String(response.razorpay_signature || ""),
+          };
+          if (!checkout.razorpay_order_id || !checkout.razorpay_payment_id || !checkout.razorpay_signature) {
+            setCheckoutLoading(false);
+            setError("Razorpay returned an incomplete UPI confirmation. We are checking the payment automatically.");
+            void refreshPayment();
+            return;
+          }
+          setCheckoutLoading(true);
+          void verifyRazorpayPayment(registrationId, checkout)
+            .then((next) => { setSession(next); setError(null); })
+            .catch((verifyError) => {
+              setError(`${paymentErrorMessage(verifyError)} We are still checking Razorpay automatically.`);
+              void refreshPayment();
+            })
+            .finally(() => setCheckoutLoading(false));
+        });
+        razorpay.on("payment.error", (response) => {
+          if (disposed) return;
+          setCheckoutLoading(false);
+          setError(upiErrorMessage(response, isMobileUpi));
+        });
+
+        const capability = await readUpiCapability(razorpay);
+        if (disposed) return;
+        if (!capability.enabled) {
+          setUpiStatus("disabled");
+          return;
+        }
+        setUpiStatus("enabled");
+        if (isMobileUpi) {
+          const apps = await listSupportedUpiApps(razorpay);
+          if (!disposed) setUpiApps(apps);
+        }
+      } catch (upiError) {
+        if (disposed) return;
+        razorpayRef.current = null;
+        setUpiStatus("error");
+        setError(paymentErrorMessage(upiError));
+      }
+    })();
+
+    return () => {
+      disposed = true;
+      razorpayRef.current = null;
+    };
+  }, [
+    isMobileUpi,
+    refreshPayment,
+    registrationId,
+    session?.provider,
+    session?.razorpayKeyId,
+    session?.razorpayOrderId,
+    session?.registrationStatus,
+    upiCheckNonce,
+  ]);
+
+  const upiPaymentData = useCallback(() => {
+    if (!session) return null;
+    return {
+      amount: session.requestedAmountPaise,
+      currency: "INR",
+      email: session.attendeeEmail,
+      contact: normalizeIndianContact(session.attendeePhone),
+      order_id: session.razorpayOrderId,
+      method: "upi",
+    };
+  }, [session]);
+
+  const startUpiIntent = useCallback((app: string) => {
+    const razorpay = razorpayRef.current;
+    const data = upiPaymentData();
+    if (!razorpay || !data || upiStatus !== "enabled") return;
     setCheckoutLoading(true);
     setError(null);
     try {
-      await loadRazorpayCheckout();
-      if (!window.Razorpay) throw new Error("Razorpay Checkout is unavailable");
-      const checkout = new window.Razorpay({
-        key: session.razorpayKeyId,
-        order_id: session.razorpayOrderId,
-        amount: session.requestedAmountPaise,
-        currency: "INR",
-        name: "IEEE Sahrdaya",
-        description: session.event?.title || "Event registration",
-        prefill: { email: session.attendeeEmail },
-        theme: { color: "#00629B" },
-        modal: { ondismiss: () => setCheckoutLoading(false) },
-        handler: async (response: RazorpayCheckoutResponse) => {
-          try {
-            setSession(await verifyRazorpayPayment(registrationId, response));
-          } catch (verifyError) {
-            setError(paymentErrorMessage(verifyError));
-          } finally {
-            setCheckoutLoading(false);
-          }
-        },
-      });
-      checkout.on("payment.failed", () => {
-        setCheckoutLoading(false);
-        setError("Razorpay reported that the payment failed. You can try again safely.");
-      });
-      checkout.open();
-    } catch (checkoutError) {
+      razorpay.createPayment(data, { app });
+    } catch (intentError) {
       setCheckoutLoading(false);
-      setError(paymentErrorMessage(checkoutError));
+      setError(paymentErrorMessage(intentError));
     }
-  }, [registrationId, session]);
+  }, [upiPaymentData, upiStatus]);
+
+  const showUpiQr = useCallback(() => {
+    const razorpay = razorpayRef.current;
+    const data = upiPaymentData();
+    if (!razorpay || !data || upiStatus !== "enabled") return;
+    setCheckoutLoading(true);
+    setError(null);
+    setQrDataUrl("");
+    setQrExpiresAt(0);
+    try {
+      const payment = razorpay.createPayment(data, { app: "any", flow: "qr" });
+      payment.on("upi.qr", (payload) => {
+        if (!payload.qr_url || payload.status !== "created") {
+          setCheckoutLoading(false);
+          setError("Razorpay could not create a UPI QR. Please retry.");
+          return;
+        }
+        void import("qrcode")
+          .then((QRCode) => QRCode.toDataURL(payload.qr_url!, { width: 320, margin: 2, errorCorrectionLevel: "M" }))
+          .then((dataUrl) => {
+            setQrDataUrl(dataUrl);
+            setQrExpiresAt(Number(payload.expires_on || 0) * 1000);
+            setCheckoutLoading(false);
+          })
+          .catch(() => {
+            setCheckoutLoading(false);
+            setError("The UPI QR was created but could not be displayed. Please retry.");
+          });
+      });
+    } catch (qrError) {
+      setCheckoutLoading(false);
+      setError(paymentErrorMessage(qrError));
+    }
+  }, [upiPaymentData, upiStatus]);
 
   if (authStatus === "loading" || loading) {
     return (
@@ -502,48 +627,112 @@ export default function PaymentPage({ registrationId }: PageProps) {
           >
             <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-ieee-blue via-sky-400 to-ieee-blue" />
             <PaymentProgress />
-            <div className="mx-auto mt-9 flex h-16 w-16 items-center justify-center rounded-2xl bg-ieee-blue/10 text-ieee-blue">
-              <CreditCard className="h-8 w-8" />
+            <div className="mx-auto mt-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-ieee-blue/10 text-ieee-blue">
+              {isMobileUpi ? <Smartphone className="h-8 w-8" /> : <QrCode className="h-8 w-8" />}
             </div>
-            <p className="mt-7 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-              Secure Razorpay Checkout
+            <p className="mt-6 text-[10px] font-black uppercase tracking-[0.2em] text-ieee-blue">
+              IEEE Sahrdaya Secure UPI
             </p>
             <p className="mt-2 text-5xl font-black tracking-[-0.055em] text-slate-950 sm:text-6xl">
               ₹{payable || "—"}
             </p>
-            <p className="mx-auto mt-4 max-w-sm text-sm leading-6 text-slate-500">
-              Pay by UPI, card or another method enabled on the IEEE Sahrdaya
-              Razorpay account. Your ticket is issued only after server-side
-              capture verification.
+            <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-slate-500">
+              UPI only. Your seat is confirmed only after Razorpay reports the payment as captured.
             </p>
-            <button
-              type="button"
-              onClick={() => void openRazorpayCheckout()}
-              disabled={checkoutLoading || !session.razorpayKeyId || !session.razorpayOrderId}
-              className="mx-auto mt-8 inline-flex w-full max-w-sm items-center justify-center gap-2 rounded-2xl bg-ieee-blue px-5 py-4 text-sm font-black text-white shadow-lg shadow-sky-100 transition hover:-translate-y-0.5 hover:bg-[#004f7c] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {checkoutLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <LockKeyhole className="h-4 w-4" />}
-              {checkoutLoading ? "Opening Razorpay…" : "Pay securely with Razorpay"}
-            </button>
+
             <div className="mx-auto mt-7 w-full max-w-sm">
+              {upiStatus === "checking" && (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                  <Loader2 className="mx-auto h-6 w-6 animate-spin text-ieee-blue" />
+                  <p className="mt-3 text-sm font-bold text-slate-700">Checking UPI availability…</p>
+                </div>
+              )}
+
+              {upiStatus === "disabled" && (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-left">
+                  <div className="flex gap-3">
+                    <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                    <div>
+                      <p className="text-sm font-black text-amber-950">UPI activation pending</p>
+                      <p className="mt-1 text-xs leading-5 text-amber-800">Razorpay has not enabled UPI transactions for this merchant key yet. Cards, Pay Later and netbanking are intentionally not offered.</p>
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => setUpiCheckNonce((value) => value + 1)} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-xs font-black text-amber-900 shadow-sm ring-1 ring-amber-200">
+                    <RefreshCw className="h-4 w-4" /> Check again
+                  </button>
+                </div>
+              )}
+
+              {upiStatus === "error" && (
+                <button type="button" onClick={() => setUpiCheckNonce((value) => value + 1)} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-black text-slate-800">
+                  <RefreshCw className="h-4 w-4" /> Retry UPI connection
+                </button>
+              )}
+
+              {upiStatus === "enabled" && isMobileUpi && (
+                <div className="space-y-2">
+                  <p className="mb-3 text-xs font-bold text-slate-500">Choose your UPI app</p>
+                  {(shownUpiApps.length ? shownUpiApps : ["any"]).map((app) => (
+                    <button
+                      key={app}
+                      type="button"
+                      onClick={() => startUpiIntent(app)}
+                      disabled={checkoutLoading}
+                      className="inline-flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-black text-slate-900 shadow-sm transition hover:border-ieee-blue/30 hover:bg-sky-50 disabled:opacity-50"
+                    >
+                      <span className="inline-flex items-center gap-3"><Smartphone className="h-4 w-4 text-ieee-blue" /> {UPI_APP_LABELS[app] || app}</span>
+                      <span className="text-ieee-blue">Open</span>
+                    </button>
+                  ))}
+                  {checkoutLoading && <p className="pt-2 text-xs font-semibold text-slate-500">Complete the payment in your UPI app, then return here.</p>}
+                </div>
+              )}
+
+              {upiStatus === "enabled" && !isMobileUpi && !qrDataUrl && (
+                <button
+                  type="button"
+                  onClick={showUpiQr}
+                  disabled={checkoutLoading}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-ieee-blue px-5 py-4 text-sm font-black text-white shadow-lg shadow-sky-100 transition hover:-translate-y-0.5 hover:bg-[#004f7c] disabled:opacity-50"
+                >
+                  {checkoutLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCode className="h-4 w-4" />}
+                  {checkoutLoading ? "Creating secure QR…" : "Show UPI QR"}
+                </button>
+              )}
+
+              {upiStatus === "enabled" && !isMobileUpi && qrDataUrl && (
+                <div className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm">
+                  <img src={qrDataUrl} alt="UPI payment QR code" className="mx-auto aspect-square w-full max-w-[280px] rounded-xl" />
+                  <p className="mt-3 text-sm font-black text-slate-900">Scan with any UPI app</p>
+                  <p className="mt-1 text-xs text-slate-500">The amount and Razorpay Order are already embedded in this one-time QR.</p>
+                  {qrExpiresAt > 0 && (
+                    <p className={`mt-3 font-mono text-xs font-bold ${qrSecondsLeft > 0 ? "text-ieee-blue" : "text-rose-600"}`}>
+                      {qrSecondsLeft > 0 ? `QR expires in ${formatCountdown(qrSecondsLeft)}` : "QR expired"}
+                    </p>
+                  )}
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <button type="button" onClick={() => void refreshPayment()} className="rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-black text-slate-800">Check payment</button>
+                    <button type="button" onClick={showUpiQr} disabled={checkoutLoading} className="rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-black text-slate-800 disabled:opacity-50">New QR</button>
+                  </div>
+                </div>
+              )}
+
+              {error && (
+                <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-800" role="alert">{error}</p>
+              )}
+            </div>
+
+            <div className="mx-auto mt-7 w-full max-w-sm border-t border-slate-100 pt-5">
               <div className="flex items-center justify-between gap-4 text-xs">
                 <span className="font-bold text-slate-500">Seat held for</span>
-                <span className="font-mono text-base font-black text-slate-900">
-                  {formatCountdown(secondsLeft)}
-                </span>
+                <span className="font-mono text-base font-black text-slate-900">{formatCountdown(secondsLeft)}</span>
               </div>
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                <motion.div
-                  className="h-full rounded-full bg-ieee-blue"
-                  animate={{ width: `${remainingPercent}%` }}
-                  transition={{ duration: reduceMotion ? 0 : 0.35 }}
-                />
+                <motion.div className="h-full rounded-full bg-ieee-blue" animate={{ width: `${remainingPercent}%` }} transition={{ duration: reduceMotion ? 0 : 0.35 }} />
               </div>
-              {error && (
-                <p className="mt-4 text-xs leading-5 text-amber-700" role="alert">
-                  {error}
-                </p>
-              )}
+              <p className="mt-4 inline-flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                <ShieldCheck className="h-3.5 w-3.5" /> Processed securely by Razorpay
+              </p>
             </div>
           </motion.section>
         </div>
