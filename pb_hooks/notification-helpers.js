@@ -52,16 +52,18 @@ function formatDate(value) {
 
 function formatEventParts(value) {
   var d = new Date(String(value || ""))
-  if (isNaN(d.getTime())) return { date: "TBA", time: "TBA" }
+  if (isNaN(d.getTime())) return { date: "TBA", time: "TBA", year: String(new Date().getFullYear()) }
   var ist = new Date(d.getTime() + (5 * 60 + 30) * 60 * 1000)
-  var monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+  var weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+  var months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
   var hours = ist.getUTCHours()
   var minutes = String(ist.getUTCMinutes()).padStart(2, "0")
-  var ampm = hours >= 12 ? "PM" : "AM"
+  var ampm = hours >= 12 ? "pm" : "am"
   hours = hours % 12 || 12
   return {
-    date: String(ist.getUTCDate()).padStart(2, "0") + " " + monthNames[ist.getUTCMonth()] + " " + ist.getUTCFullYear(),
-    time: hours + ":" + minutes + " " + ampm + " IST",
+    date: weekdays[ist.getUTCDay()] + ", " + ist.getUTCDate() + " " + months[ist.getUTCMonth()] + " " + ist.getUTCFullYear(),
+    time: String(hours).padStart(2, "0") + ":" + minutes + " " + ampm,
+    year: String(ist.getUTCFullYear()),
   }
 }
 
@@ -83,9 +85,12 @@ function sender() {
 function ticketEmail(registration, event) {
   var rawName = registration.getString("userName") || "Student"
   var rawTitle = event ? event.getString("title") : "IEEE Sahrdaya event"
+  var firstNameRaw = String(rawName).trim().split(/\s+/)[0] || "Student"
+  var firstName = htmlEscape(firstNameRaw)
   var name = htmlEscape(rawName)
   var title = htmlEscape(rawTitle)
-  var venue = htmlEscape(event ? event.getString("venue") : "") || "TBA"
+  var venueRaw = event ? event.getString("venue") || "TBA" : "TBA"
+  var venue = htmlEscape(venueRaw)
   var parts = formatEventParts(event ? event.getString("date") : "")
   var ticketIdRaw = registration.getString("ticketId") || ""
   var ticketId = htmlEscape(ticketIdRaw)
@@ -94,56 +99,74 @@ function ticketEmail(registration, event) {
   var feePaise = 0
   try { feePaise = require(__hooks + "/registration-helpers.js").registrationFinalFeePaise(registration) } catch (_) { feePaise = 0 }
   var isPaid = isFinite(feePaise) && feePaise > 0
-  var entryValue = isPaid ? "₹" + paidAmount(registration) + " · PAID" : "FREE ENTRY"
-  var eventYear = parts.date === "TBA" ? new Date().getFullYear() : parts.date.slice(-4)
+  var entryLabel = isPaid ? "PAID · ₹" + paidAmount(registration) : "FREE ENTRY"
+  var entryBg = isPaid ? "#eff6ff" : "#f0fdf4"
+  var entryBorder = isPaid ? "#bfdbfe" : "#bbf7d0"
+  var entryColor = isPaid ? "#1d4ed8" : "#166534"
 
-  var html = '<!doctype html><html><body style="margin:0;padding:0;background:#f4f2ed;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111315">' +
-    '<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">Your place at ' + title + ' is confirmed. Your event pass is inside.</div>' +
-    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:#f4f2ed"><tr><td align="center" style="padding:34px 16px 42px">' +
-    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px">' +
-    '<tr><td style="padding:0 0 28px;font-size:10px;line-height:1.4;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:#00629B">IEEE Sahrdaya Student Branch</td></tr>' +
-    '<tr><td style="padding:0 0 34px;border-bottom:1px solid #d8d5cf">' +
-    '<div style="font-size:42px;line-height:.98;font-weight:800;letter-spacing:-.055em;color:#111315">You&#39;re in.</div>' +
-    '<div style="margin-top:14px;max-width:520px;font-size:15px;line-height:1.7;color:#686866">Hi ' + name + ', your place at <strong style="color:#111315">' + title + '</strong> is confirmed. This email is your event pass.</div>' +
+  var html = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
+    '<body style="margin:0;padding:0;background-color:#f3f3f1;font-family:Arial,Helvetica,sans-serif;color:#171717">' +
+    '<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">Registration confirmed for ' + title + '. Your event pass and check-in QR are inside.</div>' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;background-color:#f3f3f1"><tr><td align="center" style="padding:32px 14px 38px">' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:420px">' +
+    '<tr><td align="center" style="padding:0 0 22px"><span style="font-size:10px;line-height:1.4;letter-spacing:2.2px;text-transform:uppercase;color:#52525b;font-weight:700">IEEE SAHRDAYA STUDENT BRANCH</span></td></tr>' +
+    '<tr><td style="padding:0 2px 22px"><p style="margin:0 0 7px;font-size:11px;letter-spacing:1.4px;text-transform:uppercase;color:#16803c;font-weight:700">Registration confirmed</p>' +
+    '<h1 style="margin:0;font-size:27px;line-height:1.12;letter-spacing:-.6px;color:#171717">You&#39;re on the list, ' + firstName + '.</h1>' +
+    '<p style="margin:10px 0 0;font-size:14px;line-height:1.6;color:#606060">Keep this pass handy. The QR below is what you&#39;ll show at check-in.</p></td></tr>' +
+
+    '<tr><td>' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border:1px solid #d4d4d1;border-radius:18px">' +
+    '<tr><td style="padding:5px 5px 11px;background-color:#e4e4e1;border-radius:18px">' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-radius:14px;overflow:hidden;background:#ffffff">' +
+
+    '<tr><td style="background-color:#171717;padding:24px 22px 26px">' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>' +
+    '<td style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#7dd3fc;font-weight:700">Event pass</td>' +
+    '<td align="right" style="font-size:9px;letter-spacing:1.3px;text-transform:uppercase;color:#86efac;font-weight:700">● Valid</td>' +
+    '</tr></table>' +
+    '<h2 style="margin:20px 0 0;font-size:21px;line-height:1.25;letter-spacing:-.25px;color:#ffffff;font-weight:700">' + title + '</h2>' +
+    '<p style="margin:12px 0 0;font-size:9px;letter-spacing:1.2px;text-transform:uppercase;color:#8f8f96">IEEE SAHRDAYA SB · ' + htmlEscape(parts.year) + '</p>' +
     '</td></tr>' +
-    '<tr><td style="padding-top:30px">' +
-    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:collapse">' +
-    '<tr><td style="background:#111315;padding:30px 30px 26px;color:#fff">' +
-    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>' +
-    '<td style="font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:#7dd3fc">Event pass</td>' +
-    '<td align="right" style="font-size:10px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#a7f3d0">Confirmed</td>' +
+
+    '<tr><td style="background-color:#ffffff;padding:0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>' +
+    '<td width="17" style="width:17px;height:30px;background-color:#e4e4e1;border-top-right-radius:15px;border-bottom-right-radius:15px;font-size:0;line-height:0">&nbsp;</td>' +
+    '<td style="height:30px;vertical-align:middle;background:#fff"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-top:1px dashed #c9c9c5;height:0;font-size:0;line-height:0">&nbsp;</td></tr></table></td>' +
+    '<td width="17" style="width:17px;height:30px;background-color:#e4e4e1;border-top-left-radius:15px;border-bottom-left-radius:15px;font-size:0;line-height:0">&nbsp;</td>' +
+    '</tr></table></td></tr>' +
+
+    '<tr><td style="background:#ffffff;padding:17px 22px 22px">' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>' +
+    '<td width="52%" valign="top" style="padding:0 12px 17px 0"><p style="margin:0 0 4px;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#a1a1aa;font-weight:700">Date</p><p style="margin:0;font-size:13px;line-height:1.35;color:#18181b;font-weight:700">' + htmlEscape(parts.date) + '</p></td>' +
+    '<td width="48%" valign="top" style="padding:0 0 17px"><p style="margin:0 0 4px;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#a1a1aa;font-weight:700">Time</p><p style="margin:0;font-size:13px;color:#18181b;font-weight:700">' + htmlEscape(parts.time) + '</p></td>' +
+    '</tr><tr><td colspan="2" style="padding:0 0 19px"><p style="margin:0 0 4px;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#a1a1aa;font-weight:700">Venue</p><p style="margin:0;font-size:13px;line-height:1.45;color:#18181b;font-weight:700">' + venue + '</p></td></tr></table>' +
+
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-top:1px solid #ececea;border-bottom:1px solid #ececea"><tr>' +
+    '<td valign="middle" style="padding:14px 0"><p style="margin:0 0 3px;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#a1a1aa;font-weight:700">Attendee</p><p style="margin:0;font-size:15px;color:#18181b;font-weight:700">' + name + '</p></td>' +
+    '<td align="right" valign="middle" style="padding:14px 0"><span style="display:inline-block;background:' + entryBg + ';border:1px solid ' + entryBorder + ';padding:5px 9px;border-radius:999px;font-size:9px;line-height:1.2;color:' + entryColor + ';font-weight:700;text-transform:uppercase;white-space:nowrap">' + htmlEscape(entryLabel) + '</span></td>' +
     '</tr></table>' +
-    '<div style="padding:32px 0 30px;font-size:34px;line-height:1.02;font-weight:800;letter-spacing:-.045em;color:#fff">' + title + '</div>' +
-    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-top:1px solid #343638;padding-top:20px"><tr>' +
-    '<td width="50%" valign="top" style="padding-top:20px;padding-right:12px"><div style="font-size:9px;font-weight:800;letter-spacing:.17em;text-transform:uppercase;color:#81858a">Date</div><div style="margin-top:8px;font-size:14px;font-weight:700;color:#fff">' + htmlEscape(parts.date) + '</div></td>' +
-    '<td width="50%" valign="top" style="padding-top:20px"><div style="font-size:9px;font-weight:800;letter-spacing:.17em;text-transform:uppercase;color:#81858a">Time</div><div style="margin-top:8px;font-size:14px;font-weight:700;color:#fff">' + htmlEscape(parts.time) + '</div></td>' +
-    '</tr><tr><td colspan="2" valign="top" style="padding-top:22px"><div style="font-size:9px;font-weight:800;letter-spacing:.17em;text-transform:uppercase;color:#81858a">Venue</div><div style="margin-top:8px;font-size:14px;font-weight:700;line-height:1.5;color:#fff">' + venue + '</div></td></tr></table>' +
-    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:30px;border-top:1px solid #343638"><tr>' +
-    '<td valign="top" style="padding-top:22px"><div style="font-size:9px;font-weight:800;letter-spacing:.17em;text-transform:uppercase;color:#81858a">Attendee</div><div style="margin-top:7px;font-size:17px;font-weight:750;color:#fff">' + name + '</div></td>' +
-    '<td valign="top" align="right" style="padding-top:22px"><div style="font-size:9px;font-weight:800;letter-spacing:.17em;text-transform:uppercase;color:#81858a">Entry</div><div style="margin-top:7px;font-size:13px;font-weight:800;color:#7dd3fc">' + htmlEscape(entryValue) + '</div></td>' +
-    '</tr></table>' +
-    '</td></tr>' +
-    '<tr><td style="background:#fff;padding:0 30px 30px">' +
-    '<div style="border-top:2px dashed #d8d5cf;height:24px;margin:0 -12px 2px"></div>' +
-    '<div style="font-size:9px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#00629B">Check-in code</div>' +
-    '<div style="margin-top:10px;font-size:23px;line-height:1.2;font-weight:800;letter-spacing:-.03em;color:#111315">Show this at check-in.</div>' +
-    '<div style="margin-top:9px;font-size:12px;line-height:1.6;color:#777773">Keep this pass on your phone and do not share the QR code.</div>' +
-    '<div style="text-align:center;margin:24px 0 4px"><img src="' + htmlEscape(qrHref) + '" width="210" height="210" alt="Ticket QR code" style="display:inline-block;width:210px;height:210px;border:1px solid #e6e3de;background:#fff;padding:8px"></div>' +
-    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:24px;border-top:1px solid #e6e3de"><tr>' +
-    '<td style="padding-top:18px"><div style="font-size:9px;font-weight:800;letter-spacing:.17em;text-transform:uppercase;color:#9a9893">Pass ID</div><div style="margin-top:7px;font-family:SFMono-Regular,Consolas,Liberation Mono,monospace;font-size:12px;font-weight:700;color:#111315">' + ticketId + '</div></td>' +
-    '<td align="right" style="padding-top:18px;font-size:10px;font-weight:800;letter-spacing:.17em;text-transform:uppercase;color:#9a9893">IEEE Sahrdaya · ' + htmlEscape(eventYear) + '</td>' +
-    '</tr></table>' +
+
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-top:22px"><tr><td align="center">' +
+    '<p style="margin:0 0 12px;font-size:9px;text-transform:uppercase;letter-spacing:1.4px;color:#00629b;font-weight:700">Scan at check-in</p>' +
+    '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border:1px solid #dededb;border-radius:12px"><tr><td style="padding:11px"><img src="' + htmlEscape(qrHref) + '" alt="Ticket QR code" width="156" height="156" style="display:block;width:156px;height:156px;border:0"></td></tr></table>' +
+    '<p style="margin:13px 0 4px;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#a1a1aa;font-weight:700">Pass ID</p>' +
+    '<p style="margin:0;font-size:11px;line-height:1.4;font-family:SFMono-Regular,Consolas,Liberation Mono,monospace;color:#3f3f46;font-weight:700;letter-spacing:.5px">' + ticketId + '</p>' +
+    '</td></tr></table>' +
+
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-top:22px;border-top:1px solid #ececea"><tr><td align="center" style="padding-top:16px">' +
+    '<a href="' + htmlEscape(ticketHref) + '" style="display:inline-block;font-size:13px;line-height:1.3;color:#00629b;font-weight:700;text-decoration:none">Open your e-ticket&nbsp;&nbsp;→</a>' +
     '</td></tr></table>' +
     '</td></tr>' +
-    '<tr><td align="center" style="padding:28px 0 0"><a href="' + htmlEscape(ticketHref) + '" style="display:inline-block;background:#00629B;color:#fff;text-decoration:none;font-size:14px;font-weight:800;padding:14px 24px">View your ticket&nbsp;&nbsp;→</a></td></tr>' +
-    '<tr><td style="padding:28px 0 0;border-bottom:1px solid #d8d5cf"><div style="padding:0 0 26px;font-size:12px;line-height:1.7;color:#777773">Please arrive a little early for a smooth check-in. Your pass is tied to your registration and should not be shared.</div></td></tr>' +
-    '<tr><td style="padding-top:24px;font-size:11px;line-height:1.7;color:#97958f"><strong style="color:#111315">IEEE Sahrdaya Student Branch</strong><br>Advancing Technology for Humanity<br>Sahrdaya College of Engineering &amp; Technology, Kodakara</td></tr>' +
+    '</table></td></tr></table>' +
+    '</td></tr>' +
+
+    '<tr><td style="padding-top:18px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;background:#eef6fa;border-left:3px solid #00629b"><tr><td style="padding:13px 15px;font-size:12px;line-height:1.55;color:#52525b">Arrive a little early for smooth check-in. This pass is personal, so please don&#39;t forward or share the QR code.</td></tr></table></td></tr>' +
+    '<tr><td align="center" style="padding-top:24px"><p style="margin:0 0 3px;font-size:12px;color:#27272a;font-weight:700">IEEE Sahrdaya Student Branch</p><p style="margin:0;font-size:10px;color:#a1a1aa">Advancing Technology for Humanity</p></td></tr>' +
     '</table></td></tr></table></body></html>'
 
   return {
-    subject: "You're in · " + rawTitle,
+    subject: "Your Ticket for " + rawTitle,
     html: html,
-    text: "You're in.\n\nHi " + rawName + ", your place at " + rawTitle + " is confirmed.\n\nDate: " + parts.date + "\nTime: " + parts.time + "\nVenue: " + (event ? event.getString("venue") || "TBA" : "TBA") + "\nEntry: " + entryValue + "\nPass ID: " + ticketIdRaw + "\n\nView your ticket: " + ticketHref + "\n\nShow the QR code in your ticket at check-in. Do not share your pass.",
+    text: "IEEE SAHRDAYA STUDENT BRANCH\n\nRegistration confirmed\nYou're on the list, " + firstNameRaw + ".\n\nEvent: " + rawTitle + "\nDate: " + parts.date + "\nTime: " + parts.time + "\nVenue: " + venueRaw + "\nAttendee: " + rawName + "\nEntry: " + entryLabel + "\nPass ID: " + ticketIdRaw + "\n\nOpen your e-ticket: " + ticketHref + "\n\nArrive a little early for smooth check-in. This pass is personal, so please don't forward or share the QR code.\n\nIEEE Sahrdaya Student Branch\nAdvancing Technology for Humanity",
   }
 }
 
