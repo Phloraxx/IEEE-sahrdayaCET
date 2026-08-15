@@ -45,7 +45,7 @@ describe("event programme UI", () => {
     expect(detailRoute).toContain('type="application/ld+json"');
   });
 
-  it("uses a live poster preview, typographic rows, and a compact dark opener", () => {
+  it("uses a desktop preview, poster-free programme rows, and a compact dark opener", () => {
     const list = read("src/components/events/EventListSection.tsx");
     const card = read("src/components/events/AnnotatedEventCard.tsx");
     const hero = read("src/components/events/EventHeroSection.tsx");
@@ -55,7 +55,8 @@ describe("event programme UI", () => {
     expect(list).toContain("Programme preview");
     expect(list).toContain("AnimatePresence");
     expect(card).toContain("onActivate");
-    expect(card).toContain("sm:hidden");
+    expect(card).not.toContain("resolveEventArtwork");
+    expect(card).not.toContain("EventBannerFallback");
     expect(card).not.toContain("font-handwriting");
     expect(hero).toContain("event-programme-hero");
     expect(hero).toContain("What&apos;s on");

@@ -2,8 +2,6 @@ import { motion, useReducedMotion } from "framer-motion";
 import { ArrowUpRight, MapPin } from "lucide-react";
 import { Link } from "react-router";
 import type { ExtendedEvent } from "@/types";
-import { resolveEventArtwork } from "@/lib/event-artwork";
-import { EventBannerFallback } from "./EventBannerFallback";
 
 interface EventCardProps {
   event: ExtendedEvent;
@@ -31,10 +29,8 @@ export function AnnotatedEventCard({
   animateEntrance = true,
 }: EventCardProps) {
   const reduceMotion = useReducedMotion();
-  const artwork = resolveEventArtwork(event);
   const date = new Date(event.date);
   const societyName = typeof event.society === "object" ? event.society.name : "IEEE Sahrdaya";
-  const societySlug = typeof event.society === "object" ? event.society.slug : undefined;
   const status = eventStatus(event);
   return (
     <motion.article
@@ -55,18 +51,6 @@ export function AnnotatedEventCard({
         }}
         className={`group block transition-colors duration-300 ${active ? "text-[#111315] sm:bg-[#111315] sm:text-white" : "text-[#111315] hover:bg-black/[0.035]"}`}
       >
-        <div className="relative aspect-[16/9] overflow-hidden sm:hidden">
-          {artwork ? (
-            <img
-              src={artwork.src}
-              alt={event.title}
-              loading="lazy"
-              className={`h-full w-full ${artwork.fit === "contain" ? "object-contain p-6" : "object-cover"}`}
-            />
-          ) : (
-            <EventBannerFallback title={event.title} societyName={societyName} societySlug={societySlug} showTitle={false} />
-          )}
-        </div>
         <div className="grid gap-5 px-4 py-6 sm:grid-cols-[78px_minmax(0,1fr)_170px_auto] sm:items-center sm:px-5 sm:py-7 lg:grid-cols-[92px_minmax(0,1fr)_220px_auto] lg:px-6 lg:py-8">
           <div className="flex items-baseline gap-2 sm:block">
             <div className={`text-[10px] font-bold uppercase tracking-[0.18em] ${active ? "text-black/38 sm:text-white/42" : "text-black/38"}`}>
