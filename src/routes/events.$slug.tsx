@@ -15,6 +15,7 @@ import {
   XCircle,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import { EventArtworkPreview } from "@/components/events/EventArtworkPreview";
 import { useAuth } from "@/lib/auth-context";
 import { getMyEventRegistration } from "@/lib/data/public-client";
 import { downloadRegistrationReceipt } from "@/lib/data/receipt.client";
@@ -292,9 +293,11 @@ export default function EventDetailPage() {
 
         {eventArtwork && (
           <motion.div {...revealUp(reduceMotion, 12)} className="border-b border-black/12 py-8 md:py-12">
-            <div className="max-h-[680px] overflow-hidden bg-black/5">
-              <img src={eventArtwork.src} alt={`${event.title} event artwork`} className={`mx-auto max-h-[680px] w-full ${eventArtwork.fit === "contain" ? "object-contain p-6" : "object-cover"}`} />
-            </div>
+            <EventArtworkPreview
+              src={eventArtwork.src}
+              alt={`${event.title} event artwork`}
+              mode="bounded"
+            />
           </motion.div>
         )}
 

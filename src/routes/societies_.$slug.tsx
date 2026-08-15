@@ -28,6 +28,7 @@ import { fetchSocietyData, type SocietyPageData } from "@/server/public/society-
 import { APP_URL } from "@/lib/constants";
 import { blogHtmlToPlainText } from "@/lib/blog-content";
 import { CanonicalLink } from "@/components/CanonicalLink";
+import { EventArtworkPreview } from "@/components/events/EventArtworkPreview";
 
 
 // Fetch dynamic society data
@@ -532,10 +533,10 @@ export default function SocietyPage() {
                   {/* Event banner */}
                   <div className="relative aspect-video bg-gray-50 overflow-hidden rounded-t-xl">
                     {event.bannerUrl ? (
-                      <img
+                      <EventArtworkPreview
                         src={event.bannerUrl}
-                        alt={event.title}
-                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        alt={`${event.title} event artwork`}
+                        className="transition-transform duration-500 group-hover:scale-[1.02]"
                       />
                     ) : (
                       <div className="w-full h-full bg-gray-100 flex items-center justify-center">

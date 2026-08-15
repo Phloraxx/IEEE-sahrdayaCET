@@ -44,6 +44,8 @@ describe("event programme UI", () => {
     expect(detailRoute).toContain('type="application/ld+json"');
     expect(detailRoute).toContain("Reserve your place");
     expect(detailRoute).toContain('eventArtwork &&');
+    expect(detailRoute).toContain("EventArtworkPreview");
+    expect(detailRoute).toContain('mode="bounded"');
   });
 
   it("uses a desktop preview, poster-free programme rows, and a compact dark opener", () => {
