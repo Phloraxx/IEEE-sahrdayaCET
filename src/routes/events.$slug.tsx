@@ -317,7 +317,7 @@ export default function EventDetailPage() {
                   <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#00629B]">Your registration</p>
                   <h2 className="mt-3 text-4xl font-semibold tracking-[-0.055em]">Almost there.</h2>
                   <p className="mt-3 text-sm leading-6 text-black/50">Your details are saved. Payment is the only step left.</p>
-                  <Link to={`/payment/${myRegistration.registrationId}`} className="group mt-7 flex w-full items-center justify-between border-y border-[#00629B] py-4 font-bold text-[#00629B]">
+                  <Link to={`/payment/${myRegistration.registrationId}`} className="group mt-7 hidden w-full items-center justify-between border-y border-[#00629B] py-4 font-bold text-[#00629B] lg:flex">
                     Continue payment <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </Link>
                 </>
@@ -326,7 +326,7 @@ export default function EventDetailPage() {
                   <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-emerald-700">Your registration</p>
                   <div className="mt-5 flex items-center gap-2 text-sm font-bold text-emerald-700"><CheckCircle2 className="h-5 w-5" /> You&apos;re registered</div>
                   <h2 className="mt-4 text-4xl font-semibold tracking-[-0.055em]">Your place is confirmed.</h2>
-                  <Link to={`/ticket/${myRegistration.ticketId}`} className="group mt-7 flex w-full items-center justify-between border-y border-[#00629B] py-4 font-bold text-[#00629B]">
+                  <Link to={`/ticket/${myRegistration.ticketId}`} className="group mt-7 hidden w-full items-center justify-between border-y border-[#00629B] py-4 font-bold text-[#00629B] lg:flex">
                     View ticket <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </Link>
                   {myRegistration.receiptAvailable && <button type="button" onClick={downloadReceipt} className="mt-4 inline-flex items-center gap-2 text-xs font-bold text-black/50 hover:text-[#00629B]"><ReceiptText className="h-4 w-4" /> Payment receipt</button>}
@@ -354,9 +354,9 @@ export default function EventDetailPage() {
                 </div>
                 {registrationAvailable ? (
                   event.externalFormUrl ? (
-                    <a href={registerUrl} target="_blank" rel="noopener noreferrer" className="group mt-7 flex w-full items-center justify-between border-y border-[#00629B] py-4 font-bold text-[#00629B]">Register externally <ExternalLink className="h-4 w-4" /></a>
+                    <a href={registerUrl} target="_blank" rel="noopener noreferrer" className="group mt-7 hidden w-full items-center justify-between border-y border-[#00629B] py-4 font-bold text-[#00629B] lg:flex">Register externally <ExternalLink className="h-4 w-4" /></a>
                   ) : (
-                    <Link to={registerUrl} className="group mt-7 flex w-full items-center justify-between border-y border-[#00629B] py-4 text-lg font-bold text-[#00629B]">Reserve your place <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" /></Link>
+                    <Link to={registerUrl} className="group mt-7 hidden w-full items-center justify-between border-y border-[#00629B] py-4 text-lg font-bold text-[#00629B] lg:flex">Reserve your place <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" /></Link>
                   )
                 ) : <div className="mt-7 border-y border-black/12 py-4 text-sm font-bold text-black/40">Registration closed</div>}
                 <p className="mt-5 text-xs leading-5 text-black/40">{event.price > 0 ? "Your place is confirmed only after payment is captured." : "Free registration creates your ticket immediately."}</p>
