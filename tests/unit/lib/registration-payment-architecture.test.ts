@@ -189,4 +189,33 @@ describe("registration/payment experience architecture", () => {
     expect(ticket).toContain("Saved</>");
   });
 
+  it("routes temporary Kotak payments per event without changing Razorpay defaults", () => {
+    const migration = source("pb_migrations/202608150001_temporary_kotak_paygate_provider.js");
+    const selection = source("pb_hooks/payment-provider-selection.js");
+    const registration = source("pb_hooks/registration-create.pb.js");
+    const direct = source("pb_hooks/razorpay-direct.pb.js");
+    const paygate = source("pb_hooks/paygate-helpers.js");
+    const webhook = source("pb_hooks/paygate.pb.js");
+    const eventForm = source("src/features/admin/events/event-form.tsx");
+    const payment = source("src/features/payment/PaymentPage.tsx");
+    const admin = source("pb_hooks/admin-operations.pb.js");
+
+    expect(migration).toContain('values: ["razorpay", "kotak"]');
+    expect(migration).toContain('row.set("paymentProvider", "razorpay")');
+    expect(selection).toContain('var KOTAK = "kotak"');
+    expect(selection).toContain('provider: selected === KOTAK ? "paygate" : "razorpay"');
+    expect(registration).toContain("providerSelection.eventProvider(event)");
+    expect(registration).toContain("finalFeePaise % 100 !== 0");
+    expect(direct).toContain("providerData.provider === paygate.PAYGATE_PROVIDER");
+    expect(paygate).toContain('source: "ieee-sahrdaya-kotak-temporary"');
+    expect(paygate).toContain("Date.now() - lastSyncedAt < 4000");
+    expect(webhook).toContain('X-PayGate-Signature');
+    expect(webhook).toContain('payment.paid');
+    expect(eventForm).toContain("Kotak direct UPI · temporary");
+    expect(payment).toContain("Temporary · Kotak direct UPI");
+    expect(payment).toContain("Open in UPI app");
+    expect(payment).toContain("Pay this exact amount");
+    expect(admin).toContain("PAYGATE_PAYMENT_EXISTS");
+  });
+
 });

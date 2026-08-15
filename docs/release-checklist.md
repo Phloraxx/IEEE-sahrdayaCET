@@ -75,6 +75,16 @@ Verify at least one disposable registration flow:
 
 For paid events, verify the enabled production payment integration and webhook secret before cutover. Never copy a production payment secret into staging merely to make a test pass.
 
+For the temporary Kotak/PayGate fallback, verify it only on events that explicitly select `Kotak direct UPI · temporary`:
+
+- `PAYGATE_URL`, `PAYGATE_API_KEY`, and `PAYGATE_WEBHOOK_SECRET` belong to the intended environment;
+- PayGate's outgoing webhook targets `/api/webhooks/paygate` on the same IEEE environment;
+- the PayGate UPI destination is the intended Kotak account and bank-message verification is healthy;
+- the event's final payable amount after any coupon is a whole rupee before PayGate adds its unique 1–99 paise verification suffix;
+- a real low-value test confirms exact-amount UPI → Kotak credit → signed webhook/reconciliation → ticket/email;
+- event cancellation or a released seat followed by a late bank credit produces manual review and never resurrects a ticket;
+- once Razorpay UPI Intent is available, switch new registrations back to `Razorpay · default`; existing registrations remain locked to the provider they started with.
+
 For Razorpay specifically, verify before accepting real registrations:
 
 - payment capture is configured for automatic capture, so successful UPI payments do not remain `authorized`;
@@ -117,6 +127,9 @@ RAZORPAY_KEY_SECRET
 RAZORPAY_WEBHOOK_SECRET
 RAZORPAY_CHECKOUT_HOLD_SECONDS
 PAYMENTS_ENABLED
+PAYGATE_URL                 # only while temporary Kotak fallback is enabled
+PAYGATE_API_KEY             # only while temporary Kotak fallback is enabled
+PAYGATE_WEBHOOK_SECRET      # only while temporary Kotak fallback is enabled
 FOOTBALL_DATA_API_TOKEN
 SMTP_HOST
 SMTP_PORT

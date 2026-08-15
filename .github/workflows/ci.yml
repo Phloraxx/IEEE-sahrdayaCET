@@ -73,6 +73,10 @@ jobs:
             -e RAZORPAY_WEBHOOK_SECRET='test_webhook_ieee_2026' \
             -e RAZORPAY_CHECKOUT_HOLD_SECONDS='600' \
             -e PAYMENTS_ENABLED='true' \
+            -e PAYGATE_URL='http://host.docker.internal:18081' \
+            -e PAYGATE_API_KEY='CI-PayGate-Api-Key-2026!!!!' \
+            -e PAYGATE_WEBHOOK_SECRET='CI-PayGate-Webhook-2026!!!!' \
+            -e PAYGATE_REGISTRATION_GRACE_SECONDS='600' \
             ieee-pocketbase-ci
           for i in {1..60}; do
             curl -fsS http://127.0.0.1:8090/api/health >/dev/null && exit 0
@@ -99,6 +103,15 @@ jobs:
           RAZORPAY_KEY_SECRET: test_secret_ieee_2026
           RAZORPAY_WEBHOOK_SECRET: test_webhook_ieee_2026
         run: python3 tests/backend/razorpay_direct_smoke.py
+      - name: Exercise temporary Kotak PayGate integration
+        env:
+          PB_BASE_URL: http://127.0.0.1:8090
+          PB_SUPERUSER_EMAIL: ci-super@example.test
+          PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
+          PAYGATE_API_KEY: CI-PayGate-Api-Key-2026!!!!
+          PAYGATE_WEBHOOK_SECRET: CI-PayGate-Webhook-2026!!!!
+          PAYGATE_FAKE_PORT: "18081"
+        run: python3 tests/backend/paygate_smoke.py
       - name: Build web app for browser E2E
         env:
           DEPLOY_ENV: production

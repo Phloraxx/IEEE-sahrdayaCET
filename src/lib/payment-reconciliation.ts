@@ -16,7 +16,7 @@ export function providerReconcileDelayMs(
   const boundedRandom = Math.max(0, Math.min(1, randomValue));
 
   // Positive jitter keeps simultaneous checkout sessions from reconciling with
-  // Razorpay on the same cadence while never retrying earlier than the base delay.
+  // Provider fallbacks share the same cadence while never retrying earlier than the base delay.
   return Math.round(base * (1 + boundedRandom * 0.2));
 }
 

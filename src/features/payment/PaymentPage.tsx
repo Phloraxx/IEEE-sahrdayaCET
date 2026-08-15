@@ -440,6 +440,28 @@ export default function PaymentPage({ registrationId }: PageProps) {
   );
 
   useEffect(() => {
+    if (session?.provider !== "paygate" || !session.upiUri) return;
+    let disposed = false;
+    setQrDataUrl("");
+    setQrExpiresAt(session.expiresAt ? Date.parse(session.expiresAt) : 0);
+    void import("qrcode")
+      .then((QRCode) =>
+        QRCode.toDataURL(session.upiUri, {
+          width: 320,
+          margin: 2,
+          errorCorrectionLevel: "M",
+        }),
+      )
+      .then((dataUrl) => {
+        if (!disposed) setQrDataUrl(dataUrl);
+      })
+      .catch(() => {
+        if (!disposed) setError("The Kotak UPI payment is ready but its QR could not be displayed. Open it in a UPI app or retry.");
+      });
+    return () => { disposed = true; };
+  }, [session?.expiresAt, session?.provider, session?.upiUri]);
+
+  useEffect(() => {
     const keyId = session?.razorpayKeyId || "";
     const orderId = session?.razorpayOrderId || "";
     if (
@@ -749,6 +771,139 @@ export default function PaymentPage({ registrationId }: PageProps) {
               automatically in case a payment already made is being confirmed.
             </p>
           </section>
+        </div>
+      </PaymentShell>
+    );
+  }
+
+  if (session.provider === "paygate") {
+    return (
+      <PaymentShell>
+        <div className="grid w-full items-stretch gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(400px,500px)] lg:gap-7">
+          <EventVisual session={session} reduceMotion={Boolean(reduceMotion)} />
+          <motion.section
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="relative flex flex-col justify-center overflow-hidden border-y border-black/12 py-8 text-center sm:py-10"
+          >
+            <div className="absolute inset-x-0 top-0 h-px bg-[#00629B]" />
+            <PaymentProgress />
+
+            <div className="mx-auto mt-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-ieee-blue/10 text-ieee-blue">
+              {isMobileUpi ? <Smartphone className="h-8 w-8" /> : <QrCode className="h-8 w-8" />}
+            </div>
+            <p className="mt-6 text-[10px] font-black uppercase tracking-[0.2em] text-ieee-blue">
+              Temporary · Kotak direct UPI
+            </p>
+            <motion.p
+              initial={reduceMotion ? false : { opacity: 0, scale: 0.96, y: 6 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: reduceMotion ? 0 : MOTION_DURATION.reveal, ease: MOTION_EASE, delay: reduceMotion ? 0 : 0.08 }}
+              className="mt-2 text-5xl font-black tracking-[-0.055em] text-slate-950 sm:text-6xl"
+            >
+              ₹{payable || "—"}
+            </motion.p>
+            <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-slate-500">
+              Pay this exact amount. The paise suffix is unique to your registration and lets IEEE verify the Kotak bank credit automatically.
+            </p>
+
+            <div className="mx-auto mt-5 flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-bold text-slate-600">
+              <motion.span
+                className={`h-2 w-2 rounded-full ${providerCheckDelayed ? "bg-amber-400" : "bg-emerald-500"}`}
+                animate={reduceMotion ? undefined : { opacity: [0.45, 1, 0.45] }}
+                transition={{ duration: reconciling ? 0.8 : 1.8, repeat: Infinity }}
+              />
+              {reconciling
+                ? "Checking Kotak confirmation…"
+                : providerCheckDelayed
+                  ? "Bank check delayed — retry queued"
+                  : "Bank credit is verified automatically"}
+            </div>
+
+            <div className="mx-auto mt-7 w-full max-w-sm">
+              {qrDataUrl ? (
+                <motion.div
+                  initial={reduceMotion ? undefined : { opacity: 0, scale: 0.97, y: 8 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm"
+                >
+                  <div className="relative mx-auto w-fit rounded-2xl ring-1 ring-slate-100">
+                    <img
+                      src={qrDataUrl}
+                      alt="Kotak UPI payment QR code"
+                      className="mx-auto aspect-square w-full max-w-[270px] rounded-xl"
+                    />
+                    <motion.div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute -inset-1 rounded-2xl border-2 border-ieee-blue/15"
+                      animate={reduceMotion ? undefined : { opacity: [0.25, 0.7, 0.25], scale: [1, 1.015, 1] }}
+                      transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+                    />
+                  </div>
+                  <p className="mt-3 text-sm font-black text-slate-900">Scan with any UPI app</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    Do not edit the amount in your UPI app. It must remain exactly ₹{payable || "—"}.
+                  </p>
+                </motion.div>
+              ) : (
+                <div className="rounded-2xl border border-slate-200 bg-white p-6">
+                  <Loader2 className="mx-auto h-6 w-6 animate-spin text-ieee-blue" />
+                  <p className="mt-3 text-xs font-bold text-slate-500">Preparing your UPI QR…</p>
+                </div>
+              )}
+
+              {isMobileUpi && session.upiUri && (
+                <motion.a
+                  href={session.upiUri}
+                  whileTap={reduceMotion ? undefined : { scale: 0.985 }}
+                  className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-ieee-blue px-5 py-4 text-sm font-black text-white shadow-lg shadow-sky-100"
+                >
+                  <Smartphone className="h-4 w-4" /> Open in UPI app
+                </motion.a>
+              )}
+
+              <button
+                type="button"
+                onClick={() => void reconcilePayment(true)}
+                disabled={reconciling}
+                className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-black text-slate-800 disabled:opacity-50"
+              >
+                {reconciling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                Check payment
+              </button>
+
+              <AnimatePresence initial={false}>
+                {error && (
+                  <motion.p
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    className="mt-4 rounded-xl bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-800"
+                    role="alert"
+                  >
+                    {error}
+                  </motion.p>
+                )}
+              </AnimatePresence>
+            </div>
+
+            <div className="mx-auto mt-7 w-full max-w-sm border-t border-slate-100 pt-5">
+              <div className="flex items-center justify-between gap-4 text-xs">
+                <span className="font-bold text-slate-500">Pay before</span>
+                <span className="font-mono text-base font-black text-slate-900">{formatCountdown(secondsLeft)}</span>
+              </div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                <motion.div
+                  className="h-full rounded-full bg-ieee-blue"
+                  animate={{ width: `${remainingPercent}%` }}
+                  transition={{ duration: reduceMotion ? 0 : 0.35 }}
+                />
+              </div>
+              <p className="mt-4 inline-flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                <ShieldCheck className="h-3.5 w-3.5" /> Verified from Kotak bank credit
+              </p>
+            </div>
+          </motion.section>
         </div>
       </PaymentShell>
     );

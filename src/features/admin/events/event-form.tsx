@@ -39,6 +39,7 @@ interface EventFormState {
   endDate: string;
   venue: string;
   price: string;
+  paymentProvider: "razorpay" | "kotak";
   maxCapacity: string;
   status: string;
   society: string;
@@ -62,6 +63,7 @@ const EMPTY_STATE: EventFormState = {
   endDate: "",
   venue: "",
   price: "0",
+  paymentProvider: "razorpay",
   maxCapacity: "",
   status: "draft",
   society: "",
@@ -137,6 +139,7 @@ export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
         endDate: toAppDateTimeLocal(e.endDate as string | undefined),
         venue: String(e.venue ?? ""),
         price: String(e.price ?? "0"),
+        paymentProvider: String(e.paymentProvider ?? "razorpay") === "kotak" ? "kotak" : "razorpay",
         maxCapacity:
           e.maxCapacity != null && Number(e.maxCapacity) > 0
             ? String(e.maxCapacity)
@@ -231,6 +234,7 @@ export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
         description: form.description,
         venue: form.venue.trim(),
         price: Number(form.price) || 0,
+        paymentProvider: form.paymentProvider,
         baseFeePaise: Math.max(0, Math.round((Number(form.price) || 0) * 100)),
         status: form.status,
         society: form.society,
@@ -533,6 +537,27 @@ export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
                       <Label htmlFor="evt-price">Price (₹)</Label>
                       <Input id="evt-price" type="number" min="0" step="0.01" value={form.price} onChange={update("price")} />
                     </div>
+                    {Number(form.price) > 0 && (
+                      <div className="grid gap-1.5">
+                        <Label htmlFor="evt-payment-provider">Payment provider</Label>
+                        <Select
+                          value={form.paymentProvider}
+                          onValueChange={(value: "razorpay" | "kotak") => {
+                            setDirty(true);
+                            setForm((prev) => ({ ...prev, paymentProvider: value }));
+                          }}
+                        >
+                          <SelectTrigger id="evt-payment-provider"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="razorpay">Razorpay · default</SelectItem>
+                            <SelectItem value="kotak">Kotak direct UPI · temporary</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs leading-5 text-muted-foreground">
+                          Kotak uses PayGate bank-SMS verification while Razorpay UPI Intent is pending. It requires a whole-rupee final amount and can be switched back later without changing existing payment sessions.
+                        </p>
+                      </div>
+                    )}
                     <div className="grid gap-1.5">
                       <Label htmlFor="evt-capacity">Max Capacity</Label>
                       <Input id="evt-capacity" type="number" min="1" value={form.maxCapacity} onChange={update("maxCapacity")} placeholder="Unlimited" />

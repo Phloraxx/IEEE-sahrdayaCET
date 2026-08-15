@@ -16,6 +16,9 @@ export interface RegistrationPaymentSession {
   createdAt: string;
   expiresAt: string;
   paidAt: string;
+  upiUri: string;
+  eventPaymentProvider: string;
+  paymentAccount: string;
   razorpayOrderId: string;
   razorpayPaymentId: string;
   razorpayKeyId: string;
@@ -57,6 +60,9 @@ function normalizePaymentSession(value: unknown): RegistrationPaymentSession {
     createdAt: String(raw.createdAt || ""),
     expiresAt: String(raw.expiresAt || ""),
     paidAt: String(raw.paidAt || ""),
+    upiUri: String(raw.upiUri || ""),
+    eventPaymentProvider: String(raw.eventPaymentProvider || ""),
+    paymentAccount: String(raw.paymentAccount || ""),
     razorpayOrderId: String(raw.razorpayOrderId || ""),
     razorpayPaymentId: String(raw.razorpayPaymentId || ""),
     razorpayKeyId: String(raw.razorpayKeyId || ""),

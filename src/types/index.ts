@@ -54,6 +54,7 @@ interface Event {
     endDate?: string;
     venue?: string;
     price: number;
+    paymentProvider?: "razorpay" | "kotak";
     bannerUrl?: string;
     banner?: string | null;
     /** Society relation. When expanded, an object; otherwise the society ID string. */

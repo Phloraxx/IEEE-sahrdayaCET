@@ -102,7 +102,7 @@ function ProviderPill({ provider }: { provider: string }) {
   const labels: Record<string, string> = {
     razorpay: "Razorpay",
     legacy_paygate: "Legacy PayGate",
-    paygate: "Legacy PayGate",
+    paygate: "Kotak via PayGate",
     manual: "Manual",
     not_required: "No payment",
     unknown: "Legacy",
@@ -475,7 +475,9 @@ export default function AdminEventOperationsRoute() {
               <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge status={event.status} kind="event" />
                 <span className="rounded-full border border-border bg-background/60 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  {event.price > 0 ? `${money(event.price)} · Razorpay` : "Free event"}
+                  {event.price > 0
+                    ? `${money(event.price)} · ${event.paymentProvider === "kotak" ? "Kotak direct UPI" : "Razorpay"}`
+                    : "Free event"}
                 </span>
                 <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${event.registrationOpen ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>
                   Registration {event.registrationOpen ? "open" : "closed"}
@@ -679,7 +681,7 @@ export default function AdminEventOperationsRoute() {
         <div className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <OpsMetric label="Collected" value={money(summary.paidAmount)} detail={`${summary.paidCount} paid records`} icon={Banknote} />
-            <OpsMetric label="Provider confirmed" value={money(summary.providerPaidAmount)} detail={`${summary.providerPaidCount} Razorpay/provider`} icon={CheckCircle2} />
+            <OpsMetric label="Provider confirmed" value={money(summary.providerPaidAmount)} detail={`${summary.providerPaidCount} online/provider`} icon={CheckCircle2} />
             <OpsMetric label="Manual confirmed" value={money(summary.manualPaidAmount)} detail={`${summary.manualPaidCount} admin overrides`} icon={BadgeCheck} />
             <OpsMetric label="Pending" value={money(summary.pendingPaymentAmount)} detail={`${summary.pendingPaymentCount} awaiting payment`} icon={History} />
           </div>

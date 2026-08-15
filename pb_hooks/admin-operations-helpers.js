@@ -34,6 +34,7 @@ function providerKind(registration) {
   var data = jsonObject(registration.get("paymentData"))
   if (data.manualConfirmation || data.provider === "manual") return "manual"
   if (data.provider === "razorpay" || data.provider === "razorpay_live") return "razorpay"
+  if (data.provider === "paygate" && (data.eventPaymentProvider === "kotak" || data.paymentAccount === "kotak")) return "paygate"
   if (data.provider === "paygate" || data.provider === "legacy_paygate") return "legacy_paygate"
   if (registration.getString("paymentStatus") === "not_required") return "not_required"
   return "unknown"
@@ -125,6 +126,7 @@ function eventPayload(event) {
     venue: event.getString("venue") || "",
     status: event.getString("status") || "",
     price: require(__hooks + "/registration-helpers.js").eventPrice(event),
+    paymentProvider: event.getString("paymentProvider") || "razorpay",
     registrationOpen: event.getBool("registrationOpen"),
     registrationMode: event.getString("registrationMode") || "",
     collectIeeeMember: event.getBool("collectIeeeMember"),

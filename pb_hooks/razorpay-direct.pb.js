@@ -10,6 +10,16 @@ routerAdd("POST", "/api/app/registrations/{id}/payment", function (e) {
   catch (_) { return e.json(404, { code: "REGISTRATION_NOT_FOUND", error: "Registration not found" }) }
   if (!helpers.mayAccessRegistration(e.auth, registration)) return e.json(403, { code: "FORBIDDEN", error: "You cannot access this registration" })
 
+  var paygate = require(__hooks + "/paygate-helpers.js")
+  var providerData = paygate.asObject(registration.get("paymentData"))
+  if (providerData.provider === paygate.PAYGATE_PROVIDER) {
+    var paygateCreate = paygate.createPaymentForRegistration(registration)
+    return e.json(paygateCreate.status, paygateCreate.body)
+  }
+  if (providerData.provider && providerData.provider !== helpers.PROVIDER) {
+    return e.json(409, { code: "PAYMENT_PROVIDER_CONFLICT", error: "This registration uses a different payment provider" })
+  }
+
   var ledger = helpers.findLedgerPayment($app, id)
   if (registration.getString("paymentStatus") === "paid" && registration.getString("registrationStatus") === "confirmed") {
     return e.json(200, helpers.paymentSession(registration, ledger, config, helpers.apiConfigured(config)))
@@ -58,9 +68,14 @@ routerAdd("GET", "/api/app/registrations/{id}/payment", function (e) {
   try { registration = $app.findRecordById("registrations", id) }
   catch (_) { return e.json(404, { code: "REGISTRATION_NOT_FOUND", error: "Registration not found" }) }
   if (!helpers.mayAccessRegistration(e.auth, registration)) return e.json(403, { code: "FORBIDDEN", error: "You cannot access this registration" })
+  var paygate = require(__hooks + "/paygate-helpers.js")
+  var providerData = paygate.asObject(registration.get("paymentData"))
+  if (providerData.provider === paygate.PAYGATE_PROVIDER) {
+    return e.json(200, paygate.paymentSession(registration, providerData, paygate.paymentConfigured(paygate.getConfig())))
+  }
   var ledger = helpers.findLedgerPayment($app, id)
 
-  // Local-only status read: safe to poll without creating Razorpay API traffic.
+  // Local-only status read: safe to poll without creating provider API traffic.
   return e.json(200, helpers.paymentSession(registration, ledger, config, helpers.apiConfigured(config)))
 }, $apis.requireAuth("users"))
 
@@ -74,6 +89,13 @@ routerAdd("POST", "/api/app/registrations/{id}/payment/reconcile", function (e) 
   catch (_) { return e.json(404, { code: "REGISTRATION_NOT_FOUND", error: "Registration not found" }) }
   if (!helpers.mayAccessRegistration(e.auth, registration)) return e.json(403, { code: "FORBIDDEN", error: "You cannot access this registration" })
 
+  var paygate = require(__hooks + "/paygate-helpers.js")
+  var providerData = paygate.asObject(registration.get("paymentData"))
+  if (providerData.provider === paygate.PAYGATE_PROVIDER) {
+    var paygateResult = paygate.reconcilePaymentForRegistration(registration)
+    if (paygateResult.notify) paygate.enqueueRegistrationNotifications(registration.id)
+    return e.json(paygateResult.status, paygateResult.body)
+  }
   var ledger = helpers.findLedgerPayment($app, id)
   if (!ledger || !ledger.getString("providerOrderId")) {
     return e.json(200, helpers.paymentSession(registration, ledger, config, helpers.apiConfigured(config)))
@@ -144,6 +166,10 @@ routerAdd("POST", "/api/app/registrations/{id}/payment/razorpay-verify", functio
   try { registration = $app.findRecordById("registrations", id) }
   catch (_) { return e.json(404, { code: "REGISTRATION_NOT_FOUND", error: "Registration not found" }) }
   if (!helpers.mayAccessRegistration(e.auth, registration)) return e.json(403, { code: "FORBIDDEN", error: "You cannot access this registration" })
+  var providerData = helpers.asObject(registration.get("paymentData"))
+  if (providerData.provider && providerData.provider !== helpers.PROVIDER) {
+    return e.json(409, { code: "PAYMENT_PROVIDER_CONFLICT", error: "This registration does not use Razorpay" })
+  }
   var ledger = helpers.findLedgerPayment($app, id)
   if (!ledger || !ledger.getString("providerOrderId")) return e.json(409, { code: "RAZORPAY_ORDER_NOT_INITIALIZED", error: "Razorpay order is not initialized" })
 

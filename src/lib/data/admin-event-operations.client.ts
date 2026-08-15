@@ -68,6 +68,7 @@ export interface AdminEventOperations {
     venue: string;
     status: string;
     price: number;
+    paymentProvider: "razorpay" | "kotak" | string;
     registrationOpen: boolean;
     registrationMode: "internal" | "external" | "closed" | string;
     collectIeeeMember: boolean;

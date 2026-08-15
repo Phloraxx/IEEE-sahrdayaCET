@@ -487,6 +487,11 @@ routerAdd("POST", "/api/admin/registrations/{id}/command", function (e) {
             failure = { status: 409, code: "RAZORPAY_ORDER_EXISTS", error: "A Razorpay order already exists. Reconcile or resolve that online payment instead of manually confirming it." }
             return
           }
+          var currentPaymentData = helpers.jsonObject(reg.get("paymentData"))
+          if (currentPaymentData.provider === "paygate" && currentPaymentData.paymentId) {
+            failure = { status: 409, code: "PAYGATE_PAYMENT_EXISTS", error: "A Kotak/PayGate payment session already exists. Reconcile or resolve that online payment instead of manually confirming it." }
+            return
+          }
           var finalPaise = reg.getInt("finalFeePaise") || ((reg.getInt("amount") || 0) * 100)
           var basePaise = reg.getInt("baseFeePaise") || finalPaise
           var discountPaise = reg.getInt("discountPaise") || 0

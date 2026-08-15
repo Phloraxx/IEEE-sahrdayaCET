@@ -20,7 +20,10 @@ routerAdd(
     // shared helper functions must be required inside the handler.
     var rh = require(__hooks + "/registration-helpers.js")
     var razorpay = require(__hooks + "/razorpay-direct-helpers.js")
+    var paygate = require(__hooks + "/paygate-helpers.js")
+    var providerSelection = require(__hooks + "/payment-provider-selection.js")
     var razorpayConfig = razorpay.getConfig()
+    var paygateConfig = paygate.getConfig()
     var eventId = e.request.pathValue("id")
     var body = {}
     try { body = e.requestInfo().body || {} } catch (_) { body = {} }
@@ -34,6 +37,8 @@ routerAdd(
     var payload = null
     var responseStatus = 201
     var paymentUnavailable = false
+    var paymentUnavailableCode = "PAYMENT_NOT_AVAILABLE"
+    var paymentUnavailableMessage = "Online payment is temporarily unavailable for this event"
 
     try {
       $app.runInTransaction(function (txApp) {
@@ -199,13 +204,24 @@ routerAdd(
         var discountAmount = discountPaise / 100
         var finalAmount = finalFeePaise / 100
         var needsPayment = finalFeePaise > 0
-        var lockedPaymentData = needsPayment ? {
-          provider: "razorpay",
-          providerStatus: "not_initialized",
-          manualReview: false,
-        } : null
-        if (needsPayment && (!razorpay.apiConfigured(razorpayConfig) || !razorpayConfig.paymentsEnabled)) {
+        var eventPaymentProvider = providerSelection.eventProvider(event)
+        var lockedPaymentData = needsPayment ? providerSelection.paymentDataForEvent(event) : null
+        if (needsPayment && eventPaymentProvider === providerSelection.KOTAK) {
+          // PayGate deliberately allocates the verification fingerprint in the
+          // paise suffix, so its requested/base amount must be a whole rupee.
+          if (finalFeePaise % 100 !== 0) {
+            throw new BadRequestError("Kotak temporary payments require a whole-rupee final amount. Adjust the event price or coupon.")
+          }
+          if (!paygate.paymentConfigured(paygateConfig)) {
+            paymentUnavailable = true
+            paymentUnavailableCode = "PAYGATE_NOT_AVAILABLE"
+            paymentUnavailableMessage = "Kotak UPI is temporarily unavailable for this event"
+            throw new Error("PAYGATE_NOT_AVAILABLE")
+          }
+        } else if (needsPayment && (!razorpay.apiConfigured(razorpayConfig) || !razorpayConfig.paymentsEnabled)) {
           paymentUnavailable = true
+          paymentUnavailableCode = "RAZORPAY_NOT_AVAILABLE"
+          paymentUnavailableMessage = "Razorpay is temporarily unavailable for this event"
           throw new Error("RAZORPAY_NOT_AVAILABLE")
         }
 
@@ -228,8 +244,9 @@ routerAdd(
           registrationDate: now.toISOString(),
           ticketId: needsPayment ? "" : "TKT-" + $security.randomString(16),
           paymentTicketId: needsPayment ? $security.randomString(32) : "",
-          // New paid registrations use Razorpay directly. The normalized
-          // payment ledger becomes canonical once an Order is created.
+          // Provider choice is locked onto the registration at creation time.
+          // Changing the event later never moves an in-flight payment between
+          // Razorpay and the temporary Kotak/PayGate route.
           paymentData: lockedPaymentData,
           checkedIn: false,
           checkedInAt: "",
@@ -273,8 +290,8 @@ routerAdd(
     } catch (err) {
       if (paymentUnavailable) {
         return e.json(503, {
-          code: "RAZORPAY_NOT_AVAILABLE",
-          error: "Online payment is temporarily unavailable for paid events",
+          code: paymentUnavailableCode,
+          error: paymentUnavailableMessage,
         })
       }
       var message = err && err.message ? String(err.message) : String(err)
