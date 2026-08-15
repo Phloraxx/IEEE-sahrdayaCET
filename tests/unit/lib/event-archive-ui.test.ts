@@ -51,10 +51,13 @@ describe("event programme UI", () => {
     const card = read("src/components/events/AnnotatedEventCard.tsx");
     const hero = read("src/components/events/EventHeroSection.tsx");
     const fallback = read("src/components/events/EventBannerFallback.tsx");
+    const artworkPreview = read("src/components/events/EventArtworkPreview.tsx");
 
     expect(list).toContain("activeEventId");
     expect(list).toContain("Programme preview");
     expect(list).toContain("AnimatePresence");
+    expect(list).toContain("EventArtworkPreview");
+    expect(list).not.toContain("object-cover");
     expect(card).toContain("onActivate");
     expect(card).not.toContain("resolveEventArtwork");
     expect(card).not.toContain("EventBannerFallback");
@@ -64,5 +67,7 @@ describe("event programme UI", () => {
     expect(hero).not.toContain("event-display-title");
     expect(fallback).toContain("SOCIETY_COLORS");
     expect(fallback).not.toContain("bg-linear-to-br");
+    expect(artworkPreview).toContain("object-contain");
+    expect(artworkPreview).toContain("blur-2xl");
   });
 });

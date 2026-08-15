@@ -4,6 +4,7 @@ import { CalendarDays } from "lucide-react";
 import type { ExtendedEvent } from "@/types";
 import { MOTION_DURATION, MOTION_EASE } from "@/lib/motion";
 import { resolveEventArtwork } from "@/lib/event-artwork";
+import { EventArtworkPreview } from "./EventArtworkPreview";
 import { EventBannerFallback } from "./EventBannerFallback";
 import { AnnotatedEventCard as EventRow } from "./AnnotatedEventCard";
 
@@ -119,10 +120,9 @@ export function EventListSection({
                       className="absolute inset-0"
                     >
                       {activeArtwork ? (
-                        <img
+                        <EventArtworkPreview
                           src={activeArtwork.src}
-                          alt={activeEvent.title}
-                          className={`h-full w-full ${activeArtwork.fit === "contain" ? "object-contain p-10" : "object-cover"}`}
+                          alt={`${activeEvent.title} event artwork`}
                         />
                       ) : (
                         <EventBannerFallback
@@ -132,30 +132,18 @@ export function EventListSection({
                           showTitle={false}
                         />
                       )}
-                      <div className="absolute inset-x-0 bottom-0 overflow-hidden bg-linear-to-t from-black/75 via-black/20 to-transparent px-7 pb-7 pt-24 text-white">
-                        <motion.div
-                          initial={reduceMotion ? false : { opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: MOTION_DURATION.ui, ease: MOTION_EASE, delay: reduceMotion ? 0 : 0.06 }}
-                          className="mb-3 text-[9px] font-bold uppercase tracking-[0.2em] text-white/55"
-                        >{activeSociety?.name || "IEEE Sahrdaya"}</motion.div>
-                        <div className="overflow-hidden">
-                          <motion.div
-                            initial={reduceMotion ? false : { y: "105%" }}
-                            animate={{ y: 0 }}
-                            transition={{ duration: MOTION_DURATION.reveal, ease: MOTION_EASE, delay: reduceMotion ? 0 : 0.04 }}
-                            className="text-3xl font-semibold leading-[0.98] tracking-[-0.05em]"
-                          >{activeEvent.title}</motion.div>
-                        </div>
-                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
               </div>
               {activeEvent && (
-                <div className="mt-5 flex items-center justify-between border-b border-black/12 pb-5 text-[10px] font-bold uppercase tracking-[0.16em]">
-                  <span className="text-black/40">{statusLabel(activeEvent)}</span>
-                  <span className="text-[#00629B]">{activeEvent.price > 0 ? `₹${activeEvent.price}` : "Free"}</span>
+                <div className="mt-5 border-b border-black/12 pb-5">
+                  <div className="flex items-center justify-between gap-4 text-[9px] font-bold uppercase tracking-[0.18em]">
+                    <span className="truncate text-black/38">{activeSociety?.name || "IEEE Sahrdaya"}</span>
+                    <span className="shrink-0 text-[#00629B]">{activeEvent.price > 0 ? `₹${activeEvent.price}` : "Free"}</span>
+                  </div>
+                  <div className="mt-3 text-2xl font-semibold leading-[1.02] tracking-[-0.045em] text-[#111315]">{activeEvent.title}</div>
+                  <div className="mt-3 text-[9px] font-bold uppercase tracking-[0.16em] text-black/38">{statusLabel(activeEvent)}</div>
                 </div>
               )}
             </div>
