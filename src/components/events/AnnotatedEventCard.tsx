@@ -6,7 +6,6 @@ import type { ExtendedEvent } from "@/types";
 interface EventCardProps {
   event: ExtendedEvent;
   index: number;
-  onSelect: (event: ExtendedEvent) => void;
   active?: boolean;
   onActivate?: (event: ExtendedEvent) => void;
   animateEntrance?: boolean;
@@ -23,7 +22,6 @@ function eventStatus(event: ExtendedEvent) {
 export function AnnotatedEventCard({
   event,
   index,
-  onSelect,
   active = false,
   onActivate,
   animateEntrance = true,
@@ -44,11 +42,6 @@ export function AnnotatedEventCard({
         to={`/events/${event.slug}`}
         onMouseEnter={() => onActivate?.(event)}
         onFocus={() => onActivate?.(event)}
-        onClick={(e) => {
-          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-          e.preventDefault();
-          onSelect(event);
-        }}
         className={`group block transition-colors duration-300 ${active ? "text-[#111315] sm:bg-[#111315] sm:text-white" : "text-[#111315] hover:bg-black/[0.035]"}`}
       >
         <div className="grid gap-5 px-4 py-6 sm:grid-cols-[78px_minmax(0,1fr)_170px_auto] sm:items-center sm:px-5 sm:py-7 lg:grid-cols-[92px_minmax(0,1fr)_220px_auto] lg:px-6 lg:py-8">

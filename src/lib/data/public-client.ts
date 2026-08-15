@@ -49,6 +49,7 @@ export async function listRelatedBlogs(input: {
 
 export interface PublicRegistrationEvent {
   id: string;
+  slug: string;
   title: string;
   description: string;
   date: string;
@@ -66,7 +67,7 @@ export interface PublicRegistrationEvent {
 
 export async function getPublicEvent(id: string): Promise<PublicRegistrationEvent> {
   const record = await getPbClient().collection("events").getOne(id, {
-    fields: "id,title,description,date,endDate,venue,price,banner,status,registrationOpen,registrationStart,registrationDeadline,isDeleted,maxCapacity,registeredCount,formTemplate,collectIeeeMember",
+    fields: "id,slug,title,description,date,endDate,venue,price,banner,status,registrationOpen,registrationStart,registrationDeadline,isDeleted,maxCapacity,registeredCount,formTemplate,collectIeeeMember",
   });
   const lifecycle = {
     status: String(record.status || ""),
@@ -81,6 +82,7 @@ export async function getPublicEvent(id: string): Promise<PublicRegistrationEven
   const price = Number(record.price) || 0;
   return {
     id: record.id,
+    slug: String(record.slug || ""),
     title: String(record.title || ""),
     description: String(record.description || ""),
     date: lifecycle.date,

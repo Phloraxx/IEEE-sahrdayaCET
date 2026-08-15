@@ -135,9 +135,8 @@ function PaymentProgress({ complete = false }: { complete?: boolean }) {
 
 function PaymentShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative min-h-dvh overflow-hidden bg-[#F4F7FA] text-slate-950">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_10%,rgba(0,98,155,0.09),transparent_28%),radial-gradient(circle_at_90%_85%,rgba(14,165,233,0.08),transparent_26%)]" />
-      <main className="relative mx-auto flex min-h-dvh w-full max-w-6xl items-center px-4 py-4 sm:px-6 sm:py-10 lg:px-8">
+    <div className="min-h-dvh bg-[#f4f2ed] text-[#111315] selection:bg-[#00629B] selection:text-white">
+      <main className="mx-auto flex min-h-dvh w-full max-w-[1440px] items-center px-5 py-8 sm:px-8 sm:py-10 lg:px-12">
         {children}
       </main>
     </div>
@@ -154,50 +153,38 @@ function EventVisual({
   const event = session.event;
   return (
     <motion.aside
-      initial={{ opacity: 0, y: 18 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className="relative min-h-[230px] overflow-hidden rounded-[2.25rem] bg-slate-950 shadow-[0_30px_80px_-36px_rgba(15,23,42,0.55)] sm:min-h-[320px] lg:min-h-[650px]"
+      className="flex min-h-[260px] flex-col justify-between border-y border-black/12 py-7 text-left sm:min-h-[320px] sm:py-9 lg:min-h-[650px] lg:py-10"
     >
-      {event?.bannerUrl ? (
-        <img
-          src={event.bannerUrl}
-          alt={event.title}
-          className="absolute inset-0 h-full w-full object-cover"
-        />
-      ) : (
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_8%,#0ea5e9_0,transparent_34%),linear-gradient(145deg,#00629B,#0f172a_68%)]" />
-      )}
-      <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/35 to-slate-950/5" />
-      <div className="absolute inset-x-0 top-0 flex items-center justify-between p-5 sm:p-7">
-        <div className="rounded-full border border-white/15 bg-black/20 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.17em] text-white/90 backdrop-blur-md">
-          IEEE Sahrdaya
-        </div>
-        <div className="flex items-center gap-2 rounded-full border border-white/15 bg-black/20 px-3 py-1.5 text-xs font-bold text-white backdrop-blur-md">
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#00629B]">Registration / Payment</p>
+        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-black/45">
           <motion.span
-            className="h-1.5 w-1.5 rounded-full bg-emerald-300"
-            animate={
-              reduceMotion
-                ? undefined
-                : { opacity: [0.45, 1, 0.45], scale: [1, 1.25, 1] }
-            }
+            className="h-1.5 w-1.5 rounded-full bg-emerald-500"
+            animate={reduceMotion ? undefined : { opacity: [0.45, 1, 0.45], scale: [1, 1.2, 1] }}
             transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
           />
           Seat reserved
         </div>
       </div>
-      <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8 lg:p-10">
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-sky-200">
-          Complete your registration
-        </p>
-        <h1 className="mt-2 max-w-2xl text-3xl font-black leading-[1.04] tracking-tight text-white sm:text-4xl lg:text-5xl">
+
+      <div className="py-10 lg:py-16">
+        <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Complete your registration</p>
+        <h1 className="mt-4 max-w-3xl text-4xl font-semibold leading-[0.94] tracking-[-0.06em] sm:text-5xl lg:text-6xl">
           {event?.title || "IEEE Sahrdaya event"}
         </h1>
-        {event && (
-          <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 text-sm font-semibold text-white/78">
-            {event.date && <span>{formatDate(event.date)}</span>}
-            {event.venue && <span>{event.venue}</span>}
-          </div>
-        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-6 border-t border-black/10 pt-6 text-sm">
+        <div>
+          <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/30">Date</p>
+          <p className="mt-2 font-semibold">{event?.date ? formatDate(event.date) : "—"}</p>
+        </div>
+        <div>
+          <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/30">Venue</p>
+          <p className="mt-2 font-semibold leading-snug">{event?.venue || "—"}</p>
+        </div>
       </div>
     </motion.aside>
   );
@@ -214,20 +201,10 @@ function PassiveState({
 }) {
   return (
     <PaymentShell>
-      <motion.section
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mx-auto w-full max-w-lg rounded-[2.5rem] border border-white/70 bg-white p-8 text-center shadow-[0_30px_80px_-36px_rgba(15,23,42,0.28)] sm:p-11"
-      >
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
-          {icon}
-        </div>
-        <h1 className="mt-6 text-2xl font-black tracking-tight sm:text-3xl">
-          {title}
-        </h1>
-        <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-slate-600">
-          {description}
-        </p>
+      <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mx-auto w-full max-w-xl border-y border-black/12 py-10 text-center sm:py-14">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center text-black/55">{icon}</div>
+        <h1 className="mt-6 text-4xl font-semibold tracking-[-0.055em]">{title}</h1>
+        <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-black/52">{description}</p>
       </motion.section>
     </PaymentShell>
   );
@@ -631,7 +608,7 @@ export default function PaymentPage({ registrationId }: PageProps) {
   if (authStatus === "unauthenticated") {
     return (
       <PaymentShell>
-        <section className="mx-auto w-full max-w-lg rounded-[2.5rem] border border-white/70 bg-white p-8 text-center shadow-[0_30px_80px_-36px_rgba(15,23,42,0.28)] sm:p-11">
+        <section className="mx-auto w-full max-w-lg border-y border-black/12 py-10 text-center sm:py-14">
           <LockKeyhole className="mx-auto h-11 w-11 text-ieee-blue" />
           <h1 className="mt-5 text-2xl font-black">Sign in to continue</h1>
           <p className="mt-2 text-sm leading-6 text-slate-600">
@@ -640,7 +617,7 @@ export default function PaymentPage({ registrationId }: PageProps) {
           <button
             type="button"
             onClick={signIn}
-            className="mt-6 w-full rounded-2xl bg-ieee-blue px-5 py-3.5 font-bold text-white"
+            className="mt-7 w-full border-y border-[#00629B] py-4 font-bold text-[#00629B]"
           >
             Sign in with Google
           </button>
@@ -669,7 +646,7 @@ export default function PaymentPage({ registrationId }: PageProps) {
         <motion.section
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mx-auto w-full max-w-xl rounded-[2.75rem] border border-emerald-100 bg-white p-9 text-center shadow-[0_32px_90px_-38px_rgba(16,185,129,0.38)] sm:p-12"
+          className="mx-auto w-full max-w-xl border-y border-emerald-300 py-10 text-center sm:py-14"
         >
           <PaymentProgress complete />
           <motion.div
@@ -739,7 +716,7 @@ export default function PaymentPage({ registrationId }: PageProps) {
       <PaymentShell>
         <div className="grid w-full items-stretch gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(400px,500px)] lg:gap-7">
           <EventVisual session={session} reduceMotion={Boolean(reduceMotion)} />
-          <section className="flex flex-col justify-center rounded-[2.5rem] border border-white/70 bg-white p-8 text-center shadow-[0_30px_80px_-36px_rgba(15,23,42,0.28)] sm:p-10">
+          <section className="flex flex-col justify-center border-y border-black/12 py-8 text-center sm:py-10">
             <PaymentProgress />
             <Clock3 className="mx-auto mt-10 h-11 w-11 text-amber-500" />
             <h2 className="mt-5 text-2xl font-black">Payment window ended</h2>
@@ -761,9 +738,9 @@ export default function PaymentPage({ registrationId }: PageProps) {
           <motion.section
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
-            className="relative flex flex-col justify-center overflow-hidden rounded-[2.5rem] border border-white/70 bg-white p-8 text-center shadow-[0_30px_80px_-36px_rgba(15,23,42,0.28)] sm:p-10"
+            className="relative flex flex-col justify-center overflow-hidden border-y border-black/12 py-8 text-center sm:py-10"
           >
-            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-ieee-blue via-sky-400 to-ieee-blue" />
+            <div className="absolute inset-x-0 top-0 h-px bg-[#00629B]" />
             <PaymentProgress />
             <div className="mx-auto mt-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-ieee-blue/10 text-ieee-blue">
               {isMobileUpi ? (

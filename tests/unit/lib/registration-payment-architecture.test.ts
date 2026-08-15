@@ -15,6 +15,29 @@ describe("registration/payment experience architecture", () => {
     expect(register).not.toContain('toast.success("Registration successful!")');
   });
 
+  it("uses a checkout-style registration screen without a repeated event hero", () => {
+    const register = source("src/features/register/RegisterPage.tsx");
+    expect(register).not.toContain("function EventHero");
+    expect(register).not.toContain("bannerUrl ?");
+    expect(register).toContain("01 / Attendee");
+    expect(register).toContain("Review & continue");
+    expect(register).toContain("Back to event");
+    expect(register).toContain("BookingProgress");
+    expect(register).toContain("Your profile and this form are saved on this device while you type.");
+  });
+
+  it("keeps payment and ticket poster-independent throughout the transaction", () => {
+    const payment = source("src/features/payment/PaymentPage.tsx");
+    const ticket = source("src/features/ticket/TicketPage.tsx");
+    expect(payment).toContain("Registration / Payment");
+    expect(payment).not.toContain("event?.bannerUrl ?");
+    expect(payment).not.toContain("radial-gradient(circle_at_18%_8%");
+    expect(ticket).toContain("Check-in code");
+    expect(ticket).toContain("Show this at check-in.");
+    expect(ticket).not.toContain("event?.bannerUrl ?");
+    expect(ticket).not.toContain("<Navbar");
+  });
+
   it("uses an IEEE-branded Razorpay Custom Checkout that exposes UPI only", () => {
     const payment = source("src/features/payment/PaymentPage.tsx");
     const custom = source("src/lib/razorpay-upi.client.ts");

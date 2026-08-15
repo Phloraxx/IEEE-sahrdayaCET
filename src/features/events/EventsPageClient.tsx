@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useRevalidator } from "react-router";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { Link, useRevalidator } from "react-router";
+import { motion, useReducedMotion } from "framer-motion";
 import { ArrowUpRight, Search, Ticket, X } from "lucide-react";
 import "@/styles/events.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { EventDetailModal, EventHeroSection, EventListSection } from "@/components/events";
+import { EventHeroSection, EventListSection } from "@/components/events";
 import type { EventWithSociety, ExtendedEvent } from "@/types";
 import { isPastEvent } from "@/lib/event-lifecycle";
 
@@ -17,7 +17,7 @@ interface EventsPageClientProps {
   initialEvents: EventWithSociety[];
 }
 
-function ArchiveRow({ event, onSelect, index }: { event: ExtendedEvent; onSelect: (event: ExtendedEvent) => void; index: number }) {
+function ArchiveRow({ event, index }: { event: ExtendedEvent; index: number }) {
   const reduceMotion = useReducedMotion();
   const date = new Date(event.date);
   const societyName = typeof event.society === "object" ? event.society.name : "IEEE Sahrdaya";
@@ -32,11 +32,6 @@ function ArchiveRow({ event, onSelect, index }: { event: ExtendedEvent; onSelect
     >
       <Link
         to={`/events/${event.slug}`}
-        onClick={(e) => {
-          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-          e.preventDefault();
-          onSelect(event);
-        }}
         className="group grid grid-cols-[64px_minmax(0,1fr)_auto] items-center gap-4 py-5 sm:grid-cols-[88px_minmax(0,1fr)_190px_90px] sm:gap-6 md:py-6"
       >
         <div>
@@ -60,9 +55,7 @@ function ArchiveRow({ event, onSelect, index }: { event: ExtendedEvent; onSelect
 }
 
 export default function EventsPageClient({ initialEvents }: EventsPageClientProps) {
-  const navigate = useNavigate();
   const revalidator = useRevalidator();
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [archiveSearch, setArchiveSearch] = useState("");
   const [archiveFilter, setArchiveFilter] = useState<ArchiveFilter>("past");
   const [archiveSociety, setArchiveSociety] = useState("All societies");
@@ -85,11 +78,6 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
   const extendedEvents: ExtendedEvent[] = useMemo(
     () => initialEvents.map((event) => ({ ...event, about: event.description || "Join us for this IEEE Sahrdaya event." })),
     [initialEvents],
-  );
-
-  const selectedEvent = useMemo(
-    () => selectedEventId ? extendedEvents.find((event) => event.id === selectedEventId) ?? null : null,
-    [extendedEvents, selectedEventId],
   );
 
   const upcomingEvents = useMemo(() => {
@@ -127,12 +115,6 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
     return groups;
   }, []);
 
-  const handleRegister = (event: EventWithSociety) => {
-    if (!event.registrationOpen) return;
-    if (event.externalFormUrl) window.open(event.externalFormUrl, "_blank", "noopener,noreferrer");
-    else navigate(`/register/${event.id}`);
-  };
-
   const resetArchive = () => {
     setArchiveSearch("");
     setArchiveFilter("past");
@@ -150,7 +132,6 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
             events={upcomingEvents}
             loading={false}
             error={null}
-            onSelectEvent={(event) => setSelectedEventId(event.id)}
             onRetry={() => revalidator.revalidate()}
             title="Upcoming programme"
             emptyTitle="Nothing scheduled yet"
@@ -236,7 +217,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
                     </div>
                     <div className="border-b border-black/12">
                       {group.events.map((event, index) => (
-                        <ArchiveRow key={event.id} event={event} index={groupIndex * ARCHIVE_PAGE_SIZE + index} onSelect={(item) => setSelectedEventId(item.id)} />
+                        <ArchiveRow key={event.id} event={event} index={groupIndex * ARCHIVE_PAGE_SIZE + index} />
                       ))}
                     </div>
                   </section>
@@ -264,10 +245,6 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
       </div>
 
       <Footer />
-
-      <AnimatePresence>
-        {selectedEvent && <EventDetailModal event={selectedEvent} onClose={() => setSelectedEventId(null)} onRegister={handleRegister} />}
-      </AnimatePresence>
     </main>
   );
 }

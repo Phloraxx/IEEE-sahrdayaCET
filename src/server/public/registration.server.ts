@@ -26,6 +26,7 @@ export async function fetchEventForRegistration(eventId: string) {
     const bannerRaw = getField(record, "banner", "");
     const event = {
       id: getField(record, "id", ""),
+      slug: getField(record, "slug", ""),
       title: getField(record, "title", ""),
       description: getField(record, "description", ""),
       date: lifecycle.date,

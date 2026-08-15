@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useLoaderData, type LoaderFunctionArgs } from "react-router";
 import {
   ArrowLeft,
+  ArrowRight,
   CalendarDays,
   CheckCircle2,
   ExternalLink,
@@ -18,7 +19,6 @@ import { getMyEventRegistration } from "@/lib/data/public-client";
 import { downloadRegistrationReceipt } from "@/lib/data/receipt.client";
 import type { MyEventRegistration } from "@/lib/registration-state";
 import Footer from "@/components/Footer";
-import { EventBannerFallback } from "@/components/events/EventBannerFallback";
 import { APP_URL } from "@/lib/constants";
 import { blogHtmlToPlainText, sanitizeBlogHtml } from "@/lib/blog-content";
 import { formatDate, formatTime } from "@/lib/dates";
@@ -144,8 +144,8 @@ export default function EventDetailPage() {
   const backLabel = isWieEvent ? "Back to WIE activities" : "All events";
   const registerUrl = event.externalFormUrl || `/register/${event.id}`;
   const description = blogHtmlToPlainText(event.description);
-  const eventArtwork = resolveEventArtwork(event);
   const eventImageUrl = resolveEventImage(event);
+  const eventArtwork = resolveEventArtwork(event);
   const lifecycle = getEventLifecycle(event.status);
   const attendanceKind = getEventAttendanceKind(event.venue);
   const hasCapacity =
@@ -194,157 +194,190 @@ export default function EventDetailPage() {
       : {}),
   };
 
+  const actionHref = myRegistration?.found
+    ? myRegistration.paymentRequired
+      ? `/payment/${myRegistration.registrationId}`
+      : myRegistration.ticketId
+        ? `/ticket/${myRegistration.ticketId}`
+        : null
+    : registrationAvailable
+      ? registerUrl
+      : null;
+  const actionLabel = myRegistration?.found
+    ? myRegistration.paymentRequired
+      ? "Continue payment"
+      : myRegistration.ticketId
+        ? "View ticket"
+        : null
+    : registrationAvailable
+      ? event.price > 0
+        ? `Register · ₹${event.price}`
+        : "Register free"
+      : null;
+
   return (
-    <main className="min-h-screen bg-[#F8F9FA] text-slate-800">
+    <main className="min-h-screen bg-[#f4f2ed] text-[#111315] selection:bg-[#00629B] selection:text-white">
       <link rel="canonical" href={canonicalUrl} />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: safeJson(eventSchema) }}
-      />
-      <Navbar />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJson(eventSchema) }} />
+      <Navbar mobileAlign="right" />
 
-      <article className="mx-auto max-w-5xl px-4 pb-24 pt-28 sm:px-6 lg:px-8">
-        <Link
-          to={backHref}
-          className="mb-8 inline-flex items-center gap-2 text-sm font-bold text-ieee-blue hover:underline"
-        >
-          <ArrowLeft className="h-4 w-4" /> {backLabel}
-        </Link>
-
-        <div className="mb-8 aspect-[16/8] overflow-hidden rounded-[2rem] bg-slate-200 shadow-sm">
-          {eventArtwork ? (
-            <img
-              src={eventArtwork.src}
-              alt={event.title}
-              className={`h-full w-full ${
-                eventArtwork.fit === "contain"
-                  ? "object-contain p-6"
-                  : "object-cover"
-              }`}
-            />
-          ) : (
-            <EventBannerFallback
-              title={event.title}
-              societyName={event.society?.name}
-              societySlug={event.society?.slug}
-            />
-          )}
+      <article className="mx-auto max-w-[1440px] px-5 pb-36 pt-28 sm:px-8 lg:px-12 lg:pb-28 lg:pt-36">
+        <div className="flex items-center justify-between border-b border-black/12 pb-5">
+          <Link to={backHref} className="group inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-black/45 transition hover:text-[#00629B]">
+            <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" /> {backLabel}
+          </Link>
+          <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-black/30">Event / {new Date(event.date).getFullYear()}</span>
         </div>
 
-        <div className="grid gap-10 lg:grid-cols-[1fr_320px]">
-          <div>
+        <header className="grid gap-10 border-b border-black/12 py-10 md:grid-cols-12 md:gap-8 md:py-16 lg:py-20">
+          <div className="md:col-span-8 lg:col-span-9">
             {event.society && (
-              <Link
-                to={`/societies/${event.society.slug}`}
-                className="text-xs font-extrabold uppercase tracking-[0.18em] text-ieee-blue hover:underline"
-              >
+              <Link to={`/societies/${event.society.slug}`} className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#00629B] hover:underline">
                 {event.society.name}
               </Link>
             )}
-            <h1 className="mt-3 text-4xl font-black tracking-tight text-slate-900 sm:text-5xl">
+            <h1 className="mt-4 max-w-6xl text-[clamp(3rem,8vw,8.5rem)] font-semibold leading-[0.88] tracking-[-0.07em] text-[#111315]">
               {event.title}
             </h1>
+          </div>
 
-            <div className="mt-8 grid gap-4 border-y border-slate-200 py-6 sm:grid-cols-2">
-              <div className="flex gap-3">
-                <CalendarDays className="mt-0.5 h-5 w-5 text-ieee-blue" />
-                <div>
-                  <p className="font-bold">{formatDate(event.date)}</p>
-                  <p className="text-sm text-slate-500">
-                    {formatTime(event.date)}
-                  </p>
-                </div>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-7 border-t border-black/12 pt-6 md:col-span-4 md:grid-cols-1 md:border-l md:border-t-0 md:pl-7 md:pt-1 lg:col-span-3">
+            <div>
+              <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">When</p>
+              <p className="mt-2 text-base font-semibold leading-tight">{formatDate(event.date)}</p>
+              <p className="mt-1 text-sm text-black/45">{formatTime(event.date)}</p>
+            </div>
+            <div>
+              <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Where</p>
+              <p className="mt-2 text-sm font-semibold leading-snug">{event.venue || "Sahrdaya College of Engineering & Technology"}</p>
+            </div>
+            <div>
+              <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Entry</p>
+              <p className="mt-2 text-2xl font-semibold tracking-[-0.04em]">{event.price > 0 ? `₹${event.price}` : "Free"}</p>
+            </div>
+            {event.maxCapacity > 0 && (
+              <div>
+                <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Availability</p>
+                <p className="mt-2 text-sm font-semibold">{Math.max(0, event.maxCapacity - event.registeredCount)} of {event.maxCapacity} seats left</p>
               </div>
-              <div className="flex gap-3">
-                {attendanceKind === "online" ? (
-                  <Globe2 className="mt-0.5 h-5 w-5 text-ieee-blue" />
-                ) : (
-                  <MapPin className="mt-0.5 h-5 w-5 text-ieee-blue" />
-                )}
-                <div>
-                  <p className="font-bold">
-                    {event.venue ||
-                      "Sahrdaya College of Engineering & Technology"}
-                  </p>
-                  <p className="text-sm text-slate-500">
-                    {attendanceKind === "online"
-                      ? "Online session"
-                      : attendanceKind === "hybrid"
-                        ? "Hybrid event"
-                        : "Event venue"}
-                  </p>
-                </div>
+            )}
+          </div>
+        </header>
+
+        {eventArtwork && (
+          <div className="border-b border-black/12 py-8 md:py-12">
+            <div className="max-h-[680px] overflow-hidden bg-black/5">
+              <img src={eventArtwork.src} alt={`${event.title} event artwork`} className={`mx-auto max-h-[680px] w-full ${eventArtwork.fit === "contain" ? "object-contain p-6" : "object-cover"}`} />
+            </div>
+          </div>
+        )}
+
+        <div className="grid gap-14 py-12 md:py-16 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-20 lg:py-20">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#00629B]">About the event</p>
+            {event.description ? (
+              <section className="prose prose-slate mt-6 max-w-3xl prose-headings:font-semibold prose-headings:tracking-[-0.035em] prose-p:text-[1.05rem] prose-p:leading-8 prose-p:text-black/68 prose-a:text-[#00629B]" dangerouslySetInnerHTML={{ __html: sanitizeBlogHtml(event.description) }} />
+            ) : (
+              <p className="mt-6 max-w-2xl text-lg leading-8 text-black/55">Full event details will be added here by the organising society.</p>
+            )}
+
+            <div className="mt-14 grid gap-8 border-y border-black/12 py-8 sm:grid-cols-2">
+              <div>
+                <CalendarDays className="h-5 w-5 text-[#00629B]" />
+                <p className="mt-4 text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Date & time</p>
+                <p className="mt-2 font-semibold">{formatDate(event.date)} · {formatTime(event.date)}</p>
+              </div>
+              <div>
+                {attendanceKind === "online" ? <Globe2 className="h-5 w-5 text-[#00629B]" /> : <MapPin className="h-5 w-5 text-[#00629B]" />}
+                <p className="mt-4 text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Location</p>
+                <p className="mt-2 font-semibold leading-snug">{event.venue || "Sahrdaya College of Engineering & Technology"}</p>
               </div>
             </div>
 
-            {event.description && (
-              <section
-                className="prose prose-slate mt-10 max-w-none"
-                dangerouslySetInnerHTML={{
-                  __html: sanitizeBlogHtml(event.description),
-                }}
-              />
+            {event.externalLink && (
+              <a href={event.externalLink} target="_blank" rel="noopener noreferrer" className="group mt-8 inline-flex items-center gap-2 text-sm font-bold text-[#00629B]">
+                Open event link <ExternalLink className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+              </a>
             )}
           </div>
 
-          <aside className="h-fit rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-28">
+          <aside className="h-fit border-t border-black/15 pt-6 lg:sticky lg:top-28">
             {myRegistrationLoading ? (
-              <div className="py-8 text-center text-sm font-semibold text-slate-500">Checking your registration…</div>
+              <div className="py-8 text-sm font-semibold text-black/45">Checking your registration…</div>
             ) : myRegistration?.found ? (
               myRegistration.manualReview ? (
                 <>
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-amber-600">Your registration</p>
-                  <Clock3 className="mt-5 h-9 w-9 text-amber-500" />
-                  <p className="mt-3 text-2xl font-black text-slate-900">Payment under review</p>
-                  <p className="mt-3 text-sm leading-6 text-slate-500">An organizer needs to review your payment before a ticket can be issued. Please don&apos;t register or pay again.</p>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-amber-700">Your registration</p>
+                  <Clock3 className="mt-6 h-8 w-8 text-amber-600" />
+                  <h2 className="mt-5 text-3xl font-semibold tracking-[-0.05em]">Payment under review</h2>
+                  <p className="mt-3 text-sm leading-6 text-black/50">An organiser is reviewing the payment. Don&apos;t register or pay again.</p>
                 </>
               ) : myRegistration.paymentRequired ? (
                 <>
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-ieee-blue">Your registration</p>
-                  <p className="mt-2 text-2xl font-black text-slate-900">Payment pending</p>
-                  <p className="mt-3 text-sm leading-6 text-slate-500">Your details are saved. Continue the existing payment to confirm your place.</p>
-                  <Link to={`/payment/${myRegistration.registrationId}`} className="mt-6 flex w-full items-center justify-center rounded-2xl bg-ieee-blue px-5 py-3 font-bold text-white">Continue payment</Link>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#00629B]">Your registration</p>
+                  <h2 className="mt-3 text-4xl font-semibold tracking-[-0.055em]">Almost there.</h2>
+                  <p className="mt-3 text-sm leading-6 text-black/50">Your details are saved. Payment is the only step left.</p>
+                  <Link to={`/payment/${myRegistration.registrationId}`} className="group mt-7 flex w-full items-center justify-between border-y border-[#00629B] py-4 font-bold text-[#00629B]">
+                    Continue payment <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </Link>
                 </>
               ) : myRegistration.ticketId ? (
                 <>
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-600">Your registration</p>
-                  <div className="mt-4 flex items-center gap-2 rounded-2xl bg-emerald-50 px-4 py-3 font-bold text-emerald-800"><CheckCircle2 className="h-5 w-5" /> You&apos;re registered</div>
-                  <p className="mt-4 text-sm leading-6 text-slate-500">{myRegistration.eventEnded ? "This event has ended, but your ticket remains available." : "Your place is confirmed and your ticket is ready."}</p>
-                  <Link to={`/ticket/${myRegistration.ticketId}`} className="mt-6 flex w-full items-center justify-center rounded-2xl bg-ieee-blue px-5 py-3 font-bold text-white">View your ticket</Link>
-                  {myRegistration.receiptAvailable && <button type="button" onClick={downloadReceipt} className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 py-3 font-bold text-slate-700 hover:border-ieee-blue hover:text-ieee-blue"><ReceiptText className="h-4 w-4" />Payment receipt</button>}
+                  <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-emerald-700">Your registration</p>
+                  <div className="mt-5 flex items-center gap-2 text-sm font-bold text-emerald-700"><CheckCircle2 className="h-5 w-5" /> You&apos;re registered</div>
+                  <h2 className="mt-4 text-4xl font-semibold tracking-[-0.055em]">Your place is confirmed.</h2>
+                  <Link to={`/ticket/${myRegistration.ticketId}`} className="group mt-7 flex w-full items-center justify-between border-y border-[#00629B] py-4 font-bold text-[#00629B]">
+                    View ticket <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </Link>
+                  {myRegistration.receiptAvailable && <button type="button" onClick={downloadReceipt} className="mt-4 inline-flex items-center gap-2 text-xs font-bold text-black/50 hover:text-[#00629B]"><ReceiptText className="h-4 w-4" /> Payment receipt</button>}
                 </>
               ) : null
             ) : lifecycle === "completed" ? (
               <>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-600">Event status</p>
-                <p className="mt-2 text-3xl font-black text-slate-900">Completed</p>
-                <div className="mt-5 flex items-center gap-2 rounded-2xl bg-emerald-50 px-4 py-3 font-bold text-emerald-800"><CheckCircle2 className="h-5 w-5" /> Activity concluded</div>
-                <p className="mt-5 text-sm leading-relaxed text-slate-500">This activity was held on {formatDate(event.date)}. Its report and outcomes are preserved here as part of the public archive.</p>
-                <Link to={backHref} className="mt-6 flex w-full items-center justify-center rounded-2xl border border-slate-200 px-5 py-3 font-bold text-slate-700 hover:border-ieee-blue hover:text-ieee-blue">{backLabel}</Link>
+                <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Event status</p>
+                <h2 className="mt-3 text-4xl font-semibold tracking-[-0.055em]">Completed.</h2>
+                <p className="mt-4 text-sm leading-6 text-black/50">Held on {formatDate(event.date)} and preserved in the programme archive.</p>
               </>
             ) : lifecycle === "cancelled" ? (
               <>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-600">Event status</p>
-                <p className="mt-2 text-3xl font-black text-slate-900">Cancelled</p>
-                <div className="mt-5 flex items-center gap-2 rounded-2xl bg-rose-50 px-4 py-3 font-bold text-rose-800"><XCircle className="h-5 w-5" /> Event cancelled</div>
+                <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-rose-700">Event status</p>
+                <div className="mt-5 flex items-center gap-2 font-bold text-rose-700"><XCircle className="h-5 w-5" /> Event cancelled</div>
               </>
             ) : (
               <>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-600">Registration</p>
-                <p className="mt-2 text-3xl font-black text-slate-900">{event.price > 0 ? `₹${event.price}` : "Free"}</p>
-                {event.maxCapacity > 0 && <div className="mt-4 flex items-center gap-2 text-sm text-slate-500"><Users className="h-4 w-4" /> {event.registeredCount} / {event.maxCapacity} seats reserved</div>}
+                <div className="flex items-end justify-between gap-4">
+                  <div>
+                    <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Registration</p>
+                    <p className="mt-2 text-5xl font-semibold tracking-[-0.065em]">{event.price > 0 ? `₹${event.price}` : "Free"}</p>
+                  </div>
+                  {event.maxCapacity > 0 && <div className="mb-1 flex items-center gap-2 text-xs text-black/45"><Users className="h-4 w-4" /> {Math.max(0, event.maxCapacity - event.registeredCount)} left</div>}
+                </div>
                 {registrationAvailable ? (
                   event.externalFormUrl ? (
-                    <a href={registerUrl} target="_blank" rel="noopener noreferrer" className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-ieee-blue px-5 py-3 font-bold text-white hover:opacity-90">Register <ExternalLink className="h-4 w-4" /></a>
+                    <a href={registerUrl} target="_blank" rel="noopener noreferrer" className="group mt-7 flex w-full items-center justify-between border-y border-[#00629B] py-4 font-bold text-[#00629B]">Register externally <ExternalLink className="h-4 w-4" /></a>
                   ) : (
-                    <Link to={registerUrl} className="mt-6 flex w-full items-center justify-center rounded-2xl bg-ieee-blue px-5 py-3 font-bold text-white hover:opacity-90">Register now</Link>
+                    <Link to={registerUrl} className="group mt-7 flex w-full items-center justify-between border-y border-[#00629B] py-4 text-lg font-bold text-[#00629B]">Reserve your place <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" /></Link>
                   )
-                ) : <div className="mt-6 rounded-2xl bg-slate-100 px-5 py-3 text-center font-bold text-slate-500">Registration closed</div>}
+                ) : <div className="mt-7 border-y border-black/12 py-4 text-sm font-bold text-black/40">Registration closed</div>}
+                <p className="mt-5 text-xs leading-5 text-black/40">{event.price > 0 ? "Your place is confirmed only after payment is captured." : "Free registration creates your ticket immediately."}</p>
               </>
             )}
           </aside>
         </div>
       </article>
+
+      {actionHref && actionLabel && !myRegistration?.manualReview && (
+        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-black/10 bg-[#f4f2ed]/95 px-5 py-3 backdrop-blur-xl lg:hidden">
+          <div className="mx-auto flex max-w-lg items-center gap-4">
+            {!myRegistration?.found && <div className="min-w-0 flex-1"><p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/35">Entry</p><p className="text-lg font-semibold">{event.price > 0 ? `₹${event.price}` : "Free"}</p></div>}
+            {event.externalFormUrl && !myRegistration?.found ? (
+              <a href={actionHref} target="_blank" rel="noopener noreferrer" className="flex flex-1 items-center justify-center gap-2 bg-[#00629B] px-5 py-3.5 text-sm font-bold text-white">{actionLabel}<ExternalLink className="h-4 w-4" /></a>
+            ) : (
+              <Link to={actionHref} className="flex flex-1 items-center justify-center gap-2 bg-[#00629B] px-5 py-3.5 text-sm font-bold text-white">{actionLabel}<ArrowRight className="h-4 w-4" /></Link>
+            )}
+          </div>
+        </div>
+      )}
       <Footer />
     </main>
   );

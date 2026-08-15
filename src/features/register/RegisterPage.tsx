@@ -3,20 +3,17 @@ import { Link, useNavigate } from "react-router";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
-  CalendarDays,
+  ArrowRight,
   Check,
   CheckCircle2,
   Clock3,
   CreditCard,
   Loader2,
-  MapPin,
   ShieldCheck,
   Ticket,
 } from "lucide-react";
 import { toast } from "sonner";
 
-import Footer from "@/components/Footer";
-import Navbar from "@/components/Navbar";
 import { useAuth } from "@/lib/auth-context";
 import {
   createRegistration,
@@ -43,7 +40,7 @@ interface PageProps {
 }
 
 const fieldClass =
-  "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-ieee-blue/60 focus:ring-4 focus:ring-ieee-blue/10 disabled:bg-slate-50 disabled:text-slate-500";
+  "w-full border-0 border-b border-black/15 bg-transparent px-0 py-3 text-[15px] text-[#111315] outline-none transition placeholder:text-black/30 focus:border-[#00629B] focus:ring-0 disabled:text-black/40";
 
 function BookingProgress({ paid, stage = "details" }: { paid: boolean; stage?: "details" | "payment" | "ticket" }) {
   const steps = paid ? ["Details", "Payment", "Ticket"] : ["Details", "Ticket"];
@@ -55,9 +52,9 @@ function BookingProgress({ paid, stage = "details" }: { paid: boolean; stage?: "
     <div className="flex items-center gap-2" aria-label="Registration progress">
       {steps.map((step, index) => (
         <div key={step} className="contents">
-          {index > 0 && <div className={`h-px w-5 sm:w-8 ${index <= stageIndex ? "bg-ieee-blue" : "bg-white/30"}`} />}
-          <div className={`flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] ${index <= stageIndex ? "text-white" : "text-white/55"}`}>
-            <span className={`flex h-5 w-5 items-center justify-center rounded-full border ${index < stageIndex ? "border-white bg-white text-ieee-blue" : index === stageIndex ? "border-white bg-white/15" : "border-white/30"}`}>
+          {index > 0 && <div className={`h-px w-5 sm:w-9 ${index <= stageIndex ? "bg-[#00629B]" : "bg-black/15"}`} />}
+          <div className={`flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.16em] ${index <= stageIndex ? "text-[#00629B]" : "text-black/30"}`}>
+            <span className={`grid h-5 w-5 place-items-center rounded-full border text-[9px] ${index < stageIndex ? "border-[#00629B] bg-[#00629B] text-white" : index === stageIndex ? "border-[#00629B]" : "border-black/15"}`}>
               {index < stageIndex ? <Check className="h-3 w-3" /> : index + 1}
             </span>
             <span className="hidden sm:inline">{step}</span>
@@ -65,41 +62,6 @@ function BookingProgress({ paid, stage = "details" }: { paid: boolean; stage?: "
         </div>
       ))}
     </div>
-  );
-}
-
-function EventHero({ event }: { event: PublicRegistrationEvent }) {
-  return (
-    <motion.section
-      initial={{ opacity: 0, y: 18 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="relative min-h-[310px] overflow-hidden rounded-[2rem] bg-slate-950 shadow-2xl shadow-slate-300/40 sm:min-h-[390px] lg:min-h-[450px]"
-    >
-      {event.bannerUrl ? (
-        <img src={event.bannerUrl} alt={event.title} className="absolute inset-0 h-full w-full object-cover" />
-      ) : (
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,#0ea5e9_0,transparent_35%),linear-gradient(135deg,#00629B,#0f172a_70%)]" />
-      )}
-      <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/35 to-slate-950/5" />
-      <div className="absolute inset-x-0 top-0 flex items-center justify-between gap-4 p-5 sm:p-7">
-        <span className="rounded-full border border-white/20 bg-black/20 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-md">
-          {event.isPaid ? `₹${event.price}` : "Free event"}
-        </span>
-        <BookingProgress paid={event.isPaid} />
-      </div>
-      <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8 lg:p-10">
-        <h1 className="max-w-4xl text-3xl font-black leading-[1.05] tracking-tight text-white sm:text-4xl lg:text-5xl">
-          {event.title}
-        </h1>
-        <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm font-medium text-white/85">
-          <span className="inline-flex items-center gap-2"><CalendarDays className="h-4 w-4" />{formatDate(event.date)}</span>
-          <span className="inline-flex items-center gap-2"><MapPin className="h-4 w-4" />{event.venue}</span>
-          {event.maxCapacity > 0 && (
-            <span className="inline-flex items-center gap-2"><Ticket className="h-4 w-4" />{Math.max(0, event.maxCapacity - event.registeredCount)} seats left</span>
-          )}
-        </div>
-      </div>
-    </motion.section>
   );
 }
 
@@ -131,8 +93,8 @@ function DynamicField({ field, value, onChange, error }: {
   }
   if (field.type === "checkbox") {
     return (
-      <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4">
-        <input id={field.id} type="checkbox" checked={value === "true"} onChange={(e) => onChange(e.target.checked ? "true" : "false")} className="mt-0.5 h-4 w-4 accent-ieee-blue" />
+      <label className="flex cursor-pointer items-start gap-3 border-y border-black/12 py-4">
+        <input id={field.id} type="checkbox" checked={value === "true"} onChange={(e) => onChange(e.target.checked ? "true" : "false")} className="mt-0.5 h-4 w-4 accent-[#00629B]" />
         <span className="text-sm leading-6 text-slate-700">{field.label}</span>
       </label>
     );
@@ -144,8 +106,8 @@ function DynamicField({ field, value, onChange, error }: {
         {options.map((option) => {
           const normalized = field.type === "boolean" ? option.toLowerCase() : option;
           return (
-            <label key={option} className={`flex cursor-pointer items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-medium transition ${value === normalized ? "border-ieee-blue bg-ieee-blue/5 text-ieee-blue" : "border-slate-200 bg-white text-slate-700"}`}>
-              <input type="radio" name={`field-${field.id}`} value={normalized} checked={value === normalized} onChange={() => onChange(normalized)} className="accent-ieee-blue" />
+            <label key={option} className={`flex cursor-pointer items-center gap-3 border px-4 py-3 text-sm font-medium transition ${value === normalized ? "border-[#111315] bg-[#111315] text-white" : "border-black/15 text-[#111315]"}`}>
+              <input type="radio" name={`field-${field.id}`} value={normalized} checked={value === normalized} onChange={() => onChange(normalized)} className="accent-[#00629B]" />
               {option}
             </label>
           );
@@ -165,41 +127,35 @@ function StatusCard({ event, state, onReceipt }: {
   const isPast = state.eventEnded;
   if (action === "review") {
     return (
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-[2rem] border border-amber-200 bg-white p-7 shadow-sm sm:p-9">
-        <Clock3 className="h-11 w-11 text-amber-500" />
-        <h2 className="mt-5 text-2xl font-black text-slate-950">Payment under review</h2>
-        <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
-          We received payment information for this event, but an organizer needs to review it before a ticket can be issued. Please don&apos;t register or pay again.
-        </p>
-      </motion.div>
+      <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="border-y border-amber-300 py-8">
+        <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-amber-700">Registration status</p>
+        <Clock3 className="mt-6 h-8 w-8 text-amber-600" />
+        <h2 className="mt-5 text-4xl font-semibold tracking-[-0.055em]">Payment under review</h2>
+        <p className="mt-3 max-w-xl text-sm leading-6 text-black/52">An organiser needs to review this payment before a ticket can be issued. Please don&apos;t register or pay again.</p>
+      </motion.section>
     );
   }
   if (action === "payment") {
     return (
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-[2rem] border border-sky-200 bg-white p-7 shadow-sm sm:p-9">
-        <CreditCard className="h-11 w-11 text-ieee-blue" />
-        <h2 className="mt-5 text-2xl font-black text-slate-950">Your registration is waiting for payment</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-600">Your details are already saved. Continue the existing payment instead of registering again.</p>
-        <Link to={`/payment/${state.registrationId}`} className="mt-6 inline-flex w-full items-center justify-center rounded-2xl bg-ieee-blue px-5 py-3.5 font-bold text-white sm:w-auto sm:min-w-56">
-          Continue payment
-        </Link>
-      </motion.div>
+      <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="border-y border-[#00629B]/35 py-8">
+        <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#00629B]">Registration status</p>
+        <h2 className="mt-4 text-4xl font-semibold tracking-[-0.055em]">Your details are saved.</h2>
+        <p className="mt-3 max-w-xl text-sm leading-6 text-black/52">Payment is the only step left. Continue the existing registration instead of starting again.</p>
+        <Link to={`/payment/${state.registrationId}`} className="group mt-7 flex max-w-md items-center justify-between border-y border-[#00629B] py-4 text-lg font-bold text-[#00629B]">Continue payment <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" /></Link>
+      </motion.section>
     );
   }
   return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-[2rem] border border-emerald-200 bg-white p-7 shadow-sm sm:p-9">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50"><CheckCircle2 className="h-7 w-7 text-emerald-600" /></div>
-      <h2 className="mt-5 text-2xl font-black text-slate-950">You&apos;re registered</h2>
-      <p className="mt-2 text-sm leading-6 text-slate-600">
-        {isPast ? "This event has ended, but your ticket and payment receipt remain available here." : "Your place is confirmed. Keep your ticket ready for event check-in."}
-      </p>
-      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-        <Link to={`/ticket/${state.ticketId}`} className="inline-flex items-center justify-center rounded-2xl bg-ieee-blue px-5 py-3.5 font-bold text-white">View ticket</Link>
-        {state.receiptAvailable && (
-          <button type="button" onClick={onReceipt} className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3.5 font-bold text-slate-800 hover:bg-slate-50">Download receipt</button>
-        )}
+    <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="border-y border-emerald-300 py-8">
+      <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-emerald-700">Registration status</p>
+      <div className="mt-5 flex items-center gap-2 text-sm font-bold text-emerald-700"><CheckCircle2 className="h-5 w-5" /> You&apos;re registered</div>
+      <h2 className="mt-4 text-4xl font-semibold tracking-[-0.055em]">Your place is confirmed.</h2>
+      <p className="mt-3 max-w-xl text-sm leading-6 text-black/52">{isPast ? "This event has ended, but your ticket and receipt remain available." : "Keep your ticket ready for check-in."}</p>
+      <div className="mt-7 flex flex-wrap items-center gap-5">
+        <Link to={`/ticket/${state.ticketId}`} className="group inline-flex items-center gap-3 font-bold text-[#00629B]">View ticket <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></Link>
+        {state.receiptAvailable && <button type="button" onClick={onReceipt} className="text-sm font-bold text-black/45 hover:text-[#00629B]">Download receipt</button>}
       </div>
-    </motion.div>
+    </motion.section>
   );
 }
 
@@ -358,109 +314,160 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
   };
 
   if (loading) {
-    return <div className="min-h-screen bg-slate-50 flex items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-ieee-blue" /></div>;
+    return <div className="grid min-h-dvh place-items-center bg-[#f4f2ed]"><Loader2 className="h-8 w-8 animate-spin text-[#00629B]" /></div>;
   }
   if (error || !event) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
-        <div className="max-w-md rounded-3xl border border-rose-200 bg-white p-8 text-center shadow-sm">
-          <h1 className="text-xl font-black text-slate-950">{error || "Event not found"}</h1>
-          <p className="mt-2 text-sm text-slate-600">This event is unavailable or has been removed.</p>
-          <Link to="/events" className="mt-6 inline-flex rounded-xl bg-ieee-blue px-5 py-3 font-bold text-white">Browse events</Link>
+      <div className="grid min-h-dvh place-items-center bg-[#f4f2ed] px-5 text-[#111315]">
+        <div className="w-full max-w-lg border-y border-black/15 py-10 text-center">
+          <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-rose-700">Registration unavailable</p>
+          <h1 className="mt-4 text-4xl font-semibold tracking-[-0.055em]">{error || "Event not found"}</h1>
+          <p className="mt-3 text-sm text-black/50">This event is unavailable or has been removed.</p>
+          <Link to="/events" className="mt-7 inline-flex items-center gap-2 font-bold text-[#00629B]">Browse events <ArrowRight className="h-4 w-4" /></Link>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-[#F5F7FA] text-slate-900">
-      <Navbar />
-      <main className="mx-auto max-w-6xl px-4 pb-24 pt-24 sm:px-6 lg:px-8">
-        <Link to="/events" className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-900"><ArrowLeft className="h-4 w-4" />Back to events</Link>
-        <EventHero event={event} />
+  const eventHref = event.slug ? `/events/${event.slug}` : "/events";
+  const seatsLeft = event.maxCapacity > 0 ? Math.max(0, event.maxCapacity - event.registeredCount) : null;
 
-        <div className="mt-8 grid gap-7 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div>
+  return (
+    <div className="min-h-dvh bg-[#f4f2ed] text-[#111315] selection:bg-[#00629B] selection:text-white">
+      <header className="border-b border-black/12">
+        <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-5 px-5 py-5 sm:px-8 lg:px-12">
+          <Link to="/" className="text-[10px] font-black uppercase tracking-[0.22em]">IEEE Sahrdaya</Link>
+          <BookingProgress paid={event.isPaid} />
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-[1440px] px-5 pb-28 pt-8 sm:px-8 lg:px-12 lg:pb-20 lg:pt-12">
+        <Link to={eventHref} className="group inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.17em] text-black/42 transition hover:text-[#00629B]">
+          <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" /> Back to event
+        </Link>
+
+        <div className="mt-8 grid gap-12 border-t border-black/12 pt-8 lg:grid-cols-[minmax(280px,0.72fr)_minmax(0,1.55fr)] lg:gap-20 lg:pt-12">
+          <aside className="h-fit lg:sticky lg:top-8">
+            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#00629B]">Registration</p>
+            <h1 className="mt-4 max-w-lg text-4xl font-semibold leading-[0.96] tracking-[-0.06em] sm:text-5xl lg:text-6xl">{event.title}</h1>
+
+            <div className="mt-8 grid grid-cols-2 gap-x-6 gap-y-7 border-y border-black/12 py-6 lg:grid-cols-1">
+              <div>
+                <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/35">When</p>
+                <p className="mt-2 text-sm font-semibold">{formatDate(event.date)}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/35">Where</p>
+                <p className="mt-2 text-sm font-semibold leading-snug">{event.venue}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/35">Entry</p>
+                <p className="mt-2 text-3xl font-semibold tracking-[-0.05em]">{event.isPaid ? `₹${event.price}` : "Free"}</p>
+              </div>
+              {seatsLeft !== null && (
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/35">Availability</p>
+                  <p className="mt-2 text-sm font-semibold">{seatsLeft} seats left</p>
+                </div>
+              )}
+            </div>
+
+            {memoryReady && user && action === "register" && (
+              <p className="mt-5 text-xs leading-5 text-black/42">Your profile and this form are saved on this device while you type.</p>
+            )}
+          </aside>
+
+          <section className="min-w-0">
             {authStatus === "loading" || registrationStateLoading ? (
-              <div className="rounded-[2rem] border border-slate-200 bg-white p-10 text-center"><Loader2 className="mx-auto h-8 w-8 animate-spin text-ieee-blue" /><p className="mt-3 text-sm text-slate-500">Checking your registration…</p></div>
+              <div className="border-y border-black/12 py-12"><Loader2 className="h-7 w-7 animate-spin text-[#00629B]" /><p className="mt-4 text-sm text-black/45">Checking your registration…</p></div>
             ) : !user ? (
-              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-[2rem] border border-slate-200 bg-white p-8 text-center shadow-sm sm:p-10">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-ieee-blue/10"><ShieldCheck className="h-7 w-7 text-ieee-blue" /></div>
-                <h2 className="mt-5 text-2xl font-black">Sign in to register</h2>
-                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">Your Google account keeps your registration and ticket tied to you and lets us prevent duplicate registrations.</p>
-                <button type="button" onClick={signIn} className="mt-6 rounded-2xl bg-ieee-blue px-6 py-3.5 font-bold text-white">Sign in with Google</button>
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="border-y border-black/12 py-10">
+                <ShieldCheck className="h-8 w-8 text-[#00629B]" />
+                <p className="mt-7 text-[9px] font-bold uppercase tracking-[0.18em] text-[#00629B]">Before we continue</p>
+                <h2 className="mt-3 text-4xl font-semibold tracking-[-0.055em]">Sign in once.</h2>
+                <p className="mt-3 max-w-xl text-sm leading-6 text-black/52">Your account keeps the registration, payment and ticket tied to you and prevents duplicate bookings.</p>
+                <button type="button" onClick={signIn} className="group mt-7 inline-flex items-center gap-3 border-y border-[#00629B] py-4 text-lg font-bold text-[#00629B]">Sign in with Google <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" /></button>
               </motion.div>
             ) : registrationState?.found ? (
               <StatusCard event={event} state={registrationState} onReceipt={() => void handleReceipt()} />
             ) : action === "closed" ? (
-              <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
-                <Clock3 className="h-10 w-10 text-slate-400" />
-                <h2 className="mt-4 text-2xl font-black">{capacityFull ? "Event full" : "Registration closed"}</h2>
-                <p className="mt-2 text-sm leading-6 text-slate-600">{capacityFull ? "All available seats are currently reserved." : "This event is no longer accepting new registrations."}</p>
+              <div className="border-y border-black/12 py-10">
+                <Clock3 className="h-8 w-8 text-black/35" />
+                <h2 className="mt-5 text-4xl font-semibold tracking-[-0.055em]">{capacityFull ? "Event full." : "Registration closed."}</h2>
+                <p className="mt-3 text-sm leading-6 text-black/50">{capacityFull ? "All available seats are currently reserved." : "This event is no longer accepting new registrations."}</p>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-                  <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-ieee-blue">Your details</p>
-                  <h2 className="mt-2 text-2xl font-black">Tell us who&apos;s attending</h2>
-                  <p className="mt-1 text-sm text-slate-500">Saved securely in this browser for your next IEEE event too.</p>
-                  <div className="mt-6 grid gap-5 sm:grid-cols-2">
-                    <label className="sm:col-span-2"><span className="mb-2 block text-sm font-semibold">Full name *</span><input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" className={`${fieldClass} ${errors.name ? "border-rose-400" : ""}`} placeholder="Your full name" />{errors.name && <span className="mt-1.5 block text-xs text-rose-600">{errors.name}</span>}</label>
-                    <label><span className="mb-2 block text-sm font-semibold">Email</span><input value={email} readOnly autoComplete="email" className={fieldClass} /><span className="mt-1.5 block text-xs text-slate-400">From your signed-in Google account</span></label>
-                    <label><span className="mb-2 block text-sm font-semibold">Phone *</span><input value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" inputMode="tel" autoComplete="tel" className={`${fieldClass} ${errors.phone ? "border-rose-400" : ""}`} placeholder="+91 98765 43210" />{errors.phone && <span className="mt-1.5 block text-xs text-rose-600">{errors.phone}</span>}</label>
-                    <label className="sm:col-span-2"><span className="mb-2 block text-sm font-semibold">College / Institution *</span><input value={college} onChange={(e) => setCollege(e.target.value)} autoComplete="organization" className={`${fieldClass} ${errors.college ? "border-rose-400" : ""}`} placeholder="Your college or institution" />{errors.college && <span className="mt-1.5 block text-xs text-rose-600">{errors.college}</span>}</label>
-                    <label><span className="mb-2 block text-sm font-semibold">Branch / Department</span><input value={branch} onChange={(e) => setBranch(e.target.value)} className={fieldClass} placeholder="Computer Science" /></label>
-                    <label><span className="mb-2 block text-sm font-semibold">Semester</span><input value={semester} onChange={(e) => setSemester(e.target.value)} className={fieldClass} placeholder="S6" /></label>
+              <form onSubmit={handleSubmit}>
+                <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="border-t border-black/12 py-8 sm:py-10">
+                  <div className="grid gap-6 sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-10">
+                    <div>
+                      <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#00629B]">01 / Attendee</p>
+                      <h2 className="mt-3 text-2xl font-semibold tracking-[-0.04em]">Your details</h2>
+                    </div>
+                    <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
+                      <label className="sm:col-span-2"><span className="block text-xs font-bold">Full name *</span><input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" className={`${fieldClass} ${errors.name ? "border-rose-500" : ""}`} placeholder="Your full name" />{errors.name && <span className="mt-1.5 block text-xs text-rose-600">{errors.name}</span>}</label>
+                      <label><span className="block text-xs font-bold">Email</span><input value={email} readOnly autoComplete="email" className={fieldClass} /><span className="mt-1 block text-[10px] text-black/35">From your signed-in account</span></label>
+                      <label><span className="block text-xs font-bold">Phone *</span><input value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" inputMode="tel" autoComplete="tel" className={`${fieldClass} ${errors.phone ? "border-rose-500" : ""}`} placeholder="+91 98765 43210" />{errors.phone && <span className="mt-1.5 block text-xs text-rose-600">{errors.phone}</span>}</label>
+                      <label className="sm:col-span-2"><span className="block text-xs font-bold">College / Institution *</span><input value={college} onChange={(e) => setCollege(e.target.value)} autoComplete="organization" className={`${fieldClass} ${errors.college ? "border-rose-500" : ""}`} placeholder="Your college or institution" />{errors.college && <span className="mt-1.5 block text-xs text-rose-600">{errors.college}</span>}</label>
+                      <label><span className="block text-xs font-bold">Branch / Department</span><input value={branch} onChange={(e) => setBranch(e.target.value)} className={fieldClass} placeholder="Computer Science" /></label>
+                      <label><span className="block text-xs font-bold">Semester</span><input value={semester} onChange={(e) => setSemester(e.target.value)} className={fieldClass} placeholder="S6" /></label>
+                    </div>
                   </div>
 
                   {event.collectIeeeMember && (
-                    <div className="mt-6 border-t border-slate-100 pt-6">
-                      <label className="flex cursor-pointer items-center gap-3"><input type="checkbox" checked={isIeeeMember} onChange={(e) => setIsIeeeMember(e.target.checked)} className="h-4 w-4 accent-ieee-blue" /><span className="text-sm font-semibold">I am an IEEE member</span></label>
-                      <AnimatePresence initial={false}>{isIeeeMember && <motion.label initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mt-4 block overflow-hidden"><span className="mb-2 block text-sm font-semibold">IEEE Membership ID</span><input value={ieeeMembershipId} onChange={(e) => setIeeeMembershipId(e.target.value)} className={fieldClass} placeholder="Membership ID" /></motion.label>}</AnimatePresence>
+                    <div className="mt-8 grid gap-6 border-t border-black/10 pt-7 sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-10">
+                      <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">IEEE membership</p>
+                      <div>
+                        <label className="flex cursor-pointer items-center gap-3"><input type="checkbox" checked={isIeeeMember} onChange={(e) => setIsIeeeMember(e.target.checked)} className="h-4 w-4 accent-[#00629B]" /><span className="text-sm font-semibold">I am an IEEE member</span></label>
+                        <AnimatePresence initial={false}>{isIeeeMember && <motion.label initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mt-5 block overflow-hidden"><span className="block text-xs font-bold">IEEE Membership ID</span><input value={ieeeMembershipId} onChange={(e) => setIeeeMembershipId(e.target.value)} className={fieldClass} placeholder="Membership ID" /></motion.label>}</AnimatePresence>
+                      </div>
                     </div>
                   )}
                 </motion.section>
 
                 {event.formFields.length > 0 && (
-                  <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-                    <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-ieee-blue">Event questions</p>
-                    <h2 className="mt-2 text-2xl font-black">A few more details</h2>
-                    <div className="mt-6 space-y-5">
-                      {event.formFields.map((field) => (
-                        <div key={field.id}>
-                          {field.type !== "checkbox" && <label htmlFor={field.id} className="mb-2 block text-sm font-semibold">{field.label}{field.required ? " *" : ""}</label>}
-                          <DynamicField field={field} value={customFields[field.id] || ""} onChange={(value) => setCustomFields((current) => ({ ...current, [field.id]: value }))} error={errors[field.id]} />
-                          {errors[field.id] && <p className="mt-1.5 text-xs text-rose-600">{errors[field.id]}</p>}
-                        </div>
-                      ))}
+                  <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04 }} className="border-t border-black/12 py-8 sm:py-10">
+                    <div className="grid gap-6 sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-10">
+                      <div>
+                        <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#00629B]">02 / Event</p>
+                        <h2 className="mt-3 text-2xl font-semibold tracking-[-0.04em]">Event questions</h2>
+                      </div>
+                      <div className="space-y-7">
+                        {event.formFields.map((field) => (
+                          <div key={field.id}>
+                            {field.type !== "checkbox" && <label htmlFor={field.id} className="block text-xs font-bold">{field.label}{field.required ? " *" : ""}</label>}
+                            <DynamicField field={field} value={customFields[field.id] || ""} onChange={(value) => setCustomFields((current) => ({ ...current, [field.id]: value }))} error={errors[field.id]} />
+                            {errors[field.id] && <p className="mt-1.5 text-xs text-rose-600">{errors[field.id]}</p>}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </motion.section>
                 )}
 
-                <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="sticky bottom-3 z-20 rounded-[2rem] border border-slate-200 bg-white/95 p-5 shadow-xl shadow-slate-300/30 backdrop-blur sm:static sm:p-6">
-                  <label className="flex cursor-pointer items-start gap-3"><input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} className="mt-0.5 h-4 w-4 accent-ieee-blue" /><span className="text-sm leading-6 text-slate-600">I confirm that the information above is accurate and agree to the event terms.</span></label>
-                  {errors.terms && <p className="mt-2 text-xs text-rose-600">{errors.terms}</p>}
-                  <button type="submit" disabled={submitting} className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-ieee-blue px-5 py-4 font-black text-white transition hover:-translate-y-0.5 hover:shadow-lg disabled:translate-y-0 disabled:bg-slate-300 disabled:shadow-none">
-                    {submitting ? <><Loader2 className="h-5 w-5 animate-spin" />Saving your details…</> : event.isPaid ? <><CreditCard className="h-5 w-5" />Continue to payment · ₹{event.price}</> : <><Ticket className="h-5 w-5" />Confirm free registration</>}
-                  </button>
+                <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="border-y border-black/12 py-8 sm:py-10">
+                  <div className="grid gap-7 sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-10">
+                    <div>
+                      <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#00629B]">{event.formFields.length > 0 ? "03" : "02"} / Confirm</p>
+                      <h2 className="mt-3 text-2xl font-semibold tracking-[-0.04em]">Review & continue</h2>
+                    </div>
+                    <div>
+                      <label className="flex cursor-pointer items-start gap-3"><input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} className="mt-1 h-4 w-4 accent-[#00629B]" /><span className="text-sm leading-6 text-black/55">I confirm that the information above is accurate and agree to the event terms.</span></label>
+                      {errors.terms && <p className="mt-2 text-xs text-rose-600">{errors.terms}</p>}
+
+                      <button type="submit" disabled={submitting} className="group mt-7 flex w-full items-center justify-between border-y border-[#00629B] py-4 text-left text-lg font-bold text-[#00629B] transition disabled:border-black/15 disabled:text-black/30 sm:max-w-lg">
+                        <span>{submitting ? "Saving your details…" : event.isPaid ? `Continue to payment · ₹${event.price}` : "Confirm free registration"}</span>
+                        {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : event.isPaid ? <CreditCard className="h-5 w-5" /> : <Ticket className="h-5 w-5 transition-transform group-hover:translate-x-1" />}
+                      </button>
+                      <p className="mt-4 max-w-lg text-xs leading-5 text-black/38">{event.isPaid ? "Your ticket is issued only after payment is captured." : "Your ticket is created immediately after confirmation."}</p>
+                    </div>
+                  </div>
                 </motion.section>
               </form>
             )}
-          </div>
-
-          <aside className="h-fit rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-24">
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-slate-400">Registration summary</p>
-            <h3 className="mt-3 text-lg font-black leading-snug">{event.title}</h3>
-            <div className="mt-5 space-y-3 text-sm text-slate-600">
-              <div className="flex gap-3"><CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-ieee-blue" /><span>{formatDate(event.date)}</span></div>
-              <div className="flex gap-3"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-ieee-blue" /><span>{event.venue}</span></div>
-            </div>
-            <div className="mt-6 border-t border-dashed border-slate-200 pt-5"><div className="flex items-end justify-between"><span className="text-sm text-slate-500">Registration fee</span><strong className="text-2xl font-black">{event.isPaid ? `₹${event.price}` : "Free"}</strong></div></div>
-            {memoryReady && user && action === "register" && <p className="mt-5 rounded-2xl bg-sky-50 px-4 py-3 text-xs leading-5 text-sky-800">Your form is automatically saved on this device while you type.</p>}
-          </aside>
+          </section>
         </div>
       </main>
-      <Footer />
     </div>
   );
 }

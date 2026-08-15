@@ -4,18 +4,14 @@ import { motion } from "framer-motion";
 import {
   AlertCircle,
   ArrowLeft,
-  Calendar,
   CheckCircle2,
   Clock,
   Download,
   Loader2,
-  MapPin,
   ReceiptText,
 } from "lucide-react";
 import { toast } from "sonner";
 
-import Footer from "@/components/Footer";
-import Navbar from "@/components/Navbar";
 import { getTicket, type PublicTicketData } from "@/lib/data/public-client";
 import { downloadRegistrationReceipt } from "@/lib/data/receipt.client";
 import { formatDateShort } from "@/lib/dates";
@@ -65,17 +61,17 @@ export default function TicketPage({ ticketId }: PageProps) {
   };
 
   if (loading) {
-    return <div className="min-h-screen bg-[#F5F7FA] flex items-center justify-center"><Loader2 className="h-11 w-11 animate-spin text-ieee-blue" /></div>;
+    return <div className="grid min-h-dvh place-items-center bg-[#f4f2ed]"><Loader2 className="h-8 w-8 animate-spin text-[#00629B]" /></div>;
   }
 
   if (error || !ticketData?.found || !ticketData.ticket) {
     return (
-      <div className="min-h-screen bg-[#F5F7FA] flex items-center justify-center px-4">
-        <div className="max-w-md rounded-[2rem] border border-rose-200 bg-white p-9 text-center shadow-sm">
-          <AlertCircle className="mx-auto h-12 w-12 text-rose-500" />
-          <h1 className="mt-5 text-2xl font-black text-slate-950">{error || "Ticket not found"}</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-600">This ticket doesn&apos;t exist or is no longer available.</p>
-          <Link to="/events" className="mt-6 inline-flex rounded-2xl bg-ieee-blue px-5 py-3.5 font-bold text-white">Browse events</Link>
+      <div className="grid min-h-dvh place-items-center bg-[#f4f2ed] px-5 text-[#111315]">
+        <div className="w-full max-w-lg border-y border-black/15 py-10 text-center">
+          <AlertCircle className="mx-auto h-9 w-9 text-rose-600" />
+          <h1 className="mt-5 text-4xl font-semibold tracking-[-0.055em]">{error || "Ticket not found"}</h1>
+          <p className="mt-3 text-sm leading-6 text-black/50">This ticket doesn&apos;t exist or is no longer available.</p>
+          <Link to="/events" className="mt-7 inline-flex font-bold text-[#00629B]">Browse events</Link>
         </div>
       </div>
     );
@@ -91,73 +87,69 @@ export default function TicketPage({ ticketId }: PageProps) {
   const isPaid = ticket.paymentStatus === "paid" || registration?.paymentStatus === "paid";
 
   return (
-    <div className="min-h-screen bg-[#F5F7FA] text-slate-900">
-      <Navbar />
-      <main className="mx-auto max-w-4xl px-4 pb-24 pt-24 sm:px-6">
-        <Link to="/events" className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-900"><ArrowLeft className="h-4 w-4" />Back to events</Link>
+    <div className="min-h-dvh bg-[#f4f2ed] text-[#111315] selection:bg-[#00629B] selection:text-white">
+      <header className="border-b border-black/12">
+        <div className="mx-auto flex max-w-[1200px] items-center justify-between px-5 py-5 sm:px-8">
+          <Link to="/" className="text-[10px] font-black uppercase tracking-[0.22em]">IEEE Sahrdaya</Link>
+          <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#00629B]">Ticket / Ready</span>
+        </div>
+      </header>
 
-        <motion.article initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} className="overflow-hidden rounded-[2.25rem] border border-slate-200 bg-white shadow-2xl shadow-slate-200/60">
-          <div className="relative min-h-64 bg-slate-950 sm:min-h-80">
-            {event?.bannerUrl ? (
-              <img src={event.bannerUrl} alt={event.title} className="absolute inset-0 h-full w-full object-cover" />
-            ) : (
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,#0ea5e9_0,transparent_42%),linear-gradient(135deg,#00629B,#0f172a_72%)]" />
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/30 to-transparent" />
-            <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-5 sm:p-7">
-              <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold backdrop-blur-md ${status.color}`}><StatusIcon className="h-4 w-4" />{status.text}</div>
-              <div className="flex gap-2">
-                {isPaid && <span className="rounded-full border border-white/20 bg-black/25 px-3 py-1.5 text-xs font-extrabold text-white backdrop-blur-md">PAID</span>}
-                {isPast && <span className="rounded-full border border-white/20 bg-black/25 px-3 py-1.5 text-xs font-extrabold text-white backdrop-blur-md">PAST EVENT</span>}
+      <main className="mx-auto max-w-[1200px] px-5 pb-20 pt-8 sm:px-8 sm:pt-12">
+        <Link to="/events" className="group inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.17em] text-black/42 hover:text-[#00629B]"><ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" /> Events</Link>
+
+        <motion.article initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="mt-8 overflow-hidden border border-black/15 lg:grid lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
+          <section className="flex min-h-[470px] flex-col justify-between bg-[#111315] p-7 text-white sm:p-10 lg:min-h-[650px] lg:p-12">
+            <div className="flex items-start justify-between gap-5">
+              <div className="inline-flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.18em] text-white/55"><StatusIcon className="h-4 w-4" /> {status.text}</div>
+              <div className="flex gap-3 text-[9px] font-bold uppercase tracking-[0.16em] text-white/45">
+                {isPaid && <span>Paid</span>}
+                {isPast && <span>Past event</span>}
               </div>
             </div>
-            <div className="absolute inset-x-0 bottom-0 p-6 sm:p-9">
-              <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-sky-200">IEEE Sahrdaya event pass</p>
-              <h1 className="mt-2 max-w-3xl text-3xl font-black leading-tight text-white sm:text-4xl">{event?.title || "Event ticket"}</h1>
-            </div>
-          </div>
 
-          <div className="grid gap-0 lg:grid-cols-[1fr_330px]">
-            <div className="p-6 sm:p-9 lg:border-r lg:border-slate-100">
-              <div className="grid gap-4 sm:grid-cols-2">
-                {event?.date && <div className="rounded-2xl bg-slate-50 p-4"><Calendar className="h-5 w-5 text-ieee-blue" /><p className="mt-3 text-xs font-extrabold uppercase tracking-[0.14em] text-slate-400">Date</p><p className="mt-1 font-bold">{formatDateShort(event.date)}</p></div>}
-                {event?.venue && <div className="rounded-2xl bg-slate-50 p-4"><MapPin className="h-5 w-5 text-ieee-blue" /><p className="mt-3 text-xs font-extrabold uppercase tracking-[0.14em] text-slate-400">Venue</p><p className="mt-1 font-bold">{event.venue}</p></div>}
+            <div className="py-10 sm:py-14">
+              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-sky-300">Event pass</p>
+              <h1 className="mt-4 max-w-3xl text-4xl font-semibold leading-[0.94] tracking-[-0.06em] sm:text-5xl lg:text-6xl">{event?.title || "Event ticket"}</h1>
+              <div className="mt-8 grid grid-cols-2 gap-6 border-t border-white/15 pt-6 text-sm sm:max-w-2xl">
+                <div><p className="text-[9px] font-bold uppercase tracking-[0.16em] text-white/35">Date</p><p className="mt-2 font-semibold">{event?.date ? formatDateShort(event.date) : "—"}</p></div>
+                <div><p className="text-[9px] font-bold uppercase tracking-[0.16em] text-white/35">Venue</p><p className="mt-2 font-semibold leading-snug">{event?.venue || "—"}</p></div>
               </div>
-
-              {registration && (
-                <section className="mt-7">
-                  <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-slate-400">Attendee</p>
-                  <h2 className="mt-2 text-2xl font-black">{registration.name || "Attendee"}</h2>
-                  <div className="mt-4 grid gap-3 text-sm text-slate-600 sm:grid-cols-2">
-                    <div><span className="block text-xs text-slate-400">Email</span><span className="font-semibold text-slate-800">{registration.email || "—"}</span></div>
-                    <div><span className="block text-xs text-slate-400">Phone</span><span className="font-semibold text-slate-800">{registration.phone || "—"}</span></div>
-                  </div>
-                </section>
-              )}
-
-              <div className="mt-7 border-t border-dashed border-slate-200 pt-6">
-                <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-slate-400">Ticket ID</p>
-                <p className="mt-2 break-all font-mono text-sm font-bold text-slate-800">{ticket.id}</p>
-                {registration && <p className="mt-3 text-xs text-slate-400">Registered {formatDateShort(registration.registrationDate)}</p>}
-              </div>
-
-              {isPaid && registration && (
-                <button type="button" onClick={() => void handleReceipt()} className="mt-6 inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 font-bold text-slate-800 hover:bg-slate-50"><ReceiptText className="h-4 w-4" />Download payment receipt</button>
-              )}
             </div>
 
-            <aside className="flex flex-col items-center justify-center bg-slate-50 p-7 sm:p-9">
-              <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
-                {qrDataUrl ? <img src={qrDataUrl} alt="Event ticket QR code" className="h-52 w-52 sm:h-56 sm:w-56" /> : <div className="flex h-52 w-52 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-slate-300" /></div>}
+            <div className="grid gap-7 border-t border-white/15 pt-7 sm:grid-cols-2">
+              <div>
+                <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-white/35">Attendee</p>
+                <p className="mt-2 text-xl font-semibold">{registration?.name || "Attendee"}</p>
+                {registration?.email && <p className="mt-1 text-xs text-white/45">{registration.email}</p>}
               </div>
-              <p className="mt-4 text-center text-sm font-bold text-slate-800">Show this QR at check-in</p>
-              <p className="mt-1 text-center text-xs leading-5 text-slate-500">Keep this ticket available on your phone when you arrive.</p>
-              <button type="button" onClick={handleDownloadQR} disabled={!qrDataUrl} className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-ieee-blue disabled:opacity-40"><Download className="h-4 w-4" />Save QR</button>
-            </aside>
-          </div>
+              <div>
+                <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-white/35">Ticket ID</p>
+                <p className="mt-2 break-all font-mono text-xs font-bold text-white/80">{ticket.id}</p>
+                {registration && <p className="mt-2 text-[10px] text-white/35">Registered {formatDateShort(registration.registrationDate)}</p>}
+              </div>
+            </div>
+          </section>
+
+          <aside className="flex flex-col items-center justify-center bg-white p-7 text-center sm:p-10 lg:p-12">
+            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#00629B]">Check-in code</p>
+            <div className="mt-7 border border-black/10 bg-white p-4">
+              {qrDataUrl ? <img src={qrDataUrl} alt="Event ticket QR code" className="h-56 w-56 sm:h-64 sm:w-64" /> : <div className="grid h-56 w-56 place-items-center sm:h-64 sm:w-64"><Loader2 className="h-7 w-7 animate-spin text-black/20" /></div>}
+            </div>
+            <h2 className="mt-6 text-2xl font-semibold tracking-[-0.04em]">Show this at check-in.</h2>
+            <p className="mt-2 max-w-xs text-sm leading-6 text-black/48">Keep this page available on your phone when you arrive.</p>
+            <button type="button" onClick={handleDownloadQR} disabled={!qrDataUrl} className="mt-7 inline-flex items-center gap-2 border-y border-[#00629B] py-3 text-sm font-bold text-[#00629B] disabled:opacity-40"><Download className="h-4 w-4" /> Save QR</button>
+          </aside>
         </motion.article>
+
+        <div className="mt-7 flex flex-wrap items-center justify-between gap-5 border-b border-black/12 pb-7">
+          <p className="text-xs text-black/40">One ticket, tied to your registration.</p>
+          <div className="flex flex-wrap gap-5">
+            {isPaid && registration && <button type="button" onClick={() => void handleReceipt()} className="inline-flex items-center gap-2 text-sm font-bold text-black/50 hover:text-[#00629B]"><ReceiptText className="h-4 w-4" /> Payment receipt</button>}
+            <Link to="/events" className="text-sm font-bold text-[#00629B]">Browse events</Link>
+          </div>
+        </div>
       </main>
-      <Footer />
     </div>
   );
 }
