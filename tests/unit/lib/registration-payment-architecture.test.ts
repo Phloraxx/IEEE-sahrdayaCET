@@ -144,17 +144,18 @@ describe("registration/payment experience architecture", () => {
     expect(notifications).toContain('$apis.requireAuth("users")');
     expect(root).toContain('<MotionConfig reducedMotion="user">');
   });
-  it("keeps the registration email as a poster-independent credential pass", () => {
+  it("keeps the registration email as a poster-independent issued credential", () => {
     const notifications = source("pb_hooks/notification-helpers.js");
     expect(notifications).toContain('subject: "Your Ticket for " + rawTitle');
-    expect(notifications).toContain('max-width:420px');
-    expect(notifications).toContain('Registration confirmed');
-    expect(notifications).toContain('You&#39;re on the list, ');
-    expect(notifications).toContain('>Event pass</td>');
-    expect(notifications).toContain('>● Valid</td>');
-    expect(notifications).toContain('border-top:1px dashed #c9c9c5');
-    expect(notifications).toContain('>Scan at check-in</p>');
-    expect(notifications).toContain('>Open your e-ticket&nbsp;&nbsp;→</a>');
+    expect(notifications).toContain('max-width:430px');
+    expect(notifications).toContain('Your pass is ready.');
+    expect(notifications).toContain('>Event credential</td>');
+    expect(notifications).toContain('background:#00629b');
+    expect(notifications).toContain('htmlEscape(parts.day)');
+    expect(notifications).toContain('>Issued to</p>');
+    expect(notifications).toContain('border-top:1px dashed #c8c5bd');
+    expect(notifications).toContain('>Check-in</p>');
+    expect(notifications).toContain('>Open e-ticket&nbsp;&nbsp;→</a>');
     expect(notifications).toContain('var entryLabel = isPaid ? "PAID · ₹" + paidAmount(registration) : "FREE ENTRY"');
     expect(notifications).not.toContain('var banner = getBannerUrl(event)');
   });
