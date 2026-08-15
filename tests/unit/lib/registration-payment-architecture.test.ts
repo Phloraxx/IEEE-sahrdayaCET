@@ -208,6 +208,18 @@ describe("registration/payment experience architecture", () => {
     expect(registration).toContain("finalFeePaise % 100 !== 0");
     expect(direct).toContain("providerData.provider === paygate.PAYGATE_PROVIDER");
     expect(paygate).toContain('source: "ieee-sahrdaya-kotak-temporary"');
+    expect(paygate).toContain("deploymentNamespace");
+    expect(paygate).toContain('"ieee-paygate-" + deploymentNamespace()');
+    expect(webhook).toContain("reconcilePaymentForRegistration(registration)");
+    expect(webhook).toContain("providerAuthoritative");
+    expect(webhook).toContain("data.paymentId && !providerAuthoritative");
+    expect(source("pb_migrations/202608150002_existing_paid_events_kotak_fallback.js")).toContain('row.set("paymentProvider", "kotak")');
+    expect(source("pb_migrations/202608150003_paygate_payment_ledger_provider.js")).toContain('["razorpay", "paygate", "manual", "legacy_paygate"]');
+    expect(paygate).toContain("syncPaymentLedger");
+    expect(paygate).toContain('confirmationSource: PAYGATE_PROVIDER');
+    expect(source("pb_hooks/admin-operations.pb.js")).toContain("paygateCollectedAmount");
+    expect(source("src/routes/admin.payments.tsx")).toContain("Kotak via PayGate");
+    expect(source("pb_hooks/razorpay-direct-helpers.js")).toContain('String(config.keyId).indexOf("rzp_live_") !== 0');
     expect(paygate).toContain("Date.now() - lastSyncedAt < 4000");
     expect(webhook).toContain('X-PayGate-Signature');
     expect(webhook).toContain('payment.paid');

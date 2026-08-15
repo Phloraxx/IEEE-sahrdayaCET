@@ -96,8 +96,33 @@ cronAdd("paygate-registration-expiry", "* * * * *", function () {
   var nowMs = Date.now()
   for (var i = 0; i < records.length; i++) {
     var registration = records[i]
-    if (!pg.shouldReleasePendingRegistration(registration, nowMs, config.registrationGraceSeconds)) continue
     var data = pg.asObject(registration.get("paymentData"))
+    if (data.provider !== pg.PAYGATE_PROVIDER) continue
+
+    // Webhook delivery is an optimization, not a correctness dependency. The
+    // shared temporary PayGate service has one callback URL, so each IEEE
+    // environment also reconciles its own pending Kotak sessions once a minute.
+    var providerAuthoritative = !data.paymentId
+    if (data.paymentId) {
+      try {
+        var reconciled = pg.reconcilePaymentForRegistration(registration)
+        if (reconciled.notify) pg.enqueueRegistrationNotifications(registration.id)
+        providerAuthoritative = reconciled.status === 200 && reconciled.body && reconciled.body.providerReachable !== false
+        registration = $app.findRecordById("registrations", registration.id)
+        if (registration.getString("registrationStatus") !== "pending" || registration.getString("paymentStatus") !== "pending") continue
+        data = pg.asObject(registration.get("paymentData"))
+      } catch (reconcileErr) {
+        providerAuthoritative = false
+        console.log("[paygate] background reconciliation failed for " + registration.id + ":", reconcileErr)
+      }
+    }
+
+    // Never release a real provider session from stale state. If PayGate is
+    // unavailable or asks us to slow down, keep the seat pending and retry on
+    // the next cron pass. This avoids losing an on-time bank credit whose SMS
+    // arrived near the provider-expiry boundary.
+    if (data.paymentId && !providerAuthoritative) continue
+    if (!pg.shouldReleasePendingRegistration(registration, nowMs, config.registrationGraceSeconds)) continue
     data.releaseReason = data.providerStatus === "expired"
       ? "Kotak payment expired and the IEEE grace window elapsed"
       : data.providerStatus === "not_initialized"

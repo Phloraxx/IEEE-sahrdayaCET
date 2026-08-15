@@ -1,7 +1,7 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 var PAYGATE_PROVIDER = "paygate"
-var EXTERNAL_ID_PREFIX = "ieee-registration:"
+var EXTERNAL_ID_PREFIX = "ieee-sahrdaya"
 var SUPPORTED_STATUSES = {
     pending: true,
     paid: true,
@@ -60,18 +60,32 @@ function webhookConfigured(config) {
     return !!(config && config.webhookSecret)
 }
 
+function deploymentNamespace() {
+    var explicit = String($os.getenv("PAYGATE_CLIENT_NAMESPACE") || "").trim().toLowerCase()
+    if (explicit) return explicit.replace(/[^a-z0-9_-]/g, "-").slice(0, 40) || "local"
+    var site = String($os.getenv("SITE_URL") || "").trim().toLowerCase()
+    if (site.indexOf("staging.ieeesahrdaya.com") !== -1) return "staging"
+    if (site.indexOf("ieeesahrdaya.com") !== -1) return "production"
+    return "local"
+}
+
+function externalIdPrefix() {
+    return EXTERNAL_ID_PREFIX + ":" + deploymentNamespace() + ":registration:"
+}
+
 function externalIdForRegistration(registrationId) {
-    return EXTERNAL_ID_PREFIX + String(registrationId || "")
+    return externalIdPrefix() + String(registrationId || "")
 }
 
 function registrationIdFromExternalId(externalId) {
     externalId = String(externalId || "")
-    if (externalId.indexOf(EXTERNAL_ID_PREFIX) !== 0) return ""
-    return externalId.slice(EXTERNAL_ID_PREFIX.length)
+    var prefix = externalIdPrefix()
+    if (externalId.indexOf(prefix) !== 0) return ""
+    return externalId.slice(prefix.length)
 }
 
 function idempotencyKeyForRegistration(registrationId) {
-    return "ieee-paygate-" + String(registrationId || "")
+    return "ieee-paygate-" + deploymentNamespace() + "-" + String(registrationId || "")
 }
 
 function expectedRequestedPaise(amountRupees) {
@@ -295,6 +309,97 @@ function paymentSession(registration, data, providerReachable) {
     }
 }
 
+function syncPaymentLedger(registration, payment, options) {
+    options = options || {}
+    if (!registration || !payment || !payment.id) return null
+    try {
+        var collection = $app.findCollectionByNameOrId("payments")
+        var ledger = null
+        try {
+            ledger = $app.findFirstRecordByFilter(
+                "payments",
+                "providerOrderId = {:providerOrderId}",
+                { providerOrderId: String(payment.id) }
+            )
+        } catch (_) {}
+        if (!ledger) {
+            try {
+                var rows = $app.findRecordsByFilter(
+                    "payments",
+                    "registration = {:registration} && provider = {:provider}",
+                    "-created", 1, 0,
+                    { registration: registration.id, provider: PAYGATE_PROVIDER }
+                )
+                if (rows.length) ledger = rows[0]
+            } catch (_) {}
+        }
+
+        var rh = require(__hooks + "/registration-helpers.js")
+        var finalPaise = rh.registrationFinalFeePaise(registration)
+        var discountPaise = Number(registration.getInt("discountPaise") || 0)
+        var basePaise = Number(registration.getInt("baseFeePaise") || 0) || (finalPaise + discountPaise)
+        var providerStatus = String(payment.status || "pending")
+        var manualReview = options.manualReview === true
+        var collectedPaise = (providerStatus === "paid" || providerStatus === "late")
+            ? Number(payment.payableAmountPaise || 0)
+            : 0
+        var ledgerStatus = manualReview
+            ? "manual_review"
+            : providerStatus === "paid"
+                ? "captured"
+                : providerStatus === "cancelled"
+                    ? "cancelled"
+                    : providerStatus === "expired"
+                        ? "failed"
+                        : providerStatus === "late"
+                            ? "manual_review"
+                            : "pending"
+        if (!ledger) {
+            ledger = new Record(collection, {
+                registration: registration.id,
+                event: registration.getString("event") || "",
+                provider: PAYGATE_PROVIDER,
+                providerOrderId: String(payment.id),
+                receipt: ("paygate_" + registration.id).slice(0, 120),
+                status: ledgerStatus,
+                baseFeePaise: basePaise,
+                discountPaise: discountPaise,
+                finalFeePaise: finalPaise,
+                collectedPaise: collectedPaise,
+                refundedPaise: 0,
+                currency: "INR",
+                paymentMethod: "upi",
+                confirmationSource: PAYGATE_PROVIDER,
+                capturedAt: providerStatus === "paid" ? (payment.paidAt || new Date().toISOString()) : "",
+                lastSyncedAt: new Date().toISOString(),
+                manualReview: manualReview || providerStatus === "late",
+                reviewReason: String(options.reviewReason || ""),
+            })
+        } else {
+            ledger.set("providerOrderId", String(payment.id))
+            ledger.set("status", ledgerStatus)
+            ledger.set("baseFeePaise", basePaise)
+            ledger.set("discountPaise", discountPaise)
+            ledger.set("finalFeePaise", finalPaise)
+            ledger.set("collectedPaise", Math.max(Number(ledger.getInt("collectedPaise") || 0), collectedPaise))
+            ledger.set("currency", "INR")
+            ledger.set("paymentMethod", "upi")
+            ledger.set("confirmationSource", PAYGATE_PROVIDER)
+            ledger.set("lastSyncedAt", new Date().toISOString())
+            ledger.set("manualReview", manualReview || providerStatus === "late")
+            ledger.set("reviewReason", String(options.reviewReason || ""))
+            if (providerStatus === "paid" && !ledger.getString("capturedAt")) {
+                ledger.set("capturedAt", payment.paidAt || new Date().toISOString())
+            }
+        }
+        $app.saveNoValidate(ledger)
+        return ledger
+    } catch (err) {
+        console.log("[paygate] payment ledger sync failed:", err)
+        return null
+    }
+}
+
 function mayAccessRegistration(auth, registration) {
     if (!auth || !auth.id || !registration) return false
     if (auth.getString("role") === "admin") return true
@@ -341,6 +446,7 @@ function confirmRegistration(registration, payment, eventId) {
     registration.set("paymentData", data)
     if (!registration.getString("ticketId")) registration.set("ticketId", rh.generateTicketId())
     $app.saveNoValidate(registration)
+    syncPaymentLedger(registration, payment, { manualReview: false, reviewReason: "" })
     return data
 }
 
@@ -354,6 +460,7 @@ function cancelRegistration(registration, payment, eventId, reason, manualReview
     registration.set("paymentStatus", "failed")
     registration.set("paymentData", data)
     $app.save(registration)
+    syncPaymentLedger(registration, payment, { manualReview: manualReview === true, reviewReason: reason || "" })
     return data
 }
 
@@ -382,6 +489,13 @@ function applyProviderState(registration, payment, eventType, eventId) {
             registration.set("paymentData", noopData)
             $app.saveNoValidate(registration)
         }
+        // Replays also repair a missing normalized ledger row. Registration
+        // confirmation and financial reporting therefore converge even if an
+        // earlier ledger write was interrupted after the bank truth was saved.
+        syncPaymentLedger(registration, payment, {
+            manualReview: data.manualReview === true,
+            reviewReason: String(data.reviewReason || ""),
+        })
         return transition
     }
 
@@ -403,6 +517,7 @@ function applyProviderState(registration, payment, eventType, eventId) {
         if (eventId) expiredData = appendEventId(expiredData, eventId)
         registration.set("paymentData", expiredData)
         $app.saveNoValidate(registration)
+        syncPaymentLedger(registration, payment, { manualReview: false, reviewReason: "" })
         return transition
     }
 
@@ -420,6 +535,7 @@ function applyProviderState(registration, payment, eventType, eventId) {
             if (eventId) reviewData = appendEventId(reviewData, eventId)
             registration.set("paymentData", reviewData)
             $app.saveNoValidate(registration)
+            syncPaymentLedger(registration, payment, { manualReview: true, reviewReason: reviewReason })
         } else {
             cancelRegistration(registration, payment, eventId, reviewReason, true)
         }
@@ -471,6 +587,7 @@ function createPaymentForRegistration(registration) {
                 eventId: registration.getString("event") || "",
                 paymentTicketId: registration.getString("paymentTicketId") || "",
                 source: "ieee-sahrdaya-kotak-temporary",
+                environment: deploymentNamespace(),
             },
         }, {
             Authorization: "Bearer " + config.apiKey,
@@ -499,6 +616,7 @@ function createPaymentForRegistration(registration) {
     })
     registration.set("paymentData", nextData)
     $app.saveNoValidate(registration)
+    syncPaymentLedger(registration, validated.payment, { manualReview: false, reviewReason: "" })
     return { status: response.statusCode === 201 ? 201 : 200, body: paymentSession(registration, nextData, true) }
 }
 
@@ -510,6 +628,17 @@ function reconcilePaymentForRegistration(registration) {
         return { status: 409, body: { code: "PAYMENT_PROVIDER_CONFLICT", error: "This registration uses a different payment provider" } }
     }
     if (!data.paymentId || registration.getString("paymentStatus") === "paid") {
+        if (data.paymentId) {
+            syncPaymentLedger(registration, {
+                id: String(data.paymentId),
+                status: String(data.providerStatus || (registration.getString("paymentStatus") === "paid" ? "paid" : "pending")),
+                payableAmountPaise: Number(data.payableAmountPaise) || 0,
+                paidAt: String(data.paidAt || ""),
+            }, {
+                manualReview: data.manualReview === true,
+                reviewReason: String(data.reviewReason || ""),
+            })
+        }
         return { status: 200, body: paymentSession(registration, data, paymentConfigured(config)) }
     }
     if (!paymentConfigured(config)) {
@@ -586,6 +715,8 @@ function shouldReleasePendingRegistration(registration, nowMs, graceSeconds) {
 module.exports = {
     PAYGATE_PROVIDER: PAYGATE_PROVIDER,
     EXTERNAL_ID_PREFIX: EXTERNAL_ID_PREFIX,
+    deploymentNamespace: deploymentNamespace,
+    externalIdPrefix: externalIdPrefix,
     asObject: asObject,
     getConfig: getConfig,
     paymentConfigured: paymentConfigured,
@@ -605,6 +736,7 @@ module.exports = {
     mayAccessRegistration: mayAccessRegistration,
     enqueueRegistrationNotifications: enqueueRegistrationNotifications,
     updateProviderData: updateProviderData,
+    syncPaymentLedger: syncPaymentLedger,
     applyProviderState: applyProviderState,
     createPaymentForRegistration: createPaymentForRegistration,
     reconcilePaymentForRegistration: reconcilePaymentForRegistration,

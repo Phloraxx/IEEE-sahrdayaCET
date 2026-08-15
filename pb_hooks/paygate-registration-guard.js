@@ -60,6 +60,7 @@ function recordPaidManualReview(registration, payment, payGateEventId, reason) {
     registration.set("paymentStatus", "paid")
     registration.set("paymentData", data)
     $app.save(registration)
+    pg.syncPaymentLedger(registration, payment, { manualReview: true, reviewReason: reason || "PayGate payment requires organizer review" })
     return data
 }
 

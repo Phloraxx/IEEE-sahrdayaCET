@@ -389,6 +389,20 @@ def main():
         assert payment1["upiUri"].startswith("upi://pay?")
         assert STATE.create_count == 1
 
+        ledger_filter = urllib.parse.quote(f'registration = "{reg1["registrationId"]}"')
+        ledger_list = request(
+            "GET",
+            "/api/collections/payments/records?perPage=10&filter=" + ledger_filter,
+            token=super_token,
+        )
+        assert ledger_list["totalItems"] == 1
+        ledger_pending = ledger_list["items"][0]
+        assert ledger_pending["provider"] == "paygate"
+        assert ledger_pending["providerOrderId"] == payment1["paymentId"]
+        assert ledger_pending["status"] == "pending"
+        assert ledger_pending["finalFeePaise"] == 10000
+        assert ledger_pending["collectedPaise"] == 0
+
         payment1_replay = request(
             "POST",
             f"/api/app/registrations/{reg1['registrationId']}/payment",
@@ -408,6 +422,17 @@ def main():
         assert reconciled["paymentStatus"] == "paid"
         assert reconciled["ticketId"].startswith("TKT-")
         real_ticket = reconciled["ticketId"]
+
+        ledger_paid_list = request(
+            "GET",
+            "/api/collections/payments/records?perPage=10&filter=" + ledger_filter,
+            token=super_token,
+        )
+        assert ledger_paid_list["totalItems"] == 1
+        ledger_paid = ledger_paid_list["items"][0]
+        assert ledger_paid["status"] == "captured"
+        assert ledger_paid["collectedPaise"] == payment1["payableAmountPaise"]
+        assert ledger_paid["confirmationSource"] == "paygate"
 
         anonymous_real = request(
             "GET",
@@ -434,6 +459,22 @@ def main():
         provider2 = STATE.set_status(payment2["paymentId"], "paid")
 
         raw2, headers2 = signed_paygate_event("evt_ci_paid", "payment.paid", provider2)
+
+        # A correctly signed callback from another IEEE environment must be
+        # acknowledged but ignored. Staging and production share the temporary
+        # PayGate service, so environment-scoped external IDs are a hard boundary.
+        foreign_provider = dict(provider2)
+        foreign_provider["externalId"] = (
+            "ieee-sahrdaya:production:registration:" + reg2["registrationId"]
+        )
+        foreign_raw, foreign_headers = signed_paygate_event(
+            "evt_ci_foreign", "payment.paid", foreign_provider
+        )
+        foreign = raw_request(
+            "POST", "/api/webhooks/paygate", foreign_raw, extra_headers=foreign_headers
+        )
+        assert foreign["success"] is True and foreign["ignored"] is True
+
         bad_headers = dict(headers2)
         bad_headers["X-PayGate-Signature"] = "v1=" + "0" * 64
         raw_request("POST", "/api/webhooks/paygate", raw2, expected=(401,), extra_headers=bad_headers)

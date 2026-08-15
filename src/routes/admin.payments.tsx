@@ -17,6 +17,7 @@ const money = (value: number) => new Intl.NumberFormat("en-IN", {
 
 function providerLabel(provider: string) {
   if (provider === "razorpay") return "Razorpay";
+  if (provider === "paygate") return "Kotak via PayGate";
   if (provider === "manual") return "Manual";
   if (provider === "legacy_paygate") return "Legacy PayGate";
   return provider || "Unknown";
@@ -64,14 +65,15 @@ export default function AdminPayments() {
   ];
   return <div className="space-y-7">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-      <div><p className="text-xs font-medium text-muted-foreground">Operate</p><h1 className="mt-1 text-2xl font-semibold tracking-tight">Payment Desk</h1><p className="mt-1 max-w-2xl text-sm text-muted-foreground">Canonical financial ledger for Razorpay, manual confirmations and preserved legacy history.</p></div>
+      <div><p className="text-xs font-medium text-muted-foreground">Operate</p><h1 className="mt-1 text-2xl font-semibold tracking-tight">Payment Desk</h1><p className="mt-1 max-w-2xl text-sm text-muted-foreground">Canonical financial ledger for Razorpay, temporary Kotak/PayGate, manual confirmations and preserved legacy history.</p></div>
       <Banknote className="hidden h-5 w-5 text-muted-foreground sm:block" />
     </div>
     <div className="grid overflow-hidden rounded-lg border border-border bg-card sm:grid-cols-2 xl:grid-cols-4">
       {metrics.map(([label, value, detail], index) => <div key={label} className={`p-4 ${index < metrics.length - 1 ? "border-b border-border sm:border-r xl:border-b-0" : ""}`}><div className="text-xs text-muted-foreground">{label}</div><div className="mt-1 font-mono text-xl font-semibold tabular-nums">{value}</div><div className="mt-1 text-[11px] text-muted-foreground">{detail}</div></div>)}
     </div>
-    <div className="grid gap-3 sm:grid-cols-3">
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <div className="rounded-lg border border-border bg-card p-3 text-xs"><span className="text-muted-foreground">Razorpay</span><p className="mt-1 font-mono font-semibold">{money(summary.razorpayCollectedAmount)} · {summary.razorpayCount}</p></div>
+      <div className="rounded-lg border border-border bg-card p-3 text-xs"><span className="text-muted-foreground">Kotak via PayGate</span><p className="mt-1 font-mono font-semibold">{money(summary.paygateCollectedAmount)} · {summary.paygateCount}</p></div>
       <div className="rounded-lg border border-border bg-card p-3 text-xs"><span className="text-muted-foreground">Manual</span><p className="mt-1 font-mono font-semibold">{money(summary.manualCollectedAmount)} · {summary.manualCount}</p></div>
       <div className="rounded-lg border border-border bg-card p-3 text-xs"><span className="text-muted-foreground">Legacy history</span><p className="mt-1 font-mono font-semibold">{money(summary.legacyCollectedAmount)} · {summary.legacyCount}</p></div>
     </div>

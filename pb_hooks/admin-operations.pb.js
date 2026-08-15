@@ -107,8 +107,9 @@ routerAdd("GET", "/api/admin/payments/summary", function (e) {
   var refunds = $app.findRecordsByFilter("payment_refunds", "1 = 1", "-created", 0, 0)
   var summary = {
     paymentCount: rows.length, grossCollectedAmount: 0, refundedAmount: 0, netCollectedAmount: 0,
-    razorpayCount: 0, razorpayCollectedAmount: 0, manualCount: 0, manualCollectedAmount: 0,
-    legacyCount: 0, legacyCollectedAmount: 0, attentionCount: 0, queuedRefundCount: 0, failedRefundCount: 0,
+    razorpayCount: 0, razorpayCollectedAmount: 0, paygateCount: 0, paygateCollectedAmount: 0,
+    manualCount: 0, manualCollectedAmount: 0, legacyCount: 0, legacyCollectedAmount: 0,
+    attentionCount: 0, queuedRefundCount: 0, failedRefundCount: 0,
   }
   for (var i = 0; i < rows.length; i++) {
     var collected = Math.max(0, rows[i].getInt("collectedPaise") || 0) / 100
@@ -117,6 +118,7 @@ routerAdd("GET", "/api/admin/payments/summary", function (e) {
     summary.grossCollectedAmount += collected
     summary.refundedAmount += refunded
     if (provider === "razorpay") { summary.razorpayCount++; summary.razorpayCollectedAmount += collected }
+    else if (provider === "paygate") { summary.paygateCount++; summary.paygateCollectedAmount += collected }
     else if (provider === "manual") { summary.manualCount++; summary.manualCollectedAmount += collected }
     else { summary.legacyCount++; summary.legacyCollectedAmount += collected }
     if (rows[i].getBool("manualReview") || rows[i].getString("status") === "partially_refunded") summary.attentionCount++
@@ -129,7 +131,7 @@ routerAdd("GET", "/api/admin/payments/summary", function (e) {
   summary.netCollectedAmount = Math.max(0, summary.grossCollectedAmount - summary.refundedAmount)
   return e.json(200, {
     summary: summary,
-    financeDisclaimer: "Gross collection, refunds and net collection are application ledger values reconciled from Razorpay/manual evidence, not a live bank settlement balance.",
+    financeDisclaimer: "Gross collection, refunds and net collection are application ledger values reconciled from Razorpay, Kotak/PayGate and manual evidence, not a live bank settlement balance.",
   })
 }, $apis.requireAuth("users"))
 routerAdd("POST", "/api/admin/events/{id}/registrations/manual", function (e) {

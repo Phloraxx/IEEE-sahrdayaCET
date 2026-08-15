@@ -109,6 +109,8 @@ export interface PaymentDeskSummary {
   netCollectedAmount: number;
   razorpayCount: number;
   razorpayCollectedAmount: number;
+  paygateCount: number;
+  paygateCollectedAmount: number;
   manualCount: number;
   manualCollectedAmount: number;
   legacyCount: number;

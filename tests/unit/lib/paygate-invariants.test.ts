@@ -60,6 +60,7 @@ function loadHelpers(): PayGateHelpers {
     module,
     exports: module.exports,
     console,
+    $os: { getenv: () => "" },
   });
   return module.exports as unknown as PayGateHelpers;
 }
@@ -74,23 +75,26 @@ const validPayment: ProviderPayment = {
   expiresAt: "2026-08-11T16:30:00Z",
   paidAt: null,
   upiUri: "upi://pay?pa=example%40upi&am=100.37&cu=INR",
-  externalId: "ieee-registration:reg_123",
+  externalId: "ieee-sahrdaya:local:registration:reg_123",
 };
 
 describe("PayGate registration identity", () => {
   it("round-trips the external registration identity", () => {
     expect(pg.externalIdForRegistration("reg_123")).toBe(
-      "ieee-registration:reg_123",
+      "ieee-sahrdaya:local:registration:reg_123",
     );
     expect(
-      pg.registrationIdFromExternalId("ieee-registration:reg_123"),
+      pg.registrationIdFromExternalId("ieee-sahrdaya:local:registration:reg_123"),
     ).toBe("reg_123");
     expect(pg.registrationIdFromExternalId("other-app:reg_123")).toBe("");
+    expect(
+      pg.registrationIdFromExternalId("ieee-sahrdaya:production:registration:reg_123"),
+    ).toBe("");
   });
 
   it("uses one deterministic idempotency key per registration", () => {
     expect(pg.idempotencyKeyForRegistration("reg_123")).toBe(
-      "ieee-paygate-reg_123",
+      "ieee-paygate-local-reg_123",
     );
     expect(pg.idempotencyKeyForRegistration("reg_123")).toBe(
       pg.idempotencyKeyForRegistration("reg_123"),
@@ -108,7 +112,7 @@ describe("PayGate monetary validation", () => {
   it("accepts the exact requested amount plus a 1..99 paise fingerprint", () => {
     const result = pg.validateProviderPayment(validPayment, 100, {
       requireUpiUri: true,
-      externalId: "ieee-registration:reg_123",
+      externalId: "ieee-sahrdaya:local:registration:reg_123",
     });
     expect(result.ok).toBe(true);
     expect(result.payment?.payableAmountPaise).toBe(10037);

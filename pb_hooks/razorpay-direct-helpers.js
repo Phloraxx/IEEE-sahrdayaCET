@@ -50,8 +50,16 @@ function getConfig() {
     paymentsEnabled: envBool("PAYMENTS_ENABLED", true),
   }
 }
+function productionSite() {
+  var site = String($os.getenv("SITE_URL") || "").trim().toLowerCase()
+  return site === "https://ieeesahrdaya.com" || site === "http://ieeesahrdaya.com"
+}
 function apiConfigured(config) {
-  return !!(config && config.apiBaseUrl && config.keyId && config.keySecret)
+  if (!(config && config.apiBaseUrl && config.keyId && config.keySecret)) return false
+  // Never expose Razorpay test checkout on the production IEEE domain. During
+  // activation, paid events must explicitly use the temporary Kotak provider.
+  if (productionSite() && String(config.keyId).indexOf("rzp_live_") !== 0) return false
+  return true
 }
 
 function webhookConfigured(config) {
@@ -342,6 +350,7 @@ module.exports = {
   asObject: asObject,
   mergeObject: mergeObject,
   getConfig: getConfig,
+  productionSite: productionSite,
   apiConfigured: apiConfigured,
   webhookConfigured: webhookConfigured,
   base64Ascii: base64Ascii,
