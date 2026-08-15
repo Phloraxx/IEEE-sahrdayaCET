@@ -4,12 +4,20 @@ const PROVIDER_RECONCILE_SCHEDULE_MS = [
   8_000, 15_000, 30_000, 45_000, 60_000,
 ] as const;
 
-export function providerReconcileDelayMs(attempt: number): number {
+export function providerReconcileDelayMs(
+  attempt: number,
+  randomValue = Math.random(),
+): number {
   const index = Math.max(
     0,
     Math.min(PROVIDER_RECONCILE_SCHEDULE_MS.length - 1, Math.floor(attempt)),
   );
-  return PROVIDER_RECONCILE_SCHEDULE_MS[index] ?? 60_000;
+  const base = PROVIDER_RECONCILE_SCHEDULE_MS[index] ?? 60_000;
+  const boundedRandom = Math.max(0, Math.min(1, randomValue));
+
+  // Positive jitter keeps simultaneous checkout sessions from reconciling with
+  // Razorpay on the same cadence while never retrying earlier than the base delay.
+  return Math.round(base * (1 + boundedRandom * 0.2));
 }
 
 export function providerRetryAfterMs(
