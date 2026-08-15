@@ -59,6 +59,7 @@ export function AnnotatedEventCard({ event, index, onSelect, animateEntrance = t
               title={event.title}
               societyName={typeof event.society === "object" ? event.society.name : undefined}
               societySlug={typeof event.society === "object" ? event.society.slug : undefined}
+              showTitle={false}
             />
           )}
           <div className="absolute inset-x-0 top-0 flex items-start justify-between p-4 sm:p-5">

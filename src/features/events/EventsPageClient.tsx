@@ -68,7 +68,7 @@ function FeaturedEvent({ event, onSelect }: { event: ExtendedEvent; onSelect: (e
                 transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
               />
             ) : (
-              <EventBannerFallback title={event.title} societyName={societyName} societySlug={typeof event.society === "object" ? event.society.slug : undefined} />
+              <EventBannerFallback title={event.title} societyName={societyName} societySlug={typeof event.society === "object" ? event.society.slug : undefined} showTitle={false} />
             )}
             <div className="absolute bottom-5 left-5 z-10 rounded-full bg-white/92 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#111315] backdrop-blur-md sm:bottom-7 sm:left-7">
               {label}
@@ -138,7 +138,7 @@ function ArchiveRow({ event, onSelect, index }: { event: ExtendedEvent; onSelect
           {artwork ? (
             <img src={artwork.src} alt="" loading="lazy" className={`h-full w-full transition duration-500 group-hover:scale-105 ${artwork.fit === "contain" ? "object-contain p-2" : "object-cover"}`} />
           ) : (
-            <EventBannerFallback title={event.title} societyName={societyName} />
+            <EventBannerFallback title={event.title} societyName={societyName} showTitle={false} />
           )}
         </div>
         <div className="min-w-0">
