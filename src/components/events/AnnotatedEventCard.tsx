@@ -53,7 +53,7 @@ export function AnnotatedEventCard({
           e.preventDefault();
           onSelect(event);
         }}
-        className={`group block transition-colors duration-300 ${active ? "bg-[#111315] text-white" : "text-[#111315] hover:bg-black/[0.035]"}`}
+        className={`group block transition-colors duration-300 ${active ? "text-[#111315] sm:bg-[#111315] sm:text-white" : "text-[#111315] hover:bg-black/[0.035]"}`}
       >
         <div className="relative aspect-[16/9] overflow-hidden sm:hidden">
           {artwork ? (
@@ -69,7 +69,7 @@ export function AnnotatedEventCard({
         </div>
         <div className="grid gap-5 px-4 py-6 sm:grid-cols-[78px_minmax(0,1fr)_170px_auto] sm:items-center sm:px-5 sm:py-7 lg:grid-cols-[92px_minmax(0,1fr)_220px_auto] lg:px-6 lg:py-8">
           <div className="flex items-baseline gap-2 sm:block">
-            <div className={`text-[10px] font-bold uppercase tracking-[0.18em] ${active ? "text-white/42" : "text-black/38"}`}>
+            <div className={`text-[10px] font-bold uppercase tracking-[0.18em] ${active ? "text-black/38 sm:text-white/42" : "text-black/38"}`}>
               {date.toLocaleDateString("en-IN", { month: "short" })}
             </div>
             <div className="mt-1 text-3xl font-semibold leading-none tracking-[-0.06em] tabular-nums sm:text-4xl">
@@ -78,7 +78,7 @@ export function AnnotatedEventCard({
           </div>
 
           <div className="min-w-0">
-            <div className={`mb-2 flex items-center gap-3 text-[9px] font-bold uppercase tracking-[0.17em] ${active ? "text-white/45" : "text-black/42"}`}>
+            <div className={`mb-2 flex items-center gap-3 text-[9px] font-bold uppercase tracking-[0.17em] ${active ? "text-black/42 sm:text-white/45" : "text-black/42"}`}>
               <span className="truncate">{societyName}</span>
               <span aria-hidden="true">/</span>
               <span className="shrink-0">{event.price > 0 ? `₹${event.price}` : "Free"}</span>
@@ -88,7 +88,7 @@ export function AnnotatedEventCard({
             </h3>
           </div>
 
-          <div className={`space-y-2 text-xs ${active ? "text-white/48" : "text-black/48"}`}>
+          <div className={`space-y-2 text-xs ${active ? "text-black/48 sm:text-white/48" : "text-black/48"}`}>
             <div>{date.toLocaleDateString("en-IN", { weekday: "long", year: "numeric" })}</div>
             {event.venue && (
               <div className="flex items-center gap-2">
@@ -98,10 +98,10 @@ export function AnnotatedEventCard({
             )}
           </div>
           <div className="flex items-center justify-between gap-4 sm:justify-end">
-            <span className={`text-[9px] font-bold uppercase tracking-[0.16em] ${active ? "text-[#7dd3fc]" : status === "Registration open" ? "text-[#00629B]" : "text-black/42"}`}>
+            <span className={`text-[9px] font-bold uppercase tracking-[0.16em] ${active ? "text-[#00629B] sm:text-[#7dd3fc]" : status === "Registration open" ? "text-[#00629B]" : "text-black/42"}`}>
               {status}
             </span>
-            <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full border transition duration-300 ${active ? "border-white/20 bg-white text-[#111315]" : "border-black/14 group-hover:border-[#00629B] group-hover:bg-[#00629B] group-hover:text-white"}`}>
+            <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full border transition duration-300 ${active ? "border-black/14 sm:border-white/20 sm:bg-white sm:text-[#111315]" : "border-black/14 group-hover:border-[#00629B] group-hover:bg-[#00629B] group-hover:text-white"}`}>
               <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
             </span>
           </div>

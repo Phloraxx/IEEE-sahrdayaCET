@@ -69,7 +69,7 @@ export function EventListSection({
           </div>
           <div className="flex items-end justify-between gap-6 md:col-span-5">
             <p className="max-w-sm text-sm leading-relaxed text-black/50 sm:text-base">
-              Scan the dates, hover the programme, then open the event that earns your time.
+              Scan the dates, preview the programme, then open the event that earns your time.
             </p>
             <span className="shrink-0 text-4xl font-semibold tracking-[-0.06em] text-black/18 tabular-nums sm:text-5xl">
               {String(events.length).padStart(2, "0")}
