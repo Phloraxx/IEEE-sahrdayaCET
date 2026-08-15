@@ -1,6 +1,3 @@
-import type { ComponentType } from "react";
-import { Activity, Bot, CalendarDays, Code2, Cpu, Flame } from "lucide-react";
-
 interface EventBannerFallbackProps {
   title: string;
   societyName?: string;
@@ -9,46 +6,32 @@ interface EventBannerFallbackProps {
   showTitle?: boolean;
 }
 
-const SOCIETY_GRADIENTS: Record<string, string> = {
-  cs: "from-[#071b33] via-[#00629B] to-[#00A4E4]",
-  css: "from-[#071b33] via-[#0f5f8f] to-[#0ea5e9]",
-  cas: "from-[#1e1b4b] via-[#4338ca] to-[#818cf8]",
-  embs: "from-[#3f0d12] via-[#9f1239] to-[#fb7185]",
-  ies: "from-[#042f2e] via-[#0f766e] to-[#2dd4bf]",
-  ias: "from-[#172554] via-[#1d4ed8] to-[#38bdf8]",
-  npss: "from-[#111827] via-[#4338ca] to-[#a78bfa]",
-  pes: "from-[#052e16] via-[#15803d] to-[#84cc16]",
-  ps: "from-[#3b0764] via-[#7e22ce] to-[#d946ef]",
-  ras: "from-[#111827] via-[#6d28d9] to-[#2563eb]",
-  sight: "from-[#431407] via-[#c2410c] to-[#f59e0b]",
-  sps: "from-[#172554] via-[#1d4ed8] to-[#0891b2]",
-  wie: "from-[#4a044e] via-[#a21caf] to-[#ec4899]",
-  edsoc: "from-[#172554] via-[#0369a1] to-[#22d3ee]",
+const SOCIETY_COLORS: Record<string, { background: string; accent: string }> = {
+  cs: { background: "#071b33", accent: "#00a4e4" },
+  css: { background: "#082f49", accent: "#38bdf8" },
+  cas: { background: "#312e81", accent: "#a5b4fc" },
+  embs: { background: "#4c0519", accent: "#fb7185" },
+  ies: { background: "#042f2e", accent: "#2dd4bf" },
+  ias: { background: "#172554", accent: "#60a5fa" },
+  npss: { background: "#2e1065", accent: "#c4b5fd" },
+  pes: { background: "#052e16", accent: "#a3e635" },
+  ps: { background: "#3b0764", accent: "#e879f9" },
+  ras: { background: "#25114f", accent: "#8b5cf6" },
+  sight: { background: "#431407", accent: "#fb923c" },
+  sps: { background: "#083344", accent: "#22d3ee" },
+  wie: { background: "#4a044e", accent: "#f0abfc" },
+  edsoc: { background: "#082f49", accent: "#67e8f9" },
 };
 
-function iconForTitle(title: string): ComponentType<{ className?: string }> {
-  const value = title.toLowerCase();
-  if (value.includes("fire") || value.includes("safety")) return Flame;
-  if (value.includes("robo") || value.includes("robot")) return Bot;
-  if (value.includes("bio") || value.includes("medical") || value.includes("health")) return Activity;
-  if (value.includes("signal")) return Activity;
-  if (
-    value.includes("cuda") ||
-    value.includes("hardware") ||
-    value.includes("pcb") ||
-    value.includes("microcontroller") ||
-    value.includes("circuit")
-  ) return Cpu;
-  if (
-    value.includes("ai") ||
-    value.includes("data") ||
-    value.includes("cyber") ||
-    value.includes("ui/ux") ||
-    value.includes("startup")
-  ) return Code2;
-  return CalendarDays;
+function initials(title: string) {
+  return title
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase())
+    .join("") || "E";
 }
-
 export function EventBannerFallback({
   title,
   societyName,
@@ -56,50 +39,51 @@ export function EventBannerFallback({
   className = "",
   showTitle = true,
 }: EventBannerFallbackProps) {
-  const Icon = iconForTitle(title);
-  const gradient = SOCIETY_GRADIENTS[societySlug?.toLowerCase() || ""] ||
-    "from-[#071b33] via-[#00629B] to-[#2563eb]";
+  const palette = SOCIETY_COLORS[societySlug?.toLowerCase() || ""] || {
+    background: "#0b2239",
+    accent: "#00a4e4",
+  };
 
   return (
     <div
       role="img"
       aria-label={`${title} event artwork`}
-      className={`relative isolate h-full w-full overflow-hidden bg-linear-to-br ${gradient} text-white ${className}`}
+      className={`relative isolate h-full w-full overflow-hidden text-white ${className}`}
+      style={{ backgroundColor: palette.background }}
     >
+      <div className="absolute inset-y-0 left-[18%] w-px bg-white/10" />
+      <div className="absolute inset-y-0 right-[18%] w-px bg-white/10" />
+      <div className="absolute inset-x-0 top-[22%] h-px bg-white/10" />
+      <div className="absolute inset-x-0 bottom-[22%] h-px bg-white/10" />
+
       <div
-        className="absolute inset-0 opacity-[0.14]"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgba(255,255,255,.26) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.26) 1px, transparent 1px)",
-          backgroundSize: "32px 32px",
-        }}
-      />
-      <div className="absolute -right-16 -top-20 h-56 w-56 rounded-full border border-white/20 bg-white/5" />
-      <div className="absolute -right-6 -top-10 h-36 w-36 rounded-full border border-white/15" />
-      <div className="absolute -bottom-20 -left-14 h-52 w-52 rounded-full border border-white/20 bg-black/5" />
-      <div className="absolute inset-x-0 bottom-0 h-2/3 bg-linear-to-t from-black/35 to-transparent" />
+        aria-hidden="true"
+        className="absolute -right-[2%] top-1/2 -translate-y-1/2 select-none text-[34vw] font-semibold leading-none tracking-[-0.12em] text-white/[0.055] sm:text-[18rem]"
+      >
+        {initials(title)}
+      </div>
 
-      <div className="relative z-10 flex h-full flex-col justify-between p-5 sm:p-6">
-        <div className="flex items-center justify-between gap-3">
-          <span className="rounded-full border border-white/25 bg-black/15 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.18em] backdrop-blur-sm">
-            IEEE Sahrdaya
-          </span>
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-white/10 backdrop-blur-sm">
-            <Icon className="h-5 w-5" />
-          </span>
+      <div className="absolute left-5 top-5 z-10 flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.2em] text-white/72 sm:left-6 sm:top-6">
+        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: palette.accent }} />
+        IEEE Sahrdaya
+      </div>
+      <div className="absolute bottom-5 left-5 right-5 z-10 sm:bottom-6 sm:left-6 sm:right-6">
+        <div className="mb-3 flex items-center justify-between gap-4 text-[9px] font-semibold uppercase tracking-[0.18em] text-white/52">
+          <span className="truncate">{societyName || "Student Branch Event"}</span>
+          <span aria-hidden="true">↗</span>
         </div>
-
         {showTitle && (
-          <div className="max-w-[90%]">
-            <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-white/70">
-              {societyName || "Student Branch Event"}
-            </p>
-            <p className="line-clamp-3 text-xl font-black leading-tight tracking-tight drop-shadow-sm sm:text-2xl">
-              {title}
-            </p>
-          </div>
+          <p className="max-w-[88%] text-2xl font-semibold leading-[0.98] tracking-[-0.045em] sm:text-3xl">
+            {title}
+          </p>
         )}
       </div>
+
+      <div
+        aria-hidden="true"
+        className="absolute right-5 top-5 h-12 w-12 rounded-full border border-white/15 sm:right-6 sm:top-6"
+        style={{ boxShadow: `inset 0 0 0 11px ${palette.background}, inset 0 0 0 12px ${palette.accent}55` }}
+      />
     </div>
   );
 }

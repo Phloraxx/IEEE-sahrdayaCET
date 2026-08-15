@@ -1,8 +1,7 @@
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowUpRight, CalendarDays, MapPin } from "lucide-react";
+import { ArrowUpRight, MapPin } from "lucide-react";
 import { Link } from "react-router";
 import type { ExtendedEvent } from "@/types";
-import { formatDate } from "@/lib/dates";
 import { resolveEventArtwork } from "@/lib/event-artwork";
 import { EventBannerFallback } from "./EventBannerFallback";
 
@@ -10,8 +9,8 @@ interface EventCardProps {
   event: ExtendedEvent;
   index: number;
   onSelect: (event: ExtendedEvent) => void;
-  isMobile?: boolean;
-  showAnnotations?: boolean;
+  active?: boolean;
+  onActivate?: (event: ExtendedEvent) => void;
   animateEntrance?: boolean;
 }
 
@@ -23,66 +22,88 @@ function eventStatus(event: ExtendedEvent) {
   return "View event";
 }
 
-export function AnnotatedEventCard({ event, index, onSelect, animateEntrance = true }: EventCardProps) {
+export function AnnotatedEventCard({
+  event,
+  index,
+  onSelect,
+  active = false,
+  onActivate,
+  animateEntrance = true,
+}: EventCardProps) {
   const reduceMotion = useReducedMotion();
   const artwork = resolveEventArtwork(event);
+  const date = new Date(event.date);
+  const societyName = typeof event.society === "object" ? event.society.name : "IEEE Sahrdaya";
+  const societySlug = typeof event.society === "object" ? event.society.slug : undefined;
   const status = eventStatus(event);
-  const accent = status === "Registration open" ? "bg-[#00629B]" : "bg-[#111315]";
-
   return (
     <motion.article
-      initial={reduceMotion || !animateEntrance ? false : { opacity: 0, y: 28 }}
+      initial={reduceMotion || !animateEntrance ? false : { opacity: 0, y: 16 }}
       whileInView={reduceMotion || !animateEntrance ? undefined : { opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-80px" }}
-      transition={{ duration: 0.7, delay: Math.min(index, 3) * 0.08, ease: [0.16, 1, 0.3, 1] }}
-      className="group min-w-0"
+      viewport={{ once: true, margin: "-60px" }}
+      transition={{ duration: 0.55, delay: Math.min(index, 5) * 0.04, ease: [0.16, 1, 0.3, 1] }}
+      className="border-t border-black/12"
     >
       <Link
         to={`/events/${event.slug}`}
+        onMouseEnter={() => onActivate?.(event)}
+        onFocus={() => onActivate?.(event)}
         onClick={(e) => {
           if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
           e.preventDefault();
           onSelect(event);
         }}
-        className="block"
+        className={`group block transition-colors duration-300 ${active ? "bg-[#111315] text-white" : "text-[#111315] hover:bg-black/[0.035]"}`}
       >
-        <div className="relative aspect-[4/3] overflow-hidden bg-[#e9e7e1]">
+        <div className="relative aspect-[16/9] overflow-hidden sm:hidden">
           {artwork ? (
             <img
               src={artwork.src}
               alt={event.title}
               loading="lazy"
-              className={`h-full w-full transition duration-700 ease-out group-hover:scale-[1.025] ${artwork.fit === "contain" ? "object-contain p-8" : "object-cover"}`}
+              className={`h-full w-full ${artwork.fit === "contain" ? "object-contain p-6" : "object-cover"}`}
             />
           ) : (
-            <EventBannerFallback
-              title={event.title}
-              societyName={typeof event.society === "object" ? event.society.name : undefined}
-              societySlug={typeof event.society === "object" ? event.society.slug : undefined}
-              showTitle={false}
-            />
+            <EventBannerFallback title={event.title} societyName={societyName} societySlug={societySlug} showTitle={false} />
           )}
-          <div className="absolute inset-x-0 top-0 flex items-start justify-between p-4 sm:p-5">
-            <span className={`${accent} rounded-full px-3 py-2 text-[9px] font-bold uppercase tracking-[0.16em] text-white shadow-sm sm:text-[10px]`}>
+        </div>
+        <div className="grid gap-5 px-4 py-6 sm:grid-cols-[78px_minmax(0,1fr)_170px_auto] sm:items-center sm:px-5 sm:py-7 lg:grid-cols-[92px_minmax(0,1fr)_220px_auto] lg:px-6 lg:py-8">
+          <div className="flex items-baseline gap-2 sm:block">
+            <div className={`text-[10px] font-bold uppercase tracking-[0.18em] ${active ? "text-white/42" : "text-black/38"}`}>
+              {date.toLocaleDateString("en-IN", { month: "short" })}
+            </div>
+            <div className="mt-1 text-3xl font-semibold leading-none tracking-[-0.06em] tabular-nums sm:text-4xl">
+              {String(date.getDate()).padStart(2, "0")}
+            </div>
+          </div>
+
+          <div className="min-w-0">
+            <div className={`mb-2 flex items-center gap-3 text-[9px] font-bold uppercase tracking-[0.17em] ${active ? "text-white/45" : "text-black/42"}`}>
+              <span className="truncate">{societyName}</span>
+              <span aria-hidden="true">/</span>
+              <span className="shrink-0">{event.price > 0 ? `₹${event.price}` : "Free"}</span>
+            </div>
+            <h3 className="max-w-3xl text-2xl font-semibold leading-[1.02] tracking-[-0.04em] sm:text-3xl lg:text-[2.15rem]">
+              {event.title}
+            </h3>
+          </div>
+
+          <div className={`space-y-2 text-xs ${active ? "text-white/48" : "text-black/48"}`}>
+            <div>{date.toLocaleDateString("en-IN", { weekday: "long", year: "numeric" })}</div>
+            {event.venue && (
+              <div className="flex items-center gap-2">
+                <MapPin className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{event.venue}</span>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center justify-between gap-4 sm:justify-end">
+            <span className={`text-[9px] font-bold uppercase tracking-[0.16em] ${active ? "text-[#7dd3fc]" : status === "Registration open" ? "text-[#00629B]" : "text-black/42"}`}>
               {status}
             </span>
-            <span className="grid h-10 w-10 place-items-center rounded-full bg-white/90 text-[#111315] shadow-sm backdrop-blur-md transition duration-300 group-hover:bg-[#00629B] group-hover:text-white">
+            <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full border transition duration-300 ${active ? "border-white/20 bg-white text-[#111315]" : "border-black/14 group-hover:border-[#00629B] group-hover:bg-[#00629B] group-hover:text-white"}`}>
               <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
             </span>
-          </div>
-        </div>
-
-        <div className="border-b border-black/10 py-5 sm:py-6">
-          <div className="mb-4 flex items-center justify-between gap-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-black/45">
-            <span className="truncate">{typeof event.society === "object" ? event.society.name : "IEEE Sahrdaya"}</span>
-            <span>{event.price > 0 ? `₹${event.price}` : "Free"}</span>
-          </div>
-          <h3 className="max-w-[92%] text-2xl font-semibold leading-[1.08] tracking-[-0.035em] text-[#111315] transition-colors duration-300 group-hover:text-[#00629B] sm:text-3xl">
-            {event.title}
-          </h3>
-          <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-black/55">
-            <span className="inline-flex items-center gap-2"><CalendarDays className="h-4 w-4" />{formatDate(event.date)}</span>
-            {event.venue && <span className="inline-flex items-center gap-2"><MapPin className="h-4 w-4" />{event.venue}</span>}
           </div>
         </div>
       </Link>

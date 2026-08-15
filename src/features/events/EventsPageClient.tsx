@@ -1,15 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useRevalidator } from "react-router";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ArrowUpRight, CalendarDays, MapPin, Search, Ticket, X } from "lucide-react";
+import { ArrowUpRight, Search, Ticket, X } from "lucide-react";
 import "@/styles/events.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { EventBannerFallback, EventDetailModal, EventHeroSection, EventListSection } from "@/components/events";
+import { EventDetailModal, EventHeroSection, EventListSection } from "@/components/events";
 import type { EventWithSociety, ExtendedEvent } from "@/types";
 import { isPastEvent } from "@/lib/event-lifecycle";
-import { resolveEventArtwork } from "@/lib/event-artwork";
-import { formatDate } from "@/lib/dates";
 
 const ARCHIVE_PAGE_SIZE = 10;
 const ARCHIVE_FILTERS = ["all", "upcoming", "past"] as const;
@@ -19,105 +17,18 @@ interface EventsPageClientProps {
   initialEvents: EventWithSociety[];
 }
 
-function getEventLabel(event: ExtendedEvent) {
-  const capacity = Number(event.maxCapacity || 0);
-  const registered = Number(event.registeredCount || 0);
-  if (capacity > 0 && registered >= capacity) return "Sold out";
-  if (event.registrationOpen) return "Registration open";
-  return isPastEvent(event, Date.now()) ? "Event ended" : "View event";
-}
-
-function FeaturedEvent({ event, onSelect }: { event: ExtendedEvent; onSelect: (event: ExtendedEvent) => void }) {
-  const reduceMotion = useReducedMotion();
-  const artwork = resolveEventArtwork(event);
-  const societyName = typeof event.society === "object" ? event.society.name : "IEEE Sahrdaya";
-  const label = getEventLabel(event);
-
-  return (
-    <motion.section
-      initial={reduceMotion ? false : { opacity: 0, y: 28 }}
-      whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-100px" }}
-      transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-      className="mx-auto max-w-[1440px]"
-      aria-labelledby="featured-event-title"
-    >
-      <div className="mb-5 flex items-center justify-between border-t border-black/10 pt-5 text-[10px] font-semibold uppercase tracking-[0.2em] text-black/45">
-        <span>Next up</span>
-        <span>Featured event</span>
-      </div>
-
-      <Link
-        to={`/events/${event.slug}`}
-        onClick={(e) => {
-          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-          e.preventDefault();
-          onSelect(event);
-        }}
-        className="group block w-full text-left"
-      >
-        <div className="grid overflow-hidden bg-[#111315] lg:grid-cols-[1.45fr_0.8fr]">
-          <div className="event-feature-image relative min-h-[420px] overflow-hidden bg-[#dedbd4] sm:min-h-[560px] lg:min-h-[650px]">
-            {artwork ? (
-              <motion.img
-                src={artwork.src}
-                alt={event.title}
-                className={`h-full w-full transition-transform duration-1000 ease-out group-hover:scale-[1.018] ${artwork.fit === "contain" ? "object-contain p-10" : "object-cover"}`}
-                whileInView={reduceMotion ? undefined : { scale: [1.025, 1] }}
-                viewport={{ once: true }}
-                transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
-              />
-            ) : (
-              <EventBannerFallback title={event.title} societyName={societyName} societySlug={typeof event.society === "object" ? event.society.slug : undefined} showTitle={false} />
-            )}
-            <div className="absolute bottom-5 left-5 z-10 rounded-full bg-white/92 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#111315] backdrop-blur-md sm:bottom-7 sm:left-7">
-              {label}
-            </div>
-          </div>
-
-          <div className="flex min-h-[430px] flex-col justify-between p-7 text-white sm:p-10 lg:min-h-0 lg:p-12">
-            <div>
-              <div className="mb-8 flex items-center justify-between gap-4 border-b border-white/15 pb-5 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/55">
-                <span>{societyName}</span>
-                <span>{event.price > 0 ? `₹${event.price}` : "Free"}</span>
-              </div>
-              <h2 id="featured-event-title" className="max-w-xl text-4xl font-semibold leading-[0.98] tracking-[-0.055em] sm:text-6xl lg:text-[4.6rem]">
-                {event.title}
-              </h2>
-            </div>
-
-            <div>
-              <div className="mb-8 space-y-3 text-sm text-white/65 sm:text-base">
-                <div className="flex items-center gap-3"><CalendarDays className="h-4 w-4" />{formatDate(event.date)}</div>
-                {event.venue && <div className="flex items-center gap-3"><MapPin className="h-4 w-4" />{event.venue}</div>}
-              </div>
-              <div className="flex items-center justify-between border-t border-white/15 pt-6">
-                <span className="text-xs font-bold uppercase tracking-[0.18em]">Explore event</span>
-                <span className="grid h-12 w-12 place-items-center rounded-full border border-white/25 transition duration-300 group-hover:border-[#00629B] group-hover:bg-[#00629B]">
-                  <ArrowUpRight className="h-5 w-5 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Link>
-    </motion.section>
-  );
-}
-
 function ArchiveRow({ event, onSelect, index }: { event: ExtendedEvent; onSelect: (event: ExtendedEvent) => void; index: number }) {
   const reduceMotion = useReducedMotion();
-  const artwork = resolveEventArtwork(event);
   const date = new Date(event.date);
   const societyName = typeof event.society === "object" ? event.society.name : "IEEE Sahrdaya";
 
   return (
     <motion.div
-      initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+      initial={reduceMotion ? false : { opacity: 0, y: 10 }}
       whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-50px" }}
-      transition={{ duration: 0.45, delay: Math.min(index, 5) * 0.035 }}
-      className="border-b border-black/10"
+      viewport={{ once: true, margin: "-40px" }}
+      transition={{ duration: 0.4, delay: Math.min(index, 5) * 0.025 }}
+      className="border-t border-black/12"
     >
       <Link
         to={`/events/${event.slug}`}
@@ -126,35 +37,23 @@ function ArchiveRow({ event, onSelect, index }: { event: ExtendedEvent; onSelect
           e.preventDefault();
           onSelect(event);
         }}
-        className="group grid w-full grid-cols-[64px_1fr_auto] items-center gap-4 py-5 text-left sm:grid-cols-[90px_minmax(0,1fr)_160px_90px] sm:gap-6 md:py-6"
+        className="group grid grid-cols-[64px_minmax(0,1fr)_auto] items-center gap-4 py-5 sm:grid-cols-[88px_minmax(0,1fr)_190px_90px] sm:gap-6 md:py-6"
       >
-      <div className="text-black/45">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.15em]">{date.toLocaleDateString("en-IN", { month: "short" })}</div>
-        <div className="mt-0.5 text-2xl font-semibold tracking-[-0.04em] text-[#111315]">{String(date.getDate()).padStart(2, "0")}</div>
-      </div>
-
-      <div className="min-w-0 sm:flex sm:items-center sm:gap-5">
-        <div className="hidden h-16 w-24 shrink-0 overflow-hidden bg-[#e5e2dc] sm:block">
-          {artwork ? (
-            <img src={artwork.src} alt="" loading="lazy" className={`h-full w-full transition duration-500 group-hover:scale-105 ${artwork.fit === "contain" ? "object-contain p-2" : "object-cover"}`} />
-          ) : (
-            <EventBannerFallback title={event.title} societyName={societyName} showTitle={false} />
-          )}
+        <div>
+          <div className="text-2xl font-semibold tracking-[-0.05em] tabular-nums text-[#111315]">{String(date.getDate()).padStart(2, "0")}</div>
+          <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.15em] text-black/35">{date.toLocaleDateString("en-IN", { weekday: "short" })}</div>
         </div>
         <div className="min-w-0">
-          <div className="truncate text-lg font-semibold tracking-[-0.025em] text-[#111315] transition-colors group-hover:text-[#00629B] sm:text-xl">{event.title}</div>
-          <div className="mt-1 truncate text-xs text-black/45 sm:hidden">{societyName}</div>
+          <div className="line-clamp-2 text-lg font-semibold leading-tight tracking-[-0.025em] text-[#111315] transition group-hover:text-[#00629B] sm:text-xl">{event.title}</div>
+          <div className="mt-1 truncate text-xs text-black/42 sm:hidden">{societyName}</div>
         </div>
-      </div>
-
-      <div className="hidden truncate text-xs font-medium text-black/45 sm:block">{societyName}</div>
-
-      <div className="flex items-center justify-end gap-3">
-        <span className="hidden text-[10px] font-bold uppercase tracking-[0.14em] text-black/45 md:inline">{event.price > 0 ? `₹${event.price}` : "Free"}</span>
-        <span className="grid h-9 w-9 place-items-center rounded-full border border-black/15 transition duration-300 group-hover:border-[#00629B] group-hover:bg-[#00629B] group-hover:text-white">
-          <ArrowUpRight className="h-4 w-4" />
-        </span>
-      </div>
+        <div className="hidden truncate text-xs font-medium text-black/42 sm:block">{societyName}</div>
+        <div className="flex items-center justify-end gap-3">
+          <span className="hidden text-[9px] font-bold uppercase tracking-[0.15em] text-black/38 md:inline">{event.price > 0 ? `₹${event.price}` : "Free"}</span>
+          <span className="grid h-9 w-9 place-items-center rounded-full border border-black/14 transition group-hover:border-[#00629B] group-hover:bg-[#00629B] group-hover:text-white">
+            <ArrowUpRight className="h-4 w-4" />
+          </span>
+        </div>
       </Link>
     </motion.div>
   );
@@ -198,9 +97,6 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
     return extendedEvents.filter((event) => !isPastEvent(event, now)).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [extendedEvents]);
 
-  const featuredEvent = upcomingEvents[0] ?? null;
-  const remainingUpcomingEvents = featuredEvent ? upcomingEvents.slice(1) : upcomingEvents;
-
   const societyOptions = useMemo(
     () => ["All societies", ...Array.from(new Set(extendedEvents.map((event) => typeof event.society === "object" ? event.society.name?.trim() : "").filter((name): name is string => Boolean(name)))).sort((a, b) => a.localeCompare(b))],
     [extendedEvents],
@@ -223,6 +119,13 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
 
   const visibleArchiveEvents = filteredArchiveEvents.slice(0, visibleArchiveCount);
   const hasMoreArchiveEvents = visibleArchiveCount < filteredArchiveEvents.length;
+  const archiveGroups = visibleArchiveEvents.reduce<Array<{ label: string; events: ExtendedEvent[] }>>((groups, event) => {
+    const label = new Date(event.date).toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+    const current = groups[groups.length - 1];
+    if (current?.label === label) current.events.push(event);
+    else groups.push({ label, events: [event] });
+    return groups;
+  }, []);
 
   const handleRegister = (event: EventWithSociety) => {
     if (!event.registrationOpen) return;
@@ -238,38 +141,32 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#f4f2ed] font-sans text-[#111315] selection:bg-[#00629B] selection:text-white">
-      <Navbar />
-      <EventHeroSection />
+      <Navbar mobileAlign="right" />
+      <EventHeroSection upcomingCount={upcomingEvents.length} totalCount={extendedEvents.length} />
 
       <div className="px-5 sm:px-8 lg:px-12">
-        {featuredEvent ? (
-          <FeaturedEvent event={featuredEvent} onSelect={(event) => setSelectedEventId(event.id)} />
-        ) : (
-          <div className="mx-auto max-w-[1440px] border-y border-black/10 py-16 text-center text-black/50">No upcoming event has been announced yet.</div>
-        )}
-
-        <div className="mx-auto max-w-[1440px] pb-28 pt-24 md:pb-36 md:pt-32" id="upcoming-events">
+        <div className="mx-auto max-w-[1440px] pb-24 pt-20 md:pb-32 md:pt-28" id="upcoming-events">
           <EventListSection
-            events={remainingUpcomingEvents}
+            events={upcomingEvents}
             loading={false}
             error={null}
             onSelectEvent={(event) => setSelectedEventId(event.id)}
             onRetry={() => revalidator.revalidate()}
-            title="Upcoming events"
-            emptyTitle={featuredEvent ? "That's the full lineup for now" : "Nothing scheduled yet"}
-            emptyMessage={featuredEvent ? "More events will appear here as they are announced." : "New events will appear here as soon as they are announced."}
+            title="Upcoming programme"
+            emptyTitle="Nothing scheduled yet"
+            emptyMessage="New events will appear here as soon as they are announced."
           />
         </div>
 
         <section id="event-archive" className="mx-auto max-w-[1440px] pb-28 md:pb-36">
           <div className="border-t border-black/10 pt-6">
-            <div className="grid gap-8 py-8 md:grid-cols-12 md:items-end md:py-12">
-              <div className="md:col-span-6">
-                <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00629B]">The archive</p>
-                <h2 className="text-5xl font-semibold tracking-[-0.055em] sm:text-6xl">Explore all events</h2>
+            <div className="grid gap-8 py-10 md:grid-cols-12 md:items-end md:py-14">
+              <div className="md:col-span-7">
+                <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.22em] text-[#00629B]">Programme index</p>
+                <h2 className="text-5xl font-semibold leading-[0.94] tracking-[-0.06em] sm:text-6xl lg:text-7xl">Past, present, next.</h2>
               </div>
-              <p className="max-w-lg text-sm leading-relaxed text-black/50 md:col-span-5 md:col-start-8 md:text-base">
-                Revisit what we have built, or find the next event worth showing up for.
+              <p className="max-w-md text-sm leading-relaxed text-black/50 md:col-span-4 md:col-start-9 md:text-base">
+                Search the complete programme by status or society, then open any event for the full details.
               </p>
             </div>
 
@@ -326,9 +223,24 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
               )}
             </div>
 
-            <div className="mt-3">
-              {visibleArchiveEvents.length > 0 ? (
-                visibleArchiveEvents.map((event, index) => <ArchiveRow key={event.id} event={event} index={index} onSelect={(item) => setSelectedEventId(item.id)} />)
+            <div className="mt-8 space-y-12 md:mt-10 md:space-y-16">
+              {archiveGroups.length > 0 ? (
+                archiveGroups.map((group, groupIndex) => (
+                  <section key={group.label} className="grid gap-5 md:grid-cols-[210px_minmax(0,1fr)] md:gap-10">
+                    <div>
+                      <div className="md:sticky md:top-40">
+                        <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/35">Month</div>
+                        <h3 className="mt-2 text-3xl font-semibold leading-none tracking-[-0.055em] text-[#111315] sm:text-4xl">{group.label}</h3>
+                        <div className="mt-3 text-[9px] font-bold uppercase tracking-[0.16em] text-[#00629B]">{String(group.events.length).padStart(2, "0")} listed</div>
+                      </div>
+                    </div>
+                    <div className="border-b border-black/12">
+                      {group.events.map((event, index) => (
+                        <ArchiveRow key={event.id} event={event} index={groupIndex * ARCHIVE_PAGE_SIZE + index} onSelect={(item) => setSelectedEventId(item.id)} />
+                      ))}
+                    </div>
+                  </section>
+                ))
               ) : (
                 <div className="grid min-h-56 place-items-center border-y border-black/10 text-center">
                   <div>

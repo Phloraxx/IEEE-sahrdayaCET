@@ -1,20 +1,16 @@
-.event-editorial-shell {
+.event-programme-hero {
   background:
-    radial-gradient(circle at 82% 12%, rgba(0, 98, 155, 0.08), transparent 30rem),
-    #f4f2ed;
+    radial-gradient(circle at 84% 18%, rgba(0, 164, 228, 0.13), transparent 24rem),
+    radial-gradient(circle at 16% 92%, rgba(0, 98, 155, 0.1), transparent 30rem),
+    #0b0d0f;
 }
 
-.event-display-title {
-  font-variation-settings: "wght" 620;
-  text-rendering: geometricPrecision;
-}
-
-.event-feature-image::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(180deg, transparent 48%, rgba(0, 0, 0, 0.28));
+.event-programme-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: linear-gradient(to bottom, black, transparent 88%);
 }
 
 .event-filter-scroll {
@@ -23,12 +19,4 @@
 
 .event-filter-scroll::-webkit-scrollbar {
   display: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .event-editorial-shell *,
-  .event-editorial-shell *::before,
-  .event-editorial-shell *::after {
-    scroll-behavior: auto !important;
-  }
 }

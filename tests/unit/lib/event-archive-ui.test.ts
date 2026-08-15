@@ -5,27 +5,27 @@ import path from "node:path";
 const read = (relativePath: string) =>
   fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 
-describe("event archive UI", () => {
-  it("keeps a featured/upcoming hierarchy while making the archive searchable and bounded", () => {
+describe("event programme UI", () => {
+  it("uses a programme-first hierarchy while keeping the complete index searchable and bounded", () => {
     const source = read("src/features/events/EventsPageClient.tsx");
 
-    expect(source).toContain("function FeaturedEvent");
-    expect(source).toContain('title="Upcoming events"');
+    expect(source).not.toContain("function FeaturedEvent");
+    expect(source).toContain('title="Upcoming programme"');
     expect(source).toContain('const ARCHIVE_PAGE_SIZE = 10');
     expect(source).toContain('useState<ArchiveFilter>("past")');
     expect(source).toContain('placeholder="Search events"');
     expect(source).toContain('const ARCHIVE_FILTERS = ["all", "upcoming", "past"] as const');
     expect(source).toContain('aria-label="Filter by society"');
     expect(source).toContain('visibleArchiveEvents = filteredArchiveEvents.slice(0, visibleArchiveCount)');
+    expect(source).toContain("archiveGroups");
+    expect(source).toContain("Past, present, next.");
     expect(source).toContain("Show more");
-    expect(source).toContain("Explore all events");
     expect(source).not.toContain("InfiniaTeaserSection");
 
     const route = read("src/routes/events.tsx");
     expect(route).toContain("const appUrl = APP_URL;");
     expect(route).not.toContain('typeof window !== "undefined" ? window.location.origin : APP_URL');
   });
-
   it("preserves the event modal interaction while keeping crawlable detail routes", () => {
     const client = read("src/features/events/EventsPageClient.tsx");
     const list = read("src/components/events/EventListSection.tsx");
@@ -45,20 +45,22 @@ describe("event archive UI", () => {
     expect(detailRoute).toContain('type="application/ld+json"');
   });
 
-  it("uses restrained editorial cards and a dedicated archive list", () => {
-    const client = read("src/features/events/EventsPageClient.tsx");
+  it("uses a live poster preview, typographic rows, and a compact dark opener", () => {
     const list = read("src/components/events/EventListSection.tsx");
     const card = read("src/components/events/AnnotatedEventCard.tsx");
     const hero = read("src/components/events/EventHeroSection.tsx");
+    const fallback = read("src/components/events/EventBannerFallback.tsx");
 
-    expect(client).toContain("function ArchiveRow");
-    expect(client).toContain("event-filter-scroll");
-    expect(list).toContain('showHeader?: boolean');
-    expect(list).toContain('showHeader = true');
-    expect(list).toContain('animateCards?: boolean');
-    expect(list).toContain('animateCards = true');
+    expect(list).toContain("activeEventId");
+    expect(list).toContain("Programme preview");
+    expect(list).toContain("AnimatePresence");
+    expect(card).toContain("onActivate");
+    expect(card).toContain("sm:hidden");
     expect(card).not.toContain("font-handwriting");
-    expect(hero).not.toContain("animate-marquee");
-    expect(hero).toContain("event-display-title");
+    expect(hero).toContain("event-programme-hero");
+    expect(hero).toContain("What&apos;s on");
+    expect(hero).not.toContain("event-display-title");
+    expect(fallback).toContain("SOCIETY_COLORS");
+    expect(fallback).not.toContain("bg-linear-to-br");
   });
 });

@@ -1,6 +1,10 @@
+import { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { CalendarDays } from "lucide-react";
 import type { ExtendedEvent } from "@/types";
-import { AnnotatedEventCard as EventCard } from "./AnnotatedEventCard";
+import { resolveEventArtwork } from "@/lib/event-artwork";
+import { EventBannerFallback } from "./EventBannerFallback";
+import { AnnotatedEventCard as EventRow } from "./AnnotatedEventCard";
 
 interface EventListSectionProps {
   events: ExtendedEvent[];
@@ -17,28 +21,60 @@ interface EventListSectionProps {
   animateCards?: boolean;
 }
 
+function statusLabel(event: ExtendedEvent) {
+  const capacity = Number(event.maxCapacity || 0);
+  const registered = Number(event.registeredCount || 0);
+  if (capacity > 0 && registered >= capacity) return "Sold out";
+  if (event.registrationOpen) return "Registration open";
+  return "Details available";
+}
 export function EventListSection({
   events,
   loading,
   error,
   onSelectEvent,
   onRetry,
-  title = "Upcoming",
+  title = "Upcoming programme",
   emptyTitle = "Nothing scheduled yet",
   emptyMessage = "New events will appear here as soon as they are announced.",
   sectionId = "events-section",
   showHeader = true,
   animateCards = true,
 }: EventListSectionProps) {
+  const reduceMotion = useReducedMotion();
+  const [activeEventId, setActiveEventId] = useState<string | null>(events[0]?.id ?? null);
+
+  useEffect(() => {
+    if (!events.length) {
+      setActiveEventId(null);
+      return;
+    }
+    if (!events.some((event) => event.id === activeEventId)) setActiveEventId(events[0]?.id ?? null);
+  }, [activeEventId, events]);
+
+  const activeEvent = useMemo(
+    () => events.find((event) => event.id === activeEventId) ?? events[0] ?? null,
+    [activeEventId, events],
+  );
+  const activeArtwork = activeEvent ? resolveEventArtwork(activeEvent) : null;
+  const activeSociety = activeEvent && typeof activeEvent.society === "object" ? activeEvent.society : null;
+
   return (
     <section className="mx-auto max-w-[1440px]" id={sectionId}>
       {showHeader && (
-        <div className="mb-10 flex items-end justify-between border-t border-black/10 pt-5 md:mb-14">
-          <div>
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00629B]">Discover</p>
-            <h2 className="text-4xl font-semibold tracking-[-0.05em] text-[#111315] sm:text-5xl">{title}</h2>
+        <div className="grid gap-6 border-t border-black/12 pb-10 pt-6 md:grid-cols-12 md:items-end md:pb-14">
+          <div className="md:col-span-7">
+            <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.22em] text-[#00629B]">Live programme</p>
+            <h2 className="text-5xl font-semibold leading-[0.94] tracking-[-0.06em] text-[#111315] sm:text-6xl lg:text-7xl">{title}</h2>
           </div>
-          <span className="text-xs font-semibold tabular-nums text-black/40">{String(events.length).padStart(2, "0")}</span>
+          <div className="flex items-end justify-between gap-6 md:col-span-5">
+            <p className="max-w-sm text-sm leading-relaxed text-black/50 sm:text-base">
+              Scan the dates, hover the programme, then open the event that earns your time.
+            </p>
+            <span className="shrink-0 text-4xl font-semibold tracking-[-0.06em] text-black/18 tabular-nums sm:text-5xl">
+              {String(events.length).padStart(2, "0")}
+            </span>
+          </div>
         </div>
       )}
 
@@ -52,12 +88,68 @@ export function EventListSection({
       )}
 
       {!loading && events.length > 0 && (
-        <div className="grid grid-cols-1 gap-x-7 gap-y-12 md:grid-cols-2 lg:gap-x-10 lg:gap-y-16">
-          {events.map((event, index) => (
-            <div key={event.id} className={index % 5 === 2 ? "md:translate-y-12" : ""}>
-              <EventCard event={event} index={index} onSelect={onSelectEvent} animateEntrance={animateCards} />
+        <div className="grid gap-10 lg:grid-cols-[minmax(0,1.18fr)_minmax(340px,0.72fr)] lg:gap-12 xl:gap-16">
+          <div className="border-b border-black/12">
+            {events.map((event, index) => (
+              <EventRow
+                key={event.id}
+                event={event}
+                index={index}
+                onSelect={onSelectEvent}
+                active={event.id === activeEvent?.id}
+                onActivate={(item) => setActiveEventId(item.id)}
+                animateEntrance={animateCards}
+              />
+            ))}
+          </div>
+          <aside className="relative hidden lg:block">
+            <div className="sticky top-28">
+              <div className="mb-4 flex items-center justify-between text-[9px] font-bold uppercase tracking-[0.2em] text-black/38">
+                <span>Programme preview</span>
+                <span>{activeEvent ? new Date(activeEvent.date).getFullYear() : ""}</span>
+              </div>
+
+              <div className="relative aspect-[4/5] overflow-hidden bg-[#111315]">
+                <AnimatePresence mode="wait" initial={false}>
+                  {activeEvent && (
+                    <motion.div
+                      key={activeEvent.id}
+                      initial={reduceMotion ? false : { opacity: 0, scale: 1.015 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={reduceMotion ? undefined : { opacity: 0 }}
+                      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                      className="absolute inset-0"
+                    >
+                      {activeArtwork ? (
+                        <img
+                          src={activeArtwork.src}
+                          alt={activeEvent.title}
+                          className={`h-full w-full ${activeArtwork.fit === "contain" ? "object-contain p-10" : "object-cover"}`}
+                        />
+                      ) : (
+                        <EventBannerFallback
+                          title={activeEvent.title}
+                          societyName={activeSociety?.name}
+                          societySlug={activeSociety?.slug}
+                          showTitle={false}
+                        />
+                      )}
+                      <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/75 via-black/20 to-transparent px-7 pb-7 pt-24 text-white">
+                        <div className="mb-3 text-[9px] font-bold uppercase tracking-[0.2em] text-white/55">{activeSociety?.name || "IEEE Sahrdaya"}</div>
+                        <div className="text-3xl font-semibold leading-[0.98] tracking-[-0.05em]">{activeEvent.title}</div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+              {activeEvent && (
+                <div className="mt-5 flex items-center justify-between border-b border-black/12 pb-5 text-[10px] font-bold uppercase tracking-[0.16em]">
+                  <span className="text-black/40">{statusLabel(activeEvent)}</span>
+                  <span className="text-[#00629B]">{activeEvent.price > 0 ? `₹${activeEvent.price}` : "Free"}</span>
+                </div>
+              )}
             </div>
-          ))}
+          </aside>
         </div>
       )}
 

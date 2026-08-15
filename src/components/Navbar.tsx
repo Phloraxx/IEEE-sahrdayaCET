@@ -22,9 +22,10 @@ const navItems: NavItem[] = [
 
 interface NavbarProps {
   fifaActive?: FifaNavKey;
+  mobileAlign?: "center" | "right";
 }
 
-export default function Navbar({ fifaActive }: NavbarProps) {
+export default function Navbar({ fifaActive, mobileAlign = "center" }: NavbarProps) {
   const [isVisible, setIsVisible] = useState(true);
   const [activeSection, setActiveSection] = useState("/");
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -220,7 +221,7 @@ export default function Navbar({ fifaActive }: NavbarProps) {
     <>
       <button
         onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-        className={`md:hidden fixed top-4 left-1/2 -translate-x-1/2 z-[101] rounded-full p-3 transition-all ${mobileBtnClass}`}
+        className={`md:hidden fixed top-4 z-[101] rounded-full p-3 transition-all ${mobileAlign === "right" ? "right-4" : "left-1/2 -translate-x-1/2"} ${mobileBtnClass}`}
         aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
         aria-expanded={mobileMenuOpen}
       >
