@@ -1,68 +1,55 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-
-const FADE_UP = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.6 } },
-};
-
-const STAGGER = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.12 } },
-};
+import { motion, useReducedMotion } from "framer-motion";
+import { ArrowDownRight } from "lucide-react";
 
 export function EventHeroSection() {
-    return (
-        <section className="relative pt-48 pb-16 px-4 max-w-[1400px] mx-auto">
-            <div className="text-center max-w-[900px] mx-auto relative z-10 mb-24">
-                <h1 className="sr-only">Events | IEEE Sahrdaya Student Branch</h1>
-                <motion.h2
-                    variants={STAGGER}
-                    initial="hidden"
-                    animate="show"
-                    aria-hidden="true"
-                    className="text-[3.5rem] md:text-[5rem] lg:text-[6rem] font-black leading-[1.1] tracking-tight text-slate-800"
-                >
-                    <motion.div variants={FADE_UP}>Experience the</motion.div>
-                    <motion.div variants={FADE_UP} className="flex items-center justify-center gap-4 flex-wrap">
-                        <span className="text-ieee-blue relative inline-block">
-                            Extraordinary
-                            <svg className="absolute w-[110%] h-6 -bottom-2 left-[-5%] text-ieee-blue/20" viewBox="0 0 200 20" preserveAspectRatio="none">
-                                <path d="M 5,15 Q 50,0 100,10 T 195,15" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" />
-                            </svg>
-                        </span>
-                    </motion.div>
-                </motion.h2>
+  const reduceMotion = useReducedMotion();
 
-                <motion.p
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.6 }}
-                    className="mt-8 text-lg md:text-xl text-slate-500 font-medium max-w-2xl mx-auto"
-                >
-                    Join the brightest minds at IEEE Sahrdaya SB. Explore our upcoming workshops, hackathons, and symposiums designed to elevate your skills.
-                </motion.p>
-            </div>
+  return (
+    <section className="event-editorial-shell relative overflow-hidden px-5 pb-16 pt-36 sm:px-8 md:pb-24 md:pt-44 lg:px-12">
+      <div className="mx-auto max-w-[1440px]">
+        <div className="flex items-end justify-between border-b border-black/10 pb-5 text-[10px] font-semibold uppercase tracking-[0.22em] text-black/45 sm:text-xs">
+          <span>IEEE Sahrdaya Student Branch</span>
+          <span className="hidden sm:inline">Events / 2026</span>
+        </div>
 
-            {/* Marquee */}
-            <div className="w-full overflow-hidden py-10 mb-16 relative flex">
-                <div className="absolute left-0 top-0 bottom-0 w-12 md:w-48 bg-linear-to-r from-[#F8F9FA] to-transparent z-10 pointer-events-none" />
-                <div className="absolute right-0 top-0 bottom-0 w-12 md:w-48 bg-linear-to-l from-[#F8F9FA] to-transparent z-10 pointer-events-none" />
-                <div className="flex w-max animate-marquee">
-                    {[1, 2].map((i) => (
-                        <div key={i} className="flex shrink-0 px-4 items-center gap-6 md:gap-12">
-                            <span className="text-4xl md:text-6xl font-black text-slate-200 tracking-tight uppercase whitespace-nowrap">Think Different</span>
-                            <span className="text-ieee-blue/30 text-3xl md:text-5xl shrink-0">✦</span>
-                            <span className="text-4xl md:text-6xl font-black text-slate-200 tracking-tight uppercase whitespace-nowrap">Code Better</span>
-                            <span className="text-ieee-blue/30 text-3xl md:text-5xl shrink-0">✦</span>
-                            <span className="text-4xl md:text-6xl font-black text-slate-200 tracking-tight uppercase whitespace-nowrap">Build Faster</span>
-                            <span className="text-ieee-blue/30 text-3xl md:text-5xl shrink-0">✦</span>
-                            <span className="text-4xl md:text-6xl font-black text-slate-200 tracking-tight uppercase whitespace-nowrap">Design Smarter</span>
-                            <span className="text-ieee-blue/30 text-3xl md:text-5xl shrink-0">✦</span>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </section>
-    );
+        <div className="relative pt-8 md:pt-10">
+          <h1 className="sr-only">Events at IEEE Sahrdaya Student Branch</h1>
+          <div aria-hidden="true" className="overflow-hidden">
+            <motion.div
+              initial={reduceMotion ? false : { y: "105%" }}
+              animate={{ y: 0 }}
+              transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+              className="event-display-title select-none text-[21vw] font-semibold uppercase leading-[0.72] tracking-[-0.075em] text-[#111315] sm:text-[18vw] lg:text-[15.2rem]"
+            >
+              Events
+            </motion.div>
+          </div>
+
+          <div className="mt-10 grid gap-8 md:mt-14 md:grid-cols-12 md:items-end">
+            <motion.p
+              initial={reduceMotion ? false : { opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35, duration: 0.65 }}
+              className="max-w-xl text-lg leading-relaxed text-black/60 md:col-span-5 md:text-xl"
+            >
+              Workshops, talks, competitions and experiences built for people who want to make, learn and meet what comes next.
+            </motion.p>
+
+            <motion.a
+              href="#upcoming-events"
+              initial={reduceMotion ? false : { opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.48, duration: 0.65 }}
+              className="group inline-flex items-center gap-3 justify-self-start text-xs font-bold uppercase tracking-[0.18em] text-[#111315] md:col-start-11 md:col-span-2 md:justify-self-end"
+            >
+              Explore
+              <span className="grid h-10 w-10 place-items-center rounded-full border border-black/15 transition duration-300 group-hover:border-[#00629B] group-hover:bg-[#00629B] group-hover:text-white">
+                <ArrowDownRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:translate-y-0.5" />
+              </span>
+            </motion.a>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
 }

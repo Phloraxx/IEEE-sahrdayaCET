@@ -1,21 +1,34 @@
-.font-handwriting {
-  font-family: "Caveat", cursive;
+.event-editorial-shell {
+  background:
+    radial-gradient(circle at 82% 12%, rgba(0, 98, 155, 0.08), transparent 30rem),
+    #f4f2ed;
 }
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
+
+.event-display-title {
+  font-variation-settings: "wght" 620;
+  text-rendering: geometricPrecision;
 }
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 10px;
+
+.event-feature-image::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent 48%, rgba(0, 0, 0, 0.28));
 }
-@keyframes marquee {
-  0% {
-    transform: translateX(0);
+
+.event-filter-scroll {
+  scrollbar-width: none;
+}
+
+.event-filter-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .event-editorial-shell *,
+  .event-editorial-shell *::before,
+  .event-editorial-shell *::after {
+    scroll-behavior: auto !important;
   }
-  100% {
-    transform: translateX(-50%);
-  }
-}
-.animate-marquee {
-  animation: marquee 25s linear infinite;
 }
