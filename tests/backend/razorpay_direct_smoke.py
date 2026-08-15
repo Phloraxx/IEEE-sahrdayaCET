@@ -62,6 +62,14 @@ def fake_payment(order_id,status="captured"):
 def checkout_sig(order_id,payment_id):
     return hmac.new(KEY_SECRET.encode(),f"{order_id}|{payment_id}".encode(),hashlib.sha256).hexdigest()
 
+def deliver_payment_webhook(payment_id,event_type,event_id):
+    webhook={"entity":"event","event":event_type,"contains":["payment"],"payload":{"payment":{"entity":{"id":payment_id}}},"created_at":int(time.time())}
+    raw=json.dumps(webhook,separators=(",",":"))
+    sig=hmac.new(WEBHOOK_SECRET.encode(),raw.encode(),hashlib.sha256).hexdigest()
+    queued=req("POST","/api/webhooks/razorpay",json.loads(raw),headers={"X-Razorpay-Signature":sig,"X-Razorpay-Event-Id":event_id})
+    assert queued.get("queued") is True
+    req("POST","/api/crons/razorpay-webhook-inbox",token=super_token,expected=(204,))
+
 def get_record(collection,record_id,token=super_token):
     return req("GET",f"/api/collections/{collection}/records/{record_id}",token=token)
 
@@ -76,7 +84,10 @@ assert session["provider"]=="razorpay" and session["razorpayOrderId"].startswith
 session_retry=req("POST",f"/api/app/registrations/{reg_id}/payment",token=user_token)
 assert session_retry["razorpayOrderId"]==session["razorpayOrderId"]
 failed=fake_payment(session["razorpayOrderId"],"failed")
-after_failed=req("GET",f"/api/app/registrations/{reg_id}/payment",token=user_token)
+# Browser GET is intentionally local-only now. Exercise the explicit, throttled
+# provider reconciliation fallback after the initial order-sync cooldown.
+time.sleep(4.1)
+after_failed=req("POST",f"/api/app/registrations/{reg_id}/payment/reconcile",token=user_token)
 assert after_failed["registrationStatus"]=="pending" and after_failed["paymentStatus"]=="pending"
 captured=fake_payment(session["razorpayOrderId"],"captured")
 verified=req("POST",f"/api/app/registrations/{reg_id}/payment/razorpay-verify",{
@@ -92,6 +103,8 @@ assert len(attempts)==2 and {x["status"] for x in attempts}=={"failed","captured
 # Out-of-order/stale attempts can arrive after capture. They must never downgrade
 # the Order aggregate or resurrect the payment flow.
 stale_failed=fake_payment(session["razorpayOrderId"],"failed")
+# Once captured, stale attempts are learned from webhooks rather than read polling.
+deliver_payment_webhook(stale_failed["id"],"payment.failed",f"evt_{suffix}_stale_failed")
 after_stale=req("GET",f"/api/app/registrations/{reg_id}/payment",token=user_token)
 assert after_stale["registrationStatus"]=="confirmed" and after_stale["paymentStatus"]=="paid"
 assert after_stale["ticketId"]==verified["ticketId"]

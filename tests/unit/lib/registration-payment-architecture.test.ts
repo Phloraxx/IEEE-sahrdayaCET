@@ -32,6 +32,30 @@ describe("registration/payment experience architecture", () => {
     expect(custom).not.toContain("checkout.js");
   });
 
+  it("keeps browser status reads local and backs provider reconciliation off", () => {
+    const payment = source("src/features/payment/PaymentPage.tsx");
+    const client = source("src/lib/data/payment.client.ts");
+    const direct = source("pb_hooks/razorpay-direct.pb.js");
+    expect(payment).toContain("LOCAL_PAYMENT_STATUS_POLL_MS");
+    expect(payment).toContain("providerReconcileDelayMs");
+    expect(payment).toContain("providerRetryAfterMs");
+    expect(payment).not.toContain("setInterval(poll, 2000)");
+    expect(client).toContain("reconcilePaymentSession");
+    expect(client).toContain("/payment/reconcile");
+    expect(direct).toContain("Local-only status read");
+    expect(direct).toContain('/payment/reconcile", function');
+    expect(direct).toContain("Date.now() - lastSyncedAt < 4000");
+    expect(direct).toContain("RAZORPAY_RATE_LIMITED");
+  });
+
+  it("does not expose mobile UPI app buttons before Intent is enabled", () => {
+    const payment = source("src/features/payment/PaymentPage.tsx");
+    expect(payment).toContain("setUpiIntentEnabled(capability.intentEnabled)");
+    expect(payment).toContain("isMobileUpi && !upiIntentEnabled");
+    expect(payment).toContain("UPI Intent activation pending");
+    expect(payment).toContain("isMobileUpi && upiIntentEnabled");
+  });
+
   it("blocks a second registration when a paid cancelled record is under manual review", () => {
     const command = source("pb_hooks/registration-create.pb.js");
     expect(command).toContain("previousPaymentData.manualReview === true");

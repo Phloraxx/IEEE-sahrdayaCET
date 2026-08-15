@@ -75,6 +75,15 @@ Verify at least one disposable registration flow:
 
 For paid events, verify the enabled production payment integration and webhook secret before cutover. Never copy a production payment secret into staging merely to make a test pass.
 
+For Razorpay specifically, verify before accepting real registrations:
+
+- payment capture is configured for automatic capture, so successful UPI payments do not remain `authorized`;
+- UPI Intent is enabled for the merchant account before exposing mobile app buttons;
+- desktop UPI QR succeeds independently of Intent enablement;
+- the production webhook points to `/api/webhooks/razorpay` and subscribes to payment capture/failure, order paid, refund, and dispute events used by the hook;
+- one real-device smoke test covers Android/iOS mobile handoff as supported by the merchant account and one desktop QR payment;
+- a callback-loss test confirms webhook or explicit reconciliation still reaches the correct final state.
+
 ## 6. WC Predict acceptance
 
 For the FIFA/WC Predict feature, verify:

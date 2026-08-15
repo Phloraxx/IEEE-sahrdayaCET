@@ -225,7 +225,7 @@ function findRemoteOrderByReceipt(config, registration) {
 }
 function createOrRecoverOrder(config, registration) {
   var existing = findRemoteOrderByReceipt(config, registration)
-  if (!existing.ok) return { ok: false, error: existing.error || "Could not check existing Razorpay order" }
+  if (!existing.ok) return { ok: false, statusCode: existing.statusCode, error: existing.error || "Could not check existing Razorpay order" }
   if (existing.order) return { ok: true, raw: existing.order, recovered: true }
 
   var response
@@ -316,6 +316,7 @@ function paymentSession(registration, payment, config, providerReachable) {
     manualReview: data.manualReview === true,
     reviewReason: data.reviewReason || "",
     providerReachable: providerReachable !== false,
+    lastSyncedAt: data.lastSyncedAt || "",
     attendeeEmail: registration.getString("userEmail") || "",
     attendeePhone: registration.getString("userPhone") || "",
     event: eventPayload,

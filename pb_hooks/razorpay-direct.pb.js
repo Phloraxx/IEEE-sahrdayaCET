@@ -33,6 +33,9 @@ routerAdd("POST", "/api/app/registrations/{id}/payment", function (e) {
   }
   if (!creation.ok) {
     console.log("[razorpay] direct order create/recover refused:", creation.error)
+    if (creation.statusCode === 429) {
+      return e.json(429, { code: "RAZORPAY_RATE_LIMITED", error: "Razorpay asked us to slow down payment setup", retryAfterMs: 10000 })
+    }
     return e.json(502, { code: "RAZORPAY_ORDER_FAILED", error: "Razorpay could not prepare this payment" })
   }
 
@@ -49,7 +52,6 @@ routerAdd("POST", "/api/app/registrations/{id}/payment", function (e) {
 }, $apis.requireAuth("users"))
 routerAdd("GET", "/api/app/registrations/{id}/payment", function (e) {
   var helpers = require(__hooks + "/razorpay-direct-helpers.js")
-  var state = require(__hooks + "/razorpay-payment-state.js")
   var config = helpers.getConfig()
   var id = e.request.pathValue("id") || ""
   var registration
@@ -57,21 +59,56 @@ routerAdd("GET", "/api/app/registrations/{id}/payment", function (e) {
   catch (_) { return e.json(404, { code: "REGISTRATION_NOT_FOUND", error: "Registration not found" }) }
   if (!helpers.mayAccessRegistration(e.auth, registration)) return e.json(403, { code: "FORBIDDEN", error: "You cannot access this registration" })
   var ledger = helpers.findLedgerPayment($app, id)
+
+  // Local-only status read: safe to poll without creating Razorpay API traffic.
+  return e.json(200, helpers.paymentSession(registration, ledger, config, helpers.apiConfigured(config)))
+}, $apis.requireAuth("users"))
+
+routerAdd("POST", "/api/app/registrations/{id}/payment/reconcile", function (e) {
+  var helpers = require(__hooks + "/razorpay-direct-helpers.js")
+  var state = require(__hooks + "/razorpay-payment-state.js")
+  var config = helpers.getConfig()
+  var id = e.request.pathValue("id") || ""
+  var registration
+  try { registration = $app.findRecordById("registrations", id) }
+  catch (_) { return e.json(404, { code: "REGISTRATION_NOT_FOUND", error: "Registration not found" }) }
+  if (!helpers.mayAccessRegistration(e.auth, registration)) return e.json(403, { code: "FORBIDDEN", error: "You cannot access this registration" })
+
+  var ledger = helpers.findLedgerPayment($app, id)
   if (!ledger || !ledger.getString("providerOrderId")) {
     return e.json(200, helpers.paymentSession(registration, ledger, config, helpers.apiConfigured(config)))
   }
-  if (!helpers.apiConfigured(config)) return e.json(200, helpers.paymentSession(registration, ledger, config, false))
+  if (!helpers.apiConfigured(config)) {
+    return e.json(200, helpers.paymentSession(registration, ledger, config, false))
+  }
+  if (registration.getString("registrationStatus") === "confirmed" && registration.getString("paymentStatus") === "paid") {
+    return e.json(200, helpers.paymentSession(registration, ledger, config, true))
+  }
+
+  // Protect the shared merchant rate limit from rapid refreshes and multiple tabs.
+  var lastSyncedAt = Date.parse(ledger.getString("lastSyncedAt") || "")
+  if (isFinite(lastSyncedAt) && Date.now() - lastSyncedAt < 4000) {
+    return e.json(200, helpers.paymentSession(registration, ledger, config, true))
+  }
 
   var response
   try {
     response = helpers.apiRequest(config, "/v1/orders/" + encodeURIComponent(ledger.getString("providerOrderId")) + "/payments", "GET", null, {})
   } catch (err) {
-    console.log("[razorpay] order payment reconciliation failed:", err)
+    console.log("[razorpay] explicit payment reconciliation failed:", err)
     return e.json(200, helpers.paymentSession(registration, ledger, config, false))
+  }
+  if (response.statusCode === 429) {
+    return e.json(429, {
+      code: "RAZORPAY_RATE_LIMITED",
+      error: "Razorpay asked us to slow down payment checks",
+      retryAfterMs: 10000,
+    })
   }
   if (response.statusCode !== 200 || !response.json || !Array.isArray(response.json.items)) {
     return e.json(200, helpers.paymentSession(registration, ledger, config, false))
   }
+
   var items = response.json.items.slice()
   items.sort(function(a, b) { return Number(a.created_at || 0) - Number(b.created_at || 0) })
   var shouldNotify = false
@@ -79,13 +116,24 @@ routerAdd("GET", "/api/app/registrations/{id}/payment", function (e) {
     try {
       var outcome = state.applyProviderPayment($app, id, items[i], ledger.getString("providerOrderId"))
       if (outcome.ok && outcome.notify) shouldNotify = true
-    } catch (err) { console.log("[razorpay] reconciliation transition failed:", err) }
+    } catch (err) { console.log("[razorpay] explicit reconciliation transition failed:", err) }
   }
   if (shouldNotify) helpers.enqueueRegistrationNotifications(id)
+
+  try {
+    $app.runInTransaction(function(txApp) {
+      var current = helpers.findLedgerPayment(txApp, id)
+      if (!current) return
+      current.set("lastSyncedAt", new Date().toISOString())
+      txApp.saveNoValidate(current)
+    })
+  } catch (_) {}
+
   try { registration = $app.findRecordById("registrations", id) } catch (_) {}
   ledger = helpers.findLedgerPayment($app, id)
   return e.json(200, helpers.paymentSession(registration, ledger, config, true))
 }, $apis.requireAuth("users"))
+
 routerAdd("POST", "/api/app/registrations/{id}/payment/razorpay-verify", function (e) {
   var helpers = require(__hooks + "/razorpay-direct-helpers.js")
   var state = require(__hooks + "/razorpay-payment-state.js")
@@ -116,6 +164,9 @@ routerAdd("POST", "/api/app/registrations/{id}/payment/razorpay-verify", functio
   catch (err) {
     console.log("[razorpay] payment verification fetch failed:", err)
     return e.json(502, { code: "RAZORPAY_UNAVAILABLE", error: "Razorpay verification is temporarily unavailable" })
+  }
+  if (response.statusCode === 429) {
+    return e.json(429, { code: "RAZORPAY_RATE_LIMITED", error: "Razorpay asked us to slow down verification", retryAfterMs: 10000 })
   }
   if (response.statusCode !== 200) return e.json(502, { code: "RAZORPAY_VERIFICATION_FAILED", error: "Razorpay could not verify this payment" })
   var outcome = state.applyProviderPayment($app, id, response.json, ledger.getString("providerOrderId"))

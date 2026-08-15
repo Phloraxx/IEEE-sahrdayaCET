@@ -106,6 +106,10 @@ export async function getAdminDataHealth(): Promise<DataHealthReport> {
       issues.push({ id: `refund-state:${payment.id}`, severity: "critical", category: "Payment", title: "Refunded ledger and registration are out of sync", detail: `Registration payment state is ${registrationPaymentStatus || "empty"}.`, href: `/admin/registrations/${registrationId}` });
     }
     const hold = Date.parse(String(getField(payment, "holdExpiresAt", "")));
+    const lastSynced = Date.parse(String(getField(payment, "lastSyncedAt", "")));
+    if (provider === "razorpay" && status === "authorized" && Number.isFinite(lastSynced) && now - lastSynced > 2 * 60_000) {
+      issues.push({ id: `authorized-payment:${payment.id}`, severity: "warning", category: "Payment", title: "Razorpay payment is authorized but not captured", detail: "The payment has remained authorized for over two minutes. Verify Razorpay auto-capture and merchant capture settings before paid registrations go live.", href: `/admin/registrations/${registrationId}` });
+    }
     if ((status === "pending" || status === "authorized") && Number.isFinite(hold) && now - hold > 2 * 60_000) {
       issues.push({ id: `stale-payment:${payment.id}`, severity: "warning", category: "Payment", title: "Payment hold is stale", detail: "The checkout hold expired more than two minutes ago and should have been reconciled/released.", href: `/admin/registrations/${registrationId}` });
     }
