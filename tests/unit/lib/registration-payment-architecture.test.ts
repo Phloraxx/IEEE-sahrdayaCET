@@ -144,6 +144,18 @@ describe("registration/payment experience architecture", () => {
     expect(notifications).toContain('$apis.requireAuth("users")');
     expect(root).toContain('<MotionConfig reducedMotion="user">');
   });
+  it("keeps the registration email as a poster-independent event pass", () => {
+    const notifications = source("pb_hooks/notification-helpers.js");
+    expect(notifications).toContain('subject: "You\'re in · " + rawTitle');
+    expect(notifications).toContain('>Event pass</td>');
+    expect(notifications).toContain('>Confirmed</td>');
+    expect(notifications).toContain('FREE ENTRY');
+    expect(notifications).toContain('paidAmount(registration) + " · PAID"');
+    expect(notifications).toContain('>Check-in code</div>');
+    expect(notifications).toContain('>View your ticket&nbsp;&nbsp;→</a>');
+    expect(notifications).not.toContain('var banner = getBannerUrl(event)');
+  });
+
   it("renders the real ticket QR in confirmation email through a first-party PNG endpoint", () => {
     const routes = source("src/routes.ts");
     const qrRoute = source("src/routes/ticket-qr.$ticketId.ts");
