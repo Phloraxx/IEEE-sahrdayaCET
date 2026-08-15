@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLoaderData, type LoaderFunctionArgs } from "react-router";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ArrowLeft,
   ArrowRight,
@@ -22,6 +23,7 @@ import Footer from "@/components/Footer";
 import { APP_URL } from "@/lib/constants";
 import { blogHtmlToPlainText, sanitizeBlogHtml } from "@/lib/blog-content";
 import { formatDate, formatTime } from "@/lib/dates";
+import { eventTitleSize, MOTION_DURATION, MOTION_EASE, revealUp } from "@/lib/motion";
 import {
   getEventSocietySlug,
   resolveEventArtwork,
@@ -118,6 +120,15 @@ export default function EventDetailPage() {
   const { user, status: authStatus } = useAuth();
   const [myRegistration, setMyRegistration] = useState<MyEventRegistration | null>(null);
   const [myRegistrationLoading, setMyRegistrationLoading] = useState(false);
+  const [compactMobileAction, setCompactMobileAction] = useState(false);
+  const reduceMotion = Boolean(useReducedMotion());
+
+  useEffect(() => {
+    const onScroll = () => setCompactMobileAction(window.scrollY > 320);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   useEffect(() => {
     if (authStatus !== "authenticated" || !user?.id || event.externalFormUrl) {
@@ -146,6 +157,7 @@ export default function EventDetailPage() {
   const description = blogHtmlToPlainText(event.description);
   const eventImageUrl = resolveEventImage(event);
   const eventArtwork = resolveEventArtwork(event);
+  const titleSize = eventTitleSize(event.title);
   const lifecycle = getEventLifecycle(event.status);
   const attendanceKind = getEventAttendanceKind(event.venue);
   const hasCapacity =
@@ -222,54 +234,68 @@ export default function EventDetailPage() {
       <Navbar mobileAlign="right" />
 
       <article className="mx-auto max-w-[1440px] px-5 pb-36 pt-28 sm:px-8 lg:px-12 lg:pb-28 lg:pt-36">
-        <div className="flex items-center justify-between border-b border-black/12 pb-5">
+        <motion.div {...revealUp(reduceMotion, 8)} className="flex items-center justify-between border-b border-black/12 pb-5">
           <Link to={backHref} className="group inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-black/45 transition hover:text-[#00629B]">
             <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" /> {backLabel}
           </Link>
           <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-black/30">Event / {new Date(event.date).getFullYear()}</span>
-        </div>
+        </motion.div>
 
         <header className="grid gap-10 border-b border-black/12 py-10 md:grid-cols-12 md:gap-8 md:py-16 lg:py-20">
           <div className="md:col-span-8 lg:col-span-9">
             {event.society && (
-              <Link to={`/societies/${event.society.slug}`} className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#00629B] hover:underline">
-                {event.society.name}
-              </Link>
+              <motion.div {...revealUp(reduceMotion, 8)} transition={{ duration: reduceMotion ? 0 : MOTION_DURATION.ui, ease: MOTION_EASE, delay: reduceMotion ? 0 : 0.06 }}>
+                <Link to={`/societies/${event.society.slug}`} className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#00629B] hover:underline">
+                  {event.society.name}
+                </Link>
+              </motion.div>
             )}
-            <h1 className="mt-4 max-w-6xl text-[clamp(3rem,8vw,8.5rem)] font-semibold leading-[0.88] tracking-[-0.07em] text-[#111315]">
-              {event.title}
-            </h1>
+            <div className="mt-4 overflow-hidden pb-[0.08em]">
+              <motion.h1
+                initial={reduceMotion ? false : { y: "108%", opacity: 0.25 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: reduceMotion ? 0 : 0.62, ease: MOTION_EASE, delay: reduceMotion ? 0 : 0.08 }}
+                className={`max-w-6xl ${titleSize} font-semibold leading-[0.88] tracking-[-0.07em] text-[#111315]`}
+              >
+                {event.title}
+              </motion.h1>
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-x-6 gap-y-7 border-t border-black/12 pt-6 md:col-span-4 md:grid-cols-1 md:border-l md:border-t-0 md:pl-7 md:pt-1 lg:col-span-3">
-            <div>
+          <motion.div
+            initial={reduceMotion ? false : "hidden"}
+            animate="show"
+            variants={{ show: { transition: { staggerChildren: reduceMotion ? 0 : 0.07, delayChildren: reduceMotion ? 0 : 0.18 } } }}
+            className="grid grid-cols-2 gap-x-6 gap-y-7 border-t border-black/12 pt-6 md:col-span-4 md:grid-cols-1 md:border-l md:border-t-0 md:pl-7 md:pt-1 lg:col-span-3"
+          >
+            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0, transition: { duration: MOTION_DURATION.ui, ease: MOTION_EASE } } }}>
               <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">When</p>
               <p className="mt-2 text-base font-semibold leading-tight">{formatDate(event.date)}</p>
               <p className="mt-1 text-sm text-black/45">{formatTime(event.date)}</p>
-            </div>
-            <div>
+            </motion.div>
+            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0, transition: { duration: MOTION_DURATION.ui, ease: MOTION_EASE } } }}>
               <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Where</p>
               <p className="mt-2 text-sm font-semibold leading-snug">{event.venue || "Sahrdaya College of Engineering & Technology"}</p>
-            </div>
-            <div>
+            </motion.div>
+            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0, transition: { duration: MOTION_DURATION.ui, ease: MOTION_EASE } } }}>
               <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Entry</p>
               <p className="mt-2 text-2xl font-semibold tracking-[-0.04em]">{event.price > 0 ? `₹${event.price}` : "Free"}</p>
-            </div>
+            </motion.div>
             {event.maxCapacity > 0 && (
-              <div>
+              <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0, transition: { duration: MOTION_DURATION.ui, ease: MOTION_EASE } } }}>
                 <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Availability</p>
                 <p className="mt-2 text-sm font-semibold">{Math.max(0, event.maxCapacity - event.registeredCount)} of {event.maxCapacity} seats left</p>
-              </div>
+              </motion.div>
             )}
-          </div>
+          </motion.div>
         </header>
 
         {eventArtwork && (
-          <div className="border-b border-black/12 py-8 md:py-12">
+          <motion.div {...revealUp(reduceMotion, 12)} className="border-b border-black/12 py-8 md:py-12">
             <div className="max-h-[680px] overflow-hidden bg-black/5">
               <img src={eventArtwork.src} alt={`${event.title} event artwork`} className={`mx-auto max-h-[680px] w-full ${eventArtwork.fit === "contain" ? "object-contain p-6" : "object-cover"}`} />
             </div>
-          </div>
+          </motion.div>
         )}
 
         <div className="grid gap-14 py-12 md:py-16 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-20 lg:py-20">
@@ -367,16 +393,27 @@ export default function EventDetailPage() {
       </article>
 
       {actionHref && actionLabel && !myRegistration?.manualReview && (
-        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-black/10 bg-[#f4f2ed]/95 px-5 py-3 backdrop-blur-xl lg:hidden">
+        <motion.div
+          initial={reduceMotion ? false : { y: "100%", opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: reduceMotion ? 0 : MOTION_DURATION.ui, ease: MOTION_EASE }}
+          className={`fixed inset-x-0 bottom-0 z-50 border-t border-black/10 bg-[#f4f2ed]/95 px-5 backdrop-blur-xl lg:hidden ${compactMobileAction ? "py-2" : "py-3"}`}
+        >
           <div className="mx-auto flex max-w-lg items-center gap-4">
-            {!myRegistration?.found && <div className="min-w-0 flex-1"><p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/35">Entry</p><p className="text-lg font-semibold">{event.price > 0 ? `₹${event.price}` : "Free"}</p></div>}
+            <AnimatePresence initial={false}>
+              {!myRegistration?.found && !compactMobileAction && (
+                <motion.div key="entry" initial={reduceMotion ? false : { opacity: 0, width: 0 }} animate={{ opacity: 1, width: "auto" }} exit={{ opacity: 0, width: 0 }} className="min-w-0 flex-1 overflow-hidden">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/35">Entry</p><p className="text-lg font-semibold">{event.price > 0 ? `₹${event.price}` : "Free"}</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
             {event.externalFormUrl && !myRegistration?.found ? (
               <a href={actionHref} target="_blank" rel="noopener noreferrer" className="flex flex-1 items-center justify-center gap-2 bg-[#00629B] px-5 py-3.5 text-sm font-bold text-white">{actionLabel}<ExternalLink className="h-4 w-4" /></a>
             ) : (
               <Link to={actionHref} className="flex flex-1 items-center justify-center gap-2 bg-[#00629B] px-5 py-3.5 text-sm font-bold text-white">{actionLabel}<ArrowRight className="h-4 w-4" /></Link>
             )}
           </div>
-        </div>
+        </motion.div>
       )}
       <Footer />
     </main>

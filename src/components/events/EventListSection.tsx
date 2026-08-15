@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { CalendarDays } from "lucide-react";
 import type { ExtendedEvent } from "@/types";
+import { MOTION_DURATION, MOTION_EASE } from "@/lib/motion";
 import { resolveEventArtwork } from "@/lib/event-artwork";
 import { EventBannerFallback } from "./EventBannerFallback";
 import { AnnotatedEventCard as EventRow } from "./AnnotatedEventCard";
@@ -114,7 +115,7 @@ export function EventListSection({
                       initial={reduceMotion ? false : { opacity: 0, scale: 1.015 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={reduceMotion ? undefined : { opacity: 0 }}
-                      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                      transition={{ duration: MOTION_DURATION.reveal, ease: MOTION_EASE }}
                       className="absolute inset-0"
                     >
                       {activeArtwork ? (
@@ -131,9 +132,21 @@ export function EventListSection({
                           showTitle={false}
                         />
                       )}
-                      <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/75 via-black/20 to-transparent px-7 pb-7 pt-24 text-white">
-                        <div className="mb-3 text-[9px] font-bold uppercase tracking-[0.2em] text-white/55">{activeSociety?.name || "IEEE Sahrdaya"}</div>
-                        <div className="text-3xl font-semibold leading-[0.98] tracking-[-0.05em]">{activeEvent.title}</div>
+                      <div className="absolute inset-x-0 bottom-0 overflow-hidden bg-linear-to-t from-black/75 via-black/20 to-transparent px-7 pb-7 pt-24 text-white">
+                        <motion.div
+                          initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: MOTION_DURATION.ui, ease: MOTION_EASE, delay: reduceMotion ? 0 : 0.06 }}
+                          className="mb-3 text-[9px] font-bold uppercase tracking-[0.2em] text-white/55"
+                        >{activeSociety?.name || "IEEE Sahrdaya"}</motion.div>
+                        <div className="overflow-hidden">
+                          <motion.div
+                            initial={reduceMotion ? false : { y: "105%" }}
+                            animate={{ y: 0 }}
+                            transition={{ duration: MOTION_DURATION.reveal, ease: MOTION_EASE, delay: reduceMotion ? 0 : 0.04 }}
+                            className="text-3xl font-semibold leading-[0.98] tracking-[-0.05em]"
+                          >{activeEvent.title}</motion.div>
+                        </div>
                       </div>
                     </motion.div>
                   )}

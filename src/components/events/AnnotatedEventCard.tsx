@@ -2,6 +2,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { ArrowUpRight, MapPin } from "lucide-react";
 import { Link } from "react-router";
 import type { ExtendedEvent } from "@/types";
+import { MOTION_DURATION, MOTION_EASE } from "@/lib/motion";
 
 interface EventCardProps {
   event: ExtendedEvent;
@@ -35,7 +36,7 @@ export function AnnotatedEventCard({
       initial={reduceMotion || !animateEntrance ? false : { opacity: 0, y: 16 }}
       whileInView={reduceMotion || !animateEntrance ? undefined : { opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-60px" }}
-      transition={{ duration: 0.55, delay: Math.min(index, 5) * 0.04, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: MOTION_DURATION.reveal, delay: Math.min(index, 5) * 0.04, ease: MOTION_EASE }}
       className="border-t border-black/12"
     >
       <Link
@@ -44,14 +45,22 @@ export function AnnotatedEventCard({
         onFocus={() => onActivate?.(event)}
         className={`group block transition-colors duration-300 ${active ? "text-[#111315] sm:bg-[#111315] sm:text-white" : "text-[#111315] hover:bg-black/[0.035]"}`}
       >
-        <div className="grid gap-5 px-4 py-6 sm:grid-cols-[78px_minmax(0,1fr)_170px_auto] sm:items-center sm:px-5 sm:py-7 lg:grid-cols-[92px_minmax(0,1fr)_220px_auto] lg:px-6 lg:py-8">
+        <motion.div
+          className="grid gap-5 px-4 py-6 sm:grid-cols-[78px_minmax(0,1fr)_170px_auto] sm:items-center sm:px-5 sm:py-7 lg:grid-cols-[92px_minmax(0,1fr)_220px_auto] lg:px-6 lg:py-8"
+          animate={reduceMotion ? undefined : { x: active ? 3 : 0 }}
+          transition={{ duration: MOTION_DURATION.ui, ease: MOTION_EASE }}
+        >
           <div className="flex items-baseline gap-2 sm:block">
             <div className={`text-[10px] font-bold uppercase tracking-[0.18em] ${active ? "text-black/38 sm:text-white/42" : "text-black/38"}`}>
               {date.toLocaleDateString("en-IN", { month: "short" })}
             </div>
-            <div className="mt-1 text-3xl font-semibold leading-none tracking-[-0.06em] tabular-nums sm:text-4xl">
+            <motion.div
+              className="mt-1 text-3xl font-semibold leading-none tracking-[-0.06em] tabular-nums sm:text-4xl"
+              animate={reduceMotion ? undefined : { y: active ? -2 : 0 }}
+              transition={{ duration: MOTION_DURATION.micro, ease: MOTION_EASE }}
+            >
               {String(date.getDate()).padStart(2, "0")}
-            </div>
+            </motion.div>
           </div>
 
           <div className="min-w-0">
@@ -78,11 +87,17 @@ export function AnnotatedEventCard({
             <span className={`text-[9px] font-bold uppercase tracking-[0.16em] ${active ? "text-[#00629B] sm:text-[#7dd3fc]" : status === "Registration open" ? "text-[#00629B]" : "text-black/42"}`}>
               {status}
             </span>
-            <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full border transition duration-300 ${active ? "border-black/14 sm:border-white/20 sm:bg-white sm:text-[#111315]" : "border-black/14 group-hover:border-[#00629B] group-hover:bg-[#00629B] group-hover:text-white"}`}>
-              <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-            </span>
+            <motion.span
+              className={`grid h-10 w-10 shrink-0 place-items-center rounded-full border transition-colors ${active ? "border-black/14 sm:border-white/20 sm:bg-white sm:text-[#111315]" : "border-black/14 group-hover:border-[#00629B] group-hover:bg-[#00629B] group-hover:text-white"}`}
+              animate={reduceMotion ? undefined : { rotate: active ? 4 : 0 }}
+              whileHover={reduceMotion ? undefined : { scale: 1.04 }}
+              whileTap={reduceMotion ? undefined : { scale: 0.96 }}
+              transition={{ duration: MOTION_DURATION.micro, ease: MOTION_EASE }}
+            >
+              <ArrowUpRight className="h-4 w-4 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+            </motion.span>
           </div>
-        </div>
+        </motion.div>
       </Link>
     </motion.article>
   );

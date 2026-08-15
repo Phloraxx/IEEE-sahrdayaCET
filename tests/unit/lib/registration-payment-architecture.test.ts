@@ -155,4 +155,22 @@ describe("registration/payment experience architecture", () => {
     expect(notifications).toContain('var qrHref = ticketHref + "/qr.png"');
     expect(notifications).toContain('alt="Ticket QR code"');
   });
+  it("uses one restrained motion language across event checkout and ticket success", () => {
+    const motionSystem = source("src/lib/motion.ts");
+    const eventDetail = source("src/routes/events.$slug.tsx");
+    const register = source("src/features/register/RegisterPage.tsx");
+    const payment = source("src/features/payment/PaymentPage.tsx");
+    const ticket = source("src/features/ticket/TicketPage.tsx");
+
+    expect(motionSystem).toContain("MOTION_EASE");
+    expect(motionSystem).toContain("eventTitleSize");
+    expect(eventDetail).toContain("compactMobileAction");
+    expect(eventDetail).toContain("eventTitleSize(event.title)");
+    expect(register).toContain("FieldLabel");
+    expect(register).toContain("Reserving your seat…");
+    expect(payment).toContain("Opening ${UPI_APP_LABELS[app] || app}…");
+    expect(ticket).toContain("qrSaved");
+    expect(ticket).toContain("Saved</>");
+  });
+
 });

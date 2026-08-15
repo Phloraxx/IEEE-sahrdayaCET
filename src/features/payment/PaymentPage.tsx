@@ -25,6 +25,7 @@ import {
   verifyRazorpayPayment,
 } from "@/lib/data/payment.client";
 import { formatDate } from "@/lib/dates";
+import { MOTION_DURATION, MOTION_EASE } from "@/lib/motion";
 import {
   LOCAL_PAYMENT_STATUS_POLL_MS,
   providerReconcileDelayMs,
@@ -103,6 +104,7 @@ function upiErrorMessage(
 }
 
 function PaymentProgress({ complete = false }: { complete?: boolean }) {
+  const reduceMotion = Boolean(useReducedMotion());
   const steps = ["Details", "Payment", "Ticket"];
   const active = complete ? 2 : 1;
   return (
@@ -113,9 +115,16 @@ function PaymentProgress({ complete = false }: { complete?: boolean }) {
       {steps.map((step, index) => (
         <div key={step} className="contents">
           {index > 0 && (
-            <div
-              className={`h-px w-6 sm:w-9 ${index <= active ? "bg-ieee-blue" : "bg-slate-200"}`}
-            />
+            <div className="relative h-px w-6 overflow-hidden bg-black/12 sm:w-9">
+              {index <= active && (
+                <motion.div
+                  initial={reduceMotion ? false : { scaleX: 0 }}
+                  animate={{ scaleX: 1 }}
+                  transition={{ duration: reduceMotion ? 0 : MOTION_DURATION.ui, ease: MOTION_EASE }}
+                  className="absolute inset-0 origin-left bg-ieee-blue"
+                />
+              )}
+            </div>
           )}
           <div
             className={`flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.13em] ${index <= active ? "text-ieee-blue" : "text-slate-400"}`}
@@ -153,8 +162,9 @@ function EventVisual({
   const event = session.event;
   return (
     <motion.aside
-      initial={{ opacity: 0, y: 12 }}
+      initial={reduceMotion ? false : { opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: reduceMotion ? 0 : MOTION_DURATION.reveal, ease: MOTION_EASE }}
       className="flex min-h-[260px] flex-col justify-between border-y border-black/12 py-7 text-left sm:min-h-[320px] sm:py-9 lg:min-h-[650px] lg:py-10"
     >
       <div className="flex items-center justify-between gap-4">
@@ -171,9 +181,16 @@ function EventVisual({
 
       <div className="py-10 lg:py-16">
         <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Complete your registration</p>
-        <h1 className="mt-4 max-w-3xl text-4xl font-semibold leading-[0.94] tracking-[-0.06em] sm:text-5xl lg:text-6xl">
-          {event?.title || "IEEE Sahrdaya event"}
-        </h1>
+        <div className="mt-4 overflow-hidden pb-1">
+          <motion.h1
+            initial={reduceMotion ? false : { y: "105%" }}
+            animate={{ y: 0 }}
+            transition={{ duration: reduceMotion ? 0 : MOTION_DURATION.reveal, ease: MOTION_EASE, delay: reduceMotion ? 0 : 0.08 }}
+            className="max-w-3xl text-4xl font-semibold leading-[0.94] tracking-[-0.06em] sm:text-5xl lg:text-6xl"
+          >
+            {event?.title || "IEEE Sahrdaya event"}
+          </motion.h1>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-6 border-t border-black/10 pt-6 text-sm">
@@ -220,6 +237,7 @@ export default function PaymentPage({ registrationId }: PageProps) {
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [activeUpiApp, setActiveUpiApp] = useState<string | null>(null);
   const [upiStatus, setUpiStatus] = useState<
     "checking" | "enabled" | "disabled" | "error"
   >("checking");
@@ -539,6 +557,7 @@ export default function PaymentPage({ registrationId }: PageProps) {
       if (!razorpay || !data || upiStatus !== "enabled" || !upiIntentEnabled)
         return;
       setCheckoutLoading(true);
+      setActiveUpiApp(app);
       setError(null);
       try {
         razorpay.createPayment(data, { app });
@@ -669,9 +688,14 @@ export default function PaymentPage({ registrationId }: PageProps) {
               <CheckCircle2 className="h-11 w-11" />
             </div>
           </motion.div>
-          <h1 className="mt-7 text-3xl font-black tracking-tight">
+          <motion.h1
+            initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: reduceMotion ? 0 : MOTION_DURATION.ui, ease: MOTION_EASE, delay: reduceMotion ? 0 : 0.18 }}
+            className="mt-7 text-3xl font-black tracking-tight"
+          >
             Payment confirmed
-          </h1>
+          </motion.h1>
           <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-slate-600">
             Your ticket is ready. Taking you there now.
           </p>
@@ -752,9 +776,14 @@ export default function PaymentPage({ registrationId }: PageProps) {
             <p className="mt-6 text-[10px] font-black uppercase tracking-[0.2em] text-ieee-blue">
               IEEE Sahrdaya Secure UPI
             </p>
-            <p className="mt-2 text-5xl font-black tracking-[-0.055em] text-slate-950 sm:text-6xl">
+            <motion.p
+              initial={reduceMotion ? false : { opacity: 0, scale: 0.96, y: 6 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: reduceMotion ? 0 : MOTION_DURATION.reveal, ease: MOTION_EASE, delay: reduceMotion ? 0 : 0.08 }}
+              className="mt-2 text-5xl font-black tracking-[-0.055em] text-slate-950 sm:text-6xl"
+            >
               ₹{payable || "—"}
-            </p>
+            </motion.p>
             <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-slate-500">
               UPI only. Your seat is confirmed only after Razorpay reports the
               payment as captured.
@@ -875,9 +904,9 @@ export default function PaymentPage({ registrationId }: PageProps) {
                       >
                         <span className="inline-flex items-center gap-3">
                           <Smartphone className="h-4 w-4 text-ieee-blue" />{" "}
-                          {UPI_APP_LABELS[app] || app}
+                          {checkoutLoading && activeUpiApp === app ? `Opening ${UPI_APP_LABELS[app] || app}…` : UPI_APP_LABELS[app] || app}
                         </span>
-                        <span className="text-ieee-blue">Open</span>
+                        <span className="text-ieee-blue">{checkoutLoading && activeUpiApp === app ? <Loader2 className="h-4 w-4 animate-spin" /> : "Open"}</span>
                       </motion.button>
                     ),
                   )}

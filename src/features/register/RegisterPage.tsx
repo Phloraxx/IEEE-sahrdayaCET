@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ArrowLeft,
   ArrowRight,
@@ -23,6 +23,7 @@ import {
 } from "@/lib/data/public-client";
 import { downloadRegistrationReceipt } from "@/lib/data/receipt.client";
 import { formatDate } from "@/lib/dates";
+import { MOTION_DURATION, MOTION_EASE } from "@/lib/motion";
 import {
   clearRegistrationDraft,
   loadRegistrationDraft,
@@ -40,9 +41,10 @@ interface PageProps {
 }
 
 const fieldClass =
-  "w-full border-0 border-b border-black/15 bg-transparent px-0 py-3 text-[15px] text-[#111315] outline-none transition placeholder:text-black/30 focus:border-[#00629B] focus:ring-0 disabled:text-black/40";
+  "w-full border-0 border-b border-black/15 bg-transparent bg-[linear-gradient(#00629B,#00629B)] bg-[length:0_1px] bg-[position:0_100%] bg-no-repeat px-0 py-3 text-[15px] text-[#111315] outline-none transition-[border-color,background-size] duration-200 placeholder:text-black/30 focus:border-transparent focus:bg-[length:100%_1px] focus:ring-0 disabled:text-black/40";
 
 function BookingProgress({ paid, stage = "details" }: { paid: boolean; stage?: "details" | "payment" | "ticket" }) {
+  const reduceMotion = Boolean(useReducedMotion());
   const steps = paid ? ["Details", "Payment", "Ticket"] : ["Details", "Ticket"];
   const stageIndex = paid
     ? { details: 0, payment: 1, ticket: 2 }[stage]
@@ -52,7 +54,18 @@ function BookingProgress({ paid, stage = "details" }: { paid: boolean; stage?: "
     <div className="flex items-center gap-2" aria-label="Registration progress">
       {steps.map((step, index) => (
         <div key={step} className="contents">
-          {index > 0 && <div className={`h-px w-5 sm:w-9 ${index <= stageIndex ? "bg-[#00629B]" : "bg-black/15"}`} />}
+          {index > 0 && (
+            <div className="relative h-px w-5 overflow-hidden bg-black/15 sm:w-9">
+              {index <= stageIndex && (
+                <motion.div
+                  initial={reduceMotion ? false : { scaleX: 0 }}
+                  animate={{ scaleX: 1 }}
+                  transition={{ duration: reduceMotion ? 0 : MOTION_DURATION.ui, ease: MOTION_EASE }}
+                  className="absolute inset-0 origin-left bg-[#00629B]"
+                />
+              )}
+            </div>
+          )}
           <div className={`flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.16em] ${index <= stageIndex ? "text-[#00629B]" : "text-black/30"}`}>
             <span className={`grid h-5 w-5 place-items-center rounded-full border text-[9px] ${index < stageIndex ? "border-[#00629B] bg-[#00629B] text-white" : index === stageIndex ? "border-[#00629B]" : "border-black/15"}`}>
               {index < stageIndex ? <Check className="h-3 w-3" /> : index + 1}
@@ -62,6 +75,28 @@ function BookingProgress({ paid, stage = "details" }: { paid: boolean; stage?: "
         </div>
       ))}
     </div>
+  );
+}
+
+function FieldLabel({ label, complete = false }: { label: string; complete?: boolean }) {
+  return (
+    <span className="flex items-center gap-2 text-xs font-bold">
+      {label}
+      <AnimatePresence initial={false}>
+        {complete && (
+          <motion.span
+            initial={{ opacity: 0, scale: 0.75 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.75 }}
+            transition={{ duration: MOTION_DURATION.micro, ease: MOTION_EASE }}
+            className="text-emerald-600"
+            aria-label="Complete"
+          >
+            <Check className="h-3.5 w-3.5" />
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </span>
   );
 }
 
@@ -398,19 +433,19 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
               </div>
             ) : (
               <form onSubmit={handleSubmit}>
-                <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="border-t border-black/12 py-8 sm:py-10">
+                <motion.section initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: MOTION_DURATION.reveal, ease: MOTION_EASE }} className="border-t border-black/12 py-8 sm:py-10">
                   <div className="grid gap-6 sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-10">
                     <div>
                       <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#00629B]">01 / Attendee</p>
                       <h2 className="mt-3 text-2xl font-semibold tracking-[-0.04em]">Your details</h2>
                     </div>
                     <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
-                      <label className="sm:col-span-2"><span className="block text-xs font-bold">Full name *</span><input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" className={`${fieldClass} ${errors.name ? "border-rose-500" : ""}`} placeholder="Your full name" />{errors.name && <span className="mt-1.5 block text-xs text-rose-600">{errors.name}</span>}</label>
-                      <label><span className="block text-xs font-bold">Email</span><input value={email} readOnly autoComplete="email" className={fieldClass} /><span className="mt-1 block text-[10px] text-black/35">From your signed-in account</span></label>
-                      <label><span className="block text-xs font-bold">Phone *</span><input value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" inputMode="tel" autoComplete="tel" className={`${fieldClass} ${errors.phone ? "border-rose-500" : ""}`} placeholder="+91 98765 43210" />{errors.phone && <span className="mt-1.5 block text-xs text-rose-600">{errors.phone}</span>}</label>
-                      <label className="sm:col-span-2"><span className="block text-xs font-bold">College / Institution *</span><input value={college} onChange={(e) => setCollege(e.target.value)} autoComplete="organization" className={`${fieldClass} ${errors.college ? "border-rose-500" : ""}`} placeholder="Your college or institution" />{errors.college && <span className="mt-1.5 block text-xs text-rose-600">{errors.college}</span>}</label>
-                      <label><span className="block text-xs font-bold">Branch / Department</span><input value={branch} onChange={(e) => setBranch(e.target.value)} className={fieldClass} placeholder="Computer Science" /></label>
-                      <label><span className="block text-xs font-bold">Semester</span><input value={semester} onChange={(e) => setSemester(e.target.value)} className={fieldClass} placeholder="S6" /></label>
+                      <label className="sm:col-span-2"><FieldLabel label="Full name *" complete={name.trim().length >= 2 && !errors.name} /><input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" className={`${fieldClass} ${errors.name ? "border-rose-500" : ""}`} placeholder="Your full name" />{errors.name && <span className="mt-1.5 block text-xs text-rose-600">{errors.name}</span>}</label>
+                      <label><FieldLabel label="Email" complete={Boolean(email)} /><input value={email} readOnly autoComplete="email" className={fieldClass} /><span className="mt-1 block text-[10px] text-black/35">From your signed-in account</span></label>
+                      <label><FieldLabel label="Phone *" complete={phone.replace(/\D/g, "").length >= 10 && !errors.phone} /><input value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" inputMode="tel" autoComplete="tel" className={`${fieldClass} ${errors.phone ? "border-rose-500" : ""}`} placeholder="+91 98765 43210" />{errors.phone && <span className="mt-1.5 block text-xs text-rose-600">{errors.phone}</span>}</label>
+                      <label className="sm:col-span-2"><FieldLabel label="College / Institution *" complete={college.trim().length >= 2 && !errors.college} /><input value={college} onChange={(e) => setCollege(e.target.value)} autoComplete="organization" className={`${fieldClass} ${errors.college ? "border-rose-500" : ""}`} placeholder="Your college or institution" />{errors.college && <span className="mt-1.5 block text-xs text-rose-600">{errors.college}</span>}</label>
+                      <label><FieldLabel label="Branch / Department" complete={Boolean(branch.trim())} /><input value={branch} onChange={(e) => setBranch(e.target.value)} className={fieldClass} placeholder="Computer Science" /></label>
+                      <label><FieldLabel label="Semester" complete={Boolean(semester.trim())} /><input value={semester} onChange={(e) => setSemester(e.target.value)} className={fieldClass} placeholder="S6" /></label>
                     </div>
                   </div>
 
@@ -426,7 +461,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
                 </motion.section>
 
                 {event.formFields.length > 0 && (
-                  <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04 }} className="border-t border-black/12 py-8 sm:py-10">
+                  <motion.section initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: MOTION_DURATION.reveal, ease: MOTION_EASE, delay: 0.06 }} className="border-t border-black/12 py-8 sm:py-10">
                     <div className="grid gap-6 sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-10">
                       <div>
                         <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#00629B]">02 / Event</p>
@@ -435,7 +470,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
                       <div className="space-y-7">
                         {event.formFields.map((field) => (
                           <div key={field.id}>
-                            {field.type !== "checkbox" && <label htmlFor={field.id} className="block text-xs font-bold">{field.label}{field.required ? " *" : ""}</label>}
+                            {field.type !== "checkbox" && <label htmlFor={field.id}><FieldLabel label={`${field.label}${field.required ? " *" : ""}`} complete={Boolean(customFields[field.id]) && !errors[field.id]} /></label>}
                             <DynamicField field={field} value={customFields[field.id] || ""} onChange={(value) => setCustomFields((current) => ({ ...current, [field.id]: value }))} error={errors[field.id]} />
                             {errors[field.id] && <p className="mt-1.5 text-xs text-rose-600">{errors[field.id]}</p>}
                           </div>
@@ -445,7 +480,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
                   </motion.section>
                 )}
 
-                <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="border-y border-black/12 py-8 sm:py-10">
+                <motion.section initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: MOTION_DURATION.reveal, ease: MOTION_EASE, delay: 0.1 }} className="border-y border-black/12 py-8 sm:py-10">
                   <div className="grid gap-7 sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-10">
                     <div>
                       <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#00629B]">{event.formFields.length > 0 ? "03" : "02"} / Confirm</p>
@@ -455,10 +490,25 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
                       <label className="flex cursor-pointer items-start gap-3"><input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} className="mt-1 h-4 w-4 accent-[#00629B]" /><span className="text-sm leading-6 text-black/55">I confirm that the information above is accurate and agree to the event terms.</span></label>
                       {errors.terms && <p className="mt-2 text-xs text-rose-600">{errors.terms}</p>}
 
-                      <button type="submit" disabled={submitting} className="group mt-7 flex w-full items-center justify-between border-y border-[#00629B] py-4 text-left text-lg font-bold text-[#00629B] transition disabled:border-black/15 disabled:text-black/30 sm:max-w-lg">
-                        <span>{submitting ? "Saving your details…" : event.isPaid ? `Continue to payment · ₹${event.price}` : "Confirm free registration"}</span>
-                        {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : event.isPaid ? <CreditCard className="h-5 w-5" /> : <Ticket className="h-5 w-5 transition-transform group-hover:translate-x-1" />}
-                      </button>
+                      <motion.button
+                        type="submit"
+                        disabled={submitting}
+                        whileHover={submitting ? undefined : { x: 2 }}
+                        whileTap={submitting ? undefined : { scale: 0.99 }}
+                        transition={{ duration: MOTION_DURATION.micro, ease: MOTION_EASE }}
+                        className="group relative mt-7 flex w-full items-center justify-between overflow-hidden border-y border-[#00629B] py-4 text-left text-lg font-bold text-[#00629B] transition disabled:border-black/15 disabled:text-black/30 sm:max-w-lg"
+                      >
+                        <span>{submitting ? "Reserving your seat…" : event.isPaid ? `Continue to payment · ₹${event.price}` : "Confirm free registration"}</span>
+                        {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : event.isPaid ? <CreditCard className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5" /> : <Ticket className="h-5 w-5 transition-transform group-hover:translate-x-1" />}
+                        {submitting && (
+                          <motion.span
+                            className="absolute inset-x-0 bottom-0 h-0.5 origin-left bg-[#00629B]"
+                            initial={{ scaleX: 0 }}
+                            animate={{ scaleX: 1 }}
+                            transition={{ duration: 1.2, ease: MOTION_EASE }}
+                          />
+                        )}
+                      </motion.button>
                       <p className="mt-4 max-w-lg text-xs leading-5 text-black/38">{event.isPaid ? "Your ticket is issued only after payment is captured." : "Your ticket is created immediately after confirmation."}</p>
                     </div>
                   </div>
