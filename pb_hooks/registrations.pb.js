@@ -183,7 +183,7 @@ routerAdd("GET", "/api/tickets/lookup", function (e) {
             var banner = evt.getString("banner") || ""
             var bannerUrl = ""
             if (banner) {
-                bannerUrl = $app.filesystem().fileUrl(evt, banner)
+                try { bannerUrl = $app.filesystem().fileUrl(evt, banner) } catch (_) {}
             }
             eventPayload = {
                 id: evt.id,

@@ -164,9 +164,12 @@ describe("registration/payment experience architecture", () => {
     const routes = source("src/routes.ts");
     const qrRoute = source("src/routes/ticket-qr.$ticketId.ts");
     const notifications = source("pb_hooks/notification-helpers.js");
+    const registrationHooks = source("pb_hooks/registrations.pb.js");
     expect(routes).toContain('route("ticket/:ticketId/qr.png"');
     expect(qrRoute).toContain("QRCode.toBuffer");
     expect(qrRoute).toContain("/api/tickets/lookup?ticketId=");
+    // A banner URL failure must not erase ticket event metadata such as date/venue.
+    expect(registrationHooks).toContain('try { bannerUrl = $app.filesystem().fileUrl(evt, banner) } catch (_) {}');
     expect(qrRoute).toContain('"Content-Type": "image/png"');
     expect(notifications).toContain('var qrHref = ticketHref + "/qr.png"');
     expect(notifications).toContain('alt="Ticket QR code"');
