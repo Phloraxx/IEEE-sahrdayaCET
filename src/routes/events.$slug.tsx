@@ -11,7 +11,6 @@ import {
   Clock3,
   ReceiptText,
   MapPin,
-  Users,
   XCircle,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
@@ -25,6 +24,7 @@ import { APP_URL } from "@/lib/constants";
 import { blogHtmlToPlainText, sanitizeBlogHtml } from "@/lib/blog-content";
 import { formatDate, formatTime } from "@/lib/dates";
 import { eventTitleSize, MOTION_DURATION, MOTION_EASE, revealUp } from "@/lib/motion";
+import { getEventAvailability, type EventAvailabilityKind } from "@/lib/event-availability";
 import {
   getEventSocietySlug,
   resolveEventArtwork,
@@ -165,6 +165,33 @@ export default function EventDetailPage() {
     !event.maxCapacity || event.registeredCount < event.maxCapacity;
   const registrationAvailable =
     lifecycle === "scheduled" && event.registrationOpen && hasCapacity;
+  const availability = getEventAvailability({
+    status: event.status,
+    date: event.date,
+    endDate: event.endDate,
+    registrationOpen: event.registrationOpen,
+    registrationMode: event.registrationMode,
+    registrationStart: event.registrationStart,
+    registrationDeadline: event.registrationDeadline,
+    maxCapacity: event.maxCapacity,
+    registeredCount: event.registeredCount,
+  });
+  const availabilityClass: Record<EventAvailabilityKind, string> = {
+    "opening-soon": "text-[#00629B]",
+    open: "text-[#00629B]",
+    filling: "text-teal-700",
+    "filling-fast": "text-amber-700",
+    "few-left": "text-orange-700",
+    "closing-soon": "text-amber-700",
+    full: "text-rose-700",
+    closed: "text-black/40",
+  };
+  const unavailableRegistrationLabel =
+    availability.kind === "opening-soon"
+      ? "Registration opens soon"
+      : availability.kind === "full"
+        ? "Registration full"
+        : "Registration closed";
   const virtualLocation = {
     "@type": "VirtualLocation",
     url: event.externalLink || event.externalFormUrl || canonicalUrl,
@@ -282,12 +309,10 @@ export default function EventDetailPage() {
               <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Entry</p>
               <p className="mt-2 text-2xl font-semibold tracking-[-0.04em]">{event.price > 0 ? `₹${event.price}` : "Free"}</p>
             </motion.div>
-            {event.maxCapacity > 0 && (
-              <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0, transition: { duration: MOTION_DURATION.ui, ease: MOTION_EASE } } }}>
-                <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Availability</p>
-                <p className="mt-2 text-sm font-semibold">{Math.max(0, event.maxCapacity - event.registeredCount)} of {event.maxCapacity} seats left</p>
-              </motion.div>
-            )}
+            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0, transition: { duration: MOTION_DURATION.ui, ease: MOTION_EASE } } }}>
+              <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Availability</p>
+              <p className={`mt-2 text-sm font-semibold ${availabilityClass[availability.kind]}`}>{availability.label}</p>
+            </motion.div>
           </motion.div>
         </header>
 
@@ -379,7 +404,7 @@ export default function EventDetailPage() {
                     <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Registration</p>
                     <p className="mt-2 text-5xl font-semibold tracking-[-0.065em]">{event.price > 0 ? `₹${event.price}` : "Free"}</p>
                   </div>
-                  {event.maxCapacity > 0 && <div className="mb-1 flex items-center gap-2 text-xs text-black/45"><Users className="h-4 w-4" /> {Math.max(0, event.maxCapacity - event.registeredCount)} left</div>}
+                  <div className={`mb-1 flex items-center gap-2 text-xs font-semibold ${availabilityClass[availability.kind]}`}><span className="h-1.5 w-1.5 rounded-full bg-current" />{availability.label}</div>
                 </div>
                 {registrationAvailable ? (
                   event.externalFormUrl ? (
@@ -387,7 +412,7 @@ export default function EventDetailPage() {
                   ) : (
                     <Link to={registerUrl} className="group mt-7 hidden w-full items-center justify-between border-y border-[#00629B] py-4 text-lg font-bold text-[#00629B] lg:flex">Reserve your place <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" /></Link>
                   )
-                ) : <div className="mt-7 border-y border-black/12 py-4 text-sm font-bold text-black/40">Registration closed</div>}
+                ) : <div className="mt-7 border-y border-black/12 py-4 text-sm font-bold text-black/40">{unavailableRegistrationLabel}</div>}
                 <p className="mt-5 text-xs leading-5 text-black/40">{event.price > 0 ? "Your place is confirmed only after payment is captured." : "Free registration creates your ticket immediately."}</p>
               </>
             )}

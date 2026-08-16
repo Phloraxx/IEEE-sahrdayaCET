@@ -4,6 +4,7 @@ import { CalendarDays } from "lucide-react";
 import type { ExtendedEvent } from "@/types";
 import { MOTION_DURATION, MOTION_EASE } from "@/lib/motion";
 import { resolveEventArtwork } from "@/lib/event-artwork";
+import { getEventAvailability, type EventAvailabilityKind } from "@/lib/event-availability";
 import { EventArtworkPreview } from "./EventArtworkPreview";
 import { EventBannerFallback } from "./EventBannerFallback";
 import { AnnotatedEventCard as EventRow } from "./AnnotatedEventCard";
@@ -22,13 +23,16 @@ interface EventListSectionProps {
   animateCards?: boolean;
 }
 
-function statusLabel(event: ExtendedEvent) {
-  const capacity = Number(event.maxCapacity || 0);
-  const registered = Number(event.registeredCount || 0);
-  if (capacity > 0 && registered >= capacity) return "Sold out";
-  if (event.registrationOpen) return "Registration open";
-  return "Details available";
-}
+const previewAvailabilityClass: Record<EventAvailabilityKind, string> = {
+  "opening-soon": "text-[#00629B]",
+  open: "text-[#00629B]",
+  filling: "text-teal-700",
+  "filling-fast": "text-amber-700",
+  "few-left": "text-orange-700",
+  "closing-soon": "text-amber-700",
+  full: "text-rose-700",
+  closed: "text-black/38",
+};
 export function EventListSection({
   events,
   loading,
@@ -58,6 +62,7 @@ export function EventListSection({
   );
   const activeArtwork = activeEvent ? resolveEventArtwork(activeEvent) : null;
   const activeSociety = activeEvent && typeof activeEvent.society === "object" ? activeEvent.society : null;
+  const activeAvailability = activeEvent ? getEventAvailability(activeEvent) : null;
 
   return (
     <section className="mx-auto max-w-[1440px]" id={sectionId}>
@@ -143,7 +148,7 @@ export function EventListSection({
                     <span className="shrink-0 text-[#00629B]">{activeEvent.price > 0 ? `₹${activeEvent.price}` : "Free"}</span>
                   </div>
                   <div className="mt-3 text-2xl font-semibold leading-[1.02] tracking-[-0.045em] text-[#111315]">{activeEvent.title}</div>
-                  <div className="mt-3 text-[9px] font-bold uppercase tracking-[0.16em] text-black/38">{statusLabel(activeEvent)}</div>
+                  <div className={`mt-3 text-[9px] font-bold uppercase tracking-[0.16em] ${activeAvailability ? previewAvailabilityClass[activeAvailability.kind] : "text-black/38"}`}>{activeAvailability?.label || "View event"}</div>
                 </div>
               )}
             </div>

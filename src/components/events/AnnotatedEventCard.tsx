@@ -3,6 +3,7 @@ import { ArrowUpRight, MapPin } from "lucide-react";
 import { Link } from "react-router";
 import type { ExtendedEvent } from "@/types";
 import { MOTION_DURATION, MOTION_EASE } from "@/lib/motion";
+import { getEventAvailability, type EventAvailabilityKind } from "@/lib/event-availability";
 
 interface EventCardProps {
   event: ExtendedEvent;
@@ -12,13 +13,16 @@ interface EventCardProps {
   animateEntrance?: boolean;
 }
 
-function eventStatus(event: ExtendedEvent) {
-  const capacity = Number(event.maxCapacity || 0);
-  const registered = Number(event.registeredCount || 0);
-  if (capacity > 0 && registered >= capacity) return "Sold out";
-  if (event.registrationOpen) return "Registration open";
-  return "View event";
-}
+const availabilityClass: Record<EventAvailabilityKind, string> = {
+  "opening-soon": "text-[#00629B]",
+  open: "text-[#00629B]",
+  filling: "text-teal-700",
+  "filling-fast": "text-amber-700",
+  "few-left": "text-orange-700",
+  "closing-soon": "text-amber-700",
+  full: "text-rose-700",
+  closed: "text-black/42",
+};
 
 export function AnnotatedEventCard({
   event,
@@ -30,7 +34,7 @@ export function AnnotatedEventCard({
   const reduceMotion = useReducedMotion();
   const date = new Date(event.date);
   const societyName = typeof event.society === "object" ? event.society.name : "IEEE Sahrdaya";
-  const status = eventStatus(event);
+  const availability = getEventAvailability(event);
   return (
     <motion.article
       initial={reduceMotion || !animateEntrance ? false : { opacity: 0, y: 16 }}
@@ -84,8 +88,8 @@ export function AnnotatedEventCard({
             )}
           </div>
           <div className="flex items-center justify-between gap-4 sm:justify-end">
-            <span className={`text-[9px] font-bold uppercase tracking-[0.16em] ${active ? "text-[#00629B] sm:text-[#7dd3fc]" : status === "Registration open" ? "text-[#00629B]" : "text-black/42"}`}>
-              {status}
+            <span className={`text-[9px] font-bold uppercase tracking-[0.16em] ${active ? "text-black/42 sm:text-white/70" : availabilityClass[availability.kind]}`}>
+              {availability.label}
             </span>
             <motion.span
               className={`grid h-10 w-10 shrink-0 place-items-center rounded-full border transition-colors ${active ? "border-black/14 sm:border-white/20 sm:bg-white sm:text-[#111315]" : "border-black/14 group-hover:border-[#00629B] group-hover:bg-[#00629B] group-hover:text-white"}`}

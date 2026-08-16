@@ -23,6 +23,8 @@ export interface SerializableEvent {
   status: string;
   registrationOpen: boolean;
   registrationMode: EventRegistrationMode;
+  registrationStart: string;
+  registrationDeadline: string;
   maxCapacity: number;
   registeredCount: number;
   externalFormUrl?: string;
@@ -90,6 +92,8 @@ function mapPublicEvent(raw: Record<string, unknown>): SerializableEvent {
       registrationDeadline,
     }),
     registrationMode,
+    registrationStart,
+    registrationDeadline,
     maxCapacity: getField(raw, "maxCapacity", 0),
     registeredCount: getField(raw, "registeredCount", 0),
     externalFormUrl,
