@@ -76,6 +76,21 @@ const UPI_APP_LABELS: Record<string, string> = {
   super_money: "super.money",
   any: "Other UPI apps",
 };
+function minimalPayGateUpiUri(uri: string): string {
+  if (!uri) return "";
+  try {
+    const parsed = new URL(uri);
+    parsed.searchParams.delete("tn");
+    parsed.searchParams.delete("tr");
+    return parsed.toString();
+  } catch {
+    return uri
+      .replace(/([?&])(?:tn|tr)=[^&]*&?/gi, "$1")
+      .replace(/[?&]$/, "")
+      .replace(/\?&/, "?");
+  }
+}
+
 const PREFERRED_UPI_APPS = ["gpay", "phonepe", "paytm", "bhim", "any"];
 
 function normalizeIndianContact(value: string): string {
@@ -439,14 +454,17 @@ export default function PaymentPage({ registrationId }: PageProps) {
     upiApps.includes(app),
   );
 
+  const payGateUpiUri =
+    session?.provider === "paygate" ? minimalPayGateUpiUri(session.upiUri || "") : "";
+
   useEffect(() => {
-    if (session?.provider !== "paygate" || !session.upiUri) return;
+    if (session?.provider !== "paygate" || !payGateUpiUri) return;
     let disposed = false;
     setQrDataUrl("");
     setQrExpiresAt(session.expiresAt ? Date.parse(session.expiresAt) : 0);
     void import("qrcode")
       .then((QRCode) =>
-        QRCode.toDataURL(session.upiUri, {
+        QRCode.toDataURL(payGateUpiUri, {
           width: 320,
           margin: 2,
           errorCorrectionLevel: "M",
@@ -459,7 +477,7 @@ export default function PaymentPage({ registrationId }: PageProps) {
         if (!disposed) setError("The Kotak UPI payment is ready but its QR could not be displayed. Open it in a UPI app or retry.");
       });
     return () => { disposed = true; };
-  }, [session?.expiresAt, session?.provider, session?.upiUri]);
+  }, [payGateUpiUri, session?.expiresAt, session?.provider]);
 
   useEffect(() => {
     const keyId = session?.razorpayKeyId || "";
@@ -852,9 +870,9 @@ export default function PaymentPage({ registrationId }: PageProps) {
                 </div>
               )}
 
-              {isMobileUpi && session.upiUri && (
+              {isMobileUpi && payGateUpiUri && (
                 <motion.a
-                  href={session.upiUri}
+                  href={payGateUpiUri}
                   whileTap={reduceMotion ? undefined : { scale: 0.985 }}
                   className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-ieee-blue px-5 py-4 text-sm font-black text-white shadow-lg shadow-sky-100"
                 >
