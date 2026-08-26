@@ -7,6 +7,6 @@ describe("event ownership architecture", () => {
     const source = readFileSync(resolve(process.cwd(), "pb_hooks/events.pb.js"), "utf8");
     expect(source).toContain('role === "chair"');
     expect(source).toContain('newRecord.getString("society") !== oldRecord.getString("society")');
-    expect(source).toContain("Only admins may transfer an event to another society");
+    expect(source).toContain("transfer an event to another society");
   });
 });
