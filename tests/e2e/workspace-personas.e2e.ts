@@ -67,17 +67,10 @@ test.describe("IEEE Workspace role personas", () => {
     await page.goto("/admin/registrations");
     await expect(page).toHaveURL(/\/admin\/blogs$/);
   });
-  test("authenticated community profile saves self-reported identity", async ({ page }) => {
+  test("standalone community profile route is not exposed", async ({ page }) => {
     await signIn(page, fixtures!.PERSONAS.checkin);
-    await page.goto("/profile");
-    await expect(page.getByRole("heading", { name: "Your profile" })).toBeVisible();
-    await page.getByLabel("SR number").fill("E2E-SR-001");
-    await page.getByLabel("Department").fill("CSE");
-    await page.getByLabel("Semester").fill("S7");
-    await page.getByLabel("Passout year").fill("2027");
-    await page.getByRole("button", { name: "Save profile" }).click();
-    await expect(page.getByText("Saved", { exact: true })).toBeVisible();
-    await expect(page.getByText("Self-reported", { exact: true })).toBeVisible();
+    const response = await page.goto("/profile");
+    expect(response?.status()).toBe(404);
   });
 
   test("mobile check-in workspace exposes the permitted drawer only", async ({ page }) => {

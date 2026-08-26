@@ -244,7 +244,16 @@ registration = req("POST", "/api/collections/registrations/records", {
     "ticketId": f"TKT-ROLE-{suffix[-8:]}",
     "amount": 0,
     "registrationDate": now.isoformat().replace("+00:00", "Z"),
-    "formResponses": {},
+    "formResponses": {
+        "name": "Checkin Attendee",
+        "phone": "+919876543210",
+        "college": "Sahrdaya College of Engineering and Technology",
+        "branch": "CSE",
+        "semester": "S7",
+        "isIeeeMember": True,
+        "ieeeMembershipId": "12345678",
+        "eventOnlyAnswer": "do-not-reuse",
+    },
 }, super_token)
 
 # Scanner staff cannot browse the attendee register but can perform the minimal check-in command.
@@ -276,15 +285,18 @@ req("POST", "/api/collections/blogs/records", {
     "event": other_event["id"], "society": other_society["id"],
 }, tokens["event-content"], expected=(400, 403))
 
-# Community profile is self-editable, but verification fields are ignored/protected.
-profile = req("POST", "/api/workspace/profile", {
-    "accountType": "student", "srNumber": "223929", "department": "CSE", "semester": "S7",
-    "graduationYear": "2027", "ieeeMember": True, "ieeeMemberId": "12345678",
-    "institutionalVerified": True, "verifiedBy": users["plain"]["id"],
-}, tokens["plain"])
-assert profile["success"] is True
-profile_read = req("GET", "/api/workspace/profile", token=tokens["plain"])["profile"]
-assert profile_read["srNumber"] == "223929" and profile_read["institutionalVerified"] is False
+# Registration memory reuses only common attendee details from the latest registration.
+registration_memory = req("GET", "/api/app/registration-memory", token=tokens["plain"])
+assert registration_memory["found"] is True
+assert registration_memory["profile"] == {
+    "name": "Checkin Attendee",
+    "phone": "+919876543210",
+    "college": "Sahrdaya College of Engineering and Technology",
+    "branch": "CSE",
+    "semester": "S7",
+    "isIeeeMember": True,
+    "ieeeMembershipId": "12345678",
+}
 
 fixture_file = os.environ.get("E2E_WORKSPACE_FIXTURE", "").strip()
 if fixture_file:

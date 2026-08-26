@@ -18,6 +18,7 @@ import { useAuth } from "@/lib/auth-context";
 import {
   createRegistration,
   getMyEventRegistration,
+  getRegistrationMemory,
   getPublicEvent,
   type PublicRegistrationEvent,
 } from "@/lib/data/public-client";
@@ -242,18 +243,29 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
       setMemoryReady(false);
       return;
     }
-    const profile = loadRegistrationProfile(user.id);
+    let active = true;
+    const localProfile = loadRegistrationProfile(user.id);
     const draft = loadRegistrationDraft(user.id, event.id);
-    const source = draft || profile;
-    setName(source.name || user.name || "");
-    setPhone(source.phone);
-    setCollege(source.college);
-    setBranch(source.branch);
-    setSemester(source.semester);
-    setIsIeeeMember(source.isIeeeMember);
-    setIeeeMembershipId(source.ieeeMembershipId);
-    if (draft) setCustomFields((current) => ({ ...current, ...draft.customFields }));
-    setMemoryReady(true);
+
+    const apply = (profile: RegistrationProfileMemory) => {
+      if (!active) return;
+      const source = draft || profile;
+      setName(source.name || user.name || "");
+      setPhone(source.phone);
+      setCollege(source.college);
+      setBranch(source.branch);
+      setSemester(source.semester);
+      setIsIeeeMember(source.isIeeeMember);
+      setIeeeMembershipId(source.ieeeMembershipId);
+      if (draft) setCustomFields((current) => ({ ...current, ...draft.customFields }));
+      setMemoryReady(true);
+    };
+
+    void getRegistrationMemory()
+      .then((memory) => apply(memory.found ? memory.profile : localProfile))
+      .catch(() => apply(localProfile));
+
+    return () => { active = false; };
   }, [event, user?.id, user?.name]);
 
   useEffect(() => {
@@ -408,7 +420,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
             </div>
 
             {memoryReady && user && action === "register" && (
-              <p className="mt-5 text-xs leading-5 text-black/42">Your profile and this form are saved on this device while you type.</p>
+              <p className="mt-5 text-xs leading-5 text-black/42">Your reusable attendee details are remembered after you register. This event draft stays on this device while you type.</p>
             )}
           </aside>
 

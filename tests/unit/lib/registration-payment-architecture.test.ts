@@ -23,7 +23,7 @@ describe("registration/payment experience architecture", () => {
     expect(register).toContain("Review & continue");
     expect(register).toContain("Back to event");
     expect(register).toContain("BookingProgress");
-    expect(register).toContain("Your profile and this form are saved on this device while you type.");
+    expect(register).toContain("Your reusable attendee details are remembered after you register. This event draft stays on this device while you type.");
   });
 
   it("keeps payment and ticket poster-independent throughout the transaction", () => {

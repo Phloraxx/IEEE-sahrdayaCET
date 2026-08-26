@@ -188,17 +188,6 @@ export default function Navbar({ fifaActive, mobileAlign = "center" }: NavbarPro
                   <div className={`h-px ${inFifa ? "bg-white/10" : "bg-gray-100"}`} />
                 </>
               )}
-              <Link
-                to="/profile"
-                className={`w-full px-4 py-3 text-left text-xs font-bold transition-colors flex items-center gap-3 tracking-wide ${
-                  inFifa ? "text-gray-300 hover:bg-white/10 hover:text-white" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                }`}
-                onClick={() => setShowUserMenu(false)}
-              >
-                <User className="w-4 h-4" />
-                Community Profile
-              </Link>
-              <div className={`h-px ${inFifa ? "bg-white/10" : "bg-gray-100"}`} />
               {workspace.data?.hasWorkspace && (
                 <>
                   <Link

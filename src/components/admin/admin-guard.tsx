@@ -26,15 +26,30 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
       navigate("/", { replace: true });
       return;
     }
-    if (!workspace.isLoading && !workspace.data?.hasWorkspace) {
+    if (workspace.isSuccess && !workspace.data?.hasWorkspace) {
       navigate("/", { replace: true });
     }
-  }, [status, user, workspace.isLoading, workspace.data?.hasWorkspace, navigate]);
+  }, [status, user, workspace.isSuccess, workspace.data?.hasWorkspace, navigate]);
 
   if (status === "loading" || (user && workspace.isLoading)) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (workspace.isError) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+        <p className="text-sm text-muted-foreground">Could not verify your Workspace access.</p>
+        <button
+          type="button"
+          onClick={() => void workspace.refetch()}
+          className="rounded-md border px-4 py-2 text-sm font-medium"
+        >
+          Retry
+        </button>
       </div>
     );
   }

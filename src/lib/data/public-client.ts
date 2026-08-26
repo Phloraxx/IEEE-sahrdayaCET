@@ -126,6 +126,25 @@ export async function createRegistration(input: {
   }>;
 }
 
+export interface RegistrationMemory {
+  found: boolean;
+  profile: {
+    name: string;
+    phone: string;
+    college: string;
+    branch: string;
+    semester: string;
+    isIeeeMember: boolean;
+    ieeeMembershipId: string;
+  };
+}
+
+export async function getRegistrationMemory(): Promise<RegistrationMemory> {
+  const pb = getPbClient();
+  if (!pb.authStore.isValid) throw new Error("Please sign in to load saved registration details");
+  return pb.send("/api/app/registration-memory", {}) as Promise<RegistrationMemory>;
+}
+
 export async function getMyEventRegistration(eventId: string): Promise<MyEventRegistration> {
   const pb = getPbClient();
   if (!pb.authStore.isValid) throw new Error("Please sign in to view your registration");

@@ -75,14 +75,6 @@ export async function runEventWorkflow(
   }) as Promise<{ event: Record<string, unknown> }>;
 }
 
-export async function getCommunityProfile() {
-  return getPbClient().send("/api/workspace/profile", {}) as Promise<{ profile: Record<string, unknown> | null }>;
-}
-
-export async function saveCommunityProfile(profile: Record<string, unknown>) {
-  return getPbClient().send("/api/workspace/profile", { method: "POST", body: profile }) as Promise<{ success: boolean; profileId: string }>;
-}
-
 export async function checkInWorkspaceTicket(ticketId: string) {
   return getPbClient().send("/api/workspace/check-in", {
     method: "POST",

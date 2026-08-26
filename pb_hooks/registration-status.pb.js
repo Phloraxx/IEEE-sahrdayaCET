@@ -82,3 +82,57 @@ routerAdd(
   },
   $apis.requireAuth("users")
 )
+
+// Reuse the attendee details from the user's most recent registration.
+// Event-specific custom answers are intentionally not returned.
+routerAdd(
+  "GET",
+  "/api/app/registration-memory",
+  function (e) {
+    var auth = e.auth
+    if (!auth || !auth.id) return e.json(401, { error: "Authentication required" })
+
+    var records = []
+    try {
+      records = $app.findRecordsByFilter(
+        "registrations",
+        "user = {:user}",
+        "",
+        100,
+        0,
+        { user: auth.id }
+      )
+    } catch (_) { records = [] }
+
+    records.sort(function (a, b) {
+      var av = Date.parse(a.getString("registrationDate") || a.getString("created") || "") || 0
+      var bv = Date.parse(b.getString("registrationDate") || b.getString("created") || "") || 0
+      return bv - av
+    })
+
+    if (!records.length) {
+      return e.json(200, {
+        found: false,
+        profile: { name: "", phone: "", college: "", branch: "", semester: "", isIeeeMember: false, ieeeMembershipId: "" }
+      })
+    }
+
+    var latest = records[0]
+    var rh = require(__hooks + "/registration-helpers.js")
+    var responses = rh.registrationJsonObject(latest.get("formResponses"))
+
+    return e.json(200, {
+      found: true,
+      profile: {
+        name: String(responses.name || latest.getString("userName") || auth.getString("name") || ""),
+        phone: String(responses.phone || latest.getString("userPhone") || ""),
+        college: String(responses.college || ""),
+        branch: String(responses.branch || ""),
+        semester: String(responses.semester || ""),
+        isIeeeMember: responses.isIeeeMember === true,
+        ieeeMembershipId: String(responses.ieeeMembershipId || "")
+      }
+    })
+  },
+  $apis.requireAuth("users")
+)

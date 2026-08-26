@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { RecordModel } from "pocketbase";
+import { useQueryClient } from "@tanstack/react-query";
 import type { AuthUser } from "@/types";
 import { USER_ROLES, type UserRole } from "@/lib/constants";
 import { getPbClient } from "@/lib/pb-client";
@@ -40,6 +41,7 @@ function mapUser(record: RecordModel | null): AuthUser | null {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [status, setStatus] = useState<AuthContextValue["status"]>("loading");
 
@@ -47,7 +49,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const pb = getPbClient();
     const sync = () => {
       const next = mapUser(pb.authStore.record);
-      setUser(next);
+      setUser((previous) => {
+        if (previous?.id !== next?.id || previous?.role !== next?.role) {
+          void queryClient.invalidateQueries({ queryKey: ["workspace-me"] });
+        }
+        return next;
+      });
       setStatus(next && pb.authStore.isValid ? "authenticated" : "unauthenticated");
     };
 
@@ -63,7 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     return unsubscribe;
-  }, []);
+  }, [queryClient]);
 
   const signIn = useCallback(() => {
     // Keep the initial call synchronous with the click event so Safari does not block the OAuth popup.
