@@ -18,25 +18,33 @@ export default function StagingLogin() {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    const code = decodeURIComponent(window.location.hash.slice(1));
-    window.history.replaceState(null, "", "/staging-login");
-    if (!code) {
+    if (window.location.hostname !== "staging.ieeesahrdaya.com") {
       setFailed(true);
-      setMessage("This staging access link is missing or has already been used.");
+      setMessage("Temporary staging access is unavailable on this host.");
       return;
     }
 
-    const pb = getPbClient();
-    void pb.send("/api/staging/test-login", { method: "POST", body: { code } })
-      .then((data) => {
-        window.localStorage.setItem(STAGING_STATIC_AUTH_KEY, "1");
-        pb.authStore.save(String(data.token || ""), data.record || null);
-        window.location.replace("/admin");
-      })
-      .catch(() => {
-        setFailed(true);
-        setMessage("This staging access link is invalid or expired. Request a fresh one.");
-      });
+    const encoded = window.location.hash.slice(1);
+    window.history.replaceState(null, "", "/staging-login");
+    if (!encoded) {
+      setFailed(true);
+      setMessage("This staging access link is missing or has expired.");
+      return;
+    }
+
+    try {
+      const normalized = encoded.replace(/-/g, "+").replace(/_/g, "/");
+      const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+      const data = JSON.parse(atob(padded));
+      if (!data?.token || !data?.record?.id || data.record.role !== "admin") throw new Error("invalid payload");
+      const pb = getPbClient();
+      window.localStorage.setItem(STAGING_STATIC_AUTH_KEY, "1");
+      pb.authStore.save(String(data.token), data.record);
+      window.location.replace("/admin");
+    } catch {
+      setFailed(true);
+      setMessage("This staging access link is invalid or expired. Request a fresh one.");
+    }
   }, []);
 
   return <main className="grid min-h-dvh place-items-center bg-[#0b0d10] px-6 text-white">
