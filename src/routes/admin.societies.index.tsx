@@ -11,6 +11,7 @@ import { useAuth } from "@/lib/auth-context";
 import { getBioText } from "@/lib/safe-get";
 import { cn } from "@/lib/utils";
 import { archiveAdminSociety, listAdminSocieties } from "@/lib/data/admin-societies.client";
+import { getWorkspaceMe } from "@/lib/data/workspace.client";
 
 interface SocietyRow {
   id: string;
@@ -45,10 +46,16 @@ export default function AdminSocieties() {
   const [searchParams, setSearchParams] = useSearchParams();
   const page = Math.max(1, Number(searchParams.get("page") || 1) || 1);
   const [search, setSearch] = useState("");
+  const workspace = useQuery({ queryKey: ["workspace-me", user?.id], queryFn: getWorkspaceMe, enabled: Boolean(user?.id), staleTime: 30_000 });
+  const branchWide = Boolean(workspace.data?.branchCapabilities.includes("societies.view"));
+  const allowedIds = branchWide ? undefined : Array.from(new Set((workspace.data?.assignments ?? []).filter((a) => a.active && a.scopeType === "society").map((a) => a.societyId).filter(Boolean)));
+  const canEdit = Boolean(workspace.data?.capabilities.includes("societies.edit"));
+  const isPlatformAdmin = user?.role === "admin";
 
   const { data, isLoading } = useQuery<SocietiesResponse>({
-    queryKey: ["admin-societies", { search, page }],
-    queryFn: () => listAdminSocieties({ search, page, perPage: 40 }),
+    queryKey: ["admin-societies", { search, page, allowedIds }],
+    queryFn: () => listAdminSocieties({ search, page, perPage: 40, allowedIds }),
+    enabled: Boolean(workspace.data),
   });
   const setPage = (nextPage: number) => {
     const next = new URLSearchParams(searchParams);
@@ -70,7 +77,7 @@ export default function AdminSocieties() {
         title="Manage Societies"
         description={`${data?.total ?? 0} societ${(data?.total ?? 0) === 1 ? "y" : "ies"} configured.`}
         actions={
-          user?.role === "admin" ? (
+          isPlatformAdmin ? (
             <Button
               size="sm"
               className="gap-1.5"
@@ -106,7 +113,7 @@ export default function AdminSocieties() {
           }
         />
       ) : (
-        <SocietyList rows={data.societies} canEdit={user?.role === "admin" || user?.role === "chair"} onArchive={(id) => archiveMutation.mutate(id)} archivingPending={archiveMutation.isPending} userRole={user?.role} />
+        <SocietyList rows={data.societies} canEdit={canEdit} canArchive={isPlatformAdmin} onArchive={(id) => archiveMutation.mutate(id)} archivingPending={archiveMutation.isPending} />
       )}
       {data && data.total > data.perPage && (
         <div className="flex items-center justify-between gap-3">
@@ -132,10 +139,10 @@ interface SocietyListProps {
   canEdit: boolean;
   onArchive: (id: string) => void;
   archivingPending: boolean;
-  userRole?: string;
+  canArchive: boolean;
 }
 
-function SocietyList({ rows, canEdit, onArchive, archivingPending, userRole }: SocietyListProps) {
+function SocietyList({ rows, canEdit, canArchive, onArchive, archivingPending }: SocietyListProps) {
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card divide-y divide-border">
       <div className="hidden grid-cols-[1fr_120px_88px_72px_56px] gap-4 px-4 py-2.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground sm:grid">
@@ -203,7 +210,7 @@ function SocietyList({ rows, canEdit, onArchive, archivingPending, userRole }: S
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </Link>
-                {userRole === "admin" && (
+                {canArchive && (
                   <ConfirmButton
                     label=""
                     confirmMessage={`Archive "${s.name}"? It will be hidden from public views but historical references remain intact.`}

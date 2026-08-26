@@ -35,12 +35,21 @@ export async function listAdminEvents(input: {
   perPage: number;
   search?: string;
   status?: string;
+  allowedSocietyIds?: string[];
+  allowedEventIds?: string[];
 }): Promise<AdminEventsResponse> {
   const pb = getPbClient();
   const filters = ["isDeleted = false"];
   if (input.search) filters.push(`title ~ ${escapeFilterValue(input.search)}`);
   if (input.status && input.status !== "all") {
     filters.push(`status = ${escapeFilterValue(input.status)}`);
+  }
+  if (input.allowedSocietyIds || input.allowedEventIds) {
+    const scopes = [
+      ...(input.allowedSocietyIds ?? []).map((id) => `society = ${escapeFilterValue(id)}`),
+      ...(input.allowedEventIds ?? []).map((id) => `id = ${escapeFilterValue(id)}`),
+    ];
+    filters.push(scopes.length ? `(${scopes.join(" || ")})` : 'id = ""');
   }
 
   const result = await pb.collection("events").getList(input.page, input.perPage, {

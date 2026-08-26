@@ -1,5 +1,6 @@
 import { useLoaderData, useParams, type LoaderFunctionArgs } from "react-router";
 import React, { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   Users,
@@ -18,6 +19,8 @@ import {
   Pencil,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { getWorkspaceMe } from "@/lib/data/workspace.client";
+import { hasScopedWorkspaceCapability } from "@/lib/workspace-permissions";
 import { Instagram, Linkedin } from "@/components/icons";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -207,15 +210,18 @@ export default function SocietyPage() {
   const params = useParams();
   const { user } = useAuth();
 
-  const canEdit = useMemo(() => {
-    if (!user) return false;
-    if (user.role === "admin") return true;
-    if (user.role === "chair") {
-      const chairsList = data.society.chairs || [];
-      return chairsList.includes(user.id);
-    }
-    return false;
-  }, [user, data.society]);
+  const workspace = useQuery({
+    queryKey: ["workspace-me", user?.id],
+    queryFn: getWorkspaceMe,
+    enabled: Boolean(user?.id),
+    staleTime: 30_000,
+    retry: 1,
+  });
+  const canEdit = hasScopedWorkspaceCapability(
+    workspace.data,
+    "events.edit",
+    { societyId: data.society.id },
+  );
 
   const visibleEvents = useMemo(() => {
     if (canEdit) return data.events;

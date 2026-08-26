@@ -12,7 +12,8 @@ import { BadgeCheck, CreditCard, Loader2, Mail, Phone, ReceiptText, Send, Ticket
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/lib/auth-context";
+import { getWorkspaceMe } from "@/lib/data/workspace.client";
+import { hasScopedWorkspaceCapability } from "@/lib/workspace-permissions";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ConfirmButton } from "@/components/admin/confirm-button";
 import { formatDateTime } from "@/lib/dates";
@@ -35,6 +36,7 @@ interface RegistrationDetail {
   createdAt: string;
   eventTitle: string;
   eventId: string;
+  eventSocietyId: string;
   provider: string;
   providerStatus: string;
   manualReview: boolean;
@@ -92,8 +94,7 @@ interface RegistrationDetailProps {
 
 export function RegistrationDetail({ registrationId }: RegistrationDetailProps) {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
+  const workspace = useQuery({ queryKey: ["workspace-me"], queryFn: getWorkspaceMe, staleTime: 30_000 });
 
   const { data, isLoading, isError, error } = useQuery<{
     registration: RegistrationDetail;
@@ -103,11 +104,15 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
   });
 
   const reg = data?.registration;
+  const context = reg ? { eventId: reg.eventId, societyId: reg.eventSocietyId } : {};
+  const canFinance = Boolean(reg && hasScopedWorkspaceCapability(workspace.data, "finance.manage", context));
+  const canCheckIn = Boolean(reg && hasScopedWorkspaceCapability(workspace.data, "checkin.manage", context));
+  const canManage = Boolean(reg && hasScopedWorkspaceCapability(workspace.data, "registrations.manage", context));
 
   const notificationQuery = useQuery({
     queryKey: ["admin-registration-notifications", registrationId],
     queryFn: () => getRegistrationNotificationState(registrationId),
-    enabled: Boolean(reg),
+    enabled: Boolean(reg && canManage),
     retry: false,
   });
 
@@ -240,7 +245,7 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            {isAdmin && reg.registrationStatus === "pending" &&
+            {canFinance && reg.registrationStatus === "pending" &&
               reg.paymentStatus === "pending" &&
               reg.amount > 0 && (
                 <ConfirmButton
@@ -252,7 +257,7 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
                   disabled={confirmPaymentMutation.isPending}
                 />
               )}
-            {!reg.checkedIn && reg.registrationStatus === "confirmed" && (
+            {canCheckIn && !reg.checkedIn && reg.registrationStatus === "confirmed" && (
               <ConfirmButton
                 label="Check in"
                 confirmMessage="Check in this attendee?"
@@ -261,7 +266,7 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
                 disabled={checkInMutation.isPending}
               />
             )}
-            {reg.checkedIn && (
+            {canCheckIn && reg.checkedIn && (
               <ConfirmButton
                 label="Undo check-in"
                 confirmMessage="Undo this attendee's check-in?"
@@ -270,7 +275,7 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
                 disabled={undoCheckInMutation.isPending}
               />
             )}
-            {reg.registrationStatus !== "cancelled" && !reg.checkedIn && (
+            {canManage && reg.registrationStatus !== "cancelled" && !reg.checkedIn && (
               <ConfirmButton
                 label="Cancel registration"
                 confirmMessage="Cancel this registration? Paid records remain visible for finance review."

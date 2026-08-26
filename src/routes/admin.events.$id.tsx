@@ -48,6 +48,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { PanelHeader } from "@/components/admin/panel-header";
 import { ConfirmButton } from "@/components/admin/confirm-button";
 import { EventCancelDialog } from "@/components/admin/event-cancel-dialog";
+import { EventTeamPanel } from "@/features/admin/events/event-team-panel";
+import { EventWorkflowPanel } from "@/features/admin/events/event-workflow-panel";
 import { useAuth } from "@/lib/auth-context";
 import { getPbClient } from "@/lib/pb-client";
 import { csvFilename, streamRegistrationsCSV } from "@/lib/csv-export";
@@ -62,9 +64,10 @@ import {
 } from "@/lib/data/admin-event-operations.client";
 import { listAdminRegistrations } from "@/lib/data/admin-registrations.client";
 import { cancelAdminEvent } from "@/lib/data/admin-events.client";
+import { runEventWorkflow } from "@/lib/data/workspace.client";
 
-type Tab = "overview" | "attendees" | "payments" | "coupons" | "activity";
-const VALID_TABS: Tab[] = ["overview", "attendees", "payments", "coupons", "activity"];
+type Tab = "overview" | "attendees" | "payments" | "coupons" | "team" | "activity";
+const VALID_TABS: Tab[] = ["overview", "attendees", "payments", "coupons", "team", "activity"];
 
 const money = (value: number) => `₹${Math.max(0, value || 0).toLocaleString("en-IN")}`;
 function OpsMetric({
@@ -416,6 +419,16 @@ export default function AdminEventOperationsRoute() {
     onError: (error: Error) => toast.error(error.message || "Could not cancel event"),
   });
 
+  const workflowMutation = useMutation({
+    mutationFn: ({ action, note }: { action: "submit" | "approve" | "request_changes" | "finance_approve" | "finance_changes" | "publish" | "unpublish" | "complete"; note?: string }) =>
+      runEventWorkflow(id, action, note),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Event workflow updated");
+    },
+    onError: (error: Error) => toast.error(error.message || "Could not update event workflow"),
+  });
+
   const recomputeMutation = useMutation({
     mutationFn: () => recomputeEventOperations(id),
     onSuccess: () => {
@@ -454,15 +467,17 @@ export default function AdminEventOperationsRoute() {
   }
 
   const { event, summary } = operations.data;
-  const isAdmin = user?.role === "admin";
+  const permissions = operations.data.permissions ?? {};
+  const isPlatformAdmin = user?.role === "admin";
   const eventFull = event.maxCapacity > 0 && summary.active >= event.maxCapacity;
   const capacityPct = event.maxCapacity > 0 ? Math.min(100, Math.round((summary.active / event.maxCapacity) * 100)) : 0;
   const tabs: Array<{ id: Tab; label: string; count?: number }> = [
     { id: "overview", label: "Overview" },
-    { id: "attendees", label: "Attendees", count: summary.active },
-    { id: "payments", label: "Payments", count: summary.paidCount },
-    { id: "coupons", label: "Coupons", count: operations.data.coupons.length },
-    { id: "activity", label: "Activity" },
+    ...(permissions["registrations.view"] ? [{ id: "attendees" as Tab, label: "Attendees", count: summary.active }] : []),
+    ...(permissions["finance.view"] ? [{ id: "payments" as Tab, label: "Payments", count: summary.paidCount }] : []),
+    ...(permissions["events.edit"] ? [{ id: "coupons" as Tab, label: "Coupons", count: operations.data.coupons.length }] : []),
+    ...(permissions["assignments.manage"] ? [{ id: "team" as Tab, label: "Event team" }] : []),
+    ...(permissions["reports.view"] ? [{ id: "activity" as Tab, label: "Activity" }] : []),
   ];
 
   return (
@@ -490,21 +505,21 @@ export default function AdminEventOperationsRoute() {
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" className="gap-2" onClick={() => void exportRegistrations()}>
+              {permissions["registrations.view"] && <Button variant="outline" size="sm" className="gap-2" onClick={() => void exportRegistrations()}>
                 <Download className="h-4 w-4" /> Export
-              </Button>
+              </Button>}
               <Button variant="outline" size="sm" className="gap-2" asChild>
                 <Link to={`/events/${event.slug}`} target="_blank">Public page <ArrowUpRight className="h-4 w-4" /></Link>
               </Button>
-              <Button variant="outline" size="sm" className="gap-2" asChild>
+              {permissions["events.edit"] && <Button variant="outline" size="sm" className="gap-2" asChild>
                 <Link to={`/admin/events/${event.id}/edit`}><Pencil className="h-4 w-4" /> Edit</Link>
-              </Button>
-              {event.status !== "cancelled" && (
+              </Button>}
+              {permissions["events.cancel"] && event.status !== "cancelled" && (
                 <Button variant="destructive" size="sm" className="gap-2" onClick={() => setCancelOpen(true)}>
                   <XCircle className="h-4 w-4" /> Cancel event
                 </Button>
               )}
-              {isAdmin && (
+              {permissions["registrations.manual"] && (
                 <Button size="sm" className="gap-2" onClick={() => setManualOpen(true)}>
                   <Plus className="h-4 w-4" /> Add attendee
                 </Button>
@@ -525,6 +540,14 @@ export default function AdminEventOperationsRoute() {
           )}
         </div>
       </div>
+
+      <EventWorkflowPanel
+        event={event}
+        permissions={permissions}
+        pending={workflowMutation.isPending}
+        onAction={(action, note) => workflowMutation.mutate({ action, note })}
+      />
+
       <div className="flex gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1">
         {tabs.map((item) => (
           <button
@@ -572,7 +595,7 @@ export default function AdminEventOperationsRoute() {
                     <OperationRow
                       key={row.id}
                       row={row}
-                      isAdmin={isAdmin}
+                      permissions={permissions}
                       compact
                       pending={actionMutation.isPending}
                       onAction={(action, title) => setResolution({ row, action, title })}
@@ -594,7 +617,7 @@ export default function AdminEventOperationsRoute() {
                   <Button variant="outline" className="justify-start gap-3" onClick={() => void exportRegistrations()}>
                     <Download className="h-4 w-4" /> Export registrations CSV
                   </Button>
-                  {isAdmin && (
+                  {isPlatformAdmin && (
                     <ConfirmButton
                       label="Recompute counters"
                       confirmMessage="Recompute event counters and coupon usage from the live registration records?"
@@ -620,7 +643,7 @@ export default function AdminEventOperationsRoute() {
               eyebrow="Attendee register"
               title="Everyone attached to this event"
               description="Search, filter, inspect, check in, cancel, restore, or resolve payment state."
-              actions={isAdmin ? <Button size="sm" className="gap-2" onClick={() => setManualOpen(true)}><Plus className="h-4 w-4" />Add attendee</Button> : undefined}
+              actions={permissions["registrations.manual"] ? <Button size="sm" className="gap-2" onClick={() => setManualOpen(true)}><Plus className="h-4 w-4" />Add attendee</Button> : undefined}
             />
             <div className="mt-5 grid gap-3 md:grid-cols-[1fr_170px_170px]">
               <div className="relative">
@@ -654,7 +677,7 @@ export default function AdminEventOperationsRoute() {
                   <OperationRow
                     key={row.id}
                     row={row}
-                    isAdmin={isAdmin}
+                    permissions={permissions}
                     pending={actionMutation.isPending}
                     onAction={(action, title) => setResolution({ row, action, title })}
                     onImmediate={(action) => actionMutation.mutate({ row, action })}
@@ -698,7 +721,7 @@ export default function AdminEventOperationsRoute() {
                     <OperationRow
                       key={row.id}
                       row={row}
-                      isAdmin={isAdmin}
+                      permissions={permissions}
                       pending={actionMutation.isPending}
                       onAction={(action, title) => setResolution({ row, action, title })}
                       onImmediate={(action) => actionMutation.mutate({ row, action })}
@@ -754,6 +777,10 @@ export default function AdminEventOperationsRoute() {
         </Card>
       )}
 
+      {tab === "team" && (
+        <EventTeamPanel eventId={id} societyId={event.society} canManage={Boolean(permissions["assignments.manage"])} />
+      )}
+
       {tab === "activity" && (
         <Card>
           <CardContent className="p-6">
@@ -807,25 +834,25 @@ export default function AdminEventOperationsRoute() {
 
 function OperationRow({
   row,
-  isAdmin,
+  permissions,
   compact = false,
   pending,
   onAction,
   onImmediate,
 }: {
   row: AdminRegistrationOperationRow;
-  isAdmin: boolean;
+  permissions: Record<string, boolean>;
   compact?: boolean;
   pending: boolean;
   onAction: (action: RegistrationAdminAction, title: string) => void;
   onImmediate: (action: RegistrationAdminAction) => void;
 }) {
   const isPaidCancelled = row.registrationStatus === "cancelled" && row.paymentStatus === "paid";
-  const canConfirm = isAdmin && row.registrationStatus === "pending" && row.paymentStatus === "pending" && row.amount > 0 && (!row.providerStatus || row.providerStatus === "not_initialized");
-  const canRestore = isAdmin && row.registrationStatus === "cancelled";
-  const canRefund = isAdmin && row.paymentStatus === "paid" && row.provider !== "razorpay";
+  const canConfirm = Boolean(permissions["finance.manage"]) && row.registrationStatus === "pending" && row.paymentStatus === "pending" && row.amount > 0 && (!row.providerStatus || row.providerStatus === "not_initialized");
+  const canRestore = Boolean(permissions["registrations.manage"]) && row.registrationStatus === "cancelled";
+  const canRefund = Boolean(permissions["finance.manage"]) && row.paymentStatus === "paid" && row.provider !== "razorpay";
   const refundTitle = "Record external refund";
-  const canReopenManual = isAdmin && Boolean(row.manualConfirmation) && row.paymentStatus === "paid";
+  const canReopenManual = Boolean(permissions["finance.manage"]) && Boolean(row.manualConfirmation) && row.paymentStatus === "paid";
 
   return (
     <div className={`rounded-xl border p-3 transition-colors ${row.manualReview || isPaidCancelled ? "border-amber-500/30 bg-amber-500/5" : "border-border bg-background hover:bg-muted/20"}`}>
@@ -856,12 +883,12 @@ function OperationRow({
               <BadgeCheck className="h-3.5 w-3.5" /> Confirm paid
             </Button>
           )}
-          {!row.checkedIn && row.registrationStatus === "confirmed" && (
+          {permissions["checkin.manage"] && !row.checkedIn && row.registrationStatus === "confirmed" && (
             <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" disabled={pending} onClick={() => onImmediate("check-in")}>
               <UserCheck className="h-3.5 w-3.5" /> Check in
             </Button>
           )}
-          {row.checkedIn && (
+          {permissions["checkin.manage"] && row.checkedIn && (
             <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" disabled={pending} onClick={() => onImmediate("undo-check-in")}>
               <XCircle className="h-3.5 w-3.5" /> Undo check-in
             </Button>
@@ -880,7 +907,7 @@ function OperationRow({
               Reopen payment
             </Button>
           )}
-          {row.registrationStatus !== "cancelled" && !row.checkedIn && (
+          {permissions["registrations.manage"] && row.registrationStatus !== "cancelled" && !row.checkedIn && (
             <ConfirmButton
               label="Cancel"
               confirmMessage="Cancel this registration? Paid registrations stay visible in the payment exception queue."

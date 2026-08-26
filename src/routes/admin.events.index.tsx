@@ -28,6 +28,7 @@ import { deleteAdminEvent, listAdminEvents, type AdminEventListItem, type AdminE
 import { formatDateShort } from "@/lib/dates";
 import { getPbClient } from "@/lib/pb-client";
 import { streamAdminEventsCSV } from "@/lib/csv-export";
+import { getWorkspaceMe } from "@/lib/data/workspace.client";
 
 function EventsSkeleton() {
   return (
@@ -51,10 +52,15 @@ export default function AdminEvents() {
   const [status, setStatus] = useState("all");
   const [page, setPage] = useState(1);
   const perPage = 20;
+  const workspace = useQuery({ queryKey: ["workspace-me", user?.id], queryFn: getWorkspaceMe, enabled: Boolean(user?.id), staleTime: 30_000 });
+  const branchWide = Boolean(workspace.data?.branchCapabilities.includes("events.view"));
+  const allowedSocietyIds = branchWide ? undefined : Array.from(new Set((workspace.data?.assignments ?? []).filter((a) => a.active && a.scopeType === "society").map((a) => a.societyId).filter(Boolean)));
+  const allowedEventIds = branchWide ? undefined : Array.from(new Set((workspace.data?.assignments ?? []).filter((a) => a.active && a.scopeType === "event").map((a) => a.eventId).filter(Boolean)));
 
   const { data, isLoading } = useQuery<AdminEventsResponse>({
-    queryKey: ["admin-events", { search, status, page }],
-    queryFn: () => listAdminEvents({ page, perPage, search, status }),
+    queryKey: ["admin-events", { search, status, page, allowedSocietyIds, allowedEventIds }],
+    queryFn: () => listAdminEvents({ page, perPage, search, status, allowedSocietyIds, allowedEventIds }),
+    enabled: Boolean(workspace.data),
   });
   const archiveMutation = useMutation({
     mutationFn: deleteAdminEvent,
@@ -68,7 +74,8 @@ export default function AdminEvents() {
   });
 
 
-  const canEdit = user?.role === "admin" || user?.role === "chair";
+  const canCreate = Boolean(workspace.data?.capabilities.includes("events.create"));
+  const canArchive = Boolean(workspace.data?.capabilities.includes("events.cancel"));
 
   const exportEvents = async () => {
     const stream = await streamAdminEventsCSV(getPbClient());
@@ -92,7 +99,7 @@ export default function AdminEvents() {
             <Button variant="outline" size="sm" className="gap-1.5" onClick={() => void exportEvents()}>
               <Download className="h-3.5 w-3.5" /> Export CSV
             </Button>
-            {canEdit && (
+            {canCreate && (
               <Button size="sm" className="gap-1.5" onClick={() => navigate("/admin/events/new")}>
                 <Plus className="h-3.5 w-3.5" /> Create event
               </Button>
@@ -147,7 +154,7 @@ export default function AdminEvents() {
       ) : (
         <EventsList
           rows={data.events}
-          canEdit={canEdit}
+          canArchive={canArchive}
           onArchive={(id) => archiveMutation.mutate(id)}
           archivingPending={archiveMutation.isPending}
         />
@@ -191,14 +198,14 @@ export default function AdminEvents() {
 
 interface EventsListProps {
   rows: AdminEventListItem[];
-  canEdit: boolean;
+  canArchive: boolean;
   onArchive: (id: string) => void;
   archivingPending: boolean;
 }
 
 function EventsList({
   rows,
-  canEdit,
+  canArchive,
   onArchive,
   archivingPending,
 }: EventsListProps) {
@@ -248,7 +255,7 @@ function EventsList({
           </div>
           <div className="flex items-center justify-end gap-1">
             <Link to={`/admin/events/${event.id}`} className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground">Open<ChevronRight className="h-3 w-3" /></Link>
-            {canEdit && <ConfirmButton
+            {canArchive && <ConfirmButton
               label=""
               confirmMessage="Archive this event? It will be hidden from public listings but its historical records remain available."
               variant="destructive"

@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { type NavItem } from "@/types";
 import { motion } from "framer-motion";
 import { useLocation, Link } from "react-router";
 import { useAuth } from "@/lib/auth-context";
+import { getWorkspaceMe } from "@/lib/data/workspace.client";
+import { preferredWorkspacePath } from "@/lib/workspace-permissions";
 import { LayoutDashboard, LogOut, User, Menu, X, ChevronDown } from "lucide-react";
 import LoginModal from "./LoginModal";
 import {
@@ -39,6 +42,13 @@ export default function Navbar({ fifaActive, mobileAlign = "center" }: NavbarPro
   const location = useLocation();
   const pathname = location.pathname;
   const { user, status, signOut } = useAuth();
+  const workspace = useQuery({
+    queryKey: ["workspace-me", user?.id],
+    queryFn: getWorkspaceMe,
+    enabled: status === "authenticated" && Boolean(user?.id),
+    staleTime: 30_000,
+    retry: 1,
+  });
   const loading = status === "loading";
 
   const inFifa = isFifaPath(pathname);
@@ -178,10 +188,21 @@ export default function Navbar({ fifaActive, mobileAlign = "center" }: NavbarPro
                   <div className={`h-px ${inFifa ? "bg-white/10" : "bg-gray-100"}`} />
                 </>
               )}
-              {(user.role === "admin" || user.role === "chair" || user.role === "content") && (
+              <Link
+                to="/profile"
+                className={`w-full px-4 py-3 text-left text-xs font-bold transition-colors flex items-center gap-3 tracking-wide ${
+                  inFifa ? "text-gray-300 hover:bg-white/10 hover:text-white" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                }`}
+                onClick={() => setShowUserMenu(false)}
+              >
+                <User className="w-4 h-4" />
+                Community Profile
+              </Link>
+              <div className={`h-px ${inFifa ? "bg-white/10" : "bg-gray-100"}`} />
+              {workspace.data?.hasWorkspace && (
                 <>
                   <Link
-                    to="/admin/dashboard"
+                    to={preferredWorkspacePath(workspace.data)}
                     className={`w-full px-4 py-3 text-left text-xs font-bold transition-colors flex items-center gap-3 tracking-wide ${
                       inFifa
                         ? "text-ieee-light-blue hover:bg-white/5"
@@ -190,7 +211,7 @@ export default function Navbar({ fifaActive, mobileAlign = "center" }: NavbarPro
                     onClick={() => setShowUserMenu(false)}
                   >
                     <LayoutDashboard className="w-4 h-4" />
-                    Admin
+                    IEEE Workspace
                   </Link>
                   <div className={`h-px ${inFifa ? "bg-white/10" : "bg-gray-100"}`} />
                 </>

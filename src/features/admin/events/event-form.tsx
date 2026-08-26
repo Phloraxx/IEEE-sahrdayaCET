@@ -84,9 +84,10 @@ interface EventFormProps {
   mode: "create" | "edit";
   eventId?: string;
   initialSocietyId?: string;
+  allowDirectStatus?: boolean;
 }
 
-export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
+export function EventForm({ mode, eventId, initialSocietyId, allowDirectStatus = false }: EventFormProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isEdit = mode === "edit";
@@ -676,25 +677,30 @@ export function EventForm({ mode, eventId, initialSocietyId }: EventFormProps) {
                 </div>
                 <div className="grid gap-1.5">
                   <Label htmlFor="evt-status">Status</Label>
-                  <Select
-                    key={form.status || "draft"}
-                    value={form.status}
-                    onValueChange={(v) => {
-                      setDirty(true);
-                      setForm((prev) => ({ ...prev, status: v }));
-                    }}
-                  >
-                    <SelectTrigger id="evt-status">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {EVENT_STATUS.filter((status) => status !== "cancelled" || form.status === "cancelled").map((s) => (
-                        <SelectItem key={s} value={s}>
-                          {s.charAt(0).toUpperCase() + s.slice(1)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {allowDirectStatus ? (
+                    <Select
+                      key={form.status || "draft"}
+                      value={form.status}
+                      onValueChange={(v) => {
+                        setDirty(true);
+                        setForm((prev) => ({ ...prev, status: v }));
+                      }}
+                    >
+                      <SelectTrigger id="evt-status"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {EVENT_STATUS.filter((status) => status !== "cancelled" || form.status === "cancelled").map((status) => (
+                          <SelectItem key={status} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div id="evt-status" className="rounded-md border border-input bg-muted/30 px-3 py-2 text-sm">
+                      {form.status.charAt(0).toUpperCase() + form.status.slice(1)}
+                    </div>
+                  )}
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    {allowDirectStatus ? "Platform administrators retain an emergency status override." : "Publishing is controlled from the event approval workflow after you save these details."}
+                  </p>
                 </div>
               </FormSection>
             </CardContent>
