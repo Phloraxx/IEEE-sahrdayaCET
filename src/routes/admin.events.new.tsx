@@ -16,8 +16,8 @@ export default function NewEventPage() {
   }
   return (
     <div className="space-y-6">
-      <AdminPageHeader eyebrow="Events" title="Create event proposal" description="Save the event as a draft, then submit it through the approval workflow." backTo="/admin/events" backLabel="Back to events" />
-      <EventForm mode="create" initialSocietyId={society} allowDirectStatus={user?.role === "admin"} />
+      <AdminPageHeader eyebrow="Events" title="Create event" description="Start with the essentials. The event becomes a draft, then you can configure registration, fees and review." backTo="/admin/events" backLabel="Back to events" />
+      <EventForm mode="create" initialSocietyId={society} />
     </div>
   );
 }

@@ -226,7 +226,8 @@ describe("registration/payment experience architecture", () => {
     expect(paygate).toContain("Date.now() - lastSyncedAt < 4000");
     expect(webhook).toContain('X-PayGate-Signature');
     expect(webhook).toContain('payment.paid');
-    expect(eventForm).toContain("Kotak direct UPI · temporary");
+    expect(eventForm).toContain("Advanced payment processing");
+    expect(eventForm).toContain("Kotak direct UPI");
     expect(payment).toContain("Temporary · Kotak direct UPI");
     expect(payment).toContain("Open in UPI app");
     expect(payment).toContain("Pay this exact amount");

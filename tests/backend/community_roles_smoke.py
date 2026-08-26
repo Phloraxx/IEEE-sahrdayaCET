@@ -215,8 +215,20 @@ assert approved["approvalStatus"] == "approved"
 req("POST", f"/api/workspace/events/{event['id']}/workflow", {"action": "publish"}, tokens["branch-secretary"], expected=(409,))
 finance = req("POST", f"/api/workspace/events/{event['id']}/workflow", {"action": "finance_approve", "note": "Fee verified"}, tokens["event-finance"])["event"]
 assert finance["financeApprovalStatus"] == "approved"
+# Discount changes are financial: keep organisation approval, but require finance review again.
+coupon_sync = req("PUT", f"/api/app/events/{event['id']}/coupons", {"coupons": [{
+    "code": "ROLE10", "discountPercent": 10, "maxUses": 5, "isActive": True
+}]}, tokens["event-lead"])
+assert coupon_sync["financeApprovalStatus"] == "pending"
+post_coupon = req("GET", f"/api/collections/events/records/{event['id']}", token=tokens["event-lead"])
+assert post_coupon["approvalStatus"] == "approved" and post_coupon["financeApprovalStatus"] == "pending"
+req("POST", f"/api/workspace/events/{event['id']}/workflow", {"action": "publish"}, tokens["branch-secretary"], expected=(409,))
+req("POST", f"/api/workspace/events/{event['id']}/workflow", {"action": "finance_approve", "note": "Discount verified"}, tokens["event-finance"])
 published = req("POST", f"/api/workspace/events/{event['id']}/workflow", {"action": "publish"}, tokens["branch-secretary"])["event"]
 assert published["status"] == "published"
+req("PUT", f"/api/app/events/{event['id']}/coupons", {"coupons": [{
+    "code": "ROLE20", "discountPercent": 20, "maxUses": 5, "isActive": True
+}]}, tokens["event-lead"], expected=(400,))
 
 # Sensitive edits cannot silently mutate a published approved event.
 req("PATCH", f"/api/collections/events/records/{event['id']}", {"venue": "Changed Hall"}, tokens["event-lead"], expected=(400, 403))

@@ -1,19 +1,13 @@
-import { Plus, X, GripVertical, Copy } from "lucide-react";
+import { ChevronDown, ChevronUp, Copy, Plus, Settings2, Trash2, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export interface FormField {
   id: string;
   label: string;
-  type:
-    | "text"
-    | "textarea"
-    | "select"
-    | "checkbox"
-    | "radio"
-    | "number"
-    | "email"
-    | "phone"
-    | "date"
-    | "boolean";
+  type: "text" | "textarea" | "select" | "checkbox" | "radio" | "number" | "email" | "phone" | "date" | "boolean";
   required: boolean;
   options: string[];
   placeholder?: string;
@@ -21,328 +15,96 @@ export interface FormField {
   dependsOn?: { fieldId: string; value: string };
 }
 
-function generateId() {
-  return Math.random().toString(36).substring(2, 9);
+const FIELD_TYPES: Array<{ value: FormField["type"]; label: string }> = [
+  { value: "text", label: "Short text" }, { value: "textarea", label: "Long text" },
+  { value: "select", label: "Dropdown" }, { value: "radio", label: "Choice cards" },
+  { value: "checkbox", label: "Checkbox" }, { value: "boolean", label: "Yes / No" },
+  { value: "number", label: "Number" }, { value: "email", label: "Email" },
+  { value: "phone", label: "Phone" }, { value: "date", label: "Date" },
+];
+function newId() {
+  return typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2, 10);
 }
 
-interface CustomFieldBuilderProps {
+function newField(): FormField {
+  return { id: newId(), label: "", type: "text", required: false, options: [""] };
+}
+
+export function CustomFieldBuilder({ fields, onChange, readOnly = false }: {
   fields: FormField[];
   onChange: (fields: FormField[]) => void;
   readOnly?: boolean;
-}
-
-const FIELD_TYPES: { value: FormField["type"]; label: string }[] = [
-  { value: "text", label: "Text" },
-  { value: "textarea", label: "Textarea" },
-  { value: "number", label: "Number" },
-  { value: "email", label: "Email" },
-  { value: "phone", label: "Phone" },
-  { value: "date", label: "Date" },
-  { value: "select", label: "Dropdown" },
-  { value: "radio", label: "Radio" },
-  { value: "checkbox", label: "Checkbox" },
-  { value: "boolean", label: "Yes/No" },
-];
-
-/**
- * Dynamic form field builder for custom registration forms.
- * Supports text, textarea, number, email, phone, date, select, radio, checkbox, boolean.
- * Fields can be reordered, cloned, and have conditional visibility.
- */
-export function CustomFieldBuilder({
-  fields,
-  onChange,
-  readOnly = false,
-}: CustomFieldBuilderProps) {
-  const addField = () => {
-    onChange([
-      ...fields,
-      {
-        id: generateId(),
-        label: "",
-        type: "text",
-        required: false,
-        options: [""],
-      },
-    ]);
-  };
-
-  const removeField = (id: string) => {
-    onChange(fields.filter((f) => f.id !== id));
-  };
-
-  const updateField = (id: string, updates: Partial<FormField>) => {
-    onChange(fields.map((f) => (f.id === id ? { ...f, ...updates } : f)));
-  };
-
-  const moveField = (index: number, direction: -1 | 1) => {
-    const newIndex = index + direction;
-    if (newIndex < 0 || newIndex >= fields.length) return;
+}) {
+  const update = (id: string, patch: Partial<FormField>) =>
+    onChange(fields.map((field) => field.id === id ? { ...field, ...patch } : field));
+  const remove = (id: string) => onChange(fields.filter((field) => field.id !== id));
+  const move = (index: number, delta: -1 | 1) => {
+    const target = index + delta;
+    if (target < 0 || target >= fields.length) return;
     const next = [...fields];
-    const temp = next[index]!;
-    next[index] = next[newIndex]!;
-    next[newIndex] = temp;
+    [next[index], next[target]] = [next[target]!, next[index]!];
     onChange(next);
   };
-
-  const cloneField = (id: string) => {
-    const field = fields.find((f) => f.id === id);
-    if (!field) return;
-    const clone = {
-      ...field,
-      id: generateId(),
-      label: `${field.label} (copy)`,
-    };
-    const idx = fields.findIndex((f) => f.id === id);
+  const duplicate = (index: number) => {
+    const source = fields[index];
+    if (!source) return;
     const next = [...fields];
-    next.splice(idx + 1, 0, clone);
+    next.splice(index + 1, 0, { ...source, id: newId(), label: source.label ? `${source.label} (copy)` : "" });
     onChange(next);
   };
+  if (fields.length === 0) {
+    return <div className="rounded-2xl border border-dashed border-border bg-muted/15 px-5 py-10 text-center">
+      <p className="text-sm font-semibold">No event-specific questions.</p>
+      <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-muted-foreground">Name, email, phone, college, department and semester are already handled by the standard attendee form.</p>
+      {!readOnly && <Button type="button" variant="outline" size="sm" className="mt-5 gap-2" onClick={() => onChange([newField()])}><Plus className="h-4 w-4" />Add first question</Button>}
+    </div>;
+  }
 
-  return (
-    <div className="space-y-3">
-      {fields.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-4 text-center">
-          No custom fields yet. Add questions like &ldquo;Department&rdquo;,
-          &ldquo;Year&rdquo;, or custom selections.
-        </p>
-      ) : (
-        fields.map((field, idx) => (
-          <div
-            key={field.id}
-            className="rounded-lg border border-border/50 p-3 space-y-2"
-          >
-            {/* Main row: label, type, required, clone, delete */}
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => moveField(idx, -1)}
-                disabled={idx === 0}
-                className="p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
-              >
-                <GripVertical className="h-3.5 w-3.5" />
-              </button>
-
-              <input
-                value={field.label}
-                onChange={(e) =>
-                  updateField(field.id, { label: e.target.value })
-                }
-                placeholder="Field label (e.g. Department)"
-                className="flex-1 rounded-md border border-input bg-background px-2 py-1.5 text-sm outline-none focus:border-ring"
-              />
-
-              <select
-                value={field.type}
-                onChange={(e) =>
-                  updateField(field.id, {
-                    type: e.target.value as FormField["type"],
-                  })
-                }
-                className="rounded-md border border-input bg-background px-2 py-1.5 text-xs outline-none"
-              >
-                {FIELD_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-
-              <label className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer whitespace-nowrap">
-                <input
-                  type="checkbox"
-                  checked={field.required}
-                  onChange={(e) =>
-                    updateField(field.id, { required: e.target.checked })
-                  }
-                  className="rounded border-input"
-                />
-                Req
-              </label>
-
-              <button
-                type="button"
-                onClick={() => cloneField(field.id)}
-                className="p-1 text-muted-foreground hover:text-foreground transition-colors"
-                title="Duplicate field"
-              >
-                <Copy className="h-3.5 w-3.5" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => removeField(field.id)}
-                className="p-1 text-muted-foreground hover:text-destructive transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Extra options row */}
-            <div className="ml-8 flex flex-wrap items-center gap-2">
-              {["text", "textarea", "number", "email", "phone"].includes(
-                field.type,
-              ) && (
-                <input
-                  value={field.placeholder || ""}
-                  onChange={(e) =>
-                    updateField(field.id, { placeholder: e.target.value })
-                  }
-                  placeholder="Placeholder text"
-                  className="flex-1 min-w-[120px] rounded-md border border-input bg-background px-2 py-1 text-xs outline-none"
-                />
-              )}
-
-              {!["boolean", "checkbox"].includes(field.type) && (
-                <input
-                  value={field.defaultValue || ""}
-                  onChange={(e) =>
-                    updateField(field.id, { defaultValue: e.target.value })
-                  }
-                  placeholder="Default value"
-                  className="flex-1 min-w-[100px] rounded-md border border-input bg-background px-2 py-1 text-xs outline-none"
-                />
-              )}
-
-              {fields.length > 1 && (
-                <label className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer whitespace-nowrap">
-                  <input
-                    type="checkbox"
-                    checked={!!field.dependsOn}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        const otherField = fields.find(
-                          (f) => f.id !== field.id,
-                        )!;
-                        updateField(field.id, {
-                          dependsOn: {
-                            fieldId: otherField?.id || "",
-                            value: "",
-                          },
-                        });
-                      } else {
-                        updateField(field.id, { dependsOn: undefined });
-                      }
-                    }}
-                    className="rounded border-input"
-                  />
-                  Conditional
-                </label>
-              )}
-            </div>
-
-            {/* Conditional logic config */}
-            {field.dependsOn && (
-              <div className="ml-8 flex items-center gap-2 text-xs">
-                <span className="text-muted-foreground">Show if</span>
-                <select
-                  value={field.dependsOn.fieldId}
-                  onChange={(e) => {
-                    const dep = field.dependsOn!;
-                    updateField(field.id, {
-                      dependsOn: { fieldId: e.target.value, value: dep.value },
-                    });
-                  }}
-                  className="rounded border border-input bg-background px-2 py-1 text-xs outline-none"
-                >
-                  {fields
-                    .filter((f) => f.id !== field.id)
-                    .map((f) => (
-                      <option key={f.id} value={f.id}>
-                        {f.label || "Unnamed field"}
-                      </option>
-                    ))}
-                </select>
-                <span className="text-muted-foreground">equals</span>
-                <input
-                  value={field.dependsOn.value}
-                  onChange={(e) => {
-                    const dep = field.dependsOn!;
-                    updateField(field.id, {
-                      dependsOn: { fieldId: dep.fieldId, value: e.target.value },
-                    });
-                  }}
-                  placeholder="Value"
-                  className="rounded border border-input bg-background px-2 py-1 text-xs outline-none w-24"
-                />
-              </div>
-            )}
-
-            {/* Options editor for select and radio */}
-            {(field.type === "select" || field.type === "radio") && (
-              <div className="ml-8 space-y-1">
-                {field.options.map((opt, oi) => (
-                  <div key={oi} className="flex items-center gap-1">
-                    <span className="text-xs text-muted-foreground">
-                      {oi + 1}.
-                    </span>
-                    <input
-                      value={opt}
-                      onChange={(e) => {
-                        const newOpts = [...field.options];
-                        newOpts[oi] = e.target.value;
-                        updateField(field.id, { options: newOpts });
-                      }}
-                      placeholder={`Option ${oi + 1}`}
-                      className="flex-1 rounded-md border border-input bg-background px-2 py-1 text-xs outline-none"
-                    />
-                    {field.options.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newOpts = field.options.filter(
-                            (_, i) => i !== oi,
-                          );
-                          updateField(field.id, { options: newOpts });
-                        }}
-                        className="p-0.5 text-muted-foreground hover:text-destructive"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() =>
-                    updateField(field.id, {
-                      options: [...field.options, ""],
-                    })
-                  }
-                  className="text-xs text-primary hover:underline"
-                >
-                  + Add option
-                </button>
-              </div>
-            )}
-
-            {/* Checkbox-specific: define the label shown next to the checkbox */}
-            {field.type === "checkbox" && (
-              <div className="ml-8">
-                <input
-                  value={field.defaultValue || ""}
-                  onChange={(e) =>
-                    updateField(field.id, { defaultValue: e.target.value })
-                  }
-                  placeholder="Checkbox label text"
-                  className="rounded-md border border-input bg-background px-2 py-1 text-xs outline-none w-full"
-                />
-              </div>
-            )}
+  return <div className="space-y-4">
+    {fields.map((field, index) => {
+      const supportsPlaceholder = ["text", "textarea", "number", "email", "phone"].includes(field.type);
+      const hasOptions = field.type === "select" || field.type === "radio";
+      const dependencyOptions = fields.filter((candidate) => candidate.id !== field.id);
+      return <article key={field.id} className="overflow-hidden rounded-2xl border border-border bg-background">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-muted/20 px-4 py-3 sm:px-5">
+          <div><p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Question {index + 1}</p><p className="mt-0.5 text-xs text-muted-foreground">{FIELD_TYPES.find((item) => item.value === field.type)?.label}</p></div>
+          {!readOnly && <div className="flex items-center gap-1">
+            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" disabled={index === 0} onClick={() => move(index, -1)} aria-label="Move question up"><ChevronUp className="h-4 w-4" /></Button>
+            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" disabled={index === fields.length - 1} onClick={() => move(index, 1)} aria-label="Move question down"><ChevronDown className="h-4 w-4" /></Button>
+            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => duplicate(index)} aria-label="Duplicate question"><Copy className="h-4 w-4" /></Button>
+            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => remove(field.id)} aria-label="Delete question"><Trash2 className="h-4 w-4" /></Button>
+          </div>}
+        </div>
+        <div className="space-y-5 p-4 sm:p-5">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
+            <div className="grid gap-2"><Label htmlFor={`question-${field.id}`}>Question *</Label><Input id={`question-${field.id}`} value={field.label} disabled={readOnly} onChange={(event) => update(field.id, { label: event.target.value })} placeholder="e.g. Dietary preference" /></div>
+            <div className="grid gap-2"><Label>Answer type</Label><Select value={field.type} disabled={readOnly} onValueChange={(value: FormField["type"]) => update(field.id, { type: value })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{FIELD_TYPES.map((type) => <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>)}</SelectContent></Select></div>
           </div>
-        ))
-      )}
 
-      {!readOnly && (
-        <button
-          type="button"
-          onClick={addField}
-          className="inline-flex items-center gap-1 rounded-lg bg-primary text-primary-foreground hover:bg-primary/80 px-2.5 py-1.5 text-xs font-medium transition-colors"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Add Field
-        </button>
-      )}
-    </div>
-  );
+          <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-border px-4 py-3">
+            <span><span className="block text-sm font-medium">Required answer</span><span className="mt-0.5 block text-xs text-muted-foreground">Participants cannot continue without answering this question.</span></span>
+            <input type="checkbox" checked={field.required} disabled={readOnly} onChange={(event) => update(field.id, { required: event.target.checked })} />
+          </label>
+
+          {hasOptions && <div className="rounded-xl border border-border p-4"><div className="flex items-center justify-between"><div><Label>Answer options</Label><p className="mt-1 text-xs text-muted-foreground">Participants choose one option.</p></div>{!readOnly && <Button type="button" variant="outline" size="sm" onClick={() => update(field.id, { options: [...field.options, ""] })}><Plus className="mr-1 h-3.5 w-3.5" />Option</Button>}</div>
+            <div className="mt-4 space-y-2">{field.options.map((option, optionIndex) => <div key={optionIndex} className="flex items-center gap-2"><span className="w-5 text-right text-xs text-muted-foreground">{optionIndex + 1}</span><Input value={option} disabled={readOnly} onChange={(event) => { const options = [...field.options]; options[optionIndex] = event.target.value; update(field.id, { options }); }} placeholder={`Option ${optionIndex + 1}`} />{!readOnly && field.options.length > 1 && <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => update(field.id, { options: field.options.filter((_, i) => i !== optionIndex) })} aria-label="Remove option"><X className="h-4 w-4" /></Button>}</div>)}</div>
+          </div>}
+          <details className="rounded-xl border border-border bg-muted/15 p-4">
+            <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium"><Settings2 className="h-4 w-4 text-muted-foreground" />Advanced question settings</summary>
+            <div className="mt-5 grid gap-5">
+              {supportsPlaceholder && <div className="grid gap-2"><Label>Placeholder / hint</Label><Input value={field.placeholder || ""} disabled={readOnly} onChange={(event) => update(field.id, { placeholder: event.target.value })} placeholder="Optional hint shown inside the answer field" /></div>}
+              {field.type === "checkbox" ? <div className="grid gap-2"><Label>Checkbox statement</Label><Input value={field.defaultValue || ""} disabled={readOnly} onChange={(event) => update(field.id, { defaultValue: event.target.value })} placeholder="e.g. I agree to bring my laptop" /></div> : field.type !== "boolean" && <div className="grid gap-2"><Label>Default answer</Label><Input value={field.defaultValue || ""} disabled={readOnly} onChange={(event) => update(field.id, { defaultValue: event.target.value })} placeholder="Usually leave this empty" /></div>}
+              {dependencyOptions.length > 0 && <div className="rounded-lg border border-border bg-background p-4">
+                <label className="flex items-center justify-between gap-4"><span><span className="block text-sm font-medium">Conditional question</span><span className="mt-0.5 block text-xs text-muted-foreground">Only show this after a particular answer.</span></span><input type="checkbox" checked={Boolean(field.dependsOn)} disabled={readOnly} onChange={(event) => update(field.id, { dependsOn: event.target.checked ? { fieldId: dependencyOptions[0]!.id, value: "" } : undefined })} /></label>
+                {field.dependsOn && <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-end"><div className="grid gap-2"><Label>Show when</Label><Select value={field.dependsOn.fieldId} disabled={readOnly} onValueChange={(fieldId) => update(field.id, { dependsOn: { fieldId, value: field.dependsOn?.value || "" } })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{dependencyOptions.map((candidate) => <SelectItem key={candidate.id} value={candidate.id}>{candidate.label || "Untitled question"}</SelectItem>)}</SelectContent></Select></div><span className="pb-2 text-center text-xs text-muted-foreground">equals</span><div className="grid gap-2"><Label>Answer</Label><Input value={field.dependsOn.value} disabled={readOnly} onChange={(event) => update(field.id, { dependsOn: { fieldId: field.dependsOn!.fieldId, value: event.target.value } })} placeholder="Answer value" /></div></div>}
+              </div>}
+            </div>
+          </details>
+        </div>
+      </article>;
+    })}
+    {!readOnly && <Button type="button" variant="outline" className="w-full gap-2 border-dashed py-6" onClick={() => onChange([...fields, newField()])}><Plus className="h-4 w-4" />Add another question</Button>}
+  </div>;
 }

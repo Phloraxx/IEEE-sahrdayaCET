@@ -234,19 +234,25 @@ request("POST", "/api/collections/coupons/records", {
 }, chair_token, (403,))
 
 # Coupon set reconciliation is atomic and normalizes codes.
-sync = request("PUT", f"/api/app/events/{event['id']}/coupons", {
+coupon_event = request("POST", "/api/collections/events/records", {
+    "title": f"Coupon Draft {suffix}", "description": "coupon command",
+    "date": start, "endDate": end, "venue": "CI Lab", "price": 100,
+    "baseFeePaise": 10000, "society": society["id"], "status": "draft",
+    "registrationMode": "internal", "registrationOpen": False, "isDeleted": False,
+}, super_token)
+sync = request("PUT", f"/api/app/events/{coupon_event['id']}/coupons", {
     "coupons": [{"code": "save10", "discountPercent": 10, "maxUses": 2, "isActive": True}],
 }, admin_token)
 assert sync["created"] == 1
-coupon_filter = urllib.parse.quote(f"event='{event['id']}'")
+coupon_filter = urllib.parse.quote(f"event='{coupon_event['id']}'")
 coupons = request("GET", f"/api/collections/coupons/records?filter={coupon_filter}", token=admin_token)
 assert coupons["totalItems"] == 1 and coupons["items"][0]["code"] == "SAVE10"
 coupon = coupons["items"][0]
-request("PUT", f"/api/app/events/{event['id']}/coupons", {"coupons": [{
+request("PUT", f"/api/app/events/{coupon_event['id']}/coupons", {"coupons": [{
     "id": coupon["id"], "code": "SAVE10", "discountPercent": 15,
     "maxUses": 3, "isActive": True,
 }]}, admin_token)
-request("PUT", f"/api/app/events/{event['id']}/coupons", {"coupons": []}, admin_token)
+request("PUT", f"/api/app/events/{coupon_event['id']}/coupons", {"coupons": []}, admin_token)
 
 # Registration command reserves exactly one seat. Replaying the same user's
 # command is idempotent and returns the original record instead of consuming a

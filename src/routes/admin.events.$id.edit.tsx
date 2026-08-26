@@ -15,8 +15,8 @@ export default function EditEventPage() {
   }
   return (
     <div className="space-y-6">
-      <AdminPageHeader eyebrow="Events" title="Edit event" description="Sensitive changes can reset approval and require review before publication." backTo={`/admin/events/${id}`} backLabel="Back to event workspace" />
-      <EventForm mode="edit" eventId={id} allowDirectStatus={user?.role === "admin"} />
+      <AdminPageHeader eyebrow="Events" title="Event setup" description="Edit public details, registration, fees and communication. Workflow actions stay in the event workspace." backTo={`/admin/events/${id}`} backLabel="Back to event workspace" />
+      <EventForm mode="edit" eventId={id} allowSocietyTransfer={user?.role === "admin"} />
     </div>
   );
 }

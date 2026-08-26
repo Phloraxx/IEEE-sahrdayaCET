@@ -267,7 +267,8 @@ routerAdd("POST", "/api/workspace/events/{id}/workflow", function (e) {
       return authz.jsonError(e, 409, "FINANCE_APPROVAL_REQUIRED", "Finance approval is required for paid events")
     }
     event.set("status", "published")
-    if (event.getString("registrationMode") !== "closed") event.set("registrationOpen", true)
+    // Registration availability is configured separately from publishing.
+    // Do not silently reopen a paused/scheduled registration when the event is published.
   } else if (action === "unpublish") {
     if (event.getString("status") !== "published") return authz.jsonError(e, 409, "NOT_PUBLISHED", "Only a published event can be returned to draft")
     if (!note) return authz.jsonError(e, 400, "NOTE_REQUIRED", "Explain why the published event is being returned to draft")

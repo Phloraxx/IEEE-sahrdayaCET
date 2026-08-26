@@ -76,11 +76,10 @@ onRecordUpdateRequest(function (e) {
     var authz = require(__hooks + "/workspace-authorization.js")
     var role = authz.authRole(auth)
 
-    // Platform admins remain the emergency override path.
-    if (role === "admin") {
-        e.next()
-        return
-    }
+    // Platform admins have broad scope, but normal event edits still obey the
+    // approval lifecycle. Emergency state changes belong in explicit workflow
+    // actions instead of silently bypassing review through the generic editor.
+    var isPlatformAdmin = role === "admin"
 
     var newRecord = e.record
     var oldRecord
@@ -90,7 +89,7 @@ onRecordUpdateRequest(function (e) {
         throw e.notFoundError("Event not found", err)
     }
 
-    if (!authz.hasEventCapability($app, auth, "events.edit", oldRecord)) {
+    if (!isPlatformAdmin && !authz.hasEventCapability($app, auth, "events.edit", oldRecord)) {
         throw e.forbiddenError("You do not have permission to edit this event")
     }
 
@@ -100,14 +99,14 @@ onRecordUpdateRequest(function (e) {
     if (newRecord.getInt("checkedInCount") !== oldRecord.getInt("checkedInCount")) {
         throw e.forbiddenError("Only the server may change event counters")
     }
-    if (newRecord.getString("society") !== oldRecord.getString("society")) {
+    if (!isPlatformAdmin && newRecord.getString("society") !== oldRecord.getString("society")) {
         throw e.forbiddenError("Only platform administrators may transfer an event to another society")
     }
 
     var wasDeleted = oldRecord.getBool("isDeleted")
     var isNowDeleted = newRecord.getBool("isDeleted")
-    if (wasDeleted && !isNowDeleted) throw e.forbiddenError("Only platform administrators may restore deleted events")
-    if (!wasDeleted && isNowDeleted && !authz.hasEventCapability($app, auth, "events.cancel", oldRecord)) {
+    if (!isPlatformAdmin && wasDeleted && !isNowDeleted) throw e.forbiddenError("Only platform administrators may restore deleted events")
+    if (!wasDeleted && isNowDeleted && !isPlatformAdmin && !authz.hasEventCapability($app, auth, "events.cancel", oldRecord)) {
         throw e.forbiddenError("Event cancellation permission is required to archive an event")
     }
 

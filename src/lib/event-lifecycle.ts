@@ -41,7 +41,9 @@ export function isPastEvent(event: EventLifecycleInput, now: number = Date.now()
 
 export function canRegisterForEvent(event: EventLifecycleInput, now: number = Date.now()): boolean {
   if (!isPublicEvent(event) || event.status !== "published") return false;
-  if (getRegistrationMode(event) === "closed" || isPastEvent(event, now)) return false;
+  const mode = getRegistrationMode(event);
+  const legacyExternal = !event.registrationMode && Boolean(event.externalFormUrl);
+  if (mode === "closed" || (event.registrationOpen === false && !legacyExternal) || isPastEvent(event, now)) return false;
   const registrationStart = toTimestamp(event.registrationStart);
   if (registrationStart !== null && registrationStart > now) return false;
   const registrationDeadline = toTimestamp(event.registrationDeadline);

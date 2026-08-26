@@ -101,6 +101,7 @@ describe('event lifecycle', () => {
     expect(canUseInternalRegistration({ ...base, registrationMode: 'internal' }, NOW)).toBe(true)
     expect(canUseInternalRegistration({ ...base, registrationMode: 'external' }, NOW)).toBe(false)
     expect(canUseExternalRegistration({ ...base, registrationMode: 'external' }, NOW)).toBe(true)
+    expect(canUseExternalRegistration({ ...base, registrationMode: 'external', registrationOpen: false }, NOW)).toBe(false)
     expect(canRegisterForEvent({ ...base, registrationMode: 'closed' }, NOW)).toBe(false)
   })
 

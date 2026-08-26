@@ -7,15 +7,27 @@ function workflowFields() {
 
 function sensitiveFields() {
   return [
-    "date", "endDate", "venue", "price", "paymentProvider", "maxCapacity",
-    "registrationMode", "registrationStart", "registrationDeadline"
+    "date", "endDate", "venue", "society", "price", "paymentProvider", "maxCapacity",
+    "registrationMode", "registrationOpen", "registrationStart", "registrationDeadline",
+    "externalFormUrl", "checkInEnabled", "collectIeeeMember", "formTemplate"
   ]
 }
 
+function jsonString(record, name) {
+  var value = record.get(name)
+  if (value === null || value === undefined) return ""
+  if (typeof value === "string") return value
+  try { if (value && typeof value.string === "function") return String(value.string()) } catch (_) {}
+  try { return JSON.stringify(value) } catch (_) { return String(value || "") }
+}
 function fieldChanged(next, previous, name) {
   if (!next || !previous) return false
   if (name === "price") return Number(next.getFloat(name) || 0) !== Number(previous.getFloat(name) || 0)
   if (name === "maxCapacity") return Number(next.getInt(name) || 0) !== Number(previous.getInt(name) || 0)
+  if (name === "registrationOpen" || name === "checkInEnabled" || name === "collectIeeeMember") {
+    return Boolean(next.getBool(name)) !== Boolean(previous.getBool(name))
+  }
+  if (name === "formTemplate") return jsonString(next, name) !== jsonString(previous, name)
   return String(next.getString(name) || "") !== String(previous.getString(name) || "")
 }
 

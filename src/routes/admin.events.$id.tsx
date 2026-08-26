@@ -12,7 +12,7 @@ import {
   Download,
   History,
   Loader2,
-  Pencil,
+  Settings2,
   Plus,
   ReceiptText,
   RefreshCw,
@@ -512,7 +512,7 @@ export default function AdminEventOperationsRoute() {
                 <Link to={`/events/${event.slug}`} target="_blank">Public page <ArrowUpRight className="h-4 w-4" /></Link>
               </Button>
               {permissions["events.edit"] && <Button variant="outline" size="sm" className="gap-2" asChild>
-                <Link to={`/admin/events/${event.id}/edit`}><Pencil className="h-4 w-4" /> Edit</Link>
+                <Link to={`/admin/events/${event.id}/edit`}><Settings2 className="h-4 w-4" /> Settings</Link>
               </Button>}
               {permissions["events.cancel"] && event.status !== "cancelled" && (
                 <Button variant="destructive" size="sm" className="gap-2" onClick={() => setCancelOpen(true)}>
