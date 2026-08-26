@@ -1,4 +1,11 @@
 import { ArrowUpRight, Mail, MapPin, Phone } from "lucide-react";
+import { Link } from "react-router";
+
+const policyLinks = [
+  { label: "Terms & Conditions", href: "/terms-and-conditions" },
+  { label: "Privacy Policy", href: "/privacy-policy" },
+  { label: "Refund & Cancellation", href: "/refund-and-cancellation-policy" },
+];
 
 const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear();
@@ -203,6 +210,19 @@ const Footer: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Policy Links */}
+        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 border-b border-white/10 py-5">
+          {policyLinks.map((policy) => (
+            <Link
+              key={policy.href}
+              to={policy.href}
+              className="font-mono text-[9px] uppercase tracking-[0.16em] text-white/50 transition-colors hover:text-ieee-light-blue"
+            >
+              {policy.label}
+            </Link>
+          ))}
         </div>
 
         {/* Bottom Bar */}
