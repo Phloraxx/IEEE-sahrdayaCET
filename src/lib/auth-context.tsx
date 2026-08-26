@@ -5,6 +5,7 @@ import type { AuthUser } from "@/types";
 import { USER_ROLES, type UserRole } from "@/lib/constants";
 import { getPbClient } from "@/lib/pb-client";
 import { logError } from "./logger";
+import { STAGING_STATIC_AUTH_KEY } from "@/lib/staging-auth";
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -61,11 +62,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = pb.authStore.onChange(sync, true);
 
     if (pb.authStore.isValid) {
-      void pb.collection("users").authRefresh().catch((error) => {
+      const stagingStatic = window.location.hostname === "staging.ieeesahrdaya.com" &&
+        window.localStorage.getItem(STAGING_STATIC_AUTH_KEY) === "1";
+      if (stagingStatic) sync();
+      else void pb.collection("users").authRefresh().catch((error) => {
         logError("auth-refresh", error);
         pb.authStore.clear();
       });
     } else {
+      window.localStorage.removeItem(STAGING_STATIC_AUTH_KEY);
       sync();
     }
 
@@ -82,6 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(() => {
     const pb = getPbClient();
+    window.localStorage.removeItem(STAGING_STATIC_AUTH_KEY);
     pb.authStore.clear();
     setUser(null);
     setStatus("unauthenticated");

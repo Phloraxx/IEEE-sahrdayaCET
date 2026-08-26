@@ -13,6 +13,7 @@ export default [
   route("societies/wie", "routes/societies_.wie.tsx"),
   route("societies/:slug", "routes/societies_.$slug.tsx"),
   route("full-execom", "routes/full-execom.tsx"),
+  route("staging-login", "routes/staging-login.tsx"),
   route("register/:eventId", "routes/register.$eventId.tsx"),
   route("payment/:registrationId", "routes/payment.$registrationId.tsx"),
   route("ticket/:ticketId/qr.png", "routes/ticket-qr.$ticketId.ts"),
