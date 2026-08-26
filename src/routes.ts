@@ -16,8 +16,6 @@ export default [
   route("terms-and-conditions", "routes/terms-and-conditions.tsx"),
   route("privacy-policy", "routes/privacy-policy.tsx"),
   route("refund-and-cancellation-policy", "routes/refund-and-cancellation-policy.tsx"),
-  route("return-policy", "routes/return-policy.tsx"),
-  route("shipping-policy", "routes/shipping-policy.tsx"),
   route("register/:eventId", "routes/register.$eventId.tsx"),
   route("payment/:registrationId", "routes/payment.$registrationId.tsx"),
   route("ticket/:ticketId/qr.png", "routes/ticket-qr.$ticketId.ts"),
