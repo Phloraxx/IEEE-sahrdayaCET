@@ -156,7 +156,7 @@ export async function saveAdminEvent(input: {
 
   try {
     await reconcileCoupons(pb, event.id, (coupons as Coupon[]).map((coupon) => ({
-      id: coupon.id,
+      id: coupon.id || undefined,
       code: coupon.code,
       discountPercent: coupon.discountPercent,
       maxUses: coupon.maxUses,
@@ -173,7 +173,8 @@ export async function saveAdminEvent(input: {
     throw error;
   }
 
-  return { event };
+  const persistedCoupons = await listEventCoupons(event.id);
+  return { event, coupons: persistedCoupons.coupons };
 }
 
 export async function deleteAdminEvent(id: string) {

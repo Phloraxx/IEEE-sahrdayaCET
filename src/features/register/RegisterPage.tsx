@@ -4,6 +4,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ArrowLeft,
   ArrowRight,
+  BadgePercent,
   Check,
   CheckCircle2,
   Clock3,
@@ -20,6 +21,8 @@ import {
   getMyEventRegistration,
   getRegistrationMemory,
   getPublicEvent,
+  previewCoupon,
+  type CouponPreview,
   type PublicRegistrationEvent,
 } from "@/lib/data/public-client";
 import { downloadRegistrationReceipt } from "@/lib/data/receipt.client";
@@ -39,6 +42,15 @@ import type { FormField } from "@/types";
 interface PageProps {
   eventId: string;
   initialEvent?: PublicRegistrationEvent | null;
+}
+
+function requestErrorMessage(error: unknown, fallback: string) {
+  if (error && typeof error === "object") {
+    const response = (error as { response?: { error?: unknown; message?: unknown; data?: { error?: unknown } } }).response;
+    const detail = response?.error ?? response?.data?.error ?? response?.message;
+    if (typeof detail === "string" && detail.trim()) return detail;
+  }
+  return error instanceof Error && error.message ? error.message : fallback;
 }
 
 const fieldClass =
@@ -215,6 +227,10 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
   const [ieeeMembershipId, setIeeeMembershipId] = useState("");
   const [customFields, setCustomFields] = useState<Record<string, string>>({});
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
+  const [couponPreview, setCouponPreview] = useState<CouponPreview | null>(null);
+  const [couponApplying, setCouponApplying] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -300,6 +316,26 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
     [capacityFull, event?.registrationOpen, registrationState],
   );
 
+  const handleApplyCoupon = async () => {
+    if (!event || !couponCode.trim()) {
+      setCouponPreview(null);
+      setCouponError(couponCode.trim() ? null : "Enter a coupon code");
+      return;
+    }
+    setCouponApplying(true);
+    setCouponError(null);
+    try {
+      const preview = await previewCoupon(event.id, couponCode);
+      setCouponCode(preview.code);
+      setCouponPreview(preview);
+    } catch (error) {
+      setCouponPreview(null);
+      setCouponError(requestErrorMessage(error, "Coupon could not be applied"));
+    } finally {
+      setCouponApplying(false);
+    }
+  };
+
   const validate = (): boolean => {
     const next: Record<string, string> = {};
     if (!name.trim()) next.name = "Full name is required";
@@ -311,6 +347,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
       const value = customFields[field.id];
       if (!value || (field.type === "checkbox" && value !== "true")) next[field.id] = `${field.label} is required`;
     }
+    if (event?.isPaid && couponCode.trim() && !couponPreview) next.coupon = "Apply or clear the coupon code before continuing";
     if (!acceptedTerms) next.terms = "Please confirm the information before continuing";
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -324,6 +361,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
       const result = await createRegistration({
         userId: user.id,
         eventId: event.id,
+        couponCode: couponPreview?.code || undefined,
         formResponses: {
           name: name.trim(),
           email: email.trim(),
@@ -348,7 +386,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
         throw new Error("Registration was saved but no ticket was returned");
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Something went wrong");
+      toast.error(requestErrorMessage(err, "Something went wrong"));
     } finally {
       setSubmitting(false);
     }
@@ -378,13 +416,15 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
 
   const eventHref = event.slug ? `/events/${event.slug}` : "/events";
   const seatsLeft = event.maxCapacity > 0 ? Math.max(0, event.maxCapacity - event.registeredCount) : null;
+  const effectiveAmount = couponPreview?.amount ?? event.price;
+  const effectivePaid = effectiveAmount > 0;
 
   return (
     <div className="min-h-dvh bg-[#f4f2ed] text-[#111315] selection:bg-[#00629B] selection:text-white">
       <header className="border-b border-black/12">
         <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-5 px-5 py-5 sm:px-8 lg:px-12">
           <Link to="/" className="text-[10px] font-black uppercase tracking-[0.22em]">IEEE Sahrdaya</Link>
-          <BookingProgress paid={event.isPaid} />
+          <BookingProgress paid={effectivePaid} />
         </div>
       </header>
 
@@ -409,7 +449,10 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
               </div>
               <div>
                 <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/35">Entry</p>
-                <p className="mt-2 text-3xl font-semibold tracking-[-0.05em]">{event.isPaid ? `₹${event.price}` : "Free"}</p>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <p className="text-3xl font-semibold tracking-[-0.05em]">{effectivePaid ? `₹${effectiveAmount}` : "Free"}</p>
+                  {couponPreview && couponPreview.discountAmount > 0 && <span className="text-xs text-black/35 line-through">₹{event.price}</span>}
+                </div>
               </div>
               {seatsLeft !== null && (
                 <div>
@@ -499,6 +542,43 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
                       <h2 className="mt-3 text-2xl font-semibold tracking-[-0.04em]">Review & continue</h2>
                     </div>
                     <div>
+                      {event.isPaid && (
+                        <div className="mb-7 border-y border-black/12 py-5">
+                          <div className="flex items-start gap-3">
+                            <BadgePercent className="mt-0.5 h-5 w-5 text-[#00629B]" />
+                            <div>
+                              <p className="text-sm font-bold">Have a coupon?</p>
+                              <p className="mt-1 text-xs leading-5 text-black/42">Apply it before continuing to see the amount you will actually pay.</p>
+                            </div>
+                          </div>
+                          <div className="mt-4 flex max-w-lg gap-3">
+                            <input
+                              value={couponCode}
+                              onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponPreview(null); setCouponError(null); setErrors((current) => { const next = { ...current }; delete next.coupon; return next; }); }}
+                              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void handleApplyCoupon(); } }}
+                              autoComplete="off"
+                              spellCheck={false}
+                              placeholder="COUPON CODE"
+                              className={`${fieldClass} min-w-0 flex-1 font-mono uppercase`}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => void handleApplyCoupon()}
+                              disabled={couponApplying || !couponCode.trim()}
+                              className="shrink-0 border-b border-[#00629B] px-2 text-xs font-bold uppercase tracking-[0.12em] text-[#00629B] disabled:border-black/15 disabled:text-black/25"
+                            >
+                              {couponApplying ? "Checking…" : "Apply"}
+                            </button>
+                          </div>
+                          {(couponError || errors.coupon) && <p className="mt-2 text-xs font-medium text-rose-600">{couponError || errors.coupon}</p>}
+                          {couponPreview && (
+                            <div className="mt-4 flex max-w-lg items-center justify-between gap-4 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                              <span><strong>{couponPreview.code}</strong> · {couponPreview.discountPercent}% off</span>
+                              <span className="shrink-0 font-bold">₹{couponPreview.amount}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                       <label className="flex cursor-pointer items-start gap-3"><input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} className="mt-1 h-4 w-4 accent-[#00629B]" /><span className="text-sm leading-6 text-black/55">I confirm that the information above is accurate and agree to the event terms.</span></label>
                       {errors.terms && <p className="mt-2 text-xs text-rose-600">{errors.terms}</p>}
 
@@ -510,8 +590,8 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
                         transition={{ duration: MOTION_DURATION.micro, ease: MOTION_EASE }}
                         className="group relative mt-7 flex w-full items-center justify-between overflow-hidden border-y border-[#00629B] py-4 text-left text-lg font-bold text-[#00629B] transition disabled:border-black/15 disabled:text-black/30 sm:max-w-lg"
                       >
-                        <span>{submitting ? "Reserving your seat…" : event.isPaid ? `Continue to payment · ₹${event.price}` : "Confirm free registration"}</span>
-                        {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : event.isPaid ? <CreditCard className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5" /> : <Ticket className="h-5 w-5 transition-transform group-hover:translate-x-1" />}
+                        <span>{submitting ? "Reserving your seat…" : effectivePaid ? `Continue to payment · ₹${effectiveAmount}` : "Confirm free registration"}</span>
+                        {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : effectivePaid ? <CreditCard className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5" /> : <Ticket className="h-5 w-5 transition-transform group-hover:translate-x-1" />}
                         {submitting && (
                           <motion.span
                             className="absolute inset-x-0 bottom-0 h-0.5 origin-left bg-[#00629B]"
@@ -521,7 +601,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
                           />
                         )}
                       </motion.button>
-                      <p className="mt-4 max-w-lg text-xs leading-5 text-black/38">{event.isPaid ? "Your ticket is issued only after payment is captured." : "Your ticket is created immediately after confirmation."}</p>
+                      <p className="mt-4 max-w-lg text-xs leading-5 text-black/38">{effectivePaid ? "Your ticket is issued only after payment is captured. Coupons are revalidated when you continue." : "Your ticket is created immediately after confirmation."}</p>
                     </div>
                   </div>
                 </motion.section>

@@ -32,6 +32,7 @@ export interface Society {
 
 export interface Coupon {
     id: string
+    clientId?: string
     event: string
     code: string
     discountPercent: number

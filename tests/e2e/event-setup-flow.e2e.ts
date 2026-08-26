@@ -41,10 +41,25 @@ test.describe("event setup UX", () => {
     await page.goto(`/admin/events/${eventId}/edit?section=fees`);
     await page.getByRole("button", { name: "Paid event" }).click();
     await page.locator("#price").fill("150");
+    await page.getByRole("button", { name: "Add Coupon" }).click();
+    await page.getByLabel("Coupon code").fill("TEST20");
+    await page.getByLabel("Discount percent").fill("20");
+    await page.getByLabel("Max uses").fill("2");
     await page.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByText("All changes saved")).toBeVisible();
+
+    // Save the same newly-created coupon again without reloading. This catches
+    // client-only IDs being mistaken for real PocketBase record IDs.
+    await expect(page.getByLabel("Coupon code")).toHaveValue("TEST20");
+    await page.getByLabel("Discount percent").fill("25");
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expect(page.getByText("All changes saved")).toBeVisible();
+
     await page.reload();
     await expect(page.locator("#price")).toHaveValue("150");
+    await expect(page.getByLabel("Coupon code")).toHaveCount(1);
+    await expect(page.getByLabel("Coupon code")).toHaveValue("TEST20");
+    await expect(page.getByLabel("Discount percent")).toHaveValue("25");
     await page.screenshot({ path: "/tmp/event-setup-fees-desktop.png", fullPage: true });
 
     await page.setViewportSize({ width: 390, height: 844 });

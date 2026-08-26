@@ -50,14 +50,18 @@ routerAdd("PUT", "/api/app/events/{id}/coupons", function (e) {
         "coupons", "event = {:eventId}", "", 0, 0, { eventId: eventId }
       )
       var byId = {}
-      for (var ei = 0; ei < existing.length; ei++) byId[existing[ei].id] = existing[ei]
+      var byCode = {}
+      for (var ei = 0; ei < existing.length; ei++) {
+        byId[existing[ei].id] = existing[ei]
+        byCode[existing[ei].getString("code")] = existing[ei]
+      }
       var retained = {}
       var created = 0, updated = 0, deleted = 0
       var changed = existing.length !== normalized.length
 
       for (var ci = 0; ci < normalized.length; ci++) {
         var candidate = normalized[ci]
-        var current = candidate.id && byId[candidate.id] ? byId[candidate.id] : null
+        var current = candidate.id && byId[candidate.id] ? byId[candidate.id] : (byCode[candidate.code] || null)
         if (!current || current.getString("code") !== candidate.code ||
             current.getInt("discountPercent") !== candidate.discountPercent ||
             current.getInt("maxUses") !== candidate.maxUses ||
@@ -70,7 +74,7 @@ routerAdd("PUT", "/api/app/events/{id}/coupons", function (e) {
 
       for (var ni = 0; ni < normalized.length; ni++) {
         var item = normalized[ni]
-        var record = item.id && byId[item.id] ? byId[item.id] : null
+        var record = item.id && byId[item.id] ? byId[item.id] : (byCode[item.code] || null)
         if (record) {
           retained[record.id] = true
           record.set("code", item.code)

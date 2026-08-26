@@ -32,7 +32,7 @@ routerAdd(
       try { responses = JSON.parse(responses) } catch (_) { responses = {} }
     }
     if (!responses || typeof responses !== "object") responses = {}
-    var couponCode = String(body.couponCode || "").trim()
+    var couponCode = String(body.couponCode || "").trim().toUpperCase()
 
     var payload = null
     var responseStatus = 201

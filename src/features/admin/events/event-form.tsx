@@ -144,7 +144,8 @@ export function EventForm({ mode, eventId, initialSocietyId, allowSocietyTransfe
     try {
       const result = await saveAdminEvent({ id: isEdit ? eventId : undefined, payload: buildPayload(), bannerFile, removeBanner });
       const savedForm: EventFormState = { ...form, price: form.registrationMode === "internal" ? String(Number(form.price) || 0) : "0", registrationOpen: form.registrationMode !== "closed" && form.registrationOpen };
-      setForm(savedForm); setBaseline({ form: savedForm, customFields: [...customFields], coupons: [...coupons] }); setDirty(false); setBannerFile(null); setRemoveBanner(false); setAvailabilityChoice(null); setFeeChoice(null);
+      const persistedCoupons = result.coupons ?? [];
+      setForm(savedForm); setCoupons(persistedCoupons); setBaseline({ form: savedForm, customFields: [...customFields], coupons: [...persistedCoupons] }); setDirty(false); setBannerFile(null); setRemoveBanner(false); setAvailabilityChoice(null); setFeeChoice(null);
       await Promise.all([queryClient.invalidateQueries({ queryKey: ["admin-events"] }), queryClient.invalidateQueries({ queryKey: ["admin-event"] }), queryClient.invalidateQueries({ queryKey: ["admin-event-coupons"] }), queryClient.invalidateQueries({ queryKey: ["admin-event-operations"] }), queryClient.invalidateQueries({ queryKey: ["admin-stats"] })]);
       if (!isEdit) { toast.success("Draft created. Finish the setup before submitting it for review."); navigate(`/admin/events/${result.event.id}/edit?section=details`, { replace: true }); }
       else toast.success(sensitiveChanged && hasApproval ? "Changes saved. Approval was returned to review." : "Event settings saved");

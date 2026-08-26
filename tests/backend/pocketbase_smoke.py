@@ -252,7 +252,109 @@ request("PUT", f"/api/app/events/{coupon_event['id']}/coupons", {"coupons": [{
     "id": coupon["id"], "code": "SAVE10", "discountPercent": 15,
     "maxUses": 3, "isActive": True,
 }]}, admin_token)
+# A stale/browser-only ID must reconcile by code instead of creating a duplicate
+# and deleting the real PocketBase record on the next save.
+request("PUT", f"/api/app/events/{coupon_event['id']}/coupons", {"coupons": [{
+    "id": "browser-only-stale-id", "code": "save10", "discountPercent": 20,
+    "maxUses": 4, "isActive": True,
+}]}, admin_token)
+coupons_after_stale_id = request("GET", f"/api/collections/coupons/records?filter={coupon_filter}", token=admin_token)
+assert coupons_after_stale_id["totalItems"] == 1
+assert coupons_after_stale_id["items"][0]["id"] == coupon["id"]
+assert coupons_after_stale_id["items"][0]["code"] == "SAVE10"
+assert coupons_after_stale_id["items"][0]["discountPercent"] == 20
 request("PUT", f"/api/app/events/{coupon_event['id']}/coupons", {"coupons": []}, admin_token)
+
+# Coupon redemption is previewable and then revalidated transactionally at
+# registration. Cover normalization, discounts, 100%-off, expiry, deactivation,
+# max-use exhaustion, and used-coupon deletion protection.
+coupon_redemption_event = request("POST", "/api/collections/events/records", {
+    "title": f"Coupon Redemption {suffix}", "description": "coupon redemption",
+    "date": start, "endDate": end, "venue": "CI Coupon Lab", "price": 200,
+    "baseFeePaise": 20000, "society": society["id"], "status": "draft",
+    "registrationMode": "internal", "registrationOpen": True,
+    "registeredCount": 0, "checkedInCount": 0, "isDeleted": False,
+}, super_token)
+expired = (now - dt.timedelta(minutes=5)).isoformat().replace("+00:00", "Z")
+request("PUT", f"/api/app/events/{coupon_redemption_event['id']}/coupons", {"coupons": [
+    {"code": "SAVE10", "discountPercent": 10, "maxUses": 0, "isActive": True},
+    {"code": "UI20", "discountPercent": 20, "maxUses": 0, "isActive": True},
+    {"code": "FREE100", "discountPercent": 100, "maxUses": 0, "isActive": True},
+    {"code": "MAX1", "discountPercent": 25, "maxUses": 1, "isActive": True},
+    {"code": "EXPIRED", "discountPercent": 50, "maxUses": 0, "expiresAt": expired, "isActive": True},
+    {"code": "OFF", "discountPercent": 50, "maxUses": 0, "isActive": False},
+]}, admin_token)
+request("POST", f"/api/workspace/events/{coupon_redemption_event['id']}/workflow", {"action": "submit", "note": "Coupon smoke"}, admin_token)
+request("POST", f"/api/workspace/events/{coupon_redemption_event['id']}/workflow", {"action": "approve", "note": "Coupon smoke org approval"}, admin_token)
+request("POST", f"/api/workspace/events/{coupon_redemption_event['id']}/workflow", {"action": "finance_approve", "note": "Coupon smoke finance approval"}, admin_token)
+request("POST", f"/api/workspace/events/{coupon_redemption_event['id']}/workflow", {"action": "publish"}, admin_token)
+# Leave one unused attendee fixture for the real browser redemption test.
+coupon_browser_user = create_user("coupon-browser", "user")
+coupon_browser_token = impersonate(super_token, coupon_browser_user["id"])
+coupon_fixture_path = os.environ.get("E2E_COUPON_FIXTURE_OUTPUT", "/tmp/coupon-redemption-e2e.json")
+with open(coupon_fixture_path, "w", encoding="utf-8") as fixture_file:
+    json.dump({
+        "token": coupon_browser_token,
+        "record": coupon_browser_user,
+        "eventId": coupon_redemption_event["id"],
+        "paidCode": "UI20",
+        "paidAmount": 160,
+        "freeCode": "FREE100",
+    }, fixture_file)
+preview = request("POST", f"/api/app/events/{coupon_redemption_event['id']}/coupon-preview", {
+    "couponCode": "save10",
+}, user_token)
+assert preview["code"] == "SAVE10" and preview["discountPercent"] == 10
+assert preview["baseAmount"] == 200 and preview["discountAmount"] == 20 and preview["amount"] == 180
+request("POST", f"/api/app/events/{coupon_redemption_event['id']}/coupon-preview", {"couponCode": "expired"}, user_token, (400,))
+request("POST", f"/api/app/events/{coupon_redemption_event['id']}/coupon-preview", {"couponCode": "off"}, user_token, (400,))
+request("POST", f"/api/app/events/{coupon_redemption_event['id']}/coupon-preview", {"couponCode": "does-not-exist"}, user_token, (400,))
+
+save10_registration = request("POST", f"/api/app/events/{coupon_redemption_event['id']}/register", {
+    "formResponses": {"name": "Member", "email": user["email"], "phone": "9999999999", "college": "CI College"},
+    "couponCode": "save10",
+}, user_token)
+assert save10_registration["paymentRequired"] is True and save10_registration["amount"] == 180
+save10_record = request("GET", f"/api/collections/registrations/records/{save10_registration['registrationId']}", token=admin_token)
+assert save10_record["couponCode"] == "SAVE10" and save10_record["discountAmount"] == 20
+
+free100_preview = request("POST", f"/api/app/events/{coupon_redemption_event['id']}/coupon-preview", {
+    "couponCode": "free100",
+}, second_token)
+assert free100_preview["amount"] == 0 and free100_preview["discountAmount"] == 200
+free100_registration = request("POST", f"/api/app/events/{coupon_redemption_event['id']}/register", {
+    "formResponses": {"name": "Member Two", "email": second_user["email"], "phone": "8888888888", "college": "CI College"},
+    "couponCode": "free100",
+}, second_token)
+assert free100_registration["paymentRequired"] is False
+assert free100_registration["registrationStatus"] == "confirmed" and free100_registration["amount"] == 0
+assert free100_registration["ticketId"]
+
+max_user = create_user("coupon-max", "user")
+max_user_token = impersonate(super_token, max_user["id"])
+max_overflow_user = create_user("coupon-max-overflow", "user")
+max_overflow_token = impersonate(super_token, max_overflow_user["id"])
+max_preview = request("POST", f"/api/app/events/{coupon_redemption_event['id']}/coupon-preview", {"couponCode": "max1"}, max_user_token)
+assert max_preview["amount"] == 150
+max_registration = request("POST", f"/api/app/events/{coupon_redemption_event['id']}/register", {
+    "formResponses": {"name": "Coupon Max", "email": max_user["email"], "phone": "7777777777", "college": "CI College"},
+    "couponCode": "max1",
+}, max_user_token)
+assert max_registration["amount"] == 150
+request("POST", f"/api/app/events/{coupon_redemption_event['id']}/coupon-preview", {"couponCode": "max1"}, max_overflow_token, (409,))
+request("POST", f"/api/app/events/{coupon_redemption_event['id']}/register", {
+    "formResponses": {"name": "Coupon Overflow", "email": max_overflow_user["email"], "phone": "6666666666", "college": "CI College"},
+    "couponCode": "max1",
+}, max_overflow_token, (400,))
+
+redemption_filter = urllib.parse.quote(f"event='{coupon_redemption_event['id']}'")
+redemption_coupons = request("GET", f"/api/collections/coupons/records?filter={redemption_filter}&sort=code", token=admin_token)
+# Removing a used coupon is rejected; organizers must deactivate it instead.
+remaining_without_save10 = [{
+    "id": row["id"], "code": row["code"], "discountPercent": row["discountPercent"],
+    "maxUses": row["maxUses"], "expiresAt": row.get("expiresAt", ""), "isActive": row["isActive"],
+} for row in redemption_coupons["items"] if row["code"] != "SAVE10"]
+request("PUT", f"/api/app/events/{coupon_redemption_event['id']}/coupons", {"coupons": remaining_without_save10}, admin_token, (400,))
 
 # Registration command reserves exactly one seat. Replaying the same user's
 # command is idempotent and returns the original record instead of consuming a
