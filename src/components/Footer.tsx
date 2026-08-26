@@ -5,8 +5,6 @@ const policyLinks = [
   { label: "Terms & Conditions", href: "/terms-and-conditions" },
   { label: "Privacy Policy", href: "/privacy-policy" },
   { label: "Refund & Cancellation", href: "/refund-and-cancellation-policy" },
-  { label: "Return Policy", href: "/return-policy" },
-  { label: "Shipping Policy", href: "/shipping-policy" },
 ];
 
 const Footer: React.FC = () => {
