@@ -20,7 +20,8 @@ routerAdd("POST", "/api/admin/events/{id}/cancel", function (e) {
   var event
   try { event = $app.findRecordById("events", eventId) }
   catch (_) { return e.json(404, { code: "EVENT_NOT_FOUND", error: "Event not found" }) }
-  if (!helpers.mayManageEvent($app, auth, event)) {
+  var authz = require(__hooks + "/workspace-authorization.js")
+  if (!authz.hasEventCapability($app, auth, "events.cancel", event)) {
     return e.json(403, { code: "FORBIDDEN", error: "You cannot cancel this event" })
   }
 

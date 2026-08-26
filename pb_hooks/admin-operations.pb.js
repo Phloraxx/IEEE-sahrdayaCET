@@ -26,8 +26,8 @@ routerAdd("GET", "/api/admin/events/{id}/operations", function (e) {
   var event
   try { event = $app.findRecordById("events", eventId) }
   catch (_) { return e.json(404, { code: "EVENT_NOT_FOUND", error: "Event not found" }) }
-  if (!helpers.mayManageEvent($app, e.auth, event)) {
-    return e.json(403, { code: "FORBIDDEN", error: "You cannot manage this event" })
+  if (!helpers.mayViewEventOperations($app, e.auth, event)) {
+    return e.json(403, { code: "FORBIDDEN", error: "You cannot view this event workspace" })
   }
   var records = $app.findRecordsByFilter(
     "registrations", "event = {:eventId}", "-registrationDate", 0, 0,
@@ -94,14 +94,16 @@ routerAdd("GET", "/api/admin/events/{id}/operations", function (e) {
     attention: attention,
     coupons: coupons,
     audit: audit,
+    permissions: helpers.eventPermissions($app, e.auth, event),
     financeDisclaimer: "Recorded collections are an application ledger, not a live bank balance.",
   })
 }, $apis.requireAuth("users"))
 
 routerAdd("GET", "/api/admin/payments/summary", function (e) {
   var helpers = require(__hooks + "/admin-operations-helpers.js")
-  if (helpers.role(e.auth) !== "admin") {
-    return e.json(403, { code: "FORBIDDEN", error: "Only admins can view the payment desk" })
+  var authz = require(__hooks + "/workspace-authorization.js")
+  if (!authz.hasCapability($app, e.auth, "finance.view", {})) {
+    return e.json(403, { code: "FORBIDDEN", error: "Branch finance access is required to view the payment desk" })
   }
   var rows = $app.findRecordsByFilter("payments", "1 = 1", "-created", 0, 0)
   var refunds = $app.findRecordsByFilter("payment_refunds", "1 = 1", "-created", 0, 0)
@@ -138,14 +140,15 @@ routerAdd("POST", "/api/admin/events/{id}/registrations/manual", function (e) {
   var helpers = require(__hooks + "/admin-operations-helpers.js")
   var rh = require(__hooks + "/registration-helpers.js")
   var paymentState = require(__hooks + "/razorpay-payment-state.js")
+  var authz = require(__hooks + "/workspace-authorization.js")
   var auth = e.auth
-  if (helpers.role(auth) !== "admin") {
-    return e.json(403, { code: "FORBIDDEN", error: "Only admins can create manual registrations" })
-  }
   var eventId = e.request.pathValue("id") || ""
   var event
   try { event = $app.findRecordById("events", eventId) }
   catch (_) { return e.json(404, { code: "EVENT_NOT_FOUND", error: "Event not found" }) }
+  if (!authz.hasEventCapability($app, auth, "registrations.manual", event)) {
+    return e.json(403, { code: "FORBIDDEN", error: "You cannot create attendees for this event" })
+  }
 
   var body = {}
   try { body = e.requestInfo().body || {} } catch (_) { body = {} }
@@ -158,6 +161,13 @@ routerAdd("POST", "/api/admin/events/{id}/registrations/manual", function (e) {
   var paymentMode = String(body.paymentMode || "pending")
   var paymentMethod = String(body.paymentMethod || (paymentMode === "paid" ? "other" : "")).trim().toLowerCase()
   var note = String(body.note || "").trim()
+  var financeSensitive = paymentMode === "paid" || paymentMode === "waived" || body.amountOverride !== undefined
+  if (financeSensitive && !authz.hasEventCapability($app, auth, "finance.manage", event)) {
+    return e.json(403, { code: "FINANCE_FORBIDDEN", error: "Finance permission is required for paid, waived, or overridden manual registrations" })
+  }
+  if (body.capacityOverride === true && !authz.hasEventCapability($app, auth, "events.edit", event)) {
+    return e.json(403, { code: "CAPACITY_FORBIDDEN", error: "Event management permission is required to override capacity" })
+  }
   var formResponses = body.formResponses || {}
   if (typeof formResponses === "string") {
     try { formResponses = JSON.parse(formResponses) } catch (_) { formResponses = {} }
@@ -394,6 +404,7 @@ routerAdd("POST", "/api/admin/registrations/{id}/command", function (e) {
   var helpers = require(__hooks + "/admin-operations-helpers.js")
   var rh = require(__hooks + "/registration-helpers.js")
   var paymentState = require(__hooks + "/razorpay-payment-state.js")
+  var authz = require(__hooks + "/workspace-authorization.js")
   var auth = e.auth
   var id = e.request.pathValue("id") || ""
   var registration
@@ -402,22 +413,21 @@ routerAdd("POST", "/api/admin/registrations/{id}/command", function (e) {
   var event
   try { event = $app.findRecordById("events", registration.getString("event")) }
   catch (_) { return e.json(404, { code: "EVENT_NOT_FOUND", error: "Event not found" }) }
-  if (!helpers.mayManageEvent($app, auth, event)) {
-    return e.json(403, { code: "FORBIDDEN", error: "You cannot manage this registration" })
-  }
-
   var body = {}
   try { body = e.requestInfo().body || {} } catch (_) { body = {} }
   var action = String(body.action || "").trim()
   var note = String(body.note || "").trim()
-  var adminOnly = {
-    "confirm-payment": true,
-    "restore": true,
-    "mark-refunded": true,
-    "reopen-manual-payment": true,
+  var requiredCapability = {
+    "check-in": "checkin.manage",
+    "undo-check-in": "checkin.manage",
+    "cancel": "registrations.manage",
+    "confirm-payment": "finance.manage",
+    "restore": "registrations.manage",
+    "mark-refunded": "finance.manage",
+    "reopen-manual-payment": "finance.manage",
   }
-  if (adminOnly[action] && helpers.role(auth) !== "admin") {
-    return e.json(403, { code: "FORBIDDEN", error: "Only admins can perform this action" })
+  if (requiredCapability[action] && !authz.hasEventCapability($app, auth, requiredCapability[action], event)) {
+    return e.json(403, { code: "FORBIDDEN", error: "You do not have permission for this registration action" })
   }
 
   var allowed = {
@@ -434,6 +444,9 @@ routerAdd("POST", "/api/admin/registrations/{id}/command", function (e) {
   }
   if ((action === "mark-refunded" || action === "restore" || action === "reopen-manual-payment") && !note) {
     return e.json(400, { code: "NOTE_REQUIRED", error: "A note is required for this financial correction" })
+  }
+  if (action === "restore" && body.capacityOverride === true && !authz.hasEventCapability($app, auth, "events.edit", event)) {
+    return e.json(403, { code: "CAPACITY_FORBIDDEN", error: "Event management permission is required to override capacity" })
   }
 
   var eventId = event.id
@@ -659,8 +672,9 @@ routerAdd("POST", "/api/admin/events/{id}/recompute", function (e) {
   var event
   try { event = $app.findRecordById("events", eventId) }
   catch (_) { return e.json(404, { code: "EVENT_NOT_FOUND", error: "Event not found" }) }
-  if (!helpers.mayManageEvent($app, e.auth, event)) {
-    return e.json(403, { code: "FORBIDDEN", error: "You cannot manage this event" })
+  var authz = require(__hooks + "/workspace-authorization.js")
+  if (!authz.hasCapability($app, e.auth, "technical.manage", {})) {
+    return e.json(403, { code: "FORBIDDEN", error: "Technical administrator access is required" })
   }
 
   rh.recomputeEventCounters(eventId)

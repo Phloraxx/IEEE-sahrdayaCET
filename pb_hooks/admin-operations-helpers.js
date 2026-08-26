@@ -5,29 +5,35 @@ function jsonObject(value) {
 }
 
 function role(auth) {
-  if (!auth || !auth.id) return ""
-  try {
-    if (typeof auth.isSuperuser === "function" && auth.isSuperuser()) return "admin"
-  } catch (_) {}
-  return auth.getString("role") || ""
+  return require(__hooks + "/workspace-authorization.js").authRole(auth)
 }
 
 function mayManageEvent(app, auth, event) {
-  var authRole = role(auth)
-  if (authRole === "admin") return true
-  if (authRole !== "chair" || !event) return false
-  var societyId = event.getString("society") || ""
-  if (!societyId) return false
-  try {
-    var society = app.findRecordById("societies", societyId)
-    var chairs = society.getStringSlice("chairs") || []
-    return chairs.indexOf(auth.id) !== -1
-  } catch (_) {
-    return false
-  }
+  var authz = require(__hooks + "/workspace-authorization.js")
+  return authz.hasEventCapability(app, auth, "events.edit", event) ||
+    authz.hasEventCapability(app, auth, "registrations.manage", event)
+}
+function mayViewEventOperations(app, auth, event) {
+  var authz = require(__hooks + "/workspace-authorization.js")
+  return authz.hasEventCapability(app, auth, "registrations.view", event) ||
+    authz.hasEventCapability(app, auth, "events.edit", event) ||
+    authz.hasEventCapability(app, auth, "finance.view", event)
 }
 function requireManageEvent(app, auth, event) {
   if (!mayManageEvent(app, auth, event)) throw new Error("FORBIDDEN_EVENT")
+}
+function eventPermissions(app, auth, event) {
+  var authz = require(__hooks + "/workspace-authorization.js")
+  var capabilities = [
+    "events.view", "events.edit", "events.submit", "events.approve", "events.publish", "events.cancel", "events.complete",
+    "registrations.view", "registrations.manage", "registrations.manual", "checkin.manage",
+    "finance.view", "finance.manage", "finance.approve", "assignments.manage", "content.manage", "reports.view"
+  ]
+  var result = {}
+  for (var i = 0; i < capabilities.length; i++) {
+    result[capabilities[i]] = authz.hasEventCapability(app, auth, capabilities[i], event)
+  }
+  return result
 }
 
 function providerKind(registration) {
@@ -136,6 +142,17 @@ function eventPayload(event) {
     registeredCount: event.getInt("registeredCount") || 0,
     checkedInCount: event.getInt("checkedInCount") || 0,
     society: event.getString("society") || "",
+    approvalStatus: event.getString("approvalStatus") || "draft",
+    approvalNote: event.getString("approvalNote") || "",
+    submittedBy: event.getString("submittedBy") || "",
+    submittedAt: event.getString("submittedAt") || "",
+    approvedBy: event.getString("approvedBy") || "",
+    approvedAt: event.getString("approvedAt") || "",
+    approvalRevision: event.getInt("approvalRevision") || 0,
+    financeApprovalStatus: event.getString("financeApprovalStatus") || ((event.getFloat("price") || 0) > 0 ? "pending" : "not_required"),
+    financeApprovalNote: event.getString("financeApprovalNote") || "",
+    financeApprovedBy: event.getString("financeApprovedBy") || "",
+    financeApprovedAt: event.getString("financeApprovedAt") || "",
   }
 }
 
@@ -237,6 +254,8 @@ module.exports = {
   jsonObject: jsonObject,
   role: role,
   mayManageEvent: mayManageEvent,
+  mayViewEventOperations: mayViewEventOperations,
+  eventPermissions: eventPermissions,
   requireManageEvent: requireManageEvent,
   providerKind: providerKind,
   collectedAmount: collectedAmount,

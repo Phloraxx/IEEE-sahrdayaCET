@@ -286,14 +286,11 @@ function receiptPdfBytes(registration, event) {
 
 function canManageRegistration(auth, registration) {
   if (!auth || !auth.id || !registration) return false
-  if (auth.getString("role") === "admin") return true
-  if (auth.getString("role") !== "chair") return false
   try {
     var event = $app.findRecordById("events", registration.getString("event"))
-    var society = $app.findRecordById("societies", event.getString("society"))
-    var chairs = society.get("chairs")
-    if (Array.isArray(chairs)) return chairs.indexOf(auth.id) !== -1
-    return String(chairs || "") === auth.id
+    return require(__hooks + "/workspace-authorization.js").hasEventCapability(
+      $app, auth, "registrations.manage", event
+    )
   } catch (_) { return false }
 }
 
