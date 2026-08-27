@@ -59,43 +59,58 @@ function GridCard({ society, index }: { society: Society; index: number }) {
   const accent = societyAccent(society.slug);
   const description = societyDescription(society);
   return (
-    <Link to={`/societies/${society.slug.toLowerCase()}`} className="group block h-full rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ieee-blue focus-visible:ring-offset-2">
-      <article className={`relative h-full overflow-hidden rounded-2xl border border-slate-200 bg-white transition-[border-color,background-color,box-shadow] duration-300 ${accent.border} ${accent.wash} group-hover:shadow-[0_18px_42px_rgba(15,23,42,0.08)]`}>
-        <div className="flex h-full flex-col p-5 sm:p-6">
-          <div className="flex items-center justify-between gap-4 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-            <span>IEEE / {society.slug.toUpperCase()}</span>
-            <span>{String(index + 1).padStart(2, "0")}</span>
-          </div>
-          <div className="mt-5 grid grid-cols-[72px_minmax(0,1fr)] items-center gap-5 sm:block">
-            <div className="flex h-[72px] w-[72px] items-center justify-center rounded-xl border border-slate-100 bg-white p-3 sm:h-32 sm:w-full sm:p-5">
-              <SocietyLogo society={society} />
-            </div>
-            <div className="min-w-0 sm:mt-7">
-              <h2 className={`text-xl font-semibold leading-tight tracking-tight text-slate-900 transition-colors sm:text-2xl ${accent.text}`}>{society.name}</h2>
-              {description && <p className="mt-2 line-clamp-2 text-sm leading-5 text-slate-500 sm:mt-3 sm:line-clamp-3 sm:leading-6">{description}</p>}
-            </div>
-          </div>
-          <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4 sm:mt-auto sm:pt-5">
-            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Explore society</span>
-            <ArrowUpRight className={`h-4 w-4 text-slate-400 transition duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 ${accent.text}`} />
+    <Link
+      to={`/societies/${society.slug.toLowerCase()}`}
+      className="group block h-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ieee-blue focus-visible:ring-offset-4"
+    >
+      <article className={`relative flex h-full min-h-[218px] flex-col overflow-hidden border-t border-slate-200 px-1 py-4 transition-colors duration-300 sm:min-h-[318px] sm:px-2 sm:pb-6 sm:pt-5 ${accent.wash}`}>
+        <div className={`absolute inset-x-0 top-0 h-px origin-left scale-x-0 transition-transform duration-500 group-hover:scale-x-100 ${accent.line}`} />
+
+        <div className="flex items-center justify-between gap-4 font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-400 sm:text-[9px]">
+          <span>IEEE / {society.slug.toUpperCase()}</span>
+          <span>{String(index + 1).padStart(2, "0")}</span>
+        </div>
+
+        <div className="mt-5 grid grid-cols-[minmax(0,1fr)_64px] items-start gap-4 sm:mt-8 sm:grid-cols-[minmax(0,1fr)_112px] sm:gap-6">
+          <h2 className={`max-w-[13ch] text-lg font-semibold leading-[1.04] tracking-[-0.035em] text-slate-950 transition-colors duration-300 sm:text-[1.72rem] ${accent.text}`}>
+            {society.name}
+          </h2>
+          <div className="flex h-14 w-16 items-center justify-end sm:h-20 sm:w-28">
+            <SocietyLogo society={society} />
           </div>
         </div>
-        <div className={`absolute inset-x-0 bottom-0 h-0.5 origin-left scale-x-0 transition-transform duration-300 group-hover:scale-x-100 ${accent.line}`} />
+
+        {description && (
+          <p className="mt-4 line-clamp-2 max-w-[38ch] text-[12px] leading-[1.55] text-slate-500 sm:mt-6 sm:line-clamp-3 sm:text-sm sm:leading-6">
+            {description}
+          </p>
+        )}
+
+        <div className="mt-auto flex items-end justify-between gap-4 pt-5 sm:pt-8">
+          <span className="font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-400 transition-colors group-hover:text-slate-600 sm:text-[9px]">
+            Explore society
+          </span>
+          <span className="grid h-7 w-7 place-items-center rounded-full border border-slate-200 text-slate-400 transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:border-slate-300 group-hover:bg-white sm:h-8 sm:w-8">
+            <ArrowUpRight className={`h-3.5 w-3.5 ${accent.text}`} />
+          </span>
+        </div>
       </article>
     </Link>
   );
 }
+
 function ListRow({ society, index }: { society: Society; index: number }) {
   const accent = societyAccent(society.slug);
   const description = societyDescription(society);
   return (
-    <Link to={`/societies/${society.slug.toLowerCase()}`} className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ieee-blue focus-visible:ring-offset-2">
-      <article className={`grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-4 rounded-xl border border-slate-200 bg-white px-4 py-4 transition duration-300 sm:grid-cols-[44px_72px_minmax(0,1fr)_minmax(180px,0.8fr)_auto] sm:px-5 ${accent.border} ${accent.wash}`}>
-        <span className="font-mono text-[10px] font-semibold tracking-[0.14em] text-slate-400">{String(index + 1).padStart(2, "0")}</span>
-        <div className="hidden h-12 w-12 items-center justify-center rounded-lg border border-slate-100 bg-white p-2 sm:flex"><SocietyLogo society={society} /></div>
+    <Link to={`/societies/${society.slug.toLowerCase()}`} className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ieee-blue focus-visible:ring-offset-4">
+      <article className={`relative grid grid-cols-[42px_minmax(0,1fr)_auto] items-center gap-4 border-t border-slate-200 px-1 py-4 transition-colors duration-300 sm:grid-cols-[42px_64px_minmax(0,1fr)_minmax(220px,0.85fr)_auto] sm:px-2 sm:py-5 ${accent.wash}`}>
+        <div className={`absolute inset-x-0 top-0 h-px origin-left scale-x-0 transition-transform duration-500 group-hover:scale-x-100 ${accent.line}`} />
+        <span className="font-mono text-[9px] font-semibold tracking-[0.16em] text-slate-400">{String(index + 1).padStart(2, "0")}</span>
+        <div className="hidden h-10 w-14 items-center justify-start sm:flex"><SocietyLogo society={society} /></div>
         <div className="min-w-0">
-          <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-400">IEEE / {society.slug.toUpperCase()}</p>
-          <h2 className={`mt-1 truncate text-base font-semibold text-slate-900 transition-colors sm:text-lg ${accent.text}`}>{society.name}</h2>
+          <p className="font-mono text-[8px] font-semibold uppercase tracking-[0.16em] text-slate-400 sm:text-[9px]">IEEE / {society.slug.toUpperCase()}</p>
+          <h2 className={`mt-1 truncate text-base font-semibold tracking-[-0.02em] text-slate-950 transition-colors sm:text-lg ${accent.text}`}>{society.name}</h2>
         </div>
         <p className="hidden line-clamp-2 text-sm leading-5 text-slate-500 sm:block">{description}</p>
         <ArrowUpRight className={`h-4 w-4 text-slate-400 transition duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 ${accent.text}`} />
@@ -103,6 +118,7 @@ function ListRow({ society, index }: { society: Society; index: number }) {
     </Link>
   );
 }
+
 
 export default function SocietiesClient({ societies }: SocietiesClientProps) {
   const reduceMotion = useReducedMotion();
@@ -167,19 +183,19 @@ export default function SocietiesClient({ societies }: SocietiesClientProps) {
             </div>
           </motion.section>
 
-          <section className="sticky top-20 z-20 -mx-2 mt-6 rounded-2xl border border-slate-200/80 bg-white/90 p-2 shadow-[0_10px_30px_rgba(15,23,42,0.04)] backdrop-blur-xl sm:mt-8 sm:p-3">
+          <section className="sticky top-20 z-20 mt-6 border-y border-slate-200 bg-white/92 py-3 backdrop-blur-xl sm:mt-8">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <label htmlFor="society-search" className="sr-only">Search societies</label>
               <div className="relative flex-1">
                 <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input id="society-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search societies, fields or interests…" className="h-12 w-full rounded-xl border-0 bg-slate-50/80 pl-10 pr-20 text-sm text-slate-900 outline-none ring-1 ring-inset ring-slate-200 transition placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-ieee-blue/50" />
+                <input id="society-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search societies, fields or interests…" className="h-11 w-full border-0 bg-transparent pl-10 pr-20 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:bg-slate-50/50" />
                 {query ? <button type="button" aria-label="Clear search" onClick={() => setQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X className="h-4 w-4" /></button> : <kbd className="absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-slate-200 bg-white px-2 py-1 font-mono text-[10px] text-slate-400 sm:block">/</kbd>}
               </div>
               <div className="flex items-center justify-between gap-3 px-1 sm:px-0">
                 <span className="whitespace-nowrap font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-400 sm:pl-3">{filtered.length} results</span>
-                <div className="flex rounded-lg bg-slate-100 p-1" role="group" aria-label="Society view">
-                  <button type="button" aria-label="Grid view" aria-pressed={view === "grid"} onClick={() => chooseView("grid")} className={`rounded-md p-2 transition ${view === "grid" ? "bg-white text-slate-900 shadow-sm" : "text-slate-400 hover:text-slate-700"}`}><Grid3X3 className="h-4 w-4" /></button>
-                  <button type="button" aria-label="List view" aria-pressed={view === "list"} onClick={() => chooseView("list")} className={`rounded-md p-2 transition ${view === "list" ? "bg-white text-slate-900 shadow-sm" : "text-slate-400 hover:text-slate-700"}`}><List className="h-4 w-4" /></button>
+                <div className="flex border-l border-slate-200 pl-2" role="group" aria-label="Society view">
+                  <button type="button" aria-label="Grid view" aria-pressed={view === "grid"} onClick={() => chooseView("grid")} className={`p-2 transition ${view === "grid" ? "text-slate-950" : "text-slate-300 hover:text-slate-600"}`}><Grid3X3 className="h-4 w-4" /></button>
+                  <button type="button" aria-label="List view" aria-pressed={view === "list"} onClick={() => chooseView("list")} className={`p-2 transition ${view === "list" ? "text-slate-950" : "text-slate-300 hover:text-slate-600"}`}><List className="h-4 w-4" /></button>
                 </div>
               </div>
             </div>
@@ -200,7 +216,7 @@ export default function SocietiesClient({ societies }: SocietiesClientProps) {
                 ))}
               </motion.div>
             ) : (
-              <motion.div layout className="space-y-2">
+              <motion.div layout>
                 {filtered.map((society) => (
                   <motion.div key={society.id} layout initial={reduceMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
                     <ListRow society={society} index={societies.indexOf(society)} />
