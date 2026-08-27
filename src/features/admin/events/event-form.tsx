@@ -54,6 +54,14 @@ function safeMode(value: unknown, open: unknown, external: unknown): Registratio
 }
 function timestamp(value: string) { const normalized = fromAppDateTimeLocal(value); return normalized ? Date.parse(normalized) : Number.NaN; }
 function same(a: unknown, b: unknown) { return JSON.stringify(a) === JSON.stringify(b); }
+function requestErrorMessage(error: unknown, fallback: string) {
+  if (error && typeof error === "object") {
+    const response = (error as { response?: { error?: unknown; message?: unknown; data?: { error?: unknown; message?: unknown } } }).response;
+    const detail = response?.error ?? response?.data?.error ?? response?.data?.message ?? response?.message;
+    if (typeof detail === "string" && detail.trim()) return detail;
+  }
+  return error instanceof Error && error.message && error.message !== "Something went wrong." ? error.message : fallback;
+}
 function choice(active: boolean) {
   return `flex min-h-24 cursor-pointer flex-col justify-between rounded-xl border p-4 text-left transition-colors ${active ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border bg-background hover:bg-muted/35"}`;
 }
@@ -149,7 +157,7 @@ export function EventForm({ mode, eventId, initialSocietyId, allowSocietyTransfe
       await Promise.all([queryClient.invalidateQueries({ queryKey: ["admin-events"] }), queryClient.invalidateQueries({ queryKey: ["admin-event"] }), queryClient.invalidateQueries({ queryKey: ["admin-event-coupons"] }), queryClient.invalidateQueries({ queryKey: ["admin-event-operations"] }), queryClient.invalidateQueries({ queryKey: ["admin-stats"] })]);
       if (!isEdit) { toast.success("Draft created. Finish the setup before submitting it for review."); navigate(`/admin/events/${result.event.id}/edit?section=details`, { replace: true }); }
       else toast.success(sensitiveChanged && hasApproval ? "Changes saved. Approval was returned to review." : "Event settings saved");
-    } catch (error) { setSubmitError(error instanceof Error ? error.message : "Could not save the event"); } finally { setSubmitting(false); }
+    } catch (error) { setSubmitError(requestErrorMessage(error, "Could not save the event")); } finally { setSubmitting(false); }
   };
   const leaveEditor = () => { if (dirty && !window.confirm("Discard your unsaved changes?")) return; navigate(eventId ? `/admin/events/${eventId}` : "/admin/events"); };
   if (isEdit && existingLoading) return <div className="space-y-4"><Skeleton className="h-20" /><Skeleton className="h-[520px]" /></div>;
