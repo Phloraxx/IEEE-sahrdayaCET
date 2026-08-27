@@ -7,13 +7,17 @@ const policyLinks = [
   { label: "Refund & Cancellation", href: "/refund-and-cancellation-policy" },
 ];
 
-const Footer: React.FC = () => {
+interface FooterProps {
+  seamless?: boolean;
+}
+
+const Footer: React.FC<FooterProps> = ({ seamless = false }) => {
   const currentYear = new Date().getFullYear();
 
   return (
     <footer className="relative z-20 bg-gray-950 text-white overflow-hidden">
       {/* Top accent line */}
-      <div className="h-px bg-linear-to-r from-transparent via-ieee-blue to-transparent" />
+      {!seamless && <div className="h-px bg-linear-to-r from-transparent via-ieee-blue to-transparent" />}
 
       {/* Main Footer */}
       <div className="container mx-auto px-4">

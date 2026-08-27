@@ -1,7 +1,7 @@
 import { useLoaderData } from "react-router";
 import { APP_URL } from "@/lib/constants";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import SocietiesClient from "@/features/societies/SocietiesClient";
+import SocietiesClient, { type SocietyActivitySignal, type UpcomingSocietyEvent } from "@/features/societies/SocietiesClient";
 import type { Society } from "@/types";
 import { fetchSocieties } from "@/server/public/societies.server";
 import { fetchEvents } from "@/server/public/events.server";
@@ -22,20 +22,20 @@ export const meta = () => [
   { name: "twitter:image", content: `${APP_URL}/web.png` },
 ];
 
-export interface SocietyActivitySignal {
-  eventCount: number;
-  nextEvent?: { title: string; slug: string; date: string };
-}
-
-export async function loader(): Promise<{ societies: Society[]; activityBySociety: Record<string, SocietyActivitySignal> }> {
+export async function loader(): Promise<{ societies: Society[]; activityBySociety: Record<string, SocietyActivitySignal>; upcomingEvents: UpcomingSocietyEvent[] }> {
   const [societies, events] = await Promise.all([fetchSocieties(), fetchEvents()]);
   const now = Date.now();
   const activityBySociety: Record<string, SocietyActivitySignal> = {};
+  const upcomingEvents: UpcomingSocietyEvent[] = [];
 
   for (const event of events) {
     if (event.status !== "published" || !event.society?.id) continue;
     const eventTime = Date.parse(event.date);
     if (!Number.isFinite(eventTime) || eventTime < now) continue;
+    upcomingEvents.push({
+      id: event.id, title: event.title, slug: event.slug, date: event.date, venue: event.venue,
+      society: { id: event.society.id, name: event.society.name, slug: event.society.slug },
+    });
     const signal = activityBySociety[event.society.id] ?? { eventCount: 0 };
     signal.eventCount += 1;
     if (!signal.nextEvent || eventTime < Date.parse(signal.nextEvent.date)) {
@@ -44,16 +44,17 @@ export async function loader(): Promise<{ societies: Society[]; activityBySociet
     activityBySociety[event.society.id] = signal;
   }
 
-  return { societies, activityBySociety };
+  upcomingEvents.sort((a, b) => Date.parse(a.date) - Date.parse(b.date));
+  return { societies, activityBySociety, upcomingEvents: upcomingEvents.slice(0, 4) };
 }
 
 export default function SocietiesPage() {
-  const { societies, activityBySociety } = useLoaderData<typeof loader>();
+  const { societies, activityBySociety, upcomingEvents } = useLoaderData<typeof loader>();
   return (
     <>
       <CanonicalLink path="/societies" />
     <ErrorBoundary>
-      <SocietiesClient societies={societies} activityBySociety={activityBySociety} />
+      <SocietiesClient societies={societies} activityBySociety={activityBySociety} upcomingEvents={upcomingEvents} />
     </ErrorBoundary>
     </>
   );
