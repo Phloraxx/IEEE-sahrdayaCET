@@ -11,15 +11,15 @@ export const TechnicalDetails: React.FC = () => {
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 1, duration: 0.8 }}
-        className="absolute top-2 left-6 z-10 hidden md:block"
+        className="absolute left-5 top-4 z-10 hidden xl:block"
       >
         <img
           src="/Ieee.svg"
           alt="IEEE SB Logo"
-          width={128}
-          height={128}
+          width={160}
+          height={78}
           loading="eager"
-          className="opacity-80"
+          className="h-auto w-36 opacity-65 2xl:w-40"
         />
       </motion.div>
 
@@ -28,15 +28,15 @@ export const TechnicalDetails: React.FC = () => {
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 1, duration: 0.8 }}
-        className="absolute top-3 right-6 z-10 hidden md:block text-right"
+        className="absolute right-5 top-4 z-10 hidden xl:block text-right"
       >
         <img
           src="/emblem.png"
           alt="Sahrdaya Logo"
-          width={64}
-          height={64}
+          width={56}
+          height={56}
           loading="eager"
-          className="opacity-80"
+          className="h-14 w-14 object-contain opacity-65 2xl:h-16 2xl:w-16"
         />
       </motion.div>
 

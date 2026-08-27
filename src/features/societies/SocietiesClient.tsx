@@ -71,11 +71,11 @@ function GridCard({ society, index }: { society: Society; index: number }) {
           <span>{String(index + 1).padStart(2, "0")}</span>
         </div>
 
-        <div className="mt-5 grid grid-cols-[minmax(0,1fr)_64px] items-start gap-4 sm:mt-8 sm:grid-cols-[minmax(0,1fr)_112px] sm:gap-6">
-          <h2 className={`max-w-[13ch] text-lg font-semibold leading-[1.04] tracking-[-0.035em] text-slate-950 transition-colors duration-300 sm:text-[1.72rem] ${accent.text}`}>
+        <div className="mt-5 grid grid-cols-[minmax(0,1fr)_64px] items-start gap-4 sm:mt-8 sm:grid-cols-[minmax(0,1fr)_88px] sm:gap-4 lg:grid-cols-[minmax(0,1fr)_112px] lg:gap-6">
+          <h2 className={`min-w-0 text-lg font-semibold leading-[1.04] tracking-[-0.035em] text-slate-950 transition-colors duration-300 sm:text-[1.5rem] lg:text-[1.72rem] ${accent.text}`}>
             {society.name}
           </h2>
-          <div className="flex h-14 w-16 items-center justify-end sm:h-20 sm:w-28">
+          <div className="flex h-14 w-16 items-center justify-end sm:h-16 sm:w-[88px] lg:h-20 lg:w-28">
             <SocietyLogo society={society} />
           </div>
         </div>
