@@ -48,6 +48,13 @@ export default function BlogClient({ blogs = [] }: { blogs?: BlogPost[] }) {
     });
   }, [blogs, filter, query]);
 
+  const archivePosts = useMemo(() => {
+    if (!query.trim() && filter === "All" && lead) {
+      return visible.filter((post) => post.id !== lead.id);
+    }
+    return visible;
+  }, [filter, lead, query, visible]);
+
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-[#f7f3ea] font-sans text-slate-950">
       <Navbar />
@@ -62,7 +69,6 @@ export default function BlogClient({ blogs = [] }: { blogs?: BlogPost[] }) {
 
           <div className="grid lg:grid-cols-[minmax(0,1fr)_220px]">
             <div className="relative px-4 py-8 sm:px-6 sm:py-10 lg:py-12">
-              <div className="absolute right-4 top-5 hidden rotate-[-4deg] border border-[#f05a42] bg-[#fff8f4] px-3 py-2 font-mono text-[8px] font-semibold uppercase tracking-[0.17em] text-[#d84532] md:block">Field notes / 01</div>
               <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.2em] text-ieee-blue">Stories from the branch</p>
               <p className="mt-4 max-w-[1030px] text-[2.45rem] font-semibold leading-[0.94] tracking-[-0.05em] text-[#07101f] sm:text-[3.5rem] lg:text-[4.5rem] xl:text-[5.05rem]">
                 Technical ideas, people,
@@ -74,14 +80,15 @@ export default function BlogClient({ blogs = [] }: { blogs?: BlogPost[] }) {
               </p>
             </div>
 
-            <aside className="flex min-h-[180px] flex-col justify-between bg-[#07101f] p-5 text-white sm:p-6 lg:min-h-full" aria-label="Journal issue information">
-              <div>
-                <p className="font-mono text-[8px] font-semibold uppercase tracking-[0.2em] text-white/45">Issue / 01</p>
-                <p className="mt-2 text-5xl font-black leading-none tracking-[-0.06em] text-[#f05a42]">26</p>
+            <aside className="flex min-h-[164px] flex-col justify-between bg-[#07101f] p-5 text-white sm:p-6 lg:min-h-full" aria-label="Journal issue information">
+              <div className="flex items-start justify-between gap-5 lg:block">
+                <div>
+                  <p className="font-mono text-[8px] font-semibold uppercase tracking-[0.2em] text-white/45">Issue / 01</p>
+                  <p className="mt-2 text-5xl font-black leading-none tracking-[-0.06em] text-[#f05a42]">26</p>
+                </div>
+                <span className="mt-1 h-10 w-10 rounded-full border border-white/20 lg:mt-5 lg:block" aria-hidden />
               </div>
-              <div className="font-mono text-[8px] font-semibold uppercase leading-5 tracking-[0.16em] text-white/55">
-                <p>Read</p><p>Build</p><p>Report</p><p>Remember</p>
-              </div>
+              <p className="max-w-[16ch] text-sm leading-5 text-white/60">A journal made inside the student branch.</p>
             </aside>
           </div>
 
@@ -130,42 +137,77 @@ export default function BlogClient({ blogs = [] }: { blogs?: BlogPost[] }) {
           </section>
         ) : null}
 
-        <section id="archive" className="mt-10 border-t border-slate-300 pt-8 sm:mt-14 sm:pt-10">
-          <div className="grid gap-6 border-b border-slate-300 pb-6 lg:grid-cols-[1fr_360px] lg:items-end">
+        <section id="archive" className="mt-12 border-t border-slate-300 pt-9 sm:mt-16 sm:pt-12">
+          <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-end">
             <div>
-              <div className="flex items-center gap-3"><span className="h-2 w-2 bg-[#f05a42]" /><p className="font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500">Archive / {String(visible.length).padStart(2, "0")}</p></div>
-              <h2 className="mt-2 text-4xl font-semibold tracking-[-0.04em] text-[#07101f] sm:text-5xl">All stories, no filler.</h2>
+              <div className="flex items-center gap-3">
+                <span className="h-2 w-2 rounded-full bg-[#f05a42]" />
+                <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500">Explore the journal</p>
+              </div>
+              <h2 className="mt-3 max-w-2xl text-4xl font-semibold leading-[0.98] tracking-[-0.045em] text-[#07101f] sm:text-5xl">More stories from the branch.</h2>
+              <p className="mt-4 max-w-xl text-sm leading-6 text-slate-500 sm:text-base">Browse event recaps, technical notes and member perspectives — a growing record of what we make and learn together.</p>
             </div>
-            <div className="relative w-full">
-              <Search className="pointer-events-none absolute left-0 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-              <input value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Search blog stories" placeholder="Search stories…" className="h-11 w-full border-b border-slate-400 bg-transparent pl-7 pr-8 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#f05a42]" />
-              {query ? <button type="button" aria-label="Clear story search" onClick={() => setQuery("")} className="absolute right-0 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-800"><X className="h-4 w-4" /></button> : null}
+            <div className="relative w-full rounded-full border border-slate-300 bg-[#fffdf7] px-5 shadow-[0_10px_30px_rgba(7,16,31,0.04)]">
+              <Search className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Search blog stories" placeholder="Search stories…" className="h-12 w-full bg-transparent pl-7 pr-8 text-sm outline-none placeholder:text-slate-400" />
+              {query ? <button type="button" aria-label="Clear story search" onClick={() => setQuery("")} className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-slate-400 transition hover:text-slate-800"><X className="h-4 w-4" /></button> : null}
             </div>
           </div>
 
-          <div className="flex gap-2 overflow-x-auto border-b border-slate-300 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Filter blog stories">
-            {filters.map((label, index) => {
+          <div className="mt-7 flex gap-2 overflow-x-auto border-y border-slate-300 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Filter blog stories">
+            {filters.map((label) => {
               const active = filter === label;
-              const inactiveTone = index % 3 === 1 ? "hover:border-ieee-blue hover:text-ieee-blue" : index % 3 === 2 ? "hover:border-[#f05a42] hover:text-[#d84532]" : "hover:border-slate-700 hover:text-slate-900";
-              return <button key={label} type="button" onClick={() => setFilter(label)} aria-pressed={active} className={`shrink-0 border px-3 py-2 font-mono text-[8px] font-semibold uppercase tracking-[0.16em] transition ${active ? "border-[#07101f] bg-[#07101f] text-white" : `border-slate-300 bg-[#fffdf7] text-slate-500 ${inactiveTone}`}`}>{label}</button>;
+              return <button key={label} type="button" onClick={() => setFilter(label)} aria-pressed={active} className={`shrink-0 rounded-full border px-4 py-2 font-mono text-[8px] font-semibold uppercase tracking-[0.16em] transition ${active ? "border-ieee-blue bg-ieee-blue text-white" : "border-slate-300 bg-[#fffdf7] text-slate-500 hover:border-ieee-blue/50 hover:text-ieee-blue"}`}>{label}</button>;
             })}
           </div>
 
-          <div data-testid="blog-archive" className="border-b border-slate-300">
-            {visible.map((post, index) => (
-              <article key={post.id} data-blog-archive-row className="group border-t border-slate-300 first:border-t-0">
-                <Link to={`/blog/${post.slug}`} className="relative grid gap-4 overflow-hidden py-5 transition-colors duration-300 group-hover:bg-[#fffdf7] sm:grid-cols-[72px_minmax(0,1fr)_150px_24px] sm:items-center sm:px-3 sm:py-6 lg:grid-cols-[94px_minmax(0,1fr)_190px_150px_24px]">
-                  <span aria-hidden className="absolute inset-y-0 left-0 w-0 bg-[#f05a42] transition-all duration-300 group-hover:w-1" />
-                  <div className="font-mono text-[8px] font-semibold uppercase tracking-[0.14em] text-slate-400"><span className="text-base font-black text-slate-300 transition group-hover:text-[#f05a42]">{String(index + 1).padStart(2, "0")}</span><span className="mt-1 block">{postDate(post)}</span></div>
-                  <div className="min-w-0"><p className="font-mono text-[8px] font-semibold uppercase tracking-[0.16em] text-ieee-blue">{post.topicLabel || post.category || "Story"}</p><h3 className="mt-1.5 text-xl font-semibold leading-tight tracking-[-0.03em] text-[#07101f] transition-transform duration-300 group-hover:translate-x-1 sm:text-2xl">{post.title}</h3></div>
-                  {post.coverUrl ? <div className="hidden h-20 overflow-hidden border border-slate-300 bg-slate-100 sm:block"><img src={post.coverUrl} alt="" loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-110 group-hover:saturate-[1.15]" /></div> : <div className="hidden h-20 border border-dashed border-slate-300 sm:block" />}
-                  <div className="hidden font-mono text-[8px] font-semibold uppercase leading-5 tracking-[0.13em] text-slate-400 lg:block"><span>{authorName(post)}</span><span className="block">{post.readMinutes || 1} min read</span></div>
-                  <ArrowUpRight className="hidden h-4 w-4 text-slate-300 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-[#f05a42] sm:block" />
-                </Link>
-              </article>
-            ))}
-            {visible.length === 0 ? <div className="py-16 text-center"><p className="font-mono text-[9px] font-semibold uppercase tracking-[0.17em] text-slate-400">No stories match this view</p><button type="button" onClick={() => { setFilter("All"); setQuery(""); }} className="mt-3 text-sm font-semibold text-ieee-blue hover:underline">Reset archive</button></div> : null}
+          <div data-testid="blog-archive" className="mt-8 grid gap-x-6 gap-y-10 md:grid-cols-2 lg:gap-x-8 lg:gap-y-12">
+            {archivePosts.map((post, index) => {
+              const wide = index === 0 && archivePosts.length > 2;
+              return (
+                <article key={post.id} data-blog-archive-row className={`group ${wide ? "md:col-span-2" : ""}`}>
+                  <Link to={`/blog/${post.slug}`} className={wide ? "grid overflow-hidden border border-slate-300 bg-[#fffdf7] transition-shadow duration-300 hover:shadow-[0_18px_50px_rgba(7,16,31,0.08)] md:grid-cols-[1.12fr_0.88fr]" : "block"}>
+                    <div className={`relative overflow-hidden bg-slate-100 ${wide ? "min-h-[300px] sm:min-h-[380px]" : "aspect-[4/3] border border-slate-300"}`}>
+                      {post.coverUrl ? <img src={post.coverUrl} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition duration-700 ease-out group-hover:scale-[1.035]" /> : null}
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#07101f]/35 via-transparent to-transparent" />
+                      <span className="absolute left-4 top-4 bg-[#f05a42] px-3 py-2 font-mono text-[8px] font-semibold uppercase tracking-[0.17em] text-white">{String(index + 1).padStart(2, "0")}</span>
+                    </div>
+
+                    <div className={wide ? "flex flex-col justify-between p-6 sm:p-8 lg:p-10" : "pt-5"}>
+                      <div>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 font-mono text-[8px] font-semibold uppercase tracking-[0.15em] text-slate-400">
+                          <span className="text-ieee-blue">{post.topicLabel || post.category || "Story"}</span>
+                          <span>{postDate(post)}</span>
+                          <span>{post.readMinutes || 1} min read</span>
+                        </div>
+                        <h3 className={`mt-3 font-semibold leading-[1.02] tracking-[-0.035em] text-[#07101f] transition-colors group-hover:text-ieee-blue ${wide ? "text-3xl sm:text-4xl lg:text-[2.65rem]" : "text-2xl sm:text-[1.75rem]"}`}>{post.title}</h3>
+                        {post.excerpt ? <p className={`mt-4 leading-6 text-slate-500 ${wide ? "max-w-md text-sm sm:text-base" : "line-clamp-2 text-sm"}`}>{post.excerpt}</p> : null}
+                      </div>
+                      <div className={`flex items-center justify-between gap-4 ${wide ? "mt-8 border-t border-slate-200 pt-5" : "mt-5"}`}>
+                        <span className="font-mono text-[8px] font-semibold uppercase tracking-[0.15em] text-slate-400">{authorName(post)}</span>
+                        <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition group-hover:border-ieee-blue group-hover:bg-ieee-blue group-hover:text-white"><ArrowUpRight className="h-4 w-4" /></span>
+                      </div>
+                    </div>
+                  </Link>
+                </article>
+              );
+            })}
+            {archivePosts.length === 0 ? <div className="col-span-full py-16 text-center"><p className="font-mono text-[9px] font-semibold uppercase tracking-[0.17em] text-slate-400">No stories match this view</p><button type="button" onClick={() => { setFilter("All"); setQuery(""); }} className="mt-3 text-sm font-semibold text-ieee-blue hover:underline">Reset journal</button></div> : null}
           </div>
+
+          {archivePosts.length > 0 ? (
+            <div className="mt-12 grid overflow-hidden border border-slate-300 bg-[#fffdf7] sm:grid-cols-[1fr_auto]">
+              <div className="p-6 sm:p-8">
+                <p className="font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-ieee-blue">Come back curious</p>
+                <p className="mt-2 max-w-xl text-2xl font-semibold leading-tight tracking-[-0.03em] text-[#07101f] sm:text-3xl">The journal grows with the branch.</p>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">New workshops, projects, people and ideas become the next stories here.</p>
+              </div>
+              <Link to="/events" className="flex min-h-[120px] items-center justify-between gap-8 bg-[#dfeefa] px-6 py-5 text-[#07101f] transition hover:bg-[#cfe6f7] sm:min-w-[300px] sm:px-8">
+                <div><span className="font-mono text-[8px] font-semibold uppercase tracking-[0.17em] text-ieee-blue">What’s happening next</span><span className="mt-2 block text-lg font-semibold">Explore events</span></div>
+                <ArrowRight className="h-5 w-5" />
+              </Link>
+            </div>
+          ) : null}
         </section>
       </main>
       <Footer />
