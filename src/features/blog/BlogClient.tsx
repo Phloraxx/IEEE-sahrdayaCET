@@ -7,6 +7,7 @@ import Navbar from "@/components/Navbar";
 import { formatDateShort } from "@/lib/dates";
 import type { BlogPost } from "@/types";
 
+
 function authorName(post: BlogPost) {
   return typeof post.author === "string" ? post.author : post.author?.name || "IEEE Sahrdaya";
 }
@@ -48,57 +49,78 @@ export default function BlogClient({ blogs = [] }: { blogs?: BlogPost[] }) {
   }, [blogs, filter, query]);
 
   return (
-    <div className="relative min-h-screen w-full overflow-x-hidden bg-[#faf9f6] text-slate-950 font-sans">
+    <div className="relative min-h-screen w-full overflow-x-hidden bg-[#f7f3ea] font-sans text-slate-950">
       <Navbar />
-      <div aria-hidden className="pointer-events-none fixed inset-0 opacity-[0.025] mix-blend-multiply" style={{ backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.45'/></svg>\")" }} />
+      <div aria-hidden className="pointer-events-none fixed inset-0 opacity-[0.045] mix-blend-multiply" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #00629b 0.7px, transparent 0.8px)", backgroundSize: "24px 24px" }} />
 
       <main className="relative z-10 mx-auto w-full max-w-[1320px] px-5 pb-24 pt-28 sm:px-6 sm:pt-32 lg:px-10">
-        <header data-testid="blog-journal-masthead" className="border-y border-slate-200 py-5 sm:py-6">
-          <div className="flex items-center justify-between gap-6 font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-            <h1 className="text-slate-600">IEEE Sahrdaya / Blog</h1>
+        <header data-testid="blog-journal-masthead" className="relative overflow-hidden border-y border-slate-300/80 bg-[#fffdf7]">
+          <div className="flex items-center justify-between gap-6 border-b border-slate-200 px-4 py-4 font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-400 sm:px-6">
+            <h1 className="text-slate-700">IEEE Sahrdaya / Blog</h1>
             <span>Journal · {new Date().getFullYear()}</span>
           </div>
-          <div className="mt-7 grid gap-6 xl:grid-cols-[1fr_340px] xl:items-end xl:gap-14">
-            <div>
+
+          <div className="grid lg:grid-cols-[minmax(0,1fr)_220px]">
+            <div className="relative px-4 py-8 sm:px-6 sm:py-10 lg:py-12">
+              <div className="absolute right-4 top-5 hidden rotate-[-4deg] border border-[#f05a42] bg-[#fff8f4] px-3 py-2 font-mono text-[8px] font-semibold uppercase tracking-[0.17em] text-[#d84532] md:block">Field notes / 01</div>
               <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.2em] text-ieee-blue">Stories from the branch</p>
-              <p className="mt-3 max-w-4xl text-[2.35rem] font-semibold leading-[0.98] tracking-[-0.045em] text-slate-950 sm:text-[3.25rem] lg:text-[3.65rem] xl:text-[4.15rem]">
-                Technical ideas, people, projects and moments worth remembering.
+              <p className="mt-4 max-w-[1030px] text-[2.45rem] font-semibold leading-[0.94] tracking-[-0.05em] text-[#07101f] sm:text-[3.5rem] lg:text-[4.5rem] xl:text-[5.05rem]">
+                Technical ideas, people,
+                <span className="block text-ieee-blue">projects and moments</span>
+                <span className="relative inline-block">worth remembering.<span aria-hidden className="absolute -bottom-1 left-0 h-[5px] w-[44%] -rotate-1 bg-[#f05a42] sm:h-[7px]" /></span>
+              </p>
+              <p className="mt-6 max-w-xl border-l-2 border-ieee-blue pl-4 text-sm leading-6 text-slate-500 sm:text-base">
+                A living record of what IEEE Sahrdaya builds, learns, hosts and shares—written from inside the student branch.
               </p>
             </div>
-            <p className="max-w-sm border-l border-slate-200 pl-5 text-sm leading-6 text-slate-500">
-              A living record of what IEEE Sahrdaya builds, learns, hosts and shares—written from inside the student branch.
-            </p>
+
+            <aside className="flex min-h-[180px] flex-col justify-between bg-[#07101f] p-5 text-white sm:p-6 lg:min-h-full" aria-label="Journal issue information">
+              <div>
+                <p className="font-mono text-[8px] font-semibold uppercase tracking-[0.2em] text-white/45">Issue / 01</p>
+                <p className="mt-2 text-5xl font-black leading-none tracking-[-0.06em] text-[#f05a42]">26</p>
+              </div>
+              <div className="font-mono text-[8px] font-semibold uppercase leading-5 tracking-[0.16em] text-white/55">
+                <p>Read</p><p>Build</p><p>Report</p><p>Remember</p>
+              </div>
+            </aside>
+          </div>
+
+          <div className="flex gap-8 overflow-hidden bg-ieee-blue px-4 py-3 font-mono text-[8px] font-semibold uppercase tracking-[0.2em] text-white sm:px-6">
+            <span className="shrink-0 text-[#ffd8ce]">Inside the branch</span>
+            <span className="shrink-0">Technical notes</span><span className="shrink-0">People</span><span className="shrink-0">Events</span><span className="shrink-0">Projects</span><span className="shrink-0">Ideas worth keeping</span>
           </div>
         </header>
 
         {lead ? (
-          <section data-testid="blog-lead-story" className="grid border-b border-slate-200 py-8 lg:grid-cols-[minmax(0,1.65fr)_minmax(280px,0.75fr)] lg:gap-10 lg:py-10">
-            <Link to={`/blog/${lead.slug}`} className="group relative block min-h-[310px] overflow-hidden bg-slate-100 sm:min-h-[430px] lg:min-h-[520px]">
-              {lead.coverUrl ? <img src={lead.coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-[1.025]" /> : null}
+          <section data-testid="blog-lead-story" className="relative mt-8 grid overflow-hidden border border-slate-300 bg-white lg:grid-cols-[minmax(0,1.48fr)_minmax(320px,0.72fr)]">
+            <Link to={`/blog/${lead.slug}`} className="group relative block min-h-[320px] overflow-hidden bg-slate-100 sm:min-h-[450px] lg:min-h-[610px]">
+              {lead.coverUrl ? <img src={lead.coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover transition duration-700 ease-out group-hover:scale-[1.035]" /> : null}
               <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />
-              <div className="absolute bottom-4 left-4 font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-white/85 sm:bottom-5 sm:left-5">Lead story / 01</div>
+              <div className="absolute left-0 top-0 bg-[#f05a42] px-4 py-3 font-mono text-[8px] font-bold uppercase tracking-[0.2em] text-white">Lead / 01</div>
+              <div className="absolute bottom-5 left-5 max-w-[260px] font-mono text-[8px] font-semibold uppercase leading-5 tracking-[0.18em] text-white/85">From IEEE Sahrdaya<br />{postDate(lead)}</div>
+              <span aria-hidden className="absolute bottom-0 right-0 h-16 w-16 bg-ieee-blue [clip-path:polygon(100%_0,100%_100%,0_100%)]" />
             </Link>
 
-            <div className="flex flex-col pt-6 lg:pt-0">
-              <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-ieee-blue">Latest / Lead story</p>
+            <div className="flex flex-col bg-[#07101f] p-5 text-white sm:p-7 lg:p-8">
+              <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-[#f05a42]">Latest / Lead story</p>
               <Link to={`/blog/${lead.slug}`} className="group mt-4">
-                <h2 className="text-3xl font-semibold leading-[1.02] tracking-[-0.035em] transition group-hover:text-ieee-blue sm:text-4xl">{lead.title}</h2>
-                {lead.excerpt ? <p className="mt-4 text-sm leading-6 text-slate-500 sm:text-base">{lead.excerpt}</p> : null}
+                <h2 className="text-3xl font-semibold leading-[0.98] tracking-[-0.04em] transition group-hover:text-[#83d6ff] sm:text-4xl lg:text-[2.85rem]">{lead.title}</h2>
+                {lead.excerpt ? <p className="mt-5 text-sm leading-6 text-white/60 sm:text-base">{lead.excerpt}</p> : null}
               </Link>
-              <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 font-mono text-[8px] font-semibold uppercase tracking-[0.15em] text-slate-400">
+              <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 font-mono text-[8px] font-semibold uppercase tracking-[0.15em] text-white/40">
                 <span>{lead.topicLabel || lead.category || "Story"}</span><span>{postDate(lead)}</span><span>{lead.readMinutes || 1} min</span>
               </div>
-              <Link to={`/blog/${lead.slug}`} className="mt-6 inline-flex items-center gap-2 self-start border-b border-slate-950 pb-1 font-mono text-[9px] font-semibold uppercase tracking-[0.17em] text-slate-950 transition hover:border-ieee-blue hover:text-ieee-blue">Read story <ArrowUpRight className="h-3.5 w-3.5" /></Link>
+              <Link to={`/blog/${lead.slug}`} className="mt-6 inline-flex items-center gap-2 self-start border-b border-[#f05a42] pb-1 font-mono text-[9px] font-semibold uppercase tracking-[0.17em] text-white transition hover:text-[#83d6ff]">Read story <ArrowUpRight className="h-3.5 w-3.5" /></Link>
 
-              <div className="mt-9 border-t border-slate-200 pt-5 lg:mt-auto">
-                <p className="mb-3 font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-400">Latest stories</p>
+              <div className="mt-9 border-t border-white/10 pt-5 lg:mt-auto">
+                <p className="mb-3 font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-white/35">Latest dispatches</p>
                 <ol>
                   {latest.map((post, index) => (
-                    <li key={post.id} className="border-t border-slate-200 first:border-t-0">
-                      <Link to={`/blog/${post.slug}`} className="group grid grid-cols-[28px_1fr_auto] gap-3 py-3.5">
-                        <span className="font-mono text-[8px] font-semibold text-slate-300">{String(index + 2).padStart(2, "0")}</span>
-                        <span className="text-sm font-semibold leading-snug text-slate-800 transition group-hover:text-ieee-blue">{post.title}</span>
-                        <ArrowRight className="mt-0.5 h-3.5 w-3.5 text-slate-300 transition group-hover:translate-x-1 group-hover:text-ieee-blue" />
+                    <li key={post.id} className="border-t border-white/10 first:border-t-0">
+                      <Link to={`/blog/${post.slug}`} className="group grid grid-cols-[30px_1fr_auto] gap-3 py-3.5">
+                        <span className="font-mono text-[8px] font-semibold text-[#f05a42]">{String(index + 2).padStart(2, "0")}</span>
+                        <span className="text-sm font-semibold leading-snug text-white/80 transition group-hover:translate-x-1 group-hover:text-white">{post.title}</span>
+                        <ArrowRight className="mt-0.5 h-3.5 w-3.5 text-white/25 transition group-hover:translate-x-1 group-hover:text-[#83d6ff]" />
                       </Link>
                     </li>
                   ))}
@@ -108,34 +130,37 @@ export default function BlogClient({ blogs = [] }: { blogs?: BlogPost[] }) {
           </section>
         ) : null}
 
-        <section id="archive" className="pt-8 sm:pt-10">
-          <div className="flex flex-col gap-5 border-b border-slate-200 pb-5 lg:flex-row lg:items-end lg:justify-between">
+        <section id="archive" className="mt-10 border-t border-slate-300 pt-8 sm:mt-14 sm:pt-10">
+          <div className="grid gap-6 border-b border-slate-300 pb-6 lg:grid-cols-[1fr_360px] lg:items-end">
             <div>
-              <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-400">Archive / {String(visible.length).padStart(2, "0")}</p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] sm:text-3xl">All stories</h2>
+              <div className="flex items-center gap-3"><span className="h-2 w-2 bg-[#f05a42]" /><p className="font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500">Archive / {String(visible.length).padStart(2, "0")}</p></div>
+              <h2 className="mt-2 text-4xl font-semibold tracking-[-0.04em] text-[#07101f] sm:text-5xl">All stories, no filler.</h2>
             </div>
-            <div className="relative w-full lg:max-w-sm">
-              <Search className="pointer-events-none absolute left-0 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Search blog stories" placeholder="Search stories…" className="h-11 w-full border-b border-slate-300 bg-transparent pl-7 pr-8 text-sm outline-none transition placeholder:text-slate-400 focus:border-ieee-blue" />
+            <div className="relative w-full">
+              <Search className="pointer-events-none absolute left-0 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+              <input value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Search blog stories" placeholder="Search stories…" className="h-11 w-full border-b border-slate-400 bg-transparent pl-7 pr-8 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#f05a42]" />
               {query ? <button type="button" aria-label="Clear story search" onClick={() => setQuery("")} className="absolute right-0 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-800"><X className="h-4 w-4" /></button> : null}
             </div>
           </div>
 
-          <div className="flex gap-2 overflow-x-auto border-b border-slate-200 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Filter blog stories">
-            {filters.map((label) => (
-              <button key={label} type="button" onClick={() => setFilter(label)} aria-pressed={filter === label} className={`shrink-0 border px-3 py-2 font-mono text-[8px] font-semibold uppercase tracking-[0.16em] transition ${filter === label ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 bg-transparent text-slate-500 hover:border-slate-400 hover:text-slate-900"}`}>{label}</button>
-            ))}
+          <div className="flex gap-2 overflow-x-auto border-b border-slate-300 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Filter blog stories">
+            {filters.map((label, index) => {
+              const active = filter === label;
+              const inactiveTone = index % 3 === 1 ? "hover:border-ieee-blue hover:text-ieee-blue" : index % 3 === 2 ? "hover:border-[#f05a42] hover:text-[#d84532]" : "hover:border-slate-700 hover:text-slate-900";
+              return <button key={label} type="button" onClick={() => setFilter(label)} aria-pressed={active} className={`shrink-0 border px-3 py-2 font-mono text-[8px] font-semibold uppercase tracking-[0.16em] transition ${active ? "border-[#07101f] bg-[#07101f] text-white" : `border-slate-300 bg-[#fffdf7] text-slate-500 ${inactiveTone}`}`}>{label}</button>;
+            })}
           </div>
 
-          <div data-testid="blog-archive" className="divide-y divide-slate-200">
+          <div data-testid="blog-archive" className="border-b border-slate-300">
             {visible.map((post, index) => (
-              <article key={post.id} data-blog-archive-row className="group">
-                <Link to={`/blog/${post.slug}`} className="grid gap-4 py-5 sm:grid-cols-[70px_minmax(0,1fr)_150px_24px] sm:items-center sm:py-6 lg:grid-cols-[90px_minmax(0,1fr)_190px_150px_24px]">
-                  <div className="font-mono text-[8px] font-semibold uppercase tracking-[0.14em] text-slate-400"><span>{String(index + 1).padStart(2, "0")}</span><span className="mt-1 block">{postDate(post)}</span></div>
-                  <div className="min-w-0"><p className="font-mono text-[8px] font-semibold uppercase tracking-[0.16em] text-ieee-blue">{post.topicLabel || post.category || "Story"}</p><h3 className="mt-1.5 text-xl font-semibold leading-tight tracking-[-0.025em] text-slate-900 transition group-hover:text-ieee-blue sm:text-2xl">{post.title}</h3></div>
-                  {post.coverUrl ? <div className="hidden h-20 overflow-hidden bg-slate-100 sm:block"><img src={post.coverUrl} alt="" loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" /></div> : <div className="hidden h-20 border border-dashed border-slate-200 sm:block" />}
+              <article key={post.id} data-blog-archive-row className="group border-t border-slate-300 first:border-t-0">
+                <Link to={`/blog/${post.slug}`} className="relative grid gap-4 overflow-hidden py-5 transition-colors duration-300 group-hover:bg-[#fffdf7] sm:grid-cols-[72px_minmax(0,1fr)_150px_24px] sm:items-center sm:px-3 sm:py-6 lg:grid-cols-[94px_minmax(0,1fr)_190px_150px_24px]">
+                  <span aria-hidden className="absolute inset-y-0 left-0 w-0 bg-[#f05a42] transition-all duration-300 group-hover:w-1" />
+                  <div className="font-mono text-[8px] font-semibold uppercase tracking-[0.14em] text-slate-400"><span className="text-base font-black text-slate-300 transition group-hover:text-[#f05a42]">{String(index + 1).padStart(2, "0")}</span><span className="mt-1 block">{postDate(post)}</span></div>
+                  <div className="min-w-0"><p className="font-mono text-[8px] font-semibold uppercase tracking-[0.16em] text-ieee-blue">{post.topicLabel || post.category || "Story"}</p><h3 className="mt-1.5 text-xl font-semibold leading-tight tracking-[-0.03em] text-[#07101f] transition-transform duration-300 group-hover:translate-x-1 sm:text-2xl">{post.title}</h3></div>
+                  {post.coverUrl ? <div className="hidden h-20 overflow-hidden border border-slate-300 bg-slate-100 sm:block"><img src={post.coverUrl} alt="" loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-110 group-hover:saturate-[1.15]" /></div> : <div className="hidden h-20 border border-dashed border-slate-300 sm:block" />}
                   <div className="hidden font-mono text-[8px] font-semibold uppercase leading-5 tracking-[0.13em] text-slate-400 lg:block"><span>{authorName(post)}</span><span className="block">{post.readMinutes || 1} min read</span></div>
-                  <ArrowUpRight className="hidden h-4 w-4 text-slate-300 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-ieee-blue sm:block" />
+                  <ArrowUpRight className="hidden h-4 w-4 text-slate-300 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-[#f05a42] sm:block" />
                 </Link>
               </article>
             ))}
