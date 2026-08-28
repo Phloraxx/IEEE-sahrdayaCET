@@ -87,7 +87,12 @@ cronAdd("registration-notification-outbox", "* * * * *", function () {
     } catch (err) {
       try {
         record.set("status", "failed")
-        record.set("nextAttemptAt", nh.nextRetryIso(record.getInt("attempts") || 1))
+        if (err && err.mailDeliveryPermanent === true) {
+          record.set("attempts", 8)
+          record.set("nextAttemptAt", "")
+        } else {
+          record.set("nextAttemptAt", nh.nextRetryIso(record.getInt("attempts") || 1))
+        }
         record.set("lastError", String(err && err.message ? err.message : err).slice(0, 3900))
         $app.saveNoValidate(record)
       } catch (persistErr) {

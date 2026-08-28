@@ -33,6 +33,7 @@ services:
         PB_VERSION: "0.39.9"
     restart: unless-stopped
     environment:
+      DEPLOY_ENV: ${DEPLOY_ENV:?DEPLOY_ENV is required}
       PB_ENCRYPTION_KEY: ${PB_ENCRYPTION_KEY:?PB_ENCRYPTION_KEY is required}
       RAZORPAY_API_BASE_URL: ${RAZORPAY_API_BASE_URL:-https://api.razorpay.com}
       RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
@@ -55,6 +56,9 @@ services:
       SMTP_TLS: ${SMTP_TLS:-}
       SMTP_AUTH_METHOD: ${SMTP_AUTH_METHOD:-}
       SMTP_LOCAL_NAME: ${SMTP_LOCAL_NAME:-}
+      MAIL_DELIVERY_MODE: ${MAIL_DELIVERY_MODE:-}
+      MAIL_ALLOWLIST: ${MAIL_ALLOWLIST:-}
+      MAIL_REDIRECT_TO: ${MAIL_REDIRECT_TO:-}
     volumes:
       - pb_data:/pb/pb_data
     expose:

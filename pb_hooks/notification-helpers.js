@@ -368,6 +368,7 @@ function sendOutbox(record) {
   var from = sender()
   if (!from.smtpEnabled) throw new Error("SMTP delivery is not configured")
   if (!from.address) throw new Error("Email sender is not configured")
+  var delivery = require(__hooks + "/mail-delivery.js").prepare(record.getString("recipient"), template)
 
   var reader = null
   var attachments = {}
@@ -380,10 +381,10 @@ function sendOutbox(record) {
 
   var message = new MailerMessage({
     from: from,
-    to: [{ address: record.getString("recipient") }],
-    subject: template.subject,
-    html: template.html,
-    text: template.text,
+    to: [{ address: delivery.recipient }],
+    subject: delivery.subject,
+    html: delivery.html,
+    text: delivery.text,
     attachments: attachments,
   })
 

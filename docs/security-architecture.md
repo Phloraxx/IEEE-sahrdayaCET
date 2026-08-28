@@ -103,6 +103,8 @@ Backend-only integration secrets belong in the PocketBase/Dokploy environment fo
 
 Current optional backend integrations include payment webhook verification, football-data.org, and SMTP.
 
+Mail delivery is centrally guarded inside PocketBase. Production preserves the existing live behavior when `MAIL_DELIVERY_MODE` is unset, while non-production fails closed. Staging/local delivery requires an explicit `allowlist` or `redirect` policy; `live` mode is rejected outside production. Redirected/test mail is visibly labelled, and policy-blocked outbox jobs terminate instead of retrying repeatedly.
+
 GitHub CD uses repository/environment secrets named:
 
 ```text
