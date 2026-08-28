@@ -341,9 +341,9 @@ Checkpoint: verify free, paid, closed, upcoming, past, banner/no-banner, venue/T
 
 ### Pass D — Society details
 
-Build the generic society-detail system and migrate normal society routes. Preserve WIE as bespoke.
+Implementation: generic society routes now use a shared profile system built around identity, mission, people, public activity, optional society-linked Blog stories, and previous/next directory navigation. WIE remains on its bespoke route. Public society payloads also reject hidden societies and exclude draft/deleted events rather than hiding them only after hydration.
 
-Checkpoint: test at least RAS, CSS, IES, a society with long naming, and a society with sparse optional data.
+Local verification covers all 12 generic public societies, RAS at 390/768/1024/1280/1440/1920, long-name EMBS/NPSS cases, event-empty NPSS, high-volume Computer Society activity, WIE route separation, and hidden Photonics returning 404. Staging verification remains the checkpoint for this pass.
 
 ### Pass E — Full Execom
 

@@ -51,7 +51,7 @@ export async function fetchSocietyData(slug: string): Promise<SocietyPageData> {
   const pb = createPublicPB();
   const society = await pb
     .collection("societies")
-    .getFirstListItem(`slug = ${escapeFilterValue(slug.toLowerCase())}`, {
+    .getFirstListItem(`slug = ${escapeFilterValue(slug.toLowerCase())} && isHidden = false`, {
       fields: "id,name,slug,bio,chairs,defaultWhatsappLink,logo,banner",
     })
     .catch(() => null);
@@ -63,7 +63,7 @@ export async function fetchSocietyData(slug: string): Promise<SocietyPageData> {
       .collection("events")
       .getFullList({
         batch: 100,
-        filter: `society = ${escapeFilterValue(society.id)}`,
+        filter: `society = ${escapeFilterValue(society.id)} && (status = "published" || status = "completed") && isDeleted != true`,
         sort: "-date",
         fields:
           "id,slug,title,description,date,endDate,timeTbc,registrationStart,registrationDeadline,venue,price,status,tags,banner,externalFormUrl,externalLink,contactEmail,contactPhone",
