@@ -12,11 +12,17 @@ test.describe('blog journal', () => {
       await expect(page.getByTestId('blog-lead-story')).toBeVisible()
     } else {
       await expect(page.getByTestId('blog-lead-story')).toHaveCount(0)
-      await expect(page.getByText('No stories match this view')).toBeVisible()
+      await expect(page.getByText('NO MATCHING SIGNALS')).toBeVisible()
     }
     await expect(page.getByText('THE BLOG', { exact: true })).toHaveCount(0)
     await expect(page.getByText('FIELD NOTES', { exact: true })).toHaveCount(0)
-    if ((await rows.count()) > 1) await expect(page.getByText('More stories from the branch.')).toBeVisible()
+    await expect(page.getByText('Browse the archive.')).toBeVisible()
+    await expect(page.getByRole('button', { name: /Grid/i })).toHaveAttribute('aria-pressed', 'true')
+    if ((await rows.count()) > 1) {
+      await page.getByRole('button', { name: /Index/i }).click()
+      await expect(page.getByRole('button', { name: /Index/i })).toHaveAttribute('aria-pressed', 'true')
+      await expect(page.locator('[data-blog-archive-row]')).toHaveCount(await rows.count())
+    }
   })
 
   test('archive search and article reading system remain usable', async ({ page }) => {
