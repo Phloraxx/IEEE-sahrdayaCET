@@ -8,7 +8,7 @@ import { TechnicalDetails } from "@/components/TechnicalDetails";
 import { StarsBackground } from "@/components/ui/stars-background";
 import { blogHtmlToPlainText } from "@/lib/blog-content";
 import type { Society } from "@/types";
-import { SocietiesEditorialHero } from "./SocietiesEditorialHero";
+import { SocietiesFieldHero } from "./SocietiesFieldHero";
 
 export interface SocietyActivitySignal {
   eventCount: number;
@@ -475,7 +475,7 @@ export default function SocietiesClient({ societies, activityBySociety, upcoming
               <span>Community directory · 2026</span>
             </div>
 
-            <SocietiesEditorialHero communityCount={societies.length} />
+            <SocietiesFieldHero communityCount={societies.length} />
           </motion.section>
 
           <div id="society-directory" data-testid="society-directory-controls" className="sticky top-20 z-20 scroll-mt-24 bg-white/94 backdrop-blur-xl">
