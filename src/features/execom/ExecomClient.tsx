@@ -153,7 +153,7 @@ function MemberDrawer({
     <motion.div
       role="dialog"
       aria-modal="true"
-      aria-label={`${member.name} profile`}
+      aria-label={member.name}
       className="fixed inset-0 z-[100] bg-[#06111e]/55 backdrop-blur-sm"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -248,7 +248,7 @@ function GridMemberCard({
         type="button"
         onClick={onOpen}
         className="block w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-ieee-blue focus-visible:ring-offset-4"
-        aria-label={`Open profile for ${member.name}`}
+        aria-label={`View details for ${member.name}`}
       >
         <div className="relative aspect-[3/4] overflow-hidden bg-[#edf1f3]">
           <MemberPortrait member={member} className="h-full w-full transition duration-700 group-hover:scale-[1.025]" eager={index < 8} />
@@ -297,6 +297,7 @@ function RosterView({
             onMouseEnter={() => setPreviewId(member.id)}
             onFocus={() => setPreviewId(member.id)}
             onClick={() => onOpen(member)}
+            aria-label={`View details for ${member.name}`}
             className="group grid w-full grid-cols-[60px_minmax(0,1fr)_18px] items-center gap-3 border-b border-black/10 py-3 text-left outline-none transition hover:bg-ieee-blue/[0.035] focus-visible:bg-ieee-blue/[0.055] md:grid-cols-[54px_minmax(180px,1.1fr)_minmax(150px,0.9fr)_minmax(120px,0.7fr)_90px] md:gap-4 md:py-4"
           >
             <div className="md:hidden"><MemberPortrait member={member} className="h-[72px] w-[54px]" /></div>
@@ -315,7 +316,7 @@ function RosterView({
 
       {preview && (
         <aside className="sticky top-28 hidden h-fit lg:block">
-          <button type="button" onClick={() => onOpen(preview)} className="group block w-full text-left">
+          <button type="button" onClick={() => onOpen(preview)} aria-label={`View details for ${preview.name}`} className="group block w-full text-left">
             <div className="relative aspect-[3/4] overflow-hidden bg-[#edf1f3]">
               <MemberPortrait member={preview} className="h-full w-full transition duration-500 group-hover:scale-[1.02]" eager />
               <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/60 to-transparent" />
@@ -328,6 +329,18 @@ function RosterView({
               <p className="mt-2 text-xs text-black/42">{sectionLongLabel(preview.sectionId)}</p>
             </div>
           </button>
+          {preview.portfolio && (
+            <a
+              href={preview.portfolio}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`Visit ${preview.name}'s portfolio`}
+              className="group flex items-center justify-between border-b border-black/10 py-3 font-mono text-[8px] font-semibold uppercase tracking-[0.14em] text-black/42 transition hover:text-ieee-blue"
+            >
+              <span>Portfolio</span>
+              <ArrowUpRight className="h-3.5 w-3.5 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+            </a>
+          )}
         </aside>
       )}
     </div>

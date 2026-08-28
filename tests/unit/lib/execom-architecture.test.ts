@@ -18,7 +18,9 @@ describe("execom architecture invariants", () => {
     expect(client).not.toContain("PORTFOLIO_BY_MEMBER_NAME");
     expect(client).not.toContain("midhunpm.in");
     expect(client).toContain("href={member.portfolio}");
-    expect(client).toContain("Open profile for ${member.name}");
+    expect(client).toContain("View details for ${member.name}");
+    expect(client).toContain("href={preview.portfolio}");
+    expect(client).toContain("Visit ${preview.name}'s portfolio");
     expect(reader).toContain("linkedin,instagram,portfolio");
     expect(reader).toContain("portfolio: record.portfolio");
     expect(client).toContain("...Array.from(remaining).sort()");
