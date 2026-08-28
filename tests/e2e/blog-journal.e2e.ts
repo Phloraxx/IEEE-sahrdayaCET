@@ -15,6 +15,8 @@ test.describe('blog journal', () => {
       await expect(page.getByText('No stories match this view')).toBeVisible()
     }
     await expect(page.getByText('THE BLOG', { exact: true })).toHaveCount(0)
+    await expect(page.getByText('FIELD NOTES', { exact: true })).toHaveCount(0)
+    if ((await rows.count()) > 1) await expect(page.getByText('More stories from the branch.')).toBeVisible()
   })
 
   test('archive search and article reading system remain usable', async ({ page }) => {
