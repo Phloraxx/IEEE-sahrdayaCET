@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Link } from "react-router";
 import {
@@ -136,16 +136,45 @@ function MemberDrawer({
   member: ExecomMemberDoc;
   onClose: () => void;
 }) {
+  const reduceMotion = Boolean(useReducedMotion());
+  const panelRef = useRef<HTMLElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+
   useEffect(() => {
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusFrame = requestAnimationFrame(() => closeButtonRef.current?.focus());
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab" || !panelRef.current) return;
+      const focusable = Array.from(
+        panelRef.current.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => element.offsetParent !== null);
+      if (!focusable.length) return;
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || !panelRef.current.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
-    const previous = document.body.style.overflow;
+    const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     window.addEventListener("keydown", onKeyDown);
     return () => {
-      document.body.style.overflow = previous;
+      cancelAnimationFrame(focusFrame);
+      document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", onKeyDown);
+      previousFocus?.focus();
     };
   }, [onClose]);
 
@@ -155,17 +184,18 @@ function MemberDrawer({
       aria-modal="true"
       aria-label={member.name}
       className="fixed inset-0 z-[100] bg-[#06111e]/55 backdrop-blur-sm"
-      initial={{ opacity: 0 }}
+      initial={reduceMotion ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      exit={reduceMotion ? undefined : { opacity: 0 }}
       onMouseDown={onClose}
     >
       <motion.aside
+        ref={panelRef}
         className="absolute inset-y-0 right-0 flex w-full max-w-[520px] flex-col overflow-y-auto bg-[#f7f8f8] shadow-2xl"
-        initial={{ x: "100%" }}
+        initial={reduceMotion ? false : { x: "100%" }}
         animate={{ x: 0 }}
-        exit={{ x: "100%" }}
-        transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+        exit={reduceMotion ? undefined : { x: "100%" }}
+        transition={{ duration: reduceMotion ? 0 : 0.34, ease: [0.22, 1, 0.36, 1] }}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-black/10 px-5 py-4 sm:px-7">
@@ -173,6 +203,7 @@ function MemberDrawer({
             Execom / {sectionLabel(member.sectionId)} / {String(member.slNo).padStart(2, "0")}
           </p>
           <button
+            ref={closeButtonRef}
             type="button"
             onClick={onClose}
             aria-label="Close member profile"
@@ -243,29 +274,41 @@ function GridMemberCard({
   onOpen: () => void;
 }) {
   return (
-    <article data-execom-member className="group min-w-0 border-t border-black/10 pt-3">
+    <article data-execom-member className="group min-w-0">
       <button
         type="button"
         onClick={onOpen}
         className="block w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-ieee-blue focus-visible:ring-offset-4"
         aria-label={`View details for ${member.name}`}
       >
-        <div className="relative aspect-[3/4] overflow-hidden bg-[#edf1f3]">
+        <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-[#edf1f3]">
           <MemberPortrait member={member} className="h-full w-full transition duration-700 group-hover:scale-[1.025]" eager={index < 8} />
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/55 to-transparent opacity-0 transition duration-300 group-hover:opacity-100" />
-          <span className="absolute left-3 top-3 bg-white/90 px-2 py-1 font-mono text-[7px] font-bold uppercase tracking-[0.15em] text-black/55 backdrop-blur-sm">
+          <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 font-mono text-[7px] font-bold uppercase tracking-[0.15em] text-black/55 backdrop-blur-sm">
             {sectionLabel(member.sectionId)}
           </span>
           <span className="absolute bottom-3 right-3 font-pixel text-3xl text-white opacity-0 transition duration-300 group-hover:opacity-60">
             {String(member.slNo).padStart(2, "0")}
           </span>
         </div>
-        <div className="pt-3">
+        <div className="pt-3.5">
           <p className="font-mono text-[7px] font-semibold uppercase tracking-[0.16em] text-ieee-blue">{member.position || "Member"}</p>
-          <h3 className="mt-1.5 text-base font-bold leading-tight tracking-[-0.025em] text-gray-950 transition group-hover:text-ieee-blue sm:text-lg">{member.name}</h3>
-          <p className="mt-1 truncate text-[11px] text-black/42">{[member.department, member.semester].filter(Boolean).join(" · ") || sectionLongLabel(member.sectionId)}</p>
+          <h3 className="mt-1.5 text-[15px] font-semibold leading-snug text-gray-900 transition group-hover:text-ieee-blue sm:text-base">{member.name}</h3>
+          <p className="mt-1 truncate text-[13px] text-gray-500">{[member.department, member.semester].filter(Boolean).join(" · ") || sectionLongLabel(member.sectionId)}</p>
         </div>
       </button>
+      {member.portfolio && (
+        <a
+          href={member.portfolio}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`Visit ${member.name}'s portfolio`}
+          className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-ieee-blue underline-offset-4 transition hover:underline"
+        >
+          <Globe2 className="h-3.5 w-3.5" />
+          Portfolio
+        </a>
+      )}
     </article>
   );
 }
@@ -350,7 +393,7 @@ function RosterView({
 const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
   const reduceMotion = Boolean(useReducedMotion());
   const [activeFilter, setActiveFilter] = useState("all");
-  const [viewMode, setViewMode] = useState<ViewMode>("roster");
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [query, setQuery] = useState("");
   const [selectedMember, setSelectedMember] = useState<ExecomMemberDoc | null>(null);
 
@@ -418,7 +461,7 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
         <header data-testid="execom-directory-header" className="border-t border-black/10 pt-5 sm:pt-7">
           <div className="flex flex-wrap items-center justify-between gap-4 font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-black/38">
             <h1 className="text-black/55">IEEE Sahrdaya / Execom</h1>
-            <span>Roster / 2026</span>
+            <span>Directory / 2026</span>
           </div>
 
           <div className="mt-8 grid gap-8 border-b border-black/10 pb-9 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end lg:gap-16 sm:pb-11">
@@ -496,7 +539,7 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
                   <button type="button" onClick={() => { setQuery(""); setActiveFilter("all"); }} className="mt-4 font-mono text-[8px] font-semibold uppercase tracking-[0.16em] text-ieee-blue">Reset directory</button>
                 </div>
               ) : viewMode === "grid" ? (
-                <div data-testid="execom-grid" className="grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 sm:gap-x-5 lg:grid-cols-4 xl:grid-cols-5 xl:gap-x-6">
+                <div data-testid="execom-grid" className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4 lg:gap-x-7">
                   {visibleMembers.map((member, index) => <GridMemberCard key={member.id} member={member} index={index} onOpen={() => setSelectedMember(member)} />)}
                 </div>
               ) : (

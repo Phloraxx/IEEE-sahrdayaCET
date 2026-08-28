@@ -347,11 +347,13 @@ Implementation status: **complete and verified on staging.** Verification covers
 
 ### Pass E — Full Execom
 
-Implementation status: **in local release gate.** The page now uses the Home/Blog technical visual language, opens as a searchable `ROSTER` across all public Execom records, keeps `GRID` as the visual browse mode, adds `ALL` plus every live PocketBase group filter with counts, and uses a technical member detail drawer instead of the old rounded modal. The current real dataset is 91 people / 21 groups / 13 society groups / 2026.
+Implementation status: **complete and verified on staging; follow-up preference applied locally.** The page uses the Home/Blog technical visual language, keeps all 91 public Execom records searchable, adds `ALL` plus every live PocketBase group filter with counts, and uses a technical member detail drawer for optional extended details. After user review, `GRID` is again the default so portraits, names and roles are visible immediately; `ROSTER` remains an optional dense index. The deployed dataset is 91 people / 21 groups / 13 society groups / 2026.
 
-Checkpoint: full unit/build suite, clean-room-safe Execom Playwright, all six breakpoints, keyboard/filter/search behaviour, complete role/name visibility, then deployed staging inspection.
+Checkpoint: passed — full unit/build suite, clean-room portfolio SSR/browser smoke, Execom Playwright, six-breakpoint matrix, keyboard/filter/search/drawer behavior, deployed desktop/mobile Roster and Grid inspection.
 
 ### Pass F — shared polish
+
+Implementation status: **in release gate.** Shared public motion now honors `prefers-reduced-motion` beyond CSS: decorative star/shooting-star loops stop, Home motion-heavy pieces become static/manual, Navbar and technical brand-anchor transitions become instant, and the Full Execom detail drawer now traps focus and restores it to the exact opener. Permanent browser and architecture regressions cover these behaviors.
 
 Apply only after the major pages are approved:
 - shared page spacing;

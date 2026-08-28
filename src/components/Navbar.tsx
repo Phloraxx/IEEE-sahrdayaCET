@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { type NavItem } from "@/types";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useLocation, Link } from "react-router";
 import { useAuth } from "@/lib/auth-context";
 import { getWorkspaceMe } from "@/lib/data/workspace.client";
@@ -29,6 +29,7 @@ interface NavbarProps {
 }
 
 export default function Navbar({ fifaActive, mobileAlign = "center" }: NavbarProps) {
+  const reduceMotion = Boolean(useReducedMotion());
   const [isVisible, setIsVisible] = useState(true);
   const [activeSection, setActiveSection] = useState("/");
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -239,9 +240,9 @@ export default function Navbar({ fifaActive, mobileAlign = "center" }: NavbarPro
       </button>
 
       <motion.div
-        initial={{ y: -100, opacity: 0 }}
+        initial={reduceMotion ? false : { y: -100, opacity: 0 }}
         animate={{ y: isVisible ? 0 : -100, opacity: isVisible ? 1 : 0 }}
-        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: reduceMotion ? 0 : 0.5, ease: [0.16, 1, 0.3, 1] }}
         className="fixed top-6 left-0 right-0 z-[100] hidden md:flex justify-center pointer-events-none px-4"
       >
         <div
@@ -358,8 +359,9 @@ export default function Navbar({ fifaActive, mobileAlign = "center" }: NavbarPro
 
       {mobileMenuOpen && (
         <motion.div
-          initial={{ opacity: 0 }}
+          initial={reduceMotion ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
+          transition={{ duration: reduceMotion ? 0 : 0.2 }}
           className={`md:hidden fixed inset-0 z-[100] flex flex-col items-center justify-center gap-8 px-8 ${
             inFifa ? "bg-[#0a0a0b]/95 backdrop-blur-xl text-white" : "bg-white/95 backdrop-blur-xl"
           }`}

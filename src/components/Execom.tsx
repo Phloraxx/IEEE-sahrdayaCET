@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { Link } from "react-router";
 import { ArrowUpRight, Globe2, Mail, Phone } from "lucide-react";
 import { HomeSectionHeading } from "@/components/home/HomeSectionHeading";
@@ -90,13 +90,15 @@ const execomMembers: Member[] = [
 
 /* ── Marquee Text ── */
 const MarqueeText: React.FC<{ text: string }> = ({ text }) => {
+  const reduceMotion = Boolean(useReducedMotion());
   const repeated = `${text} ~ `.repeat(12);
+  const displayText = reduceMotion ? text : repeated;
   return (
     <div className="overflow-hidden whitespace-nowrap">
       <motion.div
         className="inline-block"
-        animate={{ x: ["0%", "-50%"] }}
-        transition={{
+        animate={reduceMotion ? undefined : { x: ["0%", "-50%"] }}
+        transition={reduceMotion ? undefined : {
           x: {
             repeat: Infinity,
             repeatType: "loop",
@@ -106,7 +108,7 @@ const MarqueeText: React.FC<{ text: string }> = ({ text }) => {
         }}
       >
         <span className="text-[10px] md:text-xs font-mono tracking-[0.3em] text-ieee-blue/60 uppercase">
-          {repeated}
+          {displayText}
         </span>
       </motion.div>
     </div>
@@ -120,14 +122,15 @@ const MemberCard: React.FC<{ member: Member; index: number }> = ({
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [imgError, setImgError] = useState(false);
+  const reduceMotion = Boolean(useReducedMotion());
 
   return (
     <motion.div
       className="flex flex-col group cursor-pointer"
-      initial={{ opacity: 0, y: 60 }}
-      whileInView={{ opacity: 1, y: 0 }}
+      initial={reduceMotion ? false : { opacity: 0, y: 60 }}
+      whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-50px" }}
-      transition={{
+      transition={reduceMotion ? { duration: 0 } : {
         duration: 0.7,
         delay: index * 0.12,
         ease: [0.2, 0.65, 0.3, 0.9],
@@ -170,8 +173,10 @@ const MemberCard: React.FC<{ member: Member; index: number }> = ({
         <motion.div
           className="absolute bottom-4 left-4 right-4 z-20 flex items-center justify-between"
           initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: isHovered ? 1 : 0, y: isHovered ? 0 : 20 }}
-          transition={{ duration: 0.3 }}
+          animate={reduceMotion
+            ? { opacity: isHovered ? 1 : 0, y: 0 }
+            : { opacity: isHovered ? 1 : 0, y: isHovered ? 0 : 20 }}
+          transition={{ duration: reduceMotion ? 0 : 0.3 }}
         >
           <div className="flex gap-2">
             <a
@@ -238,6 +243,7 @@ const GAP = 30;
 const ITEM_SIZE = CARD_WIDTH + GAP;
 
 const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
+  const reduceMotion = Boolean(useReducedMotion());
   const trackRef = useRef<HTMLDivElement>(null);
   const offsetRef = useRef(0);
   const rafRef = useRef<number>(0);
@@ -255,7 +261,7 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
   });
 
   const animate = useCallback(() => {
-    if (!trackRef.current) return;
+    if (reduceMotion || !trackRef.current) return;
 
     if (!document.hidden) {
       if (!physics.current.isDragging) {
@@ -286,14 +292,16 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
     }
 
     rafRef.current = requestAnimationFrame(animate);
-  }, [isInView, hasStartedScrolling, members.length]);
+  }, [isInView, hasStartedScrolling, members.length, reduceMotion]);
 
   useEffect(() => {
+    if (reduceMotion) return;
     rafRef.current = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [animate]);
+  }, [animate, reduceMotion]);
 
   useEffect(() => {
+    if (reduceMotion) return;
     const element = sectionRef.current;
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -313,9 +321,10 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
         observer.unobserve(element);
       }
     };
-  }, []);
+  }, [reduceMotion]);
 
   useEffect(() => {
+    if (reduceMotion) return;
     if (isInView && !hasStartedScrolling) {
       const timer = setTimeout(() => {
         setHasStartedScrolling(true);
@@ -325,7 +334,7 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
     } else if (!isInView) {
       setHasStartedScrolling(false);
     }
-  }, [isInView, hasStartedScrolling]);
+  }, [isInView, hasStartedScrolling, reduceMotion]);
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
@@ -365,6 +374,20 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
 
   if (!members.length) return null;
 
+  if (reduceMotion) {
+    return (
+      <div ref={sectionRef} data-home-execom-static className="w-full overflow-x-auto py-4 [scrollbar-width:thin]">
+        <div className="flex min-w-max" style={{ gap: `${GAP}px` }}>
+          {members.map((member, index) => (
+            <div key={member.name} className="shrink-0" style={{ width: `${CARD_WIDTH}px` }}>
+              <MemberCard member={member} index={index} />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div ref={sectionRef} className="relative w-full select-none">
       <div
@@ -377,6 +400,7 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
       >
         <div
           ref={trackRef}
+          data-home-execom-track
           className="flex will-change-transform"
           style={{ gap: `${GAP}px` }}
         >
@@ -397,6 +421,7 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
 
 /* ── Main Execom Section ── */
 export const Execom: React.FC<{ societyCount: number; rosterCount: number; upcomingCount: number }> = ({ societyCount, rosterCount, upcomingCount }) => {
+  const reduceMotion = Boolean(useReducedMotion());
   const membersList = execomMembers;
 
   return (
@@ -419,10 +444,10 @@ export const Execom: React.FC<{ societyCount: number; rosterCount: number; upcom
 
         <motion.div
           className="mt-10 mb-12 grid grid-cols-3 border-y border-gray-200 md:mb-14"
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
+          initial={reduceMotion ? false : { opacity: 0 }}
+          whileInView={reduceMotion ? undefined : { opacity: 1 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: reduceMotion ? 0 : 0.6 }}
         >
           {[
             ["Roster", rosterCount],
@@ -442,10 +467,10 @@ export const Execom: React.FC<{ societyCount: number; rosterCount: number; upcom
         {/* CTA */}
         <motion.div
           className="mt-12 md:mt-16 flex flex-col md:flex-row items-center justify-center gap-4 text-center"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
+          initial={reduceMotion ? false : { opacity: 0, y: 20 }}
+          whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: reduceMotion ? 0 : 0.6 }}
         >
           <div className="h-px w-16 bg-gray-300 hidden md:block" />
           <p className="font-mono text-xs text-gray-400 tracking-[0.2em] uppercase">
