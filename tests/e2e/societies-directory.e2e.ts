@@ -1,27 +1,22 @@
 import { expect, test } from '@playwright/test'
 
 test.describe('societies directory', () => {
-  test('hero is a single interactive IEEE identity field with clear corner marks', async ({ page }) => {
+  test('page opens with a shallow editorial entrance and visible directory', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto('/societies', { waitUntil: 'networkidle' })
 
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('IEEE Sahrdaya Societies')
-    const hero = page.getByTestId('society-field-hero')
-    await expect(hero).toBeVisible()
-    await expect(hero.getByRole('img', { name: 'Deconstructed IEEE identity mark' })).toBeVisible()
-    await expect(hero.locator('img')).toHaveCount(0)
-    await expect(hero.locator('[data-society-hero-word]')).toHaveCount(0)
-    await expect(hero.locator('[data-society-hero-strip]')).toHaveCount(0)
-    await expect(hero).toContainText('communities · one student branch')
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('IEEE Sahrdaya / Societies')
+    const entrance = page.getByTestId('society-antihero')
+    await expect(entrance).toBeVisible()
+    await expect(entrance).toContainText('A home for the communities that build beyond the classroom.')
+    await expect(entrance.getByLabel('Branch activity summary')).toBeVisible()
+    await expect(entrance.locator('img')).toHaveCount(0)
+    await expect(page.getByTestId('society-field-hero')).toHaveCount(0)
 
-    const coordinates = page.getByTestId('society-field-coordinates')
-    const initialCoordinates = await coordinates.innerText()
-    const box = await hero.boundingBox()
-    expect(box).not.toBeNull()
-    if (box) {
-      await page.mouse.move(box.x + box.width * 0.82, box.y + box.height * 0.28)
-      await expect(coordinates).not.toHaveText(initialCoordinates)
-    }
+    const firstCard = page.locator('[data-society-id]').first()
+    const cardBox = await firstCard.boundingBox()
+    expect(cardBox).not.toBeNull()
+    expect(cardBox?.y ?? 9999).toBeLessThan(900)
 
     await expect(page.locator('img[alt="IEEE SB Logo"]')).toBeVisible()
     await expect(page.locator('img[alt="Sahrdaya Logo"]')).toBeVisible()
@@ -66,9 +61,9 @@ test.describe('societies directory', () => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/societies', { waitUntil: 'networkidle' })
     await expect(page.getByTestId('society-network')).toBeHidden()
-    await expect(page.getByTestId('society-field-hero')).toBeHidden()
-    await expect(page.getByTestId('society-field-mobile')).toBeVisible()
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('IEEE Sahrdaya Societies')
+    await expect(page.getByTestId('society-antihero')).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('IEEE Sahrdaya / Societies')
+    await expect(page.locator('#society-search')).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390)
   })
 })

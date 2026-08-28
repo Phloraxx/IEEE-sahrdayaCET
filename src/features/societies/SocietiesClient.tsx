@@ -8,7 +8,6 @@ import { TechnicalDetails } from "@/components/TechnicalDetails";
 import { StarsBackground } from "@/components/ui/stars-background";
 import { blogHtmlToPlainText } from "@/lib/blog-content";
 import type { Society } from "@/types";
-import { SocietiesFieldHero } from "./SocietiesFieldHero";
 
 export interface SocietyActivitySignal {
   eventCount: number;
@@ -465,17 +464,46 @@ export default function SocietiesClient({ societies, activityBySociety, upcoming
       <main className="relative z-10 px-5 pb-0 pt-28 sm:px-6 sm:pt-32">
         <div className="mx-auto max-w-7xl">
           <motion.section
-            initial={reduceMotion ? false : { opacity: 0, y: 18 }}
+            data-testid="society-antihero"
+            initial={reduceMotion ? false : { opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-            className="border-b border-slate-200 pb-12 sm:pb-16 lg:pb-14"
+            transition={{ duration: 0.48, ease: [0.22, 1, 0.36, 1] }}
+            className="border-b border-slate-200 pb-7 sm:pb-8 lg:pb-9"
           >
-            <div className="flex items-center justify-between gap-6 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-              <span>IEEE Sahrdaya / Societies</span>
-              <span>Community directory · 2026</span>
+            <div className="flex items-center justify-between gap-6 font-mono text-[9px] font-semibold uppercase tracking-[0.19em] text-slate-400 sm:text-[10px]">
+              <h1 className="font-mono text-[9px] font-semibold uppercase tracking-[0.19em] text-slate-500 sm:text-[10px]">IEEE Sahrdaya / Societies</h1>
+              <span>Directory · 2026</span>
             </div>
 
-            <SocietiesFieldHero communityCount={societies.length} />
+            <div className="mt-7 grid gap-7 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end lg:gap-12">
+              <div>
+                <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.2em] text-ieee-blue">Community directory / {String(societies.length).padStart(2, "0")}</p>
+                <p className="mt-4 max-w-4xl text-[2.15rem] font-semibold leading-[0.98] tracking-[-0.045em] text-slate-950 sm:text-[2.8rem] lg:text-[3.55rem]">
+                  A home for the communities that build beyond the classroom.
+                </p>
+              </div>
+
+              <aside className="border-l border-slate-200 pl-5 font-mono text-[8px] font-semibold uppercase leading-5 tracking-[0.16em] text-slate-400 sm:pl-6" aria-label="Branch activity summary">
+                <div className="flex items-center gap-2 text-slate-950">
+                  <span className={`h-1.5 w-1.5 rounded-full ${upcomingEventCount > 0 ? "bg-ieee-blue" : "bg-slate-300"}`} />
+                  Branch signal
+                </div>
+                <p className="mt-3">{String(upcomingEventCount).padStart(2, "0")} upcoming events</p>
+                <p>{String(activeCommunityCount).padStart(2, "0")} active communities</p>
+                {upcomingEvents[0] ? (
+                  <p className="mt-3 border-t border-slate-200 pt-3 text-slate-600">
+                    Next / {formatSignalDate(upcomingEvents[0].date)} · {upcomingEvents[0].title}
+                  </p>
+                ) : (
+                  <p className="mt-3 border-t border-slate-200 pt-3 text-slate-500">No upcoming events published</p>
+                )}
+              </aside>
+            </div>
+
+            <div className="mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4 font-mono text-[8px] font-semibold uppercase tracking-[0.17em] text-slate-400 sm:text-[9px]">
+              <span>{String(societies.length).padStart(2, "0")} communities · Thrissur · Kerala</span>
+              <span className="text-slate-600">Search · switch views · jump by index ↓</span>
+            </div>
           </motion.section>
 
           <div id="society-directory" data-testid="society-directory-controls" className="sticky top-20 z-20 scroll-mt-24 bg-white/94 backdrop-blur-xl">
