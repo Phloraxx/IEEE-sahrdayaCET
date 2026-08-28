@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ArrowLeft, ArrowRight, ArrowUpRight, Grid3X3, List, Search, X } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
+import { ArrowUpRight, Grid3X3, List, Search, X } from "lucide-react";
 import { Link } from "react-router";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
@@ -8,6 +8,7 @@ import { TechnicalDetails } from "@/components/TechnicalDetails";
 import { StarsBackground } from "@/components/ui/stars-background";
 import { blogHtmlToPlainText } from "@/lib/blog-content";
 import type { Society } from "@/types";
+import { SocietiesEditorialHero } from "./SocietiesEditorialHero";
 
 export interface SocietyActivitySignal {
   eventCount: number;
@@ -304,18 +305,7 @@ export default function SocietiesClient({ societies, activityBySociety, upcoming
   const [hoveredSocietyId, setHoveredSocietyId] = useState<string | null>(null);
   const [manualSocietyId, setManualSocietyId] = useState<string | null>(null);
   const [scrollSocietyId, setScrollSocietyId] = useState<string | null>(null);
-  const [heroSocietyId, setHeroSocietyId] = useState<string | null>(() => {
-    let best = societies[0] ?? null;
-    for (const society of societies) {
-      const current = activityBySociety[society.id]?.eventCount ?? 0;
-      const bestCount = best ? activityBySociety[best.id]?.eventCount ?? 0 : -1;
-      if (current > bestCount) best = society;
-    }
-    return best?.id ?? null;
-  });
   const manualTimerRef = useRef<number | null>(null);
-  const heroWheelRef = useRef(0);
-  const [heroDirection, setHeroDirection] = useState(1);
   const activeSocietyId = hoveredSocietyId ?? manualSocietyId ?? scrollSocietyId;
 
   useEffect(() => {
@@ -448,30 +438,13 @@ export default function SocietiesClient({ societies, activityBySociety, upcoming
   const activeActivity = activeSociety ? activityBySociety[activeSociety.id] : undefined;
   const upcomingEventCount = Object.values(activityBySociety).reduce((total, signal) => total + signal.eventCount, 0);
   const activeCommunityCount = Object.keys(activityBySociety).length;
-  const heroIndex = Math.max(0, societies.findIndex((society) => society.id === heroSocietyId));
-  const heroSociety = societies[heroIndex] ?? societies[0] ?? null;
-  const heroPrevious = societies.length ? societies[(heroIndex - 1 + societies.length) % societies.length] ?? null : null;
-  const heroNext = societies.length ? societies[(heroIndex + 1) % societies.length] ?? null : null;
-  const heroActivity = heroSociety ? activityBySociety[heroSociety.id] : undefined;
-
-  const advanceHero = (delta: number) => {
-    if (!societies.length) return;
-    setHeroDirection(delta >= 0 ? 1 : -1);
-    setHeroSocietyId((current) => {
-      const currentIndex = Math.max(0, societies.findIndex((society) => society.id === current));
-      const nextIndex = (currentIndex + delta + societies.length) % societies.length;
-      return societies[nextIndex]?.id ?? current;
-    });
-    setHoveredSocietyId(null);
-  };
-
   return (
     <div id="societies-top" className="relative min-h-screen w-full bg-white font-sans text-slate-950 selection:bg-ieee-blue/15">
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 h-dvh overflow-hidden">
         <div className="absolute inset-0 opacity-70"><StarsBackground starDensity={0.00022} allStarsTwinkle starColor="#94a3b8" /></div>
         <div className="relative z-10 h-full"><TechnicalDetails /></div>
       </div>
-      <ReactiveBackdrop society={activeSociety ?? heroSociety} reduceMotion={Boolean(reduceMotion)} />
+      <ReactiveBackdrop society={activeSociety} reduceMotion={Boolean(reduceMotion)} />
       <Navbar mobileAlign="right" />
       {(scrollSocietyId || manualSocietyId) && activeSociety && (
         <motion.aside
@@ -502,174 +475,7 @@ export default function SocietiesClient({ societies, activityBySociety, upcoming
               <span>Community directory · 2026</span>
             </div>
 
-            <h1 className="mt-8 text-[2.65rem] font-semibold leading-[0.93] tracking-[-0.055em] text-slate-950 sm:text-6xl sm:leading-[0.91] sm:tracking-[-0.06em] lg:sr-only">
-              13 communities.<br /><span className="text-ieee-blue">One student branch.</span>
-            </h1>
-
-            <div className="mt-8 lg:hidden">
-              <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.2em] text-ieee-blue">Explore · Connect · Build</p>
-              <p className="mt-6 max-w-xl text-base leading-7 text-slate-600 sm:text-lg">Explore the technical societies, affinity groups and communities where IEEE Sahrdaya students learn, build, research and lead.</p>
-              <div className="mt-8 flex flex-wrap items-end justify-between gap-6 border-t border-slate-200 pt-5">
-                <div className="font-mono text-[8px] font-semibold uppercase tracking-[0.16em] text-slate-400 sm:text-[9px]">
-                  <p>{String(upcomingEventCount).padStart(2, "0")} upcoming events · {String(activeCommunityCount).padStart(2, "0")} active now</p>
-                  <p className="mt-2">Thrissur · Kerala · IEEE Student Branch</p>
-                </div>
-                <a href="#society-directory" className="group inline-flex items-center gap-3 font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500 transition hover:text-slate-950">
-                  Enter directory <span className="inline-block transition-transform duration-300 group-hover:translate-y-1">↓</span>
-                </a>
-              </div>
-              <div className="mt-7 flex w-full min-w-0 gap-5 overflow-x-auto border-y border-slate-200 py-4">
-                {societies.map((society) => {
-                  const accent = societyAccent(society.slug);
-                  const eventCount = activityBySociety[society.id]?.eventCount ?? 0;
-                  return (
-                    <button key={society.id} type="button" onClick={() => scrollToSociety(society.id)} className="flex shrink-0 items-center gap-2 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: eventCount ? accent.color : "#cbd5e1" }} />
-                      {society.slug.toUpperCase()}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div
-              data-testid="society-hero-gallery"
-              data-society-hero-active={heroSociety?.slug.toLowerCase() ?? ""}
-              tabIndex={0}
-              onKeyDown={(event) => {
-                if (event.key === "ArrowRight") { event.preventDefault(); advanceHero(1); }
-                if (event.key === "ArrowLeft") { event.preventDefault(); advanceHero(-1); }
-                if (event.key === "Home" && societies[0]) { event.preventDefault(); setHeroDirection(-1); setHeroSocietyId(societies[0].id); }
-                if (event.key === "End" && societies.at(-1)) { event.preventDefault(); setHeroDirection(1); setHeroSocietyId(societies.at(-1)!.id); }
-              }}
-              onWheel={(event) => {
-                const horizontalIntent = Math.abs(event.deltaX) > Math.abs(event.deltaY) * 0.75 || event.shiftKey;
-                if (!horizontalIntent) return;
-                event.preventDefault();
-                const now = performance.now();
-                if (now - heroWheelRef.current < 520) return;
-                heroWheelRef.current = now;
-                advanceHero((event.deltaX || event.deltaY) > 0 ? 1 : -1);
-              }}
-              className="relative mt-8 hidden min-h-[620px] overflow-hidden border-y border-slate-200 bg-white/94 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ieee-blue/40 lg:block"
-              aria-label="Society exhibition gallery. Use left and right arrow keys to move between societies."
-            >
-              <div className="relative z-30 flex h-12 items-center justify-between border-b border-slate-200 px-5 font-mono text-[8px] font-semibold uppercase tracking-[0.19em] text-slate-400">
-                <span>IEEE Sahrdaya / Society exhibition</span>
-                <span>Drag · arrows · shift + wheel</span>
-              </div>
-
-              <div
-                className="relative h-[548px] overflow-hidden"
-                style={{
-                  backgroundImage: heroSociety
-                    ? `radial-gradient(circle at ${heroIndex % 3 === 0 ? "34%" : heroIndex % 3 === 1 ? "50%" : "66%"} 43%, ${societyAccent(heroSociety.slug).color}16 0%, ${societyAccent(heroSociety.slug).color}08 22%, transparent 48%), linear-gradient(rgba(15,23,42,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(15,23,42,.035) 1px, transparent 1px)`
-                    : undefined,
-                  backgroundSize: "auto, 64px 64px, 64px 64px",
-                }}
-              >
-                <button
-                  type="button"
-                  data-testid="society-hero-previous"
-                  onClick={() => advanceHero(-1)}
-                  className="group absolute inset-y-0 left-0 z-30 flex w-[76px] flex-col items-center justify-center border-r border-slate-200 bg-white/62 transition hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ieee-blue xl:w-[92px]"
-                  aria-label={`Previous society${heroPrevious ? `: ${heroPrevious.name}` : ""}`}
-                >
-                  <ArrowLeft className="h-4 w-4 text-slate-400 transition-transform group-hover:-translate-x-1 group-hover:text-slate-950" />
-                  <span className="mt-7 font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-400" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>{heroPrevious?.slug.toUpperCase()}</span>
-                </button>
-
-                <button
-                  type="button"
-                  data-testid="society-hero-next"
-                  onClick={() => advanceHero(1)}
-                  className="group absolute inset-y-0 right-0 z-30 flex w-[76px] flex-col items-center justify-center border-l border-slate-200 bg-white/62 transition hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ieee-blue xl:w-[92px]"
-                  aria-label={`Next society${heroNext ? `: ${heroNext.name}` : ""}`}
-                >
-                  <ArrowRight className="h-4 w-4 text-slate-400 transition-transform group-hover:translate-x-1 group-hover:text-slate-950" />
-                  <span className="mt-7 font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-400" style={{ writingMode: "vertical-rl" }}>{heroNext?.slug.toUpperCase()}</span>
-                </button>
-
-                <AnimatePresence mode="wait" initial={false} custom={heroDirection}>
-                  {heroSociety && (
-                    <motion.div
-                      key={heroSociety.id}
-                      custom={heroDirection}
-                      initial={reduceMotion ? false : { opacity: 0, x: heroDirection * 80, scale: 0.985 }}
-                      animate={{ opacity: 1, x: 0, scale: 1 }}
-                      exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: heroDirection * -70, scale: 0.99 }}
-                      transition={{ duration: reduceMotion ? 0 : 0.48, ease: [0.22, 1, 0.36, 1] }}
-                      drag={reduceMotion ? false : "x"}
-                      dragConstraints={{ left: 0, right: 0 }}
-                      dragElastic={0.08}
-                      onDragEnd={(_, info) => {
-                        if (info.offset.x < -70 || info.velocity.x < -500) advanceHero(1);
-                        else if (info.offset.x > 70 || info.velocity.x > 500) advanceHero(-1);
-                      }}
-                      className="absolute inset-y-0 left-[76px] right-[76px] cursor-grab active:cursor-grabbing xl:left-[92px] xl:right-[92px]"
-                    >
-                      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
-                        <span className="absolute -bottom-8 right-5 select-none font-mono text-[11rem] font-black leading-none tracking-[-0.1em] text-slate-950/[0.025] xl:text-[15rem]">{String(heroIndex + 1).padStart(2, "0")}</span>
-                      </div>
-
-                      <div className="relative grid h-full grid-cols-12 grid-rows-[auto_1fr_auto] px-10 py-8 xl:px-14 xl:py-10">
-                        <div className="col-span-12 flex items-start justify-between gap-8">
-                          <div className="font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                            <p>Exhibit {String(heroIndex + 1).padStart(2, "0")} / {String(societies.length).padStart(2, "0")}</p>
-                            <p className="mt-2" style={{ color: societyAccent(heroSociety.slug).color }}>{heroSociety.slug.toUpperCase()} · IEEE Sahrdaya</p>
-                          </div>
-                          <div className="text-right font-mono text-[8px] font-semibold uppercase leading-5 tracking-[0.16em] text-slate-400">
-                            <p>{heroActivity?.eventCount ? `${String(heroActivity.eventCount).padStart(2, "0")} upcoming` : "Community profile"}</p>
-                            {heroActivity?.nextEvent && <p className="mt-1">Next / {formatSignalDate(heroActivity.nextEvent.date)}</p>}
-                          </div>
-                        </div>
-
-                        <div className="col-span-12 grid grid-cols-12 items-center">
-                          <div className={`${heroIndex % 3 === 0 ? "col-start-2 col-span-6" : heroIndex % 3 === 1 ? "col-start-4 col-span-6" : "col-start-6 col-span-6"} flex h-[245px] items-center justify-center xl:h-[285px]`}>
-                            <motion.div
-                              initial={reduceMotion ? false : { opacity: 0, scale: 0.88, rotate: heroDirection * -1.5 }}
-                              animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                              transition={{ duration: reduceMotion ? 0 : 0.58, delay: reduceMotion ? 0 : 0.08, ease: [0.22, 1, 0.36, 1] }}
-                              className="flex h-full w-full items-center justify-center p-8 xl:p-10"
-                            >
-                              <SocietyLogo society={heroSociety} />
-                            </motion.div>
-                          </div>
-                        </div>
-
-                        <div className="col-span-12 grid grid-cols-12 items-end gap-8 border-t border-slate-200 pt-5">
-                          <div className="col-span-8 min-w-0">
-                            <h2 data-testid="society-hero-detail-name" className="max-w-3xl text-[2.25rem] font-semibold leading-[0.98] tracking-[-0.05em] text-slate-950 xl:text-[3rem]">{heroSociety.name}</h2>
-                            <p className="mt-3 max-w-2xl truncate text-sm leading-6 text-slate-500 xl:text-[15px]">{societyDescription(heroSociety) || `Explore ${heroSociety.name} at IEEE Sahrdaya.`}</p>
-                          </div>
-                          <div className="col-span-4 flex items-end justify-end gap-8">
-                            <div className="hidden text-right font-mono text-[8px] font-semibold uppercase leading-5 tracking-[0.15em] text-slate-400 xl:block">
-                              <p>{String(upcomingEventCount).padStart(2, "0")} branch events</p>
-                              <p>{String(activeCommunityCount).padStart(2, "0")} active communities</p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => scrollToSociety(heroSociety.id)}
-                              className="group inline-flex items-center gap-3 whitespace-nowrap font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-600 transition hover:text-ieee-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ieee-blue focus-visible:ring-offset-4"
-                            >
-                              Enter exhibit <span className="transition-transform group-hover:translate-y-1">↓</span>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                <div className="absolute bottom-5 left-1/2 z-30 flex -translate-x-1/2 items-center gap-3" aria-label={`Society ${heroIndex + 1} of ${societies.length}`}>
-                  <span className="font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-400">{String(heroIndex + 1).padStart(2, "0")}</span>
-                  <div className="h-px w-24 bg-slate-200">
-                    <motion.div className="h-px bg-slate-950" animate={{ width: `${((heroIndex + 1) / Math.max(1, societies.length)) * 100}%` }} transition={{ duration: reduceMotion ? 0 : 0.35 }} />
-                  </div>
-                  <span className="font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-400">{String(societies.length).padStart(2, "0")}</span>
-                </div>
-              </div>
-            </div>
+            <SocietiesEditorialHero communityCount={societies.length} />
           </motion.section>
 
           <div id="society-directory" data-testid="society-directory-controls" className="sticky top-20 z-20 scroll-mt-24 bg-white/94 backdrop-blur-xl">

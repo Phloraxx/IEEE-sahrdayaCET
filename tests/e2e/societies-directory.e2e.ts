@@ -1,27 +1,31 @@
 import { expect, test } from '@playwright/test'
 
 test.describe('societies directory', () => {
-  test('hero is a cinematic one-society gallery with clear corner marks', async ({ page }) => {
+  test('hero is a scroll-directed editorial story with clear corner marks', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto('/societies', { waitUntil: 'networkidle' })
 
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('13 communities.')
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('One student branch.')
-    const hero = page.getByTestId('society-hero-gallery')
-    await expect(hero).toBeVisible()
-    const initialSlug = await hero.getAttribute('data-society-hero-active')
-    expect(initialSlug).toBeTruthy()
-    await expect(page.getByTestId('society-hero-detail-name')).toBeVisible()
-    await expect(page.getByTestId('society-hero-previous')).toBeVisible()
-    await expect(page.getByTestId('society-hero-next')).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Where')
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Ideas')
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Classroom')
+    const story = page.getByTestId('society-editorial-story')
+    await expect(story).toBeVisible()
+    expect(await story.locator('img').count()).toBeGreaterThanOrEqual(3)
+    await expect(story.locator('[data-society-hero-word]')).toHaveCount(0)
+    await expect(story.locator('[data-society-hero-strip]')).toHaveCount(0)
 
-    await page.getByTestId('society-hero-next').click()
-    await expect(hero).not.toHaveAttribute('data-society-hero-active', initialSlug || '')
-    const nextSlug = await hero.getAttribute('data-society-hero-active')
-    await hero.focus()
-    await page.keyboard.press('ArrowLeft')
-    await expect(hero).toHaveAttribute('data-society-hero-active', initialSlug || '')
-    expect(nextSlug).not.toBe(initialSlug)
+    const storyMetrics = await story.evaluate((node) => {
+      const rect = node.getBoundingClientRect()
+      return { top: rect.top + window.scrollY, height: rect.height, viewport: window.innerHeight }
+    })
+    await page.evaluate(({ top, height, viewport }) => window.scrollTo(0, top + Math.max(0, height - viewport) * 0.52), storyMetrics)
+    await page.waitForTimeout(180)
+    const verbsOpacity = Number(await page.getByTestId('society-editorial-verbs').evaluate((node) => getComputedStyle(node).opacity))
+    expect(verbsOpacity).toBeGreaterThan(0.3)
+    await page.evaluate(({ top, height, viewport }) => window.scrollTo(0, top + Math.max(0, height - viewport) * 0.92), storyMetrics)
+    await page.waitForTimeout(180)
+    const finalOpacity = Number(await page.getByTestId('society-editorial-final').evaluate((node) => getComputedStyle(node).opacity))
+    expect(finalOpacity).toBeGreaterThan(0.5)
 
     await expect(page.locator('img[alt="IEEE SB Logo"]')).toBeVisible()
     await expect(page.locator('img[alt="Sahrdaya Logo"]')).toBeVisible()
@@ -66,7 +70,9 @@ test.describe('societies directory', () => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/societies', { waitUntil: 'networkidle' })
     await expect(page.getByTestId('society-network')).toBeHidden()
-    await expect(page.getByTestId('society-hero-gallery')).toBeHidden()
+    await expect(page.getByTestId('society-editorial-story')).toBeHidden()
+    await expect(page.getByTestId('society-editorial-mobile')).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Where ideas leave the classroom.')
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390)
   })
 })
