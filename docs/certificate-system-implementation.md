@@ -58,9 +58,22 @@ No staging allowlist address is committed to the repository.
 
 ### Gate 2 — rendering spike
 
-Pending after Gate 1 validation.
+Complete locally. The accepted stack is `sharp@0.35.4` + the existing `qrcode` package + `pdf-lib@1.17.1`, with Alpine `font-noto` installed in the web runtime and `NotoSans-Regular.ttf` supplied to Sharp/Pango by absolute path.
 
-Spike must prove, inside the current Node 22 Alpine web image:
+Validated inside the repository production Docker image on Node 22 / Linux ARM64:
+
+- deterministic 2400×1350 PNG (repeat renders produced identical SHA-256);
+- one-page PDF with the same raster certificate;
+- exact TTF-backed name measurement;
+- long-name auto-fit from 132px down to 74px for the long fixture;
+- apostrophe, hyphen, initials, and accented Latin fixtures;
+- existing `qrcode` package composited into the certificate;
+- 124 KB PNG and 173 KB PDF for the synthetic spike;
+- no PocketBase credential or third runtime service required.
+
+The spike visually confirms that the dynamic name, credential ID, and QR can be overlaid on an immutable template base.
+
+Original spike criteria:
 
 - deterministic high-resolution PNG output;
 - exact canvas dimensions;
@@ -71,7 +84,7 @@ Spike must prove, inside the current Node 22 Alpine web image:
 - one-page PDF with visual parity to PNG;
 - no PocketBase superuser credential in the web runtime.
 
-Preferred first candidate: `sharp` with SVG/text overlays and the existing QR package. A dependency is accepted only if the Docker spike passes.
+Accepted: Sharp/Pango text with explicit Noto TTF, Sharp composition, existing QR package, and pdf-lib PNG wrapping. SVG `@font-face` was rejected during the spike because librsvg/fontconfig did not honor the packaged WOFF reliably.
 
 ## Next implementation phases
 
