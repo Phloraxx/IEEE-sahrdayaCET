@@ -54,6 +54,7 @@ export interface PublicRegistrationEvent {
   description: string;
   date: string;
   endDate: string;
+  timeTbc: boolean;
   venue: string;
   price: number;
   isPaid: boolean;
@@ -67,12 +68,13 @@ export interface PublicRegistrationEvent {
 
 export async function getPublicEvent(id: string): Promise<PublicRegistrationEvent> {
   const record = await getPbClient().collection("events").getOne(id, {
-    fields: "id,slug,title,description,date,endDate,venue,price,banner,status,registrationOpen,registrationStart,registrationDeadline,isDeleted,maxCapacity,registeredCount,formTemplate,collectIeeeMember",
+    fields: "id,slug,title,description,date,endDate,timeTbc,venue,price,banner,status,registrationOpen,registrationStart,registrationDeadline,isDeleted,maxCapacity,registeredCount,formTemplate,collectIeeeMember",
   });
   const lifecycle = {
     status: String(record.status || ""),
     date: String(record.date || ""),
     endDate: String(record.endDate || ""),
+    timeTbc: Boolean(record.timeTbc),
     registrationOpen: Boolean(record.registrationOpen),
     registrationStart: String(record.registrationStart || ""),
     registrationDeadline: String(record.registrationDeadline || ""),
@@ -87,6 +89,7 @@ export async function getPublicEvent(id: string): Promise<PublicRegistrationEven
     description: String(record.description || ""),
     date: lifecycle.date,
     endDate: lifecycle.endDate,
+    timeTbc: Boolean(record.timeTbc),
     venue: String(record.venue || ""),
     price,
     isPaid: price > 0,

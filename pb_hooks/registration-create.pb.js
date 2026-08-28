@@ -19,6 +19,7 @@ routerAdd(
     // PocketBase 0.39 serializes route handlers into isolated JSVM scopes, so
     // shared helper functions must be required inside the handler.
     var rh = require(__hooks + "/registration-helpers.js")
+    var eventTime = require(__hooks + "/event-time-helpers.js")
     var razorpay = require(__hooks + "/razorpay-direct-helpers.js")
     var paygate = require(__hooks + "/paygate-helpers.js")
     var providerSelection = require(__hooks + "/payment-provider-selection.js")
@@ -118,12 +119,9 @@ routerAdd(
         }
 
         var now = new Date()
-        var endValue = event.getString("endDate") || event.getString("date")
-        if (endValue) {
-          var endDate = new Date(endValue)
-          if (!isNaN(endDate.getTime()) && endDate <= now) {
-            throw new BadRequestError("This event has already ended")
-          }
+        var endDate = eventTime.eventEndDate(event)
+        if (endDate && !isNaN(endDate.getTime()) && endDate <= now) {
+          throw new BadRequestError("This event has already ended")
         }
         var registrationStart = event.getString("registrationStart")
         if (registrationStart) {

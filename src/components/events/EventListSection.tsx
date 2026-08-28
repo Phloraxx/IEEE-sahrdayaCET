@@ -5,6 +5,7 @@ import type { ExtendedEvent } from "@/types";
 import { MOTION_DURATION, MOTION_EASE } from "@/lib/motion";
 import { resolveEventArtwork } from "@/lib/event-artwork";
 import { getEventAvailability, type EventAvailabilityKind } from "@/lib/event-availability";
+import { formatYear } from "@/lib/dates";
 import { EventArtworkPreview } from "./EventArtworkPreview";
 import { EventBannerFallback } from "./EventBannerFallback";
 import { AnnotatedEventCard as EventRow } from "./AnnotatedEventCard";
@@ -110,7 +111,7 @@ export function EventListSection({
             <div className="sticky top-28">
               <div className="mb-4 flex items-center justify-between text-[9px] font-bold uppercase tracking-[0.2em] text-black/38">
                 <span>Programme preview</span>
-                <span>{activeEvent ? new Date(activeEvent.date).getFullYear() : ""}</span>
+                <span>{activeEvent ? formatYear(activeEvent.date) : ""}</span>
               </div>
 
               <div className="relative aspect-[4/5] overflow-hidden bg-[#111315]">

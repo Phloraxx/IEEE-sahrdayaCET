@@ -9,6 +9,7 @@ routerAdd(
     var eventId = e.request.pathValue("id") || ""
     var payment = require(__hooks + "/razorpay-direct-helpers.js")
     var rh = require(__hooks + "/registration-helpers.js")
+    var eventTime = require(__hooks + "/event-time-helpers.js")
 
     var event
     try { event = $app.findRecordById("events", eventId) }
@@ -48,9 +49,8 @@ routerAdd(
       }
     }
 
-    var endValue = event.getString("endDate") || event.getString("date")
-    var endMs = Date.parse(endValue || "")
-    var eventEnded = isFinite(endMs) && endMs <= Date.now()
+    var eventEnd = eventTime.eventEndDate(event)
+    var eventEnded = eventEnd && !isNaN(eventEnd.getTime()) && eventEnd.getTime() <= Date.now()
 
     if (!selected) {
       return e.json(200, { found: false, eventEnded: eventEnded })

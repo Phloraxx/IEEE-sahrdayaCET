@@ -211,7 +211,7 @@ function EventVisual({
       <div className="grid grid-cols-2 gap-6 border-t border-black/10 pt-6 text-sm">
         <div>
           <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/30">Date</p>
-          <p className="mt-2 font-semibold">{event?.date ? formatDate(event.date) : "—"}</p>
+          <p className="mt-2 font-semibold">{event?.date ? formatDate(event.date) : "—"}</p>{event?.timeTbc && <p className="mt-1 text-xs font-medium text-[#00629B]">Time to be confirmed</p>}
         </div>
         <div>
           <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/30">Venue</p>

@@ -12,6 +12,28 @@ function pad2(value: number): string {
 }
 
 /** Convert an instant to the wall-clock value expected by `<input type="datetime-local">`. */
+export function toAppDateOnly(dateString: string | undefined): string {
+  if (!dateString) return '';
+  const date = parseDate(dateString);
+  if (!date) return '';
+  const shifted = new Date(date.getTime() + APP_UTC_OFFSET_MINUTES * 60_000);
+  return `${shifted.getUTCFullYear()}-${pad2(shifted.getUTCMonth() + 1)}-${pad2(shifted.getUTCDate())}`;
+}
+
+/** Interpret a date-only Asia/Kolkata calendar value as local midnight and return UTC ISO. */
+export function fromAppDateOnly(value: string): string | undefined {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return undefined;
+  const [, yearText, monthText, dayText] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const wallClockUtc = Date.UTC(year, month - 1, day);
+  const wallClock = new Date(wallClockUtc);
+  if (wallClock.getUTCFullYear() !== year || wallClock.getUTCMonth() !== month - 1 || wallClock.getUTCDate() !== day) return undefined;
+  return new Date(wallClockUtc - APP_UTC_OFFSET_MINUTES * 60_000).toISOString();
+}
+
 export function toAppDateTimeLocal(dateString: string | undefined): string {
   if (!dateString) return '';
   const date = parseDate(dateString);
@@ -168,6 +190,44 @@ export function formatDay(dateString: string): string {
     day: '2-digit',
     timeZone: APP_TIME_ZONE,
   });
+}
+
+export function formatWeekdayShort(dateString: string): string {
+  const date = parseDate(dateString);
+  if (!date) return '';
+  return date.toLocaleDateString(DATE_LOCALE, { weekday: 'short', timeZone: APP_TIME_ZONE });
+}
+
+export function formatWeekdayLong(dateString: string): string {
+  const date = parseDate(dateString);
+  if (!date) return '';
+  return date.toLocaleDateString(DATE_LOCALE, { weekday: 'long', timeZone: APP_TIME_ZONE });
+}
+
+export function formatMonthYear(dateString: string): string {
+  const date = parseDate(dateString);
+  if (!date) return '';
+  return date.toLocaleDateString(DATE_LOCALE, { month: 'long', year: 'numeric', timeZone: APP_TIME_ZONE });
+}
+
+export function formatYear(dateString: string): string {
+  const date = parseDate(dateString);
+  if (!date) return '';
+  return date.toLocaleDateString(DATE_LOCALE, { year: 'numeric', timeZone: APP_TIME_ZONE });
+}
+
+export function formatAppDateISO(dateString: string): string {
+  return toAppDateOnly(dateString);
+}
+
+export function formatEventTime(dateString: string, timeTbc?: boolean): string {
+  return timeTbc ? 'Time to be confirmed' : formatTime(dateString);
+}
+
+export function formatEventDateTime(dateString: string, timeTbc?: boolean): string {
+  const date = formatDate(dateString);
+  if (!date) return '';
+  return `${date} · ${formatEventTime(dateString, timeTbc)}`;
 }
 
 export function formatMonth(dateString: string): string {

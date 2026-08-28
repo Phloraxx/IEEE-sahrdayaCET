@@ -1,9 +1,12 @@
+import { getAppDayBounds } from '@/lib/dates';
+
 export type EventRegistrationMode = "internal" | "external" | "closed";
 
 export interface EventLifecycleInput {
   status?: string | null;
   date?: string | null;
   endDate?: string | null;
+  timeTbc?: boolean | null;
   registrationOpen?: boolean | null;
   registrationMode?: string | null;
   externalFormUrl?: string | null;
@@ -19,7 +22,12 @@ function toTimestamp(value?: string | null): number | null {
 }
 
 function getEventEndTimestamp(event: EventLifecycleInput): number | null {
-  return toTimestamp(event.endDate) ?? toTimestamp(event.date);
+  const explicitEnd = toTimestamp(event.endDate);
+  if (explicitEnd !== null) return explicitEnd;
+  const start = toTimestamp(event.date);
+  if (start === null) return null;
+  if (!event.timeTbc) return start;
+  return Date.parse(getAppDayBounds(new Date(start)).endIso);
 }
 
 export function getRegistrationMode(event: EventLifecycleInput): EventRegistrationMode {

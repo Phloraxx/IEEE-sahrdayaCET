@@ -20,6 +20,7 @@ export interface SocietyPageData {
     description: string;
     date: string;
     endDate: string;
+    timeTbc: boolean;
     registrationStart: string;
     registrationDeadline: string;
     venue: string;
@@ -65,7 +66,7 @@ export async function fetchSocietyData(slug: string): Promise<SocietyPageData> {
         filter: `society = ${escapeFilterValue(society.id)}`,
         sort: "-date",
         fields:
-          "id,slug,title,description,date,endDate,registrationStart,registrationDeadline,venue,price,status,tags,banner,externalFormUrl,externalLink,contactEmail,contactPhone",
+          "id,slug,title,description,date,endDate,timeTbc,registrationStart,registrationDeadline,venue,price,status,tags,banner,externalFormUrl,externalLink,contactEmail,contactPhone",
       })
       .catch(() => []),
     // `society` is the canonical relation. `sectionId` is a legacy display/grouping
@@ -111,6 +112,7 @@ export async function fetchSocietyData(slug: string): Promise<SocietyPageData> {
         description: getField(event, "description", ""),
         date: getField(event, "date", ""),
         endDate: getField(event, "endDate", ""),
+        timeTbc: Boolean(getField(event, "timeTbc", false)),
         registrationStart: getField(event, "registrationStart", ""),
         registrationDeadline: getField(event, "registrationDeadline", ""),
         venue: getField(event, "venue", ""),

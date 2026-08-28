@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { BookOpen, CalendarDays, MapPin, X } from 'lucide-react';
 import type { ExtendedEvent, EventWithSociety } from '@/types';
-import { formatDate, formatTime } from '@/lib/dates';
+import { formatDate, formatEventTime } from '@/lib/dates';
 import {
     RelatedBlogCards,
     type RelatedBlogSummary,
@@ -117,7 +117,7 @@ export function EventDetailModal({ event, onClose, onRegister }: EventDetailModa
                             <div>
                                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">Date & Time</p>
                                 <p className="text-[15px] font-semibold text-slate-800">{formatDate(event.date)}</p>
-                                <p className="text-sm text-slate-500">{formatTime(event.date)}</p>
+                                <p className="text-sm text-slate-500">{formatEventTime(event.date, event.timeTbc)}</p>
                             </div>
                         </div>
                         {event.venue && (

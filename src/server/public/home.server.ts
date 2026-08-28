@@ -5,7 +5,7 @@ import { isPastEvent } from "@/lib/event-lifecycle";
 import type { Society } from "@/types";
 
 export interface HomeData {
-  latestEvent: { id: string; title: string; description: string; date: string; bannerUrl: string } | null;
+  latestEvent: { id: string; title: string; description: string; date: string; timeTbc: boolean; bannerUrl: string } | null;
   societies: Society[];
 }
 
@@ -17,10 +17,12 @@ export async function fetchHomeData(): Promise<HomeData> {
         batch: 100,
         filter: 'status="published"',
         sort: 'date',
-        fields: 'id,title,description,date,endDate,banner,status',
+        fields: 'id,title,description,date,endDate,timeTbc,banner,status',
       }),
       pb.collection('societies').getFullList({
         batch: 200,
+        filter: 'isHidden=false',
+        sort: 'name',
         fields: 'id,name,slug,logo',
       }),
     ])
@@ -47,6 +49,7 @@ export async function fetchHomeData(): Promise<HomeData> {
               status: getField(event, 'status', 'published'),
               date: getField(event, 'date', ''),
               endDate: getField(event, 'endDate', ''),
+              timeTbc: Boolean(getField(event, 'timeTbc', false)),
             }),
           )
         : undefined
@@ -61,6 +64,7 @@ export async function fetchHomeData(): Promise<HomeData> {
             'Join us for this exciting IEEE event!',
           ),
           date: getField(nextEventRecord, 'date', ''),
+          timeTbc: Boolean(getField(nextEventRecord, 'timeTbc', false)),
           bannerUrl: nextEventRecord.banner
             ? buildFileUrl(
                 'events',

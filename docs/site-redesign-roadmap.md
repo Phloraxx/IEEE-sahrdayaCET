@@ -314,6 +314,8 @@ Do not add a transition if it delays navigation, harms reduced-motion users, or 
 4. Introduce explicit TBC time state.
 5. Add regression coverage before visual restructuring.
 
+Implementation status: Pass A code and regressions are complete locally; staging verification is the remaining checkpoint before Pass B begins. The curated `EventsShowcase.tsx` asset list remains intentionally untouched.
+
 Checkpoint: deploy to staging and verify no visual redesign yet; only data correctness should change.
 
 ### Pass B — Home restructuring

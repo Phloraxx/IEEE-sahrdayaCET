@@ -61,6 +61,35 @@ describe('event lifecycle', () => {
     expect(canRegisterForEvent(event, NOW)).toBe(true)
   })
 
+
+  it('keeps a time-TBC event active through the end of its India calendar day', () => {
+    const event = {
+      status: 'published',
+      date: '2026-08-28T18:30:00.000Z', // 29 Aug, 00:00 IST
+      timeTbc: true,
+      registrationOpen: true,
+    }
+    const noonIst = new Date('2026-08-29T06:30:00.000Z').getTime()
+    const nextMidnightIst = new Date('2026-08-29T18:30:00.000Z').getTime()
+
+    expect(isPastEvent(event, noonIst)).toBe(false)
+    expect(canRegisterForEvent(event, noonIst)).toBe(true)
+    expect(isPastEvent(event, nextMidnightIst)).toBe(true)
+    expect(canRegisterForEvent(event, nextMidnightIst)).toBe(false)
+  })
+
+  it('still honours an explicit endDate for time-TBC multi-day events', () => {
+    const event = {
+      status: 'published',
+      date: '2026-08-13T18:30:00.000Z',
+      endDate: '2026-08-16T18:29:00.000Z',
+      timeTbc: true,
+      registrationOpen: true,
+    }
+    expect(isPastEvent(event, new Date('2026-08-15T12:00:00.000Z').getTime())).toBe(false)
+    expect(isPastEvent(event, new Date('2026-08-16T18:30:00.000Z').getTime())).toBe(true)
+  })
+
   it('hides draft, cancelled, and deleted events from public lifecycle', () => {
     expect(isPublicEvent({ status: 'draft' })).toBe(false)
     expect(isPublicEvent({ status: 'cancelled' })).toBe(false)

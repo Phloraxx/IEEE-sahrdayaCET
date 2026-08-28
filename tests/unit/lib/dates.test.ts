@@ -7,10 +7,19 @@ import {
   formatTime,
   formatDay,
   formatMonth,
+  formatWeekdayShort,
+  formatWeekdayLong,
+  formatMonthYear,
+  formatYear,
+  formatAppDateISO,
+  formatEventTime,
+  formatEventDateTime,
   formatKickoffParts,
   formatDateTime,
   formatHour12,
   formatAMPM,
+  toAppDateOnly,
+  fromAppDateOnly,
   toAppDateTimeLocal,
   fromAppDateTimeLocal,
   getAppDayBounds,
@@ -61,6 +70,26 @@ describe('date formatting', () => {
     expect(formatDateTime(boundary)).toMatch(/27/)
     expect(formatHour12(boundary)).toBe('02')
     expect(formatAMPM(boundary)).toBe('AM')
+  })
+
+
+  it('formats calendar parts in Asia/Kolkata at the UTC date boundary', () => {
+    const boundary = '2026-08-28T18:30:00.000Z' // 29 Aug, 00:00 IST
+    expect(formatDay(boundary)).toBe('29')
+    expect(formatMonth(boundary)).toBe('AUG')
+    expect(formatWeekdayShort(boundary)).toBe('Sat')
+    expect(formatWeekdayLong(boundary)).toBe('Saturday')
+    expect(formatMonthYear(boundary)).toBe('August 2026')
+    expect(formatYear(boundary)).toBe('2026')
+    expect(formatAppDateISO(boundary)).toBe('2026-08-29')
+  })
+
+  it('round-trips date-only India values and presents explicit TBC time', () => {
+    expect(toAppDateOnly('2026-08-28T18:30:00.000Z')).toBe('2026-08-29')
+    expect(fromAppDateOnly('2026-08-29')).toBe('2026-08-28T18:30:00.000Z')
+    expect(fromAppDateOnly('2026-02-30')).toBeUndefined()
+    expect(formatEventTime(TEST_DATE, true)).toBe('Time to be confirmed')
+    expect(formatEventDateTime(TEST_DATE, true)).toBe('Monday, 8 June 2026 · Time to be confirmed')
   })
 
   it('round-trips India wall-clock values independently of host timezone', () => {

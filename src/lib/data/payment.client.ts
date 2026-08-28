@@ -34,6 +34,7 @@ export interface RegistrationPaymentSession {
     title: string;
     date: string;
     endDate: string;
+    timeTbc: boolean;
     venue: string;
     bannerUrl: string;
   } | null;
@@ -82,6 +83,7 @@ function normalizePaymentSession(value: unknown): RegistrationPaymentSession {
             endDate: String(
               (raw.event as Record<string, unknown>).endDate || "",
             ),
+            timeTbc: (raw.event as Record<string, unknown>).timeTbc === true,
             venue: String((raw.event as Record<string, unknown>).venue || ""),
             bannerUrl: String(
               (raw.event as Record<string, unknown>).bannerUrl || "",

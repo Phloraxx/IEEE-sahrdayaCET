@@ -22,7 +22,7 @@ import type { MyEventRegistration } from "@/lib/registration-state";
 import Footer from "@/components/Footer";
 import { APP_URL } from "@/lib/constants";
 import { blogHtmlToPlainText, sanitizeBlogHtml } from "@/lib/blog-content";
-import { formatDate, formatTime } from "@/lib/dates";
+import { formatAppDateISO, formatDate, formatEventDateTime, formatEventTime, formatYear } from "@/lib/dates";
 import { eventTitleSize, MOTION_DURATION, MOTION_EASE, revealUp } from "@/lib/motion";
 import { getEventAvailability, type EventAvailabilityKind } from "@/lib/event-availability";
 import {
@@ -169,6 +169,7 @@ export default function EventDetailPage() {
     status: event.status,
     date: event.date,
     endDate: event.endDate,
+    timeTbc: event.timeTbc,
     registrationOpen: event.registrationOpen,
     registrationMode: event.registrationMode,
     registrationStart: event.registrationStart,
@@ -206,8 +207,8 @@ export default function EventDetailPage() {
     "@context": "https://schema.org",
     "@type": "Event",
     name: event.title,
-    startDate: toSchemaDate(event.date),
-    ...(event.endDate ? { endDate: toSchemaDate(event.endDate) } : {}),
+    startDate: event.timeTbc ? formatAppDateISO(event.date) : toSchemaDate(event.date),
+    ...(event.endDate ? { endDate: event.timeTbc ? formatAppDateISO(event.endDate) : toSchemaDate(event.endDate) } : {}),
     eventStatus: getSchemaEventStatus(event.status),
     eventAttendanceMode: getSchemaAttendanceMode(event.venue),
     description: description || undefined,
@@ -266,7 +267,7 @@ export default function EventDetailPage() {
           <Link to={backHref} className="group inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-black/45 transition hover:text-[#00629B]">
             <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" /> {backLabel}
           </Link>
-          <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-black/30">Event / {new Date(event.date).getFullYear()}</span>
+          <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-black/30">Event / {formatYear(event.date)}</span>
         </motion.div>
 
         <header className="grid gap-10 border-b border-black/12 py-10 md:grid-cols-12 md:gap-8 md:py-16 lg:py-20">
@@ -299,7 +300,7 @@ export default function EventDetailPage() {
             <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0, transition: { duration: MOTION_DURATION.ui, ease: MOTION_EASE } } }}>
               <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">When</p>
               <p className="mt-2 text-base font-semibold leading-tight">{formatDate(event.date)}</p>
-              <p className="mt-1 text-sm text-black/45">{formatTime(event.date)}</p>
+              <p className="mt-1 text-sm text-black/45">{formatEventTime(event.date, event.timeTbc)}</p>
             </motion.div>
             <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0, transition: { duration: MOTION_DURATION.ui, ease: MOTION_EASE } } }}>
               <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Where</p>
@@ -339,7 +340,7 @@ export default function EventDetailPage() {
               <div>
                 <CalendarDays className="h-5 w-5 text-[#00629B]" />
                 <p className="mt-4 text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Date & time</p>
-                <p className="mt-2 font-semibold">{formatDate(event.date)} · {formatTime(event.date)}</p>
+                <p className="mt-2 font-semibold">{formatEventDateTime(event.date, event.timeTbc)}</p>
               </div>
               <div>
                 {attendanceKind === "online" ? <Globe2 className="h-5 w-5 text-[#00629B]" /> : <MapPin className="h-5 w-5 text-[#00629B]" />}

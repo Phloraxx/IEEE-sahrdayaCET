@@ -441,7 +441,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
             <div className="mt-8 grid grid-cols-2 gap-x-6 gap-y-7 border-y border-black/12 py-6 lg:grid-cols-1">
               <div>
                 <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/35">When</p>
-                <p className="mt-2 text-sm font-semibold">{formatDate(event.date)}</p>
+                <p className="mt-2 text-sm font-semibold">{formatDate(event.date)}</p>{event.timeTbc && <p className="mt-1 text-xs font-medium text-[#00629B]">Time to be confirmed</p>}
               </div>
               <div>
                 <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/35">Where</p>

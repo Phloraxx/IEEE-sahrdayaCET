@@ -57,7 +57,7 @@ export default function Home() {
       <ErrorBoundary>
         <div className="relative z-10 mt-[100dvh]">
           <WhatsHappening latestEvent={latestEvent} societies={societies} />
-          <Execom />
+          <Execom societyCount={societies.length} />
           {/* Intentionally hardcoded visual showcase; live event data is used above. */}
           <EventsShowcase />
           <ContextualBlogLinks />

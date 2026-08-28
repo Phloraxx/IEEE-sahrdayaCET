@@ -8,9 +8,10 @@ describe("historical event editing", () => {
       resolve(process.cwd(), "src/features/admin/events/event-form.tsx"),
       "utf8",
     );
-    expect(source).toContain('min={toAppDateTimeLocal(new Date().toISOString())}');
-    expect(source).toContain('if (!isEdit && timestamp(form.date) < Date.now() - 300000)');
-    expect(source).toContain('<Input id="evt-date" type="datetime-local" value={form.date}');
+    expect(source).toContain('min={form.timeTbc ? toAppDateOnly(new Date().toISOString()) : toAppDateTimeLocal(new Date().toISOString())}');
+    expect(source).toContain('if (!isEdit && (form.timeTbc ? form.date < toAppDateOnly(new Date().toISOString()) : eventStartTimestamp(form) < Date.now() - 300000)');
+    expect(source).toContain('<Input id="evt-date" type={form.timeTbc ? "date" : "datetime-local"} value={form.date}');
+    expect(source).not.toContain('<Input id="evt-date" type={form.timeTbc ? "date" : "datetime-local"} min=');
   });
 
   it("validates the required venue before submitting to PocketBase", () => {

@@ -5,6 +5,7 @@
 // a seat or creating a payment.
 routerAdd("POST", "/api/app/events/{id}/coupon-preview", function (e) {
   var auth = e.auth
+  var eventTime = require(__hooks + "/event-time-helpers.js")
   if (!auth || !auth.id) return e.json(401, { error: "Authentication required" })
 
   var eventId = e.request.pathValue("id")
@@ -28,11 +29,8 @@ routerAdd("POST", "/api/app/events/{id}/coupon-preview", function (e) {
   }
 
   var now = new Date()
-  var endValue = event.getString("endDate") || event.getString("date")
-  if (endValue) {
-    var endDate = new Date(endValue)
-    if (!isNaN(endDate.getTime()) && endDate <= now) return e.json(400, { error: "This event has already ended" })
-  }
+  var endDate = eventTime.eventEndDate(event)
+  if (endDate && !isNaN(endDate.getTime()) && endDate <= now) return e.json(400, { error: "This event has already ended" })
   var registrationStart = event.getString("registrationStart")
   if (registrationStart) {
     var startDate = new Date(registrationStart)

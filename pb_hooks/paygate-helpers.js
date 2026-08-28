@@ -271,6 +271,7 @@ function paymentSession(registration, data, providerReachable) {
                 title: event.getString("title") || "",
                 date: event.getString("date") || "",
                 endDate: event.getString("endDate") || "",
+                timeTbc: event.getBool("timeTbc"),
                 venue: event.getString("venue") || "",
                 bannerUrl: bannerUrl,
             }

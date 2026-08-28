@@ -5,7 +5,7 @@ import { canRegisterForEvent, getRegistrationMode, type EventRegistrationMode } 
 import { logError } from "@/lib/logger";
 
 const PUBLIC_EVENT_FIELDS =
-  "id,created,updated,title,slug,description,date,endDate,venue,price,banner,status,registrationOpen,registrationMode,registrationStart,registrationDeadline,maxCapacity,registeredCount,externalFormUrl,externalLink,collectIeeeMember,society,expand.society.id,expand.society.name,expand.society.slug,expand.society.logo";
+  "id,created,updated,title,slug,description,date,endDate,timeTbc,venue,price,banner,status,registrationOpen,registrationMode,registrationStart,registrationDeadline,maxCapacity,registeredCount,externalFormUrl,externalLink,collectIeeeMember,society,expand.society.id,expand.society.name,expand.society.slug,expand.society.logo";
 
 export interface SerializableEvent {
   id: string;
@@ -16,6 +16,7 @@ export interface SerializableEvent {
   description: string;
   date: string;
   endDate: string;
+  timeTbc: boolean;
   venue: string;
   price: number;
   isPaid: boolean;
@@ -74,6 +75,7 @@ function mapPublicEvent(raw: Record<string, unknown>): SerializableEvent {
     description: getField(raw, "description", ""),
     date,
     endDate,
+    timeTbc: Boolean(getField(raw, "timeTbc", false)),
     venue: getField(raw, "venue", ""),
     price,
     isPaid: price > 0,
@@ -85,6 +87,7 @@ function mapPublicEvent(raw: Record<string, unknown>): SerializableEvent {
       status,
       date,
       endDate,
+      timeTbc: Boolean(getField(raw, "timeTbc", false)),
       registrationOpen: Boolean(getField(raw, "registrationOpen", false)),
       registrationMode,
       externalFormUrl,

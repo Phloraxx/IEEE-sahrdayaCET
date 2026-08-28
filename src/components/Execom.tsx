@@ -395,7 +395,7 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
 };
 
 /* ── Main Execom Section ── */
-export const Execom: React.FC = () => {
+export const Execom: React.FC<{ societyCount: number }> = ({ societyCount }) => {
   const membersList = execomMembers;
 
   return (
@@ -474,7 +474,7 @@ export const Execom: React.FC = () => {
               Societies
             </div>
             <div className="font-bold text-2xl md:text-4xl text-gray-900">
-              14
+              {societyCount}
             </div>
           </div>
         </motion.div>

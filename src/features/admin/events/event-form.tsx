@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { fromAppDateTimeLocal, toAppDateTimeLocal } from "@/lib/dates";
+import { fromAppDateOnly, fromAppDateTimeLocal, formatEventDateTime, getAppDayBounds, toAppDateOnly, toAppDateTimeLocal } from "@/lib/dates";
 import { ImageUpload } from "@/components/admin/image-upload";
 import { CustomFieldBuilder, type FormField } from "@/components/admin/custom-field-builder";
 import { CouponManager } from "@/components/admin/coupon-manager";
@@ -23,7 +23,7 @@ type Availability = "open" | "scheduled" | "paused";
 interface SocietyOption { id: string; name: string; }
 interface EventFormProps { mode: "create" | "edit"; eventId?: string; initialSocietyId?: string; allowSocietyTransfer?: boolean; }
 interface EventFormState {
-  title: string; description: string; date: string; endDate: string; venue: string; price: string;
+  title: string; description: string; date: string; endDate: string; timeTbc: boolean; venue: string; price: string;
   paymentProvider: "razorpay" | "kotak"; maxCapacity: string; status: string; society: string;
   registrationMode: RegistrationMethod; registrationOpen: boolean; checkInEnabled: boolean; collectIeeeMember: boolean;
   registrationStart: string; registrationDeadline: string; contactEmail: string; contactPhone: string;
@@ -31,7 +31,7 @@ interface EventFormState {
 }
 interface BaselineState { form: EventFormState; customFields: FormField[]; coupons: Coupon[]; }
 const EMPTY_STATE: EventFormState = {
-  title: "", description: "", date: "", endDate: "", venue: "", price: "0", paymentProvider: "razorpay",
+  title: "", description: "", date: "", endDate: "", timeTbc: false, venue: "", price: "0", paymentProvider: "razorpay",
   maxCapacity: "", status: "draft", society: "", registrationMode: "internal", registrationOpen: true,
   checkInEnabled: true, collectIeeeMember: false, registrationStart: "", registrationDeadline: "",
   contactEmail: "", contactPhone: "", externalLink: "", whatsappLink: "", tags: "", externalFormUrl: "",
@@ -53,6 +53,16 @@ function safeMode(value: unknown, open: unknown, external: unknown): Registratio
   return open === false ? "closed" : "internal";
 }
 function timestamp(value: string) { const normalized = fromAppDateTimeLocal(value); return normalized ? Date.parse(normalized) : Number.NaN; }
+function eventStartTimestamp(form: EventFormState) {
+  const normalized = form.timeTbc ? fromAppDateOnly(form.date) : fromAppDateTimeLocal(form.date);
+  return normalized ? Date.parse(normalized) : Number.NaN;
+}
+function eventEndTimestamp(form: EventFormState) {
+  if (!form.timeTbc && form.endDate) return timestamp(form.endDate);
+  const start = eventStartTimestamp(form);
+  if (!Number.isFinite(start)) return Number.NaN;
+  return form.timeTbc ? Date.parse(getAppDayBounds(new Date(start)).endIso) : start;
+}
 function same(a: unknown, b: unknown) { return JSON.stringify(a) === JSON.stringify(b); }
 function requestErrorMessage(error: unknown, fallback: string) {
   if (error && typeof error === "object") {
@@ -91,8 +101,9 @@ export function EventForm({ mode, eventId, initialSocietyId, allowSocietyTransfe
   const { data: existingCoupons } = useQuery<{ coupons: Coupon[] }>({ queryKey: ["admin-event-coupons", eventId], queryFn: () => listEventCoupons(eventId!), enabled: isEdit && Boolean(eventId) });
   useEffect(() => {
     if (!isEdit || !existing?.event) return; const e = existing.event;
+    const timeTbc = Boolean(e.timeTbc);
     const hydrated: EventFormState = {
-      title: String(e.title ?? ""), description: String(e.description ?? ""), date: toAppDateTimeLocal(e.date as string | undefined), endDate: toAppDateTimeLocal(e.endDate as string | undefined), venue: String(e.venue ?? ""),
+      title: String(e.title ?? ""), description: String(e.description ?? ""), date: timeTbc ? toAppDateOnly(e.date as string | undefined) : toAppDateTimeLocal(e.date as string | undefined), endDate: timeTbc ? "" : toAppDateTimeLocal(e.endDate as string | undefined), timeTbc, venue: String(e.venue ?? ""),
       price: String(e.price ?? "0"), paymentProvider: String(e.paymentProvider ?? "razorpay") === "kotak" ? "kotak" : "razorpay", maxCapacity: e.maxCapacity != null && Number(e.maxCapacity) > 0 ? String(e.maxCapacity) : "", status: String(e.status ?? "draft"), society: String(e.society ?? ""),
       registrationMode: safeMode(e.registrationMode, e.registrationOpen, e.externalFormUrl), registrationOpen: e.registrationOpen !== false, checkInEnabled: e.checkInEnabled !== false, collectIeeeMember: Boolean(e.collectIeeeMember),
       registrationStart: toAppDateTimeLocal(e.registrationStart as string | undefined), registrationDeadline: toAppDateTimeLocal(e.registrationDeadline as string | undefined), contactEmail: String(e.contactEmail ?? ""), contactPhone: String(e.contactPhone ?? ""),
@@ -105,13 +116,22 @@ export function EventForm({ mode, eventId, initialSocietyId, allowSocietyTransfe
   useEffect(() => { if (!dirty) return; const handler = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; }; window.addEventListener("beforeunload", handler); return () => window.removeEventListener("beforeunload", handler); }, [dirty]);
   const setSection = (next: SetupSection) => { const params = new URLSearchParams(searchParams); params.set("section", next); setSearchParams(params, { replace: true }); };
   const patch = <K extends keyof EventFormState>(key: K, value: EventFormState[K]) => { setDirty(true); setForm((current) => ({ ...current, [key]: value })); };
+  const setTimeTbc = (checked: boolean) => {
+    setDirty(true);
+    setForm((current) => ({
+      ...current,
+      timeTbc: checked,
+      date: current.date ? (checked ? current.date.slice(0, 10) : `${current.date.slice(0, 10)}T09:00`) : "",
+      endDate: checked ? "" : current.endDate,
+    }));
+  };
   const availability: Availability = useMemo(() => availabilityChoice ?? (!form.registrationOpen ? "paused" : form.registrationStart && timestamp(form.registrationStart) > Date.now() ? "scheduled" : "open"), [availabilityChoice, form.registrationOpen, form.registrationStart]);
   const feeMode: "free" | "paid" = feeChoice ?? (Number(form.price) > 0 ? "paid" : "free");
   const existingRecord = existing?.event ?? null; const approvalStatus = String(existingRecord?.approvalStatus ?? "draft");
   const financeApprovalStatus = String(existingRecord?.financeApprovalStatus ?? "not_required"); const hasApproval = approvalStatus === "approved" || financeApprovalStatus === "approved";
   const impact = useMemo(() => {
     if (!baseline) return { operational: false, finance: false };
-    const operationalKeys: Array<keyof EventFormState> = ["date", "endDate", "venue", "maxCapacity", "registrationMode", "registrationOpen", "registrationStart", "registrationDeadline", "externalFormUrl", "checkInEnabled", "collectIeeeMember"];
+    const operationalKeys: Array<keyof EventFormState> = ["date", "endDate", "timeTbc", "venue", "maxCapacity", "registrationMode", "registrationOpen", "registrationStart", "registrationDeadline", "externalFormUrl", "checkInEnabled", "collectIeeeMember"];
     const financeKeys: Array<keyof EventFormState> = ["price", "paymentProvider"];
     operationalKeys.push("society");
     return { operational: operationalKeys.some((key) => form[key] !== baseline.form[key]) || !same(customFields, baseline.customFields), finance: financeKeys.some((key) => form[key] !== baseline.form[key]) || !same(coupons, baseline.coupons) };
@@ -120,14 +140,14 @@ export function EventForm({ mode, eventId, initialSocietyId, allowSocietyTransfe
   const validate = () => {
     if (!form.title.trim()) return ["details", "Enter an event name."] as const; if (!form.society) return ["details", "Select the host society."] as const;
     if (!form.date) return ["details", "Set the event start date and time."] as const; if (!form.venue.trim()) return ["details", "Enter the event venue."] as const;
-    if (form.endDate && timestamp(form.endDate) <= timestamp(form.date)) return ["details", "Event end time must be after the start time."] as const;
-    if (!isEdit && timestamp(form.date) < Date.now() - 300000) return ["details", "A new event cannot start in the past."] as const;
+    if (!form.timeTbc && form.endDate && timestamp(form.endDate) <= eventStartTimestamp(form)) return ["details", "Event end time must be after the start time."] as const;
+    if (!isEdit && (form.timeTbc ? form.date < toAppDateOnly(new Date().toISOString()) : eventStartTimestamp(form) < Date.now() - 300000)) return ["details", "A new event cannot start in the past."] as const;
     if (form.registrationMode === "external" && !form.externalFormUrl.trim()) return ["registration", "Add the external registration URL."] as const;
     if (form.registrationMode !== "closed") {
       if (availability === "scheduled" && !form.registrationStart) return ["registration", "Set when scheduled registration should open."] as const;
-      if (form.registrationStart && timestamp(form.registrationStart) >= timestamp(form.endDate || form.date)) return ["registration", "Registration must open before the event ends."] as const;
+      if (form.registrationStart && timestamp(form.registrationStart) >= eventEndTimestamp(form)) return ["registration", "Registration must open before the event ends."] as const;
       if (form.registrationStart && form.registrationDeadline && timestamp(form.registrationStart) >= timestamp(form.registrationDeadline)) return ["registration", "Registration must close after it opens."] as const;
-      if (form.registrationDeadline && timestamp(form.registrationDeadline) > timestamp(form.endDate || form.date)) return ["registration", "Registration deadline cannot be after the event ends."] as const;
+      if (form.registrationDeadline && timestamp(form.registrationDeadline) > eventEndTimestamp(form)) return ["registration", "Registration deadline cannot be after the event ends."] as const;
     }
     if (form.registrationMode === "internal") {
       const invalidQuestion = customFields.find((field) => !field.label.trim() || ((field.type === "select" || field.type === "radio") && !field.options.some((option) => option.trim())));
@@ -140,7 +160,7 @@ export function EventForm({ mode, eventId, initialSocietyId, allowSocietyTransfe
   const buildPayload = () => { const effectivePrice = form.registrationMode === "internal" ? Number(form.price) || 0 : 0; return ({ title: form.title.trim(), description: form.description, venue: form.venue.trim(), price: effectivePrice,
     paymentProvider: form.paymentProvider, baseFeePaise: Math.max(0, Math.round(effectivePrice * 100)), status: form.status,
     society: form.society, registrationMode: form.registrationMode, registrationOpen: form.registrationMode !== "closed" && form.registrationOpen,
-    checkInEnabled: form.checkInEnabled, collectIeeeMember: form.collectIeeeMember, date: fromAppDateTimeLocal(form.date), endDate: fromAppDateTimeLocal(form.endDate) || "",
+    checkInEnabled: form.checkInEnabled, collectIeeeMember: form.collectIeeeMember, timeTbc: form.timeTbc, date: form.timeTbc ? fromAppDateOnly(form.date) : fromAppDateTimeLocal(form.date), endDate: form.timeTbc ? "" : fromAppDateTimeLocal(form.endDate) || "",
     registrationStart: fromAppDateTimeLocal(form.registrationStart) || "", registrationDeadline: fromAppDateTimeLocal(form.registrationDeadline) || "",
     contactEmail: form.contactEmail.trim(), contactPhone: form.contactPhone.trim(), externalLink: form.externalLink.trim(), whatsappLink: form.whatsappLink.trim(), tags: form.tags.trim(), externalFormUrl: form.externalFormUrl.trim(),
     formTemplate: customFields, maxCapacity: form.maxCapacity ? Number(form.maxCapacity) : 0, coupons }); };
@@ -165,7 +185,7 @@ export function EventForm({ mode, eventId, initialSocietyId, allowSocietyTransfe
     <div className="border-b border-border bg-muted/20 px-6 py-5 sm:px-8"><div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.14em] text-primary"><span className="grid h-7 w-7 place-items-center rounded-full bg-primary text-primary-foreground">1</span>Start a draft</div><h2 className="mt-4 text-3xl font-semibold tracking-tight">Give the event its essentials.</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Create the draft first. Registration, fees, attendee questions, communication and approval come next inside the event.</p></div>
     <div className="grid gap-6 p-6 sm:p-8"><div className="grid gap-2"><Label htmlFor="draft-title">Event name *</Label><Input id="draft-title" value={form.title} onChange={(e) => patch("title", e.target.value)} placeholder="e.g. Introduction to Hardware Security" maxLength={200} autoFocus /></div>
       <div className="grid gap-6 md:grid-cols-2"><div className="grid gap-2"><Label>Host society *</Label><Select value={form.society || "__none__"} onValueChange={(value) => patch("society", value === "__none__" ? "" : value)}><SelectTrigger><SelectValue placeholder="Select society" /></SelectTrigger><SelectContent><SelectItem value="__none__">Select a society...</SelectItem>{(societies?.societies ?? []).map((society) => <SelectItem key={society.id} value={society.id}>{society.name}</SelectItem>)}</SelectContent></Select></div>
-      <div className="grid gap-2"><Label htmlFor="draft-date">Starts *</Label><Input id="draft-date" type="datetime-local" min={toAppDateTimeLocal(new Date().toISOString())} value={form.date} onChange={(e) => patch("date", e.target.value)} /></div></div>
+      <div className="grid gap-2"><Label htmlFor="draft-date">{form.timeTbc ? "Event date *" : "Starts *"}</Label><Input id="draft-date" type={form.timeTbc ? "date" : "datetime-local"} min={form.timeTbc ? toAppDateOnly(new Date().toISOString()) : toAppDateTimeLocal(new Date().toISOString())} value={form.date} onChange={(e) => patch("date", e.target.value)} /><label className="flex items-start gap-2 text-xs text-muted-foreground"><input type="checkbox" checked={form.timeTbc} onChange={(e) => setTimeTbc(e.target.checked)} className="mt-0.5" /><span><strong className="text-foreground">Time to be confirmed</strong><span className="block mt-0.5">Publish the date without presenting a placeholder midnight time.</span></span></label></div></div>
       <div className="grid gap-2"><Label htmlFor="draft-venue">Venue *</Label><Input id="draft-venue" value={form.venue} onChange={(e) => patch("venue", e.target.value)} placeholder="AI Lab, Decennial Block, Online…" /></div>
       {submitError && <p role="alert" className="rounded-xl border border-destructive/25 bg-destructive/5 px-4 py-3 text-sm text-destructive">{submitError}</p>}</div>
     <div className="flex flex-col-reverse gap-3 border-t border-border bg-muted/15 px-6 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8"><Button type="button" variant="ghost" onClick={leaveEditor}>Cancel</Button><Button type="submit" disabled={submitting} className="gap-2">{submitting && <Loader2 className="h-4 w-4 animate-spin" />}Create draft & continue</Button></div>
@@ -183,7 +203,7 @@ export function EventForm({ mode, eventId, initialSocietyId, allowSocietyTransfe
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]"><div className="space-y-6">
           <div className="grid gap-2"><Label htmlFor="evt-title">Event name *</Label><Input id="evt-title" value={form.title} onChange={(e) => patch("title", e.target.value)} maxLength={200} /></div>
           <div className="grid gap-2"><Label htmlFor="evt-description">Description</Label><Textarea id="evt-description" rows={9} value={form.description} onChange={(e) => patch("description", e.target.value)} placeholder="What is the event about? What should participants expect?" /><p className="text-xs text-muted-foreground">This is the main content on the public event page.</p></div>
-          <div className="grid gap-4 sm:grid-cols-2"><div className="grid gap-2"><Label htmlFor="evt-date">Start *</Label><Input id="evt-date" type="datetime-local" value={form.date} onChange={(e) => patch("date", e.target.value)} /></div><div className="grid gap-2"><Label htmlFor="evt-end">End</Label><Input id="evt-end" type="datetime-local" min={form.date || undefined} value={form.endDate} onChange={(e) => patch("endDate", e.target.value)} /></div></div>
+          <div className="space-y-3"><div className="grid gap-4 sm:grid-cols-2"><div className="grid gap-2"><Label htmlFor="evt-date">{form.timeTbc ? "Event date *" : "Start *"}</Label><Input id="evt-date" type={form.timeTbc ? "date" : "datetime-local"} value={form.date} onChange={(e) => patch("date", e.target.value)} /></div>{!form.timeTbc && <div className="grid gap-2"><Label htmlFor="evt-end">End</Label><Input id="evt-end" type="datetime-local" min={form.date || undefined} value={form.endDate} onChange={(e) => patch("endDate", e.target.value)} /></div>}</div><label className="flex items-start gap-3 rounded-xl border border-border px-4 py-3"><input type="checkbox" checked={form.timeTbc} onChange={(e) => setTimeTbc(e.target.checked)} className="mt-1" /><span><span className="block text-sm font-medium">Time to be confirmed</span><span className="mt-0.5 block text-xs leading-5 text-muted-foreground">Treat this as a date-only event until organisers publish the exact time. Public pages will never show a placeholder 12:00 am.</span></span></label></div>
           <div className="grid gap-2"><Label htmlFor="evt-venue">Venue *</Label><div className="relative"><MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input id="evt-venue" className="pl-9" value={form.venue} onChange={(e) => patch("venue", e.target.value)} placeholder="AI Lab / Main Auditorium / Online" /></div></div>
           <div className="grid gap-2"><Label>Host society *</Label><Select value={form.society || "__none__"} disabled={!allowSocietyTransfer} onValueChange={(value) => patch("society", value === "__none__" ? "" : value)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{(societies?.societies ?? []).map((society) => <SelectItem key={society.id} value={society.id}>{society.name}</SelectItem>)}</SelectContent></Select>{!allowSocietyTransfer && <p className="text-xs text-muted-foreground">The host society is fixed after creation. A platform administrator can transfer it when necessary.</p>}</div>
         </div><div className="space-y-3"><Label>Event banner</Label><ImageUpload label="" currentUrl={bannerUrl} onChange={(file) => { setDirty(true); setBannerFile(file); if (file) setRemoveBanner(false); }} onRemove={() => { setDirty(true); setRemoveBanner(true); }} previewClassName="aspect-[16/7] h-auto w-full object-cover" /><div className="rounded-xl bg-muted/35 p-4 text-xs leading-5 text-muted-foreground"><strong className="text-foreground">Recommended:</strong> 1600 × 700 px or a similar wide 16:7 crop. Keep important text and faces away from the edges.</div></div></div>
@@ -221,7 +241,7 @@ export function EventForm({ mode, eventId, initialSocietyId, allowSocietyTransfe
         <div className="grid gap-2"><Label>Tags</Label><TagsEditor value={form.tags} onChange={(value) => patch("tags", value)} /><p className="text-xs text-muted-foreground">Use a few useful search labels such as workshop, cybersecurity or ieee-day.</p></div>
       </div>}
       {section === "preview" && <div className="space-y-7"><SectionTitle eyebrow="05 · Review" title="See the setup before you submit it" description="This is an organizer preview. Publishing and approval actions stay in the event workspace." />
-        <div className="overflow-hidden rounded-2xl border border-border bg-background">{bannerUrl && <img src={bannerUrl} alt="" className="aspect-[16/6] w-full object-cover" />}<div className="p-6 sm:p-8"><div className="flex flex-wrap gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"><span>{form.status}</span><span>·</span><span>{form.registrationMode === "internal" ? "IEEE registration" : form.registrationMode === "external" ? "External registration" : "No registration"}</span></div><h3 className="mt-3 text-3xl font-semibold tracking-tight">{form.title || "Untitled event"}</h3><div className="mt-5 grid gap-4 text-sm sm:grid-cols-3"><div><p className="text-xs text-muted-foreground">When</p><p className="mt-1 font-medium">{form.date ? new Date(fromAppDateTimeLocal(form.date) || "").toLocaleString("en-IN") : "Not set"}</p></div><div><p className="text-xs text-muted-foreground">Where</p><p className="mt-1 font-medium">{form.venue || "Not set"}</p></div><div><p className="text-xs text-muted-foreground">Entry</p><p className="mt-1 font-medium">{form.registrationMode === "internal" && Number(form.price) > 0 ? `₹${form.price}` : "Free / external"}</p></div></div></div></div>
+        <div className="overflow-hidden rounded-2xl border border-border bg-background">{bannerUrl && <img src={bannerUrl} alt="" className="aspect-[16/6] w-full object-cover" />}<div className="p-6 sm:p-8"><div className="flex flex-wrap gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"><span>{form.status}</span><span>·</span><span>{form.registrationMode === "internal" ? "IEEE registration" : form.registrationMode === "external" ? "External registration" : "No registration"}</span></div><h3 className="mt-3 text-3xl font-semibold tracking-tight">{form.title || "Untitled event"}</h3><div className="mt-5 grid gap-4 text-sm sm:grid-cols-3"><div><p className="text-xs text-muted-foreground">When</p><p className="mt-1 font-medium">{form.date ? formatEventDateTime((form.timeTbc ? fromAppDateOnly(form.date) : fromAppDateTimeLocal(form.date)) || "", form.timeTbc) : "Not set"}</p></div><div><p className="text-xs text-muted-foreground">Where</p><p className="mt-1 font-medium">{form.venue || "Not set"}</p></div><div><p className="text-xs text-muted-foreground">Entry</p><p className="mt-1 font-medium">{form.registrationMode === "internal" && Number(form.price) > 0 ? `₹${form.price}` : "Free / external"}</p></div></div></div></div>
         {form.registrationMode === "internal" && <div className="rounded-2xl border border-border p-6 sm:p-8"><div className="flex items-center justify-between gap-4"><div><p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">Attendee form</p><h3 className="mt-2 text-xl font-semibold">What participants will be asked</h3></div><span className="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground">{customFields.length} custom</span></div><div className="mt-6 grid gap-5 sm:grid-cols-2">{STANDARD_FIELDS.map(([name]) => <div key={name} className="space-y-2"><div className="text-xs font-semibold">{name}</div><div className="h-10 rounded-lg border border-input bg-muted/20" /></div>)}</div>{customFields.length > 0 && <div className="mt-7 space-y-5 border-t border-border pt-7">{customFields.map((field) => <QuestionPreview key={field.id} field={field} />)}</div>}</div>}
         <div className="grid gap-3 md:grid-cols-3"><div className="rounded-xl border border-border p-4"><p className="text-xs text-muted-foreground">Organisation approval</p><p className="mt-2 font-semibold capitalize">{approvalStatus.replaceAll("_", " ")}</p></div><div className="rounded-xl border border-border p-4"><p className="text-xs text-muted-foreground">Finance approval</p><p className="mt-2 font-semibold capitalize">{Number(form.price) > 0 ? financeApprovalStatus.replaceAll("_", " ") : "Not required"}</p></div><div className="rounded-xl border border-border p-4"><p className="text-xs text-muted-foreground">Next step</p><p className="mt-2 font-semibold">{approvalStatus === "draft" || approvalStatus === "changes_requested" ? "Save, then submit for review" : form.status === "published" ? "Operate the event" : "Continue workflow"}</p></div></div>
         {Boolean(existingRecord?.slug) && <Button type="button" variant="outline" asChild className="gap-2"><Link to={`/events/${String(existingRecord?.slug ?? "")}`} target="_blank">Open public page <ExternalLink className="h-4 w-4" /></Link></Button>}
