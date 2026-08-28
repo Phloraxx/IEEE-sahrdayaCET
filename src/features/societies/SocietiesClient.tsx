@@ -61,6 +61,12 @@ const SOCIETY_ACCENTS: Record<string, Accent> = {
   wie: { text: "group-hover:text-purple-700", wash: "group-hover:bg-purple-50/30", line: "bg-purple-600", ghost: "text-purple-500/[0.06]", color: "#9333ea" },
 };
 
+
+const HERO_SIGNAL_POSITIONS = [
+  [50, 8], [69, 14], [84, 28], [91, 48], [85, 69], [70, 84],
+  [50, 92], [30, 84], [15, 69], [9, 48], [16, 28], [31, 14], [50, 29],
+] as const;
+
 function societyAccent(slug: string): Accent {
   return SOCIETY_ACCENTS[slug.toLowerCase()] ?? DEFAULT_ACCENT;
 }
@@ -154,9 +160,8 @@ function ReactiveBackdrop({ society, reduceMotion }: { society: Society | null; 
 
 function LiveActivitySection({ upcomingEvents, totalUpcoming, activeCommunities }: { upcomingEvents: UpcomingSocietyEvent[]; totalUpcoming: number; activeCommunities: number }) {
   return (
-    <section data-testid="society-live-activity" className="relative z-20 bg-gray-950 text-white">
-      <div className="h-24 sm:h-36" aria-hidden="true" style={{ background: "linear-gradient(to bottom, #ffffff 0%, #ffffff 18%, #eef3f6 58%, #030712 100%)" }} />
-      <div className="mx-auto max-w-7xl px-5 pb-16 pt-8 sm:px-6 sm:pb-20 sm:pt-10">
+    <section data-testid="society-live-activity" className="relative z-20 mt-10 border-t-2 border-ieee-blue bg-gray-950 text-white sm:mt-16">
+      <div className="mx-auto max-w-7xl px-5 pb-16 pt-12 sm:px-6 sm:pb-20 sm:pt-14">
         <div className="grid gap-8 border-b border-white/15 pb-9 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
             <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.2em] text-sky-300">Live signal / IEEE Sahrdaya</p>
@@ -438,10 +443,10 @@ export default function SocietiesClient({ societies, activityBySociety, upcoming
   const activeCommunityCount = Object.keys(activityBySociety).length;
 
   return (
-    <div className="relative min-h-screen w-full bg-white font-sans text-slate-950 selection:bg-ieee-blue/15">
-      <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 h-dvh overflow-hidden opacity-70">
-        <StarsBackground starDensity={0.00022} allStarsTwinkle starColor="#94a3b8" />
-        <div className="relative z-10 h-full opacity-50"><TechnicalDetails /></div>
+    <div id="societies-top" className="relative min-h-screen w-full bg-white font-sans text-slate-950 selection:bg-ieee-blue/15">
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 h-dvh overflow-hidden">
+        <div className="absolute inset-0 opacity-70"><StarsBackground starDensity={0.00022} allStarsTwinkle starColor="#94a3b8" /></div>
+        <div className="relative z-10 h-full"><TechnicalDetails /></div>
       </div>
       <ReactiveBackdrop society={activeSociety} reduceMotion={Boolean(reduceMotion)} />
       <Navbar mobileAlign="right" />
@@ -463,39 +468,107 @@ export default function SocietiesClient({ societies, activityBySociety, upcoming
 
       <main className="relative z-10 px-5 pb-0 pt-28 sm:px-6 sm:pt-32">
         <div className="mx-auto max-w-7xl">
-          <motion.section initial={reduceMotion ? false : { opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }} className="relative overflow-hidden border-b border-slate-200 pb-12 sm:pb-16 lg:min-h-[520px] lg:pb-14">
-            <div aria-hidden="true" className="pointer-events-none absolute -bottom-3 left-0 hidden select-none text-[11.5vw] font-black leading-none tracking-[-0.075em] text-slate-950/[0.025] xl:block">SOCIETIES</div>
-            <div className="relative z-10 flex items-center justify-between gap-6 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-              <span>IEEE Sahrdaya / Community Index</span>
-              <span>Directory · 2026</span>
+          <motion.section
+            initial={reduceMotion ? false : { opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+            className="border-b border-slate-200 pb-12 sm:pb-16 lg:pb-14"
+          >
+            <div className="flex items-center justify-between gap-6 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+              <span>IEEE Sahrdaya / Societies</span>
+              <span>Community directory · 2026</span>
             </div>
 
-            <div className="relative z-10 mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_330px] lg:items-end xl:grid-cols-[minmax(0,1fr)_390px]">
-              <div className="max-w-4xl">
-                <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.2em] text-ieee-blue">Explore · Connect · Build</p>
-                <h1 className="mt-5 text-[3.25rem] font-semibold leading-[0.9] tracking-[-0.06em] text-slate-950 sm:text-7xl lg:text-[5.35rem] xl:text-[6.15rem]">
-                  Find your field.<br /><span className="text-ieee-blue">Find your people.</span>
-                </h1>
-                <div className="mt-8 grid max-w-3xl gap-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-                  <p className="max-w-xl text-base leading-7 text-slate-600 sm:text-lg">From computing and robotics to power, healthcare, signal processing and humanitarian technology — discover the IEEE community that matches what you want to explore next.</p>
-                  <a href="#society-directory" className="group inline-flex items-center gap-3 whitespace-nowrap font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500 transition hover:text-slate-950">
-                    Start exploring <span className="inline-block transition-transform duration-300 group-hover:translate-y-1">↓</span>
+            <div className="mt-9 grid gap-10 lg:grid-cols-[minmax(0,0.9fr)_minmax(470px,1.1fr)] lg:items-stretch xl:gap-14">
+              <div className="min-w-0 flex flex-col justify-between lg:py-7">
+                <div>
+                  <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.2em] text-ieee-blue">Explore · Connect · Build</p>
+                  <h1 className="mt-5 max-w-3xl text-[2.65rem] font-semibold leading-[0.93] tracking-[-0.055em] text-slate-950 sm:text-6xl sm:leading-[0.91] sm:tracking-[-0.06em] lg:text-[4.65rem] xl:text-[5.35rem]">
+                    13 communities.<br /><span className="text-ieee-blue">One student branch.</span>
+                  </h1>
+                  <p className="mt-7 max-w-xl text-base leading-7 text-slate-600 sm:text-lg">Explore the technical societies, affinity groups and communities where IEEE Sahrdaya students learn, build, research and lead.</p>
+                </div>
+
+                <div className="mt-9 flex flex-wrap items-end justify-between gap-6 border-t border-slate-200 pt-5 lg:mt-12">
+                  <div className="font-mono text-[8px] font-semibold uppercase tracking-[0.16em] text-slate-400 sm:text-[9px]">
+                    <p>{String(upcomingEventCount).padStart(2, "0")} upcoming events · {String(activeCommunityCount).padStart(2, "0")} active now</p>
+                    <p className="mt-2">Thrissur · Kerala · IEEE Student Branch</p>
+                  </div>
+                  <a href="#society-directory" className="group inline-flex items-center gap-3 font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500 transition hover:text-slate-950">
+                    Enter directory <span className="inline-block transition-transform duration-300 group-hover:translate-y-1">↓</span>
                   </a>
+                </div>
+
+                <div className="mt-7 flex w-full min-w-0 gap-5 overflow-x-auto border-y border-slate-200 py-4 lg:hidden">
+                  {societies.map((society) => {
+                    const accent = societyAccent(society.slug);
+                    const eventCount = activityBySociety[society.id]?.eventCount ?? 0;
+                    return (
+                      <button key={society.id} type="button" onClick={() => scrollToSociety(society.id)} className="flex shrink-0 items-center gap-2 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: eventCount ? accent.color : "#cbd5e1" }} />
+                        {society.slug.toUpperCase()}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              <div className="relative border-y border-slate-200 py-5 lg:border-y-0 lg:border-l lg:py-2 lg:pl-9">
-                <div className="flex items-end justify-between gap-6 lg:block">
-                  <div>
-                    <div className="text-[5.8rem] font-semibold leading-[0.78] tracking-[-0.075em] text-slate-950 sm:text-[7rem] lg:text-[9rem]">{String(societies.length).padStart(2, "0")}</div>
-                    <p className="mt-3 font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-400">Communities / One branch</p>
-                  </div>
-                  <div className="grid gap-2 text-right font-mono text-[8px] font-semibold uppercase tracking-[0.16em] text-slate-400 lg:mt-10 lg:grid-cols-2 lg:text-left">
-                    <span>{String(upcomingEventCount).padStart(2, "0")} upcoming events</span>
-                    <span className="lg:text-right">{String(activeCommunityCount).padStart(2, "0")} active now</span>
-                    <span>Thrissur · Kerala</span>
-                    <span className="lg:text-right">IEEE Student Branch</span>
-                  </div>
+              <div data-testid="society-hero-map" className="relative hidden min-h-[500px] overflow-hidden bg-slate-950 text-white lg:block">
+                <div className="absolute inset-0 opacity-35" aria-hidden="true" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,.055) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.055) 1px, transparent 1px)", backgroundSize: "44px 44px" }} />
+                <div className="absolute left-6 top-5 z-10 font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-white/45">Community signal map / 13 nodes</div>
+                <div className="absolute right-6 top-5 z-10 font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-white/35">Live / Sahrdaya SB</div>
+
+                <svg viewBox="0 0 100 100" className="absolute inset-7 h-[calc(100%-3.5rem)] w-[calc(100%-3.5rem)]" aria-hidden="true">
+                  <ellipse cx="50" cy="50" rx="40" ry="39" fill="none" stroke="rgba(255,255,255,.12)" strokeWidth=".22" />
+                  <ellipse cx="50" cy="50" rx="29" ry="28" fill="none" stroke="rgba(0,98,155,.25)" strokeWidth=".2" strokeDasharray="1.1 1.5" />
+                  {societies.map((society, index) => {
+                    const position = HERO_SIGNAL_POSITIONS[index % HERO_SIGNAL_POSITIONS.length]!;
+                    return <line key={society.id} x1="50" y1="50" x2={position[0]} y2={position[1]} stroke="rgba(255,255,255,.09)" strokeWidth=".16" />;
+                  })}
+                </svg>
+
+                <motion.div
+                  key={activeSociety?.id ?? "branch-core"}
+                  initial={reduceMotion ? false : { opacity: 0, scale: 0.97 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="absolute left-1/2 top-1/2 z-10 w-48 -translate-x-1/2 -translate-y-1/2 text-center"
+                >
+                  <p className="font-mono text-[8px] font-semibold uppercase tracking-[0.19em] text-white/35">{activeSociety ? `Signal / ${activeSociety.slug.toUpperCase()}` : "IEEE / Sahrdaya SB"}</p>
+                  <p className="mt-3 text-xl font-semibold leading-tight tracking-[-0.03em] text-white">{activeSociety?.name ?? "One student branch"}</p>
+                  <p className="mt-3 font-mono text-[8px] uppercase tracking-[0.16em] text-white/30">{activeSociety ? "Select to jump" : "13 communities connected"}</p>
+                </motion.div>
+
+                {societies.map((society, index) => {
+                  const [x, y] = HERO_SIGNAL_POSITIONS[index % HERO_SIGNAL_POSITIONS.length]!;
+                  const accent = societyAccent(society.slug);
+                  const eventCount = activityBySociety[society.id]?.eventCount ?? 0;
+                  const selected = society.id === activeSocietyId;
+                  return (
+                    <button
+                      key={society.id}
+                      type="button"
+                      onMouseEnter={() => setHoveredSocietyId(society.id)}
+                      onMouseLeave={() => setHoveredSocietyId(null)}
+                      onFocus={() => setHoveredSocietyId(society.id)}
+                      onBlur={() => setHoveredSocietyId(null)}
+                      onClick={() => scrollToSociety(society.id)}
+                      aria-label={`Open ${society.name}`}
+                      className="group absolute z-20 -translate-x-1/2 -translate-y-1/2 text-center focus-visible:outline-none"
+                      style={{ left: `${x}%`, top: `${y}%` }}
+                    >
+                      <span className="relative mx-auto grid h-8 w-8 place-items-center">
+                        {eventCount > 0 && <span className="absolute inset-0 rounded-full border opacity-60" style={{ borderColor: accent.color }} />}
+                        {eventCount > 1 && <span className="absolute -inset-1.5 rounded-full border opacity-25" style={{ borderColor: accent.color }} />}
+                        <span className="h-2 w-2 rounded-full bg-white transition-transform duration-300 group-hover:scale-[1.6]" style={selected ? { backgroundColor: accent.color, transform: "scale(1.65)" } : undefined} />
+                      </span>
+                      <span className="mt-1 block font-mono text-[8px] font-semibold uppercase tracking-[0.15em] text-white/55 transition-colors group-hover:text-white">{society.slug.toUpperCase()}</span>
+                    </button>
+                  );
+                })}
+
+                <div className="absolute bottom-5 left-6 right-6 z-10 flex items-center justify-between border-t border-white/10 pt-4 font-mono text-[8px] font-semibold uppercase tracking-[0.17em] text-white/35">
+                  <span>Move / focus a signal</span>
+                  <span>{String(upcomingEventCount).padStart(2, "0")} upcoming · {String(activeCommunityCount).padStart(2, "0")} active</span>
                 </div>
               </div>
             </div>
@@ -621,12 +694,20 @@ export default function SocietiesClient({ societies, activityBySociety, upcoming
         </div>
       </main>
       <LiveActivitySection upcomingEvents={upcomingEvents} totalUpcoming={upcomingEventCount} activeCommunities={activeCommunityCount} />
-      <div className="relative z-20 bg-white px-5 py-5 sm:px-6" aria-hidden="true">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-400 sm:text-[9px]">
-          <span>End / Live signal</span>
-          <span>IEEE Sahrdaya Student Branch</span>
+      <section data-testid="society-directory-end" className="relative z-20 border-y border-slate-200 bg-white">
+        <div className="mx-auto grid max-w-7xl gap-8 px-5 py-14 sm:px-6 sm:py-20 lg:grid-cols-[1fr_auto] lg:items-end">
+          <div>
+            <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.19em] text-slate-400">End / Society directory</p>
+            <h2 className="mt-4 max-w-2xl text-3xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-4xl">Keep exploring IEEE Sahrdaya.</h2>
+          </div>
+          <div className="flex flex-wrap gap-x-7 gap-y-4 font-mono text-[9px] font-semibold uppercase tracking-[0.17em] text-slate-500">
+            <Link to="/events" className="transition hover:text-ieee-blue">Events ↗</Link>
+            <Link to="/blog" className="transition hover:text-ieee-blue">Blog ↗</Link>
+            <Link to="/#execom" className="transition hover:text-ieee-blue">Execom ↗</Link>
+            <a href="#societies-top" className="transition hover:text-ieee-blue">Back to top ↑</a>
+          </div>
         </div>
-      </div>
+      </section>
       <Footer />
     </div>
   );

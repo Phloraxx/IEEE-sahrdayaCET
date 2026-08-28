@@ -1,17 +1,26 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import pkg from "../../package.json";
 const { version } = pkg;
 
 export const TechnicalDetails: React.FC = () => {
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const update = () => setScrolled(window.scrollY > 120);
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    return () => window.removeEventListener("scroll", update);
+  }, []);
+
   return (
     <>
       {/* Top Left - IEEE Logo */}
       <motion.div
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 1, duration: 0.8 }}
-        className="absolute left-5 top-4 z-10 hidden xl:block"
+        initial={{ opacity: 0, x: -16, y: -4 }}
+        animate={{ opacity: scrolled ? 0 : 1, x: scrolled ? -8 : 0, y: scrolled ? -8 : 0 }}
+        transition={{ delay: scrolled ? 0 : 0.18, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+        className={`absolute left-7 top-5 z-30 hidden xl:block ${scrolled ? "pointer-events-none" : ""}`}
       >
         <img
           src="/Ieee.svg"
@@ -19,16 +28,16 @@ export const TechnicalDetails: React.FC = () => {
           width={160}
           height={78}
           loading="eager"
-          className="h-auto w-36 opacity-65 2xl:w-40"
+          className="h-auto w-40 contrast-125 drop-shadow-[0_1px_0_rgba(255,255,255,0.85)] 2xl:w-44"
         />
       </motion.div>
 
       {/* Top Right - Sahrdaya Emblem */}
       <motion.div
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 1, duration: 0.8 }}
-        className="absolute right-5 top-4 z-10 hidden xl:block text-right"
+        initial={{ opacity: 0, x: 16, y: -4 }}
+        animate={{ opacity: scrolled ? 0 : 1, x: scrolled ? 8 : 0, y: scrolled ? -8 : 0 }}
+        transition={{ delay: scrolled ? 0 : 0.18, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+        className={`absolute right-7 top-5 z-30 hidden xl:block text-right ${scrolled ? "pointer-events-none" : ""}`}
       >
         <img
           src="/emblem.png"
@@ -36,7 +45,7 @@ export const TechnicalDetails: React.FC = () => {
           width={56}
           height={56}
           loading="eager"
-          className="h-14 w-14 object-contain opacity-65 2xl:h-16 2xl:w-16"
+          className="h-16 w-16 object-contain contrast-125 drop-shadow-[0_1px_0_rgba(255,255,255,0.9)] 2xl:h-[4.5rem] 2xl:w-[4.5rem]"
         />
       </motion.div>
 
