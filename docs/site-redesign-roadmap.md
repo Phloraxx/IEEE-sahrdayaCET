@@ -314,7 +314,7 @@ Do not add a transition if it delays navigation, harms reduced-motion users, or 
 4. Introduce explicit TBC time state.
 5. Add regression coverage before visual restructuring.
 
-Implementation status: Pass A code and regressions are complete locally; staging verification is the remaining checkpoint before Pass B begins. The curated `EventsShowcase.tsx` asset list remains intentionally untouched.
+Implementation status: **complete and verified on staging.** Public society count is 13, IST-safe event dates are live, structured `timeTbc` is deployed through public/registration/payment paths, and the curated `EventsShowcase.tsx` asset list remains intentionally untouched.
 
 Checkpoint: deploy to staging and verify no visual redesign yet; only data correctness should change.
 
@@ -327,11 +327,15 @@ Checkpoint: deploy to staging and verify no visual redesign yet; only data corre
 5. Replace the current generic Blog teaser with the new Blog-aligned `LATEST SIGNALS` treatment.
 6. Test the full Home narrative before any other page redesign.
 
+Implementation status: **complete and verified on staging.** Home now follows identity → `NOW AT SAHRDAYA` → `THE PEOPLE` → curated `FROM THE BRANCH` → `LATEST SIGNALS`, with real programme/blog/count data and permanent Home regressions.
+
 Checkpoint: user visual approval on staging before proceeding.
 
 ### Pass C — Events detail
 
 Implement shared event-detail composition, TBC state, media fallback, related events, and direct registration-state presentation.
+
+Implementation status: **in progress.** The detail page now opens in the Events index dark programme language, always renders uploaded artwork or a society-aware generated fallback, keeps registration/ticket/payment state intact, removes duplicate logistics, and adds a future-first related-programme handoff. Staging deployment and the full state matrix remain the release checkpoint.
 
 Checkpoint: verify free, paid, closed, upcoming, past, banner/no-banner, venue/TBC combinations.
 

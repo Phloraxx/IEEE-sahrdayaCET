@@ -96,3 +96,23 @@ describe("Home redesign invariants", () => {
     expect(people).not.toContain("100+");
   });
 });
+
+describe("Event detail redesign invariants", () => {
+  it("inherits the programme system and always has an artwork surface", () => {
+    const detail = read("src/routes/events.$slug.tsx");
+    expect(detail).toContain('data-testid="event-programme-hero"');
+    expect(detail).toContain("Programme / {formatYear(event.date)}");
+    expect(detail).toContain("<EventArtworkPreview");
+    expect(detail).toContain("<EventBannerFallback");
+    expect(detail).toContain("Programme identity");
+  });
+
+  it("keeps registration logic intact and adds a programme handoff", () => {
+    const detail = read("src/routes/events.$slug.tsx");
+    expect(detail).toContain("getMyEventRegistration(event.id)");
+    expect(detail).toContain("registrationAvailable");
+    expect(detail).toContain('data-testid="related-events"');
+    expect(detail).toContain("More from the programme.");
+    expect(detail).toContain("future.length > 0 ? future");
+  });
+});
