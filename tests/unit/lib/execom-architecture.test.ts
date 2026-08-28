@@ -15,15 +15,18 @@ describe("execom architecture invariants", () => {
   it("drives the full directory portfolio from PocketBase", () => {
     const client = read("src/features/execom/ExecomClient.tsx");
     const reader = read("src/server/public/execom.server.ts");
-    expect(client).toContain("portfolio: doc.portfolio");
     expect(client).not.toContain("PORTFOLIO_BY_MEMBER_NAME");
     expect(client).not.toContain("midhunpm.in");
     expect(client).toContain("href={member.portfolio}");
-    expect(client).toContain("View details for ${member.name}");
+    expect(client).toContain("Open profile for ${member.name}");
     expect(reader).toContain("linkedin,instagram,portfolio");
     expect(reader).toContain("portfolio: record.portfolio");
     expect(client).toContain("...Array.from(remaining).sort()");
-    expect(client).toContain('if (initialSections.has("core")) return "core"');
+    expect(client).toContain('useState("all")');
+    expect(client).toContain('type ViewMode = "grid" | "roster"');
+    expect(client).toContain('data-testid="execom-grid"');
+    expect(client).toContain('data-testid="execom-roster"');
+    expect(client).toContain('placeholder="Search the roster…"');
   });
 
   it("keeps member-specific structured data off the directory route", () => {

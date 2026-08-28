@@ -335,21 +335,21 @@ Checkpoint: user visual approval on staging before proceeding.
 
 Implement shared event-detail composition, TBC state, media fallback, related events, and direct registration-state presentation.
 
-Implementation status: **in progress.** The detail page now opens in the Events index dark programme language, always renders uploaded artwork or a society-aware generated fallback, keeps registration/ticket/payment state intact, removes duplicate logistics, and adds a future-first related-programme handoff. Staging deployment and the full state matrix remain the release checkpoint.
+Implementation status: **complete and verified on staging.** The detail page opens in the Events index dark programme language, always renders uploaded artwork or a society-aware generated fallback, keeps registration/ticket/payment state intact, removes duplicate logistics, and adds a future-first related-programme handoff. Free/TBC/no-banner, paid/open, completed/artwork and WIE states have been verified on the deployed build.
 
-Checkpoint: verify free, paid, closed, upcoming, past, banner/no-banner, venue/TBC combinations.
+Checkpoint: passed across the representative state matrix and deployed browser regressions.
 
 ### Pass D — Society details
 
 Implementation: generic society routes now use a shared profile system built around identity, mission, people, public activity, optional society-linked Blog stories, and previous/next directory navigation. WIE remains on its bespoke route. Public society payloads also reject hidden societies and exclude draft/deleted events rather than hiding them only after hydration.
 
-Local verification covers all 12 generic public societies, RAS at 390/768/1024/1280/1440/1920, long-name EMBS/NPSS cases, event-empty NPSS, high-volume Computer Society activity, WIE route separation, and hidden Photonics returning 404. Staging verification remains the checkpoint for this pass.
+Implementation status: **complete and verified on staging.** Verification covers all 12 generic public societies, RAS at 390/768/1024/1280/1440/1920, long-name EMBS/NPSS cases, event-empty NPSS, high-volume Computer Society activity, WIE route separation, hidden Photonics returning 404, and deployed RAS/NPSS/EMBS smoke checks.
 
 ### Pass E — Full Execom
 
-Add Grid/Roster modes, retain category filtering, improve current-year context, and align the visual system with Home.
+Implementation status: **in local release gate.** The page now uses the Home/Blog technical visual language, opens as a searchable `ROSTER` across all public Execom records, keeps `GRID` as the visual browse mode, adds `ALL` plus every live PocketBase group filter with counts, and uses a technical member detail drawer instead of the old rounded modal. The current real dataset is 91 people / 21 groups / 13 society groups / 2026.
 
-Checkpoint: keyboard/filter/mobile behaviour and complete role/name visibility.
+Checkpoint: full unit/build suite, clean-room-safe Execom Playwright, all six breakpoints, keyboard/filter/search behaviour, complete role/name visibility, then deployed staging inspection.
 
 ### Pass F — shared polish
 
