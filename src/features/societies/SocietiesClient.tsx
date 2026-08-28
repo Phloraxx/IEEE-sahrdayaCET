@@ -62,10 +62,6 @@ const SOCIETY_ACCENTS: Record<string, Accent> = {
 };
 
 
-const HERO_SIGNAL_POSITIONS = [
-  [59, 8], [74, 14], [88, 28], [94, 48], [89, 69], [74, 84],
-  [59, 92], [43, 84], [31, 69], [26, 48], [31, 28], [43, 14], [59, 29],
-] as const;
 
 function societyAccent(slug: string): Accent {
   return SOCIETY_ACCENTS[slug.toLowerCase()] ?? DEFAULT_ACCENT;
@@ -308,6 +304,15 @@ export default function SocietiesClient({ societies, activityBySociety, upcoming
   const [hoveredSocietyId, setHoveredSocietyId] = useState<string | null>(null);
   const [manualSocietyId, setManualSocietyId] = useState<string | null>(null);
   const [scrollSocietyId, setScrollSocietyId] = useState<string | null>(null);
+  const [heroSocietyId, setHeroSocietyId] = useState<string | null>(() => {
+    let best = societies[0] ?? null;
+    for (const society of societies) {
+      const current = activityBySociety[society.id]?.eventCount ?? 0;
+      const bestCount = best ? activityBySociety[best.id]?.eventCount ?? 0 : -1;
+      if (current > bestCount) best = society;
+    }
+    return best?.id ?? null;
+  });
   const manualTimerRef = useRef<number | null>(null);
   const activeSocietyId = hoveredSocietyId ?? manualSocietyId ?? scrollSocietyId;
 
@@ -441,6 +446,7 @@ export default function SocietiesClient({ societies, activityBySociety, upcoming
   const activeActivity = activeSociety ? activityBySociety[activeSociety.id] : undefined;
   const upcomingEventCount = Object.values(activityBySociety).reduce((total, signal) => total + signal.eventCount, 0);
   const activeCommunityCount = Object.keys(activityBySociety).length;
+  const heroSociety = societies.find((society) => society.id === heroSocietyId) ?? societies[0] ?? null;
 
   return (
     <div id="societies-top" className="relative min-h-screen w-full bg-white font-sans text-slate-950 selection:bg-ieee-blue/15">
@@ -448,9 +454,9 @@ export default function SocietiesClient({ societies, activityBySociety, upcoming
         <div className="absolute inset-0 opacity-70"><StarsBackground starDensity={0.00022} allStarsTwinkle starColor="#94a3b8" /></div>
         <div className="relative z-10 h-full"><TechnicalDetails /></div>
       </div>
-      <ReactiveBackdrop society={activeSociety} reduceMotion={Boolean(reduceMotion)} />
+      <ReactiveBackdrop society={activeSociety ?? heroSociety} reduceMotion={Boolean(reduceMotion)} />
       <Navbar mobileAlign="right" />
-      {activeSociety && (
+      {(scrollSocietyId || manualSocietyId) && activeSociety && (
         <motion.aside
           key={activeSociety.id}
           initial={reduceMotion ? false : { opacity: 0, x: 8 }}
@@ -510,104 +516,118 @@ export default function SocietiesClient({ societies, activityBySociety, upcoming
             </div>
 
             <div
-              data-testid="society-hero-map"
-              className="relative mt-8 hidden min-h-[610px] overflow-hidden border-y border-slate-200 bg-white/80 lg:block"
+              data-testid="society-hero-index"
+              className="relative mt-8 hidden overflow-hidden border-y border-slate-200 bg-white/88 lg:block"
             >
-              <div
-                aria-hidden="true"
-                className="absolute inset-0 opacity-80"
-                style={{
-                  backgroundImage: "linear-gradient(rgba(15,23,42,.055) 1px, transparent 1px), linear-gradient(90deg, rgba(15,23,42,.055) 1px, transparent 1px)",
-                  backgroundSize: "42px 42px",
-                }}
-              />
-              <div aria-hidden="true" className="absolute left-[59%] top-0 h-full w-px bg-ieee-blue/10" />
-              <div aria-hidden="true" className="absolute left-0 top-1/2 h-px w-full bg-slate-200/80" />
-
-              <div className="absolute left-0 top-0 z-20 flex h-full w-[24%] min-w-[250px] flex-col justify-between border-r border-slate-200 bg-white/92 px-7 py-7 xl:px-9 xl:py-9">
-                <div>
-                  <p className="font-mono text-[8px] font-semibold uppercase tracking-[0.2em] text-ieee-blue">Branch topology / 13 connected signals</p>
-                  <div className="mt-7 border-l-2 border-ieee-blue pl-5">
-                    <p className="text-[5.5rem] font-semibold leading-[0.78] tracking-[-0.08em] text-slate-950 xl:text-[6.5rem]">13</p>
-                    <p className="mt-5 max-w-[12rem] text-xl font-semibold leading-[1.05] tracking-[-0.035em] text-slate-950">Communities orbit one student branch.</p>
-                  </div>
-                  <p className="mt-7 max-w-[15rem] text-sm leading-6 text-slate-600 xl:text-[15px]">A live map of the technical societies, affinity groups and communities shaping IEEE Sahrdaya.</p>
-                </div>
-                <div className="border-t border-slate-200 pt-5">
-                  <div className="font-mono text-[8px] font-semibold uppercase tracking-[0.17em] text-slate-400">
-                    <p>{String(upcomingEventCount).padStart(2, "0")} upcoming · {String(activeCommunityCount).padStart(2, "0")} active</p>
-                    <p className="mt-2">Thrissur · Kerala · 2026</p>
-                  </div>
-                  <a href="#society-directory" className="group mt-5 inline-flex items-center gap-3 font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-600 transition hover:text-ieee-blue">
-                    Enter directory <span className="inline-block transition-transform duration-300 group-hover:translate-y-1">↓</span>
-                  </a>
-                </div>
+              <div className="flex h-12 items-center justify-between border-b border-slate-200 px-5 font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                <span>13 societies / one student branch</span>
+                <span>Hover · focus · select a community</span>
               </div>
 
-              <div className="absolute left-[26%] right-0 top-0 z-10 flex items-center justify-between px-6 py-5 font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                <span>Community signal field / 13 nodes</span>
-                <span>Hover · focus · select</span>
-              </div>
-
-              <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden="true">
-                <ellipse cx="59" cy="50" rx="31" ry="39" fill="none" stroke="rgba(15,23,42,.14)" strokeWidth=".18" />
-                <ellipse cx="59" cy="50" rx="22" ry="28" fill="none" stroke="rgba(0,98,155,.20)" strokeWidth=".16" strokeDasharray="1.1 1.5" />
+              <div className="flex h-[560px] w-full">
                 {societies.map((society, index) => {
-                  const position = HERO_SIGNAL_POSITIONS[index % HERO_SIGNAL_POSITIONS.length]!;
-                  return <line key={society.id} x1="59" y1="50" x2={position[0]} y2={position[1]} stroke="rgba(15,23,42,.10)" strokeWidth=".13" />;
+                  const accent = societyAccent(society.slug);
+                  const activity = activityBySociety[society.id];
+                  const eventCount = activity?.eventCount ?? 0;
+                  const expanded = society.id === heroSociety?.id;
+                  const description = societyDescription(society);
+                  const nextDate = activity?.nextEvent ? formatSignalDate(activity.nextEvent.date) : "";
+                  return (
+                    <motion.button
+                      key={society.id}
+                      type="button"
+                      data-society-hero-strip={society.slug.toLowerCase()}
+                      aria-expanded={expanded}
+                      aria-label={`${expanded ? "Selected" : "Explore"} ${society.name}`}
+                      initial={false}
+                      animate={{ flexGrow: expanded ? 6 : 0.72 }}
+                      transition={{ duration: reduceMotion ? 0 : 0.48, ease: [0.22, 1, 0.36, 1] }}
+                      onMouseEnter={() => { setHeroSocietyId(society.id); setHoveredSocietyId(society.id); }}
+                      onMouseLeave={() => setHoveredSocietyId(null)}
+                      onFocus={() => { setHeroSocietyId(society.id); setHoveredSocietyId(society.id); }}
+                      onBlur={() => setHoveredSocietyId(null)}
+                      onClick={() => scrollToSociety(society.id)}
+                      className="group relative min-w-0 overflow-hidden border-r border-slate-200 border-t-2 text-left last:border-r-0 focus-visible:z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ieee-blue"
+                      style={{
+                        flexBasis: 0,
+                        borderTopColor: expanded ? accent.color : "transparent",
+                        background: expanded ? `linear-gradient(180deg, ${accent.color}12 0%, rgba(255,255,255,.96) 34%, rgba(255,255,255,.92) 100%)` : "rgba(255,255,255,.74)",
+                      }}
+                    >
+                      {expanded ? (
+                        <motion.div
+                          key={`${society.id}-expanded`}
+                          initial={reduceMotion ? false : { opacity: 0, x: 14 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ duration: reduceMotion ? 0 : 0.28, delay: reduceMotion ? 0 : 0.08 }}
+                          className="relative flex h-full min-w-[300px] flex-col px-7 py-7 xl:px-9 xl:py-8"
+                        >
+                          <div aria-hidden="true" className="pointer-events-none absolute -right-4 top-16 select-none font-mono text-[7rem] font-black uppercase leading-none tracking-[-0.09em] opacity-[0.035] xl:text-[8.5rem]" style={{ color: accent.color }}>
+                            {society.slug.toUpperCase()}
+                          </div>
+
+                          <div className="relative z-10 flex items-start justify-between gap-5">
+                            <div>
+                              <p className="font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-400">{String(index + 1).padStart(2, "0")} / {String(societies.length).padStart(2, "0")}</p>
+                              <p className="mt-2 font-mono text-[8px] font-semibold uppercase tracking-[0.18em]" style={{ color: accent.color }}>{society.slug.toUpperCase()} / Active field</p>
+                            </div>
+                            <div className="flex items-center gap-2 font-mono text-[8px] font-semibold uppercase tracking-[0.15em] text-slate-400">
+                              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: eventCount ? accent.color : "#cbd5e1" }} />
+                              {eventCount ? `${String(eventCount).padStart(2, "0")} upcoming` : "Profile"}
+                            </div>
+                          </div>
+
+                          <div className="relative z-10 mt-8 flex h-24 w-32 items-center justify-start xl:h-28 xl:w-40">
+                            <SocietyLogo society={society} />
+                          </div>
+
+                          <div className="relative z-10 mt-auto">
+                            <p className="font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-400">IEEE Sahrdaya / Community</p>
+                            <h2 data-testid="society-hero-detail-name" className="mt-3 max-w-md text-3xl font-semibold leading-[0.96] tracking-[-0.045em] text-slate-950 xl:text-[2.55rem]">{society.name}</h2>
+                            <p className="mt-5 line-clamp-3 max-w-md text-sm leading-6 text-slate-600 xl:text-[15px]">{description || `Explore ${society.name} at IEEE Sahrdaya.`}</p>
+
+                            <div className="mt-7 grid gap-5 border-t border-slate-200 pt-5 sm:grid-cols-[1fr_auto] sm:items-end">
+                              <div className="min-w-0">
+                                {activity?.nextEvent ? (
+                                  <>
+                                    <p className="font-mono text-[8px] font-semibold uppercase tracking-[0.17em] text-slate-400">Next signal / {nextDate}</p>
+                                    <p className="mt-2 truncate text-sm font-semibold tracking-[-0.01em] text-slate-900">{activity.nextEvent.title}</p>
+                                  </>
+                                ) : (
+                                  <>
+                                    <p className="font-mono text-[8px] font-semibold uppercase tracking-[0.17em] text-slate-400">Community profile</p>
+                                    <p className="mt-2 text-sm text-slate-600">Explore projects, people and activity.</p>
+                                  </>
+                                )}
+                              </div>
+                              <span className="inline-flex items-center gap-3 whitespace-nowrap font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-600 transition group-hover:text-ieee-blue">
+                                Open in directory <span className="transition-transform duration-300 group-hover:translate-y-1">↓</span>
+                              </span>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ) : (
+                        <div className="flex h-full min-w-0 flex-col items-center justify-between px-2 py-6 transition-colors duration-300 group-hover:bg-slate-50/90">
+                          <span className="font-mono text-[8px] font-semibold uppercase tracking-[0.15em] text-slate-400">{String(index + 1).padStart(2, "0")}</span>
+                          <span
+                            className="max-h-[330px] overflow-hidden whitespace-nowrap font-mono text-[9px] font-semibold uppercase tracking-[0.2em] text-slate-500 transition-colors duration-300 group-hover:text-slate-950"
+                            style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
+                          >
+                            {society.slug.toUpperCase()} · {society.name}
+                          </span>
+                          <span className="flex flex-col items-center gap-2">
+                            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: eventCount ? accent.color : "#cbd5e1" }} />
+                            <span className="font-mono text-[7px] font-semibold uppercase tracking-[0.13em] text-slate-300">{eventCount ? "Live" : "Open"}</span>
+                          </span>
+                        </div>
+                      )}
+                    </motion.button>
+                  );
                 })}
-              </svg>
+              </div>
 
-              <motion.div
-                key={activeSociety?.id ?? "branch-core"}
-                initial={reduceMotion ? false : { opacity: 0, scale: 0.96 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="absolute left-[59%] top-1/2 z-20 flex h-44 w-44 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center border border-slate-950 bg-slate-950 px-5 text-center text-white shadow-[10px_10px_0_rgba(0,98,155,0.10)] xl:h-48 xl:w-48"
-              >
-                <p className="font-mono text-[7px] font-semibold uppercase tracking-[0.19em] text-white/40">{activeSociety ? `Signal / ${activeSociety.slug.toUpperCase()}` : "IEEE / Sahrdaya SB"}</p>
-                {activeSociety ? (
-                  <>
-                    <p className="mt-3 text-lg font-semibold leading-tight tracking-[-0.03em] text-white xl:text-xl">{activeSociety.name}</p>
-                    <p className="mt-3 font-mono text-[7px] uppercase tracking-[0.15em] text-white/35">{(activityBySociety[activeSociety.id]?.eventCount ?? 0) > 0 ? `${activityBySociety[activeSociety.id]?.eventCount ?? 0} upcoming signal${(activityBySociety[activeSociety.id]?.eventCount ?? 0) === 1 ? "" : "s"}` : "Open community profile"}</p>
-                  </>
-                ) : (
-                  <>
-                    <p className="mt-2 text-[3.6rem] font-semibold leading-none tracking-[-0.07em] text-white">13</p>
-                    <p className="mt-1 font-mono text-[7px] font-semibold uppercase tracking-[0.17em] text-sky-300">communities / one branch</p>
-                  </>
-                )}
-              </motion.div>
-
-              {societies.map((society, index) => {
-                const [x, y] = HERO_SIGNAL_POSITIONS[index % HERO_SIGNAL_POSITIONS.length]!;
-                const accent = societyAccent(society.slug);
-                const eventCount = activityBySociety[society.id]?.eventCount ?? 0;
-                const selected = society.id === activeSocietyId;
-                return (
-                  <button
-                    key={society.id}
-                    type="button"
-                    onMouseEnter={() => setHoveredSocietyId(society.id)}
-                    onMouseLeave={() => setHoveredSocietyId(null)}
-                    onFocus={() => setHoveredSocietyId(society.id)}
-                    onBlur={() => setHoveredSocietyId(null)}
-                    onClick={() => scrollToSociety(society.id)}
-                    aria-label={`Open ${society.name}`}
-                    className="group absolute z-30 -translate-x-1/2 -translate-y-1/2 text-center focus-visible:outline-none"
-                    style={{ left: `${x}%`, top: `${y}%` }}
-                  >
-                    <span className="relative mx-auto grid h-9 w-9 place-items-center">
-                      {eventCount > 0 && <span className="absolute inset-0 rounded-full border opacity-60" style={{ borderColor: accent.color }} />}
-                      {eventCount > 1 && <span className="absolute -inset-1.5 rounded-full border opacity-25" style={{ borderColor: accent.color }} />}
-                      <span className="h-2.5 w-2.5 rounded-full bg-slate-950 transition-transform duration-300 group-hover:scale-[1.55]" style={selected ? { backgroundColor: accent.color, transform: "scale(1.6)" } : undefined} />
-                    </span>
-                    <span className="mt-1 block font-mono text-[8px] font-semibold uppercase tracking-[0.16em] text-slate-500 transition-colors group-hover:text-slate-950">{society.slug.toUpperCase()}</span>
-                  </button>
-                );
-              })}
-
-              <div className="absolute bottom-0 left-[26%] right-0 z-10 flex items-center justify-between border-t border-slate-200 bg-white/80 px-6 py-4 font-mono text-[8px] font-semibold uppercase tracking-[0.17em] text-slate-400">
-                <span>13 communities · one student branch</span>
+              <div className="flex items-center justify-between border-t border-slate-200 bg-white/82 px-5 py-4 font-mono text-[8px] font-semibold uppercase tracking-[0.17em] text-slate-400">
+                <span>{String(societies.length).padStart(2, "0")} identities · one IEEE Sahrdaya student branch</span>
                 <span>{String(upcomingEventCount).padStart(2, "0")} upcoming events · {String(activeCommunityCount).padStart(2, "0")} active now</span>
               </div>
             </div>

@@ -1,14 +1,22 @@
 import { expect, test } from '@playwright/test'
 
 test.describe('societies directory', () => {
-  test('hero keeps branch wording, signal map, and clear corner marks', async ({ page }) => {
+  test('hero is an expanding society index with clear corner marks', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto('/societies', { waitUntil: 'networkidle' })
 
     await expect(page.getByRole('heading', { level: 1 })).toContainText('13 communities.')
     await expect(page.getByRole('heading', { level: 1 })).toContainText('One student branch.')
-    await expect(page.getByTestId('society-hero-map')).toBeVisible()
-    expect(await page.getByTestId('society-hero-map').getByRole('button').count()).toBeGreaterThan(3)
+    const hero = page.getByTestId('society-hero-index')
+    await expect(hero).toBeVisible()
+    await expect(hero.locator('svg')).toHaveCount(0)
+    const strips = hero.locator('[data-society-hero-strip]')
+    expect(await strips.count()).toBeGreaterThan(3)
+    await expect(hero.locator('[data-society-hero-strip][aria-expanded="true"]')).toHaveCount(1)
+    const target = strips.nth(1)
+    await target.hover()
+    await expect(target).toHaveAttribute('aria-expanded', 'true')
+    await expect(page.getByTestId('society-hero-detail-name')).toBeVisible()
     await expect(page.locator('img[alt="IEEE SB Logo"]')).toBeVisible()
     await expect(page.locator('img[alt="Sahrdaya Logo"]')).toBeVisible()
 
@@ -52,7 +60,7 @@ test.describe('societies directory', () => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/societies', { waitUntil: 'networkidle' })
     await expect(page.getByTestId('society-network')).toBeHidden()
-    await expect(page.getByTestId('society-hero-map')).toBeHidden()
+    await expect(page.getByTestId('society-hero-index')).toBeHidden()
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390)
   })
 })
