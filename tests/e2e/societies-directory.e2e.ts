@@ -11,6 +11,10 @@ test.describe('societies directory', () => {
     expect(await page.getByTestId('society-hero-map').getByRole('button').count()).toBeGreaterThan(3)
     await expect(page.locator('img[alt="IEEE SB Logo"]')).toBeVisible()
     await expect(page.locator('img[alt="Sahrdaya Logo"]')).toBeVisible()
+
+    const liveBg = await page.getByTestId('society-live-activity').evaluate((node) => getComputedStyle(node).backgroundColor)
+    const endBg = await page.getByTestId('society-directory-end').evaluate((node) => getComputedStyle(node).backgroundColor)
+    expect(endBg).not.toBe(liveBg)
   })
 
   test('network nodes jump to and focus society entries', async ({ page }) => {
@@ -48,6 +52,7 @@ test.describe('societies directory', () => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/societies', { waitUntil: 'networkidle' })
     await expect(page.getByTestId('society-network')).toBeHidden()
+    await expect(page.getByTestId('society-hero-map')).toBeHidden()
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390)
   })
 })
