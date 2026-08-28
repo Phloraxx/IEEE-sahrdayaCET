@@ -1,21 +1,21 @@
 import { expect, test } from '@playwright/test'
 
 test.describe('societies directory', () => {
-  test('hero is an expanding society index with clear corner marks', async ({ page }) => {
+  test('hero is a kinetic society wall with clear corner marks', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto('/societies', { waitUntil: 'networkidle' })
 
     await expect(page.getByRole('heading', { level: 1 })).toContainText('13 communities.')
     await expect(page.getByRole('heading', { level: 1 })).toContainText('One student branch.')
-    const hero = page.getByTestId('society-hero-index')
+    const hero = page.getByTestId('society-hero-wall')
     await expect(hero).toBeVisible()
     await expect(hero.locator('svg')).toHaveCount(0)
-    const strips = hero.locator('[data-society-hero-strip]')
-    expect(await strips.count()).toBeGreaterThan(3)
-    await expect(hero.locator('[data-society-hero-strip][aria-expanded="true"]')).toHaveCount(1)
-    const target = strips.nth(1)
+    const words = hero.locator('[data-society-hero-word]')
+    expect(await words.count()).toBeGreaterThan(3)
+    await expect(hero.locator('[data-society-hero-word][aria-pressed="true"]')).toHaveCount(1)
+    const target = words.nth(1)
     await target.hover()
-    await expect(target).toHaveAttribute('aria-expanded', 'true')
+    await expect(target).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByTestId('society-hero-detail-name')).toBeVisible()
     await expect(page.locator('img[alt="IEEE SB Logo"]')).toBeVisible()
     await expect(page.locator('img[alt="Sahrdaya Logo"]')).toBeVisible()
@@ -60,7 +60,7 @@ test.describe('societies directory', () => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/societies', { waitUntil: 'networkidle' })
     await expect(page.getByTestId('society-network')).toBeHidden()
-    await expect(page.getByTestId('society-hero-index')).toBeHidden()
+    await expect(page.getByTestId('society-hero-wall')).toBeHidden()
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390)
   })
 })
