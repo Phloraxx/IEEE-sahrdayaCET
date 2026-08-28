@@ -8,6 +8,7 @@ import { TechnicalDetails } from "@/components/TechnicalDetails";
 import { StarsBackground } from "@/components/ui/stars-background";
 import { ShootingStars } from "@/components/ui/shooting-stars";
 import { formatDateShort } from "@/lib/dates";
+import { getBlogContentType } from "@/lib/blog-presentation";
 import type { BlogPost } from "@/types";
 
 type ViewMode = "grid" | "index";
@@ -18,16 +19,6 @@ function authorName(post: BlogPost) {
 
 function postDate(post: BlogPost) {
   return post.publishedAt ? formatDateShort(post.publishedAt) : "";
-}
-
-function contentType(post: BlogPost) {
-  const source = `${post.topicLabel || ""} ${post.category || ""} ${post.title}`.toLowerCase();
-  if (source.includes("event") || source.includes("recap")) return "EVENT LOG";
-  if (source.includes("project")) return "PROJECT FILE";
-  if (source.includes("technical") || source.includes("tech")) return "TECH NOTE";
-  if (source.includes("member") || source.includes("people")) return "PEOPLE";
-  if (source.includes("ieee") || source.includes("history")) return "EXPLAINER";
-  return "BRANCH NOTE";
 }
 
 function matchesFilter(post: BlogPost, filter: string) {
@@ -104,7 +95,7 @@ export default function BlogClient({ blogs = [] }: { blogs?: BlogPost[] }) {
                 {lead.coverUrl ? <img src={lead.coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]" /> : null}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-transparent" />
                 <div className="absolute inset-x-0 bottom-0 p-5 text-white sm:p-7">
-                  <p className="font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-blue-200">{contentType(lead)} · {postDate(lead)} · {lead.readMinutes || 1} min</p>
+                  <p className="font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-blue-200">{getBlogContentType(lead)} · {postDate(lead)} · {lead.readMinutes || 1} min</p>
                   <h2 className="mt-3 max-w-3xl text-3xl font-bold leading-[1] tracking-[-0.035em] sm:text-5xl">{lead.title}</h2>
                   <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-2 text-xs font-semibold backdrop-blur-sm transition group-hover:bg-white group-hover:text-gray-950">Read story <ArrowUpRight className="h-4 w-4" /></div>
                 </div>
@@ -117,7 +108,7 @@ export default function BlogClient({ blogs = [] }: { blogs?: BlogPost[] }) {
                     <li key={post.id} className="border-b border-gray-100 last:border-b-0">
                       <Link to={`/blog/${post.slug}`} className="group grid grid-cols-[30px_1fr_auto] gap-3 py-4">
                         <span className="font-pixel text-[9px] text-ieee-blue">{String(index + 2).padStart(2, "0")}</span>
-                        <span><span className="block font-mono text-[7px] font-semibold uppercase tracking-[0.15em] text-gray-400">{contentType(post)}</span><span className="mt-1 block text-sm font-semibold leading-snug text-gray-800 transition group-hover:text-ieee-blue">{post.title}</span></span>
+                        <span><span className="block font-mono text-[7px] font-semibold uppercase tracking-[0.15em] text-gray-400">{getBlogContentType(post)}</span><span className="mt-1 block text-sm font-semibold leading-snug text-gray-800 transition group-hover:text-ieee-blue">{post.title}</span></span>
                         <ArrowRight className="mt-3 h-4 w-4 text-gray-300 transition group-hover:translate-x-1 group-hover:text-ieee-blue" />
                       </Link>
                     </li>
@@ -163,7 +154,7 @@ export default function BlogClient({ blogs = [] }: { blogs?: BlogPost[] }) {
                       <span className="absolute left-3 top-3 rounded-sm bg-gray-950 px-2.5 py-1.5 font-pixel text-[8px] text-white">{String(index + 2).padStart(2, "0")}</span>
                     </div>
                     <div className="p-5 sm:p-6">
-                      <p className="font-mono text-[8px] font-semibold uppercase tracking-[0.16em] text-ieee-blue">{contentType(post)} · {postDate(post)} · {post.readMinutes || 1} min</p>
+                      <p className="font-mono text-[8px] font-semibold uppercase tracking-[0.16em] text-ieee-blue">{getBlogContentType(post)} · {postDate(post)} · {post.readMinutes || 1} min</p>
                       <h3 className={`${wide ? "sm:text-3xl" : "sm:text-2xl"} mt-2 text-2xl font-bold leading-tight tracking-[-0.03em] text-gray-900 transition group-hover:text-ieee-blue`}>{post.title}</h3>
                       {post.excerpt ? <p className="mt-3 line-clamp-3 text-sm leading-6 text-gray-500">{post.excerpt}</p> : null}
                       <div className="mt-5 flex items-center justify-between border-t border-gray-100 pt-4"><span className="font-mono text-[8px] uppercase tracking-[0.15em] text-gray-400">{authorName(post)}</span><span className="grid h-8 w-8 place-items-center rounded-full border border-gray-200 text-gray-500 transition group-hover:border-ieee-blue group-hover:bg-ieee-blue group-hover:text-white"><ArrowUpRight className="h-4 w-4" /></span></div>
@@ -179,7 +170,7 @@ export default function BlogClient({ blogs = [] }: { blogs?: BlogPost[] }) {
                 {visible.map((post, index) => <article key={post.id} data-blog-archive-row onMouseEnter={() => setPreviewId(post.id)} onFocusCapture={() => setPreviewId(post.id)} className="group border-b border-gray-200 last:border-b-0">
                   <Link to={`/blog/${post.slug}`} className="grid gap-3 px-2 py-5 transition hover:bg-gray-50 sm:grid-cols-[54px_1fr_90px_auto] sm:items-center sm:px-4">
                     <span className="font-pixel text-[9px] text-gray-300 transition group-hover:text-ieee-blue">{String(index + 2).padStart(2, "0")}</span>
-                    <span><span className="font-mono text-[7px] font-semibold uppercase tracking-[0.15em] text-ieee-blue">{contentType(post)}</span><h3 className="mt-1 text-lg font-bold leading-tight tracking-[-0.02em] text-gray-900 transition group-hover:translate-x-1 group-hover:text-ieee-blue sm:text-xl">{post.title}</h3></span>
+                    <span><span className="font-mono text-[7px] font-semibold uppercase tracking-[0.15em] text-ieee-blue">{getBlogContentType(post)}</span><h3 className="mt-1 text-lg font-bold leading-tight tracking-[-0.02em] text-gray-900 transition group-hover:translate-x-1 group-hover:text-ieee-blue sm:text-xl">{post.title}</h3></span>
                     <span className="font-mono text-[8px] uppercase leading-5 tracking-[0.13em] text-gray-400">{postDate(post)}<br />{post.readMinutes || 1} min</span>
                     <ArrowUpRight className="hidden h-4 w-4 text-gray-300 transition group-hover:text-ieee-blue sm:block" />
                   </Link>
@@ -189,7 +180,7 @@ export default function BlogClient({ blogs = [] }: { blogs?: BlogPost[] }) {
               <aside className="hidden lg:block">
                 <div className="sticky top-28 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
                   {preview ? <>
-                    <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">{preview.coverUrl ? <img src={preview.coverUrl} alt="" className="h-full w-full object-cover" /> : null}<div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 to-transparent p-4 pt-16"><p className="font-mono text-[8px] font-semibold uppercase tracking-[0.15em] text-blue-100">PREVIEW / {contentType(preview)}</p></div></div>
+                    <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">{preview.coverUrl ? <img src={preview.coverUrl} alt="" className="h-full w-full object-cover" /> : null}<div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 to-transparent p-4 pt-16"><p className="font-mono text-[8px] font-semibold uppercase tracking-[0.15em] text-blue-100">PREVIEW / {getBlogContentType(preview)}</p></div></div>
                     <div className="p-5"><h3 className="text-2xl font-bold leading-tight tracking-[-0.03em]">{preview.title}</h3>{preview.excerpt ? <p className="mt-3 line-clamp-4 text-sm leading-6 text-gray-500">{preview.excerpt}</p> : null}<div className="mt-5 flex items-center justify-between border-t border-gray-100 pt-4 font-mono text-[8px] uppercase tracking-[0.14em] text-gray-400"><span>{postDate(preview)}</span><span>{preview.readMinutes || 1} min read</span></div></div>
                   </> : <div className="grid aspect-[4/3] place-items-center font-pixel text-[9px] text-gray-300">NO PREVIEW</div>}
                 </div>

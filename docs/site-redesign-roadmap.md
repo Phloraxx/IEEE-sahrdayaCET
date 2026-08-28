@@ -487,3 +487,30 @@ Start with **Pass A — correctness foundation**, deploy that alone to staging, 
 After a visual direction is approved and stable, update `DESIGN.md` so the implemented behaviour becomes the formal design source of truth. Until then, this roadmap records intent and sequencing.
 
 Last updated: 2026-08-28
+
+## Execution status — 28 August 2026
+
+### Pass A — correctness foundation
+
+Status: **complete and verified on staging**.
+
+- Public society baseline is 13.
+- Home and Societies use `isHidden=false` consistently.
+- Event calendar presentation is Asia/Kolkata-safe.
+- Structured `timeTbc` is live through public, registration and payment flows.
+- Curated `EventsShowcase.tsx` remains deliberately handpicked/hardcoded.
+- Verified staging checkpoint commit: `21aeb2eb508e99362e0bce8340a0597f31764e12`.
+
+### Pass B — Home restructuring
+
+Status: **implemented and entering staging review**.
+
+- Existing identity hero is preserved; only a restrained live metadata rail was added near its lower edge.
+- Home narrative is now `NOW AT SAHRDAYA → THE PEOPLE → FROM THE BRANCH → LATEST SIGNALS`.
+- Live event content is data-backed and links directly to event detail routes.
+- Home people statistics use real public counts rather than decorative estimates.
+- The curated poster archive is visually separated from the live programme and supports reduced motion.
+- Latest Blog stories are server-loaded and use the same content-type language as `/blog`.
+- Permanent Home narrative/browser regressions were added before staging rollout.
+
+Checkpoint remains: **visual approval on staging before Pass C begins**.

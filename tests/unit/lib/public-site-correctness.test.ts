@@ -10,10 +10,10 @@ describe("public site correctness invariants", () => {
     const directory = read("src/server/public/societies.server.ts");
     const route = read("src/routes/index.tsx");
     const execom = read("src/components/Execom.tsx");
-    expect(home).toContain("filter: 'isHidden=false'");
+    expect(home).toContain('filter: "isHidden=false"');
     expect(directory).toContain('filter: "isHidden=false"');
-    expect(route).toContain("<Execom societyCount={societies.length} />");
-    expect(execom).toContain("{societyCount}");
+    expect(route).toContain("<Execom societyCount={societies.length}");
+    expect(execom).toContain('["Societies", societyCount]');
   });
 
   it("keeps the handpicked Event Showcase explicitly curated", () => {
@@ -57,5 +57,42 @@ describe("public site correctness invariants", () => {
       expect(source).toContain('event-time-helpers.js');
       expect(source).toContain('eventTime.eventEndDate(event)');
     }
+  });
+});
+
+describe("Home redesign invariants", () => {
+  it("uses real Home programme and blog data instead of the old fake bento feed", () => {
+    const route = read("src/routes/index.tsx");
+    const now = read("src/components/home/NowAtSahrdaya.tsx");
+    const old = read("src/components/WhatsHappening.tsx");
+    expect(route).toContain("<NowAtSahrdaya");
+    expect(route).toContain("<LatestSignals");
+    expect(route).not.toContain("<WhatsHappening");
+    expect(now).toContain('to={`/events/${lead.slug}`}');
+    expect(old).toContain("Call for Papers");
+    expect(route).not.toContain("Call for Papers");
+  });
+
+  it("keeps the four-part Home narrative and curated showcase semantics", () => {
+    const people = read("src/components/Execom.tsx");
+    const showcase = read("src/components/EventsShowcase.tsx");
+    const signals = read("src/components/home/LatestSignals.tsx");
+    expect(read("src/components/home/NowAtSahrdaya.tsx")).toContain('index="01"');
+    expect(people).toContain('index="02"');
+    expect(showcase).toContain('index="03"');
+    expect(signals).toContain('index="04"');
+    expect(showcase).toContain("Deliberately curated visual archive");
+    expect(showcase).toContain("Curated selection");
+  });
+
+  it("uses data-backed Home people statistics", () => {
+    const route = read("src/routes/index.tsx");
+    const people = read("src/components/Execom.tsx");
+    expect(route).toContain("rosterCount={execomCount}");
+    expect(route).toContain("upcomingCount={upcomingCount}");
+    expect(people).toContain('["Roster", rosterCount]');
+    expect(people).toContain('["Societies", societyCount]');
+    expect(people).toContain('["Upcoming", upcomingCount]');
+    expect(people).not.toContain("100+");
   });
 });

@@ -1,6 +1,10 @@
-import React, { useRef, useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { useReducedMotion } from "framer-motion";
+import { ArrowRight } from "lucide-react";
 import { Link } from "react-router";
+import { HomeSectionHeading } from "@/components/home/HomeSectionHeading";
 
+// Deliberately curated visual archive. Keep this handpicked rather than replacing it with the live event feed.
 const eventImages = [
   '/Events/503658167_18144990655399954_4943514208253057479_n.webp?v=1',
   '/Events/504467036_18054402566594069_4106059723662040073_n.jpg?v=1',
@@ -11,143 +15,93 @@ const eventImages = [
   '/Events/542326117_17847004371557574_12824648908429865_n.jpg?v=1',
 ];
 
-const scrollingText = [
-  "CONFERENCES",
-  "LECTURES",
-  "WORKSHOPS",
-  "HACKATHONS",
-  "SEMINARS",
-  "WEBINARS",
-  "TECH TALKS",
-  "BOOTCAMPS",
-];
-
+const scrollingText = ["CONFERENCES", "LECTURES", "WORKSHOPS", "HACKATHONS", "SEMINARS", "WEBINARS", "TECH TALKS", "BOOTCAMPS"];
 const IMG_W = 260;
 const IMG_GAP = 16;
 
-const ImageStrip = () => {
+function ImageStrip() {
+  const reduceMotion = useReducedMotion();
   const stripRef = useRef<HTMLDivElement>(null);
   const offsetRef = useRef(0);
   const setWidth = eventImages.length * (IMG_W + IMG_GAP);
 
   useEffect(() => {
-    let animId: number;
-
+    if (reduceMotion) return;
+    let animId = 0;
     const scroll = () => {
-      offsetRef.current -= 0.6;
-      if (offsetRef.current <= -setWidth) {
-        offsetRef.current = 0;
-      }
-      if (stripRef.current) {
-        stripRef.current.style.transform = `translate3d(${offsetRef.current}px, 0, 0)`;
-      }
+      offsetRef.current -= 0.55;
+      if (offsetRef.current <= -setWidth) offsetRef.current = 0;
+      if (stripRef.current) stripRef.current.style.transform = `translate3d(${offsetRef.current}px, 0, 0)`;
       animId = requestAnimationFrame(scroll);
     };
-
     animId = requestAnimationFrame(scroll);
     return () => cancelAnimationFrame(animId);
-  }, [setWidth]);
+  }, [reduceMotion, setWidth]);
 
-  const tripled = [...eventImages, ...eventImages, ...eventImages];
-
+  const items = reduceMotion ? eventImages : [...eventImages, ...eventImages, ...eventImages];
   return (
-    <div className="overflow-hidden w-full">
-      <div
-        ref={stripRef}
-        className="flex gap-4 will-change-transform"
-        style={{
-          width: `${tripled.length * (IMG_W + IMG_GAP)}px`,
-        }}
-      >
-        {tripled.map((src, i) => (
-          <div
-            key={`${i}`}
-            className="relative shrink-0 w-[260px] h-[360px] rounded-2xl overflow-hidden shadow-lg"
-          >
-            <img
-              src={src}
-              alt={`IEEE Event ${(i % eventImages.length) + 1}`}
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-              className="absolute inset-0 w-full h-full object-cover hover:scale-105 transition-transform duration-700"
-            />
+    <div className={reduceMotion ? "overflow-x-auto pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" : "overflow-hidden"}>
+      <div data-testid="curated-event-strip" ref={stripRef} className="flex gap-4 will-change-transform" style={{ width: `${items.length * (IMG_W + IMG_GAP)}px` }}>
+        {items.map((src, index) => (
+          <div key={`${src}-${index}`} className="group relative h-[340px] w-[260px] shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-2xl sm:h-[370px]">
+            <img src={src} alt={`Selected IEEE Sahrdaya event moment ${(index % eventImages.length) + 1}`} loading="lazy" onError={(event) => { (event.currentTarget as HTMLImageElement).style.display = 'none'; }} className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-[1.035]" />
+            <span className="absolute bottom-3 right-3 rounded-sm bg-black/65 px-2 py-1 font-pixel text-[7px] text-white/80 backdrop-blur-sm">{String((index % eventImages.length) + 1).padStart(2, '0')}</span>
           </div>
         ))}
       </div>
     </div>
   );
-};
+}
 
-const TEXT_W = 350;
-
-const TextMarquee = () => {
+function TextMarquee() {
+  const reduceMotion = useReducedMotion();
   const stripRef = useRef<HTMLDivElement>(null);
+  const setWidth = scrollingText.length * 310;
   const offsetRef = useRef(0);
-  const setWidth = scrollingText.length * TEXT_W;
 
   useEffect(() => {
-    let animId: number;
-
+    if (reduceMotion) return;
+    let animId = 0;
     const scroll = () => {
-      offsetRef.current -= 1.2;
-      if (offsetRef.current <= -setWidth) {
-        offsetRef.current = 0;
-      }
-      if (stripRef.current) {
-        stripRef.current.style.transform = `translate3d(${offsetRef.current}px, 0, 0)`;
-      }
+      offsetRef.current -= 0.9;
+      if (offsetRef.current <= -setWidth) offsetRef.current = 0;
+      if (stripRef.current) stripRef.current.style.transform = `translate3d(${offsetRef.current}px, 0, 0)`;
       animId = requestAnimationFrame(scroll);
     };
-
     animId = requestAnimationFrame(scroll);
     return () => cancelAnimationFrame(animId);
-  }, [setWidth]);
+  }, [reduceMotion, setWidth]);
 
-  const tripled = [...scrollingText, ...scrollingText, ...scrollingText];
-
+  const items = reduceMotion ? scrollingText : [...scrollingText, ...scrollingText, ...scrollingText];
   return (
-    <div className="overflow-hidden w-full">
-      <div
-        ref={stripRef}
-        className="flex items-center will-change-transform whitespace-nowrap"
-        style={{
-          width: `${tripled.length * TEXT_W}px`,
-        }}
-      >
-        {tripled.map((text, i) => (
-          <span key={i} className="flex items-center shrink-0">
-            <span className="text-5xl md:text-7xl lg:text-8xl font-black text-black tracking-tight italic uppercase">
-              {text}
-            </span>
-            <span className="text-ieee-light-blue text-4xl md:text-6xl lg:text-7xl mx-6 md:mx-8 font-bold">
-              •
-            </span>
+    <div className={reduceMotion ? "overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" : "overflow-hidden"}>
+      <div data-testid="curated-format-marquee" ref={stripRef} className="flex w-max items-center whitespace-nowrap will-change-transform">
+        {items.map((text, index) => (
+          <span key={`${text}-${index}`} className="flex shrink-0 items-center">
+            <span className="text-4xl font-black uppercase italic tracking-[-0.045em] text-white sm:text-5xl lg:text-6xl">{text}</span>
+            <span className="mx-5 text-3xl font-bold text-[#58c6ff] sm:mx-7 sm:text-4xl">•</span>
           </span>
         ))}
       </div>
     </div>
   );
-};
+}
 
-const EventsShowcase: React.FC = () => {
-  return (
-    <section className="relative py-16 md:py-24 overflow-hidden">
-      <div className="absolute inset-0 bg-linear-to-b from-transparent via-transparent to-white/90 z-10 pointer-events-none" />
-      <div className="relative z-0 -rotate-3 scale-110 mb-12 md:mb-16">
-        <ImageStrip />
-      </div>
-      <div className="relative z-20 flex justify-center mb-12 md:mb-16">
-        <Link
-          to="/events"
-          className="bg-ieee-blue hover:bg-ieee-light-blue text-white text-sm md:text-base font-bold py-3 px-10 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 uppercase tracking-wider"
-        >
-          Explore Events
-        </Link>
-      </div>
-      <div className="relative z-20">
-        <TextMarquee />
-      </div>
-    </section>
-  );
-};
+export const EventsShowcase: React.FC = () => (
+  <section className="relative overflow-hidden bg-[#07121f] py-20 text-white sm:py-24 lg:py-28">
+    <div className="mx-auto max-w-[1320px] px-5 sm:px-6 lg:px-10">
+      <HomeSectionHeading
+        index="03"
+        label="From the branch"
+        inverse
+        title={<>Selected moments,<br /><span className="text-[#58c6ff]">kept in motion.</span></>}
+        description="A handpicked visual archive from workshops, competitions and sessions across IEEE Sahrdaya. The live programme stays separate."
+        action={<Link to="/events" className="group inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-white/75 transition hover:text-white">Open live programme <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" /></Link>}
+      />
+      <div className="mt-10 flex items-center justify-between border-y border-white/10 py-3 font-mono text-[8px] font-semibold uppercase tracking-[0.17em] text-white/40"><span>Curated selection</span><span>{String(eventImages.length).padStart(2, '0')} frames / handpicked</span></div>
+    </div>
 
-export { EventsShowcase };
+    <div className="relative mt-10 -rotate-2 scale-[1.04] sm:mt-12"><ImageStrip /></div>
+    <div className="relative mt-14 border-y border-white/10 py-5 sm:mt-16"><TextMarquee /></div>
+  </section>
+);

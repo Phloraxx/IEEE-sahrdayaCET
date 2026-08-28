@@ -10,6 +10,7 @@ import { ShootingStars } from "@/components/ui/shooting-stars";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { APP_URL } from "@/lib/constants";
 import { formatDateLong, formatDateShort } from "@/lib/dates";
+import { getBlogContentType } from "@/lib/blog-presentation";
 import type { BlogPost } from "@/types";
 
 type ArticleData = { post: BlogPost; related: BlogPost[] };
@@ -75,15 +76,7 @@ export default function BlogPostPage() {
   const event = typeof post.event === "string" ? undefined : post.event;
   const canonicalUrl = `${APP_URL}/blog/${post.slug}`;
   const article = prepareArticleHtml(post.content);
-  const storyType = (() => {
-    const source = `${post.topicLabel || ""} ${post.category || ""} ${post.title}`.toLowerCase();
-    if (source.includes("event") || source.includes("recap")) return "EVENT LOG";
-    if (source.includes("project")) return "PROJECT FILE";
-    if (source.includes("technical") || source.includes("tech")) return "TECH NOTE";
-    if (source.includes("member") || source.includes("people")) return "PEOPLE";
-    if (source.includes("ieee") || source.includes("history")) return "EXPLAINER";
-    return "BRANCH NOTE";
-  })();
+  const storyType = getBlogContentType(post);
   const blogSchema = {
     "@context": "https://schema.org", "@type": "BlogPosting", headline: post.title,
     description: post.excerpt || undefined, image: post.coverUrl ? [post.coverUrl] : [`${APP_URL}/web.png`],

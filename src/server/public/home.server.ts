@@ -1,82 +1,142 @@
-import { createPublicPB } from "@/lib/pb.server";
-import { getField } from "@/lib/safe-get";
 import { buildFileUrl } from "@/lib/pb";
-import { isPastEvent } from "@/lib/event-lifecycle";
-import type { Society } from "@/types";
+import { createPublicPB } from "@/lib/pb.server";
+import { blogHtmlToPlainText } from "@/lib/blog-content";
+import { getLatestPublishedBlogs } from "@/lib/blog-public.server";
+import { canRegisterForEvent, isPastEvent } from "@/lib/event-lifecycle";
+import { getExpand, getField } from "@/lib/safe-get";
+import type { BlogPost, Society } from "@/types";
+
+export interface HomeEventSummary {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  date: string;
+  endDate: string;
+  timeTbc: boolean;
+  venue: string;
+  price: number;
+  bannerUrl: string;
+  registrationAvailable: boolean;
+  society?: { id: string; name: string; slug: string };
+}
 
 export interface HomeData {
-  latestEvent: { id: string; title: string; description: string; date: string; timeTbc: boolean; bannerUrl: string } | null;
+  upcomingEvents: HomeEventSummary[];
+  upcomingCount: number;
   societies: Society[];
+  execomCount: number;
+  latestBlogs: BlogPost[];
+}
+
+function mapHomeEvent(raw: Record<string, unknown>): HomeEventSummary {
+  const id = getField(raw, "id", "");
+  const status = getField(raw, "status", "published");
+  const date = getField(raw, "date", "");
+  const endDate = getField(raw, "endDate", "");
+  const timeTbc = Boolean(getField(raw, "timeTbc", false));
+  const registrationOpen = Boolean(getField(raw, "registrationOpen", false));
+  const registrationMode = getField(raw, "registrationMode", "");
+  const externalFormUrl = getField(raw, "externalFormUrl", "");
+  const registrationStart = getField(raw, "registrationStart", "");
+  const registrationDeadline = getField(raw, "registrationDeadline", "");
+  const expand = getExpand(raw);
+  const societyRaw = expand?.society;
+  const banner = getField(raw, "banner", "");
+
+  return {
+    id,
+    slug: getField(raw, "slug", ""),
+    title: getField(raw, "title", ""),
+    description: blogHtmlToPlainText(getField(raw, "description", "")),
+    date,
+    endDate,
+    timeTbc,
+    venue: getField(raw, "venue", ""),
+    price: Number(getField(raw, "price", 0)) || 0,
+    bannerUrl: banner ? buildFileUrl("events", id, banner) : "",
+    registrationAvailable: canRegisterForEvent({
+      status,
+      date,
+      endDate,
+      timeTbc,
+      registrationOpen,
+      registrationMode,
+      externalFormUrl,
+      registrationStart,
+      registrationDeadline,
+    }),
+    society: societyRaw
+      ? {
+          id: getField(societyRaw, "id", ""),
+          name: getField(societyRaw, "name", ""),
+          slug: getField(societyRaw, "slug", ""),
+        }
+      : undefined,
+  };
 }
 
 export async function fetchHomeData(): Promise<HomeData> {
+  const fallback: HomeData = {
+    upcomingEvents: [],
+    upcomingCount: 0,
+    societies: [],
+    execomCount: 0,
+    latestBlogs: [],
+  };
+
   try {
-    const pb = createPublicPB()
-    const [eventsResult, societiesRes] = await Promise.allSettled([
-      pb.collection('events').getFullList({
+    const pb = createPublicPB();
+    const [eventsResult, societiesResult, execomResult, blogsResult] = await Promise.allSettled([
+      pb.collection("events").getFullList({
         batch: 100,
-        filter: 'status="published"',
-        sort: 'date',
-        fields: 'id,title,description,date,endDate,timeTbc,banner,status',
+        filter: 'status="published" && isDeleted != true',
+        sort: "date",
+        expand: "society",
+        fields:
+          "id,title,slug,description,date,endDate,timeTbc,venue,price,banner,status,registrationOpen,registrationMode,registrationStart,registrationDeadline,maxCapacity,registeredCount,externalFormUrl,society,expand.society.id,expand.society.name,expand.society.slug",
       }),
-      pb.collection('societies').getFullList({
+      pb.collection("societies").getFullList({
         batch: 200,
-        filter: 'isHidden=false',
-        sort: 'name',
-        fields: 'id,name,slug,logo',
+        filter: "isHidden=false",
+        sort: "name",
+        fields: "id,name,slug,logo",
       }),
-    ])
+      pb.collection("execom").getList(1, 1, { fields: "id" }),
+      getLatestPublishedBlogs(3),
+    ]);
 
     const societies: Society[] =
-      societiesRes.status === 'fulfilled'
-        ? societiesRes.value.map((s: Record<string, unknown>) => ({
-            id: getField(s, 'id', ''),
-            name: getField(s, 'name', ''),
-            slug: getField(s, 'slug', ''),
-            logoUrl: s.logo
-              ? buildFileUrl('societies', getField(s, 'id', ''), getField(s, 'logo', ''))
+      societiesResult.status === "fulfilled"
+        ? societiesResult.value.map((society: Record<string, unknown>) => ({
+            id: getField(society, "id", ""),
+            name: getField(society, "name", ""),
+            slug: getField(society, "slug", ""),
+            logoUrl: society.logo
+              ? buildFileUrl(
+                  "societies",
+                  getField(society, "id", ""),
+                  getField(society, "logo", ""),
+                )
               : undefined,
           }))
-        : []
+        : [];
 
-    // Events are sorted ascending, so the first event whose effective end time
-    // has not elapsed is the actual next/upcoming event. This avoids featuring
-    // the furthest-future event on the homepage.
-    const nextEventRecord =
-      eventsResult.status === 'fulfilled'
-        ? eventsResult.value.find((event) =>
-            !isPastEvent({
-              status: getField(event, 'status', 'published'),
-              date: getField(event, 'date', ''),
-              endDate: getField(event, 'endDate', ''),
-              timeTbc: Boolean(getField(event, 'timeTbc', false)),
-            }),
-          )
-        : undefined
+    const allUpcoming =
+      eventsResult.status === "fulfilled"
+        ? eventsResult.value
+            .map((event) => mapHomeEvent(event as Record<string, unknown>))
+            .filter((event) => !isPastEvent(event))
+        : [];
 
-    const latestEvent = nextEventRecord
-      ? {
-          id: getField(nextEventRecord, 'id', ''),
-          title: getField(nextEventRecord, 'title', ''),
-          description: getField(
-            nextEventRecord,
-            'description',
-            'Join us for this exciting IEEE event!',
-          ),
-          date: getField(nextEventRecord, 'date', ''),
-          timeTbc: Boolean(getField(nextEventRecord, 'timeTbc', false)),
-          bannerUrl: nextEventRecord.banner
-            ? buildFileUrl(
-                'events',
-                getField(nextEventRecord, 'id', ''),
-                getField(nextEventRecord, 'banner', ''),
-              )
-            : '',
-        }
-      : null
-
-    return { latestEvent, societies }
+    return {
+      upcomingEvents: allUpcoming.slice(0, 4),
+      upcomingCount: allUpcoming.length,
+      societies,
+      execomCount: execomResult.status === "fulfilled" ? execomResult.value.totalItems : 0,
+      latestBlogs: blogsResult.status === "fulfilled" ? (blogsResult.value as BlogPost[]) : [],
+    };
   } catch {
-    return { latestEvent: null, societies: [] }
+    return fallback;
   }
 }
