@@ -463,25 +463,45 @@ export default function SocietiesClient({ societies, activityBySociety, upcoming
 
       <main className="relative z-10 px-5 pb-0 pt-28 sm:px-6 sm:pt-32">
         <div className="mx-auto max-w-7xl">
-          <motion.section initial={reduceMotion ? false : { opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }} className="border-b border-slate-200 pb-10 sm:pb-14">
-            <div className="flex items-center justify-between gap-6 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-              <span>IEEE Sahrdaya / Societies</span>
-              <span>{String(societies.length).padStart(2, "0")} communities</span>
+          <motion.section initial={reduceMotion ? false : { opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }} className="relative overflow-hidden border-b border-slate-200 pb-12 sm:pb-16 lg:min-h-[520px] lg:pb-14">
+            <div aria-hidden="true" className="pointer-events-none absolute -bottom-3 left-0 hidden select-none text-[11.5vw] font-black leading-none tracking-[-0.075em] text-slate-950/[0.025] xl:block">SOCIETIES</div>
+            <div className="relative z-10 flex items-center justify-between gap-6 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+              <span>IEEE Sahrdaya / Community Index</span>
+              <span>Directory · 2026</span>
             </div>
-            <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1.4fr)_minmax(260px,0.6fr)] lg:items-end">
-              <div>
-                <h1 className="max-w-4xl text-5xl font-semibold leading-[0.96] tracking-[-0.055em] text-slate-950 sm:text-6xl lg:text-7xl xl:text-[5.6rem]">{societies.length} communities.<br /><span className="text-ieee-blue">One student branch.</span></h1>
-              </div>              <div className="max-w-md lg:justify-self-end">
-                <p className="text-base leading-7 text-slate-600 sm:text-lg">Explore the technical societies, affinity groups and communities where IEEE Sahrdaya students learn, build, research and lead.</p>
-                <div className="mt-6 grid grid-cols-2 gap-x-6 gap-y-3 border-t border-slate-200 pt-5 font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-                  <span>Thrissur · Kerala</span><span className="text-right">Student Branch</span>
-                  <span>Technical communities</span><span className="text-right">IEEE</span>
+
+            <div className="relative z-10 mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_330px] lg:items-end xl:grid-cols-[minmax(0,1fr)_390px]">
+              <div className="max-w-4xl">
+                <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.2em] text-ieee-blue">Explore · Connect · Build</p>
+                <h1 className="mt-5 text-[3.25rem] font-semibold leading-[0.9] tracking-[-0.06em] text-slate-950 sm:text-7xl lg:text-[5.35rem] xl:text-[6.15rem]">
+                  Find your field.<br /><span className="text-ieee-blue">Find your people.</span>
+                </h1>
+                <div className="mt-8 grid max-w-3xl gap-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                  <p className="max-w-xl text-base leading-7 text-slate-600 sm:text-lg">From computing and robotics to power, healthcare, signal processing and humanitarian technology — discover the IEEE community that matches what you want to explore next.</p>
+                  <a href="#society-directory" className="group inline-flex items-center gap-3 whitespace-nowrap font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500 transition hover:text-slate-950">
+                    Start exploring <span className="inline-block transition-transform duration-300 group-hover:translate-y-1">↓</span>
+                  </a>
+                </div>
+              </div>
+
+              <div className="relative border-y border-slate-200 py-5 lg:border-y-0 lg:border-l lg:py-2 lg:pl-9">
+                <div className="flex items-end justify-between gap-6 lg:block">
+                  <div>
+                    <div className="text-[5.8rem] font-semibold leading-[0.78] tracking-[-0.075em] text-slate-950 sm:text-[7rem] lg:text-[9rem]">{String(societies.length).padStart(2, "0")}</div>
+                    <p className="mt-3 font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-400">Communities / One branch</p>
+                  </div>
+                  <div className="grid gap-2 text-right font-mono text-[8px] font-semibold uppercase tracking-[0.16em] text-slate-400 lg:mt-10 lg:grid-cols-2 lg:text-left">
+                    <span>{String(upcomingEventCount).padStart(2, "0")} upcoming events</span>
+                    <span className="lg:text-right">{String(activeCommunityCount).padStart(2, "0")} active now</span>
+                    <span>Thrissur · Kerala</span>
+                    <span className="lg:text-right">IEEE Student Branch</span>
+                  </div>
                 </div>
               </div>
             </div>
           </motion.section>
 
-          <div data-testid="society-directory-controls" className="sticky top-20 z-20 bg-white/94 backdrop-blur-xl">
+          <div id="society-directory" data-testid="society-directory-controls" className="sticky top-20 z-20 scroll-mt-24 bg-white/94 backdrop-blur-xl">
           <section data-testid="society-network" className="hidden border-b border-slate-200 py-4 md:block" aria-label="Society network status">
             <div className="flex items-center justify-between gap-6 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-400">
               <motion.p
@@ -601,7 +621,13 @@ export default function SocietiesClient({ societies, activityBySociety, upcoming
         </div>
       </main>
       <LiveActivitySection upcomingEvents={upcomingEvents} totalUpcoming={upcomingEventCount} activeCommunities={activeCommunityCount} />
-      <Footer seamless />
+      <div className="relative z-20 bg-white px-5 py-5 sm:px-6" aria-hidden="true">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-400 sm:text-[9px]">
+          <span>End / Live signal</span>
+          <span>IEEE Sahrdaya Student Branch</span>
+        </div>
+      </div>
+      <Footer />
     </div>
   );
 }
