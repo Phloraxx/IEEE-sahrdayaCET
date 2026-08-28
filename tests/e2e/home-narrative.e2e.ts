@@ -23,10 +23,9 @@ test.describe("Home narrative", () => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/");
     const strip = page.getByTestId("curated-event-strip");
-    await strip.scrollIntoViewIfNeeded();
-    await page.waitForTimeout(700);
-    const transform = await strip.evaluate((element) => getComputedStyle(element).transform);
-    expect(transform).toBe("none");
+    await expect(strip).toBeAttached();
+    await expect(strip.locator("img")).toHaveCount(7);
+    await expect.poll(async () => strip.evaluate((element) => getComputedStyle(element).transform)).toBe("none");
   });
 
   test("has no horizontal overflow on mobile", async ({ page }) => {
