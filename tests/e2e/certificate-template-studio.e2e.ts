@@ -52,26 +52,26 @@ test.describe("Certificate Template Studio", () => {
     await expect(page.getByAltText("Certificate render base preview")).toBeVisible();
     await expect.poll(async () => page.getByAltText("Certificate render base preview").evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(2400);
 
-    await page.getByRole("button", { name: "Publish" }).click();
+    await page.getByRole("button", { name: "Publish", exact: true }).click();
     await expect(page.getByText(/published · v1/i).first()).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole("button", { name: "Save draft" })).toHaveCount(0);
     await expect(page.getByText("Published artwork is read-only")).toBeVisible();
-    await expect(page.getByText("Recipients → Review → Issue")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Recipients → Review → Issue", exact: true })).toBeVisible();
     await expect(page.getByText("No automatic email")).toBeVisible();
     await page.getByRole("button", { name: /Confirmed/ }).click();
-    await page.getByRole("button", { name: "Review recipients" }).click();
+    await page.getByRole("button", { name: "Review recipients", exact: true }).click();
     await expect(page.getByText("Review the exact audience")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole("button", { name: /Issue 1 certificate/ })).toBeDisabled();
     await expect(page.getByText("Member", { exact: true }).first()).toBeVisible();
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: /Issue 1 certificate/ }).click();
     await expect(page.getByText("No email has been sent yet.")).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText("Send & delivery")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Send & delivery", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: /Queue 1 email/ })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: /Queue 1 email/ }).click();
     await expect(page.getByText(/Delivery in progress|Delivery complete/)).toBeVisible({ timeout: 15_000 });
 
-    await page.getByRole("button", { name: "New version" }).click();
+    await page.getByRole("button", { name: "New version", exact: true }).click();
     await expect(page.getByText(/draft · v2/i).first()).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole("button", { name: "Save draft" })).toBeVisible();
     await expect(page.getByAltText("Certificate render base preview")).toBeVisible();
