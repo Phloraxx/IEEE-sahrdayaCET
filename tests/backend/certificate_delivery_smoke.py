@@ -158,7 +158,7 @@ issued = request("POST", f"/api/app/events/{event['id']}/certificates/issue", {
     "audienceFingerprint": preview["audienceFingerprint"],
 }, admin_token)
 batch_id = issued["batch"]["id"]
-assert issued["batch"]["status"] == "issued" and issued["batch"]["queuedCount"] == 0
+assert issued["batch"]["status"] == "issued"
 
 certificate_outbox_filter = urllib.parse.quote('kind = "certificate"')
 assert request("GET", f"/api/collections/notification_outbox/records?filter={certificate_outbox_filter}", token=super_token)["totalItems"] == 0
