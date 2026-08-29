@@ -4,6 +4,7 @@ import { AlertTriangle, CheckCircle2, ExternalLink, Loader2, Mail, RefreshCw, Se
 import { toast } from "sonner";
 
 import { PanelHeader } from "@/components/admin/panel-header";
+import { CertificateLifecycleDialog } from "@/features/admin/events/certificate-lifecycle-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,6 +16,7 @@ import {
   type CertificateDeliveryBatch,
   type CertificateDeliveryRow,
 } from "@/lib/data/certificate-delivery.client";
+import type { CertificateTemplate } from "@/lib/data/certificate-templates.client";
 import { formatDateTime } from "@/lib/dates";
 
 function statusLabel(value: string) {
@@ -58,9 +60,22 @@ function BatchButton({ batch, active, onClick }: { batch: CertificateDeliveryBat
   );
 }
 
-export function CertificateDeliveryPanel({ eventId, canView, canSend }: { eventId: string; canView: boolean; canSend: boolean }) {
+export function CertificateDeliveryPanel({
+  eventId,
+  canView,
+  canSend,
+  canRevoke,
+  templates,
+}: {
+  eventId: string;
+  canView: boolean;
+  canSend: boolean;
+  canRevoke: boolean;
+  templates: CertificateTemplate[];
+}) {
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState("");
+  const [lifecycle, setLifecycle] = useState<{ mode: "revoke" | "replace"; row: CertificateDeliveryRow } | null>(null);
   const batchesQuery = useQuery({
     queryKey: ["certificate-batches", eventId],
     queryFn: () => listCertificateBatches(eventId),
@@ -81,8 +96,12 @@ export function CertificateDeliveryPanel({ eventId, canView, canSend }: { eventI
   const refresh = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["certificate-batches", eventId] }),
-      queryClient.invalidateQueries({ queryKey: ["certificate-delivery", eventId, selectedId] }),
+      queryClient.invalidateQueries({ queryKey: ["certificate-delivery", eventId] }),
     ]);
+  };
+  const lifecycleComplete = async (replacementBatchId?: string) => {
+    await refresh();
+    if (replacementBatchId) setSelectedId(replacementBatchId);
   };
   const sendMutation = useMutation({
     mutationFn: () => sendCertificateBatch(eventId, selectedId),
@@ -158,16 +177,16 @@ export function CertificateDeliveryPanel({ eventId, canView, canSend }: { eventI
                   <div className="overflow-hidden rounded-2xl border border-border">
                     <div className="border-b border-border bg-muted/20 px-4 py-3"><p className="text-sm font-semibold">Recipient delivery</p></div>
                     <div className="overflow-x-auto">
-                      <table className="w-full min-w-[820px] text-sm">
-                        <thead className="border-b border-border text-left text-[10px] uppercase tracking-[0.14em] text-muted-foreground"><tr><th className="px-4 py-3">Recipient</th><th className="px-4 py-3">Credential</th><th className="px-4 py-3">Delivery</th><th className="px-4 py-3">Attempts</th><th className="px-4 py-3 text-right">Resource</th></tr></thead>
+                      <table className="w-full min-w-[980px] text-sm">
+                        <thead className="border-b border-border text-left text-[10px] uppercase tracking-[0.14em] text-muted-foreground"><tr><th className="px-4 py-3">Recipient</th><th className="px-4 py-3">Credential</th><th className="px-4 py-3">Delivery</th><th className="px-4 py-3">Attempts</th><th className="px-4 py-3 text-right">Actions</th></tr></thead>
                         <tbody>
                           {delivery.certificates.map((row) => (
                             <tr key={row.certificateId} className="border-b border-border align-top last:border-b-0">
                               <td className="px-4 py-3"><p className="font-medium">{row.recipientName}</p><p className="mt-0.5 text-xs text-muted-foreground">{row.recipientEmail || "No email snapshot"}</p></td>
-                              <td className="px-4 py-3"><p className="font-mono text-xs font-semibold">{row.credentialId}</p><p className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">{row.certificateStatus}</p></td>
+                              <td className="px-4 py-3"><p className="font-mono text-xs font-semibold">{row.credentialId}</p><p className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">{row.certificateStatus}</p>{row.revocationReason && <p className="mt-1 max-w-[260px] text-[10px] leading-relaxed text-muted-foreground" title={row.revocationReason}>{row.revocationReason}</p>}</td>
                               <td className="max-w-[280px] px-4 py-3">{deliveryStatus(row)}{row.sentAt && <p className="mt-1 text-[10px] text-muted-foreground">{formatDateTime(row.sentAt)}</p>}{row.lastError && <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-red-600" title={row.lastError}>{row.lastError}</p>}</td>
                               <td className="px-4 py-3 font-mono text-xs tabular-nums">{row.attempts}</td>
-                              <td className="px-4 py-3 text-right"><Button variant="ghost" size="sm" asChild className="h-8 gap-1.5 text-xs"><a href={row.verificationUrl} target="_blank" rel="noreferrer">Verify <ExternalLink className="h-3.5 w-3.5" /></a></Button></td>
+                              <td className="px-4 py-3 text-right"><div className="flex justify-end gap-1"><Button variant="ghost" size="sm" asChild className="h-8 gap-1.5 text-xs"><a href={row.verificationUrl} target="_blank" rel="noreferrer">Verify <ExternalLink className="h-3.5 w-3.5" /></a></Button>{canRevoke && row.certificateStatus === "active" && <><Button variant="ghost" size="sm" className="h-8 text-xs text-destructive hover:text-destructive" onClick={() => setLifecycle({ mode: "revoke", row })}>Revoke</Button><Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setLifecycle({ mode: "replace", row })}>Replace</Button></>}</div></td>
                             </tr>
                           ))}
                         </tbody>
@@ -183,6 +202,15 @@ export function CertificateDeliveryPanel({ eventId, canView, canSend }: { eventI
             </div>
           </div>
         )}
+        <CertificateLifecycleDialog
+          eventId={eventId}
+          row={lifecycle?.row ?? null}
+          mode={lifecycle?.mode ?? "revoke"}
+          open={Boolean(lifecycle)}
+          templates={templates}
+          onOpenChange={(open) => { if (!open) setLifecycle(null); }}
+          onComplete={lifecycleComplete}
+        />
       </CardContent>
     </Card>
   );

@@ -333,19 +333,18 @@ No staging deployment occurred. No real certificate was issued, no real attendee
 
 ## Next implementation phases
 
-1. Close Phase 5 only after its dedicated clean-room backend, Browser E2E, production build, and both container builds are green on the exact feature SHA.
-2. Add organizer-facing revocation/supersession commands only through the existing explicit credential-state model and `certificates.revoke` capability; public verification must continue to preserve historical revoked/superseded records.
-3. Add `attendance_qualified` only when a real future multi-session attendance model exists; do not infer historical attendance.
-4. Rehearse on staging with synthetic recipients only after the full feature-branch gate is green and the project owner explicitly requests staging deployment.
+1. Close Phase 6 only after its dedicated clean-room lifecycle smoke, Browser E2E, production build, and both container builds are green on the exact feature SHA.
+2. Add `attendance_qualified` only when a real future multi-session attendance model exists; do not infer historical attendance.
+3. Rehearse on staging with synthetic recipients only after the full feature-branch gate is green and the project owner explicitly requests staging deployment.
 
 ## Branch safety
 
-Certificate work remains isolated on `feature/certificate-platform`. `dev` and `main` are not to be modified by this work until an explicit merge decision. Phase 4 completion by itself does not authorize staging or production deployment.
+Certificate work remains isolated on `feature/certificate-platform`. `dev` and `main` are not to be modified by this work until an explicit merge decision. Feature-phase completion by itself does not authorize staging or production deployment.
 
 
 ## Phase 5 — explicit Send + delivery tracking
 
-Implemented locally on the isolated certificate branch; clean-room CI is the remaining gate before this phase is closed. Issuance is still email-free.
+Closed on the isolated certificate branch. Issuance remains email-free and delivery remains an explicit separate command.
 
 - `certificates.send` is a separate explicit capability from `certificates.issue`; the current operational roles that may issue also receive Send, while registration/check-in/content/finance-only roles receive neither.
 - Send is a dedicated PocketBase command on an already-issued batch. It only enqueues jobs and never performs SMTP synchronously.
@@ -366,3 +365,35 @@ Coverage added for this phase:
 - Browser E2E now continues the synthetic Template Studio flow through explicit Issue and then the separate Queue email action. The clean-room environment has no live SMTP path, so this cannot send a real certificate email.
 
 Local gate after Phase 5 changes: zero-warning lint, typecheck, production build, and 333 unit tests discovered (332 passed; the existing Linux-only renderer assertion is skipped on macOS). A fresh disposable PocketBase container also passed the complete `certificate_delivery_smoke.py` lifecycle after the reconciliation fix (1 queued, 1 missing email, dedupe/retry/revocation checks green).
+
+Phase 5 exact clean-room closure gate:
+
+- feature SHA: `1850613504229ad40260dcdfe2e61928e994726f`;
+- workflow: `https://github.com/Phloraxx/IEEE-sahrdayaCET/actions/runs/33263110016`;
+- lint/typecheck/unit/production build: green;
+- certificate template, issue, public verification, and delivery smokes: green;
+- direct Razorpay and temporary PayGate smokes: green;
+- web + PocketBase container builds: green;
+- Browser E2E: 40 passed, 9 intentionally skipped.
+
+No staging deployment occurred and no real certificate email was sent. The draft PR used only to trigger CI was closed without merge.
+
+
+## Phase 6 — revoke and replace credential lifecycle
+
+Implementation is isolated on the certificate feature branch and must pass its dedicated clean-room gate before closure.
+
+- `certificates.revoke` is the sole capability for both lifecycle-ending commands; ordinary event leads/secretaries that can Issue/Send still cannot revoke unless their role explicitly carries this narrower governance authority.
+- **Revoke** changes ACTIVE → REVOKED in place, requires a private reason plus actor/time metadata, preserves the immutable credential and public verification URL, and never deletes history.
+- **Replace** changes the old credential ACTIVE → SUPERSEDED, creates a new ACTIVE immutable credential with a new Credential ID and 48-character verification token, links `supersedes`/`supersededBy`, increments `metadataVersion`, and creates a dedicated one-recipient correction batch.
+- Replacement can correct the frozen recipient name/email snapshot and can optionally use another published event template of the same certificate type. Keeping the original artwork remains valid even if that historical template has since been archived.
+- Replacement Issue does **not** enqueue or send email. Its correction batch enters `issued` with zero queued jobs and must use the existing separate Send & delivery workflow.
+- Any old certificate email job that has not already reached `sent` is terminally failed when that credential is revoked/superseded, preventing later automatic retry of an invalid credential. Already-sent delivery history is preserved.
+- Public verification continues to expose only the locked seven-field projection; private revocation/replacement reasons and links are available only in Event Admin.
+- Certificate invariants now require termination time/actor/reason, forbid reactivation, forbid deletion, prohibit active credentials from pointing at replacements, and freeze completed lifecycle metadata.
+- Event Admin delivery rows expose Revoke/Replace controls only for ACTIVE credentials and only when `certificates.revoke` is present. The replacement dialog states explicitly that the new credential is not emailed automatically.
+
+Permanent coverage added:
+
+- `tests/unit/lib/certificate-lifecycle-architecture.test.ts` for permission boundary, immutable history, replacement-without-Send, terminal old delivery, and organizer UI warnings;
+- `tests/backend/certificate_lifecycle_smoke.py` for authorization, required reason, queued-old-mail termination, REVOKED/SUPERSEDED/ACTIVE public status, seven-field public privacy, linked replacement metadata, idempotent replay, zero-email replacement batch, no duplicate replacement outbox job, no reactivation, and frozen replacement identity.

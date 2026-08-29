@@ -24,7 +24,13 @@ export interface CertificateDeliveryRow {
   recipientName: string;
   recipientEmail: string;
   credentialId: string;
+  certificateType: string;
+  templateId: string;
   certificateStatus: "active" | "revoked" | "superseded" | string;
+  revokedAt: string;
+  revocationReason: string;
+  supersedesId: string;
+  supersededById: string;
   deliveryStatus: "not_queued" | "missing_email" | "not_active" | "pending" | "sending" | "sent" | "failed" | string;
   attempts: number;
   sentAt: string;
@@ -63,4 +69,47 @@ export async function retryFailedCertificateBatch(eventId: string, batchId: stri
     `/api/app/events/${encodeURIComponent(eventId)}/certificate-batches/${encodeURIComponent(batchId)}/retry-failed`,
     { method: "POST" },
   ) as Promise<{ retried: number; delivery: CertificateDeliverySnapshot }>;
+}
+
+export interface CertificateLifecycleCredential {
+  certificateId: string;
+  eventId: string;
+  registrationId: string;
+  batchId: string;
+  templateId: string;
+  certificateType: string;
+  recipientName: string;
+  recipientEmail: string;
+  credentialId: string;
+  status: "active" | "revoked" | "superseded" | string;
+  issuedAt: string;
+  revokedAt: string;
+  revocationReason: string;
+  supersedesId: string;
+  supersededById: string;
+  metadataVersion: number;
+  verificationUrl: string;
+}
+
+export async function revokeCertificate(eventId: string, certificateId: string, reason: string) {
+  return getPbClient().send(
+    `/api/app/events/${encodeURIComponent(eventId)}/certificates/${encodeURIComponent(certificateId)}/revoke`,
+    { method: "POST", body: { reason } },
+  ) as Promise<{ idempotent: boolean; certificate: CertificateLifecycleCredential }>;
+}
+
+export async function supersedeCertificate(
+  eventId: string,
+  certificateId: string,
+  input: { reason: string; recipientName: string; recipientEmail: string; templateId?: string },
+) {
+  return getPbClient().send(
+    `/api/app/events/${encodeURIComponent(eventId)}/certificates/${encodeURIComponent(certificateId)}/supersede`,
+    { method: "POST", body: input },
+  ) as Promise<{
+    idempotent: boolean;
+    superseded: CertificateLifecycleCredential;
+    replacement: CertificateLifecycleCredential;
+    replacementBatchId: string;
+  }>;
 }

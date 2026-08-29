@@ -387,12 +387,14 @@ export function CertificateTemplatePanel({
   canManage,
   canIssue,
   canSend,
+  canRevoke,
 }: {
   eventId: string;
   canView: boolean;
   canManage: boolean;
   canIssue: boolean;
   canSend: boolean;
+  canRevoke: boolean;
 }) {
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState("");
@@ -661,7 +663,7 @@ export function CertificateTemplatePanel({
       </Card>
       <CreateTemplateDialog open={createOpen} onOpenChange={setCreateOpen} pending={createMutation.isPending} onCreate={(name, certificateType) => createMutation.mutate({ name, certificateType })} />
       <CertificateIssuancePanel eventId={eventId} templates={templates} canIssue={canIssue} />
-      <CertificateDeliveryPanel eventId={eventId} canView={canView} canSend={canSend} />
+      <CertificateDeliveryPanel eventId={eventId} canView={canView} canSend={canSend} canRevoke={canRevoke} templates={templates} />
     </div>
   );
 }

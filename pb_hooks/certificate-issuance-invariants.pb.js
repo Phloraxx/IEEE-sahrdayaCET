@@ -30,6 +30,7 @@ onRecordUpdate(function (e) {
 onRecordCreate(function (e) {
   var record = e.record
   if ((record.getString("status") || "") !== "active") throw new BadRequestError("New certificates must start active")
+  if (record.getString("revokedAt") || record.getString("revokedBy") || record.getString("revocationReason") || record.getString("supersededBy")) throw new BadRequestError("New certificates cannot start with lifecycle termination metadata")
   if (!record.getString("credentialId")) throw new BadRequestError("Certificate credential ID is required")
   if (!record.getString("verificationToken")) throw new BadRequestError("Certificate verification token is required")
   if (!record.getString("recipientNameSnapshot")) throw new BadRequestError("Certificate recipient snapshot is required")
@@ -57,6 +58,26 @@ onRecordUpdate(function (e) {
   var nextStatus = record.getString("status") || "active"
   if (oldStatus !== nextStatus && oldStatus !== "active") throw new BadRequestError("Revoked or superseded certificates cannot be reactivated")
   if (["active", "revoked", "superseded"].indexOf(nextStatus) === -1) throw new BadRequestError("Certificate status is invalid")
+  if (nextStatus === "active" && record.getString("supersededBy")) throw new BadRequestError("Active certificates cannot point to a replacement")
+  if (oldStatus === "active" && nextStatus !== "active") {
+    if (!record.getString("revokedAt") || !record.getString("revokedBy") || !record.getString("revocationReason")) {
+      throw new BadRequestError("Certificate termination requires time, actor, and reason")
+    }
+  }
+  if (oldStatus !== "active") {
+    var lifecycleFrozen = ["revokedAt", "revokedBy", "revocationReason", "supersedes"]
+    for (var j = 0; j < lifecycleFrozen.length; j++) {
+      var lifecycleField = lifecycleFrozen[j]
+      if (rules.stableStringify(old.get(lifecycleField)) !== rules.stableStringify(record.get(lifecycleField))) {
+        throw new BadRequestError("Certificate lifecycle history is immutable")
+      }
+    }
+    var oldReplacement = old.getString("supersededBy") || ""
+    var nextReplacement = record.getString("supersededBy") || ""
+    if (oldReplacement !== nextReplacement && !(oldStatus === "superseded" && !oldReplacement && !!nextReplacement)) {
+      throw new BadRequestError("Certificate replacement link is immutable")
+    }
+  }
   e.next()
 }, "certificates")
 
