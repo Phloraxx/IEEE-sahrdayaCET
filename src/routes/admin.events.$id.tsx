@@ -50,6 +50,7 @@ import { ConfirmButton } from "@/components/admin/confirm-button";
 import { EventCancelDialog } from "@/components/admin/event-cancel-dialog";
 import { EventTeamPanel } from "@/features/admin/events/event-team-panel";
 import { EventWorkflowPanel } from "@/features/admin/events/event-workflow-panel";
+import { CertificateTemplatePanel } from "@/features/admin/events/certificate-template-panel";
 import { useAuth } from "@/lib/auth-context";
 import { getPbClient } from "@/lib/pb-client";
 import { csvFilename, streamRegistrationsCSV } from "@/lib/csv-export";
@@ -66,8 +67,8 @@ import { listAdminRegistrations } from "@/lib/data/admin-registrations.client";
 import { cancelAdminEvent } from "@/lib/data/admin-events.client";
 import { runEventWorkflow } from "@/lib/data/workspace.client";
 
-type Tab = "overview" | "attendees" | "payments" | "coupons" | "team" | "activity";
-const VALID_TABS: Tab[] = ["overview", "attendees", "payments", "coupons", "team", "activity"];
+type Tab = "overview" | "attendees" | "payments" | "coupons" | "certificates" | "team" | "activity";
+const VALID_TABS: Tab[] = ["overview", "attendees", "payments", "coupons", "certificates", "team", "activity"];
 
 const money = (value: number) => `₹${Math.max(0, value || 0).toLocaleString("en-IN")}`;
 function OpsMetric({
@@ -476,6 +477,7 @@ export default function AdminEventOperationsRoute() {
     ...(permissions["registrations.view"] ? [{ id: "attendees" as Tab, label: "Attendees", count: summary.active }] : []),
     ...(permissions["finance.view"] ? [{ id: "payments" as Tab, label: "Payments", count: summary.paidCount }] : []),
     ...(permissions["events.edit"] ? [{ id: "coupons" as Tab, label: "Coupons", count: operations.data.coupons.length }] : []),
+    ...(permissions["certificates.view"] ? [{ id: "certificates" as Tab, label: "Certificates" }] : []),
     ...(permissions["assignments.manage"] ? [{ id: "team" as Tab, label: "Event team" }] : []),
     ...(permissions["reports.view"] ? [{ id: "activity" as Tab, label: "Activity" }] : []),
   ];
@@ -775,6 +777,14 @@ export default function AdminEventOperationsRoute() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {tab === "certificates" && (
+        <CertificateTemplatePanel
+          eventId={id}
+          canView={Boolean(permissions["certificates.view"])}
+          canManage={Boolean(permissions["certificates.manage_templates"])}
+        />
       )}
 
       {tab === "team" && (

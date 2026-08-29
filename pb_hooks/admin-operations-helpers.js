@@ -27,7 +27,8 @@ function eventPermissions(app, auth, event) {
   var capabilities = [
     "events.view", "events.edit", "events.submit", "events.approve", "events.publish", "events.cancel", "events.complete",
     "registrations.view", "registrations.manage", "registrations.manual", "checkin.manage",
-    "finance.view", "finance.manage", "finance.approve", "assignments.manage", "content.manage", "reports.view"
+    "finance.view", "finance.manage", "finance.approve", "assignments.manage", "content.manage", "reports.view",
+    "certificates.view", "certificates.manage_templates", "certificates.issue", "certificates.revoke"
   ]
   var result = {}
   for (var i = 0; i < capabilities.length; i++) {

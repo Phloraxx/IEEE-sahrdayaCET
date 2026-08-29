@@ -124,14 +124,46 @@ Validated in the permanent clean-room template smoke:
 
 `tests/backend/certificate_template_smoke.py` is wired into clean-room CI.
 
+## Phase 2B — Event Admin Template Studio
+
+Implemented locally on the isolated certificate branch. Certificate administration now appears as a permission-gated `Certificates` tab inside the existing `/admin/events/:id` workspace rather than as a separate dashboard.
+
+The first UI surface intentionally covers template work only. Recipient selection, issuance, sending, and delivery tracking are not mixed into the editor.
+
+Template Studio provides:
+
+- event-scoped template/version browser;
+- draft creation by certificate type;
+- large render-base preview canvas;
+- drag positioning for participant name, credential ID, and verification QR;
+- exact normalized position/size controls;
+- Noto Sans/Noto Serif participant-name controls with preferred/minimum fit sizes;
+- protected render-base, source-background, and signature-source uploads;
+- plain-text certificate email authoring using the documented placeholders;
+- save, publish/freeze, archive, clone-next-version, and delete-draft actions;
+- view-only rendering for users with `certificates.view` but without `certificates.manage_templates`.
+
+The frontend uses only the custom certificate command/asset routes. It does not open direct PocketBase CRUD for the server-only certificate collections.
+
+Regression coverage added for this phase:
+
+- source-level admin integration/permission architecture tests;
+- a clean-room Playwright flow that creates a real draft from Event Admin;
+- generated 2400×1350 PNG and 800×240 signature uploads through the browser;
+- save + protected preview verification;
+- publication immutability;
+- clone-to-v2 behavior;
+- mobile horizontal-overflow check.
+
+Local pre-CI gate at this checkpoint: 313/313 unit tests, typecheck, zero-warning lint, and production build are green. The browser lifecycle test is designed to run in clean-room CI where the existing harness provisions its disposable authenticated admin token without exposing credentials to local tooling.
+
 ## Next implementation phases
 
-1. Admin Certificates tab + visual template editor using the completed Phase 2 commands.
-2. Audience preview + fingerprint + idempotent issuance.
-3. Public `/c/:token` verification and QR/PNG/PDF resources.
-4. Outbox `certificate` mail kind and delivery dashboard.
-5. Attendance sessions only where future multi-session qualification actually requires them.
-6. Staging rehearsal with synthetic recipients only.
+1. Audience preview + fingerprint + idempotent issuance.
+2. Public `/c/:token` verification and QR/PNG/PDF resources.
+3. Outbox `certificate` mail kind and delivery dashboard.
+4. Attendance sessions only where future multi-session qualification actually requires them.
+5. Staging rehearsal with synthetic recipients only.
 
 ## Branch safety
 
