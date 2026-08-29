@@ -155,7 +155,7 @@ Regression coverage added for this phase:
 - clone-to-v2 behavior;
 - mobile horizontal-overflow check.
 
-Local pre-CI gate at this checkpoint: 313/313 unit tests, typecheck, zero-warning lint, and production build are green. The browser lifecycle test is designed to run in clean-room CI where the existing harness provisions its disposable authenticated admin token without exposing credentials to local tooling.
+Local gate: 313/313 unit tests, typecheck, zero-warning lint, and production build are green. Feature-branch clean-room CI is also green, including fresh PocketBase migration, certificate template lifecycle, Razorpay/PayGate smokes, both container builds, and the real Browser E2E create/upload/save/publish/version flow.
 
 ## Next implementation phases
 
