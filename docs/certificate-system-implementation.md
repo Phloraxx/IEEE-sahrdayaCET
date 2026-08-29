@@ -1,6 +1,6 @@
 # Certificate System Implementation Ledger
 
-Status: core certificate platform and v1 acceptance hardening are complete on the isolated `feature/certificate-platform` branch through Phase 7. Staging/production remain undeployed and require an explicit project-owner decision.
+Status: core certificate platform and v1 acceptance hardening are complete on the isolated `feature/certificate-platform` branch through Phase 8. Staging/production remain undeployed and require an explicit project-owner decision.
 
 Source research: the 28 August 2026 IEEE Sahrdaya certificate issuance, verification, and email-delivery research plan supplied by the project owner.
 
@@ -439,3 +439,32 @@ Phase 7 exact functional clean-room closure gate:
 `attendance_qualified` remains deliberately deferred until a real multi-session attendance model exists. No historical attendance is inferred. Staging rehearsal remains synthetic-only and requires an explicit project-owner request.
 
 No staging or production deployment occurred, no real certificate was issued, no real attendee record was changed, and no real certificate email was sent. The draft PR is used only as a CI trigger and is not authorized for merge.
+
+## Phase 8 — preflight review + safe test email
+
+Closed on the isolated certificate feature branch. This phase finishes the remaining non-deployment v1 checks from the research plan without changing Issue/Send semantics or historical attendance rules.
+
+- Template Studio exposes deterministic name-fit preflight warnings against the built-in stress-name set. Warnings cover names that require font auto-fit, names likely to exceed the configured minimum size, and names that require font-coverage review.
+- Recipient Review computes the same shared backend preflight against the exact snapshotted recipient names and surfaces a per-recipient **Name fit** status plus a warning count before Issue. Organizers explicitly acknowledge those warnings together with the audience confirmation.
+- Preflight remains advisory. The production renderer is still authoritative and continues to fail closed rather than clip a name that cannot fit.
+- Template Studio now has **Send test email** for draft/published templates. The recipient is fixed to the authenticated organizer's own account; there is no arbitrary-recipient field.
+- Test email uses sample identity/credential values only, is visibly marked `TEST / NOT VALID`, creates no certificate, batch, or outbox job, and routes through the existing centralized mail-delivery safety policy. Archived templates cannot send tests.
+- Successful test-email commands are audited as `certificate.template-test-email`. Clean-room CI intentionally has no SMTP configuration and proves the command fails safely without creating certificate/outbox state.
+
+Phase 8 exact functional clean-room closure gate:
+
+- feature SHA: `64991586739719d80db18cc9b4cb09c8634f0b46`;
+- workflow: `https://github.com/Phloraxx/IEEE-sahrdayaCET/actions/runs/33266331542`;
+- lint/typecheck: green;
+- unit tests: 61 files, 343 passed on Linux;
+- production build: green;
+- certificate template smoke: green, including deterministic preflight metadata plus unauthorized/unavailable test-email safety with no credential/outbox mutation;
+- certificate issuance smoke: green, including a real long-name recipient receiving the expected preflight warning;
+- 200-recipient scale smoke: green — preview 0.025 s, issue transaction 0.174 s, 200 unique credentials, 200 unique verification tokens, zero pre-Send outbox jobs;
+- public verification, delivery, revoke/replacement, Razorpay, and temporary PayGate smokes: green;
+- web + PocketBase container builds: green;
+- Browser E2E: 49 discovered, 40 passed, 9 intentionally skipped.
+
+`attendance_qualified` remains deliberately deferred until a real multi-session attendance model exists. Staging rehearsal remains synthetic-only and requires an explicit project-owner request.
+
+No staging or production deployment occurred, no real certificate was issued, no real attendee record was changed, and no real certificate or test email was sent. The draft PR is used only as a CI trigger and is not authorized for merge.
