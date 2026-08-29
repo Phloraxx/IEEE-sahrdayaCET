@@ -221,9 +221,9 @@ replacement_delivery = request("GET", f"/api/app/events/{event['id']}/certificat
 assert replacement_delivery["batch"]["status"] == "issued" and replacement_delivery["batch"]["queuedCount"] == 0
 assert len(replacement_delivery["certificates"]) == 1
 assert replacement_delivery["certificates"][0]["deliveryStatus"] == "not_queued"
-certificate_jobs_filter = urllib.parse.quote('kind = "certificate"')
-all_certificate_jobs = request("GET", f"/api/collections/notification_outbox/records?filter={certificate_jobs_filter}", token=super_token)
-assert all_certificate_jobs["totalItems"] == 2
+replacement_job_filter = urllib.parse.quote(f'kind = "certificate" && certificate = "{replacement["certificateId"]}"')
+replacement_jobs = request("GET", f"/api/collections/notification_outbox/records?filter={replacement_job_filter}", token=super_token)
+assert replacement_jobs["totalItems"] == 0
 
 replacement_replay = request("POST", supersede_path, {
     "reason": "Correct recipient spelling",
