@@ -125,6 +125,16 @@ export function CertificateIssuancePanel({
     ? { registrationIds: [...selectedIds].sort() }
     : {};
 
+  const renderWarningsByRegistration = useMemo(() => {
+    const map = new Map<string, CertificateAudiencePreview["renderWarnings"]>();
+    for (const warning of preview?.renderWarnings ?? []) {
+      const current = map.get(warning.registrationId) ?? [];
+      current.push(warning);
+      map.set(warning.registrationId, current);
+    }
+    return map;
+  }, [preview]);
+
   const previewMutation = useMutation({
     mutationFn: () => previewCertificateAudience(eventId, {
       templateId: activeTemplateId,
@@ -346,10 +356,11 @@ export function CertificateIssuancePanel({
               </Button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
               <Metric label="Recipients" value={preview.recipientCount} />
               <Metric label="Email ready" value={preview.emailEligibleCount} />
               <Metric label="Missing email" value={preview.missingEmailCount} warning={preview.missingEmailCount > 0} />
+              <Metric label="Name review" value={renderWarningsByRegistration.size} warning={renderWarningsByRegistration.size > 0} />
               <Metric label="Excluded" value={preview.excluded.length} warning={preview.excluded.length > 0} />
             </div>
 
@@ -362,6 +373,24 @@ export function CertificateIssuancePanel({
               </div>
             )}
 
+            {preview.renderWarnings.length > 0 && (
+              <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4 text-sm">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                  <div>
+                    <p className="font-semibold">Review {renderWarningsByRegistration.size} recipient name{renderWarningsByRegistration.size === 1 ? "" : "s"} before Issue</p>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Preflight predicts names that need font auto-fit, may exceed the configured minimum size, or need font-coverage review. It is intentionally advisory; the authoritative renderer still refuses clipping.</p>
+                    <div className="mt-3 space-y-1.5">
+                      {preview.renderWarnings.slice(0, 8).map((warning, index) => (
+                        <p key={`${warning.registrationId}-${warning.code}-${index}`} className="text-xs text-muted-foreground"><span className="font-medium text-foreground">{warning.name}</span> — {warning.message}</p>
+                      ))}
+                      {preview.renderWarnings.length > 8 && <p className="text-xs font-medium text-amber-700 dark:text-amber-300">+{preview.renderWarnings.length - 8} more warning{preview.renderWarnings.length - 8 === 1 ? "" : "s"}</p>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="overflow-hidden rounded-2xl border border-border">
               <div className="border-b border-border bg-muted/20 px-4 py-3">
                 <p className="text-sm font-semibold">Included recipients</p>
@@ -369,22 +398,28 @@ export function CertificateIssuancePanel({
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[640px] text-sm">
                   <thead className="border-b border-border text-left text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                    <tr><th className="px-4 py-3 font-semibold">Name</th><th className="px-4 py-3 font-semibold">Email snapshot</th><th className="px-4 py-3 font-semibold">Delivery</th></tr>
+                    <tr><th className="px-4 py-3 font-semibold">Name</th><th className="px-4 py-3 font-semibold">Email snapshot</th><th className="px-4 py-3 font-semibold">Name fit</th><th className="px-4 py-3 font-semibold">Delivery</th></tr>
                   </thead>
                   <tbody>
-                    {preview.recipients.map((recipient) => (
-                      <tr key={recipient.id} className="border-b border-border last:border-b-0">
-                        <td className="px-4 py-3 font-medium">{recipient.name}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{recipient.email || "—"}</td>
-                        <td className="px-4 py-3">
-                          {recipient.emailEligible ? (
-                            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600"><Mail className="h-3.5 w-3.5" />Email ready</span>
-                          ) : (
-                            <span className="text-xs font-medium text-amber-600">Missing email</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                    {preview.recipients.map((recipient) => {
+                      const nameWarnings = renderWarningsByRegistration.get(recipient.id) ?? [];
+                      return (
+                        <tr key={recipient.id} className="border-b border-border last:border-b-0">
+                          <td className="px-4 py-3 font-medium">{recipient.name}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{recipient.email || "—"}</td>
+                          <td className="px-4 py-3">
+                            {nameWarnings.length > 0 ? <span className="text-xs font-medium text-amber-600">Review ({nameWarnings.length})</span> : <span className="text-xs font-medium text-emerald-600">Preflight clear</span>}
+                          </td>
+                          <td className="px-4 py-3">
+                            {recipient.emailEligible ? (
+                              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600"><Mail className="h-3.5 w-3.5" />Email ready</span>
+                            ) : (
+                              <span className="text-xs font-medium text-amber-600">Missing email</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -419,8 +454,8 @@ export function CertificateIssuancePanel({
                     className="mt-1 h-4 w-4 rounded border-border accent-primary"
                   />
                   <span className="text-sm leading-relaxed">
-                    <span className="font-semibold">I confirm these are the people who should receive this certificate.</span>
-                    <span className="mt-1 block text-xs text-muted-foreground">Issue is permanent. It creates verifiable credentials but does not send them.</span>
+                    <span className="font-semibold">I confirm these are the people who should receive this certificate, and I reviewed any name-fit warnings above.</span>
+                    <span className="mt-1 block text-xs text-muted-foreground">Issue is permanent. It creates verifiable credentials but does not send them. Name-fit warnings are advisory; rendering still fails closed instead of clipping.</span>
                   </span>
                 </label>
               </div>

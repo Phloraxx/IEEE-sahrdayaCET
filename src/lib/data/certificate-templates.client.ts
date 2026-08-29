@@ -39,6 +39,13 @@ export interface CertificateTemplateAsset {
   url: string;
 }
 
+export interface CertificatePreflightWarning {
+  code: "auto_fit" | "likely_overflow" | "font_coverage_review" | string;
+  severity: "medium" | "high" | string;
+  name: string;
+  message: string;
+}
+
 export interface CertificateTemplate {
   id: string;
   name: string;
@@ -57,6 +64,7 @@ export interface CertificateTemplate {
   publishedAt: string;
   created: string;
   updated: string;
+  preflightWarnings: CertificatePreflightWarning[];
   files: {
     sourceBackground: CertificateTemplateAsset | null;
     sourceSignatures: CertificateTemplateAsset[];
@@ -119,6 +127,13 @@ export async function publishCertificateTemplate(templateId: string) {
     `/api/app/certificate-templates/${encodeURIComponent(templateId)}/publish`,
     { method: "POST" },
   ) as Promise<{ template: CertificateTemplate }>;
+}
+
+export async function sendCertificateTemplateTestEmail(templateId: string) {
+  return getPbClient().send(
+    `/api/app/certificate-templates/${encodeURIComponent(templateId)}/test-email`,
+    { method: "POST" },
+  ) as Promise<{ success: boolean; recipient: string; deliveryMode: string }>;
 }
 
 export async function archiveCertificateTemplate(templateId: string) {

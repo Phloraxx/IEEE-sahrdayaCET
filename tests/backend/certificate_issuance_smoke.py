@@ -149,7 +149,7 @@ def create_registration(label, name, email, status="confirmed", checked_in=False
 
 
 reg_checked = create_registration("checked", "Alice Checked", "alice@example.test", checked_in=True)
-reg_no_email = create_registration("no-email", "No Email Recipient", "", checked_in=True)
+reg_no_email = create_registration("no-email", "Mohammed Abdul Rahman Kizhakkedath", "", checked_in=True)
 reg_confirmed = create_registration("confirmed", "Charlie Confirmed", "charlie@example.test")
 reg_cancelled = create_registration("cancelled", "Cancelled Person", "cancelled@example.test", status="cancelled", checked_in=True)
 reg_selected = create_registration("selected", "Selected Pending", "selected@example.test", status="pending")
@@ -191,6 +191,7 @@ assert checked_preview["emailEligibleCount"] == 1
 assert checked_preview["missingEmailCount"] == 1
 assert {row["id"] for row in checked_preview["recipients"]} == {reg_checked["id"], reg_no_email["id"]}
 assert any(row["id"] == reg_cancelled["id"] and row["reason"] == "cancelled" for row in checked_preview["excluded"])
+assert any(row["registrationId"] == reg_no_email["id"] and row["code"] == "auto_fit" for row in checked_preview["renderWarnings"])
 
 issued = request("POST", issue_path, {
     "templateId": template["id"],
@@ -262,7 +263,7 @@ certificate_id = issued["certificates"][0]["id"]
 certificate = request("GET", f"/api/collections/certificates/records/{certificate_id}", token=super_token)
 assert certificate["credentialId"].startswith("IEEESB-")
 assert len(certificate["verificationToken"]) == 48
-assert certificate["recipientNameSnapshot"] in {"Alice Checked", "No Email Recipient"}
+assert certificate["recipientNameSnapshot"] in {"Alice Checked", "Mohammed Abdul Rahman Kizhakkedath"}
 
 request("PATCH", f"/api/collections/certificates/records/{certificate_id}", {
     "recipientNameSnapshot": "Mutated Name",

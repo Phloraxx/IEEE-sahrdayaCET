@@ -6,6 +6,7 @@ import {
   CopyPlus,
   FileImage,
   Loader2,
+  MailCheck,
   Move,
   Plus,
   Save,
@@ -46,6 +47,7 @@ import {
   fetchCertificateTemplateAsset,
   listCertificateTemplates,
   publishCertificateTemplate,
+  sendCertificateTemplateTestEmail,
   updateCertificateTemplate,
   type CertificateTemplate,
   type CertificateTemplateLayout,
@@ -543,6 +545,18 @@ export function CertificateTemplatePanel({
     onError: (error: Error) => toast.error(error.message || "Could not publish certificate template"),
   });
 
+  const testEmailMutation = useMutation({
+    mutationFn: async () => {
+      if (!selected) throw new Error("Select a certificate template first");
+      if (dirty) throw new Error("Save the draft before sending a test email");
+      return sendCertificateTemplateTestEmail(selected.id);
+    },
+    onSuccess: ({ recipient }) => {
+      toast.success(`TEST / NOT VALID email sent to ${recipient}`);
+    },
+    onError: (error: Error) => toast.error(error.message || "Could not send certificate test email"),
+  });
+
   const archiveMutation = useMutation({
     mutationFn: () => selected ? archiveCertificateTemplate(selected.id) : Promise.reject(new Error("Select a template")),
     onSuccess: async () => { await invalidate(); toast.success("Certificate template archived"); },
@@ -601,7 +615,7 @@ export function CertificateTemplatePanel({
     );
   }
 
-  const busy = saveMutation.isPending || publishMutation.isPending || archiveMutation.isPending || versionMutation.isPending || deleteMutation.isPending;
+  const busy = saveMutation.isPending || publishMutation.isPending || testEmailMutation.isPending || archiveMutation.isPending || versionMutation.isPending || deleteMutation.isPending;
   const storedSignatures = selected.files.sourceSignatures.map((asset) => asset.name).join(", ");
 
   return (
@@ -643,6 +657,23 @@ export function CertificateTemplatePanel({
               <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.35fr)_360px]">
                 <div className="space-y-4">
                   <TemplatePreview template={selected} layout={layout} previewUrl={previewUrl} editable={editable} onLayoutChange={setLayout} />
+                  {(selected.preflightWarnings ?? []).length > 0 && (
+                    <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4">
+                      <div className="flex items-start gap-3">
+                        <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                        <div>
+                          <p className="text-sm font-semibold">Name-fit review recommended</p>
+                          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">These are deterministic preflight warnings against the built-in stress names. They do not replace the authoritative renderer.</p>
+                          <div className="mt-3 space-y-1.5">
+                            {(selected.preflightWarnings ?? []).slice(0, 5).map((warning, index) => (
+                              <p key={`${warning.code}-${warning.name}-${index}`} className="text-xs text-muted-foreground"><span className="font-medium text-foreground">{warning.name}</span> — {warning.message}</p>
+                            ))}
+                            {(selected.preflightWarnings ?? []).length > 5 && <p className="text-xs font-medium text-amber-700 dark:text-amber-300">+{(selected.preflightWarnings ?? []).length - 5} more preflight warning{(selected.preflightWarnings ?? []).length - 5 === 1 ? "" : "s"}</p>}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl border border-border bg-muted/20 px-4 py-3 text-xs text-muted-foreground">
                     <span className="inline-flex items-center gap-1.5"><Move className="h-3.5 w-3.5" />Drag the three live fields directly on the canvas.</span>
                     <span>Use exact controls for final alignment.</span>
@@ -675,6 +706,25 @@ export function CertificateTemplatePanel({
                       <div className="grid gap-1.5"><Label htmlFor="cert-email-subject">Subject</Label><Input id="cert-email-subject" value={emailSubject} disabled={!editable} onChange={(event) => setEmailSubject(event.target.value)} /></div>
                       <div className="grid gap-1.5"><Label htmlFor="cert-email-body">Body</Label><Textarea id="cert-email-body" rows={8} value={emailText} disabled={!editable} onChange={(event) => setEmailText(event.target.value)} className="font-mono text-xs leading-relaxed" /></div>
                       <p className="text-[11px] leading-relaxed text-muted-foreground">Supported variables: <code>{"{{name}}"}</code>, <code>{"{{firstName}}"}</code>, <code>{"{{eventTitle}}"}</code>, <code>{"{{credentialId}}"}</code>, <code>{"{{verificationUrl}}"}</code>, <code>{"{{certificateType}}"}</code>, <code>{"{{issueDate}}"}</code>.</p>
+                      {canManage && selected.status !== "archived" && (
+                        <div className="rounded-xl border border-border bg-muted/15 p-3">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <p className="text-[11px] leading-relaxed text-muted-foreground">Sends SAMPLE data only to your signed-in account. The message is visibly marked <span className="font-semibold text-foreground">TEST / NOT VALID</span>, creates no credential or outbox job, and still obeys the central staging mail guard.</p>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="shrink-0 gap-2"
+                              disabled={busy || dirty}
+                              onClick={() => testEmailMutation.mutate()}
+                            >
+                              {testEmailMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MailCheck className="h-4 w-4" />}
+                              Send test email
+                            </Button>
+                          </div>
+                          {dirty && <p className="mt-2 text-[10px] font-medium text-amber-600">Save the current draft first so the test matches persisted email copy.</p>}
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

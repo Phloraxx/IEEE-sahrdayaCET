@@ -133,6 +133,22 @@ function buildAudience(app, input) {
     recipients: recipients,
   })
   var emailEligibleCount = recipients.filter(function (row) { return row.emailEligible }).length
+  var renderWarnings = []
+  var templateLayout = rules.objectValue(input.template.get("layout"))
+  var canvasWidth = input.template.getFloat("canvasWidth") || 0
+  recipients.forEach(function (row) {
+    var warnings = rules.nameRenderWarnings(row.name, templateLayout, canvasWidth)
+    for (var wi = 0; wi < warnings.length; wi++) {
+      var warning = warnings[wi]
+      renderWarnings.push({
+        registrationId: row.id,
+        name: row.name,
+        code: warning.code,
+        severity: warning.severity,
+        message: warning.message,
+      })
+    }
+  })
   return {
     audienceType: input.audienceType,
     audienceConfig: config,
@@ -142,6 +158,7 @@ function buildAudience(app, input) {
     recipientCount: recipients.length,
     emailEligibleCount: emailEligibleCount,
     missingEmailCount: recipients.length - emailEligibleCount,
+    renderWarnings: renderWarnings,
   }
 }
 
@@ -160,6 +177,7 @@ function previewPayload(audience, template) {
     recipientCount: audience.recipientCount,
     emailEligibleCount: audience.emailEligibleCount,
     missingEmailCount: audience.missingEmailCount,
+    renderWarnings: audience.renderWarnings || [],
     recipients: audience.recipients,
     excluded: audience.excluded,
   }

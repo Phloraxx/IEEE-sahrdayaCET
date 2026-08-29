@@ -19,6 +19,14 @@ export interface CertificateAudienceRecipient {
   checkedInAt: string;
 }
 
+export interface CertificateRenderWarning {
+  registrationId: string;
+  name: string;
+  code: "auto_fit" | "likely_overflow" | "font_coverage_review" | string;
+  severity: "medium" | "high" | string;
+  message: string;
+}
+
 export interface CertificateAudienceExclusion {
   id: string;
   name: string;
@@ -34,6 +42,7 @@ export interface CertificateAudiencePreview {
   recipientCount: number;
   emailEligibleCount: number;
   missingEmailCount: number;
+  renderWarnings: CertificateRenderWarning[];
   recipients: CertificateAudienceRecipient[];
   excluded: CertificateAudienceExclusion[];
 }

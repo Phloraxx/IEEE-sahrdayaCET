@@ -164,6 +164,77 @@ function certificateEmail(app, certificate) {
   return { subject: subject, text: authoredText, html: html }
 }
 
+function certificateTestEmail(template, event) {
+  if (!template) throw new Error("Certificate template no longer exists")
+  var sampleValues = {
+    name: "Alexandra Joseph",
+    firstName: "Alexandra",
+    eventTitle: clean(event ? event.getString("title") : "IEEE Sahrdaya sample event"),
+    credentialId: "TEST-NOT-VALID",
+    verificationUrl: siteUrl() + "/c/TEST-NOT-VALID",
+    certificateType: titleCase(template.getString("certificateType") || "participation"),
+    issueDate: formatIssueDate(new Date().toISOString()),
+  }
+  var subject = "[TEST / NOT VALID] " + interpolate(
+    template.getString("emailSubject") || "Your certificate | {{eventTitle}}",
+    sampleValues
+  )
+  var authoredText = interpolate(
+    template.getString("emailText") || "Hi {{firstName}},\n\nYour certificate for {{eventTitle}} is ready.\n\nView and verify it: {{verificationUrl}}\nCredential ID: {{credentialId}}",
+    sampleValues
+  )
+  var bannerText = "TEST / NOT VALID — SAMPLE CERTIFICATE EMAIL — NO CREDENTIAL WAS ISSUED"
+  var text = bannerText + "\n\n" + authoredText + "\n\nThe verification URL and credential ID above are sample values and are not valid."
+  var bodyHtml = htmlEscape(authoredText).replace(/\r?\n/g, "<br>")
+  var html = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
+    '<body style="margin:0;padding:0;background:#f3f5f7;font-family:Arial,Helvetica,sans-serif;color:#17212b">' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" style="padding:32px 14px">' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;background:#fff;border:1px solid #dfe5ea;border-radius:18px;overflow:hidden">' +
+    '<tr><td style="padding:14px 20px;background:#fff1f1;border-bottom:1px solid #ffcaca;text-align:center;color:#9f1d1d;font-size:13px;font-weight:800;letter-spacing:.8px">TEST / NOT VALID · SAMPLE DATA ONLY</td></tr>' +
+    '<tr><td style="padding:28px 30px 18px;border-top:5px solid #00629b">' +
+    '<p style="margin:0 0 10px;font-size:10px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:#00629b">IEEE Sahrdaya Student Branch</p>' +
+    '<h1 style="margin:0;font-size:26px;line-height:1.15;color:#17212b">Certificate email preview.</h1>' +
+    '<p style="margin:16px 0 0;font-size:14px;line-height:1.7;color:#53616d">' + bodyHtml + '</p>' +
+    '</td></tr>' +
+    '<tr><td style="padding:4px 30px 28px">' +
+    '<div style="padding:15px 16px;background:#fff8e6;border:1px solid #f2d698;border-radius:10px;color:#76520b;font-size:12px;line-height:1.6">Sample Credential ID: <strong>TEST-NOT-VALID</strong><br>Sample verification URL: ' + htmlEscape(sampleValues.verificationUrl) + '<br>No certificate record, batch, or delivery job was created by this test.</div>' +
+    '</td></tr></table></td></tr></table></body></html>'
+  return { subject: subject, text: text, html: html }
+}
+
+function sendCertificateTestEmail(app, template, event, auth) {
+  var recipient = clean(auth && auth.getString("email"))
+  if (!validEmail(recipient)) {
+    var addressError = new Error("Your signed-in account does not have a valid email address")
+    addressError.code = "TEST_EMAIL_ADDRESS_UNAVAILABLE"
+    throw addressError
+  }
+  var settings = app.settings()
+  var from = {
+    address: String(settings.meta.senderAddress || ""),
+    name: String(settings.meta.senderName || "IEEE Sahrdaya Student Branch"),
+    smtpEnabled: settings.smtp && settings.smtp.enabled === true,
+  }
+  if (!from.smtpEnabled || !from.address) {
+    var smtpError = new Error("SMTP delivery is not configured")
+    smtpError.code = "SMTP_NOT_CONFIGURED"
+    throw smtpError
+  }
+  var prepared = require(__hooks + "/mail-delivery.js").prepare(
+    recipient,
+    certificateTestEmail(template, event)
+  )
+  var message = new MailerMessage({
+    from: from,
+    to: [{ address: prepared.recipient }],
+    subject: prepared.subject,
+    html: prepared.html,
+    text: prepared.text,
+  })
+  app.newMailClient().send(message)
+  return { recipient: recipient, deliveryMode: prepared.mode || "" }
+}
+
 function enqueueCertificate(app, certificate, force) {
   if (!certificate || !certificate.id) return { record: null, created: false }
   if ((certificate.getString("status") || "") !== "active") return { record: null, created: false }
@@ -346,6 +417,7 @@ module.exports = {
   canSend: canSend,
   canView: canView,
   certificateEmail: certificateEmail,
+  certificateTestEmail: certificateTestEmail,
   certificateRows: certificateRows,
   deliveryPayload: deliveryPayload,
   enqueueCertificate: enqueueCertificate,
@@ -355,5 +427,6 @@ module.exports = {
   reconcileForOutbox: reconcileForOutbox,
   routeContext: routeContext,
   sendCertificateOutbox: sendCertificateOutbox,
+  sendCertificateTestEmail: sendCertificateTestEmail,
   validEmail: validEmail,
 }

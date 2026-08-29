@@ -1,5 +1,79 @@
 var AUDIENCE_TYPES = ["selected", "checked_in", "confirmed", "attendance_qualified"]
 
+var TEMPLATE_STRESS_NAMES = [
+  "A. B. Roy",
+  "Alexandra Joseph",
+  "Mohammed Abdul Rahman Kizhakkedath",
+  "Anne-Marie O'Connor",
+  "Sourav P Bijoy",
+  "José María Fernández",
+  "Nivedita Krishnakumar Varghese",
+]
+
+function glyphWidthEm(character) {
+  if (/\s/.test(character)) return 0.3
+  if (/[ilI1.,'`|]/.test(character)) return 0.3
+  if (/[MW@%&]/.test(character)) return 0.9
+  if (/[A-Z]/.test(character)) return 0.64
+  return 0.56
+}
+
+function estimatedNameWidthEm(value) {
+  var text = String(value || "").trim()
+  var total = 0
+  for (var i = 0; i < text.length; i++) total += glyphWidthEm(text.charAt(i))
+  return total
+}
+
+function nameRenderWarnings(name, layout, canvasWidth) {
+  name = String(name || "").trim()
+  layout = objectValue(layout)
+  var nameLayout = objectValue(layout.name)
+  var width = Number(canvasWidth || 0)
+  var maxWidth = Number(nameLayout.maxWidth || 0)
+  var preferred = Number(nameLayout.preferredFontSize || 0)
+  var minimum = Number(nameLayout.minFontSize || 0)
+  if (!name || width <= 0 || maxWidth <= 0 || preferred <= 0 || minimum <= 0) return []
+  var available = width * maxWidth
+  var em = estimatedNameWidthEm(name)
+  var preferredWidth = em * preferred
+  var minimumWidth = em * minimum
+  var warnings = []
+  if (minimumWidth > available) {
+    warnings.push({
+      code: "likely_overflow",
+      severity: "high",
+      name: name,
+      message: "Name may not fit even at the configured minimum font size; inspect the rendered credential before issuing.",
+    })
+  } else if (preferredWidth > available) {
+    warnings.push({
+      code: "auto_fit",
+      severity: "medium",
+      name: name,
+      message: "Name will require font auto-fit below the preferred size.",
+    })
+  }
+  if (/[^\u0000-\u024F\u1E00-\u1EFF]/.test(name)) {
+    warnings.push({
+      code: "font_coverage_review",
+      severity: "medium",
+      name: name,
+      message: "Name contains characters outside the built-in Latin stress set; inspect font coverage before issuing.",
+    })
+  }
+  return warnings
+}
+
+function templateNameWarnings(layout, canvasWidth) {
+  var warnings = []
+  for (var i = 0; i < TEMPLATE_STRESS_NAMES.length; i++) {
+    var rows = nameRenderWarnings(TEMPLATE_STRESS_NAMES[i], layout, canvasWidth)
+    for (var j = 0; j < rows.length; j++) warnings.push(rows[j])
+  }
+  return warnings
+}
+
 function uniqueSorted(values) {
   var seen = {}
   var out = []
@@ -80,10 +154,13 @@ function issueKey(input) {
 
 module.exports = {
   AUDIENCE_TYPES: AUDIENCE_TYPES,
+  TEMPLATE_STRESS_NAMES: TEMPLATE_STRESS_NAMES,
   audienceInputErrors: audienceInputErrors,
   fingerprint: fingerprint,
   fingerprintPayload: fingerprintPayload,
   issueKey: issueKey,
+  nameRenderWarnings: nameRenderWarnings,
+  templateNameWarnings: templateNameWarnings,
   normalizeAudienceConfig: normalizeAudienceConfig,
   objectValue: objectValue,
   uniqueSorted: uniqueSorted,

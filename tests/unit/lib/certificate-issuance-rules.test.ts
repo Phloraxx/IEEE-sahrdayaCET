@@ -8,6 +8,8 @@ type Rules = {
   audienceInputErrors: (type: string, config: { registrationIds?: string[] }) => string[];
   validEmail: (value: unknown) => boolean;
   fingerprintPayload: (input: Record<string, unknown>) => Record<string, unknown>;
+  nameRenderWarnings: (name: string, layout: unknown, canvasWidth: number) => Array<{ code: string; severity: string }>;
+  templateNameWarnings: (layout: unknown, canvasWidth: number) => Array<{ code: string; name: string }>;
 };
 
 function loadRules(): Rules {
@@ -37,6 +39,14 @@ describe("certificate issuance audience rules", () => {
     expect(rules.validEmail("person@example.com")).toBe(true);
     expect(rules.validEmail("")).toBe(false);
     expect(rules.validEmail("not-an-email")).toBe(false);
+  });
+
+  it("predicts name auto-fit and likely overflow deterministically", () => {
+    const layout = { name: { maxWidth: 0.62, preferredFontSize: 132, minFontSize: 68 } };
+    expect(rules.nameRenderWarnings("Alexandra Joseph", layout, 2400)).toEqual([]);
+    expect(rules.nameRenderWarnings("Mohammed Abdul Rahman Kizhakkedath", layout, 1200).some((row) => row.code === "auto_fit" || row.code === "likely_overflow")).toBe(true);
+    expect(rules.nameRenderWarnings("李雷", layout, 2400).some((row) => row.code === "font_coverage_review")).toBe(true);
+    expect(rules.templateNameWarnings(layout, 2400).map((row) => row.name)).toContain("Nivedita Krishnakumar Varghese");
   });
 
   it("fingerprints the exact recipient snapshots, not just registration IDs", () => {

@@ -142,10 +142,21 @@ updated = multipart_request(
 )["template"]
 assert updated["canvasWidth"] == 2400 and updated["canvasHeight"] == 1350
 assert updated["files"]["renderBase"]["name"]
+assert any(row["code"] == "auto_fit" for row in updated["preflightWarnings"])
 render_name = updated["files"]["renderBase"]["name"]
 asset_path = updated["files"]["renderBase"]["url"]
 raw_request("GET", asset_path, token=member_token, expected=(403,))
 assert raw_request("GET", asset_path, token=admin_token)[:8] == b"\x89PNG\r\n\x1a\n"
+
+# Test email is self-addressed, sample-only, and cannot create certificate/outbox state.
+test_email_path = f"/api/app/certificate-templates/{template['id']}/test-email"
+request("POST", test_email_path, token=member_token, expected=(403,))
+before_certificates = request("GET", "/api/collections/certificates/records?perPage=1", token=super_token)["totalItems"]
+before_outbox = request("GET", "/api/collections/notification_outbox/records?perPage=1", token=super_token)["totalItems"]
+test_unavailable = request("POST", test_email_path, token=admin_token, expected=(503,))
+assert test_unavailable["code"] == "TEST_EMAIL_UNAVAILABLE"
+assert request("GET", "/api/collections/certificates/records?perPage=1", token=super_token)["totalItems"] == before_certificates
+assert request("GET", "/api/collections/notification_outbox/records?perPage=1", token=super_token)["totalItems"] == before_outbox
 
 published = request("POST", f"/api/app/certificate-templates/{template['id']}/publish", token=admin_token)["template"]
 assert published["status"] == "published" and len(published["contentHash"]) == 64

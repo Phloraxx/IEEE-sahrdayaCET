@@ -56,6 +56,10 @@ function payload(record, auth) {
     publishedAt: record.getString("publishedAt") || "",
     created: record.getString("created") || "",
     updated: record.getString("updated") || "",
+    preflightWarnings: require(__hooks + "/certificate-issuance-rules.js").templateNameWarnings(
+      parseJson(record.get("layout")),
+      record.getFloat("canvasWidth") || 0
+    ),
     files: {
       sourceBackground: fileDescriptor(record, "sourceBackground", record.getString("sourceBackground") || ""),
       sourceSignatures: signatures.map(function (name) { return fileDescriptor(record, "sourceSignatures", name) }),

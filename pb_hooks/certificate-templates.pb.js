@@ -113,6 +113,34 @@ routerAdd("POST", "/api/app/certificate-templates/{id}/publish", function (e) {
   return e.json(200, { template: h.payload(ctx.template, e.auth) })
 }, $apis.requireAuth("users"))
 
+routerAdd("POST", "/api/app/certificate-templates/{id}/test-email", function (e) {
+  var h = require(__hooks + "/certificate-template-helpers.js")
+  var ctx = h.routeContext(e, "certificates.manage_templates")
+  if (ctx.status) return h.error(e, ctx.status, ctx.code, ctx.message)
+  if (ctx.template.getString("status") === "archived") {
+    return h.error(e, 409, "TEMPLATE_ARCHIVED", "Archived certificate templates cannot send test email")
+  }
+  var result = null
+  try {
+    result = require(__hooks + "/certificate-delivery-helpers.js").sendCertificateTestEmail(
+      $app, ctx.template, ctx.event, e.auth
+    )
+  } catch (err) {
+    var code = String(err && err.code ? err.code : "")
+    var message = String(err && err.message ? err.message : err)
+    if (code === "TEST_EMAIL_ADDRESS_UNAVAILABLE") return h.error(e, 400, code, message)
+    if (code === "MAIL_DELIVERY_BLOCKED") return h.error(e, 409, "TEST_EMAIL_BLOCKED", message)
+    if (code === "SMTP_NOT_CONFIGURED") return h.error(e, 503, "TEST_EMAIL_UNAVAILABLE", message)
+    return h.error(e, 503, "TEST_EMAIL_FAILED", "Certificate test email could not be sent")
+  }
+  require(__hooks + "/admin-operations-helpers.js").audit($app, {
+    eventId: ctx.event.id, actorId: e.auth.id, action: "certificate.template-test-email",
+    entityType: "certificate_template", entityId: ctx.template.id,
+    note: "Sent sample TEST / NOT VALID certificate email to signed-in organizer",
+  })
+  return e.json(200, { success: true, recipient: result.recipient, deliveryMode: result.deliveryMode })
+}, $apis.requireAuth("users"))
+
 routerAdd("POST", "/api/app/certificate-templates/{id}/archive", function (e) {
   var h = require(__hooks + "/certificate-template-helpers.js")
   var ctx = h.routeContext(e, "certificates.manage_templates")

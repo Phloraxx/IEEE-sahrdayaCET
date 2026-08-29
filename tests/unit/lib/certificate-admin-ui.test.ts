@@ -9,6 +9,8 @@ const client = read("src/lib/data/certificate-templates.client.ts");
 const issuancePanel = read("src/features/admin/events/certificate-issuance-panel.tsx");
 const issuanceClient = read("src/lib/data/certificate-issuance.client.ts");
 const permissions = read("pb_hooks/admin-operations-helpers.js");
+const templateRoutes = read("pb_hooks/certificate-templates.pb.js");
+const deliveryHelpers = read("pb_hooks/certificate-delivery-helpers.js");
 
 describe("certificate event-admin UI architecture", () => {
   it("keeps certificates inside the existing event workspace", () => {
@@ -43,8 +45,26 @@ describe("certificate event-admin UI architecture", () => {
     expect(panel).toContain("Publish");
     expect(panel).toContain("<CertificateIssuancePanel");
     expect(issuancePanel).toContain("Recipients → Review → Issue");
-    expect(issuancePanel).toContain("I confirm these are the people who should receive this certificate.");
+    expect(issuancePanel).toContain("I confirm these are the people who should receive this certificate, and I reviewed any name-fit warnings above.");
     expect(issuancePanel).toContain("No email has been sent yet.");
+  });
+
+  it("keeps test email sample-only, self-addressed, and outside credential/outbox issuance", () => {
+    expect(client).toContain("/test-email");
+    expect(panel).toContain("TEST / NOT VALID");
+    expect(panel).toContain("creates no credential or outbox job");
+    expect(templateRoutes).toContain('action: "certificate.template-test-email"');
+    expect(deliveryHelpers).toContain('auth.getString("email")');
+    expect(deliveryHelpers).toContain('credentialId: "TEST-NOT-VALID"');
+    expect(deliveryHelpers).toContain('require(__hooks + "/mail-delivery.js").prepare');
+    expect(deliveryHelpers).not.toContain('dedupeKey", "certificate-test:');
+  });
+
+  it("surfaces name-fit preflight during template and recipient review", () => {
+    expect(panel).toContain("Name-fit review recommended");
+    expect(issuancePanel).toContain("Name review");
+    expect(issuancePanel).toContain("authoritative renderer still refuses clipping");
+    expect(issuanceClient).toContain("renderWarnings");
   });
 
   it("uses certificate-scoped commands for recipient review and issue", () => {
