@@ -1,6 +1,6 @@
 # Certificate System Implementation Ledger
 
-Status: core certificate platform and v1 acceptance hardening are complete on the isolated `feature/certificate-platform` branch through Phase 8. Staging/production remain undeployed and require an explicit project-owner decision.
+Status: core certificate platform and v1 acceptance hardening are complete through Phase 8, and the project-owner-authorized synthetic staging acceptance rehearsal is complete. Staging is deployed from `dev`; production remains undeployed and requires a separate explicit project-owner decision.
 
 Source research: the 28 August 2026 IEEE Sahrdaya certificate issuance, verification, and email-delivery research plan supplied by the project owner.
 
@@ -334,11 +334,11 @@ No staging deployment occurred. No real certificate was issued, no real attendee
 ## Next implementation phases
 
 1. Keep `attendance_qualified` deferred until a real future multi-session attendance model exists; do not infer historical attendance.
-2. Rehearse the certificate platform on staging with synthetic recipients only after the project owner explicitly requests staging deployment.
+2. Keep production deployment and any real certificate issuance/mail delivery blocked until a separate explicit project-owner decision.
 
 ## Branch safety
 
-Certificate work remains isolated on `feature/certificate-platform`. `dev` and `main` are not to be modified by this work until an explicit merge decision. Feature-phase completion by itself does not authorize staging or production deployment.
+The project owner explicitly authorized the staging rehearsal, so the tested certificate runtime is now present on `dev` and staging. `main`/production remain untouched. Further production deployment, real certificate issuance, or real certificate email delivery still requires a separate explicit project-owner decision.
 
 
 ## Phase 5 — explicit Send + delivery tracking
@@ -468,3 +468,57 @@ Phase 8 exact functional clean-room closure gate:
 `attendance_qualified` remains deliberately deferred until a real multi-session attendance model exists. Staging rehearsal remains synthetic-only and requires an explicit project-owner request.
 
 No staging or production deployment occurred, no real certificate was issued, no real attendee record was changed, and no real certificate or test email was sent. The draft PR is used only as a CI trigger and is not authorized for merge.
+
+## Phase 9 — staging deployment + synthetic acceptance rehearsal
+
+Complete after explicit project-owner authorization. The certificate runtime was advanced to staging only; `main`/production were not changed.
+
+The first live rehearsal deliberately exposed three staging acceptance defects before any production decision:
+
+- the credential HTML route replaced the root response headers and lost `X-Robots-Tag: noindex, nofollow`;
+- `CERTIFICATE_RENDER_CAPABILITY_KEY` was allowed to resolve to an empty value, causing PNG/PDF resources to return 500;
+- rendered verification QR URLs were hardcoded to production rather than using the current environment origin.
+
+The partial synthetic fixture was rolled back to its pre-run PocketBase backup before fixes were deployed. The corrective runtime commit is `792905e1df7fe6a997f1856f48a09e446bedd713`.
+
+Corrections:
+
+- credential HTML, PNG, and PDF resources explicitly return `X-Robots-Tag: noindex, nofollow`;
+- Compose requires a non-empty renderer capability key for both web and PocketBase instead of silently accepting an empty value;
+- staging Dokploy metadata holds a generated environment-only 64-character renderer capability key; no secret value is committed;
+- QR verification origin is derived from `SITE_URL`, with the production site only as the safe fallback;
+- `.env.example`, deployment documentation, unit architecture coverage, and browser E2E assertions were updated.
+
+Exact validation evidence:
+
+- clean-room PR CI for the corrective commit: `https://github.com/Phloraxx/IEEE-sahrdayaCET/actions/runs/33269111065` — success;
+- `dev` push CI on the same exact SHA: `https://github.com/Phloraxx/IEEE-sahrdayaCET/actions/runs/33269356295` — success;
+- staging CD: `https://github.com/Phloraxx/IEEE-sahrdayaCET/actions/runs/33269456849` — success and explicitly logged `TESTED_SHA=792905e1df7fe6a997f1856f48a09e446bedd713` before invoking the staging Dokploy webhook;
+- deployed staging source: exact SHA `792905e1df7fe6a997f1856f48a09e446bedd713` on `dev`;
+- staging web and PocketBase containers: healthy;
+- runtime renderer capability: 64 characters in generated staging `.env`, web container, and PocketBase container.
+
+The final live rehearsal used 12 synthetic recipients and passed the complete platform lifecycle:
+
+- 12 reviewed and issued credentials with unique Credential IDs and 48-character verification tokens;
+- 10 email-eligible recipients and 2 explicit missing-email recipients;
+- 3 recipient name-fit warnings exercised before Issue;
+- test email returned the expected staging safety block and created no credential/outbox state;
+- Issue created zero certificate email jobs; Send separately queued exactly 10 jobs and replay queued none;
+- the real once-per-minute staging worker terminally failed all 10 synthetic jobs through the central non-production mail safety policy, with no SMTP delivery;
+- public verification exposed only the locked seven fields and returned ACTIVE/REVOKED/SUPERSEDED status correctly;
+- live credential HTML, PNG, and PDF resources rendered successfully with no-store/noindex protections;
+- Revoke and Replace/Supersede preserved public history, and replacement created no email job until a separate Send;
+- audit history contained template create/update/publish, `certificate.batch-issue`, two explicit Send entries including replay, Revoke, and Supersede.
+
+Cleanup was completed immediately after acceptance:
+
+- a fresh pre-run PocketBase backup (83,931,492 bytes) was restored;
+- post-restore residue checks found zero synthetic events, societies, users, notification-outbox rows, or audit rows;
+- both temporary rehearsal backup archives were deleted;
+- the temporary rehearsal PocketBase superuser was deleted and subsequent authentication returned 400;
+- staging remained healthy and continued returning `X-Robots-Tag: noindex, nofollow` after cleanup.
+
+No real attendee record was mutated, no real certificate was issued, no real certificate/test email was sent, and production was not deployed or modified.
+
+`attendance_qualified` remains intentionally deferred until a genuine multi-session attendance model exists. Production activation and any real certificate issuance remain separate explicit project-owner decisions.
