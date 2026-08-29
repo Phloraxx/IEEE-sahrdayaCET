@@ -30,6 +30,7 @@ export default defineConfig({
           DEPLOY_ENV: process.env.DEPLOY_ENV || 'test',
           SITE_URL: process.env.SITE_URL || 'http://127.0.0.1:3000',
           POCKETBASE_INTERNAL_URL: process.env.POCKETBASE_INTERNAL_URL || 'http://127.0.0.1:8090',
+          CERTIFICATE_RENDER_CAPABILITY_KEY: process.env.CERTIFICATE_RENDER_CAPABILITY_KEY || '',
         },
       },
 })

@@ -21,6 +21,9 @@ export default [
   route("payment/:registrationId", "routes/payment.$registrationId.tsx"),
   route("ticket/:ticketId/qr.png", "routes/ticket-qr.$ticketId.ts"),
   route("ticket/:ticketId", "routes/ticket.$ticketId.tsx"),
+  route("c/:token/certificate.png", "routes/certificate-png.$token.ts"),
+  route("c/:token/certificate.pdf", "routes/certificate-pdf.$token.ts"),
+  route("c/:token", "routes/c.$token.tsx"),
 
   route("FIFA", "routes/FIFA/index.tsx"),
   route("FIFA/dashboard", "routes/FIFA/dashboard.tsx"),
