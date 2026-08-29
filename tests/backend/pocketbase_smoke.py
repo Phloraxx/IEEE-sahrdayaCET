@@ -78,6 +78,27 @@ chair_token = impersonate(super_token, chair["id"])
 user_token = impersonate(super_token, user["id"])
 second_token = impersonate(super_token, second_user["id"])
 
+# Certificate core collections are authoritative server-only state. Direct
+# browser CRUD stays closed even for legacy application admins; future
+# certificate operations must use explicitly authorized command routes.
+for collection_name in ("certificate_templates", "certificate_batches", "certificates"):
+    schema = request("GET", f"/api/collections/{collection_name}", token=super_token)
+    for rule_name in ("listRule", "viewRule", "createRule", "updateRule", "deleteRule"):
+        assert schema.get(rule_name) is None, (collection_name, rule_name, schema.get(rule_name))
+    request("GET", f"/api/collections/{collection_name}/records", token=user_token, expected=(403,))
+    request("GET", f"/api/collections/{collection_name}/records", token=admin_token, expected=(403,))
+    request("POST", f"/api/collections/{collection_name}/records", {}, token=admin_token, expected=(403,))
+
+template_schema = request("GET", "/api/collections/certificate_templates", token=super_token)
+template_fields = {field["name"]: field for field in template_schema["fields"]}
+for protected_name in ("sourceBackground", "sourceSignatures", "renderBase"):
+    assert template_fields[protected_name].get("protected") is True
+
+outbox_schema = request("GET", "/api/collections/notification_outbox", token=super_token)
+outbox_fields = {field["name"]: field for field in outbox_schema["fields"]}
+assert set(outbox_fields["kind"]["values"]) == {"ticket", "receipt", "certificate"}
+assert outbox_fields["certificate"]["type"] == "relation"
+
 # Blog admin listing relies on explicit PocketBase auto-date fields; this catches
 # schema drift that would otherwise surface as a generic 400 in the admin UI.
 blog_admin_list = request(

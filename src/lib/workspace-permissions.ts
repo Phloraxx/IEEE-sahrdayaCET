@@ -31,6 +31,7 @@ export const WORKSPACE_CAPABILITIES = [
   "registrations.manage", "registrations.manual", "checkin.manage", "finance.view",
   "finance.manage", "finance.approve", "societies.view", "societies.edit",
   "assignments.manage", "content.manage", "execom.manage", "reports.view", "technical.manage",
+  "certificates.view", "certificates.manage_templates", "certificates.issue", "certificates.revoke",
 ] as const;
 
 export type WorkspaceCapability = (typeof WORKSPACE_CAPABILITIES)[number];

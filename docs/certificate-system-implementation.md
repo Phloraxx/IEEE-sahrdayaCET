@@ -86,6 +86,22 @@ Original spike criteria:
 
 Accepted: Sharp/Pango text with explicit Noto TTF, Sharp composition, existing QR package, and pdf-lib PNG wrapping. SVG `@font-face` was rejected during the spike because librsvg/fontconfig did not honor the packaged WOFF reliably.
 
+## Phase 1 — schema + authorization
+
+Complete locally. Added authoritative server-only `certificate_templates`, `certificate_batches`, and `certificates` collections plus the `certificate` notification-outbox kind/relation. All normal collection CRUD rules are closed; future browser/admin access must use scoped custom commands.
+
+Verified on a fresh PocketBase 0.39.9 database through collection metadata and the existing clean-room backend smoke:
+
+- protected source background/signature/render-base fields;
+- unique template-version, credential-ID, and verification-token indexes;
+- partial unique index allowing only one active certificate per registration/event/type;
+- supersedes/supersededBy self-relations;
+- outbox accepts `ticket`, `receipt`, and `certificate`;
+- ordinary users and legacy application admins cannot directly list/read/create certificate core records;
+- existing registration/payment/ticket/outbox backend smoke remains green.
+
+Explicit capabilities are now `certificates.view`, `certificates.manage_templates`, `certificates.issue`, and `certificates.revoke`. Check-in, registration, content, and finance-only roles receive none by default; Event Lead receives view/issue but not template management or revocation.
+
 ## Next implementation phases
 
 1. Schema + explicit certificate capabilities.
