@@ -37,6 +37,11 @@ def json_request(method, path, body=None, token=None, expected=(200, 201, 204), 
     return payload, response_headers
 
 
+def impersonate(super_token, user_id):
+    payload, _ = json_request("POST", f"/api/collections/users/impersonate/{user_id}", {"duration": 3600}, token=super_token)
+    return payload["token"]
+
+
 def raw_request(path, extra_headers=None, expected=(200,)):
     req = urllib.request.Request(BASE + path, headers=extra_headers or {}, method="GET")
     try:
@@ -109,18 +114,23 @@ assert render_headers.get("content-type", "").startswith("image/png")
 assert render_headers.get("cache-control") == "no-store"
 assert render_headers.get("x-content-type-options") == "nosniff"
 
-now = dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z")
-json_request("PATCH", f"/api/collections/certificates/records/{revoked_fixture['id']}", {
-    "status": "revoked",
-    "revokedAt": now,
-}, token=super_token)
+batch, _ = json_request("GET", f"/api/collections/certificate_batches/records/{revoked_fixture['batch']}", token=super_token)
+admin_token = impersonate(super_token, batch["issuedBy"])
+json_request(
+    "POST",
+    f"/api/app/events/{revoked_fixture['event']}/certificates/{revoked_fixture['id']}/revoke",
+    {"reason": "Synthetic public verification revocation"},
+    token=admin_token,
+)
 revoked_fixture["status"] = "revoked"
-revoked_fixture["revokedAt"] = now
 verify(revoked_fixture, "REVOKED")
 
-json_request("PATCH", f"/api/collections/certificates/records/{superseded_fixture['id']}", {
-    "status": "superseded",
-}, token=super_token)
+json_request(
+    "POST",
+    f"/api/app/events/{superseded_fixture['event']}/certificates/{superseded_fixture['id']}/supersede",
+    {"reason": "Synthetic public verification replacement"},
+    token=admin_token,
+)
 superseded_fixture["status"] = "superseded"
 verify(superseded_fixture, "SUPERSEDED")
 

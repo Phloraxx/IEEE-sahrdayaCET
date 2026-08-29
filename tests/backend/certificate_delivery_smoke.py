@@ -211,10 +211,15 @@ assert retried["retried"] == 1 and retried["delivery"]["batch"]["status"] == "se
 job_after_retry = request("GET", f"/api/collections/notification_outbox/records/{job['id']}", token=super_token)
 assert job_after_retry["status"] == "pending" and job_after_retry["attempts"] == 0
 
-request("PATCH", f"/api/collections/certificates/records/{certificate['id']}", {"status": "revoked", "revokedAt": sent_at}, super_token)
-request("PATCH", f"/api/collections/notification_outbox/records/{job['id']}", {
-    "status": "failed", "attempts": 8, "nextAttemptAt": "", "lastError": "Credential revoked",
-}, super_token)
+revoked = request(
+    "POST",
+    f"/api/app/events/{event['id']}/certificates/{certificate['id']}/revoke",
+    {"reason": "Synthetic delivery retry revocation"},
+    admin_token,
+)
+assert revoked["certificate"]["status"] == "revoked"
+job_after_revoke = request("GET", f"/api/collections/notification_outbox/records/{job['id']}", token=super_token)
+assert job_after_revoke["status"] == "failed" and job_after_revoke["attempts"] == 8
 no_retry = request("POST", retry_path, token=admin_token, expected=(409,))
 assert no_retry["code"] == "NO_FAILED_DELIVERIES"
 revoked_delivery = request("GET", delivery_path, token=admin_token)
