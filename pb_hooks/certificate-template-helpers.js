@@ -80,8 +80,17 @@ function applyDraftText(record, requestBody) {
   // V1 mail is plain-text authored and server-rendered into safe HTML later.
   record.set("emailHtml", "")
 }
+function uploadedFiles(e, field) {
+  e.request.parseMultipartForm(8 * 1024 * 1024)
+  var form = e.request.multipartForm
+  var headers = form && form.file ? (form.file[field] || []) : []
+  var files = []
+  for (var i = 0; i < headers.length; i++) files.push($filesystem.fileFromMultipart(headers[i]))
+  return files
+}
+
 function oneUpload(e, field) {
-  var files = e.findUploadedFiles(field) || []
+  var files = uploadedFiles(e, field)
   if (files.length > 1) throw new Error("Only one " + field + " file can be uploaded")
   return files.length ? files[0] : null
 }
@@ -90,7 +99,7 @@ function applyUploads(e, record, requestBody) {
   var validate = require(__hooks + "/certificate-file-validation.js").validate
   var background = oneUpload(e, "sourceBackground")
   var renderBase = oneUpload(e, "renderBase")
-  var signatures = e.findUploadedFiles("sourceSignatures") || []
+  var signatures = uploadedFiles(e, "sourceSignatures")
   if (signatures.length > 6) throw new Error("A maximum of six signature images is supported")
 
   if (background) {

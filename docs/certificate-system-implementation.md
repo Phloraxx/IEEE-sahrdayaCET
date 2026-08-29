@@ -157,9 +157,29 @@ Regression coverage added for this phase:
 
 Local gate: 313/313 unit tests, typecheck, zero-warning lint, and production build are green. Feature-branch clean-room CI is also green, including fresh PocketBase migration, certificate template lifecycle, Razorpay/PayGate smokes, both container builds, and the real Browser E2E create/upload/save/publish/version flow.
 
+## Phase 3A — audience review + immutable issuance backend
+
+Implemented locally. Issue remains a separate command from email delivery.
+
+- supports `selected`, `checked_in`, and `confirmed` audiences;
+- `attendance_qualified` returns an explicit unavailable error until attendance sessions exist;
+- preview returns exact recipient snapshots, exclusions, email eligibility, and a deterministic audience fingerprint;
+- selected registration IDs are canonicalized before fingerprinting;
+- fingerprints include name/email snapshots and the published template content hash;
+- Issue recomputes the audience inside the transaction and rejects stale reviews with `AUDIENCE_CHANGED`;
+- issued batches store the reviewed audience snapshot and a unique idempotency key;
+- exact Issue replays return the original batch/credentials instead of duplicating them;
+- credentials receive readable random Credential IDs plus independent 48-character verification tokens;
+- issued batch audience and credential identity snapshots are protected by model-level immutability hooks;
+- Issue does not create notification-outbox records or send email.
+
+`tests/backend/certificate_issuance_smoke.py` covers checked-in, selected, missing-email, cancellation, stale-review, replay/idempotency, uniqueness, immutability, and no-send behavior and is wired into clean-room CI.
+
+The Phase 3 work also fixed a PocketBase multipart edge case: render-base-only template uploads now parse the multipart form once and create filesystem files from `FileHeader` values, rather than requiring another optional asset to be present.
+
 ## Next implementation phases
 
-1. Audience preview + fingerprint + idempotent issuance.
+1. Event Admin Recipients → Review → Issue UI using the completed backend commands.
 2. Public `/c/:token` verification and QR/PNG/PDF resources.
 3. Outbox `certificate` mail kind and delivery dashboard.
 4. Attendance sessions only where future multi-session qualification actually requires them.
