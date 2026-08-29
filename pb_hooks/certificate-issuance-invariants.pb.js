@@ -1,12 +1,5 @@
 /// <reference path="../pb_data/types.d.ts" />
 
-function sameField(oldRecord, nextRecord, field) {
-  var rules = require(__hooks + "/certificate-template-rules.js")
-  var oldValue = oldRecord.get(field)
-  var nextValue = nextRecord.get(field)
-  return rules.stableStringify(oldValue) === rules.stableStringify(nextValue)
-}
-
 onRecordCreate(function (e) {
   var record = e.record
   var status = record.getString("status") || "draft"
@@ -22,9 +15,13 @@ onRecordUpdate(function (e) {
   var record = e.record
   var old = record.original()
   if ((old.getString("status") || "draft") !== "draft") {
+    var rules = require(__hooks + "/certificate-template-rules.js")
     var frozen = ["event", "template", "audienceType", "audienceConfig", "audienceFingerprint", "audienceSnapshot", "idempotencyKey", "recipientCount", "issuedCount", "createdBy", "issuedBy", "issuedAt"]
     for (var i = 0; i < frozen.length; i++) {
-      if (!sameField(old, record, frozen[i])) throw new BadRequestError("Issued certificate batch audience is immutable")
+      var field = frozen[i]
+      if (rules.stableStringify(old.get(field)) !== rules.stableStringify(record.get(field))) {
+        throw new BadRequestError("Issued certificate batch audience is immutable")
+      }
     }
   }
   e.next()
@@ -43,6 +40,7 @@ onRecordCreate(function (e) {
 onRecordUpdate(function (e) {
   var record = e.record
   var old = record.original()
+  var rules = require(__hooks + "/certificate-template-rules.js")
   var frozen = [
     "event", "registration", "batch", "template", "certificateType",
     "credentialId", "verificationToken", "recipientNameSnapshot",
@@ -50,7 +48,10 @@ onRecordUpdate(function (e) {
     "issuedAt", "metadataVersion"
   ]
   for (var i = 0; i < frozen.length; i++) {
-    if (!sameField(old, record, frozen[i])) throw new BadRequestError("Issued certificate identity is immutable")
+    var field = frozen[i]
+    if (rules.stableStringify(old.get(field)) !== rules.stableStringify(record.get(field))) {
+      throw new BadRequestError("Issued certificate identity is immutable")
+    }
   }
   var oldStatus = old.getString("status") || "active"
   var nextStatus = record.getString("status") || "active"
