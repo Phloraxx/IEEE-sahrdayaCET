@@ -155,6 +155,16 @@ reg_cancelled = create_registration("cancelled", "Cancelled Person", "cancelled@
 reg_selected = create_registration("selected", "Selected Pending", "selected@example.test", status="pending")
 reg_missing_name = create_registration("missing-name", "", "missing@example.test", status="pending")
 
+candidate_path = f"/api/app/events/{event['id']}/certificates/candidates"
+request("GET", candidate_path, token=member_token, expected=(403,))
+candidate_result = request("GET", candidate_path, token=admin_token)
+assert len(candidate_result["candidates"]) == 6
+assert {row["id"] for row in candidate_result["candidates"]} == {
+    reg_checked["id"], reg_no_email["id"], reg_confirmed["id"], reg_cancelled["id"], reg_selected["id"], reg_missing_name["id"]
+}
+for row in candidate_result["candidates"]:
+    assert set(row) == {"id", "name", "email", "registrationStatus", "checkedIn"}
+
 preview_path = f"/api/app/events/{event['id']}/certificates/audience/preview"
 issue_path = f"/api/app/events/{event['id']}/certificates/issue"
 

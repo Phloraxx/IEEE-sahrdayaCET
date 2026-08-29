@@ -261,3 +261,17 @@ function certificateSummariesForBatch(app, batchId) {
 }
 
 module.exports.certificateSummariesForBatch = certificateSummariesForBatch
+
+function candidateList(app, eventId) {
+  var rows = registrationRows(app, eventId).map(rowSnapshot)
+  rows.sort(function (a, b) {
+    var an = String(a.name || "").toLowerCase()
+    var bn = String(b.name || "").toLowerCase()
+    if (an < bn) return -1
+    if (an > bn) return 1
+    return a.id < b.id ? -1 : (a.id > b.id ? 1 : 0)
+  })
+  return rows
+}
+
+module.exports.candidateList = candidateList

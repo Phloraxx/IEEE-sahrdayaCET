@@ -6,6 +6,8 @@ const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8"
 const route = read("src/routes/admin.events.$id.tsx");
 const panel = read("src/features/admin/events/certificate-template-panel.tsx");
 const client = read("src/lib/data/certificate-templates.client.ts");
+const issuancePanel = read("src/features/admin/events/certificate-issuance-panel.tsx");
+const issuanceClient = read("src/lib/data/certificate-issuance.client.ts");
 const permissions = read("pb_hooks/admin-operations-helpers.js");
 
 describe("certificate event-admin UI architecture", () => {
@@ -36,10 +38,20 @@ describe("certificate event-admin UI architecture", () => {
     expect(panel).toContain("Published artwork is read-only");
   });
 
-  it("keeps publication separate from future recipient issuance", () => {
+  it("keeps template publication separate from reviewed recipient issuance", () => {
     expect(panel).toContain("Save draft");
     expect(panel).toContain("Publish");
-    expect(panel).not.toContain("Issue certificates");
-    expect(panel).not.toContain("Send certificates");
+    expect(panel).toContain("<CertificateIssuancePanel");
+    expect(issuancePanel).toContain("Recipients → Review → Issue");
+    expect(issuancePanel).toContain("I confirm these are the people who should receive this certificate.");
+    expect(issuancePanel).toContain("No email has been sent yet.");
+  });
+
+  it("uses certificate-scoped commands for recipient review and issue", () => {
+    expect(issuanceClient).toContain("/certificates/candidates");
+    expect(issuanceClient).toContain("/certificates/audience/preview");
+    expect(issuanceClient).toContain("/certificates/issue");
+    expect(issuanceClient).not.toContain('collection("registrations")');
+    expect(issuancePanel).not.toContain("Send certificates");
   });
 });

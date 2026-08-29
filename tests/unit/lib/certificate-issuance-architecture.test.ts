@@ -20,6 +20,16 @@ describe("certificate issuance architecture", () => {
     expect(routes).toContain("AUDIENCE_CHANGED");
   });
 
+  it("exposes only a certificate-scoped minimal recipient projection", () => {
+    expect(routes).toContain("/certificates/candidates");
+    const block = routes.slice(routes.indexOf("/certificates/candidates"), routes.indexOf("/certificates/audience/preview"));
+    expect(block).toContain("registrationStatus: row.registrationStatus");
+    expect(block).toContain("checkedIn: row.checkedIn");
+    expect(block).not.toContain("userPhone");
+    expect(block).not.toContain("paymentData");
+    expect(block).not.toContain("formResponses");
+  });
+
   it("does not enqueue or send email during issuance", () => {
     expect(routes).not.toContain("notification_outbox");
     expect(routes).not.toContain("sendMail");

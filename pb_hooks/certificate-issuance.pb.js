@@ -1,5 +1,25 @@
 /// <reference path="../pb_data/types.d.ts" />
 
+routerAdd("GET", "/api/app/events/{eventId}/certificates/candidates", function (e) {
+  var h = require(__hooks + "/certificate-issuance-helpers.js")
+  var eventId = e.request.pathValue("eventId") || ""
+  var event = h.eventRecord($app, eventId)
+  if (!event) return h.error(e, 404, "EVENT_NOT_FOUND", "Event not found")
+  if (!h.canIssue($app, e.auth, event)) {
+    return h.error(e, 403, "FORBIDDEN", "You cannot issue certificates for this event")
+  }
+  var candidates = h.candidateList($app, eventId).map(function (row) {
+    return {
+      id: row.id,
+      name: row.name,
+      email: row.email,
+      registrationStatus: row.registrationStatus,
+      checkedIn: row.checkedIn,
+    }
+  })
+  return e.json(200, { candidates: candidates })
+}, $apis.requireAuth("users"))
+
 routerAdd("POST", "/api/app/events/{eventId}/certificates/audience/preview", function (e) {
   var h = require(__hooks + "/certificate-issuance-helpers.js")
   var input = h.body(e)

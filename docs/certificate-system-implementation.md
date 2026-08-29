@@ -188,3 +188,19 @@ The Phase 3 work also fixed a PocketBase multipart edge case: render-base-only t
 ## Branch safety
 
 `main` is not modified by this work. Certificate work remains isolated until its migrations, authorization, rendering, browser flow, and clean-room CI are green.
+
+## Phase 3B — Event Admin Recipients → Review → Issue
+
+Implemented locally in the existing Certificates tab. A published template now unlocks a separate issuance workflow beneath Template Studio.
+
+- Checked-in, Confirmed, and organizer-Selected audiences are available.
+- Attendance-qualified remains visibly unavailable until attendance sessions exist.
+- Selected-recipient browsing uses a certificate-scoped projection authorized by `certificates.issue`; it exposes only name, email, registration status, checked-in state, and registration ID.
+- No phone, SR number, payment data, form responses, or provider details are exposed to the certificate picker.
+- Review shows the authoritative fingerprinted recipient snapshot, exclusions, email eligibility, and missing-email warnings.
+- The organizer must explicitly confirm the reviewed people before Issue is enabled.
+- `AUDIENCE_CHANGED` replaces Review with the server-refreshed audience and clears confirmation.
+- Issue remains credential creation only. The success state explicitly says `No email has been sent yet.` and exposes no Send action.
+- Issued credentials are shown with their permanent Credential IDs and future email readiness.
+
+Browser coverage extends the clean-room Template Studio flow through Confirmed → Review and verifies that Issue remains disabled until organizer confirmation. The irreversible Issue command itself remains covered by the backend clean-room smoke, including idempotency and no-send guarantees.
