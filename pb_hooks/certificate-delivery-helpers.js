@@ -64,7 +64,7 @@ function outboxRows(app, batchId) {
   try {
     return app.findRecordsByFilter(
       "notification_outbox",
-      "kind = 'certificate' && certificate.batch = {:batch}",
+      "kind = 'certificate' && certificateBatch = {:batch}",
       "created",
       0,
       0,
@@ -171,6 +171,8 @@ function enqueueCertificate(app, certificate, force) {
   if (!validEmail(recipient)) return { record: null, created: false }
   var existing = outboxForCertificate(app, certificate.id)
   if (existing) {
+    var batchId = certificate.getString("batch") || ""
+    if (batchId && existing.getString("certificateBatch") !== batchId) existing.set("certificateBatch", batchId)
     if (force && existing.getString("status") === "failed") {
       existing.set("status", "pending")
       existing.set("attempts", 0)
@@ -179,14 +181,15 @@ function enqueueCertificate(app, certificate, force) {
       existing.set("sentAt", "")
       existing.set("lastError", "")
       existing.set("recipient", recipient)
-      app.save(existing)
     }
+    app.save(existing)
     return { record: existing, created: false }
   }
 
   var record = new Record(app.findCollectionByNameOrId("notification_outbox"))
   record.set("registration", certificate.getString("registration"))
   record.set("certificate", certificate.id)
+  record.set("certificateBatch", certificate.getString("batch"))
   record.set("kind", "certificate")
   record.set("status", "pending")
   record.set("recipient", recipient)

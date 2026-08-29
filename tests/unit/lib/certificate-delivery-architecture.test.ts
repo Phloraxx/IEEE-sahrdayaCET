@@ -7,6 +7,7 @@ const delivery = readFileSync(resolve(process.cwd(), "pb_hooks/certificate-deliv
 const helpers = readFileSync(resolve(process.cwd(), "pb_hooks/certificate-delivery-helpers.js"), "utf8");
 const notifications = readFileSync(resolve(process.cwd(), "pb_hooks/notification-helpers.js"), "utf8");
 const adminOperations = readFileSync(resolve(process.cwd(), "pb_hooks/admin-operations-helpers.js"), "utf8");
+const deliveryMigration = readFileSync(resolve(process.cwd(), "pb_migrations/202608290003_certificate_delivery_outbox.js"), "utf8");
 const panel = readFileSync(resolve(process.cwd(), "src/features/admin/events/certificate-delivery-panel.tsx"), "utf8");
 
 describe("certificate delivery architecture", () => {
@@ -26,6 +27,14 @@ describe("certificate delivery architecture", () => {
     expect(helpers).toContain('"certificate:" + certificate.id');
     expect(helpers).toContain('record.set("certificate", certificate.id)');
     expect(helpers).toContain('record.set("registration", certificate.getString("registration"))');
+  });
+
+  it("indexes certificate delivery jobs directly by batch for reconciliation", () => {
+    expect(deliveryMigration).toContain('name: "certificateBatch"');
+    expect(deliveryMigration).toContain('idx_notification_outbox_certificate_batch');
+    expect(helpers).toContain('certificateBatch = {:batch}');
+    expect(helpers).toContain('record.set("certificateBatch", certificate.getString("batch"))');
+    expect(helpers).not.toContain('certificate.batch = {:batch}');
   });
 
   it("reuses the established mail safety worker and public credential resources", () => {
