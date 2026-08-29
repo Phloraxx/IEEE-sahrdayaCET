@@ -35,6 +35,7 @@ describe("certificate delivery architecture", () => {
     expect(helpers).toContain('certificateBatch = {:batch}');
     expect(helpers).toContain('record.set("certificateBatch", certificate.getString("batch"))');
     expect(helpers).not.toContain('certificate.batch = {:batch}');
+    expect(helpers).not.toContain('\n      "created",\n      0,');
   });
 
   it("reuses the established mail safety worker and public credential resources", () => {

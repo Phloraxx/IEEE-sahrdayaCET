@@ -65,7 +65,7 @@ function outboxRows(app, batchId) {
     return app.findRecordsByFilter(
       "notification_outbox",
       "kind = 'certificate' && certificateBatch = {:batch}",
-      "created",
+      "id",
       0,
       0,
       { batch: batchId }
