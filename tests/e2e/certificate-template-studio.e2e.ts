@@ -23,14 +23,14 @@ test.describe("Certificate Template Studio", () => {
     const errors: string[] = [];
     page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
 
+    const templateName = `CI Participation ${Date.now()}`;
     await page.goto(`/admin/events/${eventId}?tab=certificates`);
     await expect(page.getByRole("heading", { name: "Template Studio" })).toBeVisible();
-    await expect(page.getByText("No certificate templates yet")).toBeVisible();
 
-    await page.getByRole("button", { name: /Create first template/i }).click();
-    await page.getByLabel("Template name").fill("CI Participation Certificate");
+    await page.getByRole("button", { name: /New template|Create first template/i }).first().click();
+    await page.getByLabel("Template name").fill(templateName);
     await page.getByRole("button", { name: /Create draft/i }).click();
-    await expect(page.getByText("CI Participation Certificate").first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: templateName })).toBeVisible();
     await expect(page.getByText(/draft · v1/i).first()).toBeVisible();
 
     const renderBase = await sharp({

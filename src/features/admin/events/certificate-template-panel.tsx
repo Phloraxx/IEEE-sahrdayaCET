@@ -398,6 +398,7 @@ export function CertificateTemplatePanel({
   const [renderBase, setRenderBase] = useState<File | null>(null);
   const [sourceSignatures, setSourceSignatures] = useState<File[]>([]);
   const [previewUrl, setPreviewUrl] = useState("");
+  const previewUrlsRef = useRef<string[]>([]);
 
   const templatesQuery = useQuery({
     queryKey: ["certificate-templates", eventId],
@@ -425,35 +426,32 @@ export function CertificateTemplatePanel({
   }, [selected]);
 
   useEffect(() => {
-    let revoked = false;
-    let objectUrl = "";
+    let cancelled = false;
     const load = async () => {
       try {
-        if (renderBase) {
-          objectUrl = URL.createObjectURL(renderBase);
-          if (!revoked) setPreviewUrl(objectUrl);
+        const blob = renderBase ?? (selected?.files.renderBase ? await fetchCertificateTemplateAsset(selected.files.renderBase) : null);
+        if (!blob || cancelled) {
+          if (!cancelled) setPreviewUrl("");
           return;
         }
-        if (!selected?.files.renderBase) {
-          setPreviewUrl("");
-          return;
-        }
-        const blob = await fetchCertificateTemplateAsset(selected.files.renderBase);
-        objectUrl = URL.createObjectURL(blob);
-        if (!revoked) setPreviewUrl(objectUrl);
+        const objectUrl = URL.createObjectURL(blob);
+        previewUrlsRef.current.push(objectUrl);
+        if (!cancelled) setPreviewUrl(objectUrl);
       } catch (error) {
-        if (!revoked) {
+        if (!cancelled) {
           setPreviewUrl("");
           toast.error(error instanceof Error ? error.message : "Could not load certificate artwork");
         }
       }
     };
     void load();
-    return () => {
-      revoked = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
+    return () => { cancelled = true; };
   }, [renderBase, selected]);
+
+  useEffect(() => () => {
+    for (const url of previewUrlsRef.current) URL.revokeObjectURL(url);
+    previewUrlsRef.current = [];
+  }, []);
 
   const editable = Boolean(selected && selected.status === "draft" && canManage);
   const hasLocalFiles = Boolean(sourceBackground || renderBase || sourceSignatures.length);
