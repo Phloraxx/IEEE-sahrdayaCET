@@ -333,9 +333,8 @@ No staging deployment occurred. No real certificate was issued, no real attendee
 
 ## Next implementation phases
 
-1. Close Phase 6 only after its dedicated clean-room lifecycle smoke, Browser E2E, production build, and both container builds are green on the exact feature SHA.
-2. Add `attendance_qualified` only when a real future multi-session attendance model exists; do not infer historical attendance.
-3. Rehearse on staging with synthetic recipients only after the full feature-branch gate is green and the project owner explicitly requests staging deployment.
+1. Keep `attendance_qualified` deferred until a real future multi-session attendance model exists; do not infer historical attendance.
+2. Rehearse the certificate platform on staging with synthetic recipients only after the project owner explicitly requests staging deployment.
 
 ## Branch safety
 
@@ -381,7 +380,7 @@ No staging deployment occurred and no real certificate email was sent. The draft
 
 ## Phase 6 — revoke and replace credential lifecycle
 
-Implementation is isolated on the certificate feature branch and must pass its dedicated clean-room gate before closure.
+Closed on the isolated certificate feature branch. Revocation and replacement preserve credential history and remain separate from certificate email delivery.
 
 - `certificates.revoke` is the sole capability for both lifecycle-ending commands; ordinary event leads/secretaries that can Issue/Send still cannot revoke unless their role explicitly carries this narrower governance authority.
 - **Revoke** changes ACTIVE → REVOKED in place, requires a private reason plus actor/time metadata, preserves the immutable credential and public verification URL, and never deletes history.
@@ -397,3 +396,17 @@ Permanent coverage added:
 
 - `tests/unit/lib/certificate-lifecycle-architecture.test.ts` for permission boundary, immutable history, replacement-without-Send, terminal old delivery, and organizer UI warnings;
 - `tests/backend/certificate_lifecycle_smoke.py` for authorization, required reason, queued-old-mail termination, REVOKED/SUPERSEDED/ACTIVE public status, seven-field public privacy, linked replacement metadata, idempotent replay, zero-email replacement batch, no duplicate replacement outbox job, no reactivation, and frozen replacement identity.
+
+Phase 6 exact clean-room closure gate:
+
+- feature SHA: `0858e527f968c70824b9c94dbbc791ba87957599`;
+- workflow: `https://github.com/Phloraxx/IEEE-sahrdayaCET/actions/runs/33264174590`;
+- lint/typecheck: green;
+- unit tests: 61 files, 339 passed on Linux, including the deterministic renderer;
+- production build: green;
+- backend invariants, template lifecycle, issuance lifecycle, public verification, delivery lifecycle, and revoke/replacement lifecycle: green;
+- direct Razorpay and temporary PayGate smokes: green;
+- web + PocketBase container builds: green;
+- Browser E2E: 49 discovered, 40 passed, 9 intentionally skipped.
+
+No staging deployment occurred, no real certificate was issued, no real attendee record was changed, and no real certificate email was sent. The draft PR remains a CI trigger only and is not authorized for merge.
