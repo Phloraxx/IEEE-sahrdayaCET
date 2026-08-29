@@ -68,8 +68,9 @@ fixture_password = "FixturePass-2026!"
 
 
 def create_user(label, role="user"):
+    email_label = "".join(ch.lower() if ch.isalnum() else "-" for ch in label).strip("-")
     return request("POST", "/api/collections/users/records", {
-        "email": f"cert-bulk-{label}-{suffix}@example.test",
+        "email": f"cert-bulk-{email_label}-{suffix}@example.test",
         "verified": True,
         "name": label,
         "role": role,
