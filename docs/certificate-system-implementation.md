@@ -1,6 +1,6 @@
 # Certificate System Implementation Ledger
 
-Status: implementation in progress on `feature/certificate-platform`; Phases 1–4 are complete on the isolated branch. Send/delivery work has not started.
+Status: core certificate platform and v1 acceptance hardening are complete on the isolated `feature/certificate-platform` branch through Phase 7. Staging/production remain undeployed and require an explicit project-owner decision.
 
 Source research: the 28 August 2026 IEEE Sahrdaya certificate issuance, verification, and email-delivery research plan supplied by the project owner.
 
@@ -410,3 +410,32 @@ Phase 6 exact clean-room closure gate:
 - Browser E2E: 49 discovered, 40 passed, 9 intentionally skipped.
 
 No staging deployment occurred, no real certificate was issued, no real attendee record was changed, and no real certificate email was sent. The draft PR remains a CI trigger only and is not authorized for merge.
+
+## Phase 7 — v1 acceptance hardening
+
+Closed on the isolated certificate feature branch. This phase adds production-readiness evidence without changing historical attendance rules or authorizing deployment.
+
+- Template Studio now includes built-in stress-preview names covering short, ordinary, very long, initials, hyphen/apostrophe, and accented-Latin shapes before publication. These controls are preview aids only; the production renderer remains authoritative.
+- Linux renderer coverage exercises the same stress-name fixtures through the real certificate renderer. Name fitting continues to shrink only to the configured minimum and rejects a credential for manual review rather than silently clipping it.
+- A dedicated clean-room `certificate_bulk_smoke.py` creates 200 synthetic confirmed recipients and validates one reviewed audience decision through immutable issuance and idempotent replay.
+- The 200-recipient gate verifies exactly 200 unique human-readable Credential IDs, 200 unique 48-character verification tokens, and zero certificate email jobs before the separate Send command.
+- Certificate audit coverage now asserts actor/event/entity identity for Issue, explicit Send including replay, Revoke, and Supersede/Replace commands.
+- The Admin dashboard failed-notification description now includes certificate delivery alongside ticket and receipt delivery.
+- Existing public verification privacy, delivery, revoke/replace, payment integration, and browser flows continue to run after the scale gate on the same clean-room database.
+
+Phase 7 exact functional clean-room closure gate:
+
+- feature SHA: `3d6ca3e8b9045a7d0c7c97536315724acb656b80`;
+- workflow: `https://github.com/Phloraxx/IEEE-sahrdayaCET/actions/runs/33265107979`;
+- lint/typecheck: green;
+- unit tests: 61 files, 340 passed on Linux, including deterministic rendering and the stress-name renderer fixtures;
+- production build: green;
+- 200-recipient scale smoke: green — preview 0.014 s, issue transaction 0.208 s, 200 unique credentials, 200 unique verification tokens, zero pre-Send outbox jobs;
+- certificate template, issuance, public verification, delivery, revoke/replacement, and audit assertions: green;
+- direct Razorpay and temporary PayGate smokes: green;
+- web + PocketBase container builds: green;
+- Browser E2E: 49 discovered, 40 passed, 9 intentionally skipped.
+
+`attendance_qualified` remains deliberately deferred until a real multi-session attendance model exists. No historical attendance is inferred. Staging rehearsal remains synthetic-only and requires an explicit project-owner request.
+
+No staging or production deployment occurred, no real certificate was issued, no real attendee record was changed, and no real certificate email was sent. The draft PR is used only as a CI trigger and is not authorized for merge.
