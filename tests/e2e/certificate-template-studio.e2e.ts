@@ -54,7 +54,7 @@ test.describe("Certificate Template Studio", () => {
     const stressNames = page.getByLabel("Certificate preview stress names");
     await expect(stressNames.getByRole("button", { name: "Very long" })).toBeVisible();
     await stressNames.getByRole("button", { name: "Very long" }).click();
-    await expect(page.getByText("Mohammed Abdul Rahman Kizhakkedath", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mohammed Abdul Rahman Kizhakkedath", exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: "Publish", exact: true }).click();
     await expect(page.getByText(/published · v1/i).first()).toBeVisible({ timeout: 15_000 });
