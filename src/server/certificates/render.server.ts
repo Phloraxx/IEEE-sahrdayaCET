@@ -118,27 +118,17 @@ async function fitName(input: CertificateRenderInput) {
   return { ...minimum, fontSize: config.minFontSize, maxWidth };
 }
 
-function alignedLeft(anchorX: number, width: number, containerWidth: number, align: CertificateTextAlign) {
+function nameLeft(anchorX: number, width: number, containerWidth: number, align: CertificateTextAlign) {
   const containerLeft = anchorX - containerWidth / 2;
   if (align === "left") return containerLeft;
   if (align === "right") return containerLeft + containerWidth - width;
   return anchorX - width / 2;
 }
 
-function textPlacement(
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  canvasWidth: number,
-  canvasHeight: number,
-  containerWidth: number,
-  align: CertificateTextAlign,
-) {
-  return {
-    left: Math.round(alignedLeft(x * canvasWidth, width, containerWidth, align)),
-    top: Math.round(y * canvasHeight - height / 2),
-  };
+function anchoredLeft(anchorX: number, width: number, align: CertificateTextAlign) {
+  if (align === "left") return anchorX;
+  if (align === "right") return anchorX - width;
+  return anchorX - width / 2;
 }
 
 function assertInsideCanvas(label: string, left: number, top: number, width: number, height: number, canvasWidth: number, canvasHeight: number) {
@@ -158,17 +148,14 @@ export async function renderCertificatePng(input: CertificateRenderInput) {
   }
 
   const fittedName = await fitName(input);
-  const namePosition = textPlacement(
-    input.layout.name.x,
-    input.layout.name.y,
+  const nameLeftPx = Math.round(nameLeft(
+    input.layout.name.x * input.canvasWidth,
     fittedName.width,
-    fittedName.height,
-    input.canvasWidth,
-    input.canvasHeight,
     fittedName.maxWidth,
     input.layout.name.align,
-  );
-  assertInsideCanvas("Recipient name", namePosition.left, namePosition.top, fittedName.width, fittedName.height, input.canvasWidth, input.canvasHeight);
+  ));
+  const nameTopPx = Math.round(input.layout.name.y * input.canvasHeight - fittedName.height / 2);
+  assertInsideCanvas("Recipient name", nameLeftPx, nameTopPx, fittedName.width, fittedName.height, input.canvasWidth, input.canvasHeight);
 
   const credential = await renderMeasuredText(
     input.credentialId,
@@ -176,17 +163,13 @@ export async function renderCertificatePng(input: CertificateRenderInput) {
     input.layout.credentialId.color,
     "noto-sans",
   );
-  const credentialPosition = textPlacement(
-    input.layout.credentialId.x,
-    input.layout.credentialId.y,
-    credential.width,
-    credential.height,
-    input.canvasWidth,
-    input.canvasHeight,
+  const credentialLeftPx = Math.round(anchoredLeft(
+    input.layout.credentialId.x * input.canvasWidth,
     credential.width,
     input.layout.credentialId.align,
-  );
-  assertInsideCanvas("Credential ID", credentialPosition.left, credentialPosition.top, credential.width, credential.height, input.canvasWidth, input.canvasHeight);
+  ));
+  const credentialTopPx = Math.round(input.layout.credentialId.y * input.canvasHeight - credential.height / 2);
+  assertInsideCanvas("Credential ID", credentialLeftPx, credentialTopPx, credential.width, credential.height, input.canvasWidth, input.canvasHeight);
 
   const qrSize = Math.max(1, Math.round(input.layout.qr.size * input.canvasWidth));
   const qr = await QRCode.toBuffer(certificateVerificationUrl(input.verificationToken), {
@@ -201,8 +184,8 @@ export async function renderCertificatePng(input: CertificateRenderInput) {
 
   const png = await sharp(input.renderBase)
     .composite([
-      { input: fittedName.buffer, ...namePosition },
-      { input: credential.buffer, ...credentialPosition },
+      { input: fittedName.buffer, left: nameLeftPx, top: nameTopPx },
+      { input: credential.buffer, left: credentialLeftPx, top: credentialTopPx },
       { input: qr, left: qrLeft, top: qrTop },
     ])
     .png({ compressionLevel: 9, adaptiveFiltering: true })
