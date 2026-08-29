@@ -182,6 +182,10 @@ assert queued["idempotent"] is False and queued["queuedNow"] == 1
 assert queued["delivery"]["batch"]["queuedCount"] == 1
 replayed = request("POST", send_path, token=admin_token)
 assert replayed["idempotent"] is True and replayed["queuedNow"] == 0
+send_audit_filter = urllib.parse.quote(f'action = "certificate.batch-send" && entityId = "{batch_id}"')
+send_audit = request("GET", f"/api/collections/admin_audit_log/records?filter={send_audit_filter}&perPage=10", token=super_token)
+assert send_audit["totalItems"] == 2
+assert all(row["actor"] == admin["id"] and row["event"] == event["id"] for row in send_audit["items"])
 
 outbox = request("GET", f"/api/collections/notification_outbox/records?filter={certificate_outbox_filter}", token=super_token)
 assert outbox["totalItems"] == 1

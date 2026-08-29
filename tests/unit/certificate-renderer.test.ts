@@ -13,6 +13,16 @@ import {
 
 const describeWithFonts = certificateRendererFontsAvailable() ? describe : describe.skip;
 
+const STRESS_NAMES = [
+  "A. B. Roy",
+  "Alexandra Joseph",
+  "Mohammed Abdul Rahman Kizhakkedath",
+  "Anne-Marie O'Connor",
+  "Sourav P Bijoy",
+  "José María Fernández",
+  "Nivedita Krishnakumar Varghese",
+];
+
 function sha256(value: Buffer) {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -66,6 +76,16 @@ describe("certificate renderer contract", () => {
 });
 
 describeWithFonts("certificate deterministic renderer", () => {
+  it("auto-fits the built-in stress-name fixtures without clipping", async () => {
+    const input = await fixture();
+    for (const recipientName of STRESS_NAMES) {
+      const rendered = await renderCertificatePng({ ...input, recipientName });
+      const metadata = await sharp(rendered).metadata();
+      expect(metadata.width, recipientName).toBe(input.canvasWidth);
+      expect(metadata.height, recipientName).toBe(input.canvasHeight);
+    }
+  });
+
   it("renders deterministic PNG output with exact dimensions and a one-page deterministic PDF", async () => {
     const input = await fixture();
     const first = await renderCertificatePng(input);

@@ -178,6 +178,10 @@ assert revoked["certificate"]["status"] == "revoked"
 assert revoked["certificate"]["revocationReason"] == "Issued in error"
 revoked_replay = request("POST", revoke_path, {"reason": "Issued in error"}, admin_token)
 assert revoked_replay["idempotent"] is True
+revoke_audit_filter = urllib.parse.quote(f'action = "certificate.revoke" && entityId = "{revoke_record["id"]}"')
+revoke_audit = request("GET", f"/api/collections/admin_audit_log/records?filter={revoke_audit_filter}", token=super_token)
+assert revoke_audit["totalItems"] == 1
+assert revoke_audit["items"][0]["actor"] == admin["id"] and revoke_audit["items"][0]["event"] == event["id"]
 
 public_fields = {"recipientName", "event", "certificateType", "credentialId", "issueDate", "issuer", "status"}
 revoked_public = request("GET", f"/api/app/certificates/verify/{revoke_record['verificationToken']}")
@@ -204,6 +208,10 @@ assert replacement["metadataVersion"] == 2
 assert replacement["supersedesId"] == replace_record["id"]
 assert old["supersededById"] == replacement["certificateId"]
 assert replacement_result["replacementBatchId"] and replacement_result["replacementBatchId"] != batch_id
+supersede_audit_filter = urllib.parse.quote(f'action = "certificate.supersede" && entityId = "{replace_record["id"]}"')
+supersede_audit = request("GET", f"/api/collections/admin_audit_log/records?filter={supersede_audit_filter}", token=super_token)
+assert supersede_audit["totalItems"] == 1
+assert supersede_audit["items"][0]["actor"] == admin["id"] and supersede_audit["items"][0]["event"] == event["id"]
 
 old_public = request("GET", f"/api/app/certificates/verify/{replace_record['verificationToken']}")
 assert set(old_public.keys()) == public_fields and old_public["status"] == "SUPERSEDED"

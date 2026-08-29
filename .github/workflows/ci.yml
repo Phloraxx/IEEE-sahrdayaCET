@@ -111,6 +111,12 @@ jobs:
           PB_SUPERUSER_EMAIL: ci-super@example.test
           PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
         run: python3 tests/backend/certificate_issuance_smoke.py
+      - name: Exercise 200-recipient certificate scale
+        env:
+          PB_BASE_URL: http://127.0.0.1:8090
+          PB_SUPERUSER_EMAIL: ci-super@example.test
+          PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
+        run: python3 tests/backend/certificate_bulk_smoke.py
       - name: Exercise public certificate verification
         env:
           PB_BASE_URL: http://127.0.0.1:8090

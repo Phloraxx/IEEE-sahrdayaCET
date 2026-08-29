@@ -60,6 +60,16 @@ const CERTIFICATE_TYPES: Array<{ value: CertificateType; label: string }> = [
   { value: "speaker", label: "Speaker" },
 ];
 
+const CERTIFICATE_PREVIEW_NAMES = [
+  "A. B. Roy",
+  "Alexandra Joseph",
+  "Mohammed Abdul Rahman Kizhakkedath",
+  "Anne-Marie O'Connor",
+  "Sourav P Bijoy",
+  "José María Fernández",
+  "Nivedita Krishnakumar Varghese",
+] as const;
+
 type DragTarget = "name" | "credentialId" | "qr";
 
 const clamp = (value: number, min = 0, max = 1) =>
@@ -94,6 +104,8 @@ function TemplatePreview({
 }) {
   const surfaceRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState<DragTarget | null>(null);
+  const [previewName, setPreviewName] = useState<string>(CERTIFICATE_PREVIEW_NAMES[1]);
+  const previewNameScale = Math.min(1, 26 / Math.max(26, previewName.length));
 
   const moveTarget = (target: DragTarget, clientX: number, clientY: number) => {
     const rect = surfaceRef.current?.getBoundingClientRect();
@@ -145,10 +157,11 @@ function TemplatePreview({
             color: layout.name.color,
             textAlign: layout.name.align,
             fontFamily: layout.name.fontFamily === "noto-serif" ? "Georgia, serif" : "Arial, sans-serif",
-            fontSize: `clamp(12px, ${Math.max(2.2, layout.name.preferredFontSize / 27)}vw, ${Math.max(20, layout.name.preferredFontSize * 0.4)}px)`,
+            fontSize: `clamp(12px, ${Math.max(1.8, (layout.name.preferredFontSize / 27) * previewNameScale)}vw, ${Math.max(18, layout.name.preferredFontSize * 0.4 * previewNameScale)}px)`,
+            whiteSpace: "nowrap",
           }}
         >
-          Alexandra Joseph
+          {previewName}
         </button>
         <button
           type="button"
@@ -202,6 +215,22 @@ function TemplatePreview({
         ) : (
           <span>Published versions are read-only</span>
         )}
+      </div>
+      <div className="border-t border-white/10 px-1 pb-1 pt-3" aria-label="Certificate preview stress names">
+        <div className="flex flex-wrap gap-1.5">
+          {CERTIFICATE_PREVIEW_NAMES.map((name, index) => (
+            <button
+              key={name}
+              type="button"
+              onClick={() => setPreviewName(name)}
+              className={`rounded-full border px-2.5 py-1 text-[10px] font-medium transition ${previewName === name ? "border-sky-300/60 bg-sky-300/15 text-white" : "border-white/15 text-slate-300 hover:border-white/30 hover:text-white"}`}
+              title={name}
+            >
+              {index === 2 ? "Very long" : index === 3 ? "Hyphen / apostrophe" : index === 5 ? "Accented" : name}
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 text-[10px] leading-relaxed text-slate-400">Stress-preview common name shapes before publishing. The production renderer performs the authoritative font auto-fit and rejects a name rather than clipping it.</p>
       </div>
     </div>
   );
