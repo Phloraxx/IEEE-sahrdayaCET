@@ -24,6 +24,7 @@ Required environment values:
 DEPLOY_ENV=production|staging
 SITE_URL=https://...
 PB_ENCRYPTION_KEY=<32-character high-entropy key>
+CERTIFICATE_RENDER_CAPABILITY_KEY=<32+ character high-entropy key, unique per environment>
 ```
 
 Optional backend integrations are configured only where enabled:

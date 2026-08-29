@@ -5,6 +5,11 @@ import { PDFDocument } from "pdf-lib";
 
 export const CERTIFICATE_VERIFICATION_ORIGIN = "https://ieeesahrdaya.com";
 
+export function certificateVerificationOrigin() {
+  const configured = String(process.env.SITE_URL || "").trim().replace(/\/+$/, "");
+  return /^https?:\/\//i.test(configured) ? configured : CERTIFICATE_VERIFICATION_ORIGIN;
+}
+
 export type CertificateTextAlign = "left" | "center" | "right";
 export type CertificateNameFont = "noto-sans" | "noto-serif";
 
@@ -138,7 +143,7 @@ function assertInsideCanvas(label: string, left: number, top: number, width: num
 }
 
 export function certificateVerificationUrl(token: string) {
-  return `${CERTIFICATE_VERIFICATION_ORIGIN}/c/${encodeURIComponent(token)}`;
+  return `${certificateVerificationOrigin()}/c/${encodeURIComponent(token)}`;
 }
 
 export async function renderCertificatePng(input: CertificateRenderInput) {

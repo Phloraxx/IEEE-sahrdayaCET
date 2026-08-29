@@ -20,6 +20,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
       "Content-Disposition": `inline; filename="${safeFilename(data.credentialId)}.pdf"`,
       "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",
+      "X-Robots-Tag": "noindex, nofollow",
     },
   });
 }

@@ -14,6 +14,7 @@ export function headers() {
   return {
     "Cache-Control": "no-store",
     "X-Content-Type-Options": "nosniff",
+    "X-Robots-Tag": "noindex, nofollow",
   };
 }
 

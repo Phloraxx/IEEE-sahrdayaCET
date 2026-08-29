@@ -44,6 +44,7 @@ test("public certificate verification exposes the safe active credential project
   const certificate = await fixtureByStatus("active");
   const response = await page.goto(`/c/${certificate.verificationToken}`);
   expect(response?.status()).toBe(200);
+  expect(response?.headers()["x-robots-tag"]).toBe("noindex, nofollow");
   await expect(page.getByRole("heading", { name: "Verified credential" })).toBeVisible();
   await expect(page.getByText("ACTIVE", { exact: true })).toBeVisible();
   await expect(page.getByText(certificate.recipientNameSnapshot, { exact: true })).toBeVisible();
@@ -85,6 +86,7 @@ test("PNG and PDF resources are deterministic, correctly typed and never cached"
   expect(firstPng.headers()["content-type"]).toContain("image/png");
   expect(firstPng.headers()["cache-control"]).toBe("no-store");
   expect(firstPng.headers()["x-content-type-options"]).toBe("nosniff");
+  expect(firstPng.headers()["x-robots-tag"]).toBe("noindex, nofollow");
   expect(firstPng.headers()["content-disposition"]).toContain(`${certificate.credentialId}.png`);
   const pngA = await firstPng.body();
   const pngB = await secondPng.body();
@@ -98,6 +100,7 @@ test("PNG and PDF resources are deterministic, correctly typed and never cached"
   expect(firstPdf.headers()["content-type"]).toContain("application/pdf");
   expect(firstPdf.headers()["cache-control"]).toBe("no-store");
   expect(firstPdf.headers()["x-content-type-options"]).toBe("nosniff");
+  expect(firstPdf.headers()["x-robots-tag"]).toBe("noindex, nofollow");
   expect(firstPdf.headers()["content-disposition"]).toContain(`${certificate.credentialId}.pdf`);
   const pdfA = await firstPdf.body();
   const pdfB = await secondPdf.body();

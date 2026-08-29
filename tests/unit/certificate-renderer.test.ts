@@ -72,6 +72,11 @@ async function fixture(): Promise<CertificateRenderInput> {
 describe("certificate renderer contract", () => {
   it("always builds the canonical production verification URL", () => {
     expect(certificateVerificationUrl("ABC123")).toBe("https://ieeesahrdaya.com/c/ABC123");
+    const previousSiteUrl = process.env.SITE_URL;
+    process.env.SITE_URL = "https://staging.ieeesahrdaya.com/";
+    expect(certificateVerificationUrl("ABC123")).toBe("https://staging.ieeesahrdaya.com/c/ABC123");
+    if (previousSiteUrl === undefined) delete process.env.SITE_URL;
+    else process.env.SITE_URL = previousSiteUrl;
   });
 });
 
