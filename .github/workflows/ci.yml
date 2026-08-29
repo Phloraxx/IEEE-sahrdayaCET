@@ -118,6 +118,12 @@ jobs:
           PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
           CERTIFICATE_RENDER_CAPABILITY_KEY: CI-Certificate-Render-Capability-2026-Only-Test
         run: python3 tests/backend/certificate_public_smoke.py
+      - name: Exercise certificate delivery lifecycle
+        env:
+          PB_BASE_URL: http://127.0.0.1:8090
+          PB_SUPERUSER_EMAIL: ci-super@example.test
+          PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
+        run: python3 tests/backend/certificate_delivery_smoke.py
       - name: Exercise direct Razorpay integration
         env:
           PB_BASE_URL: http://127.0.0.1:8090

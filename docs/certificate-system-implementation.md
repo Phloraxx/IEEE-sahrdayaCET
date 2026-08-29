@@ -100,7 +100,7 @@ Verified on a fresh PocketBase 0.39.9 database through collection metadata and t
 - ordinary users and legacy application admins cannot directly list/read/create certificate core records;
 - existing registration/payment/ticket/outbox backend smoke remains green.
 
-Explicit capabilities are now `certificates.view`, `certificates.manage_templates`, `certificates.issue`, and `certificates.revoke`. Check-in, registration, content, and finance-only roles receive none by default; Event Lead receives view/issue but not template management or revocation.
+Explicit capabilities are now `certificates.view`, `certificates.manage_templates`, `certificates.issue`, `certificates.send`, and `certificates.revoke`. Check-in, registration, content, and finance-only roles receive none by default; Event Lead receives view/issue but not template management or revocation.
 
 ## Phase 2 — template lifecycle and immutable publication
 
@@ -333,10 +333,36 @@ No staging deployment occurred. No real certificate was issued, no real attendee
 
 ## Next implementation phases
 
-1. Implement the completely separate Send command, certificate outbox jobs, delivery attempts/state, retry behavior, and Event Admin delivery dashboard. Issuance must remain email-free.
-2. Add `attendance_qualified` only when a real future multi-session attendance model exists; do not infer historical attendance.
-3. Rehearse on staging with synthetic recipients only after the full feature-branch gate is green and the project owner explicitly requests staging deployment.
+1. Close Phase 5 only after its dedicated clean-room backend, Browser E2E, production build, and both container builds are green on the exact feature SHA.
+2. Add organizer-facing revocation/supersession commands only through the existing explicit credential-state model and `certificates.revoke` capability; public verification must continue to preserve historical revoked/superseded records.
+3. Add `attendance_qualified` only when a real future multi-session attendance model exists; do not infer historical attendance.
+4. Rehearse on staging with synthetic recipients only after the full feature-branch gate is green and the project owner explicitly requests staging deployment.
 
 ## Branch safety
 
 Certificate work remains isolated on `feature/certificate-platform`. `dev` and `main` are not to be modified by this work until an explicit merge decision. Phase 4 completion by itself does not authorize staging or production deployment.
+
+
+## Phase 5 — explicit Send + delivery tracking
+
+Implemented locally on the isolated certificate branch; clean-room CI is the remaining gate before this phase is closed. Issuance is still email-free.
+
+- `certificates.send` is a separate explicit capability from `certificates.issue`; the current operational roles that may issue also receive Send, while registration/check-in/content/finance-only roles receive neither.
+- Send is a dedicated PocketBase command on an already-issued batch. It only enqueues jobs and never performs SMTP synchronously.
+- Certificate delivery reuses the existing `notification_outbox`, its transactional claim/stale-lock behavior, exponential retries, and the Gate 1 non-production mail-safety policy. No second queue, scheduler, or runtime service was added.
+- There is exactly one deduplicated certificate outbox row per issued credential (`certificate:<certificateId>`). Replaying Send creates zero duplicates.
+- Only ACTIVE credentials with a valid immutable recipient-email snapshot are queued. Missing-email credentials remain issued and verifiable but are not silently placed in the mail queue. Revoked or superseded credentials cannot be newly queued or manually retried.
+- The frozen template email subject/body is expanded from the issued credential snapshot. Delivery links to the public verification page and PDF resource; protected template source/background/signature/render-base assets remain private.
+- Batch `queuedCount`, `sentCount`, `failedCount`, `sendStartedAt`, `completedAt`, and delivery status are reconciled from outbox truth. Retryable failures keep the batch in `sending`; attempt 8 is terminal and yields `partial_failure`.
+- `retry-failed` is explicit and only resets terminal failed jobs that still belong to ACTIVE credentials.
+- Event Admin now has a separate **Send & delivery** panel beneath the unchanged Recipients → Review → Issue flow. View-only certificate users can inspect delivery; only `certificates.send` users see queue/retry actions.
+- Per-recipient delivery exposes credential status, delivery status, attempts, sent time/error and the public verification resource, without opening certificate/outbox collection CRUD.
+
+Coverage added for this phase:
+
+- source-level guards proving Issue contains no outbox/send behavior and Send reuses the existing mail-safety worker;
+- permission vocabulary tests for `certificates.send`;
+- `tests/backend/certificate_delivery_smoke.py` for no-send-on-Issue, authorization, dedupe/idempotency, missing email, sent reconciliation, terminal failure, retry reset and revoked-credential retry rejection;
+- Browser E2E now continues the synthetic Template Studio flow through explicit Issue and then the separate Queue email action. The clean-room environment has no live SMTP path, so this cannot send a real certificate email.
+
+Local gate after Phase 5 changes: zero-warning lint, typecheck, production build, and 333 unit tests discovered (332 passed; the existing Linux-only renderer assertion is skipped on macOS).

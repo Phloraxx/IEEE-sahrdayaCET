@@ -84,6 +84,9 @@ cronAdd("registration-notification-outbox", "* * * * *", function () {
       record.set("nextAttemptAt", "")
       record.set("lastError", "")
       $app.saveNoValidate(record)
+      try { require(__hooks + "/certificate-delivery-helpers.js").reconcileForOutbox($app, record) } catch (reconcileErr) {
+        console.log("[mail] failed to reconcile certificate delivery after send:", reconcileErr)
+      }
     } catch (err) {
       try {
         record.set("status", "failed")
@@ -95,6 +98,9 @@ cronAdd("registration-notification-outbox", "* * * * *", function () {
         }
         record.set("lastError", String(err && err.message ? err.message : err).slice(0, 3900))
         $app.saveNoValidate(record)
+        try { require(__hooks + "/certificate-delivery-helpers.js").reconcileForOutbox($app, record) } catch (reconcileErr) {
+          console.log("[mail] failed to reconcile certificate delivery after failure:", reconcileErr)
+        }
       } catch (persistErr) {
         console.log("[mail] failed to persist notification failure state for " + record.id + ":", persistErr)
       }

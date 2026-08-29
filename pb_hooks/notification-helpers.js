@@ -358,11 +358,15 @@ function nextRetryIso(attempts) {
 }
 
 function sendOutbox(record) {
+  var kind = record.getString("kind")
+  if (kind === "certificate") {
+    return require(__hooks + "/certificate-delivery-helpers.js").sendCertificateOutbox($app, record)
+  }
+
   var registration
   try { registration = $app.findRecordById("registrations", record.getString("registration")) }
   catch (_) { throw new Error("Registration no longer exists") }
 
-  var kind = record.getString("kind")
   var event = getEvent(registration)
   var template = kind === "receipt" ? receiptEmail(registration, event) : ticketEmail(registration, event)
   var from = sender()

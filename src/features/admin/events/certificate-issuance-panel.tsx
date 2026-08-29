@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   BadgeCheck,
@@ -97,6 +97,7 @@ export function CertificateIssuancePanel({
   templates: CertificateTemplate[];
   canIssue: boolean;
 }) {
+  const queryClient = useQueryClient();
   const published = useMemo(() => templates.filter((item) => item.status === "published"), [templates]);
   const [stage, setStage] = useState<Stage>("recipients");
   const [templateId, setTemplateId] = useState("");
@@ -153,6 +154,7 @@ export function CertificateIssuancePanel({
       setIssued(result);
       setStage("issued");
       setConfirmed(false);
+      void queryClient.invalidateQueries({ queryKey: ["certificate-batches", eventId] });
       toast.success(`${result.batch.issuedCount} certificate${result.batch.issuedCount === 1 ? "" : "s"} issued`);
     },
     onError: (error: Error) => {
@@ -449,7 +451,7 @@ export function CertificateIssuancePanel({
                   <h3 className="text-lg font-semibold">{issued.batch.issuedCount} certificate{issued.batch.issuedCount === 1 ? "" : "s"} issued</h3>
                   <p className="mt-1 text-sm text-muted-foreground">The credentials now have permanent IDs and verification tokens.</p>
                   <p className="mt-3 font-semibold text-foreground">No email has been sent yet.</p>
-                  <p className="mt-1 text-xs text-muted-foreground">Delivery will remain a separate explicit action in the next phase.</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Use the separate Send & delivery panel below when you are ready to queue email.</p>
                 </div>
               </div>
             </div>
@@ -487,7 +489,7 @@ export function CertificateIssuancePanel({
             <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/10 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-start gap-3">
                 <UserCheck className="mt-0.5 h-5 w-5 text-primary" />
-                <p className="text-sm text-muted-foreground">Batch issuance is complete. Sending remains intentionally unavailable here.</p>
+                <p className="text-sm text-muted-foreground">Batch issuance is complete. Sending remains a separate action in the delivery panel below.</p>
               </div>
               <Button variant="outline" onClick={reset}>Start another batch</Button>
             </div>

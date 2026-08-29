@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PanelHeader } from "@/components/admin/panel-header";
 import { CertificateIssuancePanel } from "@/features/admin/events/certificate-issuance-panel";
+import { CertificateDeliveryPanel } from "@/features/admin/events/certificate-delivery-panel";
 import {
   Dialog,
   DialogContent,
@@ -385,11 +386,13 @@ export function CertificateTemplatePanel({
   canView,
   canManage,
   canIssue,
+  canSend,
 }: {
   eventId: string;
   canView: boolean;
   canManage: boolean;
   canIssue: boolean;
+  canSend: boolean;
 }) {
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState("");
@@ -658,6 +661,7 @@ export function CertificateTemplatePanel({
       </Card>
       <CreateTemplateDialog open={createOpen} onOpenChange={setCreateOpen} pending={createMutation.isPending} onCreate={(name, certificateType) => createMutation.mutate({ name, certificateType })} />
       <CertificateIssuancePanel eventId={eventId} templates={templates} canIssue={canIssue} />
+      <CertificateDeliveryPanel eventId={eventId} canView={canView} canSend={canSend} />
     </div>
   );
 }

@@ -785,6 +785,7 @@ export default function AdminEventOperationsRoute() {
           canView={Boolean(permissions["certificates.view"])}
           canManage={Boolean(permissions["certificates.manage_templates"])}
           canIssue={Boolean(permissions["certificates.issue"])}
+          canSend={Boolean(permissions["certificates.send"])}
         />
       )}
 
