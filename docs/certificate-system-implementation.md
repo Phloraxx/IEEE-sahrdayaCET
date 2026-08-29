@@ -1,6 +1,6 @@
 # Certificate System Implementation Ledger
 
-Status: implementation in progress on `feature/certificate-platform`.
+Status: implementation in progress on `feature/certificate-platform`; Phases 1–4 are complete on the isolated branch. Send/delivery work has not started.
 
 Source research: the 28 August 2026 IEEE Sahrdaya certificate issuance, verification, and email-delivery research plan supplied by the project owner.
 
@@ -88,7 +88,7 @@ Accepted: Sharp/Pango text with explicit Noto TTF, Sharp composition, existing Q
 
 ## Phase 1 — schema + authorization
 
-Complete locally. Added authoritative server-only `certificate_templates`, `certificate_batches`, and `certificates` collections plus the `certificate` notification-outbox kind/relation. All normal collection CRUD rules are closed; future browser/admin access must use scoped custom commands.
+Complete locally. Added authoritative server-only `certificate_templates`, `certificate_batches`, and `certificates` collections plus the `certificate` notification-outbox kind/relation. All normal collection CRUD rules are closed; browser/admin access uses scoped custom commands.
 
 Verified on a fresh PocketBase 0.39.9 database through collection metadata and the existing clean-room backend smoke:
 
@@ -104,7 +104,7 @@ Explicit capabilities are now `certificates.view`, `certificates.manage_template
 
 ## Phase 2 — template lifecycle and immutable publication
 
-Complete locally. Event-scoped certificate template commands now provide create/list/get/update/publish/archive/new-version/delete-draft behavior while direct collection CRUD remains closed.
+Complete locally. Event-scoped certificate template commands provide create/list/get/update/publish/archive/new-version/delete-draft behavior while direct collection CRUD remains closed.
 
 Publication is guarded both by command routes and a lower-level PocketBase model invariant. Published/archived design content cannot be mutated in place; corrections create a new draft version.
 
@@ -126,7 +126,7 @@ Validated in the permanent clean-room template smoke:
 
 ## Phase 2B — Event Admin Template Studio
 
-Implemented locally on the isolated certificate branch. Certificate administration now appears as a permission-gated `Certificates` tab inside the existing `/admin/events/:id` workspace rather than as a separate dashboard.
+Implemented on the isolated certificate branch. Certificate administration appears as a permission-gated `Certificates` tab inside the existing `/admin/events/:id` workspace rather than as a separate dashboard.
 
 The first UI surface intentionally covers template work only. Recipient selection, issuance, sending, and delivery tracking are not mixed into the editor.
 
@@ -155,11 +155,11 @@ Regression coverage added for this phase:
 - clone-to-v2 behavior;
 - mobile horizontal-overflow check.
 
-Local gate: 313/313 unit tests, typecheck, zero-warning lint, and production build are green. Feature-branch clean-room CI is also green, including fresh PocketBase migration, certificate template lifecycle, Razorpay/PayGate smokes, both container builds, and the real Browser E2E create/upload/save/publish/version flow.
+At that checkpoint: 313/313 unit tests, typecheck, zero-warning lint, production build, fresh PocketBase migration, template lifecycle, Razorpay/PayGate smokes, both container builds, and Browser E2E were green.
 
 ## Phase 3A — audience review + immutable issuance backend
 
-Implemented locally. Issue remains a separate command from email delivery.
+Implemented. Issue remains a separate command from email delivery.
 
 - supports `selected`, `checked_in`, and `confirmed` audiences;
 - `attendance_qualified` returns an explicit unavailable error until attendance sessions exist;
@@ -177,21 +177,9 @@ Implemented locally. Issue remains a separate command from email delivery.
 
 The Phase 3 work also fixed a PocketBase multipart edge case: render-base-only template uploads now parse the multipart form once and create filesystem files from `FileHeader` values, rather than requiring another optional asset to be present.
 
-## Next implementation phases
-
-1. Event Admin Recipients → Review → Issue UI using the completed backend commands.
-2. Public `/c/:token` verification and QR/PNG/PDF resources.
-3. Outbox `certificate` mail kind and delivery dashboard.
-4. Attendance sessions only where future multi-session qualification actually requires them.
-5. Staging rehearsal with synthetic recipients only.
-
-## Branch safety
-
-`main` is not modified by this work. Certificate work remains isolated until its migrations, authorization, rendering, browser flow, and clean-room CI are green.
-
 ## Phase 3B — Event Admin Recipients → Review → Issue
 
-Implemented locally in the existing Certificates tab. A published template now unlocks a separate issuance workflow beneath Template Studio.
+Implemented in the existing Certificates tab. A published template unlocks a separate issuance workflow beneath Template Studio.
 
 - Checked-in, Confirmed, and organizer-Selected audiences are available.
 - Attendance-qualified remains visibly unavailable until attendance sessions exist.
@@ -204,3 +192,151 @@ Implemented locally in the existing Certificates tab. A published template now u
 - Issued credentials are shown with their permanent Credential IDs and future email readiness.
 
 Browser coverage extends the clean-room Template Studio flow through Confirmed → Review and verifies that Issue remains disabled until organizer confirmation. The irreversible Issue command itself remains covered by the backend clean-room smoke, including idempotency and no-send guarantees.
+
+## Phase 4 — public verification + credential resources
+
+Complete on the isolated certificate branch.
+
+### Public verification boundary
+
+PocketBase now exposes a token-only public verification projection at:
+
+- `GET /api/app/certificates/verify/{token}`
+
+The lookup is keyed only by the independent random 48-character `verificationToken`, using the existing database uniqueness invariant. Credential IDs are not accepted as verification locators.
+
+The projection exposes exactly these fields and no others:
+
+- `recipientName`
+- `event`
+- `certificateType`
+- `credentialId`
+- `issueDate`
+- `issuer`
+- `status`
+
+It does not expose email, phone, SR number, registration/payment state, attendance internals, form responses, provider data, batch internals, template internals, or protected files.
+
+Status behavior is explicit:
+
+- `ACTIVE`
+- `REVOKED`
+- `SUPERSEDED`
+- `INVALID`
+
+Revoked and superseded credentials remain verifiable records and do not become 404s. Unknown/malformed tokens return the invalid projection state.
+
+### Narrow rendering-data capability
+
+Normal CRUD rules on `certificates` and `certificate_templates` remain closed. React Router does not hold a PocketBase superuser credential.
+
+Instead, the web runtime and PocketBase share a dedicated `CERTIFICATE_RENDER_CAPABILITY_KEY`. The protected server-to-PocketBase render boundary requires `X-Certificate-Render-Capability` and exposes only the data required to render one token-scoped issued credential:
+
+- immutable recipient-name snapshot;
+- immutable Credential ID;
+- immutable template canvas dimensions/layout/content hash;
+- the protected flattened render-base bytes.
+
+The raw render base is never exposed through the public verification route and possession of a verification token alone is insufficient to download it. If the render capability is missing or invalid, rendering fails closed.
+
+### Reusable deterministic renderer
+
+The proven rendering spike was extracted into `src/server/certificates/render.server.ts` instead of duplicating spike logic.
+
+The production renderer uses:
+
+- Sharp/Pango;
+- explicit Noto Sans/Noto Serif TTF resolution;
+- QRCode;
+- pdf-lib;
+- exact immutable template canvas dimensions/layout;
+- preferred-to-minimum long-name fitting with explicit failure below the minimum;
+- XML escaping for rendered text;
+- canvas-bound checks for name, Credential ID, and QR;
+- deterministic PNG composition;
+- deterministic one-page PDF wrapping with fixed PDF metadata timestamps.
+
+The QR resolves exactly to:
+
+`https://ieeesahrdaya.com/c/<verificationToken>`
+
+### Public React Router resources
+
+Added:
+
+- `/c/:token`
+- `/c/:token/certificate.png`
+- `/c/:token/certificate.pdf`
+
+The verification page exposes only the permitted projection and clearly distinguishes active, revoked, superseded, and invalid credentials. It is marked `noindex, nofollow`.
+
+PNG/PDF routes return the final rendered credential only, with correct MIME types, `X-Content-Type-Options: nosniff`, and `Cache-Control: no-store`. `no-store` is intentional so revocation/supersession state and regenerated public resources cannot be hidden behind stale caches.
+
+### Permanent Phase 4 coverage
+
+Added/wired:
+
+- `tests/backend/certificate_public_smoke.py`
+  - exact-field public projection assertion;
+  - ACTIVE/REVOKED/SUPERSEDED/INVALID coverage;
+  - malformed/unknown-token behavior;
+  - missing/wrong/correct render-capability behavior;
+  - protected render manifest/base tests;
+  - revoked/superseded credentials remain verifiable/renderable.
+- `tests/unit/certificate-renderer.test.ts`
+  - canonical production verification URL;
+  - deterministic PNG bytes and dimensions;
+  - deterministic one-page PDF bytes.
+- `tests/e2e/certificate-verification.e2e.ts`
+  - safe active public projection;
+  - explicit absence of recipient email;
+  - revoked/superseded public states;
+  - invalid state;
+  - deterministic PNG/PDF resource responses, MIME types, `no-store`, and `nosniff`.
+
+CI installs Noto fonts so deterministic renderer tests execute against the intended font stack.
+
+### JSVM scoping defects found during the clean-room gate
+
+The first Phase 4 clean-room pass exposed an important PocketBase JSVM behavior: route/hook callbacks cannot safely depend on ordinary top-level helper functions declared in a `.pb.js` hook file. Each callback must load shared behavior from a CommonJS helper module inside callback scope.
+
+Two fixes were made without weakening policy:
+
+1. Phase 4 public verification/render helpers were moved to `certificate-public-helpers.js` and required inside each route callback.
+2. An older latent Phase 3 invariant bug was found in `certificate-issuance-invariants.pb.js`: update callbacks referenced the top-level `sameField` helper. The invariant now requires the existing template-rules helper inside callback scope and performs the same immutable-field comparison there.
+
+The second defect would have prevented a legitimate future ACTIVE → REVOKED/SUPERSEDED transition. The repair preserves the frozen identity fields, allowed status set, prohibition on reactivation, and issued-batch immutability. Phase 4 smoke now exercises the legitimate transitions.
+
+### Phase 4 clean-room gate
+
+First full green implementation gate:
+
+- workflow: `https://github.com/Phloraxx/IEEE-sahrdayaCET/actions/runs/33260832698`
+- feature SHA tested: `6cfc16618d222c17596b2ce1d8584b680fda835f`
+- lint: green;
+- typecheck: green;
+- unit tests: 327 passed across 45 files;
+- production build: green;
+- fresh PocketBase migration/backend invariants: green;
+- template lifecycle: green;
+- issuance lifecycle: green;
+- public certificate verification/render-boundary smoke: green;
+- direct Razorpay smoke: green;
+- temporary PayGate smoke: green;
+- web Docker image: green;
+- PocketBase Docker image: green;
+- Browser E2E: 49 discovered, 40 passed, 9 intentionally skipped; all four Phase 4 verification/resource tests passed.
+
+The public smoke reported only the seven approved fields and status coverage for ACTIVE/REVOKED/SUPERSEDED/INVALID.
+
+No staging deployment occurred. No real certificate was issued, no real attendee record was changed, and no certificate email was sent.
+
+## Next implementation phases
+
+1. Implement the completely separate Send command, certificate outbox jobs, delivery attempts/state, retry behavior, and Event Admin delivery dashboard. Issuance must remain email-free.
+2. Add `attendance_qualified` only when a real future multi-session attendance model exists; do not infer historical attendance.
+3. Rehearse on staging with synthetic recipients only after the full feature-branch gate is green and the project owner explicitly requests staging deployment.
+
+## Branch safety
+
+Certificate work remains isolated on `feature/certificate-platform`. `dev` and `main` are not to be modified by this work until an explicit merge decision. Phase 4 completion by itself does not authorize staging or production deployment.
