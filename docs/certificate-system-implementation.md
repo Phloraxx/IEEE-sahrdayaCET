@@ -102,15 +102,36 @@ Verified on a fresh PocketBase 0.39.9 database through collection metadata and t
 
 Explicit capabilities are now `certificates.view`, `certificates.manage_templates`, `certificates.issue`, and `certificates.revoke`. Check-in, registration, content, and finance-only roles receive none by default; Event Lead receives view/issue but not template management or revocation.
 
+## Phase 2 — template lifecycle and immutable publication
+
+Complete locally. Event-scoped certificate template commands now provide create/list/get/update/publish/archive/new-version/delete-draft behavior while direct collection CRUD remains closed.
+
+Publication is guarded both by command routes and a lower-level PocketBase model invariant. Published/archived design content cannot be mutated in place; corrections create a new draft version.
+
+Validated in the permanent clean-room template smoke:
+
+- unauthorized users receive 403;
+- draft defaults survive PocketBase JSONRaw serialization;
+- render-base/signature/background uploads are inspected from actual bytes;
+- PNG/JPEG format, dimensions, byte size, and pixel area are validated server-side;
+- render-base dimensions come from the uploaded PNG rather than browser metadata;
+- publication rejects incomplete layouts/email copy;
+- admin asset preview uses a capability-checked route while core collection view rules remain closed;
+- published templates reject route-level and direct-model mutation;
+- archive is allowed without changing frozen content;
+- published/archived versions clone their protected assets into the next draft version;
+- only drafts may be deleted.
+
+`tests/backend/certificate_template_smoke.py` is wired into clean-room CI.
+
 ## Next implementation phases
 
-1. Schema + explicit certificate capabilities.
-2. Template versioning/editor and immutable render base.
-3. Audience preview + fingerprint + idempotent issuance.
-4. Public `/c/:token` verification and QR/PNG/PDF resources.
-5. Outbox `certificate` mail kind and delivery dashboard.
-6. Attendance sessions only where future multi-session qualification actually requires them.
-7. Staging rehearsal with synthetic recipients only.
+1. Admin Certificates tab + visual template editor using the completed Phase 2 commands.
+2. Audience preview + fingerprint + idempotent issuance.
+3. Public `/c/:token` verification and QR/PNG/PDF resources.
+4. Outbox `certificate` mail kind and delivery dashboard.
+5. Attendance sessions only where future multi-session qualification actually requires them.
+6. Staging rehearsal with synthetic recipients only.
 
 ## Branch safety
 
