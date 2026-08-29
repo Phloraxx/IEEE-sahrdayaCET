@@ -81,11 +81,17 @@ function renderContext(e) {
 }
 
 routerAdd("GET", "/api/app/certificates/verify/{token}", function (e) {
-  var token = String(e.request.pathValue("token") || "")
-  var certificate = certificateByToken(token)
-  if (!certificate) return invalid(e)
-  noStore(e)
-  return e.json(200, verificationPayload(certificate))
+  try {
+    var token = String(e.request.pathValue("token") || "")
+    var certificate = certificateByToken(token)
+    if (!certificate) return invalid(e)
+    noStore(e)
+    return e.json(200, verificationPayload(certificate))
+  } catch (err) {
+    var detail = String(err && (err.stack || err.message) ? (err.stack || err.message) : err)
+    console.log("[certificate-public] verification route failed: " + detail)
+    return e.json(500, { code: "CERTIFICATE_VERIFICATION_FAILED", error: detail })
+  }
 })
 
 routerAdd("GET", "/api/app/certificates/render/{token}/manifest", function (e) {
