@@ -63,7 +63,7 @@ test.describe("Certificate Template Studio", () => {
     await expect(page.getByText("Review the exact audience")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole("button", { name: /Issue 1 certificate/ })).toBeDisabled();
     await expect(page.getByText("Member", { exact: true }).first()).toBeVisible();
-    await page.getByRole("checkbox").check();
+    await page.getByRole("checkbox", { name: /I confirm these are the/i }).check();
     await page.getByRole("button", { name: /Issue 1 certificate/ }).click();
     await expect(page.getByText("No email has been sent yet.")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole("heading", { name: "Send & delivery", exact: true })).toBeVisible();
