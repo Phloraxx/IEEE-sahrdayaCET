@@ -77,6 +77,24 @@ type DragTarget = "name" | "credentialId" | "qr";
 const clamp = (value: number, min = 0, max = 1) =>
   Math.min(max, Math.max(min, value));
 
+function previewGlyphWidthEm(character: string) {
+  if (/\s/.test(character)) return 0.3;
+  if (/[ilI1.,'`|]/.test(character)) return 0.3;
+  if (/[MW@%&]/.test(character)) return 0.9;
+  if (/[A-Z]/.test(character)) return 0.64;
+  return 0.56;
+}
+
+function previewNameFontSize(name: string, layout: CertificateTemplateLayout["name"], canvasWidth: number) {
+  const estimatedEm = Array.from(name.trim()).reduce((total, character) => total + previewGlyphWidthEm(character), 0);
+  if (!estimatedEm || canvasWidth <= 0) return layout.preferredFontSize;
+  const available = canvasWidth * layout.maxWidth;
+  for (let size = layout.preferredFontSize; size >= layout.minFontSize; size -= 2) {
+    if (estimatedEm * size <= available) return size;
+  }
+  return layout.minFontSize;
+}
+
 function percent(value: number) {
   return Math.round(value * 100);
 }
@@ -132,10 +150,10 @@ function TemplatePreview({
   const [dragging, setDragging] = useState<DragTarget | null>(null);
   const [previewName, setPreviewName] = useState<string>(CERTIFICATE_PREVIEW_NAMES[1]);
   const [previewWidth, setPreviewWidth] = useState(0);
-  const previewNameScale = Math.min(1, 26 / Math.max(26, previewName.length));
   const canvasWidth = previewDimensions?.width || template.canvasWidth || 2400;
   const canvasHeight = previewDimensions?.height || template.canvasHeight || 1350;
   const renderScale = previewWidth > 0 ? previewWidth / canvasWidth : 1;
+  const fittedPreviewFontSize = previewNameFontSize(previewName, layout.name, canvasWidth);
 
   useEffect(() => {
     const node = surfaceRef.current;
@@ -198,8 +216,9 @@ function TemplatePreview({
             color: layout.name.color,
             textAlign: layout.name.align,
             fontFamily: layout.name.fontFamily === "noto-serif" ? "Georgia, serif" : "Arial, sans-serif",
-            fontSize: `${Math.max(8, layout.name.preferredFontSize * renderScale * previewNameScale)}px`,
+            fontSize: `${Math.max(8, fittedPreviewFontSize * renderScale)}px`,
             whiteSpace: "nowrap",
+            overflow: "hidden",
           }}
         >
           {previewName}
@@ -271,7 +290,7 @@ function TemplatePreview({
             </button>
           ))}
         </div>
-        <p className="mt-2 text-[10px] leading-relaxed text-slate-400">Stress-preview common name shapes before publishing. The production renderer performs the authoritative font auto-fit and rejects a name rather than clipping it.</p>
+        <p className="mt-2 text-[10px] leading-relaxed text-slate-400">Stress-preview common name shapes before publishing. This preview mirrors the same deterministic fit heuristic at approximately {Math.round(fittedPreviewFontSize)} px; the production renderer still measures the real font and refuses clipping.</p>
       </div>
     </div>
   );

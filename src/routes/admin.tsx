@@ -90,7 +90,7 @@ export default function AdminLayout() {
 
   return (
     <AdminGuard>
-      {!routeAllowed ? <Navigate to={fallbackPath} replace /> : <div className="vh-admin flex vh-h-screen-dynamic overflow-hidden bg-background text-foreground">
+      {!routeAllowed ? <Navigate to={fallbackPath} replace /> : <div className="vh-admin flex w-full min-w-0 vh-h-screen-dynamic overflow-hidden bg-background text-foreground">
         {/* Skip-to-main link — keyboard only */}
         <a
           href="#primary-content"
@@ -109,7 +109,7 @@ export default function AdminLayout() {
           onThemeToggle={toggle}
         />}
 
-        <div className="flex flex-1 flex-col lg:pl-64">
+        <div className="flex min-w-0 flex-1 flex-col lg:pl-64">
           {workspace.data && <AdminTopbar
             onOpenSidebar={openSidebar}
             sidebarOpen={sidebarOpen}
@@ -120,11 +120,11 @@ export default function AdminLayout() {
           <main
             id="primary-content"
             tabIndex={-1}
-            className="flex-1 overflow-y-auto focus:outline-none"
+            className="min-w-0 flex-1 overflow-y-auto focus:outline-none"
           >
             <div
               className={cn(
-                "mx-auto w-full max-w-[1600px] px-4 py-5 sm:px-5 sm:py-6 md:px-6 md:py-7 transition-opacity duration-300 ease-out",
+                "mx-auto w-full min-w-0 max-w-[1600px] px-4 py-5 sm:px-5 sm:py-6 md:px-6 md:py-7 transition-opacity duration-300 ease-out",
                 isNavigating ? "opacity-60" : "opacity-100",
               )}
             >

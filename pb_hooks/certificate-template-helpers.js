@@ -153,8 +153,8 @@ function errorResponse(e, status, code, message) {
 
 function defaultLayout() {
   return {
-    name: { x: 0.5, y: 0.47, maxWidth: 0.62, preferredFontSize: 132, minFontSize: 68, align: "center", color: "#0B243D", fontFamily: "noto-sans" },
-    credentialId: { x: 0.05, y: 0.88, fontSize: 30, align: "left", color: "#0B243D" },
+    name: { x: 0.5, y: 0.47, maxWidth: 0.50, preferredFontSize: 118, minFontSize: 54, align: "center", color: "#0B243D", fontFamily: "noto-sans" },
+    credentialId: { x: 0.08, y: 0.92, fontSize: 28, align: "left", color: "#0B243D" },
     qr: { enabled: false, x: 0.86, y: 0.76, size: 0.11 },
   }
 }

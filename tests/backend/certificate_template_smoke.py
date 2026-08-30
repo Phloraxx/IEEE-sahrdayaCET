@@ -119,7 +119,7 @@ created = request("POST", f"/api/app/events/{event['id']}/certificate-templates"
 }, admin_token)
 template = created["template"]
 assert template["status"] == "draft" and template["version"] == 1
-assert template["layout"]["name"]["maxWidth"] == 0.62
+assert template["layout"]["name"]["maxWidth"] == 0.50
 assert template["layout"]["qr"]["enabled"] is False
 
 not_ready = request("POST", f"/api/app/certificate-templates/{template['id']}/publish", token=admin_token, expected=(422,))

@@ -56,7 +56,10 @@ test.describe("Certificate Template Studio", () => {
     const stressNames = page.getByLabel("Certificate preview stress names");
     await expect(stressNames.getByRole("button", { name: "Very long" })).toBeVisible();
     await stressNames.getByRole("button", { name: "Very long" }).click();
-    await expect(page.getByRole("button", { name: "Mohammed Abdul Rahman Kizhakkedath", exact: true })).toBeVisible();
+    const longNamePreview = page.getByRole("button", { name: "Mohammed Abdul Rahman Kizhakkedath", exact: true });
+    await expect(longNamePreview).toBeVisible();
+    const longNameFit = await longNamePreview.evaluate((node) => ({ clientWidth: node.clientWidth, scrollWidth: node.scrollWidth }));
+    expect(longNameFit.scrollWidth).toBeLessThanOrEqual(longNameFit.clientWidth + 1);
 
     await page.getByRole("button", { name: "Publish", exact: true }).click();
     await expect(page.getByText(/published · v1/i).first()).toBeVisible({ timeout: 15_000 });
@@ -90,7 +93,19 @@ test.describe("Certificate Template Studio", () => {
     await authenticateAdmin(page, request);
     await page.goto(`/admin/events/${eventId}?tab=certificates`);
     await expect(page.getByRole("heading", { name: "Template Studio" })).toBeVisible();
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-    expect(overflow).toBeLessThanOrEqual(1);
+    const geometry = await page.evaluate(() => {
+      const viewport = document.documentElement.clientWidth;
+      const main = document.querySelector<HTMLElement>("#primary-content");
+      const title = document.querySelector<HTMLElement>("h1");
+      return {
+        viewport,
+        documentWidth: document.documentElement.scrollWidth,
+        mainWidth: main?.getBoundingClientRect().width ?? 0,
+        titleRight: title?.getBoundingClientRect().right ?? 0,
+      };
+    });
+    expect(geometry.documentWidth).toBeLessThanOrEqual(geometry.viewport + 1);
+    expect(geometry.mainWidth).toBeLessThanOrEqual(geometry.viewport + 1);
+    expect(geometry.titleRight).toBeLessThanOrEqual(geometry.viewport + 1);
   });
 });
