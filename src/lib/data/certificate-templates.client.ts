@@ -28,6 +28,7 @@ export interface CertificateTemplateLayout {
     color: string;
   };
   qr: {
+    enabled?: boolean;
     x: number;
     y: number;
     size: number;
@@ -66,8 +67,6 @@ export interface CertificateTemplate {
   updated: string;
   preflightWarnings: CertificatePreflightWarning[];
   files: {
-    sourceBackground: CertificateTemplateAsset | null;
-    sourceSignatures: CertificateTemplateAsset[];
     renderBase: CertificateTemplateAsset | null;
   };
 }
@@ -76,11 +75,7 @@ export interface CertificateTemplateDraftInput {
   layout: CertificateTemplateLayout;
   emailSubject: string;
   emailText: string;
-  sourceBackground?: File | null;
-  sourceSignatures?: File[];
   renderBase?: File | null;
-  removeSourceBackground?: boolean;
-  removeSourceSignatures?: boolean;
   removeRenderBase?: boolean;
 }
 
@@ -109,13 +104,7 @@ export async function updateCertificateTemplate(
   body.set("layout", JSON.stringify(input.layout));
   body.set("emailSubject", input.emailSubject);
   body.set("emailText", input.emailText);
-  if (input.sourceBackground) body.set("sourceBackground", input.sourceBackground);
   if (input.renderBase) body.set("renderBase", input.renderBase);
-  for (const file of input.sourceSignatures ?? []) {
-    body.append("sourceSignatures", file);
-  }
-  if (input.removeSourceBackground) body.set("removeSourceBackground", "true");
-  if (input.removeSourceSignatures) body.set("removeSourceSignatures", "true");
   if (input.removeRenderBase) body.set("removeRenderBase", "true");
   return getPbClient().send(
     `/api/app/certificate-templates/${encodeURIComponent(templateId)}`,
@@ -133,7 +122,7 @@ export async function sendCertificateTemplateTestEmail(templateId: string) {
   return getPbClient().send(
     `/api/app/certificate-templates/${encodeURIComponent(templateId)}/test-email`,
     { method: "POST" },
-  ) as Promise<{ success: boolean; recipient: string; deliveryMode: string }>;
+  ) as Promise<{ success: boolean; recipient: string; deliveryMode: string; provider?: string }>;
 }
 
 export async function archiveCertificateTemplate(templateId: string) {

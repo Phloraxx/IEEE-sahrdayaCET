@@ -95,19 +95,37 @@ function TemplatePreview({
   template,
   layout,
   previewUrl,
+  previewDimensions,
+  artworkPending,
   editable,
   onLayoutChange,
 }: {
   template: CertificateTemplate;
   layout: CertificateTemplateLayout;
   previewUrl: string;
+  previewDimensions: { width: number; height: number } | null;
+  artworkPending: boolean;
   editable: boolean;
   onLayoutChange: (layout: CertificateTemplateLayout) => void;
 }) {
   const surfaceRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState<DragTarget | null>(null);
   const [previewName, setPreviewName] = useState<string>(CERTIFICATE_PREVIEW_NAMES[1]);
+  const [previewWidth, setPreviewWidth] = useState(0);
   const previewNameScale = Math.min(1, 26 / Math.max(26, previewName.length));
+  const canvasWidth = previewDimensions?.width || template.canvasWidth || 2400;
+  const canvasHeight = previewDimensions?.height || template.canvasHeight || 1350;
+  const renderScale = previewWidth > 0 ? previewWidth / canvasWidth : 1;
+
+  useEffect(() => {
+    const node = surfaceRef.current;
+    if (!node || typeof ResizeObserver === "undefined") return;
+    const update = () => setPreviewWidth(node.getBoundingClientRect().width);
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+    update();
+    return () => observer.disconnect();
+  }, [canvasWidth, canvasHeight]);
 
   const moveTarget = (target: DragTarget, clientX: number, clientY: number) => {
     const rect = surfaceRef.current?.getBoundingClientRect();
@@ -123,7 +141,8 @@ function TemplatePreview({
     <div className="overflow-hidden rounded-2xl border border-border bg-slate-950 p-3 shadow-sm">
       <div
         ref={surfaceRef}
-        className="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-white shadow-2xl"
+        className="relative w-full overflow-hidden rounded-xl bg-white shadow-2xl"
+        style={{ aspectRatio: `${canvasWidth} / ${canvasHeight}` }}
         onPointerMove={(event) => {
           if (editable && dragging) moveTarget(dragging, event.clientX, event.clientY);
         }}
@@ -136,8 +155,8 @@ function TemplatePreview({
           <div className="absolute inset-0 grid place-items-center bg-[linear-gradient(135deg,#f8fbfd,#eef6fb)] text-center">
             <div>
               <FileImage className="mx-auto h-8 w-8 text-primary/60" />
-              <p className="mt-3 text-sm font-semibold text-slate-700">Upload the flattened render-base PNG</p>
-              <p className="mt-1 text-xs text-slate-500">Artwork and signatures stay static; only the three live fields below move.</p>
+              <p className="mt-3 text-sm font-semibold text-slate-700">Upload the finished certificate artwork</p>
+              <p className="mt-1 text-xs text-slate-500">Keep static artwork complete. The editor only positions recipient-specific fields.</p>
             </div>
           </div>
         )}
@@ -159,7 +178,7 @@ function TemplatePreview({
             color: layout.name.color,
             textAlign: layout.name.align,
             fontFamily: layout.name.fontFamily === "noto-serif" ? "Georgia, serif" : "Arial, sans-serif",
-            fontSize: `clamp(12px, ${Math.max(1.8, (layout.name.preferredFontSize / 27) * previewNameScale)}vw, ${Math.max(18, layout.name.preferredFontSize * 0.4 * previewNameScale)}px)`,
+            fontSize: `${Math.max(8, layout.name.preferredFontSize * renderScale * previewNameScale)}px`,
             whiteSpace: "nowrap",
           }}
         >
@@ -181,13 +200,13 @@ function TemplatePreview({
             transform: "translate(-50%, -50%)",
             color: layout.credentialId.color,
             textAlign: layout.credentialId.align,
-            fontSize: `clamp(8px, ${Math.max(1, layout.credentialId.fontSize / 32)}vw, ${Math.max(11, layout.credentialId.fontSize * 0.45)}px)`,
+            fontSize: `${Math.max(7, layout.credentialId.fontSize * renderScale)}px`,
           }}
         >
           IEEESB-CERT-2026-000154
         </button>
 
-        <button
+        {layout.qr.enabled !== false && <button
           type="button"
           disabled={!editable}
           onPointerDown={(event) => {
@@ -201,19 +220,19 @@ function TemplatePreview({
           aria-label="QR placement preview"
         >
           <ScanLine className="h-1/2 w-1/2 text-slate-900" />
-        </button>
+        </button>}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3 px-1 pb-1 pt-3 text-[11px] text-slate-300">
         <div className="flex flex-wrap items-center gap-3">
           <span className="font-mono tabular-nums">
-            {template.canvasWidth > 0 ? `${template.canvasWidth}×${template.canvasHeight}` : "Canvas pending"}
+            {previewUrl ? `${canvasWidth}×${canvasHeight}${artworkPending ? " · unsaved artwork" : ""}` : "Canvas pending"}
           </span>
           <span className={`rounded-full border px-2 py-0.5 uppercase tracking-[0.14em] ${statusClasses(template.status)}`}>
             {template.status}
           </span>
         </div>
         {editable ? (
-          <span className="inline-flex items-center gap-1.5"><Move className="h-3.5 w-3.5" /> Drag Name, ID or QR to position</span>
+          <span className="inline-flex items-center gap-1.5"><Move className="h-3.5 w-3.5" /> Drag Name and ID to position; QR is optional</span>
         ) : (
           <span>Published versions are read-only</span>
         )}
@@ -387,12 +406,15 @@ function LayoutControls({
       </div>
 
       <div className="border-t border-border pt-5">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Verification QR</p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+        <div className="flex items-start justify-between gap-4">
+          <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Scannable verification</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">Optional. The Credential ID is the primary printed identifier; add a QR only when the design benefits from one.</p></div>
+          <label className="inline-flex shrink-0 items-center gap-2 text-xs font-medium"><input type="checkbox" checked={layout.qr.enabled !== false} disabled={disabled} onChange={(event) => patch("qr", { enabled: event.target.checked })} className="h-4 w-4 rounded border-border" />QR</label>
+        </div>
+        {layout.qr.enabled !== false && <div className="mt-3 grid gap-3 sm:grid-cols-3">
           <PositionField id="cert-qr-x" label="Horizontal" value={layout.qr.x} disabled={disabled} onChange={(x) => patch("qr", { x })} />
           <PositionField id="cert-qr-y" label="Vertical" value={layout.qr.y} disabled={disabled} onChange={(y) => patch("qr", { y })} />
           <PositionField id="cert-qr-size" label="Size" value={layout.qr.size} disabled={disabled} onChange={(size) => patch("qr", { size: clamp(size, 0.04, 0.35) })} />
-        </div>
+        </div>}
       </div>
     </div>
   );
@@ -433,11 +455,9 @@ export function CertificateTemplatePanel({
   const [layout, setLayout] = useState<CertificateTemplateLayout | null>(null);
   const [emailSubject, setEmailSubject] = useState("");
   const [emailText, setEmailText] = useState("");
-  const [sourceBackground, setSourceBackground] = useState<File | null>(null);
   const [renderBase, setRenderBase] = useState<File | null>(null);
-  const [sourceSignatures, setSourceSignatures] = useState<File[]>([]);
   const [previewUrl, setPreviewUrl] = useState("");
-  const previewUrlsRef = useRef<string[]>([]);
+  const [previewDimensions, setPreviewDimensions] = useState<{ width: number; height: number } | null>(null);
 
   const templatesQuery = useQuery({
     queryKey: ["certificate-templates", eventId],
@@ -459,41 +479,53 @@ export function CertificateTemplatePanel({
     setLayout(selected.layout);
     setEmailSubject(selected.emailSubject);
     setEmailText(selected.emailText);
-    setSourceBackground(null);
     setRenderBase(null);
-    setSourceSignatures([]);
+    setPreviewDimensions(null);
   }, [selected]);
 
   useEffect(() => {
     let cancelled = false;
+    let objectUrl = "";
     const load = async () => {
       try {
         const blob = renderBase ?? (selected?.files.renderBase ? await fetchCertificateTemplateAsset(selected.files.renderBase) : null);
         if (!blob || cancelled) {
-          if (!cancelled) setPreviewUrl("");
+          if (!cancelled) {
+            setPreviewUrl("");
+            setPreviewDimensions(null);
+          }
           return;
         }
-        const objectUrl = URL.createObjectURL(blob);
-        previewUrlsRef.current.push(objectUrl);
+        objectUrl = URL.createObjectURL(blob);
+        if (renderBase) {
+          const dimensions = await new Promise<{ width: number; height: number }>((resolve, reject) => {
+            const image = new Image();
+            image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight });
+            image.onerror = () => reject(new Error("Could not read certificate artwork dimensions"));
+            image.src = objectUrl;
+          });
+          if (!cancelled) setPreviewDimensions(dimensions);
+        } else if (!cancelled) {
+          setPreviewDimensions(null);
+        }
         if (!cancelled) setPreviewUrl(objectUrl);
       } catch (error) {
         if (!cancelled) {
           setPreviewUrl("");
+          setPreviewDimensions(null);
           toast.error(error instanceof Error ? error.message : "Could not load certificate artwork");
         }
       }
     };
     void load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
   }, [renderBase, selected]);
 
-  useEffect(() => () => {
-    for (const url of previewUrlsRef.current) URL.revokeObjectURL(url);
-    previewUrlsRef.current = [];
-  }, []);
-
   const editable = Boolean(selected && selected.status === "draft" && canManage);
-  const hasLocalFiles = Boolean(sourceBackground || renderBase || sourceSignatures.length);
+  const hasLocalFiles = Boolean(renderBase);
   const dirty = useMemo(() => {
     if (!selected || !layout) return false;
     return hasLocalFiles || JSON.stringify(layout) !== JSON.stringify(selected.layout) ||
@@ -503,6 +535,12 @@ export function CertificateTemplatePanel({
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ["certificate-templates", eventId] });
   };
+  const chooseTemplate = (templateId: string) => {
+    if (templateId === selected?.id) return;
+    if (dirty && !window.confirm("Discard the unsaved certificate changes and switch versions?")) return;
+    setSelectedId(templateId);
+  };
+
 
   const createMutation = useMutation({
     mutationFn: (input: { name: string; certificateType: CertificateType }) => createCertificateTemplate(eventId, input),
@@ -522,9 +560,7 @@ export function CertificateTemplatePanel({
         layout,
         emailSubject,
         emailText,
-        sourceBackground,
         renderBase,
-        sourceSignatures,
       });
     },
     onSuccess: async ({ template }) => {
@@ -605,7 +641,7 @@ export function CertificateTemplatePanel({
             <ShieldCheck className="mx-auto h-8 w-8 text-primary/60" />
             <h3 className="mt-4 text-lg font-semibold">No certificate templates yet</h3>
             <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
-              Start with a flattened 16:9 certificate artwork. The system adds only the participant name, credential ID, and verification QR at issue time.
+              Upload one finished certificate artwork. Keep every static element—logos, signatures, titles, borders and fixed wording—in that image. The system adds only recipient-specific fields.
             </p>
             {canManage && <Button className="mt-5 gap-2" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4" />Create first template</Button>}
           </div>
@@ -616,7 +652,6 @@ export function CertificateTemplatePanel({
   }
 
   const busy = saveMutation.isPending || publishMutation.isPending || testEmailMutation.isPending || archiveMutation.isPending || versionMutation.isPending || deleteMutation.isPending;
-  const storedSignatures = selected.files.sourceSignatures.map((asset) => asset.name).join(", ");
 
   return (
     <div className="space-y-6">
@@ -625,7 +660,7 @@ export function CertificateTemplatePanel({
           <PanelHeader
             eyebrow="Certificates"
             title="Template Studio"
-            description="Versioned certificate artwork with immutable publication. Finish the design here before selecting recipients."
+            description="One finished artwork, two required dynamic fields, and an optional QR. What you preview here is what the renderer uses when credentials are issued."
             actions={canManage ? <Button size="sm" variant="outline" className="gap-2" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4" />New template</Button> : undefined}
           />
           <div className="mt-6 grid gap-6 xl:grid-cols-[260px_minmax(0,1fr)]">
@@ -634,7 +669,7 @@ export function CertificateTemplatePanel({
                 <button
                   key={template.id}
                   type="button"
-                  onClick={() => setSelectedId(template.id)}
+                  onClick={() => chooseTemplate(template.id)}
                   className={`w-full rounded-xl border p-3 text-left transition-colors ${selected.id === template.id ? "border-primary/40 bg-primary/5" : "border-border hover:bg-muted/40"}`}
                 >
                   <div className="flex items-start justify-between gap-2"><p className="line-clamp-2 text-sm font-semibold">{template.name}</p><span className="font-mono text-[10px] text-muted-foreground">v{template.version}</span></div>
@@ -650,13 +685,13 @@ export function CertificateTemplatePanel({
                   {editable && <Button size="sm" className="gap-2" disabled={busy || !dirty} onClick={() => saveMutation.mutate()}><Save className="h-4 w-4" />Save draft</Button>}
                   {editable && <Button size="sm" variant="outline" className="gap-2" disabled={busy || dirty} onClick={() => publishMutation.mutate()}><BadgeCheck className="h-4 w-4" />Publish</Button>}
                   {canManage && selected.status === "published" && <Button size="sm" variant="outline" className="gap-2" disabled={busy} onClick={() => archiveMutation.mutate()}><Archive className="h-4 w-4" />Archive</Button>}
-                  {canManage && selected.status !== "draft" && <Button size="sm" variant="outline" className="gap-2" disabled={busy} onClick={() => versionMutation.mutate()}><CopyPlus className="h-4 w-4" />New version</Button>}
+                  {canManage && selected.status !== "draft" && <Button size="sm" variant="outline" className="gap-2" disabled={busy} onClick={() => versionMutation.mutate()}><CopyPlus className="h-4 w-4" />Edit as new version</Button>}
                 </div>
               </div>
 
               <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.35fr)_360px]">
                 <div className="space-y-4">
-                  <TemplatePreview template={selected} layout={layout} previewUrl={previewUrl} editable={editable} onLayoutChange={setLayout} />
+                  <TemplatePreview template={selected} layout={layout} previewUrl={previewUrl} previewDimensions={previewDimensions} artworkPending={Boolean(renderBase)} editable={editable} onLayoutChange={setLayout} />
                   {(selected.preflightWarnings ?? []).length > 0 && (
                     <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4">
                       <div className="flex items-start gap-3">
@@ -675,7 +710,7 @@ export function CertificateTemplatePanel({
                     </div>
                   )}
                   <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl border border-border bg-muted/20 px-4 py-3 text-xs text-muted-foreground">
-                    <span className="inline-flex items-center gap-1.5"><Move className="h-3.5 w-3.5" />Drag the three live fields directly on the canvas.</span>
+                    <span className="inline-flex items-center gap-1.5"><Move className="h-3.5 w-3.5" />Drag the live fields directly on the canvas.</span>
                     <span>Use exact controls for final alignment.</span>
                     {selected.status !== "draft" && <span className="font-medium text-foreground">Published artwork is read-only.</span>}
                   </div>
@@ -689,11 +724,10 @@ export function CertificateTemplatePanel({
                 <Card className="shadow-none">
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Artwork files</p><h4 className="mt-1 text-lg font-semibold">Immutable visual base</h4></div><FileImage className="h-5 w-5 text-primary" /></div>
-                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">The render-base PNG is the exact certificate artwork used for issuance. Background and signature files are retained as protected provenance only.</p>
+                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Upload the finished certificate artwork once. Anything identical for every recipient—including logos, signatures, certificate wording and decorative elements—belongs in this image.</p>
                     <div className="mt-5 grid gap-3">
-                      <AssetInput id="cert-render-base" label="Flattened render base" accept="image/png" currentName={renderBase?.name || selected.files.renderBase?.name} disabled={!editable} onFiles={(files) => setRenderBase(files[0] ?? null)} />
-                      <AssetInput id="cert-source-background" label="Source background" accept="image/png,image/jpeg" currentName={sourceBackground?.name || selected.files.sourceBackground?.name} disabled={!editable} onFiles={(files) => setSourceBackground(files[0] ?? null)} />
-                      <AssetInput id="cert-source-signatures" label="Signature sources" accept="image/png" multiple currentName={sourceSignatures.length ? sourceSignatures.map((file) => file.name).join(", ") : storedSignatures} disabled={!editable} onFiles={setSourceSignatures} />
+                      <AssetInput id="cert-render-base" label="Certificate artwork (PNG)" accept="image/png" currentName={renderBase?.name || selected.files.renderBase?.name} disabled={!editable} onFiles={(files) => setRenderBase(files[0] ?? null)} />
+                      <p className="text-[11px] leading-relaxed text-muted-foreground">Recommended: export the final design at 2400×1350 or another landscape size above 1000×700. Do not leave blank signature/logo areas for the website to assemble later.</p>
                     </div>
                   </CardContent>
                 </Card>

@@ -55,6 +55,17 @@ test("public certificate verification exposes the safe active credential project
   }
 });
 
+test("printed Credential IDs verify without a QR code", async ({ page }) => {
+  const certificate = await fixtureByStatus("active");
+  const response = await page.goto(`/verify?id=${encodeURIComponent(certificate.credentialId)}`);
+  expect(response?.status()).toBe(200);
+  expect(response?.headers()["x-robots-tag"]).toBe("noindex, nofollow");
+  await expect(page.getByRole("heading", { name: "Verified credential" })).toBeVisible();
+  await expect(page.getByText(certificate.recipientNameSnapshot, { exact: true })).toBeVisible();
+  await expect(page.getByText(certificate.credentialId, { exact: true })).toBeVisible();
+  if (certificate.recipientEmailSnapshot) await expect(page.getByText(certificate.recipientEmailSnapshot, { exact: true })).toHaveCount(0);
+});
+
 test("revoked and superseded credentials stay publicly verifiable", async ({ page }) => {
   const revoked = await fixtureByStatus("revoked");
   let response = await page.goto(`/c/${revoked.verificationToken}`);

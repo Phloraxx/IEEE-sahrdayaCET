@@ -34,23 +34,19 @@ test.describe("Certificate Template Studio", () => {
     await expect(page.getByText(/draft · v1/i).first()).toBeVisible();
 
     const renderBase = await sharp({
-      create: { width: 2400, height: 1350, channels: 3, background: { r: 247, g: 251, b: 255 } },
+      create: { width: 2000, height: 1400, channels: 3, background: { r: 247, g: 251, b: 255 } },
     }).png().toBuffer();
-    const signature = await sharp({
-      create: { width: 800, height: 240, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 0 } },
-    }).png().toBuffer();
-
-    await page.locator("#cert-render-base").setInputFiles({ name: "ci-render-base.png", mimeType: "image/png", buffer: renderBase });
-    await page.locator("#cert-source-background").setInputFiles({ name: "ci-background.png", mimeType: "image/png", buffer: renderBase });
-    await page.locator("#cert-source-signatures").setInputFiles({ name: "ci-signature.png", mimeType: "image/png", buffer: signature });
+    await page.locator("#cert-render-base").setInputFiles({ name: "ci-certificate-artwork.png", mimeType: "image/png", buffer: renderBase });
+    await expect(page.getByLabel("QR")).not.toBeChecked();
+    await expect(page.getByText("2000×1400 · unsaved artwork")).toBeVisible();
     await expect(page.getByText("Unsaved changes")).toBeVisible();
 
     await page.getByRole("button", { name: "Save draft" }).click();
     await expect(page.getByText("Unsaved changes")).toBeHidden({ timeout: 15_000 });
-    await expect(page.getByText("2400×1350").first()).toBeVisible();
+    await expect(page.getByText("2000×1400").first()).toBeVisible();
 
     await expect(page.getByAltText("Certificate render base preview")).toBeVisible();
-    await expect.poll(async () => page.getByAltText("Certificate render base preview").evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(2400);
+    await expect.poll(async () => page.getByAltText("Certificate render base preview").evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(2000);
     const stressNames = page.getByLabel("Certificate preview stress names");
     await expect(stressNames.getByRole("button", { name: "Very long" })).toBeVisible();
     await stressNames.getByRole("button", { name: "Very long" }).click();
@@ -73,9 +69,9 @@ test.describe("Certificate Template Studio", () => {
     await expect(page.getByRole("heading", { name: "Send & delivery", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: /Queue 1 email/ })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: /Queue 1 email/ }).click();
-    await expect(page.getByText(/Delivery in progress|Delivery complete/)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/Delivery in progress|Dispatch complete/)).toBeVisible({ timeout: 15_000 });
 
-    await page.getByRole("button", { name: "New version", exact: true }).click();
+    await page.getByRole("button", { name: "Edit as new version", exact: true }).click();
     await expect(page.getByText(/draft · v2/i).first()).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole("button", { name: "Save draft" })).toBeVisible();
     await expect(page.getByAltText("Certificate render base preview")).toBeVisible();

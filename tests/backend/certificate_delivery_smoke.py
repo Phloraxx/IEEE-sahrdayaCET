@@ -14,10 +14,12 @@ import zlib
 BASE = os.environ.get("PB_BASE_URL", "http://127.0.0.1:8090").rstrip("/")
 SUPER_EMAIL = os.environ.get("PB_SUPERUSER_EMAIL", "ci-super@example.test")
 SUPER_PASS = os.environ.get("PB_SUPERUSER_PASSWORD", "CI-PocketBase-Smoke-2026!")
+MAIL_WEBHOOK_KEY = os.environ.get("CERTIFICATE_MAIL_WEBHOOK_CAPABILITY_KEY", "")
 
 
-def request(method, path, body=None, token=None, expected=(200, 201, 202, 204)):
+def request(method, path, body=None, token=None, expected=(200, 201, 202, 204), extra_headers=None):
     headers = {"Content-Type": "application/json"}
+    headers.update(extra_headers or {})
     if token:
         headers["Authorization"] = token
     data = None if body is None else json.dumps(body).encode()
@@ -203,6 +205,57 @@ sent = request("GET", delivery_path, token=admin_token)
 assert sent["batch"]["status"] == "sent"
 assert sent["batch"]["sentCount"] == 1 and sent["batch"]["failedCount"] == 0
 assert next(row for row in sent["certificates"] if row["certificateId"] == certificate["id"])["deliveryStatus"] == "sent"
+
+# Provider observability: acceptance is not delivery. Simulate verified Resend
+# webhook events through the capability-gated internal route.
+assert len(MAIL_WEBHOOK_KEY) >= 32
+provider_id = "resend-ci-" + suffix
+accepted_at = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(seconds=10)).isoformat().replace("+00:00", "Z")
+request("PATCH", f"/api/collections/notification_outbox/records/{job['id']}", {
+    "deliveryProvider": "resend", "providerMessageId": provider_id, "providerStatus": "accepted",
+    "providerUpdatedAt": accepted_at, "providerSendSequence": 0,
+}, super_token)
+provider_headers = {"X-Certificate-Mail-Webhook-Capability": MAIL_WEBHOOK_KEY}
+delivered_at = dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z")
+delivered_event = {
+    "providerEventId": "evt-delivered-" + suffix, "providerMessageId": provider_id,
+    "eventType": "email.delivered", "eventCreatedAt": delivered_at,
+    "messageId": f"<ci-{suffix}@example.test>", "error": "",
+}
+provider_result = request("POST", "/api/internal/certificate-mail/provider-event", delivered_event, extra_headers=provider_headers)
+assert provider_result["matched"] is True and provider_result["updated"] is True and provider_result["providerStatus"] == "delivered"
+provider_duplicate = request("POST", "/api/internal/certificate-mail/provider-event", delivered_event, extra_headers=provider_headers)
+assert provider_duplicate["duplicate"] is True
+provider_delivery = request("GET", delivery_path, token=admin_token)
+provider_row = next(row for row in provider_delivery["certificates"] if row["certificateId"] == certificate["id"])
+assert provider_delivery["batch"]["deliveredCount"] == 1
+assert provider_row["providerStatus"] == "delivered" and provider_row["deliveredAt"]
+
+# Older events are recorded for audit but may not downgrade the current state.
+older = (dt.datetime.fromisoformat(delivered_at.replace("Z", "+00:00")) - dt.timedelta(seconds=30)).isoformat().replace("+00:00", "Z")
+out_of_order = request("POST", "/api/internal/certificate-mail/provider-event", {
+    "providerEventId": "evt-old-bounce-" + suffix, "providerMessageId": provider_id,
+    "eventType": "email.bounced", "eventCreatedAt": older, "error": "Synthetic old bounce",
+}, extra_headers=provider_headers)
+assert out_of_order.get("outOfOrder") is True
+still_delivered = request("GET", f"/api/collections/notification_outbox/records/{job['id']}", token=super_token)
+assert still_delivered["providerStatus"] == "delivered"
+
+# A newer bounce is a real delivery issue and becomes manually retryable.
+bounced_at = (dt.datetime.fromisoformat(delivered_at.replace("Z", "+00:00")) + dt.timedelta(seconds=30)).isoformat().replace("+00:00", "Z")
+request("POST", "/api/internal/certificate-mail/provider-event", {
+    "providerEventId": "evt-bounce-" + suffix, "providerMessageId": provider_id,
+    "eventType": "email.bounced", "eventCreatedAt": bounced_at, "error": "Synthetic mailbox rejection",
+}, extra_headers=provider_headers)
+bounced_delivery = request("GET", delivery_path, token=admin_token)
+bounced_row = next(row for row in bounced_delivery["certificates"] if row["certificateId"] == certificate["id"])
+assert bounced_delivery["batch"]["status"] == "partial_failure"
+assert bounced_delivery["batch"]["deliveryIssueCount"] == 1 and bounced_row["providerStatus"] == "bounced"
+provider_retry = request("POST", retry_path, token=admin_token)
+assert provider_retry["retried"] == 1
+provider_job_retry = request("GET", f"/api/collections/notification_outbox/records/{job['id']}", token=super_token)
+assert provider_job_retry["status"] == "pending" and provider_job_retry["providerSendSequence"] == 1
+assert not provider_job_retry["providerStatus"] and not provider_job_retry["providerMessageId"]
 
 request("PATCH", f"/api/collections/notification_outbox/records/{job['id']}", {
     "status": "failed", "attempts": 8, "sentAt": "", "nextAttemptAt": sent_at, "lastError": "Synthetic terminal delivery failure",

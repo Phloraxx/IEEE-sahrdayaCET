@@ -35,6 +35,11 @@ describe("certificate template publication rules", () => {
       emailText: "Hi {{firstName}} — {{credentialId}} — {{verificationUrl}}",
     })).toEqual([]);
   });
+  it("allows QR-free templates while preserving legacy QR layouts", () => {
+    expect(rules.validateLayout({ ...validLayout, qr: { enabled: false } })).toMatchObject({ valid: true, errors: [] });
+    expect(rules.validateLayout(validLayout)).toMatchObject({ valid: true, errors: [] });
+  });
+
   it("rejects incomplete layout, oversized canvas, and unknown mail variables", () => {
     const errors = rules.publicationErrors({
       renderBase: "base.png", canvasWidth: 8000, canvasHeight: 7000,

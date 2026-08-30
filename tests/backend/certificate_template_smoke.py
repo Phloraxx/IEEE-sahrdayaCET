@@ -13,6 +13,7 @@ import zlib
 BASE = os.environ.get("PB_BASE_URL", "http://127.0.0.1:8090").rstrip("/")
 SUPER_EMAIL = os.environ.get("PB_SUPERUSER_EMAIL", "ci-super@example.test")
 SUPER_PASS = os.environ.get("PB_SUPERUSER_PASSWORD", "CI-PocketBase-Smoke-2026!")
+RESEND_FAKE_URL = os.environ.get("RESEND_FAKE_URL", "").rstrip("/")
 
 
 def request(method, path, body=None, token=None, expected=(200, 201, 204)):
@@ -119,13 +120,20 @@ created = request("POST", f"/api/app/events/{event['id']}/certificate-templates"
 template = created["template"]
 assert template["status"] == "draft" and template["version"] == 1
 assert template["layout"]["name"]["maxWidth"] == 0.62
+assert template["layout"]["qr"]["enabled"] is False
 
 not_ready = request("POST", f"/api/app/certificate-templates/{template['id']}/publish", token=admin_token, expected=(422,))
 assert "render-base" in " ".join(not_ready["errors"]).lower()
 
 layout = template["layout"]
 base_png = make_png(2400, 1350)
-signature_png = make_png(800, 240, (255, 255, 255))
+deprecated_upload = multipart_request(
+    f"/api/app/certificate-templates/{template['id']}",
+    {"layout": json.dumps(layout), "emailSubject": template["emailSubject"], "emailText": template["emailText"]},
+    [("sourceBackground", "legacy-background.png", base_png, "image/png")],
+    admin_token, expected=(400,),
+)
+assert "no longer supported" in deprecated_upload["error"]
 updated = multipart_request(
     f"/api/app/certificate-templates/{template['id']}",
     {
@@ -134,9 +142,7 @@ updated = multipart_request(
         "emailText": "Hi {{firstName}}\n\nVerify: {{verificationUrl}}\nCredential: {{credentialId}}",
     },
     [
-        ("sourceBackground", "background.png", base_png, "image/png"),
         ("renderBase", "render-base.png", base_png, "image/png"),
-        ("sourceSignatures", "signature.png", signature_png, "image/png"),
     ],
     admin_token,
 )["template"]
@@ -153,10 +159,19 @@ test_email_path = f"/api/app/certificate-templates/{template['id']}/test-email"
 request("POST", test_email_path, token=member_token, expected=(403,))
 before_certificates = request("GET", "/api/collections/certificates/records?perPage=1", token=super_token)["totalItems"]
 before_outbox = request("GET", "/api/collections/notification_outbox/records?perPage=1", token=super_token)["totalItems"]
-test_unavailable = request("POST", test_email_path, token=admin_token, expected=(503,))
-assert test_unavailable["code"] == "TEST_EMAIL_UNAVAILABLE"
+test_sent = request("POST", test_email_path, token=admin_token)
+assert test_sent["success"] is True and test_sent["provider"] == "resend"
+assert test_sent["deliveryMode"] == "redirect" and test_sent["recipient"] == admin["email"]
 assert request("GET", "/api/collections/certificates/records?perPage=1", token=super_token)["totalItems"] == before_certificates
 assert request("GET", "/api/collections/notification_outbox/records?perPage=1", token=super_token)["totalItems"] == before_outbox
+assert RESEND_FAKE_URL, "CI fake Resend endpoint must be configured"
+with urllib.request.urlopen(RESEND_FAKE_URL + "/__test__/messages", timeout=10) as response:
+    fake_messages = json.loads(response.read().decode())["messages"]
+assert fake_messages, "certificate test email must reach the configured provider"
+last_message = fake_messages[-1]["payload"]
+assert last_message["to"] == ["ci-certificate-sink@example.test"]
+assert last_message["subject"].startswith("[STAGING TEST] [TEST / NOT VALID]")
+assert "TEST / NOT VALID" in last_message["html"] and "TEST / NOT VALID" in last_message["text"]
 
 published = request("POST", f"/api/app/certificate-templates/{template['id']}/publish", token=admin_token)["template"]
 assert published["status"] == "published" and len(published["contentHash"]) == 64
@@ -171,8 +186,8 @@ request("DELETE", f"/api/app/certificate-templates/{template['id']}", token=admi
 
 version_two = request("POST", f"/api/app/certificate-templates/{template['id']}/new-version", token=admin_token)["template"]
 assert version_two["status"] == "draft" and version_two["version"] == 2
-assert version_two["files"]["renderBase"]["name"] and version_two["files"]["sourceBackground"]["name"]
-assert len(version_two["files"]["sourceSignatures"]) == 1
+assert version_two["files"]["renderBase"]["name"]
+assert set(version_two["files"]) == {"renderBase"}
 request("DELETE", f"/api/app/certificate-templates/{version_two['id']}", token=admin_token)
 
 listed = request("GET", f"/api/app/events/{event['id']}/certificate-templates", token=admin_token)

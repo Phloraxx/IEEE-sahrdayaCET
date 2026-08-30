@@ -41,6 +41,11 @@ SMTP_PORT
 SMTP_USERNAME
 SMTP_PASSWORD
 SMTP_FROM
+CERTIFICATE_MAIL_PROVIDER=smtp|resend
+RESEND_API_KEY
+RESEND_FROM
+RESEND_WEBHOOK_SECRET
+CERTIFICATE_MAIL_WEBHOOK_CAPABILITY_KEY
 ```
 
 Never reuse a production encryption key, OAuth application, payment secret, SMTP credential, or `pb_data` volume in staging.

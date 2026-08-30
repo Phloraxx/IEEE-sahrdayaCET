@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import QRCode from "qrcode";
-import sharp from "sharp";
+import sharp, { type OverlayOptions } from "sharp";
 import { PDFDocument } from "pdf-lib";
 
 export const CERTIFICATE_VERIFICATION_ORIGIN = "https://ieeesahrdaya.com";
@@ -32,6 +32,7 @@ export interface CertificateTemplateLayout {
     color: string;
   };
   qr: {
+    enabled?: boolean;
     x: number;
     y: number;
     size: number;
@@ -176,23 +177,26 @@ export async function renderCertificatePng(input: CertificateRenderInput) {
   const credentialTopPx = Math.round(input.layout.credentialId.y * input.canvasHeight - credential.height / 2);
   assertInsideCanvas("Credential ID", credentialLeftPx, credentialTopPx, credential.width, credential.height, input.canvasWidth, input.canvasHeight);
 
-  const qrSize = Math.max(1, Math.round(input.layout.qr.size * input.canvasWidth));
-  const qr = await QRCode.toBuffer(certificateVerificationUrl(input.verificationToken), {
-    type: "png",
-    width: qrSize,
-    margin: 1,
-    errorCorrectionLevel: "M",
-  });
-  const qrLeft = Math.round(input.layout.qr.x * input.canvasWidth - qrSize / 2);
-  const qrTop = Math.round(input.layout.qr.y * input.canvasHeight - qrSize / 2);
-  assertInsideCanvas("Verification QR", qrLeft, qrTop, qrSize, qrSize, input.canvasWidth, input.canvasHeight);
+  const composites: OverlayOptions[] = [
+    { input: fittedName.buffer, left: nameLeftPx, top: nameTopPx },
+    { input: credential.buffer, left: credentialLeftPx, top: credentialTopPx },
+  ];
+  if (input.layout.qr?.enabled !== false) {
+    const qrSize = Math.max(1, Math.round(input.layout.qr.size * input.canvasWidth));
+    const qr = await QRCode.toBuffer(certificateVerificationUrl(input.verificationToken), {
+      type: "png",
+      width: qrSize,
+      margin: 1,
+      errorCorrectionLevel: "M",
+    });
+    const qrLeft = Math.round(input.layout.qr.x * input.canvasWidth - qrSize / 2);
+    const qrTop = Math.round(input.layout.qr.y * input.canvasHeight - qrSize / 2);
+    assertInsideCanvas("Verification QR", qrLeft, qrTop, qrSize, qrSize, input.canvasWidth, input.canvasHeight);
+    composites.push({ input: qr, left: qrLeft, top: qrTop });
+  }
 
   const png = await sharp(input.renderBase)
-    .composite([
-      { input: fittedName.buffer, left: nameLeftPx, top: nameTopPx },
-      { input: credential.buffer, left: credentialLeftPx, top: credentialTopPx },
-      { input: qr, left: qrLeft, top: qrTop },
-    ])
+    .composite(composites)
     .png({ compressionLevel: 9, adaptiveFiltering: true })
     .toBuffer();
 

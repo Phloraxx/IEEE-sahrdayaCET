@@ -2,6 +2,7 @@ import { getPBUrl } from "@/lib/pb.server";
 import type { CertificateTemplateLayout } from "@/server/certificates/render.server";
 
 const TOKEN_RE = /^[A-Za-z0-9]{48}$/;
+const CREDENTIAL_ID_RE = /^IEEESB-\d{4}-[A-Z]{3,5}-[A-Z0-9]{10}$/;
 const RENDER_HEADER = "X-Certificate-Render-Capability";
 
 export type CertificateVerificationStatus = "ACTIVE" | "REVOKED" | "SUPERSEDED" | "INVALID";
@@ -62,6 +63,30 @@ export async function fetchCertificateVerification(token: string): Promise<Certi
     issueDate: String(raw.issueDate || ""),
     issuer: String(raw.issuer || ""),
     status,
+  };
+}
+
+export async function fetchCertificateVerificationById(credentialId: string): Promise<CertificateVerification> {
+  const value = credentialId.trim().toUpperCase();
+  if (!CREDENTIAL_ID_RE.test(value)) return invalidVerification();
+  let response: Response;
+  try {
+    response = await fetch(`${getPBUrl()}/api/app/certificates/verify-id/${encodeURIComponent(value)}`, {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+  } catch (error) {
+    throw new Error("Certificate verification service is unavailable", { cause: error });
+  }
+  if (response.status === 404) return invalidVerification();
+  if (!response.ok) throw new Error(`Certificate verification failed with HTTP ${response.status}`);
+  const raw = await response.json() as Record<string, unknown>;
+  const status = statusValue(raw.status);
+  if (status === "INVALID") return invalidVerification();
+  return {
+    recipientName: String(raw.recipientName || ""), event: String(raw.event || ""),
+    certificateType: String(raw.certificateType || ""), credentialId: String(raw.credentialId || ""),
+    issueDate: String(raw.issueDate || ""), issuer: String(raw.issuer || ""), status,
   };
 }
 

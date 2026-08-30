@@ -65,11 +65,25 @@ jobs:
           done
           cat /tmp/fake-razorpay.log
           exit 1
+      - name: Start fake Resend API
+        env:
+          RESEND_API_KEY: re_ci_certificate_test
+          RESEND_FAKE_PORT: "18082"
+        run: |
+          python3 tests/backend/fake_resend.py > /tmp/fake-resend.log 2>&1 &
+          echo $! > /tmp/fake-resend.pid
+          for i in {1..20}; do
+            curl -fsS 'http://127.0.0.1:18082/health' >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/fake-resend.log
+          exit 1
       - name: Start fresh PocketBase
         run: |
           docker run -d --name ieee-pocketbase-ci \
             --add-host=host.docker.internal:host-gateway \
             -p 127.0.0.1:8090:8090 \
+            -e DEPLOY_ENV='staging' \
             -e PB_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef' \
             -e RAZORPAY_API_BASE_URL='http://host.docker.internal:18080' \
             -e RAZORPAY_KEY_ID='rzp_test_ieee' \
@@ -82,6 +96,13 @@ jobs:
             -e PAYGATE_WEBHOOK_SECRET='CI-PayGate-Webhook-2026!!!!' \
             -e PAYGATE_REGISTRATION_GRACE_SECONDS='600' \
             -e CERTIFICATE_RENDER_CAPABILITY_KEY='CI-Certificate-Render-Capability-2026-Only-Test' \
+            -e CERTIFICATE_MAIL_WEBHOOK_CAPABILITY_KEY='CI-Certificate-Mail-Webhook-Capability-2026-Test' \
+            -e MAIL_DELIVERY_MODE='redirect' \
+            -e MAIL_REDIRECT_TO='ci-certificate-sink@example.test' \
+            -e CERTIFICATE_MAIL_PROVIDER='resend' \
+            -e RESEND_API_BASE_URL='http://host.docker.internal:18082' \
+            -e RESEND_API_KEY='re_ci_certificate_test' \
+            -e RESEND_FROM='IEEE Sahrdaya <certificates@send.ieeesahrdaya.com>' \
             ieee-pocketbase-ci
           for i in {1..60}; do
             curl -fsS http://127.0.0.1:8090/api/health >/dev/null && exit 0
@@ -104,6 +125,7 @@ jobs:
           PB_BASE_URL: http://127.0.0.1:8090
           PB_SUPERUSER_EMAIL: ci-super@example.test
           PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
+          RESEND_FAKE_URL: http://127.0.0.1:18082
         run: python3 tests/backend/certificate_template_smoke.py
       - name: Exercise certificate issuance lifecycle
         env:
@@ -129,6 +151,7 @@ jobs:
           PB_BASE_URL: http://127.0.0.1:8090
           PB_SUPERUSER_EMAIL: ci-super@example.test
           PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
+          CERTIFICATE_MAIL_WEBHOOK_CAPABILITY_KEY: CI-Certificate-Mail-Webhook-Capability-2026-Test
         run: python3 tests/backend/certificate_delivery_smoke.py
       - name: Exercise certificate revoke and replacement lifecycle
         env:

@@ -1,4 +1,5 @@
 var TOKEN_RE = /^[A-Za-z0-9]{48}$/
+var CREDENTIAL_ID_RE = /^IEEESB-\d{4}-[A-Z]{3,5}-[A-Z0-9]{10}$/
 var RENDER_HEADER = "X-Certificate-Render-Capability"
 
 function noStore(e) {
@@ -15,6 +16,16 @@ function certificateByToken(app, token) {
   if (!TOKEN_RE.test(String(token || ""))) return null
   try {
     return app.findFirstRecordByData("certificates", "verificationToken", String(token))
+  } catch (_) {
+    return null
+  }
+}
+
+function certificateByCredentialId(app, credentialId) {
+  var value = String(credentialId || "").trim().toUpperCase()
+  if (!CREDENTIAL_ID_RE.test(value)) return null
+  try {
+    return app.findFirstRecordByData("certificates", "credentialId", value)
   } catch (_) {
     return null
   }
@@ -72,6 +83,7 @@ function renderContext(e, app) {
 }
 
 module.exports = {
+  certificateByCredentialId: certificateByCredentialId,
   certificateByToken: certificateByToken,
   invalid: invalid,
   noStore: noStore,

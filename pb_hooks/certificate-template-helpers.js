@@ -37,7 +37,6 @@ function fileDescriptor(record, field, name) {
   } : null
 }
 function payload(record, auth) {
-  var signatures = record.getStringSlice("sourceSignatures") || []
   return {
     id: record.id,
     name: record.getString("name") || "",
@@ -61,8 +60,6 @@ function payload(record, auth) {
       record.getFloat("canvasWidth") || 0
     ),
     files: {
-      sourceBackground: fileDescriptor(record, "sourceBackground", record.getString("sourceBackground") || ""),
-      sourceSignatures: signatures.map(function (name) { return fileDescriptor(record, "sourceSignatures", name) }),
       renderBase: fileDescriptor(record, "renderBase", record.getString("renderBase") || ""),
     },
   }
@@ -84,42 +81,17 @@ function applyDraftText(record, requestBody) {
   // V1 mail is plain-text authored and server-rendered into safe HTML later.
   record.set("emailHtml", "")
 }
-function uploadedFiles(e, field) {
-  e.request.parseMultipartForm(8 * 1024 * 1024)
-  var form = e.request.multipartForm
-  var headers = form && form.file ? (form.file[field] || []) : []
-  var files = []
-  for (var i = 0; i < headers.length; i++) files.push($filesystem.fileFromMultipart(headers[i]))
-  return files
-}
-
-function oneUpload(e, field) {
-  var files = uploadedFiles(e, field)
-  if (files.length > 1) throw new Error("Only one " + field + " file can be uploaded")
-  return files.length ? files[0] : null
-}
-
 function applyUploads(e, record, requestBody) {
   var validate = require(__hooks + "/certificate-file-validation.js").validate
-  var background = oneUpload(e, "sourceBackground")
-  var renderBase = oneUpload(e, "renderBase")
-  var signatures = uploadedFiles(e, "sourceSignatures")
-  if (signatures.length > 6) throw new Error("A maximum of six signature images is supported")
-
-  if (background) {
-    validate(background, "background")
-    record.set("sourceBackground", background)
-  } else if (boolValue(requestBody.removeSourceBackground)) {
-    record.set("sourceBackground", "")
+  if (!e.request.multipartForm) e.request.parseMultipartForm(64 * 1024 * 1024)
+  var form = e.request.multipartForm
+  var formFiles = form && form.file ? form.file : {}
+  if ((formFiles.sourceBackground || []).length || (formFiles.sourceSignatures || []).length) {
+    throw new Error("Separate background or signature uploads are no longer supported; include all static elements in the certificate artwork")
   }
-
-  if (signatures.length) {
-    for (var i = 0; i < signatures.length; i++) validate(signatures[i], "signature")
-    record.set("sourceSignatures", signatures)
-  } else if (boolValue(requestBody.removeSourceSignatures)) {
-    record.set("sourceSignatures", [])
-  }
-
+  var headers = formFiles.renderBase || []
+  if (headers.length > 1) throw new Error("Only one certificate artwork file can be uploaded")
+  var renderBase = headers.length ? $filesystem.fileFromMultipart(headers[0]) : null
   if (renderBase) {
     var renderInfo = validate(renderBase, "renderBase")
     record.set("renderBase", renderBase)
@@ -166,17 +138,8 @@ function cloneAsDraft(app, source, actorId) {
 
   var fs = app.newFilesystem()
   try {
-    var background = cloneFile(fs, source, source.getString("sourceBackground") || "")
     var renderBase = cloneFile(fs, source, source.getString("renderBase") || "")
-    var sourceSignatures = source.getStringSlice("sourceSignatures") || []
-    var signatures = []
-    for (var i = 0; i < sourceSignatures.length; i++) {
-      var signature = cloneFile(fs, source, sourceSignatures[i])
-      if (signature) signatures.push(signature)
-    }
-    if (background) record.set("sourceBackground", background)
     if (renderBase) record.set("renderBase", renderBase)
-    if (signatures.length) record.set("sourceSignatures", signatures)
     app.save(record)
   } finally {
     try { fs.close() } catch (_) {}
@@ -192,7 +155,7 @@ function defaultLayout() {
   return {
     name: { x: 0.5, y: 0.47, maxWidth: 0.62, preferredFontSize: 132, minFontSize: 68, align: "center", color: "#0B243D", fontFamily: "noto-sans" },
     credentialId: { x: 0.05, y: 0.88, fontSize: 30, align: "left", color: "#0B243D" },
-    qr: { x: 0.86, y: 0.76, size: 0.11 },
+    qr: { enabled: false, x: 0.86, y: 0.76, size: 0.11 },
   }
 }
 

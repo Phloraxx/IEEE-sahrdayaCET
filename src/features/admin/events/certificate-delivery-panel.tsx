@@ -31,9 +31,13 @@ function batchStatusClasses(status: string) {
 }
 
 function deliveryStatus(row: CertificateDeliveryRow) {
-  if (row.deliveryStatus === "sent") return <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600"><CheckCircle2 className="h-3.5 w-3.5" />Sent</span>;
+  if (row.providerStatus === "delivered") return <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600"><CheckCircle2 className="h-3.5 w-3.5" />Delivered</span>;
+  if (["bounced", "failed", "suppressed", "complained"].includes(row.providerStatus)) return <span className="inline-flex items-center gap-1.5 text-xs font-medium text-red-600"><AlertTriangle className="h-3.5 w-3.5" />{statusLabel(row.providerStatus)}</span>;
+  if (row.providerStatus === "delayed") return <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-600"><Loader2 className="h-3.5 w-3.5" />Delivery delayed</span>;
+  if (row.deliveryStatus === "sent" && row.deliveryProvider === "resend") return <span className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600"><CheckCircle2 className="h-3.5 w-3.5" />Accepted · awaiting delivery</span>;
+  if (row.deliveryStatus === "sent") return <span className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600"><CheckCircle2 className="h-3.5 w-3.5" />Accepted by SMTP</span>;
   if (row.deliveryStatus === "pending" || row.deliveryStatus === "sending") return <span className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600"><Loader2 className={`h-3.5 w-3.5 ${row.deliveryStatus === "sending" ? "animate-spin" : ""}`} />{statusLabel(row.deliveryStatus)}</span>;
-  if (row.deliveryStatus === "failed") return <span className="inline-flex items-center gap-1.5 text-xs font-medium text-red-600"><AlertTriangle className="h-3.5 w-3.5" />Failed</span>;
+  if (row.deliveryStatus === "failed") return <span className="inline-flex items-center gap-1.5 text-xs font-medium text-red-600"><AlertTriangle className="h-3.5 w-3.5" />Transport failed</span>;
   if (row.deliveryStatus === "missing_email") return <span className="text-xs font-medium text-amber-600">Missing email</span>;
   if (row.deliveryStatus === "not_active") return <span className="text-xs font-medium text-muted-foreground">Credential not active</span>;
   return <span className="text-xs font-medium text-muted-foreground">Not queued</span>;
@@ -119,7 +123,8 @@ export function CertificateDeliveryPanel({
   const busy = sendMutation.isPending || retryMutation.isPending;
   const queueableCount = delivery?.certificates.filter((row) => row.certificateStatus === "active" && Boolean(row.recipientEmail) && row.deliveryStatus === "not_queued").length ?? 0;
   const canQueue = Boolean(batch && canSend && batch.status === "issued" && queueableCount > 0);
-  const canRetry = Boolean(batch && canSend && batch.failedCount > 0 && batch.status === "partial_failure");
+  const retryableCount = delivery?.certificates.filter((row) => row.deliveryStatus === "failed" || ["bounced", "failed"].includes(row.providerStatus)).length ?? 0;
+  const canRetry = Boolean(batch && canSend && retryableCount > 0 && batch.status === "partial_failure");
 
   return (
     <Card>
@@ -127,7 +132,7 @@ export function CertificateDeliveryPanel({
         <PanelHeader
           eyebrow="Certificate delivery"
           title="Send & delivery"
-          description="Issuing above creates the credential. This separate step queues email and tracks delivery without changing the certificate itself."
+          description="Issuing creates the credential. This separate step dispatches email and distinguishes provider acceptance from confirmed delivery, bounce, delay or complaint when the configured provider supports it."
           actions={<Button variant="outline" size="sm" className="gap-2" disabled={deliveryQuery.isFetching || !selectedId} onClick={() => void refresh()}><RefreshCw className={`h-4 w-4 ${deliveryQuery.isFetching ? "animate-spin" : ""}`} />Refresh</Button>}
         />
 
@@ -153,24 +158,25 @@ export function CertificateDeliveryPanel({
                   <div className="flex flex-col gap-4 rounded-2xl border border-border bg-muted/10 p-5 lg:flex-row lg:items-start lg:justify-between">
                     <div>
                       <div className="flex flex-wrap items-center gap-2"><Badge variant="outline" className={batchStatusClasses(delivery.batch.status)}>{statusLabel(delivery.batch.status)}</Badge><span className="font-mono text-[10px] text-muted-foreground">BATCH {delivery.batch.id}</span></div>
-                      <h3 className="mt-3 text-lg font-semibold">Email the issued credentials</h3>
-                      <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">The email uses the frozen template copy and links to each recipient’s live verification page and PDF. Revoked or superseded credentials are never newly queued.</p>
+                      <h3 className="mt-3 text-lg font-semibold">Dispatch issued credentials</h3>
+                      <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">The email uses frozen template copy and links to the live verification page and PDF. SMTP can confirm upstream acceptance only; a webhook-capable provider can additionally confirm delivery, delay, bounce and complaint.</p>
                     </div>
                     <div className="flex shrink-0 flex-wrap gap-2">
                       {canQueue && <Button className="gap-2" disabled={busy} onClick={() => sendMutation.mutate()}>{sendMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}Queue {queueableCount} email{queueableCount === 1 ? "" : "s"}</Button>}
-                      {canRetry && <Button variant="outline" className="gap-2" disabled={busy} onClick={() => retryMutation.mutate()}>{retryMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}Retry failed</Button>}
+                      {canRetry && <Button variant="outline" className="gap-2" disabled={busy} onClick={() => retryMutation.mutate()}>{retryMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}Retry {retryableCount} failed</Button>}
                       {delivery.batch.status === "sending" && <Button disabled className="gap-2"><Loader2 className="h-4 w-4 animate-spin" />Delivery in progress</Button>}
-                      {delivery.batch.status === "sent" && <Button disabled className="gap-2"><CheckCircle2 className="h-4 w-4" />Delivery complete</Button>}
+                      {delivery.batch.status === "sent" && <Button disabled className="gap-2"><CheckCircle2 className="h-4 w-4" />Dispatch complete</Button>}
                     </div>
                   </div>
 
                   {!canSend && (
                     <div className="flex items-start gap-3 rounded-xl border border-border bg-muted/10 p-4 text-sm text-muted-foreground"><ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" />You can inspect certificate delivery, but only users with certificate send permission can queue or retry email.</div>
                   )}
-                  <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
                     <Metric label="Queued" value={delivery.batch.queuedCount} />
-                    <Metric label="Sent" value={delivery.batch.sentCount} />
-                    <Metric label="Failed" value={delivery.batch.failedCount} warning={delivery.batch.failedCount > 0} />
+                    <Metric label="Accepted" value={delivery.batch.sentCount} />
+                    <Metric label="Delivered" value={delivery.batch.deliveredCount} />
+                    <Metric label="Issues" value={delivery.batch.failedCount} warning={delivery.batch.failedCount > 0} />
                     <Metric label="Missing email" value={delivery.batch.missingEmailCount} warning={delivery.batch.missingEmailCount > 0} />
                   </div>
 

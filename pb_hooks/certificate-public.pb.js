@@ -9,6 +9,15 @@ routerAdd("GET", "/api/app/certificates/verify/{token}", function (e) {
   return e.json(200, h.verificationPayload(certificate))
 })
 
+routerAdd("GET", "/api/app/certificates/verify-id/{credentialId}", function (e) {
+  var h = require(__hooks + "/certificate-public-helpers.js")
+  var credentialId = String(e.request.pathValue("credentialId") || "").trim().toUpperCase()
+  var certificate = h.certificateByCredentialId($app, credentialId)
+  if (!certificate) return h.invalid(e)
+  h.noStore(e)
+  return e.json(200, h.verificationPayload(certificate))
+})
+
 routerAdd("GET", "/api/app/certificates/render/{token}/manifest", function (e) {
   var h = require(__hooks + "/certificate-public-helpers.js")
   var ctx = h.renderContext(e, $app)

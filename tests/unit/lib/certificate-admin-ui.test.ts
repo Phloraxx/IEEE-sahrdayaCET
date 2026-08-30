@@ -35,8 +35,12 @@ describe("certificate event-admin UI architecture", () => {
   it("keeps the editor constrained to dynamic certificate fields", () => {
     expect(panel).toContain("Participant name");
     expect(panel).toContain("Credential ID");
-    expect(panel).toContain("Verification QR");
-    expect(panel).toContain("Flattened render base");
+    expect(panel).toContain("Scannable verification");
+    expect(panel).toContain("Credential ID is the primary printed identifier");
+    expect(panel).toContain("Certificate artwork (PNG)");
+    expect(panel).toContain("logos, signatures, certificate wording and decorative elements");
+    expect(panel).not.toContain('id="cert-source-background"');
+    expect(panel).not.toContain('id="cert-source-signatures"');
     expect(panel).toContain("Published artwork is read-only");
   });
 

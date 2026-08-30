@@ -82,6 +82,10 @@ def verify(record, expected_status):
     }
     assert headers.get("cache-control") == "no-store"
     assert headers.get("x-content-type-options") == "nosniff"
+    by_id, by_id_headers = json_request("GET", f"/api/app/certificates/verify-id/{record['credentialId']}")
+    assert by_id == payload
+    assert set(by_id) == PUBLIC_FIELDS
+    assert by_id_headers.get("cache-control") == "no-store"
 
 
 verify(primary, "ACTIVE")
@@ -90,6 +94,10 @@ assert invalid == {"status": "INVALID"}
 assert invalid_headers.get("cache-control") == "no-store"
 malformed, _ = json_request("GET", "/api/app/certificates/verify/short", expected=(404,))
 assert malformed == {"status": "INVALID"}
+invalid_id, _ = json_request("GET", "/api/app/certificates/verify-id/IEEESB-2026-COMP-0000000000", expected=(404,))
+assert invalid_id == {"status": "INVALID"}
+malformed_id, _ = json_request("GET", "/api/app/certificates/verify-id/not-a-credential", expected=(404,))
+assert malformed_id == {"status": "INVALID"}
 
 manifest_path = f"/api/app/certificates/render/{primary['verificationToken']}/manifest"
 missing_capability, _ = json_request("GET", manifest_path, expected=(403,))

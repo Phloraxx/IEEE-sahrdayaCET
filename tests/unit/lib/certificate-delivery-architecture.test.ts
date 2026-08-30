@@ -8,6 +8,10 @@ const helpers = readFileSync(resolve(process.cwd(), "pb_hooks/certificate-delive
 const notifications = readFileSync(resolve(process.cwd(), "pb_hooks/notification-helpers.js"), "utf8");
 const adminOperations = readFileSync(resolve(process.cwd(), "pb_hooks/admin-operations-helpers.js"), "utf8");
 const deliveryMigration = readFileSync(resolve(process.cwd(), "pb_migrations/202608290003_certificate_delivery_outbox.js"), "utf8");
+const observabilityMigration = readFileSync(resolve(process.cwd(), "pb_migrations/202608300001_certificate_delivery_observability.js"), "utf8");
+const mailProvider = readFileSync(resolve(process.cwd(), "pb_hooks/certificate-mail-provider.js"), "utf8");
+const mailEvents = readFileSync(resolve(process.cwd(), "pb_hooks/certificate-mail-events.js"), "utf8");
+const resendWebhook = readFileSync(resolve(process.cwd(), "src/routes/api.webhooks.resend.ts"), "utf8");
 const panel = readFileSync(resolve(process.cwd(), "src/features/admin/events/certificate-delivery-panel.tsx"), "utf8");
 
 describe("certificate delivery architecture", () => {
@@ -44,6 +48,20 @@ describe("certificate delivery architecture", () => {
     expect(helpers).toContain('verificationUrl + "/certificate.pdf"');
     expect(helpers).not.toContain("renderBase");
     expect(helpers).not.toContain("sourceBackground");
+  });
+
+  it("distinguishes transport acceptance from provider-confirmed delivery", () => {
+    expect(observabilityMigration).toContain('name: "providerStatus"');
+    expect(observabilityMigration).toContain('name: "deliveredCount"');
+    expect(observabilityMigration).toContain('name: "mail_delivery_events"');
+    expect(mailProvider).toContain('CERTIFICATE_MAIL_PROVIDER');
+    expect(mailProvider).toContain('"Idempotency-Key"');
+    expect(mailEvents).toContain('"email.delivered": "delivered"');
+    expect(mailEvents).toContain('"email.bounced": "bounced"');
+    expect(resendWebhook).toContain('verifyResendWebhook');
+    expect(resendWebhook).toContain('svix-signature');
+    expect(panel).toContain('label="Delivered"');
+    expect(panel).toContain('Accepted by SMTP');
   });
 
   it("renders Send and delivery as a separate admin surface", () => {

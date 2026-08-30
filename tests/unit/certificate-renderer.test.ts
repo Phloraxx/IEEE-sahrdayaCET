@@ -91,6 +91,16 @@ describeWithFonts("certificate deterministic renderer", () => {
     }
   });
 
+  it("supports a clean certificate with no QR overlay", async () => {
+    const input = await fixture();
+    const withQr = await renderCertificatePng(input);
+    const withoutQr = await renderCertificatePng({ ...input, layout: { ...input.layout, qr: { ...input.layout.qr, enabled: false } } });
+    expect(sha256(withoutQr)).not.toBe(sha256(withQr));
+    const metadata = await sharp(withoutQr).metadata();
+    expect(metadata.width).toBe(input.canvasWidth);
+    expect(metadata.height).toBe(input.canvasHeight);
+  });
+
   it("renders deterministic PNG output with exact dimensions and a one-page deterministic PDF", async () => {
     const input = await fixture();
     const first = await renderCertificatePng(input);

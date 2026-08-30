@@ -52,8 +52,12 @@ function validateLayout(value) {
   if (["left", "center", "right"].indexOf(String(credential.align || "")) === -1) errors.push("Credential ID alignment is invalid")
   if (!colorValue(credential.color)) errors.push("Credential ID color is invalid")
 
-  if (!numberIn(qr.x, 0, 1) || !numberIn(qr.y, 0, 1)) errors.push("QR position is invalid")
-  if (!numberIn(qr.size, 0.04, 0.35)) errors.push("QR size is invalid")
+  if (qr.enabled !== undefined && qr.enabled !== true && qr.enabled !== false) errors.push("QR enabled state is invalid")
+  var qrEnabled = qr.enabled === undefined ? true : qr.enabled === true
+  if (qrEnabled) {
+    if (!numberIn(qr.x, 0, 1) || !numberIn(qr.y, 0, 1)) errors.push("QR position is invalid")
+    if (!numberIn(qr.size, 0.04, 0.35)) errors.push("QR size is invalid")
+  }
   return { valid: errors.length === 0, errors: errors, layout: layout }
 }
 
