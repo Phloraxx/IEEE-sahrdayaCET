@@ -50,6 +50,12 @@ describe("certificate delivery architecture", () => {
     expect(helpers).not.toContain("sourceBackground");
   });
 
+  it("keeps test-email provider sends independent of an outbox record", () => {
+    expect(mailProvider).toContain('{ name: "mode", value: "test" }');
+    expect(mailProvider).toContain("sendWithResend(delivery, key, record.id)");
+    expect(mailProvider).toContain('sendWithResend(delivery, "certificate-test:" + $security.randomString(24), "")');
+  });
+
   it("distinguishes transport acceptance from provider-confirmed delivery", () => {
     expect(observabilityMigration).toContain('name: "providerStatus"');
     expect(observabilityMigration).toContain('name: "deliveredCount"');

@@ -29,7 +29,7 @@ function responseMessage(response) {
   return ""
 }
 
-function sendWithResend(delivery, idempotencyKey) {
+function sendWithResend(delivery, idempotencyKey, outboxId) {
   var config = resendConfig()
   if (!config.apiKey || !config.from) throw permanentError("Resend certificate mail provider is not fully configured", "RESEND_NOT_CONFIGURED")
   var response = $http.send({
@@ -48,9 +48,12 @@ function sendWithResend(delivery, idempotencyKey) {
       subject: delivery.subject,
       html: delivery.html,
       text: delivery.text,
-      tags: [
+      tags: outboxId ? [
         { name: "kind", value: "certificate" },
-        { name: "outbox", value: record.id },
+        { name: "outbox", value: clean(outboxId) },
+      ] : [
+        { name: "kind", value: "certificate" },
+        { name: "mode", value: "test" },
       ],
     }),
   })
@@ -81,12 +84,12 @@ function sendWithSmtp(app, from, delivery) {
 function send(app, record, from, delivery) {
   if (providerName() !== "resend") return sendWithSmtp(app, from, delivery)
   var key = (clean(record.getString("dedupeKey")) || ("certificate:" + record.id)) + ":" + String(record.getInt("providerSendSequence") || 0)
-  return sendWithResend(delivery, key)
+  return sendWithResend(delivery, key, record.id)
 }
 
 function sendTest(app, from, delivery) {
   if (providerName() !== "resend") return sendWithSmtp(app, from, delivery)
-  return sendWithResend(delivery, "certificate-test:" + $security.randomString(24))
+  return sendWithResend(delivery, "certificate-test:" + $security.randomString(24), "")
 }
 
 function terminalIssue(status) {
