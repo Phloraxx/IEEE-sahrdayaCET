@@ -555,3 +555,20 @@ Phase 10 exact functional closure gate:
 - Browser E2E: 50 discovered, 41 passed, 9 intentionally skipped, including Template Studio desktop/mobile, printed Credential-ID verification, token verification, revocation/supersession, and deterministic PNG/PDF resources.
 
 No V2 staging or production deployment occurred. No real attendee record was changed, no real certificate was issued, and no real certificate or test email was sent. The draft PR was used only as a clean-room CI trigger and is not authorized for merge. A separate project-owner decision is still required before advancing V2 to `dev`/staging or issuing any real workshop certificates.
+
+## Phase 11 — V2 staging visual acceptance
+
+Completed on staging after repeated clean-room and live-browser passes. Exact deployed staging SHA: `90a025db081711242d62267966f086cc2f98514a` on `dev`; production `main` remained untouched.
+
+- PR clean-room CI `33304878917` passed before promotion; exact `dev` push CI `33304997178` passed validation, both container builds, all certificate/payment smokes, and Browser E2E.
+- staging CD `33305096213` explicitly logged `BRANCH=dev`, `TARGET=staging`, and `TESTED_SHA=90a025db081711242d62267966f086cc2f98514a` before Dokploy accepted the deployment.
+- live staging Playwright exercised create → upload → Save → Publish → Review → Issue, manual Credential-ID verification, token verification, deterministic PNG/PDF, and **Edit as new version** with carried artwork and a saved coordinate change.
+- synthetic audience: 12 recipients, 11 email-ready, one deliberate missing-email case; Send remained a separate step and was not executed.
+- QR remained off by default. Long-name preview and final render were tested with `Mohammed Abdul Rahman Kizhakkedath`; the rendered name stayed clear of the artwork emblem.
+- mobile geometry at 390 px was measured from actual element bounds: document 390 px, admin main 390 px, event-title right edge 349 px. Public verification also had zero horizontal overflow.
+- stable-dwell browser pass produced zero console errors and no React Router manifest failures; only Cloudflare RUM requests were aborted during intentional navigation.
+- screenshot review caught and fixed a renderer/editor mismatch: Credential ID preview anchoring now follows left/center/right semantics exactly like the production renderer. The shared mobile panel header now stacks actions instead of compressing explanatory text.
+- staging Test Email returned `409 TEST_EMAIL_BLOCKED` / `delivery_disabled`, confirming non-production mail safety. Staging remains SMTP-fallback configured with delivery disabled, so staging does not claim real inbox-delivery proof.
+- the pre-acceptance PocketBase snapshot was restored after testing. Final residue audit: zero synthetic events, societies, users, certificates, or certificate notification-outbox rows; temporary backup archive removed; staging health remained green.
+
+A physical Android acceptance pass was attempted using the previously authorized Motorola Edge 60 Stylus at `100.99.14.85:5555`. The device became unreachable at the Tailscale network layer (no ping and TCP/5555 closed from both Mac and Oracle), so no claim of physical-device Chrome acceptance is made. The emulated 390 px Chromium acceptance is complete; physical-device verification remains a follow-up once the tailnet device is reachable again.
