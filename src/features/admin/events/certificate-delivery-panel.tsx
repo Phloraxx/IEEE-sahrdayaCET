@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   getCertificateDelivery,
+  getCertificateMailReadiness,
   listCertificateBatches,
   retryFailedCertificateBatch,
   sendCertificateBatch,
@@ -85,6 +86,11 @@ export function CertificateDeliveryPanel({
     queryFn: () => listCertificateBatches(eventId),
     enabled: Boolean(eventId && canView),
   });
+  const readinessQuery = useQuery({
+    queryKey: ["certificate-mail-readiness", eventId],
+    queryFn: () => getCertificateMailReadiness(eventId),
+    enabled: Boolean(eventId && canView),
+  });
   const batches = useMemo(() => batchesQuery.data?.batches ?? [], [batchesQuery.data?.batches]);
   useEffect(() => {
     if ((!selectedId || !batches.some((batch) => batch.id === selectedId)) && batches[0]) setSelectedId(batches[0].id);
@@ -101,6 +107,7 @@ export function CertificateDeliveryPanel({
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["certificate-batches", eventId] }),
       queryClient.invalidateQueries({ queryKey: ["certificate-delivery", eventId] }),
+      queryClient.invalidateQueries({ queryKey: ["certificate-mail-readiness", eventId] }),
     ]);
   };
   const lifecycleComplete = async (replacementBatchId?: string) => {
@@ -120,9 +127,11 @@ export function CertificateDeliveryPanel({
 
   if (!canView) return null;
   const batch = delivery?.batch;
+  const readiness = readinessQuery.data;
   const busy = sendMutation.isPending || retryMutation.isPending;
   const queueableCount = delivery?.certificates.filter((row) => row.certificateStatus === "active" && Boolean(row.recipientEmail) && row.deliveryStatus === "not_queued").length ?? 0;
-  const canQueue = Boolean(batch && canSend && batch.status === "issued" && queueableCount > 0);
+  const hasQueueable = Boolean(batch && canSend && batch.status === "issued" && queueableCount > 0);
+  const canQueue = Boolean(hasQueueable && readiness?.readyToQueue);
   const retryableCount = delivery?.certificates.filter((row) => row.deliveryStatus === "failed" || ["bounced", "failed"].includes(row.providerStatus)).length ?? 0;
   const canRetry = Boolean(batch && canSend && retryableCount > 0 && batch.status === "partial_failure");
 
@@ -135,6 +144,24 @@ export function CertificateDeliveryPanel({
           description="Issuing creates the credential. This separate step dispatches email and distinguishes provider acceptance from confirmed delivery, bounce, delay or complaint when the configured provider supports it."
           actions={<Button variant="outline" size="sm" className="gap-2" disabled={deliveryQuery.isFetching || !selectedId} onClick={() => void refresh()}><RefreshCw className={`h-4 w-4 ${deliveryQuery.isFetching ? "animate-spin" : ""}`} />Refresh</Button>}
         />
+
+        {readinessQuery.isLoading ? (
+          <div className="mt-6 flex items-center gap-2 rounded-xl border border-border bg-muted/10 p-4 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Checking certificate mail readiness…</div>
+        ) : readiness ? (
+          <div className={`mt-6 rounded-2xl border p-5 ${readiness.readyToQueue ? "border-emerald-500/25 bg-emerald-500/5" : "border-amber-500/30 bg-amber-500/5"}`}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold">{readiness.readyToQueue ? "Mail transport ready" : "Mail not ready"}</p>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{readiness.message}</p>
+              </div>
+              <div className="flex flex-wrap gap-2 text-[10px] font-semibold uppercase tracking-[0.12em]">
+                <Badge variant="outline">{readiness.provider}</Badge>
+                <Badge variant="outline">{readiness.deliveryMode}</Badge>
+                <Badge variant="outline">{readiness.trackingMode === "delivery_tracked" ? "delivery tracked" : "accepted only"}</Badge>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {batchesQuery.isLoading ? (
           <div className="mt-6 flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Loading issued batches…</div>
@@ -162,7 +189,7 @@ export function CertificateDeliveryPanel({
                       <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">The email uses frozen template copy and links to the live verification page and PDF. SMTP can confirm upstream acceptance only; a webhook-capable provider can additionally confirm delivery, delay, bounce and complaint.</p>
                     </div>
                     <div className="flex shrink-0 flex-wrap gap-2">
-                      {canQueue && <Button className="gap-2" disabled={busy} onClick={() => sendMutation.mutate()}>{sendMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}Queue {queueableCount} email{queueableCount === 1 ? "" : "s"}</Button>}
+                      {hasQueueable && <Button className="gap-2" disabled={busy || !canQueue || readinessQuery.isLoading} onClick={() => sendMutation.mutate()}>{sendMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : readinessQuery.isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{readinessQuery.isLoading ? "Checking mail" : canQueue ? `Queue ${queueableCount} email${queueableCount === 1 ? "" : "s"}` : "Mail not ready"}</Button>}
                       {canRetry && <Button variant="outline" className="gap-2" disabled={busy} onClick={() => retryMutation.mutate()}>{retryMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}Retry {retryableCount} failed</Button>}
                       {delivery.batch.status === "sending" && <Button disabled className="gap-2"><Loader2 className="h-4 w-4 animate-spin" />Delivery in progress</Button>}
                       {delivery.batch.status === "sent" && <Button disabled className="gap-2"><CheckCircle2 className="h-4 w-4" />Dispatch complete</Button>}

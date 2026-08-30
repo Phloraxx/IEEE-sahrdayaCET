@@ -1,5 +1,14 @@
 /// <reference path="../pb_data/types.d.ts" />
 
+routerAdd("GET", "/api/app/events/{eventId}/certificate-mail/readiness", function (e) {
+  var h = require(__hooks + "/certificate-delivery-helpers.js")
+  var eventId = e.request.pathValue("eventId") || ""
+  var event = h.eventRecord($app, eventId)
+  if (!event) return h.error(e, 404, "EVENT_NOT_FOUND", "Event not found")
+  if (!h.canView($app, e.auth, event)) return h.error(e, 403, "FORBIDDEN", "You cannot view certificate mail readiness for this event")
+  return e.json(200, require(__hooks + "/certificate-mail-readiness.js").readiness($app))
+}, $apis.requireAuth("users"))
+
 routerAdd("GET", "/api/app/events/{eventId}/certificate-batches", function (e) {
   var h = require(__hooks + "/certificate-delivery-helpers.js")
   var eventId = e.request.pathValue("eventId") || ""
@@ -29,6 +38,8 @@ routerAdd("POST", "/api/app/events/{eventId}/certificate-batches/{batchId}/send"
   if (["issued", "sending", "partial_failure", "sent"].indexOf(ctx.batch.getString("status") || "") === -1) {
     return h.error(e, 409, "BATCH_NOT_ISSUED", "Only issued certificate batches can be sent")
   }
+  var readiness = require(__hooks + "/certificate-mail-readiness.js").readiness($app)
+  if (!readiness.readyToQueue) return h.error(e, 409, "MAIL_NOT_READY", readiness.message)
   var created = 0
   var eligible = 0
   var certificates = h.certificateRows($app, ctx.batch.id)
@@ -73,6 +84,8 @@ routerAdd("POST", "/api/app/events/{eventId}/certificate-batches/{batchId}/retry
   var h = require(__hooks + "/certificate-delivery-helpers.js")
   var ctx = h.routeContext($app, e, "send")
   if (ctx.status) return h.error(e, ctx.status, ctx.code, ctx.message)
+  var readiness = require(__hooks + "/certificate-mail-readiness.js").readiness($app)
+  if (!readiness.readyToQueue) return h.error(e, 409, "MAIL_NOT_READY", readiness.message)
   var retried = 0
   var certificates = h.certificateRows($app, ctx.batch.id)
   try {

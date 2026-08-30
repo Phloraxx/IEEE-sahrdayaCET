@@ -103,6 +103,7 @@ jobs:
             -e RESEND_API_BASE_URL='http://host.docker.internal:18082' \
             -e RESEND_API_KEY='re_ci_certificate_test' \
             -e RESEND_FROM='IEEE Sahrdaya <certificates@send.ieeesahrdaya.com>' \
+            -e RESEND_WEBHOOK_CONFIGURED='1' \
             ieee-pocketbase-ci
           for i in {1..60}; do
             curl -fsS http://127.0.0.1:8090/api/health >/dev/null && exit 0

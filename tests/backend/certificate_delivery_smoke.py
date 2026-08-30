@@ -165,14 +165,20 @@ assert issued["batch"]["status"] == "issued"
 certificate_outbox_filter = urllib.parse.quote('kind = "certificate"')
 assert request("GET", f"/api/collections/notification_outbox/records?filter={certificate_outbox_filter}", token=super_token)["totalItems"] == 0
 
+readiness_path = f"/api/app/events/{event['id']}/certificate-mail/readiness"
 batches_path = f"/api/app/events/{event['id']}/certificate-batches"
 delivery_path = f"/api/app/events/{event['id']}/certificate-batches/{batch_id}/delivery"
 send_path = f"/api/app/events/{event['id']}/certificate-batches/{batch_id}/send"
 retry_path = f"/api/app/events/{event['id']}/certificate-batches/{batch_id}/retry-failed"
+request("GET", readiness_path, token=member_token, expected=(403,))
 request("GET", batches_path, token=member_token, expected=(403,))
 request("GET", delivery_path, token=member_token, expected=(403,))
 request("POST", send_path, token=member_token, expected=(403,))
 
+readiness = request("GET", readiness_path, token=admin_token)
+assert readiness["provider"] == "resend" and readiness["deliveryMode"] == "redirect"
+assert readiness["safetyReady"] is True and readiness["transportReady"] is True and readiness["readyToQueue"] is True
+assert readiness["trackingReady"] is True and readiness["trackingMode"] == "delivery_tracked"
 batches = request("GET", batches_path, token=admin_token)["batches"]
 assert any(row["id"] == batch_id and row["status"] == "issued" for row in batches)
 initial_delivery = request("GET", delivery_path, token=admin_token)

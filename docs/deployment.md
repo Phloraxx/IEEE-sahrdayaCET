@@ -50,6 +50,29 @@ CERTIFICATE_MAIL_WEBHOOK_CAPABILITY_KEY
 
 Never reuse a production encryption key, OAuth application, payment secret, SMTP credential, or `pb_data` volume in staging.
 
+## Certificate mail production readiness
+
+Certificate issuance and certificate mail delivery are separate operations. Before enabling bulk Send, confirm the admin **Send & delivery** panel reports the environment as mail-ready.
+
+For tracked Resend delivery, production requires:
+
+```text
+CERTIFICATE_MAIL_PROVIDER=resend
+RESEND_API_KEY=<production API key>
+RESEND_FROM=IEEE Sahrdaya <certificates@send.ieeesahrdaya.com>
+RESEND_WEBHOOK_SECRET=<production signing secret>
+CERTIFICATE_MAIL_WEBHOOK_CAPABILITY_KEY=<32+ character environment-unique capability>
+MAIL_DELIVERY_MODE=live
+```
+
+`RESEND_WEBHOOK_CONFIGURED` is a non-secret runtime flag derived by Compose from the presence of `RESEND_WEBHOOK_SECRET`; do not configure it independently in Dokploy.
+
+The readiness API/UI checks the delivery safety mode, provider transport configuration, and whether the Resend webhook bridge is configured. Send and Retry fail before creating or modifying outbox jobs when mail is not ready. SMTP remains supported, but its status is explicitly **accepted only** because SMTP acceptance is not proof of inbox delivery.
+
+Before production mail is enabled, verify the sending domain in the provider and confirm DKIM, return-path SPF/MX, and DMARC are published. Start DMARC monitoring with a non-enforcing policy such as `v=DMARC1; p=none;`, then tighten the policy only after observing legitimate traffic and alignment.
+
+Staging must never use `MAIL_DELIVERY_MODE=live`; use `disabled`, `redirect`, or a tightly controlled `allowlist` for test delivery.
+
 ## Routing and networks
 
 Each public environment host has two routes:

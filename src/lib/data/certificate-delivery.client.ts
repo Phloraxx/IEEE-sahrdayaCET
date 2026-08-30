@@ -47,6 +47,25 @@ export interface CertificateDeliveryRow {
   verificationUrl: string;
 }
 
+export interface CertificateMailReadiness {
+  provider: "smtp" | "resend" | string;
+  deliveryMode: "disabled" | "allowlist" | "redirect" | "live" | string;
+  safetyReady: boolean;
+  transportReady: boolean;
+  trackingReady: boolean;
+  trackingMode: "delivery_tracked" | "accepted_only" | string;
+  readyToQueue: boolean;
+  reason: string;
+  message: string;
+}
+
+export async function getCertificateMailReadiness(eventId: string) {
+  return getPbClient().send(
+    `/api/app/events/${encodeURIComponent(eventId)}/certificate-mail/readiness`,
+    {},
+  ) as Promise<CertificateMailReadiness>;
+}
+
 export interface CertificateDeliverySnapshot {
   batch: CertificateDeliveryBatch;
   certificates: CertificateDeliveryRow[];

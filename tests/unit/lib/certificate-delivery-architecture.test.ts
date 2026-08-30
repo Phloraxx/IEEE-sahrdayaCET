@@ -10,6 +10,9 @@ const adminOperations = readFileSync(resolve(process.cwd(), "pb_hooks/admin-oper
 const deliveryMigration = readFileSync(resolve(process.cwd(), "pb_migrations/202608290003_certificate_delivery_outbox.js"), "utf8");
 const observabilityMigration = readFileSync(resolve(process.cwd(), "pb_migrations/202608300001_certificate_delivery_observability.js"), "utf8");
 const mailProvider = readFileSync(resolve(process.cwd(), "pb_hooks/certificate-mail-provider.js"), "utf8");
+const mailReadiness = readFileSync(resolve(process.cwd(), "pb_hooks/certificate-mail-readiness.js"), "utf8");
+const compose = readFileSync(resolve(process.cwd(), "docker-compose.yml"), "utf8");
+const deliveryClient = readFileSync(resolve(process.cwd(), "src/lib/data/certificate-delivery.client.ts"), "utf8");
 const mailEvents = readFileSync(resolve(process.cwd(), "pb_hooks/certificate-mail-events.js"), "utf8");
 const resendWebhook = readFileSync(resolve(process.cwd(), "src/routes/api.webhooks.resend.ts"), "utf8");
 const panel = readFileSync(resolve(process.cwd(), "src/features/admin/events/certificate-delivery-panel.tsx"), "utf8");
@@ -70,9 +73,21 @@ describe("certificate delivery architecture", () => {
     expect(panel).toContain('Accepted by SMTP');
   });
 
+
+  it("checks mail readiness before certificate jobs are queued", () => {
+    expect(delivery).toContain('/certificate-mail/readiness');
+    expect(delivery).toContain('"MAIL_NOT_READY"');
+    expect(mailReadiness).toContain('readyToQueue: safety.ready && provider.transportReady');
+    expect(mailReadiness).toContain('trackingMode: trackingReady ? "delivery_tracked" : "accepted_only"');
+    expect(compose).toContain('RESEND_WEBHOOK_CONFIGURED: ${RESEND_WEBHOOK_SECRET:+1}');
+    expect(deliveryClient).toContain('/certificate-mail/readiness');
+    expect(panel).toContain('Mail transport ready');
+    expect(panel).toContain('Mail not ready');
+  });
+
   it("renders Send and delivery as a separate admin surface", () => {
     expect(panel).toContain('title="Send & delivery"');
-    expect(panel).toContain("Queue {queueableCount} email");
+    expect(panel).toContain("Queue ${queueableCount} email");
     expect(panel).toContain("Retry failed");
     expect(panel).toContain("canSend");
   });
