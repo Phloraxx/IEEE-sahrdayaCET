@@ -85,8 +85,10 @@ function previewGlyphWidthEm(character: string) {
   return 0.56;
 }
 
+const PREVIEW_FONT_WIDTH_SAFETY = 1.1;
+
 function previewNameFontSize(name: string, layout: CertificateTemplateLayout["name"], canvasWidth: number) {
-  const estimatedEm = Array.from(name.trim()).reduce((total, character) => total + previewGlyphWidthEm(character), 0);
+  const estimatedEm = Array.from(name.trim()).reduce((total, character) => total + previewGlyphWidthEm(character), 0) * PREVIEW_FONT_WIDTH_SAFETY;
   if (!estimatedEm || canvasWidth <= 0) return layout.preferredFontSize;
   const available = canvasWidth * layout.maxWidth;
   for (let size = layout.preferredFontSize; size >= layout.minFontSize; size -= 2) {
