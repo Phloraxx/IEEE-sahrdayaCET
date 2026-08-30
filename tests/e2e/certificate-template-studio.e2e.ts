@@ -18,17 +18,23 @@ async function authenticateAdmin(page: Page, request: APIRequestContext) {
 test.describe("Certificate Template Studio", () => {
   test.skip(!adminToken || !eventId, "Admin certificate fixture is not configured");
 
-  test("creates, saves, publishes, and versions an event certificate template", async ({ page, request }) => {
+  test("creates, saves, publishes, and versions an event certificate template", async ({ page, request }, testInfo) => {
     await authenticateAdmin(page, request);
     const errors: string[] = [];
     page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
 
-    const templateName = `CI Participation ${Date.now()}`;
+    const retryTypes = ["Participation", "Completion", "Achievement"] as const;
+    const certificateType = retryTypes[Math.min(testInfo.retry, retryTypes.length - 1)];
+    const templateName = `CI ${certificateType} ${Date.now()}`;
     await page.goto(`/admin/events/${eventId}?tab=certificates`);
     await expect(page.getByRole("heading", { name: "Template Studio" })).toBeVisible();
 
     await page.getByRole("button", { name: /New template|Create first template/i }).first().click();
     await page.getByLabel("Template name").fill(templateName);
+    if (certificateType !== "Participation") {
+      await page.getByRole("dialog").getByRole("combobox").click();
+      await page.getByRole("option", { name: certificateType, exact: true }).click();
+    }
     await page.getByRole("button", { name: /Create draft/i }).click();
     await expect(page.getByRole("heading", { name: templateName })).toBeVisible();
     await expect(page.getByText(/draft · v1/i).first()).toBeVisible();

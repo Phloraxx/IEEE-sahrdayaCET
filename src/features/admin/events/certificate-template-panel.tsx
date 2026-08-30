@@ -86,6 +86,24 @@ function numberFromPercent(value: string, fallback: number) {
   return Number.isFinite(parsed) ? clamp(parsed / 100) : fallback;
 }
 
+function imageDimensions(blob: Blob) {
+  return new Promise<{ width: number; height: number }>((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const image = new Image();
+    const release = () => URL.revokeObjectURL(url);
+    image.onload = () => {
+      const dimensions = { width: image.naturalWidth, height: image.naturalHeight };
+      release();
+      resolve(dimensions);
+    };
+    image.onerror = () => {
+      release();
+      reject(new Error("Could not read certificate artwork dimensions"));
+    };
+    image.src = url;
+  });
+}
+
 function statusClasses(status: CertificateTemplate["status"]) {
   if (status === "published") return "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
   if (status === "archived") return "border-border bg-muted text-muted-foreground";
@@ -99,6 +117,7 @@ function TemplatePreview({
   artworkPending,
   editable,
   onLayoutChange,
+  onPreviewLoad,
 }: {
   template: CertificateTemplate;
   layout: CertificateTemplateLayout;
@@ -107,6 +126,7 @@ function TemplatePreview({
   artworkPending: boolean;
   editable: boolean;
   onLayoutChange: (layout: CertificateTemplateLayout) => void;
+  onPreviewLoad: () => void;
 }) {
   const surfaceRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState<DragTarget | null>(null);
@@ -150,7 +170,7 @@ function TemplatePreview({
         onPointerCancel={() => setDragging(null)}
       >
         {previewUrl ? (
-          <img src={previewUrl} alt="Certificate render base preview" className="absolute inset-0 h-full w-full object-fill" />
+          <img src={previewUrl} alt="Certificate render base preview" className="absolute inset-0 h-full w-full object-fill" onLoad={onPreviewLoad} />
         ) : (
           <div className="absolute inset-0 grid place-items-center bg-[linear-gradient(135deg,#f8fbfd,#eef6fb)] text-center">
             <div>
@@ -458,6 +478,13 @@ export function CertificateTemplatePanel({
   const [renderBase, setRenderBase] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const [previewDimensions, setPreviewDimensions] = useState<{ width: number; height: number } | null>(null);
+  const activePreviewUrlRef = useRef("");
+  const stalePreviewUrlsRef = useRef<string[]>([]);
+
+  const releaseStalePreviewUrls = () => {
+    for (const url of stalePreviewUrlsRef.current) URL.revokeObjectURL(url);
+    stalePreviewUrlsRef.current = [];
+  };
 
   const templatesQuery = useQuery({
     queryKey: ["certificate-templates", eventId],
@@ -485,7 +512,7 @@ export function CertificateTemplatePanel({
 
   useEffect(() => {
     let cancelled = false;
-    let objectUrl = "";
+    let pendingObjectUrl = "";
     const load = async () => {
       try {
         const blob = renderBase ?? (selected?.files.renderBase ? await fetchCertificateTemplateAsset(selected.files.renderBase) : null);
@@ -496,20 +523,19 @@ export function CertificateTemplatePanel({
           }
           return;
         }
-        objectUrl = URL.createObjectURL(blob);
-        if (renderBase) {
-          const dimensions = await new Promise<{ width: number; height: number }>((resolve, reject) => {
-            const image = new Image();
-            image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight });
-            image.onerror = () => reject(new Error("Could not read certificate artwork dimensions"));
-            image.src = objectUrl;
-          });
-          if (!cancelled) setPreviewDimensions(dimensions);
-        } else if (!cancelled) {
-          setPreviewDimensions(null);
-        }
-        if (!cancelled) setPreviewUrl(objectUrl);
+
+        const dimensions = renderBase ? await imageDimensions(renderBase) : null;
+        if (cancelled) return;
+
+        pendingObjectUrl = URL.createObjectURL(blob);
+        const previousUrl = activePreviewUrlRef.current;
+        activePreviewUrlRef.current = pendingObjectUrl;
+        pendingObjectUrl = "";
+        if (previousUrl && previousUrl !== activePreviewUrlRef.current) stalePreviewUrlsRef.current.push(previousUrl);
+        setPreviewDimensions(dimensions);
+        setPreviewUrl(activePreviewUrlRef.current);
       } catch (error) {
+        if (pendingObjectUrl) URL.revokeObjectURL(pendingObjectUrl);
         if (!cancelled) {
           setPreviewUrl("");
           setPreviewDimensions(null);
@@ -520,9 +546,15 @@ export function CertificateTemplatePanel({
     void load();
     return () => {
       cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      if (pendingObjectUrl) URL.revokeObjectURL(pendingObjectUrl);
     };
   }, [renderBase, selected]);
+
+  useEffect(() => () => {
+    releaseStalePreviewUrls();
+    if (activePreviewUrlRef.current) URL.revokeObjectURL(activePreviewUrlRef.current);
+    activePreviewUrlRef.current = "";
+  }, []);
 
   const editable = Boolean(selected && selected.status === "draft" && canManage);
   const hasLocalFiles = Boolean(renderBase);
@@ -691,7 +723,7 @@ export function CertificateTemplatePanel({
 
               <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.35fr)_360px]">
                 <div className="space-y-4">
-                  <TemplatePreview template={selected} layout={layout} previewUrl={previewUrl} previewDimensions={previewDimensions} artworkPending={Boolean(renderBase)} editable={editable} onLayoutChange={setLayout} />
+                  <TemplatePreview template={selected} layout={layout} previewUrl={previewUrl} previewDimensions={previewDimensions} artworkPending={Boolean(renderBase)} editable={editable} onLayoutChange={setLayout} onPreviewLoad={releaseStalePreviewUrls} />
                   {(selected.preflightWarnings ?? []).length > 0 && (
                     <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4">
                       <div className="flex items-start gap-3">
