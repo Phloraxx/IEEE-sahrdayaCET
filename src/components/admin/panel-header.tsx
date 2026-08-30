@@ -16,7 +16,7 @@ export function PanelHeader({
   className,
 }: PanelHeaderProps) {
   return (
-    <div className={cn("flex items-end justify-between gap-4 mb-5", className)}>
+    <div className={cn("mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4", className)}>
       <div className="min-w-0">
         {eyebrow && (
           <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.18em] text-primary">
@@ -32,7 +32,7 @@ export function PanelHeader({
           </p>
         )}
       </div>
-      {actions && <div className="shrink-0">{actions}</div>}
+      {actions && <div className="shrink-0 self-start sm:self-auto">{actions}</div>}
     </div>
   );
 }

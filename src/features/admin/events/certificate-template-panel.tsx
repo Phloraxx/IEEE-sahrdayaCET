@@ -238,7 +238,7 @@ function TemplatePreview({
           style={{
             left: `${layout.credentialId.x * 100}%`,
             top: `${layout.credentialId.y * 100}%`,
-            transform: "translate(-50%, -50%)",
+            transform: layout.credentialId.align === "left" ? "translate(0, -50%)" : layout.credentialId.align === "right" ? "translate(-100%, -50%)" : "translate(-50%, -50%)",
             color: layout.credentialId.color,
             textAlign: layout.credentialId.align,
             fontSize: `${Math.max(7, layout.credentialId.fontSize * renderScale)}px`,

@@ -47,6 +47,15 @@ test.describe("Certificate Template Studio", () => {
     await expect(page.getByText("2000×1400 · unsaved artwork")).toBeVisible();
     await expect(page.getByText("Unsaved changes")).toBeVisible();
 
+    const credentialPreview = page.getByRole("button", { name: "IEEESB-CERT-2026-000154", exact: true });
+    const credentialAnchor = await credentialPreview.evaluate((node) => {
+      const surface = node.parentElement?.getBoundingClientRect();
+      const rect = node.getBoundingClientRect();
+      return surface ? (rect.left - surface.left) / surface.width : -1;
+    });
+    expect(credentialAnchor).toBeGreaterThan(0.07);
+    expect(credentialAnchor).toBeLessThan(0.09);
+
     await page.getByRole("button", { name: "Save draft" }).click();
     await expect(page.getByText("Unsaved changes")).toBeHidden({ timeout: 15_000 });
     await expect(page.getByText("2000×1400").first()).toBeVisible();
@@ -107,5 +116,10 @@ test.describe("Certificate Template Studio", () => {
     expect(geometry.documentWidth).toBeLessThanOrEqual(geometry.viewport + 1);
     expect(geometry.mainWidth).toBeLessThanOrEqual(geometry.viewport + 1);
     expect(geometry.titleRight).toBeLessThanOrEqual(geometry.viewport + 1);
+    const studioDescription = page.getByText(/One finished artwork, two required dynamic fields/);
+    await expect(studioDescription).toBeVisible();
+    expect(await studioDescription.evaluate((node) => node.getBoundingClientRect().width)).toBeGreaterThan(250);
+    const newTemplateButton = page.getByRole("button", { name: "New template", exact: true });
+    expect(await newTemplateButton.evaluate((node) => node.getBoundingClientRect().right)).toBeLessThanOrEqual(geometry.viewport + 1);
   });
 });
