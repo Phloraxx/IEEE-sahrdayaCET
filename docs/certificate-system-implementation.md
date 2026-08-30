@@ -1,6 +1,6 @@
 # Certificate System Implementation Ledger
 
-Status: core certificate platform and v1 acceptance hardening are complete through Phase 8, and the project-owner-authorized synthetic staging acceptance rehearsal is complete. Staging is deployed from `dev`; production remains undeployed and requires a separate explicit project-owner decision.
+Status: core certificate platform, v1 acceptance hardening, and Certificate Platform V2 hardening are complete. The project-owner-authorized synthetic v1 staging acceptance rehearsal remains the current staging baseline on `dev`; V2 is validated only on the isolated feature branch and has not been deployed to staging or production. Production remains undeployed and requires a separate explicit project-owner decision.
 
 Source research: the 28 August 2026 IEEE Sahrdaya certificate issuance, verification, and email-delivery research plan supplied by the project owner.
 
@@ -522,3 +522,36 @@ Cleanup was completed immediately after acceptance:
 No real attendee record was mutated, no real certificate was issued, no real certificate/test email was sent, and production was not deployed or modified.
 
 `attendance_qualified` remains intentionally deferred until a genuine multi-session attendance model exists. Production activation and any real certificate issuance remain separate explicit project-owner decisions.
+
+## Phase 10 — Certificate Platform V2 hardening
+
+Closed on the isolated `feature/certificate-platform` branch after a full Linux clean-room gate. V2 simplifies organizer work while preserving the existing immutable issuance and public-verification guarantees.
+
+- Template Studio now accepts one finished certificate artwork. Static logos, signatures, borders, event wording and decoration are baked into that artwork; new separate background/signature uploads are rejected while legacy stored assets remain readable for historical versions.
+- Recipient name and Credential ID are the mandatory dynamic overlays. QR is optional and defaults off for new templates. Existing published layouts remain backward compatible.
+- Artwork dimensions are read immediately after local selection, before Save, so the editor uses the real canvas ratio while positioning overlays. Visible preview object URLs now remain alive until the replacement image has loaded; the prior early-revoke race that produced Chromium `ERR_FILE_NOT_FOUND` is covered by the browser gate.
+- `/verify` accepts the human-readable, non-sequential Credential ID printed on the certificate. The 48-character random token remains the canonical direct/email locator. Both routes expose only the locked seven-field public projection.
+- Published versions remain immutable and expose an explicit **Edit as new version** path. Dirty version switching still requires confirmation.
+- Certificate email transport now has a provider abstraction. SMTP is presented as transport acceptance only; Resend can progress delivery through accepted, delivered, delayed, bounced, failed, suppressed, and complained states.
+- Resend webhook ingestion verifies the raw-body Svix signature, ignores unrelated event types with HTTP 200, records provider events, and handles replay/out-of-order updates without weakening certificate history.
+- Test Email uses the configured provider but remains self-addressed, `TEST / NOT VALID`, safety-policy controlled, and outside certificate/batch/outbox issuance. Clean-room CI uses staging-style redirect mode and a fake Resend sink.
+- Issue and Send remain separate commands. `attendance_qualified` remains deferred until genuine multi-session attendance exists.
+
+Clean-room review caught two defects before closure:
+
+1. the initial provider refactor left an outbox-record reference inside the Resend Test Email path, so the request threw before transport; Test Email and real outbox sends now carry explicit independent provider metadata;
+2. immediate local artwork dimensions initially reused/revoked the visible blob URL too early, producing a Chromium `ERR_FILE_NOT_FOUND`; dimension probing and visible-preview URL lifecycles are now separate, and stateful Playwright retries use independent certificate types so a late failed attempt cannot contaminate a retry.
+
+Phase 10 exact functional closure gate:
+
+- feature SHA: `8483290723bf8b2a945e08e5fb5d7ccd1c5fd23b`;
+- workflow: `https://github.com/Phloraxx/IEEE-sahrdayaCET/actions/runs/33298388643` — success;
+- lint/typecheck and production client/SSR build: green;
+- unit tests: 62 files, 348 passed on the local gate; Linux validation green;
+- web + PocketBase container builds: green;
+- template, issuance, public verification, provider-aware delivery, revoke/replacement, direct Razorpay, and temporary PayGate clean-room smokes: green;
+- 200-recipient scale: preview 0.022 s, issuance transaction 0.181 s, 200 unique Credential IDs, 200 unique 48-character verification tokens, zero certificate outbox jobs before explicit Send;
+- public verification projection: exactly `recipientName`, `event`, `certificateType`, `credentialId`, `issueDate`, `issuer`, `status` with ACTIVE/REVOKED/SUPERSEDED/INVALID coverage;
+- Browser E2E: 50 discovered, 41 passed, 9 intentionally skipped, including Template Studio desktop/mobile, printed Credential-ID verification, token verification, revocation/supersession, and deterministic PNG/PDF resources.
+
+No V2 staging or production deployment occurred. No real attendee record was changed, no real certificate was issued, and no real certificate or test email was sent. The draft PR was used only as a clean-room CI trigger and is not authorized for merge. A separate project-owner decision is still required before advancing V2 to `dev`/staging or issuing any real workshop certificates.
