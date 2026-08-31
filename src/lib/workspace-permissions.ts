@@ -102,6 +102,7 @@ export function canAccessWorkspacePath(
   if (path === "/admin/dashboard") return has("registrations.view") || has("reports.view") || branchHas("technical.manage");
   if (path === "/admin/events" || path.startsWith("/admin/events/")) return has("events.view");
   if (path === "/admin/registrations" || path.startsWith("/admin/registrations/")) return has("registrations.view");
+  if (path === "/admin/certificates" || path.startsWith("/admin/certificates/")) return has("certificates.view");
   if (path === "/admin/payments" || path.startsWith("/admin/payments/")) return branchHas("finance.view");
   if (path === "/admin/check-in" || path.startsWith("/admin/check-in/")) return has("checkin.manage");
   if (path === "/admin/data-health" || path.startsWith("/admin/data-health/")) return branchHas("technical.manage");

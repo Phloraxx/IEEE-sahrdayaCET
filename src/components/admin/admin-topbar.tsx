@@ -7,7 +7,7 @@ import type { WorkspaceMe } from "@/lib/workspace-permissions";
 interface AdminTopbarProps { onOpenSidebar: (e: React.MouseEvent<HTMLElement>) => void; sidebarOpen: boolean; isNavigating: boolean; workspace: WorkspaceMe; }
 const LABELS: [string, string][] = [
   ["/admin/dashboard", "Operations Home"], ["/admin/events", "Events"], ["/admin/registrations", "Registrations"],
-  ["/admin/payments", "Payments"], ["/admin/check-in", "Check-in"], ["/admin/data-health", "Data Health"], ["/admin/societies", "Societies"],
+  ["/admin/payments", "Payments"], ["/admin/certificates", "Certificates"], ["/admin/check-in", "Check-in"], ["/admin/data-health", "Data Health"], ["/admin/societies", "Societies"],
   ["/admin/access", "Access & Roles"], ["/admin/users", "Users"], ["/admin/execom", "Execom"], ["/admin/blogs", "Blogs"], ["/admin/FIFA", "FIFA"],
 ];
 

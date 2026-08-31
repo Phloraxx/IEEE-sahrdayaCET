@@ -1,5 +1,5 @@
 import {
-  Building2, Calendar, ChevronRight, ClipboardList, FileText, KeyRound, LayoutDashboard,
+  Award, Building2, Calendar, ChevronRight, ClipboardList, FileText, KeyRound, LayoutDashboard,
   LogOut, Moon, ScanLine, Settings, Sun, Ticket, Trophy, UserCheck, Users,
   WalletCards, ShieldCheck, X,
 } from "lucide-react";
@@ -25,6 +25,7 @@ const GROUPS: NavGroup[] = [
     { label: "Operations Home", href: "/admin/dashboard", icon: LayoutDashboard, capability: "registrations.view" },
     { label: "Events", href: "/admin/events", icon: Calendar, capability: "events.view" },
     { label: "Registrations", href: "/admin/registrations", icon: ClipboardList, capability: "registrations.view" },
+    { label: "Certificates", href: "/admin/certificates", icon: Award, capability: "certificates.view" },
     { label: "Payments", href: "/admin/payments", icon: WalletCards, capability: "finance.view", branchOnly: true },
     { label: "Check-in", href: "/admin/check-in", icon: ScanLine, capability: "checkin.manage" },
     { label: "Data Health", href: "/admin/data-health", icon: ShieldCheck, capability: "technical.manage", branchOnly: true },

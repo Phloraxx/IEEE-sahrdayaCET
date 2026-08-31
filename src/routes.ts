@@ -42,6 +42,7 @@ export default [
     route("events/:id", "routes/admin.events.$id.tsx"),
     route("events/:id/edit", "routes/admin.events.$id.edit.tsx"),
     route("registrations", "routes/admin.registrations.index.tsx"),
+    route("certificates", "routes/admin.certificates.tsx"),
     route("payments", "routes/admin.payments.tsx"),
     route("registrations/:id", "routes/admin.registrations.$id.tsx"),
     route("societies", "routes/admin.societies.index.tsx"),

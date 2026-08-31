@@ -626,3 +626,28 @@ Completed on staging after comparing the certificate registry directly against t
 - The exact pre-test PocketBase snapshot was restored. Raw restored-volume checks found no synthetic event marker, Credential ID, or test-user prefix; the temporary backup and handoff files were deleted; staging remained healthy.
 
 Production `main` remains untouched. No real attendee, certificate, or email was modified or sent during this phase.
+
+## Phase 14 — branch-wide certificate registry + production release hardening
+
+Implemented on the isolated `feature/certificate-platform` branch. This phase adds an operational read-only credential registry and closes the remaining SMTP-first release-preparation gaps without authorizing real issuance or production deployment.
+
+- `/admin/certificates` is a branch-wide, permission-scoped registry with search, event/type/status/delivery filters, pagination, responsive desktop/mobile presentation, public verification links, event-workspace links, and CSV export.
+- The registry never opens direct browser CRUD for certificate/outbox collections. `certificates.view` controls event visibility; recipient email additionally requires `registrations.view`; delivery error detail additionally requires `certificates.send`. Revoke/Replace stay only in the event-scoped lifecycle workflow.
+- Registry delivery state uses the established certificate outbox schema and fails visibly instead of silently treating backend query failures as `not_queued`. SMTP/provider acceptance is labelled **Accepted** rather than falsely implying inbox delivery.
+- CSV export escapes RFC-style quoted fields and neutralizes spreadsheet-formula prefixes before download.
+- Admin navigation, route ownership, and workspace path guards now include `/admin/certificates` behind `certificates.view`.
+- SMTP readiness now requires PocketBase SMTP to be enabled with a non-empty host, positive port, and valid sender address. Resend remains optional support, not a rollout dependency.
+- `scripts/certificate-release-preflight.sh` now fails closed unless an explicit full `EXPECTED_SHA` matches a clean checkout. `CHECK_RUNTIME=0` validates production configuration before deployment; `CHECK_RUNTIME=1` adds root/health/verification and public `/_/` isolation checks after the exact CI-gated production SHA is deployed.
+- `docs/certificate-production-runbook.md` and `docs/release-checklist.md` document the two-phase exact-SHA preflight, backup/rollback boundaries, permission acceptance, and the controlled `[TEST / NOT VALID]` SMTP inbox test.
+
+Local evidence before the authoritative Linux clean-room gate:
+
+- destination handoff identity and preserved dirty state were verified before changes;
+- registry/PocketBase hook syntax, Python smoke compilation, shell preflight syntax, and `git diff --check` are green;
+- zero-warning lint and TypeScript/typegen are green;
+- Vitest: 63 files, 356 passed with the three expected macOS-only renderer skips;
+- production client/SSR build is green;
+- preflight dry-run passes on a clean exact-SHA disposable checkout and rejects an intentionally wrong SHA;
+- registry Playwright acceptance passes desktop search/CSV export and 390 px mobile layout with zero horizontal overflow.
+
+The authoritative fresh-PocketBase/backend/full-browser gate remains GitHub CI on the exact feature candidate before any `dev` movement. The local execution safety layer does not permit bootstrapping a new PocketBase superuser, so no local claim of clean-room backend completion is made here. `main`/production and real certificate Issue/Send remain untouched.

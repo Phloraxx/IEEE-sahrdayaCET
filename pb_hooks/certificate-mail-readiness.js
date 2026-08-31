@@ -41,13 +41,17 @@ function providerState(app) {
   }
   var settings = app.settings()
   var sender = clean(settings.meta && settings.meta.senderAddress)
-  var smtpEnabled = Boolean(settings.smtp && settings.smtp.enabled === true)
+  var smtp = settings.smtp || {}
+  var smtpEnabled = smtp.enabled === true
+  var smtpHost = clean(smtp.host)
+  var smtpPort = Number(smtp.port || 0)
+  var smtpReady = smtpEnabled && smtpHost.length > 0 && isFinite(smtpPort) && smtpPort > 0 && validEmail(sender)
   return {
     provider: "smtp",
-    transportReady: smtpEnabled && validEmail(sender),
+    transportReady: smtpReady,
     trackingReady: false,
     trackingMode: "accepted_only",
-    reason: smtpEnabled && validEmail(sender) ? "" : "smtp_not_configured",
+    reason: smtpReady ? "" : "smtp_not_configured",
   }
 }
 function messageFor(state) {

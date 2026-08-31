@@ -16,6 +16,8 @@ const deliveryClient = readFileSync(resolve(process.cwd(), "src/lib/data/certifi
 const mailEvents = readFileSync(resolve(process.cwd(), "pb_hooks/certificate-mail-events.js"), "utf8");
 const resendWebhook = readFileSync(resolve(process.cwd(), "src/routes/api.webhooks.resend.ts"), "utf8");
 const panel = readFileSync(resolve(process.cwd(), "src/features/admin/events/certificate-delivery-panel.tsx"), "utf8");
+const releasePreflight = readFileSync(resolve(process.cwd(), "scripts/certificate-release-preflight.sh"), "utf8");
+const productionRunbook = readFileSync(resolve(process.cwd(), "docs/certificate-production-runbook.md"), "utf8");
 
 describe("certificate delivery architecture", () => {
   it("keeps Issue free of outbox or send behavior", () => {
@@ -79,10 +81,25 @@ describe("certificate delivery architecture", () => {
     expect(delivery).toContain('"MAIL_NOT_READY"');
     expect(mailReadiness).toContain('readyToQueue: safety.ready && provider.transportReady');
     expect(mailReadiness).toContain('trackingMode: trackingReady ? "delivery_tracked" : "accepted_only"');
+    expect(mailReadiness).toContain('smtp.enabled === true');
+    expect(mailReadiness).toContain('smtpHost.length > 0');
+    expect(mailReadiness).toContain('smtpPort > 0');
+    expect(mailReadiness).toContain('validEmail(sender)');
     expect(compose).toContain('RESEND_WEBHOOK_CONFIGURED: ${RESEND_WEBHOOK_SECRET:+1}');
     expect(deliveryClient).toContain('/certificate-mail/readiness');
     expect(panel).toContain('Mail transport ready');
     expect(panel).toContain('Mail not ready');
+  });
+
+  it("fails closed on release identity and separates pre-deploy from runtime checks", () => {
+    expect(releasePreflight).toContain('EXPECTED_SHA="${EXPECTED_SHA:-}"');
+    expect(releasePreflight).toContain('git -C "$REPO_DIR" rev-parse HEAD');
+    expect(releasePreflight).toContain('status --porcelain --untracked-files=all');
+    expect(releasePreflight).toContain('CHECK_RUNTIME="${CHECK_RUNTIME:-1}"');
+    expect(releasePreflight).toContain('PocketBase admin is not public');
+    expect(productionRunbook).toContain('CHECK_RUNTIME=0');
+    expect(productionRunbook).toContain('CHECK_RUNTIME=1');
+    expect(productionRunbook).toContain('CD `TESTED_SHA`');
   });
 
   it("renders Send and delivery as a separate admin surface", () => {

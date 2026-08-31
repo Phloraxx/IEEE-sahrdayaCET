@@ -162,6 +162,20 @@ issued = request("POST", f"/api/app/events/{event['id']}/certificates/issue", {
 batch_id = issued["batch"]["id"]
 assert issued["batch"]["status"] == "issued"
 
+registry_path = "/api/app/certificates/registry"
+member_registry = request("GET", registry_path, token=member_token)
+assert member_registry["total"] == 0 and member_registry["certificates"] == []
+request("GET", f"{registry_path}?event={event['id']}", token=member_token, expected=(403,))
+admin_registry = request("GET", f"{registry_path}?event={event['id']}", token=admin_token)
+assert admin_registry["total"] == 2 and admin_registry["summary"]["active"] == 2
+assert admin_registry["summary"]["missingEmail"] == 1 and len(admin_registry["events"]) == 1
+sample_credential = issued["certificates"][0]["credentialId"]
+search_value = urllib.parse.quote(sample_credential)
+searched_registry = request("GET", f"{registry_path}?search={search_value}", token=admin_token)
+assert searched_registry["total"] == 1 and searched_registry["certificates"][0]["credentialId"] == sample_credential
+missing_registry = request("GET", f"{registry_path}?event={event['id']}&delivery=missing_email", token=admin_token)
+assert missing_registry["total"] == 1 and missing_registry["certificates"][0]["recipientEmail"] == ""
+
 certificate_outbox_filter = urllib.parse.quote('kind = "certificate"')
 assert request("GET", f"/api/collections/notification_outbox/records?filter={certificate_outbox_filter}", token=super_token)["totalItems"] == 0
 
@@ -190,6 +204,9 @@ assert queued["idempotent"] is False and queued["queuedNow"] == 1
 assert queued["delivery"]["batch"]["queuedCount"] == 1
 replayed = request("POST", send_path, token=admin_token)
 assert replayed["idempotent"] is True and replayed["queuedNow"] == 0
+queued_registry = request("GET", f"{registry_path}?event={event['id']}", token=admin_token)
+queued_registry_row = next(row for row in queued_registry["certificates"] if row["recipientName"] == "Delivery Recipient")
+assert queued_registry_row["deliveryStatus"] == "pending" and queued_registry_row["attempts"] == 0
 send_audit_filter = urllib.parse.quote(f'action = "certificate.batch-send" && entityId = "{batch_id}"')
 send_audit = request("GET", f"/api/collections/admin_audit_log/records?filter={send_audit_filter}&perPage=10", token=super_token)
 assert send_audit["totalItems"] == 2
@@ -211,6 +228,8 @@ sent = request("GET", delivery_path, token=admin_token)
 assert sent["batch"]["status"] == "sent"
 assert sent["batch"]["sentCount"] == 1 and sent["batch"]["failedCount"] == 0
 assert next(row for row in sent["certificates"] if row["certificateId"] == certificate["id"])["deliveryStatus"] == "sent"
+accepted_registry = request("GET", f"{registry_path}?event={event['id']}&delivery=accepted", token=admin_token)
+assert accepted_registry["total"] == 1 and accepted_registry["certificates"][0]["deliveryStatus"] == "sent"
 
 # Provider observability: acceptance is not delivery. Simulate verified Resend
 # webhook events through the capability-gated internal route.

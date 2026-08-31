@@ -138,6 +138,8 @@ SMTP_PASSWORD
 SMTP_FROM
 ```
 
+Certificate-platform releases must also follow `docs/certificate-production-runbook.md`. Before real issuance, production must use `CERTIFICATE_MAIL_PROVIDER=smtp`, `MAIL_DELIVERY_MODE=live`, a production-only renderer capability key, and the controlled `[TEST / NOT VALID]` SMTP acceptance test from that runbook. From a clean exact release-candidate checkout, run `scripts/certificate-release-preflight.sh` with `EXPECTED_SHA=<candidate SHA>` and `CHECK_RUNTIME=0` against the intended production environment file. After CI-gated production deployment, rerun it from the exact deployed `main` checkout with `EXPECTED_SHA=<CD TESTED_SHA>` and `CHECK_RUNTIME=1` before any issuance.
+
 Also verify:
 
 - production Google OAuth redirect/origin configuration;
@@ -197,6 +199,9 @@ After Dokploy reports healthy services, verify:
 - production Google login initializes;
 - one safe authenticated/admin read succeeds where configured;
 - uploaded files resolve;
+- `/verify` renders the public registry design;
+- `/admin/certificates` loads for a role with `certificates.view` and remains read-only;
+- registry email visibility still requires event-scoped `registrations.view`, and delivery-error detail still requires `certificates.send`;
 - web and PocketBase logs show no migration/startup/runtime error spike.
 
 If a rollback is required, restore application code through Git/Dokploy. Treat database rollback as a separate explicit operation based on the backup and the exact migrations that ran.
