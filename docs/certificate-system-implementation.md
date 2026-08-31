@@ -572,3 +572,40 @@ Completed on staging after repeated clean-room and live-browser passes. Exact de
 - the pre-acceptance PocketBase snapshot was restored after testing. Final residue audit: zero synthetic events, societies, users, certificates, or certificate notification-outbox rows; temporary backup archive removed; staging health remained green.
 
 A physical Android acceptance pass was attempted using the previously authorized Motorola Edge 60 Stylus at `100.99.14.85:5555`. The device became unreachable at the Tailscale network layer (no ping and TCP/5555 closed from both Mac and Oracle), so no claim of physical-device Chrome acceptance is made. The emulated 390 px Chromium acceptance is complete; physical-device verification remains a follow-up once the tailnet device is reachable again.
+
+## Phase 12 — Certificate mail readiness preflight
+
+Completed on staging to prevent operators from queuing certificate email when the runtime cannot safely deliver it. Functional SHA: `88d1f432737fe201762cb0377f57aab2f5de68f6`.
+
+- Added authenticated `GET /api/app/events/{eventId}/certificate-mail/readiness` with non-secret provider, safety-mode, transport, and tracking readiness.
+- Send and Retry now fail before any outbox mutation when readiness is false, returning `409 MAIL_NOT_READY`.
+- Admin delivery UI surfaces `Mail transport ready` or `Mail not ready` before queue controls and distinguishes SMTP accepted-only tracking from Resend delivery-tracked mode.
+- Resend webhook readiness is passed to PocketBase only as a derived non-secret presence flag; the actual webhook signing secret remains web-runtime-only.
+- Production deployment documentation now lists the Resend provider contract and requires a DMARC record before real certificate mail rollout.
+
+Validation evidence:
+
+- local lint/typecheck green; 62 Vitest files, 349 passed, 3 expected macOS renderer skips; production client/SSR build green;
+- CI-only draft PR gate `33307839336` passed validation, both container builds, certificate/payment clean-room smokes, fake-Resend delivery lifecycle, readiness backend assertions, and Browser E2E;
+- exact `dev` push CI `33307984311` passed the same full gate;
+- staging CD `33308090577` logged `BRANCH=dev`, `TARGET=staging`, and exact tested SHA `88d1f432737fe201762cb0377f57aab2f5de68f6` before successful Dokploy deployment.
+Live staging acceptance used a fresh reversible snapshot and a 12-recipient synthetic issued batch:
+
+- runtime readiness resolved to `provider=smtp`, `deliveryMode=disabled`, `trackingMode=accepted_only`, `readyToQueue=false`;
+- the UI showed **Mail not ready**, `SMTP`, `DISABLED`, `ACCEPTED ONLY`, and a disabled queue action;
+- a direct authenticated Send attempt returned `409 MAIL_NOT_READY` with `Mail delivery is disabled in this environment.`;
+- the synthetic batch had zero certificate outbox rows after the blocked Send attempt. One unrelated pre-existing staging certificate outbox row remained outside the synthetic batch and was not modified;
+- a separate UI-only Chromium dwell pass produced zero console/page errors, and screenshot review confirmed the readiness warning and disabled action were visually clear.
+
+Cleanup restored the exact pre-test PocketBase snapshot. Raw restored-database marker checks found neither the synthetic event nor temporary template; both staging containers returned healthy; the temporary backup archive and staging-login handoff files were deleted.
+
+Current DNS audit before production mail activation:
+
+- root SPF exists;
+- Resend DKIM material exists;
+- `send.ieeesahrdaya.com` has SES-style MX and SPF records;
+- `_dmarc.ieeesahrdaya.com` is currently absent and must be added before real certificate bulk delivery;
+- production Resend API key, From identity, webhook secret, webhook capability, and `MAIL_DELIVERY_MODE=live` are not yet configured/deployed.
+
+No real certificate email was sent. Production `main` remains untouched; real transactional-mail activation and any controlled inbox-delivery test remain separate explicit release steps.
+A later physical-device follow-up reached Chrome 151 on the Motorola Edge 60 Stylus over Tailscale/ADB. An operator-supplied real-device screenshot of `/verify` confirmed the public verification layout reflows correctly without horizontal clipping. The displayed credential was intentionally INVALID because its synthetic fixture had already been restored out; therefore this is responsive-layout evidence, not an ACTIVE-credential delivery claim. Authenticated physical-admin capture remained blocked by the execution environment.
