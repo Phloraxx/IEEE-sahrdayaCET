@@ -23,7 +23,7 @@ export function PublicCertificateShell({ section, title, description, children }
           <div className="container mx-auto px-4 pb-10 pt-8 md:pb-14 md:pt-12">
             <div className="flex items-center justify-between gap-4 border-b border-black/10 pb-4">
               <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.28em] text-black/45">
-                <span className="mr-3 text-ieee-blue">01</span>{section}
+                <span className="mr-3 text-ieee-blue">01</span><span>{section}</span>
               </p>
               <Link to="/" className="group hidden items-center gap-2 font-mono text-[9px] font-semibold uppercase tracking-[0.24em] text-black/45 transition hover:text-black sm:inline-flex">
                 IEEE Sahrdaya <ArrowUpRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
