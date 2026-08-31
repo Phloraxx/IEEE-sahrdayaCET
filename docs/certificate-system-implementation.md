@@ -581,7 +581,7 @@ Completed on staging to prevent operators from queuing certificate email when th
 - Send and Retry now fail before any outbox mutation when readiness is false, returning `409 MAIL_NOT_READY`.
 - Admin delivery UI surfaces `Mail transport ready` or `Mail not ready` before queue controls and distinguishes SMTP accepted-only tracking from Resend delivery-tracked mode.
 - Resend webhook readiness is passed to PocketBase only as a derived non-secret presence flag; the actual webhook signing secret remains web-runtime-only.
-- Production deployment documentation now lists the Resend provider contract and requires a DMARC record before real certificate mail rollout.
+- Production deployment guidance now treats SMTP as the selected certificate transport. Resend remains optional support. SMTP acceptance is reported honestly as accepted-only, and SPF/DKIM/DMARC hygiene remains part of production deliverability readiness.
 
 Validation evidence:
 
@@ -605,7 +605,24 @@ Current DNS audit before production mail activation:
 - Resend DKIM material exists;
 - `send.ieeesahrdaya.com` has SES-style MX and SPF records;
 - `_dmarc.ieeesahrdaya.com` is currently absent and must be added before real certificate bulk delivery;
-- production Resend API key, From identity, webhook secret, webhook capability, and `MAIL_DELIVERY_MODE=live` are not yet configured/deployed.
+- production certificate mail should use the existing SMTP path with `CERTIFICATE_MAIL_PROVIDER=smtp` and `MAIL_DELIVERY_MODE=live` only after a controlled real-inbox test; Resend credentials/webhooks are not required for the selected SMTP rollout.
 
 No real certificate email was sent. Production `main` remains untouched; real transactional-mail activation and any controlled inbox-delivery test remain separate explicit release steps.
 A later physical-device follow-up reached Chrome 151 on the Motorola Edge 60 Stylus over Tailscale/ADB. An operator-supplied real-device screenshot of `/verify` confirmed the public verification layout reflows correctly without horizontal clipping. The displayed credential was intentionally INVALID because its synthetic fixture had already been restored out; therefore this is responsive-layout evidence, not an ACTIVE-credential delivery claim. Authenticated physical-admin capture remained blocked by the execution environment.
+
+## Phase 13 — Public verification design-system integration
+
+Completed on staging after comparing the certificate registry directly against the live homepage and replacing the standalone SaaS-style verification shell with the public IEEE Sahrdaya design language.
+
+- `/verify` and `/c/:token` now share the real public Navbar, dotted technical field, numbered mono section labels, oversized black/IEEE-blue typography, thin rules, dark registry result treatment, and the real public footer.
+- The old rounded/pastel credential card language was removed. ACTIVE/REVOKED/SUPERSEDED/INVALID now render as public registry states inside the same editorial system as the homepage.
+- Both public routes share one credential-record component, preserving the locked seven-field public projection and preventing visual/data drift between manual Credential-ID lookup and token verification.
+- Status is presented once, not duplicated as both badge and record row. PDF/PNG download controls remain available on direct credential pages.
+- Local visual review covered empty and INVALID states at 1440 px and 390×844 px with zero overflow; Linux E2E added an explicit mobile public-design-shell regression.
+- Clean-room functional head `7800bc52c2aefc1f37f04b76ade37c58c9c11e30` passed CI `33398732182`; exact `dev` push CI `33399127791` passed; CD `33399363286` deployed that exact tested SHA to staging.
+- Live staging ACTIVE acceptance used 12 synthetic recipients and exercised both `/c/:token` and `/verify?id=...` on desktop and mobile. The long recipient name wrapped correctly, Credential ID remained readable, public email stayed hidden, and all four layouts had zero horizontal overflow.
+- Screenshot review confirmed the ACTIVE registry page now visually belongs to the main IEEE Sahrdaya site rather than a separate utility application.
+- A final public-only dwell pass returned zero console errors, zero relevant failed requests, and zero overflow on both routes at desktop and mobile sizes.
+- The exact pre-test PocketBase snapshot was restored. Raw restored-volume checks found no synthetic event marker, Credential ID, or test-user prefix; the temporary backup and handoff files were deleted; staging remained healthy.
+
+Production `main` remains untouched. No real attendee, certificate, or email was modified or sent during this phase.
