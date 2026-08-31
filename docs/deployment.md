@@ -54,20 +54,16 @@ Never reuse a production encryption key, OAuth application, payment secret, SMTP
 
 Certificate issuance and certificate mail delivery are separate operations. Before enabling bulk Send, confirm the admin **Send & delivery** panel reports the environment as mail-ready.
 
-For tracked Resend delivery, production requires:
+The current production choice is SMTP. Production certificate mail therefore requires PocketBase SMTP/sender settings plus:
 
 ```text
-CERTIFICATE_MAIL_PROVIDER=resend
-RESEND_API_KEY=<production API key>
-RESEND_FROM=IEEE Sahrdaya <certificates@send.ieeesahrdaya.com>
-RESEND_WEBHOOK_SECRET=<production signing secret>
-CERTIFICATE_MAIL_WEBHOOK_CAPABILITY_KEY=<32+ character environment-unique capability>
+CERTIFICATE_MAIL_PROVIDER=smtp
 MAIL_DELIVERY_MODE=live
 ```
 
-`RESEND_WEBHOOK_CONFIGURED` is a non-secret runtime flag derived by Compose from the presence of `RESEND_WEBHOOK_SECRET`; do not configure it independently in Dokploy.
+The readiness API/UI checks the delivery safety mode and the actual PocketBase SMTP/sender configuration. Send and Retry fail before creating or modifying outbox jobs when mail is not ready. A successful SMTP handoff is shown as **accepted only** because SMTP acceptance is not proof that the recipient inbox ultimately delivered the message.
 
-The readiness API/UI checks the delivery safety mode, provider transport configuration, and whether the Resend webhook bridge is configured. Send and Retry fail before creating or modifying outbox jobs when mail is not ready. SMTP remains supported, but its status is explicitly **accepted only** because SMTP acceptance is not proof of inbox delivery.
+Resend support remains available as an optional future provider for webhook-confirmed delivered/bounced states. If it is ever enabled, its API key, From address, webhook signing secret, and certificate-mail webhook capability must be configured together; `RESEND_WEBHOOK_CONFIGURED` is derived by Compose and must not be set manually.
 
 Before production mail is enabled, verify the sending domain in the provider and confirm DKIM, return-path SPF/MX, and DMARC are published. Start DMARC monitoring with a non-enforcing policy such as `v=DMARC1; p=none;`, then tighten the policy only after observing legitimate traffic and alignment.
 

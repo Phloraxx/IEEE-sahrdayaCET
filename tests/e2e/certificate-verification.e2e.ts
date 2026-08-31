@@ -40,6 +40,25 @@ function sha256(value: Buffer) {
   return createHash("sha256").update(value).digest("hex");
 }
 
+test("certificate verification uses the public-site design shell on mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const errors: string[] = [];
+  page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
+  await page.goto("/verify");
+  await expect(page.getByRole("heading", { name: "Verify a certificate." })).toBeVisible();
+  await expect(page.getByText("01", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("PUBLIC REGISTRY", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open menu" })).toBeVisible();
+  await expect(page.getByText("IEEE", { exact: true }).last()).toBeVisible();
+  await expect(page.getByText("SAHRDAYA", { exact: true }).last()).toBeVisible();
+  const geometry = await page.evaluate(() => ({
+    viewport: document.documentElement.clientWidth,
+    document: document.documentElement.scrollWidth,
+  }));
+  expect(geometry.document).toBeLessThanOrEqual(geometry.viewport + 1);
+  expect(errors, errors.join("\n")).toEqual([]);
+});
+
 test("public certificate verification exposes the safe active credential projection", async ({ page }) => {
   const certificate = await fixtureByStatus("active");
   const response = await page.goto(`/c/${certificate.verificationToken}`);
