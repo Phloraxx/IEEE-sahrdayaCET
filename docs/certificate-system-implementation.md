@@ -650,4 +650,15 @@ Local evidence before the authoritative Linux clean-room gate:
 - preflight dry-run passes on a clean exact-SHA disposable checkout and rejects an intentionally wrong SHA;
 - registry Playwright acceptance passes desktop search/CSV export and 390 px mobile layout with zero horizontal overflow.
 
-The authoritative fresh-PocketBase/backend/full-browser gate remains GitHub CI on the exact feature candidate before any `dev` movement. The local execution safety layer does not permit bootstrapping a new PocketBase superuser, so no local claim of clean-room backend completion is made here. `main`/production and real certificate Issue/Send remain untouched.
+Authoritative closure evidence:
+
+- exact feature candidate `3f9ec8c1a1e6e581deea9ca289edf56f5fb82904` passed CI `33414919508` (run #931): validation, both container builds, fresh PocketBase, certificate/payment backend smokes, and Browser E2E; CI-only draft PR #101 was then closed unmerged;
+- the same exact SHA was lease-guarded fast-forwarded to `dev`; push CI `33415502430` (run #932) passed the full gate again, including final Browser E2E;
+- staging CD `33415739121` (run #476) explicitly logged `BRANCH=dev`, `TARGET=staging`, and `TESTED_SHA=3f9ec8c1a1e6e581deea9ca289edf56f5fb82904` before Dokploy returned `Compose deployed successfully`;
+- canonical Dokploy staging containers were healthy and the working directory reported `dev @ 3f9ec8c1a1e6e581deea9ca289edf56f5fb82904`; live `/`, `/healthz`, `/verify`, and `/api/health` returned 200 while public `/_/` returned 404 and staging noindex headers remained present;
+- live synthetic registry acceptance used two issued credentials: one email-ready/not-queued and one deliberate missing-email record. Ordinary-user event-scoped registry access returned 403, while the admin registry showed both rows and staging mail readiness remained `provider=smtp`, `deliveryMode=disabled`, `trackingMode=accepted_only`, `readyToQueue=false`;
+- no Send or Test Email command was invoked. The synthetic certificate batch had zero notification-outbox rows before and after browser acceptance;
+- live Chromium registry acceptance passed desktop search/CSV export plus 390x844 mobile behavior. A separate 1440x1000/390x844 dwell capture reported zero console/page errors and no horizontal overflow;
+- the pre-test PocketBase volume snapshot was 85,430,845 bytes with SHA-256 `535c05d1abe8de2e88e8f89e5a337d201d6cc0f6d6fff6b28deef668cf39dd99`. That exact archive was hash-verified before restore; raw restored-volume checks found zero synthetic event/certificate marker and zero synthetic-user prefix, the temporary superuser was rejected after restore, staging web/API health returned 200, and all temporary backup/credential/capture files were deleted.
+
+The one pre-existing staging credential and its historical delivery issue were observed but not modified. Production `main` remains untouched at `6787b614086b3343271e2d04afdc82169ae76d31`. No real attendee record, certificate, or email was modified or sent. Real workshop issuance and the controlled production SMTP inbox test remain explicitly deferred.
