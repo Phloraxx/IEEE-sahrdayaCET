@@ -72,7 +72,6 @@ export function PublicCertificateRecord({ verification, token, compactInvalid = 
                     <RecordField index="02" label="Credential ID" value={verification.credentialId || "—"} mono />
                     <RecordField index="03" label="Issue date" value={formatCertificateIssueDate(verification.issueDate)} />
                     <RecordField index="04" label="Issuer" value={verification.issuer || "—"} wide />
-                    <RecordField index="05" label="Current status" value={verification.status} wide status />
                   </dl>
 
                   {token && (
@@ -92,13 +91,13 @@ export function PublicCertificateRecord({ verification, token, compactInvalid = 
     </section>
   );
 }
-function RecordField({ index, label, value, wide = false, mono = false, status = false }: { index: string; label: string; value: string; wide?: boolean; mono?: boolean; status?: boolean }) {
+function RecordField({ index, label, value, wide = false, mono = false }: { index: string; label: string; value: string; wide?: boolean; mono?: boolean }) {
   return (
     <div className={`border-black/10 py-5 sm:px-5 sm:first:pl-0 ${wide ? "sm:col-span-2" : "sm:border-r last:sm:border-r-0"}`}>
       <dt className="flex items-center gap-3 font-mono text-[9px] font-semibold uppercase tracking-[0.22em] text-black/35">
         <span className="text-ieee-blue">{index}</span>{label}
       </dt>
-      <dd className={`mt-2 break-words text-sm font-medium text-black/75 ${mono ? "font-mono" : ""} ${status ? "uppercase tracking-[0.14em]" : ""}`}>{value}</dd>
+      <dd className={`mt-2 break-words text-sm font-medium text-black/75 ${mono ? "font-mono" : ""}`}>{value}</dd>
     </div>
   );
 }

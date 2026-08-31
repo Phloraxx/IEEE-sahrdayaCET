@@ -47,7 +47,7 @@ test("certificate verification uses the public-site design shell on mobile", asy
   await page.goto("/verify");
   await expect(page.getByRole("heading", { name: "Verify a certificate." })).toBeVisible();
   await expect(page.getByText("01", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("PUBLIC REGISTRY", { exact: true })).toBeVisible();
+  await expect(page.getByText("Public registry", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Open menu" })).toBeVisible();
   await expect(page.getByText("IEEE", { exact: true }).last()).toBeVisible();
   await expect(page.getByText("SAHRDAYA", { exact: true }).last()).toBeVisible();
