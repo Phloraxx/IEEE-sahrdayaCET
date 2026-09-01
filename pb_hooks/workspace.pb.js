@@ -303,17 +303,33 @@ routerAdd("POST", "/api/workspace/check-in", function (e) {
   var rh = require(__hooks + "/registration-helpers.js")
   var body = authz.requestBody(e)
   var ticketId = String(body.ticketId || "").trim()
+  var expectedEventId = String(body.eventId || "").trim()
   if (!ticketId) return authz.jsonError(e, 400, "TICKET_REQUIRED", "Ticket ID is required")
+  var expectedEvent = null
+  if (expectedEventId) {
+    try { expectedEvent = $app.findRecordById("events", expectedEventId) }
+    catch (_) { return authz.jsonError(e, 404, "EVENT_NOT_FOUND", "Event not found") }
+    if (!authz.hasEventCapability($app, e.auth, "checkin.manage", expectedEvent)) {
+      return authz.jsonError(e, 403, "FORBIDDEN", "You are not assigned to check in this event")
+    }
+  }
   var registration
   try { registration = $app.findFirstRecordByFilter("registrations", "ticketId = {:ticket}", { ticket: ticketId }) }
   catch (_) { return authz.jsonError(e, 404, "REGISTRATION_NOT_FOUND", "Registration not found") }
   var event
   try { event = $app.findRecordById("events", registration.getString("event")) } catch (_) { return authz.jsonError(e, 404, "EVENT_NOT_FOUND", "Event not found") }
-  if (!authz.hasEventCapability($app, e.auth, "checkin.manage", event)) {
+  if (expectedEventId && event.id !== expectedEventId) {
+    return authz.jsonError(e, 409, "WRONG_EVENT", "This ticket belongs to a different event")
+  }
+  if (!expectedEvent && !authz.hasEventCapability($app, e.auth, "checkin.manage", event)) {
     return authz.jsonError(e, 403, "FORBIDDEN", "You are not assigned to check in this event")
   }
+  if (event.getString("status") !== "published") return authz.jsonError(e, 409, "CHECKIN_NOT_ACTIVE", "Check-in is only available while the event is published")
   if (!event.getBool("checkInEnabled")) return authz.jsonError(e, 409, "CHECKIN_DISABLED", "Check-in is not enabled for this event")
   if (registration.getString("registrationStatus") !== "confirmed") return authz.jsonError(e, 409, "NOT_CONFIRMED", "Registration is not confirmed")
+  if (require(__hooks + "/attendance-v2-helpers.js").eventHasSessions($app, event.id)) {
+    return authz.jsonError(e, 409, "SESSION_REQUIRED", "This event uses attendance sessions. Select a session in the Attendance console.")
+  }
   if (registration.getBool("checkedIn")) return authz.jsonError(e, 409, "ALREADY_CHECKED_IN", "Already checked in")
   var now = new Date().toISOString()
   var before = helpers.registrationSnapshot(registration)

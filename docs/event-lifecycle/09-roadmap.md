@@ -13,7 +13,7 @@ Status: implemented and locally accepted.
 
 ## Phase 1 — explicit event place/access model
 
-Status: implementation reconstructed on Oracle; focused tests and fresh-schema boot green; GitHub authenticated clean-room pending.
+Status: accepted on exact feature head `49877d898ae39ca20388145305063046dcc9e045`; GitHub CI #934 passed validation, container builds, authenticated clean-room backend and Browser E2E.
 
 - Explicit `timezone`, `attendanceMode`, `locationAddress`.
 - Legacy deterministic backfill.
@@ -25,7 +25,15 @@ Status: implementation reconstructed on Oracle; focused tests and fresh-schema b
 
 ## Phase 2 — Attendance V2
 
-Next schema-bearing phase: sessions + append-only attendance records + upgraded scanner, with legacy check-in projection preserved.
+Status: implementation complete locally; exact-head GitHub CI and staging acceptance still pending.
+
+- Server-owned `event_sessions` plus append-only `attendance_records`.
+- Sessionless events retain legacy one-time check-in.
+- Session-enabled events use explicit, idempotent session commands.
+- Legacy arrival projection preserved for compatibility.
+- Continuous scoped scanner, live counts, recent scans and audited corrections.
+- Organizer Attendance tab and session management.
+- `attendance_qualified` remains disabled until Phase 5 closeout.
 ## Phase 3 — attendee continuity
 
 - `/my-events`.

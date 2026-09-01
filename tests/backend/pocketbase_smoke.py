@@ -89,6 +89,16 @@ for collection_name in ("certificate_templates", "certificate_batches", "certifi
     request("GET", f"/api/collections/{collection_name}/records", token=admin_token, expected=(403,))
     request("POST", f"/api/collections/{collection_name}/records", {}, token=admin_token, expected=(403,))
 
+# Attendance V2 is also command-owned server state. Session definitions and
+# attendance history are not directly browsable or writable by application users.
+for collection_name in ("event_sessions", "attendance_records"):
+    schema = request("GET", f"/api/collections/{collection_name}", token=super_token)
+    for rule_name in ("listRule", "viewRule", "createRule", "updateRule", "deleteRule"):
+        assert schema.get(rule_name) is None, (collection_name, rule_name, schema.get(rule_name))
+    request("GET", f"/api/collections/{collection_name}/records", token=user_token, expected=(403,))
+    request("GET", f"/api/collections/{collection_name}/records", token=admin_token, expected=(403,))
+    request("POST", f"/api/collections/{collection_name}/records", {}, token=admin_token, expected=(403,))
+
 template_schema = request("GET", "/api/collections/certificate_templates", token=super_token)
 template_fields = {field["name"]: field for field in template_schema["fields"]}
 for protected_name in ("sourceBackground", "sourceSignatures", "renderBase"):
@@ -436,6 +446,176 @@ replayed_registration = request("POST", f"/api/app/events/{event['id']}/register
 assert replayed_registration.get("reused") is True
 assert replayed_registration["registrationId"] == registration["registrationId"]
 assert replayed_registration["ticketId"] == registration["ticketId"]
+
+# Attendance V2 is opt-in by event sessions. A dedicated fixture proves the new
+# append-only session path while the existing main/ops events remain sessionless
+# and continue exercising legacy single check-in compatibility later in this file.
+attendance_event = request("POST", "/api/collections/events/records", {
+    "title": f"CI Attendance V2 {suffix}", "description": "multi-session attendance",
+    "date": start, "endDate": end, "venue": "CI Attendance Lab", "price": 0,
+    "society": society["id"], "status": "published", "maxCapacity": 5,
+    "registeredCount": 0, "checkedInCount": 0, "registrationOpen": True,
+    "checkInEnabled": True, "isDeleted": False,
+    "formTemplate": [
+        {"id": "name", "name": "name", "label": "Name", "required": True},
+        {"id": "email", "name": "email", "label": "Email", "required": True},
+    ],
+}, super_token)
+attendance_other_event = request("POST", "/api/collections/events/records", {
+    "title": f"CI Attendance Other {suffix}", "description": "wrong-session fixture",
+    "date": start, "endDate": end, "venue": "CI Other Lab", "price": 0,
+    "society": society["id"], "status": "published", "maxCapacity": 5,
+    "registeredCount": 0, "checkedInCount": 0, "registrationOpen": True,
+    "checkInEnabled": True, "isDeleted": False,
+}, super_token)
+attendance_session = request("POST", f"/api/app/events/{attendance_event['id']}/attendance/sessions", {
+    "title": "Day 1 · Core Session", "startsAt": start, "endsAt": end,
+    "venue": "CI Attendance Lab", "attendanceEnabled": True, "checkInEnabled": True,
+    "requiredForCertificate": True, "attendanceWeight": 1,
+}, admin_token)["session"]
+other_attendance_session = request("POST", f"/api/app/events/{attendance_other_event['id']}/attendance/sessions", {
+    "title": "Other Event Session", "startsAt": start, "endsAt": end,
+    "attendanceEnabled": True, "checkInEnabled": True,
+}, admin_token)["session"]
+assert attendance_session["presentCount"] == 0
+attendance_sessions = request("GET", f"/api/app/events/{attendance_event['id']}/attendance/sessions", token=admin_token)
+assert attendance_sessions["mode"] == "sessions" and len(attendance_sessions["sessions"]) == 1
+
+attendance_registration = request("POST", f"/api/app/events/{attendance_event['id']}/register", {
+    "formResponses": {"name": "Attendance Member", "email": user["email"]},
+}, user_token)
+assert attendance_registration["registrationStatus"] == "confirmed"
+attendance_registration_id = attendance_registration["registrationId"]
+attendance_ticket = attendance_registration["ticketId"]
+
+checkin_staff = create_user("attendance-checkin", "user")
+checkin_staff_token = impersonate(super_token, checkin_staff["id"])
+request("POST", "/api/collections/organization_assignments/records", {
+    "user": checkin_staff["id"], "roleCode": "event_checkin", "title": "Attendance desk",
+    "scopeType": "event", "event": attendance_event["id"], "active": True,
+    "source": "manual", "createdBy": admin["id"],
+}, super_token)
+request("GET", f"/api/collections/registrations/records/{attendance_registration_id}", token=checkin_staff_token, expected=(403, 404))
+attendance_context = request("GET", "/api/workspace/attendance/context", token=checkin_staff_token)
+assert [row["id"] for row in attendance_context["events"]] == [attendance_event["id"]]
+assert attendance_context["events"][0]["mode"] == "sessions"
+assert "userName" not in json.dumps(attendance_context)
+
+# Once sessions exist, old event-level check-in commands refuse to mutate the
+# legacy boolean. Operators must select an explicit session.
+request("POST", "/api/workspace/check-in", {"ticketId": attendance_ticket}, checkin_staff_token, (409,))
+request("POST", f"/api/admin/registrations/{attendance_registration_id}/command", {"action": "check-in"}, admin_token, (409,))
+
+# V2 requires a client-generated request identifier so retries are safe rather
+# than accidentally becoming duplicate attendance records.
+request("POST", "/api/workspace/attendance/check-in", {
+    "ticketId": attendance_ticket, "eventId": attendance_event["id"],
+    "sessionId": attendance_session["id"],
+}, checkin_staff_token, (400,))
+
+request("POST", "/api/workspace/attendance/check-in", {
+    "ticketId": attendance_ticket, "eventId": attendance_event["id"],
+    "sessionId": other_attendance_session["id"], "idempotencyKey": f"wrong-session-{suffix}",
+}, checkin_staff_token, (409,))
+request("POST", "/api/workspace/attendance/check-in", {
+    "ticketId": registration["ticketId"], "eventId": attendance_event["id"],
+    "sessionId": attendance_session["id"], "idempotencyKey": f"wrong-event-{suffix}",
+}, checkin_staff_token, (409,))
+
+scan_key = f"attendance-scan-{suffix}"
+attendance_scan = request("POST", "/api/workspace/attendance/check-in", {
+    "ticketId": attendance_ticket, "eventId": attendance_event["id"],
+    "sessionId": attendance_session["id"], "idempotencyKey": scan_key,
+    "deviceId": "ci-scanner",
+}, checkin_staff_token)
+assert attendance_scan["success"] is True and attendance_scan["replayed"] is False
+assert attendance_scan["registration"]["userName"] == "Attendance Member"
+assert attendance_scan["registration"]["sessionId"] == attendance_session["id"]
+assert attendance_scan["presentCount"] == 1
+attendance_replay = request("POST", "/api/workspace/attendance/check-in", {
+    "ticketId": attendance_ticket, "eventId": attendance_event["id"],
+    "sessionId": attendance_session["id"], "idempotencyKey": scan_key,
+}, checkin_staff_token)
+assert attendance_replay["replayed"] is True
+request("POST", "/api/workspace/attendance/check-in", {
+    "ticketId": attendance_ticket, "eventId": attendance_event["id"],
+    "sessionId": attendance_session["id"], "idempotencyKey": f"duplicate-{suffix}",
+}, checkin_staff_token, (409,))
+
+attendance_reg_record = request("GET", f"/api/collections/registrations/records/{attendance_registration_id}", token=super_token)
+assert attendance_reg_record["checkedIn"] is True and attendance_reg_record["checkedInAt"]
+attendance_event_record = request("GET", f"/api/collections/events/records/{attendance_event['id']}", token=super_token)
+assert attendance_event_record["checkedInCount"] == 1
+
+request("POST", "/api/workspace/attendance/correct", {
+    "registrationId": attendance_registration_id, "sessionId": attendance_session["id"],
+    "action": "manual_remove", "note": "CI correction removes accidental scan",
+}, checkin_staff_token)
+attendance_reg_after_remove = request("GET", f"/api/collections/registrations/records/{attendance_registration_id}", token=super_token)
+assert attendance_reg_after_remove["checkedIn"] is True and attendance_reg_after_remove["checkedInAt"]
+attendance_state = request("GET", f"/api/workspace/attendance/sessions/{attendance_session['id']}/state", token=checkin_staff_token)
+assert attendance_state["session"]["presentCount"] == 0
+assert attendance_state["recent"][0]["type"] == "manual_remove"
+assert attendance_state["recent"][0]["present"] is False
+assert attendance_state["recent"][0]["isLatestForRegistration"] is True
+request("POST", "/api/workspace/attendance/correct", {
+    "registrationId": attendance_registration_id, "sessionId": attendance_session["id"],
+    "action": "manual_add", "note": "CI correction restores verified attendance",
+}, checkin_staff_token)
+attendance_state = request("GET", f"/api/workspace/attendance/sessions/{attendance_session['id']}/state", token=checkin_staff_token)
+assert attendance_state["session"]["presentCount"] == 1
+assert attendance_state["recent"][0]["type"] == "manual_add"
+assert attendance_state["recent"][0]["present"] is True
+assert attendance_state["recent"][0]["isLatestForRegistration"] is True
+request("POST", "/api/workspace/attendance/correct", {
+    "registrationId": attendance_registration_id, "sessionId": attendance_session["id"],
+    "action": "manual_remove", "note": "",
+}, checkin_staff_token, (400,))
+request("DELETE", f"/api/app/event-sessions/{attendance_session['id']}", token=admin_token, expected=(409,))
+
+attendance_rows = request("GET", "/api/collections/attendance_records/records?filter=" + urllib.parse.quote(f'session="{attendance_session["id"]}"'), token=super_token)
+assert attendance_rows["totalItems"] == 3
+request("PATCH", f"/api/collections/attendance_records/records/{attendance_rows['items'][0]['id']}", {"note": "tampered"}, super_token, (400,))
+attendance_audit = request("GET", "/api/collections/admin_audit_log/records?filter=" + urllib.parse.quote(f'event="{attendance_event["id"]}" && action~"attendance."'), token=super_token)
+assert any(row["action"] == "attendance.present" for row in attendance_audit["items"])
+assert any(row["action"] == "attendance.manual_remove" for row in attendance_audit["items"])
+assert any(row["action"] == "attendance.manual_add" for row in attendance_audit["items"])
+
+# Session scanning is an event-day operation; once the event is no longer
+# published the command fails closed even though the session history remains.
+request("POST", f"/api/workspace/events/{attendance_event['id']}/workflow", {
+    "action": "unpublish", "note": "CI validates attendance active-event guard",
+}, admin_token)
+request("POST", "/api/workspace/attendance/check-in", {
+    "ticketId": attendance_ticket, "eventId": attendance_event["id"],
+    "sessionId": attendance_session["id"], "idempotencyKey": f"inactive-{suffix}",
+}, checkin_staff_token, (409,))
+
+# Leave one dedicated sessionless event untouched for the browser lifecycle.
+# Playwright receives only non-secret fixture identifiers through GITHUB_ENV;
+# it never needs PocketBase superuser credentials or raw collection writes.
+browser_attendance_event = request("POST", "/api/collections/events/records", {
+    "title": f"E2E Attendance V2 {suffix}", "description": "browser attendance fixture",
+    "date": start, "endDate": end, "venue": "E2E Attendance Lab", "price": 0,
+    "society": society["id"], "status": "published", "maxCapacity": 5,
+    "registeredCount": 0, "checkedInCount": 0, "registrationOpen": True,
+    "checkInEnabled": True, "isDeleted": False,
+    "formTemplate": [
+        {"id": "name", "name": "name", "label": "Name", "required": True},
+        {"id": "email", "name": "email", "label": "Email", "required": True},
+    ],
+}, super_token)
+browser_attendee_name = "E2E Attendance Member"
+browser_attendance_registration = request("POST", f"/api/app/events/{browser_attendance_event['id']}/register", {
+    "formResponses": {"name": browser_attendee_name, "email": second_user["email"]},
+}, second_token)
+assert browser_attendance_registration["registrationStatus"] == "confirmed"
+assert browser_attendance_registration["ticketId"]
+if github_env := os.environ.get("GITHUB_ENV"):
+    with open(github_env, "a", encoding="utf-8") as env_file:
+        env_file.write(f"E2E_ATTENDANCE_EVENT_ID={browser_attendance_event['id']}\n")
+        env_file.write(f"E2E_ATTENDANCE_TICKET_ID={browser_attendance_registration['ticketId']}\n")
+        env_file.write(f"E2E_ATTENDANCE_ATTENDEE_NAME={browser_attendee_name}\n")
 
 # Confirmed free registrations enqueue exactly one ticket email job. With SMTP
 # intentionally absent in clean-room CI, the worker must fail durably into the

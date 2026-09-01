@@ -144,8 +144,8 @@ export async function confirmRegistrationPayment(id: string) {
   return runAdminRegistrationCommand(id, { action: "confirm-payment" });
 }
 
-export async function checkInByTicket(ticketId: string) {
-  return checkInWorkspaceTicket(ticketId.trim());
+export async function checkInByTicket(ticketId: string, eventId = "") {
+  return checkInWorkspaceTicket(ticketId.trim(), eventId);
 }
 
 export interface RegistrationNotificationState {

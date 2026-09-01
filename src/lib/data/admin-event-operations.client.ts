@@ -110,6 +110,10 @@ export interface AdminEventOperations {
     registration: string;
     created: string;
   }>;
+  attendance: {
+    mode: "legacy" | "sessions";
+    sessionCount: number;
+  };
   permissions: Record<string, boolean>;
   financeDisclaimer: string;
 }

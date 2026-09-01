@@ -87,6 +87,7 @@ routerAdd("GET", "/api/admin/events/{id}/operations", function (e) {
     }
   } catch (_) {}
 
+  var attendanceSessions = require(__hooks + "/attendance-v2-helpers.js").sessionsForEvent($app, event.id)
   return e.json(200, {
     event: helpers.eventPayload(event),
     summary: summary,
@@ -94,6 +95,10 @@ routerAdd("GET", "/api/admin/events/{id}/operations", function (e) {
     attention: attention,
     coupons: coupons,
     audit: audit,
+    attendance: {
+      mode: attendanceSessions.length ? "sessions" : "legacy",
+      sessionCount: attendanceSessions.length,
+    },
     permissions: helpers.eventPermissions($app, e.auth, event),
     financeDisclaimer: "Recorded collections are an application ledger, not a live bank balance.",
   })
@@ -441,6 +446,9 @@ routerAdd("POST", "/api/admin/registrations/{id}/command", function (e) {
   }
   if (!allowed[action]) {
     return e.json(400, { code: "INVALID_ACTION", error: "Unknown registration action" })
+  }
+  if ((action === "check-in" || action === "undo-check-in") && require(__hooks + "/attendance-v2-helpers.js").eventHasSessions($app, event.id)) {
+    return e.json(409, { code: "USE_ATTENDANCE_V2", error: "Use the Attendance console for session-enabled events" })
   }
   if ((action === "mark-refunded" || action === "restore" || action === "reopen-manual-payment") && !note) {
     return e.json(400, { code: "NOTE_REQUIRED", error: "A note is required for this financial correction" })

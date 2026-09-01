@@ -23,4 +23,5 @@ IEEE vTools/L31 reporting is explicitly out of scope. Completed events may later
 7. `07-testing-migrations-release.md` — clean-room, E2E and rollout gates.
 8. `08-research-decisions.md` — external patterns adopted/rejected.
 9. `09-roadmap.md` — implementation order and dependencies.
-10. `10-phase-0-1-acceptance.md` — current implementation evidence.
+10. `10-phase-0-1-acceptance.md` — Phase 0/1 implementation and exact-head CI evidence.
+11. `11-phase-2-local-acceptance.md` — Attendance V2 local/fresh-backend acceptance evidence and remaining gates.

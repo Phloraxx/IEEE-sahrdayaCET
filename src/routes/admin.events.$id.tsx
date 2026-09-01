@@ -51,6 +51,7 @@ import { EventCancelDialog } from "@/components/admin/event-cancel-dialog";
 import { EventTeamPanel } from "@/features/admin/events/event-team-panel";
 import { EventWorkflowPanel } from "@/features/admin/events/event-workflow-panel";
 import { CertificateTemplatePanel } from "@/features/admin/events/certificate-template-panel";
+import { AttendanceSessionPanel } from "@/features/admin/events/attendance-session-panel";
 import { useAuth } from "@/lib/auth-context";
 import { getPbClient } from "@/lib/pb-client";
 import { csvFilename, streamRegistrationsCSV } from "@/lib/csv-export";
@@ -67,8 +68,8 @@ import { listAdminRegistrations } from "@/lib/data/admin-registrations.client";
 import { cancelAdminEvent } from "@/lib/data/admin-events.client";
 import { runEventWorkflow } from "@/lib/data/workspace.client";
 
-type Tab = "overview" | "attendees" | "payments" | "coupons" | "certificates" | "team" | "activity";
-const VALID_TABS: Tab[] = ["overview", "attendees", "payments", "coupons", "certificates", "team", "activity"];
+type Tab = "overview" | "attendees" | "attendance" | "payments" | "coupons" | "certificates" | "team" | "activity";
+const VALID_TABS: Tab[] = ["overview", "attendees", "attendance", "payments", "coupons", "certificates", "team", "activity"];
 
 const money = (value: number) => `₹${Math.max(0, value || 0).toLocaleString("en-IN")}`;
 function OpsMetric({
@@ -471,10 +472,12 @@ export default function AdminEventOperationsRoute() {
   const permissions = operations.data.permissions ?? {};
   const isPlatformAdmin = user?.role === "admin";
   const eventFull = event.maxCapacity > 0 && summary.active >= event.maxCapacity;
+  const sessionAttendanceActive = operations.data.attendance?.mode === "sessions";
   const capacityPct = event.maxCapacity > 0 ? Math.min(100, Math.round((summary.active / event.maxCapacity) * 100)) : 0;
   const tabs: Array<{ id: Tab; label: string; count?: number }> = [
     { id: "overview", label: "Overview" },
     ...(permissions["registrations.view"] ? [{ id: "attendees" as Tab, label: "Attendees", count: summary.active }] : []),
+    ...(permissions["events.edit"] || permissions["checkin.manage"] ? [{ id: "attendance" as Tab, label: "Attendance", count: operations.data.attendance?.sessionCount || undefined }] : []),
     ...(permissions["finance.view"] ? [{ id: "payments" as Tab, label: "Payments", count: summary.paidCount }] : []),
     ...(permissions["events.edit"] ? [{ id: "coupons" as Tab, label: "Coupons", count: operations.data.coupons.length }] : []),
     ...(permissions["certificates.view"] ? [{ id: "certificates" as Tab, label: "Certificates" }] : []),
@@ -600,6 +603,7 @@ export default function AdminEventOperationsRoute() {
                       permissions={permissions}
                       compact
                       pending={actionMutation.isPending}
+                      sessionAttendanceActive={sessionAttendanceActive}
                       onAction={(action, title) => setResolution({ row, action, title })}
                       onImmediate={(action) => actionMutation.mutate({ row, action })}
                     />
@@ -613,6 +617,11 @@ export default function AdminEventOperationsRoute() {
                   <Button variant="outline" className="justify-start gap-3" onClick={() => setTab("attendees")}>
                     <ClipboardList className="h-4 w-4" /> Open attendee register
                   </Button>
+                  {(permissions["events.edit"] || permissions["checkin.manage"]) && (
+                    <Button variant="outline" className="justify-start gap-3" onClick={() => setTab("attendance")}>
+                      <UserCheck className="h-4 w-4" /> Open attendance console
+                    </Button>
+                  )}
                   <Button variant="outline" className="justify-start gap-3" onClick={() => setTab("payments")}>
                     <WalletCards className="h-4 w-4" /> Open payment desk
                   </Button>
@@ -644,7 +653,9 @@ export default function AdminEventOperationsRoute() {
             <PanelHeader
               eyebrow="Attendee register"
               title="Everyone attached to this event"
-              description="Search, filter, inspect, check in, cancel, restore, or resolve payment state."
+              description={sessionAttendanceActive
+                ? "Search, filter, inspect, cancel, restore, or resolve payment state. Session check-in is managed from the Attendance tab."
+                : "Search, filter, inspect, check in, cancel, restore, or resolve payment state."}
               actions={permissions["registrations.manual"] ? <Button size="sm" className="gap-2" onClick={() => setManualOpen(true)}><Plus className="h-4 w-4" />Add attendee</Button> : undefined}
             />
             <div className="mt-5 grid gap-3 md:grid-cols-[1fr_170px_170px]">
@@ -681,6 +692,7 @@ export default function AdminEventOperationsRoute() {
                     row={row}
                     permissions={permissions}
                     pending={actionMutation.isPending}
+                    sessionAttendanceActive={sessionAttendanceActive}
                     onAction={(action, title) => setResolution({ row, action, title })}
                     onImmediate={(action) => actionMutation.mutate({ row, action })}
                   />
@@ -702,7 +714,20 @@ export default function AdminEventOperationsRoute() {
             )}
           </CardContent>
         </Card>
-      )}      {tab === "payments" && (
+      )}
+
+      {tab === "attendance" && (
+        <AttendanceSessionPanel
+          eventId={id}
+          eventStart={event.date}
+          eventEnd={event.endDate}
+          eventVenue={event.venue}
+          canManage={Boolean(permissions["events.edit"])}
+          canCheckIn={Boolean(permissions["checkin.manage"])}
+        />
+      )}
+
+      {tab === "payments" && (
         <div className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <OpsMetric label="Collected" value={money(summary.paidAmount)} detail={`${summary.paidCount} paid records`} icon={Banknote} />
@@ -725,6 +750,7 @@ export default function AdminEventOperationsRoute() {
                       row={row}
                       permissions={permissions}
                       pending={actionMutation.isPending}
+                      sessionAttendanceActive={sessionAttendanceActive}
                       onAction={(action, title) => setResolution({ row, action, title })}
                       onImmediate={(action) => actionMutation.mutate({ row, action })}
                     />
@@ -850,6 +876,7 @@ function OperationRow({
   permissions,
   compact = false,
   pending,
+  sessionAttendanceActive = false,
   onAction,
   onImmediate,
 }: {
@@ -857,6 +884,7 @@ function OperationRow({
   permissions: Record<string, boolean>;
   compact?: boolean;
   pending: boolean;
+  sessionAttendanceActive?: boolean;
   onAction: (action: RegistrationAdminAction, title: string) => void;
   onImmediate: (action: RegistrationAdminAction) => void;
 }) {
@@ -896,12 +924,12 @@ function OperationRow({
               <BadgeCheck className="h-3.5 w-3.5" /> Confirm paid
             </Button>
           )}
-          {permissions["checkin.manage"] && !row.checkedIn && row.registrationStatus === "confirmed" && (
+          {permissions["checkin.manage"] && !sessionAttendanceActive && !row.checkedIn && row.registrationStatus === "confirmed" && (
             <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" disabled={pending} onClick={() => onImmediate("check-in")}>
               <UserCheck className="h-3.5 w-3.5" /> Check in
             </Button>
           )}
-          {permissions["checkin.manage"] && row.checkedIn && (
+          {permissions["checkin.manage"] && !sessionAttendanceActive && row.checkedIn && (
             <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" disabled={pending} onClick={() => onImmediate("undo-check-in")}>
               <XCircle className="h-3.5 w-3.5" /> Undo check-in
             </Button>

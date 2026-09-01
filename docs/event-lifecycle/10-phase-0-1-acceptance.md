@@ -41,11 +41,20 @@ Stopped-database inspection showed:
 
 Temporary test container/database artifacts were removed after inspection.
 
-## Pending before Phase 1 is accepted for staging
+## Exact-head GitHub acceptance
 
-- GitHub CI must execute the updated authenticated `pocketbase_smoke.py` assertions for raw private-collection denial, organizer write, unregistered denial, confirmed-attendee access and audit redaction.
-- Full repository unit/lint/build/browser gates must be green on the exact commit.
-- Any staging exercise must remain synthetic and reversible.
+Phase 0/1 was checkpointed and the PocketBase helper-runtime defect found by the first clean-room attempt was fixed in `49877d898ae39ca20388145305063046dcc9e045`.
+
+GitHub CI #934 / run `33477816138` then passed on that exact head:
+
+- PR lint;
+- lint, typecheck, full unit suite and production build;
+- web and PocketBase container builds;
+- authenticated fresh-PocketBase backend invariants;
+- certificate/payment lifecycle suites;
+- Browser E2E.
+
+Phase 1 is therefore accepted for the feature branch. Staging remains a separate synthetic/reversible gate before any merge/deployment decision.
 
 No mail was sent, no certificate was issued, and neither `dev` nor `main` was moved during this implementation work.
 

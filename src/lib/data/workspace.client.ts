@@ -75,10 +75,10 @@ export async function runEventWorkflow(
   }) as Promise<{ event: Record<string, unknown> }>;
 }
 
-export async function checkInWorkspaceTicket(ticketId: string) {
+export async function checkInWorkspaceTicket(ticketId: string, eventId = "") {
   return getPbClient().send("/api/workspace/check-in", {
     method: "POST",
-    body: { ticketId },
+    body: { ticketId, eventId },
   }) as Promise<{
     success: boolean;
     message: string;
