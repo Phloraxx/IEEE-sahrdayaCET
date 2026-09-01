@@ -89,6 +89,26 @@ def verify(record, expected_status):
 
 
 verify(primary, "ACTIVE")
+
+# Browser My Events must use a credential that this smoke deliberately keeps
+# active. Earlier issuance order is not a stable contract because the public
+# verification smoke revokes/supersedes two other active fixtures below.
+primary_registration, _ = json_request(
+    "GET", f"/api/collections/registrations/records/{primary['registration']}", token=super_token
+)
+primary_user_token = impersonate(super_token, primary_registration["user"])
+primary_event, _ = json_request(
+    "GET", f"/api/collections/events/records/{primary['event']}", token=super_token
+)
+primary_my_events, _ = json_request("GET", "/api/app/my-events", token=primary_user_token)
+primary_item = next(row for row in primary_my_events["items"] if row["event"]["id"] == primary["event"])
+assert any(row["verificationToken"] == primary["verificationToken"] for row in primary_item["certificates"])
+if github_env := os.environ.get("GITHUB_ENV"):
+    with open(github_env, "a", encoding="utf-8") as env_file:
+        env_file.write(f"E2E_MY_EVENTS_CERT_TOKEN={primary_user_token}\n")
+        env_file.write(f"E2E_MY_EVENTS_CERT_EVENT_TITLE={primary_event['title']}\n")
+        env_file.write(f"E2E_MY_EVENTS_CERT_TOKEN_ID={primary['verificationToken']}\n")
+
 invalid, invalid_headers = json_request("GET", "/api/app/certificates/verify/000000000000000000000000000000000000000000000000", expected=(404,))
 assert invalid == {"status": "INVALID"}
 assert invalid_headers.get("cache-control") == "no-store"

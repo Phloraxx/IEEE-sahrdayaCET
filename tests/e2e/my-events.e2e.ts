@@ -42,7 +42,7 @@ test.describe("My Events attendee continuity", () => {
       "href",
       "https://meet.example.test/ci-private-room",
     );
-    await expect(card.getByText(/Use your attendee name/i)).toBeVisible();
+    await expect(card.getByText(/attendee name shown on your ticket/i)).toBeVisible();
     await expect(card.getByRole("link", { name: "Ticket", exact: true })).toHaveAttribute(
       "href",
       `/ticket/${fixture.ticketId}`,
