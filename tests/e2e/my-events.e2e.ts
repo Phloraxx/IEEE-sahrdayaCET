@@ -116,7 +116,8 @@ test.describe("My Events attendee continuity", () => {
     await expect(page.getByText("A seat is reserved for you")).toBeVisible();
     await page.getByRole("link", { name: "Claim seat" }).click();
     await expect(page).toHaveURL(new RegExp(`/register/${waitlistFixture.eventId}$`));
-    await expect(page.getByText("Your waitlist seat is reserved.")).toBeVisible();
+    await expect(page.getByText("Reserved waitlist place", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "A seat is held for you." })).toBeVisible();
     await page.getByPlaceholder("+91 98765 43210").fill("9876543210");
     await page.getByPlaceholder("Your college or institution").fill("Sahrdaya College");
     await page.getByRole("checkbox").check();
