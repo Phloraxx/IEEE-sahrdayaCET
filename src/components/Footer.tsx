@@ -2,6 +2,10 @@ import { ArrowUpRight, Mail, MapPin, Phone } from "lucide-react";
 import { Link } from "react-router";
 
 const policyLinks = [
+  { label: "About Us", href: "/about" },
+  { label: "Contact Us", href: "/contact" },
+  { label: "Event Pricing", href: "/pricing" },
+  { label: "Shipping & Delivery", href: "/shipping-and-delivery-policy" },
   { label: "Terms & Conditions", href: "/terms-and-conditions" },
   { label: "Privacy Policy", href: "/privacy-policy" },
   { label: "Refund & Cancellation", href: "/refund-and-cancellation-policy" },
