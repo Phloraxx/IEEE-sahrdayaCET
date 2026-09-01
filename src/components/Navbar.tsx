@@ -6,7 +6,7 @@ import { useLocation, Link } from "react-router";
 import { useAuth } from "@/lib/auth-context";
 import { getWorkspaceMe } from "@/lib/data/workspace.client";
 import { preferredWorkspacePath } from "@/lib/workspace-permissions";
-import { LayoutDashboard, LogOut, User, Menu, X, ChevronDown } from "lucide-react";
+import { CalendarDays, LayoutDashboard, LogOut, User, Menu, X, ChevronDown } from "lucide-react";
 import LoginModal from "./LoginModal";
 import {
   FIFA_NAV_ITEMS,
@@ -189,6 +189,17 @@ export default function Navbar({ fifaActive, mobileAlign = "center" }: NavbarPro
                   <div className={`h-px ${inFifa ? "bg-white/10" : "bg-gray-100"}`} />
                 </>
               )}
+              <Link
+                to="/my-events"
+                className={`w-full px-4 py-3 text-left text-xs font-bold transition-colors flex items-center gap-3 tracking-wide ${
+                  inFifa ? "text-ieee-light-blue hover:bg-white/5" : "text-blue-600 hover:bg-blue-50"
+                }`}
+                onClick={() => setShowUserMenu(false)}
+              >
+                <CalendarDays className="w-4 h-4" />
+                My Events
+              </Link>
+              <div className={`h-px ${inFifa ? "bg-white/10" : "bg-gray-100"}`} />
               {workspace.data?.hasWorkspace && (
                 <>
                   <Link

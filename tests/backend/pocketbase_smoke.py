@@ -78,6 +78,9 @@ chair_token = impersonate(super_token, chair["id"])
 user_token = impersonate(super_token, user["id"])
 second_token = impersonate(super_token, second_user["id"])
 
+# Attendee history is private and requires an authenticated user.
+request("GET", "/api/app/my-events", expected=(401,))
+
 # Certificate core collections are authoritative server-only state. Direct
 # browser CRUD stays closed even for legacy application admins; future
 # certificate operations must use explicitly authorized command routes.
@@ -446,6 +449,12 @@ replayed_registration = request("POST", f"/api/app/events/{event['id']}/register
 assert replayed_registration.get("reused") is True
 assert replayed_registration["registrationId"] == registration["registrationId"]
 assert replayed_registration["ticketId"] == registration["ticketId"]
+if github_env := os.environ.get("GITHUB_ENV"):
+    with open(github_env, "a", encoding="utf-8") as env_file:
+        env_file.write(f"E2E_MY_EVENTS_TOKEN={user_token}\n")
+        env_file.write(f"E2E_MY_EVENTS_EVENT_TITLE={event['title']}\n")
+        env_file.write(f"E2E_MY_EVENTS_EVENT_SLUG={event['slug']}\n")
+        env_file.write(f"E2E_MY_EVENTS_TICKET_ID={registration['ticketId']}\n")
 
 # Attendance V2 is opt-in by event sessions. A dedicated fixture proves the new
 # append-only session path while the existing main/ops events remain sessionless
@@ -590,6 +599,21 @@ request("POST", "/api/workspace/attendance/check-in", {
     "ticketId": attendance_ticket, "eventId": attendance_event["id"],
     "sessionId": attendance_session["id"], "idempotencyKey": f"inactive-{suffix}",
 }, checkin_staff_token, (409,))
+
+# My Events is a user-owned projection across registration, access and attendance.
+my_events = request("GET", "/api/app/my-events", token=user_token)
+main_item = next(row for row in my_events["items"] if row["event"]["id"] == event["id"])
+assert main_item["registration"]["ticketId"] == registration["ticketId"]
+assert main_item["privateAccess"]["virtualJoinUrl"] == "https://meet.example.test/ci-private-room"
+attendance_item = next(row for row in my_events["items"] if row["event"]["id"] == attendance_event["id"])
+assert attendance_item["attendance"]["mode"] == "sessions"
+assert attendance_item["attendance"]["attendedSessions"] == 1
+assert attendance_item["attendance"]["totalSessions"] == 1
+assert attendance_item["privateAccess"] is None
+my_events_blob = json.dumps(my_events)
+assert user["email"] not in my_events_blob and "userPhone" not in my_events_blob
+empty_history = request("GET", "/api/app/my-events", token=checkin_staff_token)
+assert empty_history["summary"]["total"] == 0 and empty_history["items"] == []
 
 # Leave one dedicated sessionless event untouched for the browser lifecycle.
 # Playwright receives only non-secret fixture identifiers through GITHUB_ENV;

@@ -188,6 +188,9 @@ routerAdd("GET", "/api/tickets/lookup", function (e) {
             eventPayload = {
                 id: evt.id,
                 title: evt.getString("title") || "",
+                slug: evt.getString("slug") || "",
+                status: evt.getString("status") || "",
+                isArchived: evt.getBool("isDeleted"),
                 date: evt.getString("date") || "",
                 endDate: evt.getString("endDate") || "",
                 venue: evt.getString("venue") || "",

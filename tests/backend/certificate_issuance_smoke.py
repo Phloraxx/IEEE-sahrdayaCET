@@ -265,6 +265,19 @@ assert certificate["credentialId"].startswith("IEEESB-")
 assert len(certificate["verificationToken"]) == 48
 assert certificate["recipientNameSnapshot"] in {"Alice Checked", "Mohammed Abdul Rahman Kizhakkedath"}
 
+# The issued credential appears only through its recipient's authenticated My Events projection.
+certificate_registration = request("GET", f"/api/collections/registrations/records/{certificate['registration']}", token=super_token)
+certificate_member_token = impersonate(super_token, certificate_registration["user"])
+my_events = request("GET", "/api/app/my-events", token=certificate_member_token)
+my_event = next(row for row in my_events["items"] if row["event"]["id"] == event["id"])
+assert my_event["attendance"]["mode"] == "legacy" and my_event["attendance"]["checkedIn"] is True
+assert any(row["credentialId"] == certificate["credentialId"] and row["verificationToken"] == certificate["verificationToken"] for row in my_event["certificates"])
+if github_env := os.environ.get("GITHUB_ENV"):
+    with open(github_env, "a", encoding="utf-8") as env_file:
+        env_file.write(f"E2E_MY_EVENTS_CERT_TOKEN={certificate_member_token}\n")
+        env_file.write(f"E2E_MY_EVENTS_CERT_EVENT_TITLE={event['title']}\n")
+        env_file.write(f"E2E_MY_EVENTS_CERT_TOKEN_ID={certificate['verificationToken']}\n")
+
 request("PATCH", f"/api/collections/certificates/records/{certificate_id}", {
     "recipientNameSnapshot": "Mutated Name",
 }, super_token, expected=(400,))

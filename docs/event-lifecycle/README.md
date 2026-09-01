@@ -24,4 +24,5 @@ IEEE vTools/L31 reporting is explicitly out of scope. Completed events may later
 8. `08-research-decisions.md` — external patterns adopted/rejected.
 9. `09-roadmap.md` — implementation order and dependencies.
 10. `10-phase-0-1-acceptance.md` — Phase 0/1 implementation and exact-head CI evidence.
-11. `11-phase-2-local-acceptance.md` — Attendance V2 local/fresh-backend acceptance evidence and remaining gates.
+11. `11-phase-2-local-acceptance.md` — Attendance V2 local/fresh-backend evidence plus exact-head CI acceptance.
+12. `12-phase-3-local-acceptance.md` — My Events/calendar local acceptance evidence and remaining clean-room gates.

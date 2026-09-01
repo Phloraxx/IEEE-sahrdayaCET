@@ -103,3 +103,9 @@ The clean-room backend smoke exports only non-secret browser fixture identifiers
 - Session timestamps are not mechanically constrained to the top-level event window; closeout should flag anomalies rather than making the Phase 2 editor too rigid for multi-day events.
 - Staging acceptance and merge to `dev` remain pending.
 - `main`/production is completely out of scope for this phase checkpoint.
+
+## Exact-head GitHub acceptance
+
+Phase 2 was checkpointed at `8318476fc4ede335c7c6b7131a4420cb15932d72`. GitHub CI #936 passed the validation job, both container builds, the authenticated clean-room backend suite and Browser E2E. The Attendance V2 browser lifecycle passed organizer session creation, legacy-to-session mode switching, scanner deep-linking, record/correct/restore/duplicate behavior and 390px mobile overflow checks.
+
+`dev` and `main` were not moved by this acceptance. Staging acceptance remains a later explicit rollout gate.

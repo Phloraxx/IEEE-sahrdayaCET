@@ -4,6 +4,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ArrowLeft,
   ArrowRight,
+  CalendarPlus,
   CheckCircle2,
   ExternalLink,
   Clock3,
@@ -384,11 +385,16 @@ export default function EventDetailPage() {
               <p className="mt-6 max-w-2xl text-lg leading-8 text-black/55">Full event details will be added here by the organising society.</p>
             )}
 
-            {event.externalLink && (
-              <a href={event.externalLink} target="_blank" rel="noopener noreferrer" className="group mt-8 inline-flex items-center gap-2 text-sm font-bold text-[#00629B]">
-                Open event link <ExternalLink className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+            <div className="mt-8 flex flex-wrap items-center gap-5">
+              <a href={`/events/${event.slug}/calendar.ics`} className="group inline-flex min-h-11 items-center gap-2 text-sm font-bold text-[#00629B]">
+                Add to calendar <CalendarPlus className="h-4 w-4 transition-transform group-hover:-translate-y-0.5" />
               </a>
-            )}
+              {event.externalLink && (
+                <a href={event.externalLink} target="_blank" rel="noopener noreferrer" className="group inline-flex min-h-11 items-center gap-2 text-sm font-bold text-[#00629B]">
+                  Open event link <ExternalLink className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                </a>
+              )}
+            </div>
           </div>
 
           <aside className="h-fit border-t border-black/15 pt-6 lg:sticky lg:top-28">

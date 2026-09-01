@@ -220,6 +220,9 @@ export interface PublicTicketData {
   event: {
     id: string;
     title: string;
+    slug: string;
+    status: string;
+    isArchived: boolean;
     date: string;
     endDate: string;
     venue: string;
@@ -255,6 +258,9 @@ export async function getTicket(ticketId: string): Promise<PublicTicketData> {
     ? {
         id: String(data.event.id || ""),
         title: String(data.event.title || ""),
+        slug: String(data.event.slug || ""),
+        status: String(data.event.status || ""),
+        isArchived: data.event.isArchived === true,
         date: String(data.event.date || ""),
         endDate: String(data.event.endDate || ""),
         venue: String(data.event.venue || ""),

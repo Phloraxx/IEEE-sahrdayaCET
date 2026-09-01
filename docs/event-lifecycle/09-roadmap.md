@@ -25,7 +25,7 @@ Status: accepted on exact feature head `49877d898ae39ca20388145305063046dcc9e045
 
 ## Phase 2 — Attendance V2
 
-Status: implementation complete locally; exact-head GitHub CI and staging acceptance still pending.
+Status: accepted on exact feature head `8318476fc4ede335c7c6b7131a4420cb15932d72`; GitHub CI #936 passed validation, container builds, authenticated clean-room backend and Attendance V2 Browser E2E. Staging acceptance remains pending.
 
 - Server-owned `event_sessions` plus append-only `attendance_records`.
 - Sessionless events retain legacy one-time check-in.
@@ -36,10 +36,13 @@ Status: implementation complete locally; exact-head GitHub CI and staging accept
 - `attendance_qualified` remains disabled until Phase 5 closeout.
 ## Phase 3 — attendee continuity
 
-- `/my-events`.
+Status: implementation complete locally on top of accepted Phase 2; exact-head GitHub CI and staging acceptance pending.
+
+- Authenticated `/my-events` server projection.
 - Stable ticket/payment/receipt/join-access actions.
-- ICS / Add to Calendar.
-- Attendance and certificate state on past-event cards.
+- ICS / Add to Calendar from event, ticket and My Events.
+- Attendance and certificate state in attendee history.
+- Archived event records remain in attendee history without dead public links.
 
 ## Phase 4 — capacity/self-service
 
