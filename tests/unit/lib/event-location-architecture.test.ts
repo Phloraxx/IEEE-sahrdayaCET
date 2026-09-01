@@ -30,11 +30,13 @@ describe("event location and private access architecture", () => {
 
   it("requires organizer edit permission and confirmed attendee registration", () => {
     const hook = read("pb_hooks/event-private-details.pb.js");
+    const helpers = read("pb_hooks/event-private-details-helpers.js");
     expect(hook).toContain('"events.edit"');
-    expect(hook).toContain('registrationStatus = {:confirmed}');
     expect(hook).toContain('CONFIRMED_REGISTRATION_REQUIRED');
     expect(hook).toContain('event.private-access.updated');
-    expect(hook).toContain("privateSummary(record)");
+    expect(hook).toContain('require(__hooks + "/event-private-details-helpers.js")');
+    expect(helpers).toContain('registrationStatus = {:confirmed}');
+    expect(helpers).toContain('privateSummary');
   });
 
   it("keeps the event editor explicit about public and private links", () => {
