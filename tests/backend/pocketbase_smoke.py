@@ -796,15 +796,21 @@ expiry_one_filter = urllib.parse.quote(f'event="{expiry_event["id"]}" && user="{
 expiry_one_row = request("GET", f"/api/collections/event_waitlist/records?filter={expiry_one_filter}", token=super_token)["items"][0]
 assert expiry_one_row["status"] == "offered"
 expired_at = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=1)).isoformat().replace("+00:00", "Z")
-request("PATCH", f"/api/collections/event_waitlist/records/{expiry_one_row['id']}", {
+patched_expiry = request("PATCH", f"/api/collections/event_waitlist/records/{expiry_one_row['id']}", {
     "offerExpiresAt": expired_at,
 }, super_token)
+assert patched_expiry["offerExpiresAt"], patched_expiry
 request("POST", "/api/crons/attendee-lifecycle-reconcile", token=super_token, expected=(204,))
-expiry_one_row = request("GET", f"/api/collections/event_waitlist/records/{expiry_one_row['id']}", token=super_token)
-assert expiry_one_row["status"] == "expired"
 expiry_two_filter = urllib.parse.quote(f'event="{expiry_event["id"]}" && user="{expiry_two["id"]}"')
-expiry_two_row = request("GET", f"/api/collections/event_waitlist/records?filter={expiry_two_filter}", token=super_token)["items"][0]
-assert expiry_two_row["status"] == "offered"
+expiry_two_row = None
+for _ in range(30):
+    expiry_one_row = request("GET", f"/api/collections/event_waitlist/records/{expiry_one_row['id']}", token=super_token)
+    expiry_two_row = request("GET", f"/api/collections/event_waitlist/records?filter={expiry_two_filter}", token=super_token)["items"][0]
+    if expiry_one_row["status"] == "expired" and expiry_two_row["status"] == "offered":
+        break
+    time.sleep(0.1)
+assert expiry_one_row["status"] == "expired", expiry_one_row
+assert expiry_two_row and expiry_two_row["status"] == "offered", expiry_two_row
 expiry_event_record = request("GET", f"/api/collections/events/records/{expiry_event['id']}", token=super_token)
 assert expiry_event_record["waitlistReservedCount"] == 1
 
