@@ -96,6 +96,9 @@ describe("certificate delivery architecture", () => {
     expect(releasePreflight).toContain('git -C "$REPO_DIR" rev-parse HEAD');
     expect(releasePreflight).toContain('status --porcelain --untracked-files=all');
     expect(releasePreflight).toContain('CHECK_RUNTIME="${CHECK_RUNTIME:-1}"');
+    expect(releasePreflight).toContain('REQUIRE_MAIL_LIVE="${REQUIRE_MAIL_LIVE:-0}"');
+    expect(releasePreflight).toContain('production mail mode is explicitly disabled');
+    expect(releasePreflight).toContain('mail-live gate targets production');
     expect(releasePreflight).toContain('PocketBase admin is not public');
     expect(productionRunbook).toContain('CHECK_RUNTIME=0');
     expect(productionRunbook).toContain('CHECK_RUNTIME=1');

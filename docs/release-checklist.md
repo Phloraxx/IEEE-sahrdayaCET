@@ -138,7 +138,7 @@ SMTP_PASSWORD
 SMTP_FROM
 ```
 
-Certificate-platform releases must also follow `docs/certificate-production-runbook.md`. Before real issuance, production must use `CERTIFICATE_MAIL_PROVIDER=smtp`, `MAIL_DELIVERY_MODE=live`, a production-only renderer capability key, and the controlled `[TEST / NOT VALID]` SMTP acceptance test from that runbook. From a clean exact release-candidate checkout, run `scripts/certificate-release-preflight.sh` with `EXPECTED_SHA=<candidate SHA>` and `CHECK_RUNTIME=0` against the intended production environment file. After CI-gated production deployment, rerun it from the exact deployed `main` checkout with `EXPECTED_SHA=<CD TESTED_SHA>` and `CHECK_RUNTIME=1` before any issuance.
+Certificate-platform releases must also follow `docs/certificate-production-runbook.md`. A production deployment may keep all outbound mail disabled: set a production-only renderer capability key and explicitly set `MAIL_DELIVERY_MODE=disabled`. From a clean exact release-candidate checkout, run `scripts/certificate-release-preflight.sh` with `EXPECTED_SHA=<candidate SHA>` and `CHECK_RUNTIME=0` against the intended production environment file. After CI-gated production deployment, rerun it from the exact deployed `main` checkout with `EXPECTED_SHA=<CD TESTED_SHA>` and `CHECK_RUNTIME=1`. Only if live certificate email is separately authorized later should the operator configure `CERTIFICATE_MAIL_PROVIDER=smtp`, set `MAIL_DELIVERY_MODE=live`, and rerun the preflight with `REQUIRE_MAIL_LIVE=1` before any Send action or controlled `[TEST / NOT VALID]` SMTP acceptance test.
 
 Also verify:
 

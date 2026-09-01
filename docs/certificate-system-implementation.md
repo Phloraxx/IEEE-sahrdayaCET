@@ -678,3 +678,16 @@ Completed as a read-only/reversible rehearsal only. Production `main`, the produ
 - `main → dev` currently spans 206 files (94 under `src`, 39 PocketBase hooks, 12 migrations, 47 tests plus CI/container/docs changes). Production promotion is therefore a broad site/backend release, not a certificate-only push, and requires the repository-wide staging acceptance/review in `docs/release-checklist.md` or an explicitly engineered smaller release branch.
 
 Production remains blocked pending an explicit release decision, the three certificate production environment values, sender-domain DMARC/DKIM confirmation, final repository-wide release review, a fresh immediate pre-deploy production backup, and the controlled SMTP inbox test after deployment. Real workshop Issue/Send remains separately deferred.
+
+## Phase 16 — production mail fail-closed release gate
+
+Added after the Phase 4 event-lifecycle clean-room candidate reached exact-head CI green. This phase corrects a production-safety mismatch discovered during the final release-readiness audit.
+
+- `MAIL_DELIVERY_MODE` now defaults to `disabled` in **all** environments. Production live delivery therefore requires an explicit `MAIL_DELIVERY_MODE=live`; an omitted or invalid value cannot activate real mail.
+- The notification outbox worker already checks mail safety before claiming work. With delivery disabled it leaves pending/failed/sending intents untouched instead of consuming attempts or mutating them as delivery failures.
+- The certificate release preflight now has two distinct gates. Its default production release mode requires an explicit `MAIL_DELIVERY_MODE=disabled` and does not require SMTP/provider readiness. A future, separately authorized mail activation must opt into `REQUIRE_MAIL_LIVE=1`, `CERTIFICATE_MAIL_PROVIDER=smtp`, `MAIL_DELIVERY_MODE=live`, and the SMTP transport checks.
+- DKIM/DMARC and controlled inbox-delivery acceptance remain blockers for **live certificate email**, but no longer block deploying certificate issuance/rendering/verification with outbound mail disabled.
+- Production currently still lacks `CERTIFICATE_RENDER_CAPABILITY_KEY` and an explicit `MAIL_DELIVERY_MODE=disabled`; these remain release-environment blockers. No production environment value was changed in this phase.
+- The exact Phase 4 feature head `ec90690f1e4d5bb356a65fab31c5d47a7b2463df` passed PR Lint #284 and CI #944, including validation, both container builds, fresh PocketBase backend invariants, certificate/payment smokes, and Browser E2E. The candidate has **not** yet been promoted to `dev` or accepted on staging.
+
+No mail was sent, no production data was changed, and `dev`/`main` remained untouched while this safety gate was corrected.

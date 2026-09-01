@@ -16,9 +16,18 @@ This runbook prepares the certificate platform for production without issuing a 
 DEPLOY_ENV=production
 SITE_URL=https://ieeesahrdaya.com
 CERTIFICATE_RENDER_CAPABILITY_KEY=<production-only random 32+ character value>
+MAIL_DELIVERY_MODE=disabled
+```
+
+This is the normal application-release state. It enables certificate rendering and verification while outbound notification/certificate delivery remains blocked. The mail provider and SMTP transport do not need to be activated for the platform deployment itself.
+
+If live certificate email is separately authorized later, configure:
+
+```text
 CERTIFICATE_MAIL_PROVIDER=smtp
 MAIL_DELIVERY_MODE=live
 ```
+
 PocketBase SMTP is applied at bootstrap from environment variables:
 
 ```text
@@ -32,7 +41,7 @@ SMTP_FROM=IEEE Sahrdaya <approved-sender@example.org>
 
 `SMTP_FROM` must be an address permitted by the configured SMTP account/domain. The application treats SMTP success as **Accepted**, never as proof of inbox delivery.
 
-Before production, confirm the sender domain has appropriate SPF/DKIM and DMARC policy for the actual SMTP sender. Do not add Resend credentials when SMTP is the selected transport.
+Before enabling live production mail, confirm the sender domain has appropriate SPF/DKIM and DMARC policy for the actual SMTP sender. These DNS/mail-authentication checks block live certificate email, not a mail-disabled application deployment. Do not add Resend credentials when SMTP is the selected transport.
 
 ## Pre-deploy checks
 
@@ -53,7 +62,7 @@ ENV_FILE=/path/to/rendered-production.env \
 ./scripts/certificate-release-preflight.sh
 ```
 
-The environment file must stay outside Git. This pre-deploy pass requires a clean checkout at the explicit candidate SHA and validates the production SMTP provider/live-mode configuration, renderer key, SMTP host/port/sender, and authentication pair without requiring certificate routes to exist on the still-old production deployment.
+The environment file must stay outside Git. This pre-deploy pass requires a clean checkout at the explicit candidate SHA, a production-only renderer key, and an explicit `MAIL_DELIVERY_MODE=disabled`. It does not require SMTP/provider configuration while live mail is disabled, and it does not require certificate routes to exist on the still-old production deployment.
 
 ## Backup and rollback point
 
@@ -95,11 +104,27 @@ ENV_FILE=/path/to/rendered-production.env \
 ./scripts/certificate-release-preflight.sh
 ```
 
-This post-deploy pass must prove root/health/verification HTTP success, the verification UI marker, and public `/_/` isolation before any certificate issuance.
+This post-deploy pass must prove root/health/verification HTTP success, the verification UI marker, public `/_/` isolation, and continued mail-disabled safety before any certificate issuance.
+
+## Optional future live-mail activation
+
+Do not perform this section while an operator-level no-mail freeze is in effect. Live mail is a separate change after the application release. When explicitly authorized, first configure SMTP and run:
+
+```bash
+EXPECTED_SHA=<exact-deployed-main-sha> \
+CHECK_RUNTIME=1 \
+REQUIRE_MAIL_LIVE=1 \
+TARGET_ENV=production \
+BASE_URL=https://ieeesahrdaya.com \
+ENV_FILE=/path/to/rendered-production.env \
+./scripts/certificate-release-preflight.sh
+```
+
+Only after that gate passes should a controlled SMTP acceptance test be considered.
 
 ## SMTP acceptance test
 
-Do this before real certificate issuance, using only the signed-in operator's authorized test inbox:
+Do this only after live mail has been explicitly authorized, using only the signed-in operator's authorized test inbox:
 
 1. Open an event with a published certificate template.
 2. Confirm **Mail transport ready** reports `SMTP`, `LIVE`, `ACCEPTED ONLY`.

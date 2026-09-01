@@ -54,14 +54,22 @@ Never reuse a production encryption key, OAuth application, payment secret, SMTP
 
 Certificate issuance and certificate mail delivery are separate operations. Before enabling bulk Send, confirm the admin **Send & delivery** panel reports the environment as mail-ready.
 
-The current production choice is SMTP. Production certificate mail therefore requires PocketBase SMTP/sender settings plus:
+The certificate platform can be deployed while outbound mail is intentionally disabled. The safe production release configuration is:
+
+```text
+MAIL_DELIVERY_MODE=disabled
+```
+
+With delivery disabled, certificate Issue/verification/rendering can operate, while Send/Retry remain blocked before creating certificate outbox jobs and the background notification worker leaves existing outbox intents untouched. `CERTIFICATE_MAIL_PROVIDER` and SMTP transport readiness are not release prerequisites while mail remains disabled.
+
+If live certificate email is explicitly authorized later, the selected production transport is SMTP and requires PocketBase SMTP/sender settings plus:
 
 ```text
 CERTIFICATE_MAIL_PROVIDER=smtp
 MAIL_DELIVERY_MODE=live
 ```
 
-The readiness API/UI checks the delivery safety mode and the actual PocketBase SMTP/sender configuration. Send and Retry fail before creating or modifying outbox jobs when mail is not ready. A successful SMTP handoff is shown as **accepted only** because SMTP acceptance is not proof that the recipient inbox ultimately delivered the message.
+The readiness API/UI then checks the delivery safety mode and actual PocketBase SMTP/sender configuration. A successful SMTP handoff is shown as **accepted only** because SMTP acceptance is not proof that the recipient inbox ultimately delivered the message.
 
 Resend support remains available as an optional future provider for webhook-confirmed delivered/bounced states. If it is ever enabled, its API key, From address, webhook signing secret, and certificate-mail webhook capability must be configured together; `RESEND_WEBHOOK_CONFIGURED` is derived by Compose and must not be set manually.
 

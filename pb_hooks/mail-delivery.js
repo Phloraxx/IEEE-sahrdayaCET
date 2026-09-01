@@ -22,7 +22,7 @@ function parseEmailList(raw) {
 function normalizedMode(rawMode, deployEnv) {
   var env = clean(deployEnv).toLowerCase()
   var mode = clean(rawMode).toLowerCase()
-  if (!mode) return env === "production" ? "live" : "disabled"
+  if (!mode) return "disabled"
   if (["disabled", "allowlist", "redirect", "live"].indexOf(mode) === -1) return "disabled"
   return mode
 }

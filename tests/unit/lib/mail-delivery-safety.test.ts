@@ -18,9 +18,14 @@ const mailDelivery = sandbox.module.exports as {
 };
 
 describe("mail delivery safety", () => {
-  it("keeps production live by default for backwards compatibility", () => {
-    expect(mailDelivery.normalizedMode("", "production")).toBe("live");
+  it("fails closed in production until live delivery is explicitly enabled", () => {
+    expect(mailDelivery.normalizedMode("", "production")).toBe("disabled");
     expect(mailDelivery.resolveDelivery({ deployEnv: "production", mode: "", recipient: "person@example.com" })).toMatchObject({
+      allowed: false,
+      mode: "disabled",
+      reason: "delivery_disabled",
+    });
+    expect(mailDelivery.resolveDelivery({ deployEnv: "production", mode: "live", recipient: "person@example.com" })).toMatchObject({
       allowed: true,
       mode: "live",
       recipient: "person@example.com",
