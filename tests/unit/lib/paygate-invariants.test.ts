@@ -16,12 +16,16 @@ interface ProviderPayment {
 }
 
 interface PayGateHelpers {
+  getConfig: () => { apiVersion: string };
   externalIdForRegistration: (id: string) => string;
   registrationIdFromExternalId: (id: string) => string;
   idempotencyKeyForRegistration: (id: string) => string;
   expectedRequestedPaise: (amount: number) => number;
+  normalizeProviderPayment: (raw: Record<string, unknown>) => ProviderPayment & { apiVersion: string; metadata: Record<string, unknown> };
+  registrationIdFromProviderPayment: (raw: Record<string, unknown>) => string;
+  updateProviderData: (registration: FakeRegistration, payment: Record<string, unknown>, extra: Record<string, unknown>) => Record<string, unknown>;
   validateProviderPayment: (
-    raw: ProviderPayment,
+    raw: ProviderPayment | Record<string, unknown>,
     amount: number,
     options?: Record<string, unknown>,
   ) => { ok: boolean; error?: string; payment?: ProviderPayment };
@@ -50,7 +54,7 @@ class FakeRegistration {
   }
 }
 
-function loadHelpers(): PayGateHelpers {
+function loadHelpers(env: Record<string, string> = {}): PayGateHelpers {
   const source = readFileSync(
     resolve(process.cwd(), "pb_hooks/paygate-helpers.js"),
     "utf8",
@@ -60,7 +64,7 @@ function loadHelpers(): PayGateHelpers {
     module,
     exports: module.exports,
     console,
-    $os: { getenv: () => "" },
+    $os: { getenv: (key: string) => env[key] || "" },
   });
   return module.exports as unknown as PayGateHelpers;
 }
@@ -77,6 +81,49 @@ const validPayment: ProviderPayment = {
   upiUri: "upi://pay?pa=example%40upi&am=100.37&cu=INR",
   externalId: "ieee-sahrdaya:local:registration:reg_123",
 };
+const validV4Payment = {
+  id: "payment_v4_123",
+  object: "payment",
+  name: "CI Attendee",
+  external_id: "event_123",
+  metadata: { registration_id: "reg_123", environment: "local" },
+  status: "pending",
+  requested_amount: "100.00",
+  payable_amount: "101.37",
+  adjustment: "1.37",
+  upi_uri: "upi://pay?pa=example%40upi&am=101.37&cu=INR",
+  expires_at: "2026-08-11T16:30:00Z",
+  grace_until: "2026-08-11T16:35:00Z",
+  paid_at: null,
+};
+
+
+describe("PayGate API version selection", () => {
+  it("defaults to v3 until cutover is explicitly enabled", () => {
+    expect(loadHelpers().getConfig().apiVersion).toBe("v3");
+  });
+
+  it("selects v4 only for an explicit v4 setting", () => {
+    expect(loadHelpers({ PAYGATE_API_VERSION: "v4" }).getConfig().apiVersion).toBe("v4");
+    expect(loadHelpers({ PAYGATE_API_VERSION: "unexpected" }).getConfig().apiVersion).toBe("v3");
+  });
+});
+
+describe("PayGate cutover state", () => {
+  it("upgrades a migrated v3 registration session to provider-blind v4 state after a v4 response", () => {
+    const registration = new FakeRegistration({
+      paymentData: {
+        provider: "paygate",
+        paygateApiVersion: "v3",
+        eventPaymentProvider: "kotak",
+        paymentAccount: "kotak",
+      },
+    });
+    const payment = pg.normalizeProviderPayment(validV4Payment) as unknown as Record<string, unknown>;
+    const next = pg.updateProviderData(registration, payment, {});
+    expect(next.paygateApiVersion).toBe("v4");
+  });
+});
 
 describe("PayGate registration identity", () => {
   it("round-trips the external registration identity", () => {
@@ -89,6 +136,16 @@ describe("PayGate registration identity", () => {
     expect(pg.registrationIdFromExternalId("other-app:reg_123")).toBe("");
     expect(
       pg.registrationIdFromExternalId("ieee-sahrdaya:production:registration:reg_123"),
+    ).toBe("");
+  });
+
+  it("correlates v4 payments through environment-scoped metadata", () => {
+    expect(pg.registrationIdFromProviderPayment(validV4Payment)).toBe("reg_123");
+    expect(
+      pg.registrationIdFromProviderPayment({
+        ...validV4Payment,
+        metadata: { registration_id: "reg_123", environment: "production" },
+      }),
     ).toBe("");
   });
 
@@ -116,6 +173,23 @@ describe("PayGate monetary validation", () => {
     });
     expect(result.ok).toBe(true);
     expect(result.payment?.payableAmountPaise).toBe(10037);
+  });
+
+  it("accepts v4 overflow fingerprints up to 1.99 without accepting .00", () => {
+    const result = pg.validateProviderPayment(validV4Payment, 100, {
+      requireUpiUri: true,
+      externalId: "event_123",
+      registrationId: "reg_123",
+      environment: "local",
+    });
+    expect(result.ok).toBe(true);
+    expect(result.payment?.payableAmountPaise).toBe(10137);
+    expect(
+      pg.validateProviderPayment(
+        { ...validV4Payment, payable_amount: "101.00", adjustment: "1.00" },
+        100,
+      ).ok,
+    ).toBe(false);
   });
 
   it("rejects a provider requested-amount mismatch", () => {

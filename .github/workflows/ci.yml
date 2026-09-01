@@ -93,6 +93,7 @@ jobs:
             -e PAYMENTS_ENABLED='true' \
             -e PAYGATE_URL='http://host.docker.internal:18081' \
             -e PAYGATE_API_KEY='CI-PayGate-Api-Key-2026!!!!' \
+            -e PAYGATE_API_VERSION='v3' \
             -e PAYGATE_WEBHOOK_SECRET='CI-PayGate-Webhook-2026!!!!' \
             -e PAYGATE_REGISTRATION_GRACE_SECONDS='600' \
             -e CERTIFICATE_RENDER_CAPABILITY_KEY='CI-Certificate-Render-Capability-2026-Only-Test' \
