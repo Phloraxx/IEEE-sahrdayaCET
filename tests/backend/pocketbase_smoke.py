@@ -102,6 +102,15 @@ for collection_name in ("event_sessions", "attendance_records"):
     request("GET", f"/api/collections/{collection_name}/records", token=admin_token, expected=(403,))
     request("POST", f"/api/collections/{collection_name}/records", {}, token=admin_token, expected=(403,))
 
+# Attendee cancellation requests and waitlist identities are command-owned.
+for collection_name in ("registration_cancellation_requests", "event_waitlist"):
+    schema = request("GET", f"/api/collections/{collection_name}", token=super_token)
+    for rule_name in ("listRule", "viewRule", "createRule", "updateRule", "deleteRule"):
+        assert schema.get(rule_name) is None, (collection_name, rule_name, schema.get(rule_name))
+    request("GET", f"/api/collections/{collection_name}/records", token=user_token, expected=(403,))
+    request("GET", f"/api/collections/{collection_name}/records", token=admin_token, expected=(403,))
+    request("POST", f"/api/collections/{collection_name}/records", {}, token=admin_token, expected=(403,))
+
 template_schema = request("GET", "/api/collections/certificate_templates", token=super_token)
 template_fields = {field["name"]: field for field in template_schema["fields"]}
 for protected_name in ("sourceBackground", "sourceSignatures", "renderBase"):
@@ -692,6 +701,221 @@ request("POST", f"/api/app/events/{event['id']}/register", {
 }, second_token, (400,))
 updated_event = request("GET", f"/api/collections/events/records/{event['id']}")
 assert updated_event["registeredCount"] == 1
+
+
+# Phase 4 attendee lifecycle: offered waitlist seats reserve real capacity.
+wait_owner = create_user("wait-owner", "user")
+wait_one = create_user("wait-one", "user")
+wait_two = create_user("wait-two", "user")
+wait_three = create_user("wait-three", "user")
+wait_owner_token = impersonate(super_token, wait_owner["id"])
+wait_one_token = impersonate(super_token, wait_one["id"])
+wait_two_token = impersonate(super_token, wait_two["id"])
+wait_three_token = impersonate(super_token, wait_three["id"])
+wait_event = request("POST", "/api/collections/events/records", {
+    "title": f"CI Capacity Waitlist {suffix}", "description": "reserved waitlist capacity",
+    "date": start, "endDate": end, "venue": "CI Waitlist Lab", "price": 0,
+    "society": society["id"], "status": "published", "registrationMode": "internal",
+    "registrationOpen": True, "maxCapacity": 1, "registeredCount": 0,
+    "waitlistEnabled": True, "waitlistOfferMinutes": 15,
+    "allowSelfCancellation": True, "selfCancellationUntil": start,
+    "checkInEnabled": True, "isDeleted": False,
+}, super_token)
+wait_owner_registration = request("POST", f"/api/app/events/{wait_event['id']}/register", {
+    "formResponses": {"name": "Wait Owner", "email": wait_owner["email"]},
+}, wait_owner_token)
+assert wait_owner_registration["registrationStatus"] == "confirmed"
+wait_one_join = request("POST", f"/api/app/events/{wait_event['id']}/waitlist/join", token=wait_one_token)
+assert wait_one_join["joined"] is True and wait_one_join["state"]["status"] == "waiting"
+assert wait_one_join["state"]["position"] == 1
+wait_two_join = request("POST", f"/api/app/events/{wait_event['id']}/waitlist/join", token=wait_two_token)
+assert wait_two_join["state"]["status"] == "waiting" and wait_two_join["state"]["position"] == 2
+wait_cancel = request(
+    "POST", f"/api/app/registrations/{wait_owner_registration['registrationId']}/cancel",
+    {"reason": "CI release for waitlist"}, wait_owner_token,
+)
+assert wait_cancel["action"] == "cancelled"
+wait_one_state = request("GET", f"/api/app/events/{wait_event['id']}/waitlist", token=wait_one_token)
+assert wait_one_state["state"]["status"] == "offered"
+assert wait_one_state["full"] is True and wait_one_state["occupied"] == 1
+wait_event_after_offer = request("GET", f"/api/collections/events/records/{wait_event['id']}", token=super_token)
+assert wait_event_after_offer["registeredCount"] == 0
+assert wait_event_after_offer["waitlistReservedCount"] == 1
+request("POST", f"/api/app/events/{wait_event['id']}/register", {
+    "formResponses": {"name": "Wait Three", "email": wait_three["email"]},
+}, wait_three_token, (400,))
+wait_one_registration = request("POST", f"/api/app/events/{wait_event['id']}/register", {
+    "formResponses": {"name": "Wait One", "email": wait_one["email"]},
+}, wait_one_token)
+assert wait_one_registration["registrationStatus"] == "confirmed"
+wait_one_filter = urllib.parse.quote(f'event="{wait_event["id"]}" && user="{wait_one["id"]}"')
+wait_one_row = request("GET", f"/api/collections/event_waitlist/records?filter={wait_one_filter}", token=super_token)["items"][0]
+assert wait_one_row["status"] == "accepted"
+wait_event_after_claim = request("GET", f"/api/collections/events/records/{wait_event['id']}", token=super_token)
+assert wait_event_after_claim["registeredCount"] == 1
+assert wait_event_after_claim["waitlistReservedCount"] == 0
+wait_two_state = request("GET", f"/api/app/events/{wait_event['id']}/waitlist", token=wait_two_token)
+assert wait_two_state["state"]["status"] == "waiting"
+request(
+    "POST", f"/api/app/registrations/{wait_one_registration['registrationId']}/cancel",
+    {"reason": "CI release second seat"}, wait_one_token,
+)
+wait_two_offer = request("GET", f"/api/app/events/{wait_event['id']}/waitlist", token=wait_two_token)
+assert wait_two_offer["state"]["status"] == "offered"
+left_offer = request("POST", f"/api/app/events/{wait_event['id']}/waitlist/leave", token=wait_two_token)
+assert left_offer["left"] is True
+wait_event_after_leave = request("GET", f"/api/collections/events/records/{wait_event['id']}", token=super_token)
+assert wait_event_after_leave["registeredCount"] == 0
+assert wait_event_after_leave["waitlistReservedCount"] == 0
+
+# Expired offers advance FIFO through the reconciliation cron.
+expiry_owner = create_user("expiry-owner", "user")
+expiry_one = create_user("expiry-one", "user")
+expiry_two = create_user("expiry-two", "user")
+expiry_owner_token = impersonate(super_token, expiry_owner["id"])
+expiry_one_token = impersonate(super_token, expiry_one["id"])
+expiry_two_token = impersonate(super_token, expiry_two["id"])
+expiry_event = request("POST", "/api/collections/events/records", {
+    "title": f"CI Waitlist Expiry {suffix}", "description": "waitlist expiry",
+    "date": start, "endDate": end, "venue": "CI Waitlist Lab", "price": 0,
+    "society": society["id"], "status": "published", "registrationMode": "internal",
+    "registrationOpen": True, "maxCapacity": 1, "registeredCount": 0,
+    "waitlistEnabled": True, "waitlistOfferMinutes": 15,
+    "allowSelfCancellation": True, "selfCancellationUntil": start,
+    "checkInEnabled": True, "isDeleted": False,
+}, super_token)
+expiry_owner_reg = request("POST", f"/api/app/events/{expiry_event['id']}/register", {
+    "formResponses": {"name": "Expiry Owner", "email": expiry_owner["email"]},
+}, expiry_owner_token)
+request("POST", f"/api/app/events/{expiry_event['id']}/waitlist/join", token=expiry_one_token)
+request("POST", f"/api/app/events/{expiry_event['id']}/waitlist/join", token=expiry_two_token)
+request("POST", f"/api/app/registrations/{expiry_owner_reg['registrationId']}/cancel", {
+    "reason": "CI trigger expiry offer",
+}, expiry_owner_token)
+expiry_one_filter = urllib.parse.quote(f'event="{expiry_event["id"]}" && user="{expiry_one["id"]}"')
+expiry_one_row = request("GET", f"/api/collections/event_waitlist/records?filter={expiry_one_filter}", token=super_token)["items"][0]
+assert expiry_one_row["status"] == "offered"
+expired_at = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=1)).isoformat().replace("+00:00", "Z")
+request("PATCH", f"/api/collections/event_waitlist/records/{expiry_one_row['id']}", {
+    "offerExpiresAt": expired_at,
+}, super_token)
+request("POST", "/api/crons/attendee-lifecycle-reconcile", token=super_token, expected=(204,))
+expiry_one_row = request("GET", f"/api/collections/event_waitlist/records/{expiry_one_row['id']}", token=super_token)
+assert expiry_one_row["status"] == "expired"
+expiry_two_filter = urllib.parse.quote(f'event="{expiry_event["id"]}" && user="{expiry_two["id"]}"')
+expiry_two_row = request("GET", f"/api/collections/event_waitlist/records?filter={expiry_two_filter}", token=super_token)["items"][0]
+assert expiry_two_row["status"] == "offered"
+expiry_event_record = request("GET", f"/api/collections/events/records/{expiry_event['id']}", token=super_token)
+assert expiry_event_record["waitlistReservedCount"] == 1
+
+# Paid self-cancellation creates attendee intent only. Finance decision and the
+# existing refund command remain separate from money movement/provider truth.
+refund_user = create_user("refund-attendee", "user")
+refund_user_token = impersonate(super_token, refund_user["id"])
+refund_event = request("POST", "/api/collections/events/records", {
+    "title": f"CI Refund Request {suffix}", "description": "attendee refund request",
+    "date": start, "endDate": end, "venue": "CI Finance Lab", "price": 125,
+    "society": society["id"], "status": "published", "registrationMode": "internal",
+    "registrationOpen": True, "maxCapacity": 5, "registeredCount": 0,
+    "allowSelfCancellation": True, "selfCancellationUntil": start,
+    "refundRequestUntil": start, "refundPolicy": "CI refunds require finance review.",
+    "checkInEnabled": True, "isDeleted": False,
+}, super_token)
+refund_registration = request("POST", f"/api/admin/events/{refund_event['id']}/registrations/manual", {
+    "name": "Refund Attendee", "email": refund_user["email"], "userId": refund_user["id"],
+    "paymentMode": "paid", "paymentMethod": "upi", "paymentReference": "CI-REFUND-PAID",
+    "note": "CI captured manual payment for refund request",
+}, admin_token)["registration"]
+assert refund_registration["registrationStatus"] == "confirmed"
+assert refund_registration["paymentStatus"] == "paid"
+refund_request = request(
+    "POST", f"/api/app/registrations/{refund_registration['id']}/cancel",
+    {"reason": "CI attendee requests refund"}, refund_user_token, expected=(202,),
+)
+assert refund_request["action"] == "refund_requested"
+assert refund_request["request"]["status"] == "open"
+refund_request_id = refund_request["request"]["id"]
+refund_record = request("GET", f"/api/collections/registrations/records/{refund_registration['id']}", token=super_token)
+assert refund_record["registrationStatus"] == "confirmed"
+assert refund_record["paymentStatus"] == "paid"
+refund_my_events = request("GET", "/api/app/my-events", token=refund_user_token)
+refund_item = next(item for item in refund_my_events["items"] if item["event"]["id"] == refund_event["id"])
+assert refund_item["cancellation"]["request"]["status"] == "open"
+assert refund_item["cancellation"]["mode"] == "refund_request"
+refund_ops = request("GET", f"/api/admin/events/{refund_event['id']}/operations", token=admin_token)
+assert any(row["id"] == refund_request_id and row["status"] == "open" for row in refund_ops["cancellationRequests"])
+request(
+    "POST", f"/api/admin/cancellation-requests/{refund_request_id}/decision",
+    {"action": "accept", "note": "CI finance accepts refund request"}, refund_user_token, expected=(403,),
+)
+refund_decision = request(
+    "POST", f"/api/admin/cancellation-requests/{refund_request_id}/decision",
+    {"action": "accept", "note": "CI finance accepts refund request"}, admin_token,
+)
+assert refund_decision["request"]["status"] == "accepted"
+refund_record = request("GET", f"/api/collections/registrations/records/{refund_registration['id']}", token=super_token)
+assert refund_record["registrationStatus"] == "confirmed" and refund_record["paymentStatus"] == "paid"
+refund_done = request(
+    "POST", f"/api/admin/registrations/{refund_registration['id']}/command",
+    {"action": "mark-refunded", "reference": "CI-REFUND-1", "note": "CI refund completed externally"},
+    admin_token,
+)["registration"]
+assert refund_done["registrationStatus"] == "cancelled"
+assert refund_done["paymentStatus"] == "refunded"
+request("POST", "/api/crons/attendee-lifecycle-reconcile", token=super_token, expected=(204,))
+refund_request_record = request("GET", f"/api/collections/registration_cancellation_requests/records/{refund_request_id}", token=super_token)
+assert refund_request_record["status"] == "resolved" and refund_request_record["resolvedAt"]
+
+# Dedicated untouched Browser E2E fixture: attendee owns a live reserved offer.
+browser_wait_owner = create_user("browser-wait-owner", "user")
+browser_wait_user = create_user("browser-wait-attendee", "user")
+browser_wait_owner_token = impersonate(super_token, browser_wait_owner["id"])
+browser_wait_token = impersonate(super_token, browser_wait_user["id"])
+browser_wait_event = request("POST", "/api/collections/events/records", {
+    "title": f"E2E Reserved Waitlist Seat {suffix}", "description": "browser waitlist fixture",
+    "date": start, "endDate": end, "venue": "E2E Waitlist Lab", "price": 0,
+    "society": society["id"], "status": "published", "registrationMode": "internal",
+    "registrationOpen": True, "maxCapacity": 1, "registeredCount": 0,
+    "waitlistEnabled": True, "waitlistOfferMinutes": 360,
+    "allowSelfCancellation": True, "selfCancellationUntil": start,
+    "checkInEnabled": True, "isDeleted": False,
+}, super_token)
+browser_wait_owner_reg = request("POST", f"/api/app/events/{browser_wait_event['id']}/register", {
+    "formResponses": {"name": "Browser Wait Owner", "email": browser_wait_owner["email"]},
+}, browser_wait_owner_token)
+request("POST", f"/api/app/events/{browser_wait_event['id']}/waitlist/join", token=browser_wait_token)
+request("POST", f"/api/app/registrations/{browser_wait_owner_reg['registrationId']}/cancel", {
+    "reason": "E2E release reserved seat",
+}, browser_wait_owner_token)
+browser_wait_state = request("GET", f"/api/app/events/{browser_wait_event['id']}/waitlist", token=browser_wait_token)
+assert browser_wait_state["state"]["status"] == "offered"
+
+# Dedicated untouched Browser E2E fixture: paid attendee can submit a request.
+browser_refund_user = create_user("browser-refund-attendee", "user")
+browser_refund_token = impersonate(super_token, browser_refund_user["id"])
+browser_refund_event = request("POST", "/api/collections/events/records", {
+    "title": f"E2E Paid Cancellation Request {suffix}", "description": "browser refund fixture",
+    "date": start, "endDate": end, "venue": "E2E Finance Lab", "price": 95,
+    "society": society["id"], "status": "published", "registrationMode": "internal",
+    "registrationOpen": True, "maxCapacity": 5, "registeredCount": 0,
+    "allowSelfCancellation": True, "selfCancellationUntil": start,
+    "refundRequestUntil": start, "refundPolicy": "Requests are reviewed before any refund is recorded.",
+    "checkInEnabled": True, "isDeleted": False,
+}, super_token)
+browser_refund_registration = request("POST", f"/api/admin/events/{browser_refund_event['id']}/registrations/manual", {
+    "name": "Browser Refund Attendee", "email": browser_refund_user["email"], "userId": browser_refund_user["id"],
+    "paymentMode": "paid", "paymentMethod": "upi", "paymentReference": "E2E-PAID",
+    "note": "E2E paid attendee fixture",
+}, admin_token)["registration"]
+assert browser_refund_registration["paymentStatus"] == "paid"
+if github_env := os.environ.get("GITHUB_ENV"):
+    with open(github_env, "a", encoding="utf-8") as env_file:
+        env_file.write(f"E2E_WAITLIST_TOKEN={browser_wait_token}\n")
+        env_file.write(f"E2E_WAITLIST_EVENT_ID={browser_wait_event['id']}\n")
+        env_file.write(f"E2E_WAITLIST_EVENT_TITLE={browser_wait_event['title']}\n")
+        env_file.write(f"E2E_REFUND_TOKEN={browser_refund_token}\n")
+        env_file.write(f"E2E_REFUND_EVENT_TITLE={browser_refund_event['title']}\n")
+        env_file.write(f"E2E_REFUND_REGISTRATION_ID={browser_refund_registration['id']}\n")
 
 # A pending paid registration can be confirmed manually only through the
 # dedicated admin command. The transition is atomic, auditable, idempotent, and

@@ -24,6 +24,30 @@ export interface MyEventAttendance {
   totalSessions: number;
   sessions: MyEventAttendanceSession[];
 }
+export interface MyEventCancellationRequest {
+  id: string;
+  kind: string;
+  status: string;
+  reason: string;
+  requestedAt: string;
+  decisionAt: string;
+  resolutionNote: string;
+  resolvedAt: string;
+}
+
+export interface MyEventCancellation {
+  allowed: boolean;
+  mode: "direct" | "refund_request" | "none";
+  deadline: string;
+  refundPolicy: string;
+  request: MyEventCancellationRequest | null;
+}
+
+export interface MyEventWaitlistItem {
+  event: { id: string; title: string; slug: string; date: string; venue: string; status: string; isArchived: boolean };
+  entry: { id: string; status: string; position: number; joinedAt: string; offeredAt: string; offerExpiresAt: string };
+}
+
 export interface MyEventItem {
   event: {
     id: string;
@@ -55,17 +79,21 @@ export interface MyEventItem {
   };
   ended: boolean;
   privateAccess: { virtualJoinUrl: string; joinInstructions: string } | null;
+  cancellation: MyEventCancellation;
   attendance: MyEventAttendance;
   certificates: MyEventCertificate[];
 }
 
 export interface MyEventsResponse {
   items: MyEventItem[];
+  waitlist: MyEventWaitlistItem[];
   summary: {
     total: number;
     actionNeeded: number;
     upcoming: number;
     past: number;
+    waitlisted: number;
+    offered: number;
   };
 }
 
@@ -73,4 +101,13 @@ export async function listMyEvents(): Promise<MyEventsResponse> {
   const pb = getPbClient();
   if (!pb.authStore.isValid) throw new Error("Please sign in to view your events");
   return pb.send("/api/app/my-events", {}) as Promise<MyEventsResponse>;
+}
+
+export async function cancelMyRegistration(registrationId: string, reason = "") {
+  const pb = getPbClient();
+  if (!pb.authStore.isValid) throw new Error("Please sign in to manage your registration");
+  return pb.send(`/api/app/registrations/${encodeURIComponent(registrationId)}/cancel`, {
+    method: "POST",
+    body: { reason },
+  }) as Promise<{ action: "cancelled" | "refund_requested"; request?: MyEventCancellationRequest }>;
 }

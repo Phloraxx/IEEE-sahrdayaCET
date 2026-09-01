@@ -87,6 +87,34 @@ routerAdd("GET", "/api/admin/events/{id}/operations", function (e) {
     }
   } catch (_) {}
 
+  var cancellationRequests = []
+  try {
+    var requestRows = $app.findRecordsByFilter(
+      "registration_cancellation_requests",
+      "event = {:eventId} && (status = {:open} || status = {:accepted})",
+      "requestedAt,id", 100, 0,
+      { eventId: event.id, open: "open", accepted: "accepted" }
+    )
+    var attendeeLifecycle = require(__hooks + "/attendee-lifecycle-helpers.js")
+    for (var ri = 0; ri < requestRows.length; ri++) {
+      var requestRow = requestRows[ri]
+      var requestRegistration = null
+      try { requestRegistration = $app.findRecordById("registrations", requestRow.getString("registration")) } catch (_) {}
+      cancellationRequests.push({
+        request: attendeeLifecycle.requestSnapshot(requestRow),
+        registration: requestRegistration ? helpers.registrationSnapshot(requestRegistration) : null,
+      })
+    }
+  } catch (_) {}
+
+  var waitlistSummary = { waiting: 0, offered: 0, reserved: event.getInt("waitlistReservedCount") || 0 }
+  try {
+    var waitingRows = $app.findRecordsByFilter("event_waitlist", "event = {:eventId} && status = {:status}", "", 0, 0, { eventId: event.id, status: "waiting" })
+    var offeredRows = $app.findRecordsByFilter("event_waitlist", "event = {:eventId} && status = {:status}", "", 0, 0, { eventId: event.id, status: "offered" })
+    waitlistSummary.waiting = waitingRows.length
+    waitlistSummary.offered = offeredRows.length
+  } catch (_) {}
+
   var attendanceSessions = require(__hooks + "/attendance-v2-helpers.js").sessionsForEvent($app, event.id)
   return e.json(200, {
     event: helpers.eventPayload(event),
@@ -94,6 +122,8 @@ routerAdd("GET", "/api/admin/events/{id}/operations", function (e) {
     recent: recent,
     attention: attention,
     coupons: coupons,
+    cancellationRequests: cancellationRequests,
+    waitlist: waitlistSummary,
     audit: audit,
     attendance: {
       mode: attendanceSessions.length ? "sessions" : "legacy",
@@ -146,6 +176,7 @@ routerAdd("POST", "/api/admin/events/{id}/registrations/manual", function (e) {
   var rh = require(__hooks + "/registration-helpers.js")
   var paymentState = require(__hooks + "/razorpay-payment-state.js")
   var authz = require(__hooks + "/workspace-authorization.js")
+  var attendeeLifecycle = require(__hooks + "/attendee-lifecycle-helpers.js")
   var auth = e.auth
   var eventId = e.request.pathValue("id") || ""
   var event
@@ -227,10 +258,19 @@ routerAdd("POST", "/api/admin/events/{id}/registrations/manual", function (e) {
         }
       }
 
+      var capacityNowMs = Date.now()
+      attendeeLifecycle.reconcileEventWaitlist(txApp, eventId, new Date(capacityNowMs).toISOString())
+      currentEvent = txApp.findRecordById("events", eventId)
+      active = attendeeLifecycle.activeRegistrations(txApp, eventId)
+      var reservedOffers = attendeeLifecycle.activeOffers(txApp, eventId, capacityNowMs)
+      var offeredWaitlist = userId ? attendeeLifecycle.validOfferForUser(txApp, eventId, userId, capacityNowMs) : null
       var maxCapacity = currentEvent.getInt("maxCapacity") || 0
-      if (maxCapacity > 0 && active.length >= maxCapacity && body.capacityOverride !== true) {
-        failure = { status: 409, code: "EVENT_FULL", error: "Event is at full capacity" }
-        return
+      if (maxCapacity > 0 && body.capacityOverride !== true) {
+        var occupied = active.length + reservedOffers.length
+        if ((offeredWaitlist && active.length >= maxCapacity) || (!offeredWaitlist && occupied >= maxCapacity)) {
+          failure = { status: 409, code: "EVENT_FULL", error: "Event is at full capacity" }
+          return
+        }
       }
 
       if (userId) {
@@ -362,6 +402,13 @@ routerAdd("POST", "/api/admin/events/{id}/registrations/manual", function (e) {
         createdBy: auth.id,
       })
       txApp.saveNoValidate(registration)
+      if (offeredWaitlist) {
+        offeredWaitlist.set("status", "accepted")
+        offeredWaitlist.set("activeKey", "")
+        offeredWaitlist.set("acceptedRegistration", registration.id)
+        txApp.saveNoValidate(offeredWaitlist)
+      }
+      attendeeLifecycle.reconcileEventWaitlist(txApp, eventId, now)
       if (paymentStatus === "paid") {
         var paymentCollection = txApp.findCollectionByNameOrId("payments")
         var manualPayment = new Record(paymentCollection, {
@@ -410,6 +457,7 @@ routerAdd("POST", "/api/admin/registrations/{id}/command", function (e) {
   var rh = require(__hooks + "/registration-helpers.js")
   var paymentState = require(__hooks + "/razorpay-payment-state.js")
   var authz = require(__hooks + "/workspace-authorization.js")
+  var attendeeLifecycle = require(__hooks + "/attendee-lifecycle-helpers.js")
   var auth = e.auth
   var id = e.request.pathValue("id") || ""
   var registration
@@ -545,15 +593,20 @@ routerAdd("POST", "/api/admin/registrations/{id}/command", function (e) {
           failure = { status: 409, code: "NOT_CANCELLED", error: "Only cancelled registrations can be restored" }
           return
         }
-        var active = txApp.findRecordsByFilter(
-          "registrations", "event = {:eventId} && registrationStatus != {:cancelled}",
-          "", 0, 0, { eventId: eventId, cancelled: "cancelled" }
-        )
+        var restoreNowMs = Date.now()
+        attendeeLifecycle.reconcileEventWaitlist(txApp, eventId, new Date(restoreNowMs).toISOString())
+        var active = attendeeLifecycle.activeRegistrations(txApp, eventId)
+        var reservedOffers = attendeeLifecycle.activeOffers(txApp, eventId, restoreNowMs)
+        var restoreUserId = reg.getString("user") || ""
+        var offeredRestore = restoreUserId ? attendeeLifecycle.validOfferForUser(txApp, eventId, restoreUserId, restoreNowMs) : null
         var currentEvent = txApp.findRecordById("events", eventId)
         var maxCapacity = currentEvent.getInt("maxCapacity") || 0
-        if (maxCapacity > 0 && active.length >= maxCapacity && body.capacityOverride !== true) {
-          failure = { status: 409, code: "EVENT_FULL", error: "Event is full. Use an explicit capacity override to restore this attendee." }
-          return
+        if (maxCapacity > 0 && body.capacityOverride !== true) {
+          var restoreOccupied = active.length + reservedOffers.length
+          if ((offeredRestore && active.length >= maxCapacity) || (!offeredRestore && restoreOccupied >= maxCapacity)) {
+            failure = { status: 409, code: "EVENT_FULL", error: "Event is full. Use an explicit capacity override to restore this attendee." }
+            return
+          }
         }
         if (payStatus !== "paid" && payStatus !== "not_required") {
           failure = {
@@ -576,6 +629,12 @@ routerAdd("POST", "/api/admin/registrations/{id}/command", function (e) {
           capacityOverride: body.capacityOverride === true,
         }
         reg.set("paymentData", data)
+        if (offeredRestore) {
+          offeredRestore.set("status", "accepted")
+          offeredRestore.set("activeKey", "")
+          offeredRestore.set("acceptedRegistration", reg.id)
+          txApp.saveNoValidate(offeredRestore)
+        }
       } else if (action === "mark-refunded") {
         if (payStatus !== "paid") {
           failure = { status: 409, code: "PAYMENT_NOT_PAID", error: "Only a paid registration can be refunded" }
@@ -642,6 +701,9 @@ routerAdd("POST", "/api/admin/registrations/{id}/command", function (e) {
       }
 
       txApp.saveNoValidate(reg)
+      if (action === "cancel" || action === "restore" || action === "mark-refunded") {
+        attendeeLifecycle.reconcileEventWaitlist(txApp, eventId, now)
+      }
       result = helpers.registrationSnapshot(reg)
       helpers.audit(txApp, {
         eventId: eventId,

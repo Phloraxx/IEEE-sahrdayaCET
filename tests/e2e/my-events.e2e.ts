@@ -7,6 +7,18 @@ const fixture = {
   ticketId: process.env.E2E_MY_EVENTS_TICKET_ID || "",
 };
 
+const waitlistFixture = {
+  token: process.env.E2E_WAITLIST_TOKEN || "",
+  eventId: process.env.E2E_WAITLIST_EVENT_ID || "",
+  eventTitle: process.env.E2E_WAITLIST_EVENT_TITLE || "",
+};
+
+const refundFixture = {
+  token: process.env.E2E_REFUND_TOKEN || "",
+  eventTitle: process.env.E2E_REFUND_EVENT_TITLE || "",
+  registrationId: process.env.E2E_REFUND_REGISTRATION_ID || "",
+};
+
 const certificateFixture = {
   token: process.env.E2E_MY_EVENTS_CERT_TOKEN || "",
   eventTitle: process.env.E2E_MY_EVENTS_CERT_EVENT_TITLE || "",
@@ -93,5 +105,36 @@ test.describe("My Events attendee continuity", () => {
       document: document.documentElement.scrollWidth,
     }));
     expect(geometry.document).toBeLessThanOrEqual(geometry.viewport + 1);
+  });
+
+  test("reserved waitlist offer can be claimed without another attendee stealing it", async ({ page, request }) => {
+    test.skip(!waitlistFixture.token || !waitlistFixture.eventId || !waitlistFixture.eventTitle, "Waitlist fixture is not configured");
+    await signIn(page, request, waitlistFixture.token);
+    await page.goto("/my-events");
+    await expect(page.getByRole("heading", { name: "Waitlist." })).toBeVisible();
+    await expect(page.getByText(waitlistFixture.eventTitle, { exact: true })).toBeVisible();
+    await expect(page.getByText("Seat reserved")).toBeVisible();
+    await page.getByRole("link", { name: "Claim seat" }).click();
+    await expect(page).toHaveURL(new RegExp(`/register/${waitlistFixture.eventId}$`));
+    await expect(page.getByText("Your waitlist seat is reserved.")).toBeVisible();
+    await page.getByPlaceholder("+91 98765 43210").fill("9876543210");
+    await page.getByPlaceholder("Your college or institution").fill("Sahrdaya College");
+    await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: "Confirm free registration" }).click();
+    await expect(page).toHaveURL(/\/ticket\//);
+  });
+
+  test("paid attendee submits a refund request without cancelling the paid registration", async ({ page, request }) => {
+    test.skip(!refundFixture.token || !refundFixture.eventTitle || !refundFixture.registrationId, "Refund request fixture is not configured");
+    await signIn(page, request, refundFixture.token);
+    await page.goto("/my-events");
+    const card = page.getByRole("article").filter({ hasText: refundFixture.eventTitle });
+    await expect(card).toBeVisible();
+    await card.getByRole("button", { name: "Request cancellation" }).click();
+    await expect(page.getByRole("dialog")).toContainText("Requests are reviewed before any refund is recorded.");
+    await page.getByLabel("Reason").fill("Browser E2E refund request");
+    await page.getByRole("button", { name: "Submit request" }).click();
+    await expect(card.getByText("Refund request received")).toBeVisible();
+    await expect(card.getByText("Paid", { exact: true })).toBeVisible();
   });
 });

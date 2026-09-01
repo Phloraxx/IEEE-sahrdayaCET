@@ -284,6 +284,10 @@ routerAdd("POST", "/api/workspace/events/{id}/workflow", function (e) {
     event.set("registrationOpen", false)
   }
   try { $app.save(event) } catch (err) { return authz.jsonError(e, 400, "WORKFLOW_FAILED", err.message || "Could not update workflow") }
+  if (action === "complete") {
+    try { require(__hooks + "/attendee-lifecycle-helpers.js").reconcileEventWaitlist($app, event.id, new Date().toISOString()) }
+    catch (waitlistErr) { console.log("[workspace] waitlist closeout failed:", waitlistErr) }
+  }
   helpers.audit($app, {
     eventId: event.id,
     actorId: e.auth.id,

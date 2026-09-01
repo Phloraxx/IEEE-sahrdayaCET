@@ -6,7 +6,7 @@ import { getEventAttendanceMode, type EventAttendanceMode } from "@/lib/event-pr
 import { logError } from "@/lib/logger";
 
 const PUBLIC_EVENT_FIELDS =
-  "id,created,updated,title,slug,description,date,endDate,timeTbc,venue,timezone,attendanceMode,locationAddress,price,banner,status,registrationOpen,registrationMode,registrationStart,registrationDeadline,maxCapacity,registeredCount,externalFormUrl,externalLink,collectIeeeMember,society,expand.society.id,expand.society.name,expand.society.slug,expand.society.logo";
+  "id,created,updated,title,slug,description,date,endDate,timeTbc,venue,timezone,attendanceMode,locationAddress,price,banner,status,registrationOpen,registrationMode,registrationStart,registrationDeadline,maxCapacity,registeredCount,waitlistEnabled,waitlistReservedCount,externalFormUrl,externalLink,collectIeeeMember,society,expand.society.id,expand.society.name,expand.society.slug,expand.society.logo";
 
 export interface SerializableEvent {
   id: string;
@@ -32,6 +32,8 @@ export interface SerializableEvent {
   registrationDeadline: string;
   maxCapacity: number;
   registeredCount: number;
+  waitlistEnabled: boolean;
+  waitlistReservedCount: number;
   externalFormUrl?: string;
   externalLink?: string;
   collectIeeeMember?: boolean;
@@ -112,6 +114,8 @@ function mapPublicEvent(raw: Record<string, unknown>): SerializableEvent {
     registrationDeadline,
     maxCapacity: getField(raw, "maxCapacity", 0),
     registeredCount: getField(raw, "registeredCount", 0),
+    waitlistEnabled: Boolean(getField(raw, "waitlistEnabled", false)),
+    waitlistReservedCount: getField(raw, "waitlistReservedCount", 0),
     externalFormUrl,
     externalLink: getField(raw, "externalLink", "") || undefined,
     collectIeeeMember: Boolean(getField(raw, "collectIeeeMember", false)),

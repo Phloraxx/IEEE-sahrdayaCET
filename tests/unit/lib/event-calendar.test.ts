@@ -26,6 +26,8 @@ const event = (overrides: Partial<SerializableEvent> = {}): SerializableEvent =>
   registrationDeadline: "",
   maxCapacity: 0,
   registeredCount: 0,
+  waitlistEnabled: false,
+  waitlistReservedCount: 0,
   ...overrides,
 });
 describe("event calendar", () => {

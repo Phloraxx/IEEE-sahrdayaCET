@@ -125,6 +125,7 @@ function myEventItem(app, event, registration) {
   var manualReview = paymentData.manualReview === true
   var certificates = activeCertificates(app, registration.id)
   var attendance = attendanceSnapshot(app, event, registration)
+  var cancellation = require(__hooks + "/attendee-lifecycle-helpers.js").cancellationPolicy(app, event, registration, Date.now())
   return {
     event: {
       id: event.id,
@@ -156,6 +157,7 @@ function myEventItem(app, event, registration) {
     },
     ended: ended,
     privateAccess: privateAccess(app, event, registration, ended),
+    cancellation: cancellation,
     attendance: attendance,
     certificates: certificates,
   }

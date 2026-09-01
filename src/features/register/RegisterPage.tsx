@@ -18,11 +18,15 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
 import {
   createRegistration,
+  getEventWaitlist,
   getMyEventRegistration,
   getRegistrationMemory,
   getPublicEvent,
+  joinEventWaitlist,
+  leaveEventWaitlist,
   previewCoupon,
   type CouponPreview,
+  type EventWaitlistResponse,
   type PublicRegistrationEvent,
 } from "@/lib/data/public-client";
 import { downloadRegistrationReceipt } from "@/lib/data/receipt.client";
@@ -216,6 +220,9 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
   const [submitting, setSubmitting] = useState(false);
   const [registrationState, setRegistrationState] = useState<MyEventRegistration | null>(null);
   const [registrationStateLoading, setRegistrationStateLoading] = useState(false);
+  const [waitlistState, setWaitlistState] = useState<EventWaitlistResponse | null>(null);
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
+  const [waitlistBusy, setWaitlistBusy] = useState(false);
   const [memoryReady, setMemoryReady] = useState(false);
 
   const [name, setName] = useState("");
@@ -309,11 +316,28 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
     return () => { active = false; };
   }, [authStatus, event, user?.id]);
 
+  useEffect(() => {
+    if (authStatus !== "authenticated" || !user?.id || !event?.waitlistEnabled || event.maxCapacity <= 0) {
+      setWaitlistState(null);
+      setWaitlistLoading(false);
+      return;
+    }
+    let active = true;
+    setWaitlistLoading(true);
+    void getEventWaitlist(event.id)
+      .then((state) => { if (active) setWaitlistState(state); })
+      .catch(() => { if (active) setWaitlistState(null); })
+      .finally(() => { if (active) setWaitlistLoading(false); });
+    return () => { active = false; };
+  }, [authStatus, event, user?.id]);
+
   const email = user?.email || "";
-  const capacityFull = !!event?.maxCapacity && event.registeredCount >= event.maxCapacity;
+  const occupiedSeats = (event?.registeredCount || 0) + (event?.waitlistReservedCount || 0);
+  const capacityFull = !!event?.maxCapacity && occupiedSeats >= event.maxCapacity;
+  const hasWaitlistOffer = waitlistState?.state?.status === "offered";
   const action = useMemo(
-    () => registrationAction(registrationState, !!event?.registrationOpen && !capacityFull),
-    [capacityFull, event?.registrationOpen, registrationState],
+    () => registrationAction(registrationState, !!event?.registrationOpen && (!capacityFull || hasWaitlistOffer)),
+    [capacityFull, event?.registrationOpen, hasWaitlistOffer, registrationState],
   );
 
   const handleApplyCoupon = async () => {
@@ -334,6 +358,36 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
     } finally {
       setCouponApplying(false);
     }
+  };
+
+  const refreshWaitlist = async () => {
+    if (!event?.waitlistEnabled || !user?.id) return;
+    try { setWaitlistState(await getEventWaitlist(event.id)); } catch { /* keep last known state */ }
+  };
+
+  const handleJoinWaitlist = async () => {
+    if (!event || !user?.id) return;
+    setWaitlistBusy(true);
+    try {
+      await joinEventWaitlist(event.id);
+      await refreshWaitlist();
+      toast.success("You joined the waitlist");
+    } catch (err) {
+      toast.error(requestErrorMessage(err, "Could not join the waitlist"));
+      await refreshWaitlist();
+    } finally { setWaitlistBusy(false); }
+  };
+
+  const handleLeaveWaitlist = async () => {
+    if (!event || !user?.id) return;
+    setWaitlistBusy(true);
+    try {
+      await leaveEventWaitlist(event.id);
+      await refreshWaitlist();
+      toast.success("You left the waitlist");
+    } catch (err) {
+      toast.error(requestErrorMessage(err, "Could not leave the waitlist"));
+    } finally { setWaitlistBusy(false); }
   };
 
   const validate = (): boolean => {
@@ -415,7 +469,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
   }
 
   const eventHref = event.slug ? `/events/${event.slug}` : "/events";
-  const seatsLeft = event.maxCapacity > 0 ? Math.max(0, event.maxCapacity - event.registeredCount) : null;
+  const seatsLeft = event.maxCapacity > 0 ? Math.max(0, event.maxCapacity - occupiedSeats) : null;
   const effectiveAmount = couponPreview?.amount ?? event.price;
   const effectivePaid = effectiveAmount > 0;
 
@@ -468,7 +522,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
           </aside>
 
           <section className="min-w-0">
-            {authStatus === "loading" || registrationStateLoading ? (
+            {authStatus === "loading" || registrationStateLoading || (Boolean(user) && capacityFull && event.waitlistEnabled && waitlistLoading) ? (
               <div className="border-y border-black/12 py-12"><Loader2 className="h-7 w-7 animate-spin text-[#00629B]" /><p className="mt-4 text-sm text-black/45">Checking your registration…</p></div>
             ) : !user ? (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="border-y border-black/12 py-10">
@@ -481,13 +535,40 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
             ) : registrationState?.found ? (
               <StatusCard event={event} state={registrationState} onReceipt={() => void handleReceipt()} />
             ) : action === "closed" ? (
-              <div className="border-y border-black/12 py-10">
-                <Clock3 className="h-8 w-8 text-black/35" />
-                <h2 className="mt-5 text-4xl font-semibold tracking-[-0.055em]">{capacityFull ? "Event full." : "Registration closed."}</h2>
-                <p className="mt-3 text-sm leading-6 text-black/50">{capacityFull ? "All available seats are currently reserved." : "This event is no longer accepting new registrations."}</p>
-              </div>
+              capacityFull && event.waitlistEnabled ? (
+                <div className="border-y border-black/12 py-10">
+                  <Clock3 className={`h-8 w-8 ${waitlistState?.state?.status === "waiting" ? "text-[#00629B]" : "text-black/35"}`} />
+                  <p className="mt-7 text-[9px] font-bold uppercase tracking-[0.18em] text-[#00629B]">Waitlist</p>
+                  <h2 className="mt-3 text-4xl font-semibold tracking-[-0.055em]">{waitlistState?.state?.status === "waiting" ? "You’re in line." : "Event full."}</h2>
+                  <p className="mt-3 max-w-xl text-sm leading-6 text-black/50">
+                    {waitlistState?.state?.status === "waiting"
+                      ? `Your current position is ${waitlistState.state.position || "being calculated"}. When a place opens, it is reserved for you for a limited time.`
+                      : "All available seats are reserved. Join the waitlist and the system will hold a released place for you before offering it to anyone else."}
+                  </p>
+                  {waitlistState?.state?.status === "waiting" ? (
+                    <button type="button" disabled={waitlistBusy} onClick={() => void handleLeaveWaitlist()} className="mt-7 min-h-11 border-y border-black/20 py-3 text-sm font-bold text-black/45 transition hover:text-rose-700 disabled:opacity-40">{waitlistBusy ? "Updating…" : "Leave waitlist"}</button>
+                  ) : (
+                    <button type="button" disabled={waitlistBusy} onClick={() => void handleJoinWaitlist()} className="group mt-7 inline-flex min-h-11 items-center gap-3 border-y border-[#00629B] py-4 text-lg font-bold text-[#00629B] disabled:opacity-40">
+                      {waitlistBusy ? "Joining…" : "Join waitlist"} {!waitlistBusy && <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />}
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="border-y border-black/12 py-10">
+                  <Clock3 className="h-8 w-8 text-black/35" />
+                  <h2 className="mt-5 text-4xl font-semibold tracking-[-0.055em]">{capacityFull ? "Event full." : "Registration closed."}</h2>
+                  <p className="mt-3 text-sm leading-6 text-black/50">{capacityFull ? "All available seats are currently reserved." : "This event is no longer accepting new registrations."}</p>
+                </div>
+              )
             ) : (
               <form onSubmit={handleSubmit}>
+                {hasWaitlistOffer && waitlistState?.state && (
+                  <div className="mb-8 border-y border-emerald-600/30 bg-emerald-50/60 py-5 text-emerald-900">
+                    <p className="text-[9px] font-bold uppercase tracking-[0.18em]">Reserved waitlist place</p>
+                    <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em]">A seat is held for you.</h2>
+                    <p className="mt-2 max-w-xl text-sm leading-6">Complete this registration before {waitlistState.state.offerExpiresAt ? new Date(waitlistState.state.offerExpiresAt).toLocaleString("en-IN") : "the offer expires"}. Other registrations cannot take this reserved place.</p>
+                  </div>
+                )}
                 <motion.section initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: MOTION_DURATION.reveal, ease: MOTION_EASE }} className="border-t border-black/12 py-8 sm:py-10">
                   <div className="grid gap-6 sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-10">
                     <div>

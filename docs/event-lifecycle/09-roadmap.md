@@ -36,7 +36,7 @@ Status: accepted on exact feature head `8318476fc4ede335c7c6b7131a4420cb15932d72
 - `attendance_qualified` remains disabled until Phase 5 closeout.
 ## Phase 3 — attendee continuity
 
-Status: implementation complete locally on top of accepted Phase 2; exact-head GitHub CI and staging acceptance pending.
+Status: accepted on exact feature head `22c8356c62022db2a193d709100c5babac52b3b9`; GitHub CI #938 passed validation, container builds, authenticated clean-room backend and My Events Browser E2E. Staging acceptance remains pending.
 
 - Authenticated `/my-events` server projection.
 - Stable ticket/payment/receipt/join-access actions.
@@ -46,10 +46,15 @@ Status: implementation complete locally on top of accepted Phase 2; exact-head G
 
 ## Phase 4 — capacity/self-service
 
-- Waitlist lifecycle and seat offers.
-- Free self-cancellation policy.
-- Paid refund-request queue.
-- Race/idempotency tests around seat release and callbacks.
+Status: implemented locally on top of accepted Phase 3; fresh migration boot, local full repository gate and browser fixture construction are green. Authenticated clean-room CI remains pending.
+
+- Private FIFO waitlist lifecycle with capacity-reserving offers and expiry.
+- Free/unpaid self-cancellation with transactional seat release.
+- Paid cancellation creates an attendee refund request; it never moves money automatically.
+- Finance accept/decline remains separate from provider/manual refund truth.
+- Public availability, registration, admin walk-ins and restores all honor reserved offers.
+- My Events and event/registration pages expose waiting, offer and cancellation states.
+- Clean-room fixtures cover reservation stealing, FIFO expiry and refund reconciliation.
 
 ## Phase 5 — closeout
 

@@ -52,6 +52,8 @@ export async function fetchEventForRegistration(eventId: string) {
       registrationOpen: canUseInternalRegistration(lifecycle),
       maxCapacity: getField(record, "maxCapacity", 0),
       registeredCount: getField(record, "registeredCount", 0),
+      waitlistEnabled: !!getField(record, "waitlistEnabled", false),
+      waitlistReservedCount: getField(record, "waitlistReservedCount", 0),
       collectIeeeMember: !!getField(record, "collectIeeeMember", false),
       formFields: (() => {
         const fields = getField(record, "formTemplate", undefined);

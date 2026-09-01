@@ -25,4 +25,5 @@ IEEE vTools/L31 reporting is explicitly out of scope. Completed events may later
 9. `09-roadmap.md` — implementation order and dependencies.
 10. `10-phase-0-1-acceptance.md` — Phase 0/1 implementation and exact-head CI evidence.
 11. `11-phase-2-local-acceptance.md` — Attendance V2 local/fresh-backend evidence plus exact-head CI acceptance.
-12. `12-phase-3-local-acceptance.md` — My Events/calendar local acceptance evidence and remaining clean-room gates.
+12. `12-phase-3-local-acceptance.md` — My Events/calendar local evidence; exact-head Phase 3 CI is recorded in the roadmap.
+13. `13-phase-4-local-acceptance.md` — waitlist/cancellation/refund-request architecture, local gates and pending clean-room CI.

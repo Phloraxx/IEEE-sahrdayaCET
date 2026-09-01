@@ -9,6 +9,7 @@ routerAdd(
     e.response.header().set("X-Content-Type-Options", "nosniff")
 
     var items = require(__hooks + "/my-events-helpers.js").listForUser($app, e.auth.id)
+    var waitlist = require(__hooks + "/attendee-lifecycle-helpers.js").waitlistItemsForUser($app, e.auth.id, Date.now())
     var actionNeeded = 0
     var upcoming = 0
     var past = 0
@@ -22,7 +23,11 @@ routerAdd(
     }
     return e.json(200, {
       items: items,
-      summary: { total: items.length, actionNeeded: actionNeeded, upcoming: upcoming, past: past },
+      waitlist: waitlist,
+      summary: {
+        total: items.length, actionNeeded: actionNeeded, upcoming: upcoming, past: past,
+        waitlisted: waitlist.length, offered: waitlist.filter(function (row) { return row.entry.status === "offered" }).length,
+      },
     })
   },
   $apis.requireAuth("users")

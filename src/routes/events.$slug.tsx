@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLoaderData, type LoaderFunctionArgs } from "react-router";
+import { toast } from "sonner";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ArrowLeft,
@@ -15,7 +16,13 @@ import Navbar from "@/components/Navbar";
 import { EventArtworkPreview } from "@/components/events/EventArtworkPreview";
 import { EventBannerFallback } from "@/components/events/EventBannerFallback";
 import { useAuth } from "@/lib/auth-context";
-import { getMyEventRegistration } from "@/lib/data/public-client";
+import {
+  getEventWaitlist,
+  getMyEventRegistration,
+  joinEventWaitlist,
+  leaveEventWaitlist,
+  type EventWaitlistResponse,
+} from "@/lib/data/public-client";
 import { downloadRegistrationReceipt } from "@/lib/data/receipt.client";
 import type { MyEventRegistration } from "@/lib/registration-state";
 import Footer from "@/components/Footer";
@@ -177,6 +184,9 @@ export default function EventDetailPage() {
   const { user, status: authStatus } = useAuth();
   const [myRegistration, setMyRegistration] = useState<MyEventRegistration | null>(null);
   const [myRegistrationLoading, setMyRegistrationLoading] = useState(false);
+  const [waitlistState, setWaitlistState] = useState<EventWaitlistResponse | null>(null);
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
+  const [waitlistBusy, setWaitlistBusy] = useState(false);
   const [compactMobileAction, setCompactMobileAction] = useState(false);
   const reduceMotion = Boolean(useReducedMotion());
 
@@ -202,6 +212,47 @@ export default function EventDetailPage() {
     return () => { active = false; };
   }, [authStatus, event.externalFormUrl, event.id, user?.id]);
 
+  useEffect(() => {
+    if (authStatus !== "authenticated" || !user?.id || !event.waitlistEnabled || event.registrationMode !== "internal") {
+      setWaitlistState(null);
+      setWaitlistLoading(false);
+      return;
+    }
+    let active = true;
+    setWaitlistLoading(true);
+    void getEventWaitlist(event.id)
+      .then((state) => { if (active) setWaitlistState(state); })
+      .catch(() => { if (active) setWaitlistState(null); })
+      .finally(() => { if (active) setWaitlistLoading(false); });
+    return () => { active = false; };
+  }, [authStatus, event.id, event.registrationMode, event.waitlistEnabled, user?.id]);
+
+  const refreshWaitlist = async () => {
+    if (!user?.id || !event.waitlistEnabled) return;
+    try { setWaitlistState(await getEventWaitlist(event.id)); } catch { /* keep current state */ }
+  };
+  const joinWaitlist = async () => {
+    setWaitlistBusy(true);
+    try {
+      await joinEventWaitlist(event.id);
+      await refreshWaitlist();
+      toast.success("You joined the waitlist");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not join the waitlist");
+      await refreshWaitlist();
+    } finally { setWaitlistBusy(false); }
+  };
+  const leaveWaitlist = async () => {
+    setWaitlistBusy(true);
+    try {
+      await leaveEventWaitlist(event.id);
+      await refreshWaitlist();
+      toast.success("You left the waitlist");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not leave the waitlist");
+    } finally { setWaitlistBusy(false); }
+  };
+
   const downloadReceipt = () => {
     if (!myRegistration?.registrationId) return;
     void downloadRegistrationReceipt(myRegistration.registrationId).catch(() => undefined);
@@ -219,6 +270,8 @@ export default function EventDetailPage() {
   const attendanceMode = event.attendanceMode;
   const registrationAvailable = lifecycle.registration.available;
   const availability = lifecycle.registration;
+  const waitlistEligible = event.waitlistEnabled && lifecycle.registration.mode === "internal" && availability.kind === "full";
+  const waitlistEntry = waitlistState?.state || null;
   const availabilityClass: Record<EventAvailabilityKind, string> = {
     "opening-soon": "text-[#00629B]",
     open: "text-[#00629B]",
@@ -286,7 +339,9 @@ export default function EventDetailPage() {
         : null
     : registrationAvailable
       ? registerUrl
-      : null;
+      : waitlistEligible && waitlistEntry?.status !== "waiting"
+        ? registerUrl
+        : null;
   const actionLabel = myRegistration?.found
     ? myRegistration.paymentRequired
       ? "Continue payment"
@@ -297,7 +352,9 @@ export default function EventDetailPage() {
       ? event.price > 0
         ? `Register · ₹${event.price}`
         : "Register free"
-      : null;
+      : waitlistEligible
+        ? waitlistEntry?.status === "offered" ? "Claim reserved seat" : "Join waitlist"
+        : null;
 
   return (
     <main className="min-h-screen bg-[#f4f2ed] text-[#111315] selection:bg-[#00629B] selection:text-white">
@@ -454,8 +511,32 @@ export default function EventDetailPage() {
                   ) : (
                     <Link to={registerUrl} className="group mt-7 hidden w-full items-center justify-between border-y border-[#00629B] py-4 text-lg font-bold text-[#00629B] lg:flex">Reserve your place <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" /></Link>
                   )
+                ) : waitlistEligible ? (
+                  authStatus === "authenticated" && waitlistLoading ? (
+                    <div className="mt-7 border-y border-black/12 py-4 text-sm font-semibold text-black/40">Checking waitlist…</div>
+                  ) : waitlistEntry?.status === "offered" ? (
+                    <div className="mt-7 border-y border-emerald-600/30 py-4">
+                      <p className="text-sm font-bold text-emerald-800">A seat is reserved for you.</p>
+                      {waitlistEntry.offerExpiresAt && <p className="mt-1 text-xs text-emerald-800/70">Complete registration before the offer expires.</p>}
+                      <Link to={registerUrl} className="group mt-4 flex items-center justify-between font-bold text-[#00629B]">Claim reserved seat <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></Link>
+                    </div>
+                  ) : waitlistEntry?.status === "waiting" ? (
+                    <div className="mt-7 border-y border-[#00629B]/25 py-4">
+                      <p className="text-sm font-bold text-[#00629B]">You’re on the waitlist{waitlistEntry.position > 0 ? ` · position ${waitlistEntry.position}` : ""}.</p>
+                      <p className="mt-1 text-xs leading-5 text-black/45">When a place opens, it is temporarily reserved before the next person is considered.</p>
+                      <button type="button" disabled={waitlistBusy} onClick={() => void leaveWaitlist()} className="mt-3 min-h-10 text-xs font-bold text-black/40 transition hover:text-rose-700 disabled:opacity-40">{waitlistBusy ? "Updating…" : "Leave waitlist"}</button>
+                    </div>
+                  ) : authStatus === "authenticated" ? (
+                    <div className="mt-7 border-y border-black/12 py-4">
+                      <p className="text-sm font-bold text-black/55">All seats are reserved.</p>
+                      <p className="mt-1 text-xs leading-5 text-black/42">Join the waitlist and a released seat will be held for you before anyone else can register into it.</p>
+                      <button type="button" disabled={waitlistBusy} onClick={() => void joinWaitlist()} className="group mt-4 flex w-full items-center justify-between font-bold text-[#00629B] disabled:opacity-40">{waitlistBusy ? "Joining…" : "Join waitlist"}{!waitlistBusy && <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />}</button>
+                    </div>
+                  ) : (
+                    <Link to={registerUrl} className="group mt-7 flex w-full items-center justify-between border-y border-[#00629B] py-4 font-bold text-[#00629B]">Sign in to join waitlist <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></Link>
+                  )
                 ) : <div className="mt-7 border-y border-black/12 py-4 text-sm font-bold text-black/40">{unavailableRegistrationLabel}</div>}
-                <p className="mt-5 text-xs leading-5 text-black/40">{event.price > 0 ? "Your place is confirmed only after payment is captured." : "Free registration creates your ticket immediately."}</p>
+                <p className="mt-5 text-xs leading-5 text-black/40">{waitlistEligible ? "Waitlist offers reserve capacity for one attendee at a time." : event.price > 0 ? "Your place is confirmed only after payment is captured." : "Free registration creates your ticket immediately."}</p>
               </>
             )}
           </aside>

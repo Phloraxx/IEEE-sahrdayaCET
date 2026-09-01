@@ -34,7 +34,8 @@ interface EventFormState {
   title: string; description: string; date: string; endDate: string; timeTbc: boolean; venue: string; timezone: string; attendanceMode: EventAttendanceMode; locationAddress: string; price: string;
   paymentProvider: "razorpay" | "kotak"; maxCapacity: string; status: string; society: string;
   registrationMode: RegistrationMethod; registrationOpen: boolean; checkInEnabled: boolean; collectIeeeMember: boolean;
-  registrationStart: string; registrationDeadline: string; contactEmail: string; contactPhone: string;
+  registrationStart: string; registrationDeadline: string; allowSelfCancellation: boolean; selfCancellationUntil: string;
+  refundRequestUntil: string; refundPolicy: string; waitlistEnabled: boolean; waitlistOfferMinutes: string; contactEmail: string; contactPhone: string;
   externalLink: string; whatsappLink: string; tags: string; externalFormUrl: string;
 }
 interface BaselineState { form: EventFormState; customFields: FormField[]; coupons: Coupon[]; }
@@ -43,6 +44,7 @@ const EMPTY_STATE: EventFormState = {
   title: "", description: "", date: "", endDate: "", timeTbc: false, venue: "", timezone: "Asia/Kolkata", attendanceMode: "onsite", locationAddress: "", price: "0", paymentProvider: "razorpay",
   maxCapacity: "", status: "draft", society: "", registrationMode: "internal", registrationOpen: true,
   checkInEnabled: true, collectIeeeMember: false, registrationStart: "", registrationDeadline: "",
+  allowSelfCancellation: false, selfCancellationUntil: "", refundRequestUntil: "", refundPolicy: "", waitlistEnabled: false, waitlistOfferMinutes: "360",
   contactEmail: "", contactPhone: "", externalLink: "", whatsappLink: "", tags: "", externalFormUrl: "",
 };
 const SECTIONS: Array<{ id: SetupSection; label: string; description: string; icon: typeof CalendarDays }> = [
@@ -118,7 +120,10 @@ export function EventForm({ mode, eventId, initialSocietyId, allowSocietyTransfe
       title: String(e.title ?? ""), description: String(e.description ?? ""), date: timeTbc ? toAppDateOnly(e.date as string | undefined) : toAppDateTimeLocal(e.date as string | undefined), endDate: timeTbc ? "" : toAppDateTimeLocal(e.endDate as string | undefined), timeTbc, venue: String(e.venue ?? ""), timezone: String(e.timezone ?? "") || "Asia/Kolkata", attendanceMode: getEventAttendanceMode({ attendanceMode: String(e.attendanceMode ?? ""), venue: String(e.venue ?? "") }), locationAddress: String(e.locationAddress ?? ""),
       price: String(e.price ?? "0"), paymentProvider: String(e.paymentProvider ?? "razorpay") === "kotak" ? "kotak" : "razorpay", maxCapacity: e.maxCapacity != null && Number(e.maxCapacity) > 0 ? String(e.maxCapacity) : "", status: String(e.status ?? "draft"), society: String(e.society ?? ""),
       registrationMode: safeMode(e.registrationMode, e.registrationOpen, e.externalFormUrl), registrationOpen: e.registrationOpen !== false, checkInEnabled: e.checkInEnabled !== false, collectIeeeMember: Boolean(e.collectIeeeMember),
-      registrationStart: toAppDateTimeLocal(e.registrationStart as string | undefined), registrationDeadline: toAppDateTimeLocal(e.registrationDeadline as string | undefined), contactEmail: String(e.contactEmail ?? ""), contactPhone: String(e.contactPhone ?? ""),
+      registrationStart: toAppDateTimeLocal(e.registrationStart as string | undefined), registrationDeadline: toAppDateTimeLocal(e.registrationDeadline as string | undefined),
+      allowSelfCancellation: Boolean(e.allowSelfCancellation), selfCancellationUntil: toAppDateTimeLocal(e.selfCancellationUntil as string | undefined),
+      refundRequestUntil: toAppDateTimeLocal(e.refundRequestUntil as string | undefined), refundPolicy: String(e.refundPolicy ?? ""), waitlistEnabled: Boolean(e.waitlistEnabled), waitlistOfferMinutes: String(Number(e.waitlistOfferMinutes) || 360),
+      contactEmail: String(e.contactEmail ?? ""), contactPhone: String(e.contactPhone ?? ""),
       externalLink: String(e.externalLink ?? ""), whatsappLink: String(e.whatsappLink ?? ""), tags: String(e.tags ?? ""), externalFormUrl: String(e.externalFormUrl ?? ""),
     };
     const fields = Array.isArray(e.formTemplate) ? e.formTemplate as FormField[] : [];
@@ -144,7 +149,7 @@ export function EventForm({ mode, eventId, initialSocietyId, allowSocietyTransfe
   const financeApprovalStatus = String(existingRecord?.financeApprovalStatus ?? "not_required"); const hasApproval = approvalStatus === "approved" || financeApprovalStatus === "approved";
   const impact = useMemo(() => {
     if (!baseline) return { operational: false, finance: false };
-    const operationalKeys: Array<keyof EventFormState> = ["date", "endDate", "timeTbc", "venue", "timezone", "attendanceMode", "locationAddress", "maxCapacity", "registrationMode", "registrationOpen", "registrationStart", "registrationDeadline", "externalFormUrl", "checkInEnabled", "collectIeeeMember"];
+    const operationalKeys: Array<keyof EventFormState> = ["date", "endDate", "timeTbc", "venue", "timezone", "attendanceMode", "locationAddress", "maxCapacity", "registrationMode", "registrationOpen", "registrationStart", "registrationDeadline", "externalFormUrl", "checkInEnabled", "collectIeeeMember", "allowSelfCancellation", "selfCancellationUntil", "refundRequestUntil", "refundPolicy", "waitlistEnabled", "waitlistOfferMinutes"];
     const financeKeys: Array<keyof EventFormState> = ["price", "paymentProvider"];
     operationalKeys.push("society");
     return { operational: operationalKeys.some((key) => form[key] !== baseline.form[key]) || !same(customFields, baseline.customFields), finance: financeKeys.some((key) => form[key] !== baseline.form[key]) || !same(coupons, baseline.coupons) };
@@ -165,6 +170,10 @@ export function EventForm({ mode, eventId, initialSocietyId, allowSocietyTransfe
       if (form.registrationDeadline && timestamp(form.registrationDeadline) > eventEndTimestamp(form)) return ["registration", "Registration deadline cannot be after the event ends."] as const;
     }
     if (form.registrationMode === "internal") {
+      if (form.allowSelfCancellation && form.selfCancellationUntil && timestamp(form.selfCancellationUntil) > eventEndTimestamp(form)) return ["registration", "Self-cancellation deadline cannot be after the event ends."] as const;
+      if (form.allowSelfCancellation && form.refundRequestUntil && timestamp(form.refundRequestUntil) > eventEndTimestamp(form)) return ["registration", "Refund-request deadline cannot be after the event ends."] as const;
+      if (form.waitlistEnabled && (!form.maxCapacity || Number(form.maxCapacity) <= 0)) return ["registration", "Set a finite capacity before enabling the waitlist."] as const;
+      if (form.waitlistEnabled && (Number(form.waitlistOfferMinutes) < 15 || Number(form.waitlistOfferMinutes) > 10080)) return ["registration", "Waitlist offer time must be between 15 minutes and 7 days."] as const;
       const invalidQuestion = customFields.find((field) => !field.label.trim() || ((field.type === "select" || field.type === "radio") && !field.options.some((option) => option.trim())));
       if (invalidQuestion) return ["registration", "Finish every event question and provide at least one option for choice questions."] as const;
       if (Number(form.price) < 0) return ["fees", "Registration fee cannot be negative."] as const;
@@ -177,6 +186,9 @@ export function EventForm({ mode, eventId, initialSocietyId, allowSocietyTransfe
     society: form.society, registrationMode: form.registrationMode, registrationOpen: form.registrationMode !== "closed" && form.registrationOpen,
     checkInEnabled: form.checkInEnabled, collectIeeeMember: form.collectIeeeMember, timeTbc: form.timeTbc, date: form.timeTbc ? fromAppDateOnly(form.date) : fromAppDateTimeLocal(form.date), endDate: form.timeTbc ? "" : fromAppDateTimeLocal(form.endDate) || "",
     registrationStart: fromAppDateTimeLocal(form.registrationStart) || "", registrationDeadline: fromAppDateTimeLocal(form.registrationDeadline) || "",
+    allowSelfCancellation: form.registrationMode === "internal" && form.allowSelfCancellation, selfCancellationUntil: fromAppDateTimeLocal(form.selfCancellationUntil) || "",
+    refundRequestUntil: fromAppDateTimeLocal(form.refundRequestUntil) || "", refundPolicy: form.refundPolicy.trim(),
+    waitlistEnabled: form.registrationMode === "internal" && form.waitlistEnabled, waitlistOfferMinutes: Math.max(15, Number(form.waitlistOfferMinutes) || 360),
     contactEmail: form.contactEmail.trim(), contactPhone: form.contactPhone.trim(), externalLink: form.externalLink.trim(), whatsappLink: form.whatsappLink.trim(), tags: form.tags.trim(), externalFormUrl: form.externalFormUrl.trim(),
     formTemplate: customFields, maxCapacity: form.maxCapacity ? Number(form.maxCapacity) : 0, coupons }); };
   const handleSubmit = async (event: React.FormEvent) => {
@@ -247,6 +259,13 @@ export function EventForm({ mode, eventId, initialSocietyId, allowSocietyTransfe
           <div className="grid gap-2"><Label htmlFor="capacity">Capacity</Label><Input id="capacity" type="number" min="1" value={form.maxCapacity} onChange={(e) => patch("maxCapacity", e.target.value)} placeholder="Unlimited" /><p className="text-xs text-muted-foreground">Leave empty for unlimited registrations.</p></div>
           <div className="space-y-3"><Label>Event operations</Label><label className="flex items-center justify-between gap-4 rounded-lg border border-border px-4 py-3"><span><span className="block text-sm font-medium">QR check-in</span><span className="mt-0.5 block text-xs text-muted-foreground">Issue scannable tickets after confirmation.</span></span><input type="checkbox" checked={form.checkInEnabled} onChange={(e) => patch("checkInEnabled", e.target.checked)} /></label>
           <label className="flex items-center justify-between gap-4 rounded-lg border border-border px-4 py-3"><span><span className="block text-sm font-medium">IEEE membership</span><span className="mt-0.5 block text-xs text-muted-foreground">Ask attendee membership status and Membership ID.</span></span><input type="checkbox" checked={form.collectIeeeMember} onChange={(e) => patch("collectIeeeMember", e.target.checked)} /></label></div></div>
+          <div className="space-y-5 rounded-xl border border-border p-5"><div><Label>Attendee changes</Label><p className="mt-1 text-xs leading-5 text-muted-foreground">Keep cancellation and full-capacity handling explicit. Paid cancellations become finance requests; they never move money automatically.</p></div>
+            <label className="flex items-center justify-between gap-4 rounded-lg border border-border px-4 py-3"><span><span className="block text-sm font-medium">Allow self-cancellation</span><span className="mt-0.5 block text-xs text-muted-foreground">Free or unpaid registrations can release their seat. Paid registrations create a refund request for finance.</span></span><input type="checkbox" checked={form.allowSelfCancellation} onChange={(e) => patch("allowSelfCancellation", e.target.checked)} /></label>
+            {form.allowSelfCancellation && <div className="grid gap-4 md:grid-cols-2"><div className="grid gap-2"><Label htmlFor="self-cancel-until">Self-cancellation until</Label><Input id="self-cancel-until" type="datetime-local" value={form.selfCancellationUntil} onChange={(e) => patch("selfCancellationUntil", e.target.value)} /><p className="text-xs text-muted-foreground">Optional. Falls back to registration close, then event start.</p></div>{feeMode === "paid" && <div className="grid gap-2"><Label htmlFor="refund-request-until">Refund requests until</Label><Input id="refund-request-until" type="datetime-local" value={form.refundRequestUntil} onChange={(e) => patch("refundRequestUntil", e.target.value)} /><p className="text-xs text-muted-foreground">Optional separate deadline for paid attendees.</p></div>}</div>}
+            {form.allowSelfCancellation && feeMode === "paid" && <div className="grid gap-2"><Label htmlFor="refund-policy">Refund policy shown to attendees</Label><Textarea id="refund-policy" rows={3} value={form.refundPolicy} onChange={(e) => patch("refundPolicy", e.target.value)} placeholder="Example: Approved refunds are processed after organizer review." maxLength={4000} /></div>}
+            <label className="flex items-center justify-between gap-4 rounded-lg border border-border px-4 py-3"><span><span className="block text-sm font-medium">Waitlist when full</span><span className="mt-0.5 block text-xs text-muted-foreground">Offers reserve capacity so a promised seat cannot be taken by another registration.</span></span><input type="checkbox" checked={form.waitlistEnabled} onChange={(e) => patch("waitlistEnabled", e.target.checked)} /></label>
+            {form.waitlistEnabled && <div className="grid max-w-sm gap-2"><Label htmlFor="waitlist-offer-minutes">Seat-offer window (minutes)</Label><Input id="waitlist-offer-minutes" type="number" min="15" max="10080" value={form.waitlistOfferMinutes} onChange={(e) => patch("waitlistOfferMinutes", e.target.value)} /><p className="text-xs text-muted-foreground">Default 360 minutes. Expired offers automatically move to the next person.</p></div>}
+          </div>
           <div><Label>Standard attendee details</Label><p className="mt-1 text-xs text-muted-foreground">These match the real registration form and reusable attendee memory.</p><div className="mt-3 overflow-hidden rounded-xl border border-border">{STANDARD_FIELDS.map(([name, behavior]) => <div key={name} className="flex items-center justify-between gap-4 border-b border-border px-4 py-3 text-sm last:border-b-0"><span>{name}</span><span className="text-xs text-muted-foreground">{behavior}</span></div>)}{form.collectIeeeMember && <div className="flex items-center justify-between gap-4 border-t border-border px-4 py-3 text-sm"><span>IEEE Membership ID</span><span className="text-xs text-muted-foreground">Shown to members</span></div>}</div></div>
           <div className="border-t border-border pt-7"><div className="mb-4"><Label>Additional event questions</Label><p className="mt-1 text-xs leading-5 text-muted-foreground">Ask only what is specific to this event. Standard details above do not need to be recreated.</p></div><CustomFieldBuilder fields={customFields} onChange={(fields) => { setDirty(true); setCustomFields(fields); }} /></div>
         </div>}

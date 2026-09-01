@@ -47,6 +47,11 @@ describe("public event availability language", () => {
     expect(getEventAvailability({ ...base, registrationOpen: false, registrationMode: "closed" }, NOW).label).toBe("Closed");
   });
 
+  it("counts active waitlist offers as occupied public capacity", () => {
+    expect(getEventAvailability({ ...base, registeredCount: 99, waitlistReservedCount: 1 }, NOW).label).toBe("Full");
+    expect(getEventAvailability({ ...base, registeredCount: 89, waitlistReservedCount: 1 }, NOW).label).toBe("Few places left");
+  });
+
   it("supports events without a public capacity", () => {
     expect(getEventAvailability({ ...base, maxCapacity: 0 }, NOW).label).toBe("Open");
   });

@@ -1,5 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
+import { toast } from "sonner";
 import {
   AlertTriangle,
   ArrowRight,
@@ -15,9 +17,13 @@ import {
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/lib/auth-context";
-import { listMyEvents, type MyEventItem } from "@/lib/data/my-events.client";
+import { cancelMyRegistration, listMyEvents, type MyEventItem, type MyEventWaitlistItem } from "@/lib/data/my-events.client";
+import { leaveEventWaitlist } from "@/lib/data/public-client";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import { downloadRegistrationReceipt } from "@/lib/data/receipt.client";
-import { formatDate, formatEventTime } from "@/lib/dates";
+import { formatDate, formatDateTime, formatEventTime } from "@/lib/dates";
 
 export const meta = () => [
   { title: "My Events | IEEE Sahrdaya" },
@@ -81,13 +87,90 @@ function PrimaryAction({ item }: { item: MyEventItem }) {
   return null;
 }
 
+function CancellationDialog({ item, pending, onClose, onSubmit }: {
+  item: MyEventItem | null;
+  pending: boolean;
+  onClose: () => void;
+  onSubmit: (reason: string) => void;
+}) {
+  const [reason, setReason] = useState("");
+  const refund = item?.cancellation.mode === "refund_request";
+  return (
+    <Dialog open={Boolean(item)} onOpenChange={(open) => { if (!open) { setReason(""); onClose(); } }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{refund ? "Request cancellation and refund" : "Cancel registration"}</DialogTitle>
+          <DialogDescription>
+            {refund
+              ? "This sends a request to the event finance team. Your paid registration stays valid until a refund is actually completed."
+              : "This releases your place immediately. An unpaid payment session, if any, will be closed."}
+          </DialogDescription>
+        </DialogHeader>
+        {item?.cancellation.deadline && <p className="text-xs text-black/50">Available until {formatDateTime(item.cancellation.deadline)}.</p>}
+        {refund && item?.cancellation.refundPolicy && (
+          <div className="border-l-2 border-[#00629B] pl-3 text-sm leading-6 text-black/60">
+            <strong className="text-black/75">Refund policy:</strong> {item.cancellation.refundPolicy}
+          </div>
+        )}
+        <div>
+          <label htmlFor="attendee-cancel-reason" className="text-xs font-bold">Reason <span className="font-normal text-black/40">(optional)</span></label>
+          <Textarea id="attendee-cancel-reason" rows={4} value={reason} onChange={(e) => setReason(e.target.value)} className="mt-2" placeholder="Anything the organisers should know" />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => { setReason(""); onClose(); }} disabled={pending}>Keep registration</Button>
+          <Button variant="destructive" disabled={pending} onClick={() => onSubmit(reason.trim())}>
+            {pending ? "Saving…" : refund ? "Send refund request" : "Cancel registration"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function WaitlistSection({ items, leavingId, onLeave }: {
+  items: MyEventWaitlistItem[];
+  leavingId: string;
+  onLeave: (eventId: string) => void;
+}) {
+  if (!items.length) return null;
+  return (
+    <section className="mt-14">
+      <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#00629B]">Waiting for a place</p>
+      <h2 className="mt-2 text-4xl font-semibold tracking-[-0.055em]">Waitlist.</h2>
+      <div className="mt-6 border-t border-black/15">
+        {items.map((item) => {
+          const offered = item.entry.status === "offered";
+          return (
+            <article key={item.entry.id} className="grid gap-5 border-b border-black/12 py-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+              <div>
+                <p className={`text-[9px] font-bold uppercase tracking-[0.18em] ${offered ? "text-emerald-700" : "text-black/40"}`}>
+                  {offered ? "A seat is reserved for you" : item.entry.position > 0 ? `Position ${item.entry.position}` : "Waiting"}
+                </p>
+                <Link to={`/events/${item.event.slug}`} className="mt-2 block text-2xl font-semibold tracking-[-0.04em] transition hover:text-[#00629B]">{item.event.title}</Link>
+                <p className="mt-2 text-xs text-black/45">{formatDate(item.event.date)}{item.event.venue ? ` · ${item.event.venue}` : ""}</p>
+                {offered && item.entry.offerExpiresAt && <p className="mt-3 text-sm font-semibold text-emerald-800">Claim by {formatDateTime(item.entry.offerExpiresAt)}.</p>}
+              </div>
+              <div className="flex flex-wrap gap-3 sm:justify-end">
+                {offered && <Link to={`/register/${item.event.id}`} className="inline-flex min-h-11 items-center gap-2 bg-[#00629B] px-4 py-3 text-sm font-bold text-white">Claim seat <ArrowRight className="h-4 w-4" /></Link>}
+                <button type="button" disabled={leavingId === item.event.id} onClick={() => onLeave(item.event.id)} className="min-h-11 px-2 text-xs font-bold text-black/45 transition hover:text-rose-700 disabled:opacity-40">
+                  {leavingId === item.event.id ? "Leaving…" : "Leave waitlist"}
+                </button>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function EventArtwork({ item }: { item: MyEventItem }) {
   if (item.event.bannerUrl) {
     return <img src={item.event.bannerUrl} alt="" className="h-full w-full object-cover" loading="lazy" />;
   }
   return <div className="flex h-full w-full items-end bg-[#07121f] p-4 text-xs font-bold uppercase tracking-[0.18em] text-white/50">IEEE Sahrdaya</div>;
 }
-function EventCard({ item }: { item: MyEventItem }) {
+function EventCard({ item, onManageCancellation }: { item: MyEventItem; onManageCancellation: (item: MyEventItem) => void }) {
   const issue = financialException(item);
   const cancelled = item.event.status === "cancelled" || item.registration.status === "cancelled";
   return (
@@ -138,6 +221,18 @@ function EventCard({ item }: { item: MyEventItem }) {
             {item.privateAccess.joinInstructions}
           </div>
         )}
+        {item.cancellation.request?.status === "open" && (
+          <div className="mt-4 flex gap-2 border-l-2 border-amber-500 pl-3 text-sm leading-6 text-amber-900">
+            <Clock3 className="mt-1 h-4 w-4 shrink-0" />
+            <p>Your refund request is awaiting an organiser decision. Your paid registration remains active in the meantime.</p>
+          </div>
+        )}
+        {item.cancellation.request?.status === "accepted" && (
+          <div className="mt-4 flex gap-2 border-l-2 border-emerald-600 pl-3 text-sm leading-6 text-emerald-900">
+            <CheckCircle2 className="mt-1 h-4 w-4 shrink-0" />
+            <p>Your refund request was accepted. Your registration closes only when the refund is actually recorded.</p>
+          </div>
+        )}
         <div className="mt-5 flex flex-wrap items-center gap-3">
           <PrimaryAction item={item} />
           {isPublicEventRecord(item) && (
@@ -165,24 +260,31 @@ function EventCard({ item }: { item: MyEventItem }) {
               Receipt <ReceiptText className="h-3.5 w-3.5" />
             </button>
           )}
+          {item.cancellation.allowed && !item.cancellation.request && !cancelled && (
+            <button type="button" onClick={() => onManageCancellation(item)} className="inline-flex min-h-11 items-center gap-1.5 px-1 text-xs font-bold text-black/42 transition hover:text-rose-700">
+              {item.cancellation.mode === "refund_request" ? "Request cancellation" : "Cancel registration"}
+            </button>
+          )}
         </div>
       </div>
     </article>
   );
 }
 
-function EventSection({ title, eyebrow, items }: { title: string; eyebrow: string; items: MyEventItem[] }) {
+function EventSection({ title, eyebrow, items, onManageCancellation }: { title: string; eyebrow: string; items: MyEventItem[]; onManageCancellation: (item: MyEventItem) => void }) {
   if (!items.length) return null;
   return (
     <section className="mt-14">
       <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#00629B]">{eyebrow}</p>
       <h2 className="mt-2 text-4xl font-semibold tracking-[-0.055em]">{title}</h2>
-      <div className="mt-6">{items.map((item) => <EventCard key={`${item.event.id}-${item.registration.id}`} item={item} />)}</div>
+      <div className="mt-6">{items.map((item) => <EventCard key={`${item.event.id}-${item.registration.id}`} item={item} onManageCancellation={onManageCancellation} />)}</div>
     </section>
   );
 }
 export default function MyEventsPage() {
   const { user, status } = useAuth();
+  const queryClient = useQueryClient();
+  const [cancellationItem, setCancellationItem] = useState<MyEventItem | null>(null);
   const query = useQuery({
     queryKey: ["my-events", user?.id],
     queryFn: listMyEvents,
@@ -191,7 +293,27 @@ export default function MyEventsPage() {
     retry: 1,
   });
 
+  const cancelMutation = useMutation({
+    mutationFn: ({ registrationId, reason }: { registrationId: string; reason: string }) => cancelMyRegistration(registrationId, reason),
+    onSuccess: (result) => {
+      setCancellationItem(null);
+      void queryClient.invalidateQueries({ queryKey: ["my-events", user?.id] });
+      toast.success(result.action === "refund_requested" ? "Refund request sent" : "Registration cancelled");
+    },
+    onError: (error: Error) => toast.error(error.message || "Could not update registration"),
+  });
+  const leaveMutation = useMutation({
+    mutationFn: (eventId: string) => leaveEventWaitlist(eventId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["my-events", user?.id] });
+      toast.success("Left the waitlist");
+    },
+    onError: (error: Error) => toast.error(error.message || "Could not leave the waitlist"),
+  });
+
   const items = query.data?.items || [];
+  const waitlist = query.data?.waitlist || [];
+  const offeredWaitlist = waitlist.filter((item) => item.entry.status === "offered");
   const action = items.filter(needsAction);
   const actionIds = new Set(action.map((item) => item.registration.id));
   const upcoming = items.filter((item) => !item.ended && !item.event.isArchived && item.event.status !== "completed" && item.event.status !== "cancelled" && item.registration.status !== "cancelled" && !actionIds.has(item.registration.id));
@@ -223,7 +345,7 @@ export default function MyEventsPage() {
             <p className="font-semibold">Your event record could not be loaded.</p>
             <button type="button" onClick={() => void query.refetch()} className="mt-4 min-h-11 text-sm font-bold underline underline-offset-4">Try again</button>
           </div>
-        ) : items.length === 0 ? (
+        ) : items.length === 0 && waitlist.length === 0 ? (
           <div className="border-y border-black/15 py-14">
             <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#00629B]">No registrations yet</p>
             <h2 className="mt-3 text-4xl font-semibold tracking-[-0.055em]">Your first event will appear here.</h2>
@@ -231,17 +353,28 @@ export default function MyEventsPage() {
           </div>
         ) : (
           <>
-            <div className="grid gap-4 border-b border-black/10 pb-8 sm:grid-cols-3">
-              <div><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Action needed</p><p className="mt-2 text-3xl font-semibold tracking-[-0.05em]">{action.length}</p></div>
+            <div className="grid gap-4 border-b border-black/10 pb-8 sm:grid-cols-2 lg:grid-cols-4">
+              <div><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Action needed</p><p className="mt-2 text-3xl font-semibold tracking-[-0.05em]">{action.length + offeredWaitlist.length}</p></div>
+              <div><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Waitlist</p><p className="mt-2 text-3xl font-semibold tracking-[-0.05em]">{waitlist.length}</p></div>
               <div><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Upcoming</p><p className="mt-2 text-3xl font-semibold tracking-[-0.05em]">{upcoming.length}</p></div>
               <div><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Past</p><p className="mt-2 text-3xl font-semibold tracking-[-0.05em]">{past.length}</p></div>
             </div>
-            <EventSection eyebrow="Needs your attention" title="Action needed." items={action} />
-            <EventSection eyebrow="What’s ahead" title="Upcoming." items={upcoming} />
-            <EventSection eyebrow="Your history" title="Past events." items={past} />
+            <WaitlistSection items={waitlist} leavingId={leaveMutation.isPending ? leaveMutation.variables || "" : ""} onLeave={(eventId) => leaveMutation.mutate(eventId)} />
+            <EventSection eyebrow="Needs your attention" title="Action needed." items={action} onManageCancellation={setCancellationItem} />
+            <EventSection eyebrow="What’s ahead" title="Upcoming." items={upcoming} onManageCancellation={setCancellationItem} />
+            <EventSection eyebrow="Your history" title="Past events." items={past} onManageCancellation={setCancellationItem} />
           </>
         )}
       </div>
+      <CancellationDialog
+        item={cancellationItem}
+        pending={cancelMutation.isPending}
+        onClose={() => setCancellationItem(null)}
+        onSubmit={(reason) => {
+          if (!cancellationItem) return;
+          cancelMutation.mutate({ registrationId: cancellationItem.registration.id, reason });
+        }}
+      />
       <Footer />
     </main>
   );

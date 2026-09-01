@@ -66,13 +66,15 @@ export interface PublicRegistrationEvent {
   registrationOpen: boolean;
   maxCapacity: number;
   registeredCount: number;
+  waitlistEnabled: boolean;
+  waitlistReservedCount: number;
   collectIeeeMember: boolean;
   formFields: FormField[];
 }
 
 export async function getPublicEvent(id: string): Promise<PublicRegistrationEvent> {
   const record = await getPbClient().collection("events").getOne(id, {
-    fields: "id,slug,title,description,date,endDate,timeTbc,venue,timezone,attendanceMode,locationAddress,price,banner,status,registrationOpen,registrationStart,registrationDeadline,isDeleted,maxCapacity,registeredCount,formTemplate,collectIeeeMember",
+    fields: "id,slug,title,description,date,endDate,timeTbc,venue,timezone,attendanceMode,locationAddress,price,banner,status,registrationOpen,registrationStart,registrationDeadline,isDeleted,maxCapacity,registeredCount,waitlistEnabled,waitlistReservedCount,formTemplate,collectIeeeMember",
   });
   const lifecycle = {
     status: String(record.status || ""),
@@ -107,9 +109,43 @@ export async function getPublicEvent(id: string): Promise<PublicRegistrationEven
     registrationOpen: canRegisterForEvent(lifecycle),
     maxCapacity: Number(record.maxCapacity) || 0,
     registeredCount: Number(record.registeredCount) || 0,
+    waitlistEnabled: Boolean(record.waitlistEnabled),
+    waitlistReservedCount: Number(record.waitlistReservedCount) || 0,
     collectIeeeMember: Boolean(record.collectIeeeMember),
     formFields: Array.isArray(record.formTemplate) ? record.formTemplate as FormField[] : [],
   };
+}
+
+export interface EventWaitlistState {
+  id: string;
+  status: "waiting" | "offered" | "expired" | string;
+  position: number;
+  joinedAt: string;
+  offeredAt: string;
+  offerExpiresAt: string;
+}
+
+export interface EventWaitlistResponse {
+  enabled: boolean;
+  registrationOpen: boolean;
+  full: boolean;
+  capacity: number;
+  occupied: number;
+  state: EventWaitlistState | null;
+}
+
+export async function getEventWaitlist(eventId: string): Promise<EventWaitlistResponse> {
+  const pb = getPbClient();
+  if (!pb.authStore.isValid) throw new Error("Please sign in to view the waitlist");
+  return pb.send(`/api/app/events/${encodeURIComponent(eventId)}/waitlist`, { method: "GET" }) as Promise<EventWaitlistResponse>;
+}
+
+export async function joinEventWaitlist(eventId: string) {
+  return getPbClient().send(`/api/app/events/${encodeURIComponent(eventId)}/waitlist/join`, { method: "POST" }) as Promise<{ joined: boolean; reused: boolean; state: EventWaitlistState }>;
+}
+
+export async function leaveEventWaitlist(eventId: string) {
+  return getPbClient().send(`/api/app/events/${encodeURIComponent(eventId)}/waitlist/leave`, { method: "POST" }) as Promise<{ left: boolean; alreadyLeft: boolean }>;
 }
 
 export interface EventJoinDetails {
