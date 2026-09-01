@@ -3,6 +3,7 @@ import { buildFileUrl, escapeFilterValue } from "@/lib/pb";
 import { sanitizeBlogCoverUrl } from "@/lib/blog-content";
 import { getField } from "@/lib/safe-get";
 import { canRegisterForEvent, isPublicEvent } from "@/lib/event-lifecycle";
+import { getEventAttendanceMode, type EventAttendanceMode } from "@/lib/event-presentation";
 import type { FormField } from "@/types";
 import type { MyEventRegistration } from "@/lib/registration-state";
 
@@ -56,6 +57,9 @@ export interface PublicRegistrationEvent {
   endDate: string;
   timeTbc: boolean;
   venue: string;
+  timezone: string;
+  attendanceMode: EventAttendanceMode;
+  locationAddress: string;
   price: number;
   isPaid: boolean;
   bannerUrl: string;
@@ -68,7 +72,7 @@ export interface PublicRegistrationEvent {
 
 export async function getPublicEvent(id: string): Promise<PublicRegistrationEvent> {
   const record = await getPbClient().collection("events").getOne(id, {
-    fields: "id,slug,title,description,date,endDate,timeTbc,venue,price,banner,status,registrationOpen,registrationStart,registrationDeadline,isDeleted,maxCapacity,registeredCount,formTemplate,collectIeeeMember",
+    fields: "id,slug,title,description,date,endDate,timeTbc,venue,timezone,attendanceMode,locationAddress,price,banner,status,registrationOpen,registrationStart,registrationDeadline,isDeleted,maxCapacity,registeredCount,formTemplate,collectIeeeMember",
   });
   const lifecycle = {
     status: String(record.status || ""),
@@ -82,6 +86,9 @@ export async function getPublicEvent(id: string): Promise<PublicRegistrationEven
   };
   if (!isPublicEvent(lifecycle)) throw new Error("Event not found");
   const price = Number(record.price) || 0;
+  const timezone = String(record.timezone || "") || "Asia/Kolkata";
+  const attendanceMode = getEventAttendanceMode({ attendanceMode: String(record.attendanceMode || ""), venue: String(record.venue || "") });
+  const locationAddress = String(record.locationAddress || "");
   return {
     id: record.id,
     slug: String(record.slug || ""),
@@ -91,6 +98,9 @@ export async function getPublicEvent(id: string): Promise<PublicRegistrationEven
     endDate: lifecycle.endDate,
     timeTbc: Boolean(record.timeTbc),
     venue: String(record.venue || ""),
+    timezone,
+    attendanceMode,
+    locationAddress,
     price,
     isPaid: price > 0,
     bannerUrl: record.banner ? buildFileUrl("events", record.id, String(record.banner)) : "",
@@ -100,6 +110,19 @@ export async function getPublicEvent(id: string): Promise<PublicRegistrationEven
     collectIeeeMember: Boolean(record.collectIeeeMember),
     formFields: Array.isArray(record.formTemplate) ? record.formTemplate as FormField[] : [],
   };
+}
+
+export interface EventJoinDetails {
+  virtualJoinUrl: string;
+  joinInstructions: string;
+}
+
+export async function getEventJoinDetails(eventId: string): Promise<EventJoinDetails> {
+  const pb = getPbClient();
+  if (!pb.authStore.isValid) throw new Error("Please sign in to view attendee access");
+  return pb.send(`/api/app/events/${encodeURIComponent(eventId)}/join-details`, {
+    method: "GET",
+  }) as Promise<EventJoinDetails>;
 }
 
 export interface CouponPreview {

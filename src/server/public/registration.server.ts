@@ -2,6 +2,7 @@ import { createPublicPB } from "@/lib/pb.server";
 import { buildFileUrl } from "@/lib/pb";
 import { getField } from "@/lib/safe-get";
 import { canUseInternalRegistration, isPublicEvent } from "@/lib/event-lifecycle";
+import { getEventAttendanceMode } from "@/lib/event-presentation";
 
 export async function fetchEventForRegistration(eventId: string) {
     const pb = createPublicPB();
@@ -25,6 +26,12 @@ export async function fetchEventForRegistration(eventId: string) {
 
     const price = Number(getField(record, "price", 0)) || 0;
     const bannerRaw = getField(record, "banner", "");
+    const timezone = getField(record, "timezone", "") || "Asia/Kolkata";
+    const attendanceMode = getEventAttendanceMode({
+      attendanceMode: getField(record, "attendanceMode", ""),
+      venue: getField(record, "venue", ""),
+    });
+    const locationAddress = getField(record, "locationAddress", "");
     const event = {
       id: getField(record, "id", ""),
       slug: getField(record, "slug", ""),
@@ -34,6 +41,9 @@ export async function fetchEventForRegistration(eventId: string) {
       endDate: lifecycle.endDate,
       timeTbc: lifecycle.timeTbc,
       venue: getField(record, "venue", ""),
+      timezone,
+      attendanceMode,
+      locationAddress,
       price,
       isPaid: price > 0,
       bannerUrl: bannerRaw ? buildFileUrl("events", eventId, bannerRaw) : "",

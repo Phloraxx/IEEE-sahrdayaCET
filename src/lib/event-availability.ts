@@ -58,7 +58,8 @@ export function getEventAvailability(
     return { kind: "full", label: "Full" };
   }
 
-  if (event.registrationOpen === false) {
+  const legacyExternal = !event.registrationMode && Boolean(event.externalFormUrl);
+  if (event.registrationOpen === false && !legacyExternal) {
     return { kind: "closed", label: "Closed" };
   }
 

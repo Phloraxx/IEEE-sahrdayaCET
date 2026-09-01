@@ -120,5 +120,6 @@ module.exports = {
   parseEmailList: parseEmailList,
   normalizedMode: normalizedMode,
   resolveDelivery: resolveDelivery,
+  currentResolution: currentResolution,
   prepare: prepare,
 }

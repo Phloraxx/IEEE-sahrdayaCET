@@ -1,5 +1,11 @@
 export type EventLifecycle = "scheduled" | "completed" | "cancelled";
 export type EventAttendanceKind = "offline" | "online" | "hybrid";
+export type EventAttendanceMode = "onsite" | "online" | "hybrid";
+
+export interface EventAttendanceInput {
+  attendanceMode?: string | null;
+  venue?: string | null;
+}
 
 const ONLINE_VENUE_PATTERN =
   /\b(online|virtual|google meet|zoom|microsoft teams|webex|meet\.google\.com)\b/i;
@@ -19,19 +25,27 @@ export function getSchemaEventStatus(status: string): string {
   return "https://schema.org/EventScheduled";
 }
 
-export function getEventAttendanceKind(venue: string): EventAttendanceKind {
-  const normalized = venue.trim();
-  if (HYBRID_VENUE_PATTERN.test(normalized)) return "hybrid";
-  if (ONLINE_VENUE_PATTERN.test(normalized)) return "online";
-  return "offline";
+export function getEventAttendanceMode(input: string | EventAttendanceInput): EventAttendanceMode {
+  const explicit = typeof input === "string" ? "" : String(input.attendanceMode || "").trim().toLowerCase();
+  if (explicit === "onsite" || explicit === "online" || explicit === "hybrid") return explicit;
+
+  const venue = typeof input === "string" ? input.trim() : String(input.venue || "").trim();
+  if (HYBRID_VENUE_PATTERN.test(venue)) return "hybrid";
+  if (ONLINE_VENUE_PATTERN.test(venue)) return "online";
+  return "onsite";
 }
 
-export function getSchemaAttendanceMode(venue: string): string {
-  const kind = getEventAttendanceKind(venue);
-  if (kind === "online") {
+export function getEventAttendanceKind(input: string | EventAttendanceInput): EventAttendanceKind {
+  const mode = getEventAttendanceMode(input);
+  return mode === "onsite" ? "offline" : mode;
+}
+
+export function getSchemaAttendanceMode(input: string | EventAttendanceInput): string {
+  const mode = getEventAttendanceMode(input);
+  if (mode === "online") {
     return "https://schema.org/OnlineEventAttendanceMode";
   }
-  if (kind === "hybrid") {
+  if (mode === "hybrid") {
     return "https://schema.org/MixedEventAttendanceMode";
   }
   return "https://schema.org/OfflineEventAttendanceMode";

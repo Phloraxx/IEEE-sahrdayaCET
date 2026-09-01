@@ -27,7 +27,7 @@ export type WorkspaceScopeType = (typeof WORKSPACE_ROLE_DEFINITIONS)[WorkspaceRo
 
 export const WORKSPACE_CAPABILITIES = [
   "workspace.view", "events.view", "events.create", "events.edit", "events.submit",
-  "events.approve", "events.publish", "events.cancel", "events.complete", "registrations.view",
+  "events.approve", "events.publish", "events.cancel", "events.archive", "events.complete", "registrations.view",
   "registrations.manage", "registrations.manual", "checkin.manage", "finance.view",
   "finance.manage", "finance.approve", "societies.view", "societies.edit",
   "assignments.manage", "content.manage", "execom.manage", "reports.view", "technical.manage",

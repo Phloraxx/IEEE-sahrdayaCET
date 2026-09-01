@@ -50,10 +50,9 @@ onRecordCreateRequest(function (e) {
 // fields (registeredCount, checkedInCount). Counters are maintained by
 // the registration hooks; chairs must never write them directly.
 //
-// isDeleted: chairs MAY soft-delete (false→true) their own events —
-// the PocketBase collection rule verifies society ownership before this
-// request hook runs. What chairs may NOT do is un-delete
-// (true→false) — that remains admin-only.
+// isDeleted is command-owned. Ordinary record updates cannot archive an
+// event; the Archive command enforces safe status/registration preconditions.
+// Restoring an archived event remains platform-admin only.
 
 onRecordUpdateRequest(function (e) {
     var auth = null
@@ -106,8 +105,8 @@ onRecordUpdateRequest(function (e) {
     var wasDeleted = oldRecord.getBool("isDeleted")
     var isNowDeleted = newRecord.getBool("isDeleted")
     if (!isPlatformAdmin && wasDeleted && !isNowDeleted) throw e.forbiddenError("Only platform administrators may restore deleted events")
-    if (!wasDeleted && isNowDeleted && !isPlatformAdmin && !authz.hasEventCapability($app, auth, "events.cancel", oldRecord)) {
-        throw e.forbiddenError("Event cancellation permission is required to archive an event")
+    if (!wasDeleted && isNowDeleted) {
+        throw e.badRequestError("Use the Archive event command so historical state is preserved safely")
     }
 
     // Workflow state is mutated only by /api/workspace/events/:id/workflow.

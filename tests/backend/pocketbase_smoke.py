@@ -187,7 +187,8 @@ start = (now + dt.timedelta(days=1)).isoformat().replace("+00:00", "Z")
 end = (now + dt.timedelta(days=1, hours=2)).isoformat().replace("+00:00", "Z")
 event = request("POST", "/api/collections/events/records", {
     "title": f"CI Smoke Event {suffix}", "description": "<p>Clean-room integration event</p>",
-    "date": start, "endDate": end, "venue": "CI Lab", "price": 0,
+    "date": start, "endDate": end, "venue": "CI Lab", "timezone": "Asia/Kolkata",
+    "attendanceMode": "hybrid", "locationAddress": "CI Lab, Sahrdaya College", "price": 0,
     "society": society["id"], "status": "published", "maxCapacity": 1,
     "registeredCount": 0, "checkedInCount": 0, "registrationOpen": True,
     "checkInEnabled": True, "isDeleted": False,
@@ -197,6 +198,38 @@ event = request("POST", "/api/collections/events/records", {
     ],
 }, super_token)
 assert event["slug"].startswith("ci-smoke-event-")
+assert event["timezone"] == "Asia/Kolkata" and event["attendanceMode"] == "hybrid"
+
+# Private join data is server-only state: raw collection CRUD stays closed even
+# for application admins, organizer access goes through events.edit, and users
+# need a confirmed registration before retrieval.
+private_schema = request("GET", "/api/collections/event_private_details", token=super_token)
+for rule_name in ("listRule", "viewRule", "createRule", "updateRule", "deleteRule"):
+    assert private_schema.get(rule_name) is None
+request("GET", "/api/collections/event_private_details/records", token=user_token, expected=(403,))
+request("GET", "/api/collections/event_private_details/records", token=admin_token, expected=(403,))
+private_access = request("PUT", f"/api/app/events/{event['id']}/private-details", {
+    "virtualJoinUrl": "https://meet.example.test/ci-private-room",
+    "joinInstructions": "Use the attendee name shown on your ticket.",
+}, admin_token)
+assert private_access["virtualJoinUrl"].startswith("https://meet.example.test/")
+request("GET", f"/api/app/events/{event['id']}/join-details", token=user_token, expected=(403,))
+private_audit_filter = urllib.parse.quote(
+    f'event="{event["id"]}" && action="event.private-access.updated"'
+)
+private_audit = request("GET", f"/api/collections/admin_audit_log/records?filter={private_audit_filter}", token=super_token)
+assert private_audit["totalItems"] == 1
+audit_blob = json.dumps(private_audit["items"][0])
+assert "meet.example.test" not in audit_blob and "attendee name" not in audit_blob
+
+# A published event cannot be completed before its effective scheduled end.
+request(
+    "POST",
+    f"/api/workspace/events/{event['id']}/workflow",
+    {"action": "complete"},
+    admin_token,
+    (409,),
+)
 if github_env := os.environ.get("GITHUB_ENV"):
     with open(github_env, "a", encoding="utf-8") as env_file:
         env_file.write(f"E2E_EVENT_ID={event['id']}\n")
@@ -224,6 +257,16 @@ assert chair_event["externalLink"] == "https://example.test/register"
 request("PATCH", f"/api/collections/events/records/{chair_event['id']}", {
     "society": chair_second_society["id"],
 }, chair_token, (400, 403))
+# Archive is command-only and must not be smuggled through ordinary record updates.
+request("PATCH", f"/api/collections/events/records/{chair_event['id']}", {
+    "isDeleted": True,
+}, chair_token, (400,))
+archived = request("POST", f"/api/admin/events/{chair_event['id']}/archive", token=chair_token)
+assert archived["archived"] is True and archived["alreadyArchived"] is False
+archived_event = request("GET", f"/api/collections/events/records/{chair_event['id']}", token=super_token)
+assert archived_event["isDeleted"] is True
+assert archived_event["status"] == "draft"
+request("POST", f"/api/admin/events/{chair_event['id']}/archive", token=chair_token)
 
 request("POST", "/api/collections/events/records", {
     "title": f"Out of Scope {suffix}", "description": "must fail",
@@ -384,6 +427,9 @@ registration = request("POST", f"/api/app/events/{event['id']}/register", {
     "formResponses": {"name": "Member", "email": user["email"], "phone": "123"},
 }, user_token)
 assert registration["registrationStatus"] == "confirmed" and registration["ticketId"]
+join_details = request("GET", f"/api/app/events/{event['id']}/join-details", token=user_token)
+assert join_details["virtualJoinUrl"] == "https://meet.example.test/ci-private-room"
+assert "attendee name" in join_details["joinInstructions"]
 replayed_registration = request("POST", f"/api/app/events/{event['id']}/register", {
     "formResponses": {"name": "Member", "email": user["email"]},
 }, user_token, (200,))

@@ -24,11 +24,12 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth-context";
-import { deleteAdminEvent, listAdminEvents, type AdminEventListItem, type AdminEventsResponse } from "@/lib/data/admin-events.client";
+import { archiveAdminEvent, listAdminEvents, type AdminEventListItem, type AdminEventsResponse } from "@/lib/data/admin-events.client";
 import { formatDateShort } from "@/lib/dates";
 import { getPbClient } from "@/lib/pb-client";
 import { streamAdminEventsCSV } from "@/lib/csv-export";
 import { getWorkspaceMe } from "@/lib/data/workspace.client";
+import { hasScopedWorkspaceCapability } from "@/lib/workspace-permissions";
 
 function EventsSkeleton() {
   return (
@@ -63,7 +64,7 @@ export default function AdminEvents() {
     enabled: Boolean(workspace.data),
   });
   const archiveMutation = useMutation({
-    mutationFn: deleteAdminEvent,
+    mutationFn: archiveAdminEvent,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-events"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
@@ -75,8 +76,6 @@ export default function AdminEvents() {
 
 
   const canCreate = Boolean(workspace.data?.capabilities.includes("events.create"));
-  const canArchive = Boolean(workspace.data?.capabilities.includes("events.cancel"));
-
   const exportEvents = async () => {
     const stream = await streamAdminEventsCSV(getPbClient());
     const blob = await new Response(stream).blob();
@@ -154,7 +153,7 @@ export default function AdminEvents() {
       ) : (
         <EventsList
           rows={data.events}
-          canArchive={canArchive}
+          canArchiveEvent={(event) => hasScopedWorkspaceCapability(workspace.data, "events.archive", { eventId: event.id, societyId: event.societyId })}
           onArchive={(id) => archiveMutation.mutate(id)}
           archivingPending={archiveMutation.isPending}
         />
@@ -198,14 +197,14 @@ export default function AdminEvents() {
 
 interface EventsListProps {
   rows: AdminEventListItem[];
-  canArchive: boolean;
+  canArchiveEvent: (event: AdminEventListItem) => boolean;
   onArchive: (id: string) => void;
   archivingPending: boolean;
 }
 
 function EventsList({
   rows,
-  canArchive,
+  canArchiveEvent,
   onArchive,
   archivingPending,
 }: EventsListProps) {
@@ -255,7 +254,7 @@ function EventsList({
           </div>
           <div className="flex items-center justify-end gap-1">
             <Link to={`/admin/events/${event.id}`} className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground">Open<ChevronRight className="h-3 w-3" /></Link>
-            {canArchive && <ConfirmButton
+            {canArchiveEvent(event) && ["draft", "completed", "cancelled"].includes(event.status) && <ConfirmButton
               label=""
               confirmMessage="Archive this event? It will be hidden from public listings but its historical records remain available."
               variant="destructive"

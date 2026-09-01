@@ -29,4 +29,12 @@ describe("PocketBase event time helper", () => {
     expect(helper(event("2026-08-28T18:30:00.000Z"))?.toISOString()).toBe("2026-08-28T18:30:00.000Z");
     expect(helper(event("2026-08-28T18:30:00.000Z", "2026-08-30T10:00:00.000Z", true))?.toISOString()).toBe("2026-08-30T10:00:00.000Z");
   });
+  it("keeps event completion bound to the shared effective end", () => {
+    const workflow = readFileSync(resolve(process.cwd(), "pb_hooks/workspace.pb.js"), "utf8");
+    expect(workflow).toContain('event-time-helpers.js');
+    expect(workflow).toContain('.eventEndDate(event)');
+    expect(workflow).toContain('"EVENT_NOT_ENDED"');
+    expect(workflow).not.toContain('"EVENT_NOT_STARTED"');
+  });
+
 });

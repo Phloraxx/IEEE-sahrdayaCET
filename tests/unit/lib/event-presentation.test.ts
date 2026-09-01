@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getEventAttendanceKind,
+  getEventAttendanceMode,
   getEventLifecycle,
   getSchemaAttendanceMode,
   getSchemaEventStatus,
@@ -19,6 +20,15 @@ describe("event presentation", () => {
     );
     expect(getSchemaEventStatus("published")).toBe(
       "https://schema.org/EventScheduled",
+    );
+  });
+
+  it("prefers explicit attendance mode over legacy venue inference", () => {
+    expect(getEventAttendanceMode({ attendanceMode: "onsite", venue: "Zoom room" })).toBe("onsite");
+    expect(getEventAttendanceMode({ attendanceMode: "online", venue: "Main Auditorium" })).toBe("online");
+    expect(getEventAttendanceKind({ attendanceMode: "onsite", venue: "Online" })).toBe("offline");
+    expect(getSchemaAttendanceMode({ attendanceMode: "hybrid", venue: "Auditorium" })).toBe(
+      "https://schema.org/MixedEventAttendanceMode",
     );
   });
 

@@ -25,7 +25,7 @@ function requireManageEvent(app, auth, event) {
 function eventPermissions(app, auth, event) {
   var authz = require(__hooks + "/workspace-authorization.js")
   var capabilities = [
-    "events.view", "events.edit", "events.submit", "events.approve", "events.publish", "events.cancel", "events.complete",
+    "events.view", "events.edit", "events.submit", "events.approve", "events.publish", "events.cancel", "events.archive", "events.complete",
     "registrations.view", "registrations.manage", "registrations.manual", "checkin.manage",
     "finance.view", "finance.manage", "finance.approve", "assignments.manage", "content.manage", "reports.view",
     "certificates.view", "certificates.manage_templates", "certificates.issue", "certificates.send", "certificates.revoke"

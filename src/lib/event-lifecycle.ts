@@ -55,7 +55,7 @@ export function canRegisterForEvent(event: EventLifecycleInput, now: number = Da
   const registrationStart = toTimestamp(event.registrationStart);
   if (registrationStart !== null && registrationStart > now) return false;
   const registrationDeadline = toTimestamp(event.registrationDeadline);
-  if (registrationDeadline !== null && registrationDeadline < now) return false;
+  if (registrationDeadline !== null && registrationDeadline <= now) return false;
   return true;
 }
 

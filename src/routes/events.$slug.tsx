@@ -22,15 +22,14 @@ import { APP_URL } from "@/lib/constants";
 import { blogHtmlToPlainText, sanitizeBlogHtml } from "@/lib/blog-content";
 import { formatAppDateISO, formatDate, formatEventTime, formatYear } from "@/lib/dates";
 import { eventTitleSize, MOTION_DURATION, MOTION_EASE, revealUp } from "@/lib/motion";
-import { getEventAvailability, type EventAvailabilityKind } from "@/lib/event-availability";
+import type { EventAvailabilityKind } from "@/lib/event-availability";
+import { getEventLifecycleSnapshot } from "@/lib/event-lifecycle-snapshot";
 import {
   getEventSocietySlug,
   resolveEventArtwork,
   resolveEventSocialImagePath,
 } from "@/lib/event-artwork";
 import {
-  getEventAttendanceKind,
-  getEventLifecycle,
   getSchemaAttendanceMode,
   getSchemaEventStatus,
 } from "@/lib/event-presentation";
@@ -111,28 +110,31 @@ function toSchemaDate(value: string): string {
 
 function physicalLocation(event: SerializableEvent) {
   const venue = event.venue || "Sahrdaya College of Engineering & Technology";
-  const atSahrdaya = /sahrdaya|kodakara/i.test(venue);
+  const address = event.locationAddress.trim();
+  const atSahrdaya = /sahrdaya|kodakara/i.test(`${venue} ${address}`);
   return {
     "@type": "Place",
     name: venue,
-    ...(atSahrdaya
-      ? {
-          address: {
-            "@type": "PostalAddress",
-            streetAddress: "Sahrdaya College of Engineering & Technology",
-            addressLocality: "Kodakara",
-            addressRegion: "Kerala",
-            postalCode: "680684",
-            addressCountry: "IN",
-          },
-        }
-      : {}),
+    ...(address
+      ? { address }
+      : atSahrdaya
+        ? {
+            address: {
+              "@type": "PostalAddress",
+              streetAddress: "Sahrdaya College of Engineering & Technology",
+              addressLocality: "Kodakara",
+              addressRegion: "Kerala",
+              postalCode: "680684",
+              addressCountry: "IN",
+            },
+          }
+        : {}),
   };
 }
 
 function RelatedEventCard({ event }: { event: SerializableEvent }) {
   const artwork = resolveEventArtwork(event);
-  const availability = getEventAvailability(event);
+  const availability = getEventLifecycleSnapshot(event).registration;
   return (
     <Link
       to={`/events/${event.slug}`}
@@ -212,24 +214,10 @@ export default function EventDetailPage() {
   const eventImageUrl = resolveEventImage(event);
   const eventArtwork = resolveEventArtwork(event);
   const titleSize = eventTitleSize(event.title);
-  const lifecycle = getEventLifecycle(event.status);
-  const attendanceKind = getEventAttendanceKind(event.venue);
-  const hasCapacity =
-    !event.maxCapacity || event.registeredCount < event.maxCapacity;
-  const registrationAvailable =
-    lifecycle === "scheduled" && event.registrationOpen && hasCapacity;
-  const availability = getEventAvailability({
-    status: event.status,
-    date: event.date,
-    endDate: event.endDate,
-    timeTbc: event.timeTbc,
-    registrationOpen: event.registrationOpen,
-    registrationMode: event.registrationMode,
-    registrationStart: event.registrationStart,
-    registrationDeadline: event.registrationDeadline,
-    maxCapacity: event.maxCapacity,
-    registeredCount: event.registeredCount,
-  });
+  const lifecycle = getEventLifecycleSnapshot(event);
+  const attendanceMode = event.attendanceMode;
+  const registrationAvailable = lifecycle.registration.available;
+  const availability = lifecycle.registration;
   const availabilityClass: Record<EventAvailabilityKind, string> = {
     "opening-soon": "text-[#00629B]",
     open: "text-[#00629B]",
@@ -248,12 +236,13 @@ export default function EventDetailPage() {
         : "Registration closed";
   const virtualLocation = {
     "@type": "VirtualLocation",
-    url: event.externalLink || event.externalFormUrl || canonicalUrl,
+    // Private meeting URLs are intentionally excluded from public event data.
+    url: canonicalUrl,
   };
   const location =
-    attendanceKind === "online"
+    attendanceMode === "online"
       ? virtualLocation
-      : attendanceKind === "hybrid"
+      : attendanceMode === "hybrid"
         ? [physicalLocation(event), virtualLocation]
         : physicalLocation(event);
   const eventSchema = {
@@ -263,7 +252,7 @@ export default function EventDetailPage() {
     startDate: event.timeTbc ? formatAppDateISO(event.date) : toSchemaDate(event.date),
     ...(event.endDate ? { endDate: event.timeTbc ? formatAppDateISO(event.endDate) : toSchemaDate(event.endDate) } : {}),
     eventStatus: getSchemaEventStatus(event.status),
-    eventAttendanceMode: getSchemaAttendanceMode(event.venue),
+    eventAttendanceMode: getSchemaAttendanceMode({ attendanceMode: event.attendanceMode, venue: event.venue }),
     description: description || undefined,
     image: [eventImageUrl],
     url: canonicalUrl,
@@ -373,7 +362,7 @@ export default function EventDetailPage() {
             {[
               ["Date", formatDate(event.date)],
               ["Time", formatEventTime(event.date, event.timeTbc)],
-              ["Venue", event.venue || "Sahrdaya College of Engineering & Technology"],
+              ["Venue", event.attendanceMode === "online" ? "Online" : event.venue || "Sahrdaya College of Engineering & Technology"],
               ["Entry / status", `${event.price > 0 ? `₹${event.price}` : "Free"} · ${availability.label}`],
             ].map(([label, value], index) => (
               <div key={String(label)} className={`min-w-0 py-5 sm:px-5 ${index > 0 ? "sm:border-l sm:border-white/10" : ""} ${index > 1 ? "border-t border-white/10 lg:border-t-0" : index === 1 ? "border-t border-white/10 sm:border-t-0" : ""}`}>
@@ -433,13 +422,13 @@ export default function EventDetailPage() {
                   {myRegistration.receiptAvailable && <button type="button" onClick={downloadReceipt} className="mt-4 inline-flex items-center gap-2 text-xs font-bold text-black/50 hover:text-[#00629B]"><ReceiptText className="h-4 w-4" /> Payment receipt</button>}
                 </>
               ) : null
-            ) : lifecycle === "completed" ? (
+            ) : lifecycle.phase === "completed" ? (
               <>
                 <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Event status</p>
                 <h2 className="mt-3 text-4xl font-semibold tracking-[-0.055em]">Completed.</h2>
                 <p className="mt-4 text-sm leading-6 text-black/50">Held on {formatDate(event.date)} and preserved in the programme archive.</p>
               </>
-            ) : lifecycle === "cancelled" ? (
+            ) : lifecycle.phase === "cancelled" ? (
               <>
                 <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-rose-700">Event status</p>
                 <div className="mt-5 flex items-center gap-2 font-bold text-rose-700"><XCircle className="h-5 w-5" /> Event cancelled</div>

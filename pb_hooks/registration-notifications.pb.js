@@ -20,6 +20,7 @@ onRecordAfterUpdateSuccess(function (e) {
 
 cronAdd("registration-notification-outbox", "* * * * *", function () {
   var nh = require(__hooks + "/notification-helpers.js")
+  var mailSafety = require(__hooks + "/mail-delivery.js")
   var records = []
   try {
     records = $app.findRecordsByFilter(
@@ -38,6 +39,10 @@ cronAdd("registration-notification-outbox", "* * * * *", function () {
   var now = Date.now()
   for (var i = 0; i < records.length; i++) {
     var record = records[i]
+    // A safety-policy block is not a delivery failure. Leave the outbox row
+    // pending so staging/disabled environments cannot exhaust real intents.
+    var safety = mailSafety.currentResolution(record.getString("recipient") || "")
+    if (!safety.allowed) continue
     var status = record.getString("status")
     var attempts = record.getInt("attempts") || 0
     if (status === "sending") {

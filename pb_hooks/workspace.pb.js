@@ -276,8 +276,10 @@ routerAdd("POST", "/api/workspace/events/{id}/workflow", function (e) {
     event.set("registrationOpen", false)
   } else if (action === "complete") {
     if (event.getString("status") !== "published") return authz.jsonError(e, 409, "NOT_PUBLISHED", "Only a published event can be completed")
-    var eventStart = Date.parse(event.getString("date") || "")
-    if (isFinite(eventStart) && eventStart > Date.now()) return authz.jsonError(e, 409, "EVENT_NOT_STARTED", "A future event cannot be marked completed")
+    var effectiveEnd = require(__hooks + "/event-time-helpers.js").eventEndDate(event)
+    if (effectiveEnd && !isNaN(effectiveEnd.getTime()) && effectiveEnd.getTime() > Date.now()) {
+      return authz.jsonError(e, 409, "EVENT_NOT_ENDED", "The event cannot be completed before its scheduled end")
+    }
     event.set("status", "completed")
     event.set("registrationOpen", false)
   }

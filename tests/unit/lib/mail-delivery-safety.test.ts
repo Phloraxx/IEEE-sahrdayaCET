@@ -85,4 +85,14 @@ describe("mail delivery safety", () => {
       recipient: "participant@example.com",
     })).toMatchObject({ allowed: false, mode: "disabled", reason: "invalid_mode" });
   });
+  it("checks environment safety before claiming notification outbox work", () => {
+    const outbox = readFileSync(resolve(process.cwd(), "pb_hooks/registration-notifications.pb.js"), "utf8");
+    expect(source).toContain("currentResolution: currentResolution");
+    const safetyCheck = outbox.indexOf("mailSafety.currentResolution");
+    const claim = outbox.indexOf('live.set("status", "sending")');
+    expect(safetyCheck).toBeGreaterThan(-1);
+    expect(outbox).toContain("if (!safety.allowed) continue");
+    expect(safetyCheck).toBeLessThan(claim);
+  });
+
 });

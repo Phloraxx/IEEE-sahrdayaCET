@@ -8,7 +8,7 @@
 var ROLE_CAPABILITIES = {
   branch_chair: [
     "workspace.view", "events.view", "events.create", "events.edit", "events.submit",
-    "events.approve", "events.publish", "events.cancel", "events.complete", "registrations.view",
+    "events.approve", "events.publish", "events.cancel", "events.archive", "events.complete", "registrations.view",
     "registrations.manage", "registrations.manual", "checkin.manage", "finance.view",
     "societies.view", "societies.edit", "assignments.manage", "content.manage",
     "execom.manage", "reports.view", "certificates.view", "certificates.manage_templates",
@@ -16,20 +16,20 @@ var ROLE_CAPABILITIES = {
   ],
   branch_vice_chair: [
     "workspace.view", "events.view", "events.create", "events.edit", "events.submit",
-    "events.approve", "events.publish", "events.cancel", "events.complete", "registrations.view",
+    "events.approve", "events.publish", "events.cancel", "events.archive", "events.complete", "registrations.view",
     "registrations.manage", "registrations.manual", "checkin.manage", "finance.view",
     "societies.view", "societies.edit", "assignments.manage", "content.manage",
     "reports.view", "certificates.view", "certificates.manage_templates", "certificates.issue", "certificates.send", "certificates.revoke"
   ],
   branch_secretary: [
     "workspace.view", "events.view", "events.create", "events.edit", "events.submit",
-    "events.approve", "events.publish", "events.cancel", "events.complete", "registrations.view",
+    "events.approve", "events.publish", "events.cancel", "events.archive", "events.complete", "registrations.view",
     "registrations.manage", "registrations.manual", "checkin.manage", "finance.view",
     "societies.view", "assignments.manage", "content.manage", "reports.view",
     "certificates.view", "certificates.manage_templates", "certificates.issue", "certificates.send"
   ],
   branch_joint_secretary: [
-    "workspace.view", "events.view", "events.create", "events.edit", "events.submit", "events.complete",
+    "workspace.view", "events.view", "events.create", "events.edit", "events.submit", "events.archive", "events.complete",
     "registrations.view", "registrations.manage", "registrations.manual", "checkin.manage",
     "societies.view", "content.manage", "reports.view", "certificates.view", "certificates.issue", "certificates.send"
   ],
@@ -38,13 +38,13 @@ var ROLE_CAPABILITIES = {
     "finance.approve", "reports.view"
   ],
   branch_counselor: [
-    "workspace.view", "events.view", "events.approve", "events.publish", "events.cancel", "events.complete",
+    "workspace.view", "events.view", "events.approve", "events.publish", "events.cancel", "events.archive", "events.complete",
     "registrations.view", "finance.view", "societies.view", "assignments.manage",
     "execom.manage", "reports.view", "certificates.view", "certificates.manage_templates",
     "certificates.issue", "certificates.send", "certificates.revoke"
   ],
   branch_faculty_coordinator: [
-    "workspace.view", "events.view", "events.approve", "events.publish", "events.cancel", "events.complete",
+    "workspace.view", "events.view", "events.approve", "events.publish", "events.cancel", "events.archive", "events.complete",
     "registrations.view", "finance.view", "societies.view", "assignments.manage",
     "reports.view", "certificates.view", "certificates.manage_templates", "certificates.issue", "certificates.send", "certificates.revoke"
   ],
@@ -52,26 +52,26 @@ var ROLE_CAPABILITIES = {
   branch_webmaster: ["workspace.view", "events.view", "societies.view", "content.manage", "reports.view"],
 
   society_faculty: [
-    "workspace.view", "events.view", "events.edit", "events.submit", "events.approve", "events.complete",
+    "workspace.view", "events.view", "events.edit", "events.submit", "events.approve", "events.archive", "events.complete",
     "registrations.view", "checkin.manage", "finance.view", "societies.view", "societies.edit",
     "assignments.manage", "reports.view", "certificates.view", "certificates.manage_templates",
     "certificates.issue", "certificates.send", "certificates.revoke"
   ],
   society_chair: [
     "workspace.view", "events.view", "events.create", "events.edit", "events.submit",
-    "events.cancel", "registrations.view", "registrations.manage", "registrations.manual",
+    "events.cancel", "events.archive", "registrations.view", "registrations.manage", "registrations.manual",
     "checkin.manage", "finance.view", "societies.view", "societies.edit",
     "assignments.manage", "content.manage", "reports.view", "certificates.view", "certificates.manage_templates",
     "certificates.issue", "certificates.send", "certificates.revoke"
   ],
   society_vice_chair: [
     "workspace.view", "events.view", "events.create", "events.edit", "events.submit",
-    "events.cancel", "registrations.view", "registrations.manage", "registrations.manual",
+    "events.cancel", "events.archive", "registrations.view", "registrations.manage", "registrations.manual",
     "checkin.manage", "finance.view", "societies.view", "assignments.manage",
     "content.manage", "reports.view", "certificates.view", "certificates.issue", "certificates.send"
   ],
   society_secretary: [
-    "workspace.view", "events.view", "events.create", "events.edit", "events.submit", "events.complete",
+    "workspace.view", "events.view", "events.create", "events.edit", "events.submit", "events.archive", "events.complete",
     "registrations.view", "registrations.manage", "registrations.manual", "checkin.manage",
     "societies.view", "content.manage", "reports.view", "certificates.view", "certificates.issue", "certificates.send"
   ],
@@ -83,7 +83,7 @@ var ROLE_CAPABILITIES = {
   society_team: ["workspace.view", "events.view", "societies.view"],
 
   event_lead: [
-    "workspace.view", "events.view", "events.edit", "events.submit", "events.complete", "registrations.view",
+    "workspace.view", "events.view", "events.edit", "events.submit", "events.archive", "events.complete", "registrations.view",
     "registrations.manage", "registrations.manual", "checkin.manage", "finance.view",
     "assignments.manage", "content.manage", "reports.view", "certificates.view", "certificates.issue", "certificates.send"
   ],
@@ -101,7 +101,7 @@ var ROLE_CAPABILITIES = {
 
 var ALL_CAPABILITIES = [
   "workspace.view", "events.view", "events.create", "events.edit", "events.submit",
-  "events.approve", "events.publish", "events.cancel", "events.complete", "registrations.view",
+  "events.approve", "events.publish", "events.cancel", "events.archive", "events.complete", "registrations.view",
   "registrations.manage", "registrations.manual", "checkin.manage", "finance.view",
   "finance.manage", "finance.approve", "societies.view", "societies.edit",
   "assignments.manage", "content.manage", "execom.manage", "reports.view", "technical.manage",
@@ -110,7 +110,7 @@ var ALL_CAPABILITIES = [
 
 var LEGACY_CHAIR_CAPABILITIES = [
   "workspace.view", "events.view", "events.create", "events.edit", "events.submit",
-  "events.publish", "events.cancel", "events.complete", "registrations.view", "registrations.manage",
+  "events.publish", "events.cancel", "events.archive", "events.complete", "registrations.view", "registrations.manage",
   "registrations.manual", "checkin.manage", "finance.view", "societies.view", "societies.edit",
   "reports.view", "certificates.view", "certificates.manage_templates", "certificates.issue", "certificates.send", "certificates.revoke"
 ]

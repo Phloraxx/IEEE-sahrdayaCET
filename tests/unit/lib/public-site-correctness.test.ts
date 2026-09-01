@@ -111,6 +111,8 @@ describe("Event detail redesign invariants", () => {
     const detail = read("src/routes/events.$slug.tsx");
     expect(detail).toContain("getMyEventRegistration(event.id)");
     expect(detail).toContain("registrationAvailable");
+    expect(detail).toContain("getEventLifecycleSnapshot(event)");
+    expect(detail).toContain("lifecycle.registration.available");
     expect(detail).toContain('data-testid="related-events"');
     expect(detail).toContain("More from the programme.");
     expect(detail).toContain("future.length > 0 ? future");
