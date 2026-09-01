@@ -77,7 +77,7 @@ For paid events, verify the enabled production payment integration and webhook s
 
 For the temporary Kotak/PayGate fallback, verify it only on events that explicitly select `Kotak direct UPI · temporary`:
 
-- `PAYGATE_URL`, `PAYGATE_API_KEY`, and `PAYGATE_WEBHOOK_SECRET` belong to the intended environment;
+- `PAYGATE_URL`, `PAYGATE_API_KEY`, `PAYGATE_API_VERSION`, and `PAYGATE_WEBHOOK_SECRET` belong to the intended environment;
 - PayGate's outgoing webhook targets `/api/webhooks/paygate` on the same IEEE environment;
 - the PayGate UPI destination is the intended Kotak account and bank-message verification is healthy;
 - the event's final payable amount after any coupon is a whole rupee before PayGate adds its unique 1–99 paise verification suffix;
@@ -128,7 +128,8 @@ RAZORPAY_WEBHOOK_SECRET
 RAZORPAY_CHECKOUT_HOLD_SECONDS
 PAYMENTS_ENABLED
 PAYGATE_URL                 # only while temporary Kotak fallback is enabled
-PAYGATE_API_KEY             # only while temporary Kotak fallback is enabled
+PAYGATE_API_KEY             # PayGate merchant credential
+PAYGATE_API_VERSION         # v3 before PayGate v4 cutover; v4 only with the v4 merchant API
 PAYGATE_WEBHOOK_SECRET      # only while temporary Kotak fallback is enabled
 FOOTBALL_DATA_API_TOKEN
 SMTP_HOST
