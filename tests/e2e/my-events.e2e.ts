@@ -113,7 +113,7 @@ test.describe("My Events attendee continuity", () => {
     await page.goto("/my-events");
     await expect(page.getByRole("heading", { name: "Waitlist." })).toBeVisible();
     await expect(page.getByText(waitlistFixture.eventTitle, { exact: true })).toBeVisible();
-    await expect(page.getByText("Seat reserved")).toBeVisible();
+    await expect(page.getByText("A seat is reserved for you")).toBeVisible();
     await page.getByRole("link", { name: "Claim seat" }).click();
     await expect(page).toHaveURL(new RegExp(`/register/${waitlistFixture.eventId}$`));
     await expect(page.getByText("Your waitlist seat is reserved.")).toBeVisible();
@@ -133,8 +133,8 @@ test.describe("My Events attendee continuity", () => {
     await card.getByRole("button", { name: "Request cancellation" }).click();
     await expect(page.getByRole("dialog")).toContainText("Requests are reviewed before any refund is recorded.");
     await page.getByLabel("Reason").fill("Browser E2E refund request");
-    await page.getByRole("button", { name: "Submit request" }).click();
-    await expect(card.getByText("Refund request received")).toBeVisible();
+    await page.getByRole("button", { name: "Send refund request" }).click();
+    await expect(card.getByText(/refund request is awaiting an organiser decision/i)).toBeVisible();
     await expect(card.getByText("Paid", { exact: true })).toBeVisible();
   });
 });
