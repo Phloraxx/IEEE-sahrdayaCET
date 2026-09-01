@@ -849,7 +849,7 @@ refund_item = next(item for item in refund_my_events["items"] if item["event"]["
 assert refund_item["cancellation"]["request"]["status"] == "open"
 assert refund_item["cancellation"]["mode"] == "refund_request"
 refund_ops = request("GET", f"/api/admin/events/{refund_event['id']}/operations", token=admin_token)
-assert any(row["id"] == refund_request_id and row["status"] == "open" for row in refund_ops["cancellationRequests"])
+assert any(row["request"]["id"] == refund_request_id and row["request"]["status"] == "open" for row in refund_ops["cancellationRequests"])
 request(
     "POST", f"/api/admin/cancellation-requests/{refund_request_id}/decision",
     {"action": "accept", "note": "CI finance accepts refund request"}, refund_user_token, expected=(403,),
