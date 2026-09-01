@@ -314,6 +314,17 @@ function waitlistItemsForUser(app, userId, nowMs) {
   return items
 }
 
+function resolveCancellationRequestForRegistration(app, registration, nowIso) {
+  if (!registration || registration.getString("paymentStatus") !== "refunded") return 0
+  var request = activeCancellationRequest(app, registration.id)
+  if (!request) return 0
+  request.set("status", "resolved")
+  request.set("activeKey", "")
+  request.set("resolvedAt", nowIso || new Date().toISOString())
+  app.saveNoValidate(request)
+  return 1
+}
+
 function resolveCompletedCancellationRequests(app) {
   var rows = app.findRecordsByFilter(
     "registration_cancellation_requests",
@@ -348,6 +359,7 @@ module.exports = {
   reconcileEventWaitlist: reconcileEventWaitlist,
   registrationWindowOpen: registrationWindowOpen,
   requestSnapshot: requestSnapshot,
+  resolveCancellationRequestForRegistration: resolveCancellationRequestForRegistration,
   resolveCompletedCancellationRequests: resolveCompletedCancellationRequests,
   retireActiveWaitlist: retireActiveWaitlist,
   updateSeatCounters: updateSeatCounters,

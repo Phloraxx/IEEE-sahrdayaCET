@@ -868,9 +868,9 @@ refund_done = request(
 )["registration"]
 assert refund_done["registrationStatus"] == "cancelled"
 assert refund_done["paymentStatus"] == "refunded"
-request("POST", "/api/crons/attendee-lifecycle-reconcile", token=super_token, expected=(204,))
 refund_request_record = request("GET", f"/api/collections/registration_cancellation_requests/records/{refund_request_id}", token=super_token)
 assert refund_request_record["status"] == "resolved" and refund_request_record["resolvedAt"]
+assert refund_request_record["activeKey"] == ""
 
 # Dedicated untouched Browser E2E fixture: attendee owns a live reserved offer.
 browser_wait_owner = create_user("browser-wait-owner", "user")

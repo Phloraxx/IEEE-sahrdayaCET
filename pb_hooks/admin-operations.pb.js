@@ -704,6 +704,9 @@ routerAdd("POST", "/api/admin/registrations/{id}/command", function (e) {
       if (action === "cancel" || action === "restore" || action === "mark-refunded") {
         attendeeLifecycle.reconcileEventWaitlist(txApp, eventId, now)
       }
+      if (action === "mark-refunded") {
+        attendeeLifecycle.resolveCancellationRequestForRegistration(txApp, reg, now)
+      }
       result = helpers.registrationSnapshot(reg)
       helpers.audit(txApp, {
         eventId: eventId,

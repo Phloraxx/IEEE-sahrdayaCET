@@ -51,11 +51,14 @@ describe("attendee cancellation and waitlist architecture", () => {
   it("separates attendee cancellation intent from payment truth", () => {
     const routes = read("pb_hooks/attendee-lifecycle.pb.js");
     const helpers = read("pb_hooks/attendee-lifecycle-helpers.js");
+    const admin = read("pb_hooks/admin-operations.pb.js");
     expect(routes).toContain('"/api/app/registrations/{id}/cancel"');
     expect(routes).toContain('action: "refund_requested"');
     expect(routes).toContain('"/api/admin/cancellation-requests/{id}/decision"');
     expect(routes).not.toContain("enqueueForRegistration");
     expect(helpers).toContain('registration.getString("paymentStatus") !== "refunded"');
+    expect(helpers).toContain('resolveCancellationRequestForRegistration');
+    expect(admin).toContain('resolveCancellationRequestForRegistration(txApp, reg, now)');
     expect(helpers).toContain('rows[i].set("status", "resolved")');
   });
 
