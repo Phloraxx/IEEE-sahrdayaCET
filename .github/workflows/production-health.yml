@@ -1,0 +1,65 @@
+name: Production Health
+
+on:
+  schedule:
+    - cron: "7,22,37,52 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-health
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      BASE_URL: https://ieeesahrdaya.com
+    steps:
+      - name: Probe production
+        shell: bash
+        run: |
+          set -euo pipefail
+          check_code() {
+            local path="$1" expected="$2" code="000"
+            for attempt in 1 2 3 4; do
+              code=$(curl --max-time 15 -sS -o /dev/null -w '%{http_code}' "${BASE_URL}${path}" || true)
+              [[ "$code" == "$expected" ]] && return 0
+              echo "${path}: got ${code}, expected ${expected} (attempt ${attempt}/4)"
+              sleep 10
+            done
+            return 1
+          }
+          check_unavailable() {
+            local url="$1" code="000"
+            for attempt in 1 2 3; do
+              code=$(curl --max-time 10 -sS -o /dev/null -w '%{http_code}' "$url" || true)
+              [[ "$code" == "000" || "$code" == "404" ]] && return 0
+              echo "${url}: unexpected public response ${code} (attempt ${attempt}/3)"
+              sleep 5
+            done
+            return 1
+          }
+          check_code / 200
+          check_code /healthz 200
+          check_code /api/health 200
+          check_code /verify 200
+          check_code /_/ 404
+          check_code /api/webhooks/resend 404
+          check_unavailable https://db.ieeesahrdaya.com/_/
+          check_unavailable https://db.ieeesahrdaya.com/api/health
+
+          headers=$(curl --max-time 15 -fsSI "${BASE_URL}/verify" | tr -d '\r')
+          grep -Eqi '^content-security-policy:' <<<"$headers"
+          grep -Eqi '^strict-transport-security:.*max-age=' <<<"$headers"
+          grep -Eqi '^x-frame-options:[[:space:]]*DENY' <<<"$headers"
+          grep -Eqi '^x-content-type-options:[[:space:]]*nosniff' <<<"$headers"
+
+          html=$(curl --max-time 15 -fsS "${BASE_URL}/verify")
+          text=$(printf '%s' "$html" | sed -E 's/<[^>]+>/ /g' | tr '\n' ' ')
+          grep -Eqi 'Verify[[:space:]]+a[[:space:]]+certificate' <<<"$text"
+
+          echo "Production health checks passed."
