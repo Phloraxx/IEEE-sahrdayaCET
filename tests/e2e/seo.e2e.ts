@@ -52,6 +52,17 @@ test.describe('SSR and SEO', () => {
     expect(headers['x-frame-options']).toBe('DENY')
     expect(headers['referrer-policy']).toBe('strict-origin-when-cross-origin')
     expect(headers['permissions-policy']).toContain('camera=(self)')
+
+    const verifyResponse = await request.get('/verify')
+    expect(verifyResponse.ok()).toBeTruthy()
+    const verifyHeaders = verifyResponse.headers()
+    expect(verifyHeaders['content-security-policy']).toContain("frame-ancestors 'none'")
+    expect(verifyHeaders['x-content-type-options']).toBe('nosniff')
+    expect(verifyHeaders['x-frame-options']).toBe('DENY')
+    expect(verifyHeaders['referrer-policy']).toBe('strict-origin-when-cross-origin')
+    expect(verifyHeaders['permissions-policy']).toContain('camera=(self)')
+    expect(verifyHeaders['cache-control']).toContain('no-store')
+    expect(verifyHeaders['x-robots-tag']).toBe('noindex, nofollow')
     if (process.env.DEPLOY_ENV === 'production') {
       expect(headers['strict-transport-security']).toBe('max-age=31536000')
       expect(headers['x-robots-tag']).toBeUndefined()
