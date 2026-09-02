@@ -13,7 +13,7 @@ import zlib
 BASE = os.environ.get("PB_BASE_URL", "http://127.0.0.1:8090").rstrip("/")
 SUPER_EMAIL = os.environ.get("PB_SUPERUSER_EMAIL", "ci-super@example.test")
 SUPER_PASS = os.environ.get("PB_SUPERUSER_PASSWORD", "CI-PocketBase-Smoke-2026!")
-RESEND_FAKE_URL = os.environ.get("RESEND_FAKE_URL", "").rstrip("/")
+SMTP_CAPTURE_PATH = os.environ.get("SMTP_CAPTURE_PATH", "")
 
 
 def request(method, path, body=None, token=None, expected=(200, 201, 204)):
@@ -160,18 +160,24 @@ request("POST", test_email_path, token=member_token, expected=(403,))
 before_certificates = request("GET", "/api/collections/certificates/records?perPage=1", token=super_token)["totalItems"]
 before_outbox = request("GET", "/api/collections/notification_outbox/records?perPage=1", token=super_token)["totalItems"]
 test_sent = request("POST", test_email_path, token=admin_token)
-assert test_sent["success"] is True and test_sent["provider"] == "resend"
+assert test_sent["success"] is True and test_sent["provider"] == "smtp"
 assert test_sent["deliveryMode"] == "redirect" and test_sent["recipient"] == admin["email"]
 assert request("GET", "/api/collections/certificates/records?perPage=1", token=super_token)["totalItems"] == before_certificates
 assert request("GET", "/api/collections/notification_outbox/records?perPage=1", token=super_token)["totalItems"] == before_outbox
-assert RESEND_FAKE_URL, "CI fake Resend endpoint must be configured"
-with urllib.request.urlopen(RESEND_FAKE_URL + "/__test__/messages", timeout=10) as response:
-    fake_messages = json.loads(response.read().decode())["messages"]
-assert fake_messages, "certificate test email must reach the configured provider"
-last_message = fake_messages[-1]["payload"]
-assert last_message["to"] == ["ci-certificate-sink@example.test"]
+assert SMTP_CAPTURE_PATH, "CI fake SMTP capture path must be configured"
+fake_messages = []
+for _ in range(30):
+    if os.path.exists(SMTP_CAPTURE_PATH):
+        with open(SMTP_CAPTURE_PATH, encoding="utf-8") as handle:
+            fake_messages = [json.loads(line) for line in handle if line.strip()]
+    if fake_messages:
+        break
+    time.sleep(0.1)
+assert fake_messages, "certificate test email must reach the configured SMTP sink"
+last_message = fake_messages[-1]
+assert any("ci-certificate-sink@example.test" in value for value in last_message["recipients"])
 assert last_message["subject"].startswith("[STAGING TEST] [TEST / NOT VALID]")
-assert "TEST / NOT VALID" in last_message["html"] and "TEST / NOT VALID" in last_message["text"]
+assert "TEST / NOT VALID" in last_message["body"]
 
 published = request("POST", f"/api/app/certificate-templates/{template['id']}/publish", token=admin_token)["template"]
 assert published["status"] == "published" and len(published["contentHash"]) == 64

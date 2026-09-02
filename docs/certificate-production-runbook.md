@@ -21,27 +21,26 @@ MAIL_DELIVERY_MODE=disabled
 
 This is the normal application-release state. It enables certificate rendering and verification while outbound notification/certificate delivery remains blocked. The mail provider and SMTP transport do not need to be activated for the platform deployment itself.
 
-If live certificate email is separately authorized later, configure:
+If live certificate email is separately authorized later, configure Gmail SMTP and then set:
 
 ```text
-CERTIFICATE_MAIL_PROVIDER=smtp
 MAIL_DELIVERY_MODE=live
 ```
 
 PocketBase SMTP is applied at bootstrap from environment variables:
 
 ```text
-SMTP_HOST=<mail server>
-SMTP_PORT=<usually 587 or provider-specific port>
-SMTP_USERNAME=<SMTP account when authentication is required>
-SMTP_PASSWORD=<SMTP password/app password when required>
-SMTP_TLS=true
-SMTP_FROM=IEEE Sahrdaya <approved-sender@example.org>
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=<full Gmail or Google Workspace address>
+SMTP_PASSWORD=<Google App Password; never the normal account password>
+SMTP_TLS=false  # port 587 uses STARTTLS; true is implicit TLS
+SMTP_FROM=IEEE Sahrdaya <same approved Gmail/Workspace sender>
 ```
 
 `SMTP_FROM` must be an address permitted by the configured SMTP account/domain. The application treats SMTP success as **Accepted**, never as proof of inbox delivery.
 
-Before enabling live production mail, confirm the sender domain has appropriate SPF/DKIM and DMARC policy for the actual SMTP sender. These DNS/mail-authentication checks block live certificate email, not a mail-disabled application deployment. Do not add Resend credentials when SMTP is the selected transport.
+Before enabling live production mail, enable Google 2-Step Verification and create a dedicated App Password for this application. For a Google Workspace sender, also confirm the sender/domain policy allows the chosen From address. These checks block live certificate email, not a mail-disabled application deployment.
 
 ## Pre-deploy checks
 

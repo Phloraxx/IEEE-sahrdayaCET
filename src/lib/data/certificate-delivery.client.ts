@@ -13,8 +13,6 @@ export interface CertificateDeliveryBatch {
   queuedCount: number;
   sentCount: number;
   failedCount: number;
-  deliveredCount: number;
-  deliveryIssueCount: number;
   issuedAt: string;
   sendStartedAt: string;
   completedAt: string;
@@ -34,13 +32,6 @@ export interface CertificateDeliveryRow {
   supersedesId: string;
   supersededById: string;
   deliveryStatus: "not_queued" | "missing_email" | "not_active" | "pending" | "sending" | "sent" | "failed" | string;
-  deliveryProvider: "smtp" | "resend" | string;
-  providerStatus: "accepted" | "sent" | "delivered" | "delayed" | "bounced" | "failed" | "suppressed" | "complained" | string;
-  providerMessageId: string;
-  providerMessageHeader: string;
-  providerUpdatedAt: string;
-  deliveredAt: string;
-  providerError: string;
   attempts: number;
   sentAt: string;
   lastError: string;
@@ -48,12 +39,12 @@ export interface CertificateDeliveryRow {
 }
 
 export interface CertificateMailReadiness {
-  provider: "smtp" | "resend" | string;
+  provider: "smtp";
   deliveryMode: "disabled" | "allowlist" | "redirect" | "live" | string;
   safetyReady: boolean;
   transportReady: boolean;
   trackingReady: boolean;
-  trackingMode: "delivery_tracked" | "accepted_only" | string;
+  trackingMode: "accepted_only";
   readyToQueue: boolean;
   reason: string;
   message: string;

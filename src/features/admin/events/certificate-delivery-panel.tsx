@@ -32,13 +32,9 @@ function batchStatusClasses(status: string) {
 }
 
 function deliveryStatus(row: CertificateDeliveryRow) {
-  if (row.providerStatus === "delivered") return <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600"><CheckCircle2 className="h-3.5 w-3.5" />Delivered</span>;
-  if (["bounced", "failed", "suppressed", "complained"].includes(row.providerStatus)) return <span className="inline-flex items-center gap-1.5 text-xs font-medium text-red-600"><AlertTriangle className="h-3.5 w-3.5" />{statusLabel(row.providerStatus)}</span>;
-  if (row.providerStatus === "delayed") return <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-600"><Loader2 className="h-3.5 w-3.5" />Delivery delayed</span>;
-  if (row.deliveryStatus === "sent" && row.deliveryProvider === "resend") return <span className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600"><CheckCircle2 className="h-3.5 w-3.5" />Accepted · awaiting delivery</span>;
-  if (row.deliveryStatus === "sent") return <span className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600"><CheckCircle2 className="h-3.5 w-3.5" />Accepted by SMTP</span>;
+  if (row.deliveryStatus === "sent") return <span className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600"><CheckCircle2 className="h-3.5 w-3.5" />Accepted by Gmail SMTP</span>;
   if (row.deliveryStatus === "pending" || row.deliveryStatus === "sending") return <span className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600"><Loader2 className={`h-3.5 w-3.5 ${row.deliveryStatus === "sending" ? "animate-spin" : ""}`} />{statusLabel(row.deliveryStatus)}</span>;
-  if (row.deliveryStatus === "failed") return <span className="inline-flex items-center gap-1.5 text-xs font-medium text-red-600"><AlertTriangle className="h-3.5 w-3.5" />Transport failed</span>;
+  if (row.deliveryStatus === "failed") return <span className="inline-flex items-center gap-1.5 text-xs font-medium text-red-600"><AlertTriangle className="h-3.5 w-3.5" />SMTP failed</span>;
   if (row.deliveryStatus === "missing_email") return <span className="text-xs font-medium text-amber-600">Missing email</span>;
   if (row.deliveryStatus === "not_active") return <span className="text-xs font-medium text-muted-foreground">Credential not active</span>;
   return <span className="text-xs font-medium text-muted-foreground">Not queued</span>;
@@ -132,7 +128,7 @@ export function CertificateDeliveryPanel({
   const queueableCount = delivery?.certificates.filter((row) => row.certificateStatus === "active" && Boolean(row.recipientEmail) && row.deliveryStatus === "not_queued").length ?? 0;
   const hasQueueable = Boolean(batch && canSend && batch.status === "issued" && queueableCount > 0);
   const canQueue = Boolean(hasQueueable && readiness?.readyToQueue);
-  const retryableCount = delivery?.certificates.filter((row) => row.deliveryStatus === "failed" || ["bounced", "failed"].includes(row.providerStatus)).length ?? 0;
+  const retryableCount = delivery?.certificates.filter((row) => row.deliveryStatus === "failed").length ?? 0;
   const canRetry = Boolean(batch && canSend && retryableCount > 0 && batch.status === "partial_failure");
 
   return (
@@ -141,7 +137,7 @@ export function CertificateDeliveryPanel({
         <PanelHeader
           eyebrow="Certificate delivery"
           title="Send & delivery"
-          description="Issuing creates the credential. This separate step dispatches email and distinguishes provider acceptance from confirmed delivery, bounce, delay or complaint when the configured provider supports it."
+          description="Issuing creates the credential. This separate step dispatches email through Gmail SMTP; a successful handoff means accepted by SMTP, not confirmed inbox delivery."
           actions={<Button variant="outline" size="sm" className="gap-2" disabled={deliveryQuery.isFetching || !selectedId} onClick={() => void refresh()}><RefreshCw className={`h-4 w-4 ${deliveryQuery.isFetching ? "animate-spin" : ""}`} />Refresh</Button>}
         />
 
@@ -157,7 +153,7 @@ export function CertificateDeliveryPanel({
               <div className="flex flex-wrap gap-2 text-[10px] font-semibold uppercase tracking-[0.12em]">
                 <Badge variant="outline">{readiness.provider}</Badge>
                 <Badge variant="outline">{readiness.deliveryMode}</Badge>
-                <Badge variant="outline">{readiness.trackingMode === "delivery_tracked" ? "delivery tracked" : "accepted only"}</Badge>
+                <Badge variant="outline">accepted only</Badge>
               </div>
             </div>
           </div>
@@ -186,7 +182,7 @@ export function CertificateDeliveryPanel({
                     <div>
                       <div className="flex flex-wrap items-center gap-2"><Badge variant="outline" className={batchStatusClasses(delivery.batch.status)}>{statusLabel(delivery.batch.status)}</Badge><span className="font-mono text-[10px] text-muted-foreground">BATCH {delivery.batch.id}</span></div>
                       <h3 className="mt-3 text-lg font-semibold">Dispatch issued credentials</h3>
-                      <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">The email uses frozen template copy and links to the live verification page and PDF. SMTP can confirm upstream acceptance only; a webhook-capable provider can additionally confirm delivery, delay, bounce and complaint.</p>
+                      <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">The email uses frozen template copy and links to the live verification page and PDF. Gmail SMTP can confirm upstream acceptance only; inbox delivery is not tracked by this application.</p>
                     </div>
                     <div className="flex shrink-0 flex-wrap gap-2">
                       {hasQueueable && <Button className="gap-2" disabled={busy || !canQueue || readinessQuery.isLoading} onClick={() => sendMutation.mutate()}>{sendMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : readinessQuery.isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{readinessQuery.isLoading ? "Checking mail" : canQueue ? `Queue ${queueableCount} email${queueableCount === 1 ? "" : "s"}` : "Mail not ready"}</Button>}
@@ -199,11 +195,10 @@ export function CertificateDeliveryPanel({
                   {!canSend && (
                     <div className="flex items-start gap-3 rounded-xl border border-border bg-muted/10 p-4 text-sm text-muted-foreground"><ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" />You can inspect certificate delivery, but only users with certificate send permission can queue or retry email.</div>
                   )}
-                  <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+                  <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                     <Metric label="Queued" value={delivery.batch.queuedCount} />
-                    <Metric label="Accepted" value={delivery.batch.sentCount} />
-                    <Metric label="Delivered" value={delivery.batch.deliveredCount} />
-                    <Metric label="Issues" value={delivery.batch.failedCount} warning={delivery.batch.failedCount > 0} />
+                    <Metric label="SMTP accepted" value={delivery.batch.sentCount} />
+                    <Metric label="Failed" value={delivery.batch.failedCount} warning={delivery.batch.failedCount > 0} />
                     <Metric label="Missing email" value={delivery.batch.missingEmailCount} warning={delivery.batch.missingEmailCount > 0} />
                   </div>
 

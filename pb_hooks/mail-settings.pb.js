@@ -28,7 +28,9 @@ onBootstrap(function (e) {
     settings.smtp.port = isFinite(port) && port > 0 ? port : 587
     if (username) settings.smtp.username = username
     if (password) settings.smtp.password = password
-    settings.smtp.tls = tlsRaw ? tlsRaw !== "false" : settings.smtp.port !== 25
+    // PocketBase uses tls=true for implicit TLS. Gmail submission on port 587
+    // must stay false so the SMTP client can negotiate STARTTLS.
+    settings.smtp.tls = tlsRaw ? tlsRaw === "true" : settings.smtp.port === 465
     if (authMethod) settings.smtp.authMethod = authMethod
     if (localName) settings.smtp.localName = localName
 

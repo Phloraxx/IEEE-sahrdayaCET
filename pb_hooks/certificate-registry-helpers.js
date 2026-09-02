@@ -51,10 +51,8 @@ function deliveryState(certificate, job) {
   if (!email) return "missing_email"
   if ((certificate.getString("status") || "active") !== "active" && !job) return "not_active"
   if (!job) return "not_queued"
-  var provider = clean(job.getString("providerStatus"))
-  if (provider === "accepted" || provider === "sent" || provider === "delivered") return provider
-  if (provider === "bounced" || provider === "failed" || provider === "suppressed" || provider === "complained") return provider
-  return clean(job.getString("status")) || "pending"
+  var status = clean(job.getString("status")) || "pending"
+  return status === "sent" ? "accepted" : status
 }
 
 function eventPayload(event) {
@@ -74,7 +72,6 @@ function rowPayload(certificate, event, job, access) {
     issuerName: certificate.getString("issuerNameSnapshot") || "",
     batchId: certificate.getString("batch") || "",
     deliveryStatus: deliveryState(certificate, job),
-    providerStatus: job ? (job.getString("providerStatus") || "") : "",
     attempts: job ? (job.getInt("attempts") || 0) : 0,
     sentAt: job ? (job.getString("sentAt") || "") : "",
     lastError: access.send ? (job ? (job.getString("lastError") || "") : "") : "",
@@ -95,8 +92,8 @@ function summarize(rows) {
     else if (row.status === "superseded") summary.superseded++
     if (row.deliveryStatus === "missing_email") summary.missingEmail++
     else summary.emailReady++
-    if (row.deliveryStatus === "accepted" || row.deliveryStatus === "sent" || row.deliveryStatus === "delivered") summary.accepted++
-    else if (["failed", "bounced", "suppressed", "complained"].indexOf(row.deliveryStatus) !== -1) summary.failed++
+    if (row.deliveryStatus === "accepted") summary.accepted++
+    else if (row.deliveryStatus === "failed") summary.failed++
     else if (row.deliveryStatus === "not_queued") summary.notQueued++
   })
   return summary
@@ -141,8 +138,8 @@ function registry(app, auth, e) {
     var row = rowPayload(certificate, event, jobs[certificate.id] || null, eventAccess[id])
     if (!matchesSearch(row, search)) return
     if (delivery && delivery !== "all") {
-      if (delivery === "accepted" && ["accepted", "sent", "delivered"].indexOf(row.deliveryStatus) === -1) return
-      else if (delivery === "failed" && ["failed", "bounced", "suppressed", "complained"].indexOf(row.deliveryStatus) === -1) return
+      if (delivery === "accepted" && row.deliveryStatus !== "accepted") return
+      else if (delivery === "failed" && row.deliveryStatus !== "failed") return
       else if (delivery !== "accepted" && delivery !== "failed" && row.deliveryStatus !== delivery) return
     }
     rows.push(row)
