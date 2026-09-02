@@ -113,7 +113,11 @@ if [[ "$CHECK_RUNTIME" == "1" ]]; then
   check_eq "PocketBase admin is not public" "$(http_code "${BASE_URL%/}/_/")" "404"
 
   verify_html=""
-  if verify_html="$(curl --max-time "$HTTP_TIMEOUT" -fsS "${BASE_URL%/}/verify" 2>/dev/null)" && grep -qi 'Verify a certificate' <<<"$verify_html"; then
+  verify_text=""
+  if verify_html="$(curl --max-time "$HTTP_TIMEOUT" -fsS "${BASE_URL%/}/verify" 2>/dev/null)"; then
+    verify_text="$(printf '%s' "$verify_html" | sed -E 's/<[^>]+>/ /g' | tr '\n' ' ')"
+  fi
+  if grep -Eqi 'Verify[[:space:]]+a[[:space:]]+certificate' <<<"$verify_text"; then
     pass "verification UI rendered"
   else
     fail "verification UI marker missing"
