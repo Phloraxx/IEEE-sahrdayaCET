@@ -75,7 +75,6 @@ describe("certificate delivery architecture", () => {
     expect(panel).toContain('Accepted by SMTP');
   });
 
-
   it("checks mail readiness before certificate jobs are queued", () => {
     expect(delivery).toContain('/certificate-mail/readiness');
     expect(delivery).toContain('"MAIL_NOT_READY"');
@@ -100,6 +99,8 @@ describe("certificate delivery architecture", () => {
     expect(releasePreflight).toContain('production mail mode is explicitly disabled');
     expect(releasePreflight).toContain('mail-live gate targets production');
     expect(releasePreflight).toContain('PocketBase admin is not public');
+    expect(releasePreflight).toContain("sed -E 's/<[^>]+>/ /g'");
+    expect(releasePreflight).toContain('Verify[[:space:]]+a[[:space:]]+certificate');
     expect(productionRunbook).toContain('CHECK_RUNTIME=0');
     expect(productionRunbook).toContain('CHECK_RUNTIME=1');
     expect(productionRunbook).toContain('CD `TESTED_SHA`');
