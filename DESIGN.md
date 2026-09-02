@@ -65,6 +65,17 @@ The Infinia teaser sits between Upcoming Events and the event archive. It is int
 
 Do not turn that section into a generic blue CTA block unless the product intent changes from tease to launch.
 
+### SustainX event story
+
+The completed `/events/sustainx` route is a bespoke editorial dossier inside the Events register, not a second blog or microsite data source. It keeps the shared Navbar/Footer and canonical event record while translating the event's poster identity into a more refined case-study layout.
+
+- Use the SustainX off-white/lilac surface, black type, restrained violet/teal accents, curved-line geometry, and the split-colour `X`.
+- Lead with verified event facts and real event artwork; do not invent impact numbers, testimonials, awards, or project outcomes.
+- The story structure is documentary: context → three phases → challenge themes → winners → team index → judging framework → closing statement.
+- Public participant material is limited to approved team/project information. Never surface registration-sheet contact details or other private submission metadata.
+- The route must remain readable without motion, keep all critical information outside hover-only interactions, and avoid scroll hijacking or decorative WebGL.
+- The event is complete, so the page closes into the event archive instead of presenting a registration CTA.
+
 ## WIE public society page
 
 The dedicated `/societies/wie` route uses the **WIE Field Notes** register: an editorial, human-centred extension of the public IEEE design system.

@@ -15,6 +15,7 @@ import {
 import Navbar from "@/components/Navbar";
 import { EventArtworkPreview } from "@/components/events/EventArtworkPreview";
 import { EventBannerFallback } from "@/components/events/EventBannerFallback";
+import SustainXEventStory from "@/components/events/SustainXEventStory";
 import { useAuth } from "@/lib/auth-context";
 import {
   getEventWaitlist,
@@ -84,8 +85,10 @@ export const meta = ({ data }: { data?: EventDetailData }) => {
     ];
 
   const description =
-    blogHtmlToPlainText(event.description).slice(0, 160) ||
-    `${event.title} at IEEE Sahrdaya Student Branch.`;
+    event.slug === "sustainx"
+      ? "SustainX: From Street to Smart City — 14 teams, three phases and practical SDG 11 ideas at IEEE Sahrdaya on 20 August 2026."
+      : blogHtmlToPlainText(event.description).slice(0, 160) ||
+        `${event.title} at IEEE Sahrdaya Student Branch.`;
   const url = `${APP_URL}/events/${event.slug}`;
   const image = resolveEventImage(event);
 
@@ -262,7 +265,10 @@ export default function EventDetailPage() {
   const backHref = isWieEvent ? "/societies/wie#activities" : "/events";
   const backLabel = isWieEvent ? "Back to WIE activities" : "All events";
   const registerUrl = event.externalFormUrl || `/register/${event.id}`;
-  const description = blogHtmlToPlainText(event.description);
+  const description =
+    event.slug === "sustainx"
+      ? "SustainX brought 14 teams together to identify local sustainability challenges, develop practical solutions and present ideas aligned with UN SDG 11."
+      : blogHtmlToPlainText(event.description);
   const eventImageUrl = resolveEventImage(event);
   const eventArtwork = resolveEventArtwork(event);
   const titleSize = eventTitleSize(event.title);
@@ -355,6 +361,16 @@ export default function EventDetailPage() {
       : waitlistEligible
         ? waitlistEntry?.status === "offered" ? "Claim reserved seat" : "Join waitlist"
         : null;
+
+  if (event.slug === "sustainx") {
+    return (
+      <SustainXEventStory
+        event={event}
+        canonicalUrl={canonicalUrl}
+        schemaJson={safeJson(eventSchema)}
+      />
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#f4f2ed] text-[#111315] selection:bg-[#00629B] selection:text-white">
