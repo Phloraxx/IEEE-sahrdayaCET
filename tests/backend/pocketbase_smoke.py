@@ -50,6 +50,11 @@ super_token = super_auth["token"]
 crons = request("GET", "/api/crons", token=super_token)
 topup_cron = next((cron for cron in crons if cron.get("id") == "fifa-daily-topup"), None)
 assert topup_cron and topup_cron.get("expression") == "30 3 * * *"
+backup_cron = next((cron for cron in crons if cron.get("id") == "__pbAutoBackup__"), None)
+assert backup_cron and backup_cron.get("expression") == "30 21 * * *"
+settings = request("GET", "/api/settings", token=super_token)
+assert settings["backups"]["cron"] == "30 21 * * *"
+assert settings["backups"]["cronMaxKeep"] == 14
 suffix = str(int(time.time() * 1000))
 fixture_password = "FixturePass-2026!"
 
