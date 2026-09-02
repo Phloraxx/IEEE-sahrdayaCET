@@ -14,7 +14,7 @@ describe("SustainX event story", () => {
   it("records the verified post-event facts", () => {
     const page = read("src/components/events/SustainXEventStory.tsx");
     expect(page).toContain("20 August 2026");
-    expect(page).toContain('[["14", "teams"]');
+    expect(page).toContain("14 teams");
     expect(page).toContain("HYDRO");
     expect(page).toContain("ZERO POINT2");
     expect(page).toContain("UNEMPLOYED");
@@ -26,6 +26,28 @@ describe("SustainX event story", () => {
     expect(page).toContain('verb: "Innovate"');
     expect(page).toContain('verb: "Present"');
   });
+  it("ships the approved event media as local web assets", () => {
+    const page = read("src/components/events/SustainXEventStory.tsx");
+    expect(page).toContain("/media/sustainx/sustainx-hero-loop.webm");
+    expect(page).toContain("/media/sustainx/sustainx-hero-loop.mp4");
+    expect(page).toContain("/media/sustainx/sustainx-01.webp");
+    expect(page).toContain("/media/sustainx/sustainx-07.webp");
+    expect(page).toContain("The event,<br />not the poster.");
+    expect(page).not.toContain("drive.google.com");
+  });
+
+  it("keeps motion progressive and reduced-motion aware", () => {
+    const page = read("src/components/events/SustainXEventStory.tsx");
+    const styles = read("src/styles/events.css");
+    expect(page).toContain("useReducedMotion");
+    expect(page).toContain('import "@/styles/events.css"');
+    expect(page).toContain("sustainx-marquee-track");
+    expect(page).toContain("heroVideoRef");
+    expect(page).toContain("video.pause()");
+    expect(styles).toContain("@keyframes sustainx-marquee");
+    expect(styles).toContain("prefers-reduced-motion: reduce");
+  });
+
   it("uses the documented 100-point judging framework", () => {
     const page = read("src/components/events/SustainXEventStory.tsx");
     expect(page).toContain('["Sustainability & community impact", "30"]');

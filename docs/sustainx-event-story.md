@@ -55,18 +55,31 @@ Only team-level information belongs on this public dossier. Email addresses, pho
 
 ## Visual direction
 
-The page extends the existing Events editorial register rather than introducing a standalone brand system. It borrows the SustainX poster vocabulary — pale lilac/off-white, black typography, violet, teal, circular linework, dots and the split-colour X — while using the site's existing typography, Navbar, Footer and motion conventions.
+The post-event page is now event-first rather than poster-first. The visual system still inherits SustainX violet, teal and the split-colour X, but the hero is an immersive photographic/video composition built from approved event media. Campaign artwork is no longer the dominant hero object.
 
-Interaction rules:
+The interaction system follows four rules:
 
-- mobile-first and readable at 390px;
-- no scroll hijacking;
-- no critical hover-only content;
-- `prefers-reduced-motion` respected through Framer Motion;
-- no stock or AI-generated people;
-- real event artwork is preferred over invented media;
-- completed-event state links back to the archive rather than registration.
+- the hero uses staged media-mask reveals, oversized typography and gentle scroll-linked parallax;
+- one functional process marquee bridges the hero and story (`Observe / Build / Test / Pitch / Rethink / Sustain`) rather than using repeated decorative tickers;
+- the event gallery is an asymmetric editorial image wall on desktop and a native scroll-snap sequence on mobile, with an accessible fullscreen viewer;
+- headings use masked line reveals while body content uses quieter in-view transitions.
 
-## Follow-up media pass
+All motion degrades under `prefers-reduced-motion`, there is no scroll hijacking, and no information depends on hover.
 
-The first implementation intentionally uses the canonical event artwork already stored with the event. A later curated media pass may add approved event photos/video after those assets are copied into a durable, web-optimised public location. Raw participant Drive folders should not become the page's runtime media backend.
+## Curated media pass
+
+The approved event video has been converted into durable local web assets under `public/media/sustainx/`. The page does not use Google Drive as a runtime media backend. Seven WebP stills document the room, pitches and participant interactions; a short muted WebM/VP9 loop with MP4/H.264 fallback is used only in the hero. The original source video is not committed.
+
+The gallery intentionally uses authentic event imagery rather than stock or generated people. Captions describe moments, not participant identities.
+
+## Awwwards reference pass
+
+The redesign was checked component-by-component against contemporary editorial/event patterns rather than copying a single reference:
+
+- **Hero:** Flashlights (full-screen photo + typography), Baguette Studio (hero scroll animation) and Charles Leclerc (hero video + image transitions) informed the decision to make real event media the canvas and let typography sit over it.
+- **Gallery:** Lexus Roundabouts (horizontal photography), Natascha Vavrina (immersive case-study layout + horizontal gallery), Vincent & Dussault (scroll gallery) and LM/AL Portfolio (image reveals) informed the asymmetric desktop wall and mobile scroll-snap treatment.
+- **Marquee:** Oaksun Studio's smooth marquee and Stellare Agency's horizontal marquee CTA informed the single semantic process strip. SustainX deliberately uses one marquee only, as connective tissue rather than decoration.
+- **Process:** Stellare Agency's process-scroll interaction and Repeat's mixed horizontal/vertical composition informed the oversized phase numbers and long-form vertical sequence without scroll hijacking.
+- **Motion:** image masks, restrained scale, masked headline reveals and small parallax shifts are used instead of applying the same fade-up to every element.
+
+The implementation borrows interaction principles, not visual assets or layouts verbatim.
