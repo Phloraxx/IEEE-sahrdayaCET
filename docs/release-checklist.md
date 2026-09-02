@@ -77,7 +77,7 @@ For paid events, verify the enabled production payment integration and webhook s
 
 For the temporary Kotak/PayGate fallback, verify it only on events that explicitly select `Kotak direct UPI · temporary`:
 
-- `PAYGATE_URL`, `PAYGATE_API_KEY`, and `PAYGATE_WEBHOOK_SECRET` belong to the intended environment;
+- `PAYGATE_URL`, `PAYGATE_API_KEY`, `PAYGATE_API_VERSION`, and `PAYGATE_WEBHOOK_SECRET` belong to the intended environment;
 - PayGate's outgoing webhook targets `/api/webhooks/paygate` on the same IEEE environment;
 - the PayGate UPI destination is the intended Kotak account and bank-message verification is healthy;
 - the event's final payable amount after any coupon is a whole rupee before PayGate adds its unique 1–99 paise verification suffix;
@@ -128,7 +128,8 @@ RAZORPAY_WEBHOOK_SECRET
 RAZORPAY_CHECKOUT_HOLD_SECONDS
 PAYMENTS_ENABLED
 PAYGATE_URL                 # only while temporary Kotak fallback is enabled
-PAYGATE_API_KEY             # only while temporary Kotak fallback is enabled
+PAYGATE_API_KEY             # PayGate merchant credential
+PAYGATE_API_VERSION         # v3 before PayGate v4 cutover; v4 only with the v4 merchant API
 PAYGATE_WEBHOOK_SECRET      # only while temporary Kotak fallback is enabled
 FOOTBALL_DATA_API_TOKEN
 SMTP_HOST
@@ -137,6 +138,8 @@ SMTP_USERNAME
 SMTP_PASSWORD
 SMTP_FROM
 ```
+
+Certificate-platform releases must also follow `docs/certificate-production-runbook.md`. A production deployment may keep all outbound mail disabled: set a production-only renderer capability key and explicitly set `MAIL_DELIVERY_MODE=disabled`. From a clean exact release-candidate checkout, run `scripts/certificate-release-preflight.sh` with `EXPECTED_SHA=<candidate SHA>` and `CHECK_RUNTIME=0` against the intended production environment file. After CI-gated production deployment, rerun it from the exact deployed `main` checkout with `EXPECTED_SHA=<CD TESTED_SHA>` and `CHECK_RUNTIME=1`. Only if live certificate email is separately authorized later should the operator configure `CERTIFICATE_MAIL_PROVIDER=smtp`, set `MAIL_DELIVERY_MODE=live`, and rerun the preflight with `REQUIRE_MAIL_LIVE=1` before any Send action or controlled `[TEST / NOT VALID]` SMTP acceptance test.
 
 Also verify:
 
@@ -197,6 +200,9 @@ After Dokploy reports healthy services, verify:
 - production Google login initializes;
 - one safe authenticated/admin read succeeds where configured;
 - uploaded files resolve;
+- `/verify` renders the public registry design;
+- `/admin/certificates` loads for a role with `certificates.view` and remains read-only;
+- registry email visibility still requires event-scoped `registrations.view`, and delivery-error detail still requires `certificates.send`;
 - web and PocketBase logs show no migration/startup/runtime error spike.
 
 If a rollback is required, restore application code through Git/Dokploy. Treat database rollback as a separate explicit operation based on the backup and the exact migrations that ran.

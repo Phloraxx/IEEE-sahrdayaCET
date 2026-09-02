@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import type { ExtendedEvent } from "@/types";
 import { MOTION_DURATION, MOTION_EASE } from "@/lib/motion";
 import { getEventAvailability, type EventAvailabilityKind } from "@/lib/event-availability";
+import { formatDay, formatMonth, formatWeekdayLong, formatYear } from "@/lib/dates";
 
 interface EventCardProps {
   event: ExtendedEvent;
@@ -32,7 +33,6 @@ export function AnnotatedEventCard({
   animateEntrance = true,
 }: EventCardProps) {
   const reduceMotion = useReducedMotion();
-  const date = new Date(event.date);
   const societyName = typeof event.society === "object" ? event.society.name : "IEEE Sahrdaya";
   const availability = getEventAvailability(event);
   return (
@@ -56,14 +56,14 @@ export function AnnotatedEventCard({
         >
           <div className="flex items-baseline gap-2 sm:block">
             <div className={`text-[10px] font-bold uppercase tracking-[0.18em] ${active ? "text-black/38 sm:text-white/42" : "text-black/38"}`}>
-              {date.toLocaleDateString("en-IN", { month: "short" })}
+              {formatMonth(event.date)}
             </div>
             <motion.div
               className="mt-1 text-3xl font-semibold leading-none tracking-[-0.06em] tabular-nums sm:text-4xl"
               animate={reduceMotion ? undefined : { y: active ? -2 : 0 }}
               transition={{ duration: MOTION_DURATION.micro, ease: MOTION_EASE }}
             >
-              {String(date.getDate()).padStart(2, "0")}
+              {formatDay(event.date)}
             </motion.div>
           </div>
 
@@ -79,7 +79,7 @@ export function AnnotatedEventCard({
           </div>
 
           <div className={`space-y-2 text-xs ${active ? "text-black/48 sm:text-white/48" : "text-black/48"}`}>
-            <div>{date.toLocaleDateString("en-IN", { weekday: "long", year: "numeric" })}</div>
+            <div>{formatWeekdayLong(event.date)} · {formatYear(event.date)}</div>
             {event.venue && (
               <div className="flex items-center gap-2">
                 <MapPin className="h-3.5 w-3.5 shrink-0" />

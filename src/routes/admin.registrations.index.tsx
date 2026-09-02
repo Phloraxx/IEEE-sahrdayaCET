@@ -35,6 +35,8 @@ import { listAdminEvents } from "@/lib/data/admin-events.client";
 import { getPbClient } from "@/lib/pb-client";
 import { streamAdminRegistrationsCSV } from "@/lib/csv-export";
 import { formatDateTime } from "@/lib/dates";
+import { getWorkspaceMe } from "@/lib/data/workspace.client";
+import { hasScopedWorkspaceCapability, type WorkspaceMe } from "@/lib/workspace-permissions";
 
 type RegistrationRow = Awaited<ReturnType<typeof listAdminRegistrations>>["registrations"][number];
 const money = (value: number) => `₹${Math.max(0, value || 0).toLocaleString("en-IN")}`;
@@ -67,6 +69,10 @@ export default function AdminRegistrations() {
   const [attentionOnly, setAttentionOnly] = useState(searchParams.get("attention") === "1");
   const [page, setPage] = useState(1);
   const perPage = 40;
+  const workspace = useQuery({ queryKey: ["workspace-me", user?.id], queryFn: getWorkspaceMe, enabled: Boolean(user?.id), staleTime: 30_000 });
+  const branchEvents = Boolean(workspace.data?.branchCapabilities.includes("events.view"));
+  const allowedSocietyIds = branchEvents ? undefined : Array.from(new Set((workspace.data?.assignments ?? []).filter((a) => a.active && a.scopeType === "society").map((a) => a.societyId).filter(Boolean)));
+  const allowedEventIds = branchEvents ? undefined : Array.from(new Set((workspace.data?.assignments ?? []).filter((a) => a.active && a.scopeType === "event").map((a) => a.eventId).filter(Boolean)));
 
   useEffect(() => {
     setStatus(searchParams.get("status") || "all");
@@ -76,8 +82,9 @@ export default function AdminRegistrations() {
   }, [searchParams]);
 
   const events = useQuery({
-    queryKey: ["admin-events-filter"],
-    queryFn: () => listAdminEvents({ page: 1, perPage: 100 }),
+    queryKey: ["admin-events-filter", allowedSocietyIds, allowedEventIds],
+    queryFn: () => listAdminEvents({ page: 1, perPage: 100, allowedSocietyIds, allowedEventIds }),
+    enabled: Boolean(workspace.data),
   });
   const registrations = useQuery({
     queryKey: ["admin-registrations", { search, eventId, status, paymentStatus, source, attentionOnly, page }],
@@ -129,7 +136,7 @@ export default function AdminRegistrations() {
     URL.revokeObjectURL(href);
   };
   const data = registrations.data;
-  const isAdmin = user?.role === "admin";
+  const canOpenPaymentDesk = Boolean(workspace.data?.branchCapabilities.includes("finance.view"));
 
   return (
     <div className="space-y-6">
@@ -139,7 +146,7 @@ export default function AdminRegistrations() {
         description={`${data?.total ?? 0} record${data?.total === 1 ? "" : "s"} match the current filters.`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            {isAdmin && (
+            {canOpenPaymentDesk && (
               <Button variant="outline" size="sm" className="gap-2" asChild>
                 <Link to="/admin/payments"><WalletCards className="h-4 w-4" />Payment Desk</Link>
               </Button>
@@ -217,7 +224,7 @@ export default function AdminRegistrations() {
             <QueueRow
               key={row.id}
               row={row}
-              isAdmin={isAdmin}
+              workspace={workspace.data}
               busy={checkInMutation.isPending || cancelMutation.isPending || confirmMutation.isPending}
               onCheckIn={(id) => checkInMutation.mutate(id)}
               onCancel={(id) => cancelMutation.mutate(id)}
@@ -241,14 +248,14 @@ export default function AdminRegistrations() {
 }
 function QueueRow({
   row,
-  isAdmin,
+  workspace,
   busy,
   onCheckIn,
   onCancel,
   onConfirm,
 }: {
   row: RegistrationRow;
-  isAdmin: boolean;
+  workspace?: WorkspaceMe;
   busy: boolean;
   onCheckIn: (id: string) => void;
   onCancel: (id: string) => void;
@@ -256,6 +263,10 @@ function QueueRow({
 }) {
   const paidCancelled = row.registrationStatus === "cancelled" && row.paymentStatus === "paid";
   const needsAttention = row.manualReview || paidCancelled || (row.registrationStatus === "pending" && row.paymentStatus === "pending");
+  const context = { eventId: String(row.eventId || row.event), societyId: String(row.eventSocietyId || "") };
+  const canFinance = hasScopedWorkspaceCapability(workspace, "finance.manage", context);
+  const canCheckIn = hasScopedWorkspaceCapability(workspace, "checkin.manage", context);
+  const canManage = hasScopedWorkspaceCapability(workspace, "registrations.manage", context);
 
   return (
     <div className={`rounded-xl border p-4 transition-colors ${needsAttention ? "border-amber-500/30 bg-amber-500/5" : "border-border bg-card hover:bg-muted/20"}`}>
@@ -281,7 +292,7 @@ function QueueRow({
           <Button variant="ghost" size="sm" className="h-8 gap-1.5 px-2 text-xs" asChild>
             <Link to={`/admin/registrations/${row.id}`}><Eye className="h-3.5 w-3.5" />View</Link>
           </Button>
-          {isAdmin && row.registrationStatus === "pending" && row.paymentStatus === "pending" && row.amount > 0 && (
+          {canFinance && row.registrationStatus === "pending" && row.paymentStatus === "pending" && row.amount > 0 && (
             <ConfirmButton
               label="Confirm payment"
               confirmMessage={`Confirm ${money(row.amount)} received and issue this attendee's ticket?`}
@@ -291,7 +302,7 @@ function QueueRow({
               disabled={busy}
               onConfirm={() => { onConfirm(row.id); return true; }}
             />
-          )}          {!row.checkedIn && row.registrationStatus === "confirmed" && (
+          )}          {canCheckIn && !row.checkedIn && row.registrationStatus === "confirmed" && (
             <ConfirmButton
               label="Check in"
               confirmMessage="Check in this attendee?"
@@ -302,7 +313,7 @@ function QueueRow({
               onConfirm={() => { onCheckIn(row.id); return true; }}
             />
           )}
-          {row.registrationStatus !== "cancelled" && !row.checkedIn && (
+          {canManage && row.registrationStatus !== "cancelled" && !row.checkedIn && (
             <ConfirmButton
               label="Cancel"
               confirmMessage="Cancel this registration? Paid records remain visible for finance review."

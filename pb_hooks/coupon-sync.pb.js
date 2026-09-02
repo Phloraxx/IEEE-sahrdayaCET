@@ -5,8 +5,7 @@
 routerAdd("PUT", "/api/app/events/{id}/coupons", function (e) {
   var auth = e.auth
   if (!auth || !auth.id) return e.json(401, { error: "Authentication required" })
-  var role = auth.getString("role")
-  if (role !== "admin" && role !== "chair") return e.json(403, { error: "Admin or chair access required" })
+  var authz = require(__hooks + "/workspace-authorization.js")
 
   var eventId = e.request.pathValue("id")
   var body = {}
@@ -21,17 +20,8 @@ routerAdd("PUT", "/api/app/events/{id}/coupons", function (e) {
       catch (_) { throw new Error("Event not found") }
       var societyId = event.getString("society")
       if (!societyId) throw new Error("Event has no society")
-
-      if (role === "chair") {
-        try {
-          txApp.findFirstRecordByFilter(
-            "societies",
-            "id = {:societyId} && chairs.id ?= {:authId}",
-            { societyId: societyId, authId: auth.id }
-          )
-        } catch (_) {
-          throw new Error("You are not a chair of this event's society")
-        }
+      if (!authz.hasEventCapability(txApp, auth, "events.edit", event)) {
+        throw new Error("You cannot manage coupons for this event")
       }
 
       var normalized = []
@@ -60,13 +50,31 @@ routerAdd("PUT", "/api/app/events/{id}/coupons", function (e) {
         "coupons", "event = {:eventId}", "", 0, 0, { eventId: eventId }
       )
       var byId = {}
-      for (var ei = 0; ei < existing.length; ei++) byId[existing[ei].id] = existing[ei]
+      var byCode = {}
+      for (var ei = 0; ei < existing.length; ei++) {
+        byId[existing[ei].id] = existing[ei]
+        byCode[existing[ei].getString("code")] = existing[ei]
+      }
       var retained = {}
       var created = 0, updated = 0, deleted = 0
+      var changed = existing.length !== normalized.length
+
+      for (var ci = 0; ci < normalized.length; ci++) {
+        var candidate = normalized[ci]
+        var current = candidate.id && byId[candidate.id] ? byId[candidate.id] : (byCode[candidate.code] || null)
+        if (!current || current.getString("code") !== candidate.code ||
+            current.getInt("discountPercent") !== candidate.discountPercent ||
+            current.getInt("maxUses") !== candidate.maxUses ||
+            current.getString("expiresAt") !== candidate.expiresAt ||
+            current.getBool("isActive") !== candidate.isActive) changed = true
+      }
+      if (changed && event.getString("status") === "published") {
+        throw new Error("Return the published event to draft before changing discount codes")
+      }
 
       for (var ni = 0; ni < normalized.length; ni++) {
         var item = normalized[ni]
-        var record = item.id && byId[item.id] ? byId[item.id] : null
+        var record = item.id && byId[item.id] ? byId[item.id] : (byCode[item.code] || null)
         if (record) {
           retained[record.id] = true
           record.set("code", item.code)
@@ -103,7 +111,15 @@ routerAdd("PUT", "/api/app/events/{id}/coupons", function (e) {
         deleted++
       }
 
-      result = { success: true, created: created, updated: updated, deleted: deleted }
+      if (changed) {
+        if ((event.getFloat("price") || 0) > 0) event.set("financeApprovalStatus", "pending")
+        else event.set("financeApprovalStatus", "not_required")
+        event.set("financeApprovalNote", "")
+        event.set("financeApprovedBy", "")
+        event.set("financeApprovedAt", "")
+        txApp.save(event)
+      }
+      result = { success: true, created: created, updated: updated, deleted: deleted, financeApprovalStatus: event.getString("financeApprovalStatus") || "" }
     })
   } catch (err) {
     var message = err && err.message ? String(err.message) : String(err)

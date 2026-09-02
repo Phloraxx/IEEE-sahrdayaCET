@@ -1,840 +1,200 @@
 import { useMemo, useState } from "react";
-import { motion } from "framer-motion";
-import { ArrowRight, ArrowUpRight, Clock, Search } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Grid2X2, List, Search, X } from "lucide-react";
 import { Link } from "react-router";
 
-import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import type { BlogPost, BlogTopic } from "@/types";
-import { cn } from "@/lib/utils";
+import Navbar from "@/components/Navbar";
+import { TechnicalDetails } from "@/components/TechnicalDetails";
+import { StarsBackground } from "@/components/ui/stars-background";
+import { ShootingStars } from "@/components/ui/shooting-stars";
 import { formatDateShort } from "@/lib/dates";
+import { getBlogContentType } from "@/lib/blog-presentation";
+import type { BlogPost } from "@/types";
+
+type ViewMode = "grid" | "index";
+
+function authorName(post: BlogPost) {
+  return typeof post.author === "string" ? post.author : post.author?.name || "IEEE Sahrdaya";
+}
+
+function postDate(post: BlogPost) {
+  return post.publishedAt ? formatDateShort(post.publishedAt) : "";
+}
+
+function matchesFilter(post: BlogPost, filter: string) {
+  if (filter === "All") return true;
+  return post.category === filter || post.topicLabel === filter;
+}
 
 export default function BlogClient({ blogs = [] }: { blogs?: BlogPost[] }) {
-  const [hovered, setHovered] = useState<string | null>(null);
+  const [filter, setFilter] = useState("All");
+  const [query, setQuery] = useState("");
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [previewId, setPreviewId] = useState<string | null>(null);
 
-  const featured = useMemo(() => {
-    const ieee = blogs.filter((blog) => blog.category === "IEEE");
-    const fallback = blogs.filter((blog) => blog.category !== "IEEE");
-    return [...ieee, ...fallback].slice(0, 3);
-  }, [blogs]);
-
-  const sidebar = useMemo(() => {
-    const featuredIds = new Set(featured.map((post) => post.id));
-    const society = blogs.filter(
-      (blog) => blog.category === "Society" && !featuredIds.has(blog.id),
-    );
-    const fallback = blogs.filter(
-      (blog) => !featuredIds.has(blog.id) && !society.some((post) => post.id === blog.id),
-    );
-    return [...society, ...fallback].slice(0, 4);
-  }, [blogs, featured]);
-
-  const dynamicTopics = useMemo(() => {
-    // Group all blogs by topicLabel
-    const counts: Record<string, BlogPost[]> = {};
-    for (const b of blogs) {
-      if (!b.topicLabel) continue;
-      const label = b.topicLabel;
-      if (!counts[label]) counts[label] = [];
-      counts[label]!.push(b);
+  const filters = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const post of blogs) {
+      for (const label of [post.category, post.topicLabel]) {
+        if (!label) continue;
+        counts.set(label, (counts.get(label) || 0) + 1);
+      }
     }
-
-    // Sort by number of posts descending
-    const sortedLabels = Object.keys(counts).sort(
-      (a, b) => (counts[b]?.length ?? 0) - (counts[a]?.length ?? 0)
-    );
-
-    // Take top 3 topics
-    const top3 = sortedLabels.slice(0, 3);
-    const tones: ("cream" | "lavender" | "dark")[] = ["cream", "lavender", "dark"];
-
-    return top3.map((label, idx) => ({
-      key: label,
-      label: label,
-      tone: tones[idx],
-      posts: (counts[label] ?? []).slice(0, 3), // max 3 posts per card
-    })) as BlogTopic[];
+    return ["All", ...Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([label]) => label).slice(0, 7)];
   }, [blogs]);
 
-  return (
-    <div className="relative min-h-screen w-full overflow-x-hidden bg-background text-foreground font-sans">
-      <Navbar />
-
-      {/* Soft paper grain to give the editorial layout a printed feel */}
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-0 z-0 opacity-[0.035] mix-blend-multiply dark:opacity-[0.06] dark:mix-blend-overlay"
-        style={{
-          backgroundImage:
-            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.55'/></svg>\")",
-        }}
-      />
-
-      <main className="relative z-10 mx-auto w-full max-w-[1400px] px-5 pt-32 pb-24 md:px-10">
-        {/* ── Eyebrow strip (above the wordmark) ───────────────── */}
-        <EyebrowStrip />
-
-        {/* ── Giant editorial wordmark ─────────────────────────── */}
-        <Wordmark text="THE BLOG" />
-
-        {/* ── Featured row: 3 photo cards + sidebar list ──────── */}
-        <section className="mt-10 grid grid-cols-1 gap-8 lg:grid-cols-[1fr_1fr_1fr_minmax(240px,300px)]">
-          {featured.map((post, i) => (
-            <FeaturedCard
-              key={post.id}
-              post={post}
-              index={i}
-              hovered={hovered === post.id}
-              onHover={(h) => setHovered(h ? post.id : null)}
-            />
-          ))}
-
-          <SidebarColumn posts={sidebar} />
-        </section>
-
-        {/* ── Divider ──────────────────────────────────────────── */}
-        <div className="mt-14 mb-8 h-px w-full bg-border" />
-
-        {/* ── Topics header row ────────────────────────────────── */}
-        <div className="mb-6 flex items-end justify-between" id="topics">
-          <h2 className="text-xs font-extrabold uppercase tracking-[0.22em] text-accent">
-            Browse topics
-          </h2>
-        </div>
-
-        {/* ── Topic cards row ──────────────────────────────────── */}
-        <section className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {dynamicTopics.length > 0 ? (
-            dynamicTopics.map((topic, i) => (
-              <TopicCard key={topic.key} topic={topic} index={i} />
-            ))
-          ) : (
-            <p className="text-sm text-muted-foreground col-span-full">No topics found yet.</p>
-          )}
-        </section>
-
-        {/* ── Complete archive: preserve the editorial shell while making every story discoverable ── */}
-        <CompleteArchive blogs={blogs} />
-      </main>
-
-      <Footer />
-    </div>
-  );
-}
-
-/* ============================================================
-   Eyebrow strip — small grouped nav-like labels echoing the
-   reference image, without competing with the real Navbar.
-   ============================================================ */
-
-function EyebrowStrip() {
-  const groups: { title: string; items: string[] }[] = [
-    { title: "The Blog", items: ["Latest", "Featured", "Editor's pick"] },
-    { title: "Read by topic", items: ["AI / ML", "Robotics", "Events"] },
-    { title: "From the branch", items: ["Recaps", "Spotlights", "How-tos"] },
-  ];
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="flex flex-wrap items-start justify-between gap-x-10 gap-y-4 border-y border-border/70 py-4"
-    >
-      <div className="flex items-baseline gap-3">
-        <span className="text-xs font-extrabold uppercase tracking-[0.22em] text-foreground">
-          IEEE Sahrdaya
-        </span>
-        <span className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-          / The Blog
-        </span>
-      </div>
-
-      <div className="flex flex-wrap gap-8 md:gap-12">
-        {groups.map((g) => (
-          <div key={g.title} className="min-w-[120px]">
-            <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.22em] text-accent">
-              {g.title}
-            </p>
-            <ul className="space-y-0.5">
-              {g.items.map((it) => (
-                <li
-                  key={it}
-                  className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground"
-                >
-                  {it}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-
-      {/* Mascot mark — minimalist scribble, no external asset */}
-      <MascotScribble />
-    </motion.div>
-  );
-}
-
-function PixelGrid({ grid, size }: { grid: string[][]; size: number }) {
-  return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: `repeat(${grid[0]?.length ?? 0}, ${size}px)`,
-        gap: 0,
-        lineHeight: 0,
-      }}
-    >
-      {grid.flat().map((color, i) => (
-        <div
-          key={i}
-          style={{
-            width: size,
-            height: size,
-            backgroundColor: color,
-            imageRendering: "pixelated",
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
-const HEAD: string[][] = [
-  ['#00629B','#00629B','#00629B','#00629B','#00629B','#00629B','#00629B','#00629B'],
-  ['#00629B','#0099D6','#0099D6','#0099D6','#0099D6','#0099D6','#0099D6','#00629B'],
-  ['#00629B','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#00629B'],
-  ['#f5d5b8','#f5d5b8','#ffffff','#0099D6','#0099D6','#ffffff','#f5d5b8','#f5d5b8'],
-  ['#f5d5b8','#f5d5b8','#f5d5b8','#e8c4a0','#e8c4a0','#f5d5b8','#f5d5b8','#f5d5b8'],
-  ['#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8'],
-  ['#f5d5b8','#e8c4a0','#e8c4a0','#e8c4a0','#e8c4a0','#e8c4a0','#e8c4a0','#f5d5b8'],
-  ['transparent','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','transparent'],
-];
-
-/* Split body — column 0 = left arm, cols 1-6 = torso, col 7 = right arm */
-const BODY_LEFT_COL: string[][] = [
-  ['transparent'],['transparent'],['#f5d5b8'],['#f5d5b8'],
-  ['transparent'],['transparent'],['transparent'],['transparent'],
-];
-const BODY_CENTER: string[][] = [
-  ['#004a7c','#00629B','#00629B','#00629B','#00629B','#004a7c'],
-  ['#004a7c','#00629B','#ffffff','#ffffff','#00629B','#004a7c'],
-  ['#004a7c','#00629B','#00629B','#00629B','#00629B','#004a7c'],
-  ['#004a7c','#004a7c','#0099D6','#0099D6','#004a7c','#004a7c'],
-  ['#004a7c','#004a7c','#00629B','#00629B','#004a7c','#004a7c'],
-  ['#2c3e50','#2c3e50','#2c3e50','#2c3e50','#2c3e50','#2c3e50'],
-  ['#2c3e50','#2c3e50','transparent','transparent','#2c3e50','#2c3e50'],
-  ['#1a252f','#1a252f','transparent','transparent','#1a252f','#1a252f'],
-];
-const BODY_RIGHT_COL: string[][] = [
-  ['transparent'],['transparent'],['#f5d5b8'],['#f5d5b8'],
-  ['transparent'],['transparent'],['transparent'],['transparent'],
-];
-
-function MascotScribble() {
-  return (
-    <div className="hidden sm:block">
-      {/* Head — full 8 columns */}
-      <PixelGrid grid={HEAD} size={4} />
-      {/* Body — left arm + torso stacked, right arm animated separately */}
-      <div style={{ display: "flex" }}>
-        <PixelGrid grid={BODY_LEFT_COL} size={4} />
-        <PixelGrid grid={BODY_CENTER} size={4} />
-        <motion.div
-          animate={{ rotate: [0, 0, -24, -12, -24, -12, -24, 0, 0] }}
-          transition={{
-            duration: 10,
-            repeat: Infinity,
-            ease: "easeInOut",
-            times: [0, 0.15, 0.3, 0.4, 0.5, 0.6, 0.7, 0.85, 1],
-          }}
-          style={{ transformOrigin: "2px 10px" }}
-        >
-          <PixelGrid grid={BODY_RIGHT_COL} size={4} />
-        </motion.div>
-      </div>
-    </div>
-  );
-}
-
-
-/* ============================================================
-   Wordmark — Anton condensed, scaled with clamp(),
-   subtle hover micro-motion per letter.
-   ============================================================ */
-
-function Wordmark({ text }: { text: string }) {
-  return (
-    <div className="relative mt-8 select-none">
-      <motion.h1
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-        className="font-display leading-[0.82] tracking-[-0.025em] text-foreground"
-        style={{ fontSize: "clamp(4rem, 17.5vw, 17rem)" }}
-      >
-        <span className="block whitespace-nowrap">
-          {text.split("").map((ch, i) => (
-            <motion.span
-              key={`${ch}-${i}`}
-              whileHover={{ y: -6, color: "var(--accent)" }}
-              transition={{ type: "spring", stiffness: 400, damping: 18 }}
-              className="inline-block"
-            >
-              {ch === " " ? "\u00A0" : ch}
-            </motion.span>
-          ))}
-        </span>
-      </motion.h1>
-
-      {/* Right-side metadata in the negative space */}
-      <div className="pointer-events-none absolute right-0 top-2 hidden flex-col items-end gap-1 text-right md:flex">
-        <span className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-          Vol. 01
-        </span>
-        <span className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-          {new Date().getFullYear()} / Sahrdaya
-        </span>
-      </div>
-    </div>
-  );
-}
-
-/* ============================================================
-   FeaturedCard — tall portrait image with overlaid title,
-   accent "read" CTA on the bottom-right (echoing the reference
-   play button), and an SVG "speech-bubble tail" pinned to the
-   bottom-right corner of the card.
-   ============================================================ */
-
-function FeaturedCard({
-  post,
-  index,
-  hovered,
-  onHover,
-}: {
-  post: BlogPost;
-  index: number;
-  hovered: boolean;
-  onHover: (hovered: boolean) => void;
-}) {
-  const authorName =
-    typeof post.author === "string" ? post.author : post.author?.name;
-  const authorRole =
-    typeof post.author === "string" ? undefined : post.author?.role;
-
-  return (
-    <motion.article
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.55, delay: 0.1 + index * 0.08 }}
-      onHoverStart={() => onHover(true)}
-      onHoverEnd={() => onHover(false)}
-      className="group relative flex flex-col"
-    >
-      {/* Image card */}
-      <div className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl bg-muted shadow-sm ring-1 ring-border">
-        <img
-          src={post.coverUrl}
-          alt={post.title}
-          loading="lazy"
-          className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
-          onError={(e) => {
-            (e.currentTarget as HTMLImageElement).style.display = "none";
-          }}
-        />
-
-        {/* Soft top tag */}
-        <div className="absolute left-3 top-3 z-10">
-          <span className="rounded-full bg-background/85 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-foreground backdrop-blur-sm ring-1 ring-border">
-            {post.topicLabel ?? "Article"}
-          </span>
-        </div>
-
-        {/* Bottom gradient */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-
-        {/* Title overlay */}
-        <div className="absolute inset-x-0 bottom-0 z-10 flex items-end justify-between gap-3 p-4 sm:p-5">
-          <h3 className="max-w-[80%] text-balance text-xl font-extrabold leading-[1.05] text-white drop-shadow-sm sm:text-2xl">
-            {post.title}
-          </h3>
-
-          <Link
-            to={`/blog/${post.slug }`}
-            aria-label={`Read ${post.title}`}
-            className={cn(
-              "relative z-20 grid h-12 w-12 shrink-0 place-items-center rounded-full text-accent-foreground shadow-lg transition-all",
-              "bg-accent hover:scale-110 active:scale-95"
-            )}
-          >
-            <ArrowUpRight className="h-5 w-5" strokeWidth={2.4} />
-          </Link>
-        </div>
-
-        {/* Bottom meta strip */}
-        <div className="absolute inset-x-0 bottom-0 z-0 flex translate-y-full items-center gap-2 px-4 pb-2 text-[10px] uppercase tracking-[0.22em] text-white/85">
-          <Clock className="h-3 w-3" />
-          {post.readMinutes ?? 5} min read
-        </div>
-      </div>
-
-      {/* Speech-bubble tail (decorative) */}
-      <svg
-        viewBox="0 0 40 30"
-        aria-hidden
-        className="-mt-px ml-auto mr-4 h-5 w-7 fill-current text-foreground/90"
-        style={{
-          filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.06))",
-        }}
-      >
-        <path d="M2 0 L40 0 L40 4 Q20 6 8 28 Q4 22 2 6 Z" />
-      </svg>
-
-      {/* Author block */}
-      <div className="mt-2 flex items-baseline justify-between gap-3">
-        <div>
-          <p className="text-sm font-bold text-foreground">{authorName ?? "IEEE Sahrdaya"}</p>
-          {authorRole ? (
-            <p className="text-xs text-muted-foreground">{authorRole}</p>
-          ) : (
-            <p className="text-xs text-muted-foreground">Member contribution</p>
-          )}
-        </div>
-        <motion.span
-          animate={{ opacity: hovered ? 1 : 0.45, x: hovered ? 0 : -4 }}
-          transition={{ duration: 0.25 }}
-          className="text-[10px] font-bold uppercase tracking-[0.22em] text-accent"
-        >
-          Read story →
-        </motion.span>
-      </div>
-    </motion.article>
-  );
-}
-
-/* ============================================================
-   SidebarColumn — "From the Blog" list of recent posts
-   ============================================================ */
-
-function SidebarColumn({ posts }: { posts: BlogPost[] }) {
-  return (
-    <motion.aside
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.55, delay: 0.4 }}
-      className="flex flex-col justify-between"
-    >
-      <div>
-        <h2 className="mb-4 text-xs font-extrabold uppercase tracking-[0.22em] text-accent">
-          From the blog
-        </h2>
-
-        <ul className="space-y-4">
-          {posts.map((p) => {
-            const name = typeof p.author === "string" ? p.author : p.author?.name;
-            return (
-              <li key={p.id} className="group">
-                <Link
-                  to={`/blog/${p.slug }`}
-                  className="block border-b border-border/70 pb-3 last:border-b-0"
-                >
-                  <p className="text-sm font-semibold leading-snug text-foreground transition-colors group-hover:text-accent">
-                    {p.title}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">{name}</p>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-
-      <button
-        type="button"
-        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-        className="mt-6 inline-flex items-center justify-center gap-2 self-start rounded-full bg-foreground px-5 py-2.5 text-xs font-bold uppercase tracking-[0.18em] text-background transition-transform hover:scale-[1.02] active:scale-95"
-      >
-        Back to top
-        <ArrowRight className="h-3.5 w-3.5 -rotate-90" />
-      </button>
-    </motion.aside>
-  );
-}
-
-/* ============================================================
-   TopicCard — colored topic card with 3 article rows + avatar.
-   Tone maps to a surface color (cream / lavender / dark).
-   ============================================================ */
-
-const TONE: Record<
-  BlogTopic["tone"],
-  { surface: string; title: string; sub: string; row: string; divider: string; arrow: string }
-> = {
-  cream: {
-    surface: "bg-[#f3ead7] dark:bg-[#2a2419] text-foreground",
-    title: "text-[#3a2d12] dark:text-[#f3ead7]",
-    sub: "text-[#7a6940] dark:text-[#b8a06a]",
-    row: "hover:bg-black/[0.04] dark:hover:bg-white/[0.05]",
-    divider: "border-[#e0d3ad] dark:border-white/10",
-    arrow: "text-[#3a2d12] dark:text-[#f3ead7]",
-  },
-  lavender: {
-    surface: "bg-[#e9e4f7] dark:bg-[#22203a] text-foreground",
-    title: "text-[#322a5a] dark:text-[#e9e4f7]",
-    sub: "text-[#6c5fa3] dark:text-[#b9b0e0]",
-    row: "hover:bg-black/[0.04] dark:hover:bg-white/[0.05]",
-    divider: "border-[#d5cdee] dark:border-white/10",
-    arrow: "text-[#322a5a] dark:text-[#e9e4f7]",
-  },
-  dark: {
-    surface: "bg-[#161616] dark:bg-[#0c0c0c] text-white",
-    title: "text-white",
-    sub: "text-white/60",
-    row: "hover:bg-white/[0.06]",
-    divider: "border-white/10",
-    arrow: "text-white",
-  },
-  mint: {
-    surface: "bg-[#dcefe3] dark:bg-[#142a1f] text-foreground",
-    title: "text-[#143a26] dark:text-[#dcefe3]",
-    sub: "text-[#4a8062] dark:text-[#9ad1b4]",
-    row: "hover:bg-black/[0.04] dark:hover:bg-white/[0.05]",
-    divider: "border-[#c2e0cf] dark:border-white/10",
-    arrow: "text-[#143a26] dark:text-[#dcefe3]",
-  },
-};
-
-function TopicCard({ topic, index }: { topic: BlogTopic; index: number }) {
-  const t = TONE[topic.tone];
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 18 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.45, delay: 0.05 + index * 0.08 }}
-      whileHover={{ y: -4 }}
-      className={cn(
-        "relative flex flex-col overflow-hidden rounded-2xl ring-1 ring-black/5 shadow-sm",
-        t.surface
-      )}
-    >
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3 px-5 pt-5">
-        <div>
-          <h3 className={cn("text-2xl font-extrabold leading-tight", t.title)}>
-            {topic.label}
-          </h3>
-          {topic.blurb ? (
-            <p className={cn("mt-1.5 max-w-[22ch] text-xs leading-relaxed", t.sub)}>
-              {topic.blurb}
-            </p>
-          ) : null}
-        </div>
-        <TopicDoodle tone={topic.tone} />
-      </div>
-
-      {/* Article rows */}
-      <ul className="mt-4 flex flex-col">
-        {topic.posts.map((p, i) => {
-          const name = typeof p.author === "string" ? p.author : p.author?.name;
-          const photo =
-            typeof p.author === "string" ? undefined : p.author?.photoUrl;
-          return (
-            <li key={p.id}>
-              <Link
-                to={`/blog/${p.slug }`}
-                className={cn(
-                  "group flex items-center gap-3 border-t px-5 py-3.5 transition-colors",
-                  i === 0 ? "" : "",
-                  t.row,
-                  t.divider
-                )}
-              >
-                {/* Avatar */}
-                <div
-                  className={cn(
-                    "h-9 w-9 shrink-0 overflow-hidden rounded-full bg-black/10 ring-1 ring-black/5",
-                    topic.tone === "dark" && "bg-white/10 ring-white/10"
-                  )}
-                >
-                  {photo ? (
-                    <img
-                      src={photo}
-                      alt={name ?? ""}
-                      loading="lazy"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="grid h-full w-full place-items-center text-[10px] font-bold uppercase">
-                      {(name ?? "·").slice(0, 2)}
-                    </div>
-                  )}
-                </div>
-
-                {/* Title + author */}
-                <div className="min-w-0 flex-1">
-                  <p
-                    className={cn(
-                      "truncate text-sm font-semibold leading-snug",
-                      t.title
-                    )}
-                  >
-                    {p.title}
-                  </p>
-                  <p className={cn("mt-0.5 text-[11px]", t.sub)}>{name}</p>
-                </div>
-
-                {/* Arrow */}
-                <ArrowRight
-                  className={cn(
-                    "h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1",
-                    t.arrow
-                  )}
-                />
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </motion.div>
-  );
-}
-
-/* Small abstract doodle per topic (no external assets) */
-function TopicDoodle({ tone }: { tone: BlogTopic["tone"] }) {
-  const stroke =
-    tone === "dark" ? "rgba(255,255,255,0.85)" : "rgba(20,20,20,0.85)";
-  return (
-    <svg
-      viewBox="0 0 70 60"
-      className="h-12 w-14 shrink-0"
-      fill="none"
-      stroke={stroke}
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      {tone === "cream" ? (
-        <>
-          {/* runner-like figure */}
-          <circle cx="22" cy="14" r="7" />
-          <path d="M22 21 L18 36 L10 50" />
-          <path d="M22 21 L30 36 L40 50" />
-          <path d="M22 26 L8 32" />
-          <path d="M22 26 L40 22" />
-          <path d="M50 30 Q60 22 68 30" />
-        </>
-      ) : tone === "lavender" ? (
-        <>
-          {/* swirly motion */}
-          <path d="M6 36 Q22 8 38 36 Q54 60 66 30" />
-          <circle cx="12" cy="20" r="2" />
-          <circle cx="56" cy="18" r="2" />
-          <path d="M48 48 L62 48" />
-          <path d="M52 44 L58 52" />
-        </>
-      ) : tone === "dark" ? (
-        <>
-          {/* stage / trophy */}
-          <path d="M14 50 L56 50" />
-          <path d="M22 50 L22 36 L48 36 L48 50" />
-          <circle cx="35" cy="22" r="9" />
-          <path d="M26 22 L18 22 L20 28" />
-          <path d="M44 22 L52 22 L50 28" />
-        </>
-      ) : (
-        <>
-          <path d="M10 50 Q20 10 35 30 Q50 50 60 14" />
-          <circle cx="35" cy="30" r="3" />
-        </>
-      )}
-    </svg>
-  );
-}
-
-const ARCHIVE_CATEGORIES = ["All", "IEEE", "Society", "Event"] as const;
-type ArchiveCategory = (typeof ARCHIVE_CATEGORIES)[number];
-
-function formatArchiveDate(value?: string) {
-  return value ? formatDateShort(value) : "";
-}
-
-function CompleteArchive({ blogs }: { blogs: BlogPost[] }) {
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState<ArchiveCategory>("All");
-  const [topic, setTopic] = useState("All topics");
-
-  const topics = useMemo(
-    () => [
-      "All topics",
-      ...Array.from(
-        new Set(
-          blogs
-            .map((blog) => blog.topicLabel?.trim())
-            .filter((label): label is string => Boolean(label)),
-        ),
-      ).sort((a, b) => a.localeCompare(b)),
-    ],
-    [blogs],
-  );
-
-  const filtered = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    return blogs.filter((blog) => {
-      const author =
-        typeof blog.author === "string" ? blog.author : blog.author?.name || "IEEE Sahrdaya";
-      const matchesCategory = category === "All" || blog.category === category;
-      const matchesTopic = topic === "All topics" || blog.topicLabel === topic;
-      const matchesSearch =
-        !needle ||
-        [blog.title, blog.excerpt, blog.topicLabel, blog.category, author]
-          .filter(Boolean)
-          .some((value) => String(value).toLowerCase().includes(needle));
-      return matchesCategory && matchesTopic && matchesSearch;
+  const lead = useMemo(() => blogs.find((post) => post.coverUrl) || blogs[0], [blogs]);
+  const latest = useMemo(() => blogs.filter((post) => post.id !== lead?.id).slice(0, 4), [blogs, lead]);
+  const visible = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return blogs.filter((post) => {
+      if (post.id === lead?.id) return false;
+      if (!matchesFilter(post, filter)) return false;
+      if (!needle) return true;
+      const haystack = [post.title, post.excerpt, post.topicLabel, post.category, authorName(post)].filter(Boolean).join(" ").toLowerCase();
+      return haystack.includes(needle);
     });
-  }, [blogs, category, search, topic]);
+  }, [blogs, filter, query, lead]);
 
-  if (blogs.length === 0) return null;
-
-  return (
-    <section id="all-stories" className="mt-16 border-t border-border pt-10">
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="text-[10px] font-extrabold uppercase tracking-[0.28em] text-accent">
-            Complete archive
-          </p>
-          <h2 className="mt-2 font-display text-4xl tracking-tight text-foreground sm:text-5xl">
-            All Stories
-          </h2>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            Featured placement can change, but every published IEEE Sahrdaya story stays available here.
-          </p>
-        </div>
-        <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-          {filtered.length} of {blogs.length} {blogs.length === 1 ? "story" : "stories"}
-        </div>
-      </div>
-
-      <div className="mt-7 grid gap-3 border-y border-border/70 py-5 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-center">
-        <label className="relative block">
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search title, topic or author"
-            aria-label="Search blog stories"
-            className="h-11 w-full rounded-full border border-border bg-background/80 pl-11 pr-4 text-sm outline-none transition focus:border-accent/50 focus:ring-4 focus:ring-accent/10"
-          />
-        </label>
-
-        <div className="flex flex-wrap gap-2">
-          {ARCHIVE_CATEGORIES.map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => setCategory(option)}
-              aria-pressed={category === option}
-              className={cn(
-                "rounded-full px-4 py-2 text-[10px] font-extrabold uppercase tracking-[0.16em] transition",
-                category === option
-                  ? "bg-foreground text-background"
-                  : "border border-border bg-background/70 text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {option}
-            </button>
-          ))}
-        </div>
-
-        <select
-          value={topic}
-          onChange={(event) => setTopic(event.target.value)}
-          aria-label="Filter blog stories by topic"
-          className="h-10 rounded-full border border-border bg-background/80 px-4 text-[10px] font-extrabold uppercase tracking-[0.14em] text-foreground outline-none focus:border-accent/50"
-        >
-          {topics.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {filtered.length > 0 ? (
-        <div className="mt-8 grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((post, index) => (
-            <ArchiveStoryCard key={post.id} post={post} index={index} />
-          ))}
-        </div>
-      ) : (
-        <div className="mt-8 rounded-2xl border border-dashed border-border px-6 py-16 text-center">
-          <p className="font-display text-2xl text-foreground">No matching stories</p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Try another search term, category, or topic.
-          </p>
-        </div>
-      )}
-    </section>
-  );
-}
-
-function ArchiveStoryCard({ post, index }: { post: BlogPost; index: number }) {
-  const author =
-    typeof post.author === "string" ? post.author : post.author?.name || "IEEE Sahrdaya";
-  const published = formatArchiveDate(post.publishedAt);
+  const preview = visible.find((post) => post.id === previewId) || visible[0];
+  const totalMinutes = blogs.reduce((sum, post) => sum + (post.readMinutes || 1), 0);
 
   return (
-    <motion.article
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, delay: Math.min(index, 6) * 0.04 }}
-      className="group"
-    >
-      <Link to={`/blog/${post.slug}`} className="block">
-        <div className="relative aspect-[16/10] overflow-hidden rounded-2xl border border-border bg-muted shadow-sm">
-          {post.coverUrl ? (
-            <img
-              src={post.coverUrl}
-              alt=""
-              loading="lazy"
-              className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
-            />
+    <div className="relative min-h-screen w-full overflow-x-hidden bg-white text-gray-900 selection:bg-ieee-blue/20">
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        <StarsBackground starDensity={0.00032} allStarsTwinkle starColor="#1e293b" />
+        <ShootingStars starColor="#00629b" trailColor="#0099D6" minDelay={4200} maxDelay={8500} minSpeed={8} maxSpeed={16} starWidth={9} starHeight={1} />
+      </div>
+      <Navbar />
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-[100dvh]"><TechnicalDetails /></div>
+
+      <main className="relative z-20 mx-auto w-full max-w-[1320px] px-5 pb-24 pt-28 sm:px-6 sm:pt-32 lg:px-10">
+        <header data-testid="blog-journal-masthead" className="border-t border-gray-200 pt-6 sm:pt-8">
+          <div className="flex flex-wrap items-center justify-between gap-4 font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-gray-400">
+            <h1 className="text-gray-600">IEEE Sahrdaya / Blog</h1>
+            <div className="flex items-center gap-4"><span>{String(blogs.length).padStart(2, "0")} stories</span><span>{totalMinutes} min total</span><span>{new Date().getFullYear()} / live</span></div>
+          </div>
+
+          <div className="mt-8 grid gap-7 border-b border-gray-200 pb-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end lg:gap-12 sm:pb-10">
+            <div>
+              <p className="font-pixel text-3xl leading-tight tracking-[-0.05em] text-ieee-blue sm:text-4xl lg:text-5xl">BLOG</p>
+              <p className="mt-4 max-w-4xl text-[2.6rem] font-bold leading-[0.97] tracking-[-0.045em] text-gray-950 sm:text-[3.8rem] lg:text-[4.7rem]">Stories from inside the branch.</p>
+            </div>
+            <div className="border-l border-gray-200 pl-5">
+              <p className="text-sm leading-6 text-gray-500">Technical notes, event reports, projects, people and ideas worth keeping.</p>
+              <p className="mt-5 font-mono text-[8px] font-semibold uppercase leading-5 tracking-[0.17em] text-gray-400">Record what happened.<br />Share what we learned.<br />Keep the signal alive.</p>
+            </div>
+          </div>
+        </header>
+
+        {lead ? (
+          <section data-testid="blog-lead-story" className="py-8 sm:py-10">
+            <div className="mb-4 flex items-center gap-3"><span className="h-2 w-2 bg-ieee-blue" /><p className="font-pixel text-[11px] text-gray-700">LATEST / 01</p><div className="h-px flex-1 bg-gray-200" /></div>
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(280px,0.65fr)]">
+              <Link to={`/blog/${lead.slug}`} className="group relative min-h-[360px] overflow-hidden rounded-xl border border-gray-200 bg-gray-900 shadow-sm sm:min-h-[500px] lg:min-h-[560px]">
+                {lead.coverUrl ? <img src={lead.coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]" /> : null}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 p-5 text-white sm:p-7">
+                  <p className="font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-blue-200">{getBlogContentType(lead)} · {postDate(lead)} · {lead.readMinutes || 1} min</p>
+                  <h2 className="mt-3 max-w-3xl text-3xl font-bold leading-[1] tracking-[-0.035em] sm:text-5xl">{lead.title}</h2>
+                  <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-2 text-xs font-semibold backdrop-blur-sm transition group-hover:bg-white group-hover:text-gray-950">Read story <ArrowUpRight className="h-4 w-4" /></div>
+                </div>
+              </Link>
+
+              <aside className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+                <div className="flex items-center justify-between border-b border-gray-100 pb-3"><p className="font-pixel text-[10px] text-gray-700">LATEST SIGNALS</p><span className="font-mono text-[8px] uppercase tracking-[0.15em] text-gray-400">LIVE FEED</span></div>
+                <ol className="mt-2">
+                  {latest.map((post, index) => (
+                    <li key={post.id} className="border-b border-gray-100 last:border-b-0">
+                      <Link to={`/blog/${post.slug}`} className="group grid grid-cols-[30px_1fr_auto] gap-3 py-4">
+                        <span className="font-pixel text-[9px] text-ieee-blue">{String(index + 2).padStart(2, "0")}</span>
+                        <span><span className="block font-mono text-[7px] font-semibold uppercase tracking-[0.15em] text-gray-400">{getBlogContentType(post)}</span><span className="mt-1 block text-sm font-semibold leading-snug text-gray-800 transition group-hover:text-ieee-blue">{post.title}</span></span>
+                        <ArrowRight className="mt-3 h-4 w-4 text-gray-300 transition group-hover:translate-x-1 group-hover:text-ieee-blue" />
+                      </Link>
+                    </li>
+                  ))}
+                </ol>
+              </aside>
+            </div>
+          </section>
+        ) : null}
+
+        <section id="archive" className="border-t border-gray-200 pt-8 sm:pt-10">
+          <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
+            <div>
+              <p className="font-pixel text-[11px] text-ieee-blue">BRANCH LOG / {String(visible.length).padStart(2, "0")}</p>
+              <h2 className="mt-2 text-3xl font-bold tracking-[-0.035em] sm:text-4xl">Browse the archive.</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">Switch between a visual grid and a compact index. Search, filter, skim or wander.</p>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="relative min-w-[250px]">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <input value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Search blog stories" placeholder="Search stories…" className="h-11 w-full rounded-full border border-gray-200 bg-white pl-9 pr-9 text-sm shadow-sm outline-none transition placeholder:text-gray-400 focus:border-ieee-blue" />
+                {query ? <button type="button" aria-label="Clear story search" onClick={() => setQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"><X className="h-4 w-4" /></button> : null}
+              </div>
+              <div className="inline-flex rounded-full border border-gray-200 bg-white p-1 shadow-sm" aria-label="Blog archive view">
+                <button type="button" onClick={() => setViewMode("grid")} aria-pressed={viewMode === "grid"} className={`inline-flex items-center gap-2 rounded-full px-3 py-2 font-mono text-[8px] font-semibold uppercase tracking-[0.14em] transition ${viewMode === "grid" ? "bg-gray-950 text-white" : "text-gray-500 hover:text-gray-900"}`}><Grid2X2 className="h-3.5 w-3.5" /> Grid</button>
+                <button type="button" onClick={() => setViewMode("index")} aria-pressed={viewMode === "index"} className={`inline-flex items-center gap-2 rounded-full px-3 py-2 font-mono text-[8px] font-semibold uppercase tracking-[0.14em] transition ${viewMode === "index" ? "bg-gray-950 text-white" : "text-gray-500 hover:text-gray-900"}`}><List className="h-3.5 w-3.5" /> Index</button>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 flex gap-2 overflow-x-auto border-y border-gray-200 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Filter blog stories">
+            {filters.map((label) => <button key={label} type="button" onClick={() => setFilter(label)} aria-pressed={filter === label} className={`shrink-0 rounded-full border px-3 py-2 font-mono text-[8px] font-semibold uppercase tracking-[0.15em] transition ${filter === label ? "border-ieee-blue bg-ieee-blue text-white" : "border-gray-200 bg-white text-gray-500 hover:border-gray-400 hover:text-gray-900"}`}>{label}</button>)}
+          </div>
+
+          {viewMode === "grid" ? (
+            <div data-testid="blog-archive" className="mt-7 grid gap-6 md:grid-cols-2 xl:grid-cols-12">
+              {visible.map((post, index) => {
+                const wide = index % 5 === 0;
+                return <article key={post.id} data-blog-archive-row className={wide ? "md:col-span-2 xl:col-span-7" : "xl:col-span-5"}>
+                  <Link to={`/blog/${post.slug}`} className="group block h-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-ieee-blue/30 hover:shadow-md">
+                    <div className={`relative overflow-hidden bg-gray-100 ${wide ? "aspect-[16/8]" : "aspect-[16/10]"}`}>
+                      {post.coverUrl ? <img src={post.coverUrl} alt="" loading="lazy" className="h-full w-full object-cover transition duration-700 group-hover:scale-105" /> : <div className="absolute inset-0 bg-[linear-gradient(135deg,#f8fafc_25%,transparent_25%,transparent_50%,#f8fafc_50%,#f8fafc_75%,transparent_75%)] bg-[length:20px_20px]" />}
+                      <span className="absolute left-3 top-3 rounded-sm bg-gray-950 px-2.5 py-1.5 font-pixel text-[8px] text-white">{String(index + 2).padStart(2, "0")}</span>
+                    </div>
+                    <div className="p-5 sm:p-6">
+                      <p className="font-mono text-[8px] font-semibold uppercase tracking-[0.16em] text-ieee-blue">{getBlogContentType(post)} · {postDate(post)} · {post.readMinutes || 1} min</p>
+                      <h3 className={`${wide ? "sm:text-3xl" : "sm:text-2xl"} mt-2 text-2xl font-bold leading-tight tracking-[-0.03em] text-gray-900 transition group-hover:text-ieee-blue`}>{post.title}</h3>
+                      {post.excerpt ? <p className="mt-3 line-clamp-3 text-sm leading-6 text-gray-500">{post.excerpt}</p> : null}
+                      <div className="mt-5 flex items-center justify-between border-t border-gray-100 pt-4"><span className="font-mono text-[8px] uppercase tracking-[0.15em] text-gray-400">{authorName(post)}</span><span className="grid h-8 w-8 place-items-center rounded-full border border-gray-200 text-gray-500 transition group-hover:border-ieee-blue group-hover:bg-ieee-blue group-hover:text-white"><ArrowUpRight className="h-4 w-4" /></span></div>
+                    </div>
+                  </Link>
+                </article>;
+              })}
+              {visible.length === 0 ? <div className="md:col-span-2 xl:col-span-12 py-16 text-center"><p className="font-pixel text-[10px] text-gray-400">NO MATCHING SIGNALS</p><button type="button" onClick={() => { setFilter("All"); setQuery(""); }} className="mt-3 text-sm font-semibold text-ieee-blue hover:underline">Reset archive</button></div> : null}
+            </div>
           ) : (
-            <div className="grid h-full place-items-center bg-accent/10 font-pixel text-2xl text-accent">
-              IEEE
+            <div data-testid="blog-archive" className="mt-7 grid gap-6 lg:grid-cols-[minmax(0,1fr)_390px]">
+              <div className="border-y border-gray-200 bg-white/85 backdrop-blur-sm">
+                {visible.map((post, index) => <article key={post.id} data-blog-archive-row onMouseEnter={() => setPreviewId(post.id)} onFocusCapture={() => setPreviewId(post.id)} className="group border-b border-gray-200 last:border-b-0">
+                  <Link to={`/blog/${post.slug}`} className="grid gap-3 px-2 py-5 transition hover:bg-gray-50 sm:grid-cols-[54px_1fr_90px_auto] sm:items-center sm:px-4">
+                    <span className="font-pixel text-[9px] text-gray-300 transition group-hover:text-ieee-blue">{String(index + 2).padStart(2, "0")}</span>
+                    <span><span className="font-mono text-[7px] font-semibold uppercase tracking-[0.15em] text-ieee-blue">{getBlogContentType(post)}</span><h3 className="mt-1 text-lg font-bold leading-tight tracking-[-0.02em] text-gray-900 transition group-hover:translate-x-1 group-hover:text-ieee-blue sm:text-xl">{post.title}</h3></span>
+                    <span className="font-mono text-[8px] uppercase leading-5 tracking-[0.13em] text-gray-400">{postDate(post)}<br />{post.readMinutes || 1} min</span>
+                    <ArrowUpRight className="hidden h-4 w-4 text-gray-300 transition group-hover:text-ieee-blue sm:block" />
+                  </Link>
+                </article>)}
+                {visible.length === 0 ? <div className="py-16 text-center"><p className="font-pixel text-[10px] text-gray-400">NO MATCHING SIGNALS</p></div> : null}
+              </div>
+              <aside className="hidden lg:block">
+                <div className="sticky top-28 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                  {preview ? <>
+                    <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">{preview.coverUrl ? <img src={preview.coverUrl} alt="" className="h-full w-full object-cover" /> : null}<div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 to-transparent p-4 pt-16"><p className="font-mono text-[8px] font-semibold uppercase tracking-[0.15em] text-blue-100">PREVIEW / {getBlogContentType(preview)}</p></div></div>
+                    <div className="p-5"><h3 className="text-2xl font-bold leading-tight tracking-[-0.03em]">{preview.title}</h3>{preview.excerpt ? <p className="mt-3 line-clamp-4 text-sm leading-6 text-gray-500">{preview.excerpt}</p> : null}<div className="mt-5 flex items-center justify-between border-t border-gray-100 pt-4 font-mono text-[8px] uppercase tracking-[0.14em] text-gray-400"><span>{postDate(preview)}</span><span>{preview.readMinutes || 1} min read</span></div></div>
+                  </> : <div className="grid aspect-[4/3] place-items-center font-pixel text-[9px] text-gray-300">NO PREVIEW</div>}
+                </div>
+              </aside>
             </div>
           )}
-          <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/60 to-transparent" />
-          <span className="absolute bottom-3 left-3 rounded-full bg-background/90 px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-[0.16em] text-foreground backdrop-blur-sm">
-            {post.topicLabel || post.category || "Story"}
-          </span>
-        </div>
 
-        <div className="pt-4">
-          <div className="flex items-start justify-between gap-4">
-            <h3 className="text-balance text-xl font-extrabold leading-tight text-foreground transition-colors group-hover:text-accent">
-              {post.title}
-            </h3>
-            <ArrowUpRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-accent" />
+          <div className="mt-10 grid overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:grid-cols-[1fr_auto] sm:items-stretch">
+            <div className="p-5 sm:p-6"><p className="font-pixel text-[9px] text-ieee-blue">KEEP MOVING</p><h3 className="mt-2 text-xl font-bold tracking-[-0.02em]">The archive grows with the branch.</h3><p className="mt-2 text-sm text-gray-500">New workshops, projects, people and ideas become the next stories here.</p></div>
+            <Link to="/events" className="group flex min-w-[210px] items-center justify-between gap-6 border-t border-gray-200 bg-ieee-blue px-6 py-5 font-semibold text-white transition hover:bg-blue-700 sm:border-l sm:border-t-0">Explore events <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" /></Link>
           </div>
-          {post.excerpt ? (
-            <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
-              {post.excerpt}
-            </p>
-          ) : null}
-          <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border/70 pt-3 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-            <span className="text-foreground/80">{author}</span>
-            {published ? <span>{published}</span> : null}
-            <span className="inline-flex items-center gap-1">
-              <Clock className="h-3 w-3" /> {post.readMinutes || 1} min
-            </span>
-          </div>
-        </div>
-      </Link>
-    </motion.article>
+        </section>
+      </main>
+      <Footer />
+    </div>
   );
 }

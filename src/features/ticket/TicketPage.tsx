@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import {
   AlertCircle,
   ArrowLeft,
+  CalendarPlus,
   CheckCircle2,
   Clock,
   Download,
@@ -186,8 +187,9 @@ export default function TicketPage({ ticketId }: PageProps) {
         <div className="mt-7 flex flex-wrap items-center justify-between gap-5 border-b border-black/12 pb-7">
           <p className="text-xs text-black/40">One ticket, tied to your registration.</p>
           <div className="flex flex-wrap gap-5">
-            {isPaid && registration && <button type="button" onClick={() => void handleReceipt()} className="inline-flex items-center gap-2 text-sm font-bold text-black/50 hover:text-[#00629B]"><ReceiptText className="h-4 w-4" /> Payment receipt</button>}
-            <Link to="/events" className="text-sm font-bold text-[#00629B]">Browse events</Link>
+            {isPaid && registration && <button type="button" onClick={() => void handleReceipt()} className="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-black/50 hover:text-[#00629B]"><ReceiptText className="h-4 w-4" /> Payment receipt</button>}
+            {event?.slug && !event.isArchived && (event.status === "published" || event.status === "completed") && <a href={`/events/${event.slug}/calendar.ics`} className="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-black/50 hover:text-[#00629B]"><CalendarPlus className="h-4 w-4" /> Add to calendar</a>}
+            <Link to="/my-events" className="inline-flex min-h-11 items-center text-sm font-bold text-[#00629B]">My Events</Link>
           </div>
         </div>
       </main>

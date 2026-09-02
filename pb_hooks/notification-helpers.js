@@ -286,14 +286,11 @@ function receiptPdfBytes(registration, event) {
 
 function canManageRegistration(auth, registration) {
   if (!auth || !auth.id || !registration) return false
-  if (auth.getString("role") === "admin") return true
-  if (auth.getString("role") !== "chair") return false
   try {
     var event = $app.findRecordById("events", registration.getString("event"))
-    var society = $app.findRecordById("societies", event.getString("society"))
-    var chairs = society.get("chairs")
-    if (Array.isArray(chairs)) return chairs.indexOf(auth.id) !== -1
-    return String(chairs || "") === auth.id
+    return require(__hooks + "/workspace-authorization.js").hasEventCapability(
+      $app, auth, "registrations.manage", event
+    )
   } catch (_) { return false }
 }
 
@@ -361,16 +358,21 @@ function nextRetryIso(attempts) {
 }
 
 function sendOutbox(record) {
+  var kind = record.getString("kind")
+  if (kind === "certificate") {
+    return require(__hooks + "/certificate-delivery-helpers.js").sendCertificateOutbox($app, record)
+  }
+
   var registration
   try { registration = $app.findRecordById("registrations", record.getString("registration")) }
   catch (_) { throw new Error("Registration no longer exists") }
 
-  var kind = record.getString("kind")
   var event = getEvent(registration)
   var template = kind === "receipt" ? receiptEmail(registration, event) : ticketEmail(registration, event)
   var from = sender()
   if (!from.smtpEnabled) throw new Error("SMTP delivery is not configured")
   if (!from.address) throw new Error("Email sender is not configured")
+  var delivery = require(__hooks + "/mail-delivery.js").prepare(record.getString("recipient"), template)
 
   var reader = null
   var attachments = {}
@@ -383,10 +385,10 @@ function sendOutbox(record) {
 
   var message = new MailerMessage({
     from: from,
-    to: [{ address: record.getString("recipient") }],
-    subject: template.subject,
-    html: template.html,
-    text: template.text,
+    to: [{ address: delivery.recipient }],
+    subject: delivery.subject,
+    html: delivery.html,
+    text: delivery.text,
     attachments: attachments,
   })
 

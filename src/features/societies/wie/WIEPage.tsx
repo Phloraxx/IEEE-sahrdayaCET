@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 import {
   motion,
@@ -28,6 +29,8 @@ import Footer from "@/components/Footer";
 import { ContextualBlogLinks } from "@/components/blog/ContextualBlogLinks";
 import { Instagram, Linkedin } from "@/components/icons";
 import { useAuth } from "@/lib/auth-context";
+import { getWorkspaceMe } from "@/lib/data/workspace.client";
+import { hasScopedWorkspaceCapability } from "@/lib/workspace-permissions";
 import { APP_URL } from "@/lib/constants";
 import { blogHtmlToPlainText } from "@/lib/blog-content";
 import { formatDate, formatDateShort } from "@/lib/dates";
@@ -337,11 +340,18 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
     [0, reduceMotion ? 0 : 48],
   );
 
-  const canEdit = useMemo(() => {
-    if (!user) return false;
-    if (user.role === "admin") return true;
-    return user.role === "chair" && data.society.chairs.includes(user.id);
-  }, [data.society.chairs, user]);
+  const workspace = useQuery({
+    queryKey: ["workspace-me", user?.id],
+    queryFn: getWorkspaceMe,
+    enabled: Boolean(user?.id),
+    staleTime: 30_000,
+    retry: 1,
+  });
+  const canEdit = hasScopedWorkspaceCapability(
+    workspace.data,
+    "events.edit",
+    { societyId: data.society.id },
+  );
 
   const visibleEvents = useMemo(() => {
     if (canEdit) return data.events;

@@ -3,6 +3,7 @@ import { buildFileUrl, escapeFilterValue } from "@/lib/pb";
 import { sanitizeBlogCoverUrl } from "@/lib/blog-content";
 import { getField } from "@/lib/safe-get";
 import { canRegisterForEvent, isPublicEvent } from "@/lib/event-lifecycle";
+import { getEventAttendanceMode, type EventAttendanceMode } from "@/lib/event-presentation";
 import type { FormField } from "@/types";
 import type { MyEventRegistration } from "@/lib/registration-state";
 
@@ -54,25 +55,32 @@ export interface PublicRegistrationEvent {
   description: string;
   date: string;
   endDate: string;
+  timeTbc: boolean;
   venue: string;
+  timezone: string;
+  attendanceMode: EventAttendanceMode;
+  locationAddress: string;
   price: number;
   isPaid: boolean;
   bannerUrl: string;
   registrationOpen: boolean;
   maxCapacity: number;
   registeredCount: number;
+  waitlistEnabled: boolean;
+  waitlistReservedCount: number;
   collectIeeeMember: boolean;
   formFields: FormField[];
 }
 
 export async function getPublicEvent(id: string): Promise<PublicRegistrationEvent> {
   const record = await getPbClient().collection("events").getOne(id, {
-    fields: "id,slug,title,description,date,endDate,venue,price,banner,status,registrationOpen,registrationStart,registrationDeadline,isDeleted,maxCapacity,registeredCount,formTemplate,collectIeeeMember",
+    fields: "id,slug,title,description,date,endDate,timeTbc,venue,timezone,attendanceMode,locationAddress,price,banner,status,registrationOpen,registrationStart,registrationDeadline,isDeleted,maxCapacity,registeredCount,waitlistEnabled,waitlistReservedCount,formTemplate,collectIeeeMember",
   });
   const lifecycle = {
     status: String(record.status || ""),
     date: String(record.date || ""),
     endDate: String(record.endDate || ""),
+    timeTbc: Boolean(record.timeTbc),
     registrationOpen: Boolean(record.registrationOpen),
     registrationStart: String(record.registrationStart || ""),
     registrationDeadline: String(record.registrationDeadline || ""),
@@ -80,6 +88,9 @@ export async function getPublicEvent(id: string): Promise<PublicRegistrationEven
   };
   if (!isPublicEvent(lifecycle)) throw new Error("Event not found");
   const price = Number(record.price) || 0;
+  const timezone = String(record.timezone || "") || "Asia/Kolkata";
+  const attendanceMode = getEventAttendanceMode({ attendanceMode: String(record.attendanceMode || ""), venue: String(record.venue || "") });
+  const locationAddress = String(record.locationAddress || "");
   return {
     id: record.id,
     slug: String(record.slug || ""),
@@ -87,16 +98,84 @@ export async function getPublicEvent(id: string): Promise<PublicRegistrationEven
     description: String(record.description || ""),
     date: lifecycle.date,
     endDate: lifecycle.endDate,
+    timeTbc: Boolean(record.timeTbc),
     venue: String(record.venue || ""),
+    timezone,
+    attendanceMode,
+    locationAddress,
     price,
     isPaid: price > 0,
     bannerUrl: record.banner ? buildFileUrl("events", record.id, String(record.banner)) : "",
     registrationOpen: canRegisterForEvent(lifecycle),
     maxCapacity: Number(record.maxCapacity) || 0,
     registeredCount: Number(record.registeredCount) || 0,
+    waitlistEnabled: Boolean(record.waitlistEnabled),
+    waitlistReservedCount: Number(record.waitlistReservedCount) || 0,
     collectIeeeMember: Boolean(record.collectIeeeMember),
     formFields: Array.isArray(record.formTemplate) ? record.formTemplate as FormField[] : [],
   };
+}
+
+export interface EventWaitlistState {
+  id: string;
+  status: "waiting" | "offered" | "expired" | string;
+  position: number;
+  joinedAt: string;
+  offeredAt: string;
+  offerExpiresAt: string;
+}
+
+export interface EventWaitlistResponse {
+  enabled: boolean;
+  registrationOpen: boolean;
+  full: boolean;
+  capacity: number;
+  occupied: number;
+  state: EventWaitlistState | null;
+}
+
+export async function getEventWaitlist(eventId: string): Promise<EventWaitlistResponse> {
+  const pb = getPbClient();
+  if (!pb.authStore.isValid) throw new Error("Please sign in to view the waitlist");
+  return pb.send(`/api/app/events/${encodeURIComponent(eventId)}/waitlist`, { method: "GET" }) as Promise<EventWaitlistResponse>;
+}
+
+export async function joinEventWaitlist(eventId: string) {
+  return getPbClient().send(`/api/app/events/${encodeURIComponent(eventId)}/waitlist/join`, { method: "POST" }) as Promise<{ joined: boolean; reused: boolean; state: EventWaitlistState }>;
+}
+
+export async function leaveEventWaitlist(eventId: string) {
+  return getPbClient().send(`/api/app/events/${encodeURIComponent(eventId)}/waitlist/leave`, { method: "POST" }) as Promise<{ left: boolean; alreadyLeft: boolean }>;
+}
+
+export interface EventJoinDetails {
+  virtualJoinUrl: string;
+  joinInstructions: string;
+}
+
+export async function getEventJoinDetails(eventId: string): Promise<EventJoinDetails> {
+  const pb = getPbClient();
+  if (!pb.authStore.isValid) throw new Error("Please sign in to view attendee access");
+  return pb.send(`/api/app/events/${encodeURIComponent(eventId)}/join-details`, {
+    method: "GET",
+  }) as Promise<EventJoinDetails>;
+}
+
+export interface CouponPreview {
+  code: string;
+  discountPercent: number;
+  baseAmount: number;
+  discountAmount: number;
+  amount: number;
+}
+
+export async function previewCoupon(eventId: string, couponCode: string): Promise<CouponPreview> {
+  const pb = getPbClient();
+  if (!pb.authStore.isValid) throw new Error("Please sign in before applying a coupon");
+  return pb.send(`/api/app/events/${encodeURIComponent(eventId)}/coupon-preview`, {
+    method: "POST",
+    body: { couponCode: couponCode.trim().toUpperCase() },
+  }) as Promise<CouponPreview>;
 }
 
 export async function createRegistration(input: {
@@ -124,6 +203,25 @@ export async function createRegistration(input: {
     paymentStatus: string;
     reused: boolean;
   }>;
+}
+
+export interface RegistrationMemory {
+  found: boolean;
+  profile: {
+    name: string;
+    phone: string;
+    college: string;
+    branch: string;
+    semester: string;
+    isIeeeMember: boolean;
+    ieeeMembershipId: string;
+  };
+}
+
+export async function getRegistrationMemory(): Promise<RegistrationMemory> {
+  const pb = getPbClient();
+  if (!pb.authStore.isValid) throw new Error("Please sign in to load saved registration details");
+  return pb.send("/api/app/registration-memory", {}) as Promise<RegistrationMemory>;
 }
 
 export async function getMyEventRegistration(eventId: string): Promise<MyEventRegistration> {
@@ -158,6 +256,9 @@ export interface PublicTicketData {
   event: {
     id: string;
     title: string;
+    slug: string;
+    status: string;
+    isArchived: boolean;
     date: string;
     endDate: string;
     venue: string;
@@ -193,6 +294,9 @@ export async function getTicket(ticketId: string): Promise<PublicTicketData> {
     ? {
         id: String(data.event.id || ""),
         title: String(data.event.title || ""),
+        slug: String(data.event.slug || ""),
+        status: String(data.event.status || ""),
+        isArchived: data.event.isArchived === true,
         date: String(data.event.date || ""),
         endDate: String(data.event.endDate || ""),
         venue: String(data.event.venue || ""),

@@ -32,6 +32,7 @@ export interface Society {
 
 export interface Coupon {
     id: string
+    clientId?: string
     event: string
     code: string
     discountPercent: number
@@ -52,6 +53,7 @@ interface Event {
     description?: string;
     date: string;
     endDate?: string;
+    timeTbc?: boolean;
     venue?: string;
     price: number;
     paymentProvider?: "razorpay" | "kotak";
@@ -101,6 +103,7 @@ export interface LatestEvent {
     shortTitle?: string;
     description?: string;
     date: string;
+    timeTbc?: boolean;
     bannerUrl?: string;
     banner?: { url?: string } | string | number | null;
     tag?: string;

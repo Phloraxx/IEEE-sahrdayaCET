@@ -13,6 +13,7 @@ export type EventAvailabilityKind =
 export interface EventAvailabilityInput extends EventLifecycleInput {
   maxCapacity?: number | null;
   registeredCount?: number | null;
+  waitlistReservedCount?: number | null;
 }
 
 export interface EventAvailability {
@@ -35,6 +36,8 @@ export function getEventAvailability(
 ): EventAvailability {
   const capacity = Math.max(0, Number(event.maxCapacity) || 0);
   const registered = Math.max(0, Number(event.registeredCount) || 0);
+  const waitlistReserved = Math.max(0, Number(event.waitlistReservedCount) || 0);
+  const occupied = registered + waitlistReserved;
   const start = timestamp(event.registrationStart);
   const deadline = timestamp(event.registrationDeadline);
 
@@ -54,11 +57,12 @@ export function getEventAvailability(
     return { kind: "closed", label: "Closed" };
   }
 
-  if (capacity > 0 && registered >= capacity) {
+  if (capacity > 0 && occupied >= capacity) {
     return { kind: "full", label: "Full" };
   }
 
-  if (event.registrationOpen === false) {
+  const legacyExternal = !event.registrationMode && Boolean(event.externalFormUrl);
+  if (event.registrationOpen === false && !legacyExternal) {
     return { kind: "closed", label: "Closed" };
   }
 
@@ -70,7 +74,7 @@ export function getEventAvailability(
     return { kind: "open", label: "Open" };
   }
 
-  const fillRatio = registered / capacity;
+  const fillRatio = occupied / capacity;
   if (fillRatio >= 0.9) return { kind: "few-left", label: "Few places left" };
   if (fillRatio >= 0.7) return { kind: "filling-fast", label: "Filling fast" };
   if (fillRatio >= 0.5) return { kind: "filling", label: "Filling" };

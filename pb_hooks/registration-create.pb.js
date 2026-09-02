@@ -19,9 +19,11 @@ routerAdd(
     // PocketBase 0.39 serializes route handlers into isolated JSVM scopes, so
     // shared helper functions must be required inside the handler.
     var rh = require(__hooks + "/registration-helpers.js")
+    var eventTime = require(__hooks + "/event-time-helpers.js")
     var razorpay = require(__hooks + "/razorpay-direct-helpers.js")
     var paygate = require(__hooks + "/paygate-helpers.js")
     var providerSelection = require(__hooks + "/payment-provider-selection.js")
+    var attendeeLifecycle = require(__hooks + "/attendee-lifecycle-helpers.js")
     var razorpayConfig = razorpay.getConfig()
     var paygateConfig = paygate.getConfig()
     var eventId = e.request.pathValue("id")
@@ -32,7 +34,7 @@ routerAdd(
       try { responses = JSON.parse(responses) } catch (_) { responses = {} }
     }
     if (!responses || typeof responses !== "object") responses = {}
-    var couponCode = String(body.couponCode || "").trim()
+    var couponCode = String(body.couponCode || "").trim().toUpperCase()
 
     var payload = null
     var responseStatus = 201
@@ -118,12 +120,9 @@ routerAdd(
         }
 
         var now = new Date()
-        var endValue = event.getString("endDate") || event.getString("date")
-        if (endValue) {
-          var endDate = new Date(endValue)
-          if (!isNaN(endDate.getTime()) && endDate <= now) {
-            throw new BadRequestError("This event has already ended")
-          }
+        var endDate = eventTime.eventEndDate(event)
+        if (endDate && !isNaN(endDate.getTime()) && endDate <= now) {
+          throw new BadRequestError("This event has already ended")
         }
         var registrationStart = event.getString("registrationStart")
         if (registrationStart) {
@@ -158,15 +157,20 @@ routerAdd(
           }
         }
 
-        var activeRegs = txApp.findRecordsByFilter(
-          "registrations",
-          "event = {:eventId} && registrationStatus != {:cancelled}",
-          "", 0, 0,
-          { eventId: eventId, cancelled: "cancelled" }
-        )
+        // Reconcile expired/offered waitlist seats before capacity is decided.
+        // An unexpired offer is a real reservation: direct registrations may
+        // not steal it, while the offered attendee may consume that seat.
+        attendeeLifecycle.reconcileEventWaitlist(txApp, eventId, now.toISOString())
+        event = txApp.findRecordById("events", eventId)
+        var activeRegs = attendeeLifecycle.activeRegistrations(txApp, eventId)
+        var activeOffers = attendeeLifecycle.activeOffers(txApp, eventId, now.getTime())
+        var offeredWaitlist = attendeeLifecycle.validOfferForUser(txApp, eventId, auth.id, now.getTime())
         var maxCapacity = event.getInt("maxCapacity") || 0
-        if (maxCapacity > 0 && activeRegs.length >= maxCapacity) {
-          throw new BadRequestError("Event is at full capacity")
+        if (maxCapacity > 0) {
+          var occupied = activeRegs.length + activeOffers.length
+          if ((offeredWaitlist && activeRegs.length >= maxCapacity) || (!offeredWaitlist && occupied >= maxCapacity)) {
+            throw new BadRequestError("Event is at full capacity")
+          }
         }
 
         var baseFeePaise = Number(event.getInt("baseFeePaise") || 0)
@@ -254,9 +258,17 @@ routerAdd(
         })
         txApp.save(registration)
 
+        if (offeredWaitlist) {
+          offeredWaitlist.set("status", "accepted")
+          offeredWaitlist.set("activeKey", "")
+          offeredWaitlist.set("acceptedRegistration", registration.id)
+          txApp.saveNoValidate(offeredWaitlist)
+        }
+
         // registeredCount means active seat reservations (pending + confirmed),
         // matching the capacity rule and the registration-page progress UI.
         event.set("registeredCount", activeRegs.length + 1)
+        event.set("waitlistReservedCount", attendeeLifecycle.activeOffers(txApp, eventId, now.getTime()).length)
         var checked = txApp.findRecordsByFilter(
           "registrations",
           "event = {:eventId} && registrationStatus = {:confirmed} && checkedIn = true",

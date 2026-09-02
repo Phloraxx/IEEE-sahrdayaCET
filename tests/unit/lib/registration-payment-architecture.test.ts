@@ -23,7 +23,7 @@ describe("registration/payment experience architecture", () => {
     expect(register).toContain("Review & continue");
     expect(register).toContain("Back to event");
     expect(register).toContain("BookingProgress");
-    expect(register).toContain("Your profile and this form are saved on this device while you type.");
+    expect(register).toContain("Your reusable attendee details are remembered after you register. This event draft stays on this device while you type.");
   });
 
   it("keeps payment and ticket poster-independent throughout the transaction", () => {
@@ -226,7 +226,8 @@ describe("registration/payment experience architecture", () => {
     expect(paygate).toContain("Date.now() - lastSyncedAt < 4000");
     expect(webhook).toContain('X-PayGate-Signature');
     expect(webhook).toContain('payment.paid');
-    expect(eventForm).toContain("Kotak direct UPI · temporary");
+    expect(eventForm).toContain("Advanced payment processing");
+    expect(eventForm).toContain("Kotak direct UPI");
     expect(payment).toContain("Temporary · Kotak direct UPI");
     expect(payment).toContain("Open in UPI app");
     expect(payment).toContain("Pay this exact amount");

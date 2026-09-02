@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import React, { useEffect, useState, useRef } from "react";
+import { useReducedMotion } from "framer-motion";
 
 interface ShootingStar {
   id: number;
@@ -52,9 +53,16 @@ export const ShootingStars: React.FC<ShootingStarsProps> = ({
   className,
 }) => {
   const [star, setStar] = useState<ShootingStar | null>(null);
+  const reduceMotion = Boolean(useReducedMotion());
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
+    if (reduceMotion) {
+      setStar(null);
+      return;
+    }
+
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const createStar = () => {
       const { x, y, angle } = getRandomStartPoint();
       const newStar: ShootingStar = {
@@ -69,15 +77,17 @@ export const ShootingStars: React.FC<ShootingStarsProps> = ({
       setStar(newStar);
 
       const randomDelay = Math.random() * (maxDelay - minDelay) + minDelay;
-      setTimeout(createStar, randomDelay);
+      timer = setTimeout(createStar, randomDelay);
     };
 
     createStar();
-
-
-  }, [minSpeed, maxSpeed, minDelay, maxDelay]);
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [minSpeed, maxSpeed, minDelay, maxDelay, reduceMotion]);
 
   useEffect(() => {
+    if (reduceMotion) return;
     const moveStar = () => {
       if (star) {
         setStar((prevStar) => {
@@ -111,10 +121,11 @@ export const ShootingStars: React.FC<ShootingStarsProps> = ({
 
     const animationFrame = requestAnimationFrame(moveStar);
     return () => cancelAnimationFrame(animationFrame);
-  }, [star]);
+  }, [star, reduceMotion]);
 
   return (
     <svg
+      data-shooting-stars
       ref={svgRef}
       className={cn("w-full h-full absolute inset-0", className)}
     >

@@ -2,8 +2,12 @@ import { Plus, X, Copy } from "lucide-react";
 import type { Coupon } from "@/types";
 import { fromAppDateTimeLocal, toAppDateTimeLocal } from "@/lib/dates";
 
-function generateId() {
+function generateClientId() {
   return crypto.randomUUID();
+}
+
+function couponKey(coupon: Coupon) {
+  return coupon.clientId || coupon.id;
 }
 
 interface CouponManagerProps {
@@ -18,7 +22,8 @@ interface CouponManagerProps {
 export function CouponManager({ coupons, onChange }: CouponManagerProps) {
   const addCoupon = () => {
     const newCoupon: Coupon = {
-      id: generateId(),
+      id: "",
+      clientId: generateClientId(),
       event: "",
       code: "",
       discountPercent: 0,
@@ -29,13 +34,13 @@ export function CouponManager({ coupons, onChange }: CouponManagerProps) {
     onChange([...coupons, newCoupon]);
   };
 
-  const removeCoupon = (id: string) => {
-    onChange(coupons.filter((c) => c.id !== id));
+  const removeCoupon = (key: string) => {
+    onChange(coupons.filter((c) => couponKey(c) !== key));
   };
 
-  const updateCoupon = (id: string, updates: Partial<Coupon>) => {
+  const updateCoupon = (key: string, updates: Partial<Coupon>) => {
     onChange(
-      coupons.map((c) => (c.id === id ? { ...c, ...updates } : c)),
+      coupons.map((c) => (couponKey(c) === key ? { ...c, ...updates } : c)),
     );
   };
 
@@ -48,15 +53,16 @@ export function CouponManager({ coupons, onChange }: CouponManagerProps) {
       ) : (
         coupons.map((coupon) => (
           <div
-            key={coupon.id}
+            key={couponKey(coupon)}
             className="rounded-lg border border-border/50 p-3 space-y-2"
           >
             {/* Code row */}
             <div className="flex items-center gap-2">
               <input
+                aria-label="Coupon code"
                 value={coupon.code}
                 onChange={(e) =>
-                  updateCoupon(coupon.id, {
+                  updateCoupon(couponKey(coupon), {
                     code: e.target.value.toUpperCase(),
                   })
                 }
@@ -73,8 +79,10 @@ export function CouponManager({ coupons, onChange }: CouponManagerProps) {
               </button>
               <button
                 type="button"
-                onClick={() => removeCoupon(coupon.id)}
-                className="p-1 text-muted-foreground hover:text-destructive transition-colors"
+                onClick={() => removeCoupon(couponKey(coupon))}
+                disabled={coupon.usedCount > 0}
+                title={coupon.usedCount > 0 ? "Used coupons cannot be deleted; deactivate them instead" : "Delete coupon"}
+                className="p-1 text-muted-foreground hover:text-destructive transition-colors disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:text-muted-foreground"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -87,12 +95,13 @@ export function CouponManager({ coupons, onChange }: CouponManagerProps) {
                   Discount %
                 </label>
                 <input
+                  aria-label="Discount percent"
                   type="number"
                   min="0"
                   max="100"
                   value={coupon.discountPercent}
                   onChange={(e) =>
-                    updateCoupon(coupon.id, {
+                    updateCoupon(couponKey(coupon), {
                       discountPercent: Number(e.target.value),
                     })
                   }
@@ -105,11 +114,12 @@ export function CouponManager({ coupons, onChange }: CouponManagerProps) {
                   Max Uses
                 </label>
                 <input
+                  aria-label="Max uses"
                   type="number"
                   min="0"
                   value={coupon.maxUses}
                   onChange={(e) =>
-                    updateCoupon(coupon.id, {
+                    updateCoupon(couponKey(coupon), {
                       maxUses: Number(e.target.value),
                     })
                   }
@@ -122,6 +132,7 @@ export function CouponManager({ coupons, onChange }: CouponManagerProps) {
                   Expires
                 </label>
                 <input
+                  aria-label="Coupon expiry"
                   type="datetime-local"
                   value={
                     coupon.expiresAt
@@ -130,10 +141,10 @@ export function CouponManager({ coupons, onChange }: CouponManagerProps) {
                   }
                   onChange={(e) => {
                     if (!e.target.value) {
-                      updateCoupon(coupon.id, { expiresAt: "" });
+                      updateCoupon(couponKey(coupon), { expiresAt: "" });
                       return;
                     }
-                    updateCoupon(coupon.id, {
+                    updateCoupon(couponKey(coupon), {
                       expiresAt: fromAppDateTimeLocal(e.target.value) || "",
                     });
                   }}
@@ -143,10 +154,11 @@ export function CouponManager({ coupons, onChange }: CouponManagerProps) {
               <div className="flex items-end">
                 <label className="flex items-center gap-2 cursor-pointer pb-1">
                   <input
+                    aria-label="Coupon active"
                     type="checkbox"
                     checked={coupon.isActive}
                     onChange={(e) =>
-                      updateCoupon(coupon.id, {
+                      updateCoupon(couponKey(coupon), {
                         isActive: e.target.checked,
                       })
                     }

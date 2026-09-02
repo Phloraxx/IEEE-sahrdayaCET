@@ -2,10 +2,11 @@ import { createPublicPB } from "@/lib/pb.server";
 import { buildFileUrl, escapeFilterValue } from "@/lib/pb";
 import { getExpand, getField } from "@/lib/safe-get";
 import { canRegisterForEvent, getRegistrationMode, type EventRegistrationMode } from "@/lib/event-lifecycle";
+import { getEventAttendanceMode, type EventAttendanceMode } from "@/lib/event-presentation";
 import { logError } from "@/lib/logger";
 
 const PUBLIC_EVENT_FIELDS =
-  "id,created,updated,title,slug,description,date,endDate,venue,price,banner,status,registrationOpen,registrationMode,registrationStart,registrationDeadline,maxCapacity,registeredCount,externalFormUrl,externalLink,collectIeeeMember,society,expand.society.id,expand.society.name,expand.society.slug,expand.society.logo";
+  "id,created,updated,title,slug,description,date,endDate,timeTbc,venue,timezone,attendanceMode,locationAddress,price,banner,status,registrationOpen,registrationMode,registrationStart,registrationDeadline,maxCapacity,registeredCount,waitlistEnabled,waitlistReservedCount,externalFormUrl,externalLink,collectIeeeMember,society,expand.society.id,expand.society.name,expand.society.slug,expand.society.logo";
 
 export interface SerializableEvent {
   id: string;
@@ -16,7 +17,11 @@ export interface SerializableEvent {
   description: string;
   date: string;
   endDate: string;
+  timeTbc: boolean;
   venue: string;
+  timezone: string;
+  attendanceMode: EventAttendanceMode;
+  locationAddress: string;
   price: number;
   isPaid: boolean;
   bannerUrl: string;
@@ -27,6 +32,8 @@ export interface SerializableEvent {
   registrationDeadline: string;
   maxCapacity: number;
   registeredCount: number;
+  waitlistEnabled: boolean;
+  waitlistReservedCount: number;
   externalFormUrl?: string;
   externalLink?: string;
   collectIeeeMember?: boolean;
@@ -41,6 +48,12 @@ function mapPublicEvent(raw: Record<string, unknown>): SerializableEvent {
   const status = getField(raw, "status", "published");
   const date = getField(raw, "date", "");
   const endDate = getField(raw, "endDate", "");
+  const timezone = getField(raw, "timezone", "") || "Asia/Kolkata";
+  const attendanceMode = getEventAttendanceMode({
+    attendanceMode: getField(raw, "attendanceMode", ""),
+    venue: getField(raw, "venue", ""),
+  });
+  const locationAddress = getField(raw, "locationAddress", "");
   const registrationStart = getField(raw, "registrationStart", "");
   const registrationDeadline = getField(raw, "registrationDeadline", "");
   const externalFormUrl = getField(raw, "externalFormUrl", "") || undefined;
@@ -74,7 +87,11 @@ function mapPublicEvent(raw: Record<string, unknown>): SerializableEvent {
     description: getField(raw, "description", ""),
     date,
     endDate,
+    timeTbc: Boolean(getField(raw, "timeTbc", false)),
     venue: getField(raw, "venue", ""),
+    timezone,
+    attendanceMode,
+    locationAddress,
     price,
     isPaid: price > 0,
     bannerUrl: getField(raw, "banner", "")
@@ -85,6 +102,7 @@ function mapPublicEvent(raw: Record<string, unknown>): SerializableEvent {
       status,
       date,
       endDate,
+      timeTbc: Boolean(getField(raw, "timeTbc", false)),
       registrationOpen: Boolean(getField(raw, "registrationOpen", false)),
       registrationMode,
       externalFormUrl,
@@ -96,6 +114,8 @@ function mapPublicEvent(raw: Record<string, unknown>): SerializableEvent {
     registrationDeadline,
     maxCapacity: getField(raw, "maxCapacity", 0),
     registeredCount: getField(raw, "registeredCount", 0),
+    waitlistEnabled: Boolean(getField(raw, "waitlistEnabled", false)),
+    waitlistReservedCount: getField(raw, "waitlistReservedCount", 0),
     externalFormUrl,
     externalLink: getField(raw, "externalLink", "") || undefined,
     collectIeeeMember: Boolean(getField(raw, "collectIeeeMember", false)),

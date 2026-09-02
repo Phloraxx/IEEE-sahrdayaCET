@@ -20,6 +20,7 @@ onRecordAfterUpdateSuccess(function (e) {
 
 cronAdd("registration-notification-outbox", "* * * * *", function () {
   var nh = require(__hooks + "/notification-helpers.js")
+  var mailSafety = require(__hooks + "/mail-delivery.js")
   var records = []
   try {
     records = $app.findRecordsByFilter(
@@ -38,6 +39,10 @@ cronAdd("registration-notification-outbox", "* * * * *", function () {
   var now = Date.now()
   for (var i = 0; i < records.length; i++) {
     var record = records[i]
+    // A safety-policy block is not a delivery failure. Leave the outbox row
+    // pending so staging/disabled environments cannot exhaust real intents.
+    var safety = mailSafety.currentResolution(record.getString("recipient") || "")
+    if (!safety.allowed) continue
     var status = record.getString("status")
     var attempts = record.getInt("attempts") || 0
     if (status === "sending") {
@@ -84,12 +89,23 @@ cronAdd("registration-notification-outbox", "* * * * *", function () {
       record.set("nextAttemptAt", "")
       record.set("lastError", "")
       $app.saveNoValidate(record)
+      try { require(__hooks + "/certificate-delivery-helpers.js").reconcileForOutbox($app, record) } catch (reconcileErr) {
+        console.log("[mail] failed to reconcile certificate delivery after send:", reconcileErr)
+      }
     } catch (err) {
       try {
         record.set("status", "failed")
-        record.set("nextAttemptAt", nh.nextRetryIso(record.getInt("attempts") || 1))
+        if (err && err.mailDeliveryPermanent === true) {
+          record.set("attempts", 8)
+          record.set("nextAttemptAt", "")
+        } else {
+          record.set("nextAttemptAt", nh.nextRetryIso(record.getInt("attempts") || 1))
+        }
         record.set("lastError", String(err && err.message ? err.message : err).slice(0, 3900))
         $app.saveNoValidate(record)
+        try { require(__hooks + "/certificate-delivery-helpers.js").reconcileForOutbox($app, record) } catch (reconcileErr) {
+          console.log("[mail] failed to reconcile certificate delivery after failure:", reconcileErr)
+        }
       } catch (persistErr) {
         console.log("[mail] failed to persist notification failure state for " + record.id + ":", persistErr)
       }

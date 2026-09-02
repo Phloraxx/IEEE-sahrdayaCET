@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { type NavItem } from "@/types";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useLocation, Link } from "react-router";
 import { useAuth } from "@/lib/auth-context";
-import { LayoutDashboard, LogOut, User, Menu, X, ChevronDown } from "lucide-react";
+import { getWorkspaceMe } from "@/lib/data/workspace.client";
+import { preferredWorkspacePath } from "@/lib/workspace-permissions";
+import { CalendarDays, LayoutDashboard, LogOut, User, Menu, X, ChevronDown } from "lucide-react";
 import LoginModal from "./LoginModal";
 import {
   FIFA_NAV_ITEMS,
@@ -26,6 +29,7 @@ interface NavbarProps {
 }
 
 export default function Navbar({ fifaActive, mobileAlign = "center" }: NavbarProps) {
+  const reduceMotion = Boolean(useReducedMotion());
   const [isVisible, setIsVisible] = useState(true);
   const [activeSection, setActiveSection] = useState("/");
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -39,6 +43,13 @@ export default function Navbar({ fifaActive, mobileAlign = "center" }: NavbarPro
   const location = useLocation();
   const pathname = location.pathname;
   const { user, status, signOut } = useAuth();
+  const workspace = useQuery({
+    queryKey: ["workspace-me", user?.id],
+    queryFn: getWorkspaceMe,
+    enabled: status === "authenticated" && Boolean(user?.id),
+    staleTime: 30_000,
+    retry: 1,
+  });
   const loading = status === "loading";
 
   const inFifa = isFifaPath(pathname);
@@ -178,10 +189,21 @@ export default function Navbar({ fifaActive, mobileAlign = "center" }: NavbarPro
                   <div className={`h-px ${inFifa ? "bg-white/10" : "bg-gray-100"}`} />
                 </>
               )}
-              {(user.role === "admin" || user.role === "chair" || user.role === "content") && (
+              <Link
+                to="/my-events"
+                className={`w-full px-4 py-3 text-left text-xs font-bold transition-colors flex items-center gap-3 tracking-wide ${
+                  inFifa ? "text-ieee-light-blue hover:bg-white/5" : "text-blue-600 hover:bg-blue-50"
+                }`}
+                onClick={() => setShowUserMenu(false)}
+              >
+                <CalendarDays className="w-4 h-4" />
+                My Events
+              </Link>
+              <div className={`h-px ${inFifa ? "bg-white/10" : "bg-gray-100"}`} />
+              {workspace.data?.hasWorkspace && (
                 <>
                   <Link
-                    to="/admin/dashboard"
+                    to={preferredWorkspacePath(workspace.data)}
                     className={`w-full px-4 py-3 text-left text-xs font-bold transition-colors flex items-center gap-3 tracking-wide ${
                       inFifa
                         ? "text-ieee-light-blue hover:bg-white/5"
@@ -190,7 +212,7 @@ export default function Navbar({ fifaActive, mobileAlign = "center" }: NavbarPro
                     onClick={() => setShowUserMenu(false)}
                   >
                     <LayoutDashboard className="w-4 h-4" />
-                    Admin
+                    IEEE Workspace
                   </Link>
                   <div className={`h-px ${inFifa ? "bg-white/10" : "bg-gray-100"}`} />
                 </>
@@ -229,9 +251,9 @@ export default function Navbar({ fifaActive, mobileAlign = "center" }: NavbarPro
       </button>
 
       <motion.div
-        initial={{ y: -100, opacity: 0 }}
+        initial={reduceMotion ? false : { y: -100, opacity: 0 }}
         animate={{ y: isVisible ? 0 : -100, opacity: isVisible ? 1 : 0 }}
-        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: reduceMotion ? 0 : 0.5, ease: [0.16, 1, 0.3, 1] }}
         className="fixed top-6 left-0 right-0 z-[100] hidden md:flex justify-center pointer-events-none px-4"
       >
         <div
@@ -348,8 +370,9 @@ export default function Navbar({ fifaActive, mobileAlign = "center" }: NavbarPro
 
       {mobileMenuOpen && (
         <motion.div
-          initial={{ opacity: 0 }}
+          initial={reduceMotion ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
+          transition={{ duration: reduceMotion ? 0 : 0.2 }}
           className={`md:hidden fixed inset-0 z-[100] flex flex-col items-center justify-center gap-8 px-8 ${
             inFifa ? "bg-[#0a0a0b]/95 backdrop-blur-xl text-white" : "bg-white/95 backdrop-blur-xl"
           }`}

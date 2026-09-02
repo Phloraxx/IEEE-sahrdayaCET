@@ -1,0 +1,128 @@
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import sharp from "sharp";
+
+const adminToken = process.env.E2E_ADMIN_TOKEN || "";
+const eventId = process.env.E2E_EVENT_ID || "";
+
+async function authenticateAdmin(page: Page, request: APIRequestContext) {
+  const authResponse = await request.post("/api/collections/users/auth-refresh", {
+    headers: { Authorization: adminToken },
+  });
+  expect(authResponse.ok()).toBeTruthy();
+  const auth = await authResponse.json();
+  await page.addInitScript(({ token, record }: { token: string; record: unknown }) => {
+    localStorage.setItem("pocketbase_auth", JSON.stringify({ token, record }));
+  }, { token: auth.token, record: auth.record });
+}
+
+test.describe("Certificate Template Studio", () => {
+  test.skip(!adminToken || !eventId, "Admin certificate fixture is not configured");
+
+  test("creates, saves, publishes, and versions an event certificate template", async ({ page, request }, testInfo) => {
+    await authenticateAdmin(page, request);
+    const errors: string[] = [];
+    page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
+
+    const retryTypes = ["Participation", "Completion", "Achievement"] as const;
+    const certificateType = retryTypes[Math.min(testInfo.retry, retryTypes.length - 1)];
+    const templateName = `CI ${certificateType} ${Date.now()}`;
+    await page.goto(`/admin/events/${eventId}?tab=certificates`);
+    await expect(page.getByRole("heading", { name: "Template Studio" })).toBeVisible();
+
+    await page.getByRole("button", { name: /New template|Create first template/i }).first().click();
+    await page.getByLabel("Template name").fill(templateName);
+    if (certificateType !== "Participation") {
+      await page.getByRole("dialog").getByRole("combobox").click();
+      await page.getByRole("option", { name: certificateType, exact: true }).click();
+    }
+    await page.getByRole("button", { name: /Create draft/i }).click();
+    await expect(page.getByRole("heading", { name: templateName })).toBeVisible();
+    await expect(page.getByText(/draft · v1/i).first()).toBeVisible();
+
+    const renderBase = await sharp({
+      create: { width: 2000, height: 1400, channels: 3, background: { r: 247, g: 251, b: 255 } },
+    }).png().toBuffer();
+    await page.locator("#cert-render-base").setInputFiles({ name: "ci-certificate-artwork.png", mimeType: "image/png", buffer: renderBase });
+    await expect(page.getByLabel("QR")).not.toBeChecked();
+    await expect(page.getByText("2000×1400 · unsaved artwork")).toBeVisible();
+    await expect(page.getByText("Unsaved changes")).toBeVisible();
+
+    const credentialPreview = page.getByRole("button", { name: "IEEESB-CERT-2026-000154", exact: true });
+    const credentialAnchor = await credentialPreview.evaluate((node) => {
+      const surface = node.parentElement?.getBoundingClientRect();
+      const rect = node.getBoundingClientRect();
+      return surface ? (rect.left - surface.left) / surface.width : -1;
+    });
+    expect(credentialAnchor).toBeGreaterThan(0.07);
+    expect(credentialAnchor).toBeLessThan(0.09);
+
+    await page.getByRole("button", { name: "Save draft" }).click();
+    await expect(page.getByText("Unsaved changes")).toBeHidden({ timeout: 15_000 });
+    await expect(page.getByText("2000×1400").first()).toBeVisible();
+
+    await expect(page.getByAltText("Certificate render base preview")).toBeVisible();
+    await expect.poll(async () => page.getByAltText("Certificate render base preview").evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(2000);
+    const stressNames = page.getByLabel("Certificate preview stress names");
+    await expect(stressNames.getByRole("button", { name: "Very long" })).toBeVisible();
+    await stressNames.getByRole("button", { name: "Very long" }).click();
+    const longNamePreview = page.getByRole("button", { name: "Mohammed Abdul Rahman Kizhakkedath", exact: true });
+    await expect(longNamePreview).toBeVisible();
+    const longNameFit = await longNamePreview.evaluate((node) => ({ clientWidth: node.clientWidth, scrollWidth: node.scrollWidth }));
+    expect(longNameFit.scrollWidth).toBeLessThanOrEqual(longNameFit.clientWidth + 1);
+
+    await page.getByRole("button", { name: "Publish", exact: true }).click();
+    await expect(page.getByText(/published · v1/i).first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("button", { name: "Save draft" })).toHaveCount(0);
+    await expect(page.getByText("Published artwork is read-only")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Recipients → Review → Issue", exact: true })).toBeVisible();
+    await expect(page.getByText("No automatic email")).toBeVisible();
+    await page.getByRole("button", { name: /Confirmed/ }).click();
+    await page.getByRole("button", { name: "Review recipients", exact: true }).click();
+    await expect(page.getByText("Review the exact audience")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("button", { name: /Issue 1 certificate/ })).toBeDisabled();
+    await expect(page.getByText("Member", { exact: true }).first()).toBeVisible();
+    await page.getByRole("checkbox", { name: /I confirm these are the/i }).check();
+    await page.getByRole("button", { name: /Issue 1 certificate/ }).click();
+    await expect(page.getByText("No email has been sent yet.")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: "Send & delivery", exact: true })).toBeVisible();
+    await expect(page.getByText("Mail transport ready", { exact: true })).toBeVisible();
+    await expect(page.getByText("Resend transport and delivery tracking are ready.", { exact: true })).toBeVisible();
+    await expect(page.getByText("delivery tracked", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Queue 1 email/ })).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: /Queue 1 email/ }).click();
+    await expect(page.getByText(/Delivery in progress|Dispatch complete/)).toBeVisible({ timeout: 15_000 });
+
+    await page.getByRole("button", { name: "Edit as new version", exact: true }).click();
+    await expect(page.getByText(/draft · v2/i).first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("button", { name: "Save draft" })).toBeVisible();
+    await expect(page.getByAltText("Certificate render base preview")).toBeVisible();
+
+    expect(errors, errors.join("\n")).toEqual([]);
+  });
+
+  test("keeps the certificate studio usable on mobile", async ({ page, request }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await authenticateAdmin(page, request);
+    await page.goto(`/admin/events/${eventId}?tab=certificates`);
+    await expect(page.getByRole("heading", { name: "Template Studio" })).toBeVisible();
+    const geometry = await page.evaluate(() => {
+      const viewport = document.documentElement.clientWidth;
+      const main = document.querySelector<HTMLElement>("#primary-content");
+      const title = document.querySelector<HTMLElement>("h1");
+      return {
+        viewport,
+        documentWidth: document.documentElement.scrollWidth,
+        mainWidth: main?.getBoundingClientRect().width ?? 0,
+        titleRight: title?.getBoundingClientRect().right ?? 0,
+      };
+    });
+    expect(geometry.documentWidth).toBeLessThanOrEqual(geometry.viewport + 1);
+    expect(geometry.mainWidth).toBeLessThanOrEqual(geometry.viewport + 1);
+    expect(geometry.titleRight).toBeLessThanOrEqual(geometry.viewport + 1);
+    const studioDescription = page.getByText(/One finished artwork, two required dynamic fields/);
+    await expect(studioDescription).toBeVisible();
+    expect(await studioDescription.evaluate((node) => node.getBoundingClientRect().width)).toBeGreaterThan(250);
+    const newTemplateButton = page.getByRole("button", { name: "New template", exact: true });
+    expect(await newTemplateButton.evaluate((node) => node.getBoundingClientRect().right)).toBeLessThanOrEqual(geometry.viewport + 1);
+  });
+});

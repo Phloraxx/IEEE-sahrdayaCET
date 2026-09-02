@@ -2,7 +2,6 @@ import type { RecordModel } from "pocketbase";
 import { getPbClient } from "@/lib/pb-client";
 import { buildFileUrl, escapeFilterValue } from "@/lib/pb";
 import { reconcileCoupons } from "@/lib/coupon-service";
-import { softDeleteEvent } from "@/lib/event-service";
 import type { Coupon } from "@/types";
 
 export interface AdminEventListItem {
@@ -35,12 +34,21 @@ export async function listAdminEvents(input: {
   perPage: number;
   search?: string;
   status?: string;
+  allowedSocietyIds?: string[];
+  allowedEventIds?: string[];
 }): Promise<AdminEventsResponse> {
   const pb = getPbClient();
   const filters = ["isDeleted = false"];
   if (input.search) filters.push(`title ~ ${escapeFilterValue(input.search)}`);
   if (input.status && input.status !== "all") {
     filters.push(`status = ${escapeFilterValue(input.status)}`);
+  }
+  if (input.allowedSocietyIds || input.allowedEventIds) {
+    const scopes = [
+      ...(input.allowedSocietyIds ?? []).map((id) => `society = ${escapeFilterValue(id)}`),
+      ...(input.allowedEventIds ?? []).map((id) => `id = ${escapeFilterValue(id)}`),
+    ];
+    filters.push(scopes.length ? `(${scopes.join(" || ")})` : 'id = ""');
   }
 
   const result = await pb.collection("events").getList(input.page, input.perPage, {
@@ -89,6 +97,27 @@ export async function getAdminEvent(id: string) {
       bannerUrl: event.banner ? buildFileUrl("events", event.id, String(event.banner)) : null,
     },
   };
+}
+
+export interface AdminEventPrivateDetails {
+  virtualJoinUrl: string;
+  joinInstructions: string;
+}
+
+export async function getAdminEventPrivateDetails(eventId: string): Promise<AdminEventPrivateDetails> {
+  return getPbClient().send(`/api/app/events/${encodeURIComponent(eventId)}/private-details`, {
+    method: "GET",
+  }) as Promise<AdminEventPrivateDetails>;
+}
+
+export async function saveAdminEventPrivateDetails(
+  eventId: string,
+  details: AdminEventPrivateDetails,
+): Promise<AdminEventPrivateDetails> {
+  return getPbClient().send(`/api/app/events/${encodeURIComponent(eventId)}/private-details`, {
+    method: "PUT",
+    body: details,
+  }) as Promise<AdminEventPrivateDetails>;
 }
 
 export async function listEventCoupons(eventId: string): Promise<{ coupons: Coupon[] }> {
@@ -147,7 +176,7 @@ export async function saveAdminEvent(input: {
 
   try {
     await reconcileCoupons(pb, event.id, (coupons as Coupon[]).map((coupon) => ({
-      id: coupon.id,
+      id: coupon.id || undefined,
       code: coupon.code,
       discountPercent: coupon.discountPercent,
       maxUses: coupon.maxUses,
@@ -164,11 +193,14 @@ export async function saveAdminEvent(input: {
     throw error;
   }
 
-  return { event };
+  const persistedCoupons = await listEventCoupons(event.id);
+  return { event, coupons: persistedCoupons.coupons };
 }
 
-export async function deleteAdminEvent(id: string) {
-  await softDeleteEvent(id, getPbClient());
+export async function archiveAdminEvent(id: string) {
+  return getPbClient().send(`/api/admin/events/${encodeURIComponent(id)}/archive`, {
+    method: "POST",
+  }) as Promise<{ archived: boolean; alreadyArchived: boolean }>;
 }
 
 export async function cancelAdminEvent(id: string, reason: string) {

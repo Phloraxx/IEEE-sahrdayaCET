@@ -13,6 +13,7 @@ import { ImageUpload } from "@/components/admin/image-upload";
 import { useAuth } from "@/lib/auth-context";
 import { getAdminSociety, saveAdminSociety } from "@/lib/data/admin-societies.client";
 import { listAdminUsers } from "@/lib/data/admin-users.client";
+import { getWorkspaceMe } from "@/lib/data/workspace.client";
 
 interface UserOption {
   id: string;
@@ -51,6 +52,9 @@ export function SocietyForm({ mode, societyId }: SocietyFormProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user: authUser } = useAuth();
+  const workspace = useQuery({ queryKey: ["workspace-me", authUser?.id], queryFn: getWorkspaceMe, enabled: Boolean(authUser?.id), staleTime: 30_000 });
+  const isPlatformAdmin = authUser?.role === "admin";
+  const canEditSociety = isPlatformAdmin || Boolean(workspace.data?.capabilities.includes("societies.edit"));
   const isEdit = mode === "edit";
   const [form, setForm] = useState<SocietyFormState>(EMPTY_STATE);
   const [slugTouched, setSlugTouched] = useState(false);
@@ -66,7 +70,7 @@ export function SocietyForm({ mode, societyId }: SocietyFormProps) {
   const { data: usersData } = useQuery<{ users: UserOption[] }>({
     queryKey: ["admin-users-options"],
     queryFn: () => listAdminUsers({ perPage: 100 }),
-    enabled: authUser?.role === "admin",
+    enabled: isPlatformAdmin,
     staleTime: 60_000,
   });
 
@@ -128,7 +132,7 @@ export function SocietyForm({ mode, societyId }: SocietyFormProps) {
         banner: bannerFile,
         removeLogo,
         removeBanner,
-        role: authUser?.role,
+        structuralAccess: isPlatformAdmin,
       });
 
 
@@ -142,6 +146,10 @@ export function SocietyForm({ mode, societyId }: SocietyFormProps) {
       );
     }
   };
+
+  if (workspace.data && !isPlatformAdmin && !canEditSociety) {
+    return <div className="rounded-xl border border-border bg-card p-8"><h2 className="text-lg font-semibold">Society editing is not assigned to you</h2><p className="mt-2 text-sm text-muted-foreground">Your current workspace appointment does not include society profile editing.</p></div>;
+  }
 
   // Loading skeleton
   if (isEdit && existingLoading) {
@@ -187,7 +195,7 @@ export function SocietyForm({ mode, societyId }: SocietyFormProps) {
                   placeholder="IEEE Computer Society"
                   maxLength={100}
                   required
-                  disabled={authUser?.role === "chair"}
+                  disabled={!isPlatformAdmin}
                 />
               </div>
               <div className="grid gap-1.5">
@@ -202,16 +210,18 @@ export function SocietyForm({ mode, societyId }: SocietyFormProps) {
                   placeholder="computer-society"
                   required
                   title="Lowercase letters, digits, and hyphens only"
-                  disabled={authUser?.role === "chair"}
+                  disabled={!isPlatformAdmin}
                 />
               </div>
             </div>
-            {authUser?.role === "admin" && (
+            {isPlatformAdmin && (
               <p className="text-xs text-muted-foreground">
                 The slug is used in the public URL. Lowercase letters, digits,
                 and hyphens only.
               </p>
             )}
+
+            {!isPlatformAdmin && <p className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs leading-5 text-muted-foreground">Society leaders can maintain branding, bio and the community link. Name, URL slug, visibility and leadership bindings are structural fields reserved for platform administration.</p>}
 
             <div className="grid gap-4 sm:grid-cols-2">
               <ImageUpload
@@ -266,7 +276,7 @@ export function SocietyForm({ mode, societyId }: SocietyFormProps) {
               </p>
             </div>
 
-            {authUser?.role === "admin" && (
+            {isPlatformAdmin && (
               <>
                 <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">
                   <input
@@ -286,7 +296,7 @@ export function SocietyForm({ mode, societyId }: SocietyFormProps) {
       </Card>
 
       {/* Society Chairs (edit mode only, admin-only) */}
-      {isEdit && authUser?.role === "admin" && (
+      {isEdit && isPlatformAdmin && (
         <Card>
           <CardContent className="p-6">
             <FormSection title="Society Chairs">

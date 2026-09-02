@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { useReducedMotion } from "framer-motion";
 import React, {
   useState,
   useEffect,
@@ -37,6 +38,7 @@ export const StarsBackground: React.FC<StarBackgroundProps> = ({
   className,
 }) => {
   const [stars, setStars] = useState<StarProps[]>([]);
+  const reduceMotion = Boolean(useReducedMotion());
   const canvasRef: RefObject<HTMLCanvasElement | null> =
     useRef<HTMLCanvasElement | null>(null);
 
@@ -113,7 +115,7 @@ export const StarsBackground: React.FC<StarBackgroundProps> = ({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    let animationFrameId: number;
+    let animationFrameId: number | null = null;
 
     const render = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -123,25 +125,26 @@ export const StarsBackground: React.FC<StarBackgroundProps> = ({
         ctx.fillStyle = `${starColor}${Math.round(star.opacity * 255).toString(16).padStart(2, "0")}`;
         ctx.fill();
 
-        if (star.twinkleSpeed !== null) {
+        if (!reduceMotion && star.twinkleSpeed !== null) {
           star.opacity =
             0.5 +
             Math.abs(Math.sin((Date.now() * 0.001) / star.twinkleSpeed) * 0.5);
         }
       });
 
-      animationFrameId = requestAnimationFrame(render);
+      if (!reduceMotion) animationFrameId = requestAnimationFrame(render);
     };
 
     render();
 
     return () => {
-      cancelAnimationFrame(animationFrameId);
+      if (animationFrameId !== null) cancelAnimationFrame(animationFrameId);
     };
-  }, [stars, starColor]);
+  }, [stars, starColor, reduceMotion]);
 
   return (
     <canvas
+      data-stars-background
       ref={canvasRef}
       className={cn("h-full w-full absolute inset-0", className)}
     />

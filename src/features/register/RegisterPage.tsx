@@ -4,6 +4,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ArrowLeft,
   ArrowRight,
+  BadgePercent,
   Check,
   CheckCircle2,
   Clock3,
@@ -17,8 +18,15 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
 import {
   createRegistration,
+  getEventWaitlist,
   getMyEventRegistration,
+  getRegistrationMemory,
   getPublicEvent,
+  joinEventWaitlist,
+  leaveEventWaitlist,
+  previewCoupon,
+  type CouponPreview,
+  type EventWaitlistResponse,
   type PublicRegistrationEvent,
 } from "@/lib/data/public-client";
 import { downloadRegistrationReceipt } from "@/lib/data/receipt.client";
@@ -38,6 +46,15 @@ import type { FormField } from "@/types";
 interface PageProps {
   eventId: string;
   initialEvent?: PublicRegistrationEvent | null;
+}
+
+function requestErrorMessage(error: unknown, fallback: string) {
+  if (error && typeof error === "object") {
+    const response = (error as { response?: { error?: unknown; message?: unknown; data?: { error?: unknown } } }).response;
+    const detail = response?.error ?? response?.data?.error ?? response?.message;
+    if (typeof detail === "string" && detail.trim()) return detail;
+  }
+  return error instanceof Error && error.message ? error.message : fallback;
 }
 
 const fieldClass =
@@ -203,6 +220,9 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
   const [submitting, setSubmitting] = useState(false);
   const [registrationState, setRegistrationState] = useState<MyEventRegistration | null>(null);
   const [registrationStateLoading, setRegistrationStateLoading] = useState(false);
+  const [waitlistState, setWaitlistState] = useState<EventWaitlistResponse | null>(null);
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
+  const [waitlistBusy, setWaitlistBusy] = useState(false);
   const [memoryReady, setMemoryReady] = useState(false);
 
   const [name, setName] = useState("");
@@ -214,6 +234,10 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
   const [ieeeMembershipId, setIeeeMembershipId] = useState("");
   const [customFields, setCustomFields] = useState<Record<string, string>>({});
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
+  const [couponPreview, setCouponPreview] = useState<CouponPreview | null>(null);
+  const [couponApplying, setCouponApplying] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -242,18 +266,29 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
       setMemoryReady(false);
       return;
     }
-    const profile = loadRegistrationProfile(user.id);
+    let active = true;
+    const localProfile = loadRegistrationProfile(user.id);
     const draft = loadRegistrationDraft(user.id, event.id);
-    const source = draft || profile;
-    setName(source.name || user.name || "");
-    setPhone(source.phone);
-    setCollege(source.college);
-    setBranch(source.branch);
-    setSemester(source.semester);
-    setIsIeeeMember(source.isIeeeMember);
-    setIeeeMembershipId(source.ieeeMembershipId);
-    if (draft) setCustomFields((current) => ({ ...current, ...draft.customFields }));
-    setMemoryReady(true);
+
+    const apply = (profile: RegistrationProfileMemory) => {
+      if (!active) return;
+      const source = draft || profile;
+      setName(source.name || user.name || "");
+      setPhone(source.phone);
+      setCollege(source.college);
+      setBranch(source.branch);
+      setSemester(source.semester);
+      setIsIeeeMember(source.isIeeeMember);
+      setIeeeMembershipId(source.ieeeMembershipId);
+      if (draft) setCustomFields((current) => ({ ...current, ...draft.customFields }));
+      setMemoryReady(true);
+    };
+
+    void getRegistrationMemory()
+      .then((memory) => apply(memory.found ? memory.profile : localProfile))
+      .catch(() => apply(localProfile));
+
+    return () => { active = false; };
   }, [event, user?.id, user?.name]);
 
   useEffect(() => {
@@ -281,12 +316,79 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
     return () => { active = false; };
   }, [authStatus, event, user?.id]);
 
+  useEffect(() => {
+    if (authStatus !== "authenticated" || !user?.id || !event?.waitlistEnabled || event.maxCapacity <= 0) {
+      setWaitlistState(null);
+      setWaitlistLoading(false);
+      return;
+    }
+    let active = true;
+    setWaitlistLoading(true);
+    void getEventWaitlist(event.id)
+      .then((state) => { if (active) setWaitlistState(state); })
+      .catch(() => { if (active) setWaitlistState(null); })
+      .finally(() => { if (active) setWaitlistLoading(false); });
+    return () => { active = false; };
+  }, [authStatus, event, user?.id]);
+
   const email = user?.email || "";
-  const capacityFull = !!event?.maxCapacity && event.registeredCount >= event.maxCapacity;
+  const occupiedSeats = (event?.registeredCount || 0) + (event?.waitlistReservedCount || 0);
+  const capacityFull = !!event?.maxCapacity && occupiedSeats >= event.maxCapacity;
+  const hasWaitlistOffer = waitlistState?.state?.status === "offered";
   const action = useMemo(
-    () => registrationAction(registrationState, !!event?.registrationOpen && !capacityFull),
-    [capacityFull, event?.registrationOpen, registrationState],
+    () => registrationAction(registrationState, !!event?.registrationOpen && (!capacityFull || hasWaitlistOffer)),
+    [capacityFull, event?.registrationOpen, hasWaitlistOffer, registrationState],
   );
+
+  const handleApplyCoupon = async () => {
+    if (!event || !couponCode.trim()) {
+      setCouponPreview(null);
+      setCouponError(couponCode.trim() ? null : "Enter a coupon code");
+      return;
+    }
+    setCouponApplying(true);
+    setCouponError(null);
+    try {
+      const preview = await previewCoupon(event.id, couponCode);
+      setCouponCode(preview.code);
+      setCouponPreview(preview);
+    } catch (error) {
+      setCouponPreview(null);
+      setCouponError(requestErrorMessage(error, "Coupon could not be applied"));
+    } finally {
+      setCouponApplying(false);
+    }
+  };
+
+  const refreshWaitlist = async () => {
+    if (!event?.waitlistEnabled || !user?.id) return;
+    try { setWaitlistState(await getEventWaitlist(event.id)); } catch { /* keep last known state */ }
+  };
+
+  const handleJoinWaitlist = async () => {
+    if (!event || !user?.id) return;
+    setWaitlistBusy(true);
+    try {
+      await joinEventWaitlist(event.id);
+      await refreshWaitlist();
+      toast.success("You joined the waitlist");
+    } catch (err) {
+      toast.error(requestErrorMessage(err, "Could not join the waitlist"));
+      await refreshWaitlist();
+    } finally { setWaitlistBusy(false); }
+  };
+
+  const handleLeaveWaitlist = async () => {
+    if (!event || !user?.id) return;
+    setWaitlistBusy(true);
+    try {
+      await leaveEventWaitlist(event.id);
+      await refreshWaitlist();
+      toast.success("You left the waitlist");
+    } catch (err) {
+      toast.error(requestErrorMessage(err, "Could not leave the waitlist"));
+    } finally { setWaitlistBusy(false); }
+  };
 
   const validate = (): boolean => {
     const next: Record<string, string> = {};
@@ -299,6 +401,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
       const value = customFields[field.id];
       if (!value || (field.type === "checkbox" && value !== "true")) next[field.id] = `${field.label} is required`;
     }
+    if (event?.isPaid && couponCode.trim() && !couponPreview) next.coupon = "Apply or clear the coupon code before continuing";
     if (!acceptedTerms) next.terms = "Please confirm the information before continuing";
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -312,6 +415,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
       const result = await createRegistration({
         userId: user.id,
         eventId: event.id,
+        couponCode: couponPreview?.code || undefined,
         formResponses: {
           name: name.trim(),
           email: email.trim(),
@@ -336,7 +440,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
         throw new Error("Registration was saved but no ticket was returned");
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Something went wrong");
+      toast.error(requestErrorMessage(err, "Something went wrong"));
     } finally {
       setSubmitting(false);
     }
@@ -365,14 +469,16 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
   }
 
   const eventHref = event.slug ? `/events/${event.slug}` : "/events";
-  const seatsLeft = event.maxCapacity > 0 ? Math.max(0, event.maxCapacity - event.registeredCount) : null;
+  const seatsLeft = event.maxCapacity > 0 ? Math.max(0, event.maxCapacity - occupiedSeats) : null;
+  const effectiveAmount = couponPreview?.amount ?? event.price;
+  const effectivePaid = effectiveAmount > 0;
 
   return (
     <div className="min-h-dvh bg-[#f4f2ed] text-[#111315] selection:bg-[#00629B] selection:text-white">
       <header className="border-b border-black/12">
         <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-5 px-5 py-5 sm:px-8 lg:px-12">
           <Link to="/" className="text-[10px] font-black uppercase tracking-[0.22em]">IEEE Sahrdaya</Link>
-          <BookingProgress paid={event.isPaid} />
+          <BookingProgress paid={effectivePaid} />
         </div>
       </header>
 
@@ -389,7 +495,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
             <div className="mt-8 grid grid-cols-2 gap-x-6 gap-y-7 border-y border-black/12 py-6 lg:grid-cols-1">
               <div>
                 <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/35">When</p>
-                <p className="mt-2 text-sm font-semibold">{formatDate(event.date)}</p>
+                <p className="mt-2 text-sm font-semibold">{formatDate(event.date)}</p>{event.timeTbc && <p className="mt-1 text-xs font-medium text-[#00629B]">Time to be confirmed</p>}
               </div>
               <div>
                 <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/35">Where</p>
@@ -397,7 +503,10 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
               </div>
               <div>
                 <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/35">Entry</p>
-                <p className="mt-2 text-3xl font-semibold tracking-[-0.05em]">{event.isPaid ? `₹${event.price}` : "Free"}</p>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <p className="text-3xl font-semibold tracking-[-0.05em]">{effectivePaid ? `₹${effectiveAmount}` : "Free"}</p>
+                  {couponPreview && couponPreview.discountAmount > 0 && <span className="text-xs text-black/35 line-through">₹{event.price}</span>}
+                </div>
               </div>
               {seatsLeft !== null && (
                 <div>
@@ -408,12 +517,12 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
             </div>
 
             {memoryReady && user && action === "register" && (
-              <p className="mt-5 text-xs leading-5 text-black/42">Your profile and this form are saved on this device while you type.</p>
+              <p className="mt-5 text-xs leading-5 text-black/42">Your reusable attendee details are remembered after you register. This event draft stays on this device while you type.</p>
             )}
           </aside>
 
           <section className="min-w-0">
-            {authStatus === "loading" || registrationStateLoading ? (
+            {authStatus === "loading" || registrationStateLoading || (Boolean(user) && capacityFull && event.waitlistEnabled && waitlistLoading) ? (
               <div className="border-y border-black/12 py-12"><Loader2 className="h-7 w-7 animate-spin text-[#00629B]" /><p className="mt-4 text-sm text-black/45">Checking your registration…</p></div>
             ) : !user ? (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="border-y border-black/12 py-10">
@@ -426,13 +535,40 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
             ) : registrationState?.found ? (
               <StatusCard event={event} state={registrationState} onReceipt={() => void handleReceipt()} />
             ) : action === "closed" ? (
-              <div className="border-y border-black/12 py-10">
-                <Clock3 className="h-8 w-8 text-black/35" />
-                <h2 className="mt-5 text-4xl font-semibold tracking-[-0.055em]">{capacityFull ? "Event full." : "Registration closed."}</h2>
-                <p className="mt-3 text-sm leading-6 text-black/50">{capacityFull ? "All available seats are currently reserved." : "This event is no longer accepting new registrations."}</p>
-              </div>
+              capacityFull && event.waitlistEnabled ? (
+                <div className="border-y border-black/12 py-10">
+                  <Clock3 className={`h-8 w-8 ${waitlistState?.state?.status === "waiting" ? "text-[#00629B]" : "text-black/35"}`} />
+                  <p className="mt-7 text-[9px] font-bold uppercase tracking-[0.18em] text-[#00629B]">Waitlist</p>
+                  <h2 className="mt-3 text-4xl font-semibold tracking-[-0.055em]">{waitlistState?.state?.status === "waiting" ? "You’re in line." : "Event full."}</h2>
+                  <p className="mt-3 max-w-xl text-sm leading-6 text-black/50">
+                    {waitlistState?.state?.status === "waiting"
+                      ? `Your current position is ${waitlistState.state.position || "being calculated"}. When a place opens, it is reserved for you for a limited time.`
+                      : "All available seats are reserved. Join the waitlist and the system will hold a released place for you before offering it to anyone else."}
+                  </p>
+                  {waitlistState?.state?.status === "waiting" ? (
+                    <button type="button" disabled={waitlistBusy} onClick={() => void handleLeaveWaitlist()} className="mt-7 min-h-11 border-y border-black/20 py-3 text-sm font-bold text-black/45 transition hover:text-rose-700 disabled:opacity-40">{waitlistBusy ? "Updating…" : "Leave waitlist"}</button>
+                  ) : (
+                    <button type="button" disabled={waitlistBusy} onClick={() => void handleJoinWaitlist()} className="group mt-7 inline-flex min-h-11 items-center gap-3 border-y border-[#00629B] py-4 text-lg font-bold text-[#00629B] disabled:opacity-40">
+                      {waitlistBusy ? "Joining…" : "Join waitlist"} {!waitlistBusy && <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />}
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="border-y border-black/12 py-10">
+                  <Clock3 className="h-8 w-8 text-black/35" />
+                  <h2 className="mt-5 text-4xl font-semibold tracking-[-0.055em]">{capacityFull ? "Event full." : "Registration closed."}</h2>
+                  <p className="mt-3 text-sm leading-6 text-black/50">{capacityFull ? "All available seats are currently reserved." : "This event is no longer accepting new registrations."}</p>
+                </div>
+              )
             ) : (
               <form onSubmit={handleSubmit}>
+                {hasWaitlistOffer && waitlistState?.state && (
+                  <div className="mb-8 border-y border-emerald-600/30 bg-emerald-50/60 py-5 text-emerald-900">
+                    <p className="text-[9px] font-bold uppercase tracking-[0.18em]">Reserved waitlist place</p>
+                    <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em]">A seat is held for you.</h2>
+                    <p className="mt-2 max-w-xl text-sm leading-6">Complete this registration before {waitlistState.state.offerExpiresAt ? new Date(waitlistState.state.offerExpiresAt).toLocaleString("en-IN") : "the offer expires"}. Other registrations cannot take this reserved place.</p>
+                  </div>
+                )}
                 <motion.section initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: MOTION_DURATION.reveal, ease: MOTION_EASE }} className="border-t border-black/12 py-8 sm:py-10">
                   <div className="grid gap-6 sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-10">
                     <div>
@@ -487,6 +623,43 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
                       <h2 className="mt-3 text-2xl font-semibold tracking-[-0.04em]">Review & continue</h2>
                     </div>
                     <div>
+                      {event.isPaid && (
+                        <div className="mb-7 border-y border-black/12 py-5">
+                          <div className="flex items-start gap-3">
+                            <BadgePercent className="mt-0.5 h-5 w-5 text-[#00629B]" />
+                            <div>
+                              <p className="text-sm font-bold">Have a coupon?</p>
+                              <p className="mt-1 text-xs leading-5 text-black/42">Apply it before continuing to see the amount you will actually pay.</p>
+                            </div>
+                          </div>
+                          <div className="mt-4 flex max-w-lg gap-3">
+                            <input
+                              value={couponCode}
+                              onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponPreview(null); setCouponError(null); setErrors((current) => { const next = { ...current }; delete next.coupon; return next; }); }}
+                              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void handleApplyCoupon(); } }}
+                              autoComplete="off"
+                              spellCheck={false}
+                              placeholder="COUPON CODE"
+                              className={`${fieldClass} min-w-0 flex-1 font-mono uppercase`}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => void handleApplyCoupon()}
+                              disabled={couponApplying || !couponCode.trim()}
+                              className="shrink-0 border-b border-[#00629B] px-2 text-xs font-bold uppercase tracking-[0.12em] text-[#00629B] disabled:border-black/15 disabled:text-black/25"
+                            >
+                              {couponApplying ? "Checking…" : "Apply"}
+                            </button>
+                          </div>
+                          {(couponError || errors.coupon) && <p className="mt-2 text-xs font-medium text-rose-600">{couponError || errors.coupon}</p>}
+                          {couponPreview && (
+                            <div className="mt-4 flex max-w-lg items-center justify-between gap-4 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                              <span><strong>{couponPreview.code}</strong> · {couponPreview.discountPercent}% off</span>
+                              <span className="shrink-0 font-bold">₹{couponPreview.amount}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                       <label className="flex cursor-pointer items-start gap-3"><input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} className="mt-1 h-4 w-4 accent-[#00629B]" /><span className="text-sm leading-6 text-black/55">I confirm that the information above is accurate and agree to the event terms.</span></label>
                       {errors.terms && <p className="mt-2 text-xs text-rose-600">{errors.terms}</p>}
 
@@ -498,8 +671,8 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
                         transition={{ duration: MOTION_DURATION.micro, ease: MOTION_EASE }}
                         className="group relative mt-7 flex w-full items-center justify-between overflow-hidden border-y border-[#00629B] py-4 text-left text-lg font-bold text-[#00629B] transition disabled:border-black/15 disabled:text-black/30 sm:max-w-lg"
                       >
-                        <span>{submitting ? "Reserving your seat…" : event.isPaid ? `Continue to payment · ₹${event.price}` : "Confirm free registration"}</span>
-                        {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : event.isPaid ? <CreditCard className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5" /> : <Ticket className="h-5 w-5 transition-transform group-hover:translate-x-1" />}
+                        <span>{submitting ? "Reserving your seat…" : effectivePaid ? `Continue to payment · ₹${effectiveAmount}` : "Confirm free registration"}</span>
+                        {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : effectivePaid ? <CreditCard className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5" /> : <Ticket className="h-5 w-5 transition-transform group-hover:translate-x-1" />}
                         {submitting && (
                           <motion.span
                             className="absolute inset-x-0 bottom-0 h-0.5 origin-left bg-[#00629B]"
@@ -509,7 +682,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
                           />
                         )}
                       </motion.button>
-                      <p className="mt-4 max-w-lg text-xs leading-5 text-black/38">{event.isPaid ? "Your ticket is issued only after payment is captured." : "Your ticket is created immediately after confirmation."}</p>
+                      <p className="mt-4 max-w-lg text-xs leading-5 text-black/38">{effectivePaid ? "Your ticket is issued only after payment is captured. Coupons are revalidated when you continue." : "Your ticket is created immediately after confirmation."}</p>
                     </div>
                   </div>
                 </motion.section>

@@ -58,6 +58,20 @@ export interface EventFinanceSummary {
   providers: Record<string, { count: number; paidCount: number; amount: number }>;
 }
 
+export interface AdminCancellationRequest {
+  request: {
+    id: string;
+    kind: string;
+    status: string;
+    reason: string;
+    requestedAt: string;
+    decisionAt: string;
+    resolutionNote: string;
+    resolvedAt: string;
+  };
+  registration: AdminRegistrationOperationRow | null;
+}
+
 export interface AdminEventOperations {
   event: {
     id: string;
@@ -78,10 +92,23 @@ export interface AdminEventOperations {
     registeredCount: number;
     checkedInCount: number;
     society: string;
+    approvalStatus: "draft" | "submitted" | "changes_requested" | "approved" | string;
+    approvalNote: string;
+    submittedBy: string;
+    submittedAt: string;
+    approvedBy: string;
+    approvedAt: string;
+    approvalRevision: number;
+    financeApprovalStatus: "not_required" | "pending" | "changes_requested" | "approved" | string;
+    financeApprovalNote: string;
+    financeApprovedBy: string;
+    financeApprovedAt: string;
   };
   summary: EventFinanceSummary;
   recent: AdminRegistrationOperationRow[];
   attention: AdminRegistrationOperationRow[];
+  cancellationRequests: AdminCancellationRequest[];
+  waitlist: { waiting: number; offered: number; reserved: number };
   coupons: Array<{
     id: string;
     code: string;
@@ -99,6 +126,11 @@ export interface AdminEventOperations {
     registration: string;
     created: string;
   }>;
+  attendance: {
+    mode: "legacy" | "sessions";
+    sessionCount: number;
+  };
+  permissions: Record<string, boolean>;
   financeDisclaimer: string;
 }
 
@@ -192,4 +224,13 @@ export async function recomputeEventOperations(eventId: string) {
     `/api/admin/events/${encodeURIComponent(eventId)}/recompute`,
     { method: "POST" },
   ) as Promise<{ success: boolean; event: AdminEventOperations["event"] }>;
+}
+export async function decideCancellationRequest(
+  requestId: string,
+  input: { action: "accept" | "decline"; note: string },
+) {
+  return getPbClient().send(
+    `/api/admin/cancellation-requests/${encodeURIComponent(requestId)}/decision`,
+    { method: "POST", body: input },
+  ) as Promise<{ request: AdminCancellationRequest["request"] }>;
 }

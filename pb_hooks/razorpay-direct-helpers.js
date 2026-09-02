@@ -298,7 +298,7 @@ function paymentSession(registration, payment, config, providerReachable) {
       var banner = event.getString("banner") || ""
       var bannerUrl = ""
       if (banner) try { bannerUrl = $app.filesystem().fileUrl(event, banner) } catch (_) {}
-      eventPayload = { id: event.id, title: event.getString("title") || "", date: event.getString("date") || "", endDate: event.getString("endDate") || "", venue: event.getString("venue") || "", bannerUrl: bannerUrl }
+      eventPayload = { id: event.id, title: event.getString("title") || "", date: event.getString("date") || "", endDate: event.getString("endDate") || "", timeTbc: event.getBool("timeTbc"), venue: event.getString("venue") || "", bannerUrl: bannerUrl }
     } catch (_) {}
   }
   return {

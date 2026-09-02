@@ -43,9 +43,11 @@ function toPositiveInt(value, fallback) {
 
 function getConfig() {
     var url = String($os.getenv("PAYGATE_URL") || "").trim().replace(/\/+$/, "")
+    var apiVersion = String($os.getenv("PAYGATE_API_VERSION") || "v3").trim().toLowerCase() === "v4" ? "v4" : "v3"
     return {
         url: url,
         apiKey: String($os.getenv("PAYGATE_API_KEY") || "").trim(),
+        apiVersion: apiVersion,
         webhookSecret: String($os.getenv("PAYGATE_WEBHOOK_SECRET") || "").trim(),
         registrationGraceSeconds: toPositiveInt($os.getenv("PAYGATE_REGISTRATION_GRACE_SECONDS"), 600),
         webhookToleranceSeconds: toPositiveInt($os.getenv("PAYGATE_WEBHOOK_TOLERANCE_SECONDS"), 300),
@@ -96,66 +98,100 @@ function expectedRequestedPaise(amountRupees) {
     return paise
 }
 
+function moneyStringToPaise(value) {
+    value = String(value || "").trim()
+    if (!/^\d+\.\d{2}$/.test(value)) return 0
+    var parts = value.split(".")
+    var rupees = Number(parts[0])
+    var paise = Number(parts[1])
+    if (!Number.isSafeInteger(rupees) || !Number.isSafeInteger(paise) || paise < 0 || paise > 99) return 0
+    var total = rupees * 100 + paise
+    return Number.isSafeInteger(total) && total > 0 ? total : 0
+}
+
+function normalizeProviderPayment(raw) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null
+    var v4 = raw.object === "payment" || raw.requested_amount !== undefined || raw.payable_amount !== undefined || raw.upi_uri !== undefined
+    var requestedAmountPaise = v4 ? moneyStringToPaise(raw.requested_amount) : Number(raw.requestedAmountPaise)
+    var payableAmountPaise = v4 ? moneyStringToPaise(raw.payable_amount) : Number(raw.payableAmountPaise)
+    var payer = asObject(raw.payer)
+    return {
+        apiVersion: v4 ? "v4" : "v3",
+        id: typeof raw.id === "string" ? raw.id.trim() : "",
+        name: typeof raw.name === "string" ? raw.name.trim() : "",
+        status: typeof raw.status === "string" ? raw.status.trim() : "",
+        requestedAmountPaise: requestedAmountPaise,
+        payableAmountPaise: payableAmountPaise,
+        payableAmount: v4 ? String(raw.payable_amount || "") : String(raw.payableAmount || ""),
+        expiresAt: v4 ? String(raw.expires_at || "") : String(raw.expiresAt || ""),
+        graceUntil: v4 ? String(raw.grace_until || "") : String(raw.graceUntil || ""),
+        paidAt: v4 ? String(raw.paid_at || "") : String(raw.paidAt || ""),
+        upiUri: v4 ? String(raw.upi_uri || "") : String(raw.upiUri || ""),
+        externalId: v4 ? String(raw.external_id || "").trim() : String(raw.externalId || "").trim(),
+        metadata: asObject(raw.metadata),
+        payerName: v4 ? String(payer.name || "") : String(raw.payerName || ""),
+        upiId: v4 ? String(payer.upi_id || "") : String(raw.upiId || ""),
+    }
+}
+
+function registrationIdFromProviderPayment(raw) {
+    var payment = normalizeProviderPayment(raw)
+    if (!payment) return ""
+    if (payment.apiVersion === "v4") {
+        var environment = String(payment.metadata.environment || "").trim()
+        if (environment && environment !== deploymentNamespace()) return ""
+        var registrationId = String(payment.metadata.registration_id || payment.metadata.registrationId || "").trim()
+        if (registrationId) return registrationId
+    }
+    return registrationIdFromExternalId(payment.externalId)
+}
+
+function providerPersonName(registration) {
+    var responses = asObject(registration && registration.get ? registration.get("formResponses") : null)
+    var name = String(responses.name || (registration && registration.getString ? registration.getString("userName") : "") || "").trim()
+    if (!name && registration && registration.getString) name = String(registration.getString("userEmail") || "").trim()
+    if (!name && registration && registration.id) name = "Registration " + String(registration.id)
+    return name.slice(0, 120)
+}
+
 function validateProviderPayment(raw, expectedAmountRupees, options) {
     options = options || {}
-    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-        return { ok: false, error: "PayGate returned an invalid payment response" }
-    }
-
-    var id = typeof raw.id === "string" ? raw.id.trim() : ""
-    var status = typeof raw.status === "string" ? raw.status.trim() : ""
-    var requestedAmountPaise = Number(raw.requestedAmountPaise)
-    var payableAmountPaise = Number(raw.payableAmountPaise)
+    var payment = normalizeProviderPayment(raw)
+    if (!payment) return { ok: false, error: "PayGate returned an invalid payment response" }
     var expectedPaise = expectedRequestedPaise(expectedAmountRupees)
-
-    if (!id || !SUPPORTED_STATUSES[status] || !expectedPaise) {
+    if (!payment.id || !SUPPORTED_STATUSES[payment.status] || !expectedPaise) {
         return { ok: false, error: "PayGate returned an invalid payment response" }
     }
-    if (!Number.isSafeInteger(requestedAmountPaise) || requestedAmountPaise !== expectedPaise) {
+    if (!Number.isSafeInteger(payment.requestedAmountPaise) || payment.requestedAmountPaise !== expectedPaise) {
         return { ok: false, error: "PayGate requested amount does not match the registration" }
     }
-    if (
-        !Number.isSafeInteger(payableAmountPaise) ||
-        payableAmountPaise <= requestedAmountPaise ||
-        payableAmountPaise > requestedAmountPaise + 99
-    ) {
+    var delta = payment.payableAmountPaise - payment.requestedAmountPaise
+    var validFingerprint = delta >= 1 && delta <= 99
+    if (payment.apiVersion === "v4" && delta >= 101 && delta <= 199) validFingerprint = true
+    if (!Number.isSafeInteger(payment.payableAmountPaise) || !validFingerprint) {
         return { ok: false, error: "PayGate returned an invalid verification amount" }
     }
-    if (options.paymentId && id !== options.paymentId) {
+    if (options.paymentId && payment.id !== options.paymentId) {
         return { ok: false, error: "PayGate payment identity mismatch" }
     }
-
-    var externalId = typeof raw.externalId === "string" ? raw.externalId.trim() : ""
-    if (options.externalId && externalId !== options.externalId) {
+    var acceptedExternalIds = []
+    if (options.externalId) acceptedExternalIds.push(String(options.externalId))
+    if (Array.isArray(options.externalIds)) {
+        for (var ei = 0; ei < options.externalIds.length; ei++) if (options.externalIds[ei]) acceptedExternalIds.push(String(options.externalIds[ei]))
+    }
+    if (acceptedExternalIds.length && acceptedExternalIds.indexOf(payment.externalId) === -1) {
         return { ok: false, error: "PayGate registration identity mismatch" }
     }
-
-    var upiUri = typeof raw.upiUri === "string" ? raw.upiUri.trim() : ""
-    if (options.requireUpiUri && upiUri.indexOf("upi://pay?") !== 0) {
-        return { ok: false, error: "PayGate did not provide a usable UPI payment URI" }
+    if (payment.apiVersion === "v4" && options.registrationId) {
+        var metadataRegistrationId = String(payment.metadata.registration_id || payment.metadata.registrationId || "").trim()
+        if (metadataRegistrationId !== String(options.registrationId)) return { ok: false, error: "PayGate registration identity mismatch" }
     }
-
-    var expiresAt = typeof raw.expiresAt === "string" ? raw.expiresAt.trim() : ""
-    if (status === "pending" && !expiresAt) {
-        return { ok: false, error: "PayGate did not provide a payment expiry" }
+    if (payment.apiVersion === "v4" && options.environment && String(payment.metadata.environment || "").trim() !== String(options.environment)) {
+        return { ok: false, error: "PayGate environment identity mismatch" }
     }
-
-    return {
-        ok: true,
-        payment: {
-            id: id,
-            status: status,
-            requestedAmountPaise: requestedAmountPaise,
-            payableAmountPaise: payableAmountPaise,
-            payableAmount: typeof raw.payableAmount === "string"
-                ? raw.payableAmount
-                : (payableAmountPaise / 100).toFixed(2),
-            expiresAt: expiresAt,
-            paidAt: typeof raw.paidAt === "string" ? raw.paidAt : "",
-            upiUri: upiUri,
-            externalId: externalId,
-        },
-    }
+    if (options.requireUpiUri && payment.upiUri.indexOf("upi://pay?") !== 0) return { ok: false, error: "PayGate did not provide a usable UPI payment URI" }
+    if (payment.status === "pending" && !payment.expiresAt) return { ok: false, error: "PayGate did not provide a payment expiry" }
+    return { ok: true, payment: payment }
 }
 
 function mergePaymentData(current, patch) {
@@ -233,10 +269,11 @@ function safeProviderError(response) {
     var code = ""
     var message = ""
     if (response && response.json && typeof response.json === "object") {
-        code = typeof response.json.code === "string" ? response.json.code : ""
-        message = typeof response.json.message === "string" ? response.json.message : ""
+        var errorBody = response.json.error && typeof response.json.error === "object" ? response.json.error : response.json
+        code = typeof errorBody.code === "string" ? errorBody.code : ""
+        message = typeof errorBody.message === "string" ? errorBody.message : ""
     }
-    if (code === "AMOUNT_CAPACITY_EXHAUSTED") {
+    if (code === "AMOUNT_CAPACITY_EXHAUSTED" || code === "payment_capacity_unavailable") {
         return {
             status: 409,
             code: code,
@@ -271,6 +308,7 @@ function paymentSession(registration, data, providerReachable) {
                 title: event.getString("title") || "",
                 date: event.getString("date") || "",
                 endDate: event.getString("endDate") || "",
+                timeTbc: event.getBool("timeTbc"),
                 venue: event.getString("venue") || "",
                 bannerUrl: bannerUrl,
             }
@@ -284,8 +322,8 @@ function paymentSession(registration, data, providerReachable) {
         ticketId: registration.getString("ticketId") || "",
         paymentTicketId: registration.getString("paymentTicketId") || "",
         provider: PAYGATE_PROVIDER,
-        eventPaymentProvider: data.eventPaymentProvider || data.paymentAccount || "kotak",
-        paymentAccount: data.paymentAccount || "kotak",
+        eventPaymentProvider: data.paygateApiVersion === "v4" ? "paygate" : (data.eventPaymentProvider || data.paymentAccount || "kotak"),
+        paymentAccount: data.paygateApiVersion === "v4" ? "" : (data.paymentAccount || "kotak"),
         providerStatus: data.providerStatus || "not_initialized",
         paymentId: data.paymentId || "",
         requestedAmountPaise: Number(data.requestedAmountPaise) || 0,
@@ -298,7 +336,7 @@ function paymentSession(registration, data, providerReachable) {
         razorpayOrderId: "",
         razorpayPaymentId: "",
         razorpayKeyId: "",
-        providerDisplayName: "Kotak direct UPI",
+        providerDisplayName: data.paygateApiVersion === "v4" ? "PayGate" : "Kotak direct UPI",
         manualReview: data.manualReview === true,
         reviewReason: data.reviewReason || "",
         providerReachable: providerReachable !== false,
@@ -421,6 +459,7 @@ function updateProviderData(registration, payment, extra) {
         provider: PAYGATE_PROVIDER,
         providerStatus: payment.status,
         paymentId: payment.id,
+        paygateApiVersion: payment.apiVersion || current.paygateApiVersion || "v3",
         requestedAmountPaise: payment.requestedAmountPaise,
         payableAmountPaise: payment.payableAmountPaise,
         payableAmount: payment.payableAmount,
@@ -551,66 +590,74 @@ function applyProviderState(registration, payment, eventType, eventId) {
 
 function createPaymentForRegistration(registration) {
     var config = getConfig()
-    if (!paymentConfigured(config)) {
-        return { status: 503, body: { code: "PAYGATE_NOT_CONFIGURED", error: "Kotak UPI is temporarily unavailable" } }
-    }
+    if (!paymentConfigured(config)) return { status: 503, body: { code: "PAYGATE_NOT_CONFIGURED", error: "PayGate is temporarily unavailable" } }
     var registrationStatus = registration.getString("registrationStatus")
     var paymentStatus = registration.getString("paymentStatus")
     var amountPaise = require(__hooks + "/registration-helpers.js").registrationFinalFeePaise(registration)
-    if (paymentStatus === "paid" && registrationStatus === "confirmed") {
-        return { status: 200, body: paymentSession(registration, registration.get("paymentData"), true) }
-    }
-    if (registrationStatus !== "pending" || paymentStatus !== "pending" || amountPaise <= 0) {
-        return { status: 409, body: { code: "PAYMENT_NOT_AVAILABLE", error: "This registration is not awaiting payment" } }
-    }
-    if (amountPaise % 100 !== 0) {
-        return { status: 409, body: { code: "PAYGATE_WHOLE_RUPEE_REQUIRED", error: "Kotak temporary payments require a whole-rupee amount. Please contact the organizer." } }
-    }
+    if (paymentStatus === "paid" && registrationStatus === "confirmed") return { status: 200, body: paymentSession(registration, registration.get("paymentData"), true) }
+    if (registrationStatus !== "pending" || paymentStatus !== "pending" || amountPaise <= 0) return { status: 409, body: { code: "PAYMENT_NOT_AVAILABLE", error: "This registration is not awaiting payment" } }
+    if (amountPaise % 100 !== 0) return { status: 409, body: { code: "PAYGATE_WHOLE_RUPEE_REQUIRED", error: "PayGate requires a whole-rupee amount. Please contact the organizer." } }
 
     var current = asObject(registration.get("paymentData"))
-    if (current.provider !== PAYGATE_PROVIDER) {
-        return { status: 409, body: { code: "PAYMENT_PROVIDER_CONFLICT", error: "This registration uses a different payment provider" } }
-    }
-    if (current.paymentId) {
-        return { status: 200, body: paymentSession(registration, current, true) }
-    }
+    if (current.provider !== PAYGATE_PROVIDER) return { status: 409, body: { code: "PAYMENT_PROVIDER_CONFLICT", error: "This registration uses a different payment provider" } }
+    if (current.paymentId) return { status: 200, body: paymentSession(registration, current, true) }
 
-    var externalId = externalIdForRegistration(registration.id)
+    var legacyExternalId = externalIdForRegistration(registration.id)
+    var eventId = registration.getString("event") || ""
     var amount = amountPaise / 100
+    var headers = { Authorization: "Bearer " + config.apiKey, "Idempotency-Key": idempotencyKeyForRegistration(registration.id) }
     var response
+    var usedV4 = config.apiVersion === "v4"
     try {
-        response = payGateRequest(config, "/api/payments", "POST", {
-            amount: amount,
-            externalId: externalId,
-            metadata: {
-                registrationId: registration.id,
-                eventId: registration.getString("event") || "",
-                paymentTicketId: registration.getString("paymentTicketId") || "",
-                source: "ieee-sahrdaya-kotak-temporary",
-                environment: deploymentNamespace(),
-            },
-        }, {
-            Authorization: "Bearer " + config.apiKey,
-            "Idempotency-Key": idempotencyKeyForRegistration(registration.id),
-        })
+        if (usedV4) {
+            response = payGateRequest(config, "/v1/payments", "POST", {
+                amount: amount,
+                name: providerPersonName(registration),
+                external_id: eventId,
+                metadata: {
+                    registration_id: registration.id,
+                    event_id: eventId,
+                    payment_ticket_id: registration.getString("paymentTicketId") || "",
+                    source: "ieee-sahrdaya",
+                    environment: deploymentNamespace(),
+                },
+            }, headers)
+        } else {
+            response = payGateRequest(config, "/api/payments", "POST", {
+                amount: amount,
+                externalId: legacyExternalId,
+                metadata: {
+                    registrationId: registration.id,
+                    eventId: eventId,
+                    paymentTicketId: registration.getString("paymentTicketId") || "",
+                    source: "ieee-sahrdaya-kotak-temporary",
+                    environment: deploymentNamespace(),
+                },
+            }, headers)
+        }
     } catch (err) {
         console.log("[paygate] payment creation request failed:", err)
-        return { status: 502, body: { code: "PAYGATE_UNAVAILABLE", error: "Kotak payment service is temporarily unavailable" } }
+        return { status: 502, body: { code: "PAYGATE_UNAVAILABLE", error: "PayGate is temporarily unavailable" } }
     }
     if (response.statusCode !== 200 && response.statusCode !== 201) {
         var upstream = safeProviderError(response)
         return { status: upstream.status, body: { code: upstream.code, error: upstream.message } }
     }
-
-    var validated = validateProviderPayment(response.json, amount, { requireUpiUri: true, externalId: externalId })
+    var validated = validateProviderPayment(response.json, amount, {
+        requireUpiUri: true,
+        externalId: usedV4 ? eventId : legacyExternalId,
+        registrationId: usedV4 ? registration.id : "",
+        environment: usedV4 ? deploymentNamespace() : "",
+    })
     if (!validated.ok) {
         console.log("[paygate] invalid create response:", validated.error)
-        return { status: 502, body: { code: "PAYGATE_INVALID_RESPONSE", error: "Kotak payment service returned an invalid response" } }
+        return { status: 502, body: { code: "PAYGATE_INVALID_RESPONSE", error: "PayGate returned an invalid response" } }
     }
     var nextData = updateProviderData(registration, validated.payment, {
         provider: PAYGATE_PROVIDER,
-        eventPaymentProvider: current.eventPaymentProvider || "kotak",
-        paymentAccount: "kotak",
+        eventPaymentProvider: usedV4 ? "paygate" : (current.eventPaymentProvider || "kotak"),
+        paymentAccount: usedV4 ? "" : "kotak",
+        paygateApiVersion: usedV4 ? "v4" : "v3",
         createdAt: current.createdAt || new Date().toISOString(),
         manualReview: false,
     })
@@ -651,22 +698,30 @@ function reconcilePaymentForRegistration(registration) {
 
     var response
     try {
-        response = payGateRequest(config, "/api/payments/" + encodeURIComponent(String(data.paymentId)), "GET", null, {})
+        var paymentPath = encodeURIComponent(String(data.paymentId))
+        var statusPath = config.apiVersion === "v4" ? "/v1/payments/" + paymentPath : "/api/payments/" + paymentPath
+        response = payGateRequest(config, statusPath, "GET", null, { Authorization: "Bearer " + config.apiKey })
     } catch (err) {
         console.log("[paygate] status request failed:", err)
         return { status: 200, body: paymentSession(registration, data, false) }
     }
     if (response.statusCode === 429) {
-        return { status: 429, body: { code: "PAYGATE_RATE_LIMITED", error: "Kotak payment verification asked us to slow down", retryAfterMs: 10000 } }
+        return { status: 429, body: { code: "PAYGATE_RATE_LIMITED", error: "PayGate payment verification asked us to slow down", retryAfterMs: 10000 } }
     }
     if (response.statusCode !== 200) {
         return { status: 200, body: paymentSession(registration, data, false) }
     }
     var amountPaise = require(__hooks + "/registration-helpers.js").registrationFinalFeePaise(registration)
     if (amountPaise <= 0 || amountPaise % 100 !== 0) {
-        return { status: 409, body: { code: "PAYGATE_AMOUNT_INVALID", error: "This Kotak payment amount cannot be reconciled safely" } }
+        return { status: 409, body: { code: "PAYGATE_AMOUNT_INVALID", error: "This PayGate payment amount cannot be reconciled safely" } }
     }
-    var validated = validateProviderPayment(response.json, amountPaise / 100, { paymentId: String(data.paymentId) })
+    var validationOptions = { paymentId: String(data.paymentId) }
+    if (config.apiVersion === "v4") {
+        validationOptions.externalId = registration.getString("event") || ""
+        validationOptions.registrationId = registration.id
+        validationOptions.environment = deploymentNamespace()
+    }
+    var validated = validateProviderPayment(response.json, amountPaise / 100, validationOptions)
     if (!validated.ok) {
         console.log("[paygate] invalid status response:", validated.error)
         return { status: 409, body: { code: "PAYMENT_RECONCILIATION_REFUSED", error: validated.error } }
@@ -725,6 +780,10 @@ module.exports = {
     registrationIdFromExternalId: registrationIdFromExternalId,
     idempotencyKeyForRegistration: idempotencyKeyForRegistration,
     expectedRequestedPaise: expectedRequestedPaise,
+    moneyStringToPaise: moneyStringToPaise,
+    normalizeProviderPayment: normalizeProviderPayment,
+    registrationIdFromProviderPayment: registrationIdFromProviderPayment,
+    providerPersonName: providerPersonName,
     validateProviderPayment: validateProviderPayment,
     mergePaymentData: mergePaymentData,
     appendEventId: appendEventId,

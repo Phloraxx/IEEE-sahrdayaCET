@@ -20,6 +20,7 @@ export interface SocietyPageData {
     description: string;
     date: string;
     endDate: string;
+    timeTbc: boolean;
     registrationStart: string;
     registrationDeadline: string;
     venue: string;
@@ -50,7 +51,7 @@ export async function fetchSocietyData(slug: string): Promise<SocietyPageData> {
   const pb = createPublicPB();
   const society = await pb
     .collection("societies")
-    .getFirstListItem(`slug = ${escapeFilterValue(slug.toLowerCase())}`, {
+    .getFirstListItem(`slug = ${escapeFilterValue(slug.toLowerCase())} && isHidden = false`, {
       fields: "id,name,slug,bio,chairs,defaultWhatsappLink,logo,banner",
     })
     .catch(() => null);
@@ -62,10 +63,10 @@ export async function fetchSocietyData(slug: string): Promise<SocietyPageData> {
       .collection("events")
       .getFullList({
         batch: 100,
-        filter: `society = ${escapeFilterValue(society.id)}`,
+        filter: `society = ${escapeFilterValue(society.id)} && (status = "published" || status = "completed") && isDeleted != true`,
         sort: "-date",
         fields:
-          "id,slug,title,description,date,endDate,registrationStart,registrationDeadline,venue,price,status,tags,banner,externalFormUrl,externalLink,contactEmail,contactPhone",
+          "id,slug,title,description,date,endDate,timeTbc,registrationStart,registrationDeadline,venue,price,status,tags,banner,externalFormUrl,externalLink,contactEmail,contactPhone",
       })
       .catch(() => []),
     // `society` is the canonical relation. `sectionId` is a legacy display/grouping
@@ -111,6 +112,7 @@ export async function fetchSocietyData(slug: string): Promise<SocietyPageData> {
         description: getField(event, "description", ""),
         date: getField(event, "date", ""),
         endDate: getField(event, "endDate", ""),
+        timeTbc: Boolean(getField(event, "timeTbc", false)),
         registrationStart: getField(event, "registrationStart", ""),
         registrationDeadline: getField(event, "registrationDeadline", ""),
         venue: getField(event, "venue", ""),

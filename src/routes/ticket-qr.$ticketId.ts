@@ -2,6 +2,7 @@ import type { LoaderFunctionArgs } from "react-router";
 import QRCode from "qrcode";
 
 import { createPublicPB } from "@/lib/pb.server";
+import { publicRequestOrigin } from "@/server/public-origin.server";
 
 export async function loader({ params, request }: LoaderFunctionArgs) {
   const ticketId = String(params.ticketId || "").trim();
@@ -17,7 +18,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
     throw new Response("Ticket not found", { status: 404 });
   }
 
-  const ticketUrl = `${new URL(request.url).origin}/ticket/${encodeURIComponent(ticketId)}`;
+  const ticketUrl = `${publicRequestOrigin(request)}/ticket/${encodeURIComponent(ticketId)}`;
   const png = await QRCode.toBuffer(ticketUrl, {
     type: "png",
     width: 420,

@@ -110,7 +110,12 @@ assert after_stale["registrationStatus"]=="confirmed" and after_stale["paymentSt
 assert after_stale["ticketId"]==verified["ticketId"]
 ledger_after_stale=filter_records("payments",f'registration="{reg_id}"')["items"][-1]
 assert ledger_after_stale["status"]=="captured" and ledger_after_stale["capturedPaymentId"]==captured["id"]
-stale_attempts=filter_records("payment_attempts",f'payment="{ledger_after_stale["id"]}"')["items"]
+stale_attempts=[]
+for _ in range(20):
+    stale_attempts=filter_records("payment_attempts",f'payment="{ledger_after_stale["id"]}"')["items"]
+    if any(x["providerPaymentId"]==stale_failed["id"] and x["status"]=="failed" for x in stale_attempts):
+        break
+    time.sleep(.1)
 assert any(x["providerPaymentId"]==stale_failed["id"] and x["status"]=="failed" for x in stale_attempts)
 
 # Signed webhook is idempotently queued and processed from canonical provider state.

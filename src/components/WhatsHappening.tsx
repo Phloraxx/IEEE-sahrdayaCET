@@ -84,10 +84,10 @@ export const WhatsHappening: React.FC<WhatsHappeningProps> = ({
                       </span>
                       <div className="text-center px-1">
                         <span className="block text-2xl font-bold text-white">
-                          {dateParts.hour}
+                          {latestEvent.timeTbc ? "TIME" : dateParts.hour}
                         </span>
                         <span className="text-[10px] text-gray-300 tracking-wider">
-                          {dateParts.ampm}
+                          {latestEvent.timeTbc ? "TBC" : dateParts.ampm}
                         </span>
                       </div>
                     </div>

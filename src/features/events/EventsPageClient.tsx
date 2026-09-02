@@ -8,6 +8,7 @@ import Footer from "@/components/Footer";
 import { EventHeroSection, EventListSection } from "@/components/events";
 import type { EventWithSociety, ExtendedEvent } from "@/types";
 import { isPastEvent } from "@/lib/event-lifecycle";
+import { formatDay, formatMonthYear, formatWeekdayShort } from "@/lib/dates";
 
 const ARCHIVE_PAGE_SIZE = 10;
 const ARCHIVE_FILTERS = ["all", "upcoming", "past"] as const;
@@ -19,7 +20,6 @@ interface EventsPageClientProps {
 
 function ArchiveRow({ event, index }: { event: ExtendedEvent; index: number }) {
   const reduceMotion = useReducedMotion();
-  const date = new Date(event.date);
   const societyName = typeof event.society === "object" ? event.society.name : "IEEE Sahrdaya";
 
   return (
@@ -35,8 +35,8 @@ function ArchiveRow({ event, index }: { event: ExtendedEvent; index: number }) {
         className="group grid grid-cols-[64px_minmax(0,1fr)_auto] items-center gap-4 py-5 sm:grid-cols-[88px_minmax(0,1fr)_190px_90px] sm:gap-6 md:py-6"
       >
         <div>
-          <div className="text-2xl font-semibold tracking-[-0.05em] tabular-nums text-[#111315]">{String(date.getDate()).padStart(2, "0")}</div>
-          <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.15em] text-black/35">{date.toLocaleDateString("en-IN", { weekday: "short" })}</div>
+          <div className="text-2xl font-semibold tracking-[-0.05em] tabular-nums text-[#111315]">{formatDay(event.date)}</div>
+          <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.15em] text-black/35">{formatWeekdayShort(event.date)}</div>
         </div>
         <div className="min-w-0">
           <div className="line-clamp-2 text-lg font-semibold leading-tight tracking-[-0.025em] text-[#111315] transition group-hover:text-[#00629B] sm:text-xl">{event.title}</div>
@@ -108,7 +108,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
   const visibleArchiveEvents = filteredArchiveEvents.slice(0, visibleArchiveCount);
   const hasMoreArchiveEvents = visibleArchiveCount < filteredArchiveEvents.length;
   const archiveGroups = visibleArchiveEvents.reduce<Array<{ label: string; events: ExtendedEvent[] }>>((groups, event) => {
-    const label = new Date(event.date).toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+    const label = formatMonthYear(event.date);
     const current = groups[groups.length - 1];
     if (current?.label === label) current.events.push(event);
     else groups.push({ label, events: [event] });

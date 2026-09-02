@@ -1,8 +1,8 @@
 /// <reference path="../pb_data/types.d.ts" />
 
-// Temporary Kotak direct-UPI provider. Generic browser payment routes remain in
-// razorpay-direct.pb.js and dispatch here through paygate-helpers. This file only
-// owns PayGate's signed server webhook and expiry cleanup.
+// PayGate provider integration. During the v4 migration window the helper can
+// speak either the explicit v3 or v4 merchant contract, while this receiver
+// accepts signed callbacks from both versions and keeps registration state safe.
 routerAdd("POST", "/api/webhooks/paygate", function (e) {
   var pg = require(__hooks + "/paygate-helpers.js")
   var guard = require(__hooks + "/paygate-registration-guard.js")
@@ -11,9 +11,9 @@ routerAdd("POST", "/api/webhooks/paygate", function (e) {
     return e.json(503, { code: "PAYGATE_WEBHOOK_NOT_CONFIGURED", error: "PayGate webhook is not configured" })
   }
 
-  var eventId = String(e.request.header.get("X-PayGate-Event-Id") || "").trim()
-  var timestamp = String(e.request.header.get("X-PayGate-Timestamp") || "").trim()
-  var signatureHeader = String(e.request.header.get("X-PayGate-Signature") || "").trim()
+  var eventId = String(e.request.header.get("X-PayGate-Event-Id") || e.request.header.get("PayGate-Event-Id") || "").trim()
+  var timestamp = String(e.request.header.get("X-PayGate-Timestamp") || e.request.header.get("PayGate-Timestamp") || "").trim()
+  var signatureHeader = String(e.request.header.get("X-PayGate-Signature") || e.request.header.get("PayGate-Signature") || "").trim()
   if (!eventId || !timestamp || !signatureHeader) {
     return e.json(401, { code: "PAYGATE_SIGNATURE_MISSING", error: "Missing PayGate signature headers" })
   }
@@ -40,7 +40,7 @@ routerAdd("POST", "/api/webhooks/paygate", function (e) {
   if (!handled[body.type]) return e.json(200, { success: true, ignored: true, type: body.type })
 
   var rawPayment = body.data && body.data.payment
-  var registrationId = pg.registrationIdFromExternalId(rawPayment && rawPayment.externalId)
+  var registrationId = pg.registrationIdFromProviderPayment(rawPayment)
   if (!registrationId) return e.json(200, { success: true, ignored: true })
   var registration
   try { registration = $app.findRecordById("registrations", registrationId) }
@@ -58,7 +58,9 @@ routerAdd("POST", "/api/webhooks/paygate", function (e) {
   }
   var validated = pg.validateProviderPayment(rawPayment, finalPaise / 100, {
     paymentId: current.paymentId ? String(current.paymentId) : "",
-    externalId: pg.externalIdForRegistration(registration.id),
+    externalIds: [pg.externalIdForRegistration(registration.id), registration.getString("event") || ""],
+    registrationId: registration.id,
+    environment: pg.deploymentNamespace(),
   })
   if (!validated.ok) {
     console.log("[paygate] webhook refused:", validated.error)
@@ -101,7 +103,7 @@ cronAdd("paygate-registration-expiry", "* * * * *", function () {
 
     // Webhook delivery is an optimization, not a correctness dependency. The
     // shared temporary PayGate service has one callback URL, so each IEEE
-    // environment also reconciles its own pending Kotak sessions once a minute.
+    // environment also reconciles its own pending PayGate sessions once a minute.
     var providerAuthoritative = !data.paymentId
     if (data.paymentId) {
       try {
@@ -124,10 +126,10 @@ cronAdd("paygate-registration-expiry", "* * * * *", function () {
     if (data.paymentId && !providerAuthoritative) continue
     if (!pg.shouldReleasePendingRegistration(registration, nowMs, config.registrationGraceSeconds)) continue
     data.releaseReason = data.providerStatus === "expired"
-      ? "Kotak payment expired and the IEEE grace window elapsed"
+      ? "PayGate payment expired and the IEEE grace window elapsed"
       : data.providerStatus === "not_initialized"
-        ? "Kotak payment was never initialized before the IEEE grace window elapsed"
-        : "Kotak payment could not complete"
+        ? "PayGate payment was never initialized before the IEEE grace window elapsed"
+        : "PayGate payment could not complete"
     try {
       registration.set("paymentStatus", "failed")
       registration.set("registrationStatus", "cancelled")

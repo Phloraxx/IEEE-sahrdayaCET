@@ -14,6 +14,7 @@ COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile --production
 
 FROM node:22-alpine AS runtime
+RUN apk add --no-cache font-noto
 WORKDIR /app
 ENV NODE_ENV=production PORT=3000
 COPY --from=prod-deps /app/node_modules ./node_modules

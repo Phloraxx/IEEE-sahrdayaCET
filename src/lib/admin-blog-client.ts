@@ -11,18 +11,32 @@ import {
   sanitizeBlogHtml,
 } from "@/lib/blog-content";
 import { getField } from "@/lib/safe-get";
+import { getWorkspaceMe } from "@/lib/data/workspace.client";
+import type { WorkspaceMe } from "@/lib/workspace-permissions";
 
-function requireEditorRole() {
+async function requireEditorRole() {
   const pb = getPbClient();
-  const role = String(pb.authStore.record?.role || "");
-  if (!pb.authStore.isValid || (role !== "admin" && role !== "content")) {
-    throw new Error("Blog editor access required");
-  }
-  return pb;
+  if (!pb.authStore.isValid) throw new Error("Blog editor access required");
+  const workspace = await getWorkspaceMe();
+  if (!workspace.capabilities.includes("content.manage")) throw new Error("Blog editor access required");
+  return { pb, workspace };
+}
+
+function contentScopeFilter(workspace: WorkspaceMe): string {
+  if (workspace.branchCapabilities.includes("content.manage")) return "";
+  const societyRoles = new Set(["society_chair", "society_vice_chair", "society_secretary", "society_content"]);
+  const eventRoles = new Set(["event_lead", "event_content"]);
+  const societyIds = Array.from(new Set(workspace.assignments.filter((a) => a.active && a.scopeType === "society" && societyRoles.has(a.roleCode)).map((a) => a.societyId).filter(Boolean)));
+  const eventIds = Array.from(new Set(workspace.assignments.filter((a) => a.active && a.scopeType === "event" && eventRoles.has(a.roleCode)).map((a) => a.eventId).filter(Boolean)));
+  const clauses = [
+    ...societyIds.map((id) => `society = ${escapeFilterValue(id)}`),
+    ...eventIds.map((id) => `event = ${escapeFilterValue(id)}`),
+  ];
+  return clauses.length ? `(${clauses.join(" || ")})` : 'id = ""';
 }
 
 async function assertUniqueSlug(slug: string, excludedId?: string) {
-  const pb = requireEditorRole();
+  const { pb } = await requireEditorRole();
   const clauses = [`slug = ${escapeFilterValue(slug)}`];
   if (excludedId) clauses.push(`id != ${escapeFilterValue(excludedId)}`);
   const result = await pb.collection("blogs").getList(1, 1, {
@@ -34,24 +48,29 @@ async function assertUniqueSlug(slug: string, excludedId?: string) {
 }
 
 export async function listAdminBlogs() {
-  const pb = requireEditorRole();
+  const { pb, workspace } = await requireEditorRole();
+  const scope = contentScopeFilter(workspace);
   const records = await pb.collection("blogs").getFullList({
     batch: 100,
     sort: "-updated,-published_at,-id",
+    filter: scope || undefined,
     expand: "relation,society,event",
   });
   return records.map(mapBlogRecord);
 }
 
 export async function listSocietiesForBlog() {
-  const pb = requireEditorRole();
-  const records = await pb.collection("societies").getFullList({ sort: "name", fields: "id,name" });
+  const { pb, workspace } = await requireEditorRole();
+  const managed = workspace.branchCapabilities.includes("content.manage") ? [] : Array.from(new Set(workspace.assignments.filter((a) => a.active && a.scopeType === "society" && ["society_chair", "society_vice_chair", "society_secretary", "society_content"].includes(a.roleCode)).map((a) => a.societyId).filter(Boolean)));
+  const filter = workspace.branchCapabilities.includes("content.manage") ? undefined : (managed.length ? managed.map((id) => `id = ${escapeFilterValue(id)}`).join(" || ") : 'id = ""');
+  const records = await pb.collection("societies").getFullList({ sort: "name", fields: "id,name", filter });
   return records.map((record) => ({ id: record.id, name: String(record.name || "") }));
 }
 
 export async function listEventsForBlog() {
-  const pb = requireEditorRole();
-  const records = await pb.collection("events").getFullList({ sort: "-date", fields: "id,title" });
+  const { pb, workspace } = await requireEditorRole();
+  const scope = contentScopeFilter(workspace);
+  const records = await pb.collection("events").getFullList({ sort: "-date", fields: "id,title", filter: scope || undefined });
   return records.map((record) => ({ id: record.id, title: String(record.title || "") }));
 }
 
@@ -75,7 +94,7 @@ function prepareCommon(data: Partial<BlogFormValues>) {
 }
 
 export async function createAdminBlog(data: BlogFormValues) {
-  const pb = requireEditorRole();
+  const { pb } = await requireEditorRole();
   const content = sanitizeBlogHtml(data.content || "");
   if (data.published && !hasReadableBlogContent(content)) {
     throw new Error("Add article content before publishing this post");
@@ -95,7 +114,7 @@ export async function createAdminBlog(data: BlogFormValues) {
 }
 
 export async function updateAdminBlog(id: string, data: Partial<BlogFormValues>) {
-  const pb = requireEditorRole();
+  const { pb } = await requireEditorRole();
   const existing = await pb.collection("blogs").getOne(id);
   const existingPublished = !!getField(existing, "published", false);
   const existingContent = sanitizeBlogHtml(getField(existing, "content", ""));
@@ -126,6 +145,6 @@ export async function updateAdminBlog(id: string, data: Partial<BlogFormValues>)
 }
 
 export async function deleteAdminBlog(id: string) {
-  const pb = requireEditorRole();
+  const { pb } = await requireEditorRole();
   await pb.collection("blogs").delete(id);
 }

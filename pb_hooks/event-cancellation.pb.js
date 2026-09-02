@@ -20,7 +20,8 @@ routerAdd("POST", "/api/admin/events/{id}/cancel", function (e) {
   var event
   try { event = $app.findRecordById("events", eventId) }
   catch (_) { return e.json(404, { code: "EVENT_NOT_FOUND", error: "Event not found" }) }
-  if (!helpers.mayManageEvent($app, auth, event)) {
+  var authz = require(__hooks + "/workspace-authorization.js")
+  if (!authz.hasEventCapability($app, auth, "events.cancel", event)) {
     return e.json(403, { code: "FORBIDDEN", error: "You cannot cancel this event" })
   }
 
@@ -29,7 +30,7 @@ routerAdd("POST", "/api/admin/events/{id}/cancel", function (e) {
   var reason = String(body.reason || "").trim()
   if (!reason) return e.json(400, { code: "REASON_REQUIRED", error: "A cancellation reason is required" })
 
-  var result = { alreadyCancelled: false, cancelled: 0, refundReview: 0, manualRefundRequired: 0, releasedPending: 0 }
+  var result = { alreadyCancelled: false, cancelled: 0, refundReview: 0, manualRefundRequired: 0, releasedPending: 0, waitlistCancelled: 0 }
   try {
     $app.runInTransaction(function (txApp) {
       var currentEvent = txApp.findRecordById("events", eventId)
@@ -40,7 +41,17 @@ routerAdd("POST", "/api/admin/events/{id}/cancel", function (e) {
       var beforeEvent = helpers.eventPayload(currentEvent)
       currentEvent.set("status", "cancelled")
       currentEvent.set("registrationOpen", false)
+      currentEvent.set("waitlistReservedCount", 0)
       txApp.saveNoValidate(currentEvent)
+      var waitlistRows = txApp.findRecordsByFilter(
+        "event_waitlist", "event = {:eventId} && (status = {:waiting} || status = {:offered})",
+        "", 0, 0, { eventId: eventId, waiting: "waiting", offered: "offered" }
+      )
+      for (var wi = 0; wi < waitlistRows.length; wi++) {
+        waitlistRows[wi].set("status", "cancelled")
+        txApp.saveNoValidate(waitlistRows[wi])
+        result.waitlistCancelled++
+      }
       var registrations = txApp.findRecordsByFilter(
         "registrations", "event = {:eventId} && registrationStatus != {:cancelled}",
         "", 0, 0, { eventId: eventId, cancelled: "cancelled" }
@@ -96,6 +107,7 @@ routerAdd("POST", "/api/admin/events/{id}/cancel", function (e) {
         })
       }
 
+      require(__hooks + "/attendee-lifecycle-helpers.js").reconcileEventWaitlist(txApp, eventId, now)
       helpers.audit(txApp, {
         eventId: eventId,
         actorId: auth.id,

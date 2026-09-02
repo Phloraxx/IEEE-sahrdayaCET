@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 
 const PIXEL = 3;
 
@@ -39,6 +39,7 @@ const PixelGrid: React.FC<{ grid: string[][]; size: number }> = ({ grid, size })
 );
 
 export const FloatingAction: React.FC = () => {
+  const reduceMotion = Boolean(useReducedMotion());
   const [posX, setPosX] = useState(80);
   const posXRef = useRef(80);
   const [action, setAction] = useState<IdleAction>('idle');
@@ -51,13 +52,14 @@ export const FloatingAction: React.FC = () => {
   const walkIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
+    if (reduceMotion) return;
     const blink = () => {
       setIsBlinking(true);
       setTimeout(() => setIsBlinking(false), 120);
     };
     const id = setInterval(blink, 2500 + Math.random() * 3000);
     return () => clearInterval(id);
-  }, []);
+  }, [reduceMotion]);
 
   const pickAction = useCallback((): IdleAction => {
     const actions: IdleAction[] = ['idle', 'walking', 'jumping', 'looking', 'crouching', 'headBob'];
@@ -102,6 +104,7 @@ export const FloatingAction: React.FC = () => {
   }, [stopWalking]);
 
   useEffect(() => {
+    if (reduceMotion) return;
     const scheduleNext = () => {
       const delay = 2000 + Math.random() * 4000;
       actionTimeoutRef.current = setTimeout(() => {
@@ -138,7 +141,7 @@ export const FloatingAction: React.FC = () => {
       stopWalking();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [reduceMotion]);
 
   const getHead = useCallback((): string[][] => {
     const head = HEAD.map(row => [...row]);
@@ -178,9 +181,9 @@ export const FloatingAction: React.FC = () => {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={reduceMotion ? false : { opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 3, duration: 0.8 }}
+      transition={{ delay: reduceMotion ? 0 : 3, duration: reduceMotion ? 0 : 0.8 }}
       className="fixed bottom-2 z-30 pointer-events-none select-none"
       style={{
         left: `${posX}%`,
@@ -197,7 +200,9 @@ export const FloatingAction: React.FC = () => {
           scaleX: facingLeft ? -1 : 1,
         }}
         transition={
-          isJumping
+          reduceMotion
+            ? { duration: 0 }
+            : isJumping
             ? { type: 'spring', stiffness: 500, damping: 14 }
             : { type: 'spring', stiffness: 300, damping: 20 }
         }
@@ -205,14 +210,18 @@ export const FloatingAction: React.FC = () => {
       >
         <motion.div
           animate={
-            isHeadBob
+            reduceMotion
+              ? {}
+              : isHeadBob
               ? { rotate: [0, -6, 6, -4, 0] }
               : isWalking
                 ? { y: [0, -0.5, 0, 0.5, 0] }
                 : {}
           }
           transition={
-            isHeadBob
+            reduceMotion
+              ? { duration: 0 }
+              : isHeadBob
               ? { duration: 1, ease: 'easeInOut' }
               : isWalking
                 ? { repeat: Infinity, duration: 0.3 }
@@ -227,7 +236,7 @@ export const FloatingAction: React.FC = () => {
             className="absolute"
             style={{ left: -PIXEL * 1.5, top: 0, transformOrigin: 'top center' }}
             animate={{ rotate: leftArmAngle }}
-            transition={{ duration: 0.15 }}
+            transition={{ duration: reduceMotion ? 0 : 0.15 }}
           >
             {[0, 1, 2, 3].map(i => (
               <div key={i} style={{ width: PIXEL * 1.5, height: PIXEL, backgroundColor: i < 2 ? '#00629B' : '#f5d5b8' }} />
@@ -237,7 +246,7 @@ export const FloatingAction: React.FC = () => {
             className="absolute"
             style={{ right: -PIXEL * 1.5, top: 0, transformOrigin: 'top center' }}
             animate={{ rotate: rightArmAngle }}
-            transition={{ duration: 0.15 }}
+            transition={{ duration: reduceMotion ? 0 : 0.15 }}
           >
             {[0, 1, 2, 3].map(i => (
               <div key={i} style={{ width: PIXEL * 1.5, height: PIXEL, backgroundColor: i < 2 ? '#00629B' : '#f5d5b8' }} />

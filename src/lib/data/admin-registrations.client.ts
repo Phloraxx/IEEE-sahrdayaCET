@@ -1,6 +1,7 @@
 import { getPbClient } from "@/lib/pb-client";
 import { escapeFilterValue } from "@/lib/pb";
 import { getField } from "@/lib/safe-get";
+import { checkInWorkspaceTicket } from "@/lib/data/workspace.client";
 import {
   runAdminRegistrationCommand,
   type RegistrationAdminAction,
@@ -75,6 +76,7 @@ function mapRegistration(record: Record<string, unknown> & { id: string; expand?
       getField(record, "created", ""),
     eventTitle: getField(event, "title", ""),
     eventId: getField(event, "id", getField(record, "event", "")),
+    eventSocietyId: getField(event, "society", ""),
   };
 }
 
@@ -142,38 +144,10 @@ export async function confirmRegistrationPayment(id: string) {
   return runAdminRegistrationCommand(id, { action: "confirm-payment" });
 }
 
-export async function checkInByTicket(ticketId: string) {
-  const pb = getPbClient();
-  let registration;
-  try {
-    registration = await pb.collection("registrations").getFirstListItem(
-      `ticketId = ${escapeFilterValue(ticketId)}`,
-      { expand: "event", fields: "id,event,registrationStatus,checkedIn,checkedInAt,userName,userEmail,ticketId,expand.event.id,expand.event.title,expand.event.checkInEnabled" },
-    );
-  } catch {
-    throw new Error("Registration not found");
-  }
-  const event = registration.expand?.event as Record<string, unknown> | undefined;
-  if (!event) throw new Error("Event not found");
-  if (!Boolean(event.checkInEnabled)) throw new Error("Check-in is not enabled for this event");
-  if (String(registration.registrationStatus || "") !== "confirmed") throw new Error("Registration is not confirmed");
-  if (Boolean(registration.checkedIn)) throw new Error("Already checked in");
-
-  const result = await runAdminRegistrationCommand(registration.id, { action: "check-in" });
-  return {
-    success: true,
-    message: "Checked in successfully",
-    registration: {
-      id: result.registration.id,
-      userName: result.registration.userName,
-      userEmail: result.registration.userEmail,
-      eventTitle: String(event.title || ""),
-      ticketId,
-      checkedIn: result.registration.checkedIn,
-      checkedInAt: result.registration.checkedInAt,
-    },
-  };
+export async function checkInByTicket(ticketId: string, eventId = "") {
+  return checkInWorkspaceTicket(ticketId.trim(), eventId);
 }
+
 export interface RegistrationNotificationState {
   ticketAvailable: boolean;
   receiptAvailable: boolean;

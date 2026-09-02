@@ -6,11 +6,11 @@ import { Hero } from '@/components/Hero'
 import { StarsBackground } from '@/components/ui/stars-background'
 import { ShootingStars } from '@/components/ui/shooting-stars'
 import { TechnicalDetails } from '@/components/TechnicalDetails'
-import { WhatsHappening } from '@/components/WhatsHappening'
+import { NowAtSahrdaya } from '@/components/home/NowAtSahrdaya'
 import { Execom } from '@/components/Execom'
 import { EventsShowcase } from '@/components/EventsShowcase'
 import Footer from '@/components/Footer'
-import { ContextualBlogLinks } from '@/components/blog/ContextualBlogLinks'
+import { LatestSignals } from '@/components/home/LatestSignals'
 import { FloatingAction } from '@/components/FloatingAction'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { CanonicalLink } from "@/components/CanonicalLink";
@@ -36,8 +36,11 @@ export async function loader(): Promise<HomeData> {
 
 export default function Home() {
   const loaderData = (useLoaderData<typeof loader>() || {}) as HomeData
-  const latestEvent = loaderData.latestEvent ?? null
+  const upcomingEvents = loaderData.upcomingEvents ?? []
+  const upcomingCount = loaderData.upcomingCount ?? 0
   const societies = loaderData.societies ?? []
+  const execomCount = loaderData.execomCount ?? 0
+  const latestBlogs = loaderData.latestBlogs ?? []
 
   return (
     <>
@@ -50,17 +53,17 @@ export default function Home() {
         <ShootingStars starColor="#0099D6" trailColor="#00629b" minDelay={3000} maxDelay={6000} minSpeed={10} maxSpeed={22} starWidth={8} starHeight={1} />
         <div className="relative z-10 h-full">
           <TechnicalDetails />
-          <Hero />
+          <Hero nextEvent={upcomingEvents[0]} upcomingCount={upcomingCount} societyCount={societies.length} />
         </div>
       </div>
       <Navbar />
       <ErrorBoundary>
         <div className="relative z-10 mt-[100dvh]">
-          <WhatsHappening latestEvent={latestEvent} societies={societies} />
-          <Execom />
+          <NowAtSahrdaya events={upcomingEvents} upcomingCount={upcomingCount} societyCount={societies.length} execomCount={execomCount} />
+          <Execom societyCount={societies.length} rosterCount={execomCount} upcomingCount={upcomingCount} />
           {/* Intentionally hardcoded visual showcase; live event data is used above. */}
           <EventsShowcase />
-          <ContextualBlogLinks />
+          <LatestSignals blogs={latestBlogs} />
           <Footer />
         </div>
       </ErrorBoundary>

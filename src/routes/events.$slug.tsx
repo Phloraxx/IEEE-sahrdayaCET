@@ -1,53 +1,73 @@
 import { useEffect, useState } from "react";
 import { Link, useLoaderData, type LoaderFunctionArgs } from "react-router";
+import { toast } from "sonner";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ArrowLeft,
   ArrowRight,
-  CalendarDays,
+  CalendarPlus,
   CheckCircle2,
   ExternalLink,
-  Globe2,
   Clock3,
   ReceiptText,
-  MapPin,
   XCircle,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { EventArtworkPreview } from "@/components/events/EventArtworkPreview";
+import { EventBannerFallback } from "@/components/events/EventBannerFallback";
 import { useAuth } from "@/lib/auth-context";
-import { getMyEventRegistration } from "@/lib/data/public-client";
+import {
+  getEventWaitlist,
+  getMyEventRegistration,
+  joinEventWaitlist,
+  leaveEventWaitlist,
+  type EventWaitlistResponse,
+} from "@/lib/data/public-client";
 import { downloadRegistrationReceipt } from "@/lib/data/receipt.client";
 import type { MyEventRegistration } from "@/lib/registration-state";
 import Footer from "@/components/Footer";
 import { APP_URL } from "@/lib/constants";
 import { blogHtmlToPlainText, sanitizeBlogHtml } from "@/lib/blog-content";
-import { formatDate, formatTime } from "@/lib/dates";
+import { formatAppDateISO, formatDate, formatEventTime, formatYear } from "@/lib/dates";
 import { eventTitleSize, MOTION_DURATION, MOTION_EASE, revealUp } from "@/lib/motion";
-import { getEventAvailability, type EventAvailabilityKind } from "@/lib/event-availability";
+import type { EventAvailabilityKind } from "@/lib/event-availability";
+import { getEventLifecycleSnapshot } from "@/lib/event-lifecycle-snapshot";
 import {
   getEventSocietySlug,
   resolveEventArtwork,
   resolveEventSocialImagePath,
 } from "@/lib/event-artwork";
 import {
-  getEventAttendanceKind,
-  getEventLifecycle,
   getSchemaAttendanceMode,
   getSchemaEventStatus,
 } from "@/lib/event-presentation";
 import {
   fetchEventBySlug,
+  fetchEvents,
   type SerializableEvent,
 } from "@/server/public/events.server";
 
+type EventDetailData = { event: SerializableEvent; related: SerializableEvent[] };
+
 export async function loader({
   params,
-}: LoaderFunctionArgs): Promise<SerializableEvent> {
+}: LoaderFunctionArgs): Promise<EventDetailData> {
   if (!params.slug) throw new Response("Event not found", { status: 404 });
-  const event = await fetchEventBySlug(params.slug);
+  const [event, programme] = await Promise.all([fetchEventBySlug(params.slug), fetchEvents()]);
   if (!event) throw new Response("Event not found", { status: 404 });
-  return event;
+
+  const candidates = programme.filter((item) => item.id !== event.id);
+  const eventTime = new Date(event.date).getTime();
+  const future = candidates.filter((item) => new Date(item.date).getTime() > eventTime);
+  const pool = future.length > 0 ? future : [...candidates].reverse();
+  const sameSociety = event.society?.id
+    ? pool.filter((item) => item.society?.id === event.society?.id)
+    : [];
+  const related = [...sameSociety, ...pool]
+    .filter((item, index, list) => list.findIndex((candidate) => candidate.id === item.id) === index)
+    .slice(0, 3);
+
+  return { event, related };
 }
 
 function resolveEventImage(event: SerializableEvent): string {
@@ -55,29 +75,30 @@ function resolveEventImage(event: SerializableEvent): string {
   return imagePath.startsWith("http") ? imagePath : `${APP_URL}${imagePath}`;
 }
 
-export const meta = ({ data }: { data?: SerializableEvent }) => {
-  if (!data)
+export const meta = ({ data }: { data?: EventDetailData }) => {
+  const event = data?.event;
+  if (!event)
     return [
       { title: "Event not found | IEEE Sahrdaya" },
       { name: "robots", content: "noindex" },
     ];
 
   const description =
-    blogHtmlToPlainText(data.description).slice(0, 160) ||
-    `${data.title} at IEEE Sahrdaya Student Branch.`;
-  const url = `${APP_URL}/events/${data.slug}`;
-  const image = resolveEventImage(data);
+    blogHtmlToPlainText(event.description).slice(0, 160) ||
+    `${event.title} at IEEE Sahrdaya Student Branch.`;
+  const url = `${APP_URL}/events/${event.slug}`;
+  const image = resolveEventImage(event);
 
   return [
-    { title: `${data.title} | IEEE Sahrdaya` },
+    { title: `${event.title} | IEEE Sahrdaya` },
     { name: "description", content: description },
     { property: "og:type", content: "website" },
-    { property: "og:title", content: data.title },
+    { property: "og:title", content: event.title },
     { property: "og:description", content: description },
     { property: "og:url", content: url },
     { property: "og:image", content: image },
     { name: "twitter:card", content: "summary_large_image" },
-    { name: "twitter:title", content: data.title },
+    { name: "twitter:title", content: event.title },
     { name: "twitter:description", content: description },
     { name: "twitter:image", content: image },
   ];
@@ -97,30 +118,75 @@ function toSchemaDate(value: string): string {
 
 function physicalLocation(event: SerializableEvent) {
   const venue = event.venue || "Sahrdaya College of Engineering & Technology";
-  const atSahrdaya = /sahrdaya|kodakara/i.test(venue);
+  const address = event.locationAddress.trim();
+  const atSahrdaya = /sahrdaya|kodakara/i.test(`${venue} ${address}`);
   return {
     "@type": "Place",
     name: venue,
-    ...(atSahrdaya
-      ? {
-          address: {
-            "@type": "PostalAddress",
-            streetAddress: "Sahrdaya College of Engineering & Technology",
-            addressLocality: "Kodakara",
-            addressRegion: "Kerala",
-            postalCode: "680684",
-            addressCountry: "IN",
-          },
-        }
-      : {}),
+    ...(address
+      ? { address }
+      : atSahrdaya
+        ? {
+            address: {
+              "@type": "PostalAddress",
+              streetAddress: "Sahrdaya College of Engineering & Technology",
+              addressLocality: "Kodakara",
+              addressRegion: "Kerala",
+              postalCode: "680684",
+              addressCountry: "IN",
+            },
+          }
+        : {}),
   };
 }
 
+function RelatedEventCard({ event }: { event: SerializableEvent }) {
+  const artwork = resolveEventArtwork(event);
+  const availability = getEventLifecycleSnapshot(event).registration;
+  return (
+    <Link
+      to={`/events/${event.slug}`}
+      className="group grid gap-4 border-t border-black/12 py-5 transition hover:border-[#00629B] sm:grid-cols-[118px_1fr_auto] sm:items-center"
+    >
+      <div className="relative aspect-[4/3] overflow-hidden bg-[#07121f]">
+        {artwork ? (
+          <EventArtworkPreview src={artwork.src} alt={`${event.title} event artwork`} />
+        ) : (
+          <EventBannerFallback
+            title={event.title}
+            societyName={event.society?.name}
+            societySlug={event.society?.slug}
+            showTitle={false}
+          />
+        )}
+      </div>
+      <div className="min-w-0">
+        <p className="text-[8px] font-bold uppercase tracking-[0.18em] text-[#00629B]">
+          {event.society?.name || "IEEE Sahrdaya"}
+        </p>
+        <h3 className="mt-2 text-xl font-semibold leading-[1.02] tracking-[-0.035em] transition group-hover:text-[#00629B]">
+          {event.title}
+        </h3>
+        <p className="mt-2 text-xs leading-5 text-black/45">
+          {formatDate(event.date)} · {formatEventTime(event.date, event.timeTbc)}
+        </p>
+      </div>
+      <div className="flex items-center justify-between gap-3 sm:block sm:text-right">
+        <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/38">{availability.label}</span>
+        <ArrowRight className="h-4 w-4 text-black/25 transition group-hover:translate-x-1 group-hover:text-[#00629B] sm:ml-auto sm:mt-3" />
+      </div>
+    </Link>
+  );
+}
+
 export default function EventDetailPage() {
-  const event = useLoaderData<typeof loader>();
+  const { event, related } = useLoaderData<typeof loader>();
   const { user, status: authStatus } = useAuth();
   const [myRegistration, setMyRegistration] = useState<MyEventRegistration | null>(null);
   const [myRegistrationLoading, setMyRegistrationLoading] = useState(false);
+  const [waitlistState, setWaitlistState] = useState<EventWaitlistResponse | null>(null);
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
+  const [waitlistBusy, setWaitlistBusy] = useState(false);
   const [compactMobileAction, setCompactMobileAction] = useState(false);
   const reduceMotion = Boolean(useReducedMotion());
 
@@ -146,6 +212,47 @@ export default function EventDetailPage() {
     return () => { active = false; };
   }, [authStatus, event.externalFormUrl, event.id, user?.id]);
 
+  useEffect(() => {
+    if (authStatus !== "authenticated" || !user?.id || !event.waitlistEnabled || event.registrationMode !== "internal") {
+      setWaitlistState(null);
+      setWaitlistLoading(false);
+      return;
+    }
+    let active = true;
+    setWaitlistLoading(true);
+    void getEventWaitlist(event.id)
+      .then((state) => { if (active) setWaitlistState(state); })
+      .catch(() => { if (active) setWaitlistState(null); })
+      .finally(() => { if (active) setWaitlistLoading(false); });
+    return () => { active = false; };
+  }, [authStatus, event.id, event.registrationMode, event.waitlistEnabled, user?.id]);
+
+  const refreshWaitlist = async () => {
+    if (!user?.id || !event.waitlistEnabled) return;
+    try { setWaitlistState(await getEventWaitlist(event.id)); } catch { /* keep current state */ }
+  };
+  const joinWaitlist = async () => {
+    setWaitlistBusy(true);
+    try {
+      await joinEventWaitlist(event.id);
+      await refreshWaitlist();
+      toast.success("You joined the waitlist");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not join the waitlist");
+      await refreshWaitlist();
+    } finally { setWaitlistBusy(false); }
+  };
+  const leaveWaitlist = async () => {
+    setWaitlistBusy(true);
+    try {
+      await leaveEventWaitlist(event.id);
+      await refreshWaitlist();
+      toast.success("You left the waitlist");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not leave the waitlist");
+    } finally { setWaitlistBusy(false); }
+  };
+
   const downloadReceipt = () => {
     if (!myRegistration?.registrationId) return;
     void downloadRegistrationReceipt(myRegistration.registrationId).catch(() => undefined);
@@ -159,23 +266,12 @@ export default function EventDetailPage() {
   const eventImageUrl = resolveEventImage(event);
   const eventArtwork = resolveEventArtwork(event);
   const titleSize = eventTitleSize(event.title);
-  const lifecycle = getEventLifecycle(event.status);
-  const attendanceKind = getEventAttendanceKind(event.venue);
-  const hasCapacity =
-    !event.maxCapacity || event.registeredCount < event.maxCapacity;
-  const registrationAvailable =
-    lifecycle === "scheduled" && event.registrationOpen && hasCapacity;
-  const availability = getEventAvailability({
-    status: event.status,
-    date: event.date,
-    endDate: event.endDate,
-    registrationOpen: event.registrationOpen,
-    registrationMode: event.registrationMode,
-    registrationStart: event.registrationStart,
-    registrationDeadline: event.registrationDeadline,
-    maxCapacity: event.maxCapacity,
-    registeredCount: event.registeredCount,
-  });
+  const lifecycle = getEventLifecycleSnapshot(event);
+  const attendanceMode = event.attendanceMode;
+  const registrationAvailable = lifecycle.registration.available;
+  const availability = lifecycle.registration;
+  const waitlistEligible = event.waitlistEnabled && lifecycle.registration.mode === "internal" && availability.kind === "full";
+  const waitlistEntry = waitlistState?.state || null;
   const availabilityClass: Record<EventAvailabilityKind, string> = {
     "opening-soon": "text-[#00629B]",
     open: "text-[#00629B]",
@@ -194,22 +290,23 @@ export default function EventDetailPage() {
         : "Registration closed";
   const virtualLocation = {
     "@type": "VirtualLocation",
-    url: event.externalLink || event.externalFormUrl || canonicalUrl,
+    // Private meeting URLs are intentionally excluded from public event data.
+    url: canonicalUrl,
   };
   const location =
-    attendanceKind === "online"
+    attendanceMode === "online"
       ? virtualLocation
-      : attendanceKind === "hybrid"
+      : attendanceMode === "hybrid"
         ? [physicalLocation(event), virtualLocation]
         : physicalLocation(event);
   const eventSchema = {
     "@context": "https://schema.org",
     "@type": "Event",
     name: event.title,
-    startDate: toSchemaDate(event.date),
-    ...(event.endDate ? { endDate: toSchemaDate(event.endDate) } : {}),
+    startDate: event.timeTbc ? formatAppDateISO(event.date) : toSchemaDate(event.date),
+    ...(event.endDate ? { endDate: event.timeTbc ? formatAppDateISO(event.endDate) : toSchemaDate(event.endDate) } : {}),
     eventStatus: getSchemaEventStatus(event.status),
-    eventAttendanceMode: getSchemaAttendanceMode(event.venue),
+    eventAttendanceMode: getSchemaAttendanceMode({ attendanceMode: event.attendanceMode, venue: event.venue }),
     description: description || undefined,
     image: [eventImageUrl],
     url: canonicalUrl,
@@ -242,7 +339,9 @@ export default function EventDetailPage() {
         : null
     : registrationAvailable
       ? registerUrl
-      : null;
+      : waitlistEligible && waitlistEntry?.status !== "waiting"
+        ? registerUrl
+        : null;
   const actionLabel = myRegistration?.found
     ? myRegistration.paymentRequired
       ? "Continue payment"
@@ -253,7 +352,9 @@ export default function EventDetailPage() {
       ? event.price > 0
         ? `Register · ₹${event.price}`
         : "Register free"
-      : null;
+      : waitlistEligible
+        ? waitlistEntry?.status === "offered" ? "Claim reserved seat" : "Join waitlist"
+        : null;
 
   return (
     <main className="min-h-screen bg-[#f4f2ed] text-[#111315] selection:bg-[#00629B] selection:text-white">
@@ -261,71 +362,77 @@ export default function EventDetailPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJson(eventSchema) }} />
       <Navbar mobileAlign="right" />
 
-      <article className="mx-auto max-w-[1440px] px-5 pb-36 pt-28 sm:px-8 lg:px-12 lg:pb-28 lg:pt-36">
-        <motion.div {...revealUp(reduceMotion, 8)} className="flex items-center justify-between border-b border-black/12 pb-5">
-          <Link to={backHref} className="group inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-black/45 transition hover:text-[#00629B]">
-            <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" /> {backLabel}
-          </Link>
-          <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-black/30">Event / {new Date(event.date).getFullYear()}</span>
-        </motion.div>
+      <section data-testid="event-programme-hero" className="relative overflow-hidden bg-[#07121f] text-[#f4f2ed]">
+        <div className="pointer-events-none absolute inset-0 opacity-[0.22] [background-image:linear-gradient(rgba(255,255,255,.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.05)_1px,transparent_1px)] [background-size:72px_72px]" />
+        <div className="relative mx-auto max-w-[1440px] px-5 pb-10 pt-28 sm:px-8 sm:pb-12 lg:px-12 lg:pt-36">
+          <motion.div {...revealUp(reduceMotion, 8)} className="flex items-center justify-between border-b border-white/15 pb-5">
+            <Link to={backHref} className="group inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-white/55 transition hover:text-[#58c6ff]">
+              <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" /> {backLabel}
+            </Link>
+            <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/38">Programme / {formatYear(event.date)}</span>
+          </motion.div>
 
-        <header className="grid gap-10 border-b border-black/12 py-10 md:grid-cols-12 md:gap-8 md:py-16 lg:py-20">
-          <div className="md:col-span-8 lg:col-span-9">
-            {event.society && (
-              <motion.div {...revealUp(reduceMotion, 8)} transition={{ duration: reduceMotion ? 0 : MOTION_DURATION.ui, ease: MOTION_EASE, delay: reduceMotion ? 0 : 0.06 }}>
-                <Link to={`/societies/${event.society.slug}`} className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#00629B] hover:underline">
-                  {event.society.name}
-                </Link>
-              </motion.div>
-            )}
-            <div className="mt-4 overflow-hidden pb-[0.08em]">
-              <motion.h1
-                initial={reduceMotion ? false : { y: "108%", opacity: 0.25 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: reduceMotion ? 0 : 0.62, ease: MOTION_EASE, delay: reduceMotion ? 0 : 0.08 }}
-                className={`max-w-6xl ${titleSize} font-semibold leading-[0.88] tracking-[-0.07em] text-[#111315]`}
-              >
-                {event.title}
-              </motion.h1>
+          <header className="grid gap-10 py-10 md:grid-cols-12 md:items-end md:gap-8 md:py-14 lg:py-16">
+            <div className="md:col-span-7 lg:col-span-8">
+              {event.society ? (
+                <motion.div {...revealUp(reduceMotion, 8)} transition={{ duration: reduceMotion ? 0 : MOTION_DURATION.ui, ease: MOTION_EASE, delay: reduceMotion ? 0 : 0.06 }}>
+                  <Link to={`/societies/${event.society.slug}`} className="text-[9px] font-bold uppercase tracking-[0.22em] text-[#58c6ff] transition hover:text-white">
+                    {event.society.name}
+                  </Link>
+                </motion.div>
+              ) : <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-[#58c6ff]">IEEE Sahrdaya</p>}
+              <div className="mt-5 overflow-hidden pb-[0.09em]">
+                <motion.h1
+                  initial={reduceMotion ? false : { y: "108%", opacity: 0.25 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: reduceMotion ? 0 : 0.62, ease: MOTION_EASE, delay: reduceMotion ? 0 : 0.08 }}
+                  className={`max-w-5xl ${titleSize} font-semibold leading-[0.88] tracking-[-0.07em] text-[#f4f2ed]`}
+                >
+                  {event.title}
+                </motion.h1>
+              </div>
+              <p className="mt-6 max-w-2xl text-sm leading-6 text-white/48 sm:text-base">
+                {description || "Event details from the IEEE Sahrdaya programme."}
+              </p>
             </div>
+
+            <motion.div {...revealUp(reduceMotion, 12)} className="md:col-span-5 lg:col-span-4">
+              <div className="relative aspect-[4/3] overflow-hidden border border-white/12 bg-black/20 md:aspect-[4/5]">
+                {eventArtwork ? (
+                  <EventArtworkPreview src={eventArtwork.src} alt={`${event.title} event artwork`} />
+                ) : (
+                  <EventBannerFallback
+                    title={event.title}
+                    societyName={event.society?.name}
+                    societySlug={event.society?.slug}
+                    showTitle={false}
+                  />
+                )}
+              </div>
+              <div className="mt-3 flex items-center justify-between text-[8px] font-bold uppercase tracking-[0.18em] text-white/35">
+                <span>Event record / {formatYear(event.date)}</span>
+                <span>{eventArtwork ? "Official artwork" : "Programme identity"}</span>
+              </div>
+            </motion.div>
+          </header>
+
+          <div className="grid border-y border-white/15 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              ["Date", formatDate(event.date)],
+              ["Time", formatEventTime(event.date, event.timeTbc)],
+              ["Venue", event.attendanceMode === "online" ? "Online" : event.venue || "Sahrdaya College of Engineering & Technology"],
+              ["Entry / status", `${event.price > 0 ? `₹${event.price}` : "Free"} · ${availability.label}`],
+            ].map(([label, value], index) => (
+              <div key={String(label)} className={`min-w-0 py-5 sm:px-5 ${index > 0 ? "sm:border-l sm:border-white/10" : ""} ${index > 1 ? "border-t border-white/10 lg:border-t-0" : index === 1 ? "border-t border-white/10 sm:border-t-0" : ""}`}>
+                <p className="text-[8px] font-bold uppercase tracking-[0.18em] text-white/32">{label}</p>
+                <p className="mt-2 line-clamp-2 text-sm font-semibold leading-snug text-white/82">{value}</p>
+              </div>
+            ))}
           </div>
+        </div>
+      </section>
 
-          <motion.div
-            initial={reduceMotion ? false : "hidden"}
-            animate="show"
-            variants={{ show: { transition: { staggerChildren: reduceMotion ? 0 : 0.07, delayChildren: reduceMotion ? 0 : 0.18 } } }}
-            className="grid grid-cols-2 gap-x-6 gap-y-7 border-t border-black/12 pt-6 md:col-span-4 md:grid-cols-1 md:border-l md:border-t-0 md:pl-7 md:pt-1 lg:col-span-3"
-          >
-            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0, transition: { duration: MOTION_DURATION.ui, ease: MOTION_EASE } } }}>
-              <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">When</p>
-              <p className="mt-2 text-base font-semibold leading-tight">{formatDate(event.date)}</p>
-              <p className="mt-1 text-sm text-black/45">{formatTime(event.date)}</p>
-            </motion.div>
-            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0, transition: { duration: MOTION_DURATION.ui, ease: MOTION_EASE } } }}>
-              <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Where</p>
-              <p className="mt-2 text-sm font-semibold leading-snug">{event.venue || "Sahrdaya College of Engineering & Technology"}</p>
-            </motion.div>
-            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0, transition: { duration: MOTION_DURATION.ui, ease: MOTION_EASE } } }}>
-              <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Entry</p>
-              <p className="mt-2 text-2xl font-semibold tracking-[-0.04em]">{event.price > 0 ? `₹${event.price}` : "Free"}</p>
-            </motion.div>
-            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0, transition: { duration: MOTION_DURATION.ui, ease: MOTION_EASE } } }}>
-              <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Availability</p>
-              <p className={`mt-2 text-sm font-semibold ${availabilityClass[availability.kind]}`}>{availability.label}</p>
-            </motion.div>
-          </motion.div>
-        </header>
-
-        {eventArtwork && (
-          <motion.div {...revealUp(reduceMotion, 12)} className="border-b border-black/12 py-8 md:py-12">
-            <EventArtworkPreview
-              src={eventArtwork.src}
-              alt={`${event.title} event artwork`}
-              mode="bounded"
-            />
-          </motion.div>
-        )}
-
+      <article className="mx-auto max-w-[1440px] px-5 pb-36 sm:px-8 lg:px-12 lg:pb-28">
         <div className="grid gap-14 py-12 md:py-16 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-20 lg:py-20">
           <div className="min-w-0">
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#00629B]">About the event</p>
@@ -335,24 +442,16 @@ export default function EventDetailPage() {
               <p className="mt-6 max-w-2xl text-lg leading-8 text-black/55">Full event details will be added here by the organising society.</p>
             )}
 
-            <div className="mt-14 grid gap-8 border-y border-black/12 py-8 sm:grid-cols-2">
-              <div>
-                <CalendarDays className="h-5 w-5 text-[#00629B]" />
-                <p className="mt-4 text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Date & time</p>
-                <p className="mt-2 font-semibold">{formatDate(event.date)} · {formatTime(event.date)}</p>
-              </div>
-              <div>
-                {attendanceKind === "online" ? <Globe2 className="h-5 w-5 text-[#00629B]" /> : <MapPin className="h-5 w-5 text-[#00629B]" />}
-                <p className="mt-4 text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Location</p>
-                <p className="mt-2 font-semibold leading-snug">{event.venue || "Sahrdaya College of Engineering & Technology"}</p>
-              </div>
-            </div>
-
-            {event.externalLink && (
-              <a href={event.externalLink} target="_blank" rel="noopener noreferrer" className="group mt-8 inline-flex items-center gap-2 text-sm font-bold text-[#00629B]">
-                Open event link <ExternalLink className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+            <div className="mt-8 flex flex-wrap items-center gap-5">
+              <a href={`/events/${event.slug}/calendar.ics`} className="group inline-flex min-h-11 items-center gap-2 text-sm font-bold text-[#00629B]">
+                Add to calendar <CalendarPlus className="h-4 w-4 transition-transform group-hover:-translate-y-0.5" />
               </a>
-            )}
+              {event.externalLink && (
+                <a href={event.externalLink} target="_blank" rel="noopener noreferrer" className="group inline-flex min-h-11 items-center gap-2 text-sm font-bold text-[#00629B]">
+                  Open event link <ExternalLink className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                </a>
+              )}
+            </div>
           </div>
 
           <aside className="h-fit border-t border-black/15 pt-6 lg:sticky lg:top-28">
@@ -386,13 +485,13 @@ export default function EventDetailPage() {
                   {myRegistration.receiptAvailable && <button type="button" onClick={downloadReceipt} className="mt-4 inline-flex items-center gap-2 text-xs font-bold text-black/50 hover:text-[#00629B]"><ReceiptText className="h-4 w-4" /> Payment receipt</button>}
                 </>
               ) : null
-            ) : lifecycle === "completed" ? (
+            ) : lifecycle.phase === "completed" ? (
               <>
                 <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Event status</p>
                 <h2 className="mt-3 text-4xl font-semibold tracking-[-0.055em]">Completed.</h2>
                 <p className="mt-4 text-sm leading-6 text-black/50">Held on {formatDate(event.date)} and preserved in the programme archive.</p>
               </>
-            ) : lifecycle === "cancelled" ? (
+            ) : lifecycle.phase === "cancelled" ? (
               <>
                 <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-rose-700">Event status</p>
                 <div className="mt-5 flex items-center gap-2 font-bold text-rose-700"><XCircle className="h-5 w-5" /> Event cancelled</div>
@@ -412,12 +511,53 @@ export default function EventDetailPage() {
                   ) : (
                     <Link to={registerUrl} className="group mt-7 hidden w-full items-center justify-between border-y border-[#00629B] py-4 text-lg font-bold text-[#00629B] lg:flex">Reserve your place <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" /></Link>
                   )
+                ) : waitlistEligible ? (
+                  authStatus === "authenticated" && waitlistLoading ? (
+                    <div className="mt-7 border-y border-black/12 py-4 text-sm font-semibold text-black/40">Checking waitlist…</div>
+                  ) : waitlistEntry?.status === "offered" ? (
+                    <div className="mt-7 border-y border-emerald-600/30 py-4">
+                      <p className="text-sm font-bold text-emerald-800">A seat is reserved for you.</p>
+                      {waitlistEntry.offerExpiresAt && <p className="mt-1 text-xs text-emerald-800/70">Complete registration before the offer expires.</p>}
+                      <Link to={registerUrl} className="group mt-4 flex items-center justify-between font-bold text-[#00629B]">Claim reserved seat <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></Link>
+                    </div>
+                  ) : waitlistEntry?.status === "waiting" ? (
+                    <div className="mt-7 border-y border-[#00629B]/25 py-4">
+                      <p className="text-sm font-bold text-[#00629B]">You’re on the waitlist{waitlistEntry.position > 0 ? ` · position ${waitlistEntry.position}` : ""}.</p>
+                      <p className="mt-1 text-xs leading-5 text-black/45">When a place opens, it is temporarily reserved before the next person is considered.</p>
+                      <button type="button" disabled={waitlistBusy} onClick={() => void leaveWaitlist()} className="mt-3 min-h-10 text-xs font-bold text-black/40 transition hover:text-rose-700 disabled:opacity-40">{waitlistBusy ? "Updating…" : "Leave waitlist"}</button>
+                    </div>
+                  ) : authStatus === "authenticated" ? (
+                    <div className="mt-7 border-y border-black/12 py-4">
+                      <p className="text-sm font-bold text-black/55">All seats are reserved.</p>
+                      <p className="mt-1 text-xs leading-5 text-black/42">Join the waitlist and a released seat will be held for you before anyone else can register into it.</p>
+                      <button type="button" disabled={waitlistBusy} onClick={() => void joinWaitlist()} className="group mt-4 flex w-full items-center justify-between font-bold text-[#00629B] disabled:opacity-40">{waitlistBusy ? "Joining…" : "Join waitlist"}{!waitlistBusy && <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />}</button>
+                    </div>
+                  ) : (
+                    <Link to={registerUrl} className="group mt-7 flex w-full items-center justify-between border-y border-[#00629B] py-4 font-bold text-[#00629B]">Sign in to join waitlist <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></Link>
+                  )
                 ) : <div className="mt-7 border-y border-black/12 py-4 text-sm font-bold text-black/40">{unavailableRegistrationLabel}</div>}
-                <p className="mt-5 text-xs leading-5 text-black/40">{event.price > 0 ? "Your place is confirmed only after payment is captured." : "Free registration creates your ticket immediately."}</p>
+                <p className="mt-5 text-xs leading-5 text-black/40">{waitlistEligible ? "Waitlist offers reserve capacity for one attendee at a time." : event.price > 0 ? "Your place is confirmed only after payment is captured." : "Free registration creates your ticket immediately."}</p>
               </>
             )}
           </aside>
         </div>
+
+        {related.length > 0 && (
+          <section data-testid="related-events" className="border-t border-black/12 pb-6 pt-8 sm:pt-10">
+            <div className="grid gap-6 lg:grid-cols-12 lg:items-end">
+              <div className="lg:col-span-7">
+                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#00629B]">Continue through the programme</p>
+                <h2 className="mt-3 text-4xl font-semibold leading-[0.95] tracking-[-0.055em] sm:text-5xl">More from the programme.</h2>
+              </div>
+              <div className="lg:col-span-5 lg:text-right">
+                <Link to="/events" className="group inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-black/55 transition hover:text-[#00629B]">
+                  Browse full programme <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
+                </Link>
+              </div>
+            </div>
+            <div className="mt-7">{related.map((item) => <RelatedEventCard key={item.id} event={item} />)}</div>
+          </section>
+        )}
       </article>
 
       {actionHref && actionLabel && !myRegistration?.manualReview && (

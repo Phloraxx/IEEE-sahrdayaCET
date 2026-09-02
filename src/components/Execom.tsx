@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { Link } from "react-router";
-import { Users, ArrowUpRight, Globe2, Mail, Phone } from "lucide-react";
+import { ArrowUpRight, Globe2, Mail, Phone } from "lucide-react";
+import { HomeSectionHeading } from "@/components/home/HomeSectionHeading";
 import { Linkedin } from "@/components/icons";
 
 /* ── Member type ── */
@@ -89,13 +90,15 @@ const execomMembers: Member[] = [
 
 /* ── Marquee Text ── */
 const MarqueeText: React.FC<{ text: string }> = ({ text }) => {
+  const reduceMotion = Boolean(useReducedMotion());
   const repeated = `${text} ~ `.repeat(12);
+  const displayText = reduceMotion ? text : repeated;
   return (
     <div className="overflow-hidden whitespace-nowrap">
       <motion.div
         className="inline-block"
-        animate={{ x: ["0%", "-50%"] }}
-        transition={{
+        animate={reduceMotion ? undefined : { x: ["0%", "-50%"] }}
+        transition={reduceMotion ? undefined : {
           x: {
             repeat: Infinity,
             repeatType: "loop",
@@ -105,7 +108,7 @@ const MarqueeText: React.FC<{ text: string }> = ({ text }) => {
         }}
       >
         <span className="text-[10px] md:text-xs font-mono tracking-[0.3em] text-ieee-blue/60 uppercase">
-          {repeated}
+          {displayText}
         </span>
       </motion.div>
     </div>
@@ -119,14 +122,15 @@ const MemberCard: React.FC<{ member: Member; index: number }> = ({
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [imgError, setImgError] = useState(false);
+  const reduceMotion = Boolean(useReducedMotion());
 
   return (
     <motion.div
       className="flex flex-col group cursor-pointer"
-      initial={{ opacity: 0, y: 60 }}
-      whileInView={{ opacity: 1, y: 0 }}
+      initial={reduceMotion ? false : { opacity: 0, y: 60 }}
+      whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-50px" }}
-      transition={{
+      transition={reduceMotion ? { duration: 0 } : {
         duration: 0.7,
         delay: index * 0.12,
         ease: [0.2, 0.65, 0.3, 0.9],
@@ -169,8 +173,10 @@ const MemberCard: React.FC<{ member: Member; index: number }> = ({
         <motion.div
           className="absolute bottom-4 left-4 right-4 z-20 flex items-center justify-between"
           initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: isHovered ? 1 : 0, y: isHovered ? 0 : 20 }}
-          transition={{ duration: 0.3 }}
+          animate={reduceMotion
+            ? { opacity: isHovered ? 1 : 0, y: 0 }
+            : { opacity: isHovered ? 1 : 0, y: isHovered ? 0 : 20 }}
+          transition={{ duration: reduceMotion ? 0 : 0.3 }}
         >
           <div className="flex gap-2">
             <a
@@ -237,6 +243,7 @@ const GAP = 30;
 const ITEM_SIZE = CARD_WIDTH + GAP;
 
 const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
+  const reduceMotion = Boolean(useReducedMotion());
   const trackRef = useRef<HTMLDivElement>(null);
   const offsetRef = useRef(0);
   const rafRef = useRef<number>(0);
@@ -254,7 +261,7 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
   });
 
   const animate = useCallback(() => {
-    if (!trackRef.current) return;
+    if (reduceMotion || !trackRef.current) return;
 
     if (!document.hidden) {
       if (!physics.current.isDragging) {
@@ -285,14 +292,16 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
     }
 
     rafRef.current = requestAnimationFrame(animate);
-  }, [isInView, hasStartedScrolling, members.length]);
+  }, [isInView, hasStartedScrolling, members.length, reduceMotion]);
 
   useEffect(() => {
+    if (reduceMotion) return;
     rafRef.current = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [animate]);
+  }, [animate, reduceMotion]);
 
   useEffect(() => {
+    if (reduceMotion) return;
     const element = sectionRef.current;
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -312,9 +321,10 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
         observer.unobserve(element);
       }
     };
-  }, []);
+  }, [reduceMotion]);
 
   useEffect(() => {
+    if (reduceMotion) return;
     if (isInView && !hasStartedScrolling) {
       const timer = setTimeout(() => {
         setHasStartedScrolling(true);
@@ -324,7 +334,7 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
     } else if (!isInView) {
       setHasStartedScrolling(false);
     }
-  }, [isInView, hasStartedScrolling]);
+  }, [isInView, hasStartedScrolling, reduceMotion]);
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
@@ -364,6 +374,20 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
 
   if (!members.length) return null;
 
+  if (reduceMotion) {
+    return (
+      <div ref={sectionRef} data-home-execom-static className="w-full overflow-x-auto py-4 [scrollbar-width:thin]">
+        <div className="flex min-w-max" style={{ gap: `${GAP}px` }}>
+          {members.map((member, index) => (
+            <div key={member.name} className="shrink-0" style={{ width: `${CARD_WIDTH}px` }}>
+              <MemberCard member={member} index={index} />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div ref={sectionRef} className="relative w-full select-none">
       <div
@@ -376,6 +400,7 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
       >
         <div
           ref={trackRef}
+          data-home-execom-track
           className="flex will-change-transform"
           style={{ gap: `${GAP}px` }}
         >
@@ -395,111 +420,57 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
 };
 
 /* ── Main Execom Section ── */
-export const Execom: React.FC = () => {
+export const Execom: React.FC<{ societyCount: number; rosterCount: number; upcomingCount: number }> = ({ societyCount, rosterCount, upcomingCount }) => {
+  const reduceMotion = Boolean(useReducedMotion());
   const membersList = execomMembers;
 
   return (
     <section
-      className="bg-white py-20 md:py-32 relative overflow-hidden"
+      className="bg-white pt-14 pb-20 md:pt-16 md:pb-24 relative overflow-hidden"
       id="execom"
     >
       <div className="absolute top-0 left-0 w-full h-px bg-gray-200" />
       <div className="absolute -top-20 -right-20 w-64 h-64 bg-ieee-blue/5 rounded-full blur-3xl" />
       <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-ieee-blue/5 rounded-full blur-3xl" />
 
-      <div className="container mx-auto px-4 relative z-10">
-        {/* Header */}
-        <div className="mb-16 md:mb-20">
-          <div className="flex items-center space-x-2 mb-6">
-            <Users className="w-5 h-5 text-ieee-blue" />
-            <h3 className="font-pixel text-lg md:text-xl text-gray-800">
-              THE EXECOM
-            </h3>
-            <div className="h-px grow bg-gray-300 ml-4" />
-          </div>
+      <div className="mx-auto max-w-[1320px] px-5 sm:px-6 lg:px-10 relative z-10">
+        <HomeSectionHeading
+          index="02"
+          label="The people"
+          title={<>Meet the people<br /><span className="text-ieee-blue">behind the vision.</span></>}
+          description="The executive committee coordinating the branch, its communities and the work that happens between them."
+          action={<Link to="/full-execom" className="group inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-gray-700 transition hover:text-ieee-blue">View full Execom <ArrowUpRight className="h-4 w-4 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" /></Link>}
+        />
 
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.8 }}
-            >
-              <h2 className="text-3xl md:text-5xl lg:text-6xl font-bold text-gray-900 tracking-tight leading-[1.1]">
-                Meet the people
-                <br />
-                <span className="text-ieee-blue">behind the vision.</span>
-              </h2>
-            </motion.div>
-
-            <motion.p
-              className="text-sm md:text-base text-gray-500 max-w-sm font-mono"
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.3, duration: 0.8 }}
-            >
-              The executive committee driving innovation, collaboration, and
-              excellence at IEEE Sahrdaya SB.
-            </motion.p>
-          </div>
-        </div>
-
-        {/* Stats */}
         <motion.div
-          className="grid grid-cols-3 gap-4 mb-16 md:mb-20 border-y border-gray-200 py-8"
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
+          className="mt-10 mb-12 grid grid-cols-3 border-y border-gray-200 md:mb-14"
+          initial={reduceMotion ? false : { opacity: 0 }}
+          whileInView={reduceMotion ? undefined : { opacity: 1 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: reduceMotion ? 0 : 0.6 }}
         >
-          <div className="text-center md:text-left">
-            <div className="font-mono text-[10px] tracking-[0.3em] text-gray-400 uppercase mb-1">
-              Roster
+          {[
+            ["Roster", rosterCount],
+            ["Societies", societyCount],
+            ["Upcoming", upcomingCount],
+          ].map(([label, value], index) => (
+            <div key={String(label)} className={`py-5 text-center md:py-6 ${index > 0 ? "border-l border-gray-200" : ""}`}>
+              <div className="font-mono text-[8px] font-semibold uppercase tracking-[0.2em] text-gray-400 sm:text-[9px]">{label}</div>
+              <div className="mt-2 font-pixel text-xl text-gray-900 sm:text-2xl md:text-3xl">{String(value).padStart(2, "0")}</div>
             </div>
-            <div className="font-bold text-2xl md:text-4xl text-gray-900">
-              80
-            </div>
-          </div>
-          <div className="text-center">
-            <div className="font-mono text-[10px] tracking-[0.3em] text-gray-400 uppercase mb-1">
-              Events Led
-            </div>
-            <div className="font-bold text-2xl md:text-4xl text-gray-900">
-              100+
-            </div>
-          </div>
-          <div className="text-center md:text-right">
-            <div className="font-mono text-[10px] tracking-[0.3em] text-gray-400 uppercase mb-1">
-              Societies
-            </div>
-            <div className="font-bold text-2xl md:text-4xl text-gray-900">
-              14
-            </div>
-          </div>
+          ))}
         </motion.div>
 
         {/* Carousel */}
         <DragCarousel members={membersList} />
 
-        {/* View Full Execom */}
-        <div className="mt-12 flex justify-center">
-          <Link
-            to="/full-execom"
-            className="group relative inline-flex items-center justify-center px-8 py-3 font-mono text-sm uppercase tracking-widest text-white transition-all duration-300 bg-ieee-blue/90 hover:bg-ieee-blue rounded-full"
-          >
-            <span>View Full Execom</span>
-            <ArrowUpRight className="ml-2 w-4 h-4 transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1" />
-          </Link>
-        </div>
-
         {/* CTA */}
         <motion.div
-          className="mt-16 md:mt-24 flex flex-col md:flex-row items-center justify-center gap-4 text-center"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
+          className="mt-12 md:mt-16 flex flex-col md:flex-row items-center justify-center gap-4 text-center"
+          initial={reduceMotion ? false : { opacity: 0, y: 20 }}
+          whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: reduceMotion ? 0 : 0.6 }}
         >
           <div className="h-px w-16 bg-gray-300 hidden md:block" />
           <p className="font-mono text-xs text-gray-400 tracking-[0.2em] uppercase">

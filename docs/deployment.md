@@ -24,6 +24,7 @@ Required environment values:
 DEPLOY_ENV=production|staging
 SITE_URL=https://...
 PB_ENCRYPTION_KEY=<32-character high-entropy key>
+CERTIFICATE_RENDER_CAPABILITY_KEY=<32+ character high-entropy key, unique per environment>
 ```
 
 Optional backend integrations are configured only where enabled:
@@ -40,9 +41,41 @@ SMTP_PORT
 SMTP_USERNAME
 SMTP_PASSWORD
 SMTP_FROM
+CERTIFICATE_MAIL_PROVIDER=smtp|resend
+RESEND_API_KEY
+RESEND_FROM
+RESEND_WEBHOOK_SECRET
+CERTIFICATE_MAIL_WEBHOOK_CAPABILITY_KEY
 ```
 
 Never reuse a production encryption key, OAuth application, payment secret, SMTP credential, or `pb_data` volume in staging.
+
+## Certificate mail production readiness
+
+Certificate issuance and certificate mail delivery are separate operations. Before enabling bulk Send, confirm the admin **Send & delivery** panel reports the environment as mail-ready.
+
+The certificate platform can be deployed while outbound mail is intentionally disabled. The safe production release configuration is:
+
+```text
+MAIL_DELIVERY_MODE=disabled
+```
+
+With delivery disabled, certificate Issue/verification/rendering can operate, while Send/Retry remain blocked before creating certificate outbox jobs and the background notification worker leaves existing outbox intents untouched. `CERTIFICATE_MAIL_PROVIDER` and SMTP transport readiness are not release prerequisites while mail remains disabled.
+
+If live certificate email is explicitly authorized later, the selected production transport is SMTP and requires PocketBase SMTP/sender settings plus:
+
+```text
+CERTIFICATE_MAIL_PROVIDER=smtp
+MAIL_DELIVERY_MODE=live
+```
+
+The readiness API/UI then checks the delivery safety mode and actual PocketBase SMTP/sender configuration. A successful SMTP handoff is shown as **accepted only** because SMTP acceptance is not proof that the recipient inbox ultimately delivered the message.
+
+Resend support remains available as an optional future provider for webhook-confirmed delivered/bounced states. If it is ever enabled, its API key, From address, webhook signing secret, and certificate-mail webhook capability must be configured together; `RESEND_WEBHOOK_CONFIGURED` is derived by Compose and must not be set manually.
+
+Before production mail is enabled, verify the sending domain in the provider and confirm DKIM, return-path SPF/MX, and DMARC are published. Start DMARC monitoring with a non-enforcing policy such as `v=DMARC1; p=none;`, then tighten the policy only after observing legitimate traffic and alignment.
+
+Staging must never use `MAIL_DELIVERY_MODE=live`; use `disabled`, `redirect`, or a tightly controlled `allowlist` for test delivery.
 
 ## Routing and networks
 

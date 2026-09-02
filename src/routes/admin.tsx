@@ -1,4 +1,5 @@
-import { Outlet, useLocation, useNavigation } from "react-router";
+import { Navigate, Outlet, useLocation, useNavigation } from "react-router";
+import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AdminGuard } from "@/components/admin/admin-guard";
 import { AdminSidebar } from "@/components/admin/admin-sidebar";
@@ -6,6 +7,8 @@ import { AdminTopbar } from "@/components/admin/admin-topbar";
 import { PageTransition } from "@/components/admin/page-transition";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
+import { getWorkspaceMe } from "@/lib/data/workspace.client";
+import { canAccessWorkspacePath, preferredWorkspacePath } from "@/lib/workspace-permissions";
 
 
 export const meta = () => [
@@ -43,12 +46,20 @@ function useTheme() {
 
 export default function AdminLayout() {
   const { user } = useAuth();
+  const workspace = useQuery({
+    queryKey: ["workspace-me", user?.id],
+    queryFn: getWorkspaceMe,
+    enabled: Boolean(user?.id),
+    staleTime: 30_000,
+  });
   const location = useLocation();
   const navigation = useNavigation();
   const isNavigating = navigation.state !== "idle";
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { theme, toggle } = useTheme();
   const openTriggerRef = useRef<HTMLElement | null>(null);
+  const routeAllowed = workspace.data ? canAccessWorkspacePath(workspace.data, location.pathname) : true;
+  const fallbackPath = workspace.data ? preferredWorkspacePath(workspace.data) : "/";
 
   // Escape-to-close + body scroll lock when the mobile drawer is open
   useEffect(() => {
@@ -79,7 +90,7 @@ export default function AdminLayout() {
 
   return (
     <AdminGuard>
-      <div className="vh-admin flex vh-h-screen-dynamic overflow-hidden bg-background text-foreground">
+      {!routeAllowed ? <Navigate to={fallbackPath} replace /> : <div className="vh-admin flex w-full min-w-0 vh-h-screen-dynamic overflow-hidden bg-background text-foreground">
         {/* Skip-to-main link — keyboard only */}
         <a
           href="#primary-content"
@@ -88,30 +99,32 @@ export default function AdminLayout() {
           Skip to main content
         </a>
 
-        <AdminSidebar
+        {workspace.data && <AdminSidebar
           open={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
           userRole={user?.role ?? ""}
           userEmail={user?.email ?? undefined}
+          workspace={workspace.data}
           theme={theme}
           onThemeToggle={toggle}
-        />
+        />}
 
-        <div className="flex flex-1 flex-col lg:pl-64">
-          <AdminTopbar
+        <div className="flex min-w-0 flex-1 flex-col lg:pl-64">
+          {workspace.data && <AdminTopbar
             onOpenSidebar={openSidebar}
             sidebarOpen={sidebarOpen}
             isNavigating={isNavigating}
-          />
+            workspace={workspace.data}
+          />}
 
           <main
             id="primary-content"
             tabIndex={-1}
-            className="flex-1 overflow-y-auto focus:outline-none"
+            className="min-w-0 flex-1 overflow-y-auto focus:outline-none"
           >
             <div
               className={cn(
-                "mx-auto w-full max-w-[1600px] px-4 py-5 sm:px-5 sm:py-6 md:px-6 md:py-7 transition-opacity duration-300 ease-out",
+                "mx-auto w-full min-w-0 max-w-[1600px] px-4 py-5 sm:px-5 sm:py-6 md:px-6 md:py-7 transition-opacity duration-300 ease-out",
                 isNavigating ? "opacity-60" : "opacity-100",
               )}
             >
@@ -121,7 +134,7 @@ export default function AdminLayout() {
             </div>
           </main>
         </div>
-      </div>
+      </div>}
     </AdminGuard>
   );
 }

@@ -1,9 +1,11 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { RecordModel } from "pocketbase";
+import { useQueryClient } from "@tanstack/react-query";
 import type { AuthUser } from "@/types";
 import { USER_ROLES, type UserRole } from "@/lib/constants";
 import { getPbClient } from "@/lib/pb-client";
 import { logError } from "./logger";
+import { STAGING_STATIC_AUTH_KEY } from "@/lib/staging-auth";
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -40,6 +42,7 @@ function mapUser(record: RecordModel | null): AuthUser | null {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [status, setStatus] = useState<AuthContextValue["status"]>("loading");
 
@@ -47,23 +50,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const pb = getPbClient();
     const sync = () => {
       const next = mapUser(pb.authStore.record);
-      setUser(next);
+      setUser((previous) => {
+        if (previous?.id !== next?.id || previous?.role !== next?.role) {
+          void queryClient.invalidateQueries({ queryKey: ["workspace-me"] });
+        }
+        return next;
+      });
       setStatus(next && pb.authStore.isValid ? "authenticated" : "unauthenticated");
     };
 
     const unsubscribe = pb.authStore.onChange(sync, true);
 
     if (pb.authStore.isValid) {
-      void pb.collection("users").authRefresh().catch((error) => {
+      const stagingStatic = window.location.hostname === "staging.ieeesahrdaya.com" &&
+        window.localStorage.getItem(STAGING_STATIC_AUTH_KEY) === "1";
+      if (stagingStatic) sync();
+      else void pb.collection("users").authRefresh().catch((error) => {
         logError("auth-refresh", error);
         pb.authStore.clear();
       });
     } else {
+      window.localStorage.removeItem(STAGING_STATIC_AUTH_KEY);
       sync();
     }
 
     return unsubscribe;
-  }, []);
+  }, [queryClient]);
 
   const signIn = useCallback(() => {
     // Keep the initial call synchronous with the click event so Safari does not block the OAuth popup.
@@ -75,6 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(() => {
     const pb = getPbClient();
+    window.localStorage.removeItem(STAGING_STATIC_AUTH_KEY);
     pb.authStore.clear();
     setUser(null);
     setStatus("unauthenticated");

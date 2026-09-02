@@ -3,6 +3,7 @@ import { escapeFilterValue } from "@/lib/pb";
 import { MS_PER_DAY, RECENT_WINDOW_DAYS, UPCOMING_WINDOW_DAYS } from "@/lib/constants";
 import { getAppDayBounds, toIso } from "@/lib/dates";
 import { getField } from "@/lib/safe-get";
+import { getWorkspaceMe } from "@/lib/data/workspace.client";
 
 export interface AdminStats {
   events: { total: number; published: number; upcoming: number; live: number; recentlyCompleted: number };
@@ -17,39 +18,51 @@ export interface AdminStats {
 export async function getAdminStats(): Promise<AdminStats> {
   const pb = getPbClient();
   const role = String(pb.authStore.record?.role || "");
-  if (role !== "admin" && role !== "chair") throw new Error("Admin or chair access required");
+  const workspace = await getWorkspaceMe();
+  if (!workspace.capabilities.includes("registrations.view") && !workspace.capabilities.includes("reports.view") && !workspace.branchCapabilities.includes("technical.manage")) {
+    throw new Error("Workspace reporting access required");
+  }
   const now = new Date();
   const nowIso = toIso(now);
   const staleIso = toIso(new Date(now.getTime() - 10 * 60_000));
   const futureIso = toIso(new Date(now.getTime() + UPCOMING_WINDOW_DAYS * MS_PER_DAY));
   const pastIso = toIso(new Date(now.getTime() - RECENT_WINDOW_DAYS * MS_PER_DAY));
   const { startIso: startOfToday, endIso: endOfToday } = getAppDayBounds(now);
-  const count = async (collection: string, filter?: string) =>
-    (await pb.collection(collection).getList(1, 1, { filter, fields: "id", requestKey: null })).totalItems;
+  const branchWide = workspace.branchCapabilities.includes("reports.view") || workspace.branchCapabilities.includes("registrations.view") || workspace.branchCapabilities.includes("technical.manage");
+  const societyIds = branchWide ? [] : Array.from(new Set(workspace.assignments.filter((a) => a.active && a.scopeType === "society" && (a.capabilities.includes("reports.view") || a.capabilities.includes("registrations.view"))).map((a) => a.societyId).filter(Boolean)));
+  const eventIds = branchWide ? [] : Array.from(new Set(workspace.assignments.filter((a) => a.active && a.scopeType === "event" && (a.capabilities.includes("reports.view") || a.capabilities.includes("registrations.view"))).map((a) => a.eventId).filter(Boolean)));
+  const eventScope = branchWide ? "" : ([...societyIds.map((id) => `society = ${escapeFilterValue(id)}`), ...eventIds.map((id) => `id = ${escapeFilterValue(id)}`)].join(" || ") || 'id = ""');
+  const registrationScope = branchWide ? "" : ([...societyIds.map((id) => `event.society = ${escapeFilterValue(id)}`), ...eventIds.map((id) => `event = ${escapeFilterValue(id)}`)].join(" || ") || 'id = ""');
+  const auditScope = branchWide ? "" : ([...societyIds.map((id) => `event.society = ${escapeFilterValue(id)}`), ...eventIds.map((id) => `event = ${escapeFilterValue(id)}`)].join(" || ") || 'id = ""');
+  const notificationScope = branchWide ? "" : ([...societyIds.map((id) => `registration.event.society = ${escapeFilterValue(id)}`), ...eventIds.map((id) => `registration.event = ${escapeFilterValue(id)}`)].join(" || ") || 'id = ""');
+  const withScope = (filter: string | undefined, scope: string) => [scope ? `(${scope})` : "", filter ? `(${filter})` : ""].filter(Boolean).join(" && ") || undefined;
+  const count = async (collection: string, filter?: string, scope = "") =>
+    (await pb.collection(collection).getList(1, 1, { filter: withScope(filter, scope), fields: "id", requestKey: null })).totalItems;
 
   const [eventsTotal, eventsPublished, eventsUpcoming, eventsLive, eventsRecentlyCompleted, regsTotal, regsConfirmed, regsPending, regsToday, stalePending, cancelledPaid, failedNotifications] = await Promise.all([
-    count("events", "isDeleted != true"),
-    count("events", `isDeleted != true && status = 'published'`),
-    count("events", `isDeleted != true && date > ${escapeFilterValue(nowIso)} && date <= ${escapeFilterValue(futureIso)} && status = 'published'`),
-    count("events", `isDeleted != true && date <= ${escapeFilterValue(nowIso)} && endDate >= ${escapeFilterValue(nowIso)} && status = 'published'`),
-    count("events", `isDeleted != true && endDate > ${escapeFilterValue(pastIso)} && endDate < ${escapeFilterValue(nowIso)}`),
-    count("registrations"),
-    count("registrations", `registrationStatus = 'confirmed'`),
-    count("registrations", `registrationStatus = 'pending'`),
-    count("registrations", `registrationDate >= ${escapeFilterValue(startOfToday)} && registrationDate < ${escapeFilterValue(endOfToday)}`),
-    count("registrations", `registrationStatus = 'pending' && paymentStatus = 'pending' && registrationDate < ${escapeFilterValue(staleIso)}`),
-    count("registrations", `registrationStatus = 'cancelled' && paymentStatus = 'paid'`),
-    count("notification_outbox", `status = 'failed' && attempts >= 8`),
+    count("events", "isDeleted != true", eventScope),
+    count("events", `isDeleted != true && status = 'published'`, eventScope),
+    count("events", `isDeleted != true && date > ${escapeFilterValue(nowIso)} && date <= ${escapeFilterValue(futureIso)} && status = 'published'`, eventScope),
+    count("events", `isDeleted != true && date <= ${escapeFilterValue(nowIso)} && endDate >= ${escapeFilterValue(nowIso)} && status = 'published'`, eventScope),
+    count("events", `isDeleted != true && endDate > ${escapeFilterValue(pastIso)} && endDate < ${escapeFilterValue(nowIso)}`, eventScope),
+    count("registrations", undefined, registrationScope),
+    count("registrations", `registrationStatus = 'confirmed'`, registrationScope),
+    count("registrations", `registrationStatus = 'pending'`, registrationScope),
+    count("registrations", `registrationDate >= ${escapeFilterValue(startOfToday)} && registrationDate < ${escapeFilterValue(endOfToday)}`, registrationScope),
+    count("registrations", `registrationStatus = 'pending' && paymentStatus = 'pending' && registrationDate < ${escapeFilterValue(staleIso)}`, registrationScope),
+    count("registrations", `registrationStatus = 'cancelled' && paymentStatus = 'paid'`, registrationScope),
+    count("notification_outbox", `status = 'failed' && attempts >= 8`, notificationScope),
   ]);
 
   const [eventResult, auditResult] = await Promise.all([
     pb.collection("events").getList(1, 6, {
-      filter: `isDeleted != true && status = 'published' && (endDate >= ${escapeFilterValue(nowIso)} || date >= ${escapeFilterValue(nowIso)})`,
+      filter: withScope(`isDeleted != true && status = 'published' && (endDate >= ${escapeFilterValue(nowIso)} || date >= ${escapeFilterValue(nowIso)})`, eventScope),
       sort: "date",
       fields: "id,title,date,endDate,registeredCount,maxCapacity,status",
       requestKey: null,
     }).catch(() => ({ items: [] })),
     pb.collection("admin_audit_log").getList(1, 8, {
+      filter: withScope(undefined, auditScope),
       sort: "-created",
       expand: "actor,event",
       fields: "id,action,note,created,actor,event,expand.actor.name,expand.actor.email,expand.event.title",
