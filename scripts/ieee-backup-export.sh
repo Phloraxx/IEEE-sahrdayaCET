@@ -6,7 +6,7 @@ VOLUME="${IEEE_PB_VOLUME:-ieee-rewrite-i9ir8q_pb_data}"
 DEST="${IEEE_BACKUP_EXPORT_DIR:-/home/drvij/ieee-backups/daily}"
 LOCK="${IEEE_BACKUP_LOCK:-/tmp/ieee-backup-export.lock}"
 MAX_KEEP="${IEEE_BACKUP_MAX_KEEP:-30}"
-MAX_AGE_SECONDS="${IEEE_BACKUP_MAX_AGE_SECONDS:-129600}"
+MAX_AGE_SECONDS="${IEEE_BACKUP_MAX_AGE_SECONDS:-21600}"
 
 exec 9>"$LOCK"
 flock -n 9 || exit 0
