@@ -33,12 +33,24 @@ jobs:
             done
             return 1
           }
+          check_unavailable() {
+            local url="$1" code="000"
+            for attempt in 1 2 3; do
+              code=$(curl --max-time 10 -sS -o /dev/null -w '%{http_code}' "$url" || true)
+              [[ "$code" == "000" || "$code" == "404" ]] && return 0
+              echo "${url}: unexpected public response ${code} (attempt ${attempt}/3)"
+              sleep 5
+            done
+            return 1
+          }
           check_code / 200
           check_code /healthz 200
           check_code /api/health 200
           check_code /verify 200
           check_code /_/ 404
           check_code /api/webhooks/resend 404
+          check_unavailable https://db.ieeesahrdaya.com/_/
+          check_unavailable https://db.ieeesahrdaya.com/api/health
 
           headers=$(curl --max-time 15 -fsSI "${BASE_URL}/verify" | tr -d '\r')
           grep -Eqi '^content-security-policy:' <<<"$headers"
