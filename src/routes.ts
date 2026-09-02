@@ -27,7 +27,6 @@ export default [
   route("c/:token/certificate.pdf", "routes/certificate-pdf.$token.ts"),
   route("c/:token", "routes/c.$token.tsx"),
   route("verify", "routes/verify.tsx"),
-  route("api/webhooks/resend", "routes/api.webhooks.resend.ts"),
 
   route("FIFA", "routes/FIFA/index.tsx"),
   route("FIFA/dashboard", "routes/FIFA/dashboard.tsx"),

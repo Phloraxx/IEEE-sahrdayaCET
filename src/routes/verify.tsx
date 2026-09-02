@@ -17,12 +17,12 @@ export async function loader({ request }: LoaderFunctionArgs): Promise<LoaderDat
   return { query, verification: await fetchCertificateVerificationById(query) };
 }
 
-export function headers() {
-  return {
-    "Cache-Control": "no-store",
-    "X-Content-Type-Options": "nosniff",
-    "X-Robots-Tag": "noindex, nofollow",
-  };
+export function headers({ parentHeaders }: { parentHeaders: Headers }) {
+  const responseHeaders = new Headers(parentHeaders);
+  responseHeaders.set("Cache-Control", "no-store");
+  responseHeaders.set("X-Content-Type-Options", "nosniff");
+  responseHeaders.set("X-Robots-Tag", "noindex, nofollow");
+  return responseHeaders;
 }
 
 export const meta = () => [

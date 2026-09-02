@@ -13,7 +13,6 @@ export interface CertificateRegistryRow {
   issuerName: string;
   batchId: string;
   deliveryStatus: string;
-  providerStatus: string;
   attempts: number;
   sentAt: string;
   lastError: string;
@@ -68,10 +67,10 @@ function csvCell(value: unknown) {
 }
 
 export function certificateRegistryCsv(rows: CertificateRegistryRow[]) {
-  const header = ["Recipient", "Email", "Credential ID", "Event", "Type", "Status", "Issued at", "Issuer", "Delivery", "SMTP/provider status", "Attempts", "Verification URL"];
+  const header = ["Recipient", "Email", "Credential ID", "Event", "Type", "Status", "Issued at", "Issuer", "Delivery", "Attempts", "Verification URL"];
   const body = rows.map((row) => [
     row.recipientName, row.recipientEmail, row.credentialId, row.eventTitle, row.certificateType,
-    row.status, row.issuedAt, row.issuerName, row.deliveryStatus, row.providerStatus, row.attempts, row.verificationUrl,
+    row.status, row.issuedAt, row.issuerName, row.deliveryStatus, row.attempts, row.verificationUrl,
   ]);
   return [header, ...body].map((line) => line.map(csvCell).join(",")).join("\r\n");
 }

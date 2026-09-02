@@ -130,7 +130,7 @@ routerAdd("POST", "/api/app/certificate-templates/{id}/test-email", function (e)
     var message = String(err && err.message ? err.message : err)
     if (code === "TEST_EMAIL_ADDRESS_UNAVAILABLE") return h.error(e, 400, code, message)
     if (code === "MAIL_DELIVERY_BLOCKED") return h.error(e, 409, "TEST_EMAIL_BLOCKED", message)
-    if (code === "SMTP_NOT_CONFIGURED" || code === "SMTP_SENDER_NOT_CONFIGURED" || code === "RESEND_NOT_CONFIGURED") return h.error(e, 503, "TEST_EMAIL_UNAVAILABLE", message)
+    if (code === "SMTP_NOT_CONFIGURED" || code === "SMTP_SENDER_NOT_CONFIGURED") return h.error(e, 503, "TEST_EMAIL_UNAVAILABLE", message)
     return h.error(e, 503, "TEST_EMAIL_FAILED", "Certificate test email could not be sent")
   }
   require(__hooks + "/admin-operations-helpers.js").audit($app, {

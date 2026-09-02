@@ -650,9 +650,9 @@ if github_env := os.environ.get("GITHUB_ENV"):
         env_file.write(f"E2E_ATTENDANCE_TICKET_ID={browser_attendance_registration['ticketId']}\n")
         env_file.write(f"E2E_ATTENDANCE_ATTENDEE_NAME={browser_attendee_name}\n")
 
-# Confirmed free registrations enqueue exactly one ticket email job. With SMTP
-# intentionally absent in clean-room CI, the worker must fail durably into the
-# outbox instead of dropping the message, and an admin resend must requeue it.
+# Confirmed free registrations enqueue exactly one ticket email job. Clean-room
+# CI now provides the same SMTP transport used by certificate delivery, so the
+# worker must hand the ticket to SMTP exactly once and an admin resend can requeue it.
 notification_filter = urllib.parse.quote(
     f'registration="{registration["registrationId"]}"'
 )
@@ -676,12 +676,12 @@ for _ in range(30):
         f"/api/collections/notification_outbox/records/{notification_job['id']}",
         token=super_token,
     )
-    if notification_job["status"] == "failed":
+    if notification_job["status"] == "sent":
         break
     time.sleep(0.1)
-assert notification_job["status"] == "failed"
+assert notification_job["status"] == "sent"
 assert notification_job["attempts"] == 1
-assert "SMTP delivery is not configured" in notification_job["lastError"]
+assert not notification_job["lastError"]
 resend = request(
     "POST",
     f"/api/admin/registrations/{registration['registrationId']}/notifications/ticket/resend",

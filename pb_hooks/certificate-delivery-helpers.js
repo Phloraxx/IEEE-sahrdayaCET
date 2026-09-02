@@ -215,12 +215,28 @@ function sendCertificateTestEmail(app, template, event, auth) {
     name: String(settings.meta.senderName || "IEEE Sahrdaya Student Branch"),
     smtpEnabled: settings.smtp && settings.smtp.enabled === true,
   }
+  if (!from.smtpEnabled) {
+    var smtpError = new Error("SMTP delivery is not configured")
+    smtpError.code = "SMTP_NOT_CONFIGURED"
+    throw smtpError
+  }
+  if (!from.address) {
+    var senderError = new Error("Email sender is not configured")
+    senderError.code = "SMTP_SENDER_NOT_CONFIGURED"
+    throw senderError
+  }
   var prepared = require(__hooks + "/mail-delivery.js").prepare(
     recipient,
     certificateTestEmail(template, event)
   )
-  var result = require(__hooks + "/certificate-mail-provider.js").sendTest(app, from, prepared)
-  return { recipient: recipient, deliveryMode: prepared.mode || "", provider: result.provider || "smtp" }
+  app.newMailClient().send(new MailerMessage({
+    from: from,
+    to: [{ address: prepared.recipient }],
+    subject: prepared.subject,
+    html: prepared.html,
+    text: prepared.text,
+  }))
+  return { recipient: recipient, deliveryMode: prepared.mode || "", provider: "smtp" }
 }
 
 function enqueueCertificate(app, certificate, force) {
@@ -280,31 +296,23 @@ function reconcileBatch(app, batch) {
   var queued = rows.length
   var sent = 0
   var failed = 0
-  var delivered = 0
-  var deliveryIssues = 0
   var outstanding = false
-  var provider = require(__hooks + "/certificate-mail-provider.js")
   for (var i = 0; i < rows.length; i++) {
     var status = rows[i].getString("status") || "pending"
-    var providerStatus = rows[i].getString("providerStatus") || ""
     if (status === "sent") sent++
     if (status === "failed") failed++
-    if (providerStatus === "delivered") delivered++
-    if (provider.terminalIssue(providerStatus)) deliveryIssues++
     if (status === "pending" || status === "sending" || (status === "failed" && !terminalFailure(rows[i]))) outstanding = true
   }
 
   batch.set("queuedCount", queued)
   batch.set("sentCount", sent)
-  batch.set("failedCount", failed + deliveryIssues)
-  batch.set("deliveredCount", delivered)
-  batch.set("deliveryIssueCount", deliveryIssues)
+  batch.set("failedCount", failed)
   if (queued > 0) {
     if (!batch.getString("sendStartedAt")) batch.set("sendStartedAt", new Date().toISOString())
     if (outstanding) {
       batch.set("status", "sending")
       batch.set("completedAt", "")
-    } else if (failed > 0 || deliveryIssues > 0) {
+    } else if (failed > 0) {
       batch.set("status", "partial_failure")
       if (!batch.getString("completedAt")) batch.set("completedAt", new Date().toISOString())
     } else if (sent === queued) {
@@ -330,8 +338,6 @@ function batchPayload(batch) {
     queuedCount: batch.getInt("queuedCount") || 0,
     sentCount: batch.getInt("sentCount") || 0,
     failedCount: batch.getInt("failedCount") || 0,
-    deliveredCount: batch.getInt("deliveredCount") || 0,
-    deliveryIssueCount: batch.getInt("deliveryIssueCount") || 0,
     issuedAt: batch.getString("issuedAt") || "",
     sendStartedAt: batch.getString("sendStartedAt") || "",
     completedAt: batch.getString("completedAt") || "",
@@ -365,13 +371,6 @@ function deliveryPayload(app, batch) {
       supersedesId: certificate.getString("supersedes") || "",
       supersededById: certificate.getString("supersededBy") || "",
       deliveryStatus: deliveryStatus,
-      deliveryProvider: job ? (job.getString("deliveryProvider") || "") : "",
-      providerStatus: job ? (job.getString("providerStatus") || "") : "",
-      providerMessageId: job ? (job.getString("providerMessageId") || "") : "",
-      providerMessageHeader: job ? (job.getString("providerMessageHeader") || "") : "",
-      providerUpdatedAt: job ? (job.getString("providerUpdatedAt") || "") : "",
-      deliveredAt: job ? (job.getString("deliveredAt") || "") : "",
-      providerError: job ? (job.getString("providerError") || "") : "",
       attempts: job ? (job.getInt("attempts") || 0) : 0,
       sentAt: job ? (job.getString("sentAt") || "") : "",
       lastError: job ? (job.getString("lastError") || "") : "",
@@ -389,23 +388,36 @@ function sendCertificateOutbox(app, record) {
     inactive.mailDeliveryPermanent = true
     throw inactive
   }
-  var fromSettings = app.settings()
+  var settings = app.settings()
   var from = {
-    address: String(fromSettings.meta.senderAddress || ""),
-    name: String(fromSettings.meta.senderName || "IEEE Sahrdaya Student Branch"),
-    smtpEnabled: fromSettings.smtp && fromSettings.smtp.enabled === true,
+    address: String(settings.meta.senderAddress || ""),
+    name: String(settings.meta.senderName || "IEEE Sahrdaya Student Branch"),
+    smtpEnabled: settings.smtp && settings.smtp.enabled === true,
+  }
+  if (!from.smtpEnabled) {
+    var smtpError = new Error("SMTP delivery is not configured")
+    smtpError.code = "SMTP_NOT_CONFIGURED"
+    smtpError.mailDeliveryPermanent = true
+    throw smtpError
+  }
+  if (!from.address) {
+    var senderError = new Error("Email sender is not configured")
+    senderError.code = "SMTP_SENDER_NOT_CONFIGURED"
+    senderError.mailDeliveryPermanent = true
+    throw senderError
   }
   var prepared = require(__hooks + "/mail-delivery.js").prepare(
     record.getString("recipient"),
     certificateEmail(app, certificate)
   )
-  var result = require(__hooks + "/certificate-mail-provider.js").send(app, record, from, prepared)
-  record.set("deliveryProvider", result.provider || "smtp")
-  record.set("providerMessageId", result.providerMessageId || "")
-  record.set("providerStatus", result.providerStatus || "accepted")
-  record.set("providerUpdatedAt", new Date().toISOString())
-  record.set("providerError", "")
-  return result
+  app.newMailClient().send(new MailerMessage({
+    from: from,
+    to: [{ address: prepared.recipient }],
+    subject: prepared.subject,
+    html: prepared.html,
+    text: prepared.text,
+  }))
+  return { provider: "smtp" }
 }
 
 function reconcileForOutbox(app, record) {

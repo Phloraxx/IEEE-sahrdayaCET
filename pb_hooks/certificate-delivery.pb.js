@@ -94,28 +94,8 @@ routerAdd("POST", "/api/app/events/{eventId}/certificate-batches/{batchId}/retry
         var live = txApp.findRecordById("certificates", certificates[i].id)
         if ((live.getString("status") || "") !== "active" || !h.validEmail(live.getString("recipientEmailSnapshot"))) continue
         var before = h.enqueueCertificate(txApp, live, false).record
-        if (!before) continue
-        if (before.getString("status") === "failed") {
-          h.enqueueCertificate(txApp, live, true)
-          retried++
-          continue
-        }
-        var provider = require(__hooks + "/certificate-mail-provider.js")
-        if (!provider.retryableProviderIssue(before.getString("providerStatus"))) continue
-        before.set("status", "pending")
-        before.set("attempts", 0)
-        before.set("nextAttemptAt", new Date().toISOString())
-        before.set("lastAttemptAt", "")
-        before.set("sentAt", "")
-        before.set("lastError", "")
-        before.set("providerSendSequence", (before.getInt("providerSendSequence") || 0) + 1)
-        before.set("providerMessageId", "")
-        before.set("providerMessageHeader", "")
-        before.set("providerStatus", "")
-        before.set("providerUpdatedAt", "")
-        before.set("deliveredAt", "")
-        before.set("providerError", "")
-        txApp.save(before)
+        if (!before || before.getString("status") !== "failed") continue
+        h.enqueueCertificate(txApp, live, true)
         retried++
       }
       var liveBatch = txApp.findRecordById("certificate_batches", ctx.batch.id)
@@ -127,25 +107,3 @@ routerAdd("POST", "/api/app/events/{eventId}/certificate-batches/{batchId}/retry
   if (!retried) return h.error(e, 409, "NO_FAILED_DELIVERIES", "There are no failed certificate emails to retry")
   return e.json(202, { retried: retried, delivery: h.deliveryPayload($app, h.batchRecord($app, ctx.batch.id)) })
 }, $apis.requireAuth("users"))
-
-routerAdd("POST", "/api/internal/certificate-mail/provider-event", function (e) {
-  var configured = String($os.getenv("CERTIFICATE_MAIL_WEBHOOK_CAPABILITY_KEY") || "").trim()
-  var supplied = String(e.request.header.get("X-Certificate-Mail-Webhook-Capability") || "").trim()
-  if (configured.length < 32) return e.json(503, { code: "MAIL_WEBHOOK_CAPABILITY_UNCONFIGURED", error: "Mail webhook capability is unavailable" })
-  if (!$security.equal(configured, supplied)) return e.json(403, { code: "MAIL_WEBHOOK_CAPABILITY_REQUIRED", error: "Mail webhook capability required" })
-
-  var rawBody = toString(e.request.body)
-  var input = {}
-  try { input = JSON.parse(rawBody || "{}") } catch (_) {
-    return e.json(400, { code: "MAIL_EVENT_INVALID", error: "Invalid provider event payload" })
-  }
-  try {
-    var result = null
-    $app.runInTransaction(function (txApp) {
-      result = require(__hooks + "/certificate-mail-events.js").apply(txApp, input, $security.sha256(rawBody))
-    })
-    return e.json(202, result || { updated: false })
-  } catch (err) {
-    return e.json(400, { code: String(err && err.code || "MAIL_EVENT_REJECTED"), error: String(err && err.message || err) })
-  }
-})

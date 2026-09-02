@@ -41,11 +41,6 @@ SMTP_PORT
 SMTP_USERNAME
 SMTP_PASSWORD
 SMTP_FROM
-CERTIFICATE_MAIL_PROVIDER=smtp|resend
-RESEND_API_KEY
-RESEND_FROM
-RESEND_WEBHOOK_SECRET
-CERTIFICATE_MAIL_WEBHOOK_CAPABILITY_KEY
 ```
 
 Never reuse a production encryption key, OAuth application, payment secret, SMTP credential, or `pb_data` volume in staging.
@@ -60,18 +55,15 @@ The certificate platform can be deployed while outbound mail is intentionally di
 MAIL_DELIVERY_MODE=disabled
 ```
 
-With delivery disabled, certificate Issue/verification/rendering can operate, while Send/Retry remain blocked before creating certificate outbox jobs and the background notification worker leaves existing outbox intents untouched. `CERTIFICATE_MAIL_PROVIDER` and SMTP transport readiness are not release prerequisites while mail remains disabled.
+With delivery disabled, certificate Issue/verification/rendering can operate, while Send/Retry remain blocked before creating certificate outbox jobs and the background notification worker leaves existing outbox intents untouched. SMTP transport readiness is not a release prerequisite while mail remains disabled.
 
-If live certificate email is explicitly authorized later, the selected production transport is SMTP and requires PocketBase SMTP/sender settings plus:
+Certificate mail has one transport: Gmail SMTP through PocketBase. When live certificate email is explicitly authorized, configure `smtp.gmail.com` on port `587`, keep PocketBase `SMTP_TLS=false` so it negotiates STARTTLS, use the full Gmail or Google Workspace address as the username, and use a Google App Password as the SMTP password. Then set:
 
 ```text
-CERTIFICATE_MAIL_PROVIDER=smtp
 MAIL_DELIVERY_MODE=live
 ```
 
-The readiness API/UI then checks the delivery safety mode and actual PocketBase SMTP/sender configuration. A successful SMTP handoff is shown as **accepted only** because SMTP acceptance is not proof that the recipient inbox ultimately delivered the message.
-
-Resend support remains available as an optional future provider for webhook-confirmed delivered/bounced states. If it is ever enabled, its API key, From address, webhook signing secret, and certificate-mail webhook capability must be configured together; `RESEND_WEBHOOK_CONFIGURED` is derived by Compose and must not be set manually.
+The readiness API/UI checks the delivery safety mode and actual PocketBase SMTP/sender configuration. A successful SMTP handoff is shown as **accepted only** because Gmail SMTP acceptance is not proof that the recipient inbox ultimately delivered the message.
 
 Before production mail is enabled, verify the sending domain in the provider and confirm DKIM, return-path SPF/MX, and DMARC are published. Start DMARC monitoring with a non-enforcing policy such as `v=DMARC1; p=none;`, then tighten the policy only after observing legitimate traffic and alignment.
 
