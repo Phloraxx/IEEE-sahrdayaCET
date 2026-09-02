@@ -58,6 +58,11 @@ jobs:
           grep -Eqi '^x-frame-options:[[:space:]]*DENY' <<<"$headers"
           grep -Eqi '^x-content-type-options:[[:space:]]*nosniff' <<<"$headers"
 
+          host=${BASE_URL#https://}
+          host=${host%%/*}
+          timeout 20 openssl s_client -servername "$host" -connect "$host:443" </dev/null 2>/dev/null \
+            | openssl x509 -noout -checkend 1209600
+
           html=$(curl --max-time 15 -fsS "${BASE_URL}/verify")
           text=$(printf '%s' "$html" | sed -E 's/<[^>]+>/ /g' | tr '\n' ' ')
           grep -Eqi 'Verify[[:space:]]+a[[:space:]]+certificate' <<<"$text"
