@@ -48,7 +48,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@playwright/test": "^1.60.0",
+    "@playwright/test": "^1.62.1",
     "@react-router/dev": "7.18.3",
     "@types/node": "^22.14.0",
     "@types/qrcode": "^1.5.6",
