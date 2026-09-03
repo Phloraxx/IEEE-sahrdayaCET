@@ -28,10 +28,13 @@ describe("registration/payment experience architecture", () => {
 
   it("keeps payment and ticket poster-independent throughout the transaction", () => {
     const payment = source("src/features/payment/PaymentPage.tsx");
+    const providerUi = source("src/features/payment/payment-provider-panels.tsx");
     const ticket = source("src/features/ticket/TicketPage.tsx");
-    expect(payment).toContain("Registration / Payment");
-    expect(payment).not.toContain("event?.bannerUrl ?");
-    expect(payment).not.toContain("radial-gradient(circle_at_18%_8%");
+    expect(providerUi).toContain("Registration / Payment");
+    for (const paymentSource of [payment, providerUi]) {
+      expect(paymentSource).not.toContain("event?.bannerUrl ?");
+      expect(paymentSource).not.toContain("radial-gradient(circle_at_18%_8%");
+    }
     expect(ticket).toContain("Check-in code");
     expect(ticket).toContain("Show this at check-in.");
     expect(ticket).not.toContain("event?.bannerUrl ?");
@@ -40,15 +43,18 @@ describe("registration/payment experience architecture", () => {
 
   it("uses an IEEE-branded Razorpay Custom Checkout that exposes UPI only", () => {
     const payment = source("src/features/payment/PaymentPage.tsx");
+    const providerUi = source("src/features/payment/payment-provider-panels.tsx");
     const custom = source("src/lib/razorpay-upi.client.ts");
-    expect(payment).toContain("IEEE Sahrdaya Secure UPI");
-    expect(payment).toContain("Show UPI QR");
+    expect(providerUi).toContain("IEEE Sahrdaya Secure UPI");
+    expect(providerUi).toContain("Show UPI QR");
     expect(payment).toContain("startUpiIntent");
     expect(payment).toContain('method: "upi"');
     expect(payment).toContain('flow: "qr"');
-    expect(payment).toContain("Processed securely by Razorpay");
-    expect(payment).not.toContain("Pay securely with Razorpay");
-    expect(payment).not.toContain("card or another method");
+    expect(providerUi).toContain("Processed securely by Razorpay");
+    for (const paymentSource of [payment, providerUi]) {
+      expect(paymentSource).not.toContain("Pay securely with Razorpay");
+      expect(paymentSource).not.toContain("card or another method");
+    }
     expect(custom).toContain("https://checkout.razorpay.com/v1/razorpay.js");
     expect(custom).toContain("methods.upi === true");
     expect(custom).toContain("getSupportedUpiIntentApps");
@@ -73,10 +79,11 @@ describe("registration/payment experience architecture", () => {
 
   it("does not expose mobile UPI app buttons before Intent is enabled", () => {
     const payment = source("src/features/payment/PaymentPage.tsx");
+    const providerUi = source("src/features/payment/payment-provider-panels.tsx");
     expect(payment).toContain("setUpiIntentEnabled(capability.intentEnabled)");
-    expect(payment).toContain("isMobileUpi && !upiIntentEnabled");
-    expect(payment).toContain("UPI Intent activation pending");
-    expect(payment).toContain("isMobileUpi && upiIntentEnabled");
+    expect(providerUi).toContain("isMobileUpi && !upiIntentEnabled");
+    expect(providerUi).toContain("UPI Intent activation pending");
+    expect(providerUi).toContain("isMobileUpi && upiIntentEnabled");
   });
 
   it("blocks a second registration when a paid cancelled record is under manual review", () => {
@@ -178,7 +185,7 @@ describe("registration/payment experience architecture", () => {
     const motionSystem = source("src/lib/motion.ts");
     const eventDetail = source("src/routes/events.$slug.tsx");
     const register = source("src/features/register/RegisterPage.tsx");
-    const payment = source("src/features/payment/PaymentPage.tsx");
+    const providerUi = source("src/features/payment/payment-provider-panels.tsx");
     const ticket = source("src/features/ticket/TicketPage.tsx");
 
     expect(motionSystem).toContain("MOTION_EASE");
@@ -187,7 +194,7 @@ describe("registration/payment experience architecture", () => {
     expect(eventDetail).toContain("eventTitleSize(event.title)");
     expect(register).toContain("FieldLabel");
     expect(register).toContain("Reserving your seat…");
-    expect(payment).toContain("Opening ${UPI_APP_LABELS[app] || app}…");
+    expect(providerUi).toContain("Opening ${UPI_APP_LABELS[app] || app}…");
     expect(ticket).toContain("qrSaved");
     expect(ticket).toContain("Saved</>");
   });
@@ -200,7 +207,7 @@ describe("registration/payment experience architecture", () => {
     const paygate = source("pb_hooks/paygate-helpers.js");
     const webhook = source("pb_hooks/paygate.pb.js");
     const eventForm = source("src/features/admin/events/event-form.tsx");
-    const payment = source("src/features/payment/PaymentPage.tsx");
+    const providerUi = source("src/features/payment/payment-provider-panels.tsx");
     const admin = source("pb_hooks/admin-operations.pb.js");
 
     expect(migration).toContain('values: ["razorpay", "kotak"]');
@@ -228,9 +235,9 @@ describe("registration/payment experience architecture", () => {
     expect(webhook).toContain('payment.paid');
     expect(eventForm).toContain("Advanced payment processing");
     expect(eventForm).toContain("Kotak direct UPI");
-    expect(payment).toContain("Temporary · Kotak direct UPI");
-    expect(payment).toContain("Open in UPI app");
-    expect(payment).toContain("Pay this exact amount");
+    expect(providerUi).toContain("Temporary · Kotak direct UPI");
+    expect(providerUi).toContain("Open in UPI app");
+    expect(providerUi).toContain("Pay this exact amount");
     expect(admin).toContain("PAYGATE_PAYMENT_EXISTS");
   });
 
