@@ -46,13 +46,14 @@ The copied production-backup rehearsal confirmed the live dataset has zero Execo
 
 Largest modules remain concentrated rather than systemic:
 
-- `src/features/payment/PaymentPage.tsx` — 1,229 lines
 - `src/features/societies/wie/WIEPage.tsx` — 1,156 lines
 - `src/features/admin/events/certificate-template-panel.tsx` — 835 lines
 - `pb_hooks/paygate-helpers.js` — 803 lines
 - `pb_hooks/admin-operations.pb.js` — 788 lines
 
 First responsibility follow-up completed: `src/routes/admin.events.$id.tsx` is now ~690 lines (from 1,091). Registration-operation metrics, rows and decision/manual-entry dialogs moved to `src/features/admin/events/event-operations-components.tsx` (~435 lines), while queries, mutations, permissions, event lifecycle/workflow decisions and tab orchestration remain in the route. The extraction also converted the session/legacy check-in button rule from literal-source assertions to a directly tested pure decision helper.
+
+Second responsibility follow-up completed: `src/features/payment/PaymentPage.tsx` is now ~694 lines (from 1,229). Provider-specific Razorpay/Kotak presentation plus shared payment-shell visuals moved to `src/features/payment/payment-provider-panels.tsx` (~615 lines), while session creation, local polling, provider reconciliation/backoff, expiry, Razorpay SDK wiring/verification, QR generation and ticket navigation remain in `PaymentPage`. Payment architecture tests now assert orchestration and provider UI against their owning modules instead of assuming all payment code lives in one file.
 
 Continue refactoring by workflow/responsibility with characterization tests first. Do not split files only to reduce line counts.
 
