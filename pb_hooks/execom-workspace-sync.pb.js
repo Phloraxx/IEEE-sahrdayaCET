@@ -10,20 +10,14 @@ onRecordAfterUpdateSuccess(function (e) {
   e.next()
 }, "execom")
 
-onRecordDelete(function (e) {
-  var sync = require(__hooks + "/execom-workspace-sync.js")
-  var assignmentId = e.record.getString("assignment") || ""
-  if (assignmentId && !sync.execomDeactivateAssignment(assignmentId)) {
-    throw new Error("Failed to revoke the Execom workspace assignment; deletion was blocked")
-  }
+// The source record has already been durably removed here. If revocation hits a
+// transient DB error, authorization still fails closed because the Execom source
+// no longer exists; the reconciler will retire the orphaned row on a later pass.
+onRecordAfterDeleteSuccess(function (e) {
+  require(__hooks + "/execom-workspace-sync.js").deactivateExecomSource(e.record)
   e.next()
 }, "execom")
 
-onRecordAfterDeleteError(function (e) {
-  try {
-    require(__hooks + "/execom-workspace-sync.js").syncExecomWorkspace(e.record)
-  } catch (err) {
-    console.log("[workspace] failed to restore Execom assignment after delete rollback " + e.record.id + ":", err)
-  }
-  e.next()
-}, "execom")
+cronAdd("execom-workspace-reconcile", "*/5 * * * *", function () {
+  require(__hooks + "/execom-workspace-sync.js").reconcileExecomWorkspace()
+})

@@ -34,11 +34,13 @@ Net effect before this report: more than 1,100 source/test lines removed with no
 - Production automatic PocketBase backup exists for 2026-09-03 03:00 IST.
 - Production-backup migration rehearsal: SQLite integrity `ok`, migrations 202 -> 203, collections unchanged at 35, and zero application-table data/hash changes.
 
-## Remaining debt — prioritize separately
+## Follow-up status and remaining debt
 
-### P1 — Execom/workspace authorization reconciliation
+### Resolved — Execom/workspace authorization reconciliation
 
-`pb_hooks/execom-workspace-sync.js` still treats several assignment-deactivation/backlink-save failures as best-effort. A rare database failure can leave an active authorization assignment orphaned from its Execom record. Current production has no Execom-sourced assignments, so there is no existing drift. Fix this as a transactional/reconciliation design, not a logging-only patch.
+The Execom authorization follow-up now gives each Execom-sourced assignment an explicit `sourceExecom` owner, enforces one-to-one active-source/backlink integrity, performs assignment lifecycle + backlink writes transactionally, and rejects any Execom-sourced assignment whose source/backlink/security fields drift. A five-minute reconciler repairs valid sources and deactivates stale/orphaned rows. Duplicate Execom records with the same user/role/scope now receive independent assignment rows, so deleting one cannot revoke the other.
+
+The copied production-backup rehearsal confirmed the live dataset has zero Execom-sourced assignments/backlinks, applied the new migration cleanly, retained SQLite integrity, preserved Execom/assignment row counts, and produced zero data/hash changes across 23 common non-FIFA application tables. Fresh-PocketBase CI additionally characterizes deliberate source drift, duplicate-source isolation, role replacement, and deletion cleanup.
 
 ### P2 — Oversized responsibility boundaries
 

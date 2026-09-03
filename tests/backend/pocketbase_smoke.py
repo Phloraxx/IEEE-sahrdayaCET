@@ -73,7 +73,8 @@ assert settings["backups"]["cronMaxKeep"] == 14
 required_indexes = {
     "societies": ("idx_societies_slug", "idx_societies_hidden"),
     "blogs": ("idx_blogs_published_at",),
-    "execom": ("idx_execom_order", "idx_execom_society"),
+    "execom": ("idx_execom_order", "idx_execom_society", "idx_execom_assignment_unique"),
+    "organization_assignments": ("idx_org_assignments_source_execom_unique",),
     "registrations": ("idx_registrations_event_payment", "idx_registrations_event_ticket"),
 }
 for collection_name, expected_indexes in required_indexes.items():
@@ -190,9 +191,10 @@ chair_second_society = request("POST", "/api/collections/societies/records", {
     "isHidden": False, "chairs": [chair["id"]],
 }, super_token)
 
-# Execom roles are an authorization source. Role changes must revoke the old
-# assignment before minting the replacement, and deleting the source record
-# must leave no active Execom-sourced authorization behind.
+# Execom roles are an authorization source. Each directory record owns one
+# active assignment, stale source/backlink drift must fail closed immediately,
+# role changes preserve history, and deleting one duplicate-role source must
+# not revoke another source record's independent assignment.
 execom_member = request("POST", "/api/collections/execom/records", {
     "name": f"CI Execom {suffix}", "position": "Society Chair",
     "society": society["id"], "user": second_user["id"],
@@ -204,7 +206,38 @@ first_assignment_id = execom_member.get("assignment")
 assert first_assignment_id
 first_assignment = request("GET", f"/api/collections/organization_assignments/records/{first_assignment_id}", token=super_token)
 assert first_assignment["active"] is True and first_assignment["source"] == "execom"
+assert first_assignment["sourceExecom"] == execom_member["id"]
 assert first_assignment["roleCode"] == "society_chair" and first_assignment["user"] == second_user["id"]
+assert "events.create" in request("GET", "/api/workspace/me", token=second_token)["capabilities"]
+
+# Deliberately break the source relation. Authorization must reject the active
+# row before reconciliation, then the next source update repairs it atomically.
+request("PATCH", f"/api/collections/organization_assignments/records/{first_assignment_id}", {
+    "sourceExecom": "",
+}, super_token)
+assert request("GET", "/api/workspace/me", token=second_token)["capabilities"] == []
+request("PATCH", f"/api/collections/execom/records/{execom_member['id']}", {
+    "term": "ci-repaired",
+}, super_token)
+time.sleep(0.1)
+first_assignment = request("GET", f"/api/collections/organization_assignments/records/{first_assignment_id}", token=super_token)
+assert first_assignment["sourceExecom"] == execom_member["id"] and first_assignment["term"] == "ci-repaired"
+assert "events.create" in request("GET", "/api/workspace/me", token=second_token)["capabilities"]
+
+execom_duplicate = request("POST", "/api/collections/execom/records", {
+    "name": f"CI Execom Duplicate {suffix}", "position": "Society Chair",
+    "society": society["id"], "user": second_user["id"],
+    "roleCode": "society_chair", "term": "ci-duplicate",
+}, super_token)
+time.sleep(0.1)
+execom_duplicate = request("GET", f"/api/collections/execom/records/{execom_duplicate['id']}", token=super_token)
+duplicate_assignment_id = execom_duplicate.get("assignment")
+assert duplicate_assignment_id and duplicate_assignment_id != first_assignment_id
+duplicate_assignment = request("GET", f"/api/collections/organization_assignments/records/{duplicate_assignment_id}", token=super_token)
+assert duplicate_assignment["active"] is True and duplicate_assignment["sourceExecom"] == execom_duplicate["id"]
+request("PATCH", f"/api/collections/execom/records/{execom_duplicate['id']}", {
+    "assignment": first_assignment_id,
+}, super_token, expected=(400,))
 
 request("PATCH", f"/api/collections/execom/records/{execom_member['id']}", {
     "position": "Society Secretary", "roleCode": "society_secretary",
@@ -212,16 +245,25 @@ request("PATCH", f"/api/collections/execom/records/{execom_member['id']}", {
 time.sleep(0.1)
 execom_member = request("GET", f"/api/collections/execom/records/{execom_member['id']}", token=super_token)
 second_assignment_id = execom_member.get("assignment")
-assert second_assignment_id and second_assignment_id != first_assignment_id
+assert second_assignment_id and second_assignment_id not in (first_assignment_id, duplicate_assignment_id)
 first_assignment = request("GET", f"/api/collections/organization_assignments/records/{first_assignment_id}", token=super_token)
 second_assignment = request("GET", f"/api/collections/organization_assignments/records/{second_assignment_id}", token=super_token)
 assert first_assignment["active"] is False
 assert second_assignment["active"] is True and second_assignment["roleCode"] == "society_secretary"
+assert second_assignment["sourceExecom"] == execom_member["id"]
 
 request("DELETE", f"/api/collections/execom/records/{execom_member['id']}", token=super_token, expected=(204,))
 time.sleep(0.1)
 second_assignment = request("GET", f"/api/collections/organization_assignments/records/{second_assignment_id}", token=super_token)
+duplicate_assignment = request("GET", f"/api/collections/organization_assignments/records/{duplicate_assignment_id}", token=super_token)
 assert second_assignment["active"] is False
+assert duplicate_assignment["active"] is True
+assert "events.create" in request("GET", "/api/workspace/me", token=second_token)["capabilities"]
+request("DELETE", f"/api/collections/execom/records/{execom_duplicate['id']}", token=super_token, expected=(204,))
+time.sleep(0.1)
+duplicate_assignment = request("GET", f"/api/collections/organization_assignments/records/{duplicate_assignment_id}", token=super_token)
+assert duplicate_assignment["active"] is False
+assert request("GET", "/api/workspace/me", token=second_token)["capabilities"] == []
 
 # Chairs can edit their society content but cannot delegate chair access or store unsafe links.
 request("PATCH", f"/api/collections/societies/records/{society['id']}", {
