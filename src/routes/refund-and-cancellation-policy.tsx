@@ -1,9 +1,10 @@
-import { APP_URL } from "@/lib/constants";
 import { PolicyPage } from "@/components/legal/PolicyPage";
+import { APP_URL } from "@/lib/constants";
+import { BUSINESS_INFO } from "@/lib/business-info";
 
-const title = "Refund and Cancellation Policy";
+const title = "Refund & Cancellation Policy";
 const path = "/refund-and-cancellation-policy";
-const description = "Refund and cancellation policy for purchases made through the IEEE Sahrdaya platform.";
+const description = "Cancellation and refund terms for IEEE Sahrdaya event registrations.";
 
 export const meta = () => [
   { title: `${title} | IEEE Sahrdaya Student Branch` },
@@ -14,17 +15,45 @@ export const meta = () => [
 ];
 
 const intro = [
-  "This refund and cancellation policy outlines how you can cancel or seek a refund for a product / service that you have purchased through the Platform. Under this policy:",
+  "This policy applies to event-registration fees paid through ieeesahrdaya.com. Event-specific terms displayed on an event page take precedence where they expressly differ from this general policy.",
 ];
 
-const items = [
-  "Cancellations will only be considered if the request is made 2 days of placing the order. However, cancellation requests may not be entertained if the orders have been communicated to such sellers / merchant(s) listed on the Platform and they have initiated the process of shipping them, or the product is out for delivery. In such an event, you may choose to reject the product at the doorstep.",
-  "Sourav P Bijoy does not accept cancellation requests for perishable items like flowers, eatables, etc. However, the refund / replacement can be made if the user establishes that the quality of the product delivered is not good.",
-  "In case of receipt of damaged or defective items, please report to our customer service team. The request would be entertained once the seller/ merchant listed on the Platform, has checked and determined the same at its own end. This should be reported within 2 days of receipt of products. In case you feel that the product received is not as shown on the site or as per your expectations, you must bring it to the notice of our customer service within 2 days of receiving the product. The customer service team after looking into your complaint will take an appropriate decision.",
-  "In case of complaints regarding the products that come with a warranty from the manufacturers, please refer the issue to them.",
-  "In case of any refunds approved by Sourav P Bijoy, it will take 7 days for the refund to be processed to you.",
+const sections = [
+  {
+    heading: "Participant cancellation",
+    paragraphs: [
+      "Unless an event page states a different cancellation rule, a paid registration may be cancelled by contacting us within 2 calendar days of payment and before the event has started, whichever occurs first.",
+      "Requests received after the applicable cancellation window, after the event begins, or for non-attendance/no-show are normally non-refundable because the registration reserves access or capacity for that event.",
+    ],
+  },
+  {
+    heading: "Event cancelled or materially changed by the organiser",
+    paragraphs: [
+      "If IEEE Sahrdaya Student Branch cancels a paid event and does not provide a suitable replacement or rescheduled option, the paid registration fee is eligible for a full refund.",
+      "If an event is rescheduled or materially changed, registered attendees will be informed through the event's available contact channels where practicable. Refund eligibility for that change will be stated with the update.",
+    ],
+  },
+  {
+    heading: "Duplicate or payment-related issues",
+    paragraphs: [
+      "Duplicate successful charges, payments that are confirmed by the payment provider but cannot be matched to a valid registration, and other payment discrepancies will be reviewed against the payment and registration records. Where a refund is due, it will be returned to the original payment method where supported.",
+    ],
+  },
+  {
+    heading: "Refund timeline",
+    paragraphs: [
+      "Approved refunds are initiated within 7 working days. After initiation, the bank, card network, UPI app or payment provider may require additional processing time before the credit appears in the payer's account.",
+      `To request a cancellation or refund review, contact ${BUSINESS_INFO.email} with the event name, registration email or ticket ID, and payment reference. Never share an OTP, UPI PIN, card PIN or banking password.`,
+    ],
+  },
 ];
-
 export default function RefundAndCancellationPolicyPage() {
-  return <PolicyPage title={title} path={path} intro={intro} sections={[{ items }]} />;
+  return (
+    <PolicyPage
+      title={title}
+      path={path}
+      intro={intro}
+      sections={sections}
+    />
+  );
 }
