@@ -1123,6 +1123,17 @@ assert finance["grossCollectedAmount"] >= finance["refundedAmount"] >= 0
 assert abs(finance["netCollectedAmount"] - (finance["grossCollectedAmount"] - finance["refundedAmount"])) < 0.001
 assert finance["manualCount"] >= 1
 assert "queuedRefundCount" in finance and "failedRefundCount" in finance and "attentionCount" in finance
+
+request("GET", "/api/admin/data-health", token=user_token, expected=(403,))
+data_health = request("GET", "/api/admin/data-health", token=admin_token)
+assert isinstance(data_health["issues"], list) and data_health["checkedAt"]
+assert data_health["counts"]["events"] >= 1
+assert data_health["counts"]["registrations"] >= 1
+assert data_health["counts"]["payments"] >= 1
+allowed_health_issue_keys = {"id", "severity", "category", "title", "detail", "href"}
+assert all(set(issue).issubset(allowed_health_issue_keys) for issue in data_health["issues"])
+assert all(issue["severity"] in {"critical", "warning"} for issue in data_health["issues"])
+
 request("PATCH", f"/api/collections/events/records/{ops_event['id']}", {
     "status": "cancelled",
 }, admin_token, expected=(400,))
