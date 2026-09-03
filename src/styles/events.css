@@ -20,3 +20,24 @@
 .event-filter-scroll::-webkit-scrollbar {
   display: none;
 }
+
+@keyframes sustainx-marquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-33.333%, 0, 0);
+  }
+}
+
+.sustainx-marquee-track {
+  animation: sustainx-marquee 34s linear infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sustainx-marquee-track {
+    animation: none;
+    transform: none;
+  }
+}
