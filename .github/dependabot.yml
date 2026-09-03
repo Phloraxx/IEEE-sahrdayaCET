@@ -10,16 +10,16 @@ updates:
       timezone: "Asia/Kolkata"
     open-pull-requests-limit: 3
     groups:
-      routine-bun-updates:
+      routine-bun-patches:
         patterns:
           - "*"
         update-types:
-          - "minor"
           - "patch"
     ignore:
       - dependency-name: "*"
         update-types:
           - "version-update:semver-major"
+          - "version-update:semver-minor"
 
   - package-ecosystem: "github-actions"
     directory: "/"
