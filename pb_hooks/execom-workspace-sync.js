@@ -9,14 +9,31 @@ function execomResolveSocietyId(record) {
 }
 
 function execomDeactivateAssignment(id) {
-  if (!id) return
+  if (!id) return true
   try {
     var assignment = $app.findRecordById("organization_assignments", id)
     if (assignment.getBool("active")) {
       assignment.set("active", false)
       $app.saveNoValidate(assignment)
     }
-  } catch (_) {}
+    return true
+  } catch (err) {
+    console.log("[workspace] failed to deactivate Execom assignment " + id + ":", err)
+    return false
+  }
+}
+
+function execomClearAssignment(record, existingId) {
+  if (!existingId) return true
+  if (!execomDeactivateAssignment(existingId)) return false
+  record.set("assignment", "")
+  try {
+    $app.saveNoValidate(record)
+    return true
+  } catch (err) {
+    console.log("[workspace] failed to clear Execom assignment backlink " + record.id + ":", err)
+    return false
+  }
 }
 
 function syncExecomWorkspace(record) {
@@ -26,30 +43,18 @@ function syncExecomWorkspace(record) {
   var roleCode = String(record.getString("roleCode") || "").trim()
   var existingId = String(record.getString("assignment") || "").trim()
   if (!userId || !roleCode || !authz.validRoleCode(roleCode)) {
-    if (existingId) {
-      execomDeactivateAssignment(existingId)
-      record.set("assignment", "")
-      try { $app.saveNoValidate(record) } catch (_) {}
-    }
+    if (existingId && !execomClearAssignment(record, existingId)) return
     return
   }
 
   var scopeType = authz.roleScopeType(roleCode)
   if (scopeType !== "branch" && scopeType !== "society") {
-    if (existingId) {
-      execomDeactivateAssignment(existingId)
-      record.set("assignment", "")
-      try { $app.saveNoValidate(record) } catch (_) {}
-    }
+    if (existingId && !execomClearAssignment(record, existingId)) return
     return
   }
   var societyId = scopeType === "society" ? execomResolveSocietyId(record) : ""
   if (scopeType === "society" && !societyId) {
-    if (existingId) {
-      execomDeactivateAssignment(existingId)
-      record.set("assignment", "")
-      try { $app.saveNoValidate(record) } catch (_) {}
-    }
+    if (existingId && !execomClearAssignment(record, existingId)) return
     console.log("[workspace] Execom role not synced because society could not be resolved for " + record.id)
     return
   }
@@ -65,7 +70,7 @@ function syncExecomWorkspace(record) {
     existing.getString("society") === societyId
 
   if (!same && existing) {
-    execomDeactivateAssignment(existing.id)
+    if (!execomDeactivateAssignment(existing.id)) return
     existing = null
   }
   if (!existing) {
@@ -100,7 +105,11 @@ function syncExecomWorkspace(record) {
   }
   if (record.getString("assignment") !== existing.id) {
     record.set("assignment", existing.id)
-    try { $app.saveNoValidate(record) } catch (_) {}
+    try {
+      $app.saveNoValidate(record)
+    } catch (err) {
+      console.log("[workspace] failed to save Execom assignment backlink " + record.id + ":", err)
+    }
   }
 }
 

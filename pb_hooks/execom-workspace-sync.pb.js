@@ -10,8 +10,20 @@ onRecordAfterUpdateSuccess(function (e) {
   e.next()
 }, "execom")
 
-onRecordAfterDeleteSuccess(function (e) {
+onRecordDelete(function (e) {
   var sync = require(__hooks + "/execom-workspace-sync.js")
-  try { sync.execomDeactivateAssignment(e.record.getString("assignment") || "") } catch (_) {}
+  var assignmentId = e.record.getString("assignment") || ""
+  if (assignmentId && !sync.execomDeactivateAssignment(assignmentId)) {
+    throw new Error("Failed to revoke the Execom workspace assignment; deletion was blocked")
+  }
+  e.next()
+}, "execom")
+
+onRecordAfterDeleteError(function (e) {
+  try {
+    require(__hooks + "/execom-workspace-sync.js").syncExecomWorkspace(e.record)
+  } catch (err) {
+    console.log("[workspace] failed to restore Execom assignment after delete rollback " + e.record.id + ":", err)
+  }
   e.next()
 }, "execom")
