@@ -1,25 +1,21 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createAdminFifaMarket, listAdminFifaMarkets, listAdminFifaMatches, settleFifaMatch, updateAdminFifaMarket } from "@/lib/data/admin-fifa.client";
+import { listAdminFifaMarkets, listAdminFifaMatches, settleFifaMatch } from "@/lib/data/admin-fifa.client";
 import { useState } from "react"
-import { ChevronDown, ChevronUp, Loader2, Plus, Trophy } from "lucide-react"
+import { ChevronDown, ChevronUp, Loader2, Trophy } from "lucide-react"
 import { PanelHeader } from "@/components/admin/panel-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Textarea } from "@/components/ui/textarea"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
-} from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
-import { FIFA_MARKET_LABELS, FifaMarketCreateSchema, FifaSettleSchema } from "@/schemas/fifa";
-import type { FIFA_MARKET_MODE, FIFA_MARKET_TYPE } from "@/schemas/fifa"
+import { FifaSettleSchema } from "@/schemas/fifa";
 import { formatDateTime } from "@/lib/dates";
+import { AdminFifaMarketsSection, AdminFifaTagInput } from "@/features/fifa/admin-market-management";
 
 interface MatchRow {
   id: string
@@ -37,18 +33,6 @@ interface MatchRow {
   result_after_penalties?: boolean
 }
 
-interface MarketRow {
-  id: string
-  match: string
-  market_type: string
-  mode: string
-  line: number
-  fixed_odds: Record<string, number> | null
-  options: string[]
-  is_open: boolean
-  void: boolean
-  pool_total: number
-}
 
 export default function AdminFifaMatches() {
   const { data, isLoading } = useQuery({ queryKey: ['admin-fifa-matches'], queryFn: listAdminFifaMatches })
@@ -72,11 +56,11 @@ export default function AdminFifaMatches() {
 
       <div className="space-y-3">
         {data?.matches.map((m) => (
-          <MatchItem 
-            key={m.id} 
-            match={m} 
-            isExpanded={expandedId === m.id} 
-            onToggle={() => setExpandedId(expandedId === m.id ? null : m.id)} 
+          <MatchItem
+            key={m.id}
+            match={m}
+            isExpanded={expandedId === m.id}
+            onToggle={() => setExpandedId(expandedId === m.id ? null : m.id)}
           />
         ))}
       </div>
@@ -93,7 +77,7 @@ function StatusBadge({ status, settled }: { status: string; settled: boolean }) 
 function MatchItem({ match, isExpanded, onToggle }: { match: MatchRow; isExpanded: boolean; onToggle: () => void }) {
   return (
     <div className={`rounded-lg border bg-card overflow-hidden transition-colors ${isExpanded ? 'border-primary/50' : 'hover:border-primary/50'}`}>
-      <div 
+      <div
         className="flex items-center justify-between p-4 cursor-pointer select-none"
         onClick={onToggle}
       >
@@ -108,250 +92,16 @@ function MatchItem({ match, isExpanded, onToggle }: { match: MatchRow; isExpande
           {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
         </div>
       </div>
-      
+
       {isExpanded && (
         <div className="p-4 pt-0 border-t bg-muted/20">
           <div className="grid gap-6 lg:grid-cols-2 mt-4">
-            <MarketsSection matchId={match.id} />
+            <AdminFifaMarketsSection matchId={match.id} />
             <SettleSection match={match} />
           </div>
         </div>
       )}
     </div>
-  )
-}
-
-function MarketsSection({ matchId }: { matchId: string }) {
-  const { data, isLoading } = useQuery({ 
-    queryKey: ['admin-fifa-markets', matchId], 
-    queryFn: () => listAdminFifaMarkets(matchId)
-  })
-
-  return (
-    <section>
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold">Markets</h3>
-        <CreateMarketDialog matchId={matchId} />
-      </div>
-      {isLoading && <Skeleton className="h-32 w-full" />}
-      {data?.markets.length === 0 && (
-        <p className="text-sm text-muted-foreground rounded-lg border border-dashed p-6 text-center">No markets yet.</p>
-      )}
-      <div className="space-y-2">
-        {data?.markets.map((m) => (
-          <MarketCard key={m.id} market={m} />
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function MarketCard({ market }: { market: MarketRow }) {
-  const queryClient = useQueryClient()
-  const [open, setOpen] = useState(false)
-
-  const toggleOpen = useMutation({
-    mutationFn: () => updateAdminFifaMarket(market.id, { is_open: !market.is_open }),
-    onSuccess: () => {
-      toast.success(market.is_open ? 'Market closed' : 'Market opened')
-      queryClient.invalidateQueries({ queryKey: ['admin-fifa-markets', market.match] })
-    },
-    onError: (e: Error) => toast.error(e.message),
-  })
-
-  const voidMarket = useMutation({
-    mutationFn: () => updateAdminFifaMarket(market.id, { void: true, is_open: false }),
-    onSuccess: () => {
-      toast.success('Market voided — pending bets refunded')
-      queryClient.invalidateQueries({ queryKey: ['admin-fifa-markets', market.match] })
-      setOpen(false)
-    },
-    onError: (e: Error) => toast.error(e.message),
-  })
-
-  return (
-    <div className="rounded-lg border bg-card p-3">
-      <div className="flex items-center justify-between mb-2">
-        <div>
-          <p className="text-sm font-medium">{FIFA_MARKET_LABELS[market.market_type as keyof typeof FIFA_MARKET_LABELS] || market.market_type}</p>
-          <p className="text-xs text-muted-foreground">
-            {market.mode} · {market.options.length} options · pool {market.pool_total}
-          </p>
-        </div>
-        <div className="flex items-center gap-1.5">
-          {market.void && <Badge variant="destructive">Voided</Badge>}
-          {!market.void && <Badge variant={market.is_open ? 'default' : 'secondary'}>{market.is_open ? 'Open' : 'Closed'}</Badge>}
-        </div>
-      </div>
-      <div className="flex gap-2">
-        {!market.void && (
-          <Button size="sm" variant="outline" onClick={() => toggleOpen.mutate()} disabled={toggleOpen.isPending}>
-            {market.is_open ? 'Close' : 'Open'}
-          </Button>
-        )}
-        {!market.void && (
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" variant="outline">Void</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Void this market?</DialogTitle>
-              </DialogHeader>
-              <p className="text-sm text-muted-foreground py-2">
-                All pending bets will be refunded. This cannot be undone.
-              </p>
-              <Button variant="destructive" onClick={() => voidMarket.mutate()} disabled={voidMarket.isPending}>
-                {voidMarket.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Void & refund
-              </Button>
-            </DialogContent>
-          </Dialog>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function TagInput({ tags, setTags, placeholder }: { tags: string[]; setTags: (t: string[]) => void; placeholder?: string }) {
-  const [val, setVal] = useState('')
-  return (
-    <div className="space-y-2">
-      <div className="flex gap-2 flex-wrap">
-        {tags.map((t, i) => (
-          <Badge key={i} variant="secondary" className="flex items-center gap-1">
-            {t} 
-            <button 
-              type="button" 
-              onClick={() => setTags(tags.filter((_, j) => j !== i))} 
-              className="hover:text-destructive focus:outline-none"
-            >&times;</button>
-          </Badge>
-        ))}
-      </div>
-      <Input 
-        value={val} 
-        onChange={(e) => setVal(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ',') {
-            e.preventDefault()
-            const trimmed = val.trim()
-            if (trimmed && !tags.includes(trimmed)) {
-              setTags([...tags, trimmed])
-              setVal('')
-            }
-          }
-        }}
-        placeholder={placeholder || 'Type and press Enter or comma'} 
-      />
-    </div>
-  )
-}
-
-function CreateMarketDialog({ matchId }: { matchId: string }) {
-  const [open, setOpen] = useState(false)
-  const queryClient = useQueryClient()
-  type MarketType = (typeof FIFA_MARKET_TYPE)[number]
-  type MarketMode = (typeof FIFA_MARKET_MODE)[number]
-  const initialForm = {
-    market_type: 'match_winner' as MarketType,
-    mode: 'pool' as MarketMode,
-    line: 0,
-    options: [] as string[],
-    fixed_odds_json: '{\n  "home": 1.5,\n  "draw": 3.2,\n  "away": 4.5\n}',
-  }
-  const [form, setForm] = useState(initialForm)
-
-  const create = useMutation({
-    mutationFn: async () => {
-      const body: Record<string, unknown> = {
-        match: matchId,
-        market_type: form.market_type,
-        mode: form.mode,
-        options: form.options,
-        is_open: true,
-      }
-      if (form.market_type === 'total_goals_ou' || form.market_type === 'cards_ou') {
-        body.line = Number(form.line)
-      }
-      if (form.mode === 'fixed') {
-        try {
-          body.fixed_odds = JSON.parse(form.fixed_odds_json)
-        } catch {
-          throw new Error('Invalid JSON in fixed odds')
-        }
-      }
-
-      // Validate with schema
-      const parsed = FifaMarketCreateSchema.safeParse(body)
-      if (!parsed.success) {
-        throw new Error(parsed.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join(', '))
-      }
-
-      return createAdminFifaMarket(parsed.data as Record<string, unknown>)
-    },
-    onSuccess: () => {
-      toast.success('Market created')
-      queryClient.invalidateQueries({ queryKey: ['admin-fifa-markets', matchId] })
-      setForm(initialForm)
-      setOpen(false)
-    },
-    onError: (e: Error) => toast.error(e.message),
-  })
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm"><Plus className="mr-1.5 h-4 w-4" /> Add market</Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader><DialogTitle>Create market</DialogTitle></DialogHeader>
-        <form onSubmit={(e) => { e.preventDefault(); create.mutate() }} className="space-y-4 pt-2">
-          <div>
-            <Label>Market type</Label>
-            <Select value={form.market_type} onValueChange={(value) => setForm({ ...form, market_type: value as MarketType })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {Object.entries(FIFA_MARKET_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Mode</Label>
-            <Select value={form.mode} onValueChange={(value) => setForm({ ...form, mode: value as MarketMode })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pool">Pool (pari-mutuel)</SelectItem>
-                <SelectItem value="fixed">Fixed odds</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {(form.market_type === 'total_goals_ou' || form.market_type === 'cards_ou') && (
-            <div>
-              <Label>Line (e.g. 2.5)</Label>
-              <Input type="number" step="0.5" value={form.line} onChange={(e) => setForm({ ...form, line: Number(e.target.value) })} />
-            </div>
-          )}
-          <div>
-            <Label>Options</Label>
-            <TagInput tags={form.options} setTags={(t) => setForm({ ...form, options: t })} placeholder="e.g. home, then Enter" />
-          </div>
-          {form.mode === 'fixed' && (
-            <div>
-              <Label>Fixed odds (JSON)</Label>
-              <Textarea 
-                className="font-mono text-sm h-32" 
-                value={form.fixed_odds_json} 
-                onChange={(e) => setForm({ ...form, fixed_odds_json: e.target.value })} 
-                placeholder='{"home": 1.5, "away": 4.2}'
-              />
-            </div>
-          )}
-          <Button type="submit" disabled={create.isPending} className="w-full">
-            {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create market
-          </Button>
-        </form>
-      </DialogContent>
-    </Dialog>
   )
 }
 
@@ -413,8 +163,8 @@ function SettleForm({
 }) {
   const queryClient = useQueryClient()
 
-  const { data: marketsData } = useQuery({ 
-    queryKey: ['admin-fifa-markets', matchId], 
+  const { data: marketsData } = useQuery({
+    queryKey: ['admin-fifa-markets', matchId],
     queryFn: () => listAdminFifaMarkets(matchId).catch(() => ({ markets: [] }))
   })
 
@@ -458,7 +208,7 @@ function SettleForm({
         result_after_penalties: form.result_after_penalties,
         custom_winners: Object.keys(form.custom_winners).length > 0 ? form.custom_winners : undefined,
       }
-      
+
       const parsed = FifaSettleSchema.safeParse(payload)
       if (!parsed.success) {
         throw new Error(parsed.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join(', '))
@@ -481,7 +231,7 @@ function SettleForm({
   return (
     <form onSubmit={(e) => { e.preventDefault(); settle.mutate() }} className="space-y-4 rounded-lg border bg-card p-4">
       <p className="text-sm text-muted-foreground">Enter the final result to settle all markets. Idempotent — re-running is safe.</p>
-      
+
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label>90-minute result</Label>
@@ -522,7 +272,7 @@ function SettleForm({
 
       <div>
         <Label>Anytime scorers</Label>
-        <TagInput tags={form.result_scorers} setTags={(t) => setForm({ ...form, result_scorers: t })} placeholder="e.g. Messi, then Enter" />
+        <AdminFifaTagInput tags={form.result_scorers} setTags={(t) => setForm({ ...form, result_scorers: t })} placeholder="e.g. Messi, then Enter" />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -564,10 +314,10 @@ function SettleForm({
           {customMarkets.map(m => (
             <div key={m.id}>
               <Label>Winners for {m.options.join(', ')}</Label>
-              <TagInput 
-                tags={form.custom_winners[m.id] || []} 
-                setTags={(t) => setForm(f => ({ ...f, custom_winners: { ...f.custom_winners, [m.id]: t } }))} 
-                placeholder="Type winner option, then Enter" 
+              <AdminFifaTagInput
+                tags={form.custom_winners[m.id] || []}
+                setTags={(t) => setForm(f => ({ ...f, custom_winners: { ...f.custom_winners, [m.id]: t } }))}
+                placeholder="Type winner option, then Enter"
               />
             </div>
           ))}
