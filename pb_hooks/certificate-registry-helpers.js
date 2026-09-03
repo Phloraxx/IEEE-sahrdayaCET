@@ -205,6 +205,8 @@ function registrySummary(app, candidates, baseParams, delivery) {
 function registryRows(app, candidates, baseParams, delivery, page, perPage, access) {
   var params = copyParams(baseParams)
   var filtered = deliveryClause(delivery, params)
+  var registrationEvents = bindIds(params, "rowRegistration", access.registrationIds)
+  var sendEvents = bindIds(params, "rowSend", access.sendIds)
   params.limit = perPage
   params.offset = (page - 1) * perPage
   var dbRows = arrayOf(new DynamicModel({
@@ -214,7 +216,14 @@ function registryRows(app, candidates, baseParams, delivery, page, perPage, acce
     verificationToken: "", createdAt: "",
   }))
   app.db().newQuery(
-    "WITH candidates AS (" + candidates + ") SELECT * FROM candidates" + filtered +
+    "WITH candidates AS (" + candidates + ") SELECT" +
+      " certificateId, eventId, eventTitle, recipientName," +
+      " CASE WHEN eventId IN (" + registrationEvents + ") THEN recipientEmail ELSE '' END AS recipientEmail," +
+      " credentialId, certificateType, certificateStatus, issuedAt, issuerName, batchId," +
+      " deliveryStatus, attempts, sentAt," +
+      " CASE WHEN eventId IN (" + sendEvents + ") THEN lastError ELSE '' END AS lastError," +
+      " verificationToken, createdAt" +
+      " FROM candidates" + filtered +
       " ORDER BY issuedAt DESC, createdAt DESC LIMIT {:limit} OFFSET {:offset}"
   ).bind(params).all(dbRows)
 
