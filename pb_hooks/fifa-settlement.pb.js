@@ -27,13 +27,14 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
 
       var homeGoals = Number(body.result_home_goals)
       var awayGoals = Number(body.result_away_goals)
-      if (!isFinite(homeGoals) || homeGoals < 0 || !isFinite(awayGoals) || awayGoals < 0) {
-        throw new Error("Valid non-negative result scores are required")
+      if (!isFinite(homeGoals) || homeGoals < 0 || !isFinite(awayGoals) || awayGoals < 0 ||
+          homeGoals !== Math.floor(homeGoals) || awayGoals !== Math.floor(awayGoals)) {
+        throw new Error("Valid non-negative integer result scores are required")
       }
       var result = {
         result_winner: String(body.result_winner || ""),
-        result_home_goals: Math.floor(homeGoals),
-        result_away_goals: Math.floor(awayGoals),
+        result_home_goals: homeGoals,
+        result_away_goals: awayGoals,
         result_scorers: Array.isArray(body.result_scorers) ? body.result_scorers : [],
         result_yellow_cards: Math.max(0, Math.floor(Number(body.result_yellow_cards) || 0)),
         result_red_cards: Math.max(0, Math.floor(Number(body.result_red_cards) || 0)),
@@ -44,11 +45,32 @@ routerAdd("POST", "/api/fifa/settle", function (e) {
       if (["home", "away", "draw"].indexOf(result.result_winner) === -1) {
         throw new Error("result_winner must be home, away or draw")
       }
-      if (!result.result_advance && result.result_winner !== "draw") {
-        result.result_advance = result.result_winner
-      }
       if (result.result_advance && ["home", "away"].indexOf(result.result_advance) === -1) {
         throw new Error("result_advance must be home or away")
+      }
+
+      var expectedWinner = result.result_home_goals > result.result_away_goals ? "home" :
+        result.result_away_goals > result.result_home_goals ? "away" : "draw"
+      if (result.result_winner !== expectedWinner) {
+        throw new Error("result_winner does not match the 90-minute score")
+      }
+
+      var stage = String(match.getString("stage") || "").trim().toLowerCase()
+      var knockoutStages = ["r32", "r16", "qf", "sf", "third_place", "final"]
+      var isKnockout = knockoutStages.indexOf(stage) !== -1
+      if (isKnockout) {
+        if (result.result_winner === "draw") {
+          if (!result.result_advance) throw new Error("result_advance is required for a drawn knockout match")
+        } else {
+          if (result.result_advance && result.result_advance !== result.result_winner) {
+            throw new Error("result_advance must match the 90-minute winner when the knockout result is not a draw")
+          }
+          result.result_advance = result.result_winner
+        }
+      } else {
+        result.result_advance = ""
+        result.result_after_extra_time = false
+        result.result_after_penalties = false
       }
       var customWinnersMap = body.custom_winners || {}
 

@@ -1254,6 +1254,46 @@ again = request("POST", "/api/fifa/settle", {
 }, admin_token)
 assert again.get("message") == "Already settled"
 
+# FIFA settlement validates score/stage invariants at the server boundary, not only in the admin UI.
+settlement_group = request("POST", "/api/collections/fifa_matches/records", {
+    "team_home": "Group Home", "team_away": "Group Away", "stage": "group",
+    "kickoff_at": kickoff, "betting_locks_at": kickoff, "status": "upcoming", "settled": False,
+}, super_token)
+request("POST", "/api/fifa/settle", {
+    "matchId": settlement_group["id"], "result_winner": "away",
+    "result_home_goals": 2, "result_away_goals": 1,
+}, admin_token, (400,))
+request("POST", "/api/fifa/settle", {
+    "matchId": settlement_group["id"], "result_winner": "draw",
+    "result_home_goals": 1, "result_away_goals": 1, "result_advance": "home",
+    "result_after_extra_time": True, "result_after_penalties": True,
+}, admin_token)
+settled_group = request("GET", f"/api/collections/fifa_matches/records/{settlement_group['id']}", token=admin_token)
+assert settled_group["result_winner"] == "draw"
+assert not settled_group.get("result_advance")
+assert settled_group["result_after_extra_time"] is False and settled_group["result_after_penalties"] is False
+
+settlement_knockout = request("POST", "/api/collections/fifa_matches/records", {
+    "team_home": "Knockout Home", "team_away": "Knockout Away", "stage": "r32",
+    "kickoff_at": kickoff, "betting_locks_at": kickoff, "status": "upcoming", "settled": False,
+}, super_token)
+request("POST", "/api/fifa/settle", {
+    "matchId": settlement_knockout["id"], "result_winner": "draw",
+    "result_home_goals": 1, "result_away_goals": 1,
+}, admin_token, (400,))
+request("POST", "/api/fifa/settle", {
+    "matchId": settlement_knockout["id"], "result_winner": "home",
+    "result_home_goals": 2, "result_away_goals": 1, "result_advance": "away",
+}, admin_token, (400,))
+request("POST", "/api/fifa/settle", {
+    "matchId": settlement_knockout["id"], "result_winner": "draw",
+    "result_home_goals": 1, "result_away_goals": 1, "result_advance": "away",
+    "result_after_extra_time": True, "result_after_penalties": True,
+}, admin_token)
+settled_knockout = request("GET", f"/api/collections/fifa_matches/records/{settlement_knockout['id']}", token=admin_token)
+assert settled_knockout["result_advance"] == "away"
+assert settled_knockout["result_after_extra_time"] is True and settled_knockout["result_after_penalties"] is True
+
 # Financial voids reject direct mutation and refund once through the command.
 match2 = request("POST", "/api/collections/fifa_matches/records", {
     "team_home": "Gamma", "team_away": "Delta", "stage": "group",
