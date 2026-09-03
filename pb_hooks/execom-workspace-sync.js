@@ -237,10 +237,12 @@ function deactivateExecomSource(record) {
           if (rows[ownedIndex].id === backlink.id) { backlinkAlreadyOwned = true; break }
         }
       }
-      if (backlink && backlink.getString("source") === "execom" &&
-          backlink.getString("sourceExecom") === record.id && !backlinkAlreadyOwned) {
-        rows.push(backlink)
-      }
+      var backlinkSource = backlink ? clean(backlink.getString("sourceExecom")) : ""
+      var backlinkNote = backlink ? clean(backlink.getString("notes")) : ""
+      var backlinkOwnedByDeletedSource = backlink && backlink.getString("source") === "execom" &&
+        (backlinkSource === record.id ||
+          (!backlinkSource && backlinkNote === "Synced from Execom record " + record.id))
+      if (backlinkOwnedByDeletedSource && !backlinkAlreadyOwned) rows.push(backlink)
       for (var i = 0; i < rows.length; i++) deactivateAssignment(txApp, rows[i])
     })
   } catch (err) {
