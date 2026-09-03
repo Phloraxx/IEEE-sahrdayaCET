@@ -108,6 +108,10 @@ chair_token = impersonate(super_token, chair["id"])
 user_token = impersonate(super_token, user["id"])
 second_token = impersonate(super_token, second_user["id"])
 
+# Payment summary remains valid on an empty ledger/refund table.
+empty_finance = request("GET", "/api/admin/payments/summary", token=admin_token)["summary"]
+assert all(value == 0 for value in empty_finance.values()), empty_finance
+
 # Attendee history is private and requires an authenticated user.
 request("GET", "/api/app/my-events", expected=(401,))
 
@@ -1123,6 +1127,24 @@ assert finance["grossCollectedAmount"] >= finance["refundedAmount"] >= 0
 assert abs(finance["netCollectedAmount"] - (finance["grossCollectedAmount"] - finance["refundedAmount"])) < 0.001
 assert finance["manualCount"] >= 1
 assert "queuedRefundCount" in finance and "failedRefundCount" in finance and "attentionCount" in finance
+payment_rows = request("GET", "/api/collections/payments/records?perPage=500", token=super_token)["items"]
+refund_rows = request("GET", "/api/collections/payment_refunds/records?perPage=500", token=super_token)["items"]
+assert finance["paymentCount"] == len(payment_rows)
+for provider, count_key, amount_key in (
+    ("razorpay", "razorpayCount", "razorpayCollectedAmount"),
+    ("paygate", "paygateCount", "paygateCollectedAmount"),
+    ("manual", "manualCount", "manualCollectedAmount"),
+):
+    provider_rows = [row for row in payment_rows if (row.get("provider") or "unknown") == provider]
+    assert finance[count_key] == len(provider_rows)
+    expected_amount = sum(max(0, int(row.get("collectedPaise") or 0)) for row in provider_rows) / 100
+    assert abs(finance[amount_key] - expected_amount) < 0.001
+legacy_rows = [row for row in payment_rows if (row.get("provider") or "unknown") not in {"razorpay", "paygate", "manual"}]
+assert finance["legacyCount"] == len(legacy_rows)
+assert abs(finance["legacyCollectedAmount"] - sum(max(0, int(row.get("collectedPaise") or 0)) for row in legacy_rows) / 100) < 0.001
+assert finance["attentionCount"] == sum(bool(row.get("manualReview")) or row.get("status") == "partially_refunded" for row in payment_rows)
+assert finance["queuedRefundCount"] == sum(row.get("status") in {"queued", "submitted"} for row in refund_rows)
+assert finance["failedRefundCount"] == sum(row.get("status") == "failed" for row in refund_rows)
 
 request("GET", "/api/admin/data-health", token=user_token, expected=(403,))
 data_health = request("GET", "/api/admin/data-health", token=admin_token)
