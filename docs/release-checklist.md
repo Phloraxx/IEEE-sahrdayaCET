@@ -34,7 +34,6 @@ Verify from `https://staging.ieeesahrdaya.com`, not only localhost:
 - `/societies` and at least one society page;
 - `/blog` and at least one blog post;
 - `/full-execom`;
-- `/FIFA`, `/FIFA/matches`, `/FIFA/leaderboard`, `/FIFA/rules`;
 - `/healthz`;
 - `/api/health`.
 
@@ -94,22 +93,7 @@ For Razorpay specifically, verify before accepting real registrations:
 - one real-device smoke test covers Android/iOS mobile handoff as supported by the merchant account and one desktop QR payment;
 - a callback-loss test confirms webhook or explicit reconciliation still reaches the correct final state.
 
-## 6. WC Predict acceptance
-
-For the FIFA/WC Predict feature, verify:
-
-- authenticated dashboard/balance access;
-- bet placement rejects invalid/oversized/late bets;
-- accepted bet debits once and creates one ledger entry;
-- settlement is admin-only and idempotent;
-- market and match void commands refund once;
-- leaderboard/rank updates are coherent after settlement;
-- raffle/settings admin surfaces load and obey authorization;
-- live-score data remains display-only and cannot settle balances automatically.
-
-Use disposable staging economy data only.
-
-## 7. Production configuration
+## 6. Production configuration
 
 Confirm the production Dokploy project has the intended values before merge:
 
@@ -149,7 +133,7 @@ Also verify:
 - production and staging use different `pb_data` volumes and encryption keys;
 - the production web container has no PocketBase superuser credential.
 
-## 8. Backup and migration rehearsal
+## 7. Backup and migration rehearsal
 
 Immediately before production deployment:
 
@@ -161,7 +145,7 @@ Immediately before production deployment:
 
 Do not rely on automatic reverse migrations after destructive schema changes.
 
-## 9. Deployment
+## 8. Deployment
 
 Staging deployment path:
 
@@ -187,14 +171,14 @@ merge/push main
 
 Do not start replacement containers manually under either Compose project name.
 
-## 10. Post-deploy verification
+## 9. Post-deploy verification
 
 After Dokploy reports healthy services, verify:
 
 - `/` returns 200 and expected current UI;
 - `/healthz` returns 200;
 - `/api/health` returns 200;
-- event/society/blog/FIFA public routes return expected content;
+- event/society/blog public routes return expected content;
 - production `robots.txt`/sitemap behavior is correct;
 - staging remains noindexed;
 - production Google login initializes;

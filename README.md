@@ -4,7 +4,7 @@
 
 # IEEE Sahrdaya Student Branch
 
-**Public website, event platform, administration tools, and WC Predict '26 for IEEE Sahrdaya.**
+**Public website, event platform, certificate system, and administration tools for IEEE Sahrdaya.**
 
 [Production](https://ieeesahrdaya.com)
 
@@ -76,11 +76,6 @@ Normal record operations use PocketBase collections directly. Custom routes exis
 - `POST /api/app/events/:id/register`
 - `PUT /api/app/events/:id/coupons`
 - `POST /api/app/admin/users/:id/role`
-- `POST /api/fifa/bets`
-- `POST /api/fifa/settle`
-- `POST /api/fifa/markets/:id/void`
-- `POST /api/fifa/matches/:id/void`
-- `GET /api/fifa/live-scores`
 
 ## Local development
 

@@ -37,5 +37,5 @@ jobs:
             build
             debug
             style
-          # Scope is optional and free-form (e.g. feat(auth):, fix(fifa):)
+          # Scope is optional and free-form (e.g. feat(auth):, fix(events):)
           requireScope: false

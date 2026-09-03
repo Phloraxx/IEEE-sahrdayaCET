@@ -104,21 +104,6 @@ Admin pages are scoped under `.vh-admin` and use the submissionPortalV2-inspired
 
 Prefer existing admin utilities such as `.vh-touch`, `.vh-press`, `.vh-mono`, `.vh-divider`, stagger helpers, and the shared shadcn/Radix primitives that remain in the repository.
 
-## WC Predict / FIFA register
-
-WC Predict is energetic and pitch-side, but must not look like a real-money sportsbook.
-
-Principles:
-
-- scoreboard/game-day energy, not betting-app luxury;
-- fake points are never styled as cash, chips, deposits, or withdrawals;
-- blue/light-blue IEEE accents remain the brand anchor;
-- status always combines text/icon with color;
-- match, pool, balance, rank, and result information must stay readable on mobile;
-- settlement/admin surfaces favour clarity over spectacle.
-
-The current `.fifa-theme` defines the dark game surface and semantic tokens. Reuse it rather than inventing a parallel dark palette.
-
 ## Layout
 
 - Mobile-first.
@@ -159,6 +144,6 @@ Emoji are acceptable only where the existing playful public/event language calls
 
 ## Design-change rule
 
-Before adding a new visual system, identify whether the work belongs to the public IEEE, Events editorial, Admin, or FIFA register. Extend that register first.
+Before adding a new visual system, identify whether the work belongs to the public IEEE, Events editorial, or Admin register. Extend that register first.
 
 When a design change introduces a reusable token, font, motion rule, or layout convention, update this document and the global CSS deliberately rather than leaving the convention trapped in one component.
