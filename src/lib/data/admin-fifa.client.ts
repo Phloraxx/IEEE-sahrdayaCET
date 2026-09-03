@@ -3,7 +3,7 @@ import { escapeFilterValue } from "@/lib/pb";
 import { FifaRaffleSnapshotSchema, type FifaRaffleSnapshot, type FifaSettings } from "@/schemas/fifa";
 import { getNumberField } from "@/lib/safe-get";
 
-interface AdminFifaMatchRecord {
+export interface AdminFifaMatchRecord {
   id: string;
   team_home: string;
   team_away: string;
@@ -20,7 +20,7 @@ interface AdminFifaMatchRecord {
   result_after_penalties: boolean;
 }
 
-interface AdminFifaMarketRecord {
+export interface AdminFifaMarketRecord {
   id: string;
   match: string;
   market_type: string;
