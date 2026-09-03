@@ -83,3 +83,9 @@ The redesign was checked component-by-component against contemporary editorial/e
 - **Motion:** image masks, restrained scale, masked headline reveals and small parallax shifts are used instead of applying the same fade-up to every element.
 
 The implementation borrows interaction principles, not visual assets or layouts verbatim.
+
+## Post-launch mobile and accessibility pass
+
+A section-by-section staging audit at 1440×1000 and 390×844 led to a focused responsive polish pass. The SDG challenge matrix and team archive now use two-column mobile grids, the gallery exposes a swipe/progress affordance, and small editorial labels are legible at phone sizes. The shared footer also uses denser mobile spacing, larger link hit areas, and hides its oversized decorative watermark below the desktop breakpoint.
+
+The gallery viewer is rendered above global navigation, locks document scrolling, traps keyboard focus, restores focus to the originating image, marks background UI inert while open, supports Escape/arrow keys, and adds horizontal swipe navigation. The shared mobile navigation now locks and restores the underlying page position while its fullscreen menu is open.

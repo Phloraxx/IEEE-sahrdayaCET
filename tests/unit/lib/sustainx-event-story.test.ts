@@ -48,6 +48,32 @@ describe("SustainX event story", () => {
     expect(styles).toContain("prefers-reduced-motion: reduce");
   });
 
+  it("keeps the gallery above global chrome and keyboard-safe", () => {
+    const page = read("src/components/events/SustainXEventStory.tsx");
+    expect(page).toContain('className="fixed inset-0 z-[200]');
+    expect(page).toContain("createPortal");
+    expect(page).toContain("closeButtonRef.current?.focus()");
+    expect(page).toContain('event.key !== "Tab"');
+    expect(page).toContain("triggerRef.current?.focus()");
+    expect(page).toContain("child.inert = true");
+    expect(page).toContain("onTouchStart={onTouchStart}");
+    expect(page).toContain("Swipe the archive →");
+  });
+
+  it("keeps dense mobile archives compact and legible", () => {
+    const page = read("src/components/events/SustainXEventStory.tsx");
+    expect(page).toContain('grid grid-cols-2 border-l border-t border-black/15');
+    expect(page).toContain('grid grid-cols-2 border-l border-t border-black/16');
+    expect(page).toContain('text-[10px] font-bold tabular-nums');
+  });
+
+  it("locks the page behind the mobile navigation overlay", () => {
+    const navbar = read("src/components/Navbar.tsx");
+    expect(navbar).toContain('body.style.position = "fixed"');
+    expect(navbar).toContain('root.style.overflow = "hidden"');
+    expect(navbar).toContain('aria-label="Site navigation"');
+  });
+
   it("uses the documented 100-point judging framework", () => {
     const page = read("src/components/events/SustainXEventStory.tsx");
     expect(page).toContain('["Sustainability & community impact", "30"]');
