@@ -63,6 +63,51 @@ export default function Navbar({ fifaActive, mobileAlign = "center" }: NavbarPro
   }, [pathname]);
 
   useEffect(() => {
+    if (!mobileMenuOpen || window.innerWidth >= 768) return;
+
+    const routePath = pathname;
+    const scrollY = window.scrollY;
+    const body = document.body;
+    const root = document.documentElement;
+    const previousBody = {
+      position: body.style.position,
+      top: body.style.top,
+      left: body.style.left,
+      right: body.style.right,
+      width: body.style.width,
+      overflow: body.style.overflow,
+    };
+    const previousRootOverflow = root.style.overflow;
+
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.left = "0";
+    body.style.right = "0";
+    body.style.width = "100%";
+    body.style.overflow = "hidden";
+    root.style.overflow = "hidden";
+
+    return () => {
+      root.style.overflow = previousRootOverflow;
+      body.style.position = previousBody.position;
+      body.style.top = previousBody.top;
+      body.style.left = previousBody.left;
+      body.style.right = previousBody.right;
+      body.style.width = previousBody.width;
+      body.style.overflow = previousBody.overflow;
+      if (window.location.pathname === routePath) window.scrollTo(0, scrollY);
+    };
+  }, [mobileMenuOpen, pathname]);
+
+  useEffect(() => {
+    const closeDesktopMenu = () => {
+      if (window.innerWidth >= 768) setMobileMenuOpen(false);
+    };
+    window.addEventListener("resize", closeDesktopMenu);
+    return () => window.removeEventListener("resize", closeDesktopMenu);
+  }, []);
+
+  useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 80);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -376,6 +421,9 @@ export default function Navbar({ fifaActive, mobileAlign = "center" }: NavbarPro
           className={`md:hidden fixed inset-0 z-[100] flex flex-col items-center justify-center gap-8 px-8 ${
             inFifa ? "bg-[#0a0a0b]/95 backdrop-blur-xl text-white" : "bg-white/95 backdrop-blur-xl"
           }`}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Site navigation"
           onClick={() => setMobileMenuOpen(false)}
         >
           <nav className="flex flex-col items-center gap-5">

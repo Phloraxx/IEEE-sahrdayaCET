@@ -19,6 +19,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
@@ -217,21 +218,182 @@ function HeroPanel({
 function EventGallery() {
   const reduceMotion = Boolean(useReducedMotion());
   const [selected, setSelected] = useState<number | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const isOpen = selected !== null;
+
+  const openPhoto = (index: number, trigger: HTMLButtonElement) => {
+    triggerRef.current = trigger;
+    setSelected(index);
+  };
+
+  const closePhoto = () => setSelected(null);
+  const showPrevious = () => setSelected((current) => (current === null ? null : (current - 1 + galleryPhotos.length) % galleryPhotos.length));
+  const showNext = () => setSelected((current) => (current === null ? null : (current + 1) % galleryPhotos.length));
 
   useEffect(() => {
-    if (selected === null) return;
+    if (!isOpen) return;
+
+    const scrollY = window.scrollY;
+    const body = document.body;
+    const root = document.documentElement;
+    const previousBody = {
+      position: body.style.position,
+      top: body.style.top,
+      left: body.style.left,
+      right: body.style.right,
+      width: body.style.width,
+      overflowY: body.style.overflowY,
+      paddingRight: body.style.paddingRight,
+    };
+    const previousRootOverflow = root.style.overflow;
+    const scrollbarWidth = Math.max(0, window.innerWidth - root.clientWidth);
+
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.left = "0";
+    body.style.right = "0";
+    body.style.width = "100%";
+    body.style.overflowY = "scroll";
+    if (scrollbarWidth > 0) body.style.paddingRight = `${scrollbarWidth}px`;
+    root.style.overflow = "hidden";
+
+    const dialog = dialogRef.current;
+    const inerted: Array<{ element: HTMLElement; value: boolean }> = [];
+    if (dialog) {
+      for (const child of Array.from(body.children)) {
+        if (!(child instanceof HTMLElement) || child === dialog || child.contains(dialog)) continue;
+        inerted.push({ element: child, value: child.inert });
+        child.inert = true;
+      }
+    }
+
+    const focusDialog = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setSelected(null);
-      if (event.key === "ArrowLeft") setSelected((current) => (current === null ? null : (current - 1 + galleryPhotos.length) % galleryPhotos.length));
-      if (event.key === "ArrowRight") setSelected((current) => (current === null ? null : (current + 1) % galleryPhotos.length));
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closePhoto();
+        return;
+      }
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        showPrevious();
+        return;
+      }
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        showNext();
+        return;
+      }
+      if (event.key !== "Tab" || !dialogRef.current) return;
+
+      const focusable = Array.from(
+        dialogRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => element.getClientRects().length > 0);
+      if (focusable.length === 0) return;
+
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+      const active = document.activeElement;
+      if (!dialogRef.current.contains(active)) {
+        event.preventDefault();
+        first.focus();
+      } else if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
-    document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", onKeyDown);
+
+    document.addEventListener("keydown", onKeyDown);
     return () => {
-      document.body.style.overflow = "";
-      window.removeEventListener("keydown", onKeyDown);
+      window.cancelAnimationFrame(focusDialog);
+      document.removeEventListener("keydown", onKeyDown);
+      inerted.forEach(({ element, value }) => { element.inert = value; });
+      root.style.overflow = previousRootOverflow;
+      body.style.position = previousBody.position;
+      body.style.top = previousBody.top;
+      body.style.left = previousBody.left;
+      body.style.right = previousBody.right;
+      body.style.width = previousBody.width;
+      body.style.overflowY = previousBody.overflowY;
+      body.style.paddingRight = previousBody.paddingRight;
+      window.scrollTo(0, scrollY);
+      window.requestAnimationFrame(() => triggerRef.current?.focus());
     };
-  }, [selected]);
+  }, [isOpen]);
+
+  const onTouchStart = (event: React.TouchEvent) => {
+    const touch = event.touches[0];
+    if (touch) touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  };
+
+  const onTouchEnd = (event: React.TouchEvent) => {
+    const start = touchStartRef.current;
+    const touch = event.changedTouches[0];
+    touchStartRef.current = null;
+    if (!start || !touch) return;
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    if (Math.abs(dx) < 55 || Math.abs(dx) <= Math.abs(dy) * 1.2) return;
+    if (dx > 0) showPrevious();
+    else showNext();
+  };
+
+  const modal = typeof document !== "undefined" ? createPortal(
+    <AnimatePresence>
+      {selected !== null && (
+        <motion.div
+          ref={dialogRef}
+          className="fixed inset-0 z-[200] grid place-items-center bg-[#090a0d]/95 p-4 sm:p-8"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="SustainX photo viewer"
+          onClick={closePhoto}
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
+        >
+          <button ref={closeButtonRef} type="button" onClick={closePhoto} className="absolute right-4 top-4 z-10 grid h-11 w-11 place-items-center rounded-full border border-white/25 bg-black/45 text-white sm:right-8 sm:top-8" aria-label="Close photo viewer">
+            <X className="h-5 w-5" />
+          </button>
+          <button type="button" onClick={(event) => { event.stopPropagation(); showPrevious(); }} className="absolute left-3 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/25 bg-black/45 text-white sm:left-8" aria-label="Previous photo">
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <button type="button" onClick={(event) => { event.stopPropagation(); showNext(); }} className="absolute right-3 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/25 bg-black/45 text-white sm:right-8" aria-label="Next photo">
+            <ChevronRight className="h-5 w-5" />
+          </button>
+          <motion.figure
+            key={galleryPhotos[selected]!.src}
+            initial={reduceMotion ? false : { opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            transition={{ duration: reduceMotion ? 0 : 0.35 }}
+            className="flex max-h-[90svh] max-w-[1040px] flex-col items-center"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <img src={galleryPhotos[selected]!.src} alt={galleryPhotos[selected]!.alt} className="max-h-[76svh] max-w-full object-contain sm:max-h-[78svh]" />
+            <figcaption className="mt-4 flex w-full max-w-2xl items-start justify-between gap-4 text-white sm:gap-6">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#8ce0d8]">{galleryPhotos[selected]!.eyebrow}</p>
+                <p className="mt-1 text-sm leading-6 text-white/64">{galleryPhotos[selected]!.caption}</p>
+              </div>
+              <span className="text-xs font-bold tabular-nums text-white/45">{String(selected + 1).padStart(2, "0")} / {String(galleryPhotos.length).padStart(2, "0")}</span>
+            </figcaption>
+          </motion.figure>
+        </motion.div>
+      )}
+    </AnimatePresence>,
+    document.body,
+  ) : null;
 
   return (
     <section className="border-b border-black/10 bg-[#f3f2f8] py-20 sm:py-28 lg:py-36" aria-labelledby="sustainx-gallery-title">
@@ -250,12 +412,15 @@ function EventGallery() {
           </p>
         </div>
 
-        <div className="event-filter-scroll -mx-5 mt-8 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-4 sm:-mx-8 sm:px-8 lg:hidden">
+        <div className="mt-7 flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.18em] text-black/42 lg:hidden" aria-hidden="true">
+          <span>Swipe the archive →</span><span>01 / 07</span>
+        </div>
+        <div className="event-filter-scroll -mx-5 mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-4 sm:-mx-8 sm:px-8 lg:hidden">
           {galleryPhotos.map((photo, index) => (
             <button
               key={photo.src}
               type="button"
-              onClick={() => setSelected(index)}
+              onClick={(event) => openPhoto(index, event.currentTarget)}
               className="group relative w-[78vw] max-w-[360px] shrink-0 snap-center text-left"
               aria-label={`Open gallery image ${index + 1} of ${galleryPhotos.length}`}
             >
@@ -264,10 +429,10 @@ function EventGallery() {
               </div>
               <div className="flex items-start justify-between gap-4 border-t border-black/15 pt-3">
                 <div>
-                  <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#6558c9]">{photo.eyebrow}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#6558c9]">{photo.eyebrow}</p>
                   <p className="mt-1 max-w-[16rem] text-xs leading-5 text-black/55">{photo.caption}</p>
                 </div>
-                <span className="text-[9px] font-bold tabular-nums text-black/35">{String(index + 1).padStart(2, "0")}</span>
+                <span className="text-[10px] font-bold tabular-nums text-black/35">{String(index + 1).padStart(2, "0")}</span>
               </div>
             </button>
           ))}
@@ -289,7 +454,7 @@ function EventGallery() {
               <motion.button
                 key={photo.src}
                 type="button"
-                onClick={() => setSelected(index)}
+                onClick={(event) => openPhoto(index, event.currentTarget)}
                 initial={reduceMotion ? false : { clipPath: "inset(0 0 8% 0)", y: 20, opacity: 0.9 }}
                 whileInView={{ clipPath: "inset(0 0 0% 0)", y: 0, opacity: 1 }}
                 viewport={{ once: true, amount: 0.18 }}
@@ -312,59 +477,17 @@ function EventGallery() {
                 </div>
                 <div className="flex items-start justify-between gap-4 border-t border-black/15 pt-3">
                   <div>
-                    <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#6558c9]">{photo.eyebrow}</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#6558c9]">{photo.eyebrow}</p>
                     <p className="mt-1 max-w-[22rem] text-xs leading-5 text-black/55">{photo.caption}</p>
                   </div>
-                  <span className="text-[9px] font-bold tabular-nums text-black/35">{String(index + 1).padStart(2, "0")}</span>
+                  <span className="text-[10px] font-bold tabular-nums text-black/35">{String(index + 1).padStart(2, "0")}</span>
                 </div>
               </motion.button>
             );
           })}
         </div>
       </div>
-
-      <AnimatePresence>
-        {selected !== null && (
-          <motion.div
-            className="fixed inset-0 z-[100] grid place-items-center bg-[#090a0d]/95 p-4 sm:p-8"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            role="dialog"
-            aria-modal="true"
-            aria-label="SustainX photo viewer"
-            onClick={() => setSelected(null)}
-          >
-            <button type="button" onClick={() => setSelected(null)} className="absolute right-4 top-4 z-10 grid h-11 w-11 place-items-center rounded-full border border-white/25 bg-black/35 text-white sm:right-8 sm:top-8" aria-label="Close photo viewer">
-              <X className="h-5 w-5" />
-            </button>
-            <button type="button" onClick={(event) => { event.stopPropagation(); setSelected((selected - 1 + galleryPhotos.length) % galleryPhotos.length); }} className="absolute left-3 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/25 bg-black/35 text-white sm:left-8" aria-label="Previous photo">
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <button type="button" onClick={(event) => { event.stopPropagation(); setSelected((selected + 1) % galleryPhotos.length); }} className="absolute right-3 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/25 bg-black/35 text-white sm:right-8" aria-label="Next photo">
-              <ChevronRight className="h-5 w-5" />
-            </button>
-            <motion.figure
-              key={galleryPhotos[selected]!.src}
-              initial={reduceMotion ? false : { opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.98 }}
-              transition={{ duration: reduceMotion ? 0 : 0.35 }}
-              className="flex max-h-[90svh] max-w-[1040px] flex-col items-center"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <img src={galleryPhotos[selected]!.src} alt={galleryPhotos[selected]!.alt} className="max-h-[78svh] max-w-full object-contain" />
-              <figcaption className="mt-4 flex w-full max-w-2xl items-start justify-between gap-6 text-white">
-                <div>
-                  <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#8ce0d8]">{galleryPhotos[selected]!.eyebrow}</p>
-                  <p className="mt-1 text-sm leading-6 text-white/64">{galleryPhotos[selected]!.caption}</p>
-                </div>
-                <span className="text-xs font-bold tabular-nums text-white/45">{String(selected + 1).padStart(2, "0")} / {String(galleryPhotos.length).padStart(2, "0")}</span>
-              </figcaption>
-            </motion.figure>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {modal}
     </section>
   );
 }
@@ -434,7 +557,7 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
             <Link to="/events" className="group inline-flex min-h-11 items-center gap-2 text-[9px] font-bold uppercase tracking-[0.2em] text-white/72 transition hover:text-white">
               <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" /> All events
             </Link>
-            <p className="text-right text-[9px] font-bold uppercase tracking-[0.22em] text-white/58">Event archive<br className="sm:hidden" /> / 20.08.26</p>
+            <p className="text-right text-[10px] font-bold uppercase tracking-[0.22em] text-white/58">Event archive<br className="sm:hidden" /> / 20.08.26</p>
           </div>
 
           <div className="mt-auto pb-4 pt-28 sm:pt-36">
@@ -443,7 +566,7 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
                 initial={reduceMotion ? false : { opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: reduceMotion ? 0 : 0.55, delay: reduceMotion ? 0 : 0.55 }}
-                className="mb-4 text-[9px] font-bold uppercase tracking-[0.34em] text-[#a5f0e7] sm:text-[10px]"
+                className="mb-4 text-[10px] font-bold uppercase tracking-[0.3em] text-[#a5f0e7] sm:tracking-[0.34em]"
               >
                 See the challenge. Shape the change.
               </motion.p>
@@ -459,7 +582,7 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
               </div>
               <div className="mt-5 grid gap-5 border-t border-white/24 pt-5 sm:grid-cols-[1fr_auto] sm:items-end">
                 <p className="max-w-xl text-[clamp(1.25rem,2.6vw,2.55rem)] font-semibold leading-[0.96] tracking-[-0.045em]">From Street to Smart City</p>
-                <div className="flex flex-wrap gap-x-5 gap-y-2 text-[9px] font-bold uppercase tracking-[0.16em] text-white/65 sm:justify-end">
+                <div className="flex flex-wrap gap-x-5 gap-y-2 text-[10px] font-bold uppercase tracking-[0.14em] text-white/65 sm:justify-end sm:tracking-[0.16em]">
                   <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-[#a68df2]" />20 August 2026</span>
                   <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-[#78d6ca]" />{event.venue || "Sahrdaya College"}</span>
                   <span className="inline-flex items-center gap-1.5"><Leaf className="h-3.5 w-3.5 text-[#a68df2]" />UN SDG 11</span>
@@ -513,7 +636,7 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
                 <h2 className="text-[clamp(3rem,7.2vw,7.3rem)] font-semibold leading-[0.85] tracking-[-0.07em]">Identify. Innovate. Present.</h2>
               </MaskedHeading>
             </div>
-            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/38 lg:col-span-3 lg:text-right">3 phases / 1 challenge</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/38 lg:col-span-3 lg:text-right">3 phases / 1 challenge</p>
           </div>
           <div className="mt-2">
             {phases.map((phase, index) => (
@@ -552,11 +675,11 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
               </blockquote>
             </Reveal>
           </div>
-          <div className="mt-12 grid border-l border-t border-black/15 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-12 grid grid-cols-2 border-l border-t border-black/15 lg:grid-cols-3">
             {challengeThemes.map((theme, index) => (
-              <Reveal key={theme} className="group flex min-h-28 items-end justify-between border-b border-r border-black/15 p-5 transition-colors hover:bg-white/45">
-                <span className="max-w-[15rem] text-base font-semibold leading-tight tracking-[-0.025em]">{theme}</span>
-                <span className="text-[9px] font-bold tabular-nums text-black/28">{String(index + 1).padStart(2, "0")}</span>
+              <Reveal key={theme} className="group flex min-h-24 items-end justify-between gap-3 border-b border-r border-black/15 p-4 transition-colors hover:bg-white/45 sm:min-h-28 sm:p-5">
+                <span className="max-w-[15rem] text-sm font-semibold leading-tight tracking-[-0.025em] sm:text-base">{theme}</span>
+                <span className="text-[10px] font-bold tabular-nums text-black/28">{String(index + 1).padStart(2, "0")}</span>
               </Reveal>
             ))}
           </div>
@@ -601,11 +724,11 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
             </div>
             <p className="max-w-xl text-sm leading-6 text-black/58 lg:col-span-5 lg:col-start-8 lg:pt-8 sm:text-base sm:leading-7">Every team entered the same SDG 11 challenge from a different lived problem. The archive below records the participating team names without publishing private participant information.</p>
           </div>
-          <div className="mt-12 grid border-l border-t border-black/16 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-12 grid grid-cols-2 border-l border-t border-black/16 lg:grid-cols-4">
             {teams.map((team, index) => (
-              <Reveal key={team} className="flex min-h-28 flex-col justify-between border-b border-r border-black/16 p-5 sm:min-h-32">
-                <span className="text-[9px] font-bold tabular-nums tracking-[0.18em] text-black/34">{String(index + 1).padStart(2, "0")}</span>
-                <span className="text-lg font-black tracking-[-0.035em]">{team}</span>
+              <Reveal key={team} className="flex min-h-24 flex-col justify-between gap-3 border-b border-r border-black/16 p-4 sm:min-h-32 sm:p-5">
+                <span className="text-[10px] font-bold tabular-nums tracking-[0.18em] text-black/34">{String(index + 1).padStart(2, "0")}</span>
+                <span className="break-words text-sm font-black leading-tight tracking-[-0.035em] sm:text-lg">{team}</span>
               </Reveal>
             ))}
           </div>
@@ -630,7 +753,7 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
                 </div>
               ))}
             </div>
-            <p className="mt-3 text-right text-[9px] font-bold uppercase tracking-[0.2em] text-black/34">100 points total</p>
+            <p className="mt-3 text-right text-[10px] font-bold uppercase tracking-[0.2em] text-black/34">100 points total</p>
           </Reveal>
         </div>
       </section>
@@ -649,7 +772,7 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
             <Link to="/events" className="inline-flex min-h-11 items-center gap-2 border border-white/35 px-5 py-3 text-[10px] font-bold uppercase tracking-[0.18em] transition hover:border-[#8ce0d8] hover:text-[#8ce0d8]">
               Explore more events <ArrowUpRight className="h-4 w-4" />
             </Link>
-            <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/48">IEEE Sahrdaya · 20 August 2026</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/48 sm:tracking-[0.18em]">IEEE Sahrdaya · 20 August 2026</span>
           </div>
         </div>
       </section>
