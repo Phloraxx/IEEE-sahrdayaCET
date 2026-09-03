@@ -55,6 +55,21 @@ assert backup_cron and backup_cron.get("expression") == "30 21 * * *"
 settings = request("GET", "/api/settings", token=super_token)
 assert settings["backups"]["cron"] == "30 21 * * *"
 assert settings["backups"]["cronMaxKeep"] == 14
+
+# Long-lived production predates the additive baseline migration. Keep the
+# query/uniqueness indexes required by current code normalized on both fresh
+# and upgraded databases.
+required_indexes = {
+    "societies": ("idx_societies_slug", "idx_societies_hidden"),
+    "blogs": ("idx_blogs_published_at",),
+    "execom": ("idx_execom_order", "idx_execom_society"),
+    "registrations": ("idx_registrations_event_payment", "idx_registrations_event_ticket"),
+}
+for collection_name, expected_indexes in required_indexes.items():
+    schema = request("GET", f"/api/collections/{collection_name}", token=super_token)
+    indexes = [str(index) for index in schema.get("indexes", [])]
+    for expected_index in expected_indexes:
+        assert any(expected_index in index for index in indexes), (collection_name, expected_index, indexes)
 suffix = str(int(time.time() * 1000))
 fixture_password = "FixturePass-2026!"
 
@@ -188,6 +203,10 @@ society = request("POST", "/api/collections/societies/records", {
     "name": f"CI Society {suffix}", "slug": f"ci-society-{suffix}", "bio": "CI smoke",
     "isHidden": False, "chairs": [chair["id"]],
 }, super_token)
+request("POST", "/api/collections/societies/records", {
+    "name": f"Duplicate Society {suffix}", "slug": f"ci-society-{suffix}", "bio": "duplicate",
+    "isHidden": False, "chairs": [],
+}, super_token, expected=(400,))
 other_society = request("POST", "/api/collections/societies/records", {
     "name": f"Other Society {suffix}", "slug": f"other-society-{suffix}", "bio": "CI smoke",
     "isHidden": False, "chairs": [],

@@ -7,7 +7,7 @@ export async function fetchExecomData(): Promise<ExecomMemberDoc[]> {
     batch: 200,
     sort: "order",
     fields:
-      "id,order,name,department,batch,position,category,section,sectionId,photo,linkedin,instagram,portfolio",
+      "id,order,name,department,batch,position,section,sectionId,photo,linkedin,instagram,portfolio",
   });
 
   return records.map((record, index) => ({
@@ -18,7 +18,6 @@ export async function fetchExecomData(): Promise<ExecomMemberDoc[]> {
     department: String(record.department || ""),
     semester: String(record.batch || ""),
     position: String(record.position || ""),
-    category: String(record.category || ""),
     section: String(record.section || ""),
     sectionId: String(record.sectionId || ""),
     photoUrl: record.photo
