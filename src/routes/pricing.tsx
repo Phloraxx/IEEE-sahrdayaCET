@@ -29,7 +29,7 @@ export async function loader() {
 function EventPriceCard({ event }: { event: SerializableEvent }) {
   const price = event.price > 0 ? `₹${event.price.toLocaleString("en-IN")}` : "Free";
   return (
-    <Link to={`/events/${event.slug}`} className="group rounded-2xl border border-gray-200 bg-white p-5 transition hover:border-ieee-blue/40 hover:shadow-sm">
+    <Link to={`/events/${event.slug}`} className="group min-w-0 w-full rounded-2xl border border-gray-200 bg-white p-5 transition hover:border-ieee-blue/40 hover:shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="truncate text-base font-semibold text-gray-950 group-hover:text-ieee-blue">{event.title}</p>
@@ -69,7 +69,7 @@ export default function PricingPage() {
               <Link to="/events" className="text-sm font-semibold text-ieee-blue hover:underline">Browse all events</Link>
             </div>
             {current.length ? (
-              <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <div className="mt-5 grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {current.map((event) => <EventPriceCard key={event.id} event={event} />)}
               </div>
             ) : (
@@ -82,7 +82,7 @@ export default function PricingPage() {
             <section className="mt-12 border-t border-gray-200 pt-10">
               <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">Recent catalog history</p>
               <h2 className="mt-2 text-2xl font-semibold text-gray-950">Completed events</h2>
-              <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <div className="mt-5 grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {past.map((event) => <EventPriceCard key={event.id} event={event} />)}
               </div>
             </section>
