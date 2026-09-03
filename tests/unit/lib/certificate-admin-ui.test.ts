@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
 const route = read("src/routes/admin.events.$id.tsx");
 const panel = read("src/features/admin/events/certificate-template-panel.tsx");
+const editor = read("src/features/admin/events/certificate-template-editor.tsx");
 const client = read("src/lib/data/certificate-templates.client.ts");
 const issuancePanel = read("src/features/admin/events/certificate-issuance-panel.tsx");
 const issuanceClient = read("src/lib/data/certificate-issuance.client.ts");
@@ -33,14 +34,15 @@ describe("certificate event-admin UI architecture", () => {
   });
 
   it("keeps the editor constrained to dynamic certificate fields", () => {
-    expect(panel).toContain("Participant name");
-    expect(panel).toContain("Credential ID");
-    expect(panel).toContain("Scannable verification");
-    expect(panel).toContain("Credential ID is the primary printed identifier");
+    const studio = `${editor}\n${panel}`;
+    expect(editor).toContain("Participant name");
+    expect(editor).toContain("Credential ID");
+    expect(editor).toContain("Scannable verification");
+    expect(editor).toContain("Credential ID is the primary printed identifier");
     expect(panel).toContain("Certificate artwork (PNG)");
     expect(panel).toContain("logos, signatures, certificate wording and decorative elements");
-    expect(panel).not.toContain('id="cert-source-background"');
-    expect(panel).not.toContain('id="cert-source-signatures"');
+    expect(studio).not.toContain('id="cert-source-background"');
+    expect(studio).not.toContain('id="cert-source-signatures"');
     expect(panel).toContain("Published artwork is read-only");
   });
 
