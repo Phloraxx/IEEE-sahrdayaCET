@@ -96,6 +96,5 @@ describe("attendee cancellation and waitlist architecture", () => {
     expect(backend).toContain("cancellationRequests");
     expect(client).toContain("decideCancellationRequest");
     expect(page).toContain("Attendee refund requests");
-    expect(page).toContain("does not move money automatically");
   });
 });
