@@ -55,7 +55,9 @@ Refactor by workflow/responsibility with characterization tests first. Do not sp
 
 ### P2 — Full-collection administrative scans
 
-`admin-data-health.client.ts` downloads complete registrations/payments/coupon collections into the browser. The payment summary and certificate registry also aggregate full datasets server-side before returning summaries/pages. Current production cardinality is small, so this is not an incident; move aggregation/filtering into bounded server/database queries before growth makes it expensive.
+Resolved in the bounded Data Health follow-up: the browser now calls `/api/admin/data-health`, while PocketBase performs aggregate/count queries and returns only derived issues plus bounded anomalous rows. Full registration/payment/coupon datasets are no longer downloaded into the admin browser for this check.
+
+Remaining: the payment summary and certificate registry still aggregate full datasets server-side before returning summaries/pages. Current production cardinality is small, so this is not an incident; move those remaining aggregations into bounded database queries before growth makes them expensive.
 
 ### P2 — Source-string architecture tests
 

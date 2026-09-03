@@ -40,7 +40,8 @@ PocketBase owns:
 - schema migrations and indexes;
 - request/model hooks;
 - transactional custom commands;
-- payment/live-score server integrations.
+- payment and notification server integrations;
+- bounded privileged diagnostics such as `/api/admin/data-health`, which returns derived issues/counts instead of exposing full operational collections to the browser.
 
 The public hostname maps `/api` directly to PocketBase, so browser SDK calls remain same-origin.
 
@@ -104,7 +105,7 @@ Each deployed environment has separate:
 
 The web container must not fall back to a production PocketBase hostname. Missing or incorrect internal routing is a configuration error, not a reason to couple staging to production.
 
-After the 2026 rewrite production cutover, no isolated new-architecture staging Compose is currently assigned. `dev` remains an integration/CI branch until one is provisioned; it must not share the production Compose or production `pb_data`.
+Staging is provisioned as the isolated Dokploy Compose project `ieee-dev-staging` with its own `pb_data`, domain, encryption key, and disabled production integrations. It tracks the CI-approved `deploy/staging` ref and must never share production state or credentials.
 
 ## Deployment ownership
 
@@ -117,8 +118,8 @@ Source changes belong in Git/GitHub and are deployed through CI-gated CD. See `d
 ## Branch deployment model
 
 ```text
-main → production
-dev  → integration + CI only (staging deployment paused)
+main → CI → deploy/production → production
+dev  → CI → deploy/staging    → staging
 ```
 
-CI runs on both branches. CD currently reacts only to successful `main` CI and calls the production Dokploy webhook after verifying the tested SHA is still current.
+CD reacts only to successful CI on `main` or `dev`, verifies the tested SHA is still the branch head, pins that exact SHA to the matching immutable deployment ref, and then triggers the corresponding Dokploy webhook. Dokploy must deploy the pinned ref rather than mutable `main`/`dev`.
