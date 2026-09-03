@@ -135,37 +135,57 @@ routerAdd("GET", "/api/admin/events/{id}/operations", function (e) {
 }, $apis.requireAuth("users"))
 
 routerAdd("GET", "/api/admin/payments/summary", function (e) {
-  var helpers = require(__hooks + "/admin-operations-helpers.js")
   var authz = require(__hooks + "/workspace-authorization.js")
   if (!authz.hasCapability($app, e.auth, "finance.view", {})) {
     return e.json(403, { code: "FORBIDDEN", error: "Branch finance access is required to view the payment desk" })
   }
-  var rows = $app.findRecordsByFilter("payments", "1 = 1", "-created", 0, 0)
-  var refunds = $app.findRecordsByFilter("payment_refunds", "1 = 1", "-created", 0, 0)
+  var paymentAggregate = new DynamicModel({
+    paymentCount: 0, grossCollectedPaise: 0, refundedPaise: 0,
+    razorpayCount: 0, razorpayCollectedPaise: 0,
+    paygateCount: 0, paygateCollectedPaise: 0,
+    manualCount: 0, manualCollectedPaise: 0,
+    legacyCount: 0, legacyCollectedPaise: 0,
+    attentionCount: 0,
+  })
+  $app.db().newQuery(
+    "SELECT COUNT(*) AS paymentCount," +
+    " COALESCE(SUM(CASE WHEN COALESCE(collectedPaise, 0) > 0 THEN collectedPaise ELSE 0 END), 0) AS grossCollectedPaise," +
+    " COALESCE(SUM(CASE WHEN COALESCE(refundedPaise, 0) > 0 THEN refundedPaise ELSE 0 END), 0) AS refundedPaise," +
+    " COALESCE(SUM(CASE WHEN provider = 'razorpay' THEN 1 ELSE 0 END), 0) AS razorpayCount," +
+    " COALESCE(SUM(CASE WHEN provider = 'razorpay' AND COALESCE(collectedPaise, 0) > 0 THEN collectedPaise ELSE 0 END), 0) AS razorpayCollectedPaise," +
+    " COALESCE(SUM(CASE WHEN provider = 'paygate' THEN 1 ELSE 0 END), 0) AS paygateCount," +
+    " COALESCE(SUM(CASE WHEN provider = 'paygate' AND COALESCE(collectedPaise, 0) > 0 THEN collectedPaise ELSE 0 END), 0) AS paygateCollectedPaise," +
+    " COALESCE(SUM(CASE WHEN provider = 'manual' THEN 1 ELSE 0 END), 0) AS manualCount," +
+    " COALESCE(SUM(CASE WHEN provider = 'manual' AND COALESCE(collectedPaise, 0) > 0 THEN collectedPaise ELSE 0 END), 0) AS manualCollectedPaise," +
+    " COALESCE(SUM(CASE WHEN COALESCE(provider, '') NOT IN ('razorpay','paygate','manual') THEN 1 ELSE 0 END), 0) AS legacyCount," +
+    " COALESCE(SUM(CASE WHEN COALESCE(provider, '') NOT IN ('razorpay','paygate','manual') AND COALESCE(collectedPaise, 0) > 0 THEN collectedPaise ELSE 0 END), 0) AS legacyCollectedPaise," +
+    " COALESCE(SUM(CASE WHEN COALESCE(manualReview, 0) = 1 OR status = 'partially_refunded' THEN 1 ELSE 0 END), 0) AS attentionCount" +
+    " FROM payments"
+  ).one(paymentAggregate)
+  var refundAggregate = new DynamicModel({ queuedRefundCount: 0, failedRefundCount: 0 })
+  $app.db().newQuery(
+    "SELECT COALESCE(SUM(CASE WHEN status IN ('queued','submitted') THEN 1 ELSE 0 END), 0) AS queuedRefundCount," +
+    " COALESCE(SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), 0) AS failedRefundCount FROM payment_refunds"
+  ).one(refundAggregate)
+  var grossCollectedAmount = Math.max(0, Number(paymentAggregate.grossCollectedPaise) || 0) / 100
+  var refundedAmount = Math.max(0, Number(paymentAggregate.refundedPaise) || 0) / 100
   var summary = {
-    paymentCount: rows.length, grossCollectedAmount: 0, refundedAmount: 0, netCollectedAmount: 0,
-    razorpayCount: 0, razorpayCollectedAmount: 0, paygateCount: 0, paygateCollectedAmount: 0,
-    manualCount: 0, manualCollectedAmount: 0, legacyCount: 0, legacyCollectedAmount: 0,
-    attentionCount: 0, queuedRefundCount: 0, failedRefundCount: 0,
+    paymentCount: Number(paymentAggregate.paymentCount) || 0,
+    grossCollectedAmount: grossCollectedAmount,
+    refundedAmount: refundedAmount,
+    netCollectedAmount: Math.max(0, grossCollectedAmount - refundedAmount),
+    razorpayCount: Number(paymentAggregate.razorpayCount) || 0,
+    razorpayCollectedAmount: Math.max(0, Number(paymentAggregate.razorpayCollectedPaise) || 0) / 100,
+    paygateCount: Number(paymentAggregate.paygateCount) || 0,
+    paygateCollectedAmount: Math.max(0, Number(paymentAggregate.paygateCollectedPaise) || 0) / 100,
+    manualCount: Number(paymentAggregate.manualCount) || 0,
+    manualCollectedAmount: Math.max(0, Number(paymentAggregate.manualCollectedPaise) || 0) / 100,
+    legacyCount: Number(paymentAggregate.legacyCount) || 0,
+    legacyCollectedAmount: Math.max(0, Number(paymentAggregate.legacyCollectedPaise) || 0) / 100,
+    attentionCount: Number(paymentAggregate.attentionCount) || 0,
+    queuedRefundCount: Number(refundAggregate.queuedRefundCount) || 0,
+    failedRefundCount: Number(refundAggregate.failedRefundCount) || 0,
   }
-  for (var i = 0; i < rows.length; i++) {
-    var collected = Math.max(0, rows[i].getInt("collectedPaise") || 0) / 100
-    var refunded = Math.max(0, rows[i].getInt("refundedPaise") || 0) / 100
-    var provider = rows[i].getString("provider") || "unknown"
-    summary.grossCollectedAmount += collected
-    summary.refundedAmount += refunded
-    if (provider === "razorpay") { summary.razorpayCount++; summary.razorpayCollectedAmount += collected }
-    else if (provider === "paygate") { summary.paygateCount++; summary.paygateCollectedAmount += collected }
-    else if (provider === "manual") { summary.manualCount++; summary.manualCollectedAmount += collected }
-    else { summary.legacyCount++; summary.legacyCollectedAmount += collected }
-    if (rows[i].getBool("manualReview") || rows[i].getString("status") === "partially_refunded") summary.attentionCount++
-  }
-  for (var r = 0; r < refunds.length; r++) {
-    var refundStatus = refunds[r].getString("status") || ""
-    if (refundStatus === "queued" || refundStatus === "submitted") summary.queuedRefundCount++
-    if (refundStatus === "failed") summary.failedRefundCount++
-  }
-  summary.netCollectedAmount = Math.max(0, summary.grossCollectedAmount - summary.refundedAmount)
   return e.json(200, {
     summary: summary,
     financeDisclaimer: "Gross collection, refunds and net collection are application ledger values reconciled from Razorpay, Kotak/PayGate and manual evidence, not a live bank settlement balance.",
