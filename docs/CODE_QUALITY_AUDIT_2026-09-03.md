@@ -59,7 +59,9 @@ Resolved in the bounded Data Health follow-up: the browser now calls `/api/admin
 
 Resolved in the payment-summary follow-up: `/api/admin/payments/summary` now computes provider totals, collection/refund amounts, attention counts, and refund-state counts directly in SQLite instead of materializing every payment/refund record in PocketBase JS.
 
-Remaining: the certificate registry still aggregates a full dataset server-side before returning its summary/page. Current production cardinality is small, so this is not an incident; move that remaining aggregation into bounded database queries before growth makes it expensive.
+Resolved in the certificate-registry follow-up: authorization is reduced to accessible event IDs first, then SQLite performs certificate search, delivery-state joining, summary aggregation, and pagination. PocketBase JS receives only the requested page and reapplies the existing per-event recipient-email and delivery-error redaction rules.
+
+No known admin summary or registry path now materializes an unbounded operational collection solely to compute a view.
 
 ### P2 — Source-string architecture tests
 
