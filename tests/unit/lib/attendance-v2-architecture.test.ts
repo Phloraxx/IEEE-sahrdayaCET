@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { legacyCheckInAction } from "@/features/admin/events/event-operations-components";
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
 
@@ -65,8 +66,13 @@ describe("Attendance V2 architecture", () => {
     expect(eventRoute).toContain('"attendance"');
     expect(eventRoute).toContain("AttendanceSessionPanel");
     expect(eventRoute).toContain("sessionAttendanceActive");
-    expect(eventRoute).toContain('!sessionAttendanceActive && !row.checkedIn');
-    expect(eventRoute).toContain('!sessionAttendanceActive && row.checkedIn');
+
+    expect(legacyCheckInAction({ canCheckIn: true, sessionAttendanceActive: true, checkedIn: false, registrationStatus: "confirmed" })).toBeNull();
+    expect(legacyCheckInAction({ canCheckIn: true, sessionAttendanceActive: true, checkedIn: true, registrationStatus: "confirmed" })).toBeNull();
+    expect(legacyCheckInAction({ canCheckIn: false, sessionAttendanceActive: false, checkedIn: false, registrationStatus: "confirmed" })).toBeNull();
+    expect(legacyCheckInAction({ canCheckIn: true, sessionAttendanceActive: false, checkedIn: false, registrationStatus: "pending" })).toBeNull();
+    expect(legacyCheckInAction({ canCheckIn: true, sessionAttendanceActive: false, checkedIn: false, registrationStatus: "confirmed" })).toBe("check-in");
+    expect(legacyCheckInAction({ canCheckIn: true, sessionAttendanceActive: false, checkedIn: true, registrationStatus: "cancelled" })).toBe("undo-check-in");
   });
   it("hands browser attendance fixtures across the clean-room boundary without superuser access", () => {
     const smoke = read("tests/backend/pocketbase_smoke.py");

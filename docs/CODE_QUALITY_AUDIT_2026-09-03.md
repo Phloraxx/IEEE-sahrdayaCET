@@ -48,12 +48,13 @@ Largest modules remain concentrated rather than systemic:
 
 - `src/features/payment/PaymentPage.tsx` — 1,229 lines
 - `src/features/societies/wie/WIEPage.tsx` — 1,156 lines
-- `src/routes/admin.events.$id.tsx` — 1,091 lines
 - `src/features/admin/events/certificate-template-panel.tsx` — 835 lines
 - `pb_hooks/paygate-helpers.js` — 803 lines
-- `pb_hooks/admin-operations.pb.js` — 768 lines
+- `pb_hooks/admin-operations.pb.js` — 788 lines
 
-Refactor by workflow/responsibility with characterization tests first. Do not split files only to reduce line counts.
+First responsibility follow-up completed: `src/routes/admin.events.$id.tsx` is now ~690 lines (from 1,091). Registration-operation metrics, rows and decision/manual-entry dialogs moved to `src/features/admin/events/event-operations-components.tsx` (~435 lines), while queries, mutations, permissions, event lifecycle/workflow decisions and tab orchestration remain in the route. The extraction also converted the session/legacy check-in button rule from literal-source assertions to a directly tested pure decision helper.
+
+Continue refactoring by workflow/responsibility with characterization tests first. Do not split files only to reduce line counts.
 
 ### P2 — Full-collection administrative scans
 
@@ -67,7 +68,7 @@ No known admin summary or registry path now materializes an unbounded operationa
 
 ### P2 — Source-string architecture tests
 
-37 unit-test files read implementation source with `readFileSync` and assert literal code strings. These tests have caught architectural regressions, but they also make harmless refactors brittle and previously kept dead UI alive. Gradually replace them with behavioral tests, schema assertions, or exported pure helpers.
+39 unit-test files still read implementation source with `readFileSync` and assert at least some literal code strings. These tests have caught architectural regressions, but they also make harmless refactors brittle and previously kept dead UI alive. The admin-event boundary refactor removed two concrete brittle assertions: legacy check-in visibility is now tested through a pure helper, and refund-decision money semantics rely on the existing clean-room lifecycle instead of UI-copy wording. The file count remains 39 because those same test files still contain other architecture assertions. Gradually replace the remaining literals with behavioral tests, schema assertions, or exported pure helpers.
 
 ### P3 — Exact duplication hotspots
 
