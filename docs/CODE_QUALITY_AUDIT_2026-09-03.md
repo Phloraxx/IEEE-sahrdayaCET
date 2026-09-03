@@ -46,7 +46,7 @@ The copied production-backup rehearsal confirmed the live dataset has zero Execo
 
 Largest modules remain concentrated rather than systemic:
 
-- `src/features/admin/events/certificate-template-panel.tsx` — 835 lines
+- `src/features/admin/events/certificate-template-panel.tsx` — 404 lines after editor/controller split (from 835)
 - `pb_hooks/paygate-helpers.js` — 803 lines
 - `pb_hooks/admin-operations.pb.js` — 788 lines
 - `src/features/payment/PaymentPage.tsx` — 694 lines after responsibility split (from 1,229)
@@ -54,6 +54,8 @@ Largest modules remain concentrated rather than systemic:
 First responsibility follow-up completed: `src/routes/admin.events.$id.tsx` is now ~690 lines (from 1,091). Registration-operation metrics, rows and decision/manual-entry dialogs moved to `src/features/admin/events/event-operations-components.tsx` (~435 lines), while queries, mutations, permissions, event lifecycle/workflow decisions and tab orchestration remain in the route. The extraction also converted the session/legacy check-in button rule from literal-source assertions to a directly tested pure decision helper.
 
 Third responsibility follow-up completed: `src/features/societies/wie/WIEPage.tsx` is now ~507 lines (from 1,156). Activity/media rendering moved to `WIEActivitySection.tsx` (~373 lines), team/contact rendering moved to `WIETeamContactSections.tsx` (~347 lines), and the shared reveal timing moved to `wie-page-motion.ts`. The page retains workspace permission lookup, public event visibility, featured/archive filtering, team/advisor derivation, hero scroll behavior, organization schema, and overall section orchestration. Stable WIE event routing is now directly behavior-tested instead of asserted as an implementation string.
+
+Fourth responsibility follow-up completed: `src/features/admin/events/certificate-template-panel.tsx` is now ~404 lines (from 835). Certificate preview, drag/layout controls, field inputs, template status, artwork dimension helper, certificate-type labels, and create-template dialog moved to `certificate-template-editor.tsx` (~431 lines). Query/mutation state, permissions, draft persistence, publication/versioning, test-email action, issuance and delivery orchestration remain in the controller.
 
 Second responsibility follow-up completed: `src/features/payment/PaymentPage.tsx` is now ~694 lines (from 1,229). Provider-specific Razorpay/Kotak presentation plus shared payment-shell visuals moved to `src/features/payment/payment-provider-panels.tsx` (~615 lines), while session creation, local polling, provider reconciliation/backoff, expiry, Razorpay SDK wiring/verification, QR generation and ticket navigation remain in `PaymentPage`. Payment architecture tests now assert orchestration and provider UI against their owning modules instead of assuming all payment code lives in one file.
 
