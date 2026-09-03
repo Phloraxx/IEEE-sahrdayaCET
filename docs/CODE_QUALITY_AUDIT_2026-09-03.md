@@ -75,16 +75,17 @@ The earlier dominant admin-game duplication has been retired with that temporary
 
 ### P3 — Static asset weight
 
-After the dead AGM asset and temporary event media were removed, keep monitoring live public assets for unnecessarily large transfers:
+The earlier oversized Execom portraits have already been re-encoded (`alfin_joshi.jpeg` ~384 KiB; `angelina-victor.jpg` ~319 KiB). The current live public-asset hotspots above 500 KiB are:
 
-- `public/Execom/alfin_joshi.jpeg` — ~2.03 MiB
-- `public/Execom/angelina-victor/angelina-victor.jpg` — ~1.11 MiB
+- `public/web.png` — ~1.00 MiB; global OpenGraph/fallback image, currently 2559×680 (3.76:1)
+- `public/media/sustainx/sustainx-hero-loop.webm` — ~824 KiB
+- `public/Execom/binu-ashik/Binu_ashik.jpg` — ~504 KiB
 
-Resize/re-encode the portraits in a visual-performance change, with screenshot comparison, rather than silently changing binaries in this code-quality PR.
+Treat `web.png` as a visual/metadata redesign rather than a blind compression task because its aspect ratio is also unsuitable for a conventional social card. Re-encode other assets only with visual comparison.
 
-### P3 — React Router v8 future flags
+### Resolved — React Router v8 future flags
 
-The current 7.18.3 build is clean but emits v8 future-flag notices for middleware, route splitting, Vite Environment API, request handling and trailing-slash-aware data requests. Test these flags in a dedicated compatibility branch before the eventual v8 upgrade.
+The pinned React Router 7.18.3 build now opts into all five supported v8 compatibility flags: middleware, route-module splitting, Vite Environment API, pass-through request handling, and trailing-slash-aware data requests. Local typecheck/unit/build validation is green and the previous future-flag warnings are eliminated; browser E2E remains the deployment acceptance gate before the eventual v8 package upgrade.
 
 ## Explicitly not changed here
 
