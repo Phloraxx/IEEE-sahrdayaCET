@@ -217,6 +217,39 @@ chair_second_society = request("POST", "/api/collections/societies/records", {
     "isHidden": False, "chairs": [chair["id"]],
 }, super_token)
 
+# Execom roles are an authorization source. Role changes must revoke the old
+# assignment before minting the replacement, and deleting the source record
+# must leave no active Execom-sourced authorization behind.
+execom_member = request("POST", "/api/collections/execom/records", {
+    "name": f"CI Execom {suffix}", "position": "Society Chair",
+    "society": society["id"], "user": second_user["id"],
+    "roleCode": "society_chair", "term": "ci",
+}, super_token)
+time.sleep(0.1)
+execom_member = request("GET", f"/api/collections/execom/records/{execom_member['id']}", token=super_token)
+first_assignment_id = execom_member.get("assignment")
+assert first_assignment_id
+first_assignment = request("GET", f"/api/collections/organization_assignments/records/{first_assignment_id}", token=super_token)
+assert first_assignment["active"] is True and first_assignment["source"] == "execom"
+assert first_assignment["roleCode"] == "society_chair" and first_assignment["user"] == second_user["id"]
+
+request("PATCH", f"/api/collections/execom/records/{execom_member['id']}", {
+    "position": "Society Secretary", "roleCode": "society_secretary",
+}, super_token)
+time.sleep(0.1)
+execom_member = request("GET", f"/api/collections/execom/records/{execom_member['id']}", token=super_token)
+second_assignment_id = execom_member.get("assignment")
+assert second_assignment_id and second_assignment_id != first_assignment_id
+first_assignment = request("GET", f"/api/collections/organization_assignments/records/{first_assignment_id}", token=super_token)
+second_assignment = request("GET", f"/api/collections/organization_assignments/records/{second_assignment_id}", token=super_token)
+assert first_assignment["active"] is False
+assert second_assignment["active"] is True and second_assignment["roleCode"] == "society_secretary"
+
+request("DELETE", f"/api/collections/execom/records/{execom_member['id']}", token=super_token, expected=(204,))
+time.sleep(0.1)
+second_assignment = request("GET", f"/api/collections/organization_assignments/records/{second_assignment_id}", token=super_token)
+assert second_assignment["active"] is False
+
 # Chairs can edit their society content but cannot delegate chair access or store unsafe links.
 request("PATCH", f"/api/collections/societies/records/{society['id']}", {
     "chairs": [chair["id"], second_user["id"]],
