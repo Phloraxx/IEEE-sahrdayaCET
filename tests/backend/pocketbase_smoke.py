@@ -707,9 +707,10 @@ if github_env := os.environ.get("GITHUB_ENV"):
         env_file.write(f"E2E_ATTENDANCE_TICKET_ID={browser_attendance_registration['ticketId']}\n")
         env_file.write(f"E2E_ATTENDANCE_ATTENDEE_NAME={browser_attendee_name}\n")
 
-# Confirmed free registrations enqueue exactly one ticket email job. Clean-room
-# CI now provides the same SMTP transport used by certificate delivery, so the
-# worker must hand the ticket to SMTP exactly once and an admin resend can requeue it.
+# Confirmed free registrations enqueue exactly one ticket email job. The periodic
+# worker may claim that job before this test observes it, so do not assert a
+# transient `pending` state. Instead prove the durable contract: one outbox row,
+# one successful first delivery, then exactly one successful admin resend.
 notification_filter = urllib.parse.quote(
     f'registration="{registration["registrationId"]}"'
 )
@@ -720,7 +721,8 @@ notification_list = request(
 )
 assert notification_list["totalItems"] == 1
 notification_job = notification_list["items"][0]
-assert notification_job["kind"] == "ticket" and notification_job["status"] == "pending"
+assert notification_job["kind"] == "ticket"
+assert notification_job["status"] in {"pending", "sending", "sent"}
 request(
     "POST",
     "/api/crons/registration-notification-outbox",
@@ -739,19 +741,38 @@ for _ in range(30):
 assert notification_job["status"] == "sent"
 assert notification_job["attempts"] == 1
 assert not notification_job["lastError"]
+
 resend = request(
     "POST",
     f"/api/admin/registrations/{registration['registrationId']}/notifications/ticket/resend",
     token=admin_token,
     expected=(202,),
 )
-assert resend["success"] is True and resend["status"] == "pending"
-notification_job = request(
+assert resend["success"] is True
+request(
+    "POST",
+    "/api/crons/registration-notification-outbox",
+    token=super_token,
+    expected=(204,),
+)
+for _ in range(30):
+    notification_job = request(
+        "GET",
+        f"/api/collections/notification_outbox/records/{notification_job['id']}",
+        token=super_token,
+    )
+    if notification_job["status"] == "sent" and notification_job["attempts"] == 2:
+        break
+    time.sleep(0.1)
+assert notification_job["status"] == "sent"
+assert notification_job["attempts"] == 2
+assert not notification_job["lastError"]
+notification_list = request(
     "GET",
-    f"/api/collections/notification_outbox/records/{notification_job['id']}",
+    f"/api/collections/notification_outbox/records?filter={notification_filter}",
     token=super_token,
 )
-assert notification_job["status"] == "pending"
+assert notification_list["totalItems"] == 1
 
 request("POST", f"/api/app/events/{event['id']}/register", {
     "formResponses": {"name": "Member Two", "email": second_user["email"]},
