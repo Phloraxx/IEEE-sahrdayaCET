@@ -36,67 +36,235 @@ function canSendCertificates(app, auth, event) {
     .hasEventCapability(app, auth, "certificates.send", event)
 }
 
-function certificateOutboxMap(app) {
-  var rows = app.findRecordsByFilter("notification_outbox", "kind = 'certificate'", "id", 0, 0)
-  var out = {}
-  for (var i = 0; i < rows.length; i++) {
-    var certificateId = rows[i].getString("certificate") || ""
-    if (certificateId && !out[certificateId]) out[certificateId] = rows[i]
-  }
-  return out
-}
-
-function deliveryState(certificate, job) {
-  var email = clean(certificate.getString("recipientEmailSnapshot"))
-  if (!email) return "missing_email"
-  if ((certificate.getString("status") || "active") !== "active" && !job) return "not_active"
-  if (!job) return "not_queued"
-  var status = clean(job.getString("status")) || "pending"
-  return status === "sent" ? "accepted" : status
-}
-
 function eventPayload(event) {
   return event ? { id: event.id, title: event.getString("title") || "Untitled event" } : { id: "", title: "Unknown event" }
 }
-function rowPayload(certificate, event, job, access) {
+
+function emptySummary() {
+  return { total: 0, active: 0, revoked: 0, superseded: 0, emailReady: 0, missingEmail: 0, accepted: 0, failed: 0, notQueued: 0 }
+}
+
+function certificateEventAccess(app, auth, requestedEventId) {
+  var ids = []
+  if (requestedEventId) {
+    ids.push(requestedEventId)
+  } else {
+    var distinctEvents = arrayOf(new DynamicModel({ eventId: "" }))
+    app.db().newQuery(
+      "SELECT DISTINCT event AS eventId FROM certificates WHERE COALESCE(event, '') <> '' ORDER BY event ASC"
+    ).all(distinctEvents)
+    for (var i = 0; i < distinctEvents.length; i++) {
+      var id = String(distinctEvents[i].eventId || "")
+      if (id) ids.push(id)
+    }
+  }
+
+  var access = { ids: [], registrationIds: [], sendIds: [], byId: {} }
+  for (var j = 0; j < ids.length; j++) {
+    var eventId = ids[j]
+    var event = eventRecord(app, eventId)
+    if (!event || !canViewEvent(app, auth, event)) continue
+    var item = {
+      event: event,
+      registrationView: canViewRegistrations(app, auth, event),
+      send: canSendCertificates(app, auth, event),
+    }
+    access.ids.push(eventId)
+    if (item.registrationView) access.registrationIds.push(eventId)
+    if (item.send) access.sendIds.push(eventId)
+    access.byId[eventId] = item
+  }
+  return access
+}
+
+function bindIds(params, prefix, values) {
+  var placeholders = []
+  for (var i = 0; i < values.length; i++) {
+    var key = prefix + i
+    params[key] = values[i]
+    placeholders.push("{:" + key + "}")
+  }
+  return placeholders.join(",") || "NULL"
+}
+
+function baseWhere(access, status, certificateType, search, params, prefix) {
+  var parts = ["c.event IN (" + bindIds(params, prefix + "View", access.ids) + ")"]
+  if (status && status !== "all") {
+    params[prefix + "Status"] = status
+    parts.push("c.status = {:" + prefix + "Status}")
+  }
+  if (certificateType && certificateType !== "all") {
+    params[prefix + "Type"] = certificateType
+    parts.push("c.certificateType = {:" + prefix + "Type}")
+  }
+  if (search) {
+    var searchKey = prefix + "Search"
+    params[searchKey] = search.toLowerCase()
+    var term = "{:" + searchKey + "}"
+    var searchParts = [
+      "instr(lower(COALESCE(c.recipientNameSnapshot, '')), " + term + ") > 0",
+      "instr(lower(COALESCE(c.credentialId, '')), " + term + ") > 0",
+      "instr(lower(COALESCE(NULLIF(c.eventTitleSnapshot, ''), ev.title, '')), " + term + ") > 0",
+      "instr(lower(COALESCE(c.issuerNameSnapshot, '')), " + term + ") > 0",
+    ]
+    if (access.registrationIds.length) {
+      searchParts.push(
+        "(c.event IN (" + bindIds(params, prefix + "Registration", access.registrationIds) + ")" +
+        " AND instr(lower(COALESCE(c.recipientEmailSnapshot, '')), " + term + ") > 0)"
+      )
+    }
+    parts.push("(" + searchParts.join(" OR ") + ")")
+  }
+  return parts.join(" AND ")
+}
+
+function deliveryExpression() {
+  return "CASE" +
+    " WHEN trim(COALESCE(c.recipientEmailSnapshot, '')) = '' THEN 'missing_email'" +
+    " WHEN COALESCE(NULLIF(c.status, ''), 'active') <> 'active' AND n.id IS NULL THEN 'not_active'" +
+    " WHEN n.id IS NULL THEN 'not_queued'" +
+    " WHEN trim(COALESCE(n.status, '')) = 'sent' THEN 'accepted'" +
+    " WHEN trim(COALESCE(n.status, '')) = '' THEN 'pending'" +
+    " ELSE trim(n.status) END"
+}
+
+function candidateSql(where) {
+  return "SELECT" +
+    " c.id AS certificateId," +
+    " c.event AS eventId," +
+    " COALESCE(NULLIF(c.eventTitleSnapshot, ''), ev.title, '') AS eventTitle," +
+    " COALESCE(c.recipientNameSnapshot, '') AS recipientName," +
+    " COALESCE(c.recipientEmailSnapshot, '') AS recipientEmail," +
+    " COALESCE(c.credentialId, '') AS credentialId," +
+    " COALESCE(c.certificateType, '') AS certificateType," +
+    " COALESCE(NULLIF(c.status, ''), 'active') AS certificateStatus," +
+    " COALESCE(c.issuedAt, '') AS issuedAt," +
+    " COALESCE(c.issuerNameSnapshot, '') AS issuerName," +
+    " COALESCE(c.batch, '') AS batchId," +
+    " COALESCE(n.attempts, 0) AS attempts," +
+    " COALESCE(n.sentAt, '') AS sentAt," +
+    " COALESCE(n.lastError, '') AS lastError," +
+    " COALESCE(c.verificationToken, '') AS verificationToken," +
+    " COALESCE(c.created, '') AS createdAt," +
+    " " + deliveryExpression() + " AS deliveryStatus" +
+    " FROM certificates c" +
+    " LEFT JOIN events ev ON ev.id = c.event" +
+    " LEFT JOIN notification_outbox n ON n.id = (" +
+      "SELECT n2.id FROM notification_outbox n2" +
+      " WHERE n2.kind = 'certificate' AND n2.certificate = c.id" +
+      " ORDER BY n2.id ASC LIMIT 1" +
+    ")" +
+    " WHERE " + where
+}
+
+function copyParams(input) {
+  var out = {}
+  Object.keys(input).forEach(function (key) { out[key] = input[key] })
+  return out
+}
+
+function deliveryClause(delivery, params) {
+  if (!delivery || delivery === "all") return ""
+  params.deliveryFilter = delivery
+  return " WHERE deliveryStatus = {:deliveryFilter}"
+}
+
+function registrySummary(app, candidates, baseParams, delivery) {
+  var params = copyParams(baseParams)
+  var filtered = deliveryClause(delivery, params)
+  var model = new DynamicModel({
+    total: 0, active: 0, revoked: 0, superseded: 0,
+    emailReady: 0, missingEmail: 0, accepted: 0, failed: 0, notQueued: 0,
+  })
+  app.db().newQuery(
+    "WITH candidates AS (" + candidates + ") SELECT" +
+      " COUNT(*) AS total," +
+      " COALESCE(SUM(CASE WHEN certificateStatus = 'active' THEN 1 ELSE 0 END), 0) AS active," +
+      " COALESCE(SUM(CASE WHEN certificateStatus = 'revoked' THEN 1 ELSE 0 END), 0) AS revoked," +
+      " COALESCE(SUM(CASE WHEN certificateStatus = 'superseded' THEN 1 ELSE 0 END), 0) AS superseded," +
+      " COALESCE(SUM(CASE WHEN deliveryStatus <> 'missing_email' THEN 1 ELSE 0 END), 0) AS emailReady," +
+      " COALESCE(SUM(CASE WHEN deliveryStatus = 'missing_email' THEN 1 ELSE 0 END), 0) AS missingEmail," +
+      " COALESCE(SUM(CASE WHEN deliveryStatus = 'accepted' THEN 1 ELSE 0 END), 0) AS accepted," +
+      " COALESCE(SUM(CASE WHEN deliveryStatus = 'failed' THEN 1 ELSE 0 END), 0) AS failed," +
+      " COALESCE(SUM(CASE WHEN deliveryStatus = 'not_queued' THEN 1 ELSE 0 END), 0) AS notQueued" +
+      " FROM candidates" + filtered
+  ).bind(params).one(model)
   return {
-    certificateId: certificate.id,
-    eventId: certificate.getString("event") || "",
-    eventTitle: certificate.getString("eventTitleSnapshot") || (event ? event.getString("title") : ""),
-    recipientName: certificate.getString("recipientNameSnapshot") || "",
-    recipientEmail: access.registrationView ? (certificate.getString("recipientEmailSnapshot") || "") : "",
-    credentialId: certificate.getString("credentialId") || "",
-    certificateType: certificate.getString("certificateType") || "",
-    status: certificate.getString("status") || "active",
-    issuedAt: certificate.getString("issuedAt") || "",
-    issuerName: certificate.getString("issuerNameSnapshot") || "",
-    batchId: certificate.getString("batch") || "",
-    deliveryStatus: deliveryState(certificate, job),
-    attempts: job ? (job.getInt("attempts") || 0) : 0,
-    sentAt: job ? (job.getString("sentAt") || "") : "",
-    lastError: access.send ? (job ? (job.getString("lastError") || "") : "") : "",
-    verificationUrl: siteUrl() + "/c/" + encodeURIComponent(certificate.getString("verificationToken") || ""),
+    total: Number(model.total) || 0,
+    active: Number(model.active) || 0,
+    revoked: Number(model.revoked) || 0,
+    superseded: Number(model.superseded) || 0,
+    emailReady: Number(model.emailReady) || 0,
+    missingEmail: Number(model.missingEmail) || 0,
+    accepted: Number(model.accepted) || 0,
+    failed: Number(model.failed) || 0,
+    notQueued: Number(model.notQueued) || 0,
   }
 }
 
-function matchesSearch(row, search) {
-  if (!search) return true
-  var haystack = [row.recipientName, row.recipientEmail, row.credentialId, row.eventTitle, row.issuerName].join("\n").toLowerCase()
-  return haystack.indexOf(search.toLowerCase()) !== -1
-}
-function summarize(rows) {
-  var summary = { total: rows.length, active: 0, revoked: 0, superseded: 0, emailReady: 0, missingEmail: 0, accepted: 0, failed: 0, notQueued: 0 }
-  rows.forEach(function (row) {
-    if (row.status === "active") summary.active++
-    else if (row.status === "revoked") summary.revoked++
-    else if (row.status === "superseded") summary.superseded++
-    if (row.deliveryStatus === "missing_email") summary.missingEmail++
-    else summary.emailReady++
-    if (row.deliveryStatus === "accepted") summary.accepted++
-    else if (row.deliveryStatus === "failed") summary.failed++
-    else if (row.deliveryStatus === "not_queued") summary.notQueued++
+function registryRows(app, candidates, baseParams, delivery, page, perPage, access) {
+  var params = copyParams(baseParams)
+  var filtered = deliveryClause(delivery, params)
+  var registrationEvents = bindIds(params, "rowRegistration", access.registrationIds)
+  var sendEvents = bindIds(params, "rowSend", access.sendIds)
+  params.limit = perPage
+  params.offset = (page - 1) * perPage
+  var dbRows = arrayOf(new DynamicModel({
+    certificateId: "", eventId: "", eventTitle: "", recipientName: "", recipientEmail: "",
+    credentialId: "", certificateType: "", certificateStatus: "", issuedAt: "", issuerName: "",
+    batchId: "", deliveryStatus: "", attempts: 0, sentAt: "", lastError: "",
+    verificationToken: "", createdAt: "",
+  }))
+  app.db().newQuery(
+    "WITH candidates AS (" + candidates + ") SELECT" +
+      " certificateId, eventId, eventTitle, recipientName," +
+      " CASE WHEN eventId IN (" + registrationEvents + ") THEN recipientEmail ELSE '' END AS recipientEmail," +
+      " credentialId, certificateType, certificateStatus, issuedAt, issuerName, batchId," +
+      " deliveryStatus, attempts, sentAt," +
+      " CASE WHEN eventId IN (" + sendEvents + ") THEN lastError ELSE '' END AS lastError," +
+      " verificationToken, createdAt" +
+      " FROM candidates" + filtered +
+      " ORDER BY issuedAt DESC, createdAt DESC LIMIT {:limit} OFFSET {:offset}"
+  ).bind(params).all(dbRows)
+
+  return dbRows.map(function (row) {
+    var item = access.byId[String(row.eventId || "")] || { registrationView: false, send: false }
+    return {
+      certificateId: String(row.certificateId || ""),
+      eventId: String(row.eventId || ""),
+      eventTitle: String(row.eventTitle || ""),
+      recipientName: String(row.recipientName || ""),
+      recipientEmail: item.registrationView ? String(row.recipientEmail || "") : "",
+      credentialId: String(row.credentialId || ""),
+      certificateType: String(row.certificateType || ""),
+      status: String(row.certificateStatus || "active"),
+      issuedAt: String(row.issuedAt || ""),
+      issuerName: String(row.issuerName || ""),
+      batchId: String(row.batchId || ""),
+      deliveryStatus: String(row.deliveryStatus || ""),
+      attempts: Number(row.attempts) || 0,
+      sentAt: String(row.sentAt || ""),
+      lastError: item.send ? String(row.lastError || "") : "",
+      verificationUrl: siteUrl() + "/c/" + encodeURIComponent(String(row.verificationToken || "")),
+    }
   })
-  return summary
+}
+
+function registryEvents(app, access, status, certificateType) {
+  if (!access.ids.length) return []
+  var params = {}
+  var where = baseWhere(access, status, certificateType, "", params, "options")
+  var rows = arrayOf(new DynamicModel({ eventId: "" }))
+  app.db().newQuery(
+    "SELECT DISTINCT c.event AS eventId FROM certificates c WHERE " + where
+  ).bind(params).all(rows)
+  var events = []
+  for (var i = 0; i < rows.length; i++) {
+    var item = access.byId[String(rows[i].eventId || "")]
+    if (item && item.event) events.push(eventPayload(item.event))
+  }
+  events.sort(function (a, b) { return String(a.title).localeCompare(String(b.title)) })
+  return events
 }
 
 function registry(app, auth, e) {
@@ -107,57 +275,31 @@ function registry(app, auth, e) {
   var search = query(e, "search")
   var page = clampInt(query(e, "page"), 1, 1, 100000)
   var perPage = clampInt(query(e, "perPage"), 40, 1, 200)
-  var filter = "1 = 1"
-  var params = {}
+
   if (eventId) {
     var requestedEvent = eventRecord(app, eventId)
     if (!requestedEvent || !canViewEvent(app, auth, requestedEvent)) return { forbidden: true }
-    filter += " && event = {:event}"; params.event = eventId
   }
-  if (status && status !== "all") { filter += " && status = {:status}"; params.status = status }
-  if (certificateType && certificateType !== "all") { filter += " && certificateType = {:type}"; params.type = certificateType }
 
-  var certificates = app.findRecordsByFilter("certificates", filter, "-issuedAt,-created", 0, 0, params)
-  var jobs = certificateOutboxMap(app)
-  var eventCache = {}
-  var eventAccess = {}
-  var eventOptions = {}
-  var rows = []
+  var access = certificateEventAccess(app, auth, eventId)
+  if (!access.ids.length) {
+    return { page: page, perPage: perPage, total: 0, totalPages: 1, summary: emptySummary(), events: [], certificates: [] }
+  }
 
-  certificates.forEach(function (certificate) {
-    var id = certificate.getString("event") || ""
-    if (!Object.prototype.hasOwnProperty.call(eventCache, id)) eventCache[id] = eventRecord(app, id)
-    var event = eventCache[id]
-    if (!Object.prototype.hasOwnProperty.call(eventAccess, id)) eventAccess[id] = {
-      view: canViewEvent(app, auth, event),
-      registrationView: canViewRegistrations(app, auth, event),
-      send: canSendCertificates(app, auth, event),
-    }
-    if (!eventAccess[id].view) return
-    eventOptions[id] = eventPayload(event)
-    var row = rowPayload(certificate, event, jobs[certificate.id] || null, eventAccess[id])
-    if (!matchesSearch(row, search)) return
-    if (delivery && delivery !== "all") {
-      if (delivery === "accepted" && row.deliveryStatus !== "accepted") return
-      else if (delivery === "failed" && row.deliveryStatus !== "failed") return
-      else if (delivery !== "accepted" && delivery !== "failed" && row.deliveryStatus !== delivery) return
-    }
-    rows.push(row)
-  })
-  var total = rows.length
-  var start = (page - 1) * perPage
-  var paged = rows.slice(start, start + perPage)
-  var events = Object.keys(eventOptions).map(function (id) { return eventOptions[id] })
-  events.sort(function (a, b) { return String(a.title).localeCompare(String(b.title)) })
+  var params = {}
+  var where = baseWhere(access, status, certificateType, search, params, "main")
+  var candidates = candidateSql(where)
+  var summary = registrySummary(app, candidates, params, delivery)
+  var rows = registryRows(app, candidates, params, delivery, page, perPage, access)
 
   return {
     page: page,
     perPage: perPage,
-    total: total,
-    totalPages: Math.max(1, Math.ceil(total / perPage)),
-    summary: summarize(rows),
-    events: events,
-    certificates: paged,
+    total: summary.total,
+    totalPages: Math.max(1, Math.ceil(summary.total / perPage)),
+    summary: summary,
+    events: registryEvents(app, access, status, certificateType),
+    certificates: rows,
   }
 }
 

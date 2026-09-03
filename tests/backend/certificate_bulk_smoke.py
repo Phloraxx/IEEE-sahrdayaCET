@@ -179,6 +179,53 @@ verification_tokens = [row["verificationToken"] for row in records["items"]]
 assert len(verification_tokens) == len(set(verification_tokens)) == COUNT
 assert all(len(token) == 48 for token in verification_tokens)
 
+# Registry totals, summary and pagination remain exact at the 200-row scale
+# while the implementation is free to keep each request bounded.
+registry_path = "/api/app/certificates/registry"
+registry_credentials = []
+for page in range(1, 6):
+    registry = request(
+        "GET",
+        f"{registry_path}?event={event['id']}&page={page}&perPage=40",
+        token=admin_token,
+        timeout=30,
+    )
+    assert registry["total"] == COUNT
+    assert registry["totalPages"] == 5
+    assert len(registry["certificates"]) == 40
+    if page == 1:
+        assert registry["summary"]["total"] == COUNT
+        assert registry["summary"]["active"] == COUNT
+        assert registry["summary"]["emailReady"] == COUNT
+        assert registry["summary"]["missingEmail"] == 0
+        assert registry["summary"]["notQueued"] == COUNT
+        assert any(row["id"] == event["id"] for row in registry["events"])
+    registry_credentials.extend(row["credentialId"] for row in registry["certificates"])
+assert len(registry_credentials) == len(set(registry_credentials)) == COUNT
+assert set(registry_credentials) == set(credential_ids)
+
+registry_search = request(
+    "GET",
+    f"{registry_path}?event={event['id']}&search={urllib.parse.quote('Recipient 137')}",
+    token=admin_token,
+)
+assert registry_search["total"] == 1
+assert registry_search["certificates"][0]["recipientName"] == "Recipient 137"
+registry_delivery = request(
+    "GET",
+    f"{registry_path}?event={event['id']}&delivery=not_queued&perPage=200",
+    token=admin_token,
+)
+assert registry_delivery["total"] == COUNT
+assert len(registry_delivery["certificates"]) == COUNT
+registry_filtered = request(
+    "GET",
+    f"{registry_path}?event={event['id']}&status=active&type=completion&perPage=200",
+    token=admin_token,
+)
+assert registry_filtered["total"] == COUNT
+assert registry_filtered["summary"]["active"] == COUNT
+
 outbox_filter = urllib.parse.quote(f'kind = "certificate" && certificateBatch = "{issued["batch"]["id"]}"')
 outbox = request("GET", f"/api/collections/notification_outbox/records?filter={outbox_filter}", token=super_token)
 assert outbox["totalItems"] == 0
