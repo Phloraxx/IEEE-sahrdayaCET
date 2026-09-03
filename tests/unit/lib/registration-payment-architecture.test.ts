@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
 
 function source(path: string) {
@@ -239,6 +240,47 @@ describe("registration/payment experience architecture", () => {
     expect(providerUi).toContain("Open in UPI app");
     expect(providerUi).toContain("Pay this exact amount");
     expect(admin).toContain("PAYGATE_PAYMENT_EXISTS");
+  });
+
+  it("keeps event-operation registration summaries identical across bounded batches", () => {
+    class FakeRecord {
+      constructor(private readonly values: Record<string, unknown>) {}
+      get(key: string) { return this.values[key]; }
+      getString(key: string) { return String(this.values[key] || ""); }
+      getInt(key: string) { return Number(this.values[key] || 0); }
+      getBool(key: string) { return Boolean(this.values[key]); }
+    }
+    const registrationHelpers = {
+      registrationJsonObject: (value: unknown) => value && typeof value === "object" ? value : {},
+      registrationAmount: (record: FakeRecord) => Number(record.getInt("finalFeePaise") || record.get("amount") || 0) / (record.getInt("finalFeePaise") ? 100 : 1),
+      registrationDiscountAmount: (record: FakeRecord) => Number(record.getInt("discountPaise") || record.get("discountAmount") || 0) / (record.getInt("discountPaise") ? 100 : 1),
+    };
+    const module = { exports: {} as Record<string, unknown> };
+    runInNewContext(source("pb_hooks/admin-operations-helpers.js"), {
+      module,
+      exports: module.exports,
+      __hooks: "/hooks",
+      require: (path: string) => path.endsWith("registration-helpers.js") ? registrationHelpers : {},
+    });
+    const helpers = module.exports as {
+      emptyRegistrationSummary: () => Record<string, unknown>;
+      addRegistrationsToSummary: (summary: Record<string, unknown>, records: FakeRecord[]) => Record<string, unknown>;
+      summarizeRegistrations: (records: FakeRecord[]) => Record<string, unknown>;
+    };
+    const records = [
+      new FakeRecord({ registrationStatus: "confirmed", paymentStatus: "paid", registrationSource: "admin", finalFeePaise: 12000, discountPaise: 500, paymentData: { provider: "manual", manualConfirmation: {}, payableAmountPaise: 12000 } }),
+      new FakeRecord({ registrationStatus: "pending", paymentStatus: "pending", finalFeePaise: 8000, paymentData: { provider: "razorpay" } }),
+      new FakeRecord({ registrationStatus: "cancelled", paymentStatus: "paid", finalFeePaise: 10000, paymentData: { provider: "paygate", eventPaymentProvider: "kotak", payableAmountPaise: 10031, manualReview: true } }),
+      new FakeRecord({ registrationStatus: "confirmed", paymentStatus: "not_required", paymentData: {} }),
+      new FakeRecord({ registrationStatus: "cancelled", paymentStatus: "refunded", finalFeePaise: 5000, paymentData: { provider: "manual", amountRefundedPaise: 5000 } }),
+    ];
+    const oneShot = helpers.summarizeRegistrations(records);
+    const chunked = helpers.emptyRegistrationSummary();
+    helpers.addRegistrationsToSummary(chunked, records.slice(0, 2));
+    helpers.addRegistrationsToSummary(chunked, records.slice(2, 4));
+    helpers.addRegistrationsToSummary(chunked, records.slice(4));
+    expect(chunked).toEqual(oneShot);
+    expect(chunked).toMatchObject({ totalRecords: 5, confirmed: 2, pending: 1, cancelled: 2, paidCount: 2, pendingPaymentCount: 1, refundedCount: 1, adminCreatedCount: 1 });
   });
 
 });

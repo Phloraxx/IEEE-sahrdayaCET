@@ -157,9 +157,9 @@ function eventPayload(event) {
   }
 }
 
-function summarizeRegistrations(records) {
-  var summary = {
-    totalRecords: records.length,
+function emptyRegistrationSummary() {
+  return {
+    totalRecords: 0,
     active: 0,
     confirmed: 0,
     pending: 0,
@@ -186,7 +186,10 @@ function summarizeRegistrations(records) {
     selfServiceCount: 0,
     providers: {},
   }
+}
 
+function addRegistrationsToSummary(summary, records) {
+  summary.totalRecords += records.length
   for (var i = 0; i < records.length; i++) {
     var reg = records[i]
     var registrationStatus = reg.getString("registrationStatus") || ""
@@ -251,6 +254,10 @@ function summarizeRegistrations(records) {
   return summary
 }
 
+function summarizeRegistrations(records) {
+  return addRegistrationsToSummary(emptyRegistrationSummary(), records)
+}
+
 module.exports = {
   jsonObject: jsonObject,
   role: role,
@@ -264,5 +271,7 @@ module.exports = {
   registrationSnapshot: registrationSnapshot,
   audit: audit,
   eventPayload: eventPayload,
+  emptyRegistrationSummary: emptyRegistrationSummary,
+  addRegistrationsToSummary: addRegistrationsToSummary,
   summarizeRegistrations: summarizeRegistrations,
 }
