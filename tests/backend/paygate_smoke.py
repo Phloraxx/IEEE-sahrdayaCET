@@ -631,6 +631,55 @@ def main():
         assert any(c.get("id") == "paygate-registration-expiry" for c in crons)
 
         assert STATE.create_count == 5
+
+        # Dedicated untouched Browser E2E fixture. Its provider session is created
+        # while the local fake PayGate is alive, then left pending so Playwright
+        # exercises the real payment page without contacting a live payment rail.
+        browser_event = request(
+            "POST",
+            "/api/collections/events/records",
+            {
+                "title": f"E2E PayGate Checkout {suffix}",
+                "description": "browser payment-page fixture",
+                "date": start,
+                "endDate": end,
+                "venue": "E2E Payments Lab",
+                "price": 125,
+                "paymentProvider": "kotak",
+                "society": society["id"],
+                "status": "published",
+                "maxCapacity": 5,
+                "registeredCount": 0,
+                "checkedInCount": 0,
+                "registrationOpen": True,
+                "checkInEnabled": True,
+                "isDeleted": False,
+                "formTemplate": [
+                    {"id": "name", "name": "name", "label": "Name", "required": True},
+                    {"id": "email", "name": "email", "label": "Email", "required": True},
+                ],
+            },
+            super_token,
+        )
+        browser_user = create_user(super_token, suffix, "browser-checkout")
+        browser_token = impersonate(super_token, browser_user["id"])
+        browser_registration = register_paid(browser_event["id"], browser_user, browser_token)
+        browser_payment = request(
+            "POST",
+            f"/api/app/registrations/{browser_registration['registrationId']}/payment",
+            token=browser_token,
+        )
+        assert browser_payment["provider"] == "paygate"
+        assert browser_payment["providerStatus"] == "pending"
+        assert browser_payment["payableAmountPaise"] > browser_payment["requestedAmountPaise"]
+        assert STATE.create_count == 6
+        if github_env := os.environ.get("GITHUB_ENV"):
+            with open(github_env, "a", encoding="utf-8") as env_file:
+                env_file.write(f"E2E_PAYMENT_TOKEN={browser_token}\n")
+                env_file.write(f"E2E_PAYMENT_REGISTRATION_ID={browser_registration['registrationId']}\n")
+                env_file.write(f"E2E_PAYMENT_EVENT_TITLE={browser_event['title']}\n")
+                env_file.write(f"E2E_PAYMENT_PAYABLE={browser_payment['payableAmount']}\n")
+
         print(
             json.dumps(
                 {
