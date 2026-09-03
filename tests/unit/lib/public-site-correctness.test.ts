@@ -64,12 +64,10 @@ describe("Home redesign invariants", () => {
   it("uses real Home programme and blog data instead of the old fake bento feed", () => {
     const route = read("src/routes/index.tsx");
     const now = read("src/components/home/NowAtSahrdaya.tsx");
-    const old = read("src/components/WhatsHappening.tsx");
     expect(route).toContain("<NowAtSahrdaya");
     expect(route).toContain("<LatestSignals");
     expect(route).not.toContain("<WhatsHappening");
     expect(now).toContain('to={`/events/${lead.slug}`}');
-    expect(old).toContain("Call for Papers");
     expect(route).not.toContain("Call for Papers");
   });
 

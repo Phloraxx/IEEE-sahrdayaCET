@@ -25,7 +25,6 @@ export interface ExecomMemberDoc {
   department: string;
   semester: string;
   position: string;
-  category: string;
   section: string;
   sectionId: string;
   photoUrl?: string;

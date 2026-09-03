@@ -8,6 +8,7 @@
     "build": "react-router build",
     "start": "react-router-serve ./build/server/index.js",
     "lint": "eslint src --max-warnings=0",
+    "check:runtime-syntax": "bash scripts/check-runtime-syntax.sh",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
@@ -21,8 +22,8 @@
     "@fontsource/caveat": "^5.2.8",
     "@fontsource/press-start-2p": "^5.2.7",
     "@hookform/resolvers": "^5.4.0",
-    "@react-router/node": "7.18.0",
-    "@react-router/serve": "7.18.0",
+    "@react-router/node": "7.18.3",
+    "@react-router/serve": "7.18.3",
     "@tanstack/react-query": "^5.101.0",
     "@tiptap/pm": "^3.27.1",
     "@tiptap/react": "^3.27.1",
@@ -39,8 +40,8 @@
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-hook-form": "^7.80.0",
-    "react-router": "7.18.0",
-    "sanitize-html": "^2.17.5",
+    "react-router": "7.18.3",
+    "sanitize-html": "^2.17.7",
     "sharp": "^0.35.4",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0",
@@ -48,7 +49,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
-    "@react-router/dev": "7.18.0",
+    "@react-router/dev": "7.18.3",
     "@types/node": "^22.14.0",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.0.10",
@@ -64,5 +65,8 @@
     "vitest": "^4.1.8",
     "@typescript-eslint/parser": "^8.62.0",
     "@tailwindcss/postcss": "^4.3.0"
+  },
+  "overrides": {
+    "qs": "6.16.0"
   }
 }
