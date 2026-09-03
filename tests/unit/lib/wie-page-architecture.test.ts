@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { eventHref } from "@/features/societies/wie/WIEActivitySection";
 
 const read = (path: string) =>
   readFileSync(resolve(process.cwd(), path), "utf8");
@@ -24,31 +25,38 @@ describe("WIE society page architecture", () => {
   });
 
   it("links WIE records to stable event detail routes", () => {
-    const page = read("src/features/societies/wie/WIEPage.tsx");
-    expect(page).toContain(
-      'return event.slug ? `/events/${event.slug}` : "/events"',
+    type EventInput = Parameters<typeof eventHref>[0];
+    expect(eventHref({ slug: "witech-2026" } as EventInput)).toBe(
+      "/events/witech-2026",
     );
-    expect(page).not.toContain("Hover Popup Overlay");
-    expect(page).not.toContain("group-hover:pointer-events-auto");
+    expect(eventHref({ slug: "" } as EventInput)).toBe("/events");
+
+    const activity = read("src/features/societies/wie/WIEActivitySection.tsx");
+    expect(activity).not.toContain("Hover Popup Overlay");
+    expect(activity).not.toContain("group-hover:pointer-events-auto");
   });
 
   it("does not mix Infinia or the funding request into public WIE copy", () => {
-    const page = read("src/features/societies/wie/WIEPage.tsx").toLowerCase();
-    expect(page).not.toContain("infinia");
-    expect(page).not.toContain("funding");
+    const publicCopy = [
+      read("src/features/societies/wie/WIEPage.tsx"),
+      read("src/features/societies/wie/WIEActivitySection.tsx"),
+      read("src/features/societies/wie/WIETeamContactSections.tsx"),
+    ].join("\n").toLowerCase();
+    expect(publicCopy).not.toContain("infinia");
+    expect(publicCopy).not.toContain("funding");
   });
 
   it("retains curated and designed-fallback media states", () => {
-    const page = read("src/features/societies/wie/WIEPage.tsx");
+    const activity = read("src/features/societies/wie/WIEActivitySection.tsx");
     const media = read("src/lib/wie-media.ts");
     const eventRoute = read("src/routes/events.$slug.tsx");
-    expect(page).toContain("No public activity has been published yet.");
-    expect(page).toContain("getWieEventArtwork(event.slug, event.bannerUrl)");
+    expect(activity).toContain("No public activity has been published yet.");
+    expect(activity).toContain("getWieEventArtwork(event.slug, event.bannerUrl)");
     expect(media).toContain("DESIGNED_FALLBACK_WIE_EVENT_SLUGS");
     expect(media).toContain('"witech-ideathon-2026-agentic-ai"');
     expect(eventRoute).toContain("resolveEventArtwork(event)");
     expect(eventRoute).not.toContain('from "@/lib/wie-media"');
-    expect(page).toContain("aria-label={`${event.title} event artwork`}");
+    expect(activity).toContain("aria-label={`${event.title} event artwork`}");
   });
 
   it("uses the latest visible record as the featured activity", () => {
