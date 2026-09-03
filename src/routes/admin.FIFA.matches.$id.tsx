@@ -1,60 +1,26 @@
 import { Link, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createAdminFifaMarket, getAdminFifaMatch, listAdminFifaMarkets, settleFifaMatch, updateAdminFifaMarket } from "@/lib/data/admin-fifa.client";
+import { getAdminFifaMatch, settleFifaMatch, type AdminFifaMatchRecord } from "@/lib/data/admin-fifa.client";
 import { useState } from "react"
-import { ArrowLeft, Loader2, Plus } from "lucide-react"
+import { ArrowLeft, Loader2 } from "lucide-react"
 import { PanelHeader } from "@/components/admin/panel-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
-} from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
-import { FIFA_MARKET_LABELS } from "@/schemas/fifa"
 import { formatDateTime } from "@/lib/dates";
+import { AdminFifaMarketsSection } from "@/features/fifa/admin-market-management";
 import { fetchFifaLiveScores, findLiveMatch } from "@/lib/fifa-live-match";
 
-interface MarketRow {
-  id: string
-  match: string
-  market_type: string
-  mode: string
-  line: number
-  fixed_odds: Record<string, number> | null
-  options: string[]
-  is_open: boolean
-  void: boolean
-  pool_total: number
-  pool_by_option: Record<string, number>
-}
-
-interface MatchData {
-  id: string
-  team_home: string
-  team_away: string
-  stage: string
-  kickoff_at: string
-  betting_locks_at: string
-  status: string
-  result_winner: string
-  result_home_goals: number
-  result_away_goals: number
-  result_advance: string
-  result_after_extra_time: boolean
-  result_after_penalties: boolean
-  settled: boolean
-}
+type MatchData = AdminFifaMatchRecord
 
 export default function AdminFifaMatchDetail() {
   const { id = "" } = useParams();
   const { data: matchData, isLoading } = useQuery({ queryKey: ['admin-fifa-match', id], queryFn: () => getAdminFifaMatch(id) })
-  const { data: marketsData, isLoading: marketsLoading } = useQuery({ queryKey: ['admin-fifa-markets', id], queryFn: () => listAdminFifaMarkets(id) })
   const match = matchData?.match
 
   return (
@@ -75,21 +41,7 @@ export default function AdminFifaMatchDetail() {
 
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Markets section */}
-            <section>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold">Markets</h3>
-                <CreateMarketDialog matchId={id} />
-              </div>
-              {marketsLoading && <Skeleton className="h-32 w-full" />}
-              {marketsData?.markets.length === 0 && (
-                <p className="text-sm text-muted-foreground rounded-lg border border-dashed p-6 text-center">No markets yet. Create one to open betting.</p>
-              )}
-              <div className="space-y-2">
-                {marketsData?.markets.map((m) => (
-                  <MarketCard key={m.id} market={m} />
-                ))}
-              </div>
-            </section>
+            <AdminFifaMarketsSection matchId={id} emptyMessage="No markets yet. Create one to open betting." />
 
             {/* Settle section */}
             <section>
@@ -114,168 +66,6 @@ export default function AdminFifaMatchDetail() {
         <p className="text-muted-foreground">Match not found.</p>
       )}
     </div>
-  )
-}
-
-function MarketCard({ market }: { market: MarketRow }) {
-  const queryClient = useQueryClient()
-  const [open, setOpen] = useState(false)
-
-  const toggleOpen = useMutation({
-    mutationFn: () => updateAdminFifaMarket(market.id, { is_open: !market.is_open }),
-    onSuccess: () => {
-      toast.success(market.is_open ? 'Market closed' : 'Market opened')
-      queryClient.invalidateQueries({ queryKey: ['admin-fifa-markets', market.match] })
-    },
-    onError: (e: Error) => toast.error(e.message),
-  })
-
-  const voidMarket = useMutation({
-    mutationFn: () => updateAdminFifaMarket(market.id, { void: true, is_open: false }),
-    onSuccess: () => {
-      toast.success('Market voided — bets refunded')
-      queryClient.invalidateQueries({ queryKey: ['admin-fifa-markets', market.match] })
-      setOpen(false)
-    },
-    onError: (e: Error) => toast.error(e.message),
-  })
-
-  return (
-    <div className="rounded-lg border bg-card p-3">
-      <div className="flex items-center justify-between mb-2">
-        <div>
-          <p className="text-sm font-medium">{FIFA_MARKET_LABELS[market.market_type] || market.market_type}</p>
-          <p className="text-xs text-muted-foreground">
-            {market.mode} · {market.options.length} options · pool {market.pool_total}
-          </p>
-        </div>
-        <div className="flex items-center gap-1.5">
-          {market.void && <Badge variant="destructive">Voided</Badge>}
-          {!market.void && <Badge variant={market.is_open ? 'default' : 'secondary'}>{market.is_open ? 'Open' : 'Closed'}</Badge>}
-        </div>
-      </div>
-      <div className="flex gap-2">
-        {!market.void && (
-          <Button size="sm" variant="outline" onClick={() => toggleOpen.mutate()} disabled={toggleOpen.isPending}>
-            {market.is_open ? 'Close' : 'Open'}
-          </Button>
-        )}
-        {!market.void && (
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" variant="outline">Void</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Void this market?</DialogTitle>
-              </DialogHeader>
-              <p className="text-sm text-muted-foreground py-2">
-                All pending bets will be refunded. This cannot be undone.
-              </p>
-              <Button variant="destructive" onClick={() => voidMarket.mutate()} disabled={voidMarket.isPending}>
-                {voidMarket.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Void & refund
-              </Button>
-            </DialogContent>
-          </Dialog>
-        )}
-      </div>
-    </div>
-  )
-}
-
-const MARKET_OPTIONS_DEFAULT = 'home,away,draw'
-
-function CreateMarketDialog({ matchId }: { matchId: string }) {
-  const [open, setOpen] = useState(false)
-  const queryClient = useQueryClient()
-  const initialForm = {
-    market_type: 'match_winner',
-    mode: 'pool',
-    line: 0,
-    optionsText: MARKET_OPTIONS_DEFAULT,
-    fixedOddsText: '',
-  }
-  const [form, setForm] = useState(initialForm)
-
-  const create = useMutation({
-    mutationFn: async () => {
-      const options = form.optionsText.split(',').map((s) => s.trim()).filter(Boolean)
-      const body: Record<string, unknown> = {
-        match: matchId,
-        market_type: form.market_type,
-        mode: form.mode,
-        options,
-        is_open: true,
-      }
-      if (form.line) body.line = Number(form.line)
-      if (form.mode === 'fixed' && form.fixedOddsText) {
-        const odds: Record<string, number> = {}
-        for (const pair of form.fixedOddsText.split(',')) {
-          const [opt, val] = pair.split(':').map((s) => s.trim())
-          if (opt && val) odds[opt] = Number(val)
-        }
-        body.fixed_odds = odds
-      }
-      return createAdminFifaMarket(body)
-    },
-    onSuccess: () => {
-      toast.success('Market created')
-      queryClient.invalidateQueries({ queryKey: ['admin-fifa-markets', matchId] })
-      setForm(initialForm)
-      setOpen(false)
-    },
-    onError: (e: Error) => toast.error(e.message),
-  })
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm"><Plus className="mr-1.5 h-4 w-4" /> Add market</Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader><DialogTitle>Create market</DialogTitle></DialogHeader>
-        <form onSubmit={(e) => { e.preventDefault(); create.mutate() }} className="space-y-3 pt-2">
-          <div>
-            <Label>Market type</Label>
-            <Select value={form.market_type} onValueChange={(v) => setForm({ ...form, market_type: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {Object.entries(FIFA_MARKET_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Mode</Label>
-            <Select value={form.mode} onValueChange={(v) => setForm({ ...form, mode: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pool">Pool (pari-mutuel)</SelectItem>
-                <SelectItem value="fixed">Fixed odds</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {(form.market_type === 'total_goals_ou' || form.market_type === 'cards_ou') && (
-            <div>
-              <Label>Line (e.g. 2.5)</Label>
-              <Input type="number" step="0.5" value={form.line} onChange={(e) => setForm({ ...form, line: Number(e.target.value) })} />
-            </div>
-          )}
-          <div>
-            <Label>Options (comma-separated)</Label>
-            <Input value={form.optionsText} onChange={(e) => setForm({ ...form, optionsText: e.target.value })} placeholder="home,away,draw" />
-          </div>
-          {form.mode === 'fixed' && (
-            <div>
-              <Label>Fixed odds (option:odds, comma-separated)</Label>
-              <Input value={form.fixedOddsText} onChange={(e) => setForm({ ...form, fixedOddsText: e.target.value })} placeholder="home:1.5,draw:3.2,away:4.5" />
-            </div>
-          )}
-          <Button type="submit" disabled={create.isPending} className="w-full">
-            {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create market
-          </Button>
-        </form>
-      </DialogContent>
-    </Dialog>
   )
 }
 
