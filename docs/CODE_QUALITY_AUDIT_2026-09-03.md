@@ -47,7 +47,6 @@ Largest modules remain concentrated rather than systemic:
 - `src/features/payment/PaymentPage.tsx` — 1,229 lines
 - `src/features/societies/wie/WIEPage.tsx` — 1,156 lines
 - `src/routes/admin.events.$id.tsx` — 1,091 lines
-- `src/routes/FIFA/matches.$id.tsx` — 851 lines
 - `src/features/admin/events/certificate-template-panel.tsx` — 835 lines
 - `pb_hooks/paygate-helpers.js` — 803 lines
 - `pb_hooks/admin-operations.pb.js` — 768 lines
@@ -64,11 +63,11 @@ Refactor by workflow/responsibility with characterization tests first. Do not sp
 
 ### P3 — Exact duplication hotspots
 
-Current exact-duplication scan: 1.82% duplicated lines. The dominant clone is between the two FIFA admin match screens (124-line block plus several smaller blocks). Other clusters are much smaller. Consolidate shared FIFA match admin controls first; avoid broad abstraction of one-off similarities.
+The earlier dominant admin-game duplication has been retired with that temporary event feature. Re-run duplication analysis before the next structural refactor and extract only domain concepts with multiple live consumers.
 
 ### P3 — Static asset weight
 
-After removing the dead AGM image, the remaining large static assets are deliberate FIFA video/social media plus two homepage portraits:
+After the dead AGM asset and temporary event media were removed, keep monitoring live public assets for unnecessarily large transfers:
 
 - `public/Execom/alfin_joshi.jpeg` — ~2.03 MiB
 - `public/Execom/angelina-victor/angelina-victor.jpg` — ~1.11 MiB
@@ -84,5 +83,5 @@ The current 7.18.3 build is clean but emits v8 future-flag notices for middlewar
 - Razorpay KYC/compliance page work.
 - Certificate mail delivery mode or SMTP configuration.
 - Event content, handpicked Event Showcase content, or the 13-visible-society presentation.
-- Payment algorithms, reconciliation semantics, certificate issuance semantics, attendance lifecycle, or FIFA economics.
+- Payment algorithms, reconciliation semantics, certificate issuance semantics, or attendance lifecycle.
 - Production containers, databases, DNS, or Dokploy configuration.

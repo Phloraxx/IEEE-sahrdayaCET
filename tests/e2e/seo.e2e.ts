@@ -35,9 +35,12 @@ test.describe('SSR and SEO', () => {
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://ieeesahrdaya.com/societies')
   })
 
-  test('unknown public page returns 404', async ({ page }) => {
-    const response = await page.goto('/definitely-not-a-real-page')
-    expect(response?.status()).toBe(404)
+  test('unknown and retired public pages return 404', async ({ page }) => {
+    const unknown = await page.goto('/definitely-not-a-real-page')
+    expect(unknown?.status()).toBe(404)
+
+    const retiredEvent = await page.goto('/FIFA')
+    expect(retiredEvent?.status()).toBe(404)
   })
 
   test('document responses include browser security headers', async ({ request }) => {

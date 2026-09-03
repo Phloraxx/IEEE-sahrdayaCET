@@ -54,7 +54,7 @@ React Router may expose HTML routes and framework resource routes outside the ap
 
 ## CRUD versus commands
 
-Use ordinary collection CRUD when one record operation naturally represents the intent. Examples include editing a society biography, listing events, or changing non-financial FIFA match metadata.
+Use ordinary collection CRUD when one record operation naturally represents the intent. Examples include editing a society biography, listing events, or updating ordinary content metadata.
 
 Use a PocketBase custom route when the operation is a command:
 
@@ -64,10 +64,6 @@ Use a PocketBase custom route when the operation is a command:
 | Coupon set sync | multiple coupon records must reconcile atomically |
 | User role change | ordinary users collection rule intentionally forbids role mutation |
 | Manual payment confirmation | registration/payment state, ticket issuance, audit metadata, and notification outbox eligibility move together |
-| FIFA bet | balance, ledger, bet and pool are one transaction |
-| FIFA settlement | payouts, balances, ledgers, bets, markets and match result are one transaction |
-| FIFA void | refunding a market/match is a financial state transition |
-| Raffle draw | eligibility snapshot and selected result must be auditable |
 
 ## Schema ownership
 

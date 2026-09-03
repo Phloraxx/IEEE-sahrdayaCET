@@ -1,19 +1,13 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { type NavItem } from "@/types";
 import { motion, useReducedMotion } from "framer-motion";
-import { useLocation, Link } from "react-router";
+import { Link, useLocation } from "react-router";
+import { CalendarDays, LayoutDashboard, LogOut, Menu, User, X } from "lucide-react";
+import { type NavItem } from "@/types";
 import { useAuth } from "@/lib/auth-context";
 import { getWorkspaceMe } from "@/lib/data/workspace.client";
 import { preferredWorkspacePath } from "@/lib/workspace-permissions";
-import { CalendarDays, LayoutDashboard, LogOut, User, Menu, X, ChevronDown } from "lucide-react";
 import LoginModal from "./LoginModal";
-import {
-  FIFA_NAV_ITEMS,
-  isFifaHomePath,
-  isFifaPath,
-  type FifaNavKey,
-} from "@/features/fifa/fifa-nav";
 
 const navItems: NavItem[] = [
   { label: "HOME", href: "/" },
@@ -24,24 +18,19 @@ const navItems: NavItem[] = [
 ];
 
 interface NavbarProps {
-  fifaActive?: FifaNavKey;
   mobileAlign?: "center" | "right";
 }
 
-export default function Navbar({ fifaActive, mobileAlign = "center" }: NavbarProps) {
+export default function Navbar({ mobileAlign = "center" }: NavbarProps) {
   const reduceMotion = Boolean(useReducedMotion());
   const [isVisible, setIsVisible] = useState(true);
   const [activeSection, setActiveSection] = useState("/");
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showFifaDrop, setShowFifaDrop] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
-  const fifaDropRef = useRef<HTMLDivElement>(null);
-  const location = useLocation();
-  const pathname = location.pathname;
+  const { pathname } = useLocation();
   const { user, status, signOut } = useAuth();
   const workspace = useQuery({
     queryKey: ["workspace-me", user?.id],
@@ -52,19 +41,13 @@ export default function Navbar({ fifaActive, mobileAlign = "center" }: NavbarPro
   });
   const loading = status === "loading";
 
-  const inFifa = isFifaPath(pathname);
-  const fifaHome = isFifaHomePath(pathname);
-  const transparentFifaNav = inFifa && fifaHome && !scrolled;
-
   useEffect(() => {
     setActiveSection(pathname || "/");
     setMobileMenuOpen(false);
-    setShowFifaDrop(false);
   }, [pathname]);
 
   useEffect(() => {
     if (!mobileMenuOpen || window.innerWidth >= 768) return;
-
     const routePath = pathname;
     const scrollY = window.scrollY;
     const body = document.body;
@@ -78,7 +61,6 @@ export default function Navbar({ fifaActive, mobileAlign = "center" }: NavbarPro
       overflow: body.style.overflow,
     };
     const previousRootOverflow = root.style.overflow;
-
     body.style.position = "fixed";
     body.style.top = `-${scrollY}px`;
     body.style.left = "0";
@@ -86,15 +68,9 @@ export default function Navbar({ fifaActive, mobileAlign = "center" }: NavbarPro
     body.style.width = "100%";
     body.style.overflow = "hidden";
     root.style.overflow = "hidden";
-
     return () => {
       root.style.overflow = previousRootOverflow;
-      body.style.position = previousBody.position;
-      body.style.top = previousBody.top;
-      body.style.left = previousBody.left;
-      body.style.right = previousBody.right;
-      body.style.width = previousBody.width;
-      body.style.overflow = previousBody.overflow;
+      Object.assign(body.style, previousBody);
       if (window.location.pathname === routePath) window.scrollTo(0, scrollY);
     };
   }, [mobileMenuOpen, pathname]);
@@ -108,33 +84,13 @@ export default function Navbar({ fifaActive, mobileAlign = "center" }: NavbarPro
   }, []);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 80);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [pathname]);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setShowUserMenu(false);
-      }
-      if (fifaDropRef.current && !fifaDropRef.current.contains(e.target as Node)) {
-        setShowFifaDrop(false);
-      }
-    };
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setShowUserMenu(false);
-        setShowFifaDrop(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEscape);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   useEffect(() => {
@@ -143,7 +99,7 @@ export default function Navbar({ fifaActive, mobileAlign = "center" }: NavbarPro
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       timeoutRef.current = setTimeout(() => setIsVisible(true), 500);
     };
-    window.addEventListener("scroll", handleScrollEvent);
+    window.addEventListener("scroll", handleScrollEvent, { passive: true });
     return () => {
       window.removeEventListener("scroll", handleScrollEvent);
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -155,260 +111,100 @@ export default function Navbar({ fifaActive, mobileAlign = "center" }: NavbarPro
     setShowUserMenu(false);
   };
 
-  const pillClass = inFifa
-    ? transparentFifaNav
-      ? "bg-black/25 backdrop-blur-xl border-white/12 text-white shadow-lg shadow-black/20"
-      : "bg-black/70 backdrop-blur-xl border-white/12 text-white shadow-lg shadow-black/30"
-    : "bg-white/70 backdrop-blur-md border-white/20 shadow-lg shadow-black/5";
-
-  const mobileBtnClass = inFifa
-    ? transparentFifaNav
-      ? "bg-black/40 backdrop-blur-xl border-white/15 text-white"
-      : "bg-black/70 backdrop-blur-xl border-white/15 text-white"
-    : "bg-white/70 backdrop-blur-md border-white/20 text-gray-700 hover:text-gray-900";
-
-  const fifaLinkClass = (active: boolean) =>
-    `relative px-2.5 md:px-3 py-2 rounded-full text-[10px] md:text-xs font-bold tracking-wide transition-all duration-300 whitespace-nowrap min-h-[44px] flex items-center ${
-      active
-        ? inFifa
-          ? "text-white bg-ieee-blue shadow-xs"
-          : "text-gray-900 bg-white shadow-xs"
-        : inFifa
-          ? "text-white/70 hover:text-white hover:bg-white/10"
-          : "text-gray-500 hover:text-blue-600 hover:bg-white/50"
-    }`;
-
-  const mainLinkClass = (active: boolean) =>
-    `relative px-3 md:px-5 py-2 rounded-full text-[10px] md:text-xs font-bold tracking-wide transition-all duration-300 whitespace-nowrap ${
-      active
-        ? "text-gray-900 bg-white shadow-xs"
-        : "text-gray-500 hover:text-blue-600 hover:bg-white/50"
-    }`;
-
-  const authBtnClass = inFifa
-    ? "text-ieee-light-blue hover:bg-white/10"
-    : "text-blue-600 hover:bg-white/50";
-
   const renderAuth = (compact = false) => {
     if (loading) return null;
-    if (user) {
+    if (!user) {
       return (
-        <div className="relative" ref={userMenuRef}>
-          <button
-            onClick={() => setShowUserMenu(!showUserMenu)}
-            aria-expanded={showUserMenu}
-            aria-haspopup="true"
-            className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-full text-[10px] md:text-xs font-bold tracking-wide transition-all duration-300 whitespace-nowrap ${authBtnClass}`}
-          >
-            <User className="w-3 h-3 md:w-4 md:h-4" />
-            {!compact && <span className="hidden md:inline">{user.name?.split(" ")[0]}</span>}
-          </button>
-          {showUserMenu && (
-            <div
-              className={`absolute top-full right-0 mt-2 rounded-xl shadow-xl min-w-[200px] overflow-hidden z-[1000] pointer-events-auto ${
-                inFifa
-                  ? "bg-[#131519] border border-white/10 text-[#f5f5f5]"
-                  : "bg-white border border-gray-100"
-              }`}
-            >
-              <div
-                className={`px-4 py-3 border-b ${
-                  inFifa ? "border-white/10 bg-white/5" : "border-gray-50 bg-gray-50/50"
-                }`}
-              >
-                <p className={`text-sm font-bold ${inFifa ? "text-white" : "text-gray-900"}`}>
-                  {user.name}
-                </p>
-                <p className="text-[10px] font-mono text-gray-500 truncate mt-0.5">{user.email}</p>
-              </div>
-              {inFifa && (
-                <>
-                  <Link
-                    to="/FIFA/dashboard/"
-                    className="w-full px-4 py-3 text-left text-xs font-bold text-ieee-light-blue hover:bg-white/5 transition-colors flex items-center gap-3 tracking-wide"
-                    onClick={() => setShowUserMenu(false)}
-                  >
-                    <LayoutDashboard className="w-4 h-4" />
-                    FIFA Dashboard
-                  </Link>
-                  <div className={`h-px ${inFifa ? "bg-white/10" : "bg-gray-100"}`} />
-                </>
-              )}
-              <Link
-                to="/my-events"
-                className={`w-full px-4 py-3 text-left text-xs font-bold transition-colors flex items-center gap-3 tracking-wide ${
-                  inFifa ? "text-ieee-light-blue hover:bg-white/5" : "text-blue-600 hover:bg-blue-50"
-                }`}
-                onClick={() => setShowUserMenu(false)}
-              >
-                <CalendarDays className="w-4 h-4" />
-                My Events
-              </Link>
-              <div className={`h-px ${inFifa ? "bg-white/10" : "bg-gray-100"}`} />
-              {workspace.data?.hasWorkspace && (
-                <>
-                  <Link
-                    to={preferredWorkspacePath(workspace.data)}
-                    className={`w-full px-4 py-3 text-left text-xs font-bold transition-colors flex items-center gap-3 tracking-wide ${
-                      inFifa
-                        ? "text-ieee-light-blue hover:bg-white/5"
-                        : "text-blue-600 hover:bg-blue-50"
-                    }`}
-                    onClick={() => setShowUserMenu(false)}
-                  >
-                    <LayoutDashboard className="w-4 h-4" />
-                    IEEE Workspace
-                  </Link>
-                  <div className={`h-px ${inFifa ? "bg-white/10" : "bg-gray-100"}`} />
-                </>
-              )}
-              <button
-                onClick={handleLogout}
-                className="w-full px-4 py-3 text-left text-xs font-bold text-red-500 hover:bg-red-500/10 transition-colors flex items-center gap-3 tracking-wide"
-              >
-                <LogOut className="w-4 h-4" />
-                Sign Out
-              </button>
-            </div>
-          )}
-        </div>
+        <button
+          onClick={() => setIsLoginModalOpen(true)}
+          className="min-h-[44px] whitespace-nowrap rounded-full px-3 py-2 text-[10px] font-bold tracking-wide text-blue-600 transition-all hover:bg-white/50 md:px-5 md:text-xs"
+        >
+          SIGN IN
+        </button>
       );
     }
     return (
-      <button
-        onClick={() => setIsLoginModalOpen(true)}
-        className={`px-3 md:px-5 py-2 rounded-full text-[10px] md:text-xs font-bold tracking-wide transition-all duration-300 whitespace-nowrap min-h-[44px] ${authBtnClass}`}
-      >
-        SIGN IN
-      </button>
+      <div className="relative" ref={userMenuRef}>
+        <button
+          onClick={() => setShowUserMenu(!showUserMenu)}
+          aria-expanded={showUserMenu}
+          aria-haspopup="true"
+          className="flex items-center gap-2 whitespace-nowrap rounded-full px-3 py-2 text-[10px] font-bold tracking-wide text-blue-600 transition-all hover:bg-white/50 md:px-4 md:text-xs"
+        >
+          <User className="h-3 w-3 md:h-4 md:w-4" />
+          {!compact && <span className="hidden md:inline">{user.name?.split(" ")[0]}</span>}
+        </button>
+        {showUserMenu && (
+          <div className="pointer-events-auto absolute right-0 top-full z-[1000] mt-2 min-w-[200px] overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xl">
+            <div className="border-b border-gray-50 bg-gray-50/50 px-4 py-3">
+              <p className="text-sm font-bold text-gray-900">{user.name}</p>
+              <p className="mt-0.5 truncate font-mono text-[10px] text-gray-500">{user.email}</p>
+            </div>
+            <Link
+              to="/my-events"
+              className="flex w-full items-center gap-3 px-4 py-3 text-left text-xs font-bold tracking-wide text-blue-600 transition-colors hover:bg-blue-50"
+              onClick={() => setShowUserMenu(false)}
+            >
+              <CalendarDays className="h-4 w-4" />
+              My Events
+            </Link>
+            {workspace.data?.hasWorkspace && (
+              <>
+                <div className="h-px bg-gray-100" />
+                <Link
+                  to={preferredWorkspacePath(workspace.data)}
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left text-xs font-bold tracking-wide text-blue-600 transition-colors hover:bg-blue-50"
+                  onClick={() => setShowUserMenu(false)}
+                >
+                  <LayoutDashboard className="h-4 w-4" />
+                  IEEE Workspace
+                </Link>
+              </>
+            )}
+            <div className="h-px bg-gray-100" />
+            <button
+              onClick={handleLogout}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left text-xs font-bold tracking-wide text-red-500 transition-colors hover:bg-red-50"
+            >
+              <LogOut className="h-4 w-4" />
+              Sign Out
+            </button>
+          </div>
+        )}
+      </div>
     );
   };
+
+  const linkClass = (active: boolean) =>
+    `relative whitespace-nowrap rounded-full px-3 py-2 text-[10px] font-bold tracking-wide transition-all md:px-5 md:text-xs ${
+      active ? "bg-white text-gray-900 shadow-xs" : "text-gray-500 hover:bg-white/50 hover:text-blue-600"
+    }`;
 
   return (
     <>
       <button
         onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-        className={`md:hidden fixed top-4 z-[101] rounded-full p-3 transition-all ${mobileAlign === "right" ? "right-4" : "left-1/2 -translate-x-1/2"} ${mobileBtnClass}`}
+        className={`fixed top-4 z-[101] rounded-full border border-white/20 bg-white/70 p-3 text-gray-700 backdrop-blur-md transition-all hover:text-gray-900 md:hidden ${mobileAlign === "right" ? "right-4" : "left-1/2 -translate-x-1/2"}`}
         aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
         aria-expanded={mobileMenuOpen}
       >
-        {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </button>
 
       <motion.div
         initial={reduceMotion ? false : { y: -100, opacity: 0 }}
         animate={{ y: isVisible ? 0 : -100, opacity: isVisible ? 1 : 0 }}
         transition={{ duration: reduceMotion ? 0 : 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="fixed top-6 left-0 right-0 z-[100] hidden md:flex justify-center pointer-events-none px-4"
+        className="pointer-events-none fixed left-0 right-0 top-6 z-[100] hidden justify-center px-4 md:flex"
       >
-        <div
-          className={`pointer-events-auto rounded-full px-2 py-1.5 flex items-center gap-1 max-w-[98vw] border transition-colors duration-300 ${pillClass}`}
-        >
-          <nav
-            aria-label={inFifa ? "WC Predict navigation" : "Primary navigation"}
-            className="flex min-w-0 items-center"
-          >
-          {inFifa ? (
-            <>
-              <Link
-                to="/"
-                className="px-2.5 py-2 rounded-full text-[10px] font-bold tracking-wide text-white/60 hover:text-white hover:bg-white/10 transition-all whitespace-nowrap"
-              >
-                IEEE ←
-              </Link>
-              <div className="w-px h-4 bg-white/15 mx-0.5 shrink-0" />
-              <div className="flex items-center gap-0.5 overflow-x-auto no-scrollbar">
-                {FIFA_NAV_ITEMS.map((item) => (
-                  <Link
-                    key={item.key}
-                    to={item.to}
-                    className={fifaLinkClass(fifaActive === item.key)}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
-                {user && (
-                  <Link
-                    to="/FIFA/dashboard/"
-                    className={fifaLinkClass(fifaActive === "dashboard")}
-                  >
-                    Dashboard
-                  </Link>
-                )}
-              </div>
-            </>
-          ) : (
-            <div className="flex items-center gap-1">
-              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
-                {navItems.map((item) => {
-                  const isActive =
-                    pathname === item.href ||
-                    (item.href.startsWith("/#") &&
-                      pathname === "/" &&
-                      activeSection.includes(item.href.replace("/#", "")));
-                  return (
-                    <Link key={item.label} to={item.href} className={mainLinkClass(isActive)}>
-                      {item.label}
-                    </Link>
-                  );
-                })}
-              </div>
-              <div className="relative shrink-0 flex items-center" ref={fifaDropRef}>
-                <Link
-                  to="/FIFA/"
-                  onClick={() => setShowFifaDrop(false)}
-                  className={`px-3 py-2 rounded-l-full text-[10px] md:text-xs font-bold tracking-wide transition-all whitespace-nowrap ${
-                    isFifaPath(pathname)
-                      ? "text-gray-900 bg-white shadow-xs"
-                      : "text-ieee-blue hover:bg-ieee-blue/10"
-                  }`}
-                >
-                  WC PREDICT &apos;26
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => setShowFifaDrop((open) => !open)}
-                  aria-expanded={showFifaDrop}
-                  aria-label="WC Predict submenu"
-                  className={`flex items-center px-1.5 py-2 rounded-r-full text-[10px] md:text-xs font-bold transition-all ${
-                    isFifaPath(pathname)
-                      ? "text-gray-900 bg-white shadow-xs"
-                      : "text-ieee-blue hover:bg-ieee-blue/10"
-                  }`}
-                >
-                  <ChevronDown
-                    className={`w-3 h-3 transition-transform ${showFifaDrop ? "rotate-180" : ""}`}
-                  />
-                </button>
-                {showFifaDrop && (
-                  <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 min-w-[180px] overflow-hidden z-[1000]">
-                    {FIFA_NAV_ITEMS.map((item) => (
-                      <Link
-                        key={item.key}
-                        to={item.to}
-                        onClick={() => setShowFifaDrop(false)}
-                        className="block px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-ieee-blue/5 hover:text-ieee-blue transition-colors"
-                      >
-                        {item.label}
-                      </Link>
-                    ))}
-                    {user && (
-                      <Link
-                        to="/FIFA/dashboard/"
-                        onClick={() => setShowFifaDrop(false)}
-                        className="block px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-ieee-blue/5 hover:text-ieee-blue transition-colors border-t border-gray-100"
-                      >
-                        Dashboard
-                      </Link>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+        <div className="pointer-events-auto flex max-w-[98vw] items-center gap-1 rounded-full border border-white/20 bg-white/70 px-2 py-1.5 shadow-lg shadow-black/5 backdrop-blur-md">
+          <nav aria-label="Primary navigation" className="flex min-w-0 items-center gap-1 overflow-x-auto no-scrollbar">
+            {navItems.map((item) => {
+              const isActive = pathname === item.href || (item.href.startsWith("/#") && pathname === "/" && activeSection.includes(item.href.replace("/#", "")));
+              return <Link key={item.label} to={item.href} className={linkClass(isActive)}>{item.label}</Link>;
+            })}
           </nav>
-
-          <div className={`w-px h-4 mx-1 shrink-0 ${inFifa ? "bg-white/15" : "bg-gray-300"}`} />
+          <div className="mx-1 h-4 w-px shrink-0 bg-gray-300" />
           {renderAuth()}
         </div>
       </motion.div>
@@ -418,49 +214,13 @@ export default function Navbar({ fifaActive, mobileAlign = "center" }: NavbarPro
           initial={reduceMotion ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: reduceMotion ? 0 : 0.2 }}
-          className={`md:hidden fixed inset-0 z-[100] flex flex-col items-center justify-center gap-8 px-8 ${
-            inFifa ? "bg-[#0a0a0b]/95 backdrop-blur-xl text-white" : "bg-white/95 backdrop-blur-xl"
-          }`}
+          className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-8 bg-white/95 px-8 backdrop-blur-xl md:hidden"
           role="dialog"
           aria-modal="true"
           aria-label="Site navigation"
           onClick={() => setMobileMenuOpen(false)}
         >
           <nav className="flex flex-col items-center gap-5">
-            {inFifa && (
-              <>
-                <p className="text-[10px] font-mono tracking-[0.2em] text-ieee-light-blue uppercase mb-1">
-                  WC Predict &apos;26
-                </p>
-                {FIFA_NAV_ITEMS.map((item) => (
-                  <Link
-                    key={item.key}
-                    to={item.to}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`text-xl font-bold tracking-wide transition-all ${
-                      fifaActive === item.key ? "text-ieee-light-blue" : "text-white/60 hover:text-white"
-                    }`}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
-                {user && (
-                  <Link
-                    to="/FIFA/dashboard/"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`text-xl font-bold tracking-wide ${
-                      fifaActive === "dashboard" ? "text-ieee-light-blue" : "text-white/60"
-                    }`}
-                  >
-                    Dashboard
-                  </Link>
-                )}
-                <div className="w-16 h-px bg-white/15 my-2" />
-                <p className="text-[10px] font-mono tracking-[0.2em] text-white/40 uppercase">
-                  IEEE Sahrdaya
-                </p>
-              </>
-            )}
             {navItems.map((item) => {
               const isActive = pathname === item.href;
               return (
@@ -468,38 +228,12 @@ export default function Navbar({ fifaActive, mobileAlign = "center" }: NavbarPro
                   key={item.label}
                   to={item.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`text-xl font-bold tracking-wide transition-all ${
-                    inFifa
-                      ? isActive
-                        ? "text-ieee-light-blue"
-                        : "text-white/50 hover:text-white"
-                      : isActive
-                        ? "text-[#00629B]"
-                        : "text-gray-500 hover:text-gray-900"
-                  }`}
+                  className={`text-xl font-bold tracking-wide transition-all ${isActive ? "text-[#00629B]" : "text-gray-500 hover:text-gray-900"}`}
                 >
                   {item.label}
                 </Link>
               );
             })}
-            {!inFifa && (
-              <>
-                <div className="w-16 h-px bg-gray-200 my-1" />
-                <p className="text-[10px] font-mono tracking-[0.2em] text-ieee-blue uppercase">
-                  WC Predict &apos;26
-                </p>
-                {FIFA_NAV_ITEMS.map((item) => (
-                  <Link
-                    key={item.key}
-                    to={item.to}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="text-lg font-semibold text-gray-500 hover:text-[#00629B]"
-                  >
-                    {item.label}
-                  </Link>
-                ))}
-              </>
-            )}
           </nav>
           <div className="mt-2">{renderAuth(true)}</div>
         </motion.div>

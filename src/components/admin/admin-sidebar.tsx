@@ -1,6 +1,6 @@
 import {
   Award, Building2, Calendar, ChevronRight, ClipboardList, FileText, KeyRound, LayoutDashboard,
-  LogOut, Moon, ScanLine, Settings, Sun, Ticket, Trophy, UserCheck, Users,
+  LogOut, Moon, ScanLine, Sun, UserCheck, Users,
   WalletCards, ShieldCheck, X,
 } from "lucide-react";
 import { Link, useLocation } from "react-router";
@@ -38,11 +38,6 @@ const GROUPS: NavGroup[] = [
   ]},
   { label: "Content", items: [
     { label: "Blogs", href: "/admin/blogs", icon: FileText, capability: "content.manage" },
-  ]},
-  { label: "Special Projects", items: [
-    { label: "FIFA Matches", href: "/admin/FIFA/matches", icon: Trophy, capability: "technical.manage", branchOnly: true },
-    { label: "FIFA Settings", href: "/admin/FIFA/settings", icon: Settings, capability: "technical.manage", branchOnly: true },
-    { label: "FIFA Raffle", href: "/admin/FIFA/raffle", icon: Ticket, capability: "technical.manage", branchOnly: true },
   ]},
 ];
 

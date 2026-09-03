@@ -22,7 +22,7 @@ Examples:
 - chairs cannot enumerate another society's private events;
 - users can read only their own protected records;
 - content editors can mutate only their own posts;
-- direct `registrations` and `fifa_bets` creation is disabled because those are commands;
+- direct registration creation is disabled because registration is a command;
 - generic user updates cannot grant a different application role.
 
 ### Request/model hooks
@@ -31,9 +31,9 @@ Hooks own state-transition invariants such as immutable event URLs, check-in val
 
 ### Transactional custom routes
 
-Any operation that moves a wallet balance, reserves event capacity, consumes a coupon, creates a ticket, or refunds/pays several records must be all-or-nothing.
+Any operation that reserves event capacity, consumes a coupon, creates a ticket, changes payment state, or mutates several linked records must be all-or-nothing.
 
-PocketBase `runInTransaction` is used for registration, manual payment confirmation, FIFA betting/settlement/voiding, coupon reconciliation, and raffle operations. All writes inside a transaction use the transaction app.
+PocketBase `runInTransaction` is used for registration, manual payment confirmation, coupon reconciliation, attendance/cancellation workflows, and other multi-record commands. All writes inside a transaction use the transaction app.
 
 ## Runtime privilege policy
 
@@ -73,21 +73,6 @@ Security-sensitive invariants include:
 - ticket/check-in validation rejects invalid state and duplicate check-ins.
 
 Never trust UI-disabled buttons as the enforcement layer.
-
-## Financial-style game integrity
-
-WC Predict uses fake points, but its ledger is still treated as financial-style state:
-
-- bet placement is atomic;
-- settlement has exactly one payout engine;
-- settlement is idempotent;
-- direct pool/result/settlement edits and destructive deletes are rejected once bets exist;
-- direct financial void edits are rejected;
-- market/match void commands refund exactly once;
-- raffle evidence fields can only be written by the raffle command;
-- no background score synchronizer or production testing console may issue payouts or rewrite balances.
-
-Live-score APIs provide display data only. Admin settlement is explicit.
 
 ## Browser response hardening
 

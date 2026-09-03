@@ -32,13 +32,6 @@ export default [
   route("c/:token", "routes/c.$token.tsx"),
   route("verify", "routes/verify.tsx"),
 
-  route("FIFA", "routes/FIFA/index.tsx"),
-  route("FIFA/dashboard", "routes/FIFA/dashboard.tsx"),
-  route("FIFA/leaderboard", "routes/FIFA/leaderboard.tsx"),
-  route("FIFA/matches", "routes/FIFA/matches.tsx"),
-  route("FIFA/matches/:id", "routes/FIFA/matches.$id.tsx"),
-  route("FIFA/rules", "routes/FIFA/rules.tsx"),
-
   route("admin", "routes/admin.tsx", [
     index("routes/admin.index.tsx"),
     route("dashboard", "routes/admin.dashboard.tsx"),
@@ -61,9 +54,5 @@ export default [
     route("access", "routes/admin.access.tsx"),
     route("check-in", "routes/admin.check-in.tsx"),
     route("data-health", "routes/admin.data-health.tsx"),
-    route("FIFA/matches", "routes/admin.FIFA.matches.tsx"),
-    route("FIFA/matches/:id", "routes/admin.FIFA.matches.$id.tsx"),
-    route("FIFA/raffle", "routes/admin.FIFA.raffle.tsx"),
-    route("FIFA/settings", "routes/admin.FIFA.settings.tsx"),
   ]),
 ] satisfies RouteConfig;

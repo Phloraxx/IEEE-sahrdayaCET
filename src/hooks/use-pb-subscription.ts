@@ -1,12 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { getPbClient } from '@/lib/pb-client'
 
-// SSE hook for public collections. Subscribes on mount, unsubscribes on unmount.
-// Only for public realtime collections such as fifa_bet_markets and fifa_matches
-// — authenticated data is loaded through the PocketBase client and React Query.
-//
-// Usage:
-//   usePbSubscription('fifa_matches', '*', (e) => { ... })
+// SSE hook for collections whose PocketBase rules allow the current client to subscribe.
+// Authenticated data continues to flow through the PocketBase client and React Query.
 export function usePbSubscription(
   collection: string,
   recordId: string,

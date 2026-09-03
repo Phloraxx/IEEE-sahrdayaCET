@@ -8,7 +8,7 @@ interface AdminTopbarProps { onOpenSidebar: (e: React.MouseEvent<HTMLElement>) =
 const LABELS: [string, string][] = [
   ["/admin/dashboard", "Operations Home"], ["/admin/events", "Events"], ["/admin/registrations", "Registrations"],
   ["/admin/payments", "Payments"], ["/admin/certificates", "Certificates"], ["/admin/check-in", "Check-in"], ["/admin/data-health", "Data Health"], ["/admin/societies", "Societies"],
-  ["/admin/access", "Access & Roles"], ["/admin/users", "Users"], ["/admin/execom", "Execom"], ["/admin/blogs", "Blogs"], ["/admin/FIFA", "FIFA"],
+  ["/admin/access", "Access & Roles"], ["/admin/users", "Users"], ["/admin/execom", "Execom"], ["/admin/blogs", "Blogs"],
 ];
 
 export function AdminTopbar({ onOpenSidebar, sidebarOpen, isNavigating, workspace }: AdminTopbarProps) {

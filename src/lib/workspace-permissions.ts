@@ -111,7 +111,6 @@ export function canAccessWorkspacePath(
   if (path === "/admin/blogs" || path.startsWith("/admin/blogs/")) return has("content.manage");
   if (path === "/admin/users" || path.startsWith("/admin/users/")) return workspace.legacyRole === "admin";
   if (path === "/admin/execom" || path.startsWith("/admin/execom/")) return workspace.legacyRole === "admin";
-  if (path.startsWith("/admin/FIFA/")) return branchHas("technical.manage");
   return false;
 }
 

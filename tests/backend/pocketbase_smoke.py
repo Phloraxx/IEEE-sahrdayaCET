@@ -48,10 +48,21 @@ super_auth = request("POST", "/api/collections/_superusers/auth-with-password", 
 })
 super_token = super_auth["token"]
 crons = request("GET", "/api/crons", token=super_token)
-topup_cron = next((cron for cron in crons if cron.get("id") == "fifa-daily-topup"), None)
-assert topup_cron and topup_cron.get("expression") == "30 3 * * *"
 backup_cron = next((cron for cron in crons if cron.get("id") == "__pbAutoBackup__"), None)
 assert backup_cron and backup_cron.get("expression") == "30 21 * * *"
+assert not any(str(cron.get("id", "")).startswith("fifa") for cron in crons)
+
+# The retired WC Predict feature is removed from the runtime and schema.
+for retired_collection in (
+    "fifa_matches", "fifa_bet_markets", "fifa_bets",
+    "fifa_transactions", "fifa_settings", "fifa_feed_events",
+):
+    request("GET", f"/api/collections/{retired_collection}", token=super_token, expected=(404,))
+users_schema = request("GET", "/api/collections/users", token=super_token)
+assert "balance" not in {field.get("name") for field in users_schema.get("fields", [])}
+assert "balance" not in str(users_schema.get("updateRule") or "")
+for retired_route in ("/api/fifa/leaderboard", "/api/fifa/stats", "/api/fifa/live-scores"):
+    request("GET", retired_route, expected=(404,))
 settings = request("GET", "/api/settings", token=super_token)
 assert settings["backups"]["cron"] == "30 21 * * *"
 assert settings["backups"]["cronMaxKeep"] == 14
@@ -74,13 +85,12 @@ suffix = str(int(time.time() * 1000))
 fixture_password = "FixturePass-2026!"
 
 
-def create_user(label, role="user", balance=0):
+def create_user(label, role="user"):
     return request("POST", "/api/collections/users/records", {
         "email": f"{label}-{suffix}@example.test",
         "verified": True,
         "name": label.title(),
         "role": role,
-        "balance": balance,
         "password": fixture_password,
         "passwordConfirm": fixture_password,
     }, super_token)
@@ -88,8 +98,8 @@ def create_user(label, role="user", balance=0):
 
 admin = create_user("admin", "admin")
 chair = create_user("chair", "chair")
-user = create_user("member", "user", 1000)
-second_user = create_user("member-two", "user", 1000)
+user = create_user("member", "user")
+second_user = create_user("member-two", "user")
 admin_token = impersonate(super_token, admin["id"])
 if github_env := os.environ.get("GITHUB_ENV"):
     with open(github_env, "a", encoding="utf-8") as env_file:
@@ -157,47 +167,6 @@ coupon_admin_list = request(
     token=admin_token,
 )
 assert isinstance(coupon_admin_list.get("items"), list)
-
-# The daily FIFA top-up cron is executable, transactional, and idempotent per IST day.
-settings_page = request("GET", "/api/collections/fifa_settings/records?page=1&perPage=1", token=super_token)
-if not settings_page["items"]:
-    cron_settings = request("POST", "/api/collections/fifa_settings/records", {
-        "event_name": "WC Predict '26", "starting_balance": 1000, "max_bet_percent": 25,
-        "daily_topup_threshold": 100, "daily_topup_target": 200, "pool_house_cut_percent": 0,
-        "raffle_tickets_base": 50, "raffle_tickets_decay": 2, "raffle_active_participant_min_bets": 5,
-        "prize": "", "registration_open": True,
-    }, super_token)
-else:
-    cron_settings = settings_page["items"][0]
-request("PATCH", f"/api/collections/fifa_settings/records/{cron_settings['id']}", {
-    "daily_topup_threshold": 100,
-    "daily_topup_target": 200,
-}, super_token)
-# User creation intentionally applies the starting grant, so explicitly lower one
-# fixture after creation to exercise the daily top-up path.
-request("PATCH", f"/api/collections/users/records/{admin['id']}", {"balance": 0}, super_token)
-request("POST", "/api/crons/fifa-daily-topup", token=super_token, expected=(204,))
-admin_after_topup = None
-for _ in range(30):
-    admin_after_topup = request("GET", f"/api/collections/users/records/{admin['id']}", token=super_token)
-    if admin_after_topup["balance"] == 200:
-        break
-    time.sleep(0.1)
-assert admin_after_topup and admin_after_topup["balance"] == 200
-topup_ledger = request(
-    "GET",
-    f"/api/collections/fifa_transactions/records?filter=" + urllib.parse.quote(f'user="{admin["id"]}" && type="daily_topup"'),
-    token=super_token,
-)
-assert topup_ledger["totalItems"] == 1 and topup_ledger["items"][0]["amount"] == 200
-request("POST", "/api/crons/fifa-daily-topup", token=super_token, expected=(204,))
-time.sleep(0.5)
-topup_ledger_again = request(
-    "GET",
-    f"/api/collections/fifa_transactions/records?filter=" + urllib.parse.quote(f'user="{admin["id"]}" && type="daily_topup"'),
-    token=super_token,
-)
-assert topup_ledger_again["totalItems"] == 1
 
 society = request("POST", "/api/collections/societies/records", {
     "name": f"CI Society {suffix}", "slug": f"ci-society-{suffix}", "bio": "CI smoke",
@@ -1204,141 +1173,8 @@ assert not public_execom.get("email") and not public_execom.get("phone")
 private_execom = request("GET", f"/api/collections/execom/records/{execom['id']}", token=super_token)
 assert private_execom["email"] == execom["email"] and private_execom["phone"] == "9999999999"
 
-# Retired social-feed data is preserved but no longer exposed.
-request("GET", "/api/collections/fifa_feed_events/records", expected=(403,))
-request("GET", "/api/fifa/feed", expected=(404,))
-
 # Role changes use the dedicated admin command.
 role_change = request("POST", f"/api/app/admin/users/{second_user['id']}/role", {"role": "content"}, admin_token)
 assert role_change["user"]["role"] == "content"
 
-# FIFA bet placement is one atomic balance/ledger/bet/pool transaction.
-kickoff = (now + dt.timedelta(hours=5)).isoformat().replace("+00:00", "Z")
-match = request("POST", "/api/collections/fifa_matches/records", {
-    "team_home": "Alpha", "team_away": "Beta", "stage": "group",
-    "kickoff_at": kickoff, "betting_locks_at": kickoff, "status": "upcoming", "settled": False,
-}, super_token)
-market = request("POST", "/api/collections/fifa_bet_markets/records", {
-    "match": match["id"], "market_type": "match_winner", "mode": "pool",
-    "options": ["home", "away"], "is_open": True, "void": False,
-    "pool_total": 0, "pool_by_option": {},
-}, super_token)
-bet = request("POST", "/api/fifa/bets", {
-    "match": match["id"], "market": market["id"], "selection": "home", "stake": 100,
-}, user_token)
-assert bet["balance"] == 900
-request("POST", "/api/fifa/bets", {
-    "match": match["id"], "market": market["id"], "selection": "away", "stake": 300,
-}, user_token, (400,))
-
-# Raw admin REST cannot rewrite economy/result history after bets exist.
-request("PATCH", f"/api/collections/fifa_bet_markets/records/{market['id']}", {"pool_total": 9999}, admin_token, (400,))
-request("PATCH", f"/api/collections/fifa_bet_markets/records/{market['id']}", {"options": ["home", "away", "draw"]}, admin_token, (400,))
-request("DELETE", f"/api/collections/fifa_bet_markets/records/{market['id']}", token=admin_token, expected=(400,))
-request("PATCH", f"/api/collections/fifa_matches/records/{match['id']}", {"settled": True}, admin_token, (400,))
-request("PATCH", f"/api/collections/fifa_matches/records/{match['id']}", {"result_winner": "away"}, admin_token, (400,))
-request("DELETE", f"/api/collections/fifa_matches/records/{match['id']}", token=admin_token, expected=(400,))
-
-settlement = request("POST", "/api/fifa/settle", {
-    "matchId": match["id"], "result_winner": "home",
-    "result_home_goals": 2, "result_away_goals": 1,
-    "result_scorers": [], "result_yellow_cards": 0, "result_red_cards": 0,
-}, admin_token)
-assert settlement["success"] is True
-settled_bet = request("GET", f"/api/collections/fifa_bets/records/{bet['bet']['id']}", token=user_token)
-assert settled_bet["status"] == "won" and settled_bet["payout"] == 100
-settled_user = request("GET", f"/api/collections/users/records/{user['id']}", token=user_token)
-assert settled_user["balance"] == 1000
-again = request("POST", "/api/fifa/settle", {
-    "matchId": match["id"], "result_winner": "home", "result_home_goals": 2, "result_away_goals": 1,
-}, admin_token)
-assert again.get("message") == "Already settled"
-
-# FIFA settlement validates score/stage invariants at the server boundary, not only in the admin UI.
-settlement_group = request("POST", "/api/collections/fifa_matches/records", {
-    "team_home": "Group Home", "team_away": "Group Away", "stage": "group",
-    "kickoff_at": kickoff, "betting_locks_at": kickoff, "status": "upcoming", "settled": False,
-}, super_token)
-request("POST", "/api/fifa/settle", {
-    "matchId": settlement_group["id"], "result_winner": "away",
-    "result_home_goals": 2, "result_away_goals": 1,
-}, admin_token, (400,))
-request("POST", "/api/fifa/settle", {
-    "matchId": settlement_group["id"], "result_winner": "draw",
-    "result_home_goals": 1, "result_away_goals": 1, "result_advance": "home",
-    "result_after_extra_time": True, "result_after_penalties": True,
-}, admin_token)
-settled_group = request("GET", f"/api/collections/fifa_matches/records/{settlement_group['id']}", token=admin_token)
-assert settled_group["result_winner"] == "draw"
-assert not settled_group.get("result_advance")
-assert settled_group["result_after_extra_time"] is False and settled_group["result_after_penalties"] is False
-
-settlement_knockout = request("POST", "/api/collections/fifa_matches/records", {
-    "team_home": "Knockout Home", "team_away": "Knockout Away", "stage": "r32",
-    "kickoff_at": kickoff, "betting_locks_at": kickoff, "status": "upcoming", "settled": False,
-}, super_token)
-request("POST", "/api/fifa/settle", {
-    "matchId": settlement_knockout["id"], "result_winner": "draw",
-    "result_home_goals": 1, "result_away_goals": 1,
-}, admin_token, (400,))
-request("POST", "/api/fifa/settle", {
-    "matchId": settlement_knockout["id"], "result_winner": "home",
-    "result_home_goals": 2, "result_away_goals": 1, "result_advance": "away",
-}, admin_token, (400,))
-request("POST", "/api/fifa/settle", {
-    "matchId": settlement_knockout["id"], "result_winner": "draw",
-    "result_home_goals": 1, "result_away_goals": 1, "result_advance": "away",
-    "result_after_extra_time": True, "result_after_penalties": True,
-}, admin_token)
-settled_knockout = request("GET", f"/api/collections/fifa_matches/records/{settlement_knockout['id']}", token=admin_token)
-assert settled_knockout["result_advance"] == "away"
-assert settled_knockout["result_after_extra_time"] is True and settled_knockout["result_after_penalties"] is True
-
-# Financial voids reject direct mutation and refund once through the command.
-match2 = request("POST", "/api/collections/fifa_matches/records", {
-    "team_home": "Gamma", "team_away": "Delta", "stage": "group",
-    "kickoff_at": kickoff, "betting_locks_at": kickoff, "status": "upcoming", "settled": False,
-}, super_token)
-market2 = request("POST", "/api/collections/fifa_bet_markets/records", {
-    "match": match2["id"], "market_type": "match_winner", "mode": "pool",
-    "options": ["home", "away"], "is_open": True, "void": False,
-    "pool_total": 0, "pool_by_option": {},
-}, super_token)
-bet2 = request("POST", "/api/fifa/bets", {
-    "match": match2["id"], "market": market2["id"], "selection": "away", "stake": 100,
-}, user_token)
-request("PATCH", f"/api/collections/fifa_bet_markets/records/{market2['id']}", {"void": True}, admin_token, (400,))
-voided = request("POST", f"/api/fifa/markets/{market2['id']}/void", {}, admin_token)
-assert voided["refundedCount"] == 1
-assert request("GET", f"/api/collections/users/records/{user['id']}", token=user_token)["balance"] == 1000
-assert request("GET", f"/api/collections/fifa_bets/records/{bet2['bet']['id']}", token=user_token)["status"] == "void"
-assert request("POST", f"/api/fifa/markets/{market2['id']}/void", {}, admin_token).get("alreadyVoid") is True
-
-# Raffle response contains the same auditable snapshot persisted in settings.
-settings = request("GET", "/api/collections/fifa_settings/records?page=1&perPage=1", token=admin_token)["items"][0]
-request("PATCH", f"/api/collections/fifa_settings/records/{settings['id']}", {
-    "raffle_seed": "forged-audit-value",
-}, admin_token, (400,))
-request("PATCH", f"/api/collections/fifa_settings/records/{settings['id']}", {
-    "raffle_active_participant_min_bets": 0,
-}, admin_token)
-leaderboard_zero_min = request("GET", "/api/fifa/leaderboard")
-assert leaderboard_zero_min["settings"]["min_bets"] == 0
-normal_settings = request("PATCH", f"/api/collections/fifa_settings/records/{settings['id']}", {
-    "prize": "CI prize",
-    "registration_open": False,
-    "raffle_active_participant_min_bets": 1,
-}, admin_token)
-assert normal_settings["prize"] == "CI prize"
-raffle = request("POST", "/api/fifa/raffle", {}, admin_token)
-assert raffle["success"] is True
-assert raffle["entries_snapshot"]["total_tickets"] == raffle["totalTickets"]
-assert raffle["winner"]["bets_count"] >= 1
-assert any(entry["user_id"] == raffle["winner"]["user_id"] for entry in raffle["entries_snapshot"]["entries"])
-settings_after = request("GET", f"/api/collections/fifa_settings/records/{settings['id']}", token=super_token)
-assert settings_after["raffle_seed"] == raffle["seed"]
-assert settings_after["raffle_entries_snapshot"]["winning_pick"] == raffle["entries_snapshot"]["winning_pick"]
-second_raffle = request("POST", "/api/fifa/raffle", {}, admin_token, (400,))
-assert "already drawn" in second_raffle.get("error", "").lower()
-
-print(json.dumps({"ok": True, "eventSlug": event["slug"], "registrationId": registration["registrationId"], "raffleWinner": raffle["winner"]["user_id"]}))
+print(json.dumps({"ok": True, "eventSlug": event["slug"], "registrationId": registration["registrationId"]}))

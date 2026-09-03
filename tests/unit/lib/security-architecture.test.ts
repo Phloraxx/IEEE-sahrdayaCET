@@ -18,9 +18,8 @@ describe("security architecture invariants", () => {
     expect(dockerfile).not.toContain(":latest");
   });
 
-  it("locks transactional records against direct creation", () => {
+  it("locks command-owned registration records against direct creation", () => {
     const migration = read("pb_migrations/202607220001_rewrite_access_rules.js");
-    expect(migration).toContain("fifaBets.createRule = null");
     expect(migration).toContain("registrations.createRule = null");
   });
 
