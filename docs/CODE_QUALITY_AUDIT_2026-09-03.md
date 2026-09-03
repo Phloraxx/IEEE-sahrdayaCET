@@ -55,6 +55,8 @@ First responsibility follow-up completed: `src/routes/admin.events.$id.tsx` is n
 
 Second responsibility follow-up completed: `src/features/payment/PaymentPage.tsx` is now ~694 lines (from 1,229). Provider-specific Razorpay/Kotak presentation plus shared payment-shell visuals moved to `src/features/payment/payment-provider-panels.tsx` (~615 lines), while session creation, local polling, provider reconciliation/backoff, expiry, Razorpay SDK wiring/verification, QR generation and ticket navigation remain in `PaymentPage`. Payment architecture tests now assert orchestration and provider UI against their owning modules instead of assuming all payment code lives in one file.
 
+Payment UI coverage now also includes a clean-room Browser E2E contract. `paygate_smoke.py` leaves one dedicated pending session created against the local fake PayGate, and Playwright opens the real `/payment/:registrationId` route to verify the event, exact unique payable amount, Kotak identity, generated UPI QR and manual recheck control without contacting a live payment rail.
+
 Continue refactoring by workflow/responsibility with characterization tests first. Do not split files only to reduce line counts.
 
 ### P2 — Full-collection administrative scans
