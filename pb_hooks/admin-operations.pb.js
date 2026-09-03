@@ -29,24 +29,32 @@ routerAdd("GET", "/api/admin/events/{id}/operations", function (e) {
   if (!helpers.mayViewEventOperations($app, e.auth, event)) {
     return e.json(403, { code: "FORBIDDEN", error: "You cannot view this event workspace" })
   }
-  var records = $app.findRecordsByFilter(
-    "registrations", "event = {:eventId}", "-registrationDate", 0, 0,
-    { eventId: event.id }
-  )
-  var summary = helpers.summarizeRegistrations(records)
+  var summary = helpers.emptyRegistrationSummary()
   var recent = []
   var attention = []
-  for (var i = 0; i < records.length; i++) {
-    var row = helpers.registrationSnapshot(records[i])
-    if (recent.length < 8) recent.push(row)
-    var registrationTime = Date.parse(row.registrationDate || "")
-    var stalePending = row.registrationStatus === "pending" && row.paymentStatus === "pending" &&
-      isFinite(registrationTime) && Date.now() - registrationTime >= 10 * 60 * 1000
-    if (row.manualReview ||
-        (row.registrationStatus === "cancelled" && row.paymentStatus === "paid") ||
-        stalePending) {
-      if (attention.length < 30) attention.push(row)
+  var registrationOffset = 0
+  var registrationBatchSize = 200
+  while (true) {
+    var records = $app.findRecordsByFilter(
+      "registrations", "event = {:eventId}", "-registrationDate,-id",
+      registrationBatchSize, registrationOffset, { eventId: event.id }
+    )
+    if (!records.length) break
+    helpers.addRegistrationsToSummary(summary, records)
+    for (var i = 0; i < records.length; i++) {
+      var row = helpers.registrationSnapshot(records[i])
+      if (recent.length < 8) recent.push(row)
+      var registrationTime = Date.parse(row.registrationDate || "")
+      var stalePending = row.registrationStatus === "pending" && row.paymentStatus === "pending" &&
+        isFinite(registrationTime) && Date.now() - registrationTime >= 10 * 60 * 1000
+      if (row.manualReview ||
+          (row.registrationStatus === "cancelled" && row.paymentStatus === "paid") ||
+          stalePending) {
+        if (attention.length < 30) attention.push(row)
+      }
     }
+    registrationOffset += records.length
+    if (records.length < registrationBatchSize) break
   }
 
   var coupons = []
