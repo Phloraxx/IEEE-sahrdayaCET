@@ -206,6 +206,7 @@ routerAdd("POST", "/api/admin/events/{id}/registrations/manual", function (e) {
   var authz = require(__hooks + "/workspace-authorization.js")
   var attendeeLifecycle = require(__hooks + "/attendee-lifecycle-helpers.js")
   var audience = require(__hooks + "/event-audience-helpers.js")
+  var pricing = require(__hooks + "/event-pricing-helpers.js")
   var auth = e.auth
   var eventId = e.request.pathValue("id") || ""
   var event
@@ -334,31 +335,22 @@ routerAdd("POST", "/api/admin/events/{id}/registrations/manual", function (e) {
         return
       }
 
-      var baseFeePaise = rh.eventFeePaise(currentEvent)
-      var finalFeePaise = baseFeePaise
-      var discountPaise = 0
-      var coupon = null
-      if (couponCode) {
-        try {
-          coupon = txApp.findFirstRecordByFilter(
-            "coupons",
-            "code = {:code} && event = {:eventId} && isActive = true && (expiresAt = '' || expiresAt > @now)",
-            { code: couponCode, eventId: eventId }
-          )
-        } catch (_) { coupon = null }
-        if (!coupon) { failure = { status: 400, code: "INVALID_COUPON", error: "Coupon is invalid or expired" }; return }
-        var maxUses = coupon.getInt("maxUses") || 0
-        if (maxUses > 0) {
-          var used = txApp.findRecordsByFilter(
-            "registrations", "couponCode = {:code} && event = {:eventId} && registrationStatus != {:cancelled}",
-            "", 0, 0, { code: couponCode, eventId: eventId, cancelled: "cancelled" }
-          )
-          if (used.length >= maxUses) { failure = { status: 409, code: "COUPON_EXHAUSTED", error: "Coupon usage limit has been reached" }; return }
-        }
-        var percent = coupon.getInt("discountPercent") || 0
-        discountPaise = Math.round(baseFeePaise * percent / 100)
-        finalFeePaise = Math.max(0, baseFeePaise - discountPaise)
+      var pricingResult = pricing.calculate(txApp, currentEvent, {
+        isIeeeMember: formResponses.isIeeeMember === true,
+        ieeeMembershipId: formResponses.ieeeMembershipId,
+        couponCode: couponCode,
+        validateProvider: false,
+      })
+      if (!pricingResult.ok) {
+        failure = { status: pricingResult.status || 400, code: pricingResult.code, error: pricingResult.error }
+        return
       }
+      var baseFeePaise = pricingResult.baseFeePaise
+      var finalFeePaise = pricingResult.finalFeePaise
+      var discountPaise = pricingResult.appliedDiscountPaise
+      var discountSource = pricingResult.discountSource
+      var appliedCouponCode = pricingResult.appliedCouponCode
+      var coupon = discountSource === "coupon" ? pricingResult.couponRecord : null
       if (body.amountOverride !== undefined && body.amountOverride !== null && body.amountOverride !== "") {
         var overrideAmount = Number(body.amountOverride)
         var overridePaise = Math.round(overrideAmount * 100)
@@ -422,8 +414,8 @@ routerAdd("POST", "/api/admin/events/{id}/registrations/manual", function (e) {
         semester: eligibility.attendee.semester,
         ieeeMember: formResponses.isIeeeMember === true,
         ieeeMemberId: String(formResponses.ieeeMembershipId || "").trim().slice(0, 80),
-        discountSource: couponCode && discountPaise > 0 ? "coupon" : "none",
-        couponCode: couponCode,
+        discountSource: discountSource,
+        couponCode: appliedCouponCode,
         amount: finalAmount,
         discountAmount: discountAmount,
         baseFeePaise: baseFeePaise,
@@ -480,7 +472,7 @@ routerAdd("POST", "/api/admin/events/{id}/registrations/manual", function (e) {
   if (failure) return e.json(failure.status, { code: failure.code, error: failure.error })
 
   rh.recomputeEventCounters(eventId)
-  if (couponCode) rh.recomputeCouponUsedCount(couponCode, eventId)
+  if (result && result.couponCode) rh.recomputeCouponUsedCount(result.couponCode, eventId)
   if (result && result.registrationStatus === "confirmed") {
     try {
       var saved = $app.findRecordById("registrations", result.id)

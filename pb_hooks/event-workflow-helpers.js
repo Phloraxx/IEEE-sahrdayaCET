@@ -7,7 +7,7 @@ function workflowFields() {
 
 function sensitiveFields() {
   return [
-    "date", "endDate", "venue", "timezone", "attendanceMode", "locationAddress", "society", "price", "paymentProvider", "maxCapacity",
+    "date", "endDate", "venue", "timezone", "attendanceMode", "locationAddress", "society", "price", "paymentProvider", "ieeeMemberDiscountPercent", "maxCapacity",
     "registrationMode", "registrationOpen", "registrationStart", "registrationDeadline",
     "externalFormUrl", "checkInEnabled", "collectIeeeMember", "formTemplate", "eligibleSemesters", "eligibleProgrammes",
     "allowSelfCancellation", "selfCancellationUntil", "refundRequestUntil", "refundPolicy",
@@ -24,7 +24,7 @@ function jsonString(record, name) {
 }
 function fieldChanged(next, previous, name) {
   if (!next || !previous) return false
-  if (name === "price") return Number(next.getFloat(name) || 0) !== Number(previous.getFloat(name) || 0)
+  if (name === "price" || name === "ieeeMemberDiscountPercent") return Number(next.getFloat(name) || 0) !== Number(previous.getFloat(name) || 0)
   if (name === "maxCapacity" || name === "waitlistOfferMinutes") return Number(next.getInt(name) || 0) !== Number(previous.getInt(name) || 0)
   if (name === "registrationOpen" || name === "checkInEnabled" || name === "collectIeeeMember" || name === "allowSelfCancellation" || name === "waitlistEnabled") {
     return Boolean(next.getBool(name)) !== Boolean(previous.getBool(name))

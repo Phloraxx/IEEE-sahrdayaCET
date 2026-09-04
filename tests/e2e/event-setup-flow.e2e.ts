@@ -46,6 +46,7 @@ test.describe("event setup UX", () => {
     await page.goto(`/admin/events/${eventId}/edit?section=fees`);
     await page.getByRole("button", { name: "Paid event" }).click();
     await page.locator("#price").fill("150");
+    await page.locator("#ieee-member-discount").fill("10");
     await page.getByRole("button", { name: "Add Coupon" }).click();
     await page.getByLabel("Coupon code").fill("TEST20");
     await page.getByLabel("Discount percent").fill("20");
@@ -62,6 +63,7 @@ test.describe("event setup UX", () => {
 
     await page.reload();
     await expect(page.locator("#price")).toHaveValue("150");
+    await expect(page.locator("#ieee-member-discount")).toHaveValue("10");
     await expect(page.getByLabel("Coupon code")).toHaveCount(1);
     await expect(page.getByLabel("Coupon code")).toHaveValue("TEST20");
     await expect(page.getByLabel("Discount percent")).toHaveValue("25");

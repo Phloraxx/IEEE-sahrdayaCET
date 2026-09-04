@@ -56,6 +56,7 @@ export async function fetchEventForRegistration(eventId: string) {
       waitlistEnabled: !!getField(record, "waitlistEnabled", false),
       waitlistReservedCount: getField(record, "waitlistReservedCount", 0),
       collectIeeeMember: !!getField(record, "collectIeeeMember", false),
+      ieeeMemberDiscountPercent: Number(getField(record, "ieeeMemberDiscountPercent", 0)) || 0,
       eligibleSemesters: normalizeEligibleSemesters(getField(record, "eligibleSemesters", [])),
       eligibleProgrammes: normalizeEligibleProgrammes(getField(record, "eligibleProgrammes", [])),
       formFields: (() => {
