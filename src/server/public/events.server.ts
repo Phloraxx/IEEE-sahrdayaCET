@@ -4,10 +4,11 @@ import { getExpand, getField } from "@/lib/safe-get";
 import { canRegisterForEvent, getRegistrationMode, type EventRegistrationMode } from "@/lib/event-lifecycle";
 import { getEventAttendanceMode, type EventAttendanceMode } from "@/lib/event-presentation";
 import { normalizeEligibleProgrammes, normalizeEligibleSemesters } from "@/lib/event-audience";
+import { normalizeEventRequirements } from "@/lib/event-requirements";
 import { logError } from "@/lib/logger";
 
 const PUBLIC_EVENT_FIELDS =
-  "id,created,updated,title,slug,description,date,endDate,timeTbc,venue,timezone,attendanceMode,locationAddress,price,banner,status,registrationOpen,registrationMode,registrationStart,registrationDeadline,maxCapacity,registeredCount,waitlistEnabled,waitlistReservedCount,externalFormUrl,externalLink,collectIeeeMember,eligibleSemesters,eligibleProgrammes,society,expand.society.id,expand.society.name,expand.society.slug,expand.society.logo";
+  "id,created,updated,title,slug,description,date,endDate,timeTbc,venue,timezone,attendanceMode,locationAddress,price,banner,status,registrationOpen,registrationMode,registrationStart,registrationDeadline,maxCapacity,registeredCount,waitlistEnabled,waitlistReservedCount,externalFormUrl,externalLink,collectIeeeMember,ieeeMemberDiscountPercent,eligibleSemesters,eligibleProgrammes,requirements,attendeeNote,society,expand.society.id,expand.society.name,expand.society.slug,expand.society.logo";
 
 export interface SerializableEvent {
   id: string;
@@ -38,7 +39,10 @@ export interface SerializableEvent {
   externalFormUrl?: string;
   externalLink?: string;
   collectIeeeMember?: boolean;
+  ieeeMemberDiscountPercent?: number;
   eligibleSemesters?: string[];
+  requirements?: string[];
+  attendeeNote?: string;
   eligibleProgrammes?: string[];
   society?: { id: string; name: string; slug: string; logoUrl: string };
 }
@@ -122,8 +126,11 @@ function mapPublicEvent(raw: Record<string, unknown>): SerializableEvent {
     externalFormUrl,
     externalLink: getField(raw, "externalLink", "") || undefined,
     collectIeeeMember: Boolean(getField(raw, "collectIeeeMember", false)),
+    ieeeMemberDiscountPercent: Number(getField(raw, "ieeeMemberDiscountPercent", 0)) || 0,
     eligibleSemesters: normalizeEligibleSemesters(getField(raw, "eligibleSemesters", [])),
     eligibleProgrammes: normalizeEligibleProgrammes(getField(raw, "eligibleProgrammes", [])),
+    requirements: normalizeEventRequirements(getField(raw, "requirements", [])),
+    attendeeNote: String(getField(raw, "attendeeNote", "") || "").trim(),
     society,
   };
 }

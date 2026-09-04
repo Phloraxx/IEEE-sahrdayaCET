@@ -313,6 +313,9 @@ event = request("POST", "/api/collections/events/records", {
     "society": society["id"], "status": "published", "maxCapacity": 1,
     "registeredCount": 0, "checkedInCount": 0, "registrationOpen": True,
     "checkInEnabled": True, "isDeleted": False,
+    "requirements": ["  Bring laptop charger  ", "", "College ID card required"],
+    "attendeeNote": "  Report 15 minutes before the session.  ",
+    "externalLink": "https://example.test/event-guide",
     "formTemplate": [
         {"id": "name", "name": "name", "label": "Name", "required": True},
         {"id": "email", "name": "email", "label": "Email", "required": True},
@@ -320,6 +323,21 @@ event = request("POST", "/api/collections/events/records", {
 }, super_token)
 assert event["slug"].startswith("ci-smoke-event-")
 assert event["timezone"] == "Asia/Kolkata" and event["attendanceMode"] == "hybrid"
+assert event["requirements"] == ["Bring laptop charger", "College ID card required"]
+assert event["attendeeNote"] == "Report 15 minutes before the session."
+
+guidance_event = request("POST", "/api/collections/events/records", {
+    "title": f"CI Public Guidance {suffix}", "description": "<p>Public attendee guidance fixture</p>",
+    "date": start, "endDate": end, "venue": "CI Guidance Lab", "timezone": "Asia/Kolkata",
+    "attendanceMode": "onsite", "price": 200, "baseFeePaise": 20000,
+    "society": society["id"], "status": "published", "registrationOpen": False,
+    "collectIeeeMember": True, "ieeeMemberDiscountPercent": 20,
+    "eligibleSemesters": ["S7"], "eligibleProgrammes": ["CSE"],
+    "requirements": ["Bring a charged laptop", "Install VS Code beforehand"],
+    "attendeeNote": "Report to the lab 15 minutes early.",
+    "externalLink": "https://example.test/guidance", "isDeleted": False,
+}, super_token)
+assert guidance_event["requirements"] == ["Bring a charged laptop", "Install VS Code beforehand"]
 
 # Private join data is server-only state: raw collection CRUD stays closed even
 # for application admins, organizer access goes through events.edit, and users
@@ -354,6 +372,34 @@ request(
 if github_env := os.environ.get("GITHUB_ENV"):
     with open(github_env, "a", encoding="utf-8") as env_file:
         env_file.write(f"E2E_EVENT_ID={event['id']}\n")
+        env_file.write(f"E2E_EVENT_GUIDANCE_SLUG={guidance_event['slug']}\n")
+
+# Requirements are normalized at the PocketBase write boundary. Published
+# checklists require review, while a public attendee note can be corrected
+# without rewriting registrations or tickets.
+request("POST", "/api/collections/events/records", {
+    "title": f"Too Many Requirements {suffix}", "description": "requirements limit",
+    "date": start, "society": society["id"], "status": "draft",
+    "requirements": [f"Item {i}" for i in range(13)],
+}, super_token, (400,))
+request("POST", "/api/collections/events/records", {
+    "title": f"Long Requirement {suffix}", "description": "requirements length",
+    "date": start, "society": society["id"], "status": "draft",
+    "requirements": ["x" * 201],
+}, super_token, (400,))
+request("POST", "/api/collections/events/records", {
+    "title": f"Non Text Requirement {suffix}", "description": "requirements type",
+    "date": start, "society": society["id"], "status": "draft",
+    "requirements": [{"unsafe": True}],
+}, super_token, (400,))
+request("PATCH", f"/api/collections/events/records/{event['id']}", {
+    "requirements": ["Changed after publish"],
+}, admin_token, (403,))
+event = request("PATCH", f"/api/collections/events/records/{event['id']}", {
+    "attendeeNote": "  Report at the registration desk 15 minutes early.  ",
+}, admin_token)
+assert event["status"] == "published"
+assert event["attendeeNote"] == "Report at the registration desk 15 minutes early."
 
 # Chair scoping is enforced by PocketBase, not by UI filtering.
 chair_event = request("POST", "/api/collections/events/records", {
@@ -1493,6 +1539,11 @@ ticket_path = "/api/tickets/lookup?ticketId=" + urllib.parse.quote(registration[
 anonymous_ticket = request("GET", ticket_path)
 assert anonymous_ticket["found"] is True
 assert "user" not in anonymous_ticket and "registrationId" not in anonymous_ticket
+assert anonymous_ticket["event"]["requirements"] == ["Bring laptop charger", "College ID card required"]
+assert anonymous_ticket["event"]["attendeeNote"] == "Report at the registration desk 15 minutes early."
+assert anonymous_ticket["event"]["externalLink"] == "https://example.test/event-guide"
+assert "meet.example.test" not in json.dumps(anonymous_ticket)
+assert "joinInstructions" not in json.dumps(anonymous_ticket) and "whatsapp" not in json.dumps(anonymous_ticket).lower()
 owner_ticket = request("GET", ticket_path, token=user_token)
 assert owner_ticket["registrationId"] == registration["registrationId"]
 

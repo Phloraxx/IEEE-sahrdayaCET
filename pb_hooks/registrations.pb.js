@@ -185,6 +185,7 @@ routerAdd("GET", "/api/tickets/lookup", function (e) {
             if (banner) {
                 try { bannerUrl = $app.filesystem().fileUrl(evt, banner) } catch (_) {}
             }
+            var publicRequirements = require(__hooks + "/event-requirements-helpers.js").normalizeRequirements(evt.get("requirements"))
             eventPayload = {
                 id: evt.id,
                 title: evt.getString("title") || "",
@@ -196,6 +197,9 @@ routerAdd("GET", "/api/tickets/lookup", function (e) {
                 venue: evt.getString("venue") || "",
                 time: evt.getString("time") || "",
                 bannerUrl: bannerUrl,
+                requirements: publicRequirements.ok ? publicRequirements.requirements : [],
+                attendeeNote: String(evt.getString("attendeeNote") || "").trim(),
+                externalLink: evt.getString("externalLink") || "",
             }
         } catch (err) {}
     }

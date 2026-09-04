@@ -38,6 +38,12 @@ test.describe("event setup UX", () => {
     await expect(page.getByText("Who can attend?")).toBeVisible();
     await page.getByRole("button", { name: /First year/ }).click();
     await page.getByRole("button", { name: /Fourth year/ }).click();
+    await page.getByRole("button", { name: "Add item" }).click();
+    await page.getByLabel("Requirement 1").fill("Bring laptop charger");
+    await page.getByRole("button", { name: "Add item" }).click();
+    await page.getByLabel("Requirement 2").fill("College ID card required");
+    await page.getByLabel("Move requirement 2 up").click();
+    await page.locator("#attendee-note").fill("Report 15 minutes before the session.");
     await page.getByRole("button", { name: "Add first question" }).click();
     await page.getByPlaceholder("e.g. Dietary preference").fill("Laptop operating system");
     await page.getByRole("button", { name: "Save changes" }).click();
@@ -76,6 +82,8 @@ test.describe("event setup UX", () => {
     await setupNav.getByRole("button", { name: "Review" }).click();
     await expect(page.getByRole("heading", { name: "See the setup before you submit it" })).toBeVisible();
     await expect(page.getByText("Semesters: S3, S4, S5, S6")).toBeVisible();
+    await expect(page.getByText("2 requirements")).toBeVisible();
+    await expect(page.getByText("Included")).toBeVisible();
     await page.screenshot({ path: "/tmp/event-setup-review-mobile.png", fullPage: true });
   });
 });

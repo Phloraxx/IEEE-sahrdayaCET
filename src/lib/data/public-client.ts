@@ -5,6 +5,7 @@ import { getField } from "@/lib/safe-get";
 import { canRegisterForEvent, isPublicEvent } from "@/lib/event-lifecycle";
 import { getEventAttendanceMode, type EventAttendanceMode } from "@/lib/event-presentation";
 import { normalizeEligibleProgrammes, normalizeEligibleSemesters } from "@/lib/event-audience";
+import { normalizeEventRequirements } from "@/lib/event-requirements";
 import type { FormField } from "@/types";
 import type { MyEventRegistration } from "@/lib/registration-state";
 
@@ -72,13 +73,15 @@ export interface PublicRegistrationEvent {
   collectIeeeMember: boolean;
   ieeeMemberDiscountPercent: number;
   eligibleSemesters: string[];
+  requirements: string[];
+  attendeeNote: string;
   eligibleProgrammes: string[];
   formFields: FormField[];
 }
 
 export async function getPublicEvent(id: string): Promise<PublicRegistrationEvent> {
   const record = await getPbClient().collection("events").getOne(id, {
-    fields: "id,slug,title,description,date,endDate,timeTbc,venue,timezone,attendanceMode,locationAddress,price,banner,status,registrationOpen,registrationStart,registrationDeadline,isDeleted,maxCapacity,registeredCount,waitlistEnabled,waitlistReservedCount,formTemplate,collectIeeeMember,ieeeMemberDiscountPercent,eligibleSemesters,eligibleProgrammes",
+    fields: "id,slug,title,description,date,endDate,timeTbc,venue,timezone,attendanceMode,locationAddress,price,banner,status,registrationOpen,registrationStart,registrationDeadline,isDeleted,maxCapacity,registeredCount,waitlistEnabled,waitlistReservedCount,formTemplate,collectIeeeMember,ieeeMemberDiscountPercent,eligibleSemesters,eligibleProgrammes,requirements,attendeeNote",
   });
   const lifecycle = {
     status: String(record.status || ""),
@@ -118,6 +121,8 @@ export async function getPublicEvent(id: string): Promise<PublicRegistrationEven
     collectIeeeMember: Boolean(record.collectIeeeMember),
     ieeeMemberDiscountPercent: Number(record.ieeeMemberDiscountPercent) || 0,
     eligibleSemesters: normalizeEligibleSemesters(Array.isArray(record.eligibleSemesters) ? record.eligibleSemesters as string[] : []),
+    requirements: normalizeEventRequirements(record.requirements),
+    attendeeNote: String(record.attendeeNote || "").trim(),
     eligibleProgrammes: normalizeEligibleProgrammes(Array.isArray(record.eligibleProgrammes) ? record.eligibleProgrammes as string[] : []),
     formFields: Array.isArray(record.formTemplate) ? record.formTemplate as FormField[] : [],
   };
@@ -308,6 +313,9 @@ export interface PublicTicketData {
     venue: string;
     bannerUrl: string;
     time: string;
+    requirements: string[];
+    attendeeNote: string;
+    externalLink: string;
   } | null;
   registration: {
     id: string;
@@ -346,6 +354,9 @@ export async function getTicket(ticketId: string): Promise<PublicTicketData> {
         venue: String(data.event.venue || ""),
         bannerUrl: String(data.event.bannerUrl || ""),
         time: String(data.event.time || ""),
+        requirements: normalizeEventRequirements(data.event.requirements),
+        attendeeNote: String(data.event.attendeeNote || "").trim(),
+        externalLink: String(data.event.externalLink || ""),
       }
     : null;
 

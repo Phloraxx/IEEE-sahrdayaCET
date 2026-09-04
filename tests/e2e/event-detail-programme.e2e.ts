@@ -23,4 +23,19 @@ test.describe("event detail programme", () => {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
     expect(overflow).toBeLessThanOrEqual(1);
   });
+  test("shows public audience, member pricing and preparation guidance", async ({ page }) => {
+    const slug = process.env.E2E_EVENT_GUIDANCE_SLUG;
+    test.skip(!slug, "Public guidance fixture is not configured");
+    await page.goto(`/events/${slug}`);
+    const guidance = page.getByTestId("event-attendee-guidance");
+    await expect(guidance).toBeVisible();
+    await expect(guidance.getByText("Semesters: S7")).toBeVisible();
+    await expect(guidance.getByText(/Computer Science and Engineering/)).toBeVisible();
+    await expect(guidance.getByRole("heading", { name: "₹160" })).toBeVisible();
+    await expect(guidance.getByText(/20% off the regular ₹200 fee/)).toBeVisible();
+    await expect(guidance.getByText("Bring a charged laptop")).toBeVisible();
+    await expect(guidance.getByText("Install VS Code beforehand")).toBeVisible();
+    await expect(guidance.getByText("Report to the lab 15 minutes early.")).toBeVisible();
+  });
+
 });

@@ -4,6 +4,7 @@ import { getField } from "@/lib/safe-get";
 import { canUseInternalRegistration, isPublicEvent } from "@/lib/event-lifecycle";
 import { getEventAttendanceMode } from "@/lib/event-presentation";
 import { normalizeEligibleProgrammes, normalizeEligibleSemesters } from "@/lib/event-audience";
+import { normalizeEventRequirements } from "@/lib/event-requirements";
 
 export async function fetchEventForRegistration(eventId: string) {
     const pb = createPublicPB();
@@ -58,6 +59,8 @@ export async function fetchEventForRegistration(eventId: string) {
       collectIeeeMember: !!getField(record, "collectIeeeMember", false),
       ieeeMemberDiscountPercent: Number(getField(record, "ieeeMemberDiscountPercent", 0)) || 0,
       eligibleSemesters: normalizeEligibleSemesters(getField(record, "eligibleSemesters", [])),
+      requirements: normalizeEventRequirements(getField(record, "requirements", [])),
+      attendeeNote: String(getField(record, "attendeeNote", "") || "").trim(),
       eligibleProgrammes: normalizeEligibleProgrammes(getField(record, "eligibleProgrammes", [])),
       formFields: (() => {
         const fields = getField(record, "formTemplate", undefined);
