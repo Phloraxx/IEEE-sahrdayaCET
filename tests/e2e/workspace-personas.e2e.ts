@@ -18,14 +18,16 @@ async function signIn(page: Page, persona: Persona) {
     localStorage.setItem("pocketbase_auth", JSON.stringify({ token, record }));
   }, persona);
 }
+const checkInUrl = /\/admin\/check-in(?:\?[^#]+)?$/;
+
 test.describe("IEEE Workspace role personas", () => {
   test.skip(!fixtures, "Workspace persona fixtures are not configured");
 
   test("check-in staff see only the scanner surface and cannot deep-link elsewhere", async ({ page }) => {
     await signIn(page, fixtures!.PERSONAS.checkin);
     await page.goto("/admin");
-    await expect(page).toHaveURL(/\/admin\/check-in$/);
-    await expect(page.getByRole("heading", { name: "Check-in" })).toBeVisible();
+    await expect(page).toHaveURL(checkInUrl);
+    await expect(page.getByRole("heading", { name: "Attendance console" })).toBeVisible();
     const nav = page.getByRole("complementary", { name: "IEEE Workspace navigation" });
     await expect(nav.getByRole("link", { name: "Check-in" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Registrations" })).toHaveCount(0);
@@ -33,9 +35,9 @@ test.describe("IEEE Workspace role personas", () => {
     await expect(nav.getByRole("link", { name: "Access & Roles" })).toHaveCount(0);
 
     await page.goto("/admin/registrations");
-    await expect(page).toHaveURL(/\/admin\/check-in$/);
+    await expect(page).toHaveURL(checkInUrl);
     await page.goto("/admin/access");
-    await expect(page).toHaveURL(/\/admin\/check-in$/);
+    await expect(page).toHaveURL(checkInUrl);
   });
 
   test("society chair can operate its society without platform administration", async ({ page }) => {
@@ -77,7 +79,7 @@ test.describe("IEEE Workspace role personas", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await signIn(page, fixtures!.PERSONAS.checkin);
     await page.goto("/admin/check-in");
-    await expect(page.getByRole("heading", { name: "Check-in" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Attendance console" })).toBeVisible();
     await page.getByRole("button", { name: "Open sidebar" }).click();
     const nav = page.getByRole("complementary", { name: "IEEE Workspace navigation" });
     await expect(nav.getByRole("link", { name: "Check-in" })).toBeVisible();
