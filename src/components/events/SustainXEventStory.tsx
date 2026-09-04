@@ -159,6 +159,27 @@ const galleryPhotos = [
   },
 ] as const;
 
+const campaignPosters = [
+  {
+    src: "/media/sustainx/sustainx-campaign-teaser.webp",
+    label: "Teaser",
+    alt: "SustainX teaser poster with the updated IEEE Sahrdaya, Spectra Live, Sahrdaya College and IEEE partner logos",
+    note: "See the challenge. Shape the change.",
+  },
+  {
+    src: "/media/sustainx/sustainx-campaign-registration.webp",
+    label: "Registration",
+    alt: "SustainX registrations open poster showing the updated registration window from 27 June to 7 July",
+    note: "Registration window · 27 June–7 July",
+  },
+  {
+    src: "/media/sustainx/sustainx-campaign-overview.webp",
+    label: "Challenge format",
+    alt: "SustainX challenge overview poster explaining the challenge area and three phases",
+    note: "Identify · Innovate · Present",
+  },
+] as const;
+
 const marqueeWords = ["OBSERVE", "BUILD", "TEST", "PITCH", "RETHINK", "SUSTAIN"] as const;
 
 function Reveal({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -626,6 +647,35 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
       </section>
 
       <EventGallery />
+
+      <section className="border-b border-black/10 bg-[#eeecf7] py-20 sm:py-28 lg:py-32" aria-labelledby="sustainx-campaign-title">
+        <div className="mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12">
+          <div className="grid gap-7 border-b border-black/14 pb-8 lg:grid-cols-12 lg:items-end">
+            <div className="lg:col-span-8">
+              <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#319b9a]">Campaign archive / updated artwork</p>
+              <MaskedHeading className="mt-4">
+                <h2 id="sustainx-campaign-title" className="text-[clamp(3rem,7vw,7rem)] font-semibold leading-[0.86] tracking-[-0.07em]">The posters that introduced the challenge.</h2>
+              </MaskedHeading>
+            </div>
+            <p className="max-w-sm text-sm leading-6 text-black/52 lg:col-span-4 lg:ml-auto">The campaign artwork is preserved here with the revised partner strip and registration dates.</p>
+          </div>
+          <div className="mt-8 grid gap-5 md:grid-cols-3">
+            {campaignPosters.map((poster) => (
+              <Reveal key={poster.src} className="min-w-0">
+                <figure className="overflow-hidden border border-black/12 bg-white/60">
+                  <div className="aspect-[4/5] overflow-hidden bg-white">
+                    <img src={poster.src} alt={poster.alt} loading="lazy" decoding="async" className="h-full w-full object-contain" />
+                  </div>
+                  <figcaption className="border-t border-black/10 p-4">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#6558c9]">{poster.label}</p>
+                    <p className="mt-2 text-sm font-semibold tracking-[-0.02em] text-black/68">{poster.note}</p>
+                  </figcaption>
+                </figure>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
 
       <section className="border-b border-black/10 bg-[#101114] py-20 text-white sm:py-28 lg:py-36">
         <div className="mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12">
