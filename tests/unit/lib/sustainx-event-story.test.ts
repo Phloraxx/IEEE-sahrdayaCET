@@ -28,8 +28,10 @@ describe("SustainX event story", () => {
   });
   it("ships the approved event media as local web assets", () => {
     const page = read("src/components/events/SustainXEventStory.tsx");
-    expect(page).toContain("/media/sustainx/sustainx-hero-loop.webm");
-    expect(page).toContain("/media/sustainx/sustainx-hero-loop.mp4");
+    expect(page).toContain("/media/sustainx/sustainx-campaign-teaser.webp");
+    expect(page).toContain("/media/sustainx/sustainx-campaign-registration.webp");
+    expect(page).toContain("/media/sustainx/sustainx-campaign-overview.webp");
+    expect(page).not.toContain("Campaign archive / updated artwork");
     expect(page).toContain("/media/sustainx/sustainx-01.webp");
     expect(page).toContain("/media/sustainx/sustainx-07.webp");
     expect(page).toContain("The event,<br />not the poster.");
@@ -42,8 +44,8 @@ describe("SustainX event story", () => {
     expect(page).toContain("useReducedMotion");
     expect(page).toContain('import "@/styles/events.css"');
     expect(page).toContain("sustainx-marquee-track");
-    expect(page).toContain("heroVideoRef");
-    expect(page).toContain("video.pause()");
+    expect(page).toContain("initial={reduceMotion ? false");
+    expect(page).toContain("duration: reduceMotion ? 0");
     expect(styles).toContain("@keyframes sustainx-marquee");
     expect(styles).toContain("prefers-reduced-motion: reduce");
   });
