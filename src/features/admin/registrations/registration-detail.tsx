@@ -29,6 +29,13 @@ interface RegistrationDetail {
   checkedInAt: string | null;
   ticketId: string;
   amount: number;
+  programmeCode: string;
+  programme: string;
+  semester: string;
+  studyYear: number | null;
+  ieeeMember: boolean;
+  ieeeMemberId: string;
+  discountSource: "none" | "ieee_member" | "coupon";
   couponCode: string;
   discountAmount: number;
   paymentData: Record<string, unknown> | null;
@@ -341,6 +348,22 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
         </Card>
       </div>
 
+      <Card>
+        <CardContent className="p-6">
+          <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">Academic & membership</p>
+          <dl className="mt-4 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-[max-content_1fr_max-content_1fr]">
+            <dt className="text-muted-foreground">Programme</dt>
+            <dd className="font-medium">{reg.programme || "—"}{reg.programmeCode && <span className="ml-2 font-mono text-xs text-muted-foreground">{reg.programmeCode}</span>}</dd>
+            <dt className="text-muted-foreground">Semester</dt>
+            <dd className="font-medium">{reg.semester || "—"}{reg.studyYear ? <span className="ml-2 text-xs text-muted-foreground">Year {reg.studyYear}</span> : null}</dd>
+            <dt className="text-muted-foreground">IEEE member</dt>
+            <dd>{reg.ieeeMember ? "Yes" : "No"}</dd>
+            <dt className="text-muted-foreground">Membership ID</dt>
+            <dd className="font-mono text-xs">{reg.ieeeMemberId || "—"}</dd>
+          </dl>
+        </CardContent>
+      </Card>
+
       {notificationQuery.data && (
         <Card>
           <CardContent className="p-6">
@@ -429,7 +452,7 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
       )}
 
       {/* Money block */}
-      {(reg.amount > 0 || reg.couponCode) && (
+      {(reg.amount > 0 || reg.discountAmount > 0 || reg.discountSource !== "none") && (
         <div className="grid gap-4 sm:grid-cols-2">
           <Card>
             <CardContent className="p-5">
@@ -443,14 +466,11 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
           </Card>
           <Card>
             <CardContent className="p-5">
-              <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                Coupon
-              </p>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Discount</p>
               <p className="mt-1.5 text-sm font-medium text-foreground">
-                {reg.couponCode
-                  ? `${reg.couponCode}${reg.discountAmount > 0 ? ` (₹${reg.discountAmount} off)` : ""}`
-                  : "—"}
+                {reg.discountSource === "ieee_member" ? "IEEE member" : reg.discountSource === "coupon" ? `Coupon${reg.couponCode ? ` ${reg.couponCode}` : ""}` : "None"}
               </p>
+              {reg.discountAmount > 0 && <p className="mt-1 text-xs text-muted-foreground">₹{reg.discountAmount} off</p>}
             </CardContent>
           </Card>
         </div>
