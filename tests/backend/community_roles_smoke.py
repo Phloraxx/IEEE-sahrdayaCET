@@ -315,8 +315,12 @@ assert "coupons" in edit_ops and "formTemplate" in edit_ops["event"]
 assert "audit" in edit_ops
 assert "financeDisclaimer" in edit_ops
 
-raw_reg_list = req("GET", f"/api/collections/registrations/records?filter={q('event = '+repr(event['id']))}", token=tokens["registration-desk"])
-assert raw_reg_list["totalItems"] == 0
+req(
+    "GET",
+    f"/api/collections/registrations/records?filter={q('event = '+repr(event['id']))}",
+    token=tokens["registration-desk"],
+    expected=(403,),
+)
 req("GET", f"/api/collections/registrations/records/{registration['id']}", token=tokens["registration-desk"], expected=(403, 404))
 projected_regs = req("GET", f"/api/admin/registrations?event={event['id']}&page=1&perPage=40", token=tokens["registration-desk"])
 assert projected_regs["total"] >= 1 and projected_regs["registrations"]
