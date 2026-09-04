@@ -67,6 +67,28 @@ settings = request("GET", "/api/settings", token=super_token)
 assert settings["backups"]["cron"] == "30 21 * * *"
 assert settings["backups"]["cronMaxKeep"] == 14
 
+# Event audience/pricing groundwork is additive. Existing events remain
+# unrestricted until later command/UI phases start writing these fields.
+event_schema = request("GET", "/api/collections/events", token=super_token)
+event_fields = {field["name"]: field for field in event_schema["fields"]}
+assert event_fields["eligibleSemesters"]["type"] == "json"
+assert event_fields["eligibleProgrammes"]["type"] == "json"
+assert event_fields["ieeeMemberDiscountPercent"]["type"] == "number"
+assert event_fields["requirements"]["type"] == "json"
+assert event_fields["attendeeNote"]["type"] == "text"
+
+registration_schema = request("GET", "/api/collections/registrations", token=super_token)
+registration_fields = {field["name"]: field for field in registration_schema["fields"]}
+assert registration_fields["programmeCode"]["type"] == "text"
+assert set(registration_fields["semester"]["values"]) == {f"S{i}" for i in range(1, 9)}
+assert registration_fields["ieeeMember"]["type"] == "bool"
+assert registration_fields["ieeeMemberId"]["type"] == "text"
+assert set(registration_fields["discountSource"]["values"]) == {"none", "ieee_member", "coupon"}
+
+private_schema = request("GET", "/api/collections/event_private_details", token=super_token)
+private_fields = {field["name"]: field for field in private_schema["fields"]}
+assert private_fields["whatsappGroupUrl"]["type"] == "text"
+
 # Long-lived production predates the additive baseline migration. Keep the
 # query/uniqueness indexes required by current code normalized on both fresh
 # and upgraded databases.
