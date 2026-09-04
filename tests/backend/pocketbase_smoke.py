@@ -89,6 +89,11 @@ private_schema = request("GET", "/api/collections/event_private_details", token=
 private_fields = {field["name"]: field for field in private_schema["fields"]}
 assert private_fields["whatsappGroupUrl"]["type"] == "text"
 
+waitlist_schema = request("GET", "/api/collections/event_waitlist", token=super_token)
+waitlist_fields = {field["name"]: field for field in waitlist_schema["fields"]}
+assert waitlist_fields["programmeCode"]["type"] == "text"
+assert set(waitlist_fields["semester"]["values"]) == {f"S{i}" for i in range(1, 9)}
+
 # Long-lived production predates the additive baseline migration. Keep the
 # query/uniqueness indexes required by current code normalized on both fresh
 # and upgraded databases.
@@ -535,6 +540,126 @@ remaining_without_save10 = [{
     "maxUses": row["maxUses"], "expiresAt": row.get("expiresAt", ""), "isActive": row["isActive"],
 } for row in redemption_coupons["items"] if row["code"] != "SAVE10"]
 request("PUT", f"/api/app/events/{coupon_redemption_event['id']}/coupons", {"coupons": remaining_without_save10}, admin_token, (400,))
+
+# Audience eligibility is command-owned. Rejection happens before capacity,
+# coupon or payment state is consumed; accepted records store canonical academics.
+audience_bad_user = create_user("audience-bad", "user")
+audience_good_user = create_user("audience-good", "user")
+audience_bad_token = impersonate(super_token, audience_bad_user["id"])
+audience_good_token = impersonate(super_token, audience_good_user["id"])
+audience_event = request("POST", "/api/collections/events/records", {
+    "title": f"CI Restricted Audience {suffix}", "description": "academic audience guard",
+    "date": start, "endDate": end, "venue": "CI Audience Lab", "price": 100,
+    "baseFeePaise": 10000, "society": society["id"], "status": "draft",
+    "registrationMode": "internal", "registrationOpen": True, "maxCapacity": 2,
+    "registeredCount": 0, "checkedInCount": 0, "isDeleted": False,
+    "eligibleSemesters": ["S6"], "eligibleProgrammes": ["EEE"],
+}, super_token)
+request("PUT", f"/api/app/events/{audience_event['id']}/coupons", {"coupons": [
+    {"code": "AUD10", "discountPercent": 10, "maxUses": 5, "isActive": True},
+]}, admin_token)
+request("POST", f"/api/workspace/events/{audience_event['id']}/workflow", {"action": "submit", "note": "Audience smoke"}, admin_token)
+request("POST", f"/api/workspace/events/{audience_event['id']}/workflow", {"action": "approve", "note": "Audience approval"}, admin_token)
+request("POST", f"/api/workspace/events/{audience_event['id']}/workflow", {"action": "finance_approve", "note": "Audience finance"}, admin_token)
+request("POST", f"/api/workspace/events/{audience_event['id']}/workflow", {"action": "publish"}, admin_token)
+audience_fixture_path = os.environ.get("E2E_AUDIENCE_FIXTURE_OUTPUT", "/tmp/event-audience-e2e.json")
+with open(audience_fixture_path, "w", encoding="utf-8") as fixture_file:
+    json.dump({
+        "token": audience_bad_token,
+        "record": audience_bad_user,
+        "eventId": audience_event["id"],
+        "eventTitle": audience_event["title"],
+        "programmeCode": "EEE",
+        "semester": "S6",
+    }, fixture_file)
+
+request("POST", f"/api/app/events/{audience_event['id']}/register", {
+    "formResponses": {"name": "Wrong Programme", "email": audience_bad_user["email"], "phone": "9000000001", "college": "CI College", "programmeCode": "CSE", "branch": "Computer Science and Engineering", "semester": "S6"},
+    "couponCode": "AUD10",
+}, audience_bad_token, (400,))
+request("POST", f"/api/app/events/{audience_event['id']}/register", {
+    "formResponses": {"name": "Missing Semester", "email": audience_bad_user["email"], "phone": "9000000001", "college": "CI College", "programmeCode": "EEE", "branch": "Electrical and Electronics Engineering"},
+    "couponCode": "AUD10",
+}, audience_bad_token, (400,))
+audience_bad_filter = urllib.parse.quote(f'event="{audience_event["id"]}" && user="{audience_bad_user["id"]}"')
+assert request("GET", f"/api/collections/registrations/records?filter={audience_bad_filter}", token=super_token)["totalItems"] == 0
+audience_coupon_filter = urllib.parse.quote(f'event="{audience_event["id"]}" && code="AUD10"')
+audience_coupon = request("GET", f"/api/collections/coupons/records?filter={audience_coupon_filter}", token=super_token)["items"][0]
+assert audience_coupon["usedCount"] == 0
+audience_payment_filter = urllib.parse.quote(f'event="{audience_event["id"]}"')
+assert request("GET", f"/api/collections/payments/records?filter={audience_payment_filter}", token=super_token)["totalItems"] == 0
+audience_after_reject = request("GET", f"/api/collections/events/records/{audience_event['id']}", token=super_token)
+assert audience_after_reject["registeredCount"] == 0
+
+audience_registration = request("POST", f"/api/app/events/{audience_event['id']}/register", {
+    "formResponses": {"name": "Eligible EEE", "email": audience_good_user["email"], "phone": "9000000002", "college": "CI College", "programmeCode": "EEE", "branch": "Electrical and Electronics Engineering", "semester": "semester 6"},
+    "couponCode": "AUD10",
+}, audience_good_token)
+assert audience_registration["paymentRequired"] is True and audience_registration["amount"] == 90
+audience_record = request("GET", f"/api/collections/registrations/records/{audience_registration['registrationId']}", token=super_token)
+assert audience_record["programmeCode"] == "EEE" and audience_record["semester"] == "S6"
+assert audience_record["discountSource"] == "coupon" and audience_record["couponCode"] == "AUD10"
+request("POST", f"/api/admin/events/{audience_event['id']}/registrations/manual", {
+    "name": "Manual Wrong", "email": f"manual-wrong-{suffix}@example.test",
+    "paymentMode": "waived", "note": "CI ineligible manual guard",
+    "formResponses": {"programmeCode": "CSE", "branch": "Computer Science and Engineering", "semester": "S6"},
+}, admin_token, (400,))
+audience_manual = request("POST", f"/api/admin/events/{audience_event['id']}/registrations/manual", {
+    "name": "Manual Eligible", "email": f"manual-good-{suffix}@example.test",
+    "paymentMode": "waived", "note": "CI eligible manual registration",
+    "formResponses": {"programmeCode": "EEE", "branch": "Electrical and Electronics Engineering", "semester": "S6"},
+}, admin_token)["registration"]
+audience_manual_record = request("GET", f"/api/collections/registrations/records/{audience_manual['id']}", token=super_token)
+assert audience_manual_record["programmeCode"] == "EEE" and audience_manual_record["semester"] == "S6"
+
+# Restricted waitlists snapshot academic values too. Audience changes require
+# unpublishing first, and that lifecycle transition retires active reservations.
+audience_owner = create_user("audience-owner", "user")
+audience_waiter = create_user("audience-waiter", "user")
+audience_owner_token = impersonate(super_token, audience_owner["id"])
+audience_waiter_token = impersonate(super_token, audience_waiter["id"])
+audience_wait_event = request("POST", "/api/collections/events/records", {
+    "title": f"CI Restricted Waitlist {suffix}", "description": "academic waitlist guard",
+    "date": start, "endDate": end, "venue": "CI Audience Lab", "price": 0,
+    "society": society["id"], "status": "draft", "registrationMode": "internal",
+    "registrationOpen": True, "maxCapacity": 1, "registeredCount": 0,
+    "waitlistEnabled": True, "waitlistOfferMinutes": 15,
+    "allowSelfCancellation": True, "selfCancellationUntil": start,
+    "eligibleSemesters": ["S6"], "eligibleProgrammes": ["EEE"],
+    "checkInEnabled": True, "isDeleted": False,
+}, super_token)
+request("POST", f"/api/workspace/events/{audience_wait_event['id']}/workflow", {"action": "submit", "note": "Restricted waitlist"}, admin_token)
+request("POST", f"/api/workspace/events/{audience_wait_event['id']}/workflow", {"action": "approve", "note": "Restricted waitlist approval"}, admin_token)
+request("POST", f"/api/workspace/events/{audience_wait_event['id']}/workflow", {"action": "publish"}, admin_token)
+audience_owner_reg = request("POST", f"/api/app/events/{audience_wait_event['id']}/register", {
+    "formResponses": {"name": "Audience Owner", "email": audience_owner["email"], "programmeCode": "EEE", "branch": "Electrical and Electronics Engineering", "semester": "S6"},
+}, audience_owner_token)
+request("POST", f"/api/app/events/{audience_wait_event['id']}/waitlist/join", {
+    "programmeCode": "CSE", "branch": "Computer Science and Engineering", "semester": "S6",
+}, audience_bad_token, (400,))
+bad_wait_filter = urllib.parse.quote(f'event="{audience_wait_event["id"]}" && user="{audience_bad_user["id"]}"')
+assert request("GET", f"/api/collections/event_waitlist/records?filter={bad_wait_filter}", token=super_token)["totalItems"] == 0
+wait_join = request("POST", f"/api/app/events/{audience_wait_event['id']}/waitlist/join", {
+    "programmeCode": "EEE", "branch": "Electrical and Electronics Engineering", "semester": "S6",
+}, audience_waiter_token)
+assert wait_join["joined"] is True
+wait_filter = urllib.parse.quote(f'event="{audience_wait_event["id"]}" && user="{audience_waiter["id"]}"')
+wait_row = request("GET", f"/api/collections/event_waitlist/records?filter={wait_filter}", token=super_token)["items"][0]
+assert wait_row["programmeCode"] == "EEE" and wait_row["semester"] == "S6"
+request("POST", f"/api/app/registrations/{audience_owner_reg['registrationId']}/cancel", {"reason": "CI waitlist seat release"}, audience_owner_token)
+wait_offer = request("GET", f"/api/app/events/{audience_wait_event['id']}/waitlist", token=audience_waiter_token)
+assert wait_offer["state"]["status"] == "offered"
+wait_event_record = request("GET", f"/api/collections/events/records/{audience_wait_event['id']}", token=super_token)
+assert wait_event_record["waitlistReservedCount"] == 1
+request("POST", f"/api/workspace/events/{audience_wait_event['id']}/workflow", {"action": "unpublish", "note": "Change audience safely"}, admin_token)
+request("PATCH", f"/api/collections/events/records/{audience_wait_event['id']}", {"eligibleProgrammes": ["CSE"]}, admin_token)
+request("POST", f"/api/app/events/{audience_wait_event['id']}/waitlist/join", {
+    "programmeCode": "CSE", "branch": "Computer Science and Engineering", "semester": "S6",
+}, audience_bad_token, (409,))
+retired_wait = request("GET", f"/api/collections/event_waitlist/records/{wait_row['id']}", token=super_token)
+assert retired_wait["status"] == "cancelled" and retired_wait["activeKey"] == ""
+wait_event_after_unpublish = request("GET", f"/api/collections/events/records/{audience_wait_event['id']}", token=super_token)
+assert wait_event_after_unpublish["waitlistReservedCount"] == 0
 
 # Registration command reserves exactly one seat. Replaying the same user's
 # command is idempotent and returns the original record instead of consuming a

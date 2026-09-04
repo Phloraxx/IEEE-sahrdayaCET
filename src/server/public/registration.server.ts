@@ -3,6 +3,7 @@ import { buildFileUrl } from "@/lib/pb";
 import { getField } from "@/lib/safe-get";
 import { canUseInternalRegistration, isPublicEvent } from "@/lib/event-lifecycle";
 import { getEventAttendanceMode } from "@/lib/event-presentation";
+import { normalizeEligibleProgrammes, normalizeEligibleSemesters } from "@/lib/event-audience";
 
 export async function fetchEventForRegistration(eventId: string) {
     const pb = createPublicPB();
@@ -55,6 +56,8 @@ export async function fetchEventForRegistration(eventId: string) {
       waitlistEnabled: !!getField(record, "waitlistEnabled", false),
       waitlistReservedCount: getField(record, "waitlistReservedCount", 0),
       collectIeeeMember: !!getField(record, "collectIeeeMember", false),
+      eligibleSemesters: normalizeEligibleSemesters(getField(record, "eligibleSemesters", [])),
+      eligibleProgrammes: normalizeEligibleProgrammes(getField(record, "eligibleProgrammes", [])),
       formFields: (() => {
         const fields = getField(record, "formTemplate", undefined);
         return Array.isArray(fields) ? fields : [];

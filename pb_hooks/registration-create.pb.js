@@ -24,6 +24,7 @@ routerAdd(
     var paygate = require(__hooks + "/paygate-helpers.js")
     var providerSelection = require(__hooks + "/payment-provider-selection.js")
     var attendeeLifecycle = require(__hooks + "/attendee-lifecycle-helpers.js")
+    var audience = require(__hooks + "/event-audience-helpers.js")
     var razorpayConfig = razorpay.getConfig()
     var paygateConfig = paygate.getConfig()
     var eventId = e.request.pathValue("id")
@@ -139,6 +140,11 @@ routerAdd(
           }
         }
 
+        // Eligibility is enforced after idempotent replay recovery but before
+        // capacity, coupon or payment state can be consumed.
+        var eligibility = audience.evaluate(event, responses)
+        if (!eligibility.eligible) throw new BadRequestError(eligibility.error)
+
         // Validate required dynamic form fields against the event's schema.
         var formTemplate = event.get("formTemplate")
         if (typeof formTemplate === "string") {
@@ -237,6 +243,11 @@ routerAdd(
           userEmail: String(responses.email || auth.getString("email") || ""),
           userPhone: String(responses.phone || ""),
           formResponses: responses,
+          programmeCode: eligibility.attendee.programmeCode,
+          semester: eligibility.attendee.semester,
+          ieeeMember: responses.isIeeeMember === true,
+          ieeeMemberId: String(responses.ieeeMembershipId || "").trim().slice(0, 80),
+          discountSource: couponCode && discountPaise > 0 ? "coupon" : "none",
           couponCode: couponCode,
           amount: finalAmount,
           discountAmount: discountAmount,

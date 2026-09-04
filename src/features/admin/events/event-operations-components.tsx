@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { ConfirmButton } from "@/components/admin/confirm-button";
+import { PROGRAMMES, SEMESTERS, programmeLabel, type ProgrammeCode } from "@/lib/academic-options";
 import type { AdminCancellationRequest, AdminRegistrationOperationRow, RegistrationAdminAction } from "@/lib/data/admin-event-operations.client";
 
 export const money = (value: number) => `₹${Math.max(0, value || 0).toLocaleString("en-IN")}`;
@@ -78,6 +79,9 @@ export interface ManualFormState {
   name: string;
   email: string;
   phone: string;
+  programmeCode: ProgrammeCode | "";
+  branch: string;
+  semester: string;
   paymentMode: "paid" | "pending" | "waived";
   paymentReference: string;
   amountOverride: string;
@@ -89,6 +93,9 @@ const EMPTY_MANUAL: ManualFormState = {
   name: "",
   email: "",
   phone: "",
+  programmeCode: "",
+  branch: "",
+  semester: "",
   paymentMode: "pending",
   paymentReference: "",
   amountOverride: "",
@@ -100,6 +107,8 @@ export function ManualRegistrationDialog({
   onOpenChange,
   eventPrice,
   eventFull,
+  eligibleSemesters,
+  eligibleProgrammes,
   pending,
   onSubmit,
 }: {
@@ -107,6 +116,8 @@ export function ManualRegistrationDialog({
   onOpenChange: (open: boolean) => void;
   eventPrice: number;
   eventFull: boolean;
+  eligibleSemesters: string[];
+  eligibleProgrammes: string[];
   pending: boolean;
   onSubmit: (value: ManualFormState) => void;
 }) {
@@ -141,6 +152,21 @@ export function ManualRegistrationDialog({
           <div className="grid gap-1.5">
             <Label htmlFor="manual-phone">Phone</Label>
             <Input id="manual-phone" value={form.phone} onChange={(e) => set("phone", e.target.value)} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Programme / Branch{eligibleProgrammes.length ? " *" : ""}</Label>
+            <Select value={form.programmeCode || "__none__"} onValueChange={(value) => { const code = value === "__none__" ? "" : value as ProgrammeCode; set("programmeCode", code); if (code && code !== "OTHER") set("branch", programmeLabel(code)); else if (!code) set("branch", ""); }}>
+              <SelectTrigger><SelectValue placeholder="Select programme" /></SelectTrigger>
+              <SelectContent><SelectItem value="__none__">{eligibleProgrammes.length ? "Select programme..." : "Not specified"}</SelectItem>{PROGRAMMES.filter((item) => !eligibleProgrammes.length || eligibleProgrammes.includes(item.code)).map((item) => <SelectItem key={item.code} value={item.code}>{item.label}</SelectItem>)}</SelectContent>
+            </Select>
+            {form.programmeCode === "OTHER" && <Input value={form.branch} onChange={(e) => set("branch", e.target.value)} placeholder="Programme / department name" />}
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Semester{eligibleSemesters.length ? " *" : ""}</Label>
+            <Select value={form.semester || "__none__"} onValueChange={(value) => set("semester", value === "__none__" ? "" : value)}>
+              <SelectTrigger><SelectValue placeholder="Select semester" /></SelectTrigger>
+              <SelectContent><SelectItem value="__none__">{eligibleSemesters.length ? "Select semester..." : "Not specified"}</SelectItem>{SEMESTERS.filter((item) => !eligibleSemesters.length || eligibleSemesters.includes(item.code)).map((item) => <SelectItem key={item.code} value={item.code}>{item.code} · Year {item.year}</SelectItem>)}</SelectContent>
+            </Select>
           </div>
           <div className="grid gap-1.5">
             <Label>Payment</Label>
@@ -189,7 +215,7 @@ export function ManualRegistrationDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>Cancel</Button>
           <Button
             onClick={() => onSubmit(form)}
-            disabled={pending || !form.name.trim() || !form.email.trim()}
+            disabled={pending || !form.name.trim() || !form.email.trim() || (eligibleProgrammes.length > 0 && !form.programmeCode) || (form.programmeCode === "OTHER" && !form.branch.trim()) || (eligibleSemesters.length > 0 && !form.semester)}
             className="gap-2"
           >
             {pending && <Loader2 className="h-4 w-4 animate-spin" />}

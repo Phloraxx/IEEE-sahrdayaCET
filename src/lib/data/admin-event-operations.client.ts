@@ -86,6 +86,8 @@ export interface AdminEventOperations {
     registrationOpen: boolean;
     registrationMode: "internal" | "external" | "closed" | string;
     collectIeeeMember: boolean;
+    eligibleSemesters: string[];
+    eligibleProgrammes: string[];
     formTemplate: Array<{ id: string; name?: string; label: string; type?: string; required?: boolean; options?: string[] }>;
     checkInEnabled: boolean;
     maxCapacity: number;

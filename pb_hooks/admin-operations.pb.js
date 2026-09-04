@@ -205,6 +205,7 @@ routerAdd("POST", "/api/admin/events/{id}/registrations/manual", function (e) {
   var paymentState = require(__hooks + "/razorpay-payment-state.js")
   var authz = require(__hooks + "/workspace-authorization.js")
   var attendeeLifecycle = require(__hooks + "/attendee-lifecycle-helpers.js")
+  var audience = require(__hooks + "/event-audience-helpers.js")
   var auth = e.auth
   var eventId = e.request.pathValue("id") || ""
   var event
@@ -284,6 +285,12 @@ routerAdd("POST", "/api/admin/events/{id}/registrations/manual", function (e) {
             return
           }
         }
+      }
+
+      var eligibility = audience.evaluate(currentEvent, formResponses)
+      if (!eligibility.eligible) {
+        failure = { status: 400, code: eligibility.code, error: eligibility.error }
+        return
       }
 
       var capacityNowMs = Date.now()
@@ -411,6 +418,11 @@ routerAdd("POST", "/api/admin/events/{id}/registrations/manual", function (e) {
         userEmail: email,
         userPhone: phone,
         formResponses: formResponses,
+        programmeCode: eligibility.attendee.programmeCode,
+        semester: eligibility.attendee.semester,
+        ieeeMember: formResponses.isIeeeMember === true,
+        ieeeMemberId: String(formResponses.ieeeMembershipId || "").trim().slice(0, 80),
+        discountSource: couponCode && discountPaise > 0 ? "coupon" : "none",
         couponCode: couponCode,
         amount: finalAmount,
         discountAmount: discountAmount,

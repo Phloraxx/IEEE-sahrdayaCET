@@ -119,6 +119,7 @@ function audit(app, input) {
 }
 
 function eventPayload(event) {
+  var audience = require(__hooks + "/event-audience-helpers.js").eventAudience(event)
   var formTemplate = event.get("formTemplate")
   if (typeof formTemplate === "string") {
     try { formTemplate = JSON.parse(formTemplate) } catch (_) { formTemplate = [] }
@@ -137,6 +138,8 @@ function eventPayload(event) {
     registrationOpen: event.getBool("registrationOpen"),
     registrationMode: event.getString("registrationMode") || "",
     collectIeeeMember: event.getBool("collectIeeeMember"),
+    eligibleSemesters: audience.semesters,
+    eligibleProgrammes: audience.programmes,
     formTemplate: formTemplate,
     checkInEnabled: event.getBool("checkInEnabled"),
     maxCapacity: event.getInt("maxCapacity") || 0,

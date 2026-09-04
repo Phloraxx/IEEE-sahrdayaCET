@@ -31,6 +31,8 @@ import {
 } from "@/lib/data/public-client";
 import { downloadRegistrationReceipt } from "@/lib/data/receipt.client";
 import { formatDate } from "@/lib/dates";
+import { PROGRAMMES, SEMESTERS, normalizeProgramme, normalizeSemester, programmeLabel, type ProgrammeCode } from "@/lib/academic-options";
+import { evaluateAudienceEligibility } from "@/lib/event-audience";
 import { MOTION_DURATION, MOTION_EASE } from "@/lib/motion";
 import {
   clearRegistrationDraft,
@@ -115,6 +117,18 @@ function FieldLabel({ label, complete = false }: { label: string; complete?: boo
       </AnimatePresence>
     </span>
   );
+}
+
+function AcademicSelectors({ event, programmeCode, branch, semester, onProgrammeCode, onBranch, onSemester, errors = {} }: {
+  event: PublicRegistrationEvent; programmeCode: ProgrammeCode | ""; branch: string; semester: string;
+  onProgrammeCode: (value: ProgrammeCode | "") => void; onBranch: (value: string) => void; onSemester: (value: string) => void; errors?: Record<string, string>;
+}) {
+  const restrictedProgrammes = event.eligibleProgrammes.length > 0;
+  const restrictedSemesters = event.eligibleSemesters.length > 0;
+  const programmeOptions = restrictedProgrammes ? PROGRAMMES.filter((item) => event.eligibleProgrammes.includes(item.code)) : PROGRAMMES;
+  const semesterOptions = restrictedSemesters ? SEMESTERS.filter((item) => event.eligibleSemesters.includes(item.code)) : SEMESTERS;
+  return <><label><FieldLabel label={`Programme / Branch${restrictedProgrammes ? " *" : ""}`} complete={Boolean(programmeCode) && !errors.branch} /><select aria-label={`Programme / Branch${restrictedProgrammes ? " *" : ""}`} value={programmeCode} onChange={(e) => { const value = e.target.value as ProgrammeCode | ""; onProgrammeCode(value); if (value && value !== "OTHER") onBranch(programmeLabel(value)); else if (value === "") onBranch(""); }} className={`${fieldClass} ${errors.branch ? "border-rose-500" : ""}`}><option value="">{restrictedProgrammes ? "Select your programme" : "Select programme (optional)"}</option>{programmeOptions.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select>{programmeCode === "OTHER" && <input value={branch} onChange={(e) => onBranch(e.target.value)} className={`${fieldClass} mt-2 ${errors.branch ? "border-rose-500" : ""}`} placeholder="Enter your programme / department" />}{errors.branch && <span className="mt-1.5 block text-xs text-rose-600">{errors.branch}</span>}</label>
+  <label><FieldLabel label={`Semester${restrictedSemesters ? " *" : ""}`} complete={Boolean(normalizeSemester(semester)) && !errors.semester} /><select aria-label={`Semester${restrictedSemesters ? " *" : ""}`} value={normalizeSemester(semester) || ""} onChange={(e) => onSemester(e.target.value)} className={`${fieldClass} ${errors.semester ? "border-rose-500" : ""}`}><option value="">{restrictedSemesters ? "Select your semester" : "Select semester (optional)"}</option>{semesterOptions.map((item) => <option key={item.code} value={item.code}>{item.code} · Year {item.year}</option>)}</select>{errors.semester && <span className="mt-1.5 block text-xs text-rose-600">{errors.semester}</span>}</label></>;
 }
 
 function DynamicField({ field, value, onChange, error }: {
@@ -228,6 +242,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [college, setCollege] = useState("");
+  const [programmeCode, setProgrammeCode] = useState<ProgrammeCode | "">("");
   const [branch, setBranch] = useState("");
   const [semester, setSemester] = useState("");
   const [isIeeeMember, setIsIeeeMember] = useState(false);
@@ -276,8 +291,10 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
       setName(source.name || user.name || "");
       setPhone(source.phone);
       setCollege(source.college);
-      setBranch(source.branch);
-      setSemester(source.semester);
+      const rememberedProgramme = normalizeProgramme(source.branch);
+      setProgrammeCode(rememberedProgramme || (source.branch.trim() ? "OTHER" : ""));
+      setBranch(rememberedProgramme && rememberedProgramme !== "OTHER" ? programmeLabel(rememberedProgramme) : source.branch);
+      setSemester(normalizeSemester(source.semester) || source.semester);
       setIsIeeeMember(source.isIeeeMember);
       setIeeeMembershipId(source.ieeeMembershipId);
       if (draft) setCustomFields((current) => ({ ...current, ...draft.customFields }));
@@ -294,12 +311,12 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
   useEffect(() => {
     if (!memoryReady || !user?.id || !event) return;
     const timer = window.setTimeout(() => {
-      const profile: RegistrationProfileMemory = { name, phone, college, branch, semester, isIeeeMember, ieeeMembershipId };
+      const profile: RegistrationProfileMemory = { name, phone, college, branch: programmeCode && programmeCode !== "OTHER" ? programmeLabel(programmeCode) : branch, semester: normalizeSemester(semester) || semester, isIeeeMember, ieeeMembershipId };
       saveRegistrationProfile(user.id, profile);
       saveRegistrationDraft(user.id, event.id, { ...profile, customFields });
     }, 400);
     return () => window.clearTimeout(timer);
-  }, [branch, college, customFields, event, ieeeMembershipId, isIeeeMember, memoryReady, name, phone, semester, user?.id]);
+  }, [branch, college, customFields, event, ieeeMembershipId, isIeeeMember, memoryReady, name, phone, programmeCode, semester, user?.id]);
 
   useEffect(() => {
     if (authStatus !== "authenticated" || !user?.id || !event) {
@@ -369,7 +386,9 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
     if (!event || !user?.id) return;
     setWaitlistBusy(true);
     try {
-      await joinEventWaitlist(event.id);
+      const eligibility = evaluateAudienceEligibility(event, { programmeCode, branch, semester });
+      if (!eligibility.eligible) throw new Error(eligibility.message);
+      await joinEventWaitlist(event.id, { programmeCode, branch: branch.trim(), semester });
       await refreshWaitlist();
       toast.success("You joined the waitlist");
     } catch (err) {
@@ -396,6 +415,11 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
     if (!email.trim()) next.email = "Your signed-in account needs an email address";
     if (!phone.trim()) next.phone = "Phone number is required";
     if (!college.trim()) next.college = "College or institution is required";
+    const eligibility = event ? evaluateAudienceEligibility(event, { programmeCode, branch, semester }) : null;
+    if (eligibility && !eligibility.eligible) {
+      if (eligibility.code.startsWith("PROGRAMME") || eligibility.code === "OTHER_PROGRAMME_REQUIRED") next.branch = eligibility.message;
+      if (eligibility.code.startsWith("SEMESTER")) next.semester = eligibility.message;
+    }
     for (const field of event?.formFields || []) {
       if (!field.required) continue;
       const value = customFields[field.id];
@@ -421,14 +445,15 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
           email: email.trim(),
           phone: phone.trim(),
           college: college.trim(),
+          programmeCode,
           branch: branch.trim(),
-          semester: semester.trim(),
+          semester: normalizeSemester(semester) || semester.trim(),
           isIeeeMember,
           ieeeMembershipId: ieeeMembershipId.trim() || undefined,
           ...customFields,
         },
       });
-      saveRegistrationProfile(user.id, { name: name.trim(), phone: phone.trim(), college: college.trim(), branch: branch.trim(), semester: semester.trim(), isIeeeMember, ieeeMembershipId: ieeeMembershipId.trim() });
+      saveRegistrationProfile(user.id, { name: name.trim(), phone: phone.trim(), college: college.trim(), branch: programmeCode && programmeCode !== "OTHER" ? programmeLabel(programmeCode) : branch.trim(), semester: normalizeSemester(semester) || semester.trim(), isIeeeMember, ieeeMembershipId: ieeeMembershipId.trim() });
       clearRegistrationDraft(user.id, event.id);
       if (result.paymentRequired) {
         toast.info("Details saved. Complete payment to confirm your registration.");
@@ -545,6 +570,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
                       ? `Your current position is ${waitlistState.state.position || "being calculated"}. When a place opens, it is reserved for you for a limited time.`
                       : "All available seats are reserved. Join the waitlist and the system will hold a released place for you before offering it to anyone else."}
                   </p>
+                  {waitlistState?.state?.status !== "waiting" && (event.eligibleProgrammes.length > 0 || event.eligibleSemesters.length > 0) && <div className="mt-6 grid max-w-xl gap-5 sm:grid-cols-2"><AcademicSelectors event={event} programmeCode={programmeCode} branch={branch} semester={semester} onProgrammeCode={setProgrammeCode} onBranch={setBranch} onSemester={setSemester} /></div>}
                   {waitlistState?.state?.status === "waiting" ? (
                     <button type="button" disabled={waitlistBusy} onClick={() => void handleLeaveWaitlist()} className="mt-7 min-h-11 border-y border-black/20 py-3 text-sm font-bold text-black/45 transition hover:text-rose-700 disabled:opacity-40">{waitlistBusy ? "Updating…" : "Leave waitlist"}</button>
                   ) : (
@@ -580,8 +606,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
                       <label><FieldLabel label="Email" complete={Boolean(email)} /><input value={email} readOnly autoComplete="email" className={fieldClass} /><span className="mt-1 block text-[10px] text-black/35">From your signed-in account</span></label>
                       <label><FieldLabel label="Phone *" complete={phone.replace(/\D/g, "").length >= 10 && !errors.phone} /><input value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" inputMode="tel" autoComplete="tel" className={`${fieldClass} ${errors.phone ? "border-rose-500" : ""}`} placeholder="+91 98765 43210" />{errors.phone && <span className="mt-1.5 block text-xs text-rose-600">{errors.phone}</span>}</label>
                       <label className="sm:col-span-2"><FieldLabel label="College / Institution *" complete={college.trim().length >= 2 && !errors.college} /><input value={college} onChange={(e) => setCollege(e.target.value)} autoComplete="organization" className={`${fieldClass} ${errors.college ? "border-rose-500" : ""}`} placeholder="Your college or institution" />{errors.college && <span className="mt-1.5 block text-xs text-rose-600">{errors.college}</span>}</label>
-                      <label><FieldLabel label="Branch / Department" complete={Boolean(branch.trim())} /><input value={branch} onChange={(e) => setBranch(e.target.value)} className={fieldClass} placeholder="Computer Science" /></label>
-                      <label><FieldLabel label="Semester" complete={Boolean(semester.trim())} /><input value={semester} onChange={(e) => setSemester(e.target.value)} className={fieldClass} placeholder="S6" /></label>
+                      <AcademicSelectors event={event} programmeCode={programmeCode} branch={branch} semester={semester} onProgrammeCode={setProgrammeCode} onBranch={setBranch} onSemester={setSemester} errors={errors} />
                     </div>
                   </div>
 
