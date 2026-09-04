@@ -121,7 +121,10 @@ jobs:
           PB_BASE_URL: http://127.0.0.1:8090
           PB_SUPERUSER_EMAIL: ci-super@example.test
           PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
-        run: python3 tests/backend/pocketbase_smoke.py
+          E2E_WORKSPACE_FIXTURE: /tmp/community-workspace-e2e.json
+        run: |
+          python3 tests/backend/pocketbase_smoke.py
+          python3 tests/backend/community_roles_smoke.py
       - name: Exercise certificate template lifecycle
         env:
           PB_BASE_URL: http://127.0.0.1:8090
@@ -201,6 +204,7 @@ jobs:
           PB_SUPERUSER_EMAIL: ci-super@example.test
           PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
           CERTIFICATE_RENDER_CAPABILITY_KEY: CI-Certificate-Render-Capability-2026-Only-Test
+          E2E_WORKSPACE_FIXTURE: /tmp/community-workspace-e2e.json
         run: bun run test:e2e
       - name: Backend logs on failure
         if: failure()
