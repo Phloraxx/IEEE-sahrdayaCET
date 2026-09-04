@@ -2,6 +2,7 @@ import type PocketBase from 'pocketbase'
 import { escapeFilterValue } from './pb'
 import { getField } from './safe-get'
 import { formatDateShort } from './dates'
+import { registrationReportingSnapshot } from './registration-reporting'
 
 /** CSV batch size for streaming exports. */
 const CSV_BATCH_SIZE = 500
@@ -60,10 +61,12 @@ export async function streamRegistrationsCSV(
   const staticHeaders = isAdmin
     ? ['name', 'email', 'phone', 'registration_date', 'payment_status', 'registration_status', 'checked_in', 'checked_in_at', 'ticket_id']
     : ['Name', 'Email', 'Phone', 'Registration Date', 'Payment Status', 'Registration Status', 'Checked In', 'Checked In At', 'Ticket ID']
-  const couponHeaders = ['coupon_code', 'discount_amount']
+  const reportingHeaders = isAdmin
+    ? ['programme_code', 'programme', 'semester', 'study_year', 'ieee_member', 'ieee_member_id', 'discount_source', 'coupon_code', 'discount_amount']
+    : ['Programme Code', 'Programme', 'Semester', 'Study Year', 'IEEE Member', 'IEEE Member ID', 'Discount Source', 'Coupon Code', 'Discount Amount']
   const customHeaders = customFields.map((f) => f.label || f.id)
 
-  const headerRow = [...staticHeaders, ...couponHeaders, ...customHeaders].join(',')
+  const headerRow = [...staticHeaders, ...reportingHeaders, ...customHeaders].join(',')
 
   const formatter = (iso: string | null | undefined) => {
     if (!iso) return ''
@@ -93,12 +96,20 @@ export async function streamRegistrationsCSV(
         isAdmin ? escapeCsv(formatter(getField(reg, 'checkedInAt', ''))) : escapeCsv(formatDateShort(getField(reg, 'checkedInAt', ''))),
         isAdmin ? escapeCsv(getField(reg, 'ticketId', '') || getField(reg, 'paymentTicketId', '')) : escapeCsv(getField(reg, 'ticketId', '')),
       ]
-      const couponCols = [
-        escapeCsv(getField(reg, 'couponCode', '')),
-        escapeCsv(getField(reg, 'discountAmount', 0) ? `₹${getField(reg, 'discountAmount', 0)}` : ''),
+      const report = registrationReportingSnapshot(reg)
+      const reportingCols = [
+        escapeCsv(report.programmeCode),
+        escapeCsv(report.programme),
+        escapeCsv(report.semester),
+        escapeCsv(report.studyYear ?? ''),
+        escapeCsv(report.ieeeMember ? (isAdmin ? 'yes' : 'Yes') : (isAdmin ? 'no' : 'No')),
+        escapeCsv(report.ieeeMemberId),
+        escapeCsv(report.discountSource),
+        escapeCsv(report.couponCode),
+        escapeCsv(report.discountAmount || ''),
       ]
       const customCols = customFields.map((f) => escapeCsv(formResponses[f.name || f.id]))
-      queue.push(`${[...staticCols, ...couponCols, ...customCols].join(',')  }\n`)
+      queue.push(`${[...staticCols, ...reportingCols, ...customCols].join(',')  }\n`)
     }
     if (result.items.length < CSV_BATCH_SIZE) exhausted = true
     page++
@@ -151,7 +162,8 @@ export async function streamAdminRegistrationsCSV(
   const encoder = new TextEncoder()
   const headers = [
     'event', 'event_id', 'name', 'email', 'phone', 'registration_status',
-    'payment_status', 'provider', 'amount', 'coupon_code', 'discount_amount',
+    'payment_status', 'provider', 'amount', 'programme_code', 'programme', 'semester',
+    'study_year', 'ieee_member', 'ieee_member_id', 'discount_source', 'coupon_code', 'discount_amount',
     'ticket_id', 'checked_in', 'checked_in_at', 'registration_date',
     'source', 'internal_notes',
   ]
@@ -169,6 +181,7 @@ export async function streamAdminRegistrationsCSV(
       const event = reg.expand?.event as Record<string, unknown> | undefined
       const paymentData = getField(reg, 'paymentData', null)
       const paymentStatus = getField(reg, 'paymentStatus', '')
+      const report = registrationReportingSnapshot(reg)
       const cols = [
         escapeCsv(getField(event, 'title', '')),
         escapeCsv(getField(reg, 'event', '')),
@@ -179,8 +192,15 @@ export async function streamAdminRegistrationsCSV(
         escapeCsv(paymentStatus),
         escapeCsv(paymentProviderForExport(paymentData, paymentStatus)),
         escapeCsv(getField(reg, 'amount', 0)),
-        escapeCsv(getField(reg, 'couponCode', '')),
-        escapeCsv(getField(reg, 'discountAmount', 0)),
+        escapeCsv(report.programmeCode),
+        escapeCsv(report.programme),
+        escapeCsv(report.semester),
+        escapeCsv(report.studyYear ?? ''),
+        escapeCsv(report.ieeeMember ? 'yes' : 'no'),
+        escapeCsv(report.ieeeMemberId),
+        escapeCsv(report.discountSource),
+        escapeCsv(report.couponCode),
+        escapeCsv(report.discountAmount),
         escapeCsv(getField(reg, 'ticketId', '')),
         escapeCsv(getField(reg, 'checkedIn', false) ? 'yes' : 'no'),
         escapeCsv(getField(reg, 'checkedInAt', '')),

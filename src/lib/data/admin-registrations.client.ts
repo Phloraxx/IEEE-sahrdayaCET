@@ -2,6 +2,7 @@ import { getPbClient } from "@/lib/pb-client";
 import { escapeFilterValue } from "@/lib/pb";
 import { getField } from "@/lib/safe-get";
 import { checkInWorkspaceTicket } from "@/lib/data/workspace.client";
+import { registrationReportingSnapshot } from "@/lib/registration-reporting";
 import {
   runAdminRegistrationCommand,
   type RegistrationAdminAction,
@@ -27,6 +28,7 @@ function mapRegistration(record: Record<string, unknown> & { id: string; expand?
   const paymentStatus = String(getField(record, "paymentStatus", ""));
   const paymentData = asPaymentData(getField(record, "paymentData", null));
   const registrationStatus = String(getField(record, "registrationStatus", ""));
+  const reporting = registrationReportingSnapshot(record);
   const nominalAmount = Number(getField(record, "amount", 0)) || 0;
   const payablePaise = Number(paymentData.payableAmountPaise);
   const payableAmount = Number(paymentData.payableAmount);
@@ -54,8 +56,15 @@ function mapRegistration(record: Record<string, unknown> & { id: string; expand?
     collectedAmount,
     refundedAmount,
     paymentMethod: String(paymentData.paymentMethod || ""),
-    couponCode: getField(record, "couponCode", ""),
-    discountAmount: Number(getField(record, "discountAmount", 0)) || 0,
+    programmeCode: reporting.programmeCode,
+    programme: reporting.programme,
+    semester: reporting.semester,
+    studyYear: reporting.studyYear,
+    ieeeMember: reporting.ieeeMember,
+    ieeeMemberId: reporting.ieeeMemberId,
+    discountSource: reporting.discountSource,
+    couponCode: reporting.couponCode,
+    discountAmount: reporting.discountAmount,
     paymentData,
     provider: providerLabel(paymentData, paymentStatus),
     providerStatus: String(paymentData.providerStatus || ""),

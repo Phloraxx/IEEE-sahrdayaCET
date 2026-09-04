@@ -274,6 +274,7 @@ function QueueRow({
         <div className="min-w-0">
           <Link to={`/admin/registrations/${row.id}`} className="truncate text-sm font-semibold hover:underline">{row.userName || "Unnamed attendee"}</Link>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">{row.userEmail || "No email"}</p>
+          {(row.programmeCode || row.programme || row.semester) && <p className="mt-1 truncate text-[11px] text-muted-foreground">{[row.programmeCode || row.programme, row.semester].filter(Boolean).join(" · ")}</p>}
           <div className="mt-2 flex flex-wrap gap-1.5"><SourceBadge source={row.registrationSource} /><ProviderBadge provider={row.provider} /></div>
         </div>
         <div className="min-w-0">
@@ -286,7 +287,7 @@ function QueueRow({
         </div>
         <div>
           <p className="font-mono text-sm font-semibold tabular-nums">{row.amount > 0 ? money(row.amount) : "Free"}</p>
-          {row.couponCode && <p className="mt-0.5 text-[10px] text-muted-foreground">Coupon {row.couponCode}</p>}
+          {row.discountSource !== "none" && <p className="mt-0.5 text-[10px] text-muted-foreground">{row.discountSource === "ieee_member" ? "IEEE member discount" : `Coupon ${row.couponCode || "discount"}`}</p>}
         </div>
         <div className="flex flex-wrap items-center justify-start gap-1 lg:justify-end">
           <Button variant="ghost" size="sm" className="h-8 gap-1.5 px-2 text-xs" asChild>

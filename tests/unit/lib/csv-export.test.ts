@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { streamRegistrationsCSV, csvFilename } from '@/lib/csv-export'
+import { streamAdminRegistrationsCSV, streamRegistrationsCSV, csvFilename } from '@/lib/csv-export'
 
 function makeMockPB(registrations: Record<string, unknown>[], formTemplate?: unknown) {
   let pageCalls = 0
@@ -111,7 +111,54 @@ describe('streamRegistrationsCSV', () => {
     expect(lines[0]).toContain('coupon_code')
     expect(lines[0]).toContain('discount_amount')
     expect(lines[1]).toContain('DISCOUNT10')
-    expect(lines[1]).toContain('₹50')
+    expect(lines[1]).toContain('50')
+  })
+
+  it('exports canonical academic, membership and discount snapshots in stable columns', async () => {
+    const pb = makeMockPB([{
+      userName: 'Canonical', userEmail: 'canonical@test.com', userPhone: '9999999988',
+      registrationDate: '2026-06-10T10:00:00.000Z', paymentStatus: 'paid',
+      registrationStatus: 'confirmed', checkedIn: false, checkedInAt: null,
+      ticketId: 'TKT-canonical', programmeCode: 'CSE', semester: 'S6',
+      ieeeMember: true, ieeeMemberId: 'IEEE-42', discountSource: 'ieee_member',
+      discountPaise: 4000, couponCode: '', formResponses: { branch: 'Wrong legacy branch', semester: 'S1' },
+    }])
+    const csv = await readStream(await streamRegistrationsCSV(pb as any, 'evt-1', { adminFormat: true }))
+    const [headerLine, rowLine] = csv.trim().split('\n')
+    const headers = headerLine!.split(',')
+    const values = rowLine!.split(',')
+    const row = Object.fromEntries(headers.map((header, index) => [header, values[index]]))
+    expect(row.programme_code).toBe('CSE')
+    expect(row.programme).toBe('Computer Science & Engineering')
+    expect(row.semester).toBe('S6')
+    expect(row.study_year).toBe('3')
+    expect(row.ieee_member).toBe('yes')
+    expect(row.ieee_member_id).toBe('IEEE-42')
+    expect(row.discount_source).toBe('ieee_member')
+    expect(row.discount_amount).toBe('40')
+  })
+
+  it('uses legacy form responses when canonical snapshots are absent', async () => {
+    const pb = makeMockPB([{
+      userName: 'Legacy', userEmail: 'legacy@test.com', userPhone: '9999999987',
+      registrationDate: '2026-06-10T10:00:00.000Z', paymentStatus: 'paid',
+      registrationStatus: 'confirmed', checkedIn: false, checkedInAt: null,
+      ticketId: 'TKT-legacy', couponCode: 'old10', discountAmount: 25,
+      formResponses: { branch: 'Electronics and Communication Engineering', semester: 'Sem 4', isIeeeMember: true, ieeeMembershipId: 'OLD-IEEE' },
+    }])
+    const csv = await readStream(await streamRegistrationsCSV(pb as any, 'evt-1', { adminFormat: true }))
+    const [headerLine, rowLine] = csv.trim().split('\n')
+    const headers = headerLine!.split(',')
+    const values = rowLine!.split(',')
+    const row = Object.fromEntries(headers.map((header, index) => [header, values[index]]))
+    expect(row.programme_code).toBe('ECE')
+    expect(row.semester).toBe('S4')
+    expect(row.study_year).toBe('2')
+    expect(row.ieee_member).toBe('yes')
+    expect(row.ieee_member_id).toBe('OLD-IEEE')
+    expect(row.discount_source).toBe('coupon')
+    expect(row.coupon_code).toBe('OLD10')
+    expect(row.discount_amount).toBe('25')
   })
 
   it('keeps admin headers aligned with row values', async () => {
@@ -204,5 +251,34 @@ describe('csvFilename', () => {
 
   it('falls back to event id when title is missing', () => {
     expect(csvFilename(undefined, 'evt123')).toBe('registrations_evt123_registrations.csv')
+  })
+})
+
+
+describe('streamAdminRegistrationsCSV', () => {
+  it('keeps the cross-event ledger reporting columns aligned', async () => {
+    const pb = makeMockPB([{
+      event: 'evt-1', userName: 'Ledger User', userEmail: 'ledger@test.com', userPhone: '9999999986',
+      registrationStatus: 'confirmed', paymentStatus: 'paid', amount: 160,
+      programmeCode: 'BME', semester: 'S7', ieeeMember: true, ieeeMemberId: 'IEEE-BME',
+      discountSource: 'ieee_member', discountPaise: 4000, couponCode: '', ticketId: 'TKT-ledger',
+      checkedIn: false, checkedInAt: '', registrationDate: '2026-06-10T10:00:00.000Z',
+      registrationSource: 'self_service', internalNotes: '', paymentData: { provider: 'razorpay' },
+      expand: { event: { id: 'evt-1', title: 'Ledger Event' } },
+      formResponses: {},
+    }])
+    const csv = await readStream(await streamAdminRegistrationsCSV(pb as any))
+    const [headerLine, rowLine] = csv.trim().split('\n')
+    const headers = headerLine!.split(',')
+    const values = rowLine!.split(',')
+    const row = Object.fromEntries(headers.map((header, index) => [header, values[index]]))
+    expect(row.programme_code).toBe('BME')
+    expect(row.programme).toBe('Biomedical Engineering')
+    expect(row.semester).toBe('S7')
+    expect(row.study_year).toBe('4')
+    expect(row.ieee_member).toBe('yes')
+    expect(row.discount_source).toBe('ieee_member')
+    expect(row.discount_amount).toBe('40')
+    expect(headers.length).toBe(values.length)
   })
 })

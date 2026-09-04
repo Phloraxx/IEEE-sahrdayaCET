@@ -740,6 +740,8 @@ Keep changes reviewable. Do not implement this as one giant PR.
 - optional programme/semester filters if valuable;
 - legacy fallback characterization.
 
+Implementation decision: keep the existing operational queue filters unchanged for the first reporting slice. Programme/semester analysis is available through stable CSV columns; add dedicated queue filters only when an organizer workflow demonstrates the need, rather than increasing default filter density pre-emptively.
+
 ## 21. Staging rollout and acceptance
 
 Each merged PR follows the normal immutable staging gate:
