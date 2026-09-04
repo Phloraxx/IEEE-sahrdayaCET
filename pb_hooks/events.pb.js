@@ -1,12 +1,15 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 onRecordCreateRequest(function (e) {
-    var urlFields = ["externalLink", "externalFormUrl", "whatsappLink"]
+    var urlFields = ["externalLink", "externalFormUrl"]
     for (var ui = 0; ui < urlFields.length; ui++) {
         var urlValue = e.record.getString(urlFields[ui]) || ""
         if (urlValue && !/^https?:\/\//i.test(urlValue)) {
             throw e.badRequestError(urlFields[ui] + " must start with http:// or https://")
         }
+    }
+    if (String(e.record.getString("whatsappLink") || "").trim()) {
+        throw e.badRequestError("Use private attendee access for WhatsApp group links")
     }
 
     var createPricing = require(__hooks + "/event-pricing-helpers.js")
@@ -64,7 +67,7 @@ onRecordUpdateRequest(function (e) {
     var auth = null
     try { auth = e.auth || (e.requestInfo && e.requestInfo.auth) || null } catch (err) { auth = null }
 
-    var urlFields = ["externalLink", "externalFormUrl", "whatsappLink"]
+    var urlFields = ["externalLink", "externalFormUrl"]
     for (var ui = 0; ui < urlFields.length; ui++) {
         var urlValue = e.record.getString(urlFields[ui]) || ""
         if (urlValue && !/^https?:\/\//i.test(urlValue)) {
@@ -106,6 +109,9 @@ onRecordUpdateRequest(function (e) {
     }
     if (!isPlatformAdmin && newRecord.getString("society") !== oldRecord.getString("society")) {
         throw e.forbiddenError("Only platform administrators may transfer an event to another society")
+    }
+    if (newRecord.getString("whatsappLink") !== oldRecord.getString("whatsappLink")) {
+        throw e.badRequestError("Use private attendee access for WhatsApp group links")
     }
 
     var updatePricing = require(__hooks + "/event-pricing-helpers.js")

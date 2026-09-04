@@ -164,8 +164,11 @@ export async function leaveEventWaitlist(eventId: string) {
 }
 
 export interface EventJoinDetails {
+  whatsappGroupUrl: string;
   virtualJoinUrl: string;
   joinInstructions: string;
+  contactEmail: string;
+  contactPhone: string;
 }
 
 export async function getEventJoinDetails(eventId: string): Promise<EventJoinDetails> {
@@ -302,6 +305,7 @@ export interface PublicTicketData {
     registrationStatus: string;
     createdAt: string;
   } | null;
+  isOwner: boolean;
   event: {
     id: string;
     title: string;
@@ -333,7 +337,7 @@ export async function getTicket(ticketId: string): Promise<PublicTicketData> {
   const pb = getPbClient();
   const data = await pb.send(`/api/tickets/lookup?ticketId=${encodeURIComponent(ticketId)}`, {});
   if (!data?.found || !data?.ticket) {
-    return { found: false, ticket: null, event: null, registration: null };
+    return { found: false, isOwner: false, ticket: null, event: null, registration: null };
   }
 
   const ticket = {
@@ -379,5 +383,5 @@ export async function getTicket(ticketId: string): Promise<PublicTicketData> {
     }
   }
 
-  return { found: true, ticket, event, registration };
+  return { found: true, isOwner: data.isOwner === true, ticket, event, registration };
 }

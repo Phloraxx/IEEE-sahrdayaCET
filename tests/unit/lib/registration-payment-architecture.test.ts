@@ -164,6 +164,9 @@ describe("registration/payment experience architecture", () => {
     expect(notifications).toContain('border-top:1px dashed #c8c5bd');
     expect(notifications).toContain('>Check-in</p>');
     expect(notifications).toContain('>Open e-ticket&nbsp;&nbsp;→</a>');
+    expect(notifications).toContain('function ticketEmailRequirements(event)');
+    expect(notifications).toContain('>Before the event</p>');
+    expect(notifications).toContain('Open your e-ticket for participant links and the latest attendee information.');
     expect(notifications).toContain('var entryLabel = isPaid ? "PAID · ₹" + paidAmount(registration) : "FREE ENTRY"');
     expect(notifications).not.toContain('var banner = getBannerUrl(event)');
   });

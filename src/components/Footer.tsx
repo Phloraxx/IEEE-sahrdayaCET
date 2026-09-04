@@ -1,5 +1,6 @@
 import { ArrowUpRight, Mail, MapPin, Phone } from "lucide-react";
 import { Link } from "react-router";
+import { BRANCH_SOCIAL_LINKS } from "@/lib/social-links";
 
 const policyLinks = [
   { label: "About Us", href: "/about" },
@@ -243,17 +244,7 @@ const Footer: React.FC<FooterProps> = ({ seamless = false }) => {
 
           <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 md:gap-6">
             {/* Social Links */}
-            {[
-              {
-                label: "Instagram",
-                href: "https://instagram.com/ieeesahrdaya",
-              },
-              {
-                label: "LinkedIn",
-                href: "https://linkedin.com/company/ieeesahrdaya",
-              },
-              { label: "GitHub", href: "https://github.com/IEEE-Sahrdaya" },
-            ].map((social) => (
+            {[...BRANCH_SOCIAL_LINKS, { label: "GitHub", href: "https://github.com/IEEE-Sahrdaya" }].map((social) => (
               <a
                 key={social.label}
                 href={social.href}

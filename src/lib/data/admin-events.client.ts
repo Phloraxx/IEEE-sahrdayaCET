@@ -100,6 +100,7 @@ export async function getAdminEvent(id: string) {
 }
 
 export interface AdminEventPrivateDetails {
+  whatsappGroupUrl: string;
   virtualJoinUrl: string;
   joinInstructions: string;
 }

@@ -220,6 +220,7 @@ routerAdd("GET", "/api/tickets/lookup", function (e) {
         mayReadRegistration = isAdmin || auth.id === reg.getString("user")
     }
     if (mayReadRegistration) response.registrationId = reg.id
+    response.isOwner = Boolean(auth && auth.id && auth.id === reg.getString("user"))
 
     return e.json(200, response)
 })

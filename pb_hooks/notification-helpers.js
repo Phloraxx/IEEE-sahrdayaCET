@@ -86,6 +86,15 @@ function sender() {
   }
 }
 
+function ticketEmailRequirements(event) {
+  if (!event) return []
+  try {
+    var normalized = require(__hooks + "/event-requirements-helpers.js").normalizeRequirements(event.get("requirements"))
+    if (!normalized || !normalized.ok || !normalized.requirements) return []
+    return normalized.requirements.slice(0, 4)
+  } catch (_) { return [] }
+}
+
 function ticketEmail(registration, event) {
   var rawName = registration.getString("userName") || "Student"
   var rawTitle = event ? event.getString("title") : "IEEE Sahrdaya event"
@@ -107,6 +116,17 @@ function ticketEmail(registration, event) {
   var entryBg = isPaid ? "#eef6ff" : "#eefbf1"
   var entryBorder = isPaid ? "#b8d8f5" : "#b9e7c4"
   var entryColor = isPaid ? "#005f93" : "#18753a"
+  var requirements = ticketEmailRequirements(event)
+  var requirementsHtml = ""
+  var requirementsText = ""
+  if (requirements.length) {
+    var requirementItems = ""
+    for (var ri = 0; ri < requirements.length; ri++) {
+      requirementItems += '<li style="margin:0 0 6px">' + htmlEscape(requirements[ri]) + '</li>'
+    }
+    requirementsHtml = '<tr><td style="padding:18px 2px 0"><div style="border-top:1px solid #d9d7d1;padding-top:17px"><p style="margin:0 0 8px;font-size:9px;letter-spacing:1.2px;text-transform:uppercase;color:#00629b;font-weight:800">Before the event</p><ul style="margin:0;padding-left:18px;font-size:11px;line-height:1.55;color:#626262">' + requirementItems + '</ul><p style="margin:9px 0 0;font-size:10px;line-height:1.5;color:#8a8a8a">Open your e-ticket for participant links and the latest attendee information.</p></div></td></tr>'
+    requirementsText = "\n\nBefore the event:\n- " + requirements.join("\n- ") + "\nOpen your e-ticket for participant links and the latest attendee information."
+  }
 
   var html = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
     '<body style="margin:0;padding:0;background:#f2f1ed;font-family:Arial,Helvetica,sans-serif;color:#171717">' +
@@ -169,6 +189,7 @@ function ticketEmail(registration, event) {
     '</table></td></tr></table>' +
     '</td></tr>' +
 
+    requirementsHtml +
     '<tr><td style="padding:17px 2px 0;font-size:11px;line-height:1.55;color:#777">Arrive a little early for a smooth check-in. Please don&#39;t forward this email or share the QR code.</td></tr>' +
     '<tr><td style="padding:24px 2px 0;border-top:1px solid #d9d7d1"><p style="margin:0;font-size:11px;color:#27272a;font-weight:700">IEEE Sahrdaya Student Branch</p><p style="margin:4px 0 0;font-size:10px;color:#a1a1aa">Advancing Technology for Humanity</p></td></tr>' +
     '</table></td></tr></table></body></html>'
@@ -176,7 +197,7 @@ function ticketEmail(registration, event) {
   return {
     subject: "Your Ticket for " + rawTitle,
     html: html,
-    text: "IEEE SAHRDAYA STUDENT BRANCH\n\nYour pass is ready.\n" + firstNameRaw + ", you're registered.\n\nEvent: " + rawTitle + "\nDate: " + parts.date + "\nTime: " + parts.time + "\nVenue: " + venueRaw + "\nIssued to: " + rawName + "\nEntry: " + entryLabel + "\nPass ID: " + ticketIdRaw + "\n\nOpen e-ticket: " + ticketHref + "\n\nShow the QR at check-in. Please don't forward this email or share the QR code.\n\nIEEE Sahrdaya Student Branch\nAdvancing Technology for Humanity",
+    text: "IEEE SAHRDAYA STUDENT BRANCH\n\nYour pass is ready.\n" + firstNameRaw + ", you're registered.\n\nEvent: " + rawTitle + "\nDate: " + parts.date + "\nTime: " + parts.time + "\nVenue: " + venueRaw + "\nIssued to: " + rawName + "\nEntry: " + entryLabel + "\nPass ID: " + ticketIdRaw + "\n\nOpen e-ticket: " + ticketHref + requirementsText + "\n\nShow the QR at check-in. Please don't forward this email or share the QR code.\n\nIEEE Sahrdaya Student Branch\nAdvancing Technology for Humanity",
   }
 }
 
