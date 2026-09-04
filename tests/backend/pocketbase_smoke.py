@@ -551,7 +551,7 @@ audience_event = request("POST", "/api/collections/events/records", {
     "title": f"CI Restricted Audience {suffix}", "description": "academic audience guard",
     "date": start, "endDate": end, "venue": "CI Audience Lab", "price": 100,
     "baseFeePaise": 10000, "society": society["id"], "status": "draft",
-    "registrationMode": "internal", "registrationOpen": True, "maxCapacity": 2,
+    "registrationMode": "internal", "registrationOpen": True, "maxCapacity": 3,
     "registeredCount": 0, "checkedInCount": 0, "isDeleted": False,
     "eligibleSemesters": ["S6"], "eligibleProgrammes": ["EEE"],
 }, super_token)
