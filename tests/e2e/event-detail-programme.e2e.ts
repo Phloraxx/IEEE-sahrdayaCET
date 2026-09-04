@@ -30,7 +30,7 @@ test.describe("event detail programme", () => {
     const guidance = page.getByTestId("event-attendee-guidance");
     await expect(guidance).toBeVisible();
     await expect(guidance.getByText("Semesters: S7")).toBeVisible();
-    await expect(guidance.getByText(/Computer Science and Engineering/)).toBeVisible();
+    await expect(guidance.getByText(/Computer Science & Engineering/)).toBeVisible();
     await expect(guidance.getByRole("heading", { name: "₹160" })).toBeVisible();
     await expect(guidance.getByText(/20% off the regular ₹200 fee/)).toBeVisible();
     await expect(guidance.getByText("Bring a charged laptop")).toBeVisible();
