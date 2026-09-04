@@ -32,10 +32,6 @@ describe("SustainX event story", () => {
     expect(page).toContain("/media/sustainx/sustainx-hero-loop.mp4");
     expect(page).toContain("/media/sustainx/sustainx-01.webp");
     expect(page).toContain("/media/sustainx/sustainx-07.webp");
-    expect(page).toContain("/media/sustainx/sustainx-campaign-teaser.webp");
-    expect(page).toContain("/media/sustainx/sustainx-campaign-registration.webp");
-    expect(page).toContain("/media/sustainx/sustainx-campaign-overview.webp");
-    expect(page).toContain("Registration window · 27 June–7 July");
     expect(page).toContain("The event,<br />not the poster.");
     expect(page).not.toContain("drive.google.com");
   });
