@@ -28,12 +28,14 @@ routerAdd("PUT", "/api/app/events/{id}/private-details", function (e) {
   var body = {}
   try { body = e.requestInfo().body || {} } catch (_) { body = {} }
   var privateHelpers = require(__hooks + "/event-private-details-helpers.js")
+  var whatsappGroupUrl = ""
   var virtualJoinUrl = ""
   try {
+    whatsappGroupUrl = privateHelpers.safeHttpUrl(body.whatsappGroupUrl)
     virtualJoinUrl = privateHelpers.safeHttpUrl(body.virtualJoinUrl)
   } catch (err) {
     if (err && err.message === "INVALID_JOIN_URL") {
-      return e.json(400, { code: "INVALID_JOIN_URL", error: "Private join URL must use http or https" })
+      return e.json(400, { code: "INVALID_PRIVATE_URL", error: "Private attendee URLs must use http or https" })
     }
     console.log("[event-private] URL validation failed unexpectedly:", err)
     return e.json(500, { code: "PRIVATE_DETAILS_VALIDATION_FAILED", error: "Could not validate private attendee access" })
@@ -55,6 +57,7 @@ routerAdd("PUT", "/api/app/events/{id}/private-details", function (e) {
       var record = privateHelpers.findDetails(txApp, eventId)
       var before = privateHelpers.privateSummary(record)
       if (!record) record = new Record(collection, { event: eventId })
+      record.set("whatsappGroupUrl", whatsappGroupUrl)
       record.set("virtualJoinUrl", virtualJoinUrl)
       record.set("joinInstructions", joinInstructions)
       txApp.save(record)
@@ -74,7 +77,7 @@ routerAdd("PUT", "/api/app/events/{id}/private-details", function (e) {
     console.log("[event-private] update failed:", err)
     return e.json(500, { code: "PRIVATE_DETAILS_UPDATE_FAILED", error: "Could not save private attendee access" })
   }
-  return e.json(200, result || { virtualJoinUrl: "", joinInstructions: "" })
+  return e.json(200, result || { whatsappGroupUrl: "", virtualJoinUrl: "", joinInstructions: "" })
 }, $apis.requireAuth("users"))
 
 routerAdd("GET", "/api/app/events/{id}/join-details", function (e) {
@@ -88,8 +91,12 @@ routerAdd("GET", "/api/app/events/{id}/join-details", function (e) {
     return e.json(403, { code: "CONFIRMED_REGISTRATION_REQUIRED", error: "Confirmed registration is required" })
   }
 
+  var details = privateHelpers.responsePayload(privateHelpers.findDetails($app, eventId))
+  details.contactEmail = event.getString("contactEmail") || ""
+  details.contactPhone = event.getString("contactPhone") || ""
   if (privateHelpers.attendanceMode(event) === "onsite") {
-    return e.json(200, { virtualJoinUrl: "", joinInstructions: "" })
+    details.virtualJoinUrl = ""
+    details.joinInstructions = ""
   }
-  return e.json(200, privateHelpers.responsePayload(privateHelpers.findDetails($app, eventId)))
+  return e.json(200, details)
 }, $apis.requireAuth("users"))

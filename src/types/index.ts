@@ -79,7 +79,6 @@ interface Event {
     externalLink?: string;
     externalFormUrl?: string;
     tags?: string;
-  whatsappLink?: string;
     isDeleted?: boolean;
 }
 

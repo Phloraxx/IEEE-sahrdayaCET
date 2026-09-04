@@ -157,9 +157,11 @@ Add:
 Migration behavior for existing `events.whatsappLink`:
 
 1. copy non-empty legacy values into `event_private_details.whatsappGroupUrl` for the same event;
-2. keep the old event field temporarily for rollback/backward compatibility;
+2. keep the old event field in the schema temporarily for rollback/backward compatibility, but clear its publicly readable value after the private copy is verified;
 3. stop returning or editing the old field in normal application code;
 4. remove the legacy field only in a later cleanup migration after staging/prod data is verified.
+
+The value-clear in step 2 is required because the `events` collection itself is publicly readable; leaving a migrated group invite populated there would preserve the privacy leak even if application DTOs stopped selecting it.
 
 `virtualJoinUrl` and `joinInstructions` remain restricted to online/hybrid events. `whatsappGroupUrl` is valid for onsite, online, or hybrid events.
 

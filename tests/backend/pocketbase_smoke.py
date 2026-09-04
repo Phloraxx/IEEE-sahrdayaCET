@@ -316,6 +316,7 @@ event = request("POST", "/api/collections/events/records", {
     "requirements": ["  Bring laptop charger  ", "", "College ID card required"],
     "attendeeNote": "  Report 15 minutes before the session.  ",
     "externalLink": "https://example.test/event-guide",
+    "contactEmail": "events@example.test", "contactPhone": "+91 98765 43210",
     "formTemplate": [
         {"id": "name", "name": "name", "label": "Name", "required": True},
         {"id": "email", "name": "email", "label": "Email", "required": True},
@@ -325,6 +326,10 @@ assert event["slug"].startswith("ci-smoke-event-")
 assert event["timezone"] == "Asia/Kolkata" and event["attendanceMode"] == "hybrid"
 assert event["requirements"] == ["Bring laptop charger", "College ID card required"]
 assert event["attendeeNote"] == "Report 15 minutes before the session."
+assert not event.get("whatsappLink")
+request("PATCH", f"/api/collections/events/records/{event['id']}", {
+    "whatsappLink": "https://chat.whatsapp.com/must-stay-private",
+}, super_token, (400,))
 
 guidance_event = request("POST", "/api/collections/events/records", {
     "title": f"CI Public Guidance {suffix}", "description": "<p>Public attendee guidance fixture</p>",
@@ -348,9 +353,11 @@ for rule_name in ("listRule", "viewRule", "createRule", "updateRule", "deleteRul
 request("GET", "/api/collections/event_private_details/records", token=user_token, expected=(403,))
 request("GET", "/api/collections/event_private_details/records", token=admin_token, expected=(403,))
 private_access = request("PUT", f"/api/app/events/{event['id']}/private-details", {
+    "whatsappGroupUrl": "https://chat.whatsapp.com/ci-private-group",
     "virtualJoinUrl": "https://meet.example.test/ci-private-room",
     "joinInstructions": "Use the attendee name shown on your ticket.",
 }, admin_token)
+assert private_access["whatsappGroupUrl"] == "https://chat.whatsapp.com/ci-private-group"
 assert private_access["virtualJoinUrl"].startswith("https://meet.example.test/")
 request("GET", f"/api/app/events/{event['id']}/join-details", token=user_token, expected=(403,))
 private_audit_filter = urllib.parse.quote(
@@ -359,7 +366,7 @@ private_audit_filter = urllib.parse.quote(
 private_audit = request("GET", f"/api/collections/admin_audit_log/records?filter={private_audit_filter}", token=super_token)
 assert private_audit["totalItems"] == 1
 audit_blob = json.dumps(private_audit["items"][0])
-assert "meet.example.test" not in audit_blob and "attendee name" not in audit_blob
+assert "meet.example.test" not in audit_blob and "chat.whatsapp.com" not in audit_blob and "attendee name" not in audit_blob
 
 # A published event cannot be completed before its effective scheduled end.
 request(
@@ -845,7 +852,10 @@ registration = request("POST", f"/api/app/events/{event['id']}/register", {
 }, user_token)
 assert registration["registrationStatus"] == "confirmed" and registration["ticketId"]
 join_details = request("GET", f"/api/app/events/{event['id']}/join-details", token=user_token)
+assert join_details["whatsappGroupUrl"] == "https://chat.whatsapp.com/ci-private-group"
 assert join_details["virtualJoinUrl"] == "https://meet.example.test/ci-private-room"
+assert join_details["contactEmail"] == "events@example.test"
+assert join_details["contactPhone"] == "+91 98765 43210"
 assert "attendee name" in join_details["joinInstructions"]
 replayed_registration = request("POST", f"/api/app/events/{event['id']}/register", {
     "formResponses": {"name": "Member", "email": user["email"]},
@@ -1542,10 +1552,15 @@ assert "user" not in anonymous_ticket and "registrationId" not in anonymous_tick
 assert anonymous_ticket["event"]["requirements"] == ["Bring laptop charger", "College ID card required"]
 assert anonymous_ticket["event"]["attendeeNote"] == "Report at the registration desk 15 minutes early."
 assert anonymous_ticket["event"]["externalLink"] == "https://example.test/event-guide"
+assert "contactEmail" not in anonymous_ticket["event"] and "contactPhone" not in anonymous_ticket["event"]
+assert anonymous_ticket["isOwner"] is False
 assert "meet.example.test" not in json.dumps(anonymous_ticket)
+assert "chat.whatsapp.com/ci-private-group" not in json.dumps(anonymous_ticket)
 assert "joinInstructions" not in json.dumps(anonymous_ticket) and "whatsapp" not in json.dumps(anonymous_ticket).lower()
 owner_ticket = request("GET", ticket_path, token=user_token)
 assert owner_ticket["registrationId"] == registration["registrationId"]
+assert owner_ticket["isOwner"] is True
+assert "chat.whatsapp.com/ci-private-group" not in json.dumps(owner_ticket)
 
 # Chairs may perform the intended operational state changes, but cannot edit attendee/audit fields.
 request("PATCH", f"/api/collections/registrations/records/{registration['registrationId']}", {

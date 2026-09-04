@@ -61,6 +61,42 @@ test.describe("My Events attendee continuity", () => {
     );
   });
 
+  test("ticket holder gets the attendee hub while private links stay owner-only", async ({ page, request }) => {
+    await signIn(page, request, fixture.token);
+    await page.goto(`/ticket/${fixture.ticketId}`);
+    const hub = page.getByTestId("ticket-attendee-hub");
+    await expect(hub).toBeVisible();
+    await expect(hub.getByText("Bring laptop charger")).toBeVisible();
+    await expect(hub.getByText("College ID card required")).toBeVisible();
+    await expect(hub.getByRole("link", { name: "WhatsApp group" })).toHaveAttribute("href", "https://chat.whatsapp.com/ci-private-group");
+    await expect(hub.getByRole("link", { name: "Join online" })).toHaveAttribute("href", "https://meet.example.test/ci-private-room");
+    await expect(hub.getByRole("link", { name: "Event resource" })).toHaveAttribute("href", "https://example.test/event-guide");
+    await expect(hub.getByRole("link", { name: "events@example.test" })).toHaveAttribute("href", "mailto:events@example.test");
+    await expect(hub.getByRole("link", { name: "Instagram" })).toHaveAttribute("href", "https://www.instagram.com/ieee_sahrdaya_sb/");
+    await expect(hub.getByRole("link", { name: "LinkedIn" })).toHaveAttribute("href", "https://www.linkedin.com/company/ieee-sahrdaya-sb/");
+    await expect(hub.getByRole("link", { name: "YouTube" })).toHaveAttribute("href", "https://www.youtube.com/@ieeesahrdaya");
+  });
+
+  test("anonymous ticket view never renders attendee-only links", async ({ page }) => {
+    await page.goto(`/ticket/${fixture.ticketId}`);
+    const hub = page.getByTestId("ticket-attendee-hub");
+    await expect(hub).toBeVisible();
+    await expect(hub.getByRole("link", { name: "Event resource" })).toBeVisible();
+    await expect(hub.getByRole("link", { name: "WhatsApp group" })).toHaveCount(0);
+    await expect(hub.getByRole("link", { name: "Join online" })).toHaveCount(0);
+  });
+
+  test("ticket and QR survive attendee-link service failure", async ({ page, request }) => {
+    await signIn(page, request, fixture.token);
+    await page.route("**/api/app/events/*/join-details", async (route) => {
+      await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "fixture outage" }) });
+    });
+    await page.goto(`/ticket/${fixture.ticketId}`);
+    await expect(page.getByAltText("Event ticket QR code")).toBeVisible();
+    await expect(page.getByText("Attendee-only links could not be loaded. Your ticket and QR are still valid.")).toBeVisible();
+    await expect(page.getByRole("heading", { name: fixture.eventTitle })).toBeVisible();
+  });
+
   test("calendar endpoint returns a stable downloadable event record", async ({ request }) => {
     const response = await request.get(`/events/${fixture.eventSlug}/calendar.ics`);
     expect(response.ok()).toBeTruthy();
