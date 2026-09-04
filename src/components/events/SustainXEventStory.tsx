@@ -495,9 +495,21 @@ function EventGallery() {
 export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: Props) {
   const reduceMotion = Boolean(useReducedMotion());
   const heroRef = useRef<HTMLElement>(null);
+  const heroVideoRef = useRef<HTMLVideoElement>(null);
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
   const titleY = useTransform(scrollYProgress, [0, 1], [0, reduceMotion ? 0 : 130]);
   const mediaY = useTransform(scrollYProgress, [0, 1], [0, reduceMotion ? 0 : 72]);
+
+  useEffect(() => {
+    const video = heroVideoRef.current;
+    if (!video) return;
+    if (reduceMotion) {
+      video.pause();
+      video.currentTime = 0;
+      return;
+    }
+    void video.play().catch(() => undefined);
+  }, [reduceMotion]);
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#f3f2f8] text-[#101114] selection:bg-[#6558c9] selection:text-white">
@@ -509,23 +521,30 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
         <motion.div className="absolute inset-0" style={{ y: mediaY }} aria-hidden="true">
           <div className="grid h-[calc(100%+72px)] grid-cols-2 grid-rows-2 gap-px bg-white/10 lg:grid-cols-[0.82fr_1.36fr_0.82fr] lg:grid-rows-1">
             <HeroPanel className="relative hidden overflow-hidden lg:block" delay={0.06}>
-              <img src="/media/sustainx/sustainx-campaign-teaser.webp" alt="SustainX teaser poster" className="h-full w-full bg-[#f3f2f8] object-contain" />
+              <img src="/media/sustainx/sustainx-02.webp" alt="" className="h-full w-full object-cover" />
               <div className="absolute inset-0 bg-black/20" />
             </HeroPanel>
             <HeroPanel className="relative col-span-2 overflow-hidden lg:col-span-1" delay={0.14}>
-              <img
-                src="/media/sustainx/sustainx-campaign-registration.webp"
-                alt="SustainX registrations open poster"
-                className="h-full w-full bg-[#f3f2f8] object-contain"
-              />
+              <video
+                ref={heroVideoRef}
+                poster="/media/sustainx/sustainx-04.webp"
+                muted
+                loop
+                playsInline
+                preload="metadata"
+                className="h-full w-full object-cover"
+              >
+                <source src="/media/sustainx/sustainx-hero-loop.webm" type="video/webm" />
+                <source src="/media/sustainx/sustainx-hero-loop.mp4" type="video/mp4" />
+              </video>
               <div className="absolute inset-0 bg-black/10" />
             </HeroPanel>
             <HeroPanel className="relative overflow-hidden" delay={0.22}>
-              <img src="/media/sustainx/sustainx-campaign-overview.webp" alt="SustainX challenge overview poster" className="h-full w-full bg-[#f3f2f8] object-contain" />
+              <img src="/media/sustainx/sustainx-06.webp" alt="" className="h-full w-full object-cover" />
               <div className="absolute inset-0 bg-black/18" />
             </HeroPanel>
             <HeroPanel className="relative overflow-hidden lg:hidden" delay={0.28}>
-              <img src="/media/sustainx/sustainx-campaign-teaser.webp" alt="SustainX teaser poster" className="h-full w-full bg-[#f3f2f8] object-contain" />
+              <img src="/media/sustainx/sustainx-03.webp" alt="" className="h-full w-full object-cover" />
               <div className="absolute inset-0 bg-black/25" />
             </HeroPanel>
           </div>
