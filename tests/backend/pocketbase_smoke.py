@@ -644,14 +644,14 @@ assert pricing_free_registration["registrationStatus"] == "confirmed" and pricin
 request("POST", "/api/collections/events/records", {
     "title": f"CI Bad Kotak Member {suffix}", "description": "invalid member paise price",
     "date": start, "endDate": end, "venue": "CI Pricing Lab", "price": 125,
-    "baseFeePaise": 12500, "paymentProvider": "kotak", "society": society["id"],
+    "baseFeePaise": 12500, "paymentProvider": "kotak", "society": society["id"], "status": "draft",
     "registrationMode": "internal", "registrationOpen": True, "collectIeeeMember": True,
     "ieeeMemberDiscountPercent": 10, "isDeleted": False,
 }, super_token, (400,))
 kotak_coupon_event = request("POST", "/api/collections/events/records", {
     "title": f"CI Kotak Coupon Config {suffix}", "description": "invalid coupon paise price",
     "date": start, "endDate": end, "venue": "CI Pricing Lab", "price": 125,
-    "baseFeePaise": 12500, "paymentProvider": "kotak", "society": society["id"],
+    "baseFeePaise": 12500, "paymentProvider": "kotak", "society": society["id"], "status": "draft",
     "registrationMode": "internal", "registrationOpen": True, "isDeleted": False,
 }, super_token)
 request("PUT", f"/api/app/events/{kotak_coupon_event['id']}/coupons", {"coupons": [{
@@ -661,7 +661,7 @@ request("PUT", f"/api/app/events/{kotak_coupon_event['id']}/coupons", {"coupons"
 provider_switch_event = request("POST", "/api/collections/events/records", {
     "title": f"CI Provider Switch Guard {suffix}", "description": "existing coupon guard",
     "date": start, "endDate": end, "venue": "CI Pricing Lab", "price": 125,
-    "baseFeePaise": 12500, "paymentProvider": "razorpay", "society": society["id"],
+    "baseFeePaise": 12500, "paymentProvider": "razorpay", "society": society["id"], "status": "draft",
     "registrationMode": "internal", "registrationOpen": True, "isDeleted": False,
 }, super_token)
 request("PUT", f"/api/app/events/{provider_switch_event['id']}/coupons", {"coupons": [{
