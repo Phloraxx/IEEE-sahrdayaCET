@@ -31,6 +31,21 @@ describe("event artwork resolution", () => {
     ).toBeNull();
   });
 
+  it("uses the revised SustainX registration artwork across public event surfaces", () => {
+    const event = {
+      slug: "sustainx",
+      bannerUrl: "https://example.test/old-sustainx-poster.jpeg",
+      society: { slug: "sb" },
+    };
+    expect(resolveEventArtwork(event)).toEqual({
+      src: "/media/sustainx/sustainx-campaign-registration.webp",
+      fit: "contain",
+    });
+    expect(resolveEventSocialImagePath(event)).toBe(
+      "/media/sustainx/sustainx-campaign-registration.webp",
+    );
+  });
+
   it("uses ordinary uploaded banners for other societies", () => {
     const event = {
       slug: "example-event",
