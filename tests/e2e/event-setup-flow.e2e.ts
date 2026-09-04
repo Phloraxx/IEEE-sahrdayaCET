@@ -39,9 +39,9 @@ test.describe("event setup UX", () => {
     await page.getByRole("button", { name: /First year/ }).click();
     await page.getByRole("button", { name: /Fourth year/ }).click();
     await page.getByRole("button", { name: "Add item" }).click();
-    await page.getByLabel("Requirement 1").fill("Bring laptop charger");
+    await page.getByRole("textbox", { name: "Requirement 1", exact: true }).fill("Bring laptop charger");
     await page.getByRole("button", { name: "Add item" }).click();
-    await page.getByLabel("Requirement 2").fill("College ID card required");
+    await page.getByRole("textbox", { name: "Requirement 2", exact: true }).fill("College ID card required");
     await page.getByLabel("Move requirement 2 up").click();
     await page.locator("#attendee-note").fill("Report 15 minutes before the session.");
     await page.getByRole("button", { name: "Add first question" }).click();

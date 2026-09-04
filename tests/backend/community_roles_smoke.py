@@ -171,10 +171,16 @@ execom_title = req("POST", "/api/collections/execom/records", {
     "society": society["id"],
 }, super_token)
 assert req("GET", "/api/workspace/me", token=tokens["execom-title"])["capabilities"] == []
-execom_linked = req("PATCH", f"/api/collections/execom/records/{execom_title['id']}", {
+req("PATCH", f"/api/collections/execom/records/{execom_title['id']}", {
     "roleCode": "society_secretary", "term": "CI term"
 }, super_token)
+# The backlink is written by the transactional after-update synchronizer, so
+# validate the durable record rather than the pre-hook PATCH response payload.
+time.sleep(0.1)
+execom_linked = req("GET", f"/api/collections/execom/records/{execom_title['id']}", token=super_token)
 assert execom_linked.get("assignment")
+linked_assignment = req("GET", f"/api/collections/organization_assignments/records/{execom_linked['assignment']}", token=super_token)
+assert linked_assignment["source"] == "execom" and linked_assignment["sourceExecom"] == execom_title["id"]
 linked_me = req("GET", "/api/workspace/me", token=tokens["execom-title"])
 assert "events.edit" in linked_me["capabilities"] and "finance.approve" not in linked_me["capabilities"]
 req("PATCH", f"/api/collections/execom/records/{execom_title['id']}", {"roleCode": ""}, super_token)
