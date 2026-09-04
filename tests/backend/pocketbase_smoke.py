@@ -619,7 +619,10 @@ manual_pricing = request("POST", f"/api/admin/events/{pricing_event['id']}/regis
     "name": "Manual Member", "email": f"manual-member-{suffix}@example.test", "paymentMode": "pending",
     "formResponses": {"isIeeeMember": True, "ieeeMembershipId": "IEEE-MANUAL"},
 }, admin_token)["registration"]
-assert manual_pricing["discountSource"] == "ieee_member" and manual_pricing["amount"] == 160
+assert manual_pricing["amount"] == 160
+manual_pricing_record = request("GET", f"/api/collections/registrations/records/{manual_pricing['id']}", token=super_token)
+assert manual_pricing_record["discountSource"] == "ieee_member"
+assert manual_pricing_record["couponCode"] == "" and manual_pricing_record["finalFeePaise"] == 16000
 
 pricing_free_event = request("POST", "/api/collections/events/records", {
     "title": f"CI IEEE Free Price {suffix}", "description": "100 percent member pricing",
