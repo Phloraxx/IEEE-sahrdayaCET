@@ -277,6 +277,7 @@ export default function EventDetailPage() {
   const registrationAvailable = lifecycle.registration.available;
   const availability = lifecycle.registration;
   const waitlistEligible = event.waitlistEnabled && lifecycle.registration.mode === "internal" && availability.kind === "full";
+  const audienceRestricted = (event.eligibleSemesters?.length || 0) > 0 || (event.eligibleProgrammes?.length || 0) > 0;
   const waitlistEntry = waitlistState?.state || null;
   const availabilityClass: Record<EventAvailabilityKind, string> = {
     "opening-soon": "text-[#00629B]",
@@ -545,8 +546,8 @@ export default function EventDetailPage() {
                   ) : authStatus === "authenticated" ? (
                     <div className="mt-7 border-y border-black/12 py-4">
                       <p className="text-sm font-bold text-black/55">All seats are reserved.</p>
-                      <p className="mt-1 text-xs leading-5 text-black/42">Join the waitlist and a released seat will be held for you before anyone else can register into it.</p>
-                      <button type="button" disabled={waitlistBusy} onClick={() => void joinWaitlist()} className="group mt-4 flex w-full items-center justify-between font-bold text-[#00629B] disabled:opacity-40">{waitlistBusy ? "Joining…" : "Join waitlist"}{!waitlistBusy && <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />}</button>
+                      <p className="mt-1 text-xs leading-5 text-black/42">{audienceRestricted ? "Confirm your programme and semester before joining this restricted waitlist." : "Join the waitlist and a released seat will be held for you before anyone else can register into it."}</p>
+                      {audienceRestricted ? <Link to={registerUrl} className="group mt-4 flex w-full items-center justify-between font-bold text-[#00629B]">Continue to waitlist <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></Link> : <button type="button" disabled={waitlistBusy} onClick={() => void joinWaitlist()} className="group mt-4 flex w-full items-center justify-between font-bold text-[#00629B] disabled:opacity-40">{waitlistBusy ? "Joining…" : "Join waitlist"}{!waitlistBusy && <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />}</button>}
                     </div>
                   ) : (
                     <Link to={registerUrl} className="group mt-7 flex w-full items-center justify-between border-y border-[#00629B] py-4 font-bold text-[#00629B]">Sign in to join waitlist <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></Link>

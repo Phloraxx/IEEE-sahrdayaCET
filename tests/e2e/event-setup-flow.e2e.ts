@@ -35,8 +35,13 @@ test.describe("event setup UX", () => {
     await page.goto(`/admin/events/${eventId}/edit?section=registration`);
     await expect(page.getByRole("heading", { name: "How will people join?" })).toBeVisible();
     await page.locator("#capacity").fill("80");
+    await expect(page.getByText("Who can attend?")).toBeVisible();
+    await page.getByRole("button", { name: /First year/ }).click();
+    await page.getByRole("button", { name: /Fourth year/ }).click();
     await page.getByRole("button", { name: "Add first question" }).click();
     await page.getByPlaceholder("e.g. Dietary preference").fill("Laptop operating system");
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expect(page.getByText("All changes saved")).toBeVisible();
     await page.screenshot({ path: "/tmp/event-setup-registration-desktop.png", fullPage: true });
     await page.goto(`/admin/events/${eventId}/edit?section=fees`);
     await page.getByRole("button", { name: "Paid event" }).click();
@@ -68,6 +73,7 @@ test.describe("event setup UX", () => {
     await expect(setupNav.getByRole("button", { name: "Registration" })).toBeVisible();
     await setupNav.getByRole("button", { name: "Review" }).click();
     await expect(page.getByRole("heading", { name: "See the setup before you submit it" })).toBeVisible();
+    await expect(page.getByText("Semesters: S3, S4, S5, S6")).toBeVisible();
     await page.screenshot({ path: "/tmp/event-setup-review-mobile.png", fullPage: true });
   });
 });

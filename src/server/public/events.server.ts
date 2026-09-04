@@ -3,10 +3,11 @@ import { buildFileUrl, escapeFilterValue } from "@/lib/pb";
 import { getExpand, getField } from "@/lib/safe-get";
 import { canRegisterForEvent, getRegistrationMode, type EventRegistrationMode } from "@/lib/event-lifecycle";
 import { getEventAttendanceMode, type EventAttendanceMode } from "@/lib/event-presentation";
+import { normalizeEligibleProgrammes, normalizeEligibleSemesters } from "@/lib/event-audience";
 import { logError } from "@/lib/logger";
 
 const PUBLIC_EVENT_FIELDS =
-  "id,created,updated,title,slug,description,date,endDate,timeTbc,venue,timezone,attendanceMode,locationAddress,price,banner,status,registrationOpen,registrationMode,registrationStart,registrationDeadline,maxCapacity,registeredCount,waitlistEnabled,waitlistReservedCount,externalFormUrl,externalLink,collectIeeeMember,society,expand.society.id,expand.society.name,expand.society.slug,expand.society.logo";
+  "id,created,updated,title,slug,description,date,endDate,timeTbc,venue,timezone,attendanceMode,locationAddress,price,banner,status,registrationOpen,registrationMode,registrationStart,registrationDeadline,maxCapacity,registeredCount,waitlistEnabled,waitlistReservedCount,externalFormUrl,externalLink,collectIeeeMember,eligibleSemesters,eligibleProgrammes,society,expand.society.id,expand.society.name,expand.society.slug,expand.society.logo";
 
 export interface SerializableEvent {
   id: string;
@@ -37,6 +38,8 @@ export interface SerializableEvent {
   externalFormUrl?: string;
   externalLink?: string;
   collectIeeeMember?: boolean;
+  eligibleSemesters?: string[];
+  eligibleProgrammes?: string[];
   society?: { id: string; name: string; slug: string; logoUrl: string };
 }
 
@@ -119,6 +122,8 @@ function mapPublicEvent(raw: Record<string, unknown>): SerializableEvent {
     externalFormUrl,
     externalLink: getField(raw, "externalLink", "") || undefined,
     collectIeeeMember: Boolean(getField(raw, "collectIeeeMember", false)),
+    eligibleSemesters: normalizeEligibleSemesters(getField(raw, "eligibleSemesters", [])),
+    eligibleProgrammes: normalizeEligibleProgrammes(getField(raw, "eligibleProgrammes", [])),
     society,
   };
 }

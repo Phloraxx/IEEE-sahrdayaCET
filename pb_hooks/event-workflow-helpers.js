@@ -9,7 +9,7 @@ function sensitiveFields() {
   return [
     "date", "endDate", "venue", "timezone", "attendanceMode", "locationAddress", "society", "price", "paymentProvider", "maxCapacity",
     "registrationMode", "registrationOpen", "registrationStart", "registrationDeadline",
-    "externalFormUrl", "checkInEnabled", "collectIeeeMember", "formTemplate",
+    "externalFormUrl", "checkInEnabled", "collectIeeeMember", "formTemplate", "eligibleSemesters", "eligibleProgrammes",
     "allowSelfCancellation", "selfCancellationUntil", "refundRequestUntil", "refundPolicy",
     "waitlistEnabled", "waitlistOfferMinutes"
   ]
@@ -29,7 +29,7 @@ function fieldChanged(next, previous, name) {
   if (name === "registrationOpen" || name === "checkInEnabled" || name === "collectIeeeMember" || name === "allowSelfCancellation" || name === "waitlistEnabled") {
     return Boolean(next.getBool(name)) !== Boolean(previous.getBool(name))
   }
-  if (name === "formTemplate") return jsonString(next, name) !== jsonString(previous, name)
+  if (name === "formTemplate" || name === "eligibleSemesters" || name === "eligibleProgrammes") return jsonString(next, name) !== jsonString(previous, name)
   return String(next.getString(name) || "") !== String(previous.getString(name) || "")
 }
 

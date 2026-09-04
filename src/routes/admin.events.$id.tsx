@@ -125,6 +125,7 @@ export default function AdminEventOperationsRoute() {
       name: form.name.trim(),
       email: form.email.trim(),
       phone: form.phone.trim() || undefined,
+      formResponses: { programmeCode: form.programmeCode, branch: form.branch.trim(), semester: form.semester },
       paymentMode: form.paymentMode,
       paymentReference: form.paymentReference.trim() || undefined,
       amountOverride: form.amountOverride === "" ? undefined : Number(form.amountOverride),
@@ -657,6 +658,8 @@ export default function AdminEventOperationsRoute() {
         onOpenChange={setManualOpen}
         eventPrice={event.price}
         eventFull={eventFull}
+        eligibleSemesters={event.eligibleSemesters}
+        eligibleProgrammes={event.eligibleProgrammes}
         pending={manualMutation.isPending}
         onSubmit={(form) => manualMutation.mutate(form)}
       />

@@ -23,7 +23,10 @@ routerAdd("GET", "/api/app/events/{id}/waitlist", function (e) {
 routerAdd("POST", "/api/app/events/{id}/waitlist/join", function (e) {
   var helpers = require(__hooks + "/attendee-lifecycle-helpers.js")
   var audit = require(__hooks + "/admin-operations-helpers.js")
+  var audience = require(__hooks + "/event-audience-helpers.js")
   var eventId = e.request.pathValue("id") || ""
+  var body = {}
+  try { body = e.requestInfo().body || {} } catch (_) { body = {} }
   var failure = null
   var response = null
   try {
@@ -53,6 +56,11 @@ routerAdd("POST", "/api/app/events/{id}/waitlist/join", function (e) {
         response = { joined: false, reused: true, state: helpers.waitlistSnapshot(txApp, event, e.auth.id, nowMs) }
         return
       }
+      var eligibility = audience.evaluate(event, body)
+      if (!eligibility.eligible) {
+        failure = { status: 400, code: eligibility.code, error: eligibility.error }
+        return
+      }
       var active = helpers.activeRegistrations(txApp, eventId).length
       var reserved = helpers.activeOffers(txApp, eventId, nowMs).length
       var capacity = event.getInt("maxCapacity") || 0
@@ -60,7 +68,15 @@ routerAdd("POST", "/api/app/events/{id}/waitlist/join", function (e) {
         failure = { status: 409, code: "REGISTRATION_AVAILABLE", error: "A registration place is available; register directly instead" }; return
       }
       var collection = txApp.findCollectionByNameOrId("event_waitlist")
-      var row = new Record(collection, { event: eventId, user: e.auth.id, status: "waiting", activeKey: eventId + ":" + e.auth.id, joinedAt: nowIso })
+      var row = new Record(collection, {
+        event: eventId,
+        user: e.auth.id,
+        status: "waiting",
+        activeKey: eventId + ":" + e.auth.id,
+        joinedAt: nowIso,
+        programmeCode: eligibility.attendee.programmeCode,
+        semester: eligibility.attendee.semester,
+      })
       txApp.saveNoValidate(row)
       response = { joined: true, reused: false, state: helpers.waitlistSnapshot(txApp, event, e.auth.id, nowMs) }
       audit.audit(txApp, { eventId: eventId, actorId: e.auth.id, action: "waitlist.joined", entityType: "waitlist", entityId: row.id })
