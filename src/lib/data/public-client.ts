@@ -70,6 +70,7 @@ export interface PublicRegistrationEvent {
   waitlistEnabled: boolean;
   waitlistReservedCount: number;
   collectIeeeMember: boolean;
+  ieeeMemberDiscountPercent: number;
   eligibleSemesters: string[];
   eligibleProgrammes: string[];
   formFields: FormField[];
@@ -77,7 +78,7 @@ export interface PublicRegistrationEvent {
 
 export async function getPublicEvent(id: string): Promise<PublicRegistrationEvent> {
   const record = await getPbClient().collection("events").getOne(id, {
-    fields: "id,slug,title,description,date,endDate,timeTbc,venue,timezone,attendanceMode,locationAddress,price,banner,status,registrationOpen,registrationStart,registrationDeadline,isDeleted,maxCapacity,registeredCount,waitlistEnabled,waitlistReservedCount,formTemplate,collectIeeeMember,eligibleSemesters,eligibleProgrammes",
+    fields: "id,slug,title,description,date,endDate,timeTbc,venue,timezone,attendanceMode,locationAddress,price,banner,status,registrationOpen,registrationStart,registrationDeadline,isDeleted,maxCapacity,registeredCount,waitlistEnabled,waitlistReservedCount,formTemplate,collectIeeeMember,ieeeMemberDiscountPercent,eligibleSemesters,eligibleProgrammes",
   });
   const lifecycle = {
     status: String(record.status || ""),
@@ -115,6 +116,7 @@ export async function getPublicEvent(id: string): Promise<PublicRegistrationEven
     waitlistEnabled: Boolean(record.waitlistEnabled),
     waitlistReservedCount: Number(record.waitlistReservedCount) || 0,
     collectIeeeMember: Boolean(record.collectIeeeMember),
+    ieeeMemberDiscountPercent: Number(record.ieeeMemberDiscountPercent) || 0,
     eligibleSemesters: normalizeEligibleSemesters(Array.isArray(record.eligibleSemesters) ? record.eligibleSemesters as string[] : []),
     eligibleProgrammes: normalizeEligibleProgrammes(Array.isArray(record.eligibleProgrammes) ? record.eligibleProgrammes as string[] : []),
     formFields: Array.isArray(record.formTemplate) ? record.formTemplate as FormField[] : [],
@@ -167,6 +169,40 @@ export async function getEventJoinDetails(eventId: string): Promise<EventJoinDet
   return pb.send(`/api/app/events/${encodeURIComponent(eventId)}/join-details`, {
     method: "GET",
   }) as Promise<EventJoinDetails>;
+}
+
+export interface PricingPreview {
+  baseFeePaise: number;
+  ieeeDiscountPercent: number;
+  ieeeDiscountPaise: number;
+  couponDiscountPercent: number;
+  couponDiscountPaise: number;
+  appliedDiscountPaise: number;
+  finalFeePaise: number;
+  baseAmount: number;
+  discountAmount: number;
+  amount: number;
+  discountSource: "none" | "ieee_member" | "coupon" | string;
+  requestedCouponCode: string;
+  appliedCouponCode: string;
+  label: string;
+}
+
+export async function previewPricing(eventId: string, input: {
+  isIeeeMember?: boolean;
+  ieeeMembershipId?: string;
+  couponCode?: string;
+}): Promise<PricingPreview> {
+  const pb = getPbClient();
+  if (!pb.authStore.isValid) throw new Error("Please sign in before checking event pricing");
+  return pb.send(`/api/app/events/${encodeURIComponent(eventId)}/pricing-preview`, {
+    method: "POST",
+    body: {
+      isIeeeMember: input.isIeeeMember === true,
+      ieeeMembershipId: input.ieeeMembershipId?.trim() || "",
+      couponCode: input.couponCode?.trim().toUpperCase() || "",
+    },
+  }) as Promise<PricingPreview>;
 }
 
 export interface CouponPreview {

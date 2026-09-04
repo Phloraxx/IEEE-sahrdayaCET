@@ -9,6 +9,10 @@ onRecordCreateRequest(function (e) {
         }
     }
 
+    var createPricing = require(__hooks + "/event-pricing-helpers.js")
+    var createPricingValidation = createPricing.validateEventConfiguration(e.record)
+    if (!createPricingValidation.ok) throw e.badRequestError(createPricingValidation.error)
+
     if (!e.record.getString("slug")) {
         var base = String(e.record.getString("title") || "")
             .toLowerCase()
@@ -101,6 +105,12 @@ onRecordUpdateRequest(function (e) {
     if (!isPlatformAdmin && newRecord.getString("society") !== oldRecord.getString("society")) {
         throw e.forbiddenError("Only platform administrators may transfer an event to another society")
     }
+
+    var updatePricing = require(__hooks + "/event-pricing-helpers.js")
+    var updatePricingValidation = updatePricing.validateEventConfiguration(newRecord)
+    if (!updatePricingValidation.ok) throw e.badRequestError(updatePricingValidation.error)
+    var updateCouponPricingValidation = updatePricing.validateExistingCoupons($app, newRecord)
+    if (!updateCouponPricingValidation.ok) throw e.badRequestError(updateCouponPricingValidation.error)
 
     var wasDeleted = oldRecord.getBool("isDeleted")
     var isNowDeleted = newRecord.getBool("isDeleted")

@@ -6,8 +6,9 @@
 //
 // A non-conflicting retry of an active registration is replayed idempotently.
 // Any value the retry supplies must match the stored record; omitted optional
-// answers do not overwrite anything. Changed answers or coupon choices remain
-// rejected for an already-registered user.
+// answers do not overwrite anything. Changed answers or applied coupon choices
+// remain rejected. A coupon that loses to IEEE-member pricing is intentionally
+// not persisted or consumed, so a retry may still include that ignored code.
 
 routerAdd(
   "POST",
@@ -25,6 +26,7 @@ routerAdd(
     var providerSelection = require(__hooks + "/payment-provider-selection.js")
     var attendeeLifecycle = require(__hooks + "/attendee-lifecycle-helpers.js")
     var audience = require(__hooks + "/event-audience-helpers.js")
+    var pricing = require(__hooks + "/event-pricing-helpers.js")
     var razorpayConfig = razorpay.getConfig()
     var paygateConfig = paygate.getConfig()
     var eventId = e.request.pathValue("id")
@@ -82,7 +84,8 @@ routerAdd(
         )
         if (duplicates.length) {
           var existing = duplicates[0]
-          var sameCoupon = (existing.getString("couponCode") || "") === couponCode
+          var existingCouponCode = existing.getString("couponCode") || ""
+          var sameCoupon = existingCouponCode === couponCode || (existing.getString("discountSource") === "ieee_member" && existingCouponCode === "")
           var compatibleResponses = rh.registrationReplayCompatible(existing.get("formResponses"), responses)
           if (!sameCoupon || !compatibleResponses) {
             throw new BadRequestError("You are already registered for this event")
@@ -179,38 +182,18 @@ routerAdd(
           }
         }
 
-        var baseFeePaise = Number(event.getInt("baseFeePaise") || 0)
-        if (!baseFeePaise) baseFeePaise = Math.max(0, Math.round(Number(event.get("price") || 0) * 100))
-        var discountPaise = 0
-        var finalFeePaise = baseFeePaise
-        var coupon = null
-        if (couponCode) {
-          try {
-            coupon = txApp.findFirstRecordByFilter(
-              "coupons",
-              "code = {:code} && event = {:eventId} && isActive = true && (expiresAt = '' || expiresAt > @now)",
-              { code: couponCode, eventId: eventId }
-            )
-          } catch (_) { coupon = null }
-          if (!coupon) throw new BadRequestError("Invalid or expired coupon code")
-
-          var maxUses = coupon.getInt("maxUses") || 0
-          if (maxUses > 0) {
-            var used = txApp.findRecordsByFilter(
-              "registrations",
-              "couponCode = {:code} && event = {:eventId} && registrationStatus != {:cancelled}",
-              "", 0, 0,
-              { code: couponCode, eventId: eventId, cancelled: "cancelled" }
-            )
-            if (used.length >= maxUses) {
-              throw new BadRequestError("Coupon '" + couponCode + "' has reached its usage limit")
-            }
-          }
-          var percent = coupon.getInt("discountPercent") || 0
-          discountPaise = Math.round(baseFeePaise * percent / 100)
-          finalFeePaise = Math.max(0, baseFeePaise - discountPaise)
-        }
-
+        var pricingResult = pricing.calculate(txApp, event, {
+          isIeeeMember: responses.isIeeeMember === true,
+          ieeeMembershipId: responses.ieeeMembershipId,
+          couponCode: couponCode,
+        })
+        if (!pricingResult.ok) throw new BadRequestError(pricingResult.error)
+        var baseFeePaise = pricingResult.baseFeePaise
+        var discountPaise = pricingResult.appliedDiscountPaise
+        var finalFeePaise = pricingResult.finalFeePaise
+        var discountSource = pricingResult.discountSource
+        var appliedCouponCode = pricingResult.appliedCouponCode
+        var coupon = discountSource === "coupon" ? pricingResult.couponRecord : null
         var discountAmount = discountPaise / 100
         var finalAmount = finalFeePaise / 100
         var needsPayment = finalFeePaise > 0
@@ -247,8 +230,8 @@ routerAdd(
           semester: eligibility.attendee.semester,
           ieeeMember: responses.isIeeeMember === true,
           ieeeMemberId: String(responses.ieeeMembershipId || "").trim().slice(0, 80),
-          discountSource: couponCode && discountPaise > 0 ? "coupon" : "none",
-          couponCode: couponCode,
+          discountSource: discountSource,
+          couponCode: appliedCouponCode,
           amount: finalAmount,
           discountAmount: discountAmount,
           baseFeePaise: baseFeePaise,

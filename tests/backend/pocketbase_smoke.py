@@ -541,6 +541,136 @@ remaining_without_save10 = [{
 } for row in redemption_coupons["items"] if row["code"] != "SAVE10"]
 request("PUT", f"/api/app/events/{coupon_redemption_event['id']}/coupons", {"coupons": remaining_without_save10}, admin_token, (400,))
 
+# IEEE-member pricing preview and registration share one server calculation.
+pricing_event = request("POST", "/api/collections/events/records", {
+    "title": f"CI IEEE Pricing {suffix}", "description": "member pricing guard",
+    "date": start, "endDate": end, "venue": "CI Pricing Lab", "price": 200,
+    "baseFeePaise": 20000, "society": society["id"], "status": "draft",
+    "registrationMode": "internal", "registrationOpen": True, "maxCapacity": 20,
+    "collectIeeeMember": True, "ieeeMemberDiscountPercent": 20, "isDeleted": False,
+}, super_token)
+request("PUT", f"/api/app/events/{pricing_event['id']}/coupons", {"coupons": [
+    {"code": "WIN30", "discountPercent": 30, "maxUses": 2, "isActive": True},
+    {"code": "TIE20", "discountPercent": 20, "maxUses": 1, "isActive": True},
+]}, admin_token)
+request("POST", f"/api/workspace/events/{pricing_event['id']}/workflow", {"action": "submit", "note": "Pricing smoke"}, admin_token)
+request("POST", f"/api/workspace/events/{pricing_event['id']}/workflow", {"action": "approve", "note": "Pricing org"}, admin_token)
+request("POST", f"/api/workspace/events/{pricing_event['id']}/workflow", {"action": "finance_approve", "note": "Pricing finance"}, admin_token)
+request("POST", f"/api/workspace/events/{pricing_event['id']}/workflow", {"action": "publish"}, admin_token)
+
+member_preview = request("POST", f"/api/app/events/{pricing_event['id']}/pricing-preview", {
+    "isIeeeMember": True, "ieeeMembershipId": "IEEE-10001",
+}, user_token)
+assert member_preview["discountSource"] == "ieee_member" and member_preview["amount"] == 160
+request("POST", f"/api/app/events/{pricing_event['id']}/pricing-preview", {
+    "isIeeeMember": True,
+}, max_overflow_token, (400,))
+member_registration = request("POST", f"/api/app/events/{pricing_event['id']}/register", {
+    "formResponses": {"name": "Pricing Member", "email": user["email"], "phone": "9000000101", "college": "CI College", "isIeeeMember": True, "ieeeMembershipId": "IEEE-10001"},
+}, user_token)
+assert member_registration["amount"] == member_preview["amount"]
+member_record = request("GET", f"/api/collections/registrations/records/{member_registration['registrationId']}", token=super_token)
+assert member_record["discountSource"] == "ieee_member" and member_record["couponCode"] == "" and member_record["finalFeePaise"] == 16000
+
+coupon_win_preview = request("POST", f"/api/app/events/{pricing_event['id']}/pricing-preview", {
+    "isIeeeMember": True, "ieeeMembershipId": "IEEE-10002", "couponCode": "win30",
+}, second_token)
+assert coupon_win_preview["discountSource"] == "coupon" and coupon_win_preview["amount"] == 140
+tie_preview = request("POST", f"/api/app/events/{pricing_event['id']}/pricing-preview", {
+    "isIeeeMember": True, "ieeeMembershipId": "IEEE-10003", "couponCode": "tie20",
+}, max_user_token)
+assert tie_preview["discountSource"] == "ieee_member" and tie_preview["amount"] == 160
+assert tie_preview["requestedCouponCode"] == "TIE20" and tie_preview["appliedCouponCode"] == ""
+
+coupon_win_registration = request("POST", f"/api/app/events/{pricing_event['id']}/register", {
+    "formResponses": {"name": "Pricing Coupon", "email": second_user["email"], "phone": "9000000102", "college": "CI College", "isIeeeMember": True, "ieeeMembershipId": "IEEE-10002"},
+    "couponCode": "WIN30",
+}, second_token)
+assert coupon_win_registration["amount"] == coupon_win_preview["amount"]
+coupon_win_record = request("GET", f"/api/collections/registrations/records/{coupon_win_registration['registrationId']}", token=super_token)
+assert coupon_win_record["discountSource"] == "coupon" and coupon_win_record["couponCode"] == "WIN30" and coupon_win_record["finalFeePaise"] == 14000
+
+tie_registration = request("POST", f"/api/app/events/{pricing_event['id']}/register", {
+    "formResponses": {"name": "Pricing Tie", "email": max_user["email"], "phone": "9000000103", "college": "CI College", "isIeeeMember": True, "ieeeMembershipId": "IEEE-10003"},
+    "couponCode": "TIE20",
+}, max_user_token)
+assert tie_registration["amount"] == tie_preview["amount"]
+tie_record = request("GET", f"/api/collections/registrations/records/{tie_registration['registrationId']}", token=super_token)
+assert tie_record["discountSource"] == "ieee_member" and tie_record["couponCode"] == ""
+pricing_filter = urllib.parse.quote(f"event='{pricing_event['id']}'")
+pricing_coupons = request("GET", f"/api/collections/coupons/records?filter={pricing_filter}", token=super_token)["items"]
+pricing_by_code = {row["code"]: row for row in pricing_coupons}
+assert pricing_by_code["WIN30"]["usedCount"] == 1 and pricing_by_code["TIE20"]["usedCount"] == 0
+pricing_fixture_path = os.environ.get("E2E_PRICING_FIXTURE_OUTPUT", "/tmp/member-pricing-e2e.json")
+with open(pricing_fixture_path, "w", encoding="utf-8") as fixture_file:
+    json.dump({
+        "token": max_overflow_token, "record": max_overflow_user,
+        "eventId": pricing_event["id"], "memberDiscountPercent": 20,
+        "memberAmount": 160, "memberId": "IEEE-BROWSER",
+        "tieCode": "TIE20", "betterCouponCode": "WIN30", "couponAmount": 140,
+    }, fixture_file)
+
+request("POST", f"/api/app/events/{pricing_event['id']}/register", {
+    "formResponses": {"name": "Missing ID", "email": max_overflow_user["email"], "phone": "9000000104", "college": "CI College", "isIeeeMember": True},
+}, max_overflow_token, (400,))
+request("PATCH", f"/api/collections/events/records/{pricing_event['id']}", {"ieeeMemberDiscountPercent": 25}, admin_token, (403,))
+
+manual_pricing = request("POST", f"/api/admin/events/{pricing_event['id']}/registrations/manual", {
+    "name": "Manual Member", "email": f"manual-member-{suffix}@example.test", "paymentMode": "pending",
+    "formResponses": {"isIeeeMember": True, "ieeeMembershipId": "IEEE-MANUAL"},
+}, admin_token)["registration"]
+assert manual_pricing["amount"] == 160
+manual_pricing_record = request("GET", f"/api/collections/registrations/records/{manual_pricing['id']}", token=super_token)
+assert manual_pricing_record["discountSource"] == "ieee_member"
+assert manual_pricing_record["couponCode"] == "" and manual_pricing_record["finalFeePaise"] == 16000
+
+pricing_free_event = request("POST", "/api/collections/events/records", {
+    "title": f"CI IEEE Free Price {suffix}", "description": "100 percent member pricing",
+    "date": start, "endDate": end, "venue": "CI Pricing Lab", "price": 75,
+    "baseFeePaise": 7500, "society": society["id"], "status": "draft",
+    "registrationMode": "internal", "registrationOpen": True, "maxCapacity": 5,
+    "collectIeeeMember": True, "ieeeMemberDiscountPercent": 100, "isDeleted": False,
+}, super_token)
+request("POST", f"/api/workspace/events/{pricing_free_event['id']}/workflow", {"action": "submit", "note": "Free member price"}, admin_token)
+request("POST", f"/api/workspace/events/{pricing_free_event['id']}/workflow", {"action": "approve", "note": "Free member price org"}, admin_token)
+request("POST", f"/api/workspace/events/{pricing_free_event['id']}/workflow", {"action": "finance_approve", "note": "Free member price finance"}, admin_token)
+request("POST", f"/api/workspace/events/{pricing_free_event['id']}/workflow", {"action": "publish"}, admin_token)
+pricing_free_registration = request("POST", f"/api/app/events/{pricing_free_event['id']}/register", {
+    "formResponses": {"name": "Pricing Free", "email": coupon_browser_user["email"], "phone": "9000000105", "college": "CI College", "isIeeeMember": True, "ieeeMembershipId": "IEEE-FREE"},
+}, coupon_browser_token)
+assert pricing_free_registration["paymentRequired"] is False and pricing_free_registration["amount"] == 0
+assert pricing_free_registration["registrationStatus"] == "confirmed" and pricing_free_registration["ticketId"]
+
+request("POST", "/api/collections/events/records", {
+    "title": f"CI Bad Kotak Member {suffix}", "description": "invalid member paise price",
+    "date": start, "endDate": end, "venue": "CI Pricing Lab", "price": 125,
+    "baseFeePaise": 12500, "paymentProvider": "kotak", "society": society["id"], "status": "draft",
+    "registrationMode": "internal", "registrationOpen": True, "collectIeeeMember": True,
+    "ieeeMemberDiscountPercent": 10, "isDeleted": False,
+}, super_token, (400,))
+kotak_coupon_event = request("POST", "/api/collections/events/records", {
+    "title": f"CI Kotak Coupon Config {suffix}", "description": "invalid coupon paise price",
+    "date": start, "endDate": end, "venue": "CI Pricing Lab", "price": 125,
+    "baseFeePaise": 12500, "paymentProvider": "kotak", "society": society["id"], "status": "draft",
+    "registrationMode": "internal", "registrationOpen": True, "isDeleted": False,
+}, super_token)
+request("PUT", f"/api/app/events/{kotak_coupon_event['id']}/coupons", {"coupons": [{
+    "code": "BAD10", "discountPercent": 10, "maxUses": 0, "isActive": True,
+}]}, admin_token, (400,))
+
+provider_switch_event = request("POST", "/api/collections/events/records", {
+    "title": f"CI Provider Switch Guard {suffix}", "description": "existing coupon guard",
+    "date": start, "endDate": end, "venue": "CI Pricing Lab", "price": 125,
+    "baseFeePaise": 12500, "paymentProvider": "razorpay", "society": society["id"], "status": "draft",
+    "registrationMode": "internal", "registrationOpen": True, "isDeleted": False,
+}, super_token)
+request("PUT", f"/api/app/events/{provider_switch_event['id']}/coupons", {"coupons": [{
+    "code": "BAD10", "discountPercent": 10, "maxUses": 0, "isActive": True,
+}]}, admin_token)
+request("PATCH", f"/api/collections/events/records/{provider_switch_event['id']}", {
+    "paymentProvider": "kotak",
+}, admin_token, (400,))
+
 # Audience eligibility is command-owned. Rejection happens before capacity,
 # coupon or payment state is consumed; accepted records store canonical academics.
 audience_bad_user = create_user("audience-bad", "user")

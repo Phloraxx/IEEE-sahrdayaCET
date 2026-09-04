@@ -24,8 +24,8 @@ import {
   getPublicEvent,
   joinEventWaitlist,
   leaveEventWaitlist,
-  previewCoupon,
-  type CouponPreview,
+  previewPricing,
+  type PricingPreview,
   type EventWaitlistResponse,
   type PublicRegistrationEvent,
 } from "@/lib/data/public-client";
@@ -250,7 +250,8 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
   const [customFields, setCustomFields] = useState<Record<string, string>>({});
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [couponCode, setCouponCode] = useState("");
-  const [couponPreview, setCouponPreview] = useState<CouponPreview | null>(null);
+  const [appliedCouponCode, setAppliedCouponCode] = useState("");
+  const [pricingPreview, setPricingPreview] = useState<PricingPreview | null>(null);
   const [couponApplying, setCouponApplying] = useState(false);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -357,20 +358,53 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
     [capacityFull, event?.registrationOpen, hasWaitlistOffer, registrationState],
   );
 
+  useEffect(() => {
+    if (!event || !user?.id || !event.isPaid) return;
+    const wantsMemberPrice = event.ieeeMemberDiscountPercent > 0 && isIeeeMember;
+    if (!wantsMemberPrice && !appliedCouponCode) {
+      setPricingPreview(null);
+      return;
+    }
+    if (wantsMemberPrice && !ieeeMembershipId.trim()) {
+      setPricingPreview(null);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void previewPricing(event.id, {
+        isIeeeMember,
+        ieeeMembershipId,
+        couponCode: appliedCouponCode,
+      }).then((preview) => {
+        setPricingPreview(preview);
+        if (appliedCouponCode) setCouponError(null);
+      }).catch((error) => {
+        setPricingPreview(null);
+        if (appliedCouponCode) setCouponError(requestErrorMessage(error, "Pricing could not be refreshed"));
+      });
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [appliedCouponCode, event, ieeeMembershipId, isIeeeMember, user?.id]);
+
   const handleApplyCoupon = async () => {
     if (!event || !couponCode.trim()) {
-      setCouponPreview(null);
+      setAppliedCouponCode("");
       setCouponError(couponCode.trim() ? null : "Enter a coupon code");
       return;
     }
     setCouponApplying(true);
     setCouponError(null);
     try {
-      const preview = await previewCoupon(event.id, couponCode);
-      setCouponCode(preview.code);
-      setCouponPreview(preview);
+      const preview = await previewPricing(event.id, {
+        isIeeeMember,
+        ieeeMembershipId,
+        couponCode,
+      });
+      setCouponCode(preview.requestedCouponCode);
+      setAppliedCouponCode(preview.requestedCouponCode);
+      setPricingPreview(preview);
     } catch (error) {
-      setCouponPreview(null);
+      setAppliedCouponCode("");
+      setPricingPreview(null);
       setCouponError(requestErrorMessage(error, "Coupon could not be applied"));
     } finally {
       setCouponApplying(false);
@@ -425,7 +459,8 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
       const value = customFields[field.id];
       if (!value || (field.type === "checkbox" && value !== "true")) next[field.id] = `${field.label} is required`;
     }
-    if (event?.isPaid && couponCode.trim() && !couponPreview) next.coupon = "Apply or clear the coupon code before continuing";
+    if (event?.ieeeMemberDiscountPercent && isIeeeMember && !ieeeMembershipId.trim()) next.ieeeMembershipId = "IEEE Membership ID is required for the member price";
+    if (event?.isPaid && couponCode.trim() && appliedCouponCode !== couponCode.trim().toUpperCase()) next.coupon = "Apply or clear the coupon code before continuing";
     if (!acceptedTerms) next.terms = "Please confirm the information before continuing";
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -439,7 +474,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
       const result = await createRegistration({
         userId: user.id,
         eventId: event.id,
-        couponCode: couponPreview?.code || undefined,
+        couponCode: appliedCouponCode || undefined,
         formResponses: {
           name: name.trim(),
           email: email.trim(),
@@ -495,7 +530,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
 
   const eventHref = event.slug ? `/events/${event.slug}` : "/events";
   const seatsLeft = event.maxCapacity > 0 ? Math.max(0, event.maxCapacity - occupiedSeats) : null;
-  const effectiveAmount = couponPreview?.amount ?? event.price;
+  const effectiveAmount = pricingPreview?.amount ?? event.price;
   const effectivePaid = effectiveAmount > 0;
 
   return (
@@ -530,7 +565,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
                 <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/35">Entry</p>
                 <div className="mt-2 flex items-baseline gap-2">
                   <p className="text-3xl font-semibold tracking-[-0.05em]">{effectivePaid ? `₹${effectiveAmount}` : "Free"}</p>
-                  {couponPreview && couponPreview.discountAmount > 0 && <span className="text-xs text-black/35 line-through">₹{event.price}</span>}
+                  {pricingPreview && pricingPreview.discountAmount > 0 && <span className="text-xs text-black/35 line-through">₹{event.price}</span>}
                 </div>
               </div>
               {seatsLeft !== null && (
@@ -614,8 +649,8 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
                     <div className="mt-8 grid gap-6 border-t border-black/10 pt-7 sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-10">
                       <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">IEEE membership</p>
                       <div>
-                        <label className="flex cursor-pointer items-center gap-3"><input type="checkbox" checked={isIeeeMember} onChange={(e) => setIsIeeeMember(e.target.checked)} className="h-4 w-4 accent-[#00629B]" /><span className="text-sm font-semibold">I am an IEEE member</span></label>
-                        <AnimatePresence initial={false}>{isIeeeMember && <motion.label initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mt-5 block overflow-hidden"><span className="block text-xs font-bold">IEEE Membership ID</span><input value={ieeeMembershipId} onChange={(e) => setIeeeMembershipId(e.target.value)} className={fieldClass} placeholder="Membership ID" /></motion.label>}</AnimatePresence>
+                        <label className="flex cursor-pointer items-center gap-3"><input type="checkbox" checked={isIeeeMember} onChange={(e) => { setIsIeeeMember(e.target.checked); setErrors((current) => { const next = { ...current }; delete next.ieeeMembershipId; return next; }); }} className="h-4 w-4 accent-[#00629B]" /><span className="text-sm font-semibold">I am an IEEE member</span></label>
+                        <AnimatePresence initial={false}>{isIeeeMember && <motion.label initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mt-5 block overflow-hidden"><span className="block text-xs font-bold">IEEE Membership ID{event.ieeeMemberDiscountPercent > 0 ? " *" : ""}</span><input value={ieeeMembershipId} onChange={(e) => { setIeeeMembershipId(e.target.value); setErrors((current) => { const next = { ...current }; delete next.ieeeMembershipId; return next; }); }} className={`${fieldClass} ${errors.ieeeMembershipId ? "border-rose-500" : ""}`} placeholder="Membership ID" />{errors.ieeeMembershipId && <span className="mt-1.5 block text-xs text-rose-600">{errors.ieeeMembershipId}</span>}{event.ieeeMemberDiscountPercent > 0 && <span className="mt-2 block text-xs text-black/42">IEEE members receive {event.ieeeMemberDiscountPercent}% off after providing a Membership ID.</span>}{pricingPreview?.discountSource === "ieee_member" && <span className="mt-2 block text-xs font-semibold text-emerald-700">{pricingPreview.label} · ₹{pricingPreview.amount}</span>}</motion.label>}</AnimatePresence>
                       </div>
                     </div>
                   )}
@@ -660,7 +695,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
                           <div className="mt-4 flex max-w-lg gap-3">
                             <input
                               value={couponCode}
-                              onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponPreview(null); setCouponError(null); setErrors((current) => { const next = { ...current }; delete next.coupon; return next; }); }}
+                              onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setAppliedCouponCode(""); setPricingPreview(null); setCouponError(null); setErrors((current) => { const next = { ...current }; delete next.coupon; return next; }); }}
                               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void handleApplyCoupon(); } }}
                               autoComplete="off"
                               spellCheck={false}
@@ -677,10 +712,10 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
                             </button>
                           </div>
                           {(couponError || errors.coupon) && <p className="mt-2 text-xs font-medium text-rose-600">{couponError || errors.coupon}</p>}
-                          {couponPreview && (
+                          {pricingPreview && appliedCouponCode && (
                             <div className="mt-4 flex max-w-lg items-center justify-between gap-4 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-                              <span><strong>{couponPreview.code}</strong> · {couponPreview.discountPercent}% off</span>
-                              <span className="shrink-0 font-bold">₹{couponPreview.amount}</span>
+                              <span><strong>{appliedCouponCode}</strong> · {pricingPreview.discountSource === "coupon" ? `${pricingPreview.couponDiscountPercent}% off` : pricingPreview.label}</span>
+                              <span className="shrink-0 font-bold">₹{pricingPreview.amount}</span>
                             </div>
                           )}
                         </div>
