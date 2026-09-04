@@ -219,7 +219,19 @@ routerAdd("GET", "/api/tickets/lookup", function (e) {
     if (auth && auth.id) {
         mayReadRegistration = isAdmin || auth.id === reg.getString("user")
     }
-    if (mayReadRegistration) response.registrationId = reg.id
+    if (mayReadRegistration) {
+        response.registrationId = reg.id
+        response.registration = {
+            id: reg.id,
+            userName: reg.getString("userName") || "",
+            userEmail: reg.getString("userEmail") || "",
+            userPhone: reg.getString("userPhone") || "",
+            registrationStatus: reg.getString("registrationStatus") || "",
+            paymentStatus: reg.getString("paymentStatus") || "",
+            registrationDate: reg.getString("registrationDate") || reg.getString("created") || "",
+            amount: require(__hooks + "/registration-helpers.js").registrationAmount(reg),
+        }
+    }
     response.isOwner = Boolean(auth && auth.id && auth.id === reg.getString("user"))
 
     return e.json(200, response)

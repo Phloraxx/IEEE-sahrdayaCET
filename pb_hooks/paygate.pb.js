@@ -1,8 +1,7 @@
 /// <reference path="../pb_data/types.d.ts" />
 
-// PayGate provider integration. During the v4 migration window the helper can
-// speak either the explicit v3 or v4 merchant contract, while this receiver
-// accepts signed callbacks from both versions and keeps registration state safe.
+// PayGate v4 provider integration. The signed webhook is an optimization;
+// reconciliation remains an independent correctness path for pending payments.
 routerAdd("POST", "/api/webhooks/paygate", function (e) {
   var pg = require(__hooks + "/paygate-helpers.js")
   var guard = require(__hooks + "/paygate-registration-guard.js")
@@ -58,7 +57,7 @@ routerAdd("POST", "/api/webhooks/paygate", function (e) {
   }
   var validated = pg.validateProviderPayment(rawPayment, finalPaise / 100, {
     paymentId: current.paymentId ? String(current.paymentId) : "",
-    externalIds: [pg.externalIdForRegistration(registration.id), registration.getString("event") || ""],
+    externalId: registration.getString("event") || "",
     registrationId: registration.id,
     environment: pg.deploymentNamespace(),
   })

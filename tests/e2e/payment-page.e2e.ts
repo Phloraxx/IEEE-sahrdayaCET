@@ -25,16 +25,16 @@ test.describe("pending PayGate checkout", () => {
     "Payment page fixture is not configured",
   );
 
-  test("renders the stored exact-amount Kotak UPI session", async ({ page, request }) => {
+  test("renders the stored exact PayGate v4 UPI session", async ({ page, request }) => {
     await signIn(page, request);
     await page.goto(`/payment/${fixture.registrationId}`);
 
     await expect(page.getByText("Registration / Payment")).toBeVisible();
     await expect(page.getByRole("heading", { name: fixture.eventTitle })).toBeVisible();
-    await expect(page.getByText("Temporary · Kotak direct UPI")).toBeVisible();
+    await expect(page.getByText("UPI payment", { exact: true })).toBeVisible();
     await expect(page.getByText(`₹${fixture.payable}`, { exact: true })).toBeVisible();
     await expect(page.getByText(/Pay this exact amount/)).toBeVisible();
-    await expect(page.getByRole("img", { name: "Kotak UPI payment QR code" })).toBeVisible();
+    await expect(page.getByRole("img", { name: "UPI payment QR code" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Check payment" })).toBeVisible();
   });
 });

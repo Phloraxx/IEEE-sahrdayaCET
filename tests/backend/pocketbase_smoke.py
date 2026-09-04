@@ -553,7 +553,7 @@ save10_registration = request("POST", f"/api/app/events/{coupon_redemption_event
     "couponCode": "save10",
 }, user_token)
 assert save10_registration["paymentRequired"] is True and save10_registration["amount"] == 180
-save10_record = request("GET", f"/api/collections/registrations/records/{save10_registration['registrationId']}", token=admin_token)
+save10_record = request("GET", f"/api/collections/registrations/records/{save10_registration['registrationId']}", token=super_token)
 assert save10_record["couponCode"] == "SAVE10" and save10_record["discountAmount"] == 20
 
 free100_preview = request("POST", f"/api/app/events/{coupon_redemption_event['id']}/coupon-preview", {
@@ -695,34 +695,22 @@ assert pricing_free_registration["paymentRequired"] is False and pricing_free_re
 assert pricing_free_registration["registrationStatus"] == "confirmed" and pricing_free_registration["ticketId"]
 
 request("POST", "/api/collections/events/records", {
-    "title": f"CI Bad Kotak Member {suffix}", "description": "invalid member paise price",
+    "title": f"CI Bad PayGate Member {suffix}", "description": "invalid member paise price",
     "date": start, "endDate": end, "venue": "CI Pricing Lab", "price": 125,
-    "baseFeePaise": 12500, "paymentProvider": "kotak", "society": society["id"], "status": "draft",
+    "baseFeePaise": 12500, "society": society["id"], "status": "draft",
     "registrationMode": "internal", "registrationOpen": True, "collectIeeeMember": True,
     "ieeeMemberDiscountPercent": 10, "isDeleted": False,
 }, super_token, (400,))
-kotak_coupon_event = request("POST", "/api/collections/events/records", {
-    "title": f"CI Kotak Coupon Config {suffix}", "description": "invalid coupon paise price",
+paygate_coupon_event = request("POST", "/api/collections/events/records", {
+    "title": f"CI PayGate Coupon Config {suffix}", "description": "invalid coupon paise price",
     "date": start, "endDate": end, "venue": "CI Pricing Lab", "price": 125,
-    "baseFeePaise": 12500, "paymentProvider": "kotak", "society": society["id"], "status": "draft",
+    "baseFeePaise": 12500, "society": society["id"], "status": "draft",
     "registrationMode": "internal", "registrationOpen": True, "isDeleted": False,
 }, super_token)
-request("PUT", f"/api/app/events/{kotak_coupon_event['id']}/coupons", {"coupons": [{
+request("PUT", f"/api/app/events/{paygate_coupon_event['id']}/coupons", {"coupons": [{
     "code": "BAD10", "discountPercent": 10, "maxUses": 0, "isActive": True,
 }]}, admin_token, (400,))
 
-provider_switch_event = request("POST", "/api/collections/events/records", {
-    "title": f"CI Provider Switch Guard {suffix}", "description": "existing coupon guard",
-    "date": start, "endDate": end, "venue": "CI Pricing Lab", "price": 125,
-    "baseFeePaise": 12500, "paymentProvider": "razorpay", "society": society["id"], "status": "draft",
-    "registrationMode": "internal", "registrationOpen": True, "isDeleted": False,
-}, super_token)
-request("PUT", f"/api/app/events/{provider_switch_event['id']}/coupons", {"coupons": [{
-    "code": "BAD10", "discountPercent": 10, "maxUses": 0, "isActive": True,
-}]}, admin_token)
-request("PATCH", f"/api/collections/events/records/{provider_switch_event['id']}", {
-    "paymentProvider": "kotak",
-}, admin_token, (400,))
 
 # Audience eligibility is command-owned. Rejection happens before capacity,
 # coupon or payment state is consumed; accepted records store canonical academics.
@@ -1395,7 +1383,7 @@ assert manual_confirmed["ticketId"].startswith("TKT-")
 manual_record = request(
     "GET",
     f"/api/collections/registrations/records/{manual_registration_id}",
-    token=admin_token,
+    token=super_token,
 )
 manual_audit = manual_record["paymentData"]["manualConfirmation"]
 assert manual_record["registrationStatus"] == "confirmed"
@@ -1441,6 +1429,14 @@ ops_summary = request("GET", f"/api/admin/events/{ops_event['id']}/operations", 
 assert ops_summary["summary"]["manualPaidAmount"] == 120
 assert ops_summary["summary"]["adminCreatedCount"] == 1
 assert any(row["action"] == "registration.manual-create" for row in ops_summary["audit"])
+ops_admin_row = next(row for row in ops_summary["recent"] if row["id"] == ops_manual["id"])
+assert {"paymentStatus", "amount", "collectedAmount", "refundedAmount", "paymentMethod",
+        "provider", "providerStatus", "manualReview", "manualConfirmation"}.issubset(ops_admin_row)
+assert {"formTemplate", "financeApprovalStatus"}.issubset(ops_summary["event"])
+assert "paymentProvider" not in ops_summary["event"]
+assert all(key in ops_summary for key in (
+    "attention", "coupons", "cancellationRequests", "waitlist", "audit", "attendance", "financeDisclaimer"
+))
 audit_filter = urllib.parse.quote(
     f'action="registration.manual-create" && entityId="{ops_manual["id"]}"'
 )
@@ -1501,12 +1497,10 @@ assert finance["paymentCount"] >= 1
 assert finance["grossCollectedAmount"] >= finance["refundedAmount"] >= 0
 assert abs(finance["netCollectedAmount"] - (finance["grossCollectedAmount"] - finance["refundedAmount"])) < 0.001
 assert finance["manualCount"] >= 1
-assert "queuedRefundCount" in finance and "failedRefundCount" in finance and "attentionCount" in finance
+assert "attentionCount" in finance and "queuedRefundCount" not in finance and "failedRefundCount" not in finance
 payment_rows = request("GET", "/api/collections/payments/records?perPage=500", token=super_token)["items"]
-refund_rows = request("GET", "/api/collections/payment_refunds/records?perPage=500", token=super_token)["items"]
 assert finance["paymentCount"] == len(payment_rows)
 for provider, count_key, amount_key in (
-    ("razorpay", "razorpayCount", "razorpayCollectedAmount"),
     ("paygate", "paygateCount", "paygateCollectedAmount"),
     ("manual", "manualCount", "manualCollectedAmount"),
 ):
@@ -1514,12 +1508,10 @@ for provider, count_key, amount_key in (
     assert finance[count_key] == len(provider_rows)
     expected_amount = sum(max(0, int(row.get("collectedPaise") or 0)) for row in provider_rows) / 100
     assert abs(finance[amount_key] - expected_amount) < 0.001
-legacy_rows = [row for row in payment_rows if (row.get("provider") or "unknown") not in {"razorpay", "paygate", "manual"}]
-assert finance["legacyCount"] == len(legacy_rows)
-assert abs(finance["legacyCollectedAmount"] - sum(max(0, int(row.get("collectedPaise") or 0)) for row in legacy_rows) / 100) < 0.001
+historical_rows = [row for row in payment_rows if (row.get("provider") or "unknown") not in {"paygate", "manual"}]
+assert finance["historicalCount"] == len(historical_rows)
+assert abs(finance["historicalCollectedAmount"] - sum(max(0, int(row.get("collectedPaise") or 0)) for row in historical_rows) / 100) < 0.001
 assert finance["attentionCount"] == sum(bool(row.get("manualReview")) or row.get("status") == "partially_refunded" for row in payment_rows)
-assert finance["queuedRefundCount"] == sum(row.get("status") in {"queued", "submitted"} for row in refund_rows)
-assert finance["failedRefundCount"] == sum(row.get("status") == "failed" for row in refund_rows)
 
 request("GET", "/api/admin/data-health", token=user_token, expected=(403,))
 data_health = request("GET", "/api/admin/data-health", token=admin_token)
@@ -1540,7 +1532,7 @@ ops_cancel = request("POST", f"/api/admin/events/{ops_event['id']}/cancel", {
 assert ops_cancel["releasedPending"] >= 1
 ops_cancelled_event = request("GET", f"/api/collections/events/records/{ops_event['id']}", token=admin_token)
 assert ops_cancelled_event["status"] == "cancelled"
-ops_pending_after_cancel = request("GET", f"/api/collections/registrations/records/{ops_pending['id']}", token=admin_token)
+ops_pending_after_cancel = request("GET", f"/api/collections/registrations/records/{ops_pending['id']}", token=super_token)
 assert ops_pending_after_cancel["registrationStatus"] == "cancelled"
 assert ops_pending_after_cancel["paymentStatus"] == "failed"
 
@@ -1560,6 +1552,12 @@ assert "joinInstructions" not in json.dumps(anonymous_ticket) and "whatsapp" not
 owner_ticket = request("GET", ticket_path, token=user_token)
 assert owner_ticket["registrationId"] == registration["registrationId"]
 assert owner_ticket["isOwner"] is True
+assert owner_ticket["registration"]["id"] == registration["registrationId"]
+assert set(owner_ticket["registration"].keys()) == {
+    "id", "userName", "userEmail", "userPhone", "registrationStatus",
+    "paymentStatus", "registrationDate", "amount",
+}
+request("GET", f"/api/collections/registrations/records/{registration['registrationId']}", token=user_token, expected=(403, 404))
 assert "chat.whatsapp.com/ci-private-group" not in json.dumps(owner_ticket)
 
 # Chairs may perform the intended operational state changes, but cannot edit attendee/audit fields.

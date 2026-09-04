@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
@@ -23,20 +23,23 @@ describe("security architecture invariants", () => {
     expect(migration).toContain("registrations.createRule = null");
   });
 
-  it("uses a dedicated Razorpay webhook inbox instead of the retired shared-secret callback", () => {
-    const route = read("pb_hooks/razorpay-direct.pb.js");
-    const helpers = read("pb_hooks/razorpay-direct-helpers.js");
-    expect(route).toContain("payment_webhook_events");
-    expect(route).toContain("X-Razorpay-Signature");
-    expect(route).toContain("X-Razorpay-Event-Id");
-    expect(helpers).toContain("RAZORPAY_WEBHOOK_SECRET");
-    expect(read("docs/razorpay-direct.md")).toContain("Signed webhooks");
+  it("authenticates PayGate webhooks with event id, timestamp and v1 signature", () => {
+    const route = read("pb_hooks/paygate.pb.js");
+    expect(route).toContain("X-PayGate-Event-Id");
+    expect(route).toContain("X-PayGate-Timestamp");
+    expect(route).toContain("X-PayGate-Signature");
+    expect(route).toContain('$security.hs256(timestamp + "." + rawBody');
+    expect(route).toContain("webhookToleranceSeconds");
+    expect(route).toContain("pg.hasEventId(current, eventId)");
+    expect(route).toContain('"payment.paid"');
   });
 
-  it("allows Razorpay Custom Checkout preference JSONP through CSP", () => {
+  it("does not allow a retired Razorpay checkout surface through CSP or runtime files", () => {
     const root = read("src/root.tsx");
-    expect(root).toContain("https://checkout.razorpay.com");
-    expect(root).toContain("script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://checkout.razorpay.com https://api.razorpay.com");
+    expect(root).not.toContain("razorpay.com");
+    expect(root).toContain("frame-src 'none'");
+    expect(existsSync(resolve(process.cwd(), "pb_hooks/razorpay-direct.pb.js"))).toBe(false);
+    expect(existsSync(resolve(process.cwd(), "src/lib/razorpay-upi.client.ts"))).toBe(false);
   });
 
   it("keeps deployment environments explicitly isolated", () => {

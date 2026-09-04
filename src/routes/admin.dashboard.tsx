@@ -15,8 +15,10 @@ export default function AdminDashboard() {
   if (isError || !stats) return <Card className="border-destructive/40"><CardContent className="p-6"><h2 className="font-semibold">Operations data unavailable</h2><p className="mt-1 text-sm text-muted-foreground">{(error as Error)?.message ?? "Could not load admin data."}</p></CardContent></Card>;
 
   const attention = [
-    { label: "Stale pending payments", count: stats.attention.stalePending, description: "Pending for longer than the normal 10-minute payment grace window.", href: "/admin/registrations?attention=1", icon: CircleDollarSign },
-    { label: "Paid registrations needing resolution", count: stats.attention.cancelledPaid, description: "Payment is recorded but the seat is cancelled. Review before taking another action.", href: "/admin/registrations?status=cancelled&payment=paid", icon: AlertTriangle },
+    ...(stats.financeAuthorized ? [
+      { label: "Stale pending payments", count: stats.attention.stalePending, description: "Pending for longer than the normal 10-minute payment grace window.", href: "/admin/registrations?attention=1", icon: CircleDollarSign },
+      { label: "Paid registrations needing resolution", count: stats.attention.cancelledPaid, description: "Payment is recorded but the seat is cancelled. Review before taking another action.", href: "/admin/registrations?status=cancelled&payment=paid", icon: AlertTriangle },
+    ] : []),
     { label: "Failed notifications", count: stats.attention.failedNotifications, description: "Ticket, receipt, or certificate email delivery ended in a failed state.", href: "/admin/registrations", icon: BellRing },
   ];
   const attentionTotal = attention.reduce((sum, item) => sum + item.count, 0);

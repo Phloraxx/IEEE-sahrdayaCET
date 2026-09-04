@@ -7,7 +7,7 @@ function workflowFields() {
 
 function sensitiveFields() {
   return [
-    "date", "endDate", "venue", "timezone", "attendanceMode", "locationAddress", "society", "price", "paymentProvider", "ieeeMemberDiscountPercent", "maxCapacity",
+    "date", "endDate", "venue", "timezone", "attendanceMode", "locationAddress", "society", "price", "ieeeMemberDiscountPercent", "maxCapacity",
     "registrationMode", "registrationOpen", "registrationStart", "registrationDeadline",
     "externalFormUrl", "checkInEnabled", "collectIeeeMember", "formTemplate", "eligibleSemesters", "eligibleProgrammes", "requirements",
     "allowSelfCancellation", "selfCancellationUntil", "refundRequestUntil", "refundPolicy",

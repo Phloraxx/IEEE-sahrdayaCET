@@ -4,6 +4,21 @@ import { streamAdminRegistrationsCSV, streamRegistrationsCSV, csvFilename } from
 function makeMockPB(registrations: Record<string, unknown>[], formTemplate?: unknown) {
   let pageCalls = 0
   return {
+    send: vi.fn(async (path: string) => {
+      if (!path.startsWith('/api/admin/registrations?')) throw new Error(`Unexpected send: ${path}`)
+      const url = new URL(path, 'http://test.local')
+      const page = Number(url.searchParams.get('page') || '1')
+      const perPage = Number(url.searchParams.get('perPage') || '500')
+      const rows = page === 1 ? registrations.map((row) => ({
+        ...row,
+        id: String(row.id || 'reg-1'),
+        eventId: String(row.eventId || row.event || 'evt-1'),
+        event: String(row.event || row.eventId || 'evt-1'),
+        eventTitle: String(row.eventTitle || (row.expand as any)?.event?.title || 'Ledger Event'),
+        eventSocietyId: String(row.eventSocietyId || 'soc-1'),
+      })) : []
+      return { registrations: rows, total: registrations.length, page, perPage, hasMore: false }
+    }),
     collection: vi.fn((name: string) => {
       if (name === 'events') {
         return {
@@ -104,7 +119,7 @@ describe('streamRegistrationsCSV', () => {
       },
     ])
 
-    const stream = await streamRegistrationsCSV(pb as any, 'evt-1', { adminFormat: true })
+    const stream = await streamRegistrationsCSV(pb as any, 'evt-1', { adminFormat: true, financeAuthorized: true })
     const csv = await readStream(stream)
     const lines = csv.trim().split('\n')
 
@@ -123,7 +138,7 @@ describe('streamRegistrationsCSV', () => {
       ieeeMember: true, ieeeMemberId: 'IEEE-42', discountSource: 'ieee_member',
       discountPaise: 4000, couponCode: '', formResponses: { branch: 'Wrong legacy branch', semester: 'S1' },
     }])
-    const csv = await readStream(await streamRegistrationsCSV(pb as any, 'evt-1', { adminFormat: true }))
+    const csv = await readStream(await streamRegistrationsCSV(pb as any, 'evt-1', { adminFormat: true, financeAuthorized: true }))
     const [headerLine, rowLine] = csv.trim().split('\n')
     const headers = headerLine!.split(',')
     const values = rowLine!.split(',')
@@ -146,7 +161,7 @@ describe('streamRegistrationsCSV', () => {
       ticketId: 'TKT-legacy', couponCode: 'old10', discountAmount: 25,
       formResponses: { branch: 'Electronics and Communication Engineering', semester: 'Sem 4', isIeeeMember: true, ieeeMembershipId: 'OLD-IEEE' },
     }])
-    const csv = await readStream(await streamRegistrationsCSV(pb as any, 'evt-1', { adminFormat: true }))
+    const csv = await readStream(await streamRegistrationsCSV(pb as any, 'evt-1', { adminFormat: true, financeAuthorized: true }))
     const [headerLine, rowLine] = csv.trim().split('\n')
     const headers = headerLine!.split(',')
     const values = rowLine!.split(',')
@@ -168,7 +183,7 @@ describe('streamRegistrationsCSV', () => {
       registrationStatus: 'confirmed', checkedIn: true, checkedInAt: '2026-06-11T12:00:00.000Z',
       ticketId: 'TKT-header', couponCode: '', discountAmount: 0, formResponses: {},
     }])
-    const csv = await readStream(await streamRegistrationsCSV(pb as any, 'evt-1', { adminFormat: true }))
+    const csv = await readStream(await streamRegistrationsCSV(pb as any, 'evt-1', { adminFormat: true, financeAuthorized: true }))
     const [headerLine, rowLine] = csv.trim().split('\n')
     const headers = headerLine!.split(',')
     const values = rowLine!.split(',')
@@ -227,15 +242,9 @@ describe('streamRegistrationsCSV', () => {
 
   it('handles formTemplate fetch failure gracefully', async () => {
     const pb = {
+      send: vi.fn().mockResolvedValue({ registrations: [], total: 0, page: 1, perPage: 500, hasMore: false }),
       collection: vi.fn(() => ({
         getOne: vi.fn().mockRejectedValue(new Error('Not found')),
-        getList: vi.fn(async (page: number, perPage: number) => ({
-          items: [],
-          totalItems: 0,
-          page,
-          perPage,
-          totalPages: 1,
-        })),
       })),
     }
     const stream = await streamRegistrationsCSV(pb as any, 'evt-1')
@@ -267,7 +276,7 @@ describe('streamAdminRegistrationsCSV', () => {
       expand: { event: { id: 'evt-1', title: 'Ledger Event' } },
       formResponses: {},
     }])
-    const csv = await readStream(await streamAdminRegistrationsCSV(pb as any))
+    const csv = await readStream(await streamAdminRegistrationsCSV(pb as any, { financeAuthorized: true }))
     const [headerLine, rowLine] = csv.trim().split('\n')
     const headers = headerLine!.split(',')
     const values = rowLine!.split(',')

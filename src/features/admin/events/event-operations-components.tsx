@@ -47,9 +47,9 @@ export function OpsMetric({
 
 export function ProviderPill({ provider }: { provider: string }) {
   const labels: Record<string, string> = {
-    razorpay: "Razorpay",
+    razorpay: "Historical provider",
     legacy_paygate: "Legacy PayGate",
-    paygate: "Kotak via PayGate",
+    paygate: "PayGate",
     manual: "Manual",
     not_required: "No payment",
     unknown: "Legacy",
@@ -304,7 +304,7 @@ export function ResolutionDialog({
         <DialogHeader>
           <DialogTitle>{state?.title || "Registration action"}</DialogTitle>
           <DialogDescription>
-            {state ? `${state.row.userName} · ${money(state.row.amount)} · ${state.row.provider}` : ""}
+            {state ? `${state.row.userName} · ${money(state.row.amount ?? 0)} · ${state.row.provider ?? "unknown"}` : ""}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4">
@@ -358,6 +358,7 @@ export function legacyCheckInAction({
 export function OperationRow({
   row,
   permissions,
+  canViewFinance = Boolean(permissions["finance.view"] || permissions["finance.manage"]),
   compact = false,
   pending,
   sessionAttendanceActive = false,
@@ -366,18 +367,19 @@ export function OperationRow({
 }: {
   row: AdminRegistrationOperationRow;
   permissions: Record<string, boolean>;
+  canViewFinance?: boolean;
   compact?: boolean;
   pending: boolean;
   sessionAttendanceActive?: boolean;
   onAction: (action: RegistrationAdminAction, title: string) => void;
   onImmediate: (action: RegistrationAdminAction) => void;
 }) {
-  const isPaidCancelled = row.registrationStatus === "cancelled" && row.paymentStatus === "paid";
-  const canConfirm = Boolean(permissions["finance.manage"]) && row.registrationStatus === "pending" && row.paymentStatus === "pending" && row.amount > 0 && (!row.providerStatus || row.providerStatus === "not_initialized");
+  const isPaidCancelled = canViewFinance && row.registrationStatus === "cancelled" && row.paymentStatus === "paid";
+  const canConfirm = canViewFinance && Boolean(permissions["finance.manage"]) && row.registrationStatus === "pending" && row.paymentStatus === "pending" && (row.amount ?? 0) > 0 && (!row.providerStatus || row.providerStatus === "not_initialized");
   const canRestore = Boolean(permissions["registrations.manage"]) && row.registrationStatus === "cancelled";
-  const canRefund = Boolean(permissions["finance.manage"]) && row.paymentStatus === "paid" && row.provider !== "razorpay";
+  const canRefund = canViewFinance && Boolean(permissions["finance.manage"]) && row.paymentStatus === "paid";
   const refundTitle = "Record external refund";
-  const canReopenManual = Boolean(permissions["finance.manage"]) && Boolean(row.manualConfirmation) && row.paymentStatus === "paid";
+  const canReopenManual = canViewFinance && Boolean(permissions["finance.manage"]) && Boolean(row.manualConfirmation) && row.paymentStatus === "paid";
   const checkInAction = legacyCheckInAction({
     canCheckIn: Boolean(permissions["checkin.manage"]),
     sessionAttendanceActive,
@@ -386,26 +388,27 @@ export function OperationRow({
   });
 
   return (
-    <div className={`rounded-xl border p-3 transition-colors ${row.manualReview || isPaidCancelled ? "border-amber-500/30 bg-amber-500/5" : "border-border bg-background hover:bg-muted/20"}`}>
+    <div className={`rounded-xl border p-3 transition-colors ${isPaidCancelled || row.manualReview ? "border-amber-500/30 bg-amber-500/5" : "border-border bg-background hover:bg-muted/20"}`}>
       <div className={`grid gap-3 ${compact ? "lg:grid-cols-[1.3fr_auto_auto]" : "lg:grid-cols-[1.35fr_0.9fr_0.9fr_auto]"} lg:items-center`}>
         <div className="min-w-0">
           <RegistrationIdentity row={row} />
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <ProviderPill provider={row.provider} />
+            {canViewFinance && <ProviderPill provider={row.provider ?? "unknown"} />}
             {row.registrationSource === "admin" && <span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-primary">Manual entry</span>}
-            {row.manualReview && <span className="rounded-full bg-amber-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-amber-600">Review</span>}
+            {canViewFinance && row.manualReview && <span className="rounded-full bg-amber-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-amber-600">Review</span>}
           </div>
         </div>
         {!compact && (
           <div className="flex flex-wrap gap-2">
             <StatusBadge status={row.registrationStatus} kind="registration" />
-            <StatusBadge status={row.paymentStatus} kind="payment" />
+            {canViewFinance && <StatusBadge status={row.paymentStatus ?? ""} kind="payment" />}
           </div>
         )}
         <div className="min-w-0">
-          <p className="font-mono text-sm font-semibold tabular-nums">{row.amount > 0 ? money(row.amount) : "Free"}</p>
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">{row.ticketId || row.providerStatus || "No ticket yet"}</p>
-        </div>        <div className="flex flex-wrap items-center justify-start gap-1 lg:justify-end">
+          <p className="font-mono text-sm font-semibold tabular-nums">{canViewFinance ? ((row.amount ?? 0) > 0 ? money(row.amount ?? 0) : "Free") : "Registration record"}</p>
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">{row.ticketId || (canViewFinance ? row.providerStatus : "") || "No ticket yet"}</p>
+        </div>
+        <div className="flex flex-wrap items-center justify-start gap-1 lg:justify-end">
           <Button variant="ghost" size="sm" asChild className="h-8 px-2 text-xs">
             <Link to={`/admin/registrations/${row.id}`}>View</Link>
           </Button>
@@ -428,20 +431,21 @@ export function OperationRow({
             <Button variant="outline" size="sm" className="h-8 text-xs" disabled={pending} onClick={() => onAction("restore", "Restore registration")}>
               Restore
             </Button>
-          )}          {canRefund && (
-            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs text-destructive" disabled={pending} onClick={() => onAction("mark-refunded", refundTitle) }>
+          )}
+          {canRefund && (
+            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs text-destructive" disabled={pending} onClick={() => onAction("mark-refunded", refundTitle)}>
               <ReceiptText className="h-3.5 w-3.5" /> Refund
             </Button>
           )}
           {canReopenManual && (
-            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={pending} onClick={() => onAction("reopen-manual-payment", "Reverse manual payment confirmation") }>
+            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={pending} onClick={() => onAction("reopen-manual-payment", "Reverse manual payment confirmation")}>
               Reopen payment
             </Button>
           )}
           {permissions["registrations.manage"] && row.registrationStatus !== "cancelled" && !row.checkedIn && (
             <ConfirmButton
               label="Cancel"
-              confirmMessage="Cancel this registration? Paid registrations stay visible in the payment exception queue."
+              confirmMessage={canViewFinance ? "Cancel this registration? Paid registrations stay visible in the payment exception queue." : "Cancel this registration?"}
               variant="destructive"
               className="h-8 text-xs"
               disabled={pending}
@@ -450,7 +454,7 @@ export function OperationRow({
           )}
         </div>
       </div>
-      {(row.reviewReason || row.internalNotes) && (
+      {canViewFinance && (row.reviewReason || row.internalNotes) && (
         <div className="mt-3 border-t border-border/70 pt-3 text-xs text-muted-foreground">
           {row.reviewReason && <p><strong className="text-foreground">Review:</strong> {row.reviewReason}</p>}
           {row.internalNotes && <p className="mt-1"><strong className="text-foreground">Note:</strong> {row.internalNotes}</p>}

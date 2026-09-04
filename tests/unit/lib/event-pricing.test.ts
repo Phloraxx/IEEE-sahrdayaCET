@@ -36,7 +36,7 @@ class FakeApp {
 
 const pricing = loadPricing();
 const event = (extra: Record<string, unknown> = {}) => new FakeRecord("evt", {
-  price: 200, baseFeePaise: 20000, paymentProvider: "razorpay", collectIeeeMember: true,
+  price: 200, baseFeePaise: 20000, collectIeeeMember: true,
   ieeeMemberDiscountPercent: 20, ...extra,
 });
 const coupon = (percent: number, maxUses = 0) => new FakeRecord("coupon", { discountPercent: percent, maxUses });
@@ -66,16 +66,16 @@ describe("event pricing", () => {
     expect(result).toMatchObject({ ok: true, discountSource: "ieee_member", finalFeePaise: 0 });
   });
 
-  it("rejects exhausted coupons and invalid Kotak paise outcomes", () => {
+  it("rejects exhausted coupons and invalid PayGate paise outcomes", () => {
     expect(pricing.calculate(new FakeApp(coupon(20, 1), 1), event(), { couponCode: "used" })).toMatchObject({ ok: false, code: "COUPON_EXHAUSTED" });
-    expect(pricing.calculate(new FakeApp(), event({ price: 125, baseFeePaise: 12500, paymentProvider: "kotak", ieeeMemberDiscountPercent: 10 }), { isIeeeMember: true, ieeeMembershipId: "12345" })).toMatchObject({ ok: false, code: "KOTAK_WHOLE_RUPEE_REQUIRED" });
+    expect(pricing.calculate(new FakeApp(), event({ price: 125, baseFeePaise: 12500, ieeeMemberDiscountPercent: 10 }), { isIeeeMember: true, ieeeMembershipId: "12345" })).toMatchObject({ ok: false, code: "PAYGATE_WHOLE_RUPEE_REQUIRED" });
   });
 
   it("validates organizer pricing configuration", () => {
     expect(pricing.validateEventConfiguration(event({ collectIeeeMember: false }))).toMatchObject({ ok: false, code: "IEEE_MEMBER_DETAILS_REQUIRED" });
-    expect(pricing.validateEventConfiguration(event({ paymentProvider: "kotak", price: 125, baseFeePaise: 12500, ieeeMemberDiscountPercent: 10 }))).toMatchObject({ ok: false, code: "KOTAK_WHOLE_RUPEE_REQUIRED" });
-    expect(pricing.validateCouponConfiguration(event({ paymentProvider: "kotak", price: 125, baseFeePaise: 12500, ieeeMemberDiscountPercent: 0 }), 20)).toMatchObject({ ok: true });
-    expect(pricing.validateCouponConfiguration(event({ paymentProvider: "kotak", price: 125, baseFeePaise: 12500, ieeeMemberDiscountPercent: 0 }), 10)).toMatchObject({ ok: false, code: "KOTAK_WHOLE_RUPEE_REQUIRED" });
-    expect(pricing.validateExistingCoupons(new FakeApp(coupon(10)), event({ paymentProvider: "kotak", price: 125, baseFeePaise: 12500, ieeeMemberDiscountPercent: 0 }))).toMatchObject({ ok: false, code: "KOTAK_WHOLE_RUPEE_REQUIRED" });
+    expect(pricing.validateEventConfiguration(event({ price: 125, baseFeePaise: 12500, ieeeMemberDiscountPercent: 10 }))).toMatchObject({ ok: false, code: "PAYGATE_WHOLE_RUPEE_REQUIRED" });
+    expect(pricing.validateCouponConfiguration(event({ price: 125, baseFeePaise: 12500, ieeeMemberDiscountPercent: 0 }), 20)).toMatchObject({ ok: true });
+    expect(pricing.validateCouponConfiguration(event({ price: 125, baseFeePaise: 12500, ieeeMemberDiscountPercent: 0 }), 10)).toMatchObject({ ok: false, code: "PAYGATE_WHOLE_RUPEE_REQUIRED" });
+    expect(pricing.validateExistingCoupons(new FakeApp(coupon(10)), event({ price: 125, baseFeePaise: 12500, ieeeMemberDiscountPercent: 0 }))).toMatchObject({ ok: false, code: "PAYGATE_WHOLE_RUPEE_REQUIRED" });
   });
 });

@@ -7,7 +7,6 @@ routerAdd(
     var auth = e.auth
     if (!auth || !auth.id) return e.json(401, { error: "Authentication required" })
     var eventId = e.request.pathValue("id") || ""
-    var payment = require(__hooks + "/razorpay-direct-helpers.js")
     var rh = require(__hooks + "/registration-helpers.js")
     var eventTime = require(__hooks + "/event-time-helpers.js")
 
@@ -41,7 +40,7 @@ routerAdd(
         selected = row
         break
       }
-      var data = payment.asObject(row.get("paymentData"))
+      var data = rh.registrationJsonObject(row.get("paymentData"))
       if (data && data.manualReview === true) {
         selected = row
         manualReview = true
@@ -56,7 +55,7 @@ routerAdd(
       return e.json(200, { found: false, eventEnded: eventEnded })
     }
 
-    var paymentData = payment.asObject(selected.get("paymentData"))
+    var paymentData = rh.registrationJsonObject(selected.get("paymentData"))
     manualReview = manualReview || paymentData.manualReview === true
     var amount = rh.registrationAmount(selected)
     var status = selected.getString("registrationStatus") || ""

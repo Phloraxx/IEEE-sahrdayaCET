@@ -35,8 +35,6 @@ routerAdd("GET", "/api/admin/data-health", function (e) {
     couponCount: 0,
     notificationCount: 0,
     paymentCount: 0,
-    refundCount: 0,
-    webhookCount: 0,
   })
   $app.db().newQuery(
     "SELECT " +
@@ -44,9 +42,7 @@ routerAdd("GET", "/api/admin/data-health", function (e) {
     "(SELECT COUNT(*) FROM registrations) AS registrationCount, " +
     "(SELECT COUNT(*) FROM coupons) AS couponCount, " +
     "(SELECT COUNT(*) FROM notification_outbox WHERE status = 'failed' AND attempts >= 8) AS notificationCount, " +
-    "(SELECT COUNT(*) FROM payments) AS paymentCount, " +
-    "(SELECT COUNT(*) FROM payment_refunds WHERE status = 'failed') AS refundCount, " +
-    "(SELECT COUNT(*) FROM payment_webhook_events WHERE status = 'failed' AND attempts >= 8) AS webhookCount"
+    "(SELECT COUNT(*) FROM payments) AS paymentCount"
   ).one(counts)
 
   var issues = []
@@ -144,8 +140,6 @@ routerAdd("GET", "/api/admin/data-health", function (e) {
     " OR (p.provider = 'razorpay' AND p.status = 'captured' AND COALESCE(p.finalFeePaise, 0) > 0 AND COALESCE(p.collectedPaise, 0) != COALESCE(p.finalFeePaise, 0))" +
     " OR (p.status IN ('captured','partially_refunded') AND COALESCE(r.paymentStatus, '') != 'paid')" +
     " OR (p.status = 'refunded' AND COALESCE(r.paymentStatus, '') != 'refunded')" +
-    " OR (p.provider = 'razorpay' AND p.status = 'authorized' AND NULLIF(p.lastSyncedAt, '') IS NOT NULL" +
-    "     AND (julianday('now') - julianday(p.lastSyncedAt)) * 86400 > 120)" +
     " OR (p.status IN ('pending','authorized') AND NULLIF(p.holdExpiresAt, '') IS NOT NULL" +
     "     AND (julianday('now') - julianday(p.holdExpiresAt)) * 86400 > 120)" +
     " OR COALESCE(p.manualReview, 0) = 1" +
@@ -171,12 +165,12 @@ routerAdd("GET", "/api/admin/data-health", function (e) {
     }
     if (provider === "razorpay" && (status === "captured" || status === "partially_refunded" || status === "refunded") && !dataHealthText(payment.capturedPaymentId)) {
       issues.push({ id: "payment-id:" + payment.id, severity: "critical", category: "Payment",
-        title: "Captured Razorpay ledger is missing its payment ID",
-        detail: "Provider-backed financial history must retain the Razorpay payment identifier.", href: "/admin/registrations/" + registrationId })
+        title: "Historical provider ledger is missing its payment ID",
+        detail: "Provider-backed financial history must retain its payment identifier.", href: "/admin/registrations/" + registrationId })
     }
     if (provider === "razorpay" && status === "captured" && finalPaise > 0 && collectedPaise !== finalPaise) {
       issues.push({ id: "payment-amount:" + payment.id, severity: "critical", category: "Payment",
-        title: "Razorpay collection amount does not match the registration fee",
+        title: "Historical provider collection does not match the registration fee",
         detail: "Expected " + finalPaise + " paise; ledger collected " + collectedPaise + " paise.", href: "/admin/registrations/" + registrationId })
     }
     if ((status === "captured" || status === "partially_refunded") && registrationPaymentStatus !== "paid") {
@@ -192,13 +186,6 @@ routerAdd("GET", "/api/admin/data-health", function (e) {
         href: "/admin/registrations/" + registrationId })
     }
     var hold = Date.parse(dataHealthText(payment.holdExpiresAt))
-    var lastSynced = Date.parse(dataHealthText(payment.lastSyncedAt))
-    if (provider === "razorpay" && status === "authorized" && isFinite(lastSynced) && now - lastSynced > 2 * 60_000) {
-      issues.push({ id: "authorized-payment:" + payment.id, severity: "warning", category: "Payment",
-        title: "Razorpay payment is authorized but not captured",
-        detail: "The payment has remained authorized for over two minutes. Verify Razorpay auto-capture and merchant capture settings before paid registrations go live.",
-        href: "/admin/registrations/" + registrationId })
-    }
     if ((status === "pending" || status === "authorized") && isFinite(hold) && now - hold > 2 * 60_000) {
       issues.push({ id: "stale-payment:" + payment.id, severity: "warning", category: "Payment",
         title: "Payment hold is stale", detail: "The checkout hold expired more than two minutes ago and should have been reconciled/released.",
@@ -225,34 +212,6 @@ routerAdd("GET", "/api/admin/data-health", function (e) {
   }
   dataHealthTruncated(issues, "notifications", "Notification", notificationRows)
 
-  var refundRows = dataHealthRows(
-    "SELECT id, COALESCE(attempts, 0) AS attempts, COALESCE(failureReason, '') AS failureReason " +
-    "FROM payment_refunds WHERE status = 'failed' ORDER BY updated DESC LIMIT 501",
-    { id: "", attempts: 0, failureReason: "" }
-  )
-  for (var ri = 0; ri < Math.min(refundRows.length, DATA_HEALTH_ROW_LIMIT); ri++) {
-    var refund = refundRows[ri]
-    var refundAttempts = dataHealthNumber(refund.attempts)
-    issues.push({ id: "refund:" + refund.id, severity: refundAttempts >= 8 ? "critical" : "warning", category: "Refund",
-      title: "Razorpay refund failed",
-      detail: (dataHealthText(refund.failureReason) || "Provider refund failed.") + " Attempts: " + refundAttempts + "." })
-  }
-  dataHealthTruncated(issues, "refunds", "Refund", refundRows)
-
-  var webhookRows = dataHealthRows(
-    "SELECT id, COALESCE(attempts, 0) AS attempts, COALESCE(eventType, '') AS eventType " +
-    "FROM payment_webhook_events WHERE status = 'failed' AND attempts >= 8 ORDER BY updated DESC LIMIT 501",
-    { id: "", attempts: 0, eventType: "" }
-  )
-  for (var wi = 0; wi < Math.min(webhookRows.length, DATA_HEALTH_ROW_LIMIT); wi++) {
-    var webhook = webhookRows[wi]
-    var webhookAttempts = dataHealthNumber(webhook.attempts)
-    issues.push({ id: "webhook:" + webhook.id, severity: "warning", category: "Webhook",
-      title: "Razorpay webhook processing exhausted retries",
-      detail: (dataHealthText(webhook.eventType) || "Webhook event") + " failed after " + webhookAttempts + " attempts." })
-  }
-  dataHealthTruncated(issues, "webhooks", "Webhook", webhookRows)
-
   var rank = { critical: 0, warning: 1 }
   issues.sort(function (a, b) {
     return rank[a.severity] - rank[b.severity] || a.category.localeCompare(b.category)
@@ -267,8 +226,6 @@ routerAdd("GET", "/api/admin/data-health", function (e) {
       coupons: dataHealthNumber(counts.couponCount),
       notifications: dataHealthNumber(counts.notificationCount),
       payments: dataHealthNumber(counts.paymentCount),
-      refunds: dataHealthNumber(counts.refundCount),
-      webhooks: dataHealthNumber(counts.webhookCount),
     },
   })
 }, $apis.requireAuth("users"))

@@ -92,9 +92,8 @@ function calculate(app, event, input) {
   }
 
   var finalFeePaise = Math.max(0, baseFeePaise - appliedDiscountPaise)
-  var provider = event && event.getString ? String(event.getString("paymentProvider") || "") : ""
-  if (input.validateProvider !== false && provider === "kotak" && finalFeePaise > 0 && finalFeePaise % 100 !== 0) {
-    return failure(400, "KOTAK_WHOLE_RUPEE_REQUIRED", "Kotak temporary payments require a whole-rupee final amount. Adjust the event price or discount.")
+  if (input.validateProvider !== false && finalFeePaise > 0 && finalFeePaise % 100 !== 0) {
+    return failure(400, "PAYGATE_WHOLE_RUPEE_REQUIRED", "PayGate requires a whole-rupee final amount. Adjust the event price or discount.")
   }
 
   var label = "Standard price"
@@ -131,14 +130,14 @@ function validateEventConfiguration(event) {
   if (memberPercent > 0 && !event.getBool("collectIeeeMember")) {
     return failure(400, "IEEE_MEMBER_DETAILS_REQUIRED", "Enable IEEE membership details before setting a member discount")
   }
-  if (String(event.getString("paymentProvider") || "") === "kotak" && baseFeePaise > 0) {
+  if (baseFeePaise > 0) {
     if (baseFeePaise % 100 !== 0) {
-      return failure(400, "KOTAK_WHOLE_RUPEE_REQUIRED", "Kotak temporary payments require a whole-rupee registration fee")
+      return failure(400, "PAYGATE_WHOLE_RUPEE_REQUIRED", "PayGate requires a whole-rupee registration fee")
     }
     if (memberPercent > 0) {
       var memberFinal = Math.max(0, baseFeePaise - Math.round(baseFeePaise * memberPercent / 100))
       if (memberFinal > 0 && memberFinal % 100 !== 0) {
-        return failure(400, "KOTAK_WHOLE_RUPEE_REQUIRED", "Kotak temporary payments require the IEEE member price to be a whole rupee")
+        return failure(400, "PAYGATE_WHOLE_RUPEE_REQUIRED", "PayGate requires the IEEE member price to be a whole rupee")
       }
     }
   }
@@ -151,17 +150,17 @@ function validateCouponConfiguration(event, discountPercent) {
     return failure(400, "INVALID_COUPON_DISCOUNT", "Coupon discount must be a whole percentage from 0 to 100")
   }
   var baseFeePaise = eventBaseFeePaise(event)
-  if (String(event.getString("paymentProvider") || "") === "kotak" && baseFeePaise > 0) {
+  if (baseFeePaise > 0) {
     var finalFeePaise = Math.max(0, baseFeePaise - Math.round(baseFeePaise * percent / 100))
     if (finalFeePaise > 0 && finalFeePaise % 100 !== 0) {
-      return failure(400, "KOTAK_WHOLE_RUPEE_REQUIRED", "Kotak temporary payments require every active coupon price to be a whole rupee")
+      return failure(400, "PAYGATE_WHOLE_RUPEE_REQUIRED", "PayGate requires every active coupon price to be a whole rupee")
     }
   }
   return { ok: true }
 }
 
 function validateExistingCoupons(app, event) {
-  if (!app || !event || String(event.getString("paymentProvider") || "") !== "kotak") return { ok: true }
+  if (!app || !event || eventBaseFeePaise(event) <= 0) return { ok: true }
   var offset = 0
   var batchSize = 100
   while (true) {
@@ -174,7 +173,7 @@ function validateExistingCoupons(app, event) {
     for (var i = 0; i < coupons.length; i++) {
       var validation = validateCouponConfiguration(event, coupons[i].getInt("discountPercent") || 0)
       if (!validation.ok) {
-        validation.error = "Coupon " + String(coupons[i].getString("code") || "discount") + " is incompatible with Kotak: " + validation.error
+        validation.error = "Coupon " + String(coupons[i].getString("code") || "discount") + " is incompatible with PayGate: " + validation.error
         return validation
       }
     }

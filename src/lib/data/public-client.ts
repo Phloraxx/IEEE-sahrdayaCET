@@ -364,24 +364,19 @@ export async function getTicket(ticketId: string): Promise<PublicTicketData> {
       }
     : null;
 
-  let registration: PublicTicketData["registration"] = null;
-  if (pb.authStore.isValid && data.registrationId) {
-    const record = await pb.collection("registrations").getOne(data.registrationId, {
-      fields: "id,userName,userEmail,userPhone,registrationStatus,paymentStatus,registrationDate,amount",
-    }).catch(() => null);
-    if (record) {
-      registration = {
-        id: record.id,
-        name: getField(record, "userName", ""),
-        email: getField(record, "userEmail", ""),
-        phone: getField(record, "userPhone", ""),
-        registrationStatus: getField(record, "registrationStatus", ""),
-        paymentStatus: getField(record, "paymentStatus", ""),
-        registrationDate: getField(record, "registrationDate", "") || ticket.createdAt,
-        amount: Number(getField(record, "amount", 0)) || 0,
-      };
-    }
-  }
+  const ownerRegistration = data.registration;
+  const registration: PublicTicketData["registration"] = ownerRegistration
+    ? {
+        id: String(ownerRegistration.id || data.registrationId || ""),
+        name: String(ownerRegistration.userName || ""),
+        email: String(ownerRegistration.userEmail || ""),
+        phone: String(ownerRegistration.userPhone || ""),
+        registrationStatus: String(ownerRegistration.registrationStatus || ""),
+        paymentStatus: String(ownerRegistration.paymentStatus || ""),
+        registrationDate: String(ownerRegistration.registrationDate || ticket.createdAt),
+        amount: Number(ownerRegistration.amount) || 0,
+      }
+    : null;
 
   return { found: true, isOwner: data.isOwner === true, ticket, event, registration };
 }

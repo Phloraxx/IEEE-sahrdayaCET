@@ -36,7 +36,7 @@ interface SocietyOption { id: string; name: string; }
 interface EventFormProps { mode: "create" | "edit"; eventId?: string; initialSocietyId?: string; allowSocietyTransfer?: boolean; }
 interface EventFormState {
   title: string; description: string; date: string; endDate: string; timeTbc: boolean; venue: string; timezone: string; attendanceMode: EventAttendanceMode; locationAddress: string; price: string;
-  paymentProvider: "razorpay" | "kotak"; ieeeMemberDiscountPercent: string; maxCapacity: string; status: string; society: string;
+  ieeeMemberDiscountPercent: string; maxCapacity: string; status: string; society: string;
   registrationMode: RegistrationMethod; registrationOpen: boolean; checkInEnabled: boolean; collectIeeeMember: boolean;
   eligibleSemesters: string[]; eligibleProgrammes: string[]; requirements: string[]; attendeeNote: string;
   registrationStart: string; registrationDeadline: string; allowSelfCancellation: boolean; selfCancellationUntil: string;
@@ -46,7 +46,7 @@ interface EventFormState {
 interface BaselineState { form: EventFormState; customFields: FormField[]; coupons: Coupon[]; }
 const EMPTY_PRIVATE_DETAILS: AdminEventPrivateDetails = { whatsappGroupUrl: "", virtualJoinUrl: "", joinInstructions: "" };
 const EMPTY_STATE: EventFormState = {
-  title: "", description: "", date: "", endDate: "", timeTbc: false, venue: "", timezone: "Asia/Kolkata", attendanceMode: "onsite", locationAddress: "", price: "0", paymentProvider: "razorpay", ieeeMemberDiscountPercent: "0",
+  title: "", description: "", date: "", endDate: "", timeTbc: false, venue: "", timezone: "Asia/Kolkata", attendanceMode: "onsite", locationAddress: "", price: "0", ieeeMemberDiscountPercent: "0",
   maxCapacity: "", status: "draft", society: "", registrationMode: "internal", registrationOpen: true,
   checkInEnabled: true, collectIeeeMember: false, eligibleSemesters: [], eligibleProgrammes: [], requirements: [], attendeeNote: "", registrationStart: "", registrationDeadline: "",
   allowSelfCancellation: false, selfCancellationUntil: "", refundRequestUntil: "", refundPolicy: "", waitlistEnabled: false, waitlistOfferMinutes: "360",
@@ -123,7 +123,7 @@ export function EventForm({ mode, eventId, initialSocietyId, allowSocietyTransfe
     const timeTbc = Boolean(e.timeTbc);
     const hydrated: EventFormState = {
       title: String(e.title ?? ""), description: String(e.description ?? ""), date: timeTbc ? toAppDateOnly(e.date as string | undefined) : toAppDateTimeLocal(e.date as string | undefined), endDate: timeTbc ? "" : toAppDateTimeLocal(e.endDate as string | undefined), timeTbc, venue: String(e.venue ?? ""), timezone: String(e.timezone ?? "") || "Asia/Kolkata", attendanceMode: getEventAttendanceMode({ attendanceMode: String(e.attendanceMode ?? ""), venue: String(e.venue ?? "") }), locationAddress: String(e.locationAddress ?? ""),
-      price: String(e.price ?? "0"), paymentProvider: String(e.paymentProvider ?? "razorpay") === "kotak" ? "kotak" : "razorpay", ieeeMemberDiscountPercent: String(Number(e.ieeeMemberDiscountPercent) || 0), maxCapacity: e.maxCapacity != null && Number(e.maxCapacity) > 0 ? String(e.maxCapacity) : "", status: String(e.status ?? "draft"), society: String(e.society ?? ""),
+      price: String(e.price ?? "0"), ieeeMemberDiscountPercent: String(Number(e.ieeeMemberDiscountPercent) || 0), maxCapacity: e.maxCapacity != null && Number(e.maxCapacity) > 0 ? String(e.maxCapacity) : "", status: String(e.status ?? "draft"), society: String(e.society ?? ""),
       registrationMode: safeMode(e.registrationMode, e.registrationOpen, e.externalFormUrl), registrationOpen: e.registrationOpen !== false, checkInEnabled: e.checkInEnabled !== false, collectIeeeMember: Boolean(e.collectIeeeMember),
       eligibleSemesters: normalizeEligibleSemesters(Array.isArray(e.eligibleSemesters) ? e.eligibleSemesters as string[] : []), eligibleProgrammes: normalizeEligibleProgrammes(Array.isArray(e.eligibleProgrammes) ? e.eligibleProgrammes as string[] : []), requirements: normalizeEventRequirements(e.requirements), attendeeNote: String(e.attendeeNote ?? ""),
       registrationStart: toAppDateTimeLocal(e.registrationStart as string | undefined), registrationDeadline: toAppDateTimeLocal(e.registrationDeadline as string | undefined),
@@ -156,7 +156,7 @@ export function EventForm({ mode, eventId, initialSocietyId, allowSocietyTransfe
   const impact = useMemo(() => {
     if (!baseline) return { operational: false, finance: false };
     const operationalKeys: Array<keyof EventFormState> = ["date", "endDate", "timeTbc", "venue", "timezone", "attendanceMode", "locationAddress", "maxCapacity", "registrationMode", "registrationOpen", "registrationStart", "registrationDeadline", "externalFormUrl", "checkInEnabled", "collectIeeeMember", "eligibleSemesters", "eligibleProgrammes", "requirements", "allowSelfCancellation", "selfCancellationUntil", "refundRequestUntil", "refundPolicy", "waitlistEnabled", "waitlistOfferMinutes"];
-    const financeKeys: Array<keyof EventFormState> = ["price", "paymentProvider", "ieeeMemberDiscountPercent"];
+    const financeKeys: Array<keyof EventFormState> = ["price", "ieeeMemberDiscountPercent"];
     operationalKeys.push("society");
     return { operational: operationalKeys.some((key) => form[key] !== baseline.form[key]) || !same(customFields, baseline.customFields), finance: financeKeys.some((key) => form[key] !== baseline.form[key]) || !same(coupons, baseline.coupons) };
   }, [baseline, coupons, customFields, form]);
@@ -191,19 +191,19 @@ export function EventForm({ mode, eventId, initialSocietyId, allowSocietyTransfe
       if (!Number.isInteger(memberDiscount) || memberDiscount < 0 || memberDiscount > 100) return ["fees", "IEEE member discount must be a whole percentage from 0 to 100."] as const;
       if (memberDiscount > 0 && feeMode !== "paid") return ["fees", "IEEE member pricing is only available for paid events."] as const;
       if (memberDiscount > 0 && !form.collectIeeeMember) return ["fees", "Enable IEEE membership details to offer a member price."] as const;
-      if (feeMode === "paid" && form.paymentProvider === "kotak") {
+      if (feeMode === "paid") {
         const basePaise = Math.round(Number(form.price) * 100);
-        if (basePaise % 100 !== 0) return ["fees", "Kotak temporary payments require a whole-rupee registration fee."] as const;
+        if (basePaise % 100 !== 0) return ["fees", "PayGate requires a whole-rupee registration fee."] as const;
         const memberFinalPaise = Math.max(0, basePaise - Math.round(basePaise * memberDiscount / 100));
-        if (memberDiscount > 0 && memberFinalPaise > 0 && memberFinalPaise % 100 !== 0) return ["fees", "Kotak temporary payments require the IEEE member price to be a whole rupee."] as const;
+        if (memberDiscount > 0 && memberFinalPaise > 0 && memberFinalPaise % 100 !== 0) return ["fees", "PayGate requires the IEEE member price to be a whole rupee."] as const;
         const invalidCoupon = coupons.find((coupon) => coupon.isActive !== false && (() => { const finalPaise = Math.max(0, basePaise - Math.round(basePaise * Number(coupon.discountPercent || 0) / 100)); return finalPaise > 0 && finalPaise % 100 !== 0; })());
-        if (invalidCoupon) return ["fees", `Coupon ${invalidCoupon.code || "discount"} creates a paise amount. Kotak requires whole-rupee final prices.`] as const;
+        if (invalidCoupon) return ["fees", `Coupon ${invalidCoupon.code || "discount"} creates a paise amount. PayGate requires whole-rupee final prices.`] as const;
       }
     }
     return null;
   };
   const buildPayload = () => { const effectivePrice = form.registrationMode === "internal" ? Number(form.price) || 0 : 0; return ({ title: form.title.trim(), description: form.description, venue: form.attendanceMode === "online" ? "" : form.venue.trim(), timezone: form.timezone || "Asia/Kolkata", attendanceMode: form.attendanceMode, locationAddress: form.attendanceMode === "online" ? "" : form.locationAddress.trim(), price: effectivePrice,
-    paymentProvider: form.paymentProvider, baseFeePaise: Math.max(0, Math.round(effectivePrice * 100)), ieeeMemberDiscountPercent: form.registrationMode === "internal" && effectivePrice > 0 ? Math.max(0, Math.min(100, Number(form.ieeeMemberDiscountPercent) || 0)) : 0, status: form.status,
+    baseFeePaise: Math.max(0, Math.round(effectivePrice * 100)), ieeeMemberDiscountPercent: form.registrationMode === "internal" && effectivePrice > 0 ? Math.max(0, Math.min(100, Number(form.ieeeMemberDiscountPercent) || 0)) : 0, status: form.status,
     society: form.society, registrationMode: form.registrationMode, registrationOpen: form.registrationMode !== "closed" && form.registrationOpen,
     checkInEnabled: form.checkInEnabled, collectIeeeMember: form.collectIeeeMember, eligibleSemesters: form.registrationMode === "internal" ? form.eligibleSemesters : [], eligibleProgrammes: form.registrationMode === "internal" ? form.eligibleProgrammes : [], requirements: normalizeEventRequirements(form.requirements), attendeeNote: form.attendeeNote.trim(), timeTbc: form.timeTbc, date: form.timeTbc ? fromAppDateOnly(form.date) : fromAppDateTimeLocal(form.date), endDate: form.timeTbc ? "" : fromAppDateTimeLocal(form.endDate) || "",
     registrationStart: fromAppDateTimeLocal(form.registrationStart) || "", registrationDeadline: fromAppDateTimeLocal(form.registrationDeadline) || "",
@@ -303,7 +303,7 @@ export function EventForm({ mode, eventId, initialSocietyId, allowSocietyTransfe
           <div className="grid gap-3 sm:grid-cols-2"><button type="button" className={choice(feeMode === "free")} onClick={() => { setFeeChoice("free"); setDirty(true); setForm((current) => ({ ...current, price: "0", ieeeMemberDiscountPercent: "0" })); }}><div><p className="font-semibold">Free event</p><p className="mt-1 text-xs text-muted-foreground">Ticket is confirmed immediately after registration.</p></div>{feeMode === "free" && <Check className="h-4 w-4 text-primary" />}</button><button type="button" className={choice(feeMode === "paid")} onClick={() => { setFeeChoice("paid"); if (Number(form.price) <= 0) patch("price", ""); }}><div><p className="font-semibold">Paid event</p><p className="mt-1 text-xs text-muted-foreground">Registration is held until payment is confirmed.</p></div>{feeMode === "paid" && <Check className="h-4 w-4 text-primary" />}</button></div>
           {feeMode === "paid" && <div className="space-y-5 rounded-xl border border-border p-5"><div className="grid max-w-sm gap-2"><Label htmlFor="price">Registration fee (₹) *</Label><Input id="price" type="number" min="0" step="0.01" value={form.price} onChange={(e) => { setFeeChoice("paid"); patch("price", e.target.value); }} placeholder="150" /></div>
             <div className="rounded-lg border border-border p-4"><div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div className="max-w-xl"><Label htmlFor="ieee-member-discount">IEEE member price</Label><p className="mt-1 text-xs leading-5 text-muted-foreground">Optional. Members must claim IEEE membership and provide a Membership ID. If a coupon gives a better discount, the coupon wins; ties use the member price.</p></div><div className="grid w-full max-w-[180px] gap-2"><Label htmlFor="ieee-member-discount" className="text-xs">Discount (%)</Label><Input id="ieee-member-discount" type="number" min="0" max="100" step="1" value={form.ieeeMemberDiscountPercent} onChange={(e) => { const value = e.target.value; setDirty(true); setForm((current) => ({ ...current, ieeeMemberDiscountPercent: value, collectIeeeMember: Number(value) > 0 ? true : current.collectIeeeMember })); }} /></div></div>{Number(form.ieeeMemberDiscountPercent) > 0 && <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs"><span className="text-muted-foreground">Regular fee <strong className="text-foreground">₹{Number(form.price) || 0}</strong></span><span className="text-muted-foreground">IEEE member fee <strong className="text-primary">₹{memberPrice(Number(form.price), Number(form.ieeeMemberDiscountPercent))}</strong></span><span className="font-medium text-primary">Membership ID required</span></div>}</div>
-            <details className="rounded-lg border border-border bg-muted/20 p-4"><summary className="cursor-pointer text-sm font-medium">Advanced payment processing</summary><div className="mt-4 grid gap-2"><Label>Payment provider</Label><Select value={form.paymentProvider} onValueChange={(value: "razorpay" | "kotak") => patch("paymentProvider", value)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="razorpay">Razorpay</SelectItem><SelectItem value="kotak">Kotak direct UPI</SelectItem></SelectContent></Select><p className="text-xs leading-5 text-muted-foreground">Change this only when finance/operations needs new payment sessions routed differently.</p></div></details>
+            <div className="rounded-lg border border-border bg-muted/20 p-4"><p className="text-sm font-medium">UPI payment via PayGate</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Paid IEEE registrations use PayGate automatically. The exact payable amount and UPI QR are generated when the attendee starts payment.</p></div>
             <div className="border-t border-border pt-5"><div className="mb-3"><Label>Discount codes</Label><p className="mt-1 text-xs text-muted-foreground">Used coupons cannot be deleted; deactivate them instead.</p></div><CouponManager coupons={coupons} onChange={(next) => { setDirty(true); setCoupons(next); }} /></div>
           </div>}
         </>}

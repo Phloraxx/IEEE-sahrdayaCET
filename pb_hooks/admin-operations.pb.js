@@ -29,6 +29,8 @@ routerAdd("GET", "/api/admin/events/{id}/operations", function (e) {
   if (!helpers.mayViewEventOperations($app, e.auth, event)) {
     return e.json(403, { code: "FORBIDDEN", error: "You cannot view this event workspace" })
   }
+  var permissions = helpers.eventPermissions($app, e.auth, event)
+  var projection = helpers.operationProjection(permissions)
   var summary = helpers.emptyRegistrationSummary()
   var recent = []
   var attention = []
@@ -42,15 +44,16 @@ routerAdd("GET", "/api/admin/events/{id}/operations", function (e) {
     if (!records.length) break
     helpers.addRegistrationsToSummary(summary, records)
     for (var i = 0; i < records.length; i++) {
-      var row = helpers.registrationSnapshot(records[i])
-      if (recent.length < 8) recent.push(row)
-      var registrationTime = Date.parse(row.registrationDate || "")
-      var stalePending = row.registrationStatus === "pending" && row.paymentStatus === "pending" &&
+      var fullRow = helpers.registrationSnapshot(records[i])
+      if (projection.registrations && recent.length < 8) {
+        recent.push(helpers.projectRegistrationSnapshot(fullRow, projection))
+      }
+      var registrationTime = Date.parse(fullRow.registrationDate || "")
+      var stalePending = fullRow.registrationStatus === "pending" && fullRow.paymentStatus === "pending" &&
         isFinite(registrationTime) && Date.now() - registrationTime >= 10 * 60 * 1000
-      if (row.manualReview ||
-          (row.registrationStatus === "cancelled" && row.paymentStatus === "paid") ||
-          stalePending) {
-        if (attention.length < 30) attention.push(row)
+      if (projection.finance && (fullRow.manualReview ||
+          (fullRow.registrationStatus === "cancelled" && fullRow.paymentStatus === "paid") || stalePending)) {
+        if (attention.length < 30) attention.push(fullRow)
       }
     }
     registrationOffset += records.length
@@ -58,7 +61,7 @@ routerAdd("GET", "/api/admin/events/{id}/operations", function (e) {
   }
 
   var coupons = []
-  try {
+  if (projection.edit) try {
     var couponRecords = $app.findRecordsByFilter(
       "coupons", "event = {:eventId}", "created", 0, 0, { eventId: event.id }
     )
@@ -77,7 +80,7 @@ routerAdd("GET", "/api/admin/events/{id}/operations", function (e) {
   } catch (_) {}
 
   var audit = []
-  try {
+  if (projection.reports) try {
     var auditRecords = $app.findRecordsByFilter(
       "admin_audit_log", "event = {:eventId}", "-created", 25, 0,
       { eventId: event.id }
@@ -96,7 +99,7 @@ routerAdd("GET", "/api/admin/events/{id}/operations", function (e) {
   } catch (_) {}
 
   var cancellationRequests = []
-  try {
+  if (projection.finance) try {
     var requestRows = $app.findRecordsByFilter(
       "registration_cancellation_requests",
       "event = {:eventId} && (status = {:open} || status = {:accepted})",
@@ -116,30 +119,37 @@ routerAdd("GET", "/api/admin/events/{id}/operations", function (e) {
   } catch (_) {}
 
   var waitlistSummary = { waiting: 0, offered: 0, reserved: event.getInt("waitlistReservedCount") || 0 }
-  try {
+  if (projection.registrations) try {
     var waitingRows = $app.findRecordsByFilter("event_waitlist", "event = {:eventId} && status = {:status}", "", 0, 0, { eventId: event.id, status: "waiting" })
     var offeredRows = $app.findRecordsByFilter("event_waitlist", "event = {:eventId} && status = {:status}", "", 0, 0, { eventId: event.id, status: "offered" })
     waitlistSummary.waiting = waitingRows.length
     waitlistSummary.offered = offeredRows.length
   } catch (_) {}
 
-  var attendanceSessions = require(__hooks + "/attendance-v2-helpers.js").sessionsForEvent($app, event.id)
-  return e.json(200, {
-    event: helpers.eventPayload(event),
-    summary: summary,
-    recent: recent,
-    attention: attention,
-    coupons: coupons,
-    cancellationRequests: cancellationRequests,
-    waitlist: waitlistSummary,
-    audit: audit,
-    attendance: {
+  var response = {
+    event: helpers.projectEventPayload(helpers.eventPayload(event), projection),
+    summary: helpers.projectRegistrationSummary(summary, projection),
+    permissions: permissions,
+  }
+  if (projection.registrations) {
+    response.recent = recent
+    response.waitlist = waitlistSummary
+  }
+  if (projection.finance) {
+    response.attention = attention
+    response.cancellationRequests = cancellationRequests
+    response.financeDisclaimer = "Recorded collections are an application ledger, not a live bank balance."
+  }
+  if (projection.edit) response.coupons = coupons
+  if (projection.reports) response.audit = audit
+  if (projection.attendance) {
+    var attendanceSessions = require(__hooks + "/attendance-v2-helpers.js").sessionsForEvent($app, event.id)
+    response.attendance = {
       mode: attendanceSessions.length ? "sessions" : "legacy",
       sessionCount: attendanceSessions.length,
-    },
-    permissions: helpers.eventPermissions($app, e.auth, event),
-    financeDisclaimer: "Recorded collections are an application ledger, not a live bank balance.",
-  })
+    }
+  }
+  return e.json(200, response)
 }, $apis.requireAuth("users"))
 
 routerAdd("GET", "/api/admin/payments/summary", function (e) {
@@ -149,32 +159,24 @@ routerAdd("GET", "/api/admin/payments/summary", function (e) {
   }
   var paymentAggregate = new DynamicModel({
     paymentCount: 0, grossCollectedPaise: 0, refundedPaise: 0,
-    razorpayCount: 0, razorpayCollectedPaise: 0,
     paygateCount: 0, paygateCollectedPaise: 0,
     manualCount: 0, manualCollectedPaise: 0,
-    legacyCount: 0, legacyCollectedPaise: 0,
+    historicalCount: 0, historicalCollectedPaise: 0,
     attentionCount: 0,
   })
   $app.db().newQuery(
     "SELECT COUNT(*) AS paymentCount," +
     " COALESCE(SUM(CASE WHEN COALESCE(collectedPaise, 0) > 0 THEN collectedPaise ELSE 0 END), 0) AS grossCollectedPaise," +
     " COALESCE(SUM(CASE WHEN COALESCE(refundedPaise, 0) > 0 THEN refundedPaise ELSE 0 END), 0) AS refundedPaise," +
-    " COALESCE(SUM(CASE WHEN provider = 'razorpay' THEN 1 ELSE 0 END), 0) AS razorpayCount," +
-    " COALESCE(SUM(CASE WHEN provider = 'razorpay' AND COALESCE(collectedPaise, 0) > 0 THEN collectedPaise ELSE 0 END), 0) AS razorpayCollectedPaise," +
     " COALESCE(SUM(CASE WHEN provider = 'paygate' THEN 1 ELSE 0 END), 0) AS paygateCount," +
     " COALESCE(SUM(CASE WHEN provider = 'paygate' AND COALESCE(collectedPaise, 0) > 0 THEN collectedPaise ELSE 0 END), 0) AS paygateCollectedPaise," +
     " COALESCE(SUM(CASE WHEN provider = 'manual' THEN 1 ELSE 0 END), 0) AS manualCount," +
     " COALESCE(SUM(CASE WHEN provider = 'manual' AND COALESCE(collectedPaise, 0) > 0 THEN collectedPaise ELSE 0 END), 0) AS manualCollectedPaise," +
-    " COALESCE(SUM(CASE WHEN COALESCE(provider, '') NOT IN ('razorpay','paygate','manual') THEN 1 ELSE 0 END), 0) AS legacyCount," +
-    " COALESCE(SUM(CASE WHEN COALESCE(provider, '') NOT IN ('razorpay','paygate','manual') AND COALESCE(collectedPaise, 0) > 0 THEN collectedPaise ELSE 0 END), 0) AS legacyCollectedPaise," +
+    " COALESCE(SUM(CASE WHEN COALESCE(provider, '') NOT IN ('paygate','manual') THEN 1 ELSE 0 END), 0) AS historicalCount," +
+    " COALESCE(SUM(CASE WHEN COALESCE(provider, '') NOT IN ('paygate','manual') AND COALESCE(collectedPaise, 0) > 0 THEN collectedPaise ELSE 0 END), 0) AS historicalCollectedPaise," +
     " COALESCE(SUM(CASE WHEN COALESCE(manualReview, 0) = 1 OR status = 'partially_refunded' THEN 1 ELSE 0 END), 0) AS attentionCount" +
     " FROM payments"
   ).one(paymentAggregate)
-  var refundAggregate = new DynamicModel({ queuedRefundCount: 0, failedRefundCount: 0 })
-  $app.db().newQuery(
-    "SELECT COALESCE(SUM(CASE WHEN status IN ('queued','submitted') THEN 1 ELSE 0 END), 0) AS queuedRefundCount," +
-    " COALESCE(SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), 0) AS failedRefundCount FROM payment_refunds"
-  ).one(refundAggregate)
   var grossCollectedAmount = Math.max(0, Number(paymentAggregate.grossCollectedPaise) || 0) / 100
   var refundedAmount = Math.max(0, Number(paymentAggregate.refundedPaise) || 0) / 100
   var summary = {
@@ -182,27 +184,23 @@ routerAdd("GET", "/api/admin/payments/summary", function (e) {
     grossCollectedAmount: grossCollectedAmount,
     refundedAmount: refundedAmount,
     netCollectedAmount: Math.max(0, grossCollectedAmount - refundedAmount),
-    razorpayCount: Number(paymentAggregate.razorpayCount) || 0,
-    razorpayCollectedAmount: Math.max(0, Number(paymentAggregate.razorpayCollectedPaise) || 0) / 100,
     paygateCount: Number(paymentAggregate.paygateCount) || 0,
     paygateCollectedAmount: Math.max(0, Number(paymentAggregate.paygateCollectedPaise) || 0) / 100,
     manualCount: Number(paymentAggregate.manualCount) || 0,
     manualCollectedAmount: Math.max(0, Number(paymentAggregate.manualCollectedPaise) || 0) / 100,
-    legacyCount: Number(paymentAggregate.legacyCount) || 0,
-    legacyCollectedAmount: Math.max(0, Number(paymentAggregate.legacyCollectedPaise) || 0) / 100,
+    historicalCount: Number(paymentAggregate.historicalCount) || 0,
+    historicalCollectedAmount: Math.max(0, Number(paymentAggregate.historicalCollectedPaise) || 0) / 100,
     attentionCount: Number(paymentAggregate.attentionCount) || 0,
-    queuedRefundCount: Number(refundAggregate.queuedRefundCount) || 0,
-    failedRefundCount: Number(refundAggregate.failedRefundCount) || 0,
   }
   return e.json(200, {
     summary: summary,
-    financeDisclaimer: "Gross collection, refunds and net collection are application ledger values reconciled from Razorpay, Kotak/PayGate and manual evidence, not a live bank settlement balance.",
+    financeDisclaimer: "Gross collection, refunds and net collection are application ledger values from PayGate, manual confirmations and preserved historical provider evidence; they are not a live bank settlement balance.",
   })
 }, $apis.requireAuth("users"))
 routerAdd("POST", "/api/admin/events/{id}/registrations/manual", function (e) {
   var helpers = require(__hooks + "/admin-operations-helpers.js")
   var rh = require(__hooks + "/registration-helpers.js")
-  var paymentState = require(__hooks + "/razorpay-payment-state.js")
+  var paymentLedger = require(__hooks + "/payment-ledger-helpers.js")
   var authz = require(__hooks + "/workspace-authorization.js")
   var attendeeLifecycle = require(__hooks + "/attendee-lifecycle-helpers.js")
   var audience = require(__hooks + "/event-audience-helpers.js")
@@ -487,7 +485,7 @@ routerAdd("POST", "/api/admin/events/{id}/registrations/manual", function (e) {
 routerAdd("POST", "/api/admin/registrations/{id}/command", function (e) {
   var helpers = require(__hooks + "/admin-operations-helpers.js")
   var rh = require(__hooks + "/registration-helpers.js")
-  var paymentState = require(__hooks + "/razorpay-payment-state.js")
+  var paymentLedger = require(__hooks + "/payment-ledger-helpers.js")
   var authz = require(__hooks + "/workspace-authorization.js")
   var attendeeLifecycle = require(__hooks + "/attendee-lifecycle-helpers.js")
   var auth = e.auth
@@ -585,14 +583,14 @@ routerAdd("POST", "/api/admin/registrations/{id}/command", function (e) {
           failure = { status: 409, code: "PAYMENT_NOT_PENDING", error: "This registration is not awaiting payment" }
           return
         } else {
-          var existingPayment = paymentState.findLedger(txApp, reg.id)
-          if (existingPayment && existingPayment.getString("provider") === "razorpay" && existingPayment.getString("providerOrderId")) {
-            failure = { status: 409, code: "RAZORPAY_ORDER_EXISTS", error: "A Razorpay order already exists. Reconcile or resolve that online payment instead of manually confirming it." }
+          var existingPayment = paymentLedger.findLatestForRegistration(txApp, reg.id)
+          if (existingPayment && existingPayment.getString("provider") !== "manual" && existingPayment.getString("providerOrderId")) {
+            failure = { status: 409, code: "PROVIDER_PAYMENT_EXISTS", error: "A provider-backed payment already exists. Reconcile or resolve that online payment instead of manually confirming it." }
             return
           }
           var currentPaymentData = helpers.jsonObject(reg.get("paymentData"))
           if (currentPaymentData.provider === "paygate" && currentPaymentData.paymentId) {
-            failure = { status: 409, code: "PAYGATE_PAYMENT_EXISTS", error: "A Kotak/PayGate payment session already exists. Reconcile or resolve that online payment instead of manually confirming it." }
+            failure = { status: 409, code: "PAYGATE_PAYMENT_EXISTS", error: "A PayGate payment session already exists. Reconcile or resolve that online payment instead of manually confirming it." }
             return
           }
           var finalPaise = reg.getInt("finalFeePaise") || ((reg.getInt("amount") || 0) * 100)
@@ -672,15 +670,7 @@ routerAdd("POST", "/api/admin/registrations/{id}/command", function (e) {
           failure = { status: 409, code: "PAYMENT_NOT_PAID", error: "Only a paid registration can be refunded" }
           return
         }
-        var refundPayment = paymentState.findLedger(txApp, reg.id)
-        if (refundPayment && refundPayment.getString("provider") === "razorpay") {
-          failure = {
-            status: 409,
-            code: "RAZORPAY_REFUND_MANUAL_ONLY",
-            error: "Refund this payment in the Razorpay Dashboard. IEEE will update automatically after Razorpay confirms the refund.",
-          }
-          return
-        }
+        var refundPayment = paymentLedger.findLatestForRegistration(txApp, reg.id)
         reg.set("registrationStatus", "cancelled")
         reg.set("paymentStatus", "refunded")
         data.manualReview = false
@@ -717,7 +707,7 @@ routerAdd("POST", "/api/admin/registrations/{id}/command", function (e) {
           note: note,
           previous: data.manualConfirmation,
         }
-        var manualLedger = paymentState.findLedger(txApp, reg.id)
+        var manualLedger = paymentLedger.findLatestForRegistration(txApp, reg.id)
         if (manualLedger && manualLedger.getString("provider") === "manual") {
           manualLedger.set("status", "cancelled")
           manualLedger.set("collectedPaise", 0)
