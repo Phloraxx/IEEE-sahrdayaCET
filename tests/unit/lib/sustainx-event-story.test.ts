@@ -32,8 +32,26 @@ describe("SustainX event story", () => {
     expect(page).toContain("/media/sustainx/sustainx-hero-loop.mp4");
     expect(page).toContain("/media/sustainx/sustainx-01.webp");
     expect(page).toContain("/media/sustainx/sustainx-07.webp");
+    expect(page).toContain("/media/sustainx/sustainx-campaign-teaser.webp");
+    expect(page).toContain("/media/sustainx/sustainx-campaign-registration.webp");
+    expect(page).toContain("/media/sustainx/sustainx-campaign-overview.webp");
+    expect(page).toContain("Registration · 27 Jun — 07 Jul");
+    expect(page).toContain("How SustainX was introduced.");
     expect(page).toContain("The event,<br />not the poster.");
     expect(page).not.toContain("drive.google.com");
+  });
+
+  it("places the campaign sequence between the retrospective intro and event gallery", () => {
+    const page = read("src/components/events/SustainXEventStory.tsx");
+    const intro = page.indexOf("What SustainX became");
+    const campaign = page.indexOf("<CampaignPosters />");
+    const gallery = page.indexOf("<EventGallery />");
+    expect(intro).toBeGreaterThan(-1);
+    expect(campaign).toBeGreaterThan(intro);
+    expect(gallery).toBeGreaterThan(campaign);
+    expect(page).toContain("Swipe the posters →");
+    expect(page).toContain('className="h-full w-full object-contain"');
+    expect(page).toContain('aria-label="SustainX campaign poster viewer"');
   });
 
   it("keeps motion progressive and reduced-motion aware", () => {
