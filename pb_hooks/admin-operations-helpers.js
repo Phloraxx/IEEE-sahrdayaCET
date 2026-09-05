@@ -208,7 +208,7 @@ function projectEventPayload(payload, flags) {
   if (flags.finance && flags.edit) return payload
   var projected = copySnapshotFields(payload, [
     "id", "title", "slug", "date", "endDate", "venue", "status", "price",
-    "registrationOpen", "registrationMode", "checkInEnabled", "maxCapacity",
+    "registrationOpen", "registrationMode", "checkInEnabled", "isArchived", "maxCapacity",
     "registeredCount", "checkedInCount", "society",
   ])
   if (flags.audience) {
@@ -280,6 +280,7 @@ function eventPayload(event) {
     eligibleProgrammes: audience.programmes,
     formTemplate: formTemplate,
     checkInEnabled: event.getBool("checkInEnabled"),
+    isArchived: event.getBool("isDeleted"),
     maxCapacity: event.getInt("maxCapacity") || 0,
     registeredCount: event.getInt("registeredCount") || 0,
     checkedInCount: event.getInt("checkedInCount") || 0,

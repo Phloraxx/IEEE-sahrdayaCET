@@ -366,6 +366,7 @@ export function OperationRow({
   pending,
   sessionAttendanceActive = false,
   eventCheckInActive = true,
+  eventRegistrationActive = true,
   onAction,
   onImmediate,
 }: {
@@ -376,12 +377,13 @@ export function OperationRow({
   pending: boolean;
   sessionAttendanceActive?: boolean;
   eventCheckInActive?: boolean;
+  eventRegistrationActive?: boolean;
   onAction: (action: RegistrationAdminAction, title: string) => void;
   onImmediate: (action: RegistrationAdminAction) => void;
 }) {
   const isPaidCancelled = canViewFinance && row.registrationStatus === "cancelled" && row.paymentStatus === "paid";
   const canConfirm = canViewFinance && Boolean(permissions["finance.manage"]) && row.registrationStatus === "pending" && row.paymentStatus === "pending" && (row.amount ?? 0) > 0 && (!row.providerStatus || row.providerStatus === "not_initialized");
-  const canRestore = Boolean(permissions["registrations.manage"]) && row.registrationStatus === "cancelled";
+  const canRestore = eventRegistrationActive && Boolean(permissions["registrations.manage"]) && row.registrationStatus === "cancelled";
   const canRefund = canViewFinance && Boolean(permissions["finance.manage"]) && row.paymentStatus === "paid";
   const refundTitle = "Record external refund";
   const canReopenManual = canViewFinance && Boolean(permissions["finance.manage"]) && Boolean(row.manualConfirmation) && row.paymentStatus === "paid";

@@ -89,6 +89,7 @@ export interface AdminEventOperations {
     eligibleProgrammes?: string[];
     formTemplate?: Array<{ id: string; name?: string; label: string; type?: string; required?: boolean; options?: string[] }>;
     checkInEnabled: boolean;
+    isArchived: boolean;
     maxCapacity: number;
     registeredCount: number;
     checkedInCount: number;
