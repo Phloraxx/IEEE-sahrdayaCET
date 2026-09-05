@@ -16,28 +16,30 @@ function tone(status: string): "default" | "secondary" | "outline" | "destructiv
   return "outline";
 }
 
-function human(value: string) {
-  return value.replaceAll("_", " ").replace(/\b\w/g, (char) => char.toUpperCase());
+function human(value: string | undefined) {
+  return (value || "draft").replaceAll("_", " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 export function EventWorkflowPanel({
   event,
   permissions,
   pending,
+  canViewFinance = Boolean(permissions["finance.view"] || permissions["finance.manage"]),
   onAction,
 }: {
   event: AdminEventOperations["event"];
   permissions: Record<string, boolean>;
   pending: boolean;
+  canViewFinance?: boolean;
   onAction: (action: WorkflowAction, note?: string) => void;
 }) {
   const [dialog, setDialog] = useState<{ action: WorkflowAction; title: string; required: boolean } | null>(null);
   const [note, setNote] = useState("");
-  const paid = event.price > 0;
-  const approvalReady = event.approvalStatus === "approved";
+  const approvalStatus = event.approvalStatus || "draft";
+  const paid = canViewFinance && (event.price ?? 0) > 0;
+  const approvalReady = approvalStatus === "approved";
   const financeReady = !paid || event.financeApprovalStatus === "approved" || event.financeApprovalStatus === "not_required";
   const canPublish = permissions["events.publish"] && approvalReady && financeReady && event.status !== "published";
-
   const open = (action: WorkflowAction, title: string, required = false) => {
     setNote("");
     setDialog({ action, title, required });
@@ -47,30 +49,27 @@ export function EventWorkflowPanel({
     onAction(dialog.action, note.trim());
     setDialog(null);
   };
-
   return <>
     <Card className="overflow-hidden"><CardContent className="p-6">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
         <div className="max-w-2xl">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground"><ShieldCheck className="h-4 w-4" />Approval workflow</div>
           <h2 className="mt-2 text-lg font-semibold">From proposal to published programme</h2>
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">Organizational approval and finance approval are separate. Paid events require both before publishing. Sensitive edits invalidate approval.</p>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">{canViewFinance ? "Organizational approval and finance approval are separate. Paid events require both before publishing. Sensitive edits invalidate approval." : "Organizational approval moves this event from proposal to published programme. Sensitive edits invalidate approval."}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Badge variant={tone(event.approvalStatus)}>Organisation · {human(event.approvalStatus || "draft")}</Badge>
-          {paid && <Badge variant={tone(event.financeApprovalStatus)}>Finance · {human(event.financeApprovalStatus || "pending")}</Badge>}
-          {!paid && <Badge variant="outline">Finance · Not required</Badge>}
+          <Badge variant={tone(approvalStatus)}>Organisation · {human(approvalStatus)}</Badge>
+          {canViewFinance && paid && <Badge variant={tone(event.financeApprovalStatus ?? "pending")}>Finance · {human(event.financeApprovalStatus || "pending")}</Badge>}
+          {canViewFinance && !paid && <Badge variant="outline">Finance · Not required</Badge>}
         </div>
       </div>
-
-      {(event.approvalNote || event.financeApprovalNote) && <div className="mt-5 grid gap-3 md:grid-cols-2">
+      {(event.approvalNote || (canViewFinance && event.financeApprovalNote)) && <div className="mt-5 grid gap-3 md:grid-cols-2">
         {event.approvalNote && <div className="rounded-xl border border-border bg-muted/25 p-4"><p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Organisation note</p><p className="mt-2 text-sm leading-6">{event.approvalNote}</p></div>}
-        {event.financeApprovalNote && <div className="rounded-xl border border-border bg-muted/25 p-4"><p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Finance note</p><p className="mt-2 text-sm leading-6">{event.financeApprovalNote}</p></div>}
+        {canViewFinance && event.financeApprovalNote && <div className="rounded-xl border border-border bg-muted/25 p-4"><p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Finance note</p><p className="mt-2 text-sm leading-6">{event.financeApprovalNote}</p></div>}
       </div>}
-
       <div className="mt-5 flex flex-wrap gap-2 border-t border-border pt-5">
-        {permissions["events.submit"] && ["draft", "changes_requested"].includes(event.approvalStatus) && <Button size="sm" className="gap-2" disabled={pending} onClick={() => open("submit", "Submit event for review")}><Send className="h-4 w-4" />Submit for review</Button>}
-        {permissions["events.approve"] && event.approvalStatus === "submitted" && <>
+        {permissions["events.submit"] && ["draft", "changes_requested"].includes(approvalStatus) && <Button size="sm" className="gap-2" disabled={pending} onClick={() => open("submit", "Submit event for review")}><Send className="h-4 w-4" />Submit for review</Button>}
+        {permissions["events.approve"] && approvalStatus === "submitted" && <>
           <Button size="sm" className="gap-2" disabled={pending} onClick={() => open("approve", "Approve event")}><CheckCircle2 className="h-4 w-4" />Approve</Button>
           <Button size="sm" variant="outline" disabled={pending} onClick={() => open("request_changes", "Request changes", true)}>Request changes</Button>
         </>}

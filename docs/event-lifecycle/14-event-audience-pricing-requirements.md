@@ -256,22 +256,22 @@ Request may include membership claim/ID and optional coupon code. Response retur
 
 Keep `/coupon-preview` temporarily for compatibility, but migrate `RegisterPage` to the unified pricing preview. Final registration always recalculates inside its SQLite transaction.
 
-### 7.3 Payment-provider constraints
+### 7.3 PayGate v4 payment constraints
 
-Kotak/PayGate currently requires a whole-rupee final amount because the verification fingerprint uses the paise suffix.
+PayGate v4 requires the requested registration amount to be a whole rupee; PayGate then assigns the verification adjustment used for reconciliation.
 
-Therefore the event editor must validate every enabled discount path for Kotak:
+Therefore the event editor must validate every enabled discount path for PayGate:
 
 - regular fee;
 - IEEE member fee;
 - each active coupon fee.
 
-If any final amount would contain paise, block save/finance submission with an actionable message. Razorpay may continue to support paise amounts.
+If any final amount would contain paise, block save/finance submission with an actionable message before a PayGate payment can be created.
 
 Examples:
 
-- ₹200 with 20% member discount -> ₹160: valid for Kotak.
-- ₹199 with 20% member discount -> ₹159.20: invalid for Kotak; organizer must change fee/discount or use Razorpay.
+- ₹200 with 20% member discount -> ₹160: valid for PayGate.
+- ₹199 with 20% member discount -> ₹159.20: invalid for PayGate; organizer must change the fee or discount.
 
 ### 7.4 Membership verification limitation
 
@@ -331,7 +331,7 @@ For paid internal events add an `IEEE member pricing` card:
 - enabling it automatically enables `collectIeeeMember`;
 - show regular fee and calculated member fee side-by-side;
 - explain that coupons and member pricing do not stack and the better price is used;
-- validate Kotak whole-rupee compatibility immediately.
+- validate PayGate whole-rupee compatibility immediately.
 
 Member-discount changes must be included in finance-sensitive impact detection so prior finance approval returns to review.
 
@@ -614,8 +614,7 @@ Pricing helper:
 - IEEE member price wins;
 - equal discount chooses IEEE member source;
 - 100% discount creates free confirmed registration;
-- Kotak whole-rupee valid/invalid cases;
-- Razorpay paise case remains valid.
+- PayGate whole-rupee valid/invalid cases;
 
 ### 19.2 Fresh PocketBase backend smoke
 
@@ -651,7 +650,7 @@ Add focused Playwright coverage for the real user flow:
 11. ticket still renders if private-resource fetch fails;
 12. social links point to the centralized canonical URLs.
 
-Do not contact real Razorpay/Kotak/WhatsApp services in E2E. Reuse existing fake PayGate and local payment fixtures.
+Do not contact real PayGate/WhatsApp services in E2E. Reuse the local fake PayGate v4 service and payment fixtures.
 
 ### 19.4 Regression gates
 
@@ -664,8 +663,7 @@ Every implementation PR must continue to pass:
 - production client + SSR build;
 - fresh PocketBase backend invariants;
 - 200-recipient certificate scale;
-- Razorpay integration smoke;
-- temporary Kotak PayGate smoke;
+- PayGate v4 integration smoke;
 - Browser E2E;
 - web + PocketBase container builds;
 - `git diff --check`.
@@ -706,7 +704,7 @@ Keep changes reviewable. Do not implement this as one giant PR.
 - RegisterPage pricing preview;
 - discount-source snapshots;
 - coupon/member better-price precedence;
-- Kotak whole-rupee editor/server validation;
+- PayGate whole-rupee editor/server validation;
 - finance-sensitive workflow classification;
 - pricing/backend/payment E2E tests.
 
@@ -822,9 +820,9 @@ Do not expand scope into:
 **Risk:** migration unexpectedly blocks old events.
 **Safeguard:** empty eligibility arrays mean unrestricted; zero member discount preserves current pricing.
 
-### Kotak fractional pricing
+### PayGate fractional pricing
 
-**Risk:** a percentage discount produces a paise amount incompatible with temporary PayGate.
+**Risk:** a percentage discount produces a paise amount incompatible with PayGate v4 requested-amount rules.
 **Safeguard:** validate all discount paths in editor and again server-side.
 
 ## 25. Definition of done
@@ -839,7 +837,7 @@ This project is complete only when all of the following are true:
 - [ ] IEEE-member discount is configured per event and uses Membership ID claim.
 - [ ] Coupon/member discounts do not stack; better price wins consistently.
 - [ ] Pricing preview and final transaction use one server calculation.
-- [ ] Kotak invalid fractional outcomes are blocked before payment creation.
+- [ ] PayGate-invalid fractional outcomes are blocked before payment creation.
 - [ ] Requirements and attendee note appear before registration and on ticket.
 - [ ] WhatsApp group is private to confirmed attendees.
 - [ ] Public ticket lookup contains no attendee-only links or PII expansion.

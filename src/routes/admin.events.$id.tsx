@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -72,13 +72,30 @@ import { runEventWorkflow } from "@/lib/data/workspace.client";
 type Tab = "overview" | "attendees" | "attendance" | "payments" | "coupons" | "certificates" | "team" | "activity";
 const VALID_TABS: Tab[] = ["overview", "attendees", "attendance", "payments", "coupons", "certificates", "team", "activity"];
 
+function allowedTabsForPermissions(permissions: Record<string, boolean>): Tab[] {
+  return [
+    "overview",
+    ...(permissions["registrations.view"] ? ["attendees" as const] : []),
+    ...(permissions["events.edit"] || permissions["checkin.manage"] ? ["attendance" as const] : []),
+    ...(permissions["finance.view"] || permissions["finance.manage"] ? ["payments" as const] : []),
+    ...(permissions["events.edit"] ? ["coupons" as const] : []),
+    ...(permissions["certificates.view"] ? ["certificates" as const] : []),
+    ...(permissions["assignments.manage"] ? ["team" as const] : []),
+    ...(permissions["reports.view"] ? ["activity" as const] : []),
+  ];
+}
+
+function isTab(value: string | null): value is Tab {
+  return value !== null && VALID_TABS.includes(value as Tab);
+}
+
 export default function AdminEventOperationsRoute() {
   const { id = "" } = useParams();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
-  const requestedTab = searchParams.get("tab") as Tab | null;
-  const tab: Tab = requestedTab && VALID_TABS.includes(requestedTab) ? requestedTab : "overview";
+  const requestedTab = searchParams.get("tab");
+  const tab: Tab = isTab(requestedTab) ? requestedTab : "overview";
   const setTab = (next: Tab) => {
     const params = new URLSearchParams(searchParams);
     if (next === "overview") params.delete("tab"); else params.set("tab", next);
@@ -99,8 +116,19 @@ export default function AdminEventOperationsRoute() {
     enabled: Boolean(id),
     refetchInterval: tab === "overview" || tab === "payments" ? 20_000 : false,
   });
+  const permissions = operations.data?.permissions ?? {};
+  const canViewFinance = Boolean(permissions["finance.view"] || permissions["finance.manage"]);
+  const allowedTabs = allowedTabsForPermissions(permissions);
+  const activeTab: Tab = isTab(requestedTab) && allowedTabs.includes(requestedTab) ? requestedTab : "overview";
+  useEffect(() => {
+    if (!operations.data || requestedTab === activeTab) return;
+    const params = new URLSearchParams(searchParams);
+    if (activeTab === "overview") params.delete("tab");
+    else params.set("tab", activeTab);
+    setSearchParams(params, { replace: true });
+  }, [activeTab, operations.data, requestedTab, searchParams, setSearchParams]);
   const registrations = useQuery({
-    queryKey: ["admin-event-registrations", id, search, registrationStatus, paymentStatus, attendeePage],
+    queryKey: ["admin-event-registrations", id, search, registrationStatus, paymentStatus, attendeePage, canViewFinance],
     queryFn: () => listAdminRegistrations({
       page: attendeePage,
       perPage: 40,
@@ -108,8 +136,9 @@ export default function AdminEventOperationsRoute() {
       search,
       status: registrationStatus,
       paymentStatus,
+      financeAuthorized: canViewFinance,
     }),
-    enabled: Boolean(id) && tab === "attendees",
+    enabled: Boolean(id) && activeTab === "attendees",
   });
 
   const invalidate = () => {
@@ -209,6 +238,7 @@ export default function AdminEventOperationsRoute() {
     try {
       const stream = await streamRegistrationsCSV(getPbClient(), id, {
         adminFormat: true,
+        financeAuthorized: canViewFinance,
         event: { id, title: data.event.title },
       });
       const blob = await new Response(stream).blob();
@@ -232,17 +262,31 @@ export default function AdminEventOperationsRoute() {
   }
 
   const { event, summary } = operations.data;
-  const permissions = operations.data.permissions ?? {};
   const isPlatformAdmin = user?.role === "admin";
+  const canViewWorkflow = Boolean(
+    permissions["events.edit"] ||
+    permissions["events.submit"] ||
+    permissions["events.approve"] ||
+    permissions["events.publish"] ||
+    permissions["events.cancel"] ||
+    permissions["events.archive"] ||
+    permissions["events.complete"],
+  );
   const eventFull = event.maxCapacity > 0 && summary.active >= event.maxCapacity;
-  const sessionAttendanceActive = operations.data.attendance?.mode === "sessions";
+  const waitlist = operations.data.waitlist ?? { waiting: 0, offered: 0, reserved: 0 };
+  const attendance = operations.data.attendance;
+  const attention = canViewFinance ? operations.data.attention ?? [] : [];
+  const cancellationRequests = canViewFinance ? operations.data.cancellationRequests ?? [] : [];
+  const coupons = operations.data.coupons ?? [];
+  const audit = operations.data.audit ?? [];
+  const sessionAttendanceActive = attendance?.mode === "sessions";
   const capacityPct = event.maxCapacity > 0 ? Math.min(100, Math.round((summary.active / event.maxCapacity) * 100)) : 0;
   const tabs: Array<{ id: Tab; label: string; count?: number }> = [
     { id: "overview", label: "Overview" },
     ...(permissions["registrations.view"] ? [{ id: "attendees" as Tab, label: "Attendees", count: summary.active }] : []),
-    ...(permissions["events.edit"] || permissions["checkin.manage"] ? [{ id: "attendance" as Tab, label: "Attendance", count: operations.data.attendance?.sessionCount || undefined }] : []),
-    ...(permissions["finance.view"] ? [{ id: "payments" as Tab, label: "Payments", count: summary.paidCount }] : []),
-    ...(permissions["events.edit"] ? [{ id: "coupons" as Tab, label: "Coupons", count: operations.data.coupons.length }] : []),
+    ...(permissions["events.edit"] || permissions["checkin.manage"] ? [{ id: "attendance" as Tab, label: "Attendance", count: attendance?.sessionCount || undefined }] : []),
+    ...(canViewFinance ? [{ id: "payments" as Tab, label: "Payments", count: summary.paidCount ?? 0 }] : []),
+    ...(permissions["events.edit"] ? [{ id: "coupons" as Tab, label: "Coupons", count: coupons.length }] : []),
     ...(permissions["certificates.view"] ? [{ id: "certificates" as Tab, label: "Certificates" }] : []),
     ...(permissions["assignments.manage"] ? [{ id: "team" as Tab, label: "Event team" }] : []),
     ...(permissions["reports.view"] ? [{ id: "activity" as Tab, label: "Activity" }] : []),
@@ -257,11 +301,11 @@ export default function AdminEventOperationsRoute() {
             <div className="min-w-0 max-w-3xl">
               <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge status={event.status} kind="event" />
-                <span className="rounded-full border border-border bg-background/60 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  {event.price > 0
-                    ? `${money(event.price)} · ${event.paymentProvider === "kotak" ? "Kotak direct UPI" : "Razorpay"}`
+                {canViewFinance && <span className="rounded-full border border-border bg-background/60 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {event.price && event.price > 0
+                    ? `${money(event.price)} · PayGate UPI`
                     : "Free event"}
-                </span>
+                </span>}
                 <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${event.registrationOpen ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>
                   Registration {event.registrationOpen ? "open" : "closed"}
                 </span>
@@ -294,7 +338,6 @@ export default function AdminEventOperationsRoute() {
               )}
             </div>
           </div>
-
           {event.maxCapacity > 0 && (
             <div className="mt-7 max-w-xl">
               <div className="mb-2 flex items-center justify-between text-xs">
@@ -308,13 +351,13 @@ export default function AdminEventOperationsRoute() {
           )}
         </div>
       </div>
-
-      <EventWorkflowPanel
+      {canViewWorkflow && <EventWorkflowPanel
         event={event}
         permissions={permissions}
         pending={workflowMutation.isPending}
+        canViewFinance={canViewFinance}
         onAction={(action, note) => workflowMutation.mutate({ action, note })}
-      />
+      />}
 
       <div className="flex gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1">
         {tabs.map((item) => (
@@ -323,14 +366,14 @@ export default function AdminEventOperationsRoute() {
             type="button"
             onClick={() => setTab(item.id)}
             className={`inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors ${
-              tab === item.id
+              activeTab === item.id
                 ? "bg-foreground text-background shadow-sm"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
             }`}
           >
             {item.label}
             {item.count !== undefined && (
-              <span className={`rounded-full px-1.5 py-0.5 font-mono text-[10px] ${tab === item.id ? "bg-background/15" : "bg-muted"}`}>
+              <span className={`rounded-full px-1.5 py-0.5 font-mono text-[10px] ${activeTab === item.id ? "bg-background/15" : "bg-muted"}`}>
                 {item.count}
               </span>
             )}
@@ -338,16 +381,19 @@ export default function AdminEventOperationsRoute() {
         ))}
       </div>
 
-      {tab === "overview" && (
+      {activeTab === "overview" && (
         <div className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <OpsMetric label="Active seats" value={summary.active} detail={`${summary.confirmed} confirmed · ${summary.pending} pending${operations.data.waitlist.reserved ? ` · ${operations.data.waitlist.reserved} waitlist reserved` : ""}`} icon={Users} />
-            <OpsMetric label="Recorded collected" value={money(summary.paidAmount)} detail={`${summary.paidCount} paid records`} icon={Banknote} />            <OpsMetric label="Manual confirmations" value={money(summary.manualPaidAmount)} detail={`${summary.manualPaidCount} admin-confirmed`} icon={BadgeCheck} />
-            <OpsMetric label="Needs attention" value={operations.data.attention.length} detail={`${summary.cancelledPaidCount} paid + cancelled`} icon={AlertTriangle} />
+          <div className={`grid gap-4 sm:grid-cols-2 ${canViewFinance ? "xl:grid-cols-4" : "xl:grid-cols-1"}`}>
+            <OpsMetric label="Active seats" value={summary.active} detail={`${summary.confirmed} confirmed · ${summary.pending} pending${waitlist.reserved ? ` · ${waitlist.reserved} waitlist reserved` : ""}`} icon={Users} />
+            {canViewFinance && <>
+              <OpsMetric label="Recorded collected" value={money(summary.paidAmount ?? 0)} detail={`${summary.paidCount ?? 0} paid records`} icon={Banknote} />
+              <OpsMetric label="Manual confirmations" value={money(summary.manualPaidAmount ?? 0)} detail={`${summary.manualPaidCount ?? 0} admin-confirmed`} icon={BadgeCheck} />
+              <OpsMetric label="Needs attention" value={attention.length} detail={`${summary.cancelledPaidCount ?? 0} paid + cancelled`} icon={AlertTriangle} />
+            </>}
           </div>
 
-          <div className="grid gap-6 xl:grid-cols-[1.4fr_0.8fr]">
-            <Card>
+          <div className={`grid gap-6 ${canViewFinance ? "xl:grid-cols-[1.4fr_0.8fr]" : ""}`}>
+            {canViewFinance && <Card>
               <CardContent className="p-6">
                 <PanelHeader
                   eyebrow="Attention queue"
@@ -355,15 +401,16 @@ export default function AdminEventOperationsRoute() {
                   description="Financial or registration states that should not disappear inside a generic list."
                 />
                 <div className="mt-5 space-y-2">
-                  {operations.data.attention.length === 0 ? (
+                  {attention.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
                       No unresolved registration or payment states.
                     </div>
-                  ) : operations.data.attention.slice(0, 8).map((row) => (
+                  ) : attention.slice(0, 8).map((row) => (
                     <OperationRow
                       key={row.id}
                       row={row}
                       permissions={permissions}
+                      canViewFinance={canViewFinance}
                       compact
                       pending={actionMutation.isPending}
                       sessionAttendanceActive={sessionAttendanceActive}
@@ -373,24 +420,26 @@ export default function AdminEventOperationsRoute() {
                   ))}
                 </div>
               </CardContent>
-            </Card>            <Card>
+            </Card>}
+
+            <Card>
               <CardContent className="p-6">
                 <PanelHeader eyebrow="Controls" title="Event operations" description="Safe recovery actions, all server-side." />
                 <div className="mt-5 grid gap-3">
-                  <Button variant="outline" className="justify-start gap-3" onClick={() => setTab("attendees")}>
+                  {permissions["registrations.view"] && <Button variant="outline" className="justify-start gap-3" onClick={() => setTab("attendees")}>
                     <ClipboardList className="h-4 w-4" /> Open attendee register
-                  </Button>
+                  </Button>}
                   {(permissions["events.edit"] || permissions["checkin.manage"]) && (
                     <Button variant="outline" className="justify-start gap-3" onClick={() => setTab("attendance")}>
                       <UserCheck className="h-4 w-4" /> Open attendance console
                     </Button>
                   )}
-                  <Button variant="outline" className="justify-start gap-3" onClick={() => setTab("payments")}>
+                  {canViewFinance && <Button variant="outline" className="justify-start gap-3" onClick={() => setTab("payments")}>
                     <WalletCards className="h-4 w-4" /> Open payment desk
-                  </Button>
-                  <Button variant="outline" className="justify-start gap-3" onClick={() => void exportRegistrations()}>
+                  </Button>}
+                  {permissions["registrations.view"] && <Button variant="outline" className="justify-start gap-3" onClick={() => void exportRegistrations()}>
                     <Download className="h-4 w-4" /> Export registrations CSV
-                  </Button>
+                  </Button>}
                   {isPlatformAdmin && (
                     <ConfirmButton
                       label="Recompute counters"
@@ -403,25 +452,28 @@ export default function AdminEventOperationsRoute() {
                     />
                   )}
                 </div>
-                <p className="mt-5 rounded-xl bg-muted/40 p-3 text-xs leading-relaxed text-muted-foreground">
+                {canViewFinance && <p className="mt-5 rounded-xl bg-muted/40 p-3 text-xs leading-relaxed text-muted-foreground">
                   {operations.data.financeDisclaimer}
-                </p>
+                </p>}
               </CardContent>
             </Card>
-          </div>
-        </div>
-      )}      {tab === "attendees" && (
+              </div>
+            </div>
+      )}      {activeTab === "attendees" && (
         <Card>
           <CardContent className="p-6">
             <PanelHeader
               eyebrow="Attendee register"
               title="Everyone attached to this event"
-              description={sessionAttendanceActive
-                ? "Search, filter, inspect, cancel, restore, or resolve payment state. Session check-in is managed from the Attendance tab."
-                : "Search, filter, inspect, check in, cancel, restore, or resolve payment state."}
-              actions={permissions["registrations.manual"] ? <Button size="sm" className="gap-2" onClick={() => setManualOpen(true)}><Plus className="h-4 w-4" />Add attendee</Button> : undefined}
+              description={canViewFinance
+                ? (sessionAttendanceActive
+                  ? "Search, filter, inspect, cancel, restore, or resolve payment state. Session check-in is managed from the Attendance tab."
+                  : "Search, filter, inspect, check in, cancel, restore, or resolve payment state.")
+                : (sessionAttendanceActive
+                  ? "Search, inspect, and manage registrations. Session check-in is managed from the Attendance tab."
+                  : "Search, inspect, and manage registrations.")}
             />
-            <div className="mt-5 grid gap-3 md:grid-cols-[1fr_170px_170px]">
+            <div className={`mt-5 grid gap-3 ${canViewFinance ? "md:grid-cols-[1fr_170px_170px]" : "md:grid-cols-[1fr_170px]"}`}>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input value={search} onChange={(e) => { setSearch(e.target.value); setAttendeePage(1); }} placeholder="Search name, email, phone or ticket" className="pl-9" />
@@ -435,7 +487,7 @@ export default function AdminEventOperationsRoute() {
                   <SelectItem value="cancelled">Cancelled</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={paymentStatus} onValueChange={(value) => { setPaymentStatus(value); setAttendeePage(1); }}>
+              {canViewFinance && <Select value={paymentStatus} onValueChange={(value) => { setPaymentStatus(value); setAttendeePage(1); }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All payment states</SelectItem>                  <SelectItem value="paid">Paid</SelectItem>
@@ -443,7 +495,7 @@ export default function AdminEventOperationsRoute() {
                   <SelectItem value="failed">Failed</SelectItem>
                   <SelectItem value="not_required">Not required</SelectItem>
                 </SelectContent>
-              </Select>
+              </Select>}
             </div>
             <div className="mt-5 space-y-2">
               {registrations.isLoading ? (
@@ -454,6 +506,7 @@ export default function AdminEventOperationsRoute() {
                     key={row.id}
                     row={row}
                     permissions={permissions}
+                    canViewFinance={canViewFinance}
                     pending={actionMutation.isPending}
                     sessionAttendanceActive={sessionAttendanceActive}
                     onAction={(action, title) => setResolution({ row, action, title })}
@@ -479,7 +532,7 @@ export default function AdminEventOperationsRoute() {
         </Card>
       )}
 
-      {tab === "attendance" && (
+      {activeTab === "attendance" && (
         <AttendanceSessionPanel
           eventId={id}
           eventStart={event.date}
@@ -490,13 +543,13 @@ export default function AdminEventOperationsRoute() {
         />
       )}
 
-      {tab === "payments" && (
+      {activeTab === "payments" && (
         <div className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <OpsMetric label="Collected" value={money(summary.paidAmount)} detail={`${summary.paidCount} paid records`} icon={Banknote} />
-            <OpsMetric label="Provider confirmed" value={money(summary.providerPaidAmount)} detail={`${summary.providerPaidCount} online/provider`} icon={CheckCircle2} />
-            <OpsMetric label="Manual confirmed" value={money(summary.manualPaidAmount)} detail={`${summary.manualPaidCount} admin overrides`} icon={BadgeCheck} />
-            <OpsMetric label="Pending" value={money(summary.pendingPaymentAmount)} detail={`${summary.pendingPaymentCount} awaiting payment`} icon={History} />
+            <OpsMetric label="Collected" value={money(summary.paidAmount ?? 0)} detail={`${summary.paidCount ?? 0} paid records`} icon={Banknote} />
+            <OpsMetric label="Provider confirmed" value={money(summary.providerPaidAmount ?? 0)} detail={`${summary.providerPaidCount ?? 0} online/provider`} icon={CheckCircle2} />
+            <OpsMetric label="Manual confirmed" value={money(summary.manualPaidAmount ?? 0)} detail={`${summary.manualPaidCount ?? 0} admin overrides`} icon={BadgeCheck} />
+            <OpsMetric label="Pending" value={money(summary.pendingPaymentAmount ?? 0)} detail={`${summary.pendingPaymentCount ?? 0} awaiting payment`} icon={History} />
           </div>
           <Card>
             <CardContent className="p-6">
@@ -506,7 +559,7 @@ export default function AdminEventOperationsRoute() {
                 description="Accepting records finance intent only. The registration remains financially valid until the existing payment rail confirms or records the refund."
               />
               <div className="mt-5 space-y-3">
-                {operations.data.cancellationRequests.length ? operations.data.cancellationRequests.map((item) => {
+                {cancellationRequests.length ? cancellationRequests.map((item) => {
                   const row = item.registration;
                   const accepted = item.request.status === "accepted";
                   return (
@@ -515,14 +568,13 @@ export default function AdminEventOperationsRoute() {
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wider ${accepted ? "bg-emerald-500/10 text-emerald-700" : "bg-amber-500/10 text-amber-700"}`}>{accepted ? "Accepted · refund pending" : "Needs decision"}</span>
-                            {row && <ProviderPill provider={row.provider} />}
+                            {row && <ProviderPill provider={row.provider ?? "unknown"} />}
                             <span className="text-xs text-muted-foreground">Requested {formatDateTime(item.request.requestedAt)}</span>
                           </div>
                           <p className="mt-3 text-sm font-semibold">{row?.userName || "Attendee"}</p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">{row?.userEmail || "Registration record unavailable"}{row ? ` · ${money(row.amount)}` : ""}</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">{row?.userEmail || "Registration record unavailable"}{row && row.amount !== undefined ? ` · ${money(row.amount)}` : ""}</p>
                           {item.request.reason && <p className="mt-3 max-w-2xl text-sm leading-6 text-foreground/75"><strong>Reason:</strong> {item.request.reason}</p>}
-                          {accepted && row?.provider === "razorpay" && <p className="mt-3 max-w-2xl text-xs leading-5 text-muted-foreground">Process the refund in the Razorpay Dashboard. IEEE will close this request when provider reconciliation reports the payment as refunded.</p>}
-                          {accepted && row && row.provider !== "razorpay" && <p className="mt-3 max-w-2xl text-xs leading-5 text-muted-foreground">Record the completed external refund below only after the money has actually been returned.</p>}
+                          {accepted && row && <p className="mt-3 max-w-2xl text-xs leading-5 text-muted-foreground">Record the completed external refund below only after the money has actually been returned.</p>}
                         </div>
                         <div className="flex shrink-0 flex-wrap gap-2">
                           {row && <Button variant="outline" size="sm" asChild><Link to={`/admin/registrations/${row.id}`}>Open registration</Link></Button>}
@@ -532,7 +584,7 @@ export default function AdminEventOperationsRoute() {
                               <Button variant="outline" size="sm" disabled={cancellationDecisionMutation.isPending} onClick={() => setCancellationDecision({ item, action: "decline" })}>Decline</Button>
                             </>
                           )}
-                          {accepted && row && row.provider !== "razorpay" && row.paymentStatus === "paid" && permissions["finance.manage"] && (
+                          {accepted && row && row.paymentStatus === "paid" && permissions["finance.manage"] && (
                             <Button variant="destructive" size="sm" onClick={() => setResolution({ row, action: "mark-refunded", title: "Record attendee refund" })}>Record refund</Button>
                           )}
                         </div>
@@ -553,12 +605,13 @@ export default function AdminEventOperationsRoute() {
                 description="Paid-but-cancelled, manual review and pending-payment records stay visible until resolved."
               />
               <div className="mt-5 space-y-2">
-                {operations.data.attention.filter((row) => row.amount > 0).length ? (
-                  operations.data.attention.filter((row) => row.amount > 0).map((row) => (
+                {attention.filter((row) => (row.amount ?? 0) > 0).length ? (
+                  attention.filter((row) => (row.amount ?? 0) > 0).map((row) => (
                     <OperationRow
                       key={row.id}
                       row={row}
                       permissions={permissions}
+                      canViewFinance={canViewFinance}
                       pending={actionMutation.isPending}
                       sessionAttendanceActive={sessionAttendanceActive}
                       onAction={(action, title) => setResolution({ row, action, title })}
@@ -574,14 +627,14 @@ export default function AdminEventOperationsRoute() {
             <CardContent className="p-6">
               <PanelHeader eyebrow="Breakdown" title="By payment rail" description="Recorded registration amounts, not a live bank balance." />
               <div className="mt-5 grid gap-3 md:grid-cols-3">
-                {Object.entries(summary.providers).map(([provider, values]) => (
+                {Object.entries(summary.providers ?? {}).map(([provider, values]) => (
                   <div key={provider} className="rounded-xl border border-border bg-muted/20 p-4">
                     <ProviderPill provider={provider} />
                     <p className="mt-3 font-mono text-xl font-semibold tabular-nums">{money(values.amount)}</p>
                     <p className="mt-1 text-xs text-muted-foreground">{values.paidCount} paid · {values.count} total records</p>
                   </div>
                 ))}
-                {Object.keys(summary.providers).length === 0 && (
+                {Object.keys(summary.providers ?? {}).length === 0 && (
                   <p className="text-sm text-muted-foreground">No payment records yet.</p>
                 )}
               </div>
@@ -593,11 +646,11 @@ export default function AdminEventOperationsRoute() {
         </div>
       )}
 
-      {tab === "coupons" && (
+      {activeTab === "coupons" && (
         <Card>
           <CardContent className="p-6">
             <PanelHeader eyebrow="Coupons" title="Discount controls" description="Coupon creation and editing stays in Event Settings; usage is derived from active registrations." actions={<Button variant="outline" size="sm" asChild><Link to={`/admin/events/${event.id}/edit`}>Manage coupons</Link></Button>} />            <div className="mt-5 overflow-hidden rounded-xl border border-border">
-              {operations.data.coupons.length ? operations.data.coupons.map((coupon) => (
+              {coupons.length ? coupons.map((coupon) => (
                 <div key={coupon.id} className="grid gap-3 border-b border-border px-4 py-3 last:border-b-0 md:grid-cols-[1fr_120px_140px_130px] md:items-center">
                   <div>
                     <p className="font-mono text-sm font-semibold">{coupon.code}</p>
@@ -615,7 +668,7 @@ export default function AdminEventOperationsRoute() {
         </Card>
       )}
 
-      {tab === "certificates" && (
+      {activeTab === "certificates" && (
         <CertificateTemplatePanel
           eventId={id}
           canView={Boolean(permissions["certificates.view"])}
@@ -626,16 +679,16 @@ export default function AdminEventOperationsRoute() {
         />
       )}
 
-      {tab === "team" && (
+      {activeTab === "team" && (
         <EventTeamPanel eventId={id} societyId={event.society} canManage={Boolean(permissions["assignments.manage"])} />
       )}
 
-      {tab === "activity" && (
+      {activeTab === "activity" && (
         <Card>
           <CardContent className="p-6">
             <PanelHeader eyebrow="Audit trail" title="Manual operations" description="Admin actions are stored separately from provider/payment truth." />
             <div className="mt-5 space-y-2">
-              {operations.data.audit.length ? operations.data.audit.map((entry) => (
+              {audit.length ? audit.map((entry) => (
                 <div key={entry.id} className="flex gap-3 rounded-xl border border-border p-4">
                   <div className="mt-0.5 rounded-lg bg-muted p-2"><History className="h-4 w-4 text-muted-foreground" /></div>
                   <div className="min-w-0 flex-1">
@@ -651,15 +704,15 @@ export default function AdminEventOperationsRoute() {
                 <div className="rounded-xl border border-dashed border-border px-4 py-12 text-center text-sm text-muted-foreground">No manual audit entries yet.</div>
               )}
             </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
       )}      <ManualRegistrationDialog
         open={manualOpen}
         onOpenChange={setManualOpen}
-        eventPrice={event.price}
+        eventPrice={event.price ?? 0}
         eventFull={eventFull}
-        eligibleSemesters={event.eligibleSemesters}
-        eligibleProgrammes={event.eligibleProgrammes}
+        eligibleSemesters={event.eligibleSemesters ?? []}
+        eligibleProgrammes={event.eligibleProgrammes ?? []}
         pending={manualMutation.isPending}
         onSubmit={(form) => manualMutation.mutate(form)}
       />

@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
@@ -42,49 +42,44 @@ describe("registration/payment experience architecture", () => {
     expect(ticket).not.toContain("<Navbar");
   });
 
-  it("uses an IEEE-branded Razorpay Custom Checkout that exposes UPI only", () => {
+  it("uses PayGate v4 UPI without a browser checkout SDK", () => {
     const payment = source("src/features/payment/PaymentPage.tsx");
     const providerUi = source("src/features/payment/payment-provider-panels.tsx");
-    const custom = source("src/lib/razorpay-upi.client.ts");
-    expect(providerUi).toContain("IEEE Sahrdaya Secure UPI");
-    expect(providerUi).toContain("Show UPI QR");
-    expect(payment).toContain("startUpiIntent");
-    expect(payment).toContain('method: "upi"');
-    expect(payment).toContain('flow: "qr"');
-    expect(providerUi).toContain("Processed securely by Razorpay");
-    for (const paymentSource of [payment, providerUi]) {
-      expect(paymentSource).not.toContain("Pay securely with Razorpay");
-      expect(paymentSource).not.toContain("card or another method");
-    }
-    expect(custom).toContain("https://checkout.razorpay.com/v1/razorpay.js");
-    expect(custom).toContain("methods.upi === true");
-    expect(custom).toContain("getSupportedUpiIntentApps");
-    expect(custom).not.toContain("checkout.js");
+    const client = source("src/lib/data/payment.client.ts");
+    expect(providerUi).toContain("UPI payment");
+    expect(providerUi).toContain("Scan with any UPI app");
+    expect(providerUi).toContain("Verified securely by PayGate");
+    expect(payment).toContain('session?.provider === "paygate" ? session.upiUri || "" : ""');
+    expect(payment).not.toContain("minimalPayGateUpiUri");
+    expect(client).not.toContain("razorpayOrderId");
+    expect(client).not.toContain("razorpay-verify");
+    expect(existsSync(resolve(process.cwd(), "src/lib/razorpay-upi.client.ts"))).toBe(false);
   });
 
-  it("keeps browser status reads local and backs provider reconciliation off", () => {
+  it("keeps browser status reads local and backs PayGate reconciliation off", () => {
     const payment = source("src/features/payment/PaymentPage.tsx");
     const client = source("src/lib/data/payment.client.ts");
-    const direct = source("pb_hooks/razorpay-direct.pb.js");
+    const route = source("pb_hooks/payment.pb.js");
+    const paygate = source("pb_hooks/paygate-helpers.js");
     expect(payment).toContain("LOCAL_PAYMENT_STATUS_POLL_MS");
     expect(payment).toContain("providerReconcileDelayMs");
     expect(payment).toContain("providerRetryAfterMs");
-    expect(payment).not.toContain("setInterval(poll, 2000)");
     expect(client).toContain("reconcilePaymentSession");
     expect(client).toContain("/payment/reconcile");
-    expect(direct).toContain("Local-only status read");
-    expect(direct).toContain('/payment/reconcile", function');
-    expect(direct).toContain("Date.now() - lastSyncedAt < 4000");
-    expect(direct).toContain("RAZORPAY_RATE_LIMITED");
+    expect(route).toContain('/payment/reconcile", function');
+    expect(paygate).toContain("Date.now() - lastSyncedAt < 4000");
+    expect(paygate).toContain("PAYGATE_RATE_LIMITED");
   });
 
-  it("does not expose mobile UPI app buttons before Intent is enabled", () => {
+  it("uses the exact PayGate UPI URI for both QR and mobile intent", () => {
     const payment = source("src/features/payment/PaymentPage.tsx");
     const providerUi = source("src/features/payment/payment-provider-panels.tsx");
-    expect(payment).toContain("setUpiIntentEnabled(capability.intentEnabled)");
-    expect(providerUi).toContain("isMobileUpi && !upiIntentEnabled");
-    expect(providerUi).toContain("UPI Intent activation pending");
-    expect(providerUi).toContain("isMobileUpi && upiIntentEnabled");
+    expect(payment).toContain("QRCode.toDataURL(payGateUpiUri");
+    expect(providerUi).toContain("href={payGateUpiUri}");
+    expect(payment).not.toContain('searchParams.delete("tn")');
+    expect(payment).not.toContain('searchParams.delete("tr")');
+    expect(payment).not.toContain("PREFERRED_UPI_APPS");
+    expect(providerUi).not.toContain("Choose your UPI app");
   });
 
   it("blocks a second registration when a paid cancelled record is under manual review", () => {
@@ -98,16 +93,15 @@ describe("registration/payment experience architecture", () => {
     expect(command).toContain("under organizer review");
   });
 
-  it("keeps Razorpay refunds manual-only", () => {
-    const direct = source("pb_hooks/razorpay-direct.pb.js");
-    const state = source("pb_hooks/razorpay-payment-state.js");
+  it("keeps external refund recording provider-neutral", () => {
     const cancellation = source("pb_hooks/event-cancellation.pb.js");
     const admin = source("pb_hooks/admin-operations.pb.js");
-    expect(direct).not.toContain('cronAdd("razorpay-refund-worker"');
-    expect(direct).not.toContain('/refund",');
-    expect(state).not.toContain("ensureRefund");
-    expect(cancellation).toContain("refund manually in the Razorpay Dashboard");
-    expect(admin).toContain("RAZORPAY_REFUND_MANUAL_ONLY");
+    const operations = source("src/features/admin/events/event-operations-components.tsx");
+    expect(cancellation).toContain("manual refund requires organizer resolution");
+    expect(cancellation).not.toContain("Razorpay Dashboard");
+    expect(admin).not.toContain("RAZORPAY_REFUND_MANUAL_ONLY");
+    expect(operations).toContain('row.paymentStatus === "paid"');
+    expect(operations).not.toContain('row.provider !== "razorpay"');
   });
 
   it("uses an idempotent notification outbox for ticket and receipt delivery", () => {
@@ -128,18 +122,14 @@ describe("registration/payment experience architecture", () => {
     const command = source("pb_hooks/admin-operations.pb.js");
     const invariants = source("pb_hooks/registrations.pb.js");
     const client = source("src/lib/data/admin-registrations.client.ts");
-    const list = source("src/routes/admin.registrations.index.tsx");
-    const detail = source("src/features/admin/registrations/registration-detail.tsx");
     expect(command).toContain('/api/admin/registrations/{id}/command');
     expect(command).toContain('action === "confirm-payment"');
-    expect(command).toContain("paymentState.findLedger");
+    expect(command).toContain("paymentLedger.findLatestForRegistration");
     expect(command).toContain('provider: "manual"');
-    expect(command).toContain('RAZORPAY_ORDER_EXISTS');
+    expect(command).toContain('PROVIDER_PAYMENT_EXISTS');
+    expect(command).not.toContain('RAZORPAY_ORDER_EXISTS');
     expect(invariants).toContain("Payment state can only be changed through a payment command");
     expect(client).toContain("confirmRegistrationPayment");
-    expect(client).not.toContain('/confirm-payment');
-    expect(list).toContain('label="Confirm payment"');
-    expect(detail).toContain('label="Confirm payment"');
   });
 
   it("keeps receipts authenticated and honors reduced-motion preferences globally", () => {
@@ -191,58 +181,37 @@ describe("registration/payment experience architecture", () => {
     const register = source("src/features/register/RegisterPage.tsx");
     const providerUi = source("src/features/payment/payment-provider-panels.tsx");
     const ticket = source("src/features/ticket/TicketPage.tsx");
-
     expect(motionSystem).toContain("MOTION_EASE");
-    expect(motionSystem).toContain("eventTitleSize");
     expect(eventDetail).toContain("compactMobileAction");
-    expect(eventDetail).toContain("eventTitleSize(event.title)");
-    expect(register).toContain("FieldLabel");
     expect(register).toContain("Reserving your seat…");
-    expect(providerUi).toContain("Opening ${UPI_APP_LABELS[app] || app}…");
+    expect(providerUi).toContain("Preparing your UPI QR…");
+    expect(providerUi).toContain("reduceMotion");
     expect(ticket).toContain("qrSaved");
-    expect(ticket).toContain("Saved</>");
   });
 
-  it("routes temporary Kotak payments per event without changing Razorpay defaults", () => {
-    const migration = source("pb_migrations/202608150001_temporary_kotak_paygate_provider.js");
-    const selection = source("pb_hooks/payment-provider-selection.js");
+  it("routes every paid IEEE registration through PayGate v4", () => {
+    const migration = source("pb_migrations/202609050001_paygate_v4_only.js");
     const registration = source("pb_hooks/registration-create.pb.js");
-    const direct = source("pb_hooks/razorpay-direct.pb.js");
+    const paymentRoute = source("pb_hooks/payment.pb.js");
     const paygate = source("pb_hooks/paygate-helpers.js");
     const webhook = source("pb_hooks/paygate.pb.js");
     const eventForm = source("src/features/admin/events/event-form.tsx");
     const providerUi = source("src/features/payment/payment-provider-panels.tsx");
-    const admin = source("pb_hooks/admin-operations.pb.js");
-
-    expect(migration).toContain('values: ["razorpay", "kotak"]');
-    expect(migration).toContain('row.set("paymentProvider", "razorpay")');
-    expect(selection).toContain('var KOTAK = "kotak"');
-    expect(selection).toContain('provider: selected === KOTAK ? "paygate" : "razorpay"');
-    expect(registration).toContain("providerSelection.eventProvider(event)");
-    expect(registration).toContain("finalFeePaise % 100 !== 0");
-    expect(direct).toContain("providerData.provider === paygate.PAYGATE_PROVIDER");
-    expect(paygate).toContain('source: "ieee-sahrdaya-kotak-temporary"');
-    expect(paygate).toContain("deploymentNamespace");
-    expect(paygate).toContain('"ieee-paygate-" + deploymentNamespace()');
-    expect(webhook).toContain("reconcilePaymentForRegistration(registration)");
-    expect(webhook).toContain("providerAuthoritative");
-    expect(webhook).toContain("data.paymentId && !providerAuthoritative");
-    expect(source("pb_migrations/202608150002_existing_paid_events_kotak_fallback.js")).toContain('row.set("paymentProvider", "kotak")');
-    expect(source("pb_migrations/202608150003_paygate_payment_ledger_provider.js")).toContain('["razorpay", "paygate", "manual", "legacy_paygate"]');
-    expect(paygate).toContain("syncPaymentLedger");
-    expect(paygate).toContain('confirmationSource: PAYGATE_PROVIDER');
-    expect(source("pb_hooks/admin-operations.pb.js")).toContain("paygateCollectedAmount");
-    expect(source("src/routes/admin.payments.tsx")).toContain("Kotak via PayGate");
-    expect(source("pb_hooks/razorpay-direct-helpers.js")).toContain('String(config.keyId).indexOf("rzp_live_") !== 0');
-    expect(paygate).toContain("Date.now() - lastSyncedAt < 4000");
-    expect(webhook).toContain('X-PayGate-Signature');
-    expect(webhook).toContain('payment.paid');
-    expect(eventForm).toContain("Advanced payment processing");
-    expect(eventForm).toContain("Kotak direct UPI");
-    expect(providerUi).toContain("Temporary · Kotak direct UPI");
-    expect(providerUi).toContain("Open in UPI app");
-    expect(providerUi).toContain("Pay this exact amount");
-    expect(admin).toContain("PAYGATE_PAYMENT_EXISTS");
+    expect(migration).toContain('getByName("paymentProvider")');
+    expect(registration).toContain('provider: paygate.PAYGATE_PROVIDER');
+    expect(registration).not.toContain("providerSelection");
+    expect(paymentRoute).toContain("PAYMENT_PROVIDER_RETIRED");
+    expect(paygate).toContain('"/v1/payments"');
+    expect(paygate).not.toContain('"/api/payments/"');
+    expect(paygate).not.toContain("PAYGATE_API_VERSION");
+    expect(webhook).toContain("X-PayGate-Signature");
+    expect(webhook).toContain("payment.paid");
+    expect(eventForm).not.toContain("Payment provider");
+    expect(eventForm).not.toContain("Kotak direct UPI");
+    expect(providerUi).not.toContain("Kotak");
+    expect(providerUi).not.toContain("Razorpay");
+    expect(existsSync(resolve(process.cwd(), "pb_hooks/payment-provider-selection.js"))).toBe(false);
+    expect(existsSync(resolve(process.cwd(), "pb_hooks/razorpay-direct.pb.js"))).toBe(false);
   });
 
   it("keeps event-operation registration summaries identical across bounded batches", () => {

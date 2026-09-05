@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { motion, useReducedMotion } from "framer-motion";
 import {
@@ -23,8 +23,6 @@ import {
   getPaymentSession,
   reconcilePaymentSession,
   type RegistrationPaymentSession,
-  type RazorpayCheckoutResponse,
-  verifyRazorpayPayment,
 } from "@/lib/data/payment.client";
 import { MOTION_DURATION, MOTION_EASE } from "@/lib/motion";
 import {
@@ -32,15 +30,6 @@ import {
   providerReconcileDelayMs,
   providerRetryAfterMs,
 } from "@/lib/payment-reconciliation";
-import {
-  createRazorpayCustom,
-  listSupportedUpiApps,
-  loadRazorpayCustomCheckout,
-  readUpiCapability,
-  type RazorpayCustomError,
-  type RazorpayCustomInstance,
-} from "@/lib/razorpay-upi.client";
-
 interface PageProps {
   registrationId: string;
 }
@@ -61,48 +50,6 @@ function paymentErrorMessage(error: unknown): string {
     : "We couldn't check the payment right now.";
 }
 
-function minimalPayGateUpiUri(uri: string): string {
-  if (!uri) return "";
-  try {
-    const parsed = new URL(uri);
-    parsed.searchParams.delete("tn");
-    parsed.searchParams.delete("tr");
-    return parsed.toString();
-  } catch {
-    return uri
-      .replace(/([?&])(?:tn|tr)=[^&]*&?/gi, "$1")
-      .replace(/[?&]$/, "")
-      .replace(/\?&/, "?");
-  }
-}
-
-const PREFERRED_UPI_APPS = ["gpay", "phonepe", "paytm", "bhim", "any"];
-
-function normalizeIndianContact(value: string): string {
-  const digits = value.replace(/\D/g, "");
-  if (digits.length === 10) return `+91${digits}`;
-  if (digits.length === 12 && digits.startsWith("91")) return `+${digits}`;
-  return value.trim();
-}
-
-function upiErrorMessage(
-  response: RazorpayCustomError,
-  mobile: boolean,
-): string {
-  const detail = response.error;
-  const description =
-    detail?.description || "UPI payment could not be started.";
-  if (/UPI transactions are not enabled for the merchant/i.test(description)) {
-    return "UPI activation is still pending on the Razorpay merchant account. No other payment method is enabled here.";
-  }
-  if (detail?.reason === "intent_no_apps_error") {
-    return mobile
-      ? "No supported UPI app was available on this device. Try another UPI app or retry after installing one."
-      : "IEEE-branded UPI QR is not enabled on this Razorpay account yet. Razorpay must enable Custom Checkout UPI QR (non-redirect flow).";
-  }
-  return description;
-}
-
 export default function PaymentPage({ registrationId }: PageProps) {
   const navigate = useNavigate();
   const { status: authStatus, signIn } = useAuth();
@@ -112,20 +59,10 @@ export default function PaymentPage({ registrationId }: PageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
-  const [checkoutLoading, setCheckoutLoading] = useState(false);
-  const [activeUpiApp, setActiveUpiApp] = useState<string | null>(null);
-  const [upiStatus, setUpiStatus] = useState<
-    "checking" | "enabled" | "disabled" | "error"
-  >("checking");
-  const [upiIntentEnabled, setUpiIntentEnabled] = useState(false);
-  const [upiApps, setUpiApps] = useState<string[]>([]);
   const [isMobileUpi, setIsMobileUpi] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState("");
-  const [qrExpiresAt, setQrExpiresAt] = useState(0);
-  const [upiCheckNonce, setUpiCheckNonce] = useState(0);
   const [reconciling, setReconciling] = useState(false);
   const [providerCheckDelayed, setProviderCheckDelayed] = useState(false);
-  const razorpayRef = useRef<RazorpayCustomInstance | null>(null);
   const reduceMotion = useReducedMotion();
 
   useEffect(() => {
@@ -201,7 +138,6 @@ export default function PaymentPage({ registrationId }: PageProps) {
     const timer = window.setInterval(poll, LOCAL_PAYMENT_STATUS_POLL_MS);
     const onVisibility = () => {
       if (document.visibilityState !== "visible") return;
-      setCheckoutLoading(false);
       poll();
     };
     document.addEventListener("visibilitychange", onVisibility);
@@ -309,20 +245,12 @@ export default function PaymentPage({ registrationId }: PageProps) {
     session?.manualReview ||
     (session?.registrationStatus === "cancelled" &&
       session?.paymentStatus === "paid");
-  const qrSecondsLeft =
-    qrExpiresAt > 0 ? Math.max(0, Math.ceil((qrExpiresAt - now) / 1000)) : 0;
-  const shownUpiApps = PREFERRED_UPI_APPS.filter((app) =>
-    upiApps.includes(app),
-  );
-
-  const payGateUpiUri =
-    session?.provider === "paygate" ? minimalPayGateUpiUri(session.upiUri || "") : "";
+  const payGateUpiUri = session?.provider === "paygate" ? session.upiUri || "" : "";
 
   useEffect(() => {
     if (session?.provider !== "paygate" || !payGateUpiUri) return;
     let disposed = false;
     setQrDataUrl("");
-    setQrExpiresAt(session.expiresAt ? Date.parse(session.expiresAt) : 0);
     void import("qrcode")
       .then((QRCode) =>
         QRCode.toDataURL(payGateUpiUri, {
@@ -335,182 +263,10 @@ export default function PaymentPage({ registrationId }: PageProps) {
         if (!disposed) setQrDataUrl(dataUrl);
       })
       .catch(() => {
-        if (!disposed) setError("The Kotak UPI payment is ready but its QR could not be displayed. Open it in a UPI app or retry.");
+        if (!disposed) setError("The UPI payment is ready but its QR could not be displayed. Open it in a UPI app or retry.");
       });
     return () => { disposed = true; };
   }, [payGateUpiUri, session?.expiresAt, session?.provider]);
-
-  useEffect(() => {
-    const keyId = session?.razorpayKeyId || "";
-    const orderId = session?.razorpayOrderId || "";
-    if (
-      !keyId ||
-      !orderId ||
-      session?.provider !== "razorpay" ||
-      session.registrationStatus !== "pending"
-    ) {
-      razorpayRef.current = null;
-      return;
-    }
-
-    let disposed = false;
-    setUpiStatus("checking");
-    setUpiIntentEnabled(false);
-    setUpiApps([]);
-    setQrDataUrl("");
-    setQrExpiresAt(0);
-
-    void (async () => {
-      try {
-        await loadRazorpayCustomCheckout();
-        if (disposed) return;
-        const razorpay = createRazorpayCustom(keyId);
-        razorpayRef.current = razorpay;
-        razorpay.on("payment.success", (response) => {
-          const checkout: RazorpayCheckoutResponse = {
-            razorpay_order_id: String(response.razorpay_order_id || ""),
-            razorpay_payment_id: String(response.razorpay_payment_id || ""),
-            razorpay_signature: String(response.razorpay_signature || ""),
-          };
-          if (
-            !checkout.razorpay_order_id ||
-            !checkout.razorpay_payment_id ||
-            !checkout.razorpay_signature
-          ) {
-            setCheckoutLoading(false);
-            setError(
-              "Razorpay returned an incomplete UPI confirmation. We are checking the payment automatically.",
-            );
-            void reconcilePayment(false);
-            return;
-          }
-          setCheckoutLoading(true);
-          void verifyRazorpayPayment(registrationId, checkout)
-            .then((next) => {
-              setSession(next);
-              setError(null);
-            })
-            .catch((verifyError) => {
-              setError(
-                `${paymentErrorMessage(verifyError)} We are still checking Razorpay automatically.`,
-              );
-              void reconcilePayment(false);
-            })
-            .finally(() => setCheckoutLoading(false));
-        });
-        razorpay.on("payment.error", (response) => {
-          if (disposed) return;
-          setCheckoutLoading(false);
-          setError(upiErrorMessage(response, isMobileUpi));
-        });
-
-        const capability = await readUpiCapability(razorpay);
-        if (disposed) return;
-        if (!capability.enabled) {
-          setUpiStatus("disabled");
-          return;
-        }
-        setUpiStatus("enabled");
-        setUpiIntentEnabled(capability.intentEnabled);
-        if (isMobileUpi && capability.intentEnabled) {
-          const apps = await listSupportedUpiApps(razorpay);
-          if (!disposed) setUpiApps(apps);
-        }
-      } catch (upiError) {
-        if (disposed) return;
-        razorpayRef.current = null;
-        setUpiStatus("error");
-        setError(paymentErrorMessage(upiError));
-      }
-    })();
-
-    return () => {
-      disposed = true;
-      razorpayRef.current = null;
-    };
-  }, [
-    isMobileUpi,
-    reconcilePayment,
-    registrationId,
-    session?.provider,
-    session?.razorpayKeyId,
-    session?.razorpayOrderId,
-    session?.registrationStatus,
-    upiCheckNonce,
-  ]);
-
-  const upiPaymentData = useCallback(() => {
-    if (!session) return null;
-    return {
-      amount: session.requestedAmountPaise,
-      currency: "INR",
-      email: session.attendeeEmail,
-      contact: normalizeIndianContact(session.attendeePhone),
-      order_id: session.razorpayOrderId,
-      method: "upi",
-    };
-  }, [session]);
-
-  const startUpiIntent = useCallback(
-    (app: string) => {
-      const razorpay = razorpayRef.current;
-      const data = upiPaymentData();
-      if (!razorpay || !data || upiStatus !== "enabled" || !upiIntentEnabled)
-        return;
-      setCheckoutLoading(true);
-      setActiveUpiApp(app);
-      setError(null);
-      try {
-        razorpay.createPayment(data, { app });
-      } catch (intentError) {
-        setCheckoutLoading(false);
-        setError(paymentErrorMessage(intentError));
-      }
-    },
-    [upiIntentEnabled, upiPaymentData, upiStatus],
-  );
-
-  const showUpiQr = useCallback(() => {
-    const razorpay = razorpayRef.current;
-    const data = upiPaymentData();
-    if (!razorpay || !data || upiStatus !== "enabled") return;
-    setCheckoutLoading(true);
-    setError(null);
-    setQrDataUrl("");
-    setQrExpiresAt(0);
-    try {
-      const payment = razorpay.createPayment(data, { app: "any", flow: "qr" });
-      payment.on("upi.qr", (payload) => {
-        if (!payload.qr_url || payload.status !== "created") {
-          setCheckoutLoading(false);
-          setError("Razorpay could not create a UPI QR. Please retry.");
-          return;
-        }
-        void import("qrcode")
-          .then((QRCode) =>
-            QRCode.toDataURL(payload.qr_url!, {
-              width: 320,
-              margin: 2,
-              errorCorrectionLevel: "M",
-            }),
-          )
-          .then((dataUrl) => {
-            setQrDataUrl(dataUrl);
-            setQrExpiresAt(Number(payload.expires_on || 0) * 1000);
-            setCheckoutLoading(false);
-          })
-          .catch(() => {
-            setCheckoutLoading(false);
-            setError(
-              "The UPI QR was created but could not be displayed. Please retry.",
-            );
-          });
-      });
-    } catch (qrError) {
-      setCheckoutLoading(false);
-      setError(paymentErrorMessage(qrError));
-    }
-  }, [upiPaymentData, upiStatus]);
 
   if (authStatus === "loading" || loading) {
     return (
@@ -655,7 +411,7 @@ export default function PaymentPage({ registrationId }: PageProps) {
     );
   }
 
-  if (session.provider === "paygate" || session.provider === "razorpay") {
+  if (session.provider === "paygate") {
     return (
       <PaymentProviderPanel
         session={session}
@@ -663,23 +419,13 @@ export default function PaymentPage({ registrationId }: PageProps) {
         payGateUpiUri={payGateUpiUri}
         isMobileUpi={isMobileUpi}
         qrDataUrl={qrDataUrl}
-        qrExpiresAt={qrExpiresAt}
-        qrSecondsLeft={qrSecondsLeft}
         providerCheckDelayed={providerCheckDelayed}
         reconciling={reconciling}
         reduceMotion={Boolean(reduceMotion)}
         error={error}
         secondsLeft={secondsLeft}
         remainingPercent={remainingPercent}
-        upiStatus={upiStatus}
-        upiIntentEnabled={upiIntentEnabled}
-        shownUpiApps={shownUpiApps}
-        checkoutLoading={checkoutLoading}
-        activeUpiApp={activeUpiApp}
-        startUpiIntent={startUpiIntent}
-        showUpiQr={showUpiQr}
         reconcilePayment={reconcilePayment}
-        retryUpiCheck={() => setUpiCheckNonce((value) => value + 1)}
       />
     );
   }

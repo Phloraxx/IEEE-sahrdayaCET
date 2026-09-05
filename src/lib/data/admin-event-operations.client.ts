@@ -9,24 +9,24 @@ export interface AdminRegistrationOperationRow {
   userEmail: string;
   userPhone: string;
   registrationStatus: string;
-  paymentStatus: string;
-  amount: number;
-  collectedAmount: number;
-  refundedAmount: number;
-  paymentMethod: string;
-  couponCode: string;
-  discountAmount: number;
+  paymentStatus?: string;
+  amount?: number;
+  collectedAmount?: number;
+  refundedAmount?: number;
+  paymentMethod?: string;
+  couponCode?: string;
+  discountAmount?: number;
   ticketId: string;
   checkedIn: boolean;
   checkedInAt: string | null;
   registrationDate: string;
   registrationSource: "self_service" | "admin" | string;
-  internalNotes: string;
-  provider: string;
-  providerStatus: string;
-  manualReview: boolean;
-  reviewReason: string;
-  manualConfirmation: Record<string, unknown> | null;
+  internalNotes?: string;
+  provider?: string;
+  providerStatus?: string;
+  manualReview?: boolean;
+  reviewReason?: string;
+  manualConfirmation?: Record<string, unknown> | null;
 }
 
 export interface EventFinanceSummary {
@@ -36,26 +36,26 @@ export interface EventFinanceSummary {
   pending: number;
   cancelled: number;
   checkedIn: number;
-  paidCount: number;
-  paidAmount: number;
-  confirmedPaidAmount: number;
-  pendingPaymentCount: number;
-  pendingPaymentAmount: number;
-  failedCount: number;
-  notRequiredCount: number;
-  refundedCount: number;
-  refundedAmount: number;
-  manualPaidCount: number;
-  manualPaidAmount: number;
-  providerPaidCount: number;
-  providerPaidAmount: number;
-  cancelledPaidCount: number;
-  cancelledPaidAmount: number;
-  reviewCount: number;
-  discountAmount: number;
+  paidCount?: number;
+  paidAmount?: number;
+  confirmedPaidAmount?: number;
+  pendingPaymentCount?: number;
+  pendingPaymentAmount?: number;
+  failedCount?: number;
+  notRequiredCount?: number;
+  refundedCount?: number;
+  refundedAmount?: number;
+  manualPaidCount?: number;
+  manualPaidAmount?: number;
+  providerPaidCount?: number;
+  providerPaidAmount?: number;
+  cancelledPaidCount?: number;
+  cancelledPaidAmount?: number;
+  reviewCount?: number;
+  discountAmount?: number;
   adminCreatedCount: number;
   selfServiceCount: number;
-  providers: Record<string, { count: number; paidCount: number; amount: number }>;
+  providers?: Record<string, { count: number; paidCount: number; amount: number }>;
 }
 
 export interface AdminCancellationRequest {
@@ -81,37 +81,36 @@ export interface AdminEventOperations {
     endDate: string;
     venue: string;
     status: string;
-    price: number;
-    paymentProvider: "razorpay" | "kotak" | string;
+    price?: number;
     registrationOpen: boolean;
     registrationMode: "internal" | "external" | "closed" | string;
-    collectIeeeMember: boolean;
-    eligibleSemesters: string[];
-    eligibleProgrammes: string[];
-    formTemplate: Array<{ id: string; name?: string; label: string; type?: string; required?: boolean; options?: string[] }>;
+    collectIeeeMember?: boolean;
+    eligibleSemesters?: string[];
+    eligibleProgrammes?: string[];
+    formTemplate?: Array<{ id: string; name?: string; label: string; type?: string; required?: boolean; options?: string[] }>;
     checkInEnabled: boolean;
     maxCapacity: number;
     registeredCount: number;
     checkedInCount: number;
     society: string;
-    approvalStatus: "draft" | "submitted" | "changes_requested" | "approved" | string;
-    approvalNote: string;
-    submittedBy: string;
-    submittedAt: string;
-    approvedBy: string;
-    approvedAt: string;
-    approvalRevision: number;
-    financeApprovalStatus: "not_required" | "pending" | "changes_requested" | "approved" | string;
-    financeApprovalNote: string;
-    financeApprovedBy: string;
-    financeApprovedAt: string;
+    approvalStatus?: "draft" | "submitted" | "changes_requested" | "approved" | string;
+    approvalNote?: string;
+    submittedBy?: string;
+    submittedAt?: string;
+    approvedBy?: string;
+    approvedAt?: string;
+    approvalRevision?: number;
+    financeApprovalStatus?: "not_required" | "pending" | "changes_requested" | "approved" | string;
+    financeApprovalNote?: string;
+    financeApprovedBy?: string;
+    financeApprovedAt?: string;
   };
   summary: EventFinanceSummary;
-  recent: AdminRegistrationOperationRow[];
-  attention: AdminRegistrationOperationRow[];
-  cancellationRequests: AdminCancellationRequest[];
-  waitlist: { waiting: number; offered: number; reserved: number };
-  coupons: Array<{
+  recent?: AdminRegistrationOperationRow[];
+  attention?: AdminRegistrationOperationRow[];
+  cancellationRequests?: AdminCancellationRequest[];
+  waitlist?: { waiting: number; offered: number; reserved: number };
+  coupons?: Array<{
     id: string;
     code: string;
     discountPercent: number;
@@ -120,7 +119,7 @@ export interface AdminEventOperations {
     expiresAt: string;
     isActive: boolean;
   }>;
-  audit: Array<{
+  audit?: Array<{
     id: string;
     action: string;
     note: string;
@@ -128,12 +127,12 @@ export interface AdminEventOperations {
     registration: string;
     created: string;
   }>;
-  attendance: {
+  attendance?: {
     mode: "legacy" | "sessions";
     sessionCount: number;
   };
   permissions: Record<string, boolean>;
-  financeDisclaimer: string;
+  financeDisclaimer?: string;
 }
 
 export interface PaymentDeskSummary {
@@ -141,17 +140,13 @@ export interface PaymentDeskSummary {
   grossCollectedAmount: number;
   refundedAmount: number;
   netCollectedAmount: number;
-  razorpayCount: number;
-  razorpayCollectedAmount: number;
   paygateCount: number;
   paygateCollectedAmount: number;
   manualCount: number;
   manualCollectedAmount: number;
-  legacyCount: number;
-  legacyCollectedAmount: number;
+  historicalCount: number;
+  historicalCollectedAmount: number;
   attentionCount: number;
-  queuedRefundCount: number;
-  failedRefundCount: number;
 }
 
 export interface PaymentDeskResponse {
