@@ -41,6 +41,34 @@ describe("registration/payment experience architecture", () => {
     expect(ticket).not.toContain("event?.bannerUrl ?");
     expect(ticket).not.toContain("<Navbar");
   });
+  it("gates ticket QR/check-in UI by ticket lifecycle and keeps the QR endpoint private", () => {
+    const ticket = source("src/features/ticket/TicketPage.tsx");
+    const qrRoute = source("src/routes/ticket-qr.$ticketId.ts");
+    expect(ticket).toContain("getTicketCheckInState");
+    expect(ticket).toContain('checkInState === "eligible"');
+    expect(ticket).toContain('data-check-in-state={checkInState}');
+    expect(ticket).toContain('Ticket / {ticketStateLabel[checkInState]}');
+    expect(ticket).toContain('ticketData?.ticket?.registrationStatus === "confirmed"');
+    for (const copy of [
+      "This ticket was cancelled.",
+      "This event has ended.",
+      "Check-in is unavailable for this event.",
+      "This registration is not confirmed.",
+      "Check-in is not open for this event.",
+    ]) {
+      expect(ticket).toContain(copy);
+    }
+    expect(ticket).toContain("Show this at check-in.");
+    expect(qrRoute).toContain("getTicketCheckInState");
+    expect(qrRoute).toContain('getTicketCheckInState(registrationStatus, event)');
+    expect(ticket).toContain('disabled: "Paused"');
+    expect(qrRoute).toContain('"Cache-Control": "no-store"');
+    expect(qrRoute).not.toContain('"Cache-Control": "public, max-age=86400"');
+    expect(source("pb_hooks/registrations.pb.js")).toContain('timeTbc: evt.getBool("timeTbc")');
+    expect(source("pb_hooks/registrations.pb.js")).toContain('checkInEnabled: evt.getBool("checkInEnabled")');
+    expect(source("src/lib/data/public-client.ts")).toContain('timeTbc: data.event.timeTbc === true');
+    expect(source("src/lib/data/public-client.ts")).toContain('checkInEnabled: data.event.checkInEnabled === true');
+  });
 
   it("uses PayGate v4 UPI without a browser checkout SDK", () => {
     const payment = source("src/features/payment/PaymentPage.tsx");

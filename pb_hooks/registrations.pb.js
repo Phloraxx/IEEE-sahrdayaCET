@@ -194,6 +194,8 @@ routerAdd("GET", "/api/tickets/lookup", function (e) {
                 isArchived: evt.getBool("isDeleted"),
                 date: evt.getString("date") || "",
                 endDate: evt.getString("endDate") || "",
+                timeTbc: evt.getBool("timeTbc"),
+                checkInEnabled: evt.getBool("checkInEnabled"),
                 venue: evt.getString("venue") || "",
                 time: evt.getString("time") || "",
                 bannerUrl: bannerUrl,

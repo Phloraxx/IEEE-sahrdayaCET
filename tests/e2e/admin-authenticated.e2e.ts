@@ -40,6 +40,7 @@ test.describe("Admin V2 authenticated smoke", () => {
     for (const [route, heading] of routes) {
       await page.goto(route);
       await expect(page.getByText(heading).first()).toBeVisible({ timeout: 10_000 });
+      await page.waitForLoadState("networkidle");
     }
     expect(consoleErrors, consoleErrors.join("\n")).toEqual([]);
   });
