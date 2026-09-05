@@ -5,6 +5,7 @@
 routerAdd("POST", "/api/admin/events/{id}/archive", function (e) {
   var helpers = require(__hooks + "/admin-operations-helpers.js")
   var authz = require(__hooks + "/workspace-authorization.js")
+  var attendeeLifecycle = require(__hooks + "/attendee-lifecycle-helpers.js")
   var eventId = e.request.pathValue("id") || ""
   var event
   try { event = $app.findRecordById("events", eventId) }
@@ -70,6 +71,8 @@ routerAdd("POST", "/api/admin/events/{id}/archive", function (e) {
       var before = helpers.eventPayload(current)
       current.set("registrationOpen", false)
       current.set("isDeleted", true)
+      current.set("waitlistReservedCount", 0)
+      attendeeLifecycle.retireActiveWaitlist(txApp, eventId)
       txApp.saveNoValidate(current)
       helpers.audit(txApp, {
         eventId: eventId,
