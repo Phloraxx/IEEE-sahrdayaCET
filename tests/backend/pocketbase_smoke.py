@@ -435,11 +435,24 @@ request("PATCH", f"/api/collections/events/records/{chair_event['id']}", {
 request("PATCH", f"/api/collections/events/records/{chair_event['id']}", {
     "isDeleted": True,
 }, chair_token, (400,))
+archive_waitlist = request("POST", "/api/collections/event_waitlist/records", {
+    "event": chair_event["id"], "user": second_user["id"], "status": "offered",
+    "activeKey": f"archive:{chair_event['id']}:{second_user['id']}",
+    "joinedAt": dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z"),
+    "offeredAt": dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z"),
+    "offerExpiresAt": (dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=2)).isoformat().replace("+00:00", "Z"),
+}, super_token)
+request("PATCH", f"/api/collections/events/records/{chair_event['id']}", {
+    "waitlistReservedCount": 1,
+}, super_token)
 archived = request("POST", f"/api/admin/events/{chair_event['id']}/archive", token=chair_token)
 assert archived["archived"] is True and archived["alreadyArchived"] is False
 archived_event = request("GET", f"/api/collections/events/records/{chair_event['id']}", token=super_token)
 assert archived_event["isDeleted"] is True
 assert archived_event["status"] == "draft"
+assert archived_event["waitlistReservedCount"] == 0
+archive_waitlist_after = request("GET", f"/api/collections/event_waitlist/records/{archive_waitlist['id']}", token=super_token)
+assert archive_waitlist_after["status"] == "expired" and archive_waitlist_after["activeKey"] == ""
 request("POST", f"/api/admin/events/{chair_event['id']}/archive", token=chair_token)
 
 request("POST", "/api/collections/events/records", {
