@@ -1467,6 +1467,32 @@ ops_unchecked = request("POST", f"/api/admin/registrations/{ops_manual['id']}/co
     "action": "undo-check-in",
 }, admin_token)["registration"]
 assert ops_unchecked["checkedIn"] is False
+
+# Check-in is a published-event invariant at both the command and record-hook layers.
+# Temporarily unpublish this approved fixture, prove both paths fail closed, then
+# republish it so the remainder of the operations smoke keeps its original state.
+request("POST", f"/api/workspace/events/{ops_event['id']}/workflow", {
+    "action": "unpublish", "note": "CI validates inactive-event check-in guard",
+}, admin_token)
+inactive_checkin = request("POST", f"/api/admin/registrations/{ops_manual['id']}/command", {
+    "action": "check-in",
+}, admin_token, expected=(409,))
+assert inactive_checkin["code"] == "CHECKIN_NOT_ACTIVE"
+request("PATCH", f"/api/collections/registrations/records/{ops_manual['id']}", {
+    "checkedIn": True,
+}, super_token, expected=(400,))
+ops_inactive = request("GET", f"/api/collections/registrations/records/{ops_manual['id']}", token=super_token)
+assert ops_inactive["checkedIn"] is False and not ops_inactive.get("checkedInAt")
+request("POST", f"/api/workspace/events/{ops_event['id']}/workflow", {
+    "action": "publish",
+}, admin_token)
+ops_rechecked = request("POST", f"/api/admin/registrations/{ops_manual['id']}/command", {
+    "action": "check-in",
+}, admin_token)["registration"]
+assert ops_rechecked["checkedIn"] is True and ops_rechecked["checkedInAt"]
+request("POST", f"/api/admin/registrations/{ops_manual['id']}/command", {
+    "action": "undo-check-in",
+}, admin_token)
 ops_refunded = request("POST", f"/api/admin/registrations/{ops_manual['id']}/command", {
     "action": "mark-refunded", "note": "Refund sent after cancellation",
     "reference": f"REF-{suffix}",

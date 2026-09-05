@@ -528,6 +528,14 @@ routerAdd("POST", "/api/admin/registrations/{id}/command", function (e) {
   if ((action === "check-in" || action === "undo-check-in") && require(__hooks + "/attendance-v2-helpers.js").eventHasSessions($app, event.id)) {
     return e.json(409, { code: "USE_ATTENDANCE_V2", error: "Use the Attendance console for session-enabled events" })
   }
+  if (action === "check-in") {
+    if (event.getBool("isDeleted") || event.getString("status") !== "published") {
+      return e.json(409, { code: "CHECKIN_NOT_ACTIVE", error: "Check-in is only available while the event is published" })
+    }
+    if (!event.getBool("checkInEnabled")) {
+      return e.json(409, { code: "CHECKIN_DISABLED", error: "Check-in is not enabled for this event" })
+    }
+  }
   if ((action === "mark-refunded" || action === "restore" || action === "reopen-manual-payment") && !note) {
     return e.json(400, { code: "NOTE_REQUIRED", error: "A note is required for this financial correction" })
   }

@@ -280,6 +280,7 @@ export default function AdminEventOperationsRoute() {
   const coupons = operations.data.coupons ?? [];
   const audit = operations.data.audit ?? [];
   const sessionAttendanceActive = attendance?.mode === "sessions";
+  const eventCheckInActive = event.status === "published" && event.checkInEnabled;
   const capacityPct = event.maxCapacity > 0 ? Math.min(100, Math.round((summary.active / event.maxCapacity) * 100)) : 0;
   const tabs: Array<{ id: Tab; label: string; count?: number }> = [
     { id: "overview", label: "Overview" },
@@ -414,6 +415,7 @@ export default function AdminEventOperationsRoute() {
                       compact
                       pending={actionMutation.isPending}
                       sessionAttendanceActive={sessionAttendanceActive}
+                      eventCheckInActive={eventCheckInActive}
                       onAction={(action, title) => setResolution({ row, action, title })}
                       onImmediate={(action) => actionMutation.mutate({ row, action })}
                     />
@@ -509,6 +511,7 @@ export default function AdminEventOperationsRoute() {
                     canViewFinance={canViewFinance}
                     pending={actionMutation.isPending}
                     sessionAttendanceActive={sessionAttendanceActive}
+                    eventCheckInActive={eventCheckInActive}
                     onAction={(action, title) => setResolution({ row, action, title })}
                     onImmediate={(action) => actionMutation.mutate({ row, action })}
                   />
@@ -614,6 +617,7 @@ export default function AdminEventOperationsRoute() {
                       canViewFinance={canViewFinance}
                       pending={actionMutation.isPending}
                       sessionAttendanceActive={sessionAttendanceActive}
+                      eventCheckInActive={eventCheckInActive}
                       onAction={(action, title) => setResolution({ row, action, title })}
                       onImmediate={(action) => actionMutation.mutate({ row, action })}
                     />
