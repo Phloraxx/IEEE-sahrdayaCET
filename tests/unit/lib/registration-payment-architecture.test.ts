@@ -70,6 +70,24 @@ describe("registration/payment experience architecture", () => {
     expect(source("src/lib/data/public-client.ts")).toContain('checkInEnabled: data.event.checkInEnabled === true');
   });
 
+  it("keeps cancelled and archived events terminal for active registrations", () => {
+    const modelHook = source("pb_hooks/registration-event-state.pb.js");
+    const modelHelper = source("pb_hooks/registration-event-state-helpers.js");
+    const adminOps = source("pb_hooks/admin-operations.pb.js");
+    const adminRoute = source("src/routes/admin.events.$id.tsx");
+    const row = source("src/features/admin/events/event-operations-components.tsx");
+    const opsHelper = source("pb_hooks/admin-operations-helpers.js");
+    expect(modelHook).toContain('require(__hooks + "/registration-event-state-helpers.js")');
+    expect(modelHelper).toContain('event.getBool("isDeleted") || event.getString("status") === "cancelled"');
+    expect(adminOps).toContain('code: "EVENT_FINAL"');
+    expect(adminOps).toContain("Cancelled or archived events cannot receive new registrations");
+    expect(adminOps).toContain("Cancelled or archived events cannot restore registrations");
+    expect(opsHelper).toContain('isArchived: event.getBool("isDeleted")');
+    expect(adminRoute).toContain('event.status !== "cancelled" && !event.isArchived');
+    expect(adminRoute).toContain('permissions["registrations.manual"] && eventRegistrationActive');
+    expect(row).toContain('const canRestore = eventRegistrationActive &&');
+  });
+
   it("uses PayGate v4 UPI without a browser checkout SDK", () => {
     const payment = source("src/features/payment/PaymentPage.tsx");
     const providerUi = source("src/features/payment/payment-provider-panels.tsx");

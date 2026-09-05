@@ -1565,6 +1565,27 @@ ops_pending_after_cancel = request("GET", f"/api/collections/registrations/recor
 assert ops_pending_after_cancel["registrationStatus"] == "cancelled"
 assert ops_pending_after_cancel["paymentStatus"] == "failed"
 
+# Cancelled events are terminal for active registration creation/restoration.
+final_manual = request("POST", f"/api/admin/events/{ops_event['id']}/registrations/manual", {
+    "name": "Cancelled Event Walk In",
+    "email": f"cancelled-event-walkin-{suffix}@example.test",
+    "paymentMode": "pending",
+}, admin_token, expected=(409,))
+assert final_manual["code"] == "EVENT_FINAL"
+final_restore = request("POST", f"/api/admin/registrations/{ops_manual['id']}/command", {
+    "action": "restore", "note": "CI must reject restore after event cancellation",
+}, admin_token, expected=(409,))
+assert final_restore["code"] == "EVENT_FINAL"
+terminal_model_create = request("POST", "/api/collections/registrations/records", {
+    "event": ops_event["id"],
+    "userName": "Terminal Model Guard",
+    "userEmail": f"terminal-model-{suffix}@example.test",
+    "registrationStatus": "confirmed",
+    "paymentStatus": "not_required",
+    "registrationSource": "admin",
+}, super_token, expected=(400,))
+assert "cancelled or archived events" in json.dumps(terminal_model_create).lower()
+
 # Anonymous ticket lookup never exposes a stable account/registration identifier.
 ticket_path = "/api/tickets/lookup?ticketId=" + urllib.parse.quote(registration["ticketId"])
 anonymous_ticket = request("GET", ticket_path)

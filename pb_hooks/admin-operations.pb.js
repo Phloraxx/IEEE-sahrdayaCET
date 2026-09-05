@@ -214,6 +214,10 @@ routerAdd("POST", "/api/admin/events/{id}/registrations/manual", function (e) {
     return e.json(403, { code: "FORBIDDEN", error: "You cannot create attendees for this event" })
   }
 
+  if (event.getBool("isDeleted") || event.getString("status") === "cancelled") {
+    return e.json(409, { code: "EVENT_FINAL", error: "Cancelled or archived events cannot receive new registrations" })
+  }
+
   var body = {}
   try { body = e.requestInfo().body || {} } catch (_) { body = {} }
   var name = String(body.name || "").trim()
@@ -264,6 +268,10 @@ routerAdd("POST", "/api/admin/events/{id}/registrations/manual", function (e) {
   try {
     $app.runInTransaction(function (txApp) {
       var currentEvent = txApp.findRecordById("events", eventId)
+      if (currentEvent.getBool("isDeleted") || currentEvent.getString("status") === "cancelled") {
+        failure = { status: 409, code: "EVENT_FINAL", error: "Cancelled or archived events cannot receive new registrations" }
+        return
+      }
       var active = txApp.findRecordsByFilter(
         "registrations", "event = {:eventId} && registrationStatus != {:cancelled}",
         "", 0, 0, { eventId: eventId, cancelled: "cancelled" }
@@ -536,6 +544,9 @@ routerAdd("POST", "/api/admin/registrations/{id}/command", function (e) {
       return e.json(409, { code: "CHECKIN_DISABLED", error: "Check-in is not enabled for this event" })
     }
   }
+  if (action === "restore" && (event.getBool("isDeleted") || event.getString("status") === "cancelled")) {
+    return e.json(409, { code: "EVENT_FINAL", error: "Cancelled or archived events cannot restore registrations" })
+  }
   if ((action === "mark-refunded" || action === "restore" || action === "reopen-manual-payment") && !note) {
     return e.json(400, { code: "NOTE_REQUIRED", error: "A note is required for this financial correction" })
   }
@@ -627,6 +638,11 @@ routerAdd("POST", "/api/admin/registrations/{id}/command", function (e) {
           reg.set("paymentData", data)
         }
       } else if (action === "restore") {
+        var restoreEvent = txApp.findRecordById("events", eventId)
+        if (restoreEvent.getBool("isDeleted") || restoreEvent.getString("status") === "cancelled") {
+          failure = { status: 409, code: "EVENT_FINAL", error: "Cancelled or archived events cannot restore registrations" }
+          return
+        }
         if (regStatus !== "cancelled") {
           failure = { status: 409, code: "NOT_CANCELLED", error: "Only cancelled registrations can be restored" }
           return
