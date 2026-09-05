@@ -72,6 +72,30 @@ export interface AdminCancellationRequest {
   registration: AdminRegistrationOperationRow | null;
 }
 
+export interface EventCloseoutIssue {
+  code: string;
+  label: string;
+  count: number;
+  area: "overview" | "attendees" | "attendance" | "payments" | string;
+  restricted?: boolean;
+}
+
+export interface EventCloseoutSummary {
+  applicable: boolean;
+  readyToArchive: boolean;
+  blockers: EventCloseoutIssue[];
+  warnings: EventCloseoutIssue[];
+  metrics: {
+    pendingRegistrations: number;
+    unresolvedRefundRequests?: number;
+    paymentExceptions?: number;
+    activeWaitlist: number;
+    attendanceSessions: number;
+    attendanceCorrections: number;
+    attendanceScheduleAnomalies: number;
+  };
+}
+
 export interface AdminEventOperations {
   event: {
     id: string;
@@ -132,6 +156,7 @@ export interface AdminEventOperations {
     mode: "legacy" | "sessions";
     sessionCount: number;
   };
+  closeout?: EventCloseoutSummary;
   permissions: Record<string, boolean>;
   financeDisclaimer?: string;
 }
