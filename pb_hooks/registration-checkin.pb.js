@@ -38,6 +38,10 @@ onRecordUpdate(function (e) {
             throw new BadRequestError("Event not found")
         }
 
+        if (event.getBool("isDeleted") || event.getString("status") !== "published") {
+            throw new BadRequestError("Check-in is only available while the event is published")
+        }
+
         if (!event.getBool("checkInEnabled")) {
             throw new BadRequestError("Check-in is not enabled for this event")
         }

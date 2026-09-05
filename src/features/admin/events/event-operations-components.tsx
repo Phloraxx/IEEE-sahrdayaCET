@@ -342,16 +342,19 @@ export function ResolutionDialog({
 export function legacyCheckInAction({
   canCheckIn,
   sessionAttendanceActive,
+  eventCheckInActive,
   checkedIn,
   registrationStatus,
 }: {
   canCheckIn: boolean;
   sessionAttendanceActive: boolean;
+  eventCheckInActive: boolean;
   checkedIn: boolean;
   registrationStatus: string;
 }): "check-in" | "undo-check-in" | null {
   if (!canCheckIn || sessionAttendanceActive) return null;
   if (checkedIn) return "undo-check-in";
+  if (!eventCheckInActive) return null;
   return registrationStatus === "confirmed" ? "check-in" : null;
 }
 
@@ -362,6 +365,7 @@ export function OperationRow({
   compact = false,
   pending,
   sessionAttendanceActive = false,
+  eventCheckInActive = true,
   onAction,
   onImmediate,
 }: {
@@ -371,6 +375,7 @@ export function OperationRow({
   compact?: boolean;
   pending: boolean;
   sessionAttendanceActive?: boolean;
+  eventCheckInActive?: boolean;
   onAction: (action: RegistrationAdminAction, title: string) => void;
   onImmediate: (action: RegistrationAdminAction) => void;
 }) {
@@ -383,6 +388,7 @@ export function OperationRow({
   const checkInAction = legacyCheckInAction({
     canCheckIn: Boolean(permissions["checkin.manage"]),
     sessionAttendanceActive,
+    eventCheckInActive,
     checkedIn: row.checkedIn,
     registrationStatus: row.registrationStatus,
   });

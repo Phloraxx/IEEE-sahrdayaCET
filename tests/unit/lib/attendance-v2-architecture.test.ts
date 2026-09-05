@@ -67,12 +67,14 @@ describe("Attendance V2 architecture", () => {
     expect(eventRoute).toContain("AttendanceSessionPanel");
     expect(eventRoute).toContain("sessionAttendanceActive");
 
-    expect(legacyCheckInAction({ canCheckIn: true, sessionAttendanceActive: true, checkedIn: false, registrationStatus: "confirmed" })).toBeNull();
-    expect(legacyCheckInAction({ canCheckIn: true, sessionAttendanceActive: true, checkedIn: true, registrationStatus: "confirmed" })).toBeNull();
-    expect(legacyCheckInAction({ canCheckIn: false, sessionAttendanceActive: false, checkedIn: false, registrationStatus: "confirmed" })).toBeNull();
-    expect(legacyCheckInAction({ canCheckIn: true, sessionAttendanceActive: false, checkedIn: false, registrationStatus: "pending" })).toBeNull();
-    expect(legacyCheckInAction({ canCheckIn: true, sessionAttendanceActive: false, checkedIn: false, registrationStatus: "confirmed" })).toBe("check-in");
-    expect(legacyCheckInAction({ canCheckIn: true, sessionAttendanceActive: false, checkedIn: true, registrationStatus: "cancelled" })).toBe("undo-check-in");
+    expect(legacyCheckInAction({ canCheckIn: true, sessionAttendanceActive: true, eventCheckInActive: true, checkedIn: false, registrationStatus: "confirmed" })).toBeNull();
+    expect(legacyCheckInAction({ canCheckIn: true, sessionAttendanceActive: true, eventCheckInActive: true, checkedIn: true, registrationStatus: "confirmed" })).toBeNull();
+    expect(legacyCheckInAction({ canCheckIn: false, sessionAttendanceActive: false, eventCheckInActive: true, checkedIn: false, registrationStatus: "confirmed" })).toBeNull();
+    expect(legacyCheckInAction({ canCheckIn: true, sessionAttendanceActive: false, eventCheckInActive: true, checkedIn: false, registrationStatus: "pending" })).toBeNull();
+    expect(legacyCheckInAction({ canCheckIn: true, sessionAttendanceActive: false, eventCheckInActive: true, checkedIn: false, registrationStatus: "confirmed" })).toBe("check-in");
+    expect(legacyCheckInAction({ canCheckIn: true, sessionAttendanceActive: false, eventCheckInActive: true, checkedIn: true, registrationStatus: "cancelled" })).toBe("undo-check-in");
+    expect(legacyCheckInAction({ canCheckIn: true, sessionAttendanceActive: false, eventCheckInActive: false, checkedIn: false, registrationStatus: "confirmed" })).toBeNull();
+    expect(legacyCheckInAction({ canCheckIn: true, sessionAttendanceActive: false, eventCheckInActive: false, checkedIn: true, registrationStatus: "confirmed" })).toBe("undo-check-in");
   });
   it("hands browser attendance fixtures across the clean-room boundary without superuser access", () => {
     const smoke = read("tests/backend/pocketbase_smoke.py");
