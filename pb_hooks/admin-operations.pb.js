@@ -149,6 +149,10 @@ routerAdd("GET", "/api/admin/events/{id}/operations", function (e) {
       sessionCount: attendanceSessions.length,
     }
   }
+  var closeout = require(__hooks + "/event-closeout-helpers.js").closeoutSummary($app, event)
+  if (closeout.applicable) {
+    response.closeout = require(__hooks + "/event-closeout-helpers.js").projectCloseoutSummary(closeout, projection.finance)
+  }
   return e.json(200, response)
 }, $apis.requireAuth("users"))
 

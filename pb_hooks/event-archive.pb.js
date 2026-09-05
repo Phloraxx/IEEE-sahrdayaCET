@@ -67,6 +67,10 @@ routerAdd("POST", "/api/admin/events/{id}/archive", function (e) {
       } else if (currentStatus !== "completed" && currentStatus !== "cancelled") {
         throw new Error("ARCHIVE_NOT_ALLOWED")
       }
+      if (currentStatus === "completed" || currentStatus === "cancelled") {
+        var closeout = require(__hooks + "/event-closeout-helpers.js").closeoutSummary(txApp, current)
+        if (!closeout.readyToArchive) throw new Error("CLOSEOUT_BLOCKED")
+      }
 
       var before = helpers.eventPayload(current)
       current.set("registrationOpen", false)
@@ -93,6 +97,9 @@ routerAdd("POST", "/api/admin/events/{id}/archive", function (e) {
     }
     if (message === "ARCHIVE_NOT_ALLOWED") {
       return e.json(409, { code: message, error: "This event is not ready to archive" })
+    }
+    if (message === "CLOSEOUT_BLOCKED") {
+      return e.json(409, { code: message, error: "Resolve closeout blockers before archiving this event" })
     }
     console.log("[admin-ops] event archive failed:", err)
     return e.json(500, { code: "EVENT_ARCHIVE_FAILED", error: "Could not archive event safely" })

@@ -1599,6 +1599,64 @@ terminal_model_create = request("POST", "/api/collections/registrations/records"
 }, super_token, expected=(400,))
 assert "cancelled or archived events" in json.dumps(terminal_model_create).lower()
 
+# Completed-event closeout is server-authoritative: pending registrations, refund
+# requests and payment review flags block archive until existing commands resolve them.
+closeout_now = dt.datetime.now(dt.timezone.utc)
+closeout_event = request("POST", "/api/collections/events/records", {
+    "title": f"CI Closeout {suffix}", "description": "closeout readiness",
+    "date": (closeout_now - dt.timedelta(hours=3)).isoformat().replace("+00:00", "Z"),
+    "endDate": (closeout_now - dt.timedelta(hours=1)).isoformat().replace("+00:00", "Z"),
+    "society": society["id"], "status": "completed", "registrationOpen": False,
+    "price": 100, "baseFeePaise": 10000, "isDeleted": False,
+}, super_token)
+closeout_pending = request("POST", f"/api/admin/events/{closeout_event['id']}/registrations/manual", {
+    "name": "Closeout Pending", "email": f"closeout-pending-{suffix}@example.test",
+    "paymentMode": "pending", "note": "CI unresolved closeout registration",
+}, admin_token)["registration"]
+closeout_paid = request("POST", f"/api/admin/events/{closeout_event['id']}/registrations/manual", {
+    "name": "Closeout Refund", "email": second_user["email"], "userId": second_user["id"],
+    "paymentMode": "paid", "paymentReference": f"CLOSEOUT-{suffix}", "note": "CI closeout paid registration",
+}, admin_token)["registration"]
+closeout_request = request("POST", "/api/collections/registration_cancellation_requests/records", {
+    "registration": closeout_paid["id"], "event": closeout_event["id"], "user": second_user["id"],
+    "kind": "refund", "status": "open", "activeKey": f"closeout:{closeout_paid['id']}",
+    "reason": "CI closeout refund", "requestedAt": closeout_now.isoformat().replace("+00:00", "Z"),
+}, super_token)
+closeout_payment_rows = request("GET", "/api/collections/payments/records?filter=" + urllib.parse.quote(f'registration="{closeout_paid["id"]}"'), token=super_token)["items"]
+assert len(closeout_payment_rows) == 1
+request("PATCH", f"/api/collections/payments/records/{closeout_payment_rows[0]['id']}", {"manualReview": True}, super_token)
+closeout_ops = request("GET", f"/api/admin/events/{closeout_event['id']}/operations", token=admin_token)
+assert closeout_ops["closeout"]["applicable"] is True and closeout_ops["closeout"]["readyToArchive"] is False
+closeout_codes = {item["code"] for item in closeout_ops["closeout"]["blockers"]}
+assert {"PENDING_REGISTRATIONS", "REFUNDS_UNRESOLVED", "PAYMENT_EXCEPTIONS"}.issubset(closeout_codes)
+blocked_archive = request("POST", f"/api/admin/events/{closeout_event['id']}/archive", token=admin_token, expected=(409,))
+assert blocked_archive["code"] == "CLOSEOUT_BLOCKED"
+request("POST", f"/api/admin/registrations/{closeout_pending['id']}/command", {"action": "cancel"}, admin_token)
+request("POST", f"/api/admin/registrations/{closeout_paid['id']}/command", {
+    "action": "mark-refunded", "note": "CI closeout refund completed", "reference": f"CLOSEOUT-REFUND-{suffix}",
+}, admin_token)
+closeout_ready = request("GET", f"/api/admin/events/{closeout_event['id']}/operations", token=admin_token)["closeout"]
+assert closeout_ready["readyToArchive"] is True and closeout_ready["blockers"] == []
+archived_closeout = request("POST", f"/api/admin/events/{closeout_event['id']}/archive", token=admin_token)
+assert archived_closeout["archived"] is True
+
+# Leave one completed event blocked for Browser E2E so the closeout workspace
+# renders the same readiness contract that the archive endpoint enforces.
+closeout_ui_event = request("POST", "/api/collections/events/records", {
+    "title": f"CI Closeout Browser {suffix}", "description": "closeout browser fixture",
+    "date": (closeout_now - dt.timedelta(hours=4)).isoformat().replace("+00:00", "Z"),
+    "endDate": (closeout_now - dt.timedelta(hours=2)).isoformat().replace("+00:00", "Z"),
+    "society": society["id"], "status": "completed", "registrationOpen": False,
+    "price": 100, "baseFeePaise": 10000, "isDeleted": False,
+}, super_token)
+request("POST", f"/api/admin/events/{closeout_ui_event['id']}/registrations/manual", {
+    "name": "Closeout Browser Pending", "email": f"closeout-browser-{suffix}@example.test",
+    "paymentMode": "pending", "note": "Browser closeout blocker",
+}, admin_token)
+if github_env := os.environ.get("GITHUB_ENV"):
+    with open(github_env, "a", encoding="utf-8") as env_file:
+        env_file.write(f"E2E_CLOSEOUT_EVENT_ID={closeout_ui_event['id']}\n")
+
 # Anonymous ticket lookup never exposes a stable account/registration identifier.
 ticket_path = "/api/tickets/lookup?ticketId=" + urllib.parse.quote(registration["ticketId"])
 anonymous_ticket = request("GET", ticket_path)

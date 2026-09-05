@@ -40,6 +40,7 @@ import { EventTeamPanel } from "@/features/admin/events/event-team-panel";
 import { EventWorkflowPanel } from "@/features/admin/events/event-workflow-panel";
 import { CertificateTemplatePanel } from "@/features/admin/events/certificate-template-panel";
 import { AttendanceSessionPanel } from "@/features/admin/events/attendance-session-panel";
+import { EventCloseoutPanel } from "@/features/admin/events/event-closeout-panel";
 import {
   CancellationDecisionDialog,
   type CancellationDecisionState,
@@ -66,11 +67,11 @@ import {
   type RegistrationAdminAction,
 } from "@/lib/data/admin-event-operations.client";
 import { listAdminRegistrations } from "@/lib/data/admin-registrations.client";
-import { cancelAdminEvent } from "@/lib/data/admin-events.client";
+import { archiveAdminEvent, cancelAdminEvent } from "@/lib/data/admin-events.client";
 import { runEventWorkflow } from "@/lib/data/workspace.client";
 
-type Tab = "overview" | "attendees" | "attendance" | "payments" | "coupons" | "certificates" | "team" | "activity";
-const VALID_TABS: Tab[] = ["overview", "attendees", "attendance", "payments", "coupons", "certificates", "team", "activity"];
+type Tab = "overview" | "closeout" | "attendees" | "attendance" | "payments" | "coupons" | "certificates" | "team" | "activity";
+const VALID_TABS: Tab[] = ["overview", "closeout", "attendees", "attendance", "payments", "coupons", "certificates", "team", "activity"];
 
 function allowedTabsForPermissions(permissions: Record<string, boolean>): Tab[] {
   return [
@@ -114,11 +115,15 @@ export default function AdminEventOperationsRoute() {
     queryKey: ["admin-event-operations", id],
     queryFn: () => getAdminEventOperations(id),
     enabled: Boolean(id),
-    refetchInterval: tab === "overview" || tab === "payments" ? 20_000 : false,
+    refetchInterval: tab === "overview" || tab === "payments" || tab === "closeout" ? 20_000 : false,
   });
   const permissions = operations.data?.permissions ?? {};
   const canViewFinance = Boolean(permissions["finance.view"] || permissions["finance.manage"]);
-  const allowedTabs = allowedTabsForPermissions(permissions);
+  const closeoutVisible = Boolean(operations.data?.closeout?.applicable);
+  const allowedTabs = [
+    ...allowedTabsForPermissions(permissions),
+    ...(closeoutVisible ? ["closeout" as const] : []),
+  ];
   const activeTab: Tab = isTab(requestedTab) && allowedTabs.includes(requestedTab) ? requestedTab : "overview";
   useEffect(() => {
     if (!operations.data || requestedTab === activeTab) return;
@@ -223,6 +228,16 @@ export default function AdminEventOperationsRoute() {
     onError: (error: Error) => toast.error(error.message || "Could not update event workflow"),
   });
 
+  const archiveMutation = useMutation({
+    mutationFn: () => archiveAdminEvent(id),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Event archived");
+      setTab("overview");
+    },
+    onError: (error: Error) => toast.error(error.message || "Could not archive event"),
+  });
+
   const recomputeMutation = useMutation({
     mutationFn: () => recomputeEventOperations(id),
     onSuccess: () => {
@@ -285,6 +300,7 @@ export default function AdminEventOperationsRoute() {
   const capacityPct = event.maxCapacity > 0 ? Math.min(100, Math.round((summary.active / event.maxCapacity) * 100)) : 0;
   const tabs: Array<{ id: Tab; label: string; count?: number }> = [
     { id: "overview", label: "Overview" },
+    ...(operations.data.closeout?.applicable ? [{ id: "closeout" as Tab, label: "Closeout", count: operations.data.closeout.blockers.length || undefined }] : []),
     ...(permissions["registrations.view"] ? [{ id: "attendees" as Tab, label: "Attendees", count: summary.active }] : []),
     ...(permissions["events.edit"] || permissions["checkin.manage"] ? [{ id: "attendance" as Tab, label: "Attendance", count: attendance?.sessionCount || undefined }] : []),
     ...(canViewFinance ? [{ id: "payments" as Tab, label: "Payments", count: summary.paidCount ?? 0 }] : []),
@@ -463,7 +479,17 @@ export default function AdminEventOperationsRoute() {
             </Card>
               </div>
             </div>
-      )}      {activeTab === "attendees" && (
+      )}      {activeTab === "closeout" && operations.data.closeout && (
+        <EventCloseoutPanel
+          closeout={operations.data.closeout}
+          canArchive={Boolean(permissions["events.archive"])}
+          archivePending={archiveMutation.isPending}
+          onOpenArea={(area) => setTab(area as Tab)}
+          onArchive={() => archiveMutation.mutate()}
+        />
+      )}
+
+      {activeTab === "attendees" && (
         <Card>
           <CardContent className="p-6">
             <PanelHeader
