@@ -63,7 +63,7 @@ test.describe("event setup UX", () => {
     // Save the same newly-created coupon again without reloading. This catches
     // client-only IDs being mistaken for real PocketBase record IDs.
     await expect(page.getByLabel("Coupon code")).toHaveValue("TEST20");
-    await page.getByLabel("Discount percent").fill("25");
+    await page.getByLabel("Discount percent").fill("30");
     await page.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByText("All changes saved")).toBeVisible();
 
@@ -72,7 +72,7 @@ test.describe("event setup UX", () => {
     await expect(page.locator("#ieee-member-discount")).toHaveValue("10");
     await expect(page.getByLabel("Coupon code")).toHaveCount(1);
     await expect(page.getByLabel("Coupon code")).toHaveValue("TEST20");
-    await expect(page.getByLabel("Discount percent")).toHaveValue("25");
+    await expect(page.getByLabel("Discount percent")).toHaveValue("30");
     await page.screenshot({ path: "/tmp/event-setup-fees-desktop.png", fullPage: true });
 
     await page.setViewportSize({ width: 390, height: 844 });

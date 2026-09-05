@@ -33,7 +33,7 @@ test.describe("pending PayGate checkout", () => {
     await expect(page.getByRole("heading", { name: fixture.eventTitle })).toBeVisible();
     await expect(page.getByText("UPI payment", { exact: true })).toBeVisible();
     await expect(page.getByText(`₹${fixture.payable}`, { exact: true })).toBeVisible();
-    await expect(page.getByText(/Pay this exact amount/)).toBeVisible();
+    await expect(page.getByText(/Pay the exact amount shown/)).toBeVisible();
     await expect(page.getByRole("img", { name: "UPI payment QR code" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Check payment" })).toBeVisible();
   });
