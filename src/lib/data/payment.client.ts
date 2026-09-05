@@ -17,6 +17,7 @@ export interface RegistrationPaymentSession {
   expiresAt: string;
   paidAt: string;
   upiUri: string;
+  transactionNote: string;
   providerDisplayName: string;
   manualReview: boolean;
   reviewReason: string;
@@ -57,6 +58,7 @@ function normalizePaymentSession(value: unknown): RegistrationPaymentSession {
     expiresAt: String(raw.expiresAt || ""),
     paidAt: String(raw.paidAt || ""),
     upiUri: String(raw.upiUri || ""),
+    transactionNote: String(raw.transactionNote || ""),
     providerDisplayName: String(raw.providerDisplayName || ""),
     manualReview: raw.manualReview === true,
     reviewReason: String(raw.reviewReason || ""),

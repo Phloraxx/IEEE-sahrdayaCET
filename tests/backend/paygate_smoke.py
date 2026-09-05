@@ -60,7 +60,8 @@ class FakePayGateState:
                 "external_id": external_id,
                 "metadata": metadata or {},
                 "payer": {"name": "", "upi_id": ""},
-                "upi_uri": "upi://pay?pa=ci%40upi&pn=IEEE+Sahrdaya+CI" + f"&am={payable_paise / 100:.2f}&cu=INR&tr={payment_id}&tn=IEEE+registration",
+                "upi_uri": "upi://pay?am=" + f"{payable_paise / 100:.2f}" + f"&cu=INR&pa=ci%40upi&pn=IEEE%20Sahrdaya%20CI&tn=PayGate%20{payment_id}",
+                "transaction_note": f"PayGate {payment_id}",
                 "_params": params,
             }
             self.payments[payment_id] = payment
@@ -363,7 +364,7 @@ def main():
         assert payment1["requestedAmountPaise"] == 10000
         assert payment1["payableAmountPaise"] == 10031
         assert payment1["upiUri"] == STATE.get(payment1["paymentId"])["upi_uri"]
-        assert "&tn=IEEE+registration" in payment1["upiUri"]
+        assert payment1["transactionNote"] == f"PayGate {payment1['paymentId']}"
         assert STATE.create_count == 1
 
         ledger_filter = urllib.parse.quote(f'registration = "{reg1["registrationId"]}"')
