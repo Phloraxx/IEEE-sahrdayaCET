@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   Check,
+  Download,
   Loader2,
   QrCode,
   RefreshCw,
@@ -192,6 +193,11 @@ export function PaymentProviderPanel({
             <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-slate-500">
               Pay the exact amount shown. The unique paise amount allows your payment to be verified automatically.
             </p>
+            {session.transactionNote && (
+              <p className="mt-2 font-mono text-xs text-slate-500">
+                Payment reference: {session.transactionNote}
+              </p>
+            )}
 
             <div className="mx-auto mt-5 flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-bold text-slate-600">
               <motion.span
@@ -230,6 +236,13 @@ export function PaymentProviderPanel({
                   <p className="mt-1 text-xs leading-5 text-slate-500">
                     Do not edit the amount in your UPI app. It must remain exactly ₹{payable || "—"}.
                   </p>
+                  <a
+                    href={qrDataUrl}
+                    download="paygate-payment.png"
+                    className="mt-3 inline-flex items-center justify-center gap-2 text-xs font-black text-ieee-blue"
+                  >
+                    <Download className="h-3.5 w-3.5" /> Save QR
+                  </a>
                 </motion.div>
               ) : (
                 <div className="rounded-2xl border border-slate-200 bg-white p-6">

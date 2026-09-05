@@ -103,6 +103,9 @@ describe("registration/payment experience architecture", () => {
     const payment = source("src/features/payment/PaymentPage.tsx");
     const providerUi = source("src/features/payment/payment-provider-panels.tsx");
     expect(payment).toContain("QRCode.toDataURL(payGateUpiUri");
+    expect(providerUi).toContain("src={qrDataUrl}");
+    expect(providerUi).toContain("href={qrDataUrl}");
+    expect(providerUi).toContain('download="paygate-payment.png"');
     expect(providerUi).toContain("href={payGateUpiUri}");
     expect(payment).not.toContain('searchParams.delete("tn")');
     expect(payment).not.toContain('searchParams.delete("tr")');

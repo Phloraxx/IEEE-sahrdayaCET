@@ -91,6 +91,30 @@ function moneyStringToPaise(value) {
     return Number.isSafeInteger(total) && total > 0 ? total : 0
 }
 
+function parseUpiPaymentUri(value) {
+    var prefix = "upi://pay?"
+    value = String(value || "")
+    if (value.indexOf(prefix) !== 0) return null
+    var query = value.slice(prefix.length)
+    if (!query) return null
+    var params = {}
+    var parts = query.split("&")
+    for (var i = 0; i < parts.length; i++) {
+        if (!parts[i]) continue
+        var separator = parts[i].indexOf("=")
+        if (separator <= 0) return null
+        var key
+        var decoded
+        try {
+            key = decodeURIComponent(parts[i].slice(0, separator).replace(/\+/g, " "))
+            decoded = decodeURIComponent(parts[i].slice(separator + 1).replace(/\+/g, " "))
+        } catch (_) { return null }
+        if (!key || Object.prototype.hasOwnProperty.call(params, key)) return null
+        params[key] = decoded
+    }
+    return params
+}
+
 function normalizeProviderPayment(raw) {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null
     if (raw.object !== "payment") return null
@@ -109,6 +133,9 @@ function normalizeProviderPayment(raw) {
         graceUntil: String(raw.grace_until || ""),
         paidAt: String(raw.paid_at || ""),
         upiUri: String(raw.upi_uri || ""),
+        hasUpiUri: Object.prototype.hasOwnProperty.call(raw, "upi_uri"),
+        transactionNote: String(raw.transaction_note || ""),
+        hasTransactionNote: Object.prototype.hasOwnProperty.call(raw, "transaction_note"),
         externalId: String(raw.external_id || "").trim(),
         metadata: asObject(raw.metadata),
         payerName: String(payer.name || ""),
@@ -166,7 +193,25 @@ function validateProviderPayment(raw, expectedAmountRupees, options) {
     if (options.environment && String(payment.metadata.environment || "").trim() !== String(options.environment)) {
         return { ok: false, error: "PayGate environment identity mismatch" }
     }
-    if (options.requireUpiUri && payment.upiUri.indexOf("upi://pay?") !== 0) return { ok: false, error: "PayGate did not provide a usable UPI payment URI" }
+    if (payment.transactionNote && payment.transactionNote !== "PayGate " + payment.id) {
+        return { ok: false, error: "PayGate transaction reference does not match the payment" }
+    }
+    if (options.requireTransactionNote && !payment.transactionNote) {
+        return { ok: false, error: "PayGate did not provide a transaction reference" }
+    }
+    var upi = payment.upiUri ? parseUpiPaymentUri(payment.upiUri) : null
+    if (options.requireUpiUri && !upi) return { ok: false, error: "PayGate did not provide a usable UPI payment URI" }
+    if (upi) {
+        if (!String(upi.pa || "").trim() || String(upi.cu || "").toUpperCase() !== "INR") {
+            return { ok: false, error: "PayGate returned invalid UPI payment instructions" }
+        }
+        if (moneyStringToPaise(upi.am) !== payment.payableAmountPaise) {
+            return { ok: false, error: "PayGate UPI amount does not match the verification amount" }
+        }
+        if (!payment.transactionNote || String(upi.tn || "") !== payment.transactionNote) {
+            return { ok: false, error: "PayGate UPI transaction reference does not match the payment" }
+        }
+    }
     if (payment.status === "pending" && !payment.expiresAt) return { ok: false, error: "PayGate did not provide a payment expiry" }
     return { ok: true, payment: payment }
 }
@@ -308,6 +353,7 @@ function paymentSession(registration, data, providerReachable) {
         expiresAt: data.expiresAt || "",
         paidAt: data.paidAt || "",
         upiUri: data.upiUri || "",
+        transactionNote: data.transactionNote || "",
         providerDisplayName: "PayGate",
         manualReview: data.manualReview === true,
         reviewReason: data.reviewReason || "",
@@ -436,7 +482,8 @@ function updateProviderData(registration, payment, extra) {
         payableAmount: payment.payableAmount,
         expiresAt: payment.expiresAt || current.expiresAt || "",
         paidAt: payment.paidAt || current.paidAt || "",
-        upiUri: payment.upiUri || current.upiUri || "",
+        upiUri: payment.hasUpiUri ? payment.upiUri : (current.upiUri || ""),
+        transactionNote: payment.hasTransactionNote ? payment.transactionNote : (current.transactionNote || ""),
         lastSyncedAt: new Date().toISOString(),
     }
     var keys = Object.keys(extra || {})
@@ -604,6 +651,7 @@ function createPaymentForRegistration(registration) {
     }
     var validated = validateProviderPayment(response.json, amount, {
         requireUpiUri: true,
+        requireTransactionNote: true,
         externalId: eventId,
         registrationId: registration.id,
         environment: deploymentNamespace(),
@@ -672,6 +720,8 @@ function reconcilePaymentForRegistration(registration) {
         return { status: 409, body: { code: "PAYGATE_AMOUNT_INVALID", error: "This PayGate payment amount cannot be reconciled safely" } }
     }
     var validationOptions = {
+        requireUpiUri: true,
+        requireTransactionNote: true,
         paymentId: String(data.paymentId),
         externalId: registration.getString("event") || "",
         registrationId: registration.id,

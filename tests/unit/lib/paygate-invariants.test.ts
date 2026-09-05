@@ -14,6 +14,7 @@ interface ProviderPayment {
   graceUntil?: string;
   paidAt?: string | null;
   upiUri?: string;
+  transactionNote?: string;
   externalId?: string;
   metadata?: Record<string, unknown>;
 }
@@ -54,7 +55,8 @@ const validV4Payment = {
   requested_amount: "100.00",
   payable_amount: "101.37",
   adjustment: "1.37",
-  upi_uri: "upi://pay?pa=example%40upi&am=101.37&cu=INR&tn=IEEE&tr=provider-ref",
+  upi_uri: "upi://pay?am=101.37&cu=INR&pa=example%40upi&tn=PayGate%20payment_v4_123",
+  transaction_note: "PayGate payment_v4_123",
   expires_at: "2026-08-11T16:30:00Z",
   grace_until: "2026-08-11T16:35:00Z",
   paid_at: null,
@@ -85,6 +87,7 @@ describe("PayGate v4 contract", () => {
     expect(payment).toMatchObject({
       apiVersion: "v4", id: "payment_v4_123", requestedAmountPaise: 10000,
       payableAmountPaise: 10137, externalId: "event_123",
+      transactionNote: "PayGate payment_v4_123",
     });
     expect(payment?.upiUri).toBe(validV4Payment.upi_uri);
   });
@@ -99,6 +102,31 @@ describe("PayGate v4 contract", () => {
     expect(next).not.toHaveProperty("paygateApiVersion");
     expect(next).not.toHaveProperty("eventPaymentProvider");
     expect(next).not.toHaveProperty("paymentAccount");
+    expect(next.transactionNote).toBe("PayGate payment_v4_123");
+  });
+
+  it("clears explicitly empty payment instructions instead of retaining stale QR data", () => {
+    const registration = new FakeRegistration({ paymentData: {
+      provider: "paygate", upiUri: "upi://pay?am=100.37&cu=INR&pa=stale%40upi", transactionNote: "stale note",
+    }});
+    const raw = { ...validV4Payment, upi_uri: "", transaction_note: "" };
+    const payment = pg.normalizeProviderPayment(raw) as unknown as Record<string, unknown>;
+    const next = pg.updateProviderData(registration, payment, {});
+    expect(next.upiUri).toBe("");
+    expect(next.transactionNote).toBe("");
+  });
+
+  it("preserves payment instructions only when a partial webhook omits those fields", () => {
+    const registration = new FakeRegistration({ paymentData: {
+      provider: "paygate", upiUri: validV4Payment.upi_uri, transactionNote: validV4Payment.transaction_note,
+    }});
+    const raw = { ...validV4Payment } as Record<string, unknown>;
+    delete raw.upi_uri;
+    delete raw.transaction_note;
+    const payment = pg.normalizeProviderPayment(raw) as unknown as Record<string, unknown>;
+    const next = pg.updateProviderData(registration, payment, {});
+    expect(next.upiUri).toBe(validV4Payment.upi_uri);
+    expect(next.transactionNote).toBe(validV4Payment.transaction_note);
   });
 });
 
@@ -123,7 +151,11 @@ describe("PayGate monetary validation", () => {
   });
 
   it("accepts v4 fingerprints in the current bucket and overflow bucket", () => {
-    const normal = pg.validateProviderPayment({ ...validV4Payment, payable_amount: "100.37" }, 100, validationOptions);
+    const normal = pg.validateProviderPayment({
+      ...validV4Payment,
+      payable_amount: "100.37",
+      upi_uri: "upi://pay?am=100.37&cu=INR&pa=example%40upi&tn=PayGate%20payment_v4_123",
+    }, 100, validationOptions);
     expect(normal.ok).toBe(true);
     expect(normal.payment?.payableAmountPaise).toBe(10037);
     const overflow = pg.validateProviderPayment(validV4Payment, 100, validationOptions);
@@ -135,6 +167,37 @@ describe("PayGate monetary validation", () => {
     const result = pg.validateProviderPayment({ ...validV4Payment, requested_amount: "99.00", payable_amount: "99.37" }, 100, validationOptions);
     expect(result.ok).toBe(false);
     expect(result.error).toMatch(/requested amount/i);
+  });
+
+  it("rejects UPI instructions that disagree with the validated payment", () => {
+    const wrongAmount = pg.validateProviderPayment({
+      ...validV4Payment,
+      upi_uri: "upi://pay?am=100.37&cu=INR&pa=example%40upi&tn=PayGate%20payment_v4_123",
+    }, 100, validationOptions);
+    expect(wrongAmount.ok).toBe(false);
+    expect(wrongAmount.error).toMatch(/UPI amount/i);
+
+    const wrongNote = pg.validateProviderPayment({
+      ...validV4Payment,
+      upi_uri: "upi://pay?am=101.37&cu=INR&pa=example%40upi&tn=PayGate%20another_payment",
+    }, 100, validationOptions);
+    expect(wrongNote.ok).toBe(false);
+    expect(wrongNote.error).toMatch(/transaction reference/i);
+
+    const wrongCurrency = pg.validateProviderPayment({
+      ...validV4Payment,
+      upi_uri: "upi://pay?am=101.37&cu=USD&pa=example%40upi&tn=PayGate%20payment_v4_123",
+    }, 100, validationOptions);
+    expect(wrongCurrency.ok).toBe(false);
+    expect(wrongCurrency.error).toMatch(/UPI payment instructions/i);
+  });
+
+  it("requires the deterministic transaction reference on create/status responses", () => {
+    const missing = { ...validV4Payment } as Record<string, unknown>;
+    delete missing.transaction_note;
+    const result = pg.validateProviderPayment(missing, 100, { ...validationOptions, requireTransactionNote: true });
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/transaction reference/i);
   });
 
   it("rejects .00 and fingerprints outside the v4 pools", () => {
