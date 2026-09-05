@@ -1473,6 +1473,9 @@ ops_refunded = request("POST", f"/api/admin/registrations/{ops_manual['id']}/com
 }, admin_token)["registration"]
 assert ops_refunded["registrationStatus"] == "cancelled"
 assert ops_refunded["paymentStatus"] == "refunded"
+if github_env := os.environ.get("GITHUB_ENV"):
+    with open(github_env, "a", encoding="utf-8") as env_file:
+        env_file.write(f"E2E_CANCELLED_TICKET_ID={ops_refunded['ticketId']}\n")
 
 ops_pending = request("POST", f"/api/admin/events/{ops_event['id']}/registrations/manual", {
     "name": "Pending Walk In", "email": f"pending-walkin-{suffix}@example.test",
@@ -1544,6 +1547,8 @@ assert "user" not in anonymous_ticket and "registrationId" not in anonymous_tick
 assert anonymous_ticket["event"]["requirements"] == ["Bring laptop charger", "College ID card required"]
 assert anonymous_ticket["event"]["attendeeNote"] == "Report at the registration desk 15 minutes early."
 assert anonymous_ticket["event"]["externalLink"] == "https://example.test/event-guide"
+assert anonymous_ticket["event"]["timeTbc"] is False
+assert anonymous_ticket["event"]["checkInEnabled"] is True
 assert "contactEmail" not in anonymous_ticket["event"] and "contactPhone" not in anonymous_ticket["event"]
 assert anonymous_ticket["isOwner"] is False
 assert "meet.example.test" not in json.dumps(anonymous_ticket)

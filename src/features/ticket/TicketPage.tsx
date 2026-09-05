@@ -22,7 +22,7 @@ import { getEventJoinDetails, getTicket, type EventJoinDetails, type PublicTicke
 import { downloadRegistrationReceipt } from "@/lib/data/receipt.client";
 import { formatDateShort } from "@/lib/dates";
 import { MOTION_DURATION, MOTION_EASE } from "@/lib/motion";
-import { isPastEvent } from "@/lib/event-lifecycle";
+import { getTicketCheckInState, type TicketCheckInState } from "@/lib/event-lifecycle";
 import { logError } from "@/lib/logger";
 import { downloadQR as downloadQRFile, generateQRDataUrl } from "@/lib/qr-utils";
 import { getTicketStatusInfo } from "@/lib/ticketStatus";
@@ -31,6 +31,29 @@ import { BRANCH_SOCIAL_LINKS } from "@/lib/social-links";
 interface PageProps {
   ticketId: string;
 }
+
+const INACTIVE_CHECK_IN_COPY: Record<Exclude<TicketCheckInState, "eligible">, { title: string; description: string }> = {
+  cancelled: {
+    title: "This ticket was cancelled.",
+    description: "The registration is no longer valid for event entry.",
+  },
+  past: {
+    title: "This event has ended.",
+    description: "This historical ticket remains available, but check-in is closed.",
+  },
+  unpublished: {
+    title: "Check-in is unavailable for this event.",
+    description: "This event is not currently available for check-in.",
+  },
+  unconfirmed: {
+    title: "This registration is not confirmed.",
+    description: "The check-in code becomes available after registration is confirmed.",
+  },
+  disabled: {
+    title: "Check-in is not open for this event.",
+    description: "The organiser has paused or disabled QR check-in.",
+  },
+};
 
 export default function TicketPage({ ticketId }: PageProps) {
   const [ticketData, setTicketData] = useState<PublicTicketData | null>(null);
@@ -45,13 +68,15 @@ export default function TicketPage({ ticketId }: PageProps) {
 
   useEffect(() => {
     let active = true;
+    setTicketData(null);
+    setQrDataUrl(null);
+    setQrSaved(false);
+    setError(null);
+    setLoading(true);
     void getTicket(ticketId)
-      .then(async (data) => {
+      .then((data) => {
         if (!data.found || !data.ticket) throw new Error("Ticket not found");
-        if (!active) return;
-        setTicketData(data);
-        const qr = await generateQRDataUrl(`${window.location.origin}/ticket/${data.ticket.id || ticketId}`);
-        if (active) setQrDataUrl(qr);
+        if (active) setTicketData(data);
       })
       .catch((err: unknown) => {
         logError("ticket-page", err);
@@ -60,6 +85,23 @@ export default function TicketPage({ ticketId }: PageProps) {
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [ticketId]);
+
+  const checkInState = getTicketCheckInState(ticketData?.ticket?.registrationStatus, ticketData?.event);
+  const isPast = checkInState === "past";
+  const ticketStateLabel: Record<TicketCheckInState, string> = { eligible: "Ready", cancelled: "Cancelled", past: "History", unpublished: "Unavailable", unconfirmed: "Pending", disabled: "Paused" };
+
+  useEffect(() => {
+    let active = true;
+    setQrDataUrl(null);
+    setQrSaved(false);
+    if (!ticketData?.ticket || checkInState !== "eligible") {
+      return () => { active = false; };
+    }
+    void generateQRDataUrl(`${window.location.origin}/ticket/${ticketData.ticket.id || ticketId}`)
+      .then((qr) => { if (active) setQrDataUrl(qr); })
+      .catch((err: unknown) => logError("ticket-qr", err));
+    return () => { active = false; };
+  }, [checkInState, ticketData?.ticket, ticketId]);
 
   useEffect(() => {
     const eventId = ticketData?.event?.id || "";
@@ -84,7 +126,7 @@ export default function TicketPage({ ticketId }: PageProps) {
   }, [ticketData?.event?.id, ticketData?.isOwner, ticketData?.ticket?.registrationStatus]);
 
   const handleDownloadQR = () => {
-    if (!qrDataUrl) return;
+    if (checkInState !== "eligible" || !qrDataUrl) return;
     const name = ticketData?.registration?.name || "guest";
     downloadQRFile(qrDataUrl, `ticket-${name.replace(/\s+/g, "-").toLowerCase()}.png`);
     setQrSaved(true);
@@ -115,7 +157,6 @@ export default function TicketPage({ ticketId }: PageProps) {
   }
 
   const { ticket, event, registration } = ticketData;
-  const isPast = event ? isPastEvent({ status: "published", date: event.date, endDate: event.endDate }) : false;
   const status = registration
     ? getTicketStatusInfo(registration.registrationStatus || registration.paymentStatus, isPast)
     : getTicketStatusInfo(ticket.registrationStatus || ticket.paymentStatus, isPast);
@@ -128,7 +169,7 @@ export default function TicketPage({ ticketId }: PageProps) {
       <header className="border-b border-black/12">
         <div className="mx-auto flex max-w-[1200px] items-center justify-between px-5 py-5 sm:px-8">
           <Link to="/" className="text-[10px] font-black uppercase tracking-[0.22em]">IEEE Sahrdaya</Link>
-          <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#00629B]">Ticket / Ready</span>
+          <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#00629B]">Ticket / {ticketStateLabel[checkInState]}</span>
         </div>
       </header>
 
@@ -187,32 +228,40 @@ export default function TicketPage({ ticketId }: PageProps) {
             </div>
           </section>
 
-          <aside className="flex flex-col items-center justify-center bg-white p-7 text-center sm:p-10 lg:p-12">
-            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#00629B]">Check-in code</p>
-            <div className="mt-7 border border-black/10 bg-white p-4">
-              {qrDataUrl ? (
-                <motion.img
-                  src={qrDataUrl}
-                  alt="Event ticket QR code"
-                  initial={reduceMotion ? false : { opacity: 0, scale: 0.94 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: reduceMotion ? 0 : MOTION_DURATION.success, ease: MOTION_EASE, delay: reduceMotion ? 0 : 0.12 }}
-                  className="h-56 w-56 sm:h-64 sm:w-64"
-                />
-              ) : <div className="grid h-56 w-56 place-items-center sm:h-64 sm:w-64"><Loader2 className="h-7 w-7 animate-spin text-black/20" /></div>}
-            </div>
-            <h2 className="mt-6 text-2xl font-semibold tracking-[-0.04em]">Show this at check-in.</h2>
-            <p className="mt-2 max-w-xs text-sm leading-6 text-black/48">Keep this page available on your phone when you arrive.</p>
-            <motion.button
-              type="button"
-              onClick={handleDownloadQR}
-              disabled={!qrDataUrl}
-              whileTap={reduceMotion ? undefined : { scale: 0.97 }}
-              className="mt-7 inline-flex min-w-24 items-center justify-center gap-2 border-y border-[#00629B] py-3 text-sm font-bold text-[#00629B] disabled:opacity-40"
-            >
-              {qrSaved ? <><CheckCircle2 className="h-4 w-4" /> Saved</> : <><Download className="h-4 w-4" /> Save QR</>}
-            </motion.button>
-          </aside>
+          {checkInState === "eligible" ? (
+            <aside data-testid="ticket-check-in-panel" data-check-in-state={checkInState} className="flex flex-col items-center justify-center bg-white p-7 text-center sm:p-10 lg:p-12">
+              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#00629B]">Check-in code</p>
+              <div className="mt-7 border border-black/10 bg-white p-4">
+                {qrDataUrl ? (
+                  <motion.img
+                    src={qrDataUrl}
+                    alt="Event ticket QR code"
+                    initial={reduceMotion ? false : { opacity: 0, scale: 0.94 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: reduceMotion ? 0 : MOTION_DURATION.success, ease: MOTION_EASE, delay: reduceMotion ? 0 : 0.12 }}
+                    className="h-56 w-56 sm:h-64 sm:w-64"
+                  />
+                ) : <div className="grid h-56 w-56 place-items-center sm:h-64 sm:w-64"><Loader2 className="h-7 w-7 animate-spin text-black/20" /></div>}
+              </div>
+              <h2 className="mt-6 text-2xl font-semibold tracking-[-0.04em]">Show this at check-in.</h2>
+              <p className="mt-2 max-w-xs text-sm leading-6 text-black/48">Keep this page available on your phone when you arrive.</p>
+              <motion.button
+                type="button"
+                onClick={handleDownloadQR}
+                disabled={!qrDataUrl}
+                whileTap={reduceMotion ? undefined : { scale: 0.97 }}
+                className="mt-7 inline-flex min-w-24 items-center justify-center gap-2 border-y border-[#00629B] py-3 text-sm font-bold text-[#00629B] disabled:opacity-40"
+              >
+                {qrSaved ? <><CheckCircle2 className="h-4 w-4" /> Saved</> : <><Download className="h-4 w-4" /> Save QR</>}
+              </motion.button>
+            </aside>
+          ) : (
+            <aside data-testid="ticket-check-in-panel" data-check-in-state={checkInState} className="flex flex-col items-center justify-center bg-white p-7 text-center sm:p-10 lg:p-12">
+              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-black/40">Check-in unavailable</p>
+              <h2 className="mt-6 max-w-sm text-2xl font-semibold tracking-[-0.04em]">{INACTIVE_CHECK_IN_COPY[checkInState].title}</h2>
+              <p className="mt-3 max-w-xs text-sm leading-6 text-black/48">{INACTIVE_CHECK_IN_COPY[checkInState].description}</p>
+            </aside>
+          )}
         </motion.article>
 
         <section data-testid="ticket-attendee-hub" className="mt-10 border-y border-black/12 py-9">

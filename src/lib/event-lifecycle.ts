@@ -13,6 +13,8 @@ export interface EventLifecycleInput {
   registrationStart?: string | null;
   registrationDeadline?: string | null;
   isDeleted?: boolean | null;
+  isArchived?: boolean | null;
+  checkInEnabled?: boolean | null;
 }
 
 function toTimestamp(value?: string | null): number | null {
@@ -46,6 +48,38 @@ export function isPastEvent(event: EventLifecycleInput, now: number = Date.now()
   const end = getEventEndTimestamp(event);
   return end !== null && end <= now;
 }
+export type TicketCheckInState =
+  | "eligible"
+  | "cancelled"
+  | "past"
+  | "unpublished"
+  | "unconfirmed"
+  | "disabled";
+
+function ticketCheckInHasEnded(event: EventLifecycleInput, now: number): boolean {
+  const explicitEnd = toTimestamp(event.endDate);
+  if (explicitEnd !== null) return explicitEnd <= now;
+  if (!event.timeTbc) return false;
+  const start = toTimestamp(event.date);
+  if (start === null) return false;
+  return Date.parse(getAppDayBounds(new Date(start)).endIso) <= now;
+}
+
+export function getTicketCheckInState(
+  registrationStatus: string | null | undefined,
+  event: EventLifecycleInput | null | undefined,
+  now: number = Date.now(),
+): TicketCheckInState {
+  if (registrationStatus === "cancelled") return "cancelled";
+  if (!event || event.isDeleted || event.isArchived) return "unpublished";
+  if (event.status === "completed") return "past";
+  if (event.status !== "published") return "unpublished";
+  if (ticketCheckInHasEnded(event, now)) return "past";
+  if (registrationStatus !== "confirmed") return "unconfirmed";
+  if (event.checkInEnabled === false) return "disabled";
+  return "eligible";
+}
+
 
 export function canRegisterForEvent(event: EventLifecycleInput, now: number = Date.now()): boolean {
   if (!isPublicEvent(event) || event.status !== "published") return false;

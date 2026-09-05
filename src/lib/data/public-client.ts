@@ -314,6 +314,8 @@ export interface PublicTicketData {
     isArchived: boolean;
     date: string;
     endDate: string;
+    timeTbc: boolean;
+    checkInEnabled: boolean;
     venue: string;
     bannerUrl: string;
     time: string;
@@ -355,6 +357,8 @@ export async function getTicket(ticketId: string): Promise<PublicTicketData> {
         isArchived: data.event.isArchived === true,
         date: String(data.event.date || ""),
         endDate: String(data.event.endDate || ""),
+        timeTbc: data.event.timeTbc === true,
+        checkInEnabled: data.event.checkInEnabled === true,
         venue: String(data.event.venue || ""),
         bannerUrl: String(data.event.bannerUrl || ""),
         time: String(data.event.time || ""),
