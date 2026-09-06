@@ -46,7 +46,8 @@ function normalizePayGateOrigin(value) {
     if (!match) return ""
     if (String(match[1]).toLowerCase() === "http") {
         var localHost = String(match[2]).toLowerCase()
-        if (localHost !== "localhost" && localHost !== "127.0.0.1" && localHost !== "[::1]" && localHost !== "host.docker.internal") return ""
+        if (deploymentNamespace() === "production" ||
+            (localHost !== "localhost" && localHost !== "127.0.0.1" && localHost !== "[::1]" && localHost !== "host.docker.internal")) return ""
     }
     if (match[3] && Number(match[3]) > 65535) return ""
     return text
