@@ -75,6 +75,10 @@ describe("PayGate v4 contract", () => {
     expect(loadHelpers({ PAYGATE_API_VERSION: "v3" }).getConfig()).not.toHaveProperty("apiVersion");
   });
 
+  it("caps webhook freshness tolerance to a bounded operational window", () => {
+    expect(loadHelpers({ PAYGATE_WEBHOOK_TOLERANCE_SECONDS: "86400" }).getConfig().webhookToleranceSeconds).toBe(900);
+  });
+
   it("rejects the retired v3 camelCase payment shape", () => {
     expect(pg.normalizeProviderPayment({
       id: "payment_v3", status: "pending", requestedAmountPaise: 10000,
