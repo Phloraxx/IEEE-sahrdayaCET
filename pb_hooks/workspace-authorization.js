@@ -1,119 +1,105 @@
 /// <reference path="../pb_data/types.d.ts" />
 
-// Community Roles V2 authorization core.
-// Titles live in Execom/assignments; security is evaluated only through
-// capability + scope. Legacy admin/chair/content roles remain compatible
-// during the migration period.
-
-var ROLE_CAPABILITIES = {
-  branch_chair: [
-    "workspace.view", "events.view", "events.create", "events.edit", "events.submit",
-    "events.approve", "events.publish", "events.cancel", "events.archive", "events.complete", "registrations.view",
-    "registrations.manage", "registrations.manual", "checkin.manage", "finance.view",
-    "societies.view", "societies.edit", "assignments.manage", "content.manage",
-    "execom.manage", "reports.view", "certificates.view", "certificates.manage_templates",
-    "certificates.issue", "certificates.send", "certificates.revoke"
+// Small workspace access model. Organizational positions remain in Execom and
+// assignment.title; only these access roles determine capabilities. Historical
+// role codes below are aliases so existing records keep working without a data
+// rewrite.
+var CANONICAL_ROLE_CAPABILITIES = {
+  organizer: [
+    "workspace.view", "events.view", "events.create", "events.edit", "events.publish",
+    "events.cancel", "events.archive", "events.complete", "registrations.view",
+    "registrations.manage", "registrations.manual", "checkin.manage", "assignments.manage",
+    "societies.view", "societies.edit",
+    "reports.view", "certificates.view", "certificates.manage_templates", "certificates.issue",
+    "certificates.send", "certificates.revoke"
   ],
-  branch_vice_chair: [
-    "workspace.view", "events.view", "events.create", "events.edit", "events.submit",
-    "events.approve", "events.publish", "events.cancel", "events.archive", "events.complete", "registrations.view",
-    "registrations.manage", "registrations.manual", "checkin.manage", "finance.view",
-    "societies.view", "societies.edit", "assignments.manage", "content.manage",
-    "reports.view", "certificates.view", "certificates.manage_templates", "certificates.issue", "certificates.send", "certificates.revoke"
-  ],
-  branch_secretary: [
-    "workspace.view", "events.view", "events.create", "events.edit", "events.submit",
-    "events.approve", "events.publish", "events.cancel", "events.archive", "events.complete", "registrations.view",
-    "registrations.manage", "registrations.manual", "checkin.manage", "finance.view",
-    "societies.view", "assignments.manage", "content.manage", "reports.view",
-    "certificates.view", "certificates.manage_templates", "certificates.issue", "certificates.send"
-  ],
-  branch_joint_secretary: [
-    "workspace.view", "events.view", "events.create", "events.edit", "events.submit", "events.archive", "events.complete",
-    "registrations.view", "registrations.manage", "registrations.manual", "checkin.manage",
-    "societies.view", "content.manage", "reports.view", "certificates.view", "certificates.issue", "certificates.send"
-  ],
-  branch_treasurer: [
-    "workspace.view", "events.view", "registrations.view", "finance.view", "finance.manage",
-    "finance.approve", "reports.view"
-  ],
-  branch_counselor: [
-    "workspace.view", "events.view", "events.approve", "events.publish", "events.cancel", "events.archive", "events.complete",
-    "registrations.view", "finance.view", "societies.view", "assignments.manage",
-    "execom.manage", "reports.view", "certificates.view", "certificates.manage_templates",
-    "certificates.issue", "certificates.send", "certificates.revoke"
-  ],
-  branch_faculty_coordinator: [
-    "workspace.view", "events.view", "events.approve", "events.publish", "events.cancel", "events.archive", "events.complete",
-    "registrations.view", "finance.view", "societies.view", "assignments.manage",
-    "reports.view", "certificates.view", "certificates.manage_templates", "certificates.issue", "certificates.send", "certificates.revoke"
-  ],
-  branch_content: ["workspace.view", "events.view", "societies.view", "content.manage"],
-  branch_webmaster: ["workspace.view", "events.view", "societies.view", "content.manage", "reports.view"],
-
-  society_faculty: [
-    "workspace.view", "events.view", "events.edit", "events.submit", "events.approve", "events.archive", "events.complete",
-    "registrations.view", "checkin.manage", "finance.view", "societies.view", "societies.edit",
-    "assignments.manage", "reports.view", "certificates.view", "certificates.manage_templates",
-    "certificates.issue", "certificates.send", "certificates.revoke"
-  ],
-  society_chair: [
-    "workspace.view", "events.view", "events.create", "events.edit", "events.submit",
-    "events.cancel", "events.archive", "registrations.view", "registrations.manage", "registrations.manual",
-    "checkin.manage", "finance.view", "societies.view", "societies.edit",
-    "assignments.manage", "content.manage", "reports.view", "certificates.view", "certificates.manage_templates",
-    "certificates.issue", "certificates.send", "certificates.revoke"
-  ],
-  society_vice_chair: [
-    "workspace.view", "events.view", "events.create", "events.edit", "events.submit",
-    "events.cancel", "events.archive", "registrations.view", "registrations.manage", "registrations.manual",
-    "checkin.manage", "finance.view", "societies.view", "assignments.manage",
-    "content.manage", "reports.view", "certificates.view", "certificates.issue", "certificates.send"
-  ],
-  society_secretary: [
-    "workspace.view", "events.view", "events.create", "events.edit", "events.submit", "events.archive", "events.complete",
-    "registrations.view", "registrations.manage", "registrations.manual", "checkin.manage",
-    "societies.view", "content.manage", "reports.view", "certificates.view", "certificates.issue", "certificates.send"
-  ],
-  society_treasurer: [
-    "workspace.view", "events.view", "registrations.view", "finance.view", "finance.manage",
-    "finance.approve", "societies.view", "reports.view"
-  ],
-  society_content: ["workspace.view", "events.view", "societies.view", "content.manage"],
-  society_team: ["workspace.view", "events.view", "societies.view"],
-
-  event_lead: [
-    "workspace.view", "events.view", "events.edit", "events.submit", "events.archive", "events.complete", "registrations.view",
-    "registrations.manage", "registrations.manual", "checkin.manage", "finance.view",
-    "assignments.manage", "content.manage", "reports.view", "certificates.view", "certificates.issue", "certificates.send"
-  ],
-  event_registration: [
-    "workspace.view", "events.view", "registrations.view", "registrations.manage",
-    "registrations.manual"
-  ],
-  event_checkin: ["workspace.view", "events.view", "checkin.manage"],
-  event_content: ["workspace.view", "events.view", "content.manage"],
-  event_finance: [
-    "workspace.view", "events.view", "registrations.view", "finance.view", "finance.manage",
-    "finance.approve"
-  ]
+  finance: ["workspace.view", "events.view", "finance.view", "finance.manage"],
+  registration_staff: ["workspace.view", "events.view", "registrations.view", "registrations.manage", "registrations.manual"],
+  checkin_staff: ["workspace.view", "events.view", "checkin.manage"],
+  content_editor: ["workspace.view", "events.view", "societies.view", "content.manage"]
 }
 
+var ROLE_ALIASES = {
+  branch_chair: "organizer",
+  branch_vice_chair: "organizer",
+  branch_secretary: "organizer",
+  branch_joint_secretary: "organizer",
+  branch_counselor: "organizer",
+  branch_faculty_coordinator: "organizer",
+  branch_treasurer: "finance",
+  branch_content: "content_editor",
+  branch_webmaster: "content_editor",
+  society_faculty: "organizer",
+  society_chair: "organizer",
+  society_vice_chair: "organizer",
+  society_secretary: "organizer",
+  society_treasurer: "finance",
+  society_content: "content_editor",
+  event_lead: "organizer",
+  event_registration: "registration_staff",
+  event_checkin: "checkin_staff",
+  event_content: "content_editor",
+  event_finance: "finance"
+}
+
+// society_team was a genuine view-only historical assignment. It is not
+// offered for new grants, but retaining its narrow capabilities avoids
+// silently escalating or breaking an existing directory assignment.
+var ROLE_CAPABILITIES = {
+  organizer: CANONICAL_ROLE_CAPABILITIES.organizer,
+  finance: CANONICAL_ROLE_CAPABILITIES.finance,
+  registration_staff: CANONICAL_ROLE_CAPABILITIES.registration_staff,
+  checkin_staff: CANONICAL_ROLE_CAPABILITIES.checkin_staff,
+  content_editor: CANONICAL_ROLE_CAPABILITIES.content_editor,
+  society_team: ["workspace.view", "events.view", "societies.view"]
+}
+Object.keys(ROLE_ALIASES).forEach(function (roleCode) {
+  ROLE_CAPABILITIES[roleCode] = CANONICAL_ROLE_CAPABILITIES[ROLE_ALIASES[roleCode]]
+})
+
 var ALL_CAPABILITIES = [
-  "workspace.view", "events.view", "events.create", "events.edit", "events.submit",
-  "events.approve", "events.publish", "events.cancel", "events.archive", "events.complete", "registrations.view",
-  "registrations.manage", "registrations.manual", "checkin.manage", "finance.view",
-  "finance.manage", "finance.approve", "societies.view", "societies.edit",
+  "workspace.view", "events.view", "events.create", "events.edit", "events.publish", "events.cancel",
+  "events.archive", "events.complete", "registrations.view", "registrations.manage", "registrations.manual",
+  "checkin.manage", "finance.view", "finance.manage", "societies.view", "societies.edit",
   "assignments.manage", "content.manage", "execom.manage", "reports.view", "technical.manage",
   "certificates.view", "certificates.manage_templates", "certificates.issue", "certificates.send", "certificates.revoke"
 ]
 
 var LEGACY_CHAIR_CAPABILITIES = [
-  "workspace.view", "events.view", "events.create", "events.edit", "events.submit",
-  "events.publish", "events.cancel", "events.archive", "events.complete", "registrations.view", "registrations.manage",
-  "registrations.manual", "checkin.manage", "finance.view", "societies.view", "societies.edit",
-  "reports.view", "certificates.view", "certificates.manage_templates", "certificates.issue", "certificates.send", "certificates.revoke"
+  "workspace.view", "events.view", "events.create", "events.edit", "events.publish", "events.cancel",
+  "events.archive", "events.complete", "registrations.view", "registrations.manage", "registrations.manual",
+  "checkin.manage", "finance.view", "societies.view", "societies.edit", "reports.view", "certificates.view",
+  "certificates.manage_templates", "certificates.issue", "certificates.send", "certificates.revoke"
 ]
+
+var CANONICAL_ROLE_SCOPES = {
+  organizer: ["branch", "society", "event"],
+  finance: ["branch", "society", "event"],
+  registration_staff: ["event"],
+  checkin_staff: ["event"],
+  content_editor: ["branch", "society", "event"]
+}
+
+function canonicalRoleCode(roleCode) {
+  roleCode = String(roleCode || "")
+  if (Object.prototype.hasOwnProperty.call(CANONICAL_ROLE_CAPABILITIES, roleCode)) return roleCode
+  return ROLE_ALIASES[roleCode] || ""
+}
+
+function storageRoleCode(roleCode, scopeType) {
+  var canonical = canonicalRoleCode(roleCode)
+  if (String(roleCode || "") === "society_team" && scopeType === "society") return "society_team"
+  if (!canonical || !contains(CANONICAL_ROLE_SCOPES[canonical], scopeType)) return ""
+  if (Object.prototype.hasOwnProperty.call(ROLE_ALIASES, roleCode)) {
+    return roleScopeType(roleCode, scopeType) === scopeType ? roleCode : ""
+  }
+  var preferred = {
+    branch: { organizer: "branch_secretary", finance: "branch_treasurer", content_editor: "branch_content" },
+    society: { organizer: "society_chair", finance: "society_treasurer", content_editor: "society_content" },
+    event: { organizer: "event_lead", finance: "event_finance", registration_staff: "event_registration", checkin_staff: "event_checkin", content_editor: "event_content" }
+  }
+  return preferred[scopeType] && preferred[scopeType][canonical] || ""
+}
 
 function authRole(auth) {
   if (!auth || !auth.id) return ""
@@ -187,6 +173,7 @@ function activeAssignments(app, auth) {
   try { execomIntegrity = require(__hooks + "/execom-workspace-sync.js") } catch (_) {}
   return rows.filter(function (row) {
     if (!assignmentActive(row, now)) return false
+    if (!validRoleCode(row.getString("roleCode") || "", row.getString("scopeType") || "")) return false
     if ((row.getString("source") || "") !== "execom") return true
     if (!execomIntegrity || typeof execomIntegrity.assignmentSourceCurrent !== "function") return false
     try { return execomIntegrity.assignmentSourceCurrent(app, row) } catch (_) { return false }
@@ -217,7 +204,7 @@ function hasCapability(app, auth, capability, context) {
   var rows = activeAssignments(app, auth)
   for (var i = 0; i < rows.length; i++) {
     var roleCode = rows[i].getString("roleCode") || ""
-    var capabilities = ROLE_CAPABILITIES[roleCode] || []
+    var capabilities = ROLE_CAPABILITIES[roleCode] || ROLE_CAPABILITIES[canonicalRoleCode(roleCode)] || []
     if (contains(capabilities, capability) && scopeMatches(rows[i], context || {})) return true
   }
   return false
@@ -247,17 +234,19 @@ function effectiveCapabilities(app, auth) {
   }
   var rows = activeAssignments(app, auth)
   for (var i = 0; i < rows.length; i++) {
-    var caps = ROLE_CAPABILITIES[rows[i].getString("roleCode") || ""] || []
+    var caps = ROLE_CAPABILITIES[rows[i].getString("roleCode") || ""] || ROLE_CAPABILITIES[canonicalRoleCode(rows[i].getString("roleCode") || "")] || []
     for (var j = 0; j < caps.length; j++) add(caps[j])
   }
   return out.sort()
 }
 
 function assignmentPayload(record) {
+  var roleCode = record.getString("roleCode") || ""
   return {
     id: record.id,
     userId: record.getString("user") || "",
-    roleCode: record.getString("roleCode") || "",
+    roleCode: roleCode,
+    accessRole: canonicalRoleCode(roleCode),
     title: record.getString("title") || "",
     scopeType: record.getString("scopeType") || "",
     societyId: record.getString("society") || "",
@@ -269,7 +258,7 @@ function assignmentPayload(record) {
     source: record.getString("source") || "manual",
     sourceExecomId: record.getString("sourceExecom") || "",
     notes: record.getString("notes") || "",
-    capabilities: (ROLE_CAPABILITIES[record.getString("roleCode") || ""] || []).slice()
+    capabilities: (ROLE_CAPABILITIES[roleCode] || ROLE_CAPABILITIES[canonicalRoleCode(roleCode)] || []).slice()
   }
 }
 
@@ -305,7 +294,7 @@ function hasHigherScopeAssignmentManager(app, auth, scopeType, societyId, eventI
   }
   for (var i = 0; i < rows.length; i++) {
     var row = rows[i]
-    var caps = ROLE_CAPABILITIES[row.getString("roleCode") || ""] || []
+    var caps = ROLE_CAPABILITIES[row.getString("roleCode") || ""] || ROLE_CAPABILITIES[canonicalRoleCode(row.getString("roleCode") || "")] || []
     if (caps.indexOf("assignments.manage") === -1) continue
     var rowScope = row.getString("scopeType") || ""
     if (rowScope === "branch") return true
@@ -316,18 +305,19 @@ function hasHigherScopeAssignmentManager(app, auth, scopeType, societyId, eventI
 
 function mayGrantRole(app, auth, roleCode, scopeType, societyId, eventId) {
   if (authRole(auth) === "admin") return true
-  if (!validRoleCode(roleCode) || roleScopeType(roleCode) !== scopeType) return false
+  var accessRole = canonicalRoleCode(roleCode)
+  if (!validRoleCode(roleCode, scopeType) || roleScopeType(roleCode, scopeType) !== scopeType) return false
   if (!mayManageAssignments(app, auth, scopeType, societyId, eventId)) return false
   if (scopeType === "branch") return false
 
   var higherScopeManager = hasHigherScopeAssignmentManager(app, auth, scopeType, societyId, eventId)
   if (scopeType === "society") {
-    if (["society_faculty", "society_chair", "society_treasurer"].indexOf(roleCode) !== -1) return higherScopeManager
-    return ["society_vice_chair", "society_secretary", "society_content", "society_team"].indexOf(roleCode) !== -1
+    if (["organizer", "finance"].indexOf(accessRole) !== -1) return higherScopeManager
+    return accessRole === "content_editor"
   }
   if (scopeType === "event") {
-    if (roleCode === "event_lead" || roleCode === "event_finance") return higherScopeManager
-    return ["event_registration", "event_checkin", "event_content"].indexOf(roleCode) !== -1
+    if (["organizer", "finance"].indexOf(accessRole) !== -1) return higherScopeManager
+    return ["registration_staff", "checkin_staff", "content_editor"].indexOf(accessRole) !== -1
   }
   return false
 }
@@ -347,18 +337,29 @@ function mayManageAssignments(app, auth, scopeType, societyId, eventId) {
 }
 
 function roleScopeType(roleCode) {
-  if (String(roleCode).indexOf("branch_") === 0) return "branch"
-  if (String(roleCode).indexOf("society_") === 0) return "society"
-  if (String(roleCode).indexOf("event_") === 0) return "event"
+  var scopeType = arguments.length > 1 ? String(arguments[1] || "") : ""
+  var raw = String(roleCode || "")
+  if (raw.indexOf("branch_") === 0) return "branch"
+  if (raw.indexOf("society_") === 0) return "society"
+  if (raw.indexOf("event_") === 0) return "event"
+  var canonical = canonicalRoleCode(raw)
+  if (canonical && scopeType && contains(CANONICAL_ROLE_SCOPES[canonical], scopeType)) return scopeType
   return ""
 }
 
-function validRoleCode(roleCode) {
-  return Object.prototype.hasOwnProperty.call(ROLE_CAPABILITIES, roleCode)
+function validRoleCode(roleCode, scopeType) {
+  if (Object.prototype.hasOwnProperty.call(ROLE_CAPABILITIES, roleCode)) {
+    if (!scopeType) return true
+    return roleScopeType(roleCode, scopeType) === scopeType
+  }
+  var canonical = canonicalRoleCode(roleCode)
+  return !!canonical && (!scopeType || contains(CANONICAL_ROLE_SCOPES[canonical], scopeType))
 }
 
 module.exports = {
   ROLE_CAPABILITIES: ROLE_CAPABILITIES,
+  CANONICAL_ROLE_CAPABILITIES: CANONICAL_ROLE_CAPABILITIES,
+  ROLE_ALIASES: ROLE_ALIASES,
   ALL_CAPABILITIES: ALL_CAPABILITIES,
   authRole: authRole,
   assignmentActive: assignmentActive,
@@ -367,6 +368,8 @@ module.exports = {
   eventContext: eventContext,
   hasCapability: hasCapability,
   hasEventCapability: hasEventCapability,
+  canonicalRoleCode: canonicalRoleCode,
+  storageRoleCode: storageRoleCode,
   legacyChairOwnsSociety: legacyChairOwnsSociety,
   assignmentPayload: assignmentPayload,
   enrichAssignment: enrichAssignment,

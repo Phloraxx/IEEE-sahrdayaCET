@@ -66,7 +66,7 @@ export async function searchWorkspaceUsers(input: { q: string; scopeType: Worksp
 
 export async function runEventWorkflow(
   eventId: string,
-  action: "submit" | "approve" | "request_changes" | "finance_approve" | "finance_changes" | "publish" | "unpublish" | "complete",
+  action: "publish" | "unpublish" | "complete",
   note = "",
 ) {
   return getPbClient().send(`/api/workspace/events/${encodeURIComponent(eventId)}/workflow`, {
@@ -84,8 +84,6 @@ export async function checkInWorkspaceTicket(ticketId: string, eventId = "") {
     message: string;
     registration: {
       id: string;
-      userName: string;
-      userEmail: string;
       eventTitle: string;
       ticketId: string;
       checkedIn: boolean;

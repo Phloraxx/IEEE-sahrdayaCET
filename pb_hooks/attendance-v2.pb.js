@@ -344,7 +344,6 @@ routerAdd("POST", "/api/workspace/attendance/check-in", function (e) {
     message: result.replayed ? "Scan already recorded" : "Attendance recorded",
     registration: {
       id: regResult.id,
-      userName: regResult.getString("userName") || "",
       ticketId: regResult.getString("ticketId") || "",
       eventId: eventId,
       eventTitle: event.getString("title") || "",

@@ -44,11 +44,12 @@ routerAdd("GET", "/api/admin/registrations/{id}", function (e) {
   var event = routeHelpers.eventRecord($app, registration.getString("event") || "")
   if (!event) return routeHelpers.error(e, 404, "EVENT_NOT_FOUND", "Event not found")
   var authz = require(__hooks + "/workspace-authorization.js")
-  if (!authz.hasEventCapability($app, e.auth, "registrations.view", event)) {
-    return routeHelpers.error(e, 403, "FORBIDDEN", "You cannot view this registration")
-  }
+  var registrationAccess = authz.hasEventCapability($app, e.auth, "registrations.view", event)
   var finance = authz.hasEventCapability($app, e.auth, "finance.view", event) ||
     authz.hasEventCapability($app, e.auth, "finance.manage", event)
+  if (!registrationAccess && !finance) {
+    return routeHelpers.error(e, 403, "FORBIDDEN", "You cannot view this registration")
+  }
   var helpers = require(__hooks + "/admin-operations-helpers.js")
   return e.json(200, { registration: helpers.registrationAdminProjection(registration, event, finance) })
 }, $apis.requireAuth("users"))

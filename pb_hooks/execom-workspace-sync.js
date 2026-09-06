@@ -4,12 +4,8 @@ function clean(value) {
   return String(value == null ? "" : value).trim()
 }
 
-function roleScopeType(roleCode) {
-  roleCode = clean(roleCode)
-  if (roleCode.indexOf("branch_") === 0) return "branch"
-  if (roleCode.indexOf("society_") === 0) return "society"
-  if (roleCode.indexOf("event_") === 0) return "event"
-  return ""
+function roleScopeType(roleCode, scopeType) {
+  return require(__hooks + "/workspace-authorization.js").roleScopeType(clean(roleCode), scopeType || "")
 }
 
 function execomResolveSocietyId(app, record) {
@@ -23,10 +19,10 @@ function execomResolveSocietyId(app, record) {
 function desiredAssignment(app, record) {
   var authz = require(__hooks + "/workspace-authorization.js")
   var userId = clean(record.getString("user"))
-  var roleCode = clean(record.getString("roleCode"))
-  if (!userId || !roleCode || !authz.validRoleCode(roleCode)) return null
-
-  var scopeType = authz.roleScopeType(roleCode)
+  var requestedRoleCode = clean(record.getString("roleCode"))
+  var scopeType = clean(record.getString("society")) ? "society" : "branch"
+  var roleCode = authz.storageRoleCode(requestedRoleCode, scopeType)
+  if (!userId || !roleCode || !authz.validRoleCode(requestedRoleCode, scopeType)) return null
   if (scopeType !== "branch" && scopeType !== "society") return null
   var societyId = scopeType === "society" ? execomResolveSocietyId(app, record) : ""
   if (scopeType === "society" && !societyId) return null
@@ -65,11 +61,14 @@ function assignmentSourceCurrent(app, assignment) {
   try { member = app.findRecordById("execom", sourceId) } catch (_) { return false }
   if (clean(member.getString("assignment")) !== assignment.id) return false
   if (clean(member.getString("user")) !== clean(assignment.getString("user"))) return false
-  if (clean(member.getString("roleCode")) !== clean(assignment.getString("roleCode"))) return false
 
-  var scopeType = roleScopeType(member.getString("roleCode"))
+  var memberScopeType = clean(member.getString("society")) ? "society" : "branch"
+  var normalizedRoleCode = require(__hooks + "/workspace-authorization.js").storageRoleCode(member.getString("roleCode"), memberScopeType)
+  if (!normalizedRoleCode) return false
+  var scopeType = roleScopeType(member.getString("roleCode"), memberScopeType)
   if (scopeType !== "branch" && scopeType !== "society") return false
   if (scopeType !== clean(assignment.getString("scopeType"))) return false
+  if (normalizedRoleCode !== clean(assignment.getString("roleCode"))) return false
   if (clean(assignment.getString("event"))) return false
   if (scopeType === "society") {
     var societyId = execomResolveSocietyId(app, member)

@@ -382,8 +382,8 @@ if github_env := os.environ.get("GITHUB_ENV"):
         env_file.write(f"E2E_EVENT_GUIDANCE_SLUG={guidance_event['slug']}\n")
 
 # Requirements are normalized at the PocketBase write boundary. Published
-# checklists require review, while a public attendee note can be corrected
-# without rewriting registrations or tickets.
+# setup can be corrected by an authorized organizer without a second review
+# workflow or rewriting registrations/tickets.
 request("POST", "/api/collections/events/records", {
     "title": f"Too Many Requirements {suffix}", "description": "requirements limit",
     "date": start, "society": society["id"], "status": "draft",
@@ -399,9 +399,10 @@ request("POST", "/api/collections/events/records", {
     "date": start, "society": society["id"], "status": "draft",
     "requirements": [{"unsafe": True}],
 }, super_token, (400,))
-request("PATCH", f"/api/collections/events/records/{event['id']}", {
+event = request("PATCH", f"/api/collections/events/records/{event['id']}", {
     "requirements": ["Changed after publish"],
-}, admin_token, (403,))
+}, admin_token)
+assert event["requirements"] == ["Changed after publish"]
 event = request("PATCH", f"/api/collections/events/records/{event['id']}", {
     "attendeeNote": "  Report at the registration desk 15 minutes early.  ",
 }, admin_token)
@@ -535,9 +536,6 @@ request("PUT", f"/api/app/events/{coupon_redemption_event['id']}/coupons", {"cou
     {"code": "EXPIRED", "discountPercent": 50, "maxUses": 0, "expiresAt": expired, "isActive": True},
     {"code": "OFF", "discountPercent": 50, "maxUses": 0, "isActive": False},
 ]}, admin_token)
-request("POST", f"/api/workspace/events/{coupon_redemption_event['id']}/workflow", {"action": "submit", "note": "Coupon smoke"}, admin_token)
-request("POST", f"/api/workspace/events/{coupon_redemption_event['id']}/workflow", {"action": "approve", "note": "Coupon smoke org approval"}, admin_token)
-request("POST", f"/api/workspace/events/{coupon_redemption_event['id']}/workflow", {"action": "finance_approve", "note": "Coupon smoke finance approval"}, admin_token)
 request("POST", f"/api/workspace/events/{coupon_redemption_event['id']}/workflow", {"action": "publish"}, admin_token)
 # Leave one unused attendee fixture for the real browser redemption test.
 coupon_browser_user = create_user("coupon-browser", "user")
@@ -552,14 +550,14 @@ with open(coupon_fixture_path, "w", encoding="utf-8") as fixture_file:
         "paidAmount": 160,
         "freeCode": "FREE100",
     }, fixture_file)
-preview = request("POST", f"/api/app/events/{coupon_redemption_event['id']}/coupon-preview", {
+preview = request("POST", f"/api/app/events/{coupon_redemption_event['id']}/pricing-preview", {
     "couponCode": "save10",
 }, user_token)
-assert preview["code"] == "SAVE10" and preview["discountPercent"] == 10
+assert preview["requestedCouponCode"] == "SAVE10" and preview["appliedCouponCode"] == "SAVE10" and preview["couponDiscountPercent"] == 10
 assert preview["baseAmount"] == 200 and preview["discountAmount"] == 20 and preview["amount"] == 180
-request("POST", f"/api/app/events/{coupon_redemption_event['id']}/coupon-preview", {"couponCode": "expired"}, user_token, (400,))
-request("POST", f"/api/app/events/{coupon_redemption_event['id']}/coupon-preview", {"couponCode": "off"}, user_token, (400,))
-request("POST", f"/api/app/events/{coupon_redemption_event['id']}/coupon-preview", {"couponCode": "does-not-exist"}, user_token, (400,))
+request("POST", f"/api/app/events/{coupon_redemption_event['id']}/pricing-preview", {"couponCode": "expired"}, user_token, (400,))
+request("POST", f"/api/app/events/{coupon_redemption_event['id']}/pricing-preview", {"couponCode": "off"}, user_token, (400,))
+request("POST", f"/api/app/events/{coupon_redemption_event['id']}/pricing-preview", {"couponCode": "does-not-exist"}, user_token, (400,))
 
 save10_registration = request("POST", f"/api/app/events/{coupon_redemption_event['id']}/register", {
     "formResponses": {"name": "Member", "email": user["email"], "phone": "9999999999", "college": "CI College"},
@@ -569,7 +567,7 @@ assert save10_registration["paymentRequired"] is True and save10_registration["a
 save10_record = request("GET", f"/api/collections/registrations/records/{save10_registration['registrationId']}", token=super_token)
 assert save10_record["couponCode"] == "SAVE10" and save10_record["discountAmount"] == 20
 
-free100_preview = request("POST", f"/api/app/events/{coupon_redemption_event['id']}/coupon-preview", {
+free100_preview = request("POST", f"/api/app/events/{coupon_redemption_event['id']}/pricing-preview", {
     "couponCode": "free100",
 }, second_token)
 assert free100_preview["amount"] == 0 and free100_preview["discountAmount"] == 200
@@ -585,14 +583,14 @@ max_user = create_user("coupon-max", "user")
 max_user_token = impersonate(super_token, max_user["id"])
 max_overflow_user = create_user("coupon-max-overflow", "user")
 max_overflow_token = impersonate(super_token, max_overflow_user["id"])
-max_preview = request("POST", f"/api/app/events/{coupon_redemption_event['id']}/coupon-preview", {"couponCode": "max1"}, max_user_token)
+max_preview = request("POST", f"/api/app/events/{coupon_redemption_event['id']}/pricing-preview", {"couponCode": "max1"}, max_user_token)
 assert max_preview["amount"] == 150
 max_registration = request("POST", f"/api/app/events/{coupon_redemption_event['id']}/register", {
     "formResponses": {"name": "Coupon Max", "email": max_user["email"], "phone": "7777777777", "college": "CI College"},
     "couponCode": "max1",
 }, max_user_token)
 assert max_registration["amount"] == 150
-request("POST", f"/api/app/events/{coupon_redemption_event['id']}/coupon-preview", {"couponCode": "max1"}, max_overflow_token, (409,))
+request("POST", f"/api/app/events/{coupon_redemption_event['id']}/pricing-preview", {"couponCode": "max1"}, max_overflow_token, (409,))
 request("POST", f"/api/app/events/{coupon_redemption_event['id']}/register", {
     "formResponses": {"name": "Coupon Overflow", "email": max_overflow_user["email"], "phone": "6666666666", "college": "CI College"},
     "couponCode": "max1",
@@ -619,9 +617,6 @@ request("PUT", f"/api/app/events/{pricing_event['id']}/coupons", {"coupons": [
     {"code": "WIN30", "discountPercent": 30, "maxUses": 2, "isActive": True},
     {"code": "TIE20", "discountPercent": 20, "maxUses": 1, "isActive": True},
 ]}, admin_token)
-request("POST", f"/api/workspace/events/{pricing_event['id']}/workflow", {"action": "submit", "note": "Pricing smoke"}, admin_token)
-request("POST", f"/api/workspace/events/{pricing_event['id']}/workflow", {"action": "approve", "note": "Pricing org"}, admin_token)
-request("POST", f"/api/workspace/events/{pricing_event['id']}/workflow", {"action": "finance_approve", "note": "Pricing finance"}, admin_token)
 request("POST", f"/api/workspace/events/{pricing_event['id']}/workflow", {"action": "publish"}, admin_token)
 
 member_preview = request("POST", f"/api/app/events/{pricing_event['id']}/pricing-preview", {
@@ -671,24 +666,25 @@ pricing_fixture_path = os.environ.get("E2E_PRICING_FIXTURE_OUTPUT", "/tmp/member
 with open(pricing_fixture_path, "w", encoding="utf-8") as fixture_file:
     json.dump({
         "token": max_overflow_token, "record": max_overflow_user,
-        "eventId": pricing_event["id"], "memberDiscountPercent": 20,
-        "memberAmount": 160, "memberId": "IEEE-BROWSER",
+        "eventId": pricing_event["id"], "memberDiscountPercent": 25,
+        "memberAmount": 150, "memberId": "IEEE-BROWSER",
         "tieCode": "TIE20", "betterCouponCode": "WIN30", "couponAmount": 140,
     }, fixture_file)
 
 request("POST", f"/api/app/events/{pricing_event['id']}/register", {
     "formResponses": {"name": "Missing ID", "email": max_overflow_user["email"], "phone": "9000000104", "college": "CI College", "isIeeeMember": True},
 }, max_overflow_token, (400,))
-request("PATCH", f"/api/collections/events/records/{pricing_event['id']}", {"ieeeMemberDiscountPercent": 25}, admin_token, (403,))
+updated_pricing_event = request("PATCH", f"/api/collections/events/records/{pricing_event['id']}", {"ieeeMemberDiscountPercent": 25}, admin_token)
+assert updated_pricing_event["ieeeMemberDiscountPercent"] == 25
 
 manual_pricing = request("POST", f"/api/admin/events/{pricing_event['id']}/registrations/manual", {
     "name": "Manual Member", "email": f"manual-member-{suffix}@example.test", "paymentMode": "pending",
     "formResponses": {"isIeeeMember": True, "ieeeMembershipId": "IEEE-MANUAL"},
 }, admin_token)["registration"]
-assert manual_pricing["amount"] == 160
+assert manual_pricing["amount"] == 150
 manual_pricing_record = request("GET", f"/api/collections/registrations/records/{manual_pricing['id']}", token=super_token)
 assert manual_pricing_record["discountSource"] == "ieee_member"
-assert manual_pricing_record["couponCode"] == "" and manual_pricing_record["finalFeePaise"] == 16000
+assert manual_pricing_record["couponCode"] == "" and manual_pricing_record["finalFeePaise"] == 15000
 
 pricing_free_event = request("POST", "/api/collections/events/records", {
     "title": f"CI IEEE Free Price {suffix}", "description": "100 percent member pricing",
@@ -697,9 +693,6 @@ pricing_free_event = request("POST", "/api/collections/events/records", {
     "registrationMode": "internal", "registrationOpen": True, "maxCapacity": 5,
     "collectIeeeMember": True, "ieeeMemberDiscountPercent": 100, "isDeleted": False,
 }, super_token)
-request("POST", f"/api/workspace/events/{pricing_free_event['id']}/workflow", {"action": "submit", "note": "Free member price"}, admin_token)
-request("POST", f"/api/workspace/events/{pricing_free_event['id']}/workflow", {"action": "approve", "note": "Free member price org"}, admin_token)
-request("POST", f"/api/workspace/events/{pricing_free_event['id']}/workflow", {"action": "finance_approve", "note": "Free member price finance"}, admin_token)
 request("POST", f"/api/workspace/events/{pricing_free_event['id']}/workflow", {"action": "publish"}, admin_token)
 pricing_free_registration = request("POST", f"/api/app/events/{pricing_free_event['id']}/register", {
     "formResponses": {"name": "Pricing Free", "email": coupon_browser_user["email"], "phone": "9000000105", "college": "CI College", "isIeeeMember": True, "ieeeMembershipId": "IEEE-FREE"},
@@ -742,9 +735,6 @@ audience_event = request("POST", "/api/collections/events/records", {
 request("PUT", f"/api/app/events/{audience_event['id']}/coupons", {"coupons": [
     {"code": "AUD10", "discountPercent": 10, "maxUses": 5, "isActive": True},
 ]}, admin_token)
-request("POST", f"/api/workspace/events/{audience_event['id']}/workflow", {"action": "submit", "note": "Audience smoke"}, admin_token)
-request("POST", f"/api/workspace/events/{audience_event['id']}/workflow", {"action": "approve", "note": "Audience approval"}, admin_token)
-request("POST", f"/api/workspace/events/{audience_event['id']}/workflow", {"action": "finance_approve", "note": "Audience finance"}, admin_token)
 request("POST", f"/api/workspace/events/{audience_event['id']}/workflow", {"action": "publish"}, admin_token)
 audience_fixture_path = os.environ.get("E2E_AUDIENCE_FIXTURE_OUTPUT", "/tmp/event-audience-e2e.json")
 with open(audience_fixture_path, "w", encoding="utf-8") as fixture_file:
@@ -812,8 +802,6 @@ audience_wait_event = request("POST", "/api/collections/events/records", {
     "eligibleSemesters": ["S6"], "eligibleProgrammes": ["EEE"],
     "checkInEnabled": True, "isDeleted": False,
 }, super_token)
-request("POST", f"/api/workspace/events/{audience_wait_event['id']}/workflow", {"action": "submit", "note": "Restricted waitlist"}, admin_token)
-request("POST", f"/api/workspace/events/{audience_wait_event['id']}/workflow", {"action": "approve", "note": "Restricted waitlist approval"}, admin_token)
 request("POST", f"/api/workspace/events/{audience_wait_event['id']}/workflow", {"action": "publish"}, admin_token)
 audience_owner_reg = request("POST", f"/api/app/events/{audience_wait_event['id']}/register", {
     "formResponses": {"name": "Audience Owner", "email": audience_owner["email"], "programmeCode": "EEE", "branch": "Electrical and Electronics Engineering", "semester": "S6"},
@@ -953,7 +941,7 @@ attendance_scan = request("POST", "/api/workspace/attendance/check-in", {
     "deviceId": "ci-scanner",
 }, checkin_staff_token)
 assert attendance_scan["success"] is True and attendance_scan["replayed"] is False
-assert attendance_scan["registration"]["userName"] == "Attendance Member"
+assert "userName" not in attendance_scan["registration"] and "userEmail" not in attendance_scan["registration"]
 assert attendance_scan["registration"]["sessionId"] == attendance_session["id"]
 assert attendance_scan["presentCount"] == 1
 attendance_replay = request("POST", "/api/workspace/attendance/check-in", {
@@ -1445,7 +1433,9 @@ assert any(row["action"] == "registration.manual-create" for row in ops_summary[
 ops_admin_row = next(row for row in ops_summary["recent"] if row["id"] == ops_manual["id"])
 assert {"paymentStatus", "amount", "collectedAmount", "refundedAmount", "paymentMethod",
         "provider", "providerStatus", "manualReview", "manualConfirmation"}.issubset(ops_admin_row)
-assert {"formTemplate", "financeApprovalStatus"}.issubset(ops_summary["event"])
+assert "formTemplate" in ops_summary["event"]
+assert "approvalStatus" not in ops_summary["event"]
+assert "financeApprovalStatus" not in ops_summary["event"]
 assert "paymentProvider" not in ops_summary["event"]
 assert all(key in ops_summary for key in (
     "attention", "coupons", "cancellationRequests", "waitlist", "audit", "attendance", "financeDisclaimer"
@@ -1662,7 +1652,7 @@ ticket_path = "/api/tickets/lookup?ticketId=" + urllib.parse.quote(registration[
 anonymous_ticket = request("GET", ticket_path)
 assert anonymous_ticket["found"] is True
 assert "user" not in anonymous_ticket and "registrationId" not in anonymous_ticket
-assert anonymous_ticket["event"]["requirements"] == ["Bring laptop charger", "College ID card required"]
+assert anonymous_ticket["event"]["requirements"] == ["Changed after publish"]
 assert anonymous_ticket["event"]["attendeeNote"] == "Report at the registration desk 15 minutes early."
 assert anonymous_ticket["event"]["externalLink"] == "https://example.test/event-guide"
 assert anonymous_ticket["event"]["timeTbc"] is False

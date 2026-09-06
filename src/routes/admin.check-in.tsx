@@ -57,7 +57,6 @@ interface ScanFeedback {
   kind: FeedbackKind;
   title: string;
   message: string;
-  attendee?: string;
   ticketId?: string;
   occurredAt?: string;
 }
@@ -245,7 +244,6 @@ export default function AdminCheckIn() {
           kind: result.replayed ? "duplicate" : "success",
           title: result.replayed ? "Already recorded" : "Attendance recorded",
           message: `${result.registration.sessionTitle} · ${result.presentCount} present`,
-          attendee: result.registration.userName,
           ticketId: result.registration.ticketId,
           occurredAt: result.registration.occurredAt,
         };
@@ -258,7 +256,6 @@ export default function AdminCheckIn() {
           kind: "success",
           title: "Checked in",
           message: "Legacy single check-in recorded",
-          attendee: registration?.userName,
           ticketId: registration?.ticketId,
           occurredAt: registration?.checkedInAt || undefined,
         };
@@ -507,7 +504,6 @@ export default function AdminCheckIn() {
                     {feedbackIcon}
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold">{feedback.title}</p>
-                      {feedback.attendee && <p className="mt-1 text-lg font-semibold">{feedback.attendee}</p>}
                       <p className="mt-1 text-sm text-muted-foreground">{feedback.message}</p>
                       {feedback.ticketId && <p className="mt-2 font-mono text-xs text-muted-foreground">{feedback.ticketId}</p>}
                       {feedback.occurredAt && <p className="mt-1 text-xs text-muted-foreground">{formatDateTime(feedback.occurredAt)}</p>}
@@ -549,7 +545,7 @@ export default function AdminCheckIn() {
                         <div key={row.id} className="rounded-xl border border-border p-3">
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold">{row.userName || "Attendee"}</p>
+                              <p className="truncate text-sm font-semibold">Ticket check-in</p>
                               <p className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">{row.ticketId}</p>
                               <p className="mt-1 text-xs text-muted-foreground">{formatDateTime(row.occurredAt)} · {row.type.replaceAll("_", " ")}</p>
                             </div>

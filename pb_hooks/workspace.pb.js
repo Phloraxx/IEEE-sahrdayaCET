@@ -50,7 +50,8 @@ routerAdd("POST", "/api/workspace/assignments", function (e) {
   var societyId = String(body.societyId || "").trim()
   var eventId = String(body.eventId || "").trim()
   if (!userId || !roleCode || !scopeType) return authz.jsonError(e, 400, "INVALID_ASSIGNMENT", "User, role and scope are required")
-  if (!authz.validRoleCode(roleCode) || authz.roleScopeType(roleCode) !== scopeType) {
+  var storedRoleCode = authz.storageRoleCode(roleCode, scopeType)
+  if (!storedRoleCode || !authz.validRoleCode(roleCode, scopeType) || authz.roleScopeType(roleCode, scopeType) !== scopeType) {
     return authz.jsonError(e, 400, "ROLE_SCOPE_MISMATCH", "This role does not belong to the selected scope")
   }
   if (scopeType === "branch") { societyId = ""; eventId = "" }
@@ -65,7 +66,7 @@ routerAdd("POST", "/api/workspace/assignments", function (e) {
   if (eventId) { try { $app.findRecordById("events", eventId) } catch (_) { return authz.jsonError(e, 404, "EVENT_NOT_FOUND", "Event not found") } }
 
   var duplicateFilter = "user = {:user} && roleCode = {:role} && scopeType = {:scope} && active = true"
-  var duplicateParams = { user: userId, role: roleCode, scope: scopeType }
+  var duplicateParams = { user: userId, role: storedRoleCode, scope: scopeType }
   if (scopeType === "society") { duplicateFilter += " && society = {:society}"; duplicateParams.society = societyId }
   if (scopeType === "event") { duplicateFilter += " && event = {:event}"; duplicateParams.event = eventId }
   try {
@@ -76,7 +77,7 @@ routerAdd("POST", "/api/workspace/assignments", function (e) {
   var collection = $app.findCollectionByNameOrId("organization_assignments")
   var record = new Record(collection, {
     user: userId,
-    roleCode: roleCode,
+    roleCode: storedRoleCode,
     title: String(body.title || "").trim().slice(0, 180),
     scopeType: scopeType,
     society: societyId,
@@ -93,7 +94,7 @@ routerAdd("POST", "/api/workspace/assignments", function (e) {
     eventId: eventId,
     actorId: e.auth.id,
     action: "access.assignment-create",
-    note: roleCode + " → " + userId,
+    note: authz.canonicalRoleCode(roleCode) + " → " + userId,
     entityType: "organization_assignment",
     entityId: record.id,
     after: authz.assignmentPayload(record),
@@ -198,77 +199,21 @@ routerAdd("POST", "/api/workspace/events/{id}/workflow", function (e) {
   var body = authz.requestBody(e)
   var action = String(body.action || "").trim()
   var note = String(body.note || "").trim().slice(0, 4000)
-  var required = {
-    submit: "events.submit",
-    approve: "events.approve",
-    request_changes: "events.approve",
-    finance_approve: "finance.approve",
-    finance_changes: "finance.approve",
-    publish: "events.publish",
-    unpublish: "events.publish",
-    complete: "events.complete"
-  }
-  if (!required[action]) return authz.jsonError(e, 400, "INVALID_ACTION", "Unknown workflow action")
+  var required = { publish: "events.publish", unpublish: "events.publish", complete: "events.complete" }
+  if (!required[action]) return authz.jsonError(e, 400, "INVALID_ACTION", "Unknown event lifecycle action")
   if (!authz.hasEventCapability($app, e.auth, required[action], event)) {
-    return authz.jsonError(e, 403, "FORBIDDEN", "You cannot perform this workflow action")
+    return authz.jsonError(e, 403, "FORBIDDEN", "You cannot perform this event lifecycle action")
   }
   var before = helpers.eventPayload(event)
-  var now = new Date().toISOString()
-  if (action === "submit") {
-    if (["cancelled", "completed"].indexOf(event.getString("status")) !== -1) return authz.jsonError(e, 409, "EVENT_FINAL", "This event can no longer be submitted")
-    if (!event.getString("title") || !event.getString("date") || !event.getString("venue") || !event.getString("society")) {
-      return authz.jsonError(e, 400, "EVENT_INCOMPLETE", "Title, date, venue and host society are required before review")
+  if (action === "publish") {
+    if (event.getBool("isDeleted") || ["cancelled", "completed"].indexOf(event.getString("status")) !== -1) {
+      return authz.jsonError(e, 409, "EVENT_FINAL", "This event can no longer be published")
     }
-    var registrationStart = Date.parse(event.getString("registrationStart") || "")
-    var registrationDeadline = Date.parse(event.getString("registrationDeadline") || "")
-    if (isFinite(registrationStart) && isFinite(registrationDeadline) && registrationStart >= registrationDeadline) {
-      return authz.jsonError(e, 400, "INVALID_REGISTRATION_WINDOW", "Registration start must be before the deadline")
-    }
-    if (event.getString("registrationMode") === "external" && !event.getString("externalFormUrl")) {
-      return authz.jsonError(e, 400, "EXTERNAL_FORM_REQUIRED", "External registration requires a form URL")
-    }
-    event.set("approvalStatus", "submitted")
-    event.set("submittedBy", e.auth.id)
-    event.set("submittedAt", now)
-    event.set("approvalNote", note)
-    if ((event.getFloat("price") || 0) > 0 && event.getString("financeApprovalStatus") !== "approved") event.set("financeApprovalStatus", "pending")
-  } else if (action === "approve") {
-    if (event.getString("approvalStatus") !== "submitted") return authz.jsonError(e, 409, "NOT_SUBMITTED", "Submit the event before approving it")
-    event.set("approvalStatus", "approved")
-    event.set("approvedBy", e.auth.id)
-    event.set("approvedAt", now)
-    event.set("approvalNote", note)
-  } else if (action === "request_changes") {
-    if (!note) return authz.jsonError(e, 400, "NOTE_REQUIRED", "Explain what needs to change")
-    event.set("approvalStatus", "changes_requested")
-    event.set("approvedBy", "")
-    event.set("approvedAt", "")
-    event.set("approvalNote", note)
-  } else if (action === "finance_approve") {
-    if (["submitted", "approved"].indexOf(event.getString("approvalStatus")) === -1) return authz.jsonError(e, 409, "REVIEW_REQUIRED", "Submit the event before finance approval")
-    if ((event.getFloat("price") || 0) <= 0) {
-      event.set("financeApprovalStatus", "not_required")
-    } else {
-      event.set("financeApprovalStatus", "approved")
-      event.set("financeApprovedBy", e.auth.id)
-      event.set("financeApprovedAt", now)
-      event.set("financeApprovalNote", note)
-    }
-  } else if (action === "finance_changes") {
-    if (["submitted", "approved"].indexOf(event.getString("approvalStatus")) === -1) return authz.jsonError(e, 409, "REVIEW_REQUIRED", "Submit the event before finance review")
-    if (!note) return authz.jsonError(e, 400, "NOTE_REQUIRED", "Explain what needs to change")
-    event.set("financeApprovalStatus", "changes_requested")
-    event.set("financeApprovedBy", "")
-    event.set("financeApprovedAt", "")
-    event.set("financeApprovalNote", note)
-  } else if (action === "publish") {
-    if (event.getString("approvalStatus") !== "approved") return authz.jsonError(e, 409, "APPROVAL_REQUIRED", "Event approval is required before publishing")
-    if ((event.getFloat("price") || 0) > 0 && event.getString("financeApprovalStatus") !== "approved") {
-      return authz.jsonError(e, 409, "FINANCE_APPROVAL_REQUIRED", "Finance approval is required for paid events")
-    }
+    if (event.getString("status") === "published") return authz.jsonError(e, 409, "ALREADY_PUBLISHED", "This event is already published")
+    var publishError = require(__hooks + "/event-lifecycle-helpers.js").publishError(event)
+    if (publishError) return authz.jsonError(e, 400, publishError.code, publishError.message)
+    // Registration availability is separate; publishing does not reopen it.
     event.set("status", "published")
-    // Registration availability is configured separately from publishing.
-    // Do not silently reopen a paused/scheduled registration when the event is published.
   } else if (action === "unpublish") {
     if (event.getString("status") !== "published") return authz.jsonError(e, 409, "NOT_PUBLISHED", "Only a published event can be returned to draft")
     if (!note) return authz.jsonError(e, 400, "NOTE_REQUIRED", "Explain why the published event is being returned to draft")
@@ -283,7 +228,9 @@ routerAdd("POST", "/api/workspace/events/{id}/workflow", function (e) {
     event.set("status", "completed")
     event.set("registrationOpen", false)
   }
-  try { $app.save(event) } catch (err) { return authz.jsonError(e, 400, "WORKFLOW_FAILED", err.message || "Could not update workflow") }
+  // Custom lifecycle commands are internal saves, so record-request guards do
+  // not intercept them. Keep normal validation/model hooks instead of bypassing them.
+  try { $app.save(event) } catch (err) { return authz.jsonError(e, 400, "WORKFLOW_FAILED", err.message || "Could not update event lifecycle") }
   if (action === "complete") {
     try { require(__hooks + "/attendee-lifecycle-helpers.js").reconcileEventWaitlist($app, event.id, new Date().toISOString()) }
     catch (waitlistErr) { console.log("[workspace] waitlist closeout failed:", waitlistErr) }
@@ -291,7 +238,7 @@ routerAdd("POST", "/api/workspace/events/{id}/workflow", function (e) {
   helpers.audit($app, {
     eventId: event.id,
     actorId: e.auth.id,
-    action: "event.workflow." + action,
+    action: "event.lifecycle." + action,
     note: note,
     entityType: "event",
     entityId: event.id,
@@ -351,8 +298,6 @@ routerAdd("POST", "/api/workspace/check-in", function (e) {
   })
   return e.json(200, { success: true, message: "Checked in successfully", registration: {
     id: registration.id,
-    userName: registration.getString("userName") || "",
-    userEmail: registration.getString("userEmail") || "",
     eventTitle: event.getString("title") || "",
     ticketId: ticketId,
     checkedIn: true,

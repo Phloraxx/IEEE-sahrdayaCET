@@ -25,9 +25,9 @@ function requireManageEvent(app, auth, event) {
 function eventPermissions(app, auth, event) {
   var authz = require(__hooks + "/workspace-authorization.js")
   var capabilities = [
-    "events.view", "events.edit", "events.submit", "events.approve", "events.publish", "events.cancel", "events.archive", "events.complete",
+    "events.view", "events.edit", "events.publish", "events.cancel", "events.archive", "events.complete",
     "registrations.view", "registrations.manage", "registrations.manual", "checkin.manage",
-    "finance.view", "finance.manage", "finance.approve", "assignments.manage", "content.manage", "reports.view",
+    "finance.view", "finance.manage", "assignments.manage", "content.manage", "reports.view",
     "certificates.view", "certificates.manage_templates", "certificates.issue", "certificates.send", "certificates.revoke"
   ]
   var result = {}
@@ -197,7 +197,6 @@ function operationProjection(permissions) {
     attendance: permissions["events.edit"] === true || permissions["checkin.manage"] === true,
     audience: permissions["events.edit"] === true || permissions["registrations.manual"] === true,
     workflow: permissions["events.edit"] === true ||
-      permissions["events.submit"] === true || permissions["events.approve"] === true ||
       permissions["events.publish"] === true || permissions["events.cancel"] === true ||
       permissions["events.archive"] === true || permissions["events.complete"] === true,
   }
@@ -217,21 +216,6 @@ function projectEventPayload(payload, flags) {
     projected.eligibleProgrammes = payload.eligibleProgrammes
   }
   if (flags.edit) projected.formTemplate = payload.formTemplate
-  if (flags.workflow) {
-    projected.approvalStatus = payload.approvalStatus
-    projected.approvalNote = payload.approvalNote
-    projected.submittedBy = payload.submittedBy
-    projected.submittedAt = payload.submittedAt
-    projected.approvedBy = payload.approvedBy
-    projected.approvedAt = payload.approvedAt
-    projected.approvalRevision = payload.approvalRevision
-  }
-  if (flags.finance) {
-    projected.financeApprovalStatus = payload.financeApprovalStatus
-    projected.financeApprovalNote = payload.financeApprovalNote
-    projected.financeApprovedBy = payload.financeApprovedBy
-    projected.financeApprovedAt = payload.financeApprovedAt
-  }
   return projected
 }
 
@@ -285,17 +269,6 @@ function eventPayload(event) {
     registeredCount: event.getInt("registeredCount") || 0,
     checkedInCount: event.getInt("checkedInCount") || 0,
     society: event.getString("society") || "",
-    approvalStatus: event.getString("approvalStatus") || "draft",
-    approvalNote: event.getString("approvalNote") || "",
-    submittedBy: event.getString("submittedBy") || "",
-    submittedAt: event.getString("submittedAt") || "",
-    approvedBy: event.getString("approvedBy") || "",
-    approvedAt: event.getString("approvedAt") || "",
-    approvalRevision: event.getInt("approvalRevision") || 0,
-    financeApprovalStatus: event.getString("financeApprovalStatus") || ((event.getFloat("price") || 0) > 0 ? "pending" : "not_required"),
-    financeApprovalNote: event.getString("financeApprovalNote") || "",
-    financeApprovedBy: event.getString("financeApprovedBy") || "",
-    financeApprovedAt: event.getString("financeApprovedAt") || "",
   }
 }
 

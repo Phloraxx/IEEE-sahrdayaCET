@@ -10,20 +10,6 @@ import {
   validateEventRequirements,
 } from "@/lib/event-requirements";
 
-type WorkflowHelpers = {
-  sensitiveFields: () => string[];
-  fieldChanged: (next: FakeRecord, previous: FakeRecord, name: string) => boolean;
-};
-
-class FakeRecord {
-  constructor(private values: Record<string, unknown>) {}
-  get(name: string) { return this.values[name]; }
-  getString(name: string) { return String(this.values[name] ?? ""); }
-  getBool(name: string) { return Boolean(this.values[name]); }
-  getInt(name: string) { return Number(this.values[name] ?? 0); }
-  getFloat(name: string) { return Number(this.values[name] ?? 0); }
-}
-
 type ServerHelpers = {
   normalizeRequirements: (value: unknown) => { ok: boolean; requirements?: string[]; error?: string };
   normalizeAttendeeNote: (value: unknown) => { ok: boolean; note?: string; error?: string };
@@ -36,15 +22,7 @@ function loadServerHelpers(): ServerHelpers {
   return module.exports as ServerHelpers;
 }
 
-function loadWorkflowHelpers(): WorkflowHelpers {
-  const source = readFileSync(resolve(process.cwd(), "pb_hooks/event-workflow-helpers.js"), "utf8");
-  const module = { exports: {} as Record<string, unknown> };
-  runInNewContext(source, { module, exports: module.exports, Array, Boolean, JSON, Number, String });
-  return module.exports as WorkflowHelpers;
-}
-
 const server = loadServerHelpers();
-const workflow = loadWorkflowHelpers();
 
 describe("event requirements", () => {
   it("normalizes public reads without trusting malformed values", () => {
@@ -71,14 +49,4 @@ describe("event requirements", () => {
     expect(memberPrice(125.5, 10)).toBe(112.95);
     expect(memberPrice(75, 100)).toBe(0);
   });
-  it("treats the checklist as review-sensitive but keeps the attendee note correctable", () => {
-    expect(workflow.sensitiveFields()).toContain("requirements");
-    expect(workflow.sensitiveFields()).not.toContain("attendeeNote");
-    expect(workflow.fieldChanged(
-      new FakeRecord({ requirements: ["Bring laptop"] }),
-      new FakeRecord({ requirements: ["Bring ID"] }),
-      "requirements",
-    )).toBe(true);
-  });
-
 });

@@ -45,7 +45,7 @@ routerAdd("GET", "/api/admin/events/{id}/operations", function (e) {
     helpers.addRegistrationsToSummary(summary, records)
     for (var i = 0; i < records.length; i++) {
       var fullRow = helpers.registrationSnapshot(records[i])
-      if (projection.registrations && recent.length < 8) {
+      if ((projection.registrations || projection.finance) && recent.length < 8) {
         recent.push(helpers.projectRegistrationSnapshot(fullRow, projection))
       }
       var registrationTime = Date.parse(fullRow.registrationDate || "")
@@ -131,10 +131,8 @@ routerAdd("GET", "/api/admin/events/{id}/operations", function (e) {
     summary: helpers.projectRegistrationSummary(summary, projection),
     permissions: permissions,
   }
-  if (projection.registrations) {
-    response.recent = recent
-    response.waitlist = waitlistSummary
-  }
+  if (projection.registrations || projection.finance) response.recent = recent
+  if (projection.registrations) response.waitlist = waitlistSummary
   if (projection.finance) {
     response.attention = attention
     response.cancellationRequests = cancellationRequests

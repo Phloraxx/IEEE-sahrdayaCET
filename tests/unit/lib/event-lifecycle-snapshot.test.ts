@@ -60,16 +60,13 @@ describe("event lifecycle snapshot", () => {
     expect(snapshot.registration.available).toBe(false);
   });
 
-  it("projects review, finance and archive blockers without collapsing state machines", () => {
-    const review = getEventLifecycleSnapshot({
+  it("keeps a draft actionable without organization or finance approval state", () => {
+    const draft = getEventLifecycleSnapshot({
       status: "draft", date: published.date, registrationOpen: false,
-      approvalStatus: "changes_requested", price: 200,
-      financeApprovalStatus: "pending",
-    }, NOW);
-    expect(review.phase).toBe("in_review");
-    expect(review.nextAction).toBe("edit_and_resubmit");
-    expect(review.blockers).toContain("Event changes were requested");
-    expect(review.blockers).toContain("Finance approval is required before publishing");
+    });
+    expect(draft.phase).toBe("draft");
+    expect(draft.nextAction).toBe("complete_setup");
+    expect(draft.blockers).toEqual([]);
 
     const archived = getEventLifecycleSnapshot({ ...published, isDeleted: true }, NOW);
     expect(archived.phase).toBe("archived");

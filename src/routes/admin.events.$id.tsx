@@ -219,13 +219,13 @@ export default function AdminEventOperationsRoute() {
   });
 
   const workflowMutation = useMutation({
-    mutationFn: ({ action, note }: { action: "submit" | "approve" | "request_changes" | "finance_approve" | "finance_changes" | "publish" | "unpublish" | "complete"; note?: string }) =>
+    mutationFn: ({ action, note }: { action: "publish" | "unpublish" | "complete"; note?: string }) =>
       runEventWorkflow(id, action, note),
     onSuccess: () => {
       invalidate();
-      toast.success("Event workflow updated");
+      toast.success("Event lifecycle updated");
     },
-    onError: (error: Error) => toast.error(error.message || "Could not update event workflow"),
+    onError: (error: Error) => toast.error(error.message || "Could not update event lifecycle"),
   });
 
   const archiveMutation = useMutation({
@@ -280,8 +280,6 @@ export default function AdminEventOperationsRoute() {
   const isPlatformAdmin = user?.role === "admin";
   const canViewWorkflow = Boolean(
     permissions["events.edit"] ||
-    permissions["events.submit"] ||
-    permissions["events.approve"] ||
     permissions["events.publish"] ||
     permissions["events.cancel"] ||
     permissions["events.archive"] ||
@@ -373,7 +371,6 @@ export default function AdminEventOperationsRoute() {
         event={event}
         permissions={permissions}
         pending={workflowMutation.isPending}
-        canViewFinance={canViewFinance}
         onAction={(action, note) => workflowMutation.mutate({ action, note })}
       />}
 
