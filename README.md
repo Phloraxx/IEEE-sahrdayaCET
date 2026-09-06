@@ -75,6 +75,7 @@ Normal record operations use PocketBase collections directly. Custom routes exis
 
 - `POST /api/app/events/:id/register`
 - `PUT /api/app/events/:id/coupons`
+- `POST /api/workspace/events/:id/workflow` (publish, unpublish, complete)
 - `POST /api/app/admin/users/:id/role`
 
 ## Local development
@@ -136,7 +137,11 @@ PocketBase applies committed migrations when the container starts.
 
 ## Authorization model
 
-Roles are `user`, `chair`, `content`, and `admin`.
+PocketBase account roles remain `user`, `chair`, `content`, and `admin` for
+compatibility. Workspace assignments use the capability roles Organizer,
+Finance, Registration Staff, Check-in Staff, and Content Editor, with
+branch/society/event scope. Historical role codes are retained as aliases;
+directory titles do not grant permissions.
 
 - Public users can read intentionally public records.
 - Signed-in users can access their own protected records.
@@ -161,7 +166,10 @@ Public content is server-rendered. Published events have immutable crawlable URL
 
 ## CI/CD
 
-CI runs on pushes to `main` and `dev`, plus pull requests and manual dispatch. It gates lint/typecheck/tests/build, fresh-PocketBase backend tests + Playwright, and both production Docker builds.
+CI runs full validation, fresh-PocketBase backend tests + Playwright, and both
+container builds for pull requests into `dev`, final `main` pushes, and manual
+runs. Merged `dev` pushes and `dev` → `main` pull requests use a lighter
+validation gate instead of repeating the heavyweight integration jobs.
 
 Production CD runs only after a successful CI workflow on `main`. It verifies the tested SHA is still the current `main` head, then calls:
 
@@ -169,7 +177,8 @@ Production CD runs only after a successful CI workflow on `main`. It verifies th
 main → DOCKPLOY_WEBHOOK_PROD → production
 ```
 
-`dev` remains the integration branch and runs CI, but automatic dev deployment is intentionally paused until a separate new-architecture staging Compose project is provisioned. Never point `dev` at the production Compose/volume.
+Successful `dev` CI deploys the isolated staging project through the CI-gated
+CD workflow. Never point `dev` at the production Compose/volume.
 
 The canonical deployment remains the Dokploy-managed `docker-compose.yml`; do not shadow a service with a manually created fallback container or temporary Compose file.
 

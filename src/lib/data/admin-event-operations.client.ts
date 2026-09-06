@@ -118,17 +118,6 @@ export interface AdminEventOperations {
     registeredCount: number;
     checkedInCount: number;
     society: string;
-    approvalStatus?: "draft" | "submitted" | "changes_requested" | "approved" | string;
-    approvalNote?: string;
-    submittedBy?: string;
-    submittedAt?: string;
-    approvedBy?: string;
-    approvedAt?: string;
-    approvalRevision?: number;
-    financeApprovalStatus?: "not_required" | "pending" | "changes_requested" | "approved" | string;
-    financeApprovalNote?: string;
-    financeApprovedBy?: string;
-    financeApprovedAt?: string;
   };
   summary: EventFinanceSummary;
   recent?: AdminRegistrationOperationRow[];

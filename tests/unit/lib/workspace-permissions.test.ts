@@ -58,6 +58,8 @@ describe("workspace scoped permissions", () => {
 
     const branchFinance = workspace([], ["workspace.view", "events.view", "finance.view"]);
     expect(canAccessWorkspacePath(branchFinance, "/admin/payments")).toBe(true);
+    expect(canAccessWorkspacePath(branchFinance, "/admin/registrations")).toBe(false);
+    expect(canAccessWorkspacePath(branchFinance, "/admin/registrations/registration-a")).toBe(true);
     expect(canAccessWorkspacePath(branchFinance, "/admin/data-health")).toBe(false);
   });
 
@@ -70,5 +72,8 @@ describe("workspace scoped permissions", () => {
       capabilities: ["workspace.view", "events.view", "content.manage"],
     })]);
     expect(preferredWorkspacePath(content)).toBe("/admin/blogs");
+
+    const branchFinance = workspace([], ["workspace.view", "events.view", "finance.view"]);
+    expect(preferredWorkspacePath(branchFinance)).toBe("/admin/payments");
   });
 });

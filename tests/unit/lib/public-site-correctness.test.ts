@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
@@ -51,12 +51,13 @@ describe("public site correctness invariants", () => {
     for (const path of [
       "pb_hooks/registration-create.pb.js",
       "pb_hooks/registration-status.pb.js",
-      "pb_hooks/coupon-preview.pb.js",
+      "pb_hooks/pricing-preview.pb.js",
     ]) {
       const source = read(path);
       expect(source).toContain('event-time-helpers.js');
       expect(source).toContain('eventTime.eventEndDate(event)');
     }
+    expect(existsSync(resolve(process.cwd(), "pb_hooks/coupon-preview.pb.js"))).toBe(false);
   });
 });
 

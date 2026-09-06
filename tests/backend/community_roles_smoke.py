@@ -148,6 +148,12 @@ checkin_me = req("GET", "/api/workspace/me", token=tokens["checkin-staff"])
 assert "checkin.manage" in checkin_me["capabilities"]
 assert "registrations.view" not in checkin_me["capabilities"]
 assert "finance.view" not in checkin_me["capabilities"]
+branch_finance_me = req("GET", "/api/workspace/me", token=tokens["branch-treasurer"])
+assert "finance.view" in branch_finance_me["capabilities"]
+assert "registrations.view" not in branch_finance_me["capabilities"]
+event_finance_me = req("GET", "/api/workspace/me", token=tokens["event-finance"])
+assert "finance.view" in event_finance_me["capabilities"]
+assert "registrations.view" not in event_finance_me["capabilities"]
 
 # Event-scoped staff can see their event but not an unrelated draft event.
 req("GET", f"/api/collections/events/records/{event['id']}", token=tokens["checkin-staff"])
@@ -196,11 +202,12 @@ req("PATCH", f"/api/collections/societies/records/{other_society['id']}", {"bio"
 new_checkin = create_user(super_token, "delegated-checkin", suffix)
 new_finance = create_user(super_token, "delegated-finance", suffix)
 created = req("POST", "/api/workspace/assignments", {
-    "userId": new_checkin["id"], "roleCode": "event_checkin", "scopeType": "event", "eventId": event["id"]
+    "userId": new_checkin["id"], "roleCode": "checkin_staff", "scopeType": "event", "eventId": event["id"]
 }, tokens["event-lead"])
 assert created["assignment"]["roleCode"] == "event_checkin"
+assert created["assignment"]["accessRole"] == "checkin_staff"
 req("POST", "/api/workspace/assignments", {
-    "userId": new_finance["id"], "roleCode": "event_finance", "scopeType": "event", "eventId": event["id"]
+    "userId": new_finance["id"], "roleCode": "finance", "scopeType": "event", "eventId": event["id"]
 }, tokens["event-lead"], expected=(403,))
 req("POST", "/api/workspace/assignments", {
     "userId": users["plain"]["id"], "roleCode": "branch_chair", "scopeType": "branch"
@@ -212,44 +219,35 @@ req("POST", "/api/workspace/assignments", {
     "userId": new_lead["id"], "roleCode": "event_lead", "scopeType": "event", "eventId": event["id"]
 }, tokens["society-chair"])
 
-# Event lifecycle: operational author submits, faculty approves, finance approves, branch publishes.
-submitted = req("POST", f"/api/workspace/events/{event['id']}/workflow", {"action": "submit", "note": "Ready"}, tokens["event-lead"])["event"]
-assert submitted["approvalStatus"] == "submitted"
-req("POST", f"/api/workspace/events/{event['id']}/workflow", {"action": "publish"}, tokens["event-lead"], expected=(403,))
-approved = req("POST", f"/api/workspace/events/{event['id']}/workflow", {"action": "approve", "note": "Society review complete"}, tokens["society-faculty"])["event"]
-assert approved["approvalStatus"] == "approved"
-req("POST", f"/api/workspace/events/{event['id']}/workflow", {"action": "publish"}, tokens["branch-secretary"], expected=(409,))
-finance = req("POST", f"/api/workspace/events/{event['id']}/workflow", {"action": "finance_approve", "note": "Fee verified"}, tokens["event-finance"])["event"]
-assert finance["financeApprovalStatus"] == "approved"
-# Discount changes are financial: keep organisation approval, but require finance review again.
+# Event lifecycle: the event organizer publishes directly; finance has no
+# publication approval step. The old columns are not part of the projection.
+published = req("POST", f"/api/workspace/events/{event['id']}/workflow", {"action": "publish"}, tokens["event-lead"])["event"]
+assert published["status"] == "published"
+assert "approvalStatus" not in published and "financeApprovalStatus" not in published
+# Coupon changes remain transactional and do not create a second review state.
 coupon_sync = req("PUT", f"/api/app/events/{event['id']}/coupons", {"coupons": [{
     "code": "ROLE10", "discountPercent": 10, "maxUses": 5, "isActive": True
 }]}, tokens["event-lead"])
-assert coupon_sync["financeApprovalStatus"] == "pending"
+assert coupon_sync["success"] is True and "financeApprovalStatus" not in coupon_sync
 post_coupon = req("GET", f"/api/collections/events/records/{event['id']}", token=tokens["event-lead"])
-assert post_coupon["approvalStatus"] == "approved" and post_coupon["financeApprovalStatus"] == "pending"
-req("POST", f"/api/workspace/events/{event['id']}/workflow", {"action": "publish"}, tokens["branch-secretary"], expected=(409,))
-req("POST", f"/api/workspace/events/{event['id']}/workflow", {"action": "finance_approve", "note": "Discount verified"}, tokens["event-finance"])
-published = req("POST", f"/api/workspace/events/{event['id']}/workflow", {"action": "publish"}, tokens["branch-secretary"])["event"]
-assert published["status"] == "published"
+assert post_coupon["status"] == "published"
 req("PUT", f"/api/app/events/{event['id']}/coupons", {"coupons": [{
     "code": "ROLE20", "discountPercent": 20, "maxUses": 5, "isActive": True
-}]}, tokens["event-lead"], expected=(400,))
+}]}, tokens["event-lead"])
 
-# Sensitive edits cannot silently mutate a published approved event.
-req("PATCH", f"/api/collections/events/records/{event['id']}", {"venue": "Changed Hall"}, tokens["event-lead"], expected=(400, 403))
+# Published setup can be corrected by the scoped organizer without a second
+# approval workflow. Status transitions themselves remain command-owned.
+changed_published = req("PATCH", f"/api/collections/events/records/{event['id']}", {"venue": "Changed Hall"}, tokens["event-lead"])
+assert changed_published["status"] == "published" and changed_published["venue"] == "Changed Hall"
+req("PATCH", f"/api/collections/events/records/{event['id']}", {"status": "draft"}, tokens["event-lead"], expected=(400, 403))
 req("POST", f"/api/workspace/events/{event['id']}/workflow", {"action": "unpublish"}, tokens["branch-secretary"], expected=(400,))
 returned = req("POST", f"/api/workspace/events/{event['id']}/workflow", {"action": "unpublish", "note": "Venue needs review"}, tokens["branch-secretary"])["event"]
 assert returned["status"] == "draft" and returned["registrationOpen"] is False
 changed = req("PATCH", f"/api/collections/events/records/{event['id']}", {"venue": "Changed Hall"}, tokens["event-lead"])
-assert changed["approvalStatus"] == "draft"
-assert changed["financeApprovalStatus"] == "pending"
+assert changed["status"] == "draft"
 
-# Return event through review so check-in fixture lives under a published event again.
-req("POST", f"/api/workspace/events/{event['id']}/workflow", {"action": "submit"}, tokens["event-lead"])
-req("POST", f"/api/workspace/events/{event['id']}/workflow", {"action": "approve"}, tokens["society-faculty"])
-req("POST", f"/api/workspace/events/{event['id']}/workflow", {"action": "finance_approve"}, tokens["event-finance"])
-req("POST", f"/api/workspace/events/{event['id']}/workflow", {"action": "publish"}, tokens["branch-secretary"])
+# Return the event to the published branch directly.
+req("POST", f"/api/workspace/events/{event['id']}/workflow", {"action": "publish"}, tokens["event-lead"])
 
 registration = req("POST", "/api/collections/registrations/records", {
     "user": users["plain"]["id"],
@@ -278,8 +276,11 @@ registration = req("POST", "/api/collections/registrations/records", {
 req("GET", f"/api/collections/registrations/records/{registration['id']}", token=tokens["checkin-staff"], expected=(403, 404))
 checked = req("POST", "/api/workspace/check-in", {"ticketId": registration["ticketId"]}, tokens["checkin-staff"])
 assert checked["success"] is True and checked["registration"]["checkedIn"] is True
-assert set(checked["registration"].keys()) <= {"id", "userName", "userEmail", "eventTitle", "ticketId", "checkedIn", "checkedInAt"}
+assert set(checked["registration"].keys()) <= {"id", "eventTitle", "ticketId", "checkedIn", "checkedInAt"}
+assert "userName" not in checked["registration"] and "userEmail" not in checked["registration"]
 req("GET", f"/api/admin/events/{event['id']}/operations", token=tokens["checkin-staff"], expected=(403,))
+req("GET", "/api/collections/payments/records", token=tokens["event-finance"], expected=(403,))
+req("GET", "/api/collections/payment_attempts/records", token=tokens["event-finance"], expected=(403,))
 
 
 # Registration desk can browse/cancel, but not perform finance actions.
@@ -299,7 +300,7 @@ assert "cancellationRequests" not in registration_ops
 assert "financeDisclaimer" not in registration_ops
 assert "coupons" not in registration_ops
 assert "audit" not in registration_ops
-for forbidden_event_key in ("formTemplate", "financeApprovalStatus", "financeApprovalNote"):
+for forbidden_event_key in ("formTemplate", "approvalStatus", "financeApprovalStatus", "financeApprovalNote"):
     assert forbidden_event_key not in registration_ops["event"], forbidden_event_key
 
 finance_ops = req("GET", f"/api/admin/events/{event['id']}/operations", token=tokens["event-finance"])
@@ -308,12 +309,12 @@ assert "financeDisclaimer" in finance_ops and "attention" in finance_ops and "ca
 assert "audit" not in finance_ops
 finance_row = finance_ops["recent"][0]
 assert {"paymentStatus", "amount", "provider", "manualConfirmation"}.issubset(finance_row)
-assert "financeApprovalStatus" in finance_ops["event"] and "paymentProvider" not in finance_ops["event"]
+assert "approvalStatus" not in finance_ops["event"] and "financeApprovalStatus" not in finance_ops["event"] and "paymentProvider" not in finance_ops["event"]
 
 edit_ops = req("GET", f"/api/admin/events/{event['id']}/operations", token=tokens["event-lead"])
 assert "coupons" in edit_ops and "formTemplate" in edit_ops["event"]
 assert "audit" in edit_ops
-assert "financeDisclaimer" in edit_ops
+assert "financeDisclaimer" not in edit_ops and "attention" not in edit_ops
 
 req(
     "GET",
@@ -334,9 +335,25 @@ for forbidden_key in (
     assert forbidden_key not in projected_row, forbidden_key
 req("POST", f"/api/admin/registrations/{registration['id']}/command", {"action": "confirm-payment"}, tokens["registration-desk"], expected=(403,))
 
-# Branch finance can use projected Payment Desk reads; event finance cannot open branch-wide Payment Desk.
+# Branch finance can use projected Payment Desk reads and scoped detail, but not the generic attendee register or mail outbox.
 branch_payment_rows = req("GET", "/api/admin/payments?page=1&perPage=40", token=tokens["branch-treasurer"])
 assert set(branch_payment_rows) == {"payments", "total", "page", "perPage", "hasMore"}
+branch_finance_detail = req("GET", f"/api/admin/registrations/{registration['id']}", token=tokens["branch-treasurer"])["registration"]
+assert branch_finance_detail["id"] == registration["id"] and "paymentStatus" in branch_finance_detail
+req("GET", f"/api/admin/registrations?event={event['id']}&page=1&perPage=40", token=tokens["branch-treasurer"], expected=(403,))
+super_outbox = req("GET", "/api/collections/notification_outbox/records", token=super_token)
+assert super_outbox["totalItems"] >= 1 and super_outbox["items"]
+protected_outbox_id = super_outbox["items"][0]["id"]
+branch_finance_outbox = req("GET", "/api/collections/notification_outbox/records", token=tokens["branch-treasurer"])
+assert branch_finance_outbox["totalItems"] == 0 and branch_finance_outbox["items"] == []
+req("GET", f"/api/collections/notification_outbox/records/{protected_outbox_id}", token=tokens["branch-treasurer"], expected=(403, 404))
+
+event_finance_detail = req("GET", f"/api/admin/registrations/{registration['id']}", token=tokens["event-finance"])["registration"]
+assert event_finance_detail["id"] == registration["id"] and "paymentStatus" in event_finance_detail
+req("GET", f"/api/admin/registrations?event={event['id']}&page=1&perPage=40", token=tokens["event-finance"], expected=(403,))
+event_finance_outbox = req("GET", "/api/collections/notification_outbox/records", token=tokens["event-finance"])
+assert event_finance_outbox["totalItems"] == 0 and event_finance_outbox["items"] == []
+req("GET", f"/api/collections/notification_outbox/records/{protected_outbox_id}", token=tokens["event-finance"], expected=(403, 404))
 req("GET", "/api/admin/payments/summary", token=tokens["event-finance"], expected=(403,))
 req("GET", "/api/admin/payments?page=1&perPage=40", token=tokens["event-finance"], expected=(403,))
 # Scoped content: event content can create for its event, not another event.

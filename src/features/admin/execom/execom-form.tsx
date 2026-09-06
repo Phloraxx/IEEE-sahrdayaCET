@@ -17,7 +17,7 @@ import {
 import { getAdminExecomMember, saveAdminExecomMember } from "@/lib/data/admin-execom.client";
 import { listAdminSocieties } from "@/lib/data/admin-societies.client";
 import { listAdminUsers } from "@/lib/data/admin-users.client";
-import { roleLabel, WORKSPACE_ROLE_DEFINITIONS, type WorkspaceRoleCode } from "@/lib/workspace-permissions";
+import { canonicalWorkspaceRole, roleLabel, roleSupportsScope, WORKSPACE_ROLE_DEFINITIONS, type WorkspaceRoleCode } from "@/lib/workspace-permissions";
 
 interface SocietyOption {
   id: string;
@@ -37,7 +37,7 @@ interface ExecomFormState {
   portfolio: string;
   society: string;
   userId: string;
-  roleCode: WorkspaceRoleCode | "";
+  roleCode: WorkspaceRoleCode | "society_team" | "";
   term: string;
   activeFrom: string;
   activeUntil: string;
@@ -114,7 +114,9 @@ export function ExecomForm({ mode, memberId }: ExecomFormProps) {
         portfolio: String(m.portfolio ?? ""),
         society: String(m.society ?? ""),
         userId: String(m.user ?? ""),
-        roleCode: (String(m.roleCode ?? "") as WorkspaceRoleCode | ""),
+        roleCode: String(m.roleCode ?? "") === "society_team"
+          ? "society_team"
+          : canonicalWorkspaceRole(String(m.roleCode ?? "")),
         term: String(m.term ?? ""),
         activeFrom: String(m.activeFrom ?? "").slice(0, 10),
         activeUntil: String(m.activeUntil ?? "").slice(0, 10),
@@ -167,7 +169,8 @@ export function ExecomForm({ mode, memberId }: ExecomFormProps) {
     if (!form.position.trim()) return setSubmitError("Position is required");
     if ((form.userId && !form.roleCode) || (!form.userId && form.roleCode)) return setSubmitError("Link both an account and workspace role, or leave both empty");
     if (form.roleCode) {
-      const expected = WORKSPACE_ROLE_DEFINITIONS[form.roleCode].scope;
+      const expected = form.roleCode === "society_team" ? "society" : (form.society ? "society" : "branch");
+      if (form.roleCode !== "society_team" && !roleSupportsScope(form.roleCode, expected)) return setSubmitError("This workspace role does not match the selected scope");
       if (expected === "society" && !form.society) return setSubmitError("A society-scoped workspace role requires a society");
       if (expected === "branch" && form.society) return setSubmitError("Branch workspace roles must use Society = None");
     }
@@ -233,7 +236,10 @@ export function ExecomForm({ mode, memberId }: ExecomFormProps) {
                   value={form.society || "__none__"}
                   onValueChange={(v) => {
                     const society = v === "__none__" ? "" : v;
-                    const roleCode = form.roleCode && WORKSPACE_ROLE_DEFINITIONS[form.roleCode].scope !== (society ? "society" : "branch") ? "" : form.roleCode;
+                    const roleMatchesScope = form.roleCode === "society_team"
+                      ? Boolean(society)
+                      : form.roleCode ? roleSupportsScope(form.roleCode, society ? "society" : "branch") : false;
+                    const roleCode = form.roleCode && roleMatchesScope ? form.roleCode : "";
                     setForm({ ...form, society, roleCode });
                   }}
                 >
@@ -271,7 +277,7 @@ export function ExecomForm({ mode, memberId }: ExecomFormProps) {
               {form.userId ? <div className="flex items-center justify-between rounded-lg border border-border bg-muted/25 px-3 py-2"><div><p className="text-sm font-medium">Account linked</p><p className="font-mono text-[10px] text-muted-foreground">{form.userId}</p></div><Button type="button" variant="ghost" size="sm" onClick={() => setForm({ ...form, userId: "", roleCode: "" })}>Unlink</Button></div> : <><div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input id="ex-user-search" value={userSearch} onChange={(e) => setUserSearch(e.target.value)} placeholder="Search account by name or email" className="pl-9" /></div>{userSearch.trim().length >= 2 && <div className="max-h-40 overflow-y-auto rounded-lg border border-border">{userResults?.users.length ? userResults.users.map((candidate) => <button type="button" key={candidate.id} className="block w-full border-b border-border px-3 py-2 text-left last:border-0 hover:bg-muted" onClick={() => { setForm({ ...form, userId: candidate.id }); setUserSearch(""); }}><p className="text-sm font-medium">{candidate.name || candidate.email}</p><p className="text-xs text-muted-foreground">{candidate.email}</p></button>) : <p className="p-3 text-xs text-muted-foreground">No matching account.</p>}</div>}</>}
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="grid gap-1.5"><Label>Workspace role</Label><Select value={form.roleCode || "__none__"} onValueChange={(value) => setForm({ ...form, roleCode: value === "__none__" ? "" : value as WorkspaceRoleCode })}><SelectTrigger><SelectValue placeholder="No workspace access" /></SelectTrigger><SelectContent><SelectItem value="__none__">Directory only</SelectItem>{(Object.keys(WORKSPACE_ROLE_DEFINITIONS) as WorkspaceRoleCode[]).filter((role) => WORKSPACE_ROLE_DEFINITIONS[role].scope === (form.society ? "society" : "branch")).map((role) => <SelectItem key={role} value={role}>{roleLabel(role)}</SelectItem>)}</SelectContent></Select></div>
+              <div className="grid gap-1.5"><Label>Workspace role</Label><Select value={form.roleCode || "__none__"} onValueChange={(value) => setForm({ ...form, roleCode: value === "__none__" ? "" : value as ExecomFormState["roleCode"] })}><SelectTrigger><SelectValue placeholder="No workspace access" /></SelectTrigger><SelectContent><SelectItem value="__none__">Directory only</SelectItem>{form.roleCode === "society_team" && <SelectItem value="society_team">Legacy Society Team (view only)</SelectItem>}{(Object.keys(WORKSPACE_ROLE_DEFINITIONS) as WorkspaceRoleCode[]).filter((role) => roleSupportsScope(role, form.society ? "society" : "branch")).map((role) => <SelectItem key={role} value={role}>{roleLabel(role)}</SelectItem>)}</SelectContent></Select></div>
               <div className="grid gap-1.5"><Label htmlFor="ex-term">Term</Label><Input id="ex-term" value={form.term} onChange={(e) => setForm({ ...form, term: e.target.value })} placeholder="2026–27" /></div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">

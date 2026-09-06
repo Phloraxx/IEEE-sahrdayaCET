@@ -31,7 +31,7 @@ test.describe("Attendance V2 browser lifecycle", () => {
   test("organizer turns a sessionless event into session attendance", async ({ page, request }) => {
     await signInAdmin(page, request);
     await page.goto(`/admin/events/${fixture.eventId}?tab=attendance`);
-    await expect(page.getByText("Legacy single check-in is active", { exact: true })).toBeVisible();
+    await expect(page.getByText("Legacy single check-in is active", { exact: true })).toBeVisible({ timeout: 10_000 });
     await page.getByRole("button", { name: "Add session" }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByRole("heading", { name: "Add attendance session" })).toBeVisible();
@@ -60,7 +60,8 @@ test.describe("Attendance V2 browser lifecycle", () => {
     await ticketInput.fill(fixture.ticketId);
     await page.getByRole("button", { name: "Record", exact: true }).click();
     await expect(page.getByRole("status").getByText("Attendance recorded", { exact: true })).toBeVisible();
-    await expect(page.getByText(fixture.attendeeName, { exact: true }).last()).toBeVisible();
+    await expect(page.getByText(fixture.attendeeName, { exact: true })).toHaveCount(0);
+    await expect(page.getByText(fixture.ticketId, { exact: true }).last()).toBeVisible();
     const presentCard = page.getByText("Present", { exact: true }).locator("..");
     await expect(presentCard.getByText("1", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Correct", exact: true })).toBeVisible();

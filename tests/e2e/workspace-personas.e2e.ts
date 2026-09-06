@@ -56,9 +56,12 @@ test.describe("IEEE Workspace role personas", () => {
     await expect(page.getByText(/payment|finance/i).first()).toBeVisible({ timeout: 10_000 });
     const nav = page.getByRole("complementary", { name: "IEEE Workspace navigation" });
     await expect(nav.getByRole("link", { name: "Payments" })).toHaveCount(0);
+    await expect(nav.getByRole("link", { name: "Registrations" })).toHaveCount(0);
 
+    await page.goto("/admin/registrations");
+    await expect(page).toHaveURL(/\/admin\/events$/);
     await page.goto("/admin/payments");
-    await expect(page).toHaveURL(/\/admin\/dashboard$/);
+    await expect(page).toHaveURL(/\/admin\/events$/);
   });
 
   test("registration desk normalizes forbidden payment tabs and keeps attendee operations usable", async ({ page }) => {

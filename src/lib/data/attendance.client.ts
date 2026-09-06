@@ -48,7 +48,6 @@ export interface AttendanceContextEvent {
 export interface AttendanceRecentRow {
   id: string;
   registrationId: string;
-  userName: string;
   ticketId: string;
   type: "present" | "entry" | "exit" | "manual_add" | "manual_remove" | string;
   occurredAt: string;
@@ -63,7 +62,6 @@ export interface AttendanceCheckInResponse {
   message: string;
   registration: {
     id: string;
-    userName: string;
     ticketId: string;
     eventId: string;
     eventTitle: string;

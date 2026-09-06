@@ -1,35 +1,51 @@
 export const WORKSPACE_ROLE_DEFINITIONS = {
-  branch_chair: { label: "Branch Chair", scope: "branch" },
-  branch_vice_chair: { label: "Branch Vice Chair", scope: "branch" },
-  branch_secretary: { label: "Branch Secretary", scope: "branch" },
-  branch_joint_secretary: { label: "Branch Joint Secretary", scope: "branch" },
-  branch_treasurer: { label: "Branch Treasurer", scope: "branch" },
-  branch_counselor: { label: "Branch Counselor", scope: "branch" },
-  branch_faculty_coordinator: { label: "Faculty Coordinator", scope: "branch" },
-  branch_content: { label: "Branch Content Team", scope: "branch" },
-  branch_webmaster: { label: "Branch Webmaster", scope: "branch" },
-  society_faculty: { label: "Society Faculty In-charge", scope: "society" },
-  society_chair: { label: "Society Chair", scope: "society" },
-  society_vice_chair: { label: "Society Vice Chair", scope: "society" },
-  society_secretary: { label: "Society Secretary", scope: "society" },
-  society_treasurer: { label: "Society Treasurer", scope: "society" },
-  society_content: { label: "Society Content Team", scope: "society" },
-  society_team: { label: "Society Team", scope: "society" },
-  event_lead: { label: "Event Lead", scope: "event" },
-  event_registration: { label: "Registration Desk", scope: "event" },
-  event_checkin: { label: "Check-in Staff", scope: "event" },
-  event_content: { label: "Event Content / Media", scope: "event" },
-  event_finance: { label: "Event Finance", scope: "event" },
+  organizer: { label: "Organizer", scopes: ["branch", "society", "event"] },
+  finance: { label: "Finance", scopes: ["branch", "society", "event"] },
+  registration_staff: { label: "Registration Staff", scopes: ["event"] },
+  checkin_staff: { label: "Check-in Staff", scopes: ["event"] },
+  content_editor: { label: "Content Editor", scopes: ["branch", "society", "event"] },
 } as const;
 
 export type WorkspaceRoleCode = keyof typeof WORKSPACE_ROLE_DEFINITIONS;
-export type WorkspaceScopeType = (typeof WORKSPACE_ROLE_DEFINITIONS)[WorkspaceRoleCode]["scope"];
+export type WorkspaceScopeType = "branch" | "society" | "event";
+
+/** Historical storage codes remain readable while the UI speaks in capabilities. */
+export const HISTORICAL_ROLE_ALIASES: Record<string, WorkspaceRoleCode> = {
+  branch_chair: "organizer",
+  branch_vice_chair: "organizer",
+  branch_secretary: "organizer",
+  branch_joint_secretary: "organizer",
+  branch_counselor: "organizer",
+  branch_faculty_coordinator: "organizer",
+  branch_treasurer: "finance",
+  branch_content: "content_editor",
+  branch_webmaster: "content_editor",
+  society_faculty: "organizer",
+  society_chair: "organizer",
+  society_vice_chair: "organizer",
+  society_secretary: "organizer",
+  society_treasurer: "finance",
+  society_content: "content_editor",
+  event_lead: "organizer",
+  event_registration: "registration_staff",
+  event_checkin: "checkin_staff",
+  event_content: "content_editor",
+  event_finance: "finance",
+};
+
+export function canonicalWorkspaceRole(roleCode: string): WorkspaceRoleCode | "" {
+  if (roleCode in WORKSPACE_ROLE_DEFINITIONS) return roleCode as WorkspaceRoleCode;
+  return HISTORICAL_ROLE_ALIASES[roleCode] ?? "";
+}
+
+export function roleSupportsScope(roleCode: WorkspaceRoleCode, scope: WorkspaceScopeType): boolean {
+  return (WORKSPACE_ROLE_DEFINITIONS[roleCode].scopes as readonly string[]).includes(scope);
+}
 
 export const WORKSPACE_CAPABILITIES = [
-  "workspace.view", "events.view", "events.create", "events.edit", "events.submit",
-  "events.approve", "events.publish", "events.cancel", "events.archive", "events.complete", "registrations.view",
+  "workspace.view", "events.view", "events.create", "events.edit", "events.publish", "events.cancel", "events.archive", "events.complete", "registrations.view",
   "registrations.manage", "registrations.manual", "checkin.manage", "finance.view",
-  "finance.manage", "finance.approve", "societies.view", "societies.edit",
+  "finance.manage", "societies.view", "societies.edit",
   "assignments.manage", "content.manage", "execom.manage", "reports.view", "technical.manage",
   "certificates.view", "certificates.manage_templates", "certificates.issue",
   "certificates.send", "certificates.revoke",
@@ -40,7 +56,9 @@ export type WorkspaceCapability = (typeof WORKSPACE_CAPABILITIES)[number];
 export interface WorkspaceAssignment {
   id: string;
   userId: string;
-  roleCode: WorkspaceRoleCode;
+  /** Raw storage code; use accessRole for the simplified role vocabulary. */
+  roleCode: string;
+  accessRole?: WorkspaceRoleCode | "";
   title: string;
   scopeType: WorkspaceScopeType;
   societyId: string;
@@ -101,7 +119,8 @@ export function canAccessWorkspacePath(
   const branchHas = (capability: WorkspaceCapability) => workspace.branchCapabilities.includes(capability);
   if (path === "/admin/dashboard") return has("registrations.view") || has("reports.view") || branchHas("technical.manage");
   if (path === "/admin/events" || path.startsWith("/admin/events/")) return has("events.view");
-  if (path === "/admin/registrations" || path.startsWith("/admin/registrations/")) return has("registrations.view");
+  if (path === "/admin/registrations") return has("registrations.view");
+  if (path.startsWith("/admin/registrations/")) return has("registrations.view") || has("finance.view");
   if (path === "/admin/certificates" || path.startsWith("/admin/certificates/")) return has("certificates.view");
   if (path === "/admin/payments" || path.startsWith("/admin/payments/")) return branchHas("finance.view");
   if (path === "/admin/check-in" || path.startsWith("/admin/check-in/")) return has("checkin.manage");
@@ -120,12 +139,13 @@ export function preferredWorkspacePath(workspace: WorkspaceMe | null | undefined
   if (has("checkin.manage") && !has("registrations.view") && !has("events.edit")) return "/admin/check-in";
   if (has("content.manage") && !has("registrations.view") && !has("events.edit")) return "/admin/blogs";
   if (has("technical.manage") || has("registrations.view")) return "/admin/dashboard";
-  if (has("events.view")) return "/admin/events";
   if (workspace.branchCapabilities?.includes("finance.view")) return "/admin/payments";
+  if (has("events.view")) return "/admin/events";
   if (has("societies.view")) return "/admin/societies";
   return "/admin";
 }
 
 export function roleLabel(roleCode: string): string {
-  return WORKSPACE_ROLE_DEFINITIONS[roleCode as WorkspaceRoleCode]?.label ?? roleCode.replaceAll("_", " ");
+  const canonical = canonicalWorkspaceRole(roleCode);
+  return canonical ? WORKSPACE_ROLE_DEFINITIONS[canonical].label : roleCode.replaceAll("_", " ");
 }

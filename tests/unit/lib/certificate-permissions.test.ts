@@ -35,12 +35,12 @@ describe("certificate permissions", () => {
     expect(auth.ROLE_CAPABILITIES.event_finance).not.toContain("certificates.issue");
   });
 
-  it("lets an event lead view and issue but not change templates or revoke", () => {
-    expect(auth.ROLE_CAPABILITIES.event_lead).toContain("certificates.view");
-    expect(auth.ROLE_CAPABILITIES.event_lead).toContain("certificates.issue");
-    expect(auth.ROLE_CAPABILITIES.event_lead).toContain("certificates.send");
-    expect(auth.ROLE_CAPABILITIES.event_lead).not.toContain("certificates.manage_templates");
-    expect(auth.ROLE_CAPABILITIES.event_lead).not.toContain("certificates.revoke");
+  it("gives the simplified Organizer role full certificate authority", () => {
+    for (const role of ["organizer", "event_lead"]) {
+      for (const capability of certificateCapabilities) {
+        expect(auth.ROLE_CAPABILITIES[role]).toContain(capability);
+      }
+    }
   });
 
   it("gives society chairs and faculty full scoped certificate authority", () => {
@@ -61,10 +61,18 @@ describe("certificate permissions", () => {
     }
   });
 
-  it("keeps revocation narrower than ordinary issue authority", () => {
-    expect(auth.ROLE_CAPABILITIES.branch_secretary).toContain("certificates.issue");
-    expect(auth.ROLE_CAPABILITIES.branch_secretary).not.toContain("certificates.revoke");
-    expect(auth.ROLE_CAPABILITIES.society_secretary).toContain("certificates.issue");
-    expect(auth.ROLE_CAPABILITIES.society_secretary).not.toContain("certificates.revoke");
+  it("keeps certificate authority out of non-organizer roles", () => {
+    for (const role of ["finance", "registration_staff", "checkin_staff", "content_editor"]) {
+      for (const capability of certificateCapabilities) {
+        expect(auth.ROLE_CAPABILITIES[role]).not.toContain(capability);
+      }
+    }
+  });
+
+  it("keeps Finance out of the generic attendee register", () => {
+    for (const role of ["finance", "branch_treasurer", "society_treasurer", "event_finance"]) {
+      expect(auth.ROLE_CAPABILITIES[role]).toContain("finance.view");
+      expect(auth.ROLE_CAPABILITIES[role]).not.toContain("registrations.view");
+    }
   });
 });

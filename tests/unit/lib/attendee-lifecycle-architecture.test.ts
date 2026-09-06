@@ -77,18 +77,16 @@ describe("attendee cancellation and waitlist architecture", () => {
     expect(publicClient).toContain('/api/tickets/lookup');
   });
 
-  it("keeps organizer policy changes inside workflow-sensitive event setup", () => {
-    const workflow = read("pb_hooks/event-workflow-helpers.js");
+  it("keeps organizer policy changes in event setup without an approval gate", () => {
     const form = read("src/features/admin/events/event-form.tsx");
     for (const field of [
       "allowSelfCancellation", "selfCancellationUntil", "refundRequestUntil",
       "refundPolicy", "waitlistEnabled", "waitlistOfferMinutes",
     ]) {
-      expect(workflow).toContain(`"${field}"`);
       expect(form).toContain(field);
     }
-    expect(workflow).toContain('"timezone", "attendanceMode", "locationAddress"');
     expect(form).toContain("Set a finite capacity before enabling the waitlist");
+    expect(form).not.toContain("approval");
   });
 
   it("queries command-owned registrations by canonical registrationDate", () => {

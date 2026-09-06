@@ -80,7 +80,10 @@ The browser creates a same-origin PocketBase client. OAuth, token storage, and r
 
 SSR public reads never impersonate a user. Authenticated/admin data is loaded in the browser after PocketBase authorization.
 
-Application roles are `user`, `chair`, `content`, and `admin`.
+PocketBase account roles are `user`, `chair`, `content`, and `admin` for
+compatibility. Scoped workspace assignments expose the capability roles
+Organizer, Finance, Registration Staff, Check-in Staff, and Content Editor;
+historical role codes remain readable aliases.
 
 ## Public rendering and SEO
 

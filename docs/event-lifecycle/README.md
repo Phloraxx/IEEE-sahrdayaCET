@@ -4,9 +4,13 @@ This directory is the implementation plan for turning the existing event, regist
 
 ## Product boundary
 
-The target lifecycle is:
+The canonical event lifecycle is:
 
-`Draft → readiness → approval → publish → registration → payment → attendee self-service → event-day operations → attendance → closeout → certificates → archive`
+`Draft → Published → Completed → Archived`
+
+`Cancelled` is a separate terminal outcome. Registration, payment, attendee
+self-service, attendance, closeout and certificates remain operational state
+around that lifecycle; they are not additional publication approvals.
 
 The system is for IEEE Sahrdaya Student Branch operations. It is **not** intended to become a generic commercial ticketing platform.
 

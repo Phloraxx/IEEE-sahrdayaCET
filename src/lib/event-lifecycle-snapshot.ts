@@ -12,8 +12,6 @@ import {
 
 export type EventLifecyclePhase =
   | "draft"
-  | "in_review"
-  | "approved"
   | "upcoming"
   | "live"
   | "ended"
@@ -24,9 +22,6 @@ export type EventLifecyclePhase =
 export type EventDayState = "upcoming" | "live" | "ended" | "closed";
 export type EventNextAction =
   | "complete_setup"
-  | "edit_and_resubmit"
-  | "await_approval"
-  | "await_finance_approval"
   | "publish"
   | "registration_scheduled"
   | "event_operations"
@@ -35,8 +30,6 @@ export type EventNextAction =
   | "none";
 
 export interface EventLifecycleSnapshotInput extends EventAvailabilityInput {
-  approvalStatus?: string | null;
-  financeApprovalStatus?: string | null;
   price?: number | null;
 }
 
@@ -79,9 +72,6 @@ function phaseFor(event: EventLifecycleSnapshotInput, day: EventDayState): Event
   if (event.status === "cancelled") return "cancelled";
   if (event.status === "completed") return "completed";
   if (event.status !== "published") {
-    const approval = String(event.approvalStatus || "draft");
-    if (approval === "submitted" || approval === "changes_requested") return "in_review";
-    if (approval === "approved") return "approved";
     return "draft";
   }
   if (day === "live") return "live";
@@ -89,40 +79,17 @@ function phaseFor(event: EventLifecycleSnapshotInput, day: EventDayState): Event
   return "upcoming";
 }
 
-function blockersFor(event: EventLifecycleSnapshotInput): string[] {
-  const blockers: string[] = [];
-  const approval = String(event.approvalStatus || "draft");
-  const finance = String(event.financeApprovalStatus || "not_required");
-  const paid = Math.max(0, Number(event.price) || 0) > 0;
-
-  if (event.status !== "published" && event.status !== "completed" && event.status !== "cancelled" && !event.isDeleted) {
-    if (approval === "changes_requested") blockers.push("Event changes were requested");
-    if (approval === "submitted") blockers.push("Event approval is pending");
-    if (approval !== "approved" && approval !== "changes_requested" && approval !== "submitted") {
-      blockers.push("Event approval is required before publishing");
-    }
-    if (paid && finance !== "approved") blockers.push("Finance approval is required before publishing");
-  }
-  return blockers;
+function blockersFor(): string[] {
+  return [];
 }
 function nextActionFor(
   phase: EventLifecyclePhase,
-  event: EventLifecycleSnapshotInput,
   availability: EventAvailability,
 ): EventNextAction {
   if (phase === "archived" || phase === "cancelled") return "none";
   if (phase === "completed") return "closeout";
   if (phase === "ended") return "complete_event";
-  if (phase === "in_review") {
-    return event.approvalStatus === "changes_requested" ? "edit_and_resubmit" : "await_approval";
-  }
   if (phase === "draft") return "complete_setup";
-  if (phase === "approved") {
-    if (Math.max(0, Number(event.price) || 0) > 0 && event.financeApprovalStatus !== "approved") {
-      return "await_finance_approval";
-    }
-    return "publish";
-  }
   if (availability.kind === "opening-soon") return "registration_scheduled";
   return "event_operations";
 }
@@ -144,8 +111,8 @@ export function getEventLifecycleSnapshot(
   return {
     phase,
     eventDay: day,
-    nextAction: nextActionFor(phase, event, availability),
-    blockers: blockersFor(event),
+    nextAction: nextActionFor(phase, availability),
+    blockers: blockersFor(),
     registration: {
       ...availability,
       mode,
