@@ -79,6 +79,12 @@ describe("PayGate v4 contract", () => {
     expect(loadHelpers({ PAYGATE_WEBHOOK_TOLERANCE_SECONDS: "86400" }).getConfig().webhookToleranceSeconds).toBe(900);
   });
 
+  it("allows HTTP only for local CI endpoints and requires HTTPS elsewhere", () => {
+    expect(loadHelpers({ PAYGATE_URL: "http://host.docker.internal:18081" }).getConfig().url).toBe("http://host.docker.internal:18081");
+    expect(loadHelpers({ PAYGATE_URL: "http://paygate.example.test" }).getConfig().url).toBe("");
+    expect(loadHelpers({ PAYGATE_URL: "https://paygate.example.test/" }).getConfig().url).toBe("https://paygate.example.test");
+  });
+
   it("rejects the retired v3 camelCase payment shape", () => {
     expect(pg.normalizeProviderPayment({
       id: "payment_v3", status: "pending", requestedAmountPaise: 10000,

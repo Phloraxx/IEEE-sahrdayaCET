@@ -42,9 +42,13 @@ function toPositiveInt(value, fallback) {
 
 function normalizePayGateOrigin(value) {
     var text = String(value || "").trim().replace(/\/+$/, "")
-    if (!/^https:\/\/(?:[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*|\[[0-9A-Fa-f:]+\])(?::[0-9]{1,5})?$/i.test(text)) return ""
-    var port = text.match(/:([0-9]+)$/)
-    if (port && Number(port[1]) > 65535) return ""
+    var match = text.match(/^(https?):\/\/(\[[0-9A-Fa-f:]+\]|[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*)(?::([0-9]{1,5}))?$/i)
+    if (!match) return ""
+    if (String(match[1]).toLowerCase() === "http") {
+        var localHost = String(match[2]).toLowerCase()
+        if (localHost !== "localhost" && localHost !== "127.0.0.1" && localHost !== "[::1]" && localHost !== "host.docker.internal") return ""
+    }
+    if (match[3] && Number(match[3]) > 65535) return ""
     return text
 }
 
