@@ -14,7 +14,7 @@ onRecordUpdateRequest(function (e) {
 routerAdd("POST", "/api/admin/events/{id}/cancel", function (e) {
   var helpers = require(__hooks + "/admin-operations-helpers.js")
   var rh = require(__hooks + "/registration-helpers.js")
-  var paymentState = require(__hooks + "/razorpay-payment-state.js")
+  var paymentLedger = require(__hooks + "/payment-ledger-helpers.js")
   var eventId = e.request.pathValue("id") || ""
   var auth = e.auth
   var event
@@ -70,7 +70,7 @@ routerAdd("POST", "/api/admin/events/{id}/cancel", function (e) {
           data.providerStatus = data.providerStatus || "cancelled"
           result.releasedPending++
         } else if (payStatus === "paid") {
-          var ledger = paymentState.findLedger(txApp, reg.id)
+          var ledger = paymentLedger.findLatestForRegistration(txApp, reg.id)
           var collectedPaise = ledger ? Number(ledger.getInt("collectedPaise") || 0) : 0
           var refundedPaise = ledger ? Number(ledger.getInt("refundedPaise") || 0) : 0
           var fullyRefunded = ledger && collectedPaise > 0 && refundedPaise >= collectedPaise
@@ -79,9 +79,7 @@ routerAdd("POST", "/api/admin/events/{id}/cancel", function (e) {
             data.reviewReason = "Payment was already fully refunded"
           } else {
             data.manualReview = true
-            data.reviewReason = ledger && ledger.getString("provider") === "razorpay"
-              ? "Event cancelled; refund manually in the Razorpay Dashboard. IEEE will reconcile after Razorpay confirms it."
-              : "Event cancelled; manual refund requires organizer resolution"
+            data.reviewReason = "Event cancelled; manual refund requires organizer resolution"
             result.manualRefundRequired++
             result.refundReview++
             if (ledger) {

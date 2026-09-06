@@ -7,6 +7,7 @@ import {
   confirmRegistrationPayment,
   resendRegistrationNotification,
   runRegistrationAdminCommand,
+  type AdminRegistration,
 } from "@/lib/data/admin-registrations.client";
 import { BadgeCheck, CreditCard, Loader2, Mail, Phone, ReceiptText, Send, Ticket, TriangleAlert, UserCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -18,35 +19,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { ConfirmButton } from "@/components/admin/confirm-button";
 import { formatDateTime } from "@/lib/dates";
 
-interface RegistrationDetail {
-  id: string;
-  userName: string;
-  userEmail: string;
-  userPhone: string;
-  registrationStatus: string;
-  paymentStatus: string;
-  checkedIn: boolean;
-  checkedInAt: string | null;
-  ticketId: string;
-  amount: number;
-  couponCode: string;
-  discountAmount: number;
-  paymentData: Record<string, unknown> | null;
-  formResponses: Record<string, unknown> | null;
-  createdAt: string;
-  eventTitle: string;
-  eventId: string;
-  eventSocietyId: string;
-  provider: string;
-  providerStatus: string;
-  manualReview: boolean;
-  reviewReason: string;
-  manualConfirmation: Record<string, unknown> | null;
-  registrationSource: string;
-  internalNotes: string;
-}
-
-interface LegacyPayGateData {
+interface PayGateRecordData {
   provider: string;
   providerStatus: string;
   paymentId: string;
@@ -63,15 +36,15 @@ function formatDate(d: string | null): string {
   return d ? formatDateTime(d) || d : "—";
 }
 
-function paymentDataValue(data: Record<string, unknown> | null, key: string): unknown {
+function paymentDataValue(data: Record<string, unknown> | null | undefined, key: string): unknown {
   return data && typeof data === "object" ? data[key] : undefined;
 }
 
-function getLegacyPayGateData(data: Record<string, unknown> | null): LegacyPayGateData | null {
+function getPayGateRecordData(data: Record<string, unknown> | null | undefined): PayGateRecordData | null {
   const provider = String(paymentDataValue(data, "provider") || "");
   if (provider !== "paygate" && provider !== "legacy_paygate") return null;
   return {
-    provider: "legacy_paygate",
+    provider,
     providerStatus: String(paymentDataValue(data, "providerStatus") || "not_initialized"),
     paymentId: String(paymentDataValue(data, "paymentId") || ""),
     requestedAmountPaise: Number(paymentDataValue(data, "requestedAmountPaise")) || 0,
@@ -97,7 +70,7 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
   const workspace = useQuery({ queryKey: ["workspace-me"], queryFn: getWorkspaceMe, staleTime: 30_000 });
 
   const { data, isLoading, isError, error } = useQuery<{
-    registration: RegistrationDetail;
+    registration: AdminRegistration;
   }>({
     queryKey: ["admin-registration", registrationId],
     queryFn: () => getAdminRegistration(registrationId),
@@ -105,6 +78,10 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
 
   const reg = data?.registration;
   const context = reg ? { eventId: reg.eventId, societyId: reg.eventSocietyId } : {};
+  const canViewFinance = Boolean(reg && (
+    hasScopedWorkspaceCapability(workspace.data, "finance.view", context) ||
+    hasScopedWorkspaceCapability(workspace.data, "finance.manage", context)
+  ));
   const canFinance = Boolean(reg && hasScopedWorkspaceCapability(workspace.data, "finance.manage", context));
   const canCheckIn = Boolean(reg && hasScopedWorkspaceCapability(workspace.data, "checkin.manage", context));
   const canManage = Boolean(reg && hasScopedWorkspaceCapability(workspace.data, "registrations.manage", context));
@@ -197,9 +174,10 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
     );
   }
 
-  const legacyPayGate = getLegacyPayGateData(reg.paymentData);
-  const needsResolution = reg.manualReview ||
-    (reg.registrationStatus === "cancelled" && reg.paymentStatus === "paid");
+  const payGateRecord = canViewFinance ? getPayGateRecordData(reg.paymentData) : null;
+  const needsResolution = canViewFinance && Boolean(
+    reg.manualReview || (reg.registrationStatus === "cancelled" && reg.paymentStatus === "paid"),
+  );
 
   return (
     <div className="grid gap-6">
@@ -210,7 +188,7 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
             <div className="min-w-0 flex-1">
               <p className="font-semibold">This registration needs an organizer decision</p>
               <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                {reg.reviewReason || legacyPayGate?.reviewReason || "The registration is cancelled but the payment is recorded as paid."}
+                {reg.reviewReason || payGateRecord?.reviewReason || "The registration is cancelled but the payment is recorded as paid."}
               </p>
               <Button variant="outline" size="sm" className="mt-3" asChild>
                 <Link to={`/admin/events/${reg.eventId}`}>Resolve in event workspace</Link>
@@ -247,10 +225,10 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
           <div className="flex shrink-0 items-center gap-2">
             {canFinance && reg.registrationStatus === "pending" &&
               reg.paymentStatus === "pending" &&
-              reg.amount > 0 && (
+              (reg.amount ?? 0) > 0 && (
                 <ConfirmButton
                   label="Confirm payment"
-                  confirmMessage={`Confirm ₹${reg.amount} received? This will issue the ticket and queue the confirmation and receipt emails.`}
+                  confirmMessage={`Confirm ₹${reg.amount ?? 0} received? This will issue the ticket and queue the confirmation and receipt emails.`}
                   icon={<BadgeCheck className="h-3.5 w-3.5" />}
                   className="border-success/30 text-success hover:bg-success/8"
                   onConfirm={() => { confirmPaymentMutation.mutate(); return true; }}
@@ -278,7 +256,7 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
             {canManage && reg.registrationStatus !== "cancelled" && !reg.checkedIn && (
               <ConfirmButton
                 label="Cancel registration"
-                confirmMessage="Cancel this registration? Paid records remain visible for finance review."
+                confirmMessage={canViewFinance ? "Cancel this registration? Paid records remain visible for finance review." : "Cancel this registration?"}
                 variant="destructive"
                 onConfirm={() => { cancelMutation.mutate(); return true; }}
                 disabled={cancelMutation.isPending}
@@ -306,16 +284,18 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-5">
-            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-              Payment
-            </p>
-            <div className="mt-2">
-              <StatusBadge status={reg.paymentStatus} kind="payment" />
-            </div>
-          </CardContent>
-        </Card>
+        {canViewFinance && (
+          <Card>
+            <CardContent className="p-5">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                Payment
+              </p>
+              <div className="mt-2">
+                <StatusBadge status={reg.paymentStatus ?? ""} kind="payment" />
+              </div>
+            </CardContent>
+          </Card>
+        )}
         <Card>
           <CardContent className="p-5">
             <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -336,10 +316,26 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
             <p className="mt-2 text-sm font-semibold">
               {reg.registrationSource === "admin" ? "Manual / admin" : "Self-service"}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">{reg.provider || "legacy"}</p>
+            {canViewFinance && <p className="mt-1 text-xs text-muted-foreground">{reg.provider || "legacy"}</p>}
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardContent className="p-6">
+          <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">Academic & membership</p>
+          <dl className="mt-4 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-[max-content_1fr_max-content_1fr]">
+            <dt className="text-muted-foreground">Programme</dt>
+            <dd className="font-medium">{reg.programme || "—"}{reg.programmeCode && <span className="ml-2 font-mono text-xs text-muted-foreground">{reg.programmeCode}</span>}</dd>
+            <dt className="text-muted-foreground">Semester</dt>
+            <dd className="font-medium">{reg.semester || "—"}{reg.studyYear ? <span className="ml-2 text-xs text-muted-foreground">Year {reg.studyYear}</span> : null}</dd>
+            <dt className="text-muted-foreground">IEEE member</dt>
+            <dd>{reg.ieeeMember ? "Yes" : "No"}</dd>
+            <dt className="text-muted-foreground">Membership ID</dt>
+            <dd className="font-mono text-xs">{reg.ieeeMemberId || "—"}</dd>
+          </dl>
+        </CardContent>
+      </Card>
 
       {notificationQuery.data && (
         <Card>
@@ -380,56 +376,58 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
         </Card>
       )}
 
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center gap-2">
-            <CreditCard className="h-4 w-4 text-primary" />
-            <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">Payment provenance</p>
-          </div>
-          <dl className="mt-4 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-[max-content_1fr_max-content_1fr]">
-            <dt className="text-muted-foreground">Rail</dt>
-            <dd className="font-medium">{reg.provider || "legacy"}</dd>
-            <dt className="text-muted-foreground">Provider status</dt>
-            <dd className="font-medium">{reg.providerStatus || "—"}</dd>
-            <dt className="text-muted-foreground">Confirmation</dt>
-            <dd>{reg.manualConfirmation ? "Admin confirmed" : "Provider / automatic"}</dd>
-            <dt className="text-muted-foreground">Internal note</dt>
-            <dd className="break-words">{reg.internalNotes || "—"}</dd>
-          </dl>
-        </CardContent>
-      </Card>
+      {canViewFinance && (
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2">
+              <CreditCard className="h-4 w-4 text-primary" />
+              <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">Payment provenance</p>
+            </div>
+            <dl className="mt-4 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-[max-content_1fr_max-content_1fr]">
+              <dt className="text-muted-foreground">Rail</dt>
+              <dd className="font-medium">{reg.provider || "legacy"}</dd>
+              <dt className="text-muted-foreground">Provider status</dt>
+              <dd className="font-medium">{reg.providerStatus || "—"}</dd>
+              <dt className="text-muted-foreground">Confirmation</dt>
+              <dd>{reg.manualConfirmation ? "Admin confirmed" : "Provider / automatic"}</dd>
+              <dt className="text-muted-foreground">Internal note</dt>
+              <dd className="break-words">{reg.internalNotes || "—"}</dd>
+            </dl>
+          </CardContent>
+        </Card>
+      )}
 
-      {legacyPayGate && (
+      {payGateRecord && (
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-2">
               <CreditCard className="h-4 w-4 text-primary" />
               <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                Legacy PayGate record
+                {payGateRecord.provider === "legacy_paygate" ? "Legacy PayGate record" : "PayGate payment record"}
               </p>
             </div>
             <dl className="mt-4 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-[max-content_1fr_max-content_1fr]">
               <dt className="text-muted-foreground">Provider status</dt>
-              <dd className="font-medium text-foreground">{legacyPayGate.providerStatus}</dd>
+              <dd className="font-medium text-foreground">{payGateRecord.providerStatus}</dd>
               <dt className="text-muted-foreground">Payment ID</dt>
-              <dd className="break-all font-mono text-xs text-foreground">{legacyPayGate.paymentId || "—"}</dd>
+              <dd className="break-all font-mono text-xs text-foreground">{payGateRecord.paymentId || "—"}</dd>
               <dt className="text-muted-foreground">Registration amount</dt>
-              <dd className="font-mono tabular-nums text-foreground">{formatPaise(legacyPayGate.requestedAmountPaise)}</dd>
+              <dd className="font-mono tabular-nums text-foreground">{formatPaise(payGateRecord.requestedAmountPaise)}</dd>
               <dt className="text-muted-foreground">Exact payable</dt>
               <dd className="font-mono tabular-nums text-foreground">
-                {legacyPayGate.payableAmount ? `₹${legacyPayGate.payableAmount}` : formatPaise(legacyPayGate.payableAmountPaise)}
+                {payGateRecord.payableAmount ? `₹${payGateRecord.payableAmount}` : formatPaise(payGateRecord.payableAmountPaise)}
               </dd>
               <dt className="text-muted-foreground">Expires</dt>
-              <dd className="font-mono text-xs text-foreground">{formatDate(legacyPayGate.expiresAt || null)}</dd>
+              <dd className="font-mono text-xs text-foreground">{formatDate(payGateRecord.expiresAt || null)}</dd>
               <dt className="text-muted-foreground">Paid at</dt>
-              <dd className="font-mono text-xs text-foreground">{formatDate(legacyPayGate.paidAt || null)}</dd>
+              <dd className="font-mono text-xs text-foreground">{formatDate(payGateRecord.paidAt || null)}</dd>
             </dl>
           </CardContent>
         </Card>
       )}
 
       {/* Money block */}
-      {(reg.amount > 0 || reg.couponCode) && (
+      {canViewFinance && ((reg.amount ?? 0) > 0 || (reg.discountAmount ?? 0) > 0 || (reg.discountSource ?? "none") !== "none") && (
         <div className="grid gap-4 sm:grid-cols-2">
           <Card>
             <CardContent className="p-5">
@@ -437,20 +435,17 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
                 Registration fee
               </p>
               <p className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-foreground">
-                {reg.amount > 0 ? `₹${reg.amount}` : "—"}
+                {(reg.amount ?? 0) > 0 ? `₹${reg.amount ?? 0}` : "—"}
               </p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-5">
-              <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                Coupon
-              </p>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Discount</p>
               <p className="mt-1.5 text-sm font-medium text-foreground">
-                {reg.couponCode
-                  ? `${reg.couponCode}${reg.discountAmount > 0 ? ` (₹${reg.discountAmount} off)` : ""}`
-                  : "—"}
+                {reg.discountSource === "ieee_member" ? "IEEE member" : reg.discountSource === "coupon" ? `Coupon${reg.couponCode ? ` ${reg.couponCode}` : ""}` : "None"}
               </p>
+              {(reg.discountAmount ?? 0) > 0 && <p className="mt-1 text-xs text-muted-foreground">₹{reg.discountAmount ?? 0} off</p>}
             </CardContent>
           </Card>
         </div>

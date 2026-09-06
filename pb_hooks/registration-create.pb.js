@@ -6,8 +6,9 @@
 //
 // A non-conflicting retry of an active registration is replayed idempotently.
 // Any value the retry supplies must match the stored record; omitted optional
-// answers do not overwrite anything. Changed answers or coupon choices remain
-// rejected for an already-registered user.
+// answers do not overwrite anything. Changed answers or applied coupon choices
+// remain rejected. A coupon that loses to IEEE-member pricing is intentionally
+// not persisted or consumed, so a retry may still include that ignored code.
 
 routerAdd(
   "POST",
@@ -20,11 +21,10 @@ routerAdd(
     // shared helper functions must be required inside the handler.
     var rh = require(__hooks + "/registration-helpers.js")
     var eventTime = require(__hooks + "/event-time-helpers.js")
-    var razorpay = require(__hooks + "/razorpay-direct-helpers.js")
     var paygate = require(__hooks + "/paygate-helpers.js")
-    var providerSelection = require(__hooks + "/payment-provider-selection.js")
     var attendeeLifecycle = require(__hooks + "/attendee-lifecycle-helpers.js")
-    var razorpayConfig = razorpay.getConfig()
+    var audience = require(__hooks + "/event-audience-helpers.js")
+    var pricing = require(__hooks + "/event-pricing-helpers.js")
     var paygateConfig = paygate.getConfig()
     var eventId = e.request.pathValue("id")
     var body = {}
@@ -81,7 +81,8 @@ routerAdd(
         )
         if (duplicates.length) {
           var existing = duplicates[0]
-          var sameCoupon = (existing.getString("couponCode") || "") === couponCode
+          var existingCouponCode = existing.getString("couponCode") || ""
+          var sameCoupon = existingCouponCode === couponCode || (existing.getString("discountSource") === "ieee_member" && existingCouponCode === "")
           var compatibleResponses = rh.registrationReplayCompatible(existing.get("formResponses"), responses)
           if (!sameCoupon || !compatibleResponses) {
             throw new BadRequestError("You are already registered for this event")
@@ -139,6 +140,11 @@ routerAdd(
           }
         }
 
+        // Eligibility is enforced after idempotent replay recovery but before
+        // capacity, coupon or payment state can be consumed.
+        var eligibility = audience.evaluate(event, responses)
+        if (!eligibility.eligible) throw new BadRequestError(eligibility.error)
+
         // Validate required dynamic form fields against the event's schema.
         var formTemplate = event.get("formTemplate")
         if (typeof formTemplate === "string") {
@@ -173,60 +179,37 @@ routerAdd(
           }
         }
 
-        var baseFeePaise = Number(event.getInt("baseFeePaise") || 0)
-        if (!baseFeePaise) baseFeePaise = Math.max(0, Math.round(Number(event.get("price") || 0) * 100))
-        var discountPaise = 0
-        var finalFeePaise = baseFeePaise
-        var coupon = null
-        if (couponCode) {
-          try {
-            coupon = txApp.findFirstRecordByFilter(
-              "coupons",
-              "code = {:code} && event = {:eventId} && isActive = true && (expiresAt = '' || expiresAt > @now)",
-              { code: couponCode, eventId: eventId }
-            )
-          } catch (_) { coupon = null }
-          if (!coupon) throw new BadRequestError("Invalid or expired coupon code")
-
-          var maxUses = coupon.getInt("maxUses") || 0
-          if (maxUses > 0) {
-            var used = txApp.findRecordsByFilter(
-              "registrations",
-              "couponCode = {:code} && event = {:eventId} && registrationStatus != {:cancelled}",
-              "", 0, 0,
-              { code: couponCode, eventId: eventId, cancelled: "cancelled" }
-            )
-            if (used.length >= maxUses) {
-              throw new BadRequestError("Coupon '" + couponCode + "' has reached its usage limit")
-            }
-          }
-          var percent = coupon.getInt("discountPercent") || 0
-          discountPaise = Math.round(baseFeePaise * percent / 100)
-          finalFeePaise = Math.max(0, baseFeePaise - discountPaise)
-        }
-
+        var pricingResult = pricing.calculate(txApp, event, {
+          isIeeeMember: responses.isIeeeMember === true,
+          ieeeMembershipId: responses.ieeeMembershipId,
+          couponCode: couponCode,
+        })
+        if (!pricingResult.ok) throw new BadRequestError(pricingResult.error)
+        var baseFeePaise = pricingResult.baseFeePaise
+        var discountPaise = pricingResult.appliedDiscountPaise
+        var finalFeePaise = pricingResult.finalFeePaise
+        var discountSource = pricingResult.discountSource
+        var appliedCouponCode = pricingResult.appliedCouponCode
+        var coupon = discountSource === "coupon" ? pricingResult.couponRecord : null
         var discountAmount = discountPaise / 100
         var finalAmount = finalFeePaise / 100
         var needsPayment = finalFeePaise > 0
-        var eventPaymentProvider = providerSelection.eventProvider(event)
-        var lockedPaymentData = needsPayment ? providerSelection.paymentDataForEvent(event) : null
-        if (needsPayment && eventPaymentProvider === providerSelection.KOTAK) {
-          // PayGate deliberately allocates the verification fingerprint in the
-          // paise suffix, so its requested/base amount must be a whole rupee.
+        var lockedPaymentData = needsPayment ? {
+          provider: paygate.PAYGATE_PROVIDER,
+          providerStatus: "not_initialized",
+        } : null
+        if (needsPayment) {
+          // PayGate v4 owns the unique paise fingerprint, so IEEE sends an
+          // integer-rupee requested amount and displays PayGate's exact result.
           if (finalFeePaise % 100 !== 0) {
-            throw new BadRequestError("Kotak temporary payments require a whole-rupee final amount. Adjust the event price or coupon.")
+            throw new BadRequestError("PayGate requires a whole-rupee final amount. Adjust the event price or coupon.")
           }
           if (!paygate.paymentConfigured(paygateConfig)) {
             paymentUnavailable = true
             paymentUnavailableCode = "PAYGATE_NOT_AVAILABLE"
-            paymentUnavailableMessage = "Kotak UPI is temporarily unavailable for this event"
+            paymentUnavailableMessage = "UPI payment is temporarily unavailable for this event"
             throw new Error("PAYGATE_NOT_AVAILABLE")
           }
-        } else if (needsPayment && (!razorpay.apiConfigured(razorpayConfig) || !razorpayConfig.paymentsEnabled)) {
-          paymentUnavailable = true
-          paymentUnavailableCode = "RAZORPAY_NOT_AVAILABLE"
-          paymentUnavailableMessage = "Razorpay is temporarily unavailable for this event"
-          throw new Error("RAZORPAY_NOT_AVAILABLE")
         }
 
         var collection = txApp.findCollectionByNameOrId("registrations")
@@ -237,7 +220,12 @@ routerAdd(
           userEmail: String(responses.email || auth.getString("email") || ""),
           userPhone: String(responses.phone || ""),
           formResponses: responses,
-          couponCode: couponCode,
+          programmeCode: eligibility.attendee.programmeCode,
+          semester: eligibility.attendee.semester,
+          ieeeMember: responses.isIeeeMember === true,
+          ieeeMemberId: String(responses.ieeeMembershipId || "").trim().slice(0, 80),
+          discountSource: discountSource,
+          couponCode: appliedCouponCode,
           amount: finalAmount,
           discountAmount: discountAmount,
           baseFeePaise: baseFeePaise,
@@ -248,9 +236,7 @@ routerAdd(
           registrationDate: now.toISOString(),
           ticketId: needsPayment ? "" : "TKT-" + $security.randomString(16),
           paymentTicketId: needsPayment ? $security.randomString(32) : "",
-          // Provider choice is locked onto the registration at creation time.
-          // Changing the event later never moves an in-flight payment between
-          // Razorpay and the temporary Kotak/PayGate route.
+          // Paid registrations are locked to the PayGate v4 control plane.
           paymentData: lockedPaymentData,
           checkedIn: false,
           checkedInAt: "",

@@ -6,6 +6,7 @@ routerAdd("PUT", "/api/app/events/{id}/coupons", function (e) {
   var auth = e.auth
   if (!auth || !auth.id) return e.json(401, { error: "Authentication required" })
   var authz = require(__hooks + "/workspace-authorization.js")
+  var pricing = require(__hooks + "/event-pricing-helpers.js")
 
   var eventId = e.request.pathValue("id")
   var body = {}
@@ -36,6 +37,10 @@ routerAdd("PUT", "/api/app/events/{id}/coupons", function (e) {
         var maxUses = Math.floor(Number(raw.maxUses) || 0)
         if (discountPercent < 0 || discountPercent > 100) throw new Error("Coupon discount must be between 0 and 100")
         if (maxUses < 0) throw new Error("Coupon max uses cannot be negative")
+        if (raw.isActive !== false) {
+          var couponPricingValidation = pricing.validateCouponConfiguration(event, discountPercent)
+          if (!couponPricingValidation.ok) throw new Error(couponPricingValidation.error)
+        }
         normalized.push({
           id: String(raw.id || ""),
           code: code,

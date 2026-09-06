@@ -24,13 +24,15 @@ import {
   getPublicEvent,
   joinEventWaitlist,
   leaveEventWaitlist,
-  previewCoupon,
-  type CouponPreview,
+  previewPricing,
+  type PricingPreview,
   type EventWaitlistResponse,
   type PublicRegistrationEvent,
 } from "@/lib/data/public-client";
 import { downloadRegistrationReceipt } from "@/lib/data/receipt.client";
 import { formatDate } from "@/lib/dates";
+import { PROGRAMMES, SEMESTERS, normalizeProgramme, normalizeSemester, programmeLabel, type ProgrammeCode } from "@/lib/academic-options";
+import { evaluateAudienceEligibility } from "@/lib/event-audience";
 import { MOTION_DURATION, MOTION_EASE } from "@/lib/motion";
 import {
   clearRegistrationDraft,
@@ -115,6 +117,18 @@ function FieldLabel({ label, complete = false }: { label: string; complete?: boo
       </AnimatePresence>
     </span>
   );
+}
+
+function AcademicSelectors({ event, programmeCode, branch, semester, onProgrammeCode, onBranch, onSemester, errors = {} }: {
+  event: PublicRegistrationEvent; programmeCode: ProgrammeCode | ""; branch: string; semester: string;
+  onProgrammeCode: (value: ProgrammeCode | "") => void; onBranch: (value: string) => void; onSemester: (value: string) => void; errors?: Record<string, string>;
+}) {
+  const restrictedProgrammes = event.eligibleProgrammes.length > 0;
+  const restrictedSemesters = event.eligibleSemesters.length > 0;
+  const programmeOptions = restrictedProgrammes ? PROGRAMMES.filter((item) => event.eligibleProgrammes.includes(item.code)) : PROGRAMMES;
+  const semesterOptions = restrictedSemesters ? SEMESTERS.filter((item) => event.eligibleSemesters.includes(item.code)) : SEMESTERS;
+  return <><label><FieldLabel label={`Programme / Branch${restrictedProgrammes ? " *" : ""}`} complete={Boolean(programmeCode) && !errors.branch} /><select aria-label={`Programme / Branch${restrictedProgrammes ? " *" : ""}`} value={programmeCode} onChange={(e) => { const value = e.target.value as ProgrammeCode | ""; onProgrammeCode(value); if (value && value !== "OTHER") onBranch(programmeLabel(value)); else if (value === "") onBranch(""); }} className={`${fieldClass} ${errors.branch ? "border-rose-500" : ""}`}><option value="">{restrictedProgrammes ? "Select your programme" : "Select programme (optional)"}</option>{programmeOptions.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select>{programmeCode === "OTHER" && <input value={branch} onChange={(e) => onBranch(e.target.value)} className={`${fieldClass} mt-2 ${errors.branch ? "border-rose-500" : ""}`} placeholder="Enter your programme / department" />}{errors.branch && <span className="mt-1.5 block text-xs text-rose-600">{errors.branch}</span>}</label>
+  <label><FieldLabel label={`Semester${restrictedSemesters ? " *" : ""}`} complete={Boolean(normalizeSemester(semester)) && !errors.semester} /><select aria-label={`Semester${restrictedSemesters ? " *" : ""}`} value={normalizeSemester(semester) || ""} onChange={(e) => onSemester(e.target.value)} className={`${fieldClass} ${errors.semester ? "border-rose-500" : ""}`}><option value="">{restrictedSemesters ? "Select your semester" : "Select semester (optional)"}</option>{semesterOptions.map((item) => <option key={item.code} value={item.code}>{item.code} · Year {item.year}</option>)}</select>{errors.semester && <span className="mt-1.5 block text-xs text-rose-600">{errors.semester}</span>}</label></>;
 }
 
 function DynamicField({ field, value, onChange, error }: {
@@ -228,6 +242,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [college, setCollege] = useState("");
+  const [programmeCode, setProgrammeCode] = useState<ProgrammeCode | "">("");
   const [branch, setBranch] = useState("");
   const [semester, setSemester] = useState("");
   const [isIeeeMember, setIsIeeeMember] = useState(false);
@@ -235,7 +250,8 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
   const [customFields, setCustomFields] = useState<Record<string, string>>({});
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [couponCode, setCouponCode] = useState("");
-  const [couponPreview, setCouponPreview] = useState<CouponPreview | null>(null);
+  const [appliedCouponCode, setAppliedCouponCode] = useState("");
+  const [pricingPreview, setPricingPreview] = useState<PricingPreview | null>(null);
   const [couponApplying, setCouponApplying] = useState(false);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -276,8 +292,10 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
       setName(source.name || user.name || "");
       setPhone(source.phone);
       setCollege(source.college);
-      setBranch(source.branch);
-      setSemester(source.semester);
+      const rememberedProgramme = normalizeProgramme(source.branch);
+      setProgrammeCode(rememberedProgramme || (source.branch.trim() ? "OTHER" : ""));
+      setBranch(rememberedProgramme && rememberedProgramme !== "OTHER" ? programmeLabel(rememberedProgramme) : source.branch);
+      setSemester(normalizeSemester(source.semester) || source.semester);
       setIsIeeeMember(source.isIeeeMember);
       setIeeeMembershipId(source.ieeeMembershipId);
       if (draft) setCustomFields((current) => ({ ...current, ...draft.customFields }));
@@ -294,12 +312,12 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
   useEffect(() => {
     if (!memoryReady || !user?.id || !event) return;
     const timer = window.setTimeout(() => {
-      const profile: RegistrationProfileMemory = { name, phone, college, branch, semester, isIeeeMember, ieeeMembershipId };
+      const profile: RegistrationProfileMemory = { name, phone, college, branch: programmeCode && programmeCode !== "OTHER" ? programmeLabel(programmeCode) : branch, semester: normalizeSemester(semester) || semester, isIeeeMember, ieeeMembershipId };
       saveRegistrationProfile(user.id, profile);
       saveRegistrationDraft(user.id, event.id, { ...profile, customFields });
     }, 400);
     return () => window.clearTimeout(timer);
-  }, [branch, college, customFields, event, ieeeMembershipId, isIeeeMember, memoryReady, name, phone, semester, user?.id]);
+  }, [branch, college, customFields, event, ieeeMembershipId, isIeeeMember, memoryReady, name, phone, programmeCode, semester, user?.id]);
 
   useEffect(() => {
     if (authStatus !== "authenticated" || !user?.id || !event) {
@@ -340,20 +358,53 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
     [capacityFull, event?.registrationOpen, hasWaitlistOffer, registrationState],
   );
 
+  useEffect(() => {
+    if (!event || !user?.id || !event.isPaid) return;
+    const wantsMemberPrice = event.ieeeMemberDiscountPercent > 0 && isIeeeMember;
+    if (!wantsMemberPrice && !appliedCouponCode) {
+      setPricingPreview(null);
+      return;
+    }
+    if (wantsMemberPrice && !ieeeMembershipId.trim()) {
+      setPricingPreview(null);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void previewPricing(event.id, {
+        isIeeeMember,
+        ieeeMembershipId,
+        couponCode: appliedCouponCode,
+      }).then((preview) => {
+        setPricingPreview(preview);
+        if (appliedCouponCode) setCouponError(null);
+      }).catch((error) => {
+        setPricingPreview(null);
+        if (appliedCouponCode) setCouponError(requestErrorMessage(error, "Pricing could not be refreshed"));
+      });
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [appliedCouponCode, event, ieeeMembershipId, isIeeeMember, user?.id]);
+
   const handleApplyCoupon = async () => {
     if (!event || !couponCode.trim()) {
-      setCouponPreview(null);
+      setAppliedCouponCode("");
       setCouponError(couponCode.trim() ? null : "Enter a coupon code");
       return;
     }
     setCouponApplying(true);
     setCouponError(null);
     try {
-      const preview = await previewCoupon(event.id, couponCode);
-      setCouponCode(preview.code);
-      setCouponPreview(preview);
+      const preview = await previewPricing(event.id, {
+        isIeeeMember,
+        ieeeMembershipId,
+        couponCode,
+      });
+      setCouponCode(preview.requestedCouponCode);
+      setAppliedCouponCode(preview.requestedCouponCode);
+      setPricingPreview(preview);
     } catch (error) {
-      setCouponPreview(null);
+      setAppliedCouponCode("");
+      setPricingPreview(null);
       setCouponError(requestErrorMessage(error, "Coupon could not be applied"));
     } finally {
       setCouponApplying(false);
@@ -369,7 +420,9 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
     if (!event || !user?.id) return;
     setWaitlistBusy(true);
     try {
-      await joinEventWaitlist(event.id);
+      const eligibility = evaluateAudienceEligibility(event, { programmeCode, branch, semester });
+      if (!eligibility.eligible) throw new Error(eligibility.message);
+      await joinEventWaitlist(event.id, { programmeCode, branch: branch.trim(), semester });
       await refreshWaitlist();
       toast.success("You joined the waitlist");
     } catch (err) {
@@ -396,12 +449,18 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
     if (!email.trim()) next.email = "Your signed-in account needs an email address";
     if (!phone.trim()) next.phone = "Phone number is required";
     if (!college.trim()) next.college = "College or institution is required";
+    const eligibility = event ? evaluateAudienceEligibility(event, { programmeCode, branch, semester }) : null;
+    if (eligibility && !eligibility.eligible) {
+      if (eligibility.code.startsWith("PROGRAMME") || eligibility.code === "OTHER_PROGRAMME_REQUIRED") next.branch = eligibility.message;
+      if (eligibility.code.startsWith("SEMESTER")) next.semester = eligibility.message;
+    }
     for (const field of event?.formFields || []) {
       if (!field.required) continue;
       const value = customFields[field.id];
       if (!value || (field.type === "checkbox" && value !== "true")) next[field.id] = `${field.label} is required`;
     }
-    if (event?.isPaid && couponCode.trim() && !couponPreview) next.coupon = "Apply or clear the coupon code before continuing";
+    if (event?.ieeeMemberDiscountPercent && isIeeeMember && !ieeeMembershipId.trim()) next.ieeeMembershipId = "IEEE Membership ID is required for the member price";
+    if (event?.isPaid && couponCode.trim() && appliedCouponCode !== couponCode.trim().toUpperCase()) next.coupon = "Apply or clear the coupon code before continuing";
     if (!acceptedTerms) next.terms = "Please confirm the information before continuing";
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -415,20 +474,21 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
       const result = await createRegistration({
         userId: user.id,
         eventId: event.id,
-        couponCode: couponPreview?.code || undefined,
+        couponCode: appliedCouponCode || undefined,
         formResponses: {
           name: name.trim(),
           email: email.trim(),
           phone: phone.trim(),
           college: college.trim(),
+          programmeCode,
           branch: branch.trim(),
-          semester: semester.trim(),
+          semester: normalizeSemester(semester) || semester.trim(),
           isIeeeMember,
           ieeeMembershipId: ieeeMembershipId.trim() || undefined,
           ...customFields,
         },
       });
-      saveRegistrationProfile(user.id, { name: name.trim(), phone: phone.trim(), college: college.trim(), branch: branch.trim(), semester: semester.trim(), isIeeeMember, ieeeMembershipId: ieeeMembershipId.trim() });
+      saveRegistrationProfile(user.id, { name: name.trim(), phone: phone.trim(), college: college.trim(), branch: programmeCode && programmeCode !== "OTHER" ? programmeLabel(programmeCode) : branch.trim(), semester: normalizeSemester(semester) || semester.trim(), isIeeeMember, ieeeMembershipId: ieeeMembershipId.trim() });
       clearRegistrationDraft(user.id, event.id);
       if (result.paymentRequired) {
         toast.info("Details saved. Complete payment to confirm your registration.");
@@ -470,7 +530,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
 
   const eventHref = event.slug ? `/events/${event.slug}` : "/events";
   const seatsLeft = event.maxCapacity > 0 ? Math.max(0, event.maxCapacity - occupiedSeats) : null;
-  const effectiveAmount = couponPreview?.amount ?? event.price;
+  const effectiveAmount = pricingPreview?.amount ?? event.price;
   const effectivePaid = effectiveAmount > 0;
 
   return (
@@ -505,7 +565,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
                 <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/35">Entry</p>
                 <div className="mt-2 flex items-baseline gap-2">
                   <p className="text-3xl font-semibold tracking-[-0.05em]">{effectivePaid ? `₹${effectiveAmount}` : "Free"}</p>
-                  {couponPreview && couponPreview.discountAmount > 0 && <span className="text-xs text-black/35 line-through">₹{event.price}</span>}
+                  {pricingPreview && pricingPreview.discountAmount > 0 && <span className="text-xs text-black/35 line-through">₹{event.price}</span>}
                 </div>
               </div>
               {seatsLeft !== null && (
@@ -545,6 +605,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
                       ? `Your current position is ${waitlistState.state.position || "being calculated"}. When a place opens, it is reserved for you for a limited time.`
                       : "All available seats are reserved. Join the waitlist and the system will hold a released place for you before offering it to anyone else."}
                   </p>
+                  {waitlistState?.state?.status !== "waiting" && (event.eligibleProgrammes.length > 0 || event.eligibleSemesters.length > 0) && <div className="mt-6 grid max-w-xl gap-5 sm:grid-cols-2"><AcademicSelectors event={event} programmeCode={programmeCode} branch={branch} semester={semester} onProgrammeCode={setProgrammeCode} onBranch={setBranch} onSemester={setSemester} /></div>}
                   {waitlistState?.state?.status === "waiting" ? (
                     <button type="button" disabled={waitlistBusy} onClick={() => void handleLeaveWaitlist()} className="mt-7 min-h-11 border-y border-black/20 py-3 text-sm font-bold text-black/45 transition hover:text-rose-700 disabled:opacity-40">{waitlistBusy ? "Updating…" : "Leave waitlist"}</button>
                   ) : (
@@ -580,8 +641,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
                       <label><FieldLabel label="Email" complete={Boolean(email)} /><input value={email} readOnly autoComplete="email" className={fieldClass} /><span className="mt-1 block text-[10px] text-black/35">From your signed-in account</span></label>
                       <label><FieldLabel label="Phone *" complete={phone.replace(/\D/g, "").length >= 10 && !errors.phone} /><input value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" inputMode="tel" autoComplete="tel" className={`${fieldClass} ${errors.phone ? "border-rose-500" : ""}`} placeholder="+91 98765 43210" />{errors.phone && <span className="mt-1.5 block text-xs text-rose-600">{errors.phone}</span>}</label>
                       <label className="sm:col-span-2"><FieldLabel label="College / Institution *" complete={college.trim().length >= 2 && !errors.college} /><input value={college} onChange={(e) => setCollege(e.target.value)} autoComplete="organization" className={`${fieldClass} ${errors.college ? "border-rose-500" : ""}`} placeholder="Your college or institution" />{errors.college && <span className="mt-1.5 block text-xs text-rose-600">{errors.college}</span>}</label>
-                      <label><FieldLabel label="Branch / Department" complete={Boolean(branch.trim())} /><input value={branch} onChange={(e) => setBranch(e.target.value)} className={fieldClass} placeholder="Computer Science" /></label>
-                      <label><FieldLabel label="Semester" complete={Boolean(semester.trim())} /><input value={semester} onChange={(e) => setSemester(e.target.value)} className={fieldClass} placeholder="S6" /></label>
+                      <AcademicSelectors event={event} programmeCode={programmeCode} branch={branch} semester={semester} onProgrammeCode={setProgrammeCode} onBranch={setBranch} onSemester={setSemester} errors={errors} />
                     </div>
                   </div>
 
@@ -589,8 +649,8 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
                     <div className="mt-8 grid gap-6 border-t border-black/10 pt-7 sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-10">
                       <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">IEEE membership</p>
                       <div>
-                        <label className="flex cursor-pointer items-center gap-3"><input type="checkbox" checked={isIeeeMember} onChange={(e) => setIsIeeeMember(e.target.checked)} className="h-4 w-4 accent-[#00629B]" /><span className="text-sm font-semibold">I am an IEEE member</span></label>
-                        <AnimatePresence initial={false}>{isIeeeMember && <motion.label initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mt-5 block overflow-hidden"><span className="block text-xs font-bold">IEEE Membership ID</span><input value={ieeeMembershipId} onChange={(e) => setIeeeMembershipId(e.target.value)} className={fieldClass} placeholder="Membership ID" /></motion.label>}</AnimatePresence>
+                        <label className="flex cursor-pointer items-center gap-3"><input type="checkbox" checked={isIeeeMember} onChange={(e) => { setIsIeeeMember(e.target.checked); setErrors((current) => { const next = { ...current }; delete next.ieeeMembershipId; return next; }); }} className="h-4 w-4 accent-[#00629B]" /><span className="text-sm font-semibold">I am an IEEE member</span></label>
+                        <AnimatePresence initial={false}>{isIeeeMember && <motion.label initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mt-5 block overflow-hidden"><span className="block text-xs font-bold">IEEE Membership ID{event.ieeeMemberDiscountPercent > 0 ? " *" : ""}</span><input value={ieeeMembershipId} onChange={(e) => { setIeeeMembershipId(e.target.value); setErrors((current) => { const next = { ...current }; delete next.ieeeMembershipId; return next; }); }} className={`${fieldClass} ${errors.ieeeMembershipId ? "border-rose-500" : ""}`} placeholder="Membership ID" />{errors.ieeeMembershipId && <span className="mt-1.5 block text-xs text-rose-600">{errors.ieeeMembershipId}</span>}{event.ieeeMemberDiscountPercent > 0 && <span className="mt-2 block text-xs text-black/42">IEEE members receive {event.ieeeMemberDiscountPercent}% off after providing a Membership ID.</span>}{pricingPreview?.discountSource === "ieee_member" && <span className="mt-2 block text-xs font-semibold text-emerald-700">{pricingPreview.label} · ₹{pricingPreview.amount}</span>}</motion.label>}</AnimatePresence>
                       </div>
                     </div>
                   )}
@@ -635,7 +695,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
                           <div className="mt-4 flex max-w-lg gap-3">
                             <input
                               value={couponCode}
-                              onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponPreview(null); setCouponError(null); setErrors((current) => { const next = { ...current }; delete next.coupon; return next; }); }}
+                              onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setAppliedCouponCode(""); setPricingPreview(null); setCouponError(null); setErrors((current) => { const next = { ...current }; delete next.coupon; return next; }); }}
                               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void handleApplyCoupon(); } }}
                               autoComplete="off"
                               spellCheck={false}
@@ -652,10 +712,10 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
                             </button>
                           </div>
                           {(couponError || errors.coupon) && <p className="mt-2 text-xs font-medium text-rose-600">{couponError || errors.coupon}</p>}
-                          {couponPreview && (
+                          {pricingPreview && appliedCouponCode && (
                             <div className="mt-4 flex max-w-lg items-center justify-between gap-4 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-                              <span><strong>{couponPreview.code}</strong> · {couponPreview.discountPercent}% off</span>
-                              <span className="shrink-0 font-bold">₹{couponPreview.amount}</span>
+                              <span><strong>{appliedCouponCode}</strong> · {pricingPreview.discountSource === "coupon" ? `${pricingPreview.couponDiscountPercent}% off` : pricingPreview.label}</span>
+                              <span className="shrink-0 font-bold">₹{pricingPreview.amount}</span>
                             </div>
                           )}
                         </div>

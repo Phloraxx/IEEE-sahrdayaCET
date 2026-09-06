@@ -9,4 +9,6 @@ while IFS= read -r -d '' file; do
   bash -n "$file"
 done < <(find scripts -type f -name '*.sh' -print0)
 
+node scripts/generate-academic-options.mjs --check
+
 echo "PocketBase/runtime script syntax checks passed."

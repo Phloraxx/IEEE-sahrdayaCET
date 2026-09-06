@@ -104,6 +104,30 @@ function retireActiveWaitlist(app, eventId) {
   return rows.length
 }
 
+function retireIneligibleWaitlist(app, event) {
+  var audience = require(__hooks + "/event-audience-helpers.js")
+  var retired = 0
+  var cursor = ""
+  while (true) {
+    var filter = "event = {:eventId} && (status = {:waiting} || status = {:offered})"
+    var params = { eventId: event.id, waiting: "waiting", offered: "offered", cursor: cursor }
+    if (cursor) filter += " && id > {:cursor}"
+    var rows = app.findRecordsByFilter("event_waitlist", filter, "id", 200, 0, params)
+    if (!rows.length) break
+    cursor = rows[rows.length - 1].id
+    for (var i = 0; i < rows.length; i++) {
+      var eligibility = audience.evaluate(event, audience.waitlistInput(rows[i]))
+      if (eligibility.eligible) continue
+      rows[i].set("status", "cancelled")
+      rows[i].set("activeKey", "")
+      app.saveNoValidate(rows[i])
+      retired++
+    }
+    if (rows.length < 200) break
+  }
+  return retired
+}
+
 function updateSeatCounters(app, event, nowMs) {
   var active = activeRegistrations(app, event.id).length
   var reserved = activeOffers(app, event.id, nowMs).length
@@ -117,6 +141,7 @@ function reconcileEventWaitlist(app, eventId, nowIso) {
   var nowMs = dateMs(nowIso) || Date.now()
   var event = app.findRecordById("events", eventId)
   var expired = expireOffers(app, eventId, nowMs)
+  expired += retireIneligibleWaitlist(app, event)
   var capacity = Number(event.getInt("maxCapacity") || 0)
   if (waitlistTerminal(event, nowMs) || !event.getBool("waitlistEnabled") || capacity <= 0) {
     expired += retireActiveWaitlist(app, eventId)

@@ -35,9 +35,12 @@ test.describe('SSR and SEO', () => {
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://ieeesahrdaya.com/societies')
   })
 
-  test('unknown public page returns 404', async ({ page }) => {
-    const response = await page.goto('/definitely-not-a-real-page')
-    expect(response?.status()).toBe(404)
+  test('unknown and retired public pages return 404', async ({ page }) => {
+    const unknown = await page.goto('/definitely-not-a-real-page')
+    expect(unknown?.status()).toBe(404)
+
+    const retiredEvent = await page.goto('/FIFA')
+    expect(retiredEvent?.status()).toBe(404)
   })
 
   test('document responses include browser security headers', async ({ request }) => {
@@ -45,8 +48,9 @@ test.describe('SSR and SEO', () => {
     expect(response.ok()).toBeTruthy()
     const headers = response.headers()
     expect(headers['content-security-policy']).toContain("frame-ancestors 'none'")
-    expect(headers['content-security-policy']).toContain("script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://checkout.razorpay.com")
-    expect(headers['content-security-policy']).toContain("frame-src https://api.razorpay.com https://*.razorpay.com")
+    expect(headers['content-security-policy']).toContain("script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com")
+    expect(headers['content-security-policy']).toContain("frame-src 'none'")
+    expect(headers['content-security-policy']).not.toContain("razorpay.com")
     expect(headers['content-security-policy']).toContain("connect-src 'self' https://cloudflareinsights.com")
     expect(headers['x-content-type-options']).toBe('nosniff')
     expect(headers['x-frame-options']).toBe('DENY')

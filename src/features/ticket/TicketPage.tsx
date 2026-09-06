@@ -8,23 +8,52 @@ import {
   CheckCircle2,
   Clock,
   Download,
+  ExternalLink,
   Loader2,
+  Mail,
+  MessageCircle,
+  Phone,
   ReceiptText,
+  Video,
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { getTicket, type PublicTicketData } from "@/lib/data/public-client";
+import { getEventJoinDetails, getTicket, type EventJoinDetails, type PublicTicketData } from "@/lib/data/public-client";
 import { downloadRegistrationReceipt } from "@/lib/data/receipt.client";
 import { formatDateShort } from "@/lib/dates";
 import { MOTION_DURATION, MOTION_EASE } from "@/lib/motion";
-import { isPastEvent } from "@/lib/event-lifecycle";
+import { getTicketCheckInState, type TicketCheckInState } from "@/lib/event-lifecycle";
 import { logError } from "@/lib/logger";
 import { downloadQR as downloadQRFile, generateQRDataUrl } from "@/lib/qr-utils";
 import { getTicketStatusInfo } from "@/lib/ticketStatus";
+import { BRANCH_SOCIAL_LINKS } from "@/lib/social-links";
 
 interface PageProps {
   ticketId: string;
 }
+
+const INACTIVE_CHECK_IN_COPY: Record<Exclude<TicketCheckInState, "eligible">, { title: string; description: string }> = {
+  cancelled: {
+    title: "This ticket was cancelled.",
+    description: "The registration is no longer valid for event entry.",
+  },
+  past: {
+    title: "This event has ended.",
+    description: "This historical ticket remains available, but check-in is closed.",
+  },
+  unpublished: {
+    title: "Check-in is unavailable for this event.",
+    description: "This event is not currently available for check-in.",
+  },
+  unconfirmed: {
+    title: "This registration is not confirmed.",
+    description: "The check-in code becomes available after registration is confirmed.",
+  },
+  disabled: {
+    title: "Check-in is not open for this event.",
+    description: "The organiser has paused or disabled QR check-in.",
+  },
+};
 
 export default function TicketPage({ ticketId }: PageProps) {
   const [ticketData, setTicketData] = useState<PublicTicketData | null>(null);
@@ -32,17 +61,22 @@ export default function TicketPage({ ticketId }: PageProps) {
   const [error, setError] = useState<string | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [qrSaved, setQrSaved] = useState(false);
+  const [joinDetails, setJoinDetails] = useState<EventJoinDetails | null>(null);
+  const [privateAccessLoading, setPrivateAccessLoading] = useState(false);
+  const [privateAccessError, setPrivateAccessError] = useState(false);
   const reduceMotion = Boolean(useReducedMotion());
 
   useEffect(() => {
     let active = true;
+    setTicketData(null);
+    setQrDataUrl(null);
+    setQrSaved(false);
+    setError(null);
+    setLoading(true);
     void getTicket(ticketId)
-      .then(async (data) => {
+      .then((data) => {
         if (!data.found || !data.ticket) throw new Error("Ticket not found");
-        if (!active) return;
-        setTicketData(data);
-        const qr = await generateQRDataUrl(`${window.location.origin}/ticket/${data.ticket.id || ticketId}`);
-        if (active) setQrDataUrl(qr);
+        if (active) setTicketData(data);
       })
       .catch((err: unknown) => {
         logError("ticket-page", err);
@@ -52,8 +86,47 @@ export default function TicketPage({ ticketId }: PageProps) {
     return () => { active = false; };
   }, [ticketId]);
 
+  const checkInState = getTicketCheckInState(ticketData?.ticket?.registrationStatus, ticketData?.event);
+  const isPast = checkInState === "past";
+  const ticketStateLabel: Record<TicketCheckInState, string> = { eligible: "Ready", cancelled: "Cancelled", past: "History", unpublished: "Unavailable", unconfirmed: "Pending", disabled: "Paused" };
+
+  useEffect(() => {
+    let active = true;
+    setQrDataUrl(null);
+    setQrSaved(false);
+    if (!ticketData?.ticket || checkInState !== "eligible") {
+      return () => { active = false; };
+    }
+    void generateQRDataUrl(`${window.location.origin}/ticket/${ticketData.ticket.id || ticketId}`)
+      .then((qr) => { if (active) setQrDataUrl(qr); })
+      .catch((err: unknown) => logError("ticket-qr", err));
+    return () => { active = false; };
+  }, [checkInState, ticketData?.ticket, ticketId]);
+
+  useEffect(() => {
+    const eventId = ticketData?.event?.id || "";
+    const mayLoad = Boolean(ticketData?.isOwner && eventId && ticketData?.ticket?.registrationStatus === "confirmed");
+    if (!mayLoad) {
+      setJoinDetails(null);
+      setPrivateAccessLoading(false);
+      setPrivateAccessError(false);
+      return;
+    }
+    let active = true;
+    setPrivateAccessLoading(true);
+    setPrivateAccessError(false);
+    void getEventJoinDetails(eventId)
+      .then((details) => { if (active) setJoinDetails(details); })
+      .catch((err: unknown) => {
+        logError("ticket-private-access", err);
+        if (active) setPrivateAccessError(true);
+      })
+      .finally(() => { if (active) setPrivateAccessLoading(false); });
+    return () => { active = false; };
+  }, [ticketData?.event?.id, ticketData?.isOwner, ticketData?.ticket?.registrationStatus]);
+
   const handleDownloadQR = () => {
-    if (!qrDataUrl) return;
+    if (checkInState !== "eligible" || !qrDataUrl) return;
     const name = ticketData?.registration?.name || "guest";
     downloadQRFile(qrDataUrl, `ticket-${name.replace(/\s+/g, "-").toLowerCase()}.png`);
     setQrSaved(true);
@@ -84,7 +157,6 @@ export default function TicketPage({ ticketId }: PageProps) {
   }
 
   const { ticket, event, registration } = ticketData;
-  const isPast = event ? isPastEvent({ status: "published", date: event.date, endDate: event.endDate }) : false;
   const status = registration
     ? getTicketStatusInfo(registration.registrationStatus || registration.paymentStatus, isPast)
     : getTicketStatusInfo(ticket.registrationStatus || ticket.paymentStatus, isPast);
@@ -97,7 +169,7 @@ export default function TicketPage({ ticketId }: PageProps) {
       <header className="border-b border-black/12">
         <div className="mx-auto flex max-w-[1200px] items-center justify-between px-5 py-5 sm:px-8">
           <Link to="/" className="text-[10px] font-black uppercase tracking-[0.22em]">IEEE Sahrdaya</Link>
-          <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#00629B]">Ticket / Ready</span>
+          <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#00629B]">Ticket / {ticketStateLabel[checkInState]}</span>
         </div>
       </header>
 
@@ -156,33 +228,51 @@ export default function TicketPage({ ticketId }: PageProps) {
             </div>
           </section>
 
-          <aside className="flex flex-col items-center justify-center bg-white p-7 text-center sm:p-10 lg:p-12">
-            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#00629B]">Check-in code</p>
-            <div className="mt-7 border border-black/10 bg-white p-4">
-              {qrDataUrl ? (
-                <motion.img
-                  src={qrDataUrl}
-                  alt="Event ticket QR code"
-                  initial={reduceMotion ? false : { opacity: 0, scale: 0.94 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: reduceMotion ? 0 : MOTION_DURATION.success, ease: MOTION_EASE, delay: reduceMotion ? 0 : 0.12 }}
-                  className="h-56 w-56 sm:h-64 sm:w-64"
-                />
-              ) : <div className="grid h-56 w-56 place-items-center sm:h-64 sm:w-64"><Loader2 className="h-7 w-7 animate-spin text-black/20" /></div>}
-            </div>
-            <h2 className="mt-6 text-2xl font-semibold tracking-[-0.04em]">Show this at check-in.</h2>
-            <p className="mt-2 max-w-xs text-sm leading-6 text-black/48">Keep this page available on your phone when you arrive.</p>
-            <motion.button
-              type="button"
-              onClick={handleDownloadQR}
-              disabled={!qrDataUrl}
-              whileTap={reduceMotion ? undefined : { scale: 0.97 }}
-              className="mt-7 inline-flex min-w-24 items-center justify-center gap-2 border-y border-[#00629B] py-3 text-sm font-bold text-[#00629B] disabled:opacity-40"
-            >
-              {qrSaved ? <><CheckCircle2 className="h-4 w-4" /> Saved</> : <><Download className="h-4 w-4" /> Save QR</>}
-            </motion.button>
-          </aside>
+          {checkInState === "eligible" ? (
+            <aside data-testid="ticket-check-in-panel" data-check-in-state={checkInState} className="flex flex-col items-center justify-center bg-white p-7 text-center sm:p-10 lg:p-12">
+              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#00629B]">Check-in code</p>
+              <div className="mt-7 border border-black/10 bg-white p-4">
+                {qrDataUrl ? (
+                  <motion.img
+                    src={qrDataUrl}
+                    alt="Event ticket QR code"
+                    initial={reduceMotion ? false : { opacity: 0, scale: 0.94 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: reduceMotion ? 0 : MOTION_DURATION.success, ease: MOTION_EASE, delay: reduceMotion ? 0 : 0.12 }}
+                    className="h-56 w-56 sm:h-64 sm:w-64"
+                  />
+                ) : <div className="grid h-56 w-56 place-items-center sm:h-64 sm:w-64"><Loader2 className="h-7 w-7 animate-spin text-black/20" /></div>}
+              </div>
+              <h2 className="mt-6 text-2xl font-semibold tracking-[-0.04em]">Show this at check-in.</h2>
+              <p className="mt-2 max-w-xs text-sm leading-6 text-black/48">Keep this page available on your phone when you arrive.</p>
+              <motion.button
+                type="button"
+                onClick={handleDownloadQR}
+                disabled={!qrDataUrl}
+                whileTap={reduceMotion ? undefined : { scale: 0.97 }}
+                className="mt-7 inline-flex min-w-24 items-center justify-center gap-2 border-y border-[#00629B] py-3 text-sm font-bold text-[#00629B] disabled:opacity-40"
+              >
+                {qrSaved ? <><CheckCircle2 className="h-4 w-4" /> Saved</> : <><Download className="h-4 w-4" /> Save QR</>}
+              </motion.button>
+            </aside>
+          ) : (
+            <aside data-testid="ticket-check-in-panel" data-check-in-state={checkInState} className="flex flex-col items-center justify-center bg-white p-7 text-center sm:p-10 lg:p-12">
+              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-black/40">Check-in unavailable</p>
+              <h2 className="mt-6 max-w-sm text-2xl font-semibold tracking-[-0.04em]">{INACTIVE_CHECK_IN_COPY[checkInState].title}</h2>
+              <p className="mt-3 max-w-xs text-sm leading-6 text-black/48">{INACTIVE_CHECK_IN_COPY[checkInState].description}</p>
+            </aside>
+          )}
         </motion.article>
+
+        <section data-testid="ticket-attendee-hub" className="mt-10 border-y border-black/12 py-9">
+          <div className="max-w-2xl"><p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#00629B]">Your event hub</p><h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em]">Everything useful after registration.</h2><p className="mt-3 text-sm leading-6 text-black/48">Preparation, participant links and organizer contacts stay with the ticket instead of getting buried in messages.</p></div>
+          <div className="mt-8 grid gap-px bg-black/12 md:grid-cols-2">
+            <div className="bg-[#f4f2ed] p-6 sm:p-7"><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Before the event</p>{event?.requirements?.length ? <ol className="mt-5 space-y-3">{event.requirements.map((item, index) => <li key={`${index}-${item}`} className="flex gap-3 text-sm leading-6 text-black/65"><span className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-black/15 text-[9px] font-bold text-black/45">{index + 1}</span><span>{item}</span></li>)}</ol> : <p className="mt-4 text-sm leading-6 text-black/45">No special items have been listed for this event.</p>}{event?.attendeeNote && <p className="mt-5 border-l-2 border-[#00629B] pl-4 text-sm leading-6 text-black/58">{event.attendeeNote}</p>}</div>
+            <div className="bg-[#f4f2ed] p-6 sm:p-7"><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Participant links</p><div className="mt-5 space-y-3">{privateAccessLoading && <p className="text-sm text-black/45">Loading attendee-only links…</p>}{joinDetails?.whatsappGroupUrl && <a href={joinDetails.whatsappGroupUrl} target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center justify-between gap-3 border-b border-black/12 py-2 text-sm font-bold text-[#00629B]"><span className="inline-flex items-center gap-2"><MessageCircle className="h-4 w-4" /> WhatsApp group</span><ExternalLink className="h-4 w-4" /></a>}{joinDetails?.virtualJoinUrl && <a href={joinDetails.virtualJoinUrl} target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center justify-between gap-3 border-b border-black/12 py-2 text-sm font-bold text-[#00629B]"><span className="inline-flex items-center gap-2"><Video className="h-4 w-4" /> Join online</span><ExternalLink className="h-4 w-4" /></a>}{event?.externalLink && <a href={event.externalLink} target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center justify-between gap-3 border-b border-black/12 py-2 text-sm font-bold text-black/60 hover:text-[#00629B]"><span>Event resource</span><ExternalLink className="h-4 w-4" /></a>}{joinDetails?.joinInstructions && <p className="rounded-sm bg-black/[0.035] px-3 py-3 text-sm leading-6 text-black/58">{joinDetails.joinInstructions}</p>}{privateAccessError && <p className="text-xs leading-5 text-amber-700">Attendee-only links could not be loaded. Your ticket and QR are still valid.</p>}{!ticketData.isOwner && !event?.externalLink && <p className="text-sm leading-6 text-black/45">Private participant links are visible only when the ticket holder is signed in.</p>}{ticketData.isOwner && !privateAccessLoading && !privateAccessError && !joinDetails?.whatsappGroupUrl && !joinDetails?.virtualJoinUrl && !joinDetails?.joinInstructions && !event?.externalLink && <p className="text-sm leading-6 text-black/45">No participant links have been added yet.</p>}</div></div>
+            <div className="bg-[#f4f2ed] p-6 sm:p-7"><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Need help?</p><div className="mt-5 space-y-3">{joinDetails?.contactEmail && <a href={`mailto:${joinDetails.contactEmail}`} className="flex min-h-11 items-center gap-2 border-b border-black/12 py-2 text-sm font-bold text-black/60 hover:text-[#00629B]"><Mail className="h-4 w-4" /> {joinDetails.contactEmail}</a>}{joinDetails?.contactPhone && <a href={`tel:${joinDetails.contactPhone}`} className="flex min-h-11 items-center gap-2 border-b border-black/12 py-2 text-sm font-bold text-black/60 hover:text-[#00629B]"><Phone className="h-4 w-4" /> {joinDetails.contactPhone}</a>}{ticketData.isOwner && !privateAccessLoading && !privateAccessError && !joinDetails?.contactEmail && !joinDetails?.contactPhone && <p className="text-sm leading-6 text-black/45">No event-specific contact has been listed. Use the branch links below if you need assistance.</p>}{!ticketData.isOwner && <p className="text-sm leading-6 text-black/45">Event contact details are available when the ticket holder is signed in.</p>}</div></div>
+            <div className="bg-[#f4f2ed] p-6 sm:p-7"><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Stay connected</p><div className="mt-5 space-y-3">{BRANCH_SOCIAL_LINKS.map((social) => <a key={social.label} href={social.href} target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center justify-between gap-3 border-b border-black/12 py-2 text-sm font-bold text-black/60 hover:text-[#00629B]"><span>{social.label}</span><ExternalLink className="h-4 w-4" /></a>)}</div></div>
+          </div>
+        </section>
 
         <div className="mt-7 flex flex-wrap items-center justify-between gap-5 border-b border-black/12 pb-7">
           <p className="text-xs text-black/40">One ticket, tied to your registration.</p>

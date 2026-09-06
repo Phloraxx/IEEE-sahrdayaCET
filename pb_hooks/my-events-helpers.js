@@ -110,7 +110,7 @@ function eventEnded(event) {
 
 function registrationPaymentData(registration) {
   try {
-    return require(__hooks + "/razorpay-direct-helpers.js").asObject(registration.get("paymentData")) || {}
+    return require(__hooks + "/registration-helpers.js").registrationJsonObject(registration.get("paymentData")) || {}
   } catch (_) { return {} }
 }
 

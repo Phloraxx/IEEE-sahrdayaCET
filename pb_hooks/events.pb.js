@@ -1,13 +1,22 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 onRecordCreateRequest(function (e) {
-    var urlFields = ["externalLink", "externalFormUrl", "whatsappLink"]
+    var urlFields = ["externalLink", "externalFormUrl"]
     for (var ui = 0; ui < urlFields.length; ui++) {
         var urlValue = e.record.getString(urlFields[ui]) || ""
         if (urlValue && !/^https?:\/\//i.test(urlValue)) {
             throw e.badRequestError(urlFields[ui] + " must start with http:// or https://")
         }
     }
+    if (String(e.record.getString("whatsappLink") || "").trim()) {
+        throw e.badRequestError("Use private attendee access for WhatsApp group links")
+    }
+
+    var createPricing = require(__hooks + "/event-pricing-helpers.js")
+    var createPricingValidation = createPricing.validateEventConfiguration(e.record)
+    if (!createPricingValidation.ok) throw e.badRequestError(createPricingValidation.error)
+    var createRequirements = require(__hooks + "/event-requirements-helpers.js").normalizeRecord(e.record)
+    if (!createRequirements.ok) throw e.badRequestError(createRequirements.error)
 
     if (!e.record.getString("slug")) {
         var base = String(e.record.getString("title") || "")
@@ -58,7 +67,7 @@ onRecordUpdateRequest(function (e) {
     var auth = null
     try { auth = e.auth || (e.requestInfo && e.requestInfo.auth) || null } catch (err) { auth = null }
 
-    var urlFields = ["externalLink", "externalFormUrl", "whatsappLink"]
+    var urlFields = ["externalLink", "externalFormUrl"]
     for (var ui = 0; ui < urlFields.length; ui++) {
         var urlValue = e.record.getString(urlFields[ui]) || ""
         if (urlValue && !/^https?:\/\//i.test(urlValue)) {
@@ -101,6 +110,17 @@ onRecordUpdateRequest(function (e) {
     if (!isPlatformAdmin && newRecord.getString("society") !== oldRecord.getString("society")) {
         throw e.forbiddenError("Only platform administrators may transfer an event to another society")
     }
+    if (newRecord.getString("whatsappLink") !== oldRecord.getString("whatsappLink")) {
+        throw e.badRequestError("Use private attendee access for WhatsApp group links")
+    }
+
+    var updatePricing = require(__hooks + "/event-pricing-helpers.js")
+    var updatePricingValidation = updatePricing.validateEventConfiguration(newRecord)
+    if (!updatePricingValidation.ok) throw e.badRequestError(updatePricingValidation.error)
+    var updateRequirements = require(__hooks + "/event-requirements-helpers.js").normalizeRecord(newRecord)
+    if (!updateRequirements.ok) throw e.badRequestError(updateRequirements.error)
+    var updateCouponPricingValidation = updatePricing.validateExistingCoupons($app, newRecord)
+    if (!updateCouponPricingValidation.ok) throw e.badRequestError(updateCouponPricingValidation.error)
 
     var wasDeleted = oldRecord.getBool("isDeleted")
     var isNowDeleted = newRecord.getBool("isDeleted")

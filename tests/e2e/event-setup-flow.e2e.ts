@@ -35,12 +35,24 @@ test.describe("event setup UX", () => {
     await page.goto(`/admin/events/${eventId}/edit?section=registration`);
     await expect(page.getByRole("heading", { name: "How will people join?" })).toBeVisible();
     await page.locator("#capacity").fill("80");
+    await expect(page.getByText("Who can attend?")).toBeVisible();
+    await page.getByRole("button", { name: /First year/ }).click();
+    await page.getByRole("button", { name: /Fourth year/ }).click();
+    await page.getByRole("button", { name: "Add item" }).click();
+    await page.getByRole("textbox", { name: "Requirement 1", exact: true }).fill("Bring laptop charger");
+    await page.getByRole("button", { name: "Add item" }).click();
+    await page.getByRole("textbox", { name: "Requirement 2", exact: true }).fill("College ID card required");
+    await page.getByLabel("Move requirement 2 up").click();
+    await page.locator("#attendee-note").fill("Report 15 minutes before the session.");
     await page.getByRole("button", { name: "Add first question" }).click();
     await page.getByPlaceholder("e.g. Dietary preference").fill("Laptop operating system");
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expect(page.getByText("All changes saved")).toBeVisible();
     await page.screenshot({ path: "/tmp/event-setup-registration-desktop.png", fullPage: true });
     await page.goto(`/admin/events/${eventId}/edit?section=fees`);
     await page.getByRole("button", { name: "Paid event" }).click();
     await page.locator("#price").fill("150");
+    await page.locator("#ieee-member-discount").fill("10");
     await page.getByRole("button", { name: "Add Coupon" }).click();
     await page.getByLabel("Coupon code").fill("TEST20");
     await page.getByLabel("Discount percent").fill("20");
@@ -51,15 +63,16 @@ test.describe("event setup UX", () => {
     // Save the same newly-created coupon again without reloading. This catches
     // client-only IDs being mistaken for real PocketBase record IDs.
     await expect(page.getByLabel("Coupon code")).toHaveValue("TEST20");
-    await page.getByLabel("Discount percent").fill("25");
+    await page.getByLabel("Discount percent").fill("30");
     await page.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByText("All changes saved")).toBeVisible();
 
     await page.reload();
     await expect(page.locator("#price")).toHaveValue("150");
+    await expect(page.locator("#ieee-member-discount")).toHaveValue("10");
     await expect(page.getByLabel("Coupon code")).toHaveCount(1);
     await expect(page.getByLabel("Coupon code")).toHaveValue("TEST20");
-    await expect(page.getByLabel("Discount percent")).toHaveValue("25");
+    await expect(page.getByLabel("Discount percent")).toHaveValue("30");
     await page.screenshot({ path: "/tmp/event-setup-fees-desktop.png", fullPage: true });
 
     await page.setViewportSize({ width: 390, height: 844 });
@@ -68,6 +81,9 @@ test.describe("event setup UX", () => {
     await expect(setupNav.getByRole("button", { name: "Registration" })).toBeVisible();
     await setupNav.getByRole("button", { name: "Review" }).click();
     await expect(page.getByRole("heading", { name: "See the setup before you submit it" })).toBeVisible();
+    await expect(page.getByText("Semesters: S3, S4, S5, S6")).toBeVisible();
+    await expect(page.getByText("2 requirements")).toBeVisible();
+    await expect(page.getByText("Included")).toBeVisible();
     await page.screenshot({ path: "/tmp/event-setup-review-mobile.png", fullPage: true });
   });
 });

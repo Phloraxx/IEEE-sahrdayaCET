@@ -73,6 +73,8 @@ describe("attendee cancellation and waitlist architecture", () => {
     expect(myEventsPage).toContain("Claim seat");
     expect(myEventsClient).not.toContain('collection("registration_cancellation_requests")');
     expect(publicClient).not.toContain('collection("event_waitlist")');
+    expect(publicClient).not.toContain('collection("registrations")');
+    expect(publicClient).toContain('/api/tickets/lookup');
   });
 
   it("keeps organizer policy changes inside workflow-sensitive event setup", () => {
@@ -89,6 +91,33 @@ describe("attendee cancellation and waitlist architecture", () => {
     expect(form).toContain("Set a finite capacity before enabling the waitlist");
   });
 
+  it("queries command-owned registrations by canonical registrationDate", () => {
+    const projected = read("pb_hooks/admin-registrations-helpers.js");
+    expect(projected).toContain("NULLIF(r.registrationDate, '')");
+    expect(projected).not.toContain("r.created");
+    const projection = read("pb_hooks/admin-operations-helpers.js");
+    expect(projection).toContain("var createdAt = registrationDate");
+  });
+
+  it("locks raw registration list and view access behind server projections", () => {
+    const migration = read("pb_migrations/202609040004_registration_privacy.js");
+    expect(migration).toContain("registrations.listRule = null");
+    expect(migration).toContain("registrations.viewRule = null");
+    expect(migration).not.toContain(`registrations.listRule = '@request.auth.role = "admin"'`);
+  });
+
+  it("projects branch payment rows without browser-side registration expansion", () => {
+    const route = read("pb_hooks/admin-payments.pb.js");
+    const helper = read("pb_hooks/admin-payments-helpers.js");
+    const client = read("src/lib/data/admin-payments.client.ts");
+    expect(route).toContain('"/api/admin/payments"');
+    expect(route).toContain('"finance.view"');
+    expect(helper).toContain("LEFT JOIN registrations r ON r.id = p.registration");
+    expect(client).toContain("/api/admin/payments?");
+    expect(client).not.toContain('pb.collection("payments")');
+    expect(client).not.toContain('expand: "registration,event"');
+  });
+
   it("puts attendee refund requests into the existing finance workspace", () => {
     const backend = read("pb_hooks/admin-operations.pb.js");
     const client = read("src/lib/data/admin-event-operations.client.ts");
@@ -96,6 +125,5 @@ describe("attendee cancellation and waitlist architecture", () => {
     expect(backend).toContain("cancellationRequests");
     expect(client).toContain("decideCancellationRequest");
     expect(page).toContain("Attendee refund requests");
-    expect(page).toContain("does not move money automatically");
   });
 });

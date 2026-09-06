@@ -33,6 +33,8 @@ import { formatAppDateISO, formatDate, formatEventTime, formatYear } from "@/lib
 import { eventTitleSize, MOTION_DURATION, MOTION_EASE, revealUp } from "@/lib/motion";
 import type { EventAvailabilityKind } from "@/lib/event-availability";
 import { getEventLifecycleSnapshot } from "@/lib/event-lifecycle-snapshot";
+import { programmeLabel } from "@/lib/academic-options";
+import { memberPrice } from "@/lib/event-requirements";
 import {
   getEventSocietySlug,
   resolveEventArtwork,
@@ -277,6 +279,12 @@ export default function EventDetailPage() {
   const registrationAvailable = lifecycle.registration.available;
   const availability = lifecycle.registration;
   const waitlistEligible = event.waitlistEnabled && lifecycle.registration.mode === "internal" && availability.kind === "full";
+  const audienceRestricted = (event.eligibleSemesters?.length || 0) > 0 || (event.eligibleProgrammes?.length || 0) > 0;
+  const requirements = event.requirements ?? [];
+  const attendeeNote = event.attendeeNote?.trim() || "";
+  const memberDiscountPercent = Number(event.ieeeMemberDiscountPercent || 0);
+  const ieeeMemberPrice = memberDiscountPercent > 0 ? memberPrice(event.price, memberDiscountPercent) : null;
+  const eligibleProgrammeLabels = (event.eligibleProgrammes ?? []).map((code) => programmeLabel(code) || code);
   const waitlistEntry = waitlistState?.state || null;
   const availabilityClass: Record<EventAvailabilityKind, string> = {
     "opening-soon": "text-[#00629B]",
@@ -458,6 +466,17 @@ export default function EventDetailPage() {
               <p className="mt-6 max-w-2xl text-lg leading-8 text-black/55">Full event details will be added here by the organising society.</p>
             )}
 
+            {(audienceRestricted || requirements.length > 0 || attendeeNote || ieeeMemberPrice !== null) && (
+              <section data-testid="event-attendee-guidance" className="mt-10 border-y border-black/12 py-8">
+                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#00629B]">Plan your attendance</p>
+                <div className="mt-6 grid gap-8 md:grid-cols-2">
+                  {audienceRestricted && <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-black/35">Who can attend</p><h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em]">Eligibility</h2><div className="mt-4 space-y-2 text-sm leading-6 text-black/58">{(event.eligibleSemesters?.length || 0) > 0 && <p><span className="font-semibold text-black/75">Semesters:</span> {event.eligibleSemesters?.join(", ")}</p>}{eligibleProgrammeLabels.length > 0 && <p><span className="font-semibold text-black/75">Programmes:</span> {eligibleProgrammeLabels.join(", ")}</p>}</div></div>}
+                  {ieeeMemberPrice !== null && <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-black/35">IEEE member price</p><h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em]">₹{ieeeMemberPrice}</h2><p className="mt-3 text-sm leading-6 text-black/55">IEEE members receive {memberDiscountPercent}% off the regular ₹{event.price} fee after providing a Membership ID. Coupons and member pricing do not stack; the better price is used.</p></div>}
+                  {(requirements.length > 0 || attendeeNote) && <div className="md:col-span-2"><p className="text-xs font-bold uppercase tracking-[0.14em] text-black/35">Before you attend</p>{requirements.length > 0 && <ol className="mt-4 grid gap-3 sm:grid-cols-2">{requirements.map((item, index) => <li key={`${index}-${item}`} className="flex gap-3 text-sm leading-6 text-black/62"><span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border border-black/15 text-[9px] font-bold text-black/45">{index + 1}</span><span>{item}</span></li>)}</ol>}{attendeeNote && <p className="mt-5 border-l-2 border-[#00629B] pl-4 text-sm leading-6 text-black/58">{attendeeNote}</p>}</div>}
+                </div>
+              </section>
+            )}
+
             <div className="mt-8 flex flex-wrap items-center gap-5">
               <a href={`/events/${event.slug}/calendar.ics`} className="group inline-flex min-h-11 items-center gap-2 text-sm font-bold text-[#00629B]">
                 Add to calendar <CalendarPlus className="h-4 w-4 transition-transform group-hover:-translate-y-0.5" />
@@ -545,8 +564,8 @@ export default function EventDetailPage() {
                   ) : authStatus === "authenticated" ? (
                     <div className="mt-7 border-y border-black/12 py-4">
                       <p className="text-sm font-bold text-black/55">All seats are reserved.</p>
-                      <p className="mt-1 text-xs leading-5 text-black/42">Join the waitlist and a released seat will be held for you before anyone else can register into it.</p>
-                      <button type="button" disabled={waitlistBusy} onClick={() => void joinWaitlist()} className="group mt-4 flex w-full items-center justify-between font-bold text-[#00629B] disabled:opacity-40">{waitlistBusy ? "Joining…" : "Join waitlist"}{!waitlistBusy && <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />}</button>
+                      <p className="mt-1 text-xs leading-5 text-black/42">{audienceRestricted ? "Confirm your programme and semester before joining this restricted waitlist." : "Join the waitlist and a released seat will be held for you before anyone else can register into it."}</p>
+                      {audienceRestricted ? <Link to={registerUrl} className="group mt-4 flex w-full items-center justify-between font-bold text-[#00629B]">Continue to waitlist <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></Link> : <button type="button" disabled={waitlistBusy} onClick={() => void joinWaitlist()} className="group mt-4 flex w-full items-center justify-between font-bold text-[#00629B] disabled:opacity-40">{waitlistBusy ? "Joining…" : "Join waitlist"}{!waitlistBusy && <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />}</button>}
                     </div>
                   ) : (
                     <Link to={registerUrl} className="group mt-7 flex w-full items-center justify-between border-y border-[#00629B] py-4 font-bold text-[#00629B]">Sign in to join waitlist <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></Link>

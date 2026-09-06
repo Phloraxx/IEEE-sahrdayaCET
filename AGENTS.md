@@ -62,7 +62,7 @@ Choose the enforcement layer by intent:
 - Multi-record all-or-nothing operation → PocketBase custom route + `runInTransaction`.
 - New field/collection/index/rule → timestamped migration in `pb_migrations/`.
 
-Current transactional/privileged command areas include event registration, coupon sync, user role changes, payment confirmation, ticket/check-in operations, FIFA bets, settlement, voids, raffle operations, and server-side live-score integration.
+Current transactional/privileged command areas include event registration, coupon sync, user role changes, payment confirmation, ticket/check-in operations, attendance, certificates, and payment reconciliation.
 
 When adding or changing a command, test the failure path as carefully as the success path. Partial writes are not acceptable.
 
@@ -94,20 +94,6 @@ A valid registration flow must keep capacity, coupon consumption, registration s
 
 Paid-event webhook handling must fail closed when its required secret is absent or invalid.
 
-## WC Predict / FIFA invariants
-
-WC Predict uses fake points only, but its economy is handled like financial state:
-
-- bet placement is atomic;
-- balance and ledger move together;
-- settlement is explicit, admin-only, and idempotent;
-- market/match void refunds exactly once;
-- direct edits cannot bypass financial state-transition commands;
-- live-score data is display-only and cannot settle balances automatically;
-- test/reset behavior belongs in disposable environments, not production data.
-
-See `FIFA-GAME.md` for the current game contract.
-
 ## UI and design expectations
 
 Preserve the existing page-specific visual language instead of flattening the site into a generic component theme.
@@ -115,7 +101,6 @@ Preserve the existing page-specific visual language instead of flattening the si
 - Public IEEE surfaces use the IEEE blue/slate system and existing expressive typography/motion.
 - The Events page intentionally uses playful handwritten annotations and editorial layouts.
 - Admin surfaces use the scoped `.vh-admin` design system.
-- FIFA/WC Predict uses the dedicated `.fifa-theme` treatment.
 - Respect `prefers-reduced-motion`.
 - Do not make critical information hover-only or color-only.
 - Keep touch targets usable on mobile.
@@ -209,7 +194,7 @@ Before future production releases:
 2. review the `dev` → `main` production diff;
 3. resolve any `main`/`dev` divergence intentionally in the production PR;
 4. get full CI green on the exact release candidate;
-5. complete authenticated staging acceptance for admin CRUD, registration/payment/ticket/check-in, coupons, blogs, societies/users, and FIFA flows after configuring a separate staging login method;
+5. complete authenticated staging acceptance for admin CRUD, registration/payment/ticket/check-in, coupons, blogs, societies/users, and certificate flows after configuring a separate staging login method;
 6. verify enabled production integrations and OAuth configuration;
 7. take a fresh production PocketBase/files backup;
 8. merge to `main` and let CI-gated CD deploy;
@@ -227,7 +212,6 @@ Primary docs:
 - `AGENTS.md`
 - `DESIGN.md`
 - `PRODUCT.md`
-- `FIFA-GAME.md`
 - `docs/architecture.md`
 - `docs/security-architecture.md`
 - `docs/deployment.md`

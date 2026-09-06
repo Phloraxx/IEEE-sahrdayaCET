@@ -4,83 +4,47 @@ import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
 
 interface ProviderPayment {
+  apiVersion?: string;
   id: string;
   status: string;
   requestedAmountPaise: number;
   payableAmountPaise: number;
   payableAmount?: string;
   expiresAt?: string;
+  graceUntil?: string;
   paidAt?: string | null;
   upiUri?: string;
+  transactionNote?: string;
   externalId?: string;
+  metadata?: Record<string, unknown>;
 }
 
 interface PayGateHelpers {
-  getConfig: () => { apiVersion: string };
-  externalIdForRegistration: (id: string) => string;
-  registrationIdFromExternalId: (id: string) => string;
+  getConfig: () => Record<string, unknown>;
   idempotencyKeyForRegistration: (id: string) => string;
   expectedRequestedPaise: (amount: number) => number;
-  normalizeProviderPayment: (raw: Record<string, unknown>) => ProviderPayment & { apiVersion: string; metadata: Record<string, unknown> };
+  normalizeProviderPayment: (raw: Record<string, unknown>) => ProviderPayment | null;
   registrationIdFromProviderPayment: (raw: Record<string, unknown>) => string;
   updateProviderData: (registration: FakeRegistration, payment: Record<string, unknown>, extra: Record<string, unknown>) => Record<string, unknown>;
-  validateProviderPayment: (
-    raw: ProviderPayment | Record<string, unknown>,
-    amount: number,
-    options?: Record<string, unknown>,
-  ) => { ok: boolean; error?: string; payment?: ProviderPayment };
-  resolveProviderTransition: (input: Record<string, unknown>) => {
-    action: string;
-    error?: string;
-  };
-  shouldReleasePendingRegistration: (
-    registration: FakeRegistration,
-    nowMs: number,
-    graceSeconds: number,
-  ) => boolean;
+  validateProviderPayment: (raw: Record<string, unknown>, amount: number, options?: Record<string, unknown>) => { ok: boolean; error?: string; payment?: ProviderPayment };
+  resolveProviderTransition: (input: Record<string, unknown>) => { action: string; error?: string };
+  shouldReleasePendingRegistration: (registration: FakeRegistration, nowMs: number, graceSeconds: number) => boolean;
 }
 
 class FakeRegistration {
-  constructor(
-    private readonly values: Record<string, unknown>,
-  ) {}
-
-  getString(key: string): string {
-    return typeof this.values[key] === "string" ? String(this.values[key]) : "";
-  }
-
-  get(key: string): unknown {
-    return this.values[key];
-  }
+  constructor(private readonly values: Record<string, unknown>) {}
+  getString(key: string): string { return typeof this.values[key] === "string" ? String(this.values[key]) : ""; }
+  get(key: string): unknown { return this.values[key]; }
 }
 
 function loadHelpers(env: Record<string, string> = {}): PayGateHelpers {
-  const source = readFileSync(
-    resolve(process.cwd(), "pb_hooks/paygate-helpers.js"),
-    "utf8",
-  );
+  const source = readFileSync(resolve(process.cwd(), "pb_hooks/paygate-helpers.js"), "utf8");
   const module = { exports: {} as Record<string, unknown> };
-  runInNewContext(source, {
-    module,
-    exports: module.exports,
-    console,
-    $os: { getenv: (key: string) => env[key] || "" },
-  });
+  runInNewContext(source, { module, exports: module.exports, console, $os: { getenv: (key: string) => env[key] || "" } });
   return module.exports as unknown as PayGateHelpers;
 }
 
 const pg = loadHelpers();
-const validPayment: ProviderPayment = {
-  id: "payment_123",
-  status: "pending",
-  requestedAmountPaise: 10000,
-  payableAmountPaise: 10037,
-  payableAmount: "100.37",
-  expiresAt: "2026-08-11T16:30:00Z",
-  paidAt: null,
-  upiUri: "upi://pay?pa=example%40upi&am=100.37&cu=INR",
-  externalId: "ieee-sahrdaya:local:registration:reg_123",
-};
 const validV4Payment = {
   id: "payment_v4_123",
   object: "payment",
@@ -91,71 +55,91 @@ const validV4Payment = {
   requested_amount: "100.00",
   payable_amount: "101.37",
   adjustment: "1.37",
-  upi_uri: "upi://pay?pa=example%40upi&am=101.37&cu=INR",
+  upi_uri: "upi://pay?am=101.37&cu=INR&pa=example%40upi&tn=PayGate%20payment_v4_123",
+  transaction_note: "PayGate payment_v4_123",
   expires_at: "2026-08-11T16:30:00Z",
   grace_until: "2026-08-11T16:35:00Z",
   paid_at: null,
 };
 
+const validationOptions = {
+  requireUpiUri: true,
+  externalId: "event_123",
+  registrationId: "reg_123",
+  environment: "local",
+};
 
-describe("PayGate API version selection", () => {
-  it("defaults to v3 until cutover is explicitly enabled", () => {
-    expect(loadHelpers().getConfig().apiVersion).toBe("v3");
+describe("PayGate v4 contract", () => {
+  it("has no runtime API-version switch", () => {
+    expect(loadHelpers().getConfig()).not.toHaveProperty("apiVersion");
+    expect(loadHelpers({ PAYGATE_API_VERSION: "v3" }).getConfig()).not.toHaveProperty("apiVersion");
   });
 
-  it("selects v4 only for an explicit v4 setting", () => {
-    expect(loadHelpers({ PAYGATE_API_VERSION: "v4" }).getConfig().apiVersion).toBe("v4");
-    expect(loadHelpers({ PAYGATE_API_VERSION: "unexpected" }).getConfig().apiVersion).toBe("v3");
+  it("rejects the retired v3 camelCase payment shape", () => {
+    expect(pg.normalizeProviderPayment({
+      id: "payment_v3", status: "pending", requestedAmountPaise: 10000,
+      payableAmountPaise: 10037, upiUri: "upi://pay?pa=x&am=100.37",
+    })).toBeNull();
   });
-});
 
-describe("PayGate cutover state", () => {
-  it("upgrades a migrated v3 registration session to provider-blind v4 state after a v4 response", () => {
-    const registration = new FakeRegistration({
-      paymentData: {
-        provider: "paygate",
-        paygateApiVersion: "v3",
-        eventPaymentProvider: "kotak",
-        paymentAccount: "kotak",
-      },
+  it("normalizes only the v4 snake_case payment object", () => {
+    const payment = pg.normalizeProviderPayment(validV4Payment);
+    expect(payment).toMatchObject({
+      apiVersion: "v4", id: "payment_v4_123", requestedAmountPaise: 10000,
+      payableAmountPaise: 10137, externalId: "event_123",
+      transactionNote: "PayGate payment_v4_123",
     });
+    expect(payment?.upiUri).toBe(validV4Payment.upi_uri);
+  });
+
+  it("cleans retired v3 routing markers when v4 state is persisted", () => {
+    const registration = new FakeRegistration({ paymentData: {
+      provider: "paygate", paygateApiVersion: "v3", eventPaymentProvider: "kotak", paymentAccount: "kotak",
+    }});
     const payment = pg.normalizeProviderPayment(validV4Payment) as unknown as Record<string, unknown>;
     const next = pg.updateProviderData(registration, payment, {});
-    expect(next.paygateApiVersion).toBe("v4");
+    expect(next.provider).toBe("paygate");
+    expect(next).not.toHaveProperty("paygateApiVersion");
+    expect(next).not.toHaveProperty("eventPaymentProvider");
+    expect(next).not.toHaveProperty("paymentAccount");
+    expect(next.transactionNote).toBe("PayGate payment_v4_123");
+  });
+
+  it("clears explicitly empty payment instructions instead of retaining stale QR data", () => {
+    const registration = new FakeRegistration({ paymentData: {
+      provider: "paygate", upiUri: "upi://pay?am=100.37&cu=INR&pa=stale%40upi", transactionNote: "stale note",
+    }});
+    const raw = { ...validV4Payment, upi_uri: "", transaction_note: "" };
+    const payment = pg.normalizeProviderPayment(raw) as unknown as Record<string, unknown>;
+    const next = pg.updateProviderData(registration, payment, {});
+    expect(next.upiUri).toBe("");
+    expect(next.transactionNote).toBe("");
+  });
+
+  it("preserves payment instructions only when a partial webhook omits those fields", () => {
+    const registration = new FakeRegistration({ paymentData: {
+      provider: "paygate", upiUri: validV4Payment.upi_uri, transactionNote: validV4Payment.transaction_note,
+    }});
+    const raw = { ...validV4Payment } as Record<string, unknown>;
+    delete raw.upi_uri;
+    delete raw.transaction_note;
+    const payment = pg.normalizeProviderPayment(raw) as unknown as Record<string, unknown>;
+    const next = pg.updateProviderData(registration, payment, {});
+    expect(next.upiUri).toBe(validV4Payment.upi_uri);
+    expect(next.transactionNote).toBe(validV4Payment.transaction_note);
   });
 });
 
 describe("PayGate registration identity", () => {
-  it("round-trips the external registration identity", () => {
-    expect(pg.externalIdForRegistration("reg_123")).toBe(
-      "ieee-sahrdaya:local:registration:reg_123",
-    );
-    expect(
-      pg.registrationIdFromExternalId("ieee-sahrdaya:local:registration:reg_123"),
-    ).toBe("reg_123");
-    expect(pg.registrationIdFromExternalId("other-app:reg_123")).toBe("");
-    expect(
-      pg.registrationIdFromExternalId("ieee-sahrdaya:production:registration:reg_123"),
-    ).toBe("");
-  });
-
-  it("correlates v4 payments through environment-scoped metadata", () => {
+  it("correlates payments only through environment-scoped v4 metadata", () => {
     expect(pg.registrationIdFromProviderPayment(validV4Payment)).toBe("reg_123");
-    expect(
-      pg.registrationIdFromProviderPayment({
-        ...validV4Payment,
-        metadata: { registration_id: "reg_123", environment: "production" },
-      }),
-    ).toBe("");
+    expect(pg.registrationIdFromProviderPayment({ ...validV4Payment, metadata: { registration_id: "reg_123", environment: "production" } })).toBe("");
+    expect(pg.registrationIdFromProviderPayment({ ...validV4Payment, metadata: { environment: "local" } })).toBe("");
   });
 
-  it("uses one deterministic idempotency key per registration", () => {
-    expect(pg.idempotencyKeyForRegistration("reg_123")).toBe(
-      "ieee-paygate-local-reg_123",
-    );
-    expect(pg.idempotencyKeyForRegistration("reg_123")).toBe(
-      pg.idempotencyKeyForRegistration("reg_123"),
-    );
+  it("uses one deterministic idempotency key per registration and environment", () => {
+    expect(pg.idempotencyKeyForRegistration("reg_123")).toBe("ieee-paygate-local-reg_123");
+    expect(pg.idempotencyKeyForRegistration("reg_123")).toBe(pg.idempotencyKeyForRegistration("reg_123"));
   });
 });
 
@@ -166,62 +150,80 @@ describe("PayGate monetary validation", () => {
     expect(pg.expectedRequestedPaise(10.5)).toBe(0);
   });
 
-  it("accepts the exact requested amount plus a 1..99 paise fingerprint", () => {
-    const result = pg.validateProviderPayment(validPayment, 100, {
-      requireUpiUri: true,
-      externalId: "ieee-sahrdaya:local:registration:reg_123",
-    });
-    expect(result.ok).toBe(true);
-    expect(result.payment?.payableAmountPaise).toBe(10037);
-  });
-
-  it("accepts v4 overflow fingerprints up to 1.99 without accepting .00", () => {
-    const result = pg.validateProviderPayment(validV4Payment, 100, {
-      requireUpiUri: true,
-      externalId: "event_123",
-      registrationId: "reg_123",
-      environment: "local",
-    });
-    expect(result.ok).toBe(true);
-    expect(result.payment?.payableAmountPaise).toBe(10137);
-    expect(
-      pg.validateProviderPayment(
-        { ...validV4Payment, payable_amount: "101.00", adjustment: "1.00" },
-        100,
-      ).ok,
-    ).toBe(false);
+  it("accepts v4 fingerprints in the current bucket and overflow bucket", () => {
+    const normal = pg.validateProviderPayment({
+      ...validV4Payment,
+      payable_amount: "100.37",
+      upi_uri: "upi://pay?am=100.37&cu=INR&pa=example%40upi&tn=PayGate%20payment_v4_123",
+    }, 100, validationOptions);
+    expect(normal.ok).toBe(true);
+    expect(normal.payment?.payableAmountPaise).toBe(10037);
+    const overflow = pg.validateProviderPayment(validV4Payment, 100, validationOptions);
+    expect(overflow.ok).toBe(true);
+    expect(overflow.payment?.payableAmountPaise).toBe(10137);
   });
 
   it("rejects a provider requested-amount mismatch", () => {
-    const result = pg.validateProviderPayment(
-      { ...validPayment, requestedAmountPaise: 9900, payableAmountPaise: 9937 },
-      100,
-    );
+    const result = pg.validateProviderPayment({ ...validV4Payment, requested_amount: "99.00", payable_amount: "99.37" }, 100, validationOptions);
     expect(result.ok).toBe(false);
     expect(result.error).toMatch(/requested amount/i);
   });
 
-  it("rejects .00 and fingerprints outside the 99-paise pool", () => {
-    expect(
-      pg.validateProviderPayment(
-        { ...validPayment, payableAmountPaise: 10000 },
-        100,
-      ).ok,
-    ).toBe(false);
-    expect(
-      pg.validateProviderPayment(
-        { ...validPayment, payableAmountPaise: 10100 },
-        100,
-      ).ok,
-    ).toBe(false);
+  it("rejects UPI instructions that disagree with the validated payment", () => {
+    const wrongAmount = pg.validateProviderPayment({
+      ...validV4Payment,
+      upi_uri: "upi://pay?am=100.37&cu=INR&pa=example%40upi&tn=PayGate%20payment_v4_123",
+    }, 100, validationOptions);
+    expect(wrongAmount.ok).toBe(false);
+    expect(wrongAmount.error).toMatch(/UPI amount/i);
+
+    const wrongNote = pg.validateProviderPayment({
+      ...validV4Payment,
+      upi_uri: "upi://pay?am=101.37&cu=INR&pa=example%40upi&tn=PayGate%20another_payment",
+    }, 100, validationOptions);
+    expect(wrongNote.ok).toBe(false);
+    expect(wrongNote.error).toMatch(/transaction reference/i);
+
+    const wrongCurrency = pg.validateProviderPayment({
+      ...validV4Payment,
+      upi_uri: "upi://pay?am=101.37&cu=USD&pa=example%40upi&tn=PayGate%20payment_v4_123",
+    }, 100, validationOptions);
+    expect(wrongCurrency.ok).toBe(false);
+    expect(wrongCurrency.error).toMatch(/UPI payment instructions/i);
+  });
+
+  it("requires the deterministic transaction reference on create/status responses", () => {
+    const missing = { ...validV4Payment } as Record<string, unknown>;
+    delete missing.transaction_note;
+    const result = pg.validateProviderPayment(missing, 100, { ...validationOptions, requireTransactionNote: true });
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/transaction reference/i);
+  });
+
+  it("rejects .00 and fingerprints outside the v4 pools", () => {
+    expect(pg.validateProviderPayment({ ...validV4Payment, payable_amount: "100.00" }, 100, validationOptions).ok).toBe(false);
+    expect(pg.validateProviderPayment({ ...validV4Payment, payable_amount: "102.00" }, 100, validationOptions).ok).toBe(false);
   });
 
   it("rejects a different persisted payment identity", () => {
-    const result = pg.validateProviderPayment(validPayment, 100, {
-      paymentId: "another_payment",
-    });
+    const result = pg.validateProviderPayment(validV4Payment, 100, { ...validationOptions, paymentId: "another_payment" });
     expect(result.ok).toBe(false);
     expect(result.error).toMatch(/identity mismatch/i);
+  });
+
+  it("rejects wrong event, registration or environment identity", () => {
+    expect(pg.validateProviderPayment(validV4Payment, 100, { ...validationOptions, externalId: "other_event" }).ok).toBe(false);
+    expect(pg.validateProviderPayment(validV4Payment, 100, { ...validationOptions, registrationId: "other_registration" }).ok).toBe(false);
+    expect(pg.validateProviderPayment(validV4Payment, 100, { ...validationOptions, environment: "production" }).ok).toBe(false);
+  });
+
+  it("does not accept retired camelCase registration metadata", () => {
+    const camelCase = {
+      ...validV4Payment,
+      metadata: { registrationId: "reg_123", environment: "local" },
+    };
+    expect(pg.validateProviderPayment(camelCase, 100, validationOptions).ok).toBe(false);
+    expect(pg.registrationIdFromProviderPayment(camelCase)).toBe("");
   });
 });
 

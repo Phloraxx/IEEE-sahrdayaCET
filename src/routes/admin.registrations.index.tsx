@@ -71,6 +71,10 @@ export default function AdminRegistrations() {
   const perPage = 40;
   const workspace = useQuery({ queryKey: ["workspace-me", user?.id], queryFn: getWorkspaceMe, enabled: Boolean(user?.id), staleTime: 30_000 });
   const branchEvents = Boolean(workspace.data?.branchCapabilities.includes("events.view"));
+  const canFilterFinance = Boolean(
+    workspace.data?.branchCapabilities.includes("finance.view") ||
+    workspace.data?.branchCapabilities.includes("finance.manage"),
+  );
   const allowedSocietyIds = branchEvents ? undefined : Array.from(new Set((workspace.data?.assignments ?? []).filter((a) => a.active && a.scopeType === "society").map((a) => a.societyId).filter(Boolean)));
   const allowedEventIds = branchEvents ? undefined : Array.from(new Set((workspace.data?.assignments ?? []).filter((a) => a.active && a.scopeType === "event").map((a) => a.eventId).filter(Boolean)));
 
@@ -87,7 +91,7 @@ export default function AdminRegistrations() {
     enabled: Boolean(workspace.data),
   });
   const registrations = useQuery({
-    queryKey: ["admin-registrations", { search, eventId, status, paymentStatus, source, attentionOnly, page }],
+    queryKey: ["admin-registrations", { search, eventId, status, paymentStatus, source, attentionOnly, page, canFilterFinance }],
     queryFn: () => listAdminRegistrations({
       page,
       perPage,
@@ -97,8 +101,10 @@ export default function AdminRegistrations() {
       source,
       attentionOnly,
       search,
+      financeAuthorized: canFilterFinance,
     }),
-  });  const invalidate = () => {
+  });
+  const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["admin-registrations"] });
     queryClient.invalidateQueries({ queryKey: ["admin-event-operations"] });
     queryClient.invalidateQueries({ queryKey: ["admin-payment-desk"] });
@@ -126,7 +132,9 @@ export default function AdminRegistrations() {
   });
 
   const exportLedger = async () => {
-    const stream = await streamAdminRegistrationsCSV(getPbClient());
+    const stream = await streamAdminRegistrationsCSV(getPbClient(), {
+      financeAuthorized: canFilterFinance,
+    });
     const blob = await new Response(stream).blob();
     const href = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
@@ -136,7 +144,7 @@ export default function AdminRegistrations() {
     URL.revokeObjectURL(href);
   };
   const data = registrations.data;
-  const canOpenPaymentDesk = Boolean(workspace.data?.branchCapabilities.includes("finance.view"));
+  const canOpenPaymentDesk = canFilterFinance;
 
   return (
     <div className="space-y-6">
@@ -158,7 +166,7 @@ export default function AdminRegistrations() {
         }
       />
 
-      <div className="grid gap-3 rounded-2xl border border-border bg-card p-4 lg:grid-cols-[minmax(260px,1fr)_220px_170px_170px_160px_auto]">
+      <div className={`grid gap-3 rounded-2xl border border-border bg-card p-4 ${canFilterFinance ? "lg:grid-cols-[minmax(260px,1fr)_220px_170px_170px_160px_auto]" : "lg:grid-cols-[minmax(260px,1fr)_220px_170px_160px]"}`}>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -174,7 +182,8 @@ export default function AdminRegistrations() {
             <SelectItem value="all">All events</SelectItem>
             {events.data?.events.map((event) => <SelectItem key={event.id} value={event.id}>{event.title}</SelectItem>)}
           </SelectContent>
-        </Select>        <Select value={status} onValueChange={(value) => { setStatus(value); setPage(1); }}>
+        </Select>
+        <Select value={status} onValueChange={(value) => { setStatus(value); setPage(1); }}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All registration states</SelectItem>
@@ -183,7 +192,7 @@ export default function AdminRegistrations() {
             <SelectItem value="cancelled">Cancelled</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={paymentStatus} onValueChange={(value) => { setPaymentStatus(value); setPage(1); }}>
+        {canFilterFinance && <Select value={paymentStatus} onValueChange={(value) => { setPaymentStatus(value); setPage(1); }}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All payment states</SelectItem>
@@ -192,7 +201,7 @@ export default function AdminRegistrations() {
             <SelectItem value="failed">Failed</SelectItem>
             <SelectItem value="not_required">Not required</SelectItem>
           </SelectContent>
-        </Select>
+        </Select>}
         <Select value={source} onValueChange={(value) => { setSource(value); setPage(1); }}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -201,14 +210,14 @@ export default function AdminRegistrations() {
             <SelectItem value="admin">Manual/admin</SelectItem>
           </SelectContent>
         </Select>
-        <Button
+        {canFilterFinance && <Button
           type="button"
           variant={attentionOnly ? "default" : "outline"}
           className="gap-2"
           onClick={() => { setAttentionOnly((value) => !value); setPage(1); }}
         >
           <AlertTriangle className="h-4 w-4" /> Attention
-        </Button>
+        </Button>}
       </div>
       {registrations.isLoading ? (
         <QueueSkeleton />
@@ -261,20 +270,37 @@ function QueueRow({
   onCancel: (id: string) => void;
   onConfirm: (id: string) => void;
 }) {
-  const paidCancelled = row.registrationStatus === "cancelled" && row.paymentStatus === "paid";
-  const needsAttention = row.manualReview || paidCancelled || (row.registrationStatus === "pending" && row.paymentStatus === "pending");
   const context = { eventId: String(row.eventId || row.event), societyId: String(row.eventSocietyId || "") };
+  const canViewFinance = hasScopedWorkspaceCapability(workspace, "finance.view", context) ||
+    hasScopedWorkspaceCapability(workspace, "finance.manage", context);
   const canFinance = hasScopedWorkspaceCapability(workspace, "finance.manage", context);
+  const hasFinanceFields = canViewFinance && (
+    row.paymentStatus !== undefined ||
+    row.amount !== undefined ||
+    row.provider !== undefined ||
+    row.discountAmount !== undefined ||
+    row.manualReview !== undefined
+  );
+  const paidCancelled = hasFinanceFields && row.registrationStatus === "cancelled" && row.paymentStatus === "paid";
+  const needsAttention = hasFinanceFields && (
+    row.manualReview === true ||
+    paidCancelled ||
+    (row.registrationStatus === "pending" && row.paymentStatus === "pending")
+  );
   const canCheckIn = hasScopedWorkspaceCapability(workspace, "checkin.manage", context);
   const canManage = hasScopedWorkspaceCapability(workspace, "registrations.manage", context);
 
   return (
     <div className={`rounded-xl border p-4 transition-colors ${needsAttention ? "border-amber-500/30 bg-amber-500/5" : "border-border bg-card hover:bg-muted/20"}`}>
-      <div className="grid gap-4 lg:grid-cols-[1.3fr_1.15fr_150px_130px_190px] lg:items-center">
+      <div className={`grid gap-4 lg:items-center ${hasFinanceFields ? "lg:grid-cols-[1.3fr_1.15fr_150px_130px_190px]" : "lg:grid-cols-[1.3fr_1.15fr_150px_190px]"}`}>
         <div className="min-w-0">
           <Link to={`/admin/registrations/${row.id}`} className="truncate text-sm font-semibold hover:underline">{row.userName || "Unnamed attendee"}</Link>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">{row.userEmail || "No email"}</p>
-          <div className="mt-2 flex flex-wrap gap-1.5"><SourceBadge source={row.registrationSource} /><ProviderBadge provider={row.provider} /></div>
+          {(row.programmeCode || row.programme || row.semester) && <p className="mt-1 truncate text-[11px] text-muted-foreground">{[row.programmeCode || row.programme, row.semester].filter(Boolean).join(" · ")}</p>}
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <SourceBadge source={row.registrationSource} />
+            {hasFinanceFields && row.provider !== undefined && <ProviderBadge provider={row.provider || "unknown"} />}
+          </div>
         </div>
         <div className="min-w-0">
           <Link to={`/admin/events/${row.eventId}`} className="line-clamp-1 text-sm font-medium text-foreground hover:underline">{row.eventTitle || "Unknown event"}</Link>
@@ -282,27 +308,30 @@ function QueueRow({
         </div>
         <div className="flex flex-wrap gap-1.5">
           <StatusBadge status={row.registrationStatus} kind="registration" />
-          <StatusBadge status={row.paymentStatus} kind="payment" />
+          {hasFinanceFields && row.paymentStatus !== undefined && <StatusBadge status={row.paymentStatus} kind="payment" />}
         </div>
-        <div>
-          <p className="font-mono text-sm font-semibold tabular-nums">{row.amount > 0 ? money(row.amount) : "Free"}</p>
-          {row.couponCode && <p className="mt-0.5 text-[10px] text-muted-foreground">Coupon {row.couponCode}</p>}
-        </div>
+        {hasFinanceFields && (
+          <div>
+            <p className="font-mono text-sm font-semibold tabular-nums">{(row.amount ?? 0) > 0 ? money(row.amount ?? 0) : "Free"}</p>
+            {row.discountSource && row.discountSource !== "none" && <p className="mt-0.5 text-[10px] text-muted-foreground">{row.discountSource === "ieee_member" ? "IEEE member discount" : `Coupon ${row.couponCode || "discount"}`}</p>}
+          </div>
+        )}
         <div className="flex flex-wrap items-center justify-start gap-1 lg:justify-end">
           <Button variant="ghost" size="sm" className="h-8 gap-1.5 px-2 text-xs" asChild>
             <Link to={`/admin/registrations/${row.id}`}><Eye className="h-3.5 w-3.5" />View</Link>
           </Button>
-          {canFinance && row.registrationStatus === "pending" && row.paymentStatus === "pending" && row.amount > 0 && (
+          {canFinance && hasFinanceFields && row.registrationStatus === "pending" && row.paymentStatus === "pending" && (row.amount ?? 0) > 0 && (
             <ConfirmButton
               label="Confirm payment"
-              confirmMessage={`Confirm ${money(row.amount)} received and issue this attendee's ticket?`}
+              confirmMessage={`Confirm ${money(row.amount ?? 0)} received and issue this attendee's ticket?`}
               variant="outline"
               className="h-8 gap-1.5 border-success/30 text-xs text-success"
               icon={<BadgeCheck className="h-3.5 w-3.5" />}
               disabled={busy}
               onConfirm={() => { onConfirm(row.id); return true; }}
             />
-          )}          {canCheckIn && !row.checkedIn && row.registrationStatus === "confirmed" && (
+          )}
+          {canCheckIn && !row.checkedIn && row.registrationStatus === "confirmed" && (
             <ConfirmButton
               label="Check in"
               confirmMessage="Check in this attendee?"
@@ -316,7 +345,7 @@ function QueueRow({
           {canManage && row.registrationStatus !== "cancelled" && !row.checkedIn && (
             <ConfirmButton
               label="Cancel"
-              confirmMessage="Cancel this registration? Paid records remain visible for finance review."
+              confirmMessage={canViewFinance ? "Cancel this registration? Paid records remain visible for finance review." : "Cancel this registration?"}
               variant="destructive"
               className="h-8 text-xs"
               disabled={busy}
@@ -330,7 +359,7 @@ function QueueRow({
           )}
         </div>
       </div>
-      {(row.reviewReason || paidCancelled) && (
+      {hasFinanceFields && (row.reviewReason || paidCancelled) && (
         <p className="mt-3 border-t border-border/70 pt-3 text-xs text-amber-700 dark:text-amber-300">
           {row.reviewReason || "Payment is marked paid while this registration is cancelled."}
         </p>

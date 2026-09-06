@@ -4,6 +4,8 @@ import { sanitizeBlogCoverUrl } from "@/lib/blog-content";
 import { getField } from "@/lib/safe-get";
 import { canRegisterForEvent, isPublicEvent } from "@/lib/event-lifecycle";
 import { getEventAttendanceMode, type EventAttendanceMode } from "@/lib/event-presentation";
+import { normalizeEligibleProgrammes, normalizeEligibleSemesters } from "@/lib/event-audience";
+import { normalizeEventRequirements } from "@/lib/event-requirements";
 import type { FormField } from "@/types";
 import type { MyEventRegistration } from "@/lib/registration-state";
 
@@ -69,12 +71,17 @@ export interface PublicRegistrationEvent {
   waitlistEnabled: boolean;
   waitlistReservedCount: number;
   collectIeeeMember: boolean;
+  ieeeMemberDiscountPercent: number;
+  eligibleSemesters: string[];
+  requirements: string[];
+  attendeeNote: string;
+  eligibleProgrammes: string[];
   formFields: FormField[];
 }
 
 export async function getPublicEvent(id: string): Promise<PublicRegistrationEvent> {
   const record = await getPbClient().collection("events").getOne(id, {
-    fields: "id,slug,title,description,date,endDate,timeTbc,venue,timezone,attendanceMode,locationAddress,price,banner,status,registrationOpen,registrationStart,registrationDeadline,isDeleted,maxCapacity,registeredCount,waitlistEnabled,waitlistReservedCount,formTemplate,collectIeeeMember",
+    fields: "id,slug,title,description,date,endDate,timeTbc,venue,timezone,attendanceMode,locationAddress,price,banner,status,registrationOpen,registrationStart,registrationDeadline,isDeleted,maxCapacity,registeredCount,waitlistEnabled,waitlistReservedCount,formTemplate,collectIeeeMember,ieeeMemberDiscountPercent,eligibleSemesters,eligibleProgrammes,requirements,attendeeNote",
   });
   const lifecycle = {
     status: String(record.status || ""),
@@ -112,6 +119,11 @@ export async function getPublicEvent(id: string): Promise<PublicRegistrationEven
     waitlistEnabled: Boolean(record.waitlistEnabled),
     waitlistReservedCount: Number(record.waitlistReservedCount) || 0,
     collectIeeeMember: Boolean(record.collectIeeeMember),
+    ieeeMemberDiscountPercent: Number(record.ieeeMemberDiscountPercent) || 0,
+    eligibleSemesters: normalizeEligibleSemesters(Array.isArray(record.eligibleSemesters) ? record.eligibleSemesters as string[] : []),
+    requirements: normalizeEventRequirements(record.requirements),
+    attendeeNote: String(record.attendeeNote || "").trim(),
+    eligibleProgrammes: normalizeEligibleProgrammes(Array.isArray(record.eligibleProgrammes) ? record.eligibleProgrammes as string[] : []),
     formFields: Array.isArray(record.formTemplate) ? record.formTemplate as FormField[] : [],
   };
 }
@@ -140,8 +152,11 @@ export async function getEventWaitlist(eventId: string): Promise<EventWaitlistRe
   return pb.send(`/api/app/events/${encodeURIComponent(eventId)}/waitlist`, { method: "GET" }) as Promise<EventWaitlistResponse>;
 }
 
-export async function joinEventWaitlist(eventId: string) {
-  return getPbClient().send(`/api/app/events/${encodeURIComponent(eventId)}/waitlist/join`, { method: "POST" }) as Promise<{ joined: boolean; reused: boolean; state: EventWaitlistState }>;
+export async function joinEventWaitlist(eventId: string, academic: { programmeCode?: string; branch?: string; semester?: string } = {}) {
+  return getPbClient().send(`/api/app/events/${encodeURIComponent(eventId)}/waitlist/join`, {
+    method: "POST",
+    body: academic,
+  }) as Promise<{ joined: boolean; reused: boolean; state: EventWaitlistState }>;
 }
 
 export async function leaveEventWaitlist(eventId: string) {
@@ -149,8 +164,11 @@ export async function leaveEventWaitlist(eventId: string) {
 }
 
 export interface EventJoinDetails {
+  whatsappGroupUrl: string;
   virtualJoinUrl: string;
   joinInstructions: string;
+  contactEmail: string;
+  contactPhone: string;
 }
 
 export async function getEventJoinDetails(eventId: string): Promise<EventJoinDetails> {
@@ -159,6 +177,40 @@ export async function getEventJoinDetails(eventId: string): Promise<EventJoinDet
   return pb.send(`/api/app/events/${encodeURIComponent(eventId)}/join-details`, {
     method: "GET",
   }) as Promise<EventJoinDetails>;
+}
+
+export interface PricingPreview {
+  baseFeePaise: number;
+  ieeeDiscountPercent: number;
+  ieeeDiscountPaise: number;
+  couponDiscountPercent: number;
+  couponDiscountPaise: number;
+  appliedDiscountPaise: number;
+  finalFeePaise: number;
+  baseAmount: number;
+  discountAmount: number;
+  amount: number;
+  discountSource: "none" | "ieee_member" | "coupon" | string;
+  requestedCouponCode: string;
+  appliedCouponCode: string;
+  label: string;
+}
+
+export async function previewPricing(eventId: string, input: {
+  isIeeeMember?: boolean;
+  ieeeMembershipId?: string;
+  couponCode?: string;
+}): Promise<PricingPreview> {
+  const pb = getPbClient();
+  if (!pb.authStore.isValid) throw new Error("Please sign in before checking event pricing");
+  return pb.send(`/api/app/events/${encodeURIComponent(eventId)}/pricing-preview`, {
+    method: "POST",
+    body: {
+      isIeeeMember: input.isIeeeMember === true,
+      ieeeMembershipId: input.ieeeMembershipId?.trim() || "",
+      couponCode: input.couponCode?.trim().toUpperCase() || "",
+    },
+  }) as Promise<PricingPreview>;
 }
 
 export interface CouponPreview {
@@ -253,6 +305,7 @@ export interface PublicTicketData {
     registrationStatus: string;
     createdAt: string;
   } | null;
+  isOwner: boolean;
   event: {
     id: string;
     title: string;
@@ -261,9 +314,14 @@ export interface PublicTicketData {
     isArchived: boolean;
     date: string;
     endDate: string;
+    timeTbc: boolean;
+    checkInEnabled: boolean;
     venue: string;
     bannerUrl: string;
     time: string;
+    requirements: string[];
+    attendeeNote: string;
+    externalLink: string;
   } | null;
   registration: {
     id: string;
@@ -281,7 +339,7 @@ export async function getTicket(ticketId: string): Promise<PublicTicketData> {
   const pb = getPbClient();
   const data = await pb.send(`/api/tickets/lookup?ticketId=${encodeURIComponent(ticketId)}`, {});
   if (!data?.found || !data?.ticket) {
-    return { found: false, ticket: null, event: null, registration: null };
+    return { found: false, isOwner: false, ticket: null, event: null, registration: null };
   }
 
   const ticket = {
@@ -299,30 +357,30 @@ export async function getTicket(ticketId: string): Promise<PublicTicketData> {
         isArchived: data.event.isArchived === true,
         date: String(data.event.date || ""),
         endDate: String(data.event.endDate || ""),
+        timeTbc: data.event.timeTbc === true,
+        checkInEnabled: data.event.checkInEnabled === true,
         venue: String(data.event.venue || ""),
         bannerUrl: String(data.event.bannerUrl || ""),
         time: String(data.event.time || ""),
+        requirements: normalizeEventRequirements(data.event.requirements),
+        attendeeNote: String(data.event.attendeeNote || "").trim(),
+        externalLink: String(data.event.externalLink || ""),
       }
     : null;
 
-  let registration: PublicTicketData["registration"] = null;
-  if (pb.authStore.isValid && data.registrationId) {
-    const record = await pb.collection("registrations").getOne(data.registrationId, {
-      fields: "id,userName,userEmail,userPhone,registrationStatus,paymentStatus,registrationDate,amount",
-    }).catch(() => null);
-    if (record) {
-      registration = {
-        id: record.id,
-        name: getField(record, "userName", ""),
-        email: getField(record, "userEmail", ""),
-        phone: getField(record, "userPhone", ""),
-        registrationStatus: getField(record, "registrationStatus", ""),
-        paymentStatus: getField(record, "paymentStatus", ""),
-        registrationDate: getField(record, "registrationDate", "") || ticket.createdAt,
-        amount: Number(getField(record, "amount", 0)) || 0,
-      };
-    }
-  }
+  const ownerRegistration = data.registration;
+  const registration: PublicTicketData["registration"] = ownerRegistration
+    ? {
+        id: String(ownerRegistration.id || data.registrationId || ""),
+        name: String(ownerRegistration.userName || ""),
+        email: String(ownerRegistration.userEmail || ""),
+        phone: String(ownerRegistration.userPhone || ""),
+        registrationStatus: String(ownerRegistration.registrationStatus || ""),
+        paymentStatus: String(ownerRegistration.paymentStatus || ""),
+        registrationDate: String(ownerRegistration.registrationDate || ticket.createdAt),
+        amount: Number(ownerRegistration.amount) || 0,
+      }
+    : null;
 
-  return { found: true, ticket, event, registration };
+  return { found: true, isOwner: data.isOwner === true, ticket, event, registration };
 }

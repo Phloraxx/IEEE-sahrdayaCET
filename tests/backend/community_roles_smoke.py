@@ -171,10 +171,16 @@ execom_title = req("POST", "/api/collections/execom/records", {
     "society": society["id"],
 }, super_token)
 assert req("GET", "/api/workspace/me", token=tokens["execom-title"])["capabilities"] == []
-execom_linked = req("PATCH", f"/api/collections/execom/records/{execom_title['id']}", {
+req("PATCH", f"/api/collections/execom/records/{execom_title['id']}", {
     "roleCode": "society_secretary", "term": "CI term"
 }, super_token)
+# The backlink is written by the transactional after-update synchronizer, so
+# validate the durable record rather than the pre-hook PATCH response payload.
+time.sleep(0.1)
+execom_linked = req("GET", f"/api/collections/execom/records/{execom_title['id']}", token=super_token)
 assert execom_linked.get("assignment")
+linked_assignment = req("GET", f"/api/collections/organization_assignments/records/{execom_linked['assignment']}", token=super_token)
+assert linked_assignment["source"] == "execom" and linked_assignment["sourceExecom"] == execom_title["id"]
 linked_me = req("GET", "/api/workspace/me", token=tokens["execom-title"])
 assert "events.edit" in linked_me["capabilities"] and "finance.approve" not in linked_me["capabilities"]
 req("PATCH", f"/api/collections/execom/records/{execom_title['id']}", {"roleCode": ""}, super_token)
@@ -273,17 +279,66 @@ req("GET", f"/api/collections/registrations/records/{registration['id']}", token
 checked = req("POST", "/api/workspace/check-in", {"ticketId": registration["ticketId"]}, tokens["checkin-staff"])
 assert checked["success"] is True and checked["registration"]["checkedIn"] is True
 assert set(checked["registration"].keys()) <= {"id", "userName", "userEmail", "eventTitle", "ticketId", "checkedIn", "checkedInAt"}
+req("GET", f"/api/admin/events/{event['id']}/operations", token=tokens["checkin-staff"], expected=(403,))
+
 
 # Registration desk can browse/cancel, but not perform finance actions.
-reg_list = req("GET", f"/api/collections/registrations/records?filter={q('event = '+repr(event['id']))}", token=tokens["registration-desk"])
-assert reg_list["totalItems"] >= 1
+registration_ops = req("GET", f"/api/admin/events/{event['id']}/operations", token=tokens["registration-desk"])
+assert registration_ops["summary"]["active"] >= 1
+assert "recent" in registration_ops and registration_ops["recent"]
+registration_row = registration_ops["recent"][0]
+assert {"id", "userName", "userEmail", "registrationStatus", "ticketId", "checkedIn"}.issubset(registration_row)
+for forbidden_key in (
+    "paymentStatus", "amount", "collectedAmount", "refundedAmount", "paymentMethod",
+    "couponCode", "discountAmount", "provider", "providerStatus", "manualReview",
+    "reviewReason", "manualConfirmation", "internalNotes",
+):
+    assert forbidden_key not in registration_row, forbidden_key
+assert "attention" not in registration_ops
+assert "cancellationRequests" not in registration_ops
+assert "financeDisclaimer" not in registration_ops
+assert "coupons" not in registration_ops
+assert "audit" not in registration_ops
+for forbidden_event_key in ("formTemplate", "financeApprovalStatus", "financeApprovalNote"):
+    assert forbidden_event_key not in registration_ops["event"], forbidden_event_key
+
+finance_ops = req("GET", f"/api/admin/events/{event['id']}/operations", token=tokens["event-finance"])
+assert finance_ops["summary"]["paidAmount"] == 0
+assert "financeDisclaimer" in finance_ops and "attention" in finance_ops and "cancellationRequests" in finance_ops
+assert "audit" not in finance_ops
+finance_row = finance_ops["recent"][0]
+assert {"paymentStatus", "amount", "provider", "manualConfirmation"}.issubset(finance_row)
+assert "financeApprovalStatus" in finance_ops["event"] and "paymentProvider" not in finance_ops["event"]
+
+edit_ops = req("GET", f"/api/admin/events/{event['id']}/operations", token=tokens["event-lead"])
+assert "coupons" in edit_ops and "formTemplate" in edit_ops["event"]
+assert "audit" in edit_ops
+assert "financeDisclaimer" in edit_ops
+
+req(
+    "GET",
+    f"/api/collections/registrations/records?filter={q('event = '+repr(event['id']))}",
+    token=tokens["registration-desk"],
+    expected=(403,),
+)
+req("GET", f"/api/collections/registrations/records/{registration['id']}", token=tokens["registration-desk"], expected=(403, 404))
+projected_regs = req("GET", f"/api/admin/registrations?event={event['id']}&page=1&perPage=40", token=tokens["registration-desk"])
+assert projected_regs["total"] >= 1 and projected_regs["registrations"]
+projected_row = projected_regs["registrations"][0]
+for forbidden_key in (
+    "paymentStatus", "paymentData", "amount", "collectedAmount", "refundedAmount",
+    "paymentMethod", "couponCode", "discountSource", "discountAmount", "provider",
+    "providerStatus", "manualReview", "reviewReason", "manualConfirmation",
+    "internalNotes", "createdBy", "paymentTicketId",
+):
+    assert forbidden_key not in projected_row, forbidden_key
 req("POST", f"/api/admin/registrations/{registration['id']}/command", {"action": "confirm-payment"}, tokens["registration-desk"], expected=(403,))
 
-# Event finance has event-scoped finance but cannot open branch-wide Payment Desk.
+# Branch finance can use projected Payment Desk reads; event finance cannot open branch-wide Payment Desk.
+branch_payment_rows = req("GET", "/api/admin/payments?page=1&perPage=40", token=tokens["branch-treasurer"])
+assert set(branch_payment_rows) == {"payments", "total", "page", "perPage", "hasMore"}
 req("GET", "/api/admin/payments/summary", token=tokens["event-finance"], expected=(403,))
-branch_finance = req("GET", "/api/admin/payments/summary", token=tokens["branch-treasurer"])
-assert "summary" in branch_finance
-
+req("GET", "/api/admin/payments?page=1&perPage=40", token=tokens["event-finance"], expected=(403,))
 # Scoped content: event content can create for its event, not another event.
 blog = req("POST", "/api/collections/blogs/records", {
     "title": f"Scoped event story {suffix}", "slug": f"scoped-event-story-{suffix}",
@@ -316,6 +371,7 @@ if fixture_file:
         "PERSONAS": {
             "branch": {"token": tokens["branch-secretary"], "record": users["branch-secretary"]},
             "checkin": {"token": tokens["checkin-staff"], "record": users["checkin-staff"]},
+            "registration": {"token": tokens["registration-desk"], "record": users["registration-desk"]},
             "chair": {"token": tokens["society-chair"], "record": users["society-chair"]},
             "finance": {"token": tokens["event-finance"], "record": users["event-finance"]},
             "content": {"token": tokens["event-content"], "record": users["event-content"]},

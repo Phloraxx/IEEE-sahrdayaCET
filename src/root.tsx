@@ -13,6 +13,7 @@ import { MotionConfig } from "framer-motion";
 import { AuthProvider } from "@/lib/auth-context";
 import { Toaster } from "@/components/ui/sonner";
 import { APP_URL } from "@/lib/constants";
+import { ORGANIZATION_SAME_AS } from "@/lib/social-links";
 import "@/features/globals.css";
 import "@fontsource-variable/geist";
 import "@fontsource/press-start-2p";
@@ -34,13 +35,7 @@ const organizationSchema = {
   },
   description:
     "Official IEEE Student Branch at Sahrdaya College of Engineering & Technology, Thrissur, Kerala, India.",
-  sameAs: [
-    "https://www.ieee.org",
-    "https://ieeekerala.org",
-    "https://www.instagram.com/ieee_sahrdaya_sb/",
-    "https://www.linkedin.com/company/ieee-sahrdaya-sb/",
-    "https://www.youtube.com/@ieeesahrdaya",
-  ],
+  sameAs: ORGANIZATION_SAME_AS,
   parentOrganization: {
     "@type": "Organization",
     name: "IEEE Kerala Section",
@@ -114,14 +109,14 @@ export function headers() {
       "base-uri 'self'",
       "object-src 'none'",
       "frame-ancestors 'none'",
-      "form-action 'self' https://api.razorpay.com",
+      "form-action 'self'",
       "img-src 'self' data: blob: https:",
       "media-src 'self'",
-      "font-src 'self' data: https://*.razorpay.com",
+      "font-src 'self' data:",
       "style-src 'self' 'unsafe-inline'",
-      "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://checkout.razorpay.com https://api.razorpay.com",
-      "connect-src 'self' https://cloudflareinsights.com https://api.razorpay.com https://*.razorpay.com",
-      "frame-src https://api.razorpay.com https://*.razorpay.com",
+      "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
+      "connect-src 'self' https://cloudflareinsights.com",
+      "frame-src 'none'",
       "manifest-src 'self'",
       "worker-src 'self' blob:",
     ].join("; "),

@@ -185,6 +185,7 @@ routerAdd("GET", "/api/tickets/lookup", function (e) {
             if (banner) {
                 try { bannerUrl = $app.filesystem().fileUrl(evt, banner) } catch (_) {}
             }
+            var publicRequirements = require(__hooks + "/event-requirements-helpers.js").normalizeRequirements(evt.get("requirements"))
             eventPayload = {
                 id: evt.id,
                 title: evt.getString("title") || "",
@@ -193,9 +194,14 @@ routerAdd("GET", "/api/tickets/lookup", function (e) {
                 isArchived: evt.getBool("isDeleted"),
                 date: evt.getString("date") || "",
                 endDate: evt.getString("endDate") || "",
+                timeTbc: evt.getBool("timeTbc"),
+                checkInEnabled: evt.getBool("checkInEnabled"),
                 venue: evt.getString("venue") || "",
                 time: evt.getString("time") || "",
                 bannerUrl: bannerUrl,
+                requirements: publicRequirements.ok ? publicRequirements.requirements : [],
+                attendeeNote: String(evt.getString("attendeeNote") || "").trim(),
+                externalLink: evt.getString("externalLink") || "",
             }
         } catch (err) {}
     }
@@ -215,7 +221,20 @@ routerAdd("GET", "/api/tickets/lookup", function (e) {
     if (auth && auth.id) {
         mayReadRegistration = isAdmin || auth.id === reg.getString("user")
     }
-    if (mayReadRegistration) response.registrationId = reg.id
+    if (mayReadRegistration) {
+        response.registrationId = reg.id
+        response.registration = {
+            id: reg.id,
+            userName: reg.getString("userName") || "",
+            userEmail: reg.getString("userEmail") || "",
+            userPhone: reg.getString("userPhone") || "",
+            registrationStatus: reg.getString("registrationStatus") || "",
+            paymentStatus: reg.getString("paymentStatus") || "",
+            registrationDate: reg.getString("registrationDate") || reg.getString("created") || "",
+            amount: require(__hooks + "/registration-helpers.js").registrationAmount(reg),
+        }
+    }
+    response.isOwner = Boolean(auth && auth.id && auth.id === reg.getString("user"))
 
     return e.json(200, response)
 })

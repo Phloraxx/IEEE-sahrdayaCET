@@ -41,8 +41,8 @@ function providerKind(registration) {
   var data = jsonObject(registration.get("paymentData"))
   if (data.manualConfirmation || data.provider === "manual") return "manual"
   if (data.provider === "razorpay" || data.provider === "razorpay_live") return "razorpay"
-  if (data.provider === "paygate" && (data.eventPaymentProvider === "kotak" || data.paymentAccount === "kotak")) return "paygate"
-  if (data.provider === "paygate" || data.provider === "legacy_paygate") return "legacy_paygate"
+  if (data.provider === "paygate") return "paygate"
+  if (data.provider === "legacy_paygate") return "legacy_paygate"
   if (registration.getString("paymentStatus") === "not_required") return "not_required"
   return "unknown"
 }
@@ -95,6 +95,145 @@ function registrationSnapshot(registration) {
     manualConfirmation: data.manualConfirmation || null,
   }
 }
+function copySnapshotFields(snapshot, fields) {
+  var projected = {}
+  for (var i = 0; i < fields.length; i++) {
+    var field = fields[i]
+    if (Object.prototype.hasOwnProperty.call(snapshot, field)) projected[field] = snapshot[field]
+  }
+  return projected
+}
+
+function projectRegistrationSnapshot(snapshot, flags) {
+  if (!snapshot) return null
+  flags = flags || {}
+  if (flags.finance) return snapshot
+  return copySnapshotFields(snapshot, [
+    "id", "event", "user", "userName", "userEmail", "userPhone",
+    "registrationStatus", "ticketId", "checkedIn", "checkedInAt",
+    "registrationDate", "registrationSource",
+  ])
+}
+function registrationAdminProjection(registration, event, finance) {
+  if (!registration || !event) return null
+  var snapshot = registrationSnapshot(registration)
+  var responses = jsonObject(registration.get("formResponses"))
+  var academic = require(__hooks + "/academic-options.js")
+  var programmeCode = academic.normalizeProgramme(registration.getString("programmeCode") || "") ||
+    academic.normalizeProgramme(responses.programmeCode || responses.branch || responses.department || "")
+  var programme = ""
+  if (programmeCode && programmeCode !== "OTHER") {
+    programme = academic.programmeLabel(programmeCode)
+  } else {
+    programme = String(responses.branch || responses.department || responses.programme ||
+      (programmeCode === "OTHER" ? "Other / external programme" : ""))
+  }
+  var canonicalSemester = registration.getString("semester") || ""
+  var normalizedSemester = academic.normalizeSemester(canonicalSemester) ||
+    academic.normalizeSemester(responses.semester || "")
+  var semester = normalizedSemester || canonicalSemester || String(responses.semester || "")
+  var registrationDate = registration.getString("registrationDate") || ""
+  var createdAt = registrationDate
+  var row = {
+    id: registration.id,
+    event: event.id || "",
+    eventTitle: event.getString("title") || "",
+    eventId: event.id || "",
+    eventSocietyId: event.getString("society") || "",
+    user: registration.getString("user") || "",
+    userName: registration.getString("userName") || "",
+    userEmail: registration.getString("userEmail") || "",
+    userPhone: registration.getString("userPhone") || "",
+    registrationStatus: snapshot.registrationStatus,
+    checkedIn: snapshot.checkedIn,
+    checkedInAt: snapshot.checkedInAt,
+    ticketId: snapshot.ticketId,
+    registrationDate: registrationDate || createdAt,
+    createdAt: createdAt,
+    registrationSource: snapshot.registrationSource,
+    programmeCode: programmeCode,
+    programme: programme,
+    semester: semester,
+    studyYear: academic.yearForSemester(normalizedSemester),
+    ieeeMember: registration.getBool("ieeeMember") || responses.isIeeeMember === true,
+    ieeeMemberId: registration.getString("ieeeMemberId") || String(responses.ieeeMembershipId || ""),
+    formResponses: responses,
+  }
+  if (!finance) return row
+  var discountSource = registration.getString("discountSource") || ""
+  if (discountSource !== "ieee_member" && discountSource !== "coupon") {
+    discountSource = snapshot.couponCode && snapshot.discountAmount > 0 ? "coupon" : "none"
+  }
+  row.paymentStatus = snapshot.paymentStatus
+  row.amount = snapshot.amount
+  row.collectedAmount = snapshot.collectedAmount
+  row.refundedAmount = snapshot.refundedAmount
+  row.paymentMethod = snapshot.paymentMethod
+  row.couponCode = snapshot.couponCode
+  row.discountSource = discountSource
+  row.discountAmount = snapshot.discountAmount
+  row.paymentData = jsonObject(registration.get("paymentData"))
+  row.paymentTicketId = registration.getString("paymentTicketId") || ""
+  row.provider = snapshot.provider
+  row.providerStatus = snapshot.providerStatus
+  row.manualReview = snapshot.manualReview ||
+    (snapshot.registrationStatus === "cancelled" && snapshot.paymentStatus === "paid")
+  row.reviewReason = snapshot.reviewReason
+  row.manualConfirmation = snapshot.manualConfirmation
+  row.internalNotes = snapshot.internalNotes
+  row.createdBy = registration.getString("createdBy") || ""
+  return row
+}
+
+function operationProjection(permissions) {
+  permissions = permissions || {}
+  return {
+    finance: permissions["finance.view"] === true || permissions["finance.manage"] === true,
+    reports: permissions["reports.view"] === true,
+    edit: permissions["events.edit"] === true,
+    registrations: permissions["registrations.view"] === true ||
+      permissions["registrations.manage"] === true ||
+      permissions["registrations.manual"] === true,
+    attendance: permissions["events.edit"] === true || permissions["checkin.manage"] === true,
+    audience: permissions["events.edit"] === true || permissions["registrations.manual"] === true,
+    workflow: permissions["events.edit"] === true ||
+      permissions["events.submit"] === true || permissions["events.approve"] === true ||
+      permissions["events.publish"] === true || permissions["events.cancel"] === true ||
+      permissions["events.archive"] === true || permissions["events.complete"] === true,
+  }
+}
+
+function projectEventPayload(payload, flags) {
+  flags = flags || {}
+  if (flags.finance && flags.edit) return payload
+  var projected = copySnapshotFields(payload, [
+    "id", "title", "slug", "date", "endDate", "venue", "status", "price",
+    "registrationOpen", "registrationMode", "checkInEnabled", "isArchived", "maxCapacity",
+    "registeredCount", "checkedInCount", "society",
+  ])
+  if (flags.audience) {
+    projected.collectIeeeMember = payload.collectIeeeMember
+    projected.eligibleSemesters = payload.eligibleSemesters
+    projected.eligibleProgrammes = payload.eligibleProgrammes
+  }
+  if (flags.edit) projected.formTemplate = payload.formTemplate
+  if (flags.workflow) {
+    projected.approvalStatus = payload.approvalStatus
+    projected.approvalNote = payload.approvalNote
+    projected.submittedBy = payload.submittedBy
+    projected.submittedAt = payload.submittedAt
+    projected.approvedBy = payload.approvedBy
+    projected.approvedAt = payload.approvedAt
+    projected.approvalRevision = payload.approvalRevision
+  }
+  if (flags.finance) {
+    projected.financeApprovalStatus = payload.financeApprovalStatus
+    projected.financeApprovalNote = payload.financeApprovalNote
+    projected.financeApprovedBy = payload.financeApprovedBy
+    projected.financeApprovedAt = payload.financeApprovedAt
+  }
+  return projected
+}
 
 function audit(app, input) {
   var collection
@@ -119,6 +258,7 @@ function audit(app, input) {
 }
 
 function eventPayload(event) {
+  var audience = require(__hooks + "/event-audience-helpers.js").eventAudience(event)
   var formTemplate = event.get("formTemplate")
   if (typeof formTemplate === "string") {
     try { formTemplate = JSON.parse(formTemplate) } catch (_) { formTemplate = [] }
@@ -133,12 +273,14 @@ function eventPayload(event) {
     venue: event.getString("venue") || "",
     status: event.getString("status") || "",
     price: require(__hooks + "/registration-helpers.js").eventPrice(event),
-    paymentProvider: event.getString("paymentProvider") || "razorpay",
     registrationOpen: event.getBool("registrationOpen"),
     registrationMode: event.getString("registrationMode") || "",
     collectIeeeMember: event.getBool("collectIeeeMember"),
+    eligibleSemesters: audience.semesters,
+    eligibleProgrammes: audience.programmes,
     formTemplate: formTemplate,
     checkInEnabled: event.getBool("checkInEnabled"),
+    isArchived: event.getBool("isDeleted"),
     maxCapacity: event.getInt("maxCapacity") || 0,
     registeredCount: event.getInt("registeredCount") || 0,
     checkedInCount: event.getInt("checkedInCount") || 0,
@@ -157,9 +299,9 @@ function eventPayload(event) {
   }
 }
 
-function summarizeRegistrations(records) {
-  var summary = {
-    totalRecords: records.length,
+function emptyRegistrationSummary() {
+  return {
+    totalRecords: 0,
     active: 0,
     confirmed: 0,
     pending: 0,
@@ -186,7 +328,10 @@ function summarizeRegistrations(records) {
     selfServiceCount: 0,
     providers: {},
   }
+}
 
+function addRegistrationsToSummary(summary, records) {
+  summary.totalRecords += records.length
   for (var i = 0; i < records.length; i++) {
     var reg = records[i]
     var registrationStatus = reg.getString("registrationStatus") || ""
@@ -251,18 +396,38 @@ function summarizeRegistrations(records) {
   return summary
 }
 
+function summarizeRegistrations(records) {
+  return addRegistrationsToSummary(emptyRegistrationSummary(), records)
+}
+
+function projectRegistrationSummary(summary, flags) {
+  flags = flags || {}
+  if (flags.finance) return summary
+  return copySnapshotFields(summary, [
+    "totalRecords", "active", "confirmed", "pending", "cancelled",
+    "checkedIn", "adminCreatedCount", "selfServiceCount",
+  ])
+}
+
 module.exports = {
   jsonObject: jsonObject,
   role: role,
   mayManageEvent: mayManageEvent,
   mayViewEventOperations: mayViewEventOperations,
   eventPermissions: eventPermissions,
+  operationProjection: operationProjection,
   requireManageEvent: requireManageEvent,
   providerKind: providerKind,
   collectedAmount: collectedAmount,
   refundedAmount: refundedAmount,
   registrationSnapshot: registrationSnapshot,
+  projectRegistrationSnapshot: projectRegistrationSnapshot,
   audit: audit,
   eventPayload: eventPayload,
+  projectEventPayload: projectEventPayload,
+  emptyRegistrationSummary: emptyRegistrationSummary,
+  projectRegistrationSummary: projectRegistrationSummary,
+  addRegistrationsToSummary: addRegistrationsToSummary,
   summarizeRegistrations: summarizeRegistrations,
+  registrationAdminProjection: registrationAdminProjection,
 }

@@ -30,67 +30,47 @@ class FakePayGateState:
         self.by_idempotency = {}
         self.create_count = 0
 
-    def create(self, amount, external_id, metadata, idempotency_key):
+    def create(self, amount, name, external_id, metadata, idempotency_key):
         with self.lock:
-            params = {
-                "amount": amount,
-                "externalId": external_id,
-                "metadata": metadata,
-            }
+            params = {"amount": amount, "name": name, "external_id": external_id, "metadata": metadata}
             if idempotency_key in self.by_idempotency:
                 payment_id = self.by_idempotency[idempotency_key]
                 payment = self.payments[payment_id]
                 if payment["_params"] != params:
-                    return 409, {
-                        "code": "IDEMPOTENCY_CONFLICT",
-                        "message": "the idempotency key was already used with different payment parameters",
-                    }
-                return 200, self.create_response(payment)
+                    return 409, {"error": {"code": "IDEMPOTENCY_CONFLICT", "message": "idempotency conflict"}}
+                return 200, self.public_response(payment)
 
             self.create_count += 1
             payment_id = f"pg_ci_{self.create_count:04d}"
-            requested = amount * 100
             suffix = 30 + self.create_count
-            payable = requested + suffix
-            expires_at = (
-                dt.datetime.now(dt.timezone.utc) + dt.timedelta(minutes=5)
-            ).isoformat().replace("+00:00", "Z")
+            requested_paise = amount * 100
+            payable_paise = requested_paise + suffix
+            expires = dt.datetime.now(dt.timezone.utc) + dt.timedelta(minutes=5)
             payment = {
                 "id": payment_id,
-                "requestedAmount": amount,
-                "requestedAmountPaise": requested,
-                "payableAmount": f"{payable / 100:.2f}",
-                "payableAmountPaise": payable,
+                "object": "payment",
+                "name": name,
+                "requested_amount": f"{amount:.2f}",
+                "payable_amount": f"{payable_paise / 100:.2f}",
+                "adjustment": f"{suffix / 100:.2f}",
                 "status": "pending",
-                "expiresAt": expires_at,
-                "paidAt": None,
-                "externalId": external_id,
-                "upiUri": (
-                    "upi://pay?pa=ci%40upi&pn=IEEE+Sahrdaya+CI"
-                    f"&am={payable / 100:.2f}&cu=INR&tr={payment_id}"
-                ),
+                "expires_at": expires.isoformat().replace("+00:00", "Z"),
+                "grace_until": (expires + dt.timedelta(minutes=5)).isoformat().replace("+00:00", "Z"),
+                "paid_at": None,
+                "external_id": external_id,
+                "metadata": metadata or {},
+                "payer": {"name": "", "upi_id": ""},
+                "upi_uri": "upi://pay?am=" + f"{payable_paise / 100:.2f}" + f"&cu=INR&pa=ci%40upi&pn=IEEE%20Sahrdaya%20CI&tn=PayGate%20{payment_id}",
+                "transaction_note": f"PayGate {payment_id}",
                 "_params": params,
             }
             self.payments[payment_id] = payment
             self.by_idempotency[idempotency_key] = payment_id
-            return 201, self.create_response(payment)
-
-    @staticmethod
-    def create_response(payment):
-        return {k: v for k, v in payment.items() if not k.startswith("_")}
+            return 201, self.public_response(payment)
 
     @staticmethod
     def public_response(payment):
-        return {
-            "id": payment["id"],
-            "requestedAmount": payment["requestedAmount"],
-            "requestedAmountPaise": payment["requestedAmountPaise"],
-            "payableAmount": payment["payableAmount"],
-            "payableAmountPaise": payment["payableAmountPaise"],
-            "status": payment["status"],
-            "expiresAt": payment["expiresAt"],
-            "paidAt": payment["paidAt"],
-        }
+        return {k: v for k, v in payment.items() if not k.startswith("_")}
 
     def get(self, payment_id):
         with self.lock:
@@ -102,9 +82,8 @@ class FakePayGateState:
             payment = self.payments[payment_id]
             payment["status"] = status
             if status in ("paid", "late"):
-                payment["paidAt"] = dt.datetime.now(dt.timezone.utc).isoformat().replace(
-                    "+00:00", "Z"
-                )
+                payment["paid_at"] = dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z")
+                payment["payer"] = {"name": "CI Payer", "upi_id": "payer@upi"}
             return dict(payment)
 
     def raw(self, payment_id):
@@ -130,7 +109,7 @@ class FakePayGateHandler(BaseHTTPRequestHandler):
         self.wfile.write(raw)
 
     def do_POST(self):
-        if self.path != "/api/payments":
+        if self.path != "/v1/payments":
             self.send_json(404, {"code": "NOT_FOUND", "message": "not found"})
             return
         if self.headers.get("Authorization") != f"Bearer {PAYGATE_API_KEY}":
@@ -152,14 +131,15 @@ class FakePayGateHandler(BaseHTTPRequestHandler):
             return
         status, response = STATE.create(
             amount,
-            str(body.get("externalId") or ""),
+            str(body.get("name") or ""),
+            str(body.get("external_id") or ""),
             body.get("metadata"),
             idempotency_key,
         )
         self.send_json(status, response)
 
     def do_GET(self):
-        prefix = "/api/payments/"
+        prefix = "/v1/payments/"
         if not self.path.startswith(prefix):
             self.send_json(404, {"code": "NOT_FOUND", "message": "not found"})
             return
@@ -224,29 +204,15 @@ def impersonate(super_token, user_id):
 def signed_paygate_event(event_id, event_type, provider_payment, timestamp=None):
     if timestamp is None:
         timestamp = str(int(time.time()))
-    payment = {
-        "id": provider_payment["id"],
-        "requestedAmountPaise": provider_payment["requestedAmountPaise"],
-        "payableAmountPaise": provider_payment["payableAmountPaise"],
-        "status": provider_payment["status"],
-        "rrn": f"rrn-{event_id}",
-        "upiId": "payer@upi",
-        "payerName": "CI Payer",
-        "paidAt": provider_payment.get("paidAt") or "",
-        "externalId": provider_payment["externalId"],
-    }
+    payment = STATE.public_response(provider_payment)
     event = {
         "id": event_id,
         "type": event_type,
-        "createdAt": dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z"),
+        "created_at": dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z"),
         "data": {"payment": payment},
     }
     raw = json.dumps(event, separators=(",", ":")).encode()
-    signature = hmac.new(
-        PAYGATE_WEBHOOK_SECRET.encode(),
-        timestamp.encode() + b"." + raw,
-        hashlib.sha256,
-    ).hexdigest()
+    signature = hmac.new(PAYGATE_WEBHOOK_SECRET.encode(), timestamp.encode() + b"." + raw, hashlib.sha256).hexdigest()
     headers = {
         "X-PayGate-Event-Id": event_id,
         "X-PayGate-Timestamp": timestamp,
@@ -328,7 +294,6 @@ def main():
                 "endDate": end,
                 "venue": "CI Lab",
                 "price": 100,
-                "paymentProvider": "kotak",
                 "society": society["id"],
                 "status": "published",
                 "maxCapacity": 10,
@@ -359,7 +324,7 @@ def main():
         pending_record = request(
             "GET",
             f"/api/collections/registrations/records/{reg1['registrationId']}",
-            token=token1,
+            token=super_token,
         )
         assert pending_record["paymentData"]["provider"] == "paygate"
         assert pending_record["paymentData"]["providerStatus"] == "not_initialized"
@@ -376,6 +341,18 @@ def main():
         )
         assert owner_temp["found"] is True
         assert owner_temp["registrationId"] == reg1["registrationId"]
+        assert owner_temp["registration"]["id"] == reg1["registrationId"]
+        assert owner_temp["registration"]["registrationStatus"] == "pending"
+        assert set(owner_temp["registration"].keys()) == {
+            "id", "userName", "userEmail", "userPhone", "registrationStatus",
+            "paymentStatus", "registrationDate", "amount",
+        }
+        request(
+            "GET",
+            f"/api/collections/registrations/records/{reg1['registrationId']}",
+            token=token1,
+            expected=(403, 404),
+        )
 
         payment1 = request(
             "POST",
@@ -386,7 +363,8 @@ def main():
         assert payment1["providerStatus"] == "pending"
         assert payment1["requestedAmountPaise"] == 10000
         assert payment1["payableAmountPaise"] == 10031
-        assert payment1["upiUri"].startswith("upi://pay?")
+        assert payment1["upiUri"] == STATE.get(payment1["paymentId"])["upi_uri"]
+        assert payment1["transactionNote"] == f"PayGate {payment1['paymentId']}"
         assert STATE.create_count == 1
 
         ledger_filter = urllib.parse.quote(f'registration = "{reg1["registrationId"]}"')
@@ -460,13 +438,12 @@ def main():
 
         raw2, headers2 = signed_paygate_event("evt_ci_paid", "payment.paid", provider2)
 
-        # A correctly signed callback from another IEEE environment must be
-        # acknowledged but ignored. Staging and production share the temporary
-        # PayGate service, so environment-scoped external IDs are a hard boundary.
+        # A correctly signed v4 callback from another IEEE environment must be
+        # acknowledged but ignored. Environment-scoped metadata is the hard
+        # boundary when one PayGate service receives events for multiple clients.
         foreign_provider = dict(provider2)
-        foreign_provider["externalId"] = (
-            "ieee-sahrdaya:production:registration:" + reg2["registrationId"]
-        )
+        foreign_provider["metadata"] = dict(provider2.get("metadata") or {})
+        foreign_provider["metadata"]["environment"] = "production"
         foreign_raw, foreign_headers = signed_paygate_event(
             "evt_ci_foreign", "payment.paid", foreign_provider
         )
@@ -492,9 +469,9 @@ def main():
         )
 
         mismatch = dict(provider2)
-        mismatch["requestedAmountPaise"] = 9900
-        mismatch["payableAmountPaise"] = 9931
-        mismatch["payableAmount"] = "99.31"
+        mismatch["requested_amount"] = "99.00"
+        mismatch["payable_amount"] = "99.31"
+        mismatch["adjustment"] = "0.31"
         raw_bad_amount, bad_amount_headers = signed_paygate_event(
             "evt_ci_amount", "payment.paid", mismatch
         )
@@ -517,7 +494,7 @@ def main():
         reg2_record = request(
             "GET",
             f"/api/collections/registrations/records/{reg2['registrationId']}",
-            token=token2,
+            token=super_token,
         )
         assert reg2_record["registrationStatus"] == "confirmed"
         assert reg2_record["paymentStatus"] == "paid"
@@ -555,7 +532,7 @@ def main():
         reg3_record = request(
             "GET",
             f"/api/collections/registrations/records/{reg3['registrationId']}",
-            token=token3,
+            token=super_token,
         )
         assert reg3_record["registrationStatus"] == "confirmed"
 
@@ -578,14 +555,14 @@ def main():
         reg4_record = request(
             "GET",
             f"/api/collections/registrations/records/{reg4['registrationId']}",
-            token=token4,
+            token=super_token,
         )
         assert reg4_record["registrationStatus"] == "cancelled"
         assert reg4_record["paymentStatus"] == "failed"
         assert reg4_record["paymentData"]["manualReview"] is True
 
-        # If the event is cancelled after a Kotak session was issued, a real
-        # later bank credit is retained as paid/manual-review evidence without
+        # If the event is cancelled after a PayGate session was issued, a real
+        # later credit is retained as paid/manual-review evidence without
         # resurrecting the seat or minting a ticket.
         user5 = create_user(super_token, suffix, "event-cancelled")
         token5 = impersonate(super_token, user5["id"])
@@ -607,7 +584,7 @@ def main():
         request(
             "POST",
             f"/api/admin/events/{event['id']}/cancel",
-            {"reason": "CI verifies late Kotak payment after event cancellation"},
+            {"reason": "CI verifies late PayGate payment after event cancellation"},
             cancel_admin_token,
         )
         raw5, headers5 = signed_paygate_event(
@@ -620,7 +597,7 @@ def main():
         reg5_record = request(
             "GET",
             f"/api/collections/registrations/records/{reg5['registrationId']}",
-            token=token5,
+            token=super_token,
         )
         assert reg5_record["registrationStatus"] == "cancelled"
         assert reg5_record["paymentStatus"] == "paid"
@@ -631,6 +608,54 @@ def main():
         assert any(c.get("id") == "paygate-registration-expiry" for c in crons)
 
         assert STATE.create_count == 5
+
+        # Dedicated untouched Browser E2E fixture. Its provider session is created
+        # while the local fake PayGate is alive, then left pending so Playwright
+        # exercises the real payment page without contacting a live payment rail.
+        browser_event = request(
+            "POST",
+            "/api/collections/events/records",
+            {
+                "title": f"E2E PayGate Checkout {suffix}",
+                "description": "browser payment-page fixture",
+                "date": start,
+                "endDate": end,
+                "venue": "E2E Payments Lab",
+                "price": 125,
+                "society": society["id"],
+                "status": "published",
+                "maxCapacity": 5,
+                "registeredCount": 0,
+                "checkedInCount": 0,
+                "registrationOpen": True,
+                "checkInEnabled": True,
+                "isDeleted": False,
+                "formTemplate": [
+                    {"id": "name", "name": "name", "label": "Name", "required": True},
+                    {"id": "email", "name": "email", "label": "Email", "required": True},
+                ],
+            },
+            super_token,
+        )
+        browser_user = create_user(super_token, suffix, "browser-checkout")
+        browser_token = impersonate(super_token, browser_user["id"])
+        browser_registration = register_paid(browser_event["id"], browser_user, browser_token)
+        browser_payment = request(
+            "POST",
+            f"/api/app/registrations/{browser_registration['registrationId']}/payment",
+            token=browser_token,
+        )
+        assert browser_payment["provider"] == "paygate"
+        assert browser_payment["providerStatus"] == "pending"
+        assert browser_payment["payableAmountPaise"] > browser_payment["requestedAmountPaise"]
+        assert STATE.create_count == 6
+        if github_env := os.environ.get("GITHUB_ENV"):
+            with open(github_env, "a", encoding="utf-8") as env_file:
+                env_file.write(f"E2E_PAYMENT_TOKEN={browser_token}\n")
+                env_file.write(f"E2E_PAYMENT_REGISTRATION_ID={browser_registration['registrationId']}\n")
+                env_file.write(f"E2E_PAYMENT_EVENT_TITLE={browser_event['title']}\n")
+                env_file.write(f"E2E_PAYMENT_PAYABLE={browser_payment['payableAmount']}\n")
+
         print(
             json.dumps(
                 {

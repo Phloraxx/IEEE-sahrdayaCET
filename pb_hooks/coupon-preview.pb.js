@@ -42,39 +42,15 @@ routerAdd("POST", "/api/app/events/{id}/coupon-preview", function (e) {
     if (!isNaN(deadlineDate.getTime()) && deadlineDate < now) return e.json(400, { error: "Registration deadline has passed" })
   }
 
-  var baseFeePaise = Number(event.getInt("baseFeePaise") || 0)
-  if (!baseFeePaise) baseFeePaise = Math.max(0, Math.round(Number(event.get("price") || 0) * 100))
-  if (baseFeePaise <= 0) return e.json(400, { error: "Coupons are only available for paid events" })
-
-  var coupon
-  try {
-    coupon = $app.findFirstRecordByFilter(
-      "coupons",
-      "code = {:code} && event = {:eventId} && isActive = true && (expiresAt = '' || expiresAt > @now)",
-      { code: code, eventId: eventId }
-    )
-  } catch (_) { coupon = null }
-  if (!coupon) return e.json(400, { error: "Invalid or expired coupon code" })
-
-  var maxUses = coupon.getInt("maxUses") || 0
-  if (maxUses > 0) {
-    var used = $app.findRecordsByFilter(
-      "registrations",
-      "couponCode = {:code} && event = {:eventId} && registrationStatus != {:cancelled}",
-      "", 0, 0,
-      { code: code, eventId: eventId, cancelled: "cancelled" }
-    )
-    if (used.length >= maxUses) return e.json(409, { error: "Coupon usage limit has been reached" })
-  }
-
-  var percent = coupon.getInt("discountPercent") || 0
-  var discountPaise = Math.round(baseFeePaise * percent / 100)
-  var finalFeePaise = Math.max(0, baseFeePaise - discountPaise)
+  var pricing = require(__hooks + "/event-pricing-helpers.js")
+  var result = pricing.calculate($app, event, { couponCode: code })
+  if (!result.ok) return e.json(result.status || 400, { code: result.code, error: result.error })
   return e.json(200, {
     code: code,
-    discountPercent: percent,
-    baseAmount: baseFeePaise / 100,
-    discountAmount: discountPaise / 100,
-    amount: finalFeePaise / 100,
+    discountPercent: result.couponDiscountPercent,
+    baseAmount: result.baseFeePaise / 100,
+    discountAmount: result.appliedDiscountPaise / 100,
+    amount: result.finalFeePaise / 100,
   })
+
 }, $apis.requireAuth("users"))

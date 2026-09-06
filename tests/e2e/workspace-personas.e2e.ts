@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 type Persona = { token: string; record: Record<string, unknown> };
 type Fixtures = {
-  PERSONAS: { branch: Persona; checkin: Persona; chair: Persona; finance: Persona; content: Persona };
+  PERSONAS: { branch: Persona; checkin: Persona; chair: Persona; finance: Persona; content: Persona; registration?: Persona };
   EVENT_ID: string;
   SOCIETY_ID: string;
 };
@@ -18,14 +18,16 @@ async function signIn(page: Page, persona: Persona) {
     localStorage.setItem("pocketbase_auth", JSON.stringify({ token, record }));
   }, persona);
 }
+const checkInUrl = /\/admin\/check-in(?:\?[^#]+)?$/;
+
 test.describe("IEEE Workspace role personas", () => {
   test.skip(!fixtures, "Workspace persona fixtures are not configured");
 
   test("check-in staff see only the scanner surface and cannot deep-link elsewhere", async ({ page }) => {
     await signIn(page, fixtures!.PERSONAS.checkin);
     await page.goto("/admin");
-    await expect(page).toHaveURL(/\/admin\/check-in$/);
-    await expect(page.getByRole("heading", { name: "Check-in" })).toBeVisible();
+    await expect(page).toHaveURL(checkInUrl);
+    await expect(page.getByRole("heading", { name: "Attendance console" })).toBeVisible();
     const nav = page.getByRole("complementary", { name: "IEEE Workspace navigation" });
     await expect(nav.getByRole("link", { name: "Check-in" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Registrations" })).toHaveCount(0);
@@ -33,9 +35,9 @@ test.describe("IEEE Workspace role personas", () => {
     await expect(nav.getByRole("link", { name: "Access & Roles" })).toHaveCount(0);
 
     await page.goto("/admin/registrations");
-    await expect(page).toHaveURL(/\/admin\/check-in$/);
+    await expect(page).toHaveURL(checkInUrl);
     await page.goto("/admin/access");
-    await expect(page).toHaveURL(/\/admin\/check-in$/);
+    await expect(page).toHaveURL(checkInUrl);
   });
 
   test("society chair can operate its society without platform administration", async ({ page }) => {
@@ -59,6 +61,23 @@ test.describe("IEEE Workspace role personas", () => {
     await expect(page).toHaveURL(/\/admin\/dashboard$/);
   });
 
+  test("registration desk normalizes forbidden payment tabs and keeps attendee operations usable", async ({ page }) => {
+    test.skip(!fixtures?.PERSONAS.registration, "Registration persona fixture is not configured");
+    await signIn(page, fixtures!.PERSONAS.registration!);
+
+    await page.goto(`/admin/events/${fixtures!.EVENT_ID}?tab=payments`);
+    await expect(page).toHaveURL(new RegExp(`/admin/events/${fixtures!.EVENT_ID}$`));
+    await expect(page.getByRole("button", { name: "Payments" })).toHaveCount(0);
+    await expect(page.getByText("Recorded collected", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("Active seats", { exact: true }).first()).toBeVisible();
+
+    await page.goto(`/admin/events/${fixtures!.EVENT_ID}?tab=attendees`);
+    await expect(page).toHaveURL(new RegExp(`/admin/events/${fixtures!.EVENT_ID}\\?tab=attendees$`));
+    await expect(page.getByText("Attendee register", { exact: true })).toBeVisible();
+    await expect(page.getByText("All registration states", { exact: true })).toBeVisible();
+    await expect(page.getByText("All payment states", { exact: true })).toHaveCount(0);
+  });
+
   test("event content lands in blogs and cannot open registration operations", async ({ page }) => {
     await signIn(page, fixtures!.PERSONAS.content);
     await page.goto("/admin");
@@ -77,7 +96,7 @@ test.describe("IEEE Workspace role personas", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await signIn(page, fixtures!.PERSONAS.checkin);
     await page.goto("/admin/check-in");
-    await expect(page.getByRole("heading", { name: "Check-in" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Attendance console" })).toBeVisible();
     await page.getByRole("button", { name: "Open sidebar" }).click();
     const nav = page.getByRole("complementary", { name: "IEEE Workspace navigation" });
     await expect(nav.getByRole("link", { name: "Check-in" })).toBeVisible();

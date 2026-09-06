@@ -183,7 +183,14 @@ function activeAssignments(app, auth) {
     return []
   }
   var now = Date.now()
-  return rows.filter(function (row) { return assignmentActive(row, now) })
+  var execomIntegrity = null
+  try { execomIntegrity = require(__hooks + "/execom-workspace-sync.js") } catch (_) {}
+  return rows.filter(function (row) {
+    if (!assignmentActive(row, now)) return false
+    if ((row.getString("source") || "") !== "execom") return true
+    if (!execomIntegrity || typeof execomIntegrity.assignmentSourceCurrent !== "function") return false
+    try { return execomIntegrity.assignmentSourceCurrent(app, row) } catch (_) { return false }
+  })
 }
 
 function legacyChairOwnsSociety(app, auth, societyId) {
@@ -260,6 +267,7 @@ function assignmentPayload(record) {
     endsAt: record.getString("endsAt") || "",
     active: record.getBool("active"),
     source: record.getString("source") || "manual",
+    sourceExecomId: record.getString("sourceExecom") || "",
     notes: record.getString("notes") || "",
     capabilities: (ROLE_CAPABILITIES[record.getString("roleCode") || ""] || []).slice()
   }

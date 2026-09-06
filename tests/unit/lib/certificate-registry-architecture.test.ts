@@ -21,22 +21,29 @@ describe("certificate registry architecture", () => {
     expect(helpers).toContain('canViewEvent(app, auth, event)');
     expect(helpers).toContain('.hasEventCapability(app, auth, "registrations.view", event)');
     expect(helpers).toContain('.hasEventCapability(app, auth, "certificates.send", event)');
-    expect(helpers).toContain('recipientEmail: access.registrationView ?');
-    expect(helpers).toContain('lastError: access.send ?');
+    expect(helpers).toContain('recipientEmail: item.registrationView ?');
+    expect(helpers).toContain('lastError: item.send ?');
     expect(helpers).not.toContain('revocationReason:');
     expect(page).not.toContain("revokeCertificate");
     expect(page).not.toContain("supersedeCertificate");
   });
 
-  it("uses the established outbox schema instead of silently masking delivery state", () => {
-    expect(helpers).toContain("findRecordsByFilter(\"notification_outbox\", \"kind = 'certificate'\", \"id\", 0, 0)");
-    expect(helpers).not.toContain('"-created"');
-    expect(helpers).not.toContain('catch (_) { rows = [] }');
+  it("bounds registry work in SQLite instead of materializing full operational collections", () => {
+    expect(helpers).toContain("SELECT DISTINCT event AS eventId FROM certificates");
+    expect(helpers).toContain("LEFT JOIN notification_outbox n");
+    expect(helpers).toContain("ORDER BY n2.id ASC LIMIT 1");
+    expect(helpers).toContain("arrayOf(new DynamicModel");
+    expect(helpers).toContain("LIMIT {:limit} OFFSET {:offset}");
+    expect(helpers).toContain("WITH candidates AS (");
+    expect(helpers).not.toContain('findRecordsByFilter("certificates"');
+    expect(helpers).not.toContain('findRecordsByFilter("notification_outbox"');
   });
+
   it("supports operational search, filters, pagination and CSV export", () => {
     expect(helpers).toContain('query(e, "search")');
     expect(helpers).toContain('query(e, "delivery")');
     expect(helpers).toContain('perPage = clampInt');
+    expect(helpers).toContain("instr(lower(COALESCE(c.recipientNameSnapshot, ''))");
     expect(client).toContain("listAllCertificateRegistry");
     expect(client).toContain("certificateRegistryCsv");
     expect(page).toContain("Export CSV");

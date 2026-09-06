@@ -48,13 +48,51 @@ super_auth = request("POST", "/api/collections/_superusers/auth-with-password", 
 })
 super_token = super_auth["token"]
 crons = request("GET", "/api/crons", token=super_token)
-topup_cron = next((cron for cron in crons if cron.get("id") == "fifa-daily-topup"), None)
-assert topup_cron and topup_cron.get("expression") == "30 3 * * *"
 backup_cron = next((cron for cron in crons if cron.get("id") == "__pbAutoBackup__"), None)
 assert backup_cron and backup_cron.get("expression") == "30 21 * * *"
+assert not any(str(cron.get("id", "")).startswith("fifa") for cron in crons)
+
+# The retired WC Predict feature is removed from the runtime and schema.
+for retired_collection in (
+    "fifa_matches", "fifa_bet_markets", "fifa_bets",
+    "fifa_transactions", "fifa_settings", "fifa_feed_events",
+):
+    request("GET", f"/api/collections/{retired_collection}", token=super_token, expected=(404,))
+users_schema = request("GET", "/api/collections/users", token=super_token)
+assert "balance" not in {field.get("name") for field in users_schema.get("fields", [])}
+assert "balance" not in str(users_schema.get("updateRule") or "")
+for retired_route in ("/api/fifa/leaderboard", "/api/fifa/stats", "/api/fifa/live-scores"):
+    request("GET", retired_route, expected=(404,))
 settings = request("GET", "/api/settings", token=super_token)
 assert settings["backups"]["cron"] == "30 21 * * *"
 assert settings["backups"]["cronMaxKeep"] == 14
+
+# Event audience/pricing groundwork is additive. Existing events remain
+# unrestricted until later command/UI phases start writing these fields.
+event_schema = request("GET", "/api/collections/events", token=super_token)
+event_fields = {field["name"]: field for field in event_schema["fields"]}
+assert event_fields["eligibleSemesters"]["type"] == "json"
+assert event_fields["eligibleProgrammes"]["type"] == "json"
+assert event_fields["ieeeMemberDiscountPercent"]["type"] == "number"
+assert event_fields["requirements"]["type"] == "json"
+assert event_fields["attendeeNote"]["type"] == "text"
+
+registration_schema = request("GET", "/api/collections/registrations", token=super_token)
+registration_fields = {field["name"]: field for field in registration_schema["fields"]}
+assert registration_fields["programmeCode"]["type"] == "text"
+assert set(registration_fields["semester"]["values"]) == {f"S{i}" for i in range(1, 9)}
+assert registration_fields["ieeeMember"]["type"] == "bool"
+assert registration_fields["ieeeMemberId"]["type"] == "text"
+assert set(registration_fields["discountSource"]["values"]) == {"none", "ieee_member", "coupon"}
+
+private_schema = request("GET", "/api/collections/event_private_details", token=super_token)
+private_fields = {field["name"]: field for field in private_schema["fields"]}
+assert private_fields["whatsappGroupUrl"]["type"] == "text"
+
+waitlist_schema = request("GET", "/api/collections/event_waitlist", token=super_token)
+waitlist_fields = {field["name"]: field for field in waitlist_schema["fields"]}
+assert waitlist_fields["programmeCode"]["type"] == "text"
+assert set(waitlist_fields["semester"]["values"]) == {f"S{i}" for i in range(1, 9)}
 
 # Long-lived production predates the additive baseline migration. Keep the
 # query/uniqueness indexes required by current code normalized on both fresh
@@ -62,7 +100,8 @@ assert settings["backups"]["cronMaxKeep"] == 14
 required_indexes = {
     "societies": ("idx_societies_slug", "idx_societies_hidden"),
     "blogs": ("idx_blogs_published_at",),
-    "execom": ("idx_execom_order", "idx_execom_society"),
+    "execom": ("idx_execom_order", "idx_execom_society", "idx_execom_assignment_unique"),
+    "organization_assignments": ("idx_org_assignments_source_execom_unique",),
     "registrations": ("idx_registrations_event_payment", "idx_registrations_event_ticket"),
 }
 for collection_name, expected_indexes in required_indexes.items():
@@ -74,13 +113,12 @@ suffix = str(int(time.time() * 1000))
 fixture_password = "FixturePass-2026!"
 
 
-def create_user(label, role="user", balance=0):
+def create_user(label, role="user"):
     return request("POST", "/api/collections/users/records", {
         "email": f"{label}-{suffix}@example.test",
         "verified": True,
         "name": label.title(),
         "role": role,
-        "balance": balance,
         "password": fixture_password,
         "passwordConfirm": fixture_password,
     }, super_token)
@@ -88,8 +126,8 @@ def create_user(label, role="user", balance=0):
 
 admin = create_user("admin", "admin")
 chair = create_user("chair", "chair")
-user = create_user("member", "user", 1000)
-second_user = create_user("member-two", "user", 1000)
+user = create_user("member", "user")
+second_user = create_user("member-two", "user")
 admin_token = impersonate(super_token, admin["id"])
 if github_env := os.environ.get("GITHUB_ENV"):
     with open(github_env, "a", encoding="utf-8") as env_file:
@@ -97,6 +135,10 @@ if github_env := os.environ.get("GITHUB_ENV"):
 chair_token = impersonate(super_token, chair["id"])
 user_token = impersonate(super_token, user["id"])
 second_token = impersonate(super_token, second_user["id"])
+
+# Payment summary remains valid on an empty ledger/refund table.
+empty_finance = request("GET", "/api/admin/payments/summary", token=admin_token)["summary"]
+assert all(value == 0 for value in empty_finance.values()), empty_finance
 
 # Attendee history is private and requires an authenticated user.
 request("GET", "/api/app/my-events", expected=(401,))
@@ -158,47 +200,6 @@ coupon_admin_list = request(
 )
 assert isinstance(coupon_admin_list.get("items"), list)
 
-# The daily FIFA top-up cron is executable, transactional, and idempotent per IST day.
-settings_page = request("GET", "/api/collections/fifa_settings/records?page=1&perPage=1", token=super_token)
-if not settings_page["items"]:
-    cron_settings = request("POST", "/api/collections/fifa_settings/records", {
-        "event_name": "WC Predict '26", "starting_balance": 1000, "max_bet_percent": 25,
-        "daily_topup_threshold": 100, "daily_topup_target": 200, "pool_house_cut_percent": 0,
-        "raffle_tickets_base": 50, "raffle_tickets_decay": 2, "raffle_active_participant_min_bets": 5,
-        "prize": "", "registration_open": True,
-    }, super_token)
-else:
-    cron_settings = settings_page["items"][0]
-request("PATCH", f"/api/collections/fifa_settings/records/{cron_settings['id']}", {
-    "daily_topup_threshold": 100,
-    "daily_topup_target": 200,
-}, super_token)
-# User creation intentionally applies the starting grant, so explicitly lower one
-# fixture after creation to exercise the daily top-up path.
-request("PATCH", f"/api/collections/users/records/{admin['id']}", {"balance": 0}, super_token)
-request("POST", "/api/crons/fifa-daily-topup", token=super_token, expected=(204,))
-admin_after_topup = None
-for _ in range(30):
-    admin_after_topup = request("GET", f"/api/collections/users/records/{admin['id']}", token=super_token)
-    if admin_after_topup["balance"] == 200:
-        break
-    time.sleep(0.1)
-assert admin_after_topup and admin_after_topup["balance"] == 200
-topup_ledger = request(
-    "GET",
-    f"/api/collections/fifa_transactions/records?filter=" + urllib.parse.quote(f'user="{admin["id"]}" && type="daily_topup"'),
-    token=super_token,
-)
-assert topup_ledger["totalItems"] == 1 and topup_ledger["items"][0]["amount"] == 200
-request("POST", "/api/crons/fifa-daily-topup", token=super_token, expected=(204,))
-time.sleep(0.5)
-topup_ledger_again = request(
-    "GET",
-    f"/api/collections/fifa_transactions/records?filter=" + urllib.parse.quote(f'user="{admin["id"]}" && type="daily_topup"'),
-    token=super_token,
-)
-assert topup_ledger_again["totalItems"] == 1
-
 society = request("POST", "/api/collections/societies/records", {
     "name": f"CI Society {suffix}", "slug": f"ci-society-{suffix}", "bio": "CI smoke",
     "isHidden": False, "chairs": [chair["id"]],
@@ -217,9 +218,10 @@ chair_second_society = request("POST", "/api/collections/societies/records", {
     "isHidden": False, "chairs": [chair["id"]],
 }, super_token)
 
-# Execom roles are an authorization source. Role changes must revoke the old
-# assignment before minting the replacement, and deleting the source record
-# must leave no active Execom-sourced authorization behind.
+# Execom roles are an authorization source. Each directory record owns one
+# active assignment, stale source/backlink drift must fail closed immediately,
+# role changes preserve history, and deleting one duplicate-role source must
+# not revoke another source record's independent assignment.
 execom_member = request("POST", "/api/collections/execom/records", {
     "name": f"CI Execom {suffix}", "position": "Society Chair",
     "society": society["id"], "user": second_user["id"],
@@ -231,7 +233,38 @@ first_assignment_id = execom_member.get("assignment")
 assert first_assignment_id
 first_assignment = request("GET", f"/api/collections/organization_assignments/records/{first_assignment_id}", token=super_token)
 assert first_assignment["active"] is True and first_assignment["source"] == "execom"
+assert first_assignment["sourceExecom"] == execom_member["id"]
 assert first_assignment["roleCode"] == "society_chair" and first_assignment["user"] == second_user["id"]
+assert "events.create" in request("GET", "/api/workspace/me", token=second_token)["capabilities"]
+
+# Deliberately break the source relation. Authorization must reject the active
+# row before reconciliation, then the next source update repairs it atomically.
+request("PATCH", f"/api/collections/organization_assignments/records/{first_assignment_id}", {
+    "sourceExecom": "",
+}, super_token)
+assert request("GET", "/api/workspace/me", token=second_token)["capabilities"] == []
+request("PATCH", f"/api/collections/execom/records/{execom_member['id']}", {
+    "term": "ci-repaired",
+}, super_token)
+time.sleep(0.1)
+first_assignment = request("GET", f"/api/collections/organization_assignments/records/{first_assignment_id}", token=super_token)
+assert first_assignment["sourceExecom"] == execom_member["id"] and first_assignment["term"] == "ci-repaired"
+assert "events.create" in request("GET", "/api/workspace/me", token=second_token)["capabilities"]
+
+execom_duplicate = request("POST", "/api/collections/execom/records", {
+    "name": f"CI Execom Duplicate {suffix}", "position": "Society Chair",
+    "society": society["id"], "user": second_user["id"],
+    "roleCode": "society_chair", "term": "ci-duplicate",
+}, super_token)
+time.sleep(0.1)
+execom_duplicate = request("GET", f"/api/collections/execom/records/{execom_duplicate['id']}", token=super_token)
+duplicate_assignment_id = execom_duplicate.get("assignment")
+assert duplicate_assignment_id and duplicate_assignment_id != first_assignment_id
+duplicate_assignment = request("GET", f"/api/collections/organization_assignments/records/{duplicate_assignment_id}", token=super_token)
+assert duplicate_assignment["active"] is True and duplicate_assignment["sourceExecom"] == execom_duplicate["id"]
+request("PATCH", f"/api/collections/execom/records/{execom_duplicate['id']}", {
+    "assignment": first_assignment_id,
+}, super_token, expected=(400,))
 
 request("PATCH", f"/api/collections/execom/records/{execom_member['id']}", {
     "position": "Society Secretary", "roleCode": "society_secretary",
@@ -239,16 +272,25 @@ request("PATCH", f"/api/collections/execom/records/{execom_member['id']}", {
 time.sleep(0.1)
 execom_member = request("GET", f"/api/collections/execom/records/{execom_member['id']}", token=super_token)
 second_assignment_id = execom_member.get("assignment")
-assert second_assignment_id and second_assignment_id != first_assignment_id
+assert second_assignment_id and second_assignment_id not in (first_assignment_id, duplicate_assignment_id)
 first_assignment = request("GET", f"/api/collections/organization_assignments/records/{first_assignment_id}", token=super_token)
 second_assignment = request("GET", f"/api/collections/organization_assignments/records/{second_assignment_id}", token=super_token)
 assert first_assignment["active"] is False
 assert second_assignment["active"] is True and second_assignment["roleCode"] == "society_secretary"
+assert second_assignment["sourceExecom"] == execom_member["id"]
 
 request("DELETE", f"/api/collections/execom/records/{execom_member['id']}", token=super_token, expected=(204,))
 time.sleep(0.1)
 second_assignment = request("GET", f"/api/collections/organization_assignments/records/{second_assignment_id}", token=super_token)
+duplicate_assignment = request("GET", f"/api/collections/organization_assignments/records/{duplicate_assignment_id}", token=super_token)
 assert second_assignment["active"] is False
+assert duplicate_assignment["active"] is True
+assert "events.create" in request("GET", "/api/workspace/me", token=second_token)["capabilities"]
+request("DELETE", f"/api/collections/execom/records/{execom_duplicate['id']}", token=super_token, expected=(204,))
+time.sleep(0.1)
+duplicate_assignment = request("GET", f"/api/collections/organization_assignments/records/{duplicate_assignment_id}", token=super_token)
+assert duplicate_assignment["active"] is False
+assert request("GET", "/api/workspace/me", token=second_token)["capabilities"] == []
 
 # Chairs can edit their society content but cannot delegate chair access or store unsafe links.
 request("PATCH", f"/api/collections/societies/records/{society['id']}", {
@@ -271,6 +313,10 @@ event = request("POST", "/api/collections/events/records", {
     "society": society["id"], "status": "published", "maxCapacity": 1,
     "registeredCount": 0, "checkedInCount": 0, "registrationOpen": True,
     "checkInEnabled": True, "isDeleted": False,
+    "requirements": ["  Bring laptop charger  ", "", "College ID card required"],
+    "attendeeNote": "  Report 15 minutes before the session.  ",
+    "externalLink": "https://example.test/event-guide",
+    "contactEmail": "events@example.test", "contactPhone": "+91 98765 43210",
     "formTemplate": [
         {"id": "name", "name": "name", "label": "Name", "required": True},
         {"id": "email", "name": "email", "label": "Email", "required": True},
@@ -278,6 +324,25 @@ event = request("POST", "/api/collections/events/records", {
 }, super_token)
 assert event["slug"].startswith("ci-smoke-event-")
 assert event["timezone"] == "Asia/Kolkata" and event["attendanceMode"] == "hybrid"
+assert event["requirements"] == ["Bring laptop charger", "College ID card required"]
+assert event["attendeeNote"] == "Report 15 minutes before the session."
+assert not event.get("whatsappLink")
+request("PATCH", f"/api/collections/events/records/{event['id']}", {
+    "whatsappLink": "https://chat.whatsapp.com/must-stay-private",
+}, super_token, (400,))
+
+guidance_event = request("POST", "/api/collections/events/records", {
+    "title": f"CI Public Guidance {suffix}", "description": "<p>Public attendee guidance fixture</p>",
+    "date": start, "endDate": end, "venue": "CI Guidance Lab", "timezone": "Asia/Kolkata",
+    "attendanceMode": "onsite", "price": 200, "baseFeePaise": 20000,
+    "society": society["id"], "status": "published", "registrationOpen": False,
+    "collectIeeeMember": True, "ieeeMemberDiscountPercent": 20,
+    "eligibleSemesters": ["S7"], "eligibleProgrammes": ["CSE"],
+    "requirements": ["Bring a charged laptop", "Install VS Code beforehand"],
+    "attendeeNote": "Report to the lab 15 minutes early.",
+    "externalLink": "https://example.test/guidance", "isDeleted": False,
+}, super_token)
+assert guidance_event["requirements"] == ["Bring a charged laptop", "Install VS Code beforehand"]
 
 # Private join data is server-only state: raw collection CRUD stays closed even
 # for application admins, organizer access goes through events.edit, and users
@@ -288,9 +353,11 @@ for rule_name in ("listRule", "viewRule", "createRule", "updateRule", "deleteRul
 request("GET", "/api/collections/event_private_details/records", token=user_token, expected=(403,))
 request("GET", "/api/collections/event_private_details/records", token=admin_token, expected=(403,))
 private_access = request("PUT", f"/api/app/events/{event['id']}/private-details", {
+    "whatsappGroupUrl": "https://chat.whatsapp.com/ci-private-group",
     "virtualJoinUrl": "https://meet.example.test/ci-private-room",
     "joinInstructions": "Use the attendee name shown on your ticket.",
 }, admin_token)
+assert private_access["whatsappGroupUrl"] == "https://chat.whatsapp.com/ci-private-group"
 assert private_access["virtualJoinUrl"].startswith("https://meet.example.test/")
 request("GET", f"/api/app/events/{event['id']}/join-details", token=user_token, expected=(403,))
 private_audit_filter = urllib.parse.quote(
@@ -299,7 +366,7 @@ private_audit_filter = urllib.parse.quote(
 private_audit = request("GET", f"/api/collections/admin_audit_log/records?filter={private_audit_filter}", token=super_token)
 assert private_audit["totalItems"] == 1
 audit_blob = json.dumps(private_audit["items"][0])
-assert "meet.example.test" not in audit_blob and "attendee name" not in audit_blob
+assert "meet.example.test" not in audit_blob and "chat.whatsapp.com" not in audit_blob and "attendee name" not in audit_blob
 
 # A published event cannot be completed before its effective scheduled end.
 request(
@@ -312,6 +379,34 @@ request(
 if github_env := os.environ.get("GITHUB_ENV"):
     with open(github_env, "a", encoding="utf-8") as env_file:
         env_file.write(f"E2E_EVENT_ID={event['id']}\n")
+        env_file.write(f"E2E_EVENT_GUIDANCE_SLUG={guidance_event['slug']}\n")
+
+# Requirements are normalized at the PocketBase write boundary. Published
+# checklists require review, while a public attendee note can be corrected
+# without rewriting registrations or tickets.
+request("POST", "/api/collections/events/records", {
+    "title": f"Too Many Requirements {suffix}", "description": "requirements limit",
+    "date": start, "society": society["id"], "status": "draft",
+    "requirements": [f"Item {i}" for i in range(13)],
+}, super_token, (400,))
+request("POST", "/api/collections/events/records", {
+    "title": f"Long Requirement {suffix}", "description": "requirements length",
+    "date": start, "society": society["id"], "status": "draft",
+    "requirements": ["x" * 201],
+}, super_token, (400,))
+request("POST", "/api/collections/events/records", {
+    "title": f"Non Text Requirement {suffix}", "description": "requirements type",
+    "date": start, "society": society["id"], "status": "draft",
+    "requirements": [{"unsafe": True}],
+}, super_token, (400,))
+request("PATCH", f"/api/collections/events/records/{event['id']}", {
+    "requirements": ["Changed after publish"],
+}, admin_token, (403,))
+event = request("PATCH", f"/api/collections/events/records/{event['id']}", {
+    "attendeeNote": "  Report at the registration desk 15 minutes early.  ",
+}, admin_token)
+assert event["status"] == "published"
+assert event["attendeeNote"] == "Report at the registration desk 15 minutes early."
 
 # Chair scoping is enforced by PocketBase, not by UI filtering.
 chair_event = request("POST", "/api/collections/events/records", {
@@ -340,11 +435,24 @@ request("PATCH", f"/api/collections/events/records/{chair_event['id']}", {
 request("PATCH", f"/api/collections/events/records/{chair_event['id']}", {
     "isDeleted": True,
 }, chair_token, (400,))
+archive_waitlist = request("POST", "/api/collections/event_waitlist/records", {
+    "event": chair_event["id"], "user": second_user["id"], "status": "offered",
+    "activeKey": f"archive:{chair_event['id']}:{second_user['id']}",
+    "joinedAt": dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z"),
+    "offeredAt": dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z"),
+    "offerExpiresAt": (dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=2)).isoformat().replace("+00:00", "Z"),
+}, super_token)
+request("PATCH", f"/api/collections/events/records/{chair_event['id']}", {
+    "waitlistReservedCount": 1,
+}, super_token)
 archived = request("POST", f"/api/admin/events/{chair_event['id']}/archive", token=chair_token)
 assert archived["archived"] is True and archived["alreadyArchived"] is False
 archived_event = request("GET", f"/api/collections/events/records/{chair_event['id']}", token=super_token)
 assert archived_event["isDeleted"] is True
 assert archived_event["status"] == "draft"
+assert archived_event["waitlistReservedCount"] == 0
+archive_waitlist_after = request("GET", f"/api/collections/event_waitlist/records/{archive_waitlist['id']}", token=super_token)
+assert archive_waitlist_after["status"] == "expired" and archive_waitlist_after["activeKey"] == ""
 request("POST", f"/api/admin/events/{chair_event['id']}/archive", token=chair_token)
 
 request("POST", "/api/collections/events/records", {
@@ -458,7 +566,7 @@ save10_registration = request("POST", f"/api/app/events/{coupon_redemption_event
     "couponCode": "save10",
 }, user_token)
 assert save10_registration["paymentRequired"] is True and save10_registration["amount"] == 180
-save10_record = request("GET", f"/api/collections/registrations/records/{save10_registration['registrationId']}", token=admin_token)
+save10_record = request("GET", f"/api/collections/registrations/records/{save10_registration['registrationId']}", token=super_token)
 assert save10_record["couponCode"] == "SAVE10" and save10_record["discountAmount"] == 20
 
 free100_preview = request("POST", f"/api/app/events/{coupon_redemption_event['id']}/coupon-preview", {
@@ -499,6 +607,244 @@ remaining_without_save10 = [{
 } for row in redemption_coupons["items"] if row["code"] != "SAVE10"]
 request("PUT", f"/api/app/events/{coupon_redemption_event['id']}/coupons", {"coupons": remaining_without_save10}, admin_token, (400,))
 
+# IEEE-member pricing preview and registration share one server calculation.
+pricing_event = request("POST", "/api/collections/events/records", {
+    "title": f"CI IEEE Pricing {suffix}", "description": "member pricing guard",
+    "date": start, "endDate": end, "venue": "CI Pricing Lab", "price": 200,
+    "baseFeePaise": 20000, "society": society["id"], "status": "draft",
+    "registrationMode": "internal", "registrationOpen": True, "maxCapacity": 20,
+    "collectIeeeMember": True, "ieeeMemberDiscountPercent": 20, "isDeleted": False,
+}, super_token)
+request("PUT", f"/api/app/events/{pricing_event['id']}/coupons", {"coupons": [
+    {"code": "WIN30", "discountPercent": 30, "maxUses": 2, "isActive": True},
+    {"code": "TIE20", "discountPercent": 20, "maxUses": 1, "isActive": True},
+]}, admin_token)
+request("POST", f"/api/workspace/events/{pricing_event['id']}/workflow", {"action": "submit", "note": "Pricing smoke"}, admin_token)
+request("POST", f"/api/workspace/events/{pricing_event['id']}/workflow", {"action": "approve", "note": "Pricing org"}, admin_token)
+request("POST", f"/api/workspace/events/{pricing_event['id']}/workflow", {"action": "finance_approve", "note": "Pricing finance"}, admin_token)
+request("POST", f"/api/workspace/events/{pricing_event['id']}/workflow", {"action": "publish"}, admin_token)
+
+member_preview = request("POST", f"/api/app/events/{pricing_event['id']}/pricing-preview", {
+    "isIeeeMember": True, "ieeeMembershipId": "IEEE-10001",
+}, user_token)
+assert member_preview["discountSource"] == "ieee_member" and member_preview["amount"] == 160
+request("POST", f"/api/app/events/{pricing_event['id']}/pricing-preview", {
+    "isIeeeMember": True,
+}, max_overflow_token, (400,))
+member_registration = request("POST", f"/api/app/events/{pricing_event['id']}/register", {
+    "formResponses": {"name": "Pricing Member", "email": user["email"], "phone": "9000000101", "college": "CI College", "isIeeeMember": True, "ieeeMembershipId": "IEEE-10001"},
+}, user_token)
+assert member_registration["amount"] == member_preview["amount"]
+member_record = request("GET", f"/api/collections/registrations/records/{member_registration['registrationId']}", token=super_token)
+assert member_record["discountSource"] == "ieee_member" and member_record["couponCode"] == "" and member_record["finalFeePaise"] == 16000
+
+coupon_win_preview = request("POST", f"/api/app/events/{pricing_event['id']}/pricing-preview", {
+    "isIeeeMember": True, "ieeeMembershipId": "IEEE-10002", "couponCode": "win30",
+}, second_token)
+assert coupon_win_preview["discountSource"] == "coupon" and coupon_win_preview["amount"] == 140
+tie_preview = request("POST", f"/api/app/events/{pricing_event['id']}/pricing-preview", {
+    "isIeeeMember": True, "ieeeMembershipId": "IEEE-10003", "couponCode": "tie20",
+}, max_user_token)
+assert tie_preview["discountSource"] == "ieee_member" and tie_preview["amount"] == 160
+assert tie_preview["requestedCouponCode"] == "TIE20" and tie_preview["appliedCouponCode"] == ""
+
+coupon_win_registration = request("POST", f"/api/app/events/{pricing_event['id']}/register", {
+    "formResponses": {"name": "Pricing Coupon", "email": second_user["email"], "phone": "9000000102", "college": "CI College", "isIeeeMember": True, "ieeeMembershipId": "IEEE-10002"},
+    "couponCode": "WIN30",
+}, second_token)
+assert coupon_win_registration["amount"] == coupon_win_preview["amount"]
+coupon_win_record = request("GET", f"/api/collections/registrations/records/{coupon_win_registration['registrationId']}", token=super_token)
+assert coupon_win_record["discountSource"] == "coupon" and coupon_win_record["couponCode"] == "WIN30" and coupon_win_record["finalFeePaise"] == 14000
+
+tie_registration = request("POST", f"/api/app/events/{pricing_event['id']}/register", {
+    "formResponses": {"name": "Pricing Tie", "email": max_user["email"], "phone": "9000000103", "college": "CI College", "isIeeeMember": True, "ieeeMembershipId": "IEEE-10003"},
+    "couponCode": "TIE20",
+}, max_user_token)
+assert tie_registration["amount"] == tie_preview["amount"]
+tie_record = request("GET", f"/api/collections/registrations/records/{tie_registration['registrationId']}", token=super_token)
+assert tie_record["discountSource"] == "ieee_member" and tie_record["couponCode"] == ""
+pricing_filter = urllib.parse.quote(f"event='{pricing_event['id']}'")
+pricing_coupons = request("GET", f"/api/collections/coupons/records?filter={pricing_filter}", token=super_token)["items"]
+pricing_by_code = {row["code"]: row for row in pricing_coupons}
+assert pricing_by_code["WIN30"]["usedCount"] == 1 and pricing_by_code["TIE20"]["usedCount"] == 0
+pricing_fixture_path = os.environ.get("E2E_PRICING_FIXTURE_OUTPUT", "/tmp/member-pricing-e2e.json")
+with open(pricing_fixture_path, "w", encoding="utf-8") as fixture_file:
+    json.dump({
+        "token": max_overflow_token, "record": max_overflow_user,
+        "eventId": pricing_event["id"], "memberDiscountPercent": 20,
+        "memberAmount": 160, "memberId": "IEEE-BROWSER",
+        "tieCode": "TIE20", "betterCouponCode": "WIN30", "couponAmount": 140,
+    }, fixture_file)
+
+request("POST", f"/api/app/events/{pricing_event['id']}/register", {
+    "formResponses": {"name": "Missing ID", "email": max_overflow_user["email"], "phone": "9000000104", "college": "CI College", "isIeeeMember": True},
+}, max_overflow_token, (400,))
+request("PATCH", f"/api/collections/events/records/{pricing_event['id']}", {"ieeeMemberDiscountPercent": 25}, admin_token, (403,))
+
+manual_pricing = request("POST", f"/api/admin/events/{pricing_event['id']}/registrations/manual", {
+    "name": "Manual Member", "email": f"manual-member-{suffix}@example.test", "paymentMode": "pending",
+    "formResponses": {"isIeeeMember": True, "ieeeMembershipId": "IEEE-MANUAL"},
+}, admin_token)["registration"]
+assert manual_pricing["amount"] == 160
+manual_pricing_record = request("GET", f"/api/collections/registrations/records/{manual_pricing['id']}", token=super_token)
+assert manual_pricing_record["discountSource"] == "ieee_member"
+assert manual_pricing_record["couponCode"] == "" and manual_pricing_record["finalFeePaise"] == 16000
+
+pricing_free_event = request("POST", "/api/collections/events/records", {
+    "title": f"CI IEEE Free Price {suffix}", "description": "100 percent member pricing",
+    "date": start, "endDate": end, "venue": "CI Pricing Lab", "price": 75,
+    "baseFeePaise": 7500, "society": society["id"], "status": "draft",
+    "registrationMode": "internal", "registrationOpen": True, "maxCapacity": 5,
+    "collectIeeeMember": True, "ieeeMemberDiscountPercent": 100, "isDeleted": False,
+}, super_token)
+request("POST", f"/api/workspace/events/{pricing_free_event['id']}/workflow", {"action": "submit", "note": "Free member price"}, admin_token)
+request("POST", f"/api/workspace/events/{pricing_free_event['id']}/workflow", {"action": "approve", "note": "Free member price org"}, admin_token)
+request("POST", f"/api/workspace/events/{pricing_free_event['id']}/workflow", {"action": "finance_approve", "note": "Free member price finance"}, admin_token)
+request("POST", f"/api/workspace/events/{pricing_free_event['id']}/workflow", {"action": "publish"}, admin_token)
+pricing_free_registration = request("POST", f"/api/app/events/{pricing_free_event['id']}/register", {
+    "formResponses": {"name": "Pricing Free", "email": coupon_browser_user["email"], "phone": "9000000105", "college": "CI College", "isIeeeMember": True, "ieeeMembershipId": "IEEE-FREE"},
+}, coupon_browser_token)
+assert pricing_free_registration["paymentRequired"] is False and pricing_free_registration["amount"] == 0
+assert pricing_free_registration["registrationStatus"] == "confirmed" and pricing_free_registration["ticketId"]
+
+request("POST", "/api/collections/events/records", {
+    "title": f"CI Bad PayGate Member {suffix}", "description": "invalid member paise price",
+    "date": start, "endDate": end, "venue": "CI Pricing Lab", "price": 125,
+    "baseFeePaise": 12500, "society": society["id"], "status": "draft",
+    "registrationMode": "internal", "registrationOpen": True, "collectIeeeMember": True,
+    "ieeeMemberDiscountPercent": 10, "isDeleted": False,
+}, super_token, (400,))
+paygate_coupon_event = request("POST", "/api/collections/events/records", {
+    "title": f"CI PayGate Coupon Config {suffix}", "description": "invalid coupon paise price",
+    "date": start, "endDate": end, "venue": "CI Pricing Lab", "price": 125,
+    "baseFeePaise": 12500, "society": society["id"], "status": "draft",
+    "registrationMode": "internal", "registrationOpen": True, "isDeleted": False,
+}, super_token)
+request("PUT", f"/api/app/events/{paygate_coupon_event['id']}/coupons", {"coupons": [{
+    "code": "BAD10", "discountPercent": 10, "maxUses": 0, "isActive": True,
+}]}, admin_token, (400,))
+
+
+# Audience eligibility is command-owned. Rejection happens before capacity,
+# coupon or payment state is consumed; accepted records store canonical academics.
+audience_bad_user = create_user("audience-bad", "user")
+audience_good_user = create_user("audience-good", "user")
+audience_bad_token = impersonate(super_token, audience_bad_user["id"])
+audience_good_token = impersonate(super_token, audience_good_user["id"])
+audience_event = request("POST", "/api/collections/events/records", {
+    "title": f"CI Restricted Audience {suffix}", "description": "academic audience guard",
+    "date": start, "endDate": end, "venue": "CI Audience Lab", "price": 100,
+    "baseFeePaise": 10000, "society": society["id"], "status": "draft",
+    "registrationMode": "internal", "registrationOpen": True, "maxCapacity": 3,
+    "registeredCount": 0, "checkedInCount": 0, "isDeleted": False,
+    "eligibleSemesters": ["S6"], "eligibleProgrammes": ["EEE"],
+}, super_token)
+request("PUT", f"/api/app/events/{audience_event['id']}/coupons", {"coupons": [
+    {"code": "AUD10", "discountPercent": 10, "maxUses": 5, "isActive": True},
+]}, admin_token)
+request("POST", f"/api/workspace/events/{audience_event['id']}/workflow", {"action": "submit", "note": "Audience smoke"}, admin_token)
+request("POST", f"/api/workspace/events/{audience_event['id']}/workflow", {"action": "approve", "note": "Audience approval"}, admin_token)
+request("POST", f"/api/workspace/events/{audience_event['id']}/workflow", {"action": "finance_approve", "note": "Audience finance"}, admin_token)
+request("POST", f"/api/workspace/events/{audience_event['id']}/workflow", {"action": "publish"}, admin_token)
+audience_fixture_path = os.environ.get("E2E_AUDIENCE_FIXTURE_OUTPUT", "/tmp/event-audience-e2e.json")
+with open(audience_fixture_path, "w", encoding="utf-8") as fixture_file:
+    json.dump({
+        "token": audience_bad_token,
+        "record": audience_bad_user,
+        "eventId": audience_event["id"],
+        "eventTitle": audience_event["title"],
+        "programmeCode": "EEE",
+        "semester": "S6",
+    }, fixture_file)
+
+request("POST", f"/api/app/events/{audience_event['id']}/register", {
+    "formResponses": {"name": "Wrong Programme", "email": audience_bad_user["email"], "phone": "9000000001", "college": "CI College", "programmeCode": "CSE", "branch": "Computer Science and Engineering", "semester": "S6"},
+    "couponCode": "AUD10",
+}, audience_bad_token, (400,))
+request("POST", f"/api/app/events/{audience_event['id']}/register", {
+    "formResponses": {"name": "Missing Semester", "email": audience_bad_user["email"], "phone": "9000000001", "college": "CI College", "programmeCode": "EEE", "branch": "Electrical and Electronics Engineering"},
+    "couponCode": "AUD10",
+}, audience_bad_token, (400,))
+audience_bad_filter = urllib.parse.quote(f'event="{audience_event["id"]}" && user="{audience_bad_user["id"]}"')
+assert request("GET", f"/api/collections/registrations/records?filter={audience_bad_filter}", token=super_token)["totalItems"] == 0
+audience_coupon_filter = urllib.parse.quote(f'event="{audience_event["id"]}" && code="AUD10"')
+audience_coupon = request("GET", f"/api/collections/coupons/records?filter={audience_coupon_filter}", token=super_token)["items"][0]
+assert audience_coupon["usedCount"] == 0
+audience_payment_filter = urllib.parse.quote(f'event="{audience_event["id"]}"')
+assert request("GET", f"/api/collections/payments/records?filter={audience_payment_filter}", token=super_token)["totalItems"] == 0
+audience_after_reject = request("GET", f"/api/collections/events/records/{audience_event['id']}", token=super_token)
+assert audience_after_reject["registeredCount"] == 0
+
+audience_registration = request("POST", f"/api/app/events/{audience_event['id']}/register", {
+    "formResponses": {"name": "Eligible EEE", "email": audience_good_user["email"], "phone": "9000000002", "college": "CI College", "programmeCode": "EEE", "branch": "Electrical and Electronics Engineering", "semester": "semester 6"},
+    "couponCode": "AUD10",
+}, audience_good_token)
+assert audience_registration["paymentRequired"] is True and audience_registration["amount"] == 90
+audience_record = request("GET", f"/api/collections/registrations/records/{audience_registration['registrationId']}", token=super_token)
+assert audience_record["programmeCode"] == "EEE" and audience_record["semester"] == "S6"
+assert audience_record["discountSource"] == "coupon" and audience_record["couponCode"] == "AUD10"
+request("POST", f"/api/admin/events/{audience_event['id']}/registrations/manual", {
+    "name": "Manual Wrong", "email": f"manual-wrong-{suffix}@example.test",
+    "paymentMode": "waived", "note": "CI ineligible manual guard",
+    "formResponses": {"programmeCode": "CSE", "branch": "Computer Science and Engineering", "semester": "S6"},
+}, admin_token, (400,))
+audience_manual = request("POST", f"/api/admin/events/{audience_event['id']}/registrations/manual", {
+    "name": "Manual Eligible", "email": f"manual-good-{suffix}@example.test",
+    "paymentMode": "waived", "note": "CI eligible manual registration",
+    "formResponses": {"programmeCode": "EEE", "branch": "Electrical and Electronics Engineering", "semester": "S6"},
+}, admin_token)["registration"]
+audience_manual_record = request("GET", f"/api/collections/registrations/records/{audience_manual['id']}", token=super_token)
+assert audience_manual_record["programmeCode"] == "EEE" and audience_manual_record["semester"] == "S6"
+
+# Restricted waitlists snapshot academic values too. Audience changes require
+# unpublishing first, and that lifecycle transition retires active reservations.
+audience_owner = create_user("audience-owner", "user")
+audience_waiter = create_user("audience-waiter", "user")
+audience_owner_token = impersonate(super_token, audience_owner["id"])
+audience_waiter_token = impersonate(super_token, audience_waiter["id"])
+audience_wait_event = request("POST", "/api/collections/events/records", {
+    "title": f"CI Restricted Waitlist {suffix}", "description": "academic waitlist guard",
+    "date": start, "endDate": end, "venue": "CI Audience Lab", "price": 0,
+    "society": society["id"], "status": "draft", "registrationMode": "internal",
+    "registrationOpen": True, "maxCapacity": 1, "registeredCount": 0,
+    "waitlistEnabled": True, "waitlistOfferMinutes": 15,
+    "allowSelfCancellation": True, "selfCancellationUntil": start,
+    "eligibleSemesters": ["S6"], "eligibleProgrammes": ["EEE"],
+    "checkInEnabled": True, "isDeleted": False,
+}, super_token)
+request("POST", f"/api/workspace/events/{audience_wait_event['id']}/workflow", {"action": "submit", "note": "Restricted waitlist"}, admin_token)
+request("POST", f"/api/workspace/events/{audience_wait_event['id']}/workflow", {"action": "approve", "note": "Restricted waitlist approval"}, admin_token)
+request("POST", f"/api/workspace/events/{audience_wait_event['id']}/workflow", {"action": "publish"}, admin_token)
+audience_owner_reg = request("POST", f"/api/app/events/{audience_wait_event['id']}/register", {
+    "formResponses": {"name": "Audience Owner", "email": audience_owner["email"], "programmeCode": "EEE", "branch": "Electrical and Electronics Engineering", "semester": "S6"},
+}, audience_owner_token)
+request("POST", f"/api/app/events/{audience_wait_event['id']}/waitlist/join", {
+    "programmeCode": "CSE", "branch": "Computer Science and Engineering", "semester": "S6",
+}, audience_bad_token, (400,))
+bad_wait_filter = urllib.parse.quote(f'event="{audience_wait_event["id"]}" && user="{audience_bad_user["id"]}"')
+assert request("GET", f"/api/collections/event_waitlist/records?filter={bad_wait_filter}", token=super_token)["totalItems"] == 0
+wait_join = request("POST", f"/api/app/events/{audience_wait_event['id']}/waitlist/join", {
+    "programmeCode": "EEE", "branch": "Electrical and Electronics Engineering", "semester": "S6",
+}, audience_waiter_token)
+assert wait_join["joined"] is True
+wait_filter = urllib.parse.quote(f'event="{audience_wait_event["id"]}" && user="{audience_waiter["id"]}"')
+wait_row = request("GET", f"/api/collections/event_waitlist/records?filter={wait_filter}", token=super_token)["items"][0]
+assert wait_row["programmeCode"] == "EEE" and wait_row["semester"] == "S6"
+request("POST", f"/api/app/registrations/{audience_owner_reg['registrationId']}/cancel", {"reason": "CI waitlist seat release"}, audience_owner_token)
+wait_offer = request("GET", f"/api/app/events/{audience_wait_event['id']}/waitlist", token=audience_waiter_token)
+assert wait_offer["state"]["status"] == "offered"
+wait_event_record = request("GET", f"/api/collections/events/records/{audience_wait_event['id']}", token=super_token)
+assert wait_event_record["waitlistReservedCount"] == 1
+request("POST", f"/api/workspace/events/{audience_wait_event['id']}/workflow", {"action": "unpublish", "note": "Change audience safely"}, admin_token)
+request("PATCH", f"/api/collections/events/records/{audience_wait_event['id']}", {"eligibleProgrammes": ["CSE"]}, admin_token)
+request("POST", f"/api/app/events/{audience_wait_event['id']}/waitlist/join", {
+    "programmeCode": "CSE", "branch": "Computer Science and Engineering", "semester": "S6",
+}, audience_bad_token, (409,))
+retired_wait = request("GET", f"/api/collections/event_waitlist/records/{wait_row['id']}", token=super_token)
+assert retired_wait["status"] == "cancelled" and retired_wait["activeKey"] == ""
+wait_event_after_unpublish = request("GET", f"/api/collections/events/records/{audience_wait_event['id']}", token=super_token)
+assert wait_event_after_unpublish["waitlistReservedCount"] == 0
+
 # Registration command reserves exactly one seat. Replaying the same user's
 # command is idempotent and returns the original record instead of consuming a
 # second seat; another user is still rejected by capacity.
@@ -507,7 +853,10 @@ registration = request("POST", f"/api/app/events/{event['id']}/register", {
 }, user_token)
 assert registration["registrationStatus"] == "confirmed" and registration["ticketId"]
 join_details = request("GET", f"/api/app/events/{event['id']}/join-details", token=user_token)
+assert join_details["whatsappGroupUrl"] == "https://chat.whatsapp.com/ci-private-group"
 assert join_details["virtualJoinUrl"] == "https://meet.example.test/ci-private-room"
+assert join_details["contactEmail"] == "events@example.test"
+assert join_details["contactPhone"] == "+91 98765 43210"
 assert "attendee name" in join_details["joinInstructions"]
 replayed_registration = request("POST", f"/api/app/events/{event['id']}/register", {
     "formResponses": {"name": "Member", "email": user["email"]},
@@ -1047,7 +1396,7 @@ assert manual_confirmed["ticketId"].startswith("TKT-")
 manual_record = request(
     "GET",
     f"/api/collections/registrations/records/{manual_registration_id}",
-    token=admin_token,
+    token=super_token,
 )
 manual_audit = manual_record["paymentData"]["manualConfirmation"]
 assert manual_record["registrationStatus"] == "confirmed"
@@ -1093,6 +1442,14 @@ ops_summary = request("GET", f"/api/admin/events/{ops_event['id']}/operations", 
 assert ops_summary["summary"]["manualPaidAmount"] == 120
 assert ops_summary["summary"]["adminCreatedCount"] == 1
 assert any(row["action"] == "registration.manual-create" for row in ops_summary["audit"])
+ops_admin_row = next(row for row in ops_summary["recent"] if row["id"] == ops_manual["id"])
+assert {"paymentStatus", "amount", "collectedAmount", "refundedAmount", "paymentMethod",
+        "provider", "providerStatus", "manualReview", "manualConfirmation"}.issubset(ops_admin_row)
+assert {"formTemplate", "financeApprovalStatus"}.issubset(ops_summary["event"])
+assert "paymentProvider" not in ops_summary["event"]
+assert all(key in ops_summary for key in (
+    "attention", "coupons", "cancellationRequests", "waitlist", "audit", "attendance", "financeDisclaimer"
+))
 audit_filter = urllib.parse.quote(
     f'action="registration.manual-create" && entityId="{ops_manual["id"]}"'
 )
@@ -1123,12 +1480,41 @@ ops_unchecked = request("POST", f"/api/admin/registrations/{ops_manual['id']}/co
     "action": "undo-check-in",
 }, admin_token)["registration"]
 assert ops_unchecked["checkedIn"] is False
+
+# Check-in is a published-event invariant at both the command and record-hook layers.
+# Temporarily unpublish this approved fixture, prove both paths fail closed, then
+# republish it so the remainder of the operations smoke keeps its original state.
+request("POST", f"/api/workspace/events/{ops_event['id']}/workflow", {
+    "action": "unpublish", "note": "CI validates inactive-event check-in guard",
+}, admin_token)
+inactive_checkin = request("POST", f"/api/admin/registrations/{ops_manual['id']}/command", {
+    "action": "check-in",
+}, admin_token, expected=(409,))
+assert inactive_checkin["code"] == "CHECKIN_NOT_ACTIVE"
+request("PATCH", f"/api/collections/registrations/records/{ops_manual['id']}", {
+    "checkedIn": True,
+}, super_token, expected=(400,))
+ops_inactive = request("GET", f"/api/collections/registrations/records/{ops_manual['id']}", token=super_token)
+assert ops_inactive["checkedIn"] is False and not ops_inactive.get("checkedInAt")
+request("POST", f"/api/workspace/events/{ops_event['id']}/workflow", {
+    "action": "publish",
+}, admin_token)
+ops_rechecked = request("POST", f"/api/admin/registrations/{ops_manual['id']}/command", {
+    "action": "check-in",
+}, admin_token)["registration"]
+assert ops_rechecked["checkedIn"] is True and ops_rechecked["checkedInAt"]
+request("POST", f"/api/admin/registrations/{ops_manual['id']}/command", {
+    "action": "undo-check-in",
+}, admin_token)
 ops_refunded = request("POST", f"/api/admin/registrations/{ops_manual['id']}/command", {
     "action": "mark-refunded", "note": "Refund sent after cancellation",
     "reference": f"REF-{suffix}",
 }, admin_token)["registration"]
 assert ops_refunded["registrationStatus"] == "cancelled"
 assert ops_refunded["paymentStatus"] == "refunded"
+if github_env := os.environ.get("GITHUB_ENV"):
+    with open(github_env, "a", encoding="utf-8") as env_file:
+        env_file.write(f"E2E_CANCELLED_TICKET_ID={ops_refunded['ticketId']}\n")
 
 ops_pending = request("POST", f"/api/admin/events/{ops_event['id']}/registrations/manual", {
     "name": "Pending Walk In", "email": f"pending-walkin-{suffix}@example.test",
@@ -1153,7 +1539,32 @@ assert finance["paymentCount"] >= 1
 assert finance["grossCollectedAmount"] >= finance["refundedAmount"] >= 0
 assert abs(finance["netCollectedAmount"] - (finance["grossCollectedAmount"] - finance["refundedAmount"])) < 0.001
 assert finance["manualCount"] >= 1
-assert "queuedRefundCount" in finance and "failedRefundCount" in finance and "attentionCount" in finance
+assert "attentionCount" in finance and "queuedRefundCount" not in finance and "failedRefundCount" not in finance
+payment_rows = request("GET", "/api/collections/payments/records?perPage=500", token=super_token)["items"]
+assert finance["paymentCount"] == len(payment_rows)
+for provider, count_key, amount_key in (
+    ("paygate", "paygateCount", "paygateCollectedAmount"),
+    ("manual", "manualCount", "manualCollectedAmount"),
+):
+    provider_rows = [row for row in payment_rows if (row.get("provider") or "unknown") == provider]
+    assert finance[count_key] == len(provider_rows)
+    expected_amount = sum(max(0, int(row.get("collectedPaise") or 0)) for row in provider_rows) / 100
+    assert abs(finance[amount_key] - expected_amount) < 0.001
+historical_rows = [row for row in payment_rows if (row.get("provider") or "unknown") not in {"paygate", "manual"}]
+assert finance["historicalCount"] == len(historical_rows)
+assert abs(finance["historicalCollectedAmount"] - sum(max(0, int(row.get("collectedPaise") or 0)) for row in historical_rows) / 100) < 0.001
+assert finance["attentionCount"] == sum(bool(row.get("manualReview")) or row.get("status") == "partially_refunded" for row in payment_rows)
+
+request("GET", "/api/admin/data-health", token=user_token, expected=(403,))
+data_health = request("GET", "/api/admin/data-health", token=admin_token)
+assert isinstance(data_health["issues"], list) and data_health["checkedAt"]
+assert data_health["counts"]["events"] >= 1
+assert data_health["counts"]["registrations"] >= 1
+assert data_health["counts"]["payments"] >= 1
+allowed_health_issue_keys = {"id", "severity", "category", "title", "detail", "href"}
+assert all(set(issue).issubset(allowed_health_issue_keys) for issue in data_health["issues"])
+assert all(issue["severity"] in {"critical", "warning"} for issue in data_health["issues"])
+
 request("PATCH", f"/api/collections/events/records/{ops_event['id']}", {
     "status": "cancelled",
 }, admin_token, expected=(400,))
@@ -1163,17 +1574,114 @@ ops_cancel = request("POST", f"/api/admin/events/{ops_event['id']}/cancel", {
 assert ops_cancel["releasedPending"] >= 1
 ops_cancelled_event = request("GET", f"/api/collections/events/records/{ops_event['id']}", token=admin_token)
 assert ops_cancelled_event["status"] == "cancelled"
-ops_pending_after_cancel = request("GET", f"/api/collections/registrations/records/{ops_pending['id']}", token=admin_token)
+ops_pending_after_cancel = request("GET", f"/api/collections/registrations/records/{ops_pending['id']}", token=super_token)
 assert ops_pending_after_cancel["registrationStatus"] == "cancelled"
 assert ops_pending_after_cancel["paymentStatus"] == "failed"
+
+# Cancelled events are terminal for active registration creation/restoration.
+final_manual = request("POST", f"/api/admin/events/{ops_event['id']}/registrations/manual", {
+    "name": "Cancelled Event Walk In",
+    "email": f"cancelled-event-walkin-{suffix}@example.test",
+    "paymentMode": "pending",
+}, admin_token, expected=(409,))
+assert final_manual["code"] == "EVENT_FINAL"
+final_restore = request("POST", f"/api/admin/registrations/{ops_manual['id']}/command", {
+    "action": "restore", "note": "CI must reject restore after event cancellation",
+}, admin_token, expected=(409,))
+assert final_restore["code"] == "EVENT_FINAL"
+terminal_model_create = request("POST", "/api/collections/registrations/records", {
+    "event": ops_event["id"],
+    "userName": "Terminal Model Guard",
+    "userEmail": f"terminal-model-{suffix}@example.test",
+    "registrationStatus": "confirmed",
+    "paymentStatus": "not_required",
+    "registrationSource": "admin",
+}, super_token, expected=(400,))
+assert "cancelled or archived events" in json.dumps(terminal_model_create).lower()
+
+# Completed-event closeout is server-authoritative: pending registrations, refund
+# requests and payment review flags block archive until existing commands resolve them.
+closeout_now = dt.datetime.now(dt.timezone.utc)
+closeout_event = request("POST", "/api/collections/events/records", {
+    "title": f"CI Closeout {suffix}", "description": "closeout readiness",
+    "date": (closeout_now - dt.timedelta(hours=3)).isoformat().replace("+00:00", "Z"),
+    "endDate": (closeout_now - dt.timedelta(hours=1)).isoformat().replace("+00:00", "Z"),
+    "society": society["id"], "status": "completed", "registrationOpen": False,
+    "price": 100, "baseFeePaise": 10000, "isDeleted": False,
+}, super_token)
+closeout_pending = request("POST", f"/api/admin/events/{closeout_event['id']}/registrations/manual", {
+    "name": "Closeout Pending", "email": f"closeout-pending-{suffix}@example.test",
+    "paymentMode": "pending", "note": "CI unresolved closeout registration",
+}, admin_token)["registration"]
+closeout_paid = request("POST", f"/api/admin/events/{closeout_event['id']}/registrations/manual", {
+    "name": "Closeout Refund", "email": second_user["email"], "userId": second_user["id"],
+    "paymentMode": "paid", "paymentReference": f"CLOSEOUT-{suffix}", "note": "CI closeout paid registration",
+}, admin_token)["registration"]
+closeout_request = request("POST", "/api/collections/registration_cancellation_requests/records", {
+    "registration": closeout_paid["id"], "event": closeout_event["id"], "user": second_user["id"],
+    "kind": "refund", "status": "open", "activeKey": f"closeout:{closeout_paid['id']}",
+    "reason": "CI closeout refund", "requestedAt": closeout_now.isoformat().replace("+00:00", "Z"),
+}, super_token)
+closeout_payment_rows = request("GET", "/api/collections/payments/records?filter=" + urllib.parse.quote(f'registration="{closeout_paid["id"]}"'), token=super_token)["items"]
+assert len(closeout_payment_rows) == 1
+request("PATCH", f"/api/collections/payments/records/{closeout_payment_rows[0]['id']}", {"manualReview": True}, super_token)
+closeout_ops = request("GET", f"/api/admin/events/{closeout_event['id']}/operations", token=admin_token)
+assert closeout_ops["closeout"]["applicable"] is True and closeout_ops["closeout"]["readyToArchive"] is False
+closeout_codes = {item["code"] for item in closeout_ops["closeout"]["blockers"]}
+assert {"PENDING_REGISTRATIONS", "REFUNDS_UNRESOLVED", "PAYMENT_EXCEPTIONS"}.issubset(closeout_codes)
+blocked_archive = request("POST", f"/api/admin/events/{closeout_event['id']}/archive", token=admin_token, expected=(409,))
+assert blocked_archive["code"] == "CLOSEOUT_BLOCKED"
+request("POST", f"/api/admin/registrations/{closeout_pending['id']}/command", {"action": "cancel"}, admin_token)
+request("POST", f"/api/admin/registrations/{closeout_paid['id']}/command", {
+    "action": "mark-refunded", "note": "CI closeout refund completed", "reference": f"CLOSEOUT-REFUND-{suffix}",
+}, admin_token)
+closeout_ready = request("GET", f"/api/admin/events/{closeout_event['id']}/operations", token=admin_token)["closeout"]
+assert closeout_ready["readyToArchive"] is True and closeout_ready["blockers"] == []
+archived_closeout = request("POST", f"/api/admin/events/{closeout_event['id']}/archive", token=admin_token)
+assert archived_closeout["archived"] is True
+
+# Leave one completed event blocked for Browser E2E so the closeout workspace
+# renders the same readiness contract that the archive endpoint enforces.
+closeout_ui_event = request("POST", "/api/collections/events/records", {
+    "title": f"CI Closeout Browser {suffix}", "description": "closeout browser fixture",
+    "date": (closeout_now - dt.timedelta(hours=4)).isoformat().replace("+00:00", "Z"),
+    "endDate": (closeout_now - dt.timedelta(hours=2)).isoformat().replace("+00:00", "Z"),
+    "society": society["id"], "status": "completed", "registrationOpen": False,
+    "price": 100, "baseFeePaise": 10000, "isDeleted": False,
+}, super_token)
+request("POST", f"/api/admin/events/{closeout_ui_event['id']}/registrations/manual", {
+    "name": "Closeout Browser Pending", "email": f"closeout-browser-{suffix}@example.test",
+    "paymentMode": "pending", "note": "Browser closeout blocker",
+}, admin_token)
+if github_env := os.environ.get("GITHUB_ENV"):
+    with open(github_env, "a", encoding="utf-8") as env_file:
+        env_file.write(f"E2E_CLOSEOUT_EVENT_ID={closeout_ui_event['id']}\n")
 
 # Anonymous ticket lookup never exposes a stable account/registration identifier.
 ticket_path = "/api/tickets/lookup?ticketId=" + urllib.parse.quote(registration["ticketId"])
 anonymous_ticket = request("GET", ticket_path)
 assert anonymous_ticket["found"] is True
 assert "user" not in anonymous_ticket and "registrationId" not in anonymous_ticket
+assert anonymous_ticket["event"]["requirements"] == ["Bring laptop charger", "College ID card required"]
+assert anonymous_ticket["event"]["attendeeNote"] == "Report at the registration desk 15 minutes early."
+assert anonymous_ticket["event"]["externalLink"] == "https://example.test/event-guide"
+assert anonymous_ticket["event"]["timeTbc"] is False
+assert anonymous_ticket["event"]["checkInEnabled"] is True
+assert "contactEmail" not in anonymous_ticket["event"] and "contactPhone" not in anonymous_ticket["event"]
+assert anonymous_ticket["isOwner"] is False
+assert "meet.example.test" not in json.dumps(anonymous_ticket)
+assert "chat.whatsapp.com/ci-private-group" not in json.dumps(anonymous_ticket)
+assert "joinInstructions" not in json.dumps(anonymous_ticket) and "whatsapp" not in json.dumps(anonymous_ticket).lower()
 owner_ticket = request("GET", ticket_path, token=user_token)
 assert owner_ticket["registrationId"] == registration["registrationId"]
+assert owner_ticket["isOwner"] is True
+assert owner_ticket["registration"]["id"] == registration["registrationId"]
+assert set(owner_ticket["registration"].keys()) == {
+    "id", "userName", "userEmail", "userPhone", "registrationStatus",
+    "paymentStatus", "registrationDate", "amount",
+}
+request("GET", f"/api/collections/registrations/records/{registration['registrationId']}", token=user_token, expected=(403, 404))
+assert "chat.whatsapp.com/ci-private-group" not in json.dumps(owner_ticket)
 
 # Chairs may perform the intended operational state changes, but cannot edit attendee/audit fields.
 request("PATCH", f"/api/collections/registrations/records/{registration['registrationId']}", {
@@ -1204,141 +1712,8 @@ assert not public_execom.get("email") and not public_execom.get("phone")
 private_execom = request("GET", f"/api/collections/execom/records/{execom['id']}", token=super_token)
 assert private_execom["email"] == execom["email"] and private_execom["phone"] == "9999999999"
 
-# Retired social-feed data is preserved but no longer exposed.
-request("GET", "/api/collections/fifa_feed_events/records", expected=(403,))
-request("GET", "/api/fifa/feed", expected=(404,))
-
 # Role changes use the dedicated admin command.
 role_change = request("POST", f"/api/app/admin/users/{second_user['id']}/role", {"role": "content"}, admin_token)
 assert role_change["user"]["role"] == "content"
 
-# FIFA bet placement is one atomic balance/ledger/bet/pool transaction.
-kickoff = (now + dt.timedelta(hours=5)).isoformat().replace("+00:00", "Z")
-match = request("POST", "/api/collections/fifa_matches/records", {
-    "team_home": "Alpha", "team_away": "Beta", "stage": "group",
-    "kickoff_at": kickoff, "betting_locks_at": kickoff, "status": "upcoming", "settled": False,
-}, super_token)
-market = request("POST", "/api/collections/fifa_bet_markets/records", {
-    "match": match["id"], "market_type": "match_winner", "mode": "pool",
-    "options": ["home", "away"], "is_open": True, "void": False,
-    "pool_total": 0, "pool_by_option": {},
-}, super_token)
-bet = request("POST", "/api/fifa/bets", {
-    "match": match["id"], "market": market["id"], "selection": "home", "stake": 100,
-}, user_token)
-assert bet["balance"] == 900
-request("POST", "/api/fifa/bets", {
-    "match": match["id"], "market": market["id"], "selection": "away", "stake": 300,
-}, user_token, (400,))
-
-# Raw admin REST cannot rewrite economy/result history after bets exist.
-request("PATCH", f"/api/collections/fifa_bet_markets/records/{market['id']}", {"pool_total": 9999}, admin_token, (400,))
-request("PATCH", f"/api/collections/fifa_bet_markets/records/{market['id']}", {"options": ["home", "away", "draw"]}, admin_token, (400,))
-request("DELETE", f"/api/collections/fifa_bet_markets/records/{market['id']}", token=admin_token, expected=(400,))
-request("PATCH", f"/api/collections/fifa_matches/records/{match['id']}", {"settled": True}, admin_token, (400,))
-request("PATCH", f"/api/collections/fifa_matches/records/{match['id']}", {"result_winner": "away"}, admin_token, (400,))
-request("DELETE", f"/api/collections/fifa_matches/records/{match['id']}", token=admin_token, expected=(400,))
-
-settlement = request("POST", "/api/fifa/settle", {
-    "matchId": match["id"], "result_winner": "home",
-    "result_home_goals": 2, "result_away_goals": 1,
-    "result_scorers": [], "result_yellow_cards": 0, "result_red_cards": 0,
-}, admin_token)
-assert settlement["success"] is True
-settled_bet = request("GET", f"/api/collections/fifa_bets/records/{bet['bet']['id']}", token=user_token)
-assert settled_bet["status"] == "won" and settled_bet["payout"] == 100
-settled_user = request("GET", f"/api/collections/users/records/{user['id']}", token=user_token)
-assert settled_user["balance"] == 1000
-again = request("POST", "/api/fifa/settle", {
-    "matchId": match["id"], "result_winner": "home", "result_home_goals": 2, "result_away_goals": 1,
-}, admin_token)
-assert again.get("message") == "Already settled"
-
-# FIFA settlement validates score/stage invariants at the server boundary, not only in the admin UI.
-settlement_group = request("POST", "/api/collections/fifa_matches/records", {
-    "team_home": "Group Home", "team_away": "Group Away", "stage": "group",
-    "kickoff_at": kickoff, "betting_locks_at": kickoff, "status": "upcoming", "settled": False,
-}, super_token)
-request("POST", "/api/fifa/settle", {
-    "matchId": settlement_group["id"], "result_winner": "away",
-    "result_home_goals": 2, "result_away_goals": 1,
-}, admin_token, (400,))
-request("POST", "/api/fifa/settle", {
-    "matchId": settlement_group["id"], "result_winner": "draw",
-    "result_home_goals": 1, "result_away_goals": 1, "result_advance": "home",
-    "result_after_extra_time": True, "result_after_penalties": True,
-}, admin_token)
-settled_group = request("GET", f"/api/collections/fifa_matches/records/{settlement_group['id']}", token=admin_token)
-assert settled_group["result_winner"] == "draw"
-assert not settled_group.get("result_advance")
-assert settled_group["result_after_extra_time"] is False and settled_group["result_after_penalties"] is False
-
-settlement_knockout = request("POST", "/api/collections/fifa_matches/records", {
-    "team_home": "Knockout Home", "team_away": "Knockout Away", "stage": "r32",
-    "kickoff_at": kickoff, "betting_locks_at": kickoff, "status": "upcoming", "settled": False,
-}, super_token)
-request("POST", "/api/fifa/settle", {
-    "matchId": settlement_knockout["id"], "result_winner": "draw",
-    "result_home_goals": 1, "result_away_goals": 1,
-}, admin_token, (400,))
-request("POST", "/api/fifa/settle", {
-    "matchId": settlement_knockout["id"], "result_winner": "home",
-    "result_home_goals": 2, "result_away_goals": 1, "result_advance": "away",
-}, admin_token, (400,))
-request("POST", "/api/fifa/settle", {
-    "matchId": settlement_knockout["id"], "result_winner": "draw",
-    "result_home_goals": 1, "result_away_goals": 1, "result_advance": "away",
-    "result_after_extra_time": True, "result_after_penalties": True,
-}, admin_token)
-settled_knockout = request("GET", f"/api/collections/fifa_matches/records/{settlement_knockout['id']}", token=admin_token)
-assert settled_knockout["result_advance"] == "away"
-assert settled_knockout["result_after_extra_time"] is True and settled_knockout["result_after_penalties"] is True
-
-# Financial voids reject direct mutation and refund once through the command.
-match2 = request("POST", "/api/collections/fifa_matches/records", {
-    "team_home": "Gamma", "team_away": "Delta", "stage": "group",
-    "kickoff_at": kickoff, "betting_locks_at": kickoff, "status": "upcoming", "settled": False,
-}, super_token)
-market2 = request("POST", "/api/collections/fifa_bet_markets/records", {
-    "match": match2["id"], "market_type": "match_winner", "mode": "pool",
-    "options": ["home", "away"], "is_open": True, "void": False,
-    "pool_total": 0, "pool_by_option": {},
-}, super_token)
-bet2 = request("POST", "/api/fifa/bets", {
-    "match": match2["id"], "market": market2["id"], "selection": "away", "stake": 100,
-}, user_token)
-request("PATCH", f"/api/collections/fifa_bet_markets/records/{market2['id']}", {"void": True}, admin_token, (400,))
-voided = request("POST", f"/api/fifa/markets/{market2['id']}/void", {}, admin_token)
-assert voided["refundedCount"] == 1
-assert request("GET", f"/api/collections/users/records/{user['id']}", token=user_token)["balance"] == 1000
-assert request("GET", f"/api/collections/fifa_bets/records/{bet2['bet']['id']}", token=user_token)["status"] == "void"
-assert request("POST", f"/api/fifa/markets/{market2['id']}/void", {}, admin_token).get("alreadyVoid") is True
-
-# Raffle response contains the same auditable snapshot persisted in settings.
-settings = request("GET", "/api/collections/fifa_settings/records?page=1&perPage=1", token=admin_token)["items"][0]
-request("PATCH", f"/api/collections/fifa_settings/records/{settings['id']}", {
-    "raffle_seed": "forged-audit-value",
-}, admin_token, (400,))
-request("PATCH", f"/api/collections/fifa_settings/records/{settings['id']}", {
-    "raffle_active_participant_min_bets": 0,
-}, admin_token)
-leaderboard_zero_min = request("GET", "/api/fifa/leaderboard")
-assert leaderboard_zero_min["settings"]["min_bets"] == 0
-normal_settings = request("PATCH", f"/api/collections/fifa_settings/records/{settings['id']}", {
-    "prize": "CI prize",
-    "registration_open": False,
-    "raffle_active_participant_min_bets": 1,
-}, admin_token)
-assert normal_settings["prize"] == "CI prize"
-raffle = request("POST", "/api/fifa/raffle", {}, admin_token)
-assert raffle["success"] is True
-assert raffle["entries_snapshot"]["total_tickets"] == raffle["totalTickets"]
-assert raffle["winner"]["bets_count"] >= 1
-assert any(entry["user_id"] == raffle["winner"]["user_id"] for entry in raffle["entries_snapshot"]["entries"])
-settings_after = request("GET", f"/api/collections/fifa_settings/records/{settings['id']}", token=super_token)
-assert settings_after["raffle_seed"] == raffle["seed"]
-assert settings_after["raffle_entries_snapshot"]["winning_pick"] == raffle["entries_snapshot"]["winning_pick"]
-second_raffle = request("POST", "/api/fifa/raffle", {}, admin_token, (400,))
-assert "already drawn" in second_raffle.get("error", "").lower()
-
-print(json.dumps({"ok": True, "eventSlug": event["slug"], "registrationId": registration["registrationId"], "raffleWinner": raffle["winner"]["user_id"]}))
+print(json.dumps({"ok": True, "eventSlug": event["slug"], "registrationId": registration["registrationId"]}))

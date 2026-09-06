@@ -28,6 +28,7 @@ function safeHttpUrl(value) {
 
 function privateSummary(record) {
   return {
+    hasWhatsappGroup: Boolean(record && record.getString("whatsappGroupUrl")),
     hasJoinUrl: Boolean(record && record.getString("virtualJoinUrl")),
     hasJoinInstructions: Boolean(record && record.getString("joinInstructions")),
   }
@@ -35,6 +36,7 @@ function privateSummary(record) {
 
 function responsePayload(record) {
   return {
+    whatsappGroupUrl: record ? record.getString("whatsappGroupUrl") || "" : "",
     virtualJoinUrl: record ? record.getString("virtualJoinUrl") || "" : "",
     joinInstructions: record ? record.getString("joinInstructions") || "" : "",
   }

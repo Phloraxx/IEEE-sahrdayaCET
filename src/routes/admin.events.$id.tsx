@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -11,10 +11,8 @@ import {
   ClipboardList,
   Download,
   History,
-  Loader2,
   Settings2,
   Plus,
-  ReceiptText,
   RefreshCw,
   Search,
   UserCheck,
@@ -26,7 +24,6 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -36,15 +33,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 import { PanelHeader } from "@/components/admin/panel-header";
 import { ConfirmButton } from "@/components/admin/confirm-button";
 import { EventCancelDialog } from "@/components/admin/event-cancel-dialog";
@@ -52,6 +40,19 @@ import { EventTeamPanel } from "@/features/admin/events/event-team-panel";
 import { EventWorkflowPanel } from "@/features/admin/events/event-workflow-panel";
 import { CertificateTemplatePanel } from "@/features/admin/events/certificate-template-panel";
 import { AttendanceSessionPanel } from "@/features/admin/events/attendance-session-panel";
+import { EventCloseoutPanel } from "@/features/admin/events/event-closeout-panel";
+import {
+  CancellationDecisionDialog,
+  type CancellationDecisionState,
+  ManualRegistrationDialog,
+  type ManualFormState,
+  money,
+  OperationRow,
+  OpsMetric,
+  ProviderPill,
+  ResolutionDialog,
+  type ResolutionState,
+} from "@/features/admin/events/event-operations-components";
 import { useAuth } from "@/lib/auth-context";
 import { getPbClient } from "@/lib/pb-client";
 import { csvFilename, streamRegistrationsCSV } from "@/lib/csv-export";
@@ -62,316 +63,31 @@ import {
   getAdminEventOperations,
   recomputeEventOperations,
   runAdminRegistrationCommand,
-  type AdminCancellationRequest,
   type AdminRegistrationOperationRow,
   type RegistrationAdminAction,
 } from "@/lib/data/admin-event-operations.client";
 import { listAdminRegistrations } from "@/lib/data/admin-registrations.client";
-import { cancelAdminEvent } from "@/lib/data/admin-events.client";
+import { archiveAdminEvent, cancelAdminEvent } from "@/lib/data/admin-events.client";
 import { runEventWorkflow } from "@/lib/data/workspace.client";
 
-type Tab = "overview" | "attendees" | "attendance" | "payments" | "coupons" | "certificates" | "team" | "activity";
-const VALID_TABS: Tab[] = ["overview", "attendees", "attendance", "payments", "coupons", "certificates", "team", "activity"];
+type Tab = "overview" | "closeout" | "attendees" | "attendance" | "payments" | "coupons" | "certificates" | "team" | "activity";
+const VALID_TABS: Tab[] = ["overview", "closeout", "attendees", "attendance", "payments", "coupons", "certificates", "team", "activity"];
 
-const money = (value: number) => `₹${Math.max(0, value || 0).toLocaleString("en-IN")}`;
-function OpsMetric({
-  label,
-  value,
-  detail,
-  icon: Icon,
-}: {
-  label: string;
-  value: string | number;
-  detail?: string;
-  icon: React.ComponentType<{ className?: string }>;
-}) {
-  return (
-    <Card className="overflow-hidden">
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-              {label}
-            </p>
-            <p className="mt-2 text-2xl font-semibold tracking-tight tabular-nums">{value}</p>
-            {detail && <p className="mt-1 text-xs text-muted-foreground">{detail}</p>}
-          </div>
-          <div className="rounded-xl border border-border bg-muted/40 p-2.5">
-            <Icon className="h-4 w-4 text-primary" />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
+function allowedTabsForPermissions(permissions: Record<string, boolean>): Tab[] {
+  return [
+    "overview",
+    ...(permissions["registrations.view"] ? ["attendees" as const] : []),
+    ...(permissions["events.edit"] || permissions["checkin.manage"] ? ["attendance" as const] : []),
+    ...(permissions["finance.view"] || permissions["finance.manage"] ? ["payments" as const] : []),
+    ...(permissions["events.edit"] ? ["coupons" as const] : []),
+    ...(permissions["certificates.view"] ? ["certificates" as const] : []),
+    ...(permissions["assignments.manage"] ? ["team" as const] : []),
+    ...(permissions["reports.view"] ? ["activity" as const] : []),
+  ];
 }
 
-function ProviderPill({ provider }: { provider: string }) {
-  const labels: Record<string, string> = {
-    razorpay: "Razorpay",
-    legacy_paygate: "Legacy PayGate",
-    paygate: "Kotak via PayGate",
-    manual: "Manual",
-    not_required: "No payment",
-    unknown: "Legacy",
-  };
-  return (
-    <span className="inline-flex rounded-full border border-border bg-muted/40 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-      {labels[provider] || provider}
-    </span>
-  );
-}
-
-function RegistrationIdentity({ row }: { row: AdminRegistrationOperationRow }) {
-  return (
-    <div className="min-w-0">
-      <Link
-        to={`/admin/registrations/${row.id}`}
-        className="truncate text-sm font-semibold text-foreground hover:underline"
-      >
-        {row.userName || "Unnamed attendee"}
-      </Link>
-      <p className="mt-0.5 truncate text-xs text-muted-foreground">{row.userEmail || "No email"}</p>
-    </div>
-  );
-}
-
-interface ManualFormState {
-  name: string;
-  email: string;
-  phone: string;
-  paymentMode: "paid" | "pending" | "waived";
-  paymentReference: string;
-  amountOverride: string;
-  note: string;
-  capacityOverride: boolean;
-}
-
-const EMPTY_MANUAL: ManualFormState = {
-  name: "",
-  email: "",
-  phone: "",
-  paymentMode: "pending",
-  paymentReference: "",
-  amountOverride: "",
-  note: "",
-  capacityOverride: false,
-};
-function ManualRegistrationDialog({
-  open,
-  onOpenChange,
-  eventPrice,
-  eventFull,
-  pending,
-  onSubmit,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  eventPrice: number;
-  eventFull: boolean;
-  pending: boolean;
-  onSubmit: (value: ManualFormState) => void;
-}) {
-  const [form, setForm] = useState<ManualFormState>(EMPTY_MANUAL);
-  const set = <K extends keyof ManualFormState>(key: K, value: ManualFormState[K]) =>
-    setForm((current) => ({ ...current, [key]: value }));
-
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        onOpenChange(next);
-        if (!next) setForm(EMPTY_MANUAL);
-      }}
-    >
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Add attendee manually</DialogTitle>
-          <DialogDescription>
-            Create a walk-in/offline registration with an audited payment state. The event price is {money(eventPrice)}.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-2 sm:grid-cols-2">
-          <div className="grid gap-1.5">
-            <Label htmlFor="manual-name">Name</Label>
-            <Input id="manual-name" value={form.name} onChange={(e) => set("name", e.target.value)} />
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="manual-email">Email</Label>
-            <Input id="manual-email" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} />
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="manual-phone">Phone</Label>
-            <Input id="manual-phone" value={form.phone} onChange={(e) => set("phone", e.target.value)} />
-          </div>
-          <div className="grid gap-1.5">
-            <Label>Payment</Label>
-            <Select value={form.paymentMode} onValueChange={(v) => set("paymentMode", v as ManualFormState["paymentMode"])}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="paid">Already paid offline</SelectItem>
-                <SelectItem value="pending">Payment pending</SelectItem>
-                <SelectItem value="waived">Waive fee</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="manual-reference">Payment reference</Label>
-            <Input id="manual-reference" value={form.paymentReference} onChange={(e) => set("paymentReference", e.target.value)} placeholder="UTR / receipt / note" />
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="manual-amount">Amount override</Label>
-            <Input id="manual-amount" type="number" min={0} step={1} value={form.amountOverride} onChange={(e) => set("amountOverride", e.target.value)} placeholder={String(eventPrice)} />
-          </div>
-        </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor="manual-note">Internal note</Label>
-          <Textarea
-            id="manual-note"
-            rows={3}
-            value={form.note}
-            onChange={(e) => set("note", e.target.value)}
-            placeholder="Why this registration/payment is being entered manually"
-          />
-        </div>
-        {eventFull && (
-          <label className="mt-2 flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
-            <input
-              type="checkbox"
-              className="mt-1"
-              checked={form.capacityOverride}
-              onChange={(e) => set("capacityOverride", e.target.checked)}
-            />
-            <span>
-              <strong>Override capacity.</strong> This event is currently full. A note is required and the override will be audited.
-            </span>
-          </label>
-        )}
-        <DialogFooter className="mt-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>Cancel</Button>
-          <Button
-            onClick={() => onSubmit(form)}
-            disabled={pending || !form.name.trim() || !form.email.trim()}
-            className="gap-2"
-          >
-            {pending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Create registration
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-interface CancellationDecisionState {
-  item: AdminCancellationRequest;
-  action: "accept" | "decline";
-}
-
-function CancellationDecisionDialog({
-  state,
-  onClose,
-  pending,
-  onSubmit,
-}: {
-  state: CancellationDecisionState | null;
-  onClose: () => void;
-  pending: boolean;
-  onSubmit: (note: string) => void;
-}) {
-  const [note, setNote] = useState("");
-  const attendee = state?.item.registration?.userName || "Attendee";
-  const accepting = state?.action === "accept";
-  return (
-    <Dialog open={Boolean(state)} onOpenChange={(open) => { if (!open) { setNote(""); onClose(); } }}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{accepting ? "Accept refund request" : "Decline refund request"}</DialogTitle>
-          <DialogDescription>
-            {attendee}. This decision records finance intent only; it does not move money automatically.
-          </DialogDescription>
-        </DialogHeader>
-        {state?.item.request.reason && (
-          <div className="rounded-xl border border-border bg-muted/30 p-3 text-sm leading-6">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Attendee reason</p>
-            <p className="mt-1">{state.item.request.reason}</p>
-          </div>
-        )}
-        <div className="grid gap-1.5">
-          <Label htmlFor="refund-decision-note">Decision note *</Label>
-          <Textarea id="refund-decision-note" rows={4} value={note} onChange={(e) => setNote(e.target.value)} placeholder={accepting ? "Approved; process through the recorded payment rail." : "Reason the request cannot be approved."} />
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => { setNote(""); onClose(); }} disabled={pending}>Cancel</Button>
-          <Button variant={accepting ? "default" : "destructive"} disabled={pending || !note.trim()} onClick={() => onSubmit(note.trim())}>
-            {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {accepting ? "Accept request" : "Decline request"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-interface ResolutionState {
-  row: AdminRegistrationOperationRow;
-  action: RegistrationAdminAction;
-  title: string;
-}
-
-function ResolutionDialog({
-  state,
-  onClose,
-  pending,
-  onSubmit,
-}: {
-  state: ResolutionState | null;
-  onClose: () => void;
-  pending: boolean;
-  onSubmit: (input: { note: string; reference: string; capacityOverride: boolean }) => void;
-}) {
-  const [note, setNote] = useState("");
-  const [reference, setReference] = useState("");
-  const [capacityOverride, setCapacityOverride] = useState(false);
-  const requiresNote = state?.action === "restore" || state?.action === "mark-refunded" || state?.action === "reopen-manual-payment";
-  return (
-    <Dialog open={Boolean(state)} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{state?.title || "Registration action"}</DialogTitle>
-          <DialogDescription>
-            {state ? `${state.row.userName} · ${money(state.row.amount)} · ${state.row.provider}` : ""}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4">
-          <div className="grid gap-1.5">
-            <Label htmlFor="resolution-reference">Reference</Label>
-            <Input id="resolution-reference" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="UTR, refund reference, receipt…" />
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="resolution-note">Internal note {requiresNote ? "*" : ""}</Label>
-            <Textarea id="resolution-note" rows={4} value={note} onChange={(e) => setNote(e.target.value)} />
-          </div>
-          {state?.action === "restore" && (
-            <label className="flex items-start gap-3 rounded-xl border border-border bg-muted/30 p-3 text-sm">
-              <input type="checkbox" className="mt-1" checked={capacityOverride} onChange={(e) => setCapacityOverride(e.target.checked)} />
-              <span>Allow an explicit capacity override if the event is currently full.</span>
-            </label>
-          )}
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={pending}>Cancel</Button>
-          <Button
-            variant={state?.action === "mark-refunded" ? "destructive" : "default"}
-            disabled={pending || (requiresNote && !note.trim())}
-            onClick={() => onSubmit({ note, reference, capacityOverride })}
-          >
-            {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Apply action
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
+function isTab(value: string | null): value is Tab {
+  return value !== null && VALID_TABS.includes(value as Tab);
 }
 
 export default function AdminEventOperationsRoute() {
@@ -379,8 +95,8 @@ export default function AdminEventOperationsRoute() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
-  const requestedTab = searchParams.get("tab") as Tab | null;
-  const tab: Tab = requestedTab && VALID_TABS.includes(requestedTab) ? requestedTab : "overview";
+  const requestedTab = searchParams.get("tab");
+  const tab: Tab = isTab(requestedTab) ? requestedTab : "overview";
   const setTab = (next: Tab) => {
     const params = new URLSearchParams(searchParams);
     if (next === "overview") params.delete("tab"); else params.set("tab", next);
@@ -399,10 +115,25 @@ export default function AdminEventOperationsRoute() {
     queryKey: ["admin-event-operations", id],
     queryFn: () => getAdminEventOperations(id),
     enabled: Boolean(id),
-    refetchInterval: tab === "overview" || tab === "payments" ? 20_000 : false,
+    refetchInterval: tab === "overview" || tab === "payments" || tab === "closeout" ? 20_000 : false,
   });
+  const permissions = operations.data?.permissions ?? {};
+  const canViewFinance = Boolean(permissions["finance.view"] || permissions["finance.manage"]);
+  const closeoutVisible = Boolean(operations.data?.closeout?.applicable);
+  const allowedTabs = [
+    ...allowedTabsForPermissions(permissions),
+    ...(closeoutVisible ? ["closeout" as const] : []),
+  ];
+  const activeTab: Tab = isTab(requestedTab) && allowedTabs.includes(requestedTab) ? requestedTab : "overview";
+  useEffect(() => {
+    if (!operations.data || requestedTab === activeTab) return;
+    const params = new URLSearchParams(searchParams);
+    if (activeTab === "overview") params.delete("tab");
+    else params.set("tab", activeTab);
+    setSearchParams(params, { replace: true });
+  }, [activeTab, operations.data, requestedTab, searchParams, setSearchParams]);
   const registrations = useQuery({
-    queryKey: ["admin-event-registrations", id, search, registrationStatus, paymentStatus, attendeePage],
+    queryKey: ["admin-event-registrations", id, search, registrationStatus, paymentStatus, attendeePage, canViewFinance],
     queryFn: () => listAdminRegistrations({
       page: attendeePage,
       perPage: 40,
@@ -410,8 +141,9 @@ export default function AdminEventOperationsRoute() {
       search,
       status: registrationStatus,
       paymentStatus,
+      financeAuthorized: canViewFinance,
     }),
-    enabled: Boolean(id) && tab === "attendees",
+    enabled: Boolean(id) && activeTab === "attendees",
   });
 
   const invalidate = () => {
@@ -427,6 +159,7 @@ export default function AdminEventOperationsRoute() {
       name: form.name.trim(),
       email: form.email.trim(),
       phone: form.phone.trim() || undefined,
+      formResponses: { programmeCode: form.programmeCode, branch: form.branch.trim(), semester: form.semester },
       paymentMode: form.paymentMode,
       paymentReference: form.paymentReference.trim() || undefined,
       amountOverride: form.amountOverride === "" ? undefined : Number(form.amountOverride),
@@ -495,6 +228,16 @@ export default function AdminEventOperationsRoute() {
     onError: (error: Error) => toast.error(error.message || "Could not update event workflow"),
   });
 
+  const archiveMutation = useMutation({
+    mutationFn: () => archiveAdminEvent(id),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Event archived");
+      setTab("overview");
+    },
+    onError: (error: Error) => toast.error(error.message || "Could not archive event"),
+  });
+
   const recomputeMutation = useMutation({
     mutationFn: () => recomputeEventOperations(id),
     onSuccess: () => {
@@ -510,6 +253,7 @@ export default function AdminEventOperationsRoute() {
     try {
       const stream = await streamRegistrationsCSV(getPbClient(), id, {
         adminFormat: true,
+        financeAuthorized: canViewFinance,
         event: { id, title: data.event.title },
       });
       const blob = await new Response(stream).blob();
@@ -533,17 +277,34 @@ export default function AdminEventOperationsRoute() {
   }
 
   const { event, summary } = operations.data;
-  const permissions = operations.data.permissions ?? {};
   const isPlatformAdmin = user?.role === "admin";
+  const canViewWorkflow = Boolean(
+    permissions["events.edit"] ||
+    permissions["events.submit"] ||
+    permissions["events.approve"] ||
+    permissions["events.publish"] ||
+    permissions["events.cancel"] ||
+    permissions["events.archive"] ||
+    permissions["events.complete"],
+  );
   const eventFull = event.maxCapacity > 0 && summary.active >= event.maxCapacity;
-  const sessionAttendanceActive = operations.data.attendance?.mode === "sessions";
+  const waitlist = operations.data.waitlist ?? { waiting: 0, offered: 0, reserved: 0 };
+  const attendance = operations.data.attendance;
+  const attention = canViewFinance ? operations.data.attention ?? [] : [];
+  const cancellationRequests = canViewFinance ? operations.data.cancellationRequests ?? [] : [];
+  const coupons = operations.data.coupons ?? [];
+  const audit = operations.data.audit ?? [];
+  const sessionAttendanceActive = attendance?.mode === "sessions";
+  const eventCheckInActive = event.status === "published" && event.checkInEnabled;
+  const eventRegistrationActive = event.status !== "cancelled" && !event.isArchived;
   const capacityPct = event.maxCapacity > 0 ? Math.min(100, Math.round((summary.active / event.maxCapacity) * 100)) : 0;
   const tabs: Array<{ id: Tab; label: string; count?: number }> = [
     { id: "overview", label: "Overview" },
+    ...(operations.data.closeout?.applicable ? [{ id: "closeout" as Tab, label: "Closeout", count: operations.data.closeout.blockers.length || undefined }] : []),
     ...(permissions["registrations.view"] ? [{ id: "attendees" as Tab, label: "Attendees", count: summary.active }] : []),
-    ...(permissions["events.edit"] || permissions["checkin.manage"] ? [{ id: "attendance" as Tab, label: "Attendance", count: operations.data.attendance?.sessionCount || undefined }] : []),
-    ...(permissions["finance.view"] ? [{ id: "payments" as Tab, label: "Payments", count: summary.paidCount }] : []),
-    ...(permissions["events.edit"] ? [{ id: "coupons" as Tab, label: "Coupons", count: operations.data.coupons.length }] : []),
+    ...(permissions["events.edit"] || permissions["checkin.manage"] ? [{ id: "attendance" as Tab, label: "Attendance", count: attendance?.sessionCount || undefined }] : []),
+    ...(canViewFinance ? [{ id: "payments" as Tab, label: "Payments", count: summary.paidCount ?? 0 }] : []),
+    ...(permissions["events.edit"] ? [{ id: "coupons" as Tab, label: "Coupons", count: coupons.length }] : []),
     ...(permissions["certificates.view"] ? [{ id: "certificates" as Tab, label: "Certificates" }] : []),
     ...(permissions["assignments.manage"] ? [{ id: "team" as Tab, label: "Event team" }] : []),
     ...(permissions["reports.view"] ? [{ id: "activity" as Tab, label: "Activity" }] : []),
@@ -558,11 +319,11 @@ export default function AdminEventOperationsRoute() {
             <div className="min-w-0 max-w-3xl">
               <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge status={event.status} kind="event" />
-                <span className="rounded-full border border-border bg-background/60 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  {event.price > 0
-                    ? `${money(event.price)} · ${event.paymentProvider === "kotak" ? "Kotak direct UPI" : "Razorpay"}`
+                {canViewFinance && <span className="rounded-full border border-border bg-background/60 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {event.price && event.price > 0
+                    ? `${money(event.price)} · PayGate UPI`
                     : "Free event"}
-                </span>
+                </span>}
                 <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${event.registrationOpen ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>
                   Registration {event.registrationOpen ? "open" : "closed"}
                 </span>
@@ -588,14 +349,13 @@ export default function AdminEventOperationsRoute() {
                   <XCircle className="h-4 w-4" /> Cancel event
                 </Button>
               )}
-              {permissions["registrations.manual"] && (
+              {permissions["registrations.manual"] && eventRegistrationActive && (
                 <Button size="sm" className="gap-2" onClick={() => setManualOpen(true)}>
                   <Plus className="h-4 w-4" /> Add attendee
                 </Button>
               )}
             </div>
           </div>
-
           {event.maxCapacity > 0 && (
             <div className="mt-7 max-w-xl">
               <div className="mb-2 flex items-center justify-between text-xs">
@@ -609,13 +369,13 @@ export default function AdminEventOperationsRoute() {
           )}
         </div>
       </div>
-
-      <EventWorkflowPanel
+      {canViewWorkflow && <EventWorkflowPanel
         event={event}
         permissions={permissions}
         pending={workflowMutation.isPending}
+        canViewFinance={canViewFinance}
         onAction={(action, note) => workflowMutation.mutate({ action, note })}
-      />
+      />}
 
       <div className="flex gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1">
         {tabs.map((item) => (
@@ -624,14 +384,14 @@ export default function AdminEventOperationsRoute() {
             type="button"
             onClick={() => setTab(item.id)}
             className={`inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors ${
-              tab === item.id
+              activeTab === item.id
                 ? "bg-foreground text-background shadow-sm"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
             }`}
           >
             {item.label}
             {item.count !== undefined && (
-              <span className={`rounded-full px-1.5 py-0.5 font-mono text-[10px] ${tab === item.id ? "bg-background/15" : "bg-muted"}`}>
+              <span className={`rounded-full px-1.5 py-0.5 font-mono text-[10px] ${activeTab === item.id ? "bg-background/15" : "bg-muted"}`}>
                 {item.count}
               </span>
             )}
@@ -639,16 +399,19 @@ export default function AdminEventOperationsRoute() {
         ))}
       </div>
 
-      {tab === "overview" && (
+      {activeTab === "overview" && (
         <div className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <OpsMetric label="Active seats" value={summary.active} detail={`${summary.confirmed} confirmed · ${summary.pending} pending${operations.data.waitlist.reserved ? ` · ${operations.data.waitlist.reserved} waitlist reserved` : ""}`} icon={Users} />
-            <OpsMetric label="Recorded collected" value={money(summary.paidAmount)} detail={`${summary.paidCount} paid records`} icon={Banknote} />            <OpsMetric label="Manual confirmations" value={money(summary.manualPaidAmount)} detail={`${summary.manualPaidCount} admin-confirmed`} icon={BadgeCheck} />
-            <OpsMetric label="Needs attention" value={operations.data.attention.length} detail={`${summary.cancelledPaidCount} paid + cancelled`} icon={AlertTriangle} />
+          <div className={`grid gap-4 sm:grid-cols-2 ${canViewFinance ? "xl:grid-cols-4" : "xl:grid-cols-1"}`}>
+            <OpsMetric label="Active seats" value={summary.active} detail={`${summary.confirmed} confirmed · ${summary.pending} pending${waitlist.reserved ? ` · ${waitlist.reserved} waitlist reserved` : ""}`} icon={Users} />
+            {canViewFinance && <>
+              <OpsMetric label="Recorded collected" value={money(summary.paidAmount ?? 0)} detail={`${summary.paidCount ?? 0} paid records`} icon={Banknote} />
+              <OpsMetric label="Manual confirmations" value={money(summary.manualPaidAmount ?? 0)} detail={`${summary.manualPaidCount ?? 0} admin-confirmed`} icon={BadgeCheck} />
+              <OpsMetric label="Needs attention" value={attention.length} detail={`${summary.cancelledPaidCount ?? 0} paid + cancelled`} icon={AlertTriangle} />
+            </>}
           </div>
 
-          <div className="grid gap-6 xl:grid-cols-[1.4fr_0.8fr]">
-            <Card>
+          <div className={`grid gap-6 ${canViewFinance ? "xl:grid-cols-[1.4fr_0.8fr]" : ""}`}>
+            {canViewFinance && <Card>
               <CardContent className="p-6">
                 <PanelHeader
                   eyebrow="Attention queue"
@@ -656,42 +419,47 @@ export default function AdminEventOperationsRoute() {
                   description="Financial or registration states that should not disappear inside a generic list."
                 />
                 <div className="mt-5 space-y-2">
-                  {operations.data.attention.length === 0 ? (
+                  {attention.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
                       No unresolved registration or payment states.
                     </div>
-                  ) : operations.data.attention.slice(0, 8).map((row) => (
+                  ) : attention.slice(0, 8).map((row) => (
                     <OperationRow
                       key={row.id}
                       row={row}
                       permissions={permissions}
+                      canViewFinance={canViewFinance}
                       compact
                       pending={actionMutation.isPending}
                       sessionAttendanceActive={sessionAttendanceActive}
+                      eventCheckInActive={eventCheckInActive}
+                      eventRegistrationActive={eventRegistrationActive}
                       onAction={(action, title) => setResolution({ row, action, title })}
                       onImmediate={(action) => actionMutation.mutate({ row, action })}
                     />
                   ))}
                 </div>
               </CardContent>
-            </Card>            <Card>
+            </Card>}
+
+            <Card>
               <CardContent className="p-6">
                 <PanelHeader eyebrow="Controls" title="Event operations" description="Safe recovery actions, all server-side." />
                 <div className="mt-5 grid gap-3">
-                  <Button variant="outline" className="justify-start gap-3" onClick={() => setTab("attendees")}>
+                  {permissions["registrations.view"] && <Button variant="outline" className="justify-start gap-3" onClick={() => setTab("attendees")}>
                     <ClipboardList className="h-4 w-4" /> Open attendee register
-                  </Button>
+                  </Button>}
                   {(permissions["events.edit"] || permissions["checkin.manage"]) && (
                     <Button variant="outline" className="justify-start gap-3" onClick={() => setTab("attendance")}>
                       <UserCheck className="h-4 w-4" /> Open attendance console
                     </Button>
                   )}
-                  <Button variant="outline" className="justify-start gap-3" onClick={() => setTab("payments")}>
+                  {canViewFinance && <Button variant="outline" className="justify-start gap-3" onClick={() => setTab("payments")}>
                     <WalletCards className="h-4 w-4" /> Open payment desk
-                  </Button>
-                  <Button variant="outline" className="justify-start gap-3" onClick={() => void exportRegistrations()}>
+                  </Button>}
+                  {permissions["registrations.view"] && <Button variant="outline" className="justify-start gap-3" onClick={() => void exportRegistrations()}>
                     <Download className="h-4 w-4" /> Export registrations CSV
-                  </Button>
+                  </Button>}
                   {isPlatformAdmin && (
                     <ConfirmButton
                       label="Recompute counters"
@@ -704,25 +472,38 @@ export default function AdminEventOperationsRoute() {
                     />
                   )}
                 </div>
-                <p className="mt-5 rounded-xl bg-muted/40 p-3 text-xs leading-relaxed text-muted-foreground">
+                {canViewFinance && <p className="mt-5 rounded-xl bg-muted/40 p-3 text-xs leading-relaxed text-muted-foreground">
                   {operations.data.financeDisclaimer}
-                </p>
+                </p>}
               </CardContent>
             </Card>
-          </div>
-        </div>
-      )}      {tab === "attendees" && (
+              </div>
+            </div>
+      )}      {activeTab === "closeout" && operations.data.closeout && (
+        <EventCloseoutPanel
+          closeout={operations.data.closeout}
+          canArchive={Boolean(permissions["events.archive"])}
+          archivePending={archiveMutation.isPending}
+          onOpenArea={(area) => setTab(area as Tab)}
+          onArchive={() => archiveMutation.mutate()}
+        />
+      )}
+
+      {activeTab === "attendees" && (
         <Card>
           <CardContent className="p-6">
             <PanelHeader
               eyebrow="Attendee register"
               title="Everyone attached to this event"
-              description={sessionAttendanceActive
-                ? "Search, filter, inspect, cancel, restore, or resolve payment state. Session check-in is managed from the Attendance tab."
-                : "Search, filter, inspect, check in, cancel, restore, or resolve payment state."}
-              actions={permissions["registrations.manual"] ? <Button size="sm" className="gap-2" onClick={() => setManualOpen(true)}><Plus className="h-4 w-4" />Add attendee</Button> : undefined}
+              description={canViewFinance
+                ? (sessionAttendanceActive
+                  ? "Search, filter, inspect, cancel, restore, or resolve payment state. Session check-in is managed from the Attendance tab."
+                  : "Search, filter, inspect, check in, cancel, restore, or resolve payment state.")
+                : (sessionAttendanceActive
+                  ? "Search, inspect, and manage registrations. Session check-in is managed from the Attendance tab."
+                  : "Search, inspect, and manage registrations.")}
             />
-            <div className="mt-5 grid gap-3 md:grid-cols-[1fr_170px_170px]">
+            <div className={`mt-5 grid gap-3 ${canViewFinance ? "md:grid-cols-[1fr_170px_170px]" : "md:grid-cols-[1fr_170px]"}`}>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input value={search} onChange={(e) => { setSearch(e.target.value); setAttendeePage(1); }} placeholder="Search name, email, phone or ticket" className="pl-9" />
@@ -736,7 +517,7 @@ export default function AdminEventOperationsRoute() {
                   <SelectItem value="cancelled">Cancelled</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={paymentStatus} onValueChange={(value) => { setPaymentStatus(value); setAttendeePage(1); }}>
+              {canViewFinance && <Select value={paymentStatus} onValueChange={(value) => { setPaymentStatus(value); setAttendeePage(1); }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All payment states</SelectItem>                  <SelectItem value="paid">Paid</SelectItem>
@@ -744,7 +525,7 @@ export default function AdminEventOperationsRoute() {
                   <SelectItem value="failed">Failed</SelectItem>
                   <SelectItem value="not_required">Not required</SelectItem>
                 </SelectContent>
-              </Select>
+              </Select>}
             </div>
             <div className="mt-5 space-y-2">
               {registrations.isLoading ? (
@@ -755,8 +536,11 @@ export default function AdminEventOperationsRoute() {
                     key={row.id}
                     row={row}
                     permissions={permissions}
+                    canViewFinance={canViewFinance}
                     pending={actionMutation.isPending}
                     sessionAttendanceActive={sessionAttendanceActive}
+                    eventCheckInActive={eventCheckInActive}
+                    eventRegistrationActive={eventRegistrationActive}
                     onAction={(action, title) => setResolution({ row, action, title })}
                     onImmediate={(action) => actionMutation.mutate({ row, action })}
                   />
@@ -780,7 +564,7 @@ export default function AdminEventOperationsRoute() {
         </Card>
       )}
 
-      {tab === "attendance" && (
+      {activeTab === "attendance" && (
         <AttendanceSessionPanel
           eventId={id}
           eventStart={event.date}
@@ -791,13 +575,13 @@ export default function AdminEventOperationsRoute() {
         />
       )}
 
-      {tab === "payments" && (
+      {activeTab === "payments" && (
         <div className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <OpsMetric label="Collected" value={money(summary.paidAmount)} detail={`${summary.paidCount} paid records`} icon={Banknote} />
-            <OpsMetric label="Provider confirmed" value={money(summary.providerPaidAmount)} detail={`${summary.providerPaidCount} online/provider`} icon={CheckCircle2} />
-            <OpsMetric label="Manual confirmed" value={money(summary.manualPaidAmount)} detail={`${summary.manualPaidCount} admin overrides`} icon={BadgeCheck} />
-            <OpsMetric label="Pending" value={money(summary.pendingPaymentAmount)} detail={`${summary.pendingPaymentCount} awaiting payment`} icon={History} />
+            <OpsMetric label="Collected" value={money(summary.paidAmount ?? 0)} detail={`${summary.paidCount ?? 0} paid records`} icon={Banknote} />
+            <OpsMetric label="Provider confirmed" value={money(summary.providerPaidAmount ?? 0)} detail={`${summary.providerPaidCount ?? 0} online/provider`} icon={CheckCircle2} />
+            <OpsMetric label="Manual confirmed" value={money(summary.manualPaidAmount ?? 0)} detail={`${summary.manualPaidCount ?? 0} admin overrides`} icon={BadgeCheck} />
+            <OpsMetric label="Pending" value={money(summary.pendingPaymentAmount ?? 0)} detail={`${summary.pendingPaymentCount ?? 0} awaiting payment`} icon={History} />
           </div>
           <Card>
             <CardContent className="p-6">
@@ -807,7 +591,7 @@ export default function AdminEventOperationsRoute() {
                 description="Accepting records finance intent only. The registration remains financially valid until the existing payment rail confirms or records the refund."
               />
               <div className="mt-5 space-y-3">
-                {operations.data.cancellationRequests.length ? operations.data.cancellationRequests.map((item) => {
+                {cancellationRequests.length ? cancellationRequests.map((item) => {
                   const row = item.registration;
                   const accepted = item.request.status === "accepted";
                   return (
@@ -816,14 +600,13 @@ export default function AdminEventOperationsRoute() {
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wider ${accepted ? "bg-emerald-500/10 text-emerald-700" : "bg-amber-500/10 text-amber-700"}`}>{accepted ? "Accepted · refund pending" : "Needs decision"}</span>
-                            {row && <ProviderPill provider={row.provider} />}
+                            {row && <ProviderPill provider={row.provider ?? "unknown"} />}
                             <span className="text-xs text-muted-foreground">Requested {formatDateTime(item.request.requestedAt)}</span>
                           </div>
                           <p className="mt-3 text-sm font-semibold">{row?.userName || "Attendee"}</p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">{row?.userEmail || "Registration record unavailable"}{row ? ` · ${money(row.amount)}` : ""}</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">{row?.userEmail || "Registration record unavailable"}{row && row.amount !== undefined ? ` · ${money(row.amount)}` : ""}</p>
                           {item.request.reason && <p className="mt-3 max-w-2xl text-sm leading-6 text-foreground/75"><strong>Reason:</strong> {item.request.reason}</p>}
-                          {accepted && row?.provider === "razorpay" && <p className="mt-3 max-w-2xl text-xs leading-5 text-muted-foreground">Process the refund in the Razorpay Dashboard. IEEE will close this request when provider reconciliation reports the payment as refunded.</p>}
-                          {accepted && row && row.provider !== "razorpay" && <p className="mt-3 max-w-2xl text-xs leading-5 text-muted-foreground">Record the completed external refund below only after the money has actually been returned.</p>}
+                          {accepted && row && <p className="mt-3 max-w-2xl text-xs leading-5 text-muted-foreground">Record the completed external refund below only after the money has actually been returned.</p>}
                         </div>
                         <div className="flex shrink-0 flex-wrap gap-2">
                           {row && <Button variant="outline" size="sm" asChild><Link to={`/admin/registrations/${row.id}`}>Open registration</Link></Button>}
@@ -833,7 +616,7 @@ export default function AdminEventOperationsRoute() {
                               <Button variant="outline" size="sm" disabled={cancellationDecisionMutation.isPending} onClick={() => setCancellationDecision({ item, action: "decline" })}>Decline</Button>
                             </>
                           )}
-                          {accepted && row && row.provider !== "razorpay" && row.paymentStatus === "paid" && permissions["finance.manage"] && (
+                          {accepted && row && row.paymentStatus === "paid" && permissions["finance.manage"] && (
                             <Button variant="destructive" size="sm" onClick={() => setResolution({ row, action: "mark-refunded", title: "Record attendee refund" })}>Record refund</Button>
                           )}
                         </div>
@@ -854,14 +637,17 @@ export default function AdminEventOperationsRoute() {
                 description="Paid-but-cancelled, manual review and pending-payment records stay visible until resolved."
               />
               <div className="mt-5 space-y-2">
-                {operations.data.attention.filter((row) => row.amount > 0).length ? (
-                  operations.data.attention.filter((row) => row.amount > 0).map((row) => (
+                {attention.filter((row) => (row.amount ?? 0) > 0).length ? (
+                  attention.filter((row) => (row.amount ?? 0) > 0).map((row) => (
                     <OperationRow
                       key={row.id}
                       row={row}
                       permissions={permissions}
+                      canViewFinance={canViewFinance}
                       pending={actionMutation.isPending}
                       sessionAttendanceActive={sessionAttendanceActive}
+                      eventCheckInActive={eventCheckInActive}
+                      eventRegistrationActive={eventRegistrationActive}
                       onAction={(action, title) => setResolution({ row, action, title })}
                       onImmediate={(action) => actionMutation.mutate({ row, action })}
                     />
@@ -875,14 +661,14 @@ export default function AdminEventOperationsRoute() {
             <CardContent className="p-6">
               <PanelHeader eyebrow="Breakdown" title="By payment rail" description="Recorded registration amounts, not a live bank balance." />
               <div className="mt-5 grid gap-3 md:grid-cols-3">
-                {Object.entries(summary.providers).map(([provider, values]) => (
+                {Object.entries(summary.providers ?? {}).map(([provider, values]) => (
                   <div key={provider} className="rounded-xl border border-border bg-muted/20 p-4">
                     <ProviderPill provider={provider} />
                     <p className="mt-3 font-mono text-xl font-semibold tabular-nums">{money(values.amount)}</p>
                     <p className="mt-1 text-xs text-muted-foreground">{values.paidCount} paid · {values.count} total records</p>
                   </div>
                 ))}
-                {Object.keys(summary.providers).length === 0 && (
+                {Object.keys(summary.providers ?? {}).length === 0 && (
                   <p className="text-sm text-muted-foreground">No payment records yet.</p>
                 )}
               </div>
@@ -894,11 +680,11 @@ export default function AdminEventOperationsRoute() {
         </div>
       )}
 
-      {tab === "coupons" && (
+      {activeTab === "coupons" && (
         <Card>
           <CardContent className="p-6">
             <PanelHeader eyebrow="Coupons" title="Discount controls" description="Coupon creation and editing stays in Event Settings; usage is derived from active registrations." actions={<Button variant="outline" size="sm" asChild><Link to={`/admin/events/${event.id}/edit`}>Manage coupons</Link></Button>} />            <div className="mt-5 overflow-hidden rounded-xl border border-border">
-              {operations.data.coupons.length ? operations.data.coupons.map((coupon) => (
+              {coupons.length ? coupons.map((coupon) => (
                 <div key={coupon.id} className="grid gap-3 border-b border-border px-4 py-3 last:border-b-0 md:grid-cols-[1fr_120px_140px_130px] md:items-center">
                   <div>
                     <p className="font-mono text-sm font-semibold">{coupon.code}</p>
@@ -916,7 +702,7 @@ export default function AdminEventOperationsRoute() {
         </Card>
       )}
 
-      {tab === "certificates" && (
+      {activeTab === "certificates" && (
         <CertificateTemplatePanel
           eventId={id}
           canView={Boolean(permissions["certificates.view"])}
@@ -927,16 +713,16 @@ export default function AdminEventOperationsRoute() {
         />
       )}
 
-      {tab === "team" && (
+      {activeTab === "team" && (
         <EventTeamPanel eventId={id} societyId={event.society} canManage={Boolean(permissions["assignments.manage"])} />
       )}
 
-      {tab === "activity" && (
+      {activeTab === "activity" && (
         <Card>
           <CardContent className="p-6">
             <PanelHeader eyebrow="Audit trail" title="Manual operations" description="Admin actions are stored separately from provider/payment truth." />
             <div className="mt-5 space-y-2">
-              {operations.data.audit.length ? operations.data.audit.map((entry) => (
+              {audit.length ? audit.map((entry) => (
                 <div key={entry.id} className="flex gap-3 rounded-xl border border-border p-4">
                   <div className="mt-0.5 rounded-lg bg-muted p-2"><History className="h-4 w-4 text-muted-foreground" /></div>
                   <div className="min-w-0 flex-1">
@@ -952,13 +738,15 @@ export default function AdminEventOperationsRoute() {
                 <div className="rounded-xl border border-dashed border-border px-4 py-12 text-center text-sm text-muted-foreground">No manual audit entries yet.</div>
               )}
             </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
       )}      <ManualRegistrationDialog
         open={manualOpen}
         onOpenChange={setManualOpen}
-        eventPrice={event.price}
+        eventPrice={event.price ?? 0}
         eventFull={eventFull}
+        eligibleSemesters={event.eligibleSemesters ?? []}
+        eligibleProgrammes={event.eligibleProgrammes ?? []}
         pending={manualMutation.isPending}
         onSubmit={(form) => manualMutation.mutate(form)}
       />
@@ -987,105 +775,6 @@ export default function AdminEventOperationsRoute() {
           actionMutation.mutate({ row: resolution.row, action: resolution.action, ...input });
         }}
       />
-    </div>
-  );
-}
-
-function OperationRow({
-  row,
-  permissions,
-  compact = false,
-  pending,
-  sessionAttendanceActive = false,
-  onAction,
-  onImmediate,
-}: {
-  row: AdminRegistrationOperationRow;
-  permissions: Record<string, boolean>;
-  compact?: boolean;
-  pending: boolean;
-  sessionAttendanceActive?: boolean;
-  onAction: (action: RegistrationAdminAction, title: string) => void;
-  onImmediate: (action: RegistrationAdminAction) => void;
-}) {
-  const isPaidCancelled = row.registrationStatus === "cancelled" && row.paymentStatus === "paid";
-  const canConfirm = Boolean(permissions["finance.manage"]) && row.registrationStatus === "pending" && row.paymentStatus === "pending" && row.amount > 0 && (!row.providerStatus || row.providerStatus === "not_initialized");
-  const canRestore = Boolean(permissions["registrations.manage"]) && row.registrationStatus === "cancelled";
-  const canRefund = Boolean(permissions["finance.manage"]) && row.paymentStatus === "paid" && row.provider !== "razorpay";
-  const refundTitle = "Record external refund";
-  const canReopenManual = Boolean(permissions["finance.manage"]) && Boolean(row.manualConfirmation) && row.paymentStatus === "paid";
-
-  return (
-    <div className={`rounded-xl border p-3 transition-colors ${row.manualReview || isPaidCancelled ? "border-amber-500/30 bg-amber-500/5" : "border-border bg-background hover:bg-muted/20"}`}>
-      <div className={`grid gap-3 ${compact ? "lg:grid-cols-[1.3fr_auto_auto]" : "lg:grid-cols-[1.35fr_0.9fr_0.9fr_auto]"} lg:items-center`}>
-        <div className="min-w-0">
-          <RegistrationIdentity row={row} />
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <ProviderPill provider={row.provider} />
-            {row.registrationSource === "admin" && <span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-primary">Manual entry</span>}
-            {row.manualReview && <span className="rounded-full bg-amber-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-amber-600">Review</span>}
-          </div>
-        </div>
-        {!compact && (
-          <div className="flex flex-wrap gap-2">
-            <StatusBadge status={row.registrationStatus} kind="registration" />
-            <StatusBadge status={row.paymentStatus} kind="payment" />
-          </div>
-        )}
-        <div className="min-w-0">
-          <p className="font-mono text-sm font-semibold tabular-nums">{row.amount > 0 ? money(row.amount) : "Free"}</p>
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">{row.ticketId || row.providerStatus || "No ticket yet"}</p>
-        </div>        <div className="flex flex-wrap items-center justify-start gap-1 lg:justify-end">
-          <Button variant="ghost" size="sm" asChild className="h-8 px-2 text-xs">
-            <Link to={`/admin/registrations/${row.id}`}>View</Link>
-          </Button>
-          {canConfirm && (
-            <Button size="sm" className="h-8 gap-1.5 text-xs" disabled={pending} onClick={() => onAction("confirm-payment", "Confirm payment manually")}>
-              <BadgeCheck className="h-3.5 w-3.5" /> Confirm paid
-            </Button>
-          )}
-          {permissions["checkin.manage"] && !sessionAttendanceActive && !row.checkedIn && row.registrationStatus === "confirmed" && (
-            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" disabled={pending} onClick={() => onImmediate("check-in")}>
-              <UserCheck className="h-3.5 w-3.5" /> Check in
-            </Button>
-          )}
-          {permissions["checkin.manage"] && !sessionAttendanceActive && row.checkedIn && (
-            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" disabled={pending} onClick={() => onImmediate("undo-check-in")}>
-              <XCircle className="h-3.5 w-3.5" /> Undo check-in
-            </Button>
-          )}
-          {canRestore && (
-            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={pending} onClick={() => onAction("restore", "Restore registration")}>
-              Restore
-            </Button>
-          )}          {canRefund && (
-            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs text-destructive" disabled={pending} onClick={() => onAction("mark-refunded", refundTitle) }>
-              <ReceiptText className="h-3.5 w-3.5" /> Refund
-            </Button>
-          )}
-          {canReopenManual && (
-            <Button variant="outline" size="sm" className="h-8 text-xs" disabled={pending} onClick={() => onAction("reopen-manual-payment", "Reverse manual payment confirmation") }>
-              Reopen payment
-            </Button>
-          )}
-          {permissions["registrations.manage"] && row.registrationStatus !== "cancelled" && !row.checkedIn && (
-            <ConfirmButton
-              label="Cancel"
-              confirmMessage="Cancel this registration? Paid registrations stay visible in the payment exception queue."
-              variant="destructive"
-              className="h-8 text-xs"
-              disabled={pending}
-              onConfirm={() => { onImmediate("cancel"); return true; }}
-            />
-          )}
-        </div>
-      </div>
-      {(row.reviewReason || row.internalNotes) && (
-        <div className="mt-3 border-t border-border/70 pt-3 text-xs text-muted-foreground">
-          {row.reviewReason && <p><strong className="text-foreground">Review:</strong> {row.reviewReason}</p>}
-          {row.internalNotes && <p className="mt-1"><strong className="text-foreground">Note:</strong> {row.internalNotes}</p>}
-        </div>
-      )}
     </div>
   );
 }

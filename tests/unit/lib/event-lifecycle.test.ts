@@ -4,11 +4,17 @@ import {
   canUseExternalRegistration,
   canUseInternalRegistration,
   getRegistrationMode,
+  getTicketCheckInState,
   isPastEvent,
   isPublicEvent,
 } from '@/lib/event-lifecycle'
 
 const NOW = new Date('2026-07-20T12:00:00.000Z').getTime()
+const UPCOMING_EVENT = {
+  status: 'published',
+  date: '2026-07-25T10:00:00.000Z',
+  endDate: '2026-07-25T12:00:00.000Z',
+}
 
 describe('event lifecycle', () => {
   it('keeps upcoming published events public and registerable', () => {
@@ -143,6 +149,49 @@ describe('event lifecycle', () => {
     }
     expect(getRegistrationMode(event)).toBe('external')
     expect(canUseExternalRegistration(event, NOW)).toBe(true)
+  })
+
+  it('allows confirmed tickets for upcoming published events', () => {
+    expect(getTicketCheckInState('confirmed', UPCOMING_EVENT, NOW)).toBe('eligible')
+  })
+
+  it('blocks cancelled tickets before other lifecycle checks', () => {
+    expect(getTicketCheckInState('cancelled', UPCOMING_EVENT, NOW)).toBe('cancelled')
+  })
+
+  it('blocks tickets for unpublished or archived events', () => {
+    expect(getTicketCheckInState('confirmed', { ...UPCOMING_EVENT, status: 'draft' }, NOW)).toBe('unpublished')
+    expect(getTicketCheckInState('confirmed', { ...UPCOMING_EVENT, isArchived: true }, NOW)).toBe('unpublished')
+  })
+
+  it('blocks tickets for completed or elapsed events', () => {
+    expect(getTicketCheckInState('confirmed', { ...UPCOMING_EVENT, status: 'completed' }, NOW)).toBe('past')
+    expect(
+      getTicketCheckInState(
+        'confirmed',
+        { ...UPCOMING_EVENT, date: '2026-07-19T10:00:00.000Z', endDate: '2026-07-19T12:00:00.000Z' },
+        NOW,
+      ),
+    ).toBe('past')
+  })
+
+  it('blocks unconfirmed tickets for otherwise eligible events', () => {
+    expect(getTicketCheckInState('pending', UPCOMING_EVENT, NOW)).toBe('unconfirmed')
+  })
+
+  it('keeps a published timed event without an explicit end check-in eligible after its start', () => {
+    const event = { status: 'published', date: '2026-07-20T10:00:00.000Z', endDate: '' }
+    expect(getTicketCheckInState('confirmed', event, NOW)).toBe('eligible')
+  })
+
+  it('blocks QR check-in when the organiser disables it', () => {
+    expect(getTicketCheckInState('confirmed', { ...UPCOMING_EVENT, checkInEnabled: false }, NOW)).toBe('disabled')
+  })
+
+  it('keeps time-TBC tickets active through the event calendar day', () => {
+    const event = { status: 'published', date: '2026-07-20T18:30:00.000Z', timeTbc: true }
+    expect(getTicketCheckInState('confirmed', event, new Date('2026-07-21T06:30:00.000Z').getTime())).toBe('eligible')
+    expect(getTicketCheckInState('confirmed', event, new Date('2026-07-21T18:30:00.000Z').getTime())).toBe('past')
   })
 
 })

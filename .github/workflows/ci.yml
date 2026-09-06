@@ -53,20 +53,6 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: Build PocketBase image
         run: docker build -t ieee-pocketbase-ci -f pocketbase/Dockerfile .
-      - name: Start fake Razorpay API
-        env:
-          RAZORPAY_KEY_ID: rzp_test_ieee
-          RAZORPAY_KEY_SECRET: test_secret_ieee_2026
-          RAZORPAY_FAKE_PORT: "18080"
-        run: |
-          python3 tests/backend/fake_razorpay.py > /tmp/fake-razorpay.log 2>&1 &
-          echo $! > /tmp/fake-razorpay.pid
-          for i in {1..20}; do
-            curl -fsS -u 'rzp_test_ieee:test_secret_ieee_2026' 'http://127.0.0.1:18080/v1/orders?count=1' >/dev/null && exit 0
-            sleep 1
-          done
-          cat /tmp/fake-razorpay.log
-          exit 1
       - name: Start fake SMTP server
         env:
           SMTP_FAKE_PORT: "18082"
@@ -87,15 +73,8 @@ jobs:
             -p 127.0.0.1:8090:8090 \
             -e DEPLOY_ENV='staging' \
             -e PB_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef' \
-            -e RAZORPAY_API_BASE_URL='http://host.docker.internal:18080' \
-            -e RAZORPAY_KEY_ID='rzp_test_ieee' \
-            -e RAZORPAY_KEY_SECRET='test_secret_ieee_2026' \
-            -e RAZORPAY_WEBHOOK_SECRET='test_webhook_ieee_2026' \
-            -e RAZORPAY_CHECKOUT_HOLD_SECONDS='600' \
-            -e PAYMENTS_ENABLED='true' \
             -e PAYGATE_URL='http://host.docker.internal:18081' \
             -e PAYGATE_API_KEY='CI-PayGate-Api-Key-2026!!!!' \
-            -e PAYGATE_API_VERSION='v3' \
             -e PAYGATE_WEBHOOK_SECRET='CI-PayGate-Webhook-2026!!!!' \
             -e PAYGATE_REGISTRATION_GRACE_SECONDS='600' \
             -e CERTIFICATE_RENDER_CAPABILITY_KEY='CI-Certificate-Render-Capability-2026-Only-Test' \
@@ -121,7 +100,10 @@ jobs:
           PB_BASE_URL: http://127.0.0.1:8090
           PB_SUPERUSER_EMAIL: ci-super@example.test
           PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
-        run: python3 tests/backend/pocketbase_smoke.py
+          E2E_WORKSPACE_FIXTURE: /tmp/community-workspace-e2e.json
+        run: |
+          python3 tests/backend/pocketbase_smoke.py
+          python3 tests/backend/community_roles_smoke.py
       - name: Exercise certificate template lifecycle
         env:
           PB_BASE_URL: http://127.0.0.1:8090
@@ -160,16 +142,7 @@ jobs:
           PB_SUPERUSER_EMAIL: ci-super@example.test
           PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
         run: python3 tests/backend/certificate_lifecycle_smoke.py
-      - name: Exercise direct Razorpay integration
-        env:
-          PB_BASE_URL: http://127.0.0.1:8090
-          PB_SUPERUSER_EMAIL: ci-super@example.test
-          PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
-          RAZORPAY_FAKE_URL: http://127.0.0.1:18080
-          RAZORPAY_KEY_SECRET: test_secret_ieee_2026
-          RAZORPAY_WEBHOOK_SECRET: test_webhook_ieee_2026
-        run: python3 tests/backend/razorpay_direct_smoke.py
-      - name: Exercise temporary Kotak PayGate integration
+      - name: Exercise PayGate v4 integration
         env:
           PB_BASE_URL: http://127.0.0.1:8090
           PB_SUPERUSER_EMAIL: ci-super@example.test
@@ -201,6 +174,7 @@ jobs:
           PB_SUPERUSER_EMAIL: ci-super@example.test
           PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
           CERTIFICATE_RENDER_CAPABILITY_KEY: CI-Certificate-Render-Capability-2026-Only-Test
+          E2E_WORKSPACE_FIXTURE: /tmp/community-workspace-e2e.json
         run: bun run test:e2e
       - name: Backend logs on failure
         if: failure()

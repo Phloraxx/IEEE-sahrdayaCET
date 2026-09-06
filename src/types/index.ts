@@ -56,7 +56,6 @@ interface Event {
     timeTbc?: boolean;
     venue?: string;
     price: number;
-    paymentProvider?: "razorpay" | "kotak";
     bannerUrl?: string;
     banner?: string | null;
     /** Society relation. When expanded, an object; otherwise the society ID string. */
@@ -79,7 +78,6 @@ interface Event {
     externalLink?: string;
     externalFormUrl?: string;
     tags?: string;
-  whatsappLink?: string;
     isDeleted?: boolean;
 }
 

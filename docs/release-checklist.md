@@ -34,7 +34,6 @@ Verify from `https://staging.ieeesahrdaya.com`, not only localhost:
 - `/societies` and at least one society page;
 - `/blog` and at least one blog post;
 - `/full-execom`;
-- `/FIFA`, `/FIFA/matches`, `/FIFA/leaderboard`, `/FIFA/rules`;
 - `/healthz`;
 - `/api/health`.
 
@@ -75,41 +74,18 @@ Verify at least one disposable registration flow:
 
 For paid events, verify the enabled production payment integration and webhook secret before cutover. Never copy a production payment secret into staging merely to make a test pass.
 
-For the temporary Kotak/PayGate fallback, verify it only on events that explicitly select `Kotak direct UPI · temporary`:
+For PayGate v4, verify before accepting real registrations:
 
-- `PAYGATE_URL`, `PAYGATE_API_KEY`, `PAYGATE_API_VERSION`, and `PAYGATE_WEBHOOK_SECRET` belong to the intended environment;
+- `PAYGATE_URL`, `PAYGATE_API_KEY`, and `PAYGATE_WEBHOOK_SECRET` belong to the intended IEEE environment;
 - PayGate's outgoing webhook targets `/api/webhooks/paygate` on the same IEEE environment;
-- the PayGate UPI destination is the intended Kotak account and bank-message verification is healthy;
-- the event's final payable amount after any coupon is a whole rupee before PayGate adds its unique 1–99 paise verification suffix;
-- a real low-value test confirms exact-amount UPI → Kotak credit → signed webhook/reconciliation → ticket/email;
-- event cancellation or a released seat followed by a late bank credit produces manual review and never resurrects a ticket;
-- once Razorpay UPI Intent is available, switch new registrations back to `Razorpay · default`; existing registrations remain locked to the provider they started with.
+- event, registration and environment metadata round-trip unchanged and reject foreign-environment callbacks;
+- the event's final payable amount after discounts is a whole rupee before PayGate assigns its verification adjustment;
+- the exact `upi_uri` returned by PayGate is used unchanged for both QR rendering and mobile UPI handoff;
+- a real low-value test confirms PayGate v4 payment creation → UPI payment → signed webhook/reconciliation → ticket/email;
+- callback loss is recoverable through explicit/background reconciliation;
+- event cancellation or a released seat followed by a late credit produces manual review and never resurrects a ticket.
 
-For Razorpay specifically, verify before accepting real registrations:
-
-- payment capture is configured for automatic capture, so successful UPI payments do not remain `authorized`;
-- UPI Intent is enabled for the merchant account before exposing mobile app buttons;
-- desktop UPI QR succeeds independently of Intent enablement;
-- the production webhook points to `/api/webhooks/razorpay` and subscribes to payment capture/failure, order paid, refund, and dispute events used by the hook;
-- one real-device smoke test covers Android/iOS mobile handoff as supported by the merchant account and one desktop QR payment;
-- a callback-loss test confirms webhook or explicit reconciliation still reaches the correct final state.
-
-## 6. WC Predict acceptance
-
-For the FIFA/WC Predict feature, verify:
-
-- authenticated dashboard/balance access;
-- bet placement rejects invalid/oversized/late bets;
-- accepted bet debits once and creates one ledger entry;
-- settlement is admin-only and idempotent;
-- market and match void commands refund once;
-- leaderboard/rank updates are coherent after settlement;
-- raffle/settings admin surfaces load and obey authorization;
-- live-score data remains display-only and cannot settle balances automatically.
-
-Use disposable staging economy data only.
-
-## 7. Production configuration
+## 6. Production configuration
 
 Confirm the production Dokploy project has the intended values before merge:
 
@@ -122,15 +98,12 @@ PB_ENCRYPTION_KEY=<production-only value>
 Confirm any enabled backend integrations separately:
 
 ```text
-RAZORPAY_KEY_ID
-RAZORPAY_KEY_SECRET
-RAZORPAY_WEBHOOK_SECRET
-RAZORPAY_CHECKOUT_HOLD_SECONDS
-PAYMENTS_ENABLED
-PAYGATE_URL                 # only while temporary Kotak fallback is enabled
-PAYGATE_API_KEY             # PayGate merchant credential
-PAYGATE_API_VERSION         # v3 before PayGate v4 cutover; v4 only with the v4 merchant API
-PAYGATE_WEBHOOK_SECRET      # only while temporary Kotak fallback is enabled
+PAYGATE_URL
+PAYGATE_API_KEY
+PAYGATE_WEBHOOK_SECRET
+PAYGATE_REGISTRATION_GRACE_SECONDS
+PAYGATE_WEBHOOK_TOLERANCE_SECONDS
+PAYGATE_CLIENT_NAMESPACE    # optional explicit environment/client namespace
 FOOTBALL_DATA_API_TOKEN
 SMTP_HOST
 SMTP_PORT
@@ -149,7 +122,7 @@ Also verify:
 - production and staging use different `pb_data` volumes and encryption keys;
 - the production web container has no PocketBase superuser credential.
 
-## 8. Backup and migration rehearsal
+## 7. Backup and migration rehearsal
 
 Immediately before production deployment:
 
@@ -161,7 +134,7 @@ Immediately before production deployment:
 
 Do not rely on automatic reverse migrations after destructive schema changes.
 
-## 9. Deployment
+## 8. Deployment
 
 Staging deployment path:
 
@@ -187,14 +160,14 @@ merge/push main
 
 Do not start replacement containers manually under either Compose project name.
 
-## 10. Post-deploy verification
+## 9. Post-deploy verification
 
 After Dokploy reports healthy services, verify:
 
 - `/` returns 200 and expected current UI;
 - `/healthz` returns 200;
 - `/api/health` returns 200;
-- event/society/blog/FIFA public routes return expected content;
+- event/society/blog public routes return expected content;
 - production `robots.txt`/sitemap behavior is correct;
 - staging remains noindexed;
 - production Google login initializes;
