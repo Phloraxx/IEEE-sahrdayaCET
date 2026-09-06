@@ -412,8 +412,8 @@ function syncPaymentLedger(registration, payment, options, app) {
                 var rows = app.findRecordsByFilter(
                     "payments",
                     "registration = {:registration} && provider = {:provider}",
-                    { registration: registration.id, provider: PAYGATE_PROVIDER },
                     "-created", 1, 0,
+                    { registration: registration.id, provider: PAYGATE_PROVIDER }
                 )
                 if (rows.length) ledger = rows[0]
             } catch (_) {}
