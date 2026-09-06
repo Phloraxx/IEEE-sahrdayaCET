@@ -102,6 +102,16 @@ describe("registration/payment experience architecture", () => {
     expect(existsSync(resolve(process.cwd(), "src/lib/razorpay-upi.client.ts"))).toBe(false);
   });
 
+  it("makes confirmed-attendee WhatsApp access prominent after payment success", () => {
+    const payment = source("src/features/payment/PaymentPage.tsx");
+    expect(payment).toContain("getEventJoinDetails(session.event.id)");
+    expect(payment).toContain("Join WhatsApp group");
+    expect(payment).toContain("successWhatsappUrl");
+    expect(payment).toContain("View ticket");
+    expect(payment).not.toContain("Taking you there now.");
+    expect(payment).not.toContain('window.setTimeout(\n      () => navigate(`/ticket/${session.ticketId}`');
+  });
+
   it("keeps browser status reads local and backs PayGate reconciliation off", () => {
     const payment = source("src/features/payment/PaymentPage.tsx");
     const client = source("src/lib/data/payment.client.ts");
