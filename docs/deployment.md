@@ -36,6 +36,7 @@ PAYGATE_WEBHOOK_SECRET
 PAYGATE_REGISTRATION_GRACE_SECONDS
 PAYGATE_WEBHOOK_TOLERANCE_SECONDS
 PAYGATE_CLIENT_NAMESPACE
+
 FOOTBALL_DATA_API_TOKEN
 SMTP_HOST
 SMTP_PORT
@@ -43,6 +44,9 @@ SMTP_USERNAME
 SMTP_PASSWORD
 SMTP_FROM
 ```
+`PAYGATE_WEBHOOK_TOLERANCE_SECONDS` defaults to 300 seconds and is capped at
+900 seconds by the runtime. `PAYGATE_URL` must be HTTPS except for loopback
+or `host.docker.internal` fake-provider endpoints used by local/CI tests.
 
 Never reuse a production encryption key, OAuth application, payment secret, SMTP credential, or `pb_data` volume in staging.
 

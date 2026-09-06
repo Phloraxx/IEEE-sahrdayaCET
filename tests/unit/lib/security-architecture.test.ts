@@ -34,6 +34,16 @@ describe("security architecture invariants", () => {
     expect(route).toContain('"payment.paid"');
   });
 
+  it("rebinds provider reconciliation and webhook writes to live transactions", () => {
+    const helpers = read("pb_hooks/paygate-helpers.js");
+    const webhook = read("pb_hooks/paygate.pb.js");
+    expect(helpers).toContain("$app.runInTransaction(function (txApp)");
+    expect(helpers).toContain("var live = txApp.findRecordById");
+    expect(helpers).toContain("PAYMENT_STATE_CHANGED");
+    expect(webhook).toContain("$app.runInTransaction(function (txApp)");
+    expect(webhook).toContain("txApp.findRecordById");
+  });
+
   it("does not allow a retired Razorpay checkout surface through CSP or runtime files", () => {
     const root = read("src/root.tsx");
     expect(root).not.toContain("razorpay.com");

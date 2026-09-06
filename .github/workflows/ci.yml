@@ -74,8 +74,8 @@ jobs:
             -e DEPLOY_ENV='staging' \
             -e PB_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef' \
             -e PAYGATE_URL='http://host.docker.internal:18081' \
-            -e PAYGATE_API_KEY='CI-PayGate-Api-Key-2026!!!!' \
-            -e PAYGATE_WEBHOOK_SECRET='CI-PayGate-Webhook-2026!!!!' \
+            -e PAYGATE_API_KEY='CI-PayGate-Api-Key-2026-Only-Test-32' \
+            -e PAYGATE_WEBHOOK_SECRET='CI-PayGate-Webhook-2026-Only-Test-32' \
             -e PAYGATE_REGISTRATION_GRACE_SECONDS='600' \
             -e CERTIFICATE_RENDER_CAPABILITY_KEY='CI-Certificate-Render-Capability-2026-Only-Test' \
             -e MAIL_DELIVERY_MODE='redirect' \
@@ -147,8 +147,8 @@ jobs:
           PB_BASE_URL: http://127.0.0.1:8090
           PB_SUPERUSER_EMAIL: ci-super@example.test
           PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
-          PAYGATE_API_KEY: CI-PayGate-Api-Key-2026!!!!
-          PAYGATE_WEBHOOK_SECRET: CI-PayGate-Webhook-2026!!!!
+          PAYGATE_API_KEY: CI-PayGate-Api-Key-2026-Only-Test-32
+          PAYGATE_WEBHOOK_SECRET: CI-PayGate-Webhook-2026-Only-Test-32
           PAYGATE_FAKE_PORT: "18081"
         run: python3 tests/backend/paygate_smoke.py
       - name: Install certificate renderer fonts

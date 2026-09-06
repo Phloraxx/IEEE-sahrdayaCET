@@ -40,23 +40,36 @@ function toPositiveInt(value, fallback) {
     return number
 }
 
+function normalizePayGateOrigin(value) {
+    var text = String(value || "").trim().replace(/\/+$/, "")
+    var match = text.match(/^(https?):\/\/(\[[0-9A-Fa-f:]+\]|[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*)(?::([0-9]{1,5}))?$/i)
+    if (!match) return ""
+    if (String(match[1]).toLowerCase() === "http") {
+        var localHost = String(match[2]).toLowerCase()
+        var deployEnv = String($os.getenv("DEPLOY_ENV") || "").trim().toLowerCase()
+        if (deployEnv === "production" || deploymentNamespace() === "production" ||
+            (localHost !== "localhost" && localHost !== "127.0.0.1" && localHost !== "[::1]" && localHost !== "host.docker.internal")) return ""
+    }
+    if (match[3] && Number(match[3]) > 65535) return ""
+    return text
+}
+
 function getConfig() {
-    var url = String($os.getenv("PAYGATE_URL") || "").trim().replace(/\/+$/, "")
     return {
-        url: url,
+        url: normalizePayGateOrigin($os.getenv("PAYGATE_URL")),
         apiKey: String($os.getenv("PAYGATE_API_KEY") || "").trim(),
         webhookSecret: String($os.getenv("PAYGATE_WEBHOOK_SECRET") || "").trim(),
         registrationGraceSeconds: toPositiveInt($os.getenv("PAYGATE_REGISTRATION_GRACE_SECONDS"), 600),
-        webhookToleranceSeconds: toPositiveInt($os.getenv("PAYGATE_WEBHOOK_TOLERANCE_SECONDS"), 300),
+        webhookToleranceSeconds: Math.min(toPositiveInt($os.getenv("PAYGATE_WEBHOOK_TOLERANCE_SECONDS"), 300), 900),
     }
 }
 
 function paymentConfigured(config) {
-    return !!(config && config.url && config.apiKey)
+    return !!(config && config.url && config.apiKey.length >= 32)
 }
 
 function webhookConfigured(config) {
-    return !!(config && config.webhookSecret)
+    return !!(config && config.webhookSecret.length >= 32)
 }
 
 function deploymentNamespace() {
@@ -380,14 +393,15 @@ function paymentSession(registration, data, providerReachable) {
     }
 }
 
-function syncPaymentLedger(registration, payment, options) {
+function syncPaymentLedger(registration, payment, options, app) {
     options = options || {}
+    app = app || $app
     if (!registration || !payment || !payment.id) return null
     try {
-        var collection = $app.findCollectionByNameOrId("payments")
+        var collection = app.findCollectionByNameOrId("payments")
         var ledger = null
         try {
-            ledger = $app.findFirstRecordByFilter(
+            ledger = app.findFirstRecordByFilter(
                 "payments",
                 "providerOrderId = {:providerOrderId}",
                 { providerOrderId: String(payment.id) }
@@ -395,7 +409,7 @@ function syncPaymentLedger(registration, payment, options) {
         } catch (_) {}
         if (!ledger) {
             try {
-                var rows = $app.findRecordsByFilter(
+                var rows = app.findRecordsByFilter(
                     "payments",
                     "registration = {:registration} && provider = {:provider}",
                     "-created", 1, 0,
@@ -463,10 +477,11 @@ function syncPaymentLedger(registration, payment, options) {
                 ledger.set("capturedAt", payment.paidAt || new Date().toISOString())
             }
         }
-        $app.saveNoValidate(ledger)
+        app.saveNoValidate(ledger)
         return ledger
     } catch (err) {
         console.log("[paygate] payment ledger sync failed:", err)
+        if (options.atomic === true) throw err
         return null
     }
 }
@@ -510,7 +525,8 @@ function updateProviderData(registration, payment, extra) {
     return result
 }
 
-function confirmRegistration(registration, payment, eventId) {
+function confirmRegistration(registration, payment, eventId, app) {
+    app = app || $app
     var rh = require(__hooks + "/registration-helpers.js")
     var data = updateProviderData(registration, payment, {
         providerStatus: "paid",
@@ -521,12 +537,13 @@ function confirmRegistration(registration, payment, eventId) {
     registration.set("paymentStatus", "paid")
     registration.set("paymentData", data)
     if (!registration.getString("ticketId")) registration.set("ticketId", rh.generateTicketId())
-    $app.saveNoValidate(registration)
-    syncPaymentLedger(registration, payment, { manualReview: false, reviewReason: "" })
+    app.saveNoValidate(registration)
+    syncPaymentLedger(registration, payment, { manualReview: false, reviewReason: "", atomic: true }, app)
     return data
 }
 
-function cancelRegistration(registration, payment, eventId, reason, manualReview) {
+function cancelRegistration(registration, payment, eventId, reason, manualReview, app) {
+    app = app || $app
     var data = updateProviderData(registration, payment, {
         manualReview: manualReview === true,
         reviewReason: reason || "",
@@ -535,12 +552,13 @@ function cancelRegistration(registration, payment, eventId, reason, manualReview
     registration.set("registrationStatus", "cancelled")
     registration.set("paymentStatus", "failed")
     registration.set("paymentData", data)
-    $app.save(registration)
-    syncPaymentLedger(registration, payment, { manualReview: manualReview === true, reviewReason: reason || "" })
+    app.save(registration)
+    syncPaymentLedger(registration, payment, { manualReview: manualReview === true, reviewReason: reason || "", atomic: true }, app)
     return data
 }
 
-function applyProviderState(registration, payment, eventType, eventId) {
+function applyProviderState(registration, payment, eventType, eventId, app) {
+    app = app || $app
     var data = asObject(registration.get("paymentData"))
     var expectedPaise = expectedRequestedPaise(registration.getInt("amount") || 0)
     if (eventType !== "payment." + String(payment.status || "")) {
@@ -556,14 +574,14 @@ function applyProviderState(registration, payment, eventType, eventId) {
 
     if (transition.action === "error") return transition
 
-    // A noop is intentionally non-mutating for provider state. This prevents a
-    // stale/out-of-order terminal event from regressing a confirmed payment.
+    // A noop is intentionally non-mutating for provider state. This prevents
+    // a stale/out-of-order terminal event from regressing a confirmed payment.
     // We still remember a webhook event ID so valid retries remain idempotent.
     if (transition.action === "noop") {
         if (eventId) {
             var noopData = appendEventId(data, eventId)
             registration.set("paymentData", noopData)
-            $app.saveNoValidate(registration)
+            app.saveNoValidate(registration)
         }
         // Replays also repair a missing normalized ledger row. Registration
         // confirmation and financial reporting therefore converge even if an
@@ -571,17 +589,18 @@ function applyProviderState(registration, payment, eventType, eventId) {
         syncPaymentLedger(registration, payment, {
             manualReview: data.manualReview === true,
             reviewReason: String(data.reviewReason || ""),
-        })
+            atomic: true,
+        }, app)
         return transition
     }
 
     if (transition.action === "confirm") {
-        confirmRegistration(registration, payment, eventId)
+        confirmRegistration(registration, payment, eventId, app)
         return transition
     }
 
     if (transition.action === "cancel") {
-        cancelRegistration(registration, payment, eventId, "PayGate payment was cancelled", false)
+        cancelRegistration(registration, payment, eventId, "PayGate payment was cancelled", false, app)
         return transition
     }
 
@@ -592,8 +611,8 @@ function applyProviderState(registration, payment, eventType, eventId) {
         })
         if (eventId) expiredData = appendEventId(expiredData, eventId)
         registration.set("paymentData", expiredData)
-        $app.saveNoValidate(registration)
-        syncPaymentLedger(registration, payment, { manualReview: false, reviewReason: "" })
+        app.saveNoValidate(registration)
+        syncPaymentLedger(registration, payment, { manualReview: false, reviewReason: "", atomic: true }, app)
         return transition
     }
 
@@ -610,10 +629,10 @@ function applyProviderState(registration, payment, eventType, eventId) {
             })
             if (eventId) reviewData = appendEventId(reviewData, eventId)
             registration.set("paymentData", reviewData)
-            $app.saveNoValidate(registration)
-            syncPaymentLedger(registration, payment, { manualReview: true, reviewReason: reviewReason })
+            app.saveNoValidate(registration)
+            syncPaymentLedger(registration, payment, { manualReview: true, reviewReason: reviewReason, atomic: true }, app)
         } else {
-            cancelRegistration(registration, payment, eventId, reviewReason, true)
+            cancelRegistration(registration, payment, eventId, reviewReason, true, app)
         }
         return transition
     }
@@ -621,7 +640,7 @@ function applyProviderState(registration, payment, eventType, eventId) {
     var nextData = updateProviderData(registration, payment, {})
     if (eventId) nextData = appendEventId(nextData, eventId)
     registration.set("paymentData", nextData)
-    $app.saveNoValidate(registration)
+    app.saveNoValidate(registration)
     return transition
 }
 
@@ -675,35 +694,108 @@ function createPaymentForRegistration(registration) {
         console.log("[paygate] invalid create response:", validated.error)
         return { status: 502, body: { code: "PAYGATE_INVALID_RESPONSE", error: "PayGate returned an invalid response" } }
     }
-    var nextData = updateProviderData(registration, validated.payment, {
-        provider: PAYGATE_PROVIDER,
-        createdAt: current.createdAt || new Date().toISOString(),
-        manualReview: false,
-    })
-    registration.set("paymentData", nextData)
-    $app.saveNoValidate(registration)
-    syncPaymentLedger(registration, validated.payment, { manualReview: false, reviewReason: "" })
-    return { status: response.statusCode === 201 ? 201 : 200, body: paymentSession(registration, nextData, true) }
+    var persisted = null
+    var conflict = false
+    try {
+        $app.runInTransaction(function (txApp) {
+            var live = txApp.findRecordById("registrations", registration.id)
+            if (live.getString("registrationStatus") !== "pending" || live.getString("paymentStatus") !== "pending") {
+                conflict = true
+                return
+            }
+            var liveCurrent = asObject(live.get("paymentData"))
+            if (liveCurrent.provider !== PAYGATE_PROVIDER) {
+                conflict = true
+                return
+            }
+            if (liveCurrent.paymentId) {
+                persisted = { registration: live, data: liveCurrent, existing: true }
+                return
+            }
+            var liveAmountPaise = require(__hooks + "/registration-helpers.js").registrationFinalFeePaise(live)
+            var liveEventId = live.getString("event") || ""
+            var liveValidated = validateProviderPayment(response.json, liveAmountPaise / 100, {
+                requireUpiUri: true,
+                requireTransactionNote: true,
+                externalId: liveEventId,
+                registrationId: live.id,
+                environment: deploymentNamespace(),
+            })
+            if (!liveValidated.ok) {
+                conflict = true
+                return
+            }
+            var nextData = updateProviderData(live, liveValidated.payment, {
+                provider: PAYGATE_PROVIDER,
+                createdAt: liveCurrent.createdAt || new Date().toISOString(),
+                manualReview: false,
+            })
+            live.set("paymentData", nextData)
+            txApp.saveNoValidate(live)
+            syncPaymentLedger(live, liveValidated.payment, { manualReview: false, reviewReason: "", atomic: true }, txApp)
+            persisted = { registration: live, data: nextData, existing: false }
+        })
+    } catch (err) {
+        console.log("[paygate] payment persistence transaction failed:", err)
+        return { status: 502, body: { code: "PAYGATE_UNAVAILABLE", error: "PayGate is temporarily unavailable" } }
+    }
+    if (conflict) {
+        return { status: 409, body: { code: "PAYMENT_STATE_CHANGED", error: "This registration changed while payment was being prepared. Refresh and try again." } }
+    }
+    if (!persisted) {
+        return { status: 502, body: { code: "PAYGATE_INVALID_RESPONSE", error: "PayGate returned an invalid response" } }
+    }
+    if (persisted.existing) {
+        return { status: 200, body: paymentSession(persisted.registration, persisted.data, true) }
+    }
+    return { status: response.statusCode === 201 ? 201 : 200, body: paymentSession(persisted.registration, persisted.data, true) }
 }
 
 function reconcilePaymentForRegistration(registration) {
     var guard = require(__hooks + "/paygate-registration-guard.js")
     var config = getConfig()
+    try {
+        registration = $app.findRecordById("registrations", registration.id)
+    } catch (_) {
+        return { status: 404, body: { code: "REGISTRATION_NOT_FOUND", error: "Registration not found" } }
+    }
     var data = asObject(registration.get("paymentData"))
     if (data.provider !== PAYGATE_PROVIDER) {
         return { status: 409, body: { code: "PAYMENT_PROVIDER_CONFLICT", error: "This registration uses a different payment provider" } }
     }
     if (!data.paymentId || registration.getString("paymentStatus") === "paid") {
         if (data.paymentId) {
-            syncPaymentLedger(registration, {
-                id: String(data.paymentId),
-                status: String(data.providerStatus || (registration.getString("paymentStatus") === "paid" ? "paid" : "pending")),
-                payableAmountPaise: Number(data.payableAmountPaise) || 0,
-                paidAt: String(data.paidAt || ""),
-            }, {
-                manualReview: data.manualReview === true,
-                reviewReason: String(data.reviewReason || ""),
-            })
+            var ledgerConflict = false
+            try {
+                $app.runInTransaction(function (txApp) {
+                    var live = txApp.findRecordById("registrations", registration.id)
+                    var liveData = asObject(live.get("paymentData"))
+                    if (liveData.provider !== PAYGATE_PROVIDER || String(liveData.paymentId || "") !== String(data.paymentId)) {
+                        ledgerConflict = true
+                        return
+                    }
+                    syncPaymentLedger(live, {
+                        id: String(liveData.paymentId),
+                        status: String(liveData.providerStatus || (live.getString("paymentStatus") === "paid" ? "paid" : "pending")),
+                        requestedAmountPaise: Number(liveData.requestedAmountPaise) || 0,
+                        payableAmountPaise: Number(liveData.payableAmountPaise) || 0,
+                        payableAmount: Number(liveData.payableAmount) || 0,
+                        paidAt: String(liveData.paidAt || ""),
+                    }, {
+                        manualReview: liveData.manualReview === true,
+                        reviewReason: String(liveData.reviewReason || ""),
+                        atomic: true,
+                    }, txApp)
+                })
+            } catch (err) {
+                console.log("[paygate] ledger repair transaction failed:", err)
+                return { status: 503, body: { code: "PAYGATE_RECONCILIATION_FAILED", error: "PayGate payment state could not be persisted safely" } }
+            }
+            if (ledgerConflict) {
+                return { status: 409, body: { code: "PAYMENT_RECONCILIATION_REFUSED", error: "PayGate payment state changed while it was being reconciled" } }
+            }
+            registration = $app.findRecordById("registrations", registration.id)
+            data = asObject(registration.get("paymentData"))
         }
         return { status: 200, body: paymentSession(registration, data, paymentConfigured(config)) }
     }
@@ -747,16 +839,47 @@ function reconcilePaymentForRegistration(registration) {
         console.log("[paygate] invalid status response:", validated.error)
         return { status: 409, body: { code: "PAYMENT_RECONCILIATION_REFUSED", error: validated.error } }
     }
-    var payment = validated.payment
-    if (payment.status === "paid") {
-        var disposition = guard.paymentConfirmationDisposition(registration)
-        if (disposition.blocked) {
-            guard.recordPaidManualReview(registration, payment, "", disposition.reason)
-            registration = $app.findRecordById("registrations", registration.id)
-            return { status: 200, body: paymentSession(registration, registration.get("paymentData"), true), notify: false }
-        }
+    var result = { action: "error", error: "PayGate registration changed while status was being reconciled" }
+    try {
+        $app.runInTransaction(function (txApp) {
+            var live = txApp.findRecordById("registrations", registration.id)
+            var liveData = asObject(live.get("paymentData"))
+            if (liveData.provider !== PAYGATE_PROVIDER) {
+                result = { action: "error", error: "This registration uses a different payment provider" }
+                return
+            }
+            var liveAmountPaise = require(__hooks + "/registration-helpers.js").registrationFinalFeePaise(live)
+            if (liveAmountPaise <= 0 || liveAmountPaise % 100 !== 0) {
+                result = { action: "error", error: "This PayGate payment amount cannot be reconciled safely" }
+                return
+            }
+            var liveValidated = validateProviderPayment(response.json, liveAmountPaise / 100, {
+                requireUpiUri: true,
+                requireTransactionNote: true,
+                paymentId: String(liveData.paymentId || ""),
+                externalId: live.getString("event") || "",
+                registrationId: live.id,
+                environment: deploymentNamespace(),
+            })
+            if (!liveValidated.ok) {
+                result = { action: "error", error: liveValidated.error }
+                return
+            }
+            var livePayment = liveValidated.payment
+            if (livePayment.status === "paid") {
+                var disposition = guard.paymentConfirmationDisposition(live, txApp)
+                if (disposition.blocked) {
+                    guard.recordPaidManualReview(live, livePayment, "", disposition.reason, txApp)
+                    result = { action: "manual_review" }
+                    return
+                }
+            }
+            result = applyProviderState(live, livePayment, "payment." + livePayment.status, "", txApp)
+        })
+    } catch (err) {
+        console.log("[paygate] status persistence transaction failed:", err)
+        return { status: 503, body: { code: "PAYGATE_RECONCILIATION_FAILED", error: "PayGate status could not be persisted safely" } }
     }
-    var result = applyProviderState(registration, payment, "payment." + payment.status, "")
     if (result.action === "error") {
         return { status: 409, body: { code: "PAYMENT_RECONCILIATION_REFUSED", error: result.error } }
     }

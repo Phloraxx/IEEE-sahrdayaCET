@@ -41,44 +41,86 @@ routerAdd("POST", "/api/webhooks/paygate", function (e) {
   var rawPayment = body.data && body.data.payment
   var registrationId = pg.registrationIdFromProviderPayment(rawPayment, { allowWebhookShape: true })
   if (!registrationId) return e.json(200, { success: true, ignored: true })
-  var registration
-  try { registration = $app.findRecordById("registrations", registrationId) }
-  catch (_) { return e.json(404, { code: "REGISTRATION_NOT_FOUND", error: "Registration not found" }) }
+  var responseStatus = 200
+  var responseBody = { success: true, ignored: true }
+  var shouldNotify = false
+  try {
+    $app.runInTransaction(function (txApp) {
+      var registration
+      try { registration = txApp.findRecordById("registrations", registrationId) }
+      catch (_) {
+        responseStatus = 404
+        responseBody = { code: "REGISTRATION_NOT_FOUND", error: "Registration not found" }
+        return
+      }
 
-  var current = pg.asObject(registration.get("paymentData"))
-  if (current.provider !== pg.PAYGATE_PROVIDER) {
-    return e.json(409, { code: "PAYMENT_PROVIDER_CONFLICT", error: "Registration is not assigned to PayGate" })
-  }
-  if (pg.hasEventId(current, eventId)) return e.json(200, { success: true, message: "Already processed" })
+      var current = pg.asObject(registration.get("paymentData"))
+      if (current.provider !== pg.PAYGATE_PROVIDER) {
+        responseStatus = 409
+        responseBody = { code: "PAYMENT_PROVIDER_CONFLICT", error: "Registration is not assigned to PayGate" }
+        return
+      }
+      if (pg.hasEventId(current, eventId)) {
+        pg.syncPaymentLedger(registration, {
+          id: String(current.paymentId || ""),
+          status: String(current.providerStatus || (registration.getString("paymentStatus") === "paid" ? "paid" : "pending")),
+          requestedAmountPaise: Number(current.requestedAmountPaise) || 0,
+          payableAmountPaise: Number(current.payableAmountPaise) || 0,
+          payableAmount: Number(current.payableAmount) || 0,
+          paidAt: String(current.paidAt || ""),
+        }, {
+          manualReview: current.manualReview === true,
+          reviewReason: String(current.reviewReason || ""),
+          atomic: true,
+        }, txApp)
+        responseBody = { success: true, message: "Already processed" }
+        return
+      }
 
-  var finalPaise = require(__hooks + "/registration-helpers.js").registrationFinalFeePaise(registration)
-  if (finalPaise <= 0 || finalPaise % 100 !== 0) {
-    return e.json(400, { code: "PAYGATE_EVENT_MISMATCH", error: "Registration amount is not compatible with PayGate" })
-  }
-  var validated = pg.validateProviderPayment(rawPayment, finalPaise / 100, {
-    paymentId: current.paymentId ? String(current.paymentId) : "",
-    externalId: registration.getString("event") || "",
-    registrationId: registration.id,
-    environment: pg.deploymentNamespace(),
-    allowWebhookShape: true,
-  })
-  if (!validated.ok) {
-    console.log("[paygate] webhook refused:", validated.error)
-    return e.json(400, { code: "PAYGATE_EVENT_MISMATCH", error: validated.error })
-  }
+      var finalPaise = require(__hooks + "/registration-helpers.js").registrationFinalFeePaise(registration)
+      if (finalPaise <= 0 || finalPaise % 100 !== 0) {
+        responseStatus = 400
+        responseBody = { code: "PAYGATE_EVENT_MISMATCH", error: "Registration amount is not compatible with PayGate" }
+        return
+      }
+      var validated = pg.validateProviderPayment(rawPayment, finalPaise / 100, {
+        paymentId: current.paymentId ? String(current.paymentId) : "",
+        externalId: registration.getString("event") || "",
+        registrationId: registration.id,
+        environment: pg.deploymentNamespace(),
+        allowWebhookShape: true,
+      })
+      if (!validated.ok) {
+        console.log("[paygate] webhook refused:", validated.error)
+        responseStatus = 400
+        responseBody = { code: "PAYGATE_EVENT_MISMATCH", error: validated.error }
+        return
+      }
 
-  if (validated.payment.status === "paid") {
-    var disposition = guard.paymentConfirmationDisposition(registration)
-    if (disposition.blocked) {
-      guard.recordPaidManualReview(registration, validated.payment, eventId, disposition.reason)
-      return e.json(200, { success: true, action: "paid_manual_review" })
-    }
-  }
+      if (validated.payment.status === "paid") {
+        var disposition = guard.paymentConfirmationDisposition(registration, txApp)
+        if (disposition.blocked) {
+          guard.recordPaidManualReview(registration, validated.payment, eventId, disposition.reason, txApp)
+          responseBody = { success: true, action: "paid_manual_review" }
+          return
+        }
+      }
 
-  var result = pg.applyProviderState(registration, validated.payment, body.type, eventId)
-  if (result.action === "error") return e.json(400, { code: "PAYGATE_EVENT_MISMATCH", error: result.error })
-  if (result.action === "confirm" || result.action === "noop") pg.enqueueRegistrationNotifications(registration.id)
-  return e.json(200, { success: true, action: result.action })
+      var result = pg.applyProviderState(registration, validated.payment, body.type, eventId, txApp)
+      if (result.action === "error") {
+        responseStatus = 400
+        responseBody = { code: "PAYGATE_EVENT_MISMATCH", error: result.error }
+        return
+      }
+      shouldNotify = result.action === "confirm" || result.action === "noop"
+      responseBody = { success: true, action: result.action }
+    })
+  } catch (err) {
+    console.log("[paygate] webhook transaction failed:", err)
+    return e.json(500, { code: "PAYGATE_WEBHOOK_FAILED", error: "Could not persist PayGate webhook state" })
+  }
+  if (shouldNotify) pg.enqueueRegistrationNotifications(registrationId)
+  return e.json(responseStatus, responseBody)
 })
 
 cronAdd("paygate-registration-expiry", "* * * * *", function () {
@@ -124,21 +166,35 @@ cronAdd("paygate-registration-expiry", "* * * * *", function () {
     // the next cron pass. This avoids losing an on-time bank credit whose SMS
     // arrived near the provider-expiry boundary.
     if (data.paymentId && !providerAuthoritative) continue
-    if (!pg.shouldReleasePendingRegistration(registration, nowMs, config.registrationGraceSeconds)) continue
-    data.releaseReason = data.providerStatus === "expired"
-      ? "PayGate payment expired and the IEEE grace window elapsed"
-      : data.providerStatus === "not_initialized"
-        ? "PayGate payment was never initialized before the IEEE grace window elapsed"
-        : "PayGate payment could not complete"
+    var release = null
     try {
-      registration.set("paymentStatus", "failed")
-      registration.set("registrationStatus", "cancelled")
-      registration.set("paymentData", data)
-      $app.saveNoValidate(registration)
-      var eventId = registration.getString("event") || ""
-      if (eventId) rh.recomputeEventCounters(eventId)
-      var coupon = registration.getString("couponCode") || ""
-      if (eventId && coupon) rh.recomputeCouponUsedCount(coupon, eventId)
-    } catch (err) { console.log("[paygate] failed to release registration " + registration.id + ":", err) }
+      $app.runInTransaction(function (txApp) {
+        var live = txApp.findRecordById("registrations", registration.id)
+        var liveData = pg.asObject(live.get("paymentData"))
+        if (liveData.provider !== pg.PAYGATE_PROVIDER) return
+        if (liveData.paymentId && !providerAuthoritative) return
+        if (!pg.shouldReleasePendingRegistration(live, nowMs, config.registrationGraceSeconds)) return
+        liveData.releaseReason = liveData.providerStatus === "expired"
+          ? "PayGate payment expired and the IEEE grace window elapsed"
+          : liveData.providerStatus === "not_initialized"
+            ? "PayGate payment was never initialized before the IEEE grace window elapsed"
+            : "PayGate payment could not complete"
+        live.set("paymentStatus", "failed")
+        live.set("registrationStatus", "cancelled")
+        live.set("paymentData", liveData)
+        txApp.saveNoValidate(live)
+        release = {
+          eventId: live.getString("event") || "",
+          coupon: live.getString("couponCode") || "",
+        }
+      })
+    } catch (err) {
+      console.log("[paygate] failed to release registration " + registration.id + ":", err)
+      continue
+    }
+    if (release) {
+      if (release.eventId) rh.recomputeEventCounters(release.eventId)
+      if (release.eventId && release.coupon) rh.recomputeCouponUsedCount(release.coupon, release.eventId)
+    }
   }
 })
