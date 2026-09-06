@@ -23,8 +23,8 @@ interface PayGateHelpers {
   getConfig: () => Record<string, unknown>;
   idempotencyKeyForRegistration: (id: string) => string;
   expectedRequestedPaise: (amount: number) => number;
-  normalizeProviderPayment: (raw: Record<string, unknown>) => ProviderPayment | null;
-  registrationIdFromProviderPayment: (raw: Record<string, unknown>) => string;
+  normalizeProviderPayment: (raw: Record<string, unknown>, options?: Record<string, unknown>) => ProviderPayment | null;
+  registrationIdFromProviderPayment: (raw: Record<string, unknown>, options?: Record<string, unknown>) => string;
   updateProviderData: (registration: FakeRegistration, payment: Record<string, unknown>, extra: Record<string, unknown>) => Record<string, unknown>;
   validateProviderPayment: (raw: Record<string, unknown>, amount: number, options?: Record<string, unknown>) => { ok: boolean; error?: string; payment?: ProviderPayment };
   resolveProviderTransition: (input: Record<string, unknown>) => { action: string; error?: string };
@@ -90,6 +90,23 @@ describe("PayGate v4 contract", () => {
       transactionNote: "PayGate payment_v4_123",
     });
     expect(payment?.upiUri).toBe(validV4Payment.upi_uri);
+  });
+  it("accepts the documented objectless webhook shape only with webhook opt-in", () => {
+    const webhookPayment = { ...validV4Payment } as Record<string, unknown>;
+    delete webhookPayment.object;
+    expect(pg.normalizeProviderPayment(webhookPayment)).toBeNull();
+    expect(pg.registrationIdFromProviderPayment(webhookPayment, { allowWebhookShape: true })).toBe("reg_123");
+    const validated = pg.validateProviderPayment(webhookPayment, 100, {
+      ...validationOptions,
+      allowWebhookShape: true,
+    });
+    expect(validated.ok).toBe(true);
+    const retiredCamelCase = {
+      ...webhookPayment,
+      requestedAmountPaise: 10000,
+      payableAmountPaise: 10137,
+    };
+    expect(pg.registrationIdFromProviderPayment(retiredCamelCase, { allowWebhookShape: true })).toBe("");
   });
 
   it("cleans retired v3 routing markers when v4 state is persisted", () => {
@@ -190,6 +207,12 @@ describe("PayGate monetary validation", () => {
     }, 100, validationOptions);
     expect(wrongCurrency.ok).toBe(false);
     expect(wrongCurrency.error).toMatch(/UPI payment instructions/i);
+    const wrongPayee = pg.validateProviderPayment({
+      ...validV4Payment,
+      upi_uri: "upi://pay?am=101.37&cu=INR&pa=https%3A%2F%2Fevil.example&tn=PayGate%20payment_v4_123",
+    }, 100, validationOptions);
+    expect(wrongPayee.ok).toBe(false);
+    expect(wrongPayee.error).toMatch(/UPI payment instructions/i);
   });
 
   it("requires the deterministic transaction reference on create/status responses", () => {
