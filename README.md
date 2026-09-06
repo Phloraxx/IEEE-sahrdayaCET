@@ -166,7 +166,10 @@ Public content is server-rendered. Published events have immutable crawlable URL
 
 ## CI/CD
 
-CI runs on pushes to `main` and `dev`, plus pull requests and manual dispatch. It gates lint/typecheck/tests/build, fresh-PocketBase backend tests + Playwright, and both production Docker builds.
+CI runs full validation, fresh-PocketBase backend tests + Playwright, and both
+container builds for pull requests into `dev`, final `main` pushes, and manual
+runs. Merged `dev` pushes and `dev` → `main` pull requests use a lighter
+validation gate instead of repeating the heavyweight integration jobs.
 
 Production CD runs only after a successful CI workflow on `main`. It verifies the tested SHA is still the current `main` head, then calls:
 
@@ -174,7 +177,8 @@ Production CD runs only after a successful CI workflow on `main`. It verifies th
 main → DOCKPLOY_WEBHOOK_PROD → production
 ```
 
-`dev` remains the integration branch and runs CI, but automatic dev deployment is intentionally paused until a separate new-architecture staging Compose project is provisioned. Never point `dev` at the production Compose/volume.
+Successful `dev` CI deploys the isolated staging project through the CI-gated
+CD workflow. Never point `dev` at the production Compose/volume.
 
 The canonical deployment remains the Dokploy-managed `docker-compose.yml`; do not shadow a service with a manually created fallback container or temporary Compose file.
 

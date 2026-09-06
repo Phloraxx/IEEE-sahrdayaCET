@@ -144,7 +144,12 @@ For regressions found on staging, add a test when practical before declaring the
 
 ## Branch and deployment contract
 
-CI runs on pushes to `main` and `dev`, and on pull requests/manual dispatch.
+CI runs full validation, clean-room backend checks, browser E2E, and container
+builds for pull requests into `dev`, final pushes to `main`, and manual runs.
+Merged `dev` pushes and pull requests into `main` retain a lighter validation
+gate; they do not repeat the heavyweight integration jobs. Production CD
+still deploys only after the full `main` push gate and its exact-SHA freshness
+check.
 
 Successful branch CI is mapped as follows:
 
