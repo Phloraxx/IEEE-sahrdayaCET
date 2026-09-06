@@ -4,8 +4,11 @@ import { motion, useReducedMotion } from "framer-motion";
 import {
   CheckCircle2,
   Clock3,
+  ExternalLink,
   Loader2,
   LockKeyhole,
+  MessageCircle,
+  TicketCheck,
   TriangleAlert,
   XCircle,
 } from "lucide-react";
@@ -24,6 +27,7 @@ import {
   reconcilePaymentSession,
   type RegistrationPaymentSession,
 } from "@/lib/data/payment.client";
+import { getEventJoinDetails } from "@/lib/data/public-client";
 import { MOTION_DURATION, MOTION_EASE } from "@/lib/motion";
 import {
   LOCAL_PAYMENT_STATUS_POLL_MS,
@@ -63,6 +67,7 @@ export default function PaymentPage({ registrationId }: PageProps) {
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [reconciling, setReconciling] = useState(false);
   const [providerCheckDelayed, setProviderCheckDelayed] = useState(false);
+  const [successWhatsappUrl, setSuccessWhatsappUrl] = useState("");
   const reduceMotion = useReducedMotion();
 
   useEffect(() => {
@@ -199,13 +204,22 @@ export default function PaymentPage({ registrationId }: PageProps) {
     session?.registrationStatus === "confirmed" &&
     session?.paymentStatus === "paid";
   useEffect(() => {
-    if (!confirmed || !session?.ticketId) return;
-    const timer = window.setTimeout(
-      () => navigate(`/ticket/${session.ticketId}`, { replace: true }),
-      reduceMotion ? 250 : 1500,
-    );
-    return () => window.clearTimeout(timer);
-  }, [confirmed, navigate, reduceMotion, session?.ticketId]);
+    if (!confirmed || !session?.event?.id) {
+      setSuccessWhatsappUrl("");
+      return;
+    }
+    let active = true;
+    void getEventJoinDetails(session.event.id)
+      .then((details) => {
+        if (active) setSuccessWhatsappUrl(details.whatsappGroupUrl || "");
+      })
+      .catch(() => {
+        if (active) setSuccessWhatsappUrl("");
+      });
+    return () => {
+      active = false;
+    };
+  }, [confirmed, session?.event?.id]);
 
   useEffect(() => {
     if (session || !error || authStatus !== "authenticated") return;
@@ -354,18 +368,31 @@ export default function PaymentPage({ registrationId }: PageProps) {
             Payment confirmed
           </motion.h1>
           <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-slate-600">
-            Your ticket is ready. Taking you there now.
+            Your place is confirmed. Save your ticket and join the attendee group for event updates.
           </p>
-          <div className="mx-auto mt-7 h-1.5 max-w-xs overflow-hidden rounded-full bg-emerald-100">
-            <motion.div
-              initial={{ width: "0%" }}
-              animate={{ width: "100%" }}
-              transition={{
-                duration: reduceMotion ? 0 : 1.25,
-                ease: "easeOut",
-              }}
-              className="h-full rounded-full bg-emerald-500"
-            />
+          <div className="mx-auto mt-8 grid w-full max-w-md gap-3 px-4 sm:px-0">
+            {successWhatsappUrl && (
+              <a
+                href={successWhatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-xl bg-[#25D366] px-5 py-4 text-base font-black text-white shadow-lg shadow-emerald-200/70 transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#25D366] focus-visible:ring-offset-2"
+              >
+                <MessageCircle className="h-5 w-5" />
+                Join WhatsApp group
+                <ExternalLink className="h-4 w-4 opacity-80 transition-transform group-hover:translate-x-0.5" />
+              </a>
+            )}
+            {session.ticketId && (
+              <button
+                type="button"
+                onClick={() => navigate(`/ticket/${session.ticketId}`, { replace: true })}
+                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-800 transition-colors hover:border-slate-400 hover:bg-slate-50"
+              >
+                <TicketCheck className="h-4 w-4" />
+                View ticket
+              </button>
+            )}
           </div>
         </motion.section>
       </PaymentShell>
