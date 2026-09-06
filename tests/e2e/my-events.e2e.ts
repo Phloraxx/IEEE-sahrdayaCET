@@ -66,8 +66,8 @@ test.describe("My Events attendee continuity", () => {
     await page.goto(`/ticket/${fixture.ticketId}`);
     const hub = page.getByTestId("ticket-attendee-hub");
     await expect(hub).toBeVisible();
-    await expect(hub.getByText("Bring laptop charger")).toBeVisible();
-    await expect(hub.getByText("College ID card required")).toBeVisible();
+    await expect(hub.getByText("Changed after publish")).toBeVisible();
+    await expect(hub.getByText("Bring laptop charger")).toHaveCount(0);
     await expect(hub.getByRole("link", { name: "WhatsApp group" })).toHaveAttribute("href", "https://chat.whatsapp.com/ci-private-group");
     await expect(hub.getByRole("link", { name: "Join online" })).toHaveAttribute("href", "https://meet.example.test/ci-private-room");
     await expect(hub.getByRole("link", { name: "Event resource" })).toHaveAttribute("href", "https://example.test/event-guide");

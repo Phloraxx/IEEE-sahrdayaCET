@@ -55,6 +55,7 @@ test.describe("event setup UX", () => {
     await page.locator("#ieee-member-discount").fill("10");
     await page.getByRole("button", { name: "Add Coupon" }).click();
     await page.getByLabel("Coupon code").fill("TEST20");
+    await expect(page.getByLabel("Coupon code")).toHaveValue("TEST20");
     await page.getByLabel("Discount percent").fill("20");
     await page.getByLabel("Max uses").fill("2");
     await page.getByRole("button", { name: "Save changes" }).click();
