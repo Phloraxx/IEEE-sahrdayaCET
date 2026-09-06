@@ -4,12 +4,19 @@
 
 The PocketBase API is an application security boundary, not a private database hidden behind React Router. Direct API access must be safe under collection rules, hooks, and custom-route authorization.
 
-Roles are `user`, `chair`, `content`, and `admin`.
+PocketBase account roles are `user`, `chair`, `content`, and `admin` for
+compatibility. Workspace access is granted separately through scoped
+capability roles: `Organizer`, `Finance`, `Registration Staff`, `Check-in
+Staff`, and `Content Editor`.
 
 - `user`: own protected records plus public data;
 - `chair`: staff access scoped by PocketBase relations to societies they chair;
 - `content`: owns editorial blog records they create;
 - `admin`: administrative access and privileged commands.
+
+Workspace role titles are descriptive metadata. Authorization uses the role's
+capabilities plus branch/society/event scope. Historical assignment codes are
+kept as aliases so existing access survives without a data rewrite.
 
 ## Enforcement layers
 
@@ -35,6 +42,12 @@ Any operation that reserves event capacity, consumes a coupon, creates a ticket,
 
 PocketBase `runInTransaction` is used for registration, manual payment confirmation, coupon reconciliation, attendance/cancellation workflows, and other multi-record commands. All writes inside a transaction use the transaction app.
 
+Event publication follows the intentionally small lifecycle `Draft →
+Published → Completed → Archived`, with `Cancelled` as a terminal outcome.
+Authorized organizers use the publish/unpublish/complete lifecycle command;
+there are no organization or finance publication approvals. Finance
+capabilities remain required for money mutations.
+
 ## Runtime privilege policy
 
 The web runtime must never receive PocketBase superuser credentials. `src/lib/pb.server.ts` creates only an unauthenticated public SSR client.
@@ -55,7 +68,10 @@ Staging and production use separate OAuth redirect/origin configuration. A worki
 
 Execom records are publicly readable for the directory, but PocketBase enrichment hides `email` and `phone` from non-admin responses.
 
-Ticket lookup intentionally returns the minimum public ticket/event state. Authenticated callers may separately read registration details when collection rules permit it.
+Ticket lookup intentionally returns the minimum public ticket/event state. Raw
+registration and payment-ledger collections are not browser-readable;
+authenticated workspace callers use the capability-filtered registration and
+payment projections instead.
 
 ## Event registration, payment, and check-in integrity
 

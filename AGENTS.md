@@ -68,7 +68,7 @@ When adding or changing a command, test the failure path as carefully as the suc
 
 ## Authentication and roles
 
-Application roles are:
+PocketBase account roles remain:
 
 ```text
 user
@@ -81,6 +81,13 @@ admin
 - `chair` is scoped to societies they chair.
 - `content` owns editorial blog records they create.
 - `admin` has administrative access and privileged commands.
+
+Workspace assignments use the simplified capability roles `Organizer`,
+`Finance`, `Registration Staff`, `Check-in Staff`, and `Content Editor`.
+Assignments are branch-, society-, or event-scoped as appropriate. Historical
+role codes remain readable and are normalized to compatible storage aliases;
+organizational titles stay in Execom/assignment metadata and do not grant
+permissions by themselves.
 
 Generic user updates must not be able to change `role`; use the dedicated admin role command.
 

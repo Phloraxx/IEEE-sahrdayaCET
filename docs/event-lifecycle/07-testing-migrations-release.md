@@ -6,7 +6,9 @@ Every schema/authorization change must survive a fresh PocketBase database. Back
 
 ## Required lifecycle E2E
 
-Build one synthetic browser journey covering organizer draft/setup/approval/publish, attendee registration/payment or free confirmation, ticket, event-day check-in/attendance, completion, closeout and certificate verification.
+Build one synthetic browser journey covering organizer draft/setup/publish,
+attendee registration/payment or free confirmation, ticket, event-day
+check-in/attendance, completion, closeout and certificate verification.
 
 The test must use fake/disabled communication transports. It must never send real mail.
 

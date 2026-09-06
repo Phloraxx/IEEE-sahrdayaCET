@@ -2,12 +2,13 @@
 
 ## Design principle
 
-Do not force the whole event domain into one giant status enum. Planning, finance, publication, registration, operations, attendance and certificates are related but independent state machines.
+Keep the event lifecycle small and explicit. The event status is `draft`,
+`published`, `completed` or `cancelled`, with `isDeleted` representing the
+separate archived visibility state. Registration, payment, operations,
+attendance and certificates remain independent operational state machines.
 
-### Existing state machines to preserve
+### Operational state machines to preserve
 
-- Approval: `draft → submitted → changes_requested → approved`.
-- Finance: `not_required | pending | changes_requested | approved`.
 - Publication: `draft | published | completed | cancelled`.
 - Registration mode: `internal | external | closed` plus open/scheduled/paused/full/closed availability.
 - Payments: existing provider/payment attempt and registration payment states.
@@ -20,7 +21,7 @@ Do not force the whole event domain into one giant status enum. Planning, financ
 - lifecycle phase;
 - event-day state;
 - next operator action;
-- blockers;
+- operational blockers;
 - canonical registration availability/mode.
 
 Public pages and organizer surfaces should consume this projection rather than reimplementing date/capacity/window rules.
@@ -28,7 +29,9 @@ Public pages and organizer surfaces should consume this projection rather than r
 
 Lifecycle transitions with consequences must remain commands, not generic CRUD:
 
-- Publish / unpublish / complete use the workflow route.
+- Publish / unpublish / complete use the lifecycle route. An authorized
+  organizer can publish a complete draft; no organization or finance approval
+  gate is required.
 - Cancel uses the cancellation transaction and financial reconciliation.
 - Archive uses its own command and never rewrites event outcome.
 - Registration owns capacity/coupon/ticket/payment reservation invariants.

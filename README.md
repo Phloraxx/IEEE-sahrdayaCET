@@ -75,6 +75,7 @@ Normal record operations use PocketBase collections directly. Custom routes exis
 
 - `POST /api/app/events/:id/register`
 - `PUT /api/app/events/:id/coupons`
+- `POST /api/workspace/events/:id/workflow` (publish, unpublish, complete)
 - `POST /api/app/admin/users/:id/role`
 
 ## Local development
@@ -136,7 +137,11 @@ PocketBase applies committed migrations when the container starts.
 
 ## Authorization model
 
-Roles are `user`, `chair`, `content`, and `admin`.
+PocketBase account roles remain `user`, `chair`, `content`, and `admin` for
+compatibility. Workspace assignments use the capability roles Organizer,
+Finance, Registration Staff, Check-in Staff, and Content Editor, with
+branch/society/event scope. Historical role codes are retained as aliases;
+directory titles do not grant permissions.
 
 - Public users can read intentionally public records.
 - Signed-in users can access their own protected records.
