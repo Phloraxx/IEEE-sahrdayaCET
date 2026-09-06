@@ -85,6 +85,15 @@ describe("PayGate v4 contract", () => {
     expect(loadHelpers({ PAYGATE_URL: "https://paygate.example.test/" }).getConfig().url).toBe("https://paygate.example.test");
   });
 
+  it("rejects local HTTP provider endpoints in production namespace", () => {
+    expect(loadHelpers({
+      PAYGATE_URL: "http://host.docker.internal:18081",
+      DEPLOY_ENV: "production",
+      SITE_URL: "https://ieeesahrdaya.com",
+      PAYGATE_CLIENT_NAMESPACE: "local",
+    }).getConfig().url).toBe("");
+  });
+
   it("rejects the retired v3 camelCase payment shape", () => {
     expect(pg.normalizeProviderPayment({
       id: "payment_v3", status: "pending", requestedAmountPaise: 10000,

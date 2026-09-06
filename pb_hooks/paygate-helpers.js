@@ -46,7 +46,8 @@ function normalizePayGateOrigin(value) {
     if (!match) return ""
     if (String(match[1]).toLowerCase() === "http") {
         var localHost = String(match[2]).toLowerCase()
-        if (deploymentNamespace() === "production" ||
+        var deployEnv = String($os.getenv("DEPLOY_ENV") || "").trim().toLowerCase()
+        if (deployEnv === "production" || deploymentNamespace() === "production" ||
             (localHost !== "localhost" && localHost !== "127.0.0.1" && localHost !== "[::1]" && localHost !== "host.docker.internal")) return ""
     }
     if (match[3] && Number(match[3]) > 65535) return ""
@@ -411,6 +412,7 @@ function syncPaymentLedger(registration, payment, options, app) {
                 var rows = app.findRecordsByFilter(
                     "payments",
                     "registration = {:registration} && provider = {:provider}",
+                    { registration: registration.id, provider: PAYGATE_PROVIDER },
                     "-created", 1, 0,
                 )
                 if (rows.length) ledger = rows[0]
