@@ -45,8 +45,8 @@ SMTP_PASSWORD
 SMTP_FROM
 ```
 `PAYGATE_WEBHOOK_TOLERANCE_SECONDS` defaults to 300 seconds and is capped at
-900 seconds by the runtime, so a deployment cannot silently widen signed
-callback freshness into an unbounded replay window.
+900 seconds by the runtime. `PAYGATE_URL` must be HTTPS except for loopback
+or `host.docker.internal` fake-provider endpoints used by local/CI tests.
 
 Never reuse a production encryption key, OAuth application, payment secret, SMTP credential, or `pb_data` volume in staging.
 
