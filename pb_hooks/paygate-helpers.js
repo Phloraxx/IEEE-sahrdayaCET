@@ -115,9 +115,22 @@ function parseUpiPaymentUri(value) {
     return params
 }
 
-function normalizeProviderPayment(raw) {
+function normalizeProviderPayment(raw, options) {
+    options = options || {}
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null
-    if (raw.object !== "payment") return null
+    var hasRetiredCamelCaseFields =
+        Object.prototype.hasOwnProperty.call(raw, "requestedAmountPaise") ||
+        Object.prototype.hasOwnProperty.call(raw, "payableAmountPaise") ||
+        Object.prototype.hasOwnProperty.call(raw, "upiUri")
+    var objectlessWebhook = options.allowWebhookShape === true &&
+        !hasRetiredCamelCaseFields &&
+        raw.object === undefined &&
+        typeof raw.id === "string" &&
+        typeof raw.status === "string" &&
+        typeof raw.requested_amount === "string" &&
+        typeof raw.payable_amount === "string" &&
+        Object.prototype.hasOwnProperty.call(raw, "metadata")
+    if (raw.object !== "payment" && !objectlessWebhook) return null
     var requestedAmountPaise = moneyStringToPaise(raw.requested_amount)
     var payableAmountPaise = moneyStringToPaise(raw.payable_amount)
     var payer = asObject(raw.payer)
@@ -143,8 +156,8 @@ function normalizeProviderPayment(raw) {
     }
 }
 
-function registrationIdFromProviderPayment(raw) {
-    var payment = normalizeProviderPayment(raw)
+function registrationIdFromProviderPayment(raw, options) {
+    var payment = normalizeProviderPayment(raw, options)
     if (!payment) return ""
     var environment = String(payment.metadata.environment || "").trim()
     if (environment !== deploymentNamespace()) return ""
@@ -161,7 +174,7 @@ function providerPersonName(registration) {
 
 function validateProviderPayment(raw, expectedAmountRupees, options) {
     options = options || {}
-    var payment = normalizeProviderPayment(raw)
+    var payment = normalizeProviderPayment(raw, options)
     if (!payment) return { ok: false, error: "PayGate returned an invalid payment response" }
     var expectedPaise = expectedRequestedPaise(expectedAmountRupees)
     if (!payment.id || !SUPPORTED_STATUSES[payment.status] || !expectedPaise) {
@@ -202,7 +215,9 @@ function validateProviderPayment(raw, expectedAmountRupees, options) {
     var upi = payment.upiUri ? parseUpiPaymentUri(payment.upiUri) : null
     if (options.requireUpiUri && !upi) return { ok: false, error: "PayGate did not provide a usable UPI payment URI" }
     if (upi) {
-        if (!String(upi.pa || "").trim() || String(upi.cu || "").toUpperCase() !== "INR") {
+        var payee = String(upi.pa || "").trim()
+        if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,254}@[A-Za-z0-9][A-Za-z0-9._-]{0,254}$/.test(payee) ||
+            String(upi.cu || "").toUpperCase() !== "INR") {
             return { ok: false, error: "PayGate returned invalid UPI payment instructions" }
         }
         if (moneyStringToPaise(upi.am) !== payment.payableAmountPaise) {
@@ -612,17 +627,17 @@ function applyProviderState(registration, payment, eventType, eventId) {
 
 function createPaymentForRegistration(registration) {
     var config = getConfig()
-    if (!paymentConfigured(config)) return { status: 503, body: { code: "PAYGATE_NOT_CONFIGURED", error: "PayGate is temporarily unavailable" } }
     var registrationStatus = registration.getString("registrationStatus")
     var paymentStatus = registration.getString("paymentStatus")
     var amountPaise = require(__hooks + "/registration-helpers.js").registrationFinalFeePaise(registration)
-    if (paymentStatus === "paid" && registrationStatus === "confirmed") return { status: 200, body: paymentSession(registration, registration.get("paymentData"), true) }
+    if (paymentStatus === "paid" && registrationStatus === "confirmed") return { status: 200, body: paymentSession(registration, registration.get("paymentData"), paymentConfigured(config)) }
     if (registrationStatus !== "pending" || paymentStatus !== "pending" || amountPaise <= 0) return { status: 409, body: { code: "PAYMENT_NOT_AVAILABLE", error: "This registration is not awaiting payment" } }
     if (amountPaise % 100 !== 0) return { status: 409, body: { code: "PAYGATE_WHOLE_RUPEE_REQUIRED", error: "PayGate requires a whole-rupee registration fee. Please contact the organizer." } }
 
     var current = asObject(registration.get("paymentData"))
     if (current.provider !== PAYGATE_PROVIDER) return { status: 409, body: { code: "PAYMENT_PROVIDER_RETIRED", error: "This historical registration is not on the current PayGate payment flow" } }
-    if (current.paymentId) return { status: 200, body: paymentSession(registration, current, true) }
+    if (current.paymentId) return { status: 200, body: paymentSession(registration, current, paymentConfigured(config)) }
+    if (!paymentConfigured(config)) return { status: 503, body: { code: "PAYGATE_NOT_CONFIGURED", error: "PayGate is temporarily unavailable" } }
 
     var eventId = registration.getString("event") || ""
     var amount = amountPaise / 100

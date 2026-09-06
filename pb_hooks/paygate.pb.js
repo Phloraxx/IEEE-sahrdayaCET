@@ -39,7 +39,7 @@ routerAdd("POST", "/api/webhooks/paygate", function (e) {
   if (!handled[body.type]) return e.json(200, { success: true, ignored: true, type: body.type })
 
   var rawPayment = body.data && body.data.payment
-  var registrationId = pg.registrationIdFromProviderPayment(rawPayment)
+  var registrationId = pg.registrationIdFromProviderPayment(rawPayment, { allowWebhookShape: true })
   if (!registrationId) return e.json(200, { success: true, ignored: true })
   var registration
   try { registration = $app.findRecordById("registrations", registrationId) }
@@ -60,6 +60,7 @@ routerAdd("POST", "/api/webhooks/paygate", function (e) {
     externalId: registration.getString("event") || "",
     registrationId: registration.id,
     environment: pg.deploymentNamespace(),
+    allowWebhookShape: true,
   })
   if (!validated.ok) {
     console.log("[paygate] webhook refused:", validated.error)

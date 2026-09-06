@@ -68,6 +68,12 @@ routerAdd("POST", "/api/admin/events/{id}/cancel", function (e) {
           reg.set("paymentStatus", "failed")
           data.releaseReason = "Event cancelled by organizer"
           data.providerStatus = data.providerStatus || "cancelled"
+          var pendingLedger = paymentLedger.findLatestForRegistration(txApp, reg.id)
+          if (pendingLedger) {
+            pendingLedger.set("status", "cancelled")
+            pendingLedger.set("lastSyncedAt", now)
+            txApp.saveNoValidate(pendingLedger)
+          }
           result.releasedPending++
         } else if (payStatus === "paid") {
           var ledger = paymentLedger.findLatestForRegistration(txApp, reg.id)

@@ -65,6 +65,7 @@ export default function PaymentPage({ registrationId }: PageProps) {
   const [now, setNow] = useState(() => Date.now());
   const [isMobileUpi, setIsMobileUpi] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState("");
+  const [qrGenerationFailed, setQrGenerationFailed] = useState(false);
   const [reconciling, setReconciling] = useState(false);
   const [providerCheckDelayed, setProviderCheckDelayed] = useState(false);
   const [successWhatsappUrl, setSuccessWhatsappUrl] = useState("");
@@ -262,9 +263,14 @@ export default function PaymentPage({ registrationId }: PageProps) {
   const payGateUpiUri = session?.provider === "paygate" ? session.upiUri || "" : "";
 
   useEffect(() => {
-    if (session?.provider !== "paygate" || !payGateUpiUri) return;
+    if (session?.provider !== "paygate" || !payGateUpiUri) {
+      setQrDataUrl("");
+      setQrGenerationFailed(false);
+      return;
+    }
     let disposed = false;
     setQrDataUrl("");
+    setQrGenerationFailed(false);
     void import("qrcode")
       .then((QRCode) =>
         QRCode.toDataURL(payGateUpiUri, {
@@ -277,7 +283,10 @@ export default function PaymentPage({ registrationId }: PageProps) {
         if (!disposed) setQrDataUrl(dataUrl);
       })
       .catch(() => {
-        if (!disposed) setError("The UPI payment is ready but its QR could not be displayed. Open it in a UPI app or retry.");
+        if (!disposed) {
+          setQrGenerationFailed(true);
+          setError("The UPI payment is ready but its QR could not be displayed. Open it in a UPI app or retry.");
+        }
       });
     return () => { disposed = true; };
   }, [payGateUpiUri, session?.expiresAt, session?.provider]);
@@ -446,6 +455,7 @@ export default function PaymentPage({ registrationId }: PageProps) {
         payGateUpiUri={payGateUpiUri}
         isMobileUpi={isMobileUpi}
         qrDataUrl={qrDataUrl}
+        qrGenerationFailed={qrGenerationFailed}
         providerCheckDelayed={providerCheckDelayed}
         reconciling={reconciling}
         reduceMotion={Boolean(reduceMotion)}
