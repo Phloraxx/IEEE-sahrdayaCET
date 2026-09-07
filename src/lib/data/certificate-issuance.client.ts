@@ -10,6 +10,21 @@ export interface CertificateCandidate {
   checkedIn: boolean;
 }
 
+export interface CertificateAttendanceQualification {
+  available: boolean;
+  qualified: boolean;
+  version: number;
+  rule: string;
+  reason: string;
+  requiredSessionCount: number;
+  requiredPresentCount: number;
+  totalWeight: number;
+  attendedWeight: number;
+  sessions: Array<{
+    id: string; title: string; requiredForCertificate: boolean; attendanceWeight: number; present: boolean;
+  }>;
+}
+
 export interface CertificateAudienceRecipient {
   id: string;
   name: string;
@@ -17,6 +32,7 @@ export interface CertificateAudienceRecipient {
   emailEligible: boolean;
   checkedIn: boolean;
   checkedInAt: string;
+  qualification?: CertificateAttendanceQualification | null;
 }
 
 export interface CertificateRenderWarning {
@@ -31,7 +47,8 @@ export interface CertificateAudienceExclusion {
   id: string;
   name: string;
   email: string;
-  reason: "cancelled" | "missing_name" | "already_issued" | "not_found" | string;
+  reason: "cancelled" | "missing_name" | "already_issued" | "not_found" | "attendance_not_qualified" | string;
+  qualification?: CertificateAttendanceQualification;
 }
 
 export interface CertificateAudiencePreview {
@@ -39,6 +56,7 @@ export interface CertificateAudiencePreview {
   audienceType: CertificateAudienceType;
   audienceConfig: { registrationIds?: string[] };
   audienceFingerprint: string;
+  qualification?: { version: number; rule: string; requiredSessionCount: number; lockedAt: string } | null;
   recipientCount: number;
   emailEligibleCount: number;
   missingEmailCount: number;

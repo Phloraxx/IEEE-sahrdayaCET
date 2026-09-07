@@ -88,6 +88,26 @@ function registrationSessionState(app, sessionId, registrationId) {
   return { present: present, lastAt: lastAt, lastType: lastType, recordCount: rows.length }
 }
 
+function firstCreditedAttendanceAt(app, eventId, registrationId) {
+  try {
+    var rows = app.findRecordsByFilter(
+      "attendance_records",
+      "event = {:eventId} && registration = {:registrationId} && (type = {:present} || type = {:entry} || type = {:manualAdd})",
+      "occurredAt,created,id",
+      1,
+      0,
+      {
+        eventId: String(eventId || ""),
+        registrationId: String(registrationId || ""),
+        present: "present",
+        entry: "entry",
+        manualAdd: "manual_add",
+      }
+    )
+    return rows.length ? (rows[0].getString("occurredAt") || "") : ""
+  } catch (_) { return "" }
+}
+
 function presentCount(app, sessionId) {
   var rows = attendanceRows(app, sessionId, "")
   var states = {}
@@ -173,6 +193,7 @@ module.exports = {
   sessionPayload: sessionPayload,
   nextCreditState: nextCreditState,
   registrationSessionState: registrationSessionState,
+  firstCreditedAttendanceAt: firstCreditedAttendanceAt,
   presentCount: presentCount,
   recentAttendance: recentAttendance,
   idempotencyRecord: idempotencyRecord,

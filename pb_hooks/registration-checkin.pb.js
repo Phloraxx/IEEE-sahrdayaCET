@@ -38,16 +38,30 @@ onRecordUpdate(function (e) {
             throw new BadRequestError("Event not found")
         }
 
-        if (event.getBool("isDeleted") || event.getString("status") !== "published") {
+        var eventStatus = event.getString("status") || ""
+        if (event.getBool("isDeleted")) {
             throw new BadRequestError("Check-in is only available while the event is published")
         }
 
-        if (!event.getBool("checkInEnabled")) {
-            throw new BadRequestError("Check-in is not enabled for this event")
+        if (eventStatus === "published") {
+            if (!event.getBool("checkInEnabled")) {
+                throw new BadRequestError("Check-in is not enabled for this event")
+            }
+            // PocketBase owns the timestamp; callers cannot forge it.
+            reg.set("checkedInAt", new Date().toISOString())
+        } else if (eventStatus === "completed") {
+            // Completed events are historically correctable through Attendance V2.
+            // A legacy first-arrival projection may be added only when append-only
+            // session attendance already proves that the attendee was present.
+            var firstArrival = require(__hooks + "/attendance-v2-helpers.js")
+                .firstCreditedAttendanceAt($app, eventId, reg.id)
+            if (!firstArrival) {
+                throw new BadRequestError("Check-in is only available while the event is published")
+            }
+            reg.set("checkedInAt", firstArrival)
+        } else {
+            throw new BadRequestError("Check-in is only available while the event is published")
         }
-
-        // PocketBase owns the timestamp; callers cannot forge it.
-        reg.set("checkedInAt", new Date().toISOString())
     }
 
     // Explicit uncheck, or a status transition (for example confirmed ->

@@ -88,6 +88,28 @@ function buildAudience(app, input) {
   var errors = rules.audienceInputErrors(input.audienceType, config)
   if (errors.length) return { error: errors.join(". "), config: config }
 
+  var event = eventRecord(app, input.eventId)
+  var attendanceQualification = null
+  var qualificationMeta = null
+  if (input.audienceType === "attendance_qualified") {
+    if (!event) return { error: "Event not found", errorCode: "EVENT_NOT_FOUND", config: config }
+    attendanceQualification = require(__hooks + "/attendance-qualification-helpers.js")
+    var status = attendanceQualification.statusPayload(event)
+    if (!status.locked || !status.requiredSessionCount) {
+      return {
+        error: "Lock attendance qualification after reconciling required sessions before using this audience",
+        errorCode: "ATTENDANCE_QUALIFICATION_UNLOCKED",
+        config: config,
+      }
+    }
+    qualificationMeta = {
+      version: status.version,
+      rule: "all_required_sessions",
+      requiredSessionCount: status.requiredSessionCount,
+      lockedAt: status.lockedAt,
+    }
+  }
+
   var registrations = registrationRows(app, input.eventId)
   var activeMap = activeCertificateMap(app, input.eventId, input.certificateType)
   var selected = {}
@@ -99,7 +121,18 @@ function buildAudience(app, input) {
   registrations.forEach(function (registration) {
     var row = rowSnapshot(registration)
     seen[row.id] = true
-    if (!candidateForType(row, input.audienceType, selected)) return
+    var qualification = null
+    if (input.audienceType === "attendance_qualified") {
+      if (row.registrationStatus !== "confirmed") return
+      qualification = attendanceQualification.registrationQualification(app, event, registration)
+      if (!qualification.qualified) {
+        excluded.push({
+          id: row.id, name: row.name, email: row.email, reason: "attendance_not_qualified",
+          qualification: qualification,
+        })
+        return
+      }
+    } else if (!candidateForType(row, input.audienceType, selected)) return
     var reason = exclusion(row, activeMap)
     if (reason) {
       excluded.push({ id: row.id, name: row.name, email: row.email, reason: reason })
@@ -112,6 +145,7 @@ function buildAudience(app, input) {
       emailEligible: rules.validEmail(row.email),
       checkedIn: row.checkedIn,
       checkedInAt: row.checkedInAt,
+      qualification: qualification,
     })
   })
   if (input.audienceType === "selected") {
@@ -130,6 +164,7 @@ function buildAudience(app, input) {
     certificateType: input.certificateType,
     audienceType: input.audienceType,
     audienceConfig: config,
+    qualification: qualificationMeta,
     recipients: recipients,
   })
   var emailEligibleCount = recipients.filter(function (row) { return row.emailEligible }).length
@@ -152,6 +187,7 @@ function buildAudience(app, input) {
   return {
     audienceType: input.audienceType,
     audienceConfig: config,
+    qualification: qualificationMeta,
     fingerprint: fingerprint,
     recipients: recipients,
     excluded: excluded,
@@ -174,6 +210,7 @@ function previewPayload(audience, template) {
     audienceType: audience.audienceType,
     audienceConfig: audience.audienceConfig,
     audienceFingerprint: audience.fingerprint,
+    qualification: audience.qualification || null,
     recipientCount: audience.recipientCount,
     emailEligibleCount: audience.emailEligibleCount,
     missingEmailCount: audience.missingEmailCount,

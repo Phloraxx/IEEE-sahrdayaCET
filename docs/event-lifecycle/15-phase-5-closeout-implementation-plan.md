@@ -39,13 +39,17 @@ Organizer UI:
 
 ## Slice 5B — Attendance reconciliation lock
 
-After 5A is accepted:
-- freeze certificate-authoritative session requirement/weight metadata at closeout;
-- define deterministic qualification and explainability;
-- implement `attendance_qualified` server-side;
-- preserve append-only corrections with an explicit reopened/locked policy.
+Implementation contract:
+- only completed, non-archived events can lock or reopen qualification;
+- lock snapshots certificate-authoritative session IDs, schedule, attendance enablement, `requiredForCertificate`, and `attendanceWeight` under a monotonic version;
+- qualification requires a confirmed registration to be present at every certificate-required session;
+- weights are explanatory/future-reporting metadata only, not an implicit percentage rule;
+- session edits/deletes and attendance corrections fail closed while locked;
+- reopening preserves the prior snapshot/version for audit, allows append-only corrections again, and disables `attendance_qualified` until the next lock;
+- certificate audience fingerprints include qualification version/metadata so stale reviewed audiences fail after reopen/re-lock;
+- if a completed event has at least one session already marked certificate-required, unlocked qualification is an archive blocker; events with no certificate-required sessions are unaffected.
 
-Do not infer eligibility from the legacy first-arrival `checkedIn` projection.
+Do not infer eligibility from the legacy first-arrival `checkedIn` projection. Existing issued certificates remain immutable snapshots; reopening attendance does not silently revoke credentials.
 ## Slice 5C — Feedback
 
 Optional and isolated from operational readiness:
