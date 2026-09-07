@@ -19,7 +19,7 @@ Oracle worktree: `/home/drvij/.chatgpt-ieee-certificate-platform`.
 - continuous session-aware scanner console;
 - live counts/recent scans and correction UX;
 - legacy event path preserved;
-- certificate qualification still disabled.
+- certificate qualification was intentionally disabled in Phase 2; Phase 5B later enabled it behind the explicit attendance-qualification lock.
 
 ## Fresh-schema evidence
 
