@@ -111,7 +111,6 @@ function validEmail(value) {
 function audienceInputErrors(type, config) {
   var errors = []
   if (AUDIENCE_TYPES.indexOf(type) === -1) errors.push("Invalid certificate audience type")
-  if (type === "attendance_qualified") errors.push("Attendance-qualified audiences require recorded attendance sessions")
   if (type === "selected" && !(config.registrationIds || []).length) {
     errors.push("Select at least one registration")
   }
@@ -129,6 +128,7 @@ function fingerprintPayload(input) {
     certificateType: String(input.certificateType || ""),
     audienceType: String(input.audienceType || ""),
     audienceConfig: normalizeAudienceConfig(input.audienceType, input.audienceConfig),
+    qualification: input.qualification || null,
     recipients: (input.recipients || []).map(function (row) {
       return { id: row.id, name: row.name, email: row.email }
     }),

@@ -55,10 +55,11 @@ export function EventCloseoutPanel({
               </div>
             </div>
           </div>
-          <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <div className="mt-5 grid gap-3 md:grid-cols-4">
             <div className="rounded-xl border border-border bg-muted/20 p-4"><p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Pending registrations</p><p className="mt-2 font-mono text-2xl font-semibold">{closeout.metrics.pendingRegistrations}</p></div>
             <div className="rounded-xl border border-border bg-muted/20 p-4"><p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Attendance sessions</p><p className="mt-2 font-mono text-2xl font-semibold">{closeout.metrics.attendanceSessions}</p></div>
             <div className="rounded-xl border border-border bg-muted/20 p-4"><p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Manual corrections</p><p className="mt-2 font-mono text-2xl font-semibold">{closeout.metrics.attendanceCorrections}</p></div>
+            <div className="rounded-xl border border-border bg-muted/20 p-4"><p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Certificate attendance</p><p className="mt-2 text-sm font-semibold">{closeout.attendanceQualification.locked ? `Locked · v${closeout.attendanceQualification.version}` : closeout.attendanceQualification.sessionCount ? "Needs lock" : "Legacy / none"}</p></div>
           </div>
           {ready && canArchive && (
             <ConfirmButton
@@ -83,7 +84,7 @@ export function EventCloseoutPanel({
         {closeout.warnings.map((item) => <div key={item.code} className="flex flex-col gap-3 rounded-xl border border-border p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-semibold">{item.label}</p>{item.count > 0 && <p className="mt-1 text-xs text-muted-foreground">{item.count} record{item.count === 1 ? "" : "s"}</p>}</div><Button size="sm" variant="outline" onClick={() => onOpenArea(item.area as CloseoutArea)}>{areaLabel(item.area)}</Button></div>)}
       </div></CardContent></Card>}
 
-      <Card><CardContent className="p-6"><PanelHeader eyebrow="Next phases" title="Certificates stay independent" description="Attendance-qualified certificate rules and optional attendee feedback are intentionally not activated by this readiness slice." /><div className="mt-5 flex flex-wrap gap-2"><Button variant="outline" onClick={() => onOpenArea("attendance")}>Review attendance</Button><Button variant="outline" onClick={() => onOpenArea("certificates")}>Open certificates</Button></div></CardContent></Card>
+      <Card><CardContent className="p-6"><PanelHeader eyebrow="Certificates" title="Attendance qualification stays independent" description={closeout.attendanceQualification.locked ? "Required-session rules are frozen for certificate audience calculation. Reopen attendance before making any correction that should change qualification." : "Reconcile attendance and lock required-session rules before using the attendance-qualified certificate audience."} /><div className="mt-5 flex flex-wrap gap-2"><Button variant="outline" onClick={() => onOpenArea("attendance")}>{closeout.attendanceQualification.locked ? "Review locked attendance" : "Finish attendance"}</Button><Button variant="outline" onClick={() => onOpenArea("certificates")}>Open certificates</Button></div></CardContent></Card>
     </div>
   );
 }

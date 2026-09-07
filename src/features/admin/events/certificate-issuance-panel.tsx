@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { CertificateTemplate } from "@/lib/data/certificate-templates.client";
+import { listEventAttendanceSessions } from "@/lib/data/attendance.client";
 import {
   issueCertificates,
   listCertificateCandidates,
@@ -40,7 +41,7 @@ const AUDIENCE_OPTIONS: Array<{
   { value: "checked_in", title: "Checked in", description: "Issue only to registrations with recorded event check-in." },
   { value: "confirmed", title: "Confirmed", description: "Issue to all currently confirmed registrations." },
   { value: "selected", title: "Selected", description: "Choose the exact registrations yourself." },
-  { value: "attendance_qualified", title: "Attendance qualified", description: "Requires attendance-session data for multi-session events.", disabled: true },
+  { value: "attendance_qualified", title: "Attendance qualified", description: "Confirmed attendees present at every required certificate session." },
 ];
 
 function errorPayload(error: unknown): Record<string, unknown> | null {
@@ -110,6 +111,12 @@ export function CertificateIssuancePanel({
   const [issued, setIssued] = useState<CertificateIssueResult | null>(null);
 
   const activeTemplateId = templateId || published[0]?.id || "";
+  const attendanceQuery = useQuery({
+    queryKey: ["event-attendance-sessions", eventId],
+    queryFn: () => listEventAttendanceSessions(eventId),
+    enabled: canIssue,
+  });
+  const attendanceQualificationLocked = attendanceQuery.data?.qualification.locked === true;
   const candidatesQuery = useQuery({
     queryKey: ["certificate-candidates", eventId],
     queryFn: () => listCertificateCandidates(eventId),
@@ -251,22 +258,31 @@ export function CertificateIssuancePanel({
             <div>
               <Label>Who should receive this certificate?</Label>
               <div className="mt-2 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                {AUDIENCE_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    disabled={option.disabled}
-                    onClick={() => { setAudienceType(option.value); setPreview(null); }}
-                    className={`rounded-xl border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${audienceType === option.value ? "border-primary/40 bg-primary/5" : "border-border hover:bg-muted/30"}`}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-sm font-semibold">{option.title}</span>
-                      {audienceType === option.value && !option.disabled && <CheckCircle2 className="h-4 w-4 text-primary" />}
-                    </div>
-                    <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{option.description}</p>
-                  </button>
-                ))}
+                {AUDIENCE_OPTIONS.map((option) => {
+                  const disabled = option.disabled || (option.value === "attendance_qualified" && !attendanceQualificationLocked);
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => { setAudienceType(option.value); setPreview(null); }}
+                      className={`rounded-xl border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${audienceType === option.value ? "border-primary/40 bg-primary/5" : "border-border hover:bg-muted/30"}`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-sm font-semibold">{option.title}</span>
+                        {audienceType === option.value && !disabled && <CheckCircle2 className="h-4 w-4 text-primary" />}
+                      </div>
+                      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{option.description}</p>
+                    </button>
+                  );
+                })}
               </div>
+              {!attendanceQualificationLocked && (
+                <p className="mt-2 text-xs text-muted-foreground">Attendance-qualified issuance stays unavailable until a completed event has reconciled attendance and locked its required-session rules.</p>
+              )}
+              {attendanceQualificationLocked && attendanceQuery.data?.qualification && (
+                <p className="mt-2 text-xs text-emerald-700">Attendance qualification is locked at version {attendanceQuery.data.qualification.version} with {attendanceQuery.data.qualification.requiredSessionCount} required session{attendanceQuery.data.qualification.requiredSessionCount === 1 ? "" : "s"}.</p>
+              )}
             </div>
             {audienceType === "selected" && (
               <div className="rounded-2xl border border-border">
@@ -333,7 +349,7 @@ export function CertificateIssuancePanel({
               </div>
               <Button
                 className="shrink-0 gap-2"
-                disabled={!activeTemplateId || previewMutation.isPending || (audienceType === "selected" && selectedIds.length === 0)}
+                disabled={!activeTemplateId || previewMutation.isPending || (audienceType === "selected" && selectedIds.length === 0) || (audienceType === "attendance_qualified" && !attendanceQualificationLocked)}
                 onClick={() => previewMutation.mutate()}
               >
                 {previewMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
@@ -349,6 +365,7 @@ export function CertificateIssuancePanel({
                 <p className="text-sm font-semibold">Review the exact audience</p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {preview.template.name} · v{preview.template.version} · {preview.audienceType.replaceAll("_", " ")}
+                  {preview.qualification ? ` · attendance lock v${preview.qualification.version}` : ""}
                 </p>
               </div>
               <Button variant="outline" size="sm" className="gap-2 self-start" onClick={() => { setStage("recipients"); setConfirmed(false); }}>

@@ -131,11 +131,11 @@ template = request("POST", f"/api/app/certificate-templates/{template['id']}/pub
 assert template["status"] == "published" and len(template["contentHash"]) == 64
 
 
-def create_registration(label, name, email, status="confirmed", checked_in=False):
+def create_registration(label, name, email, status="confirmed", checked_in=False, event_id=None):
     user = create_user("recipient-" + label)
     return request("POST", "/api/collections/registrations/records", {
         "user": user["id"],
-        "event": event["id"],
+        "event": event_id or event["id"],
         "userName": name,
         "userEmail": email,
         "registrationStatus": status,
@@ -179,7 +179,113 @@ attendance_unavailable = request("POST", preview_path, {
     "audienceType": "attendance_qualified",
     "audienceConfig": {},
 }, admin_token, expected=(409,))
-assert attendance_unavailable["code"] == "ATTENDANCE_DATA_UNAVAILABLE"
+assert attendance_unavailable["code"] == "ATTENDANCE_QUALIFICATION_UNLOCKED"
+
+# Attendance-qualified issuance is server-owned and requires an explicit completed-event lock.
+qual_start = (now - dt.timedelta(hours=3)).isoformat().replace("+00:00", "Z")
+qual_end = (now - dt.timedelta(hours=1)).isoformat().replace("+00:00", "Z")
+qualification_event = request("POST", "/api/collections/events/records", {
+    "title": f"Certificate Attendance Qualification {suffix}",
+    "description": "Synthetic locked attendance qualification",
+    "date": qual_start, "endDate": qual_end, "venue": "CI Attendance Lab",
+    "price": 0, "society": society["id"], "status": "published",
+    "registrationOpen": False, "checkInEnabled": True, "isDeleted": False,
+}, super_token)
+qualification_template = request("POST", f"/api/app/events/{qualification_event['id']}/certificate-templates", {
+    "name": "Attendance Completion Certificate", "certificateType": "completion",
+}, admin_token)["template"]
+qualification_template = multipart_request(
+    f"/api/app/certificate-templates/{qualification_template['id']}",
+    {
+        "layout": json.dumps(qualification_template["layout"]),
+        "emailSubject": "Your certificate | {{eventTitle}}",
+        "emailText": "Hi {{firstName}}\n\nVerify: {{verificationUrl}}\nCredential: {{credentialId}}",
+    },
+    [("renderBase", "attendance-render-base.png", base_png, "image/png")],
+    admin_token,
+)["template"]
+qualification_template = request("POST", f"/api/app/certificate-templates/{qualification_template['id']}/publish", token=admin_token)["template"]
+qualification_session = request("POST", f"/api/app/events/{qualification_event['id']}/attendance/sessions", {
+    "title": "Required Core Session", "startsAt": qual_start, "endsAt": qual_end,
+    "attendanceEnabled": True, "checkInEnabled": True,
+    "requiredForCertificate": True, "attendanceWeight": 1,
+}, admin_token)["session"]
+qual_present = create_registration("qual-present", "Qualified Present", "qualified@example.test", event_id=qualification_event["id"])
+qual_missing = create_registration("qual-missing", "Missing Required Session", "missing-required@example.test", event_id=qualification_event["id"])
+qual_legacy_only = create_registration("qual-legacy", "Legacy Checked Only", "legacy-checked@example.test", checked_in=True, event_id=qualification_event["id"])
+
+qual_preview_path = f"/api/app/events/{qualification_event['id']}/certificates/audience/preview"
+qual_issue_path = f"/api/app/events/{qualification_event['id']}/certificates/issue"
+lock_path = f"/api/app/events/{qualification_event['id']}/attendance/qualification/lock"
+reopen_path = f"/api/app/events/{qualification_event['id']}/attendance/qualification/reopen"
+prelock = request("POST", qual_preview_path, {
+    "templateId": qualification_template["id"], "audienceType": "attendance_qualified", "audienceConfig": {},
+}, admin_token, expected=(409,))
+assert prelock["code"] == "ATTENDANCE_QUALIFICATION_UNLOCKED"
+request("POST", lock_path, {}, admin_token, expected=(409,))
+
+scan = request("POST", "/api/workspace/attendance/check-in", {
+    "ticketId": qual_present["ticketId"], "eventId": qualification_event["id"],
+    "sessionId": qualification_session["id"], "idempotencyKey": f"qual-scan-{suffix}",
+}, admin_token)
+assert scan["success"] is True
+request("POST", f"/api/workspace/events/{qualification_event['id']}/workflow", {"action": "complete"}, admin_token)
+prelock_closeout = request("GET", f"/api/admin/events/{qualification_event['id']}/operations", token=admin_token)["closeout"]
+assert prelock_closeout["readyToArchive"] is False
+assert any(row["code"] == "ATTENDANCE_QUALIFICATION_UNLOCKED" for row in prelock_closeout["blockers"])
+blocked_qualification_archive = request("POST", f"/api/admin/events/{qualification_event['id']}/archive", token=admin_token, expected=(409,))
+assert blocked_qualification_archive["code"] == "CLOSEOUT_BLOCKED"
+locked_v1 = request("POST", lock_path, {"note": "CI freezes reconciled attendance"}, admin_token)["qualification"]
+assert locked_v1["locked"] is True and locked_v1["version"] == 1 and locked_v1["requiredSessionCount"] == 1
+forged_lock = request("PATCH", f"/api/collections/events/records/{qualification_event['id']}", {
+    "attendanceQualificationLocked": False, "attendanceQualificationVersion": 99,
+}, admin_token, expected=(400,))
+assert "command-owned" in json.dumps(forged_lock).lower()
+request("PUT", f"/api/app/event-sessions/{qualification_session['id']}", {"attendanceWeight": 2}, admin_token, expected=(409,))
+request("POST", "/api/workspace/attendance/correct", {
+    "registrationId": qual_missing["id"], "sessionId": qualification_session["id"],
+    "action": "manual_add", "note": "should be blocked while qualification is locked",
+}, admin_token, expected=(409,))
+
+qualified_v1 = request("POST", qual_preview_path, {
+    "templateId": qualification_template["id"], "audienceType": "attendance_qualified", "audienceConfig": {},
+}, admin_token)
+assert qualified_v1["qualification"]["version"] == 1
+assert qualified_v1["recipientCount"] == 1 and qualified_v1["recipients"][0]["id"] == qual_present["id"]
+assert qualified_v1["recipients"][0]["qualification"]["qualified"] is True
+assert any(row["id"] == qual_missing["id"] and row["reason"] == "attendance_not_qualified" for row in qualified_v1["excluded"])
+assert any(row["id"] == qual_legacy_only["id"] and row["reason"] == "attendance_not_qualified" for row in qualified_v1["excluded"])
+old_qualified_fingerprint = qualified_v1["audienceFingerprint"]
+
+reopened = request("POST", reopen_path, {"note": "CI applies a verified attendance correction"}, admin_token)["qualification"]
+assert reopened["locked"] is False and reopened["version"] == 1
+stale_while_open = request("POST", qual_issue_path, {
+    "templateId": qualification_template["id"], "audienceType": "attendance_qualified", "audienceConfig": {},
+    "audienceFingerprint": old_qualified_fingerprint,
+}, admin_token, expected=(409,))
+assert stale_while_open["code"] == "ATTENDANCE_QUALIFICATION_UNLOCKED"
+request("POST", "/api/workspace/attendance/correct", {
+    "registrationId": qual_missing["id"], "sessionId": qualification_session["id"],
+    "action": "manual_add", "note": "Verified post-event attendance correction",
+}, admin_token)
+request("PUT", f"/api/app/event-sessions/{qualification_session['id']}", {"attendanceWeight": 2}, admin_token)
+locked_v2 = request("POST", lock_path, {"note": "CI re-locks corrected attendance"}, admin_token)["qualification"]
+assert locked_v2["locked"] is True and locked_v2["version"] == 2
+changed_lock = request("POST", qual_issue_path, {
+    "templateId": qualification_template["id"], "audienceType": "attendance_qualified", "audienceConfig": {},
+    "audienceFingerprint": old_qualified_fingerprint,
+}, admin_token, expected=(409,))
+assert changed_lock["code"] == "AUDIENCE_CHANGED"
+assert changed_lock["preview"]["qualification"]["version"] == 2
+assert changed_lock["preview"]["recipientCount"] == 2
+assert {row["id"] for row in changed_lock["preview"]["recipients"]} == {qual_present["id"], qual_missing["id"]}
+assert any(row["id"] == qual_legacy_only["id"] and row["reason"] == "attendance_not_qualified" for row in changed_lock["preview"]["excluded"])
+qualified_issued = request("POST", qual_issue_path, {
+    "templateId": qualification_template["id"], "audienceType": "attendance_qualified", "audienceConfig": {},
+    "audienceFingerprint": changed_lock["preview"]["audienceFingerprint"],
+    "note": "CI attendance-qualified issuance",
+}, admin_token)
+assert qualified_issued["batch"]["issuedCount"] == 2
 
 checked_preview = request("POST", preview_path, {
     "templateId": template["id"],
@@ -285,6 +391,10 @@ request("DELETE", f"/api/collections/certificates/records/{certificate_id}", tok
 request("PATCH", f"/api/collections/certificate_batches/records/{issued['batch']['id']}", {
     "audienceFingerprint": "mutated",
 }, super_token, expected=(400,))
+
+if github_env := os.environ.get("GITHUB_ENV"):
+    with open(github_env, "a", encoding="utf-8") as env_file:
+        env_file.write(f"E2E_ATTENDANCE_QUALIFICATION_EVENT_ID={qualification_event['id']}\n")
 
 all_certificates = request("GET", "/api/collections/certificates/records?perPage=200", token=super_token)
 credentials = [row["credentialId"] for row in all_certificates["items"]]

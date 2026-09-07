@@ -124,10 +124,9 @@ test.describe("My Events attendee continuity", () => {
 
     const card = page.getByRole("article").filter({ hasText: certificateFixture.eventTitle });
     await expect(card).toBeVisible();
-    await expect(card.getByRole("link", { name: "Certificate", exact: true })).toHaveAttribute(
-      "href",
-      `/c/${certificateFixture.certificateToken}`,
-    );
+    const certificateLink = card.locator(`a[href="/c/${certificateFixture.certificateToken}"]`);
+    await expect(certificateLink).toBeVisible();
+    await expect(certificateLink).toContainText(/certificate/i);
   });
 
   test("My Events remains usable at 390px without horizontal overflow", async ({ page, request }) => {

@@ -23,7 +23,11 @@ routerAdd("GET", "/api/app/events/{id}/attendance/sessions", function (e) {
   var sessions = attendance.sessionsForEvent($app, eventId).map(function (session) {
     return attendance.sessionPayload($app, session)
   })
-  return e.json(200, { mode: sessions.length ? "sessions" : "legacy", sessions: sessions })
+  return e.json(200, {
+    mode: sessions.length ? "sessions" : "legacy",
+    sessions: sessions,
+    qualification: require(__hooks + "/attendance-qualification-helpers.js").statusPayload(event),
+  })
 }, $apis.requireAuth("users"))
 
 routerAdd("POST", "/api/app/events/{id}/attendance/sessions", function (e) {
@@ -34,6 +38,9 @@ routerAdd("POST", "/api/app/events/{id}/attendance/sessions", function (e) {
   var authz = require(__hooks + "/workspace-authorization.js")
   if (!authz.hasEventCapability($app, e.auth, "events.edit", event)) {
     return e.json(403, { code: "FORBIDDEN", error: "Event edit permission is required to manage attendance sessions" })
+  }
+  if (event.getBool("attendanceQualificationLocked")) {
+    return e.json(409, { code: "ATTENDANCE_QUALIFICATION_LOCKED", error: "Reopen attendance qualification before changing session configuration" })
   }
   var body = authz.requestBody(e)
   var title = String(body.title || "").trim().slice(0, 180)
@@ -50,8 +57,14 @@ routerAdd("POST", "/api/app/events/{id}/attendance/sessions", function (e) {
   var existing = attendance.sessionsForEvent($app, eventId)
   var sortOrder = body.sortOrder === undefined ? existing.length * 10 : Math.max(0, Number(body.sortOrder) || 0)
   var payload = null
+  var createFailure = null
   try {
     $app.runInTransaction(function (txApp) {
+      var currentEvent = txApp.findRecordById("events", eventId)
+      if (currentEvent.getBool("attendanceQualificationLocked")) {
+        createFailure = { status: 409, code: "ATTENDANCE_QUALIFICATION_LOCKED", error: "Reopen attendance qualification before changing session configuration" }
+        return
+      }
       var collection = txApp.findCollectionByNameOrId("event_sessions")
       var record = new Record(collection, {
         event: eventId,
@@ -81,6 +94,7 @@ routerAdd("POST", "/api/app/events/{id}/attendance/sessions", function (e) {
   } catch (err) {
     return e.json(400, { code: "SESSION_CREATE_FAILED", error: err.message || "Could not create attendance session" })
   }
+  if (createFailure) return e.json(createFailure.status, { code: createFailure.code, error: createFailure.error })
   return e.json(201, { session: payload })
 }, $apis.requireAuth("users"))
 
@@ -96,6 +110,9 @@ routerAdd("PUT", "/api/app/event-sessions/{id}", function (e) {
   if (!authz.hasEventCapability($app, e.auth, "events.edit", event)) {
     return e.json(403, { code: "FORBIDDEN", error: "Event edit permission is required to manage attendance sessions" })
   }
+  if (event.getBool("attendanceQualificationLocked")) {
+    return e.json(409, { code: "ATTENDANCE_QUALIFICATION_LOCKED", error: "Reopen attendance qualification before changing session configuration" })
+  }
   var body = authz.requestBody(e)
   var title = body.title === undefined ? session.getString("title") : String(body.title || "").trim().slice(0, 180)
   var startsAt = body.startsAt === undefined ? session.getString("startsAt") : String(body.startsAt || "").trim()
@@ -108,9 +125,15 @@ routerAdd("PUT", "/api/app/event-sessions/{id}", function (e) {
   var weight = body.attendanceWeight === undefined ? session.getFloat("attendanceWeight") : Number(body.attendanceWeight)
   if (!isFinite(weight) || weight < 0 || weight > 100) return e.json(400, { code: "INVALID_WEIGHT", error: "Attendance weight must be between 0 and 100" })
   var after = null
+  var updateFailure = null
   try {
     $app.runInTransaction(function (txApp) {
       var current = txApp.findRecordById("event_sessions", sessionId)
+      var currentEvent = txApp.findRecordById("events", current.getString("event") || "")
+      if (currentEvent.getBool("attendanceQualificationLocked")) {
+        updateFailure = { status: 409, code: "ATTENDANCE_QUALIFICATION_LOCKED", error: "Reopen attendance qualification before changing session configuration" }
+        return
+      }
       var before = attendance.sessionPayload(txApp, current)
       current.set("title", title)
       current.set("startsAt", startsAt)
@@ -136,6 +159,7 @@ routerAdd("PUT", "/api/app/event-sessions/{id}", function (e) {
   } catch (err) {
     return e.json(400, { code: "SESSION_UPDATE_FAILED", error: err.message || "Could not update attendance session" })
   }
+  if (updateFailure) return e.json(updateFailure.status, { code: updateFailure.code, error: updateFailure.error })
   return e.json(200, { session: after })
 }, $apis.requireAuth("users"))
 
@@ -151,10 +175,18 @@ routerAdd("DELETE", "/api/app/event-sessions/{id}", function (e) {
   if (!authz.hasEventCapability($app, e.auth, "events.edit", event)) {
     return e.json(403, { code: "FORBIDDEN", error: "Event edit permission is required to manage attendance sessions" })
   }
+  if (event.getBool("attendanceQualificationLocked")) {
+    return e.json(409, { code: "ATTENDANCE_QUALIFICATION_LOCKED", error: "Reopen attendance qualification before deleting attendance sessions" })
+  }
   var deleteFailure = null
   try {
     $app.runInTransaction(function (txApp) {
       var current = txApp.findRecordById("event_sessions", sessionId)
+      var currentEvent = txApp.findRecordById("events", current.getString("event") || "")
+      if (currentEvent.getBool("attendanceQualificationLocked")) {
+        deleteFailure = { status: 409, code: "ATTENDANCE_QUALIFICATION_LOCKED", error: "Reopen attendance qualification before deleting attendance sessions" }
+        return
+      }
       var used = []
       try { used = txApp.findRecordsByFilter("attendance_records", "session = {:session}", "id", 1, 0, { session: current.id }) } catch (_) {}
       if (used.length) {
@@ -374,6 +406,9 @@ routerAdd("POST", "/api/workspace/attendance/correct", function (e) {
   if (!authz.hasEventCapability($app, e.auth, "checkin.manage", event)) {
     return e.json(403, { code: "FORBIDDEN", error: "You are not assigned to correct attendance for this event" })
   }
+  if (event.getBool("attendanceQualificationLocked")) {
+    return e.json(409, { code: "ATTENDANCE_QUALIFICATION_LOCKED", error: "Reopen attendance qualification before recording corrections" })
+  }
   var registration
   try { registration = $app.findRecordById("registrations", registrationId) }
   catch (_) { return e.json(404, { code: "REGISTRATION_NOT_FOUND", error: "Registration not found" }) }
@@ -385,6 +420,11 @@ routerAdd("POST", "/api/workspace/attendance/correct", function (e) {
     $app.runInTransaction(function (txApp) {
       var currentSession = txApp.findRecordById("event_sessions", sessionId)
       var currentRegistration = txApp.findRecordById("registrations", registrationId)
+      var currentEvent = txApp.findRecordById("events", eventId)
+      if (currentEvent.getBool("attendanceQualificationLocked")) {
+        failure = { status: 409, code: "ATTENDANCE_QUALIFICATION_LOCKED", error: "Reopen attendance qualification before recording corrections" }
+        return
+      }
       if (currentRegistration.getString("registrationStatus") !== "confirmed") {
         failure = { status: 409, code: "NOT_CONFIRMED", error: "Only confirmed registrations can receive attendance credit" }
         return
@@ -439,4 +479,102 @@ routerAdd("POST", "/api/workspace/attendance/correct", function (e) {
     occurredAt: result.occurredAt,
     presentCount: attendance.presentCount($app, sessionId),
   })
+}, $apis.requireAuth("users"))
+
+routerAdd("POST", "/api/app/events/{id}/attendance/qualification/lock", function (e) {
+  var eventId = e.request.pathValue("id") || ""
+  var event
+  try { event = $app.findRecordById("events", eventId) }
+  catch (_) { return e.json(404, { code: "EVENT_NOT_FOUND", error: "Event not found" }) }
+  var authz = require(__hooks + "/workspace-authorization.js")
+  if (!authz.hasEventCapability($app, e.auth, "events.edit", event)) {
+    return e.json(403, { code: "FORBIDDEN", error: "Event edit permission is required to lock attendance qualification" })
+  }
+  if (event.getBool("isDeleted")) return e.json(409, { code: "EVENT_ARCHIVED", error: "Archived events cannot change attendance qualification" })
+  if (event.getString("status") !== "completed") {
+    return e.json(409, { code: "EVENT_NOT_COMPLETED", error: "Complete the event before locking attendance qualification" })
+  }
+  var body = authz.requestBody(e)
+  var note = String(body.note || "").trim().slice(0, 2000)
+  var result = null
+  var failure = null
+  try {
+    $app.runInTransaction(function (txApp) {
+      var current = txApp.findRecordById("events", eventId)
+      if (current.getBool("attendanceQualificationLocked")) {
+        result = require(__hooks + "/attendance-qualification-helpers.js").statusPayload(current)
+        result.idempotent = true
+        return
+      }
+      if (current.getBool("isDeleted")) { failure = { status: 409, code: "EVENT_ARCHIVED", error: "Archived events cannot change attendance qualification" }; return }
+      if (current.getString("status") !== "completed") { failure = { status: 409, code: "EVENT_NOT_COMPLETED", error: "Complete the event before locking attendance qualification" }; return }
+      var qualification = require(__hooks + "/attendance-qualification-helpers.js")
+      var version = (current.getInt("attendanceQualificationVersion") || 0) + 1
+      var lockedAt = new Date().toISOString()
+      var built = qualification.buildSnapshot(txApp, current, version, lockedAt)
+      if (built.error) { failure = { status: 409, code: "ATTENDANCE_QUALIFICATION_NOT_READY", error: built.error }; return }
+      current.set("attendanceQualificationLocked", true)
+      current.set("attendanceQualificationVersion", version)
+      current.set("attendanceQualificationLockedAt", lockedAt)
+      current.set("attendanceQualificationLockedBy", e.auth.id)
+      current.set("attendanceQualificationSnapshot", built.snapshot)
+      txApp.save(current)
+      result = qualification.statusPayload(current)
+      result.idempotent = false
+      require(__hooks + "/admin-operations-helpers.js").audit(txApp, {
+        eventId: eventId, actorId: e.auth.id, action: "attendance.qualification.locked",
+        note: note, entityType: "event", entityId: eventId, before: null, after: result,
+      })
+    })
+  } catch (err) {
+    console.log("[attendance-v2] qualification lock failed:", err)
+    return e.json(500, { code: "ATTENDANCE_QUALIFICATION_LOCK_FAILED", error: "Could not lock attendance qualification" })
+  }
+  if (failure) return e.json(failure.status, { code: failure.code, error: failure.error })
+  return e.json(200, { qualification: result })
+}, $apis.requireAuth("users"))
+
+routerAdd("POST", "/api/app/events/{id}/attendance/qualification/reopen", function (e) {
+  var eventId = e.request.pathValue("id") || ""
+  var event
+  try { event = $app.findRecordById("events", eventId) }
+  catch (_) { return e.json(404, { code: "EVENT_NOT_FOUND", error: "Event not found" }) }
+  var authz = require(__hooks + "/workspace-authorization.js")
+  if (!authz.hasEventCapability($app, e.auth, "events.edit", event)) {
+    return e.json(403, { code: "FORBIDDEN", error: "Event edit permission is required to reopen attendance qualification" })
+  }
+  var body = authz.requestBody(e)
+  var note = String(body.note || "").trim().slice(0, 2000)
+  var result = null
+  try {
+    $app.runInTransaction(function (txApp) {
+      var current = txApp.findRecordById("events", eventId)
+      var qualification = require(__hooks + "/attendance-qualification-helpers.js")
+      if (!current.getBool("attendanceQualificationLocked")) {
+        result = qualification.statusPayload(current)
+        result.idempotent = true
+        return
+      }
+      if (current.getBool("isDeleted")) throw new Error("EVENT_ARCHIVED")
+      if (current.getString("status") !== "completed") throw new Error("EVENT_NOT_COMPLETED")
+      var before = qualification.statusPayload(current)
+      current.set("attendanceQualificationLocked", false)
+      current.set("attendanceQualificationLockedAt", "")
+      current.set("attendanceQualificationLockedBy", "")
+      txApp.save(current)
+      result = qualification.statusPayload(current)
+      result.idempotent = false
+      require(__hooks + "/admin-operations-helpers.js").audit(txApp, {
+        eventId: eventId, actorId: e.auth.id, action: "attendance.qualification.reopened",
+        note: note, entityType: "event", entityId: eventId, before: before, after: result,
+      })
+    })
+  } catch (err) {
+    var message = String(err && err.message || "")
+    if (message === "EVENT_ARCHIVED") return e.json(409, { code: message, error: "Archived events cannot change attendance qualification" })
+    if (message === "EVENT_NOT_COMPLETED") return e.json(409, { code: message, error: "Only completed events can reopen attendance qualification" })
+    console.log("[attendance-v2] qualification reopen failed:", err)
+    return e.json(500, { code: "ATTENDANCE_QUALIFICATION_REOPEN_FAILED", error: "Could not reopen attendance qualification" })
+  }
+  return e.json(200, { qualification: result })
 }, $apis.requireAuth("users"))

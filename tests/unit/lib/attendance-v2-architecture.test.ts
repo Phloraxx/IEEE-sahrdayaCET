@@ -36,16 +36,34 @@ describe("Attendance V2 architecture", () => {
     const workspace = read("pb_hooks/workspace.pb.js");
     const operations = read("pb_hooks/admin-operations.pb.js");
     expect(helpers).toContain("applyLegacyArrivalProjection");
+    expect(helpers).toContain("firstCreditedAttendanceAt");
     expect(helpers).toContain('registration.set("checkedIn", true)');
+    const checkinInvariant = read("pb_hooks/registration-checkin.pb.js");
+    expect(checkinInvariant).toContain('eventStatus === "completed"');
+    expect(checkinInvariant).toContain("firstCreditedAttendanceAt");
     expect(workspace).toContain('\"SESSION_REQUIRED\"');
     expect(workspace).toContain('\"WRONG_EVENT\"');
     expect(operations).toContain('code: "USE_ATTENDANCE_V2"');
     expect(operations).toContain('mode: attendanceSessions.length ? "sessions" : "legacy"');
   });
 
-  it("keeps certificate attendance qualification disabled until closeout rules exist", () => {
-    const rules = read("pb_hooks/certificate-issuance-rules.js");
-    expect(rules).toContain('if (type === "attendance_qualified") errors.push("Attendance-qualified audiences require recorded attendance sessions")');
+  it("locks deterministic required-session qualification before certificate use", () => {
+    const migration = read("pb_migrations/202609070001_attendance_qualification_lock.js");
+    const routes = read("pb_hooks/attendance-v2.pb.js");
+    const helper = read("pb_hooks/attendance-qualification-helpers.js");
+    const issuance = read("pb_hooks/certificate-issuance-helpers.js");
+    const events = read("pb_hooks/events.pb.js");
+    expect(migration).toContain('attendanceQualificationLocked');
+    expect(migration).toContain('attendanceQualificationSnapshot');
+    expect(routes).toContain('/attendance/qualification/lock');
+    expect(routes).toContain('/attendance/qualification/reopen');
+    expect(routes).toContain('ATTENDANCE_QUALIFICATION_LOCKED');
+    expect(routes.match(/currentEvent.getBool\("attendanceQualificationLocked"\)/g)?.length).toBeGreaterThanOrEqual(4);
+    expect(helper).toContain('rule: "all_required_sessions"');
+    expect(helper).toContain('requiredPresent === status.requiredSessionCount');
+    expect(issuance).toContain('"attendance_qualified"');
+    expect(issuance).toContain('ATTENDANCE_QUALIFICATION_UNLOCKED');
+    expect(events).toContain("Attendance qualification state is command-owned");
   });
 
   it("exposes a session-aware scanner without attendee-register access", () => {

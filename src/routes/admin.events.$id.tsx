@@ -567,6 +567,7 @@ export default function AdminEventOperationsRoute() {
           eventStart={event.date}
           eventEnd={event.endDate}
           eventVenue={event.venue}
+          eventStatus={event.status}
           canManage={Boolean(permissions["events.edit"])}
           canCheckIn={Boolean(permissions["checkin.manage"])}
         />

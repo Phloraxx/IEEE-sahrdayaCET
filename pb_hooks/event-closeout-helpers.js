@@ -22,9 +22,17 @@ function closeoutSummary(app, event) {
   var applicable = !event.getBool("isDeleted") && (status === "completed" || status === "cancelled")
   var blockers = []
   var warnings = []
+  var qualificationStatus = require(__hooks + "/attendance-qualification-helpers.js").statusPayload(event)
+  var qualification = {
+    locked: qualificationStatus.locked,
+    version: qualificationStatus.version,
+    lockedAt: qualificationStatus.lockedAt,
+    requiredSessionCount: qualificationStatus.requiredSessionCount,
+    sessionCount: qualificationStatus.sessionCount,
+  }
   if (!applicable) {
     return {
-      applicable: false, readyToArchive: false, blockers: [], warnings: [],
+      applicable: false, readyToArchive: false, blockers: [], warnings: [], attendanceQualification: qualification,
       metrics: { pendingRegistrations: 0, unresolvedRefundRequests: 0, paymentExceptions: 0, activeWaitlist: 0, attendanceSessions: 0, attendanceCorrections: 0, attendanceScheduleAnomalies: 0 },
     }
   }
@@ -81,13 +89,22 @@ function closeoutSummary(app, event) {
   var eventStart = Date.parse(event.getString("date") || "")
   var eventEnd = Date.parse(event.getString("endDate") || "")
   var anomalousSessions = 0
+  var certificateRequiredSessions = 0
   for (var si = 0; si < sessions.length; si++) {
+    if (sessions[si].getBool("requiredForCertificate")) certificateRequiredSessions++
     var sessionStart = Date.parse(sessions[si].getString("startsAt") || "")
     var sessionEnd = Date.parse(sessions[si].getString("endsAt") || "")
     if ((isFinite(eventStart) && isFinite(sessionStart) && sessionStart < eventStart) ||
         (isFinite(eventEnd) && ((isFinite(sessionStart) && sessionStart > eventEnd) || (isFinite(sessionEnd) && sessionEnd > eventEnd)))) {
       anomalousSessions++
     }
+  }
+  if (!qualification.locked) {
+    qualification.sessionCount = sessions.length
+    qualification.requiredSessionCount = certificateRequiredSessions
+  }
+  if (status === "completed" && certificateRequiredSessions > 0 && !qualification.locked) {
+    blockers.push(issue("ATTENDANCE_QUALIFICATION_UNLOCKED", "Lock reconciled attendance before archiving certificate-required sessions", certificateRequiredSessions, "attendance"))
   }
   if (corrections.length > 0) warnings.push(issue("ATTENDANCE_CORRECTIONS", "Manual attendance corrections are present in the audit history", corrections.length, "attendance"))
   if (anomalousSessions > 0) warnings.push(issue("SESSION_SCHEDULE_ANOMALY", "Attendance session timing falls outside the event schedule", anomalousSessions, "attendance"))
@@ -97,6 +114,7 @@ function closeoutSummary(app, event) {
     readyToArchive: applicable && blockers.length === 0,
     blockers: blockers,
     warnings: warnings,
+    attendanceQualification: qualification,
     metrics: {
       pendingRegistrations: pendingRegistrations,
       unresolvedRefundRequests: refundRequests.length,
@@ -123,6 +141,7 @@ function projectCloseoutSummary(summary, financeAllowed) {
     readyToArchive: summary.readyToArchive,
     blockers: blockers,
     warnings: summary.warnings,
+    attendanceQualification: summary.attendanceQualification,
     metrics: {
       pendingRegistrations: summary.metrics.pendingRegistrations,
       activeWaitlist: summary.metrics.activeWaitlist,

@@ -85,6 +85,13 @@ export interface EventCloseoutSummary {
   readyToArchive: boolean;
   blockers: EventCloseoutIssue[];
   warnings: EventCloseoutIssue[];
+  attendanceQualification: {
+    locked: boolean;
+    version: number;
+    lockedAt: string;
+    requiredSessionCount: number;
+    sessionCount: number;
+  };
   metrics: {
     pendingRegistrations: number;
     unresolvedRefundRequests?: number;

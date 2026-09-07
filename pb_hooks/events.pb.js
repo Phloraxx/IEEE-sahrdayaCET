@@ -1,6 +1,19 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 onRecordCreateRequest(function (e) {
+    var createInfo = null
+    try { createInfo = e.requestInfo ? e.requestInfo() : null } catch (_) { createInfo = null }
+    var createBody = createInfo && createInfo.body && typeof createInfo.body === "object" ? createInfo.body : {}
+    var qualificationFields = [
+        "attendanceQualificationLocked", "attendanceQualificationVersion", "attendanceQualificationLockedAt",
+        "attendanceQualificationLockedBy", "attendanceQualificationSnapshot"
+    ]
+    for (var qci = 0; qci < qualificationFields.length; qci++) {
+        if (Object.prototype.hasOwnProperty.call(createBody, qualificationFields[qci])) {
+            throw e.badRequestError("Attendance qualification state is command-owned")
+        }
+    }
+
     var urlFields = ["externalLink", "externalFormUrl"]
     for (var ui = 0; ui < urlFields.length; ui++) {
         var urlValue = e.record.getString(urlFields[ui]) || ""
@@ -76,6 +89,19 @@ onRecordUpdateRequest(function (e) {
     try { oldForSlug = $app.findRecordById("events", e.record.id) } catch (_) { oldForSlug = null }
     if (oldForSlug && e.record.getString("slug") !== oldForSlug.getString("slug")) {
         throw e.forbiddenError("Event URLs are immutable")
+    }
+
+    var updateInfo = null
+    try { updateInfo = e.requestInfo ? e.requestInfo() : null } catch (_) { updateInfo = null }
+    var updateBody = updateInfo && updateInfo.body && typeof updateInfo.body === "object" ? updateInfo.body : {}
+    var qualificationFields = [
+        "attendanceQualificationLocked", "attendanceQualificationVersion", "attendanceQualificationLockedAt",
+        "attendanceQualificationLockedBy", "attendanceQualificationSnapshot"
+    ]
+    for (var qui = 0; qui < qualificationFields.length; qui++) {
+        if (Object.prototype.hasOwnProperty.call(updateBody, qualificationFields[qui])) {
+            throw e.badRequestError("Attendance qualification state is command-owned")
+        }
     }
 
     var authz = require(__hooks + "/workspace-authorization.js")
