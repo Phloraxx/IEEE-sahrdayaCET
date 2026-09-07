@@ -17,6 +17,46 @@ function registrationJson(registration) {
   return require(__hooks + "/registration-helpers.js").registrationJsonObject(registration.get("paymentData"))
 }
 
+function emptyCertificateProgress() {
+  return {
+    templateCount: 0,
+    publishedTemplateCount: 0,
+    issuedBatchCount: 0,
+    issuedCertificateCount: 0,
+    activeCertificateCount: 0,
+    emailEligibleCount: 0,
+    sentCount: 0,
+    failedCount: 0,
+    missingEmailCount: 0,
+  }
+}
+
+function certificateProgress(app, eventId) {
+  var progress = emptyCertificateProgress()
+  var templates = rows(app, "certificate_templates", "event = {:eventId}", { eventId: eventId })
+  progress.templateCount = templates.length
+  for (var ti = 0; ti < templates.length; ti++) {
+    if (templates[ti].getString("status") === "published") progress.publishedTemplateCount++
+  }
+
+  var batches = rows(app, "certificate_batches", "event = {:eventId}", { eventId: eventId })
+  for (var bi = 0; bi < batches.length; bi++) {
+    var batchStatus = batches[bi].getString("status") || ""
+    if (batchStatus !== "draft" && batchStatus !== "cancelled_before_issue") progress.issuedBatchCount++
+    progress.emailEligibleCount += batches[bi].getInt("emailEligibleCount") || 0
+    progress.sentCount += batches[bi].getInt("sentCount") || 0
+    progress.failedCount += batches[bi].getInt("failedCount") || 0
+    progress.missingEmailCount += batches[bi].getInt("missingEmailCount") || 0
+  }
+
+  var certificates = rows(app, "certificates", "event = {:eventId}", { eventId: eventId })
+  progress.issuedCertificateCount = certificates.length
+  for (var ci = 0; ci < certificates.length; ci++) {
+    if (certificates[ci].getString("status") === "active") progress.activeCertificateCount++
+  }
+  return progress
+}
+
 function closeoutSummary(app, event) {
   var status = event.getString("status") || ""
   var applicable = !event.getBool("isDeleted") && (status === "completed" || status === "cancelled")
@@ -33,9 +73,11 @@ function closeoutSummary(app, event) {
   if (!applicable) {
     return {
       applicable: false, readyToArchive: false, blockers: [], warnings: [], attendanceQualification: qualification,
+      certificateProgress: emptyCertificateProgress(),
       metrics: { pendingRegistrations: 0, unresolvedRefundRequests: 0, paymentExceptions: 0, activeWaitlist: 0, attendanceSessions: 0, attendanceCorrections: 0, attendanceScheduleAnomalies: 0 },
     }
   }
+  var certificates = certificateProgress(app, event.id)
   var registrations = rows(app, "registrations", "event = {:eventId}", { eventId: event.id })
   var pendingRegistrations = 0
   var paymentExceptionIds = {}
@@ -115,6 +157,7 @@ function closeoutSummary(app, event) {
     blockers: blockers,
     warnings: warnings,
     attendanceQualification: qualification,
+    certificateProgress: certificates,
     metrics: {
       pendingRegistrations: pendingRegistrations,
       unresolvedRefundRequests: refundRequests.length,
@@ -142,6 +185,7 @@ function projectCloseoutSummary(summary, financeAllowed) {
     blockers: blockers,
     warnings: summary.warnings,
     attendanceQualification: summary.attendanceQualification,
+    certificateProgress: summary.certificateProgress,
     metrics: {
       pendingRegistrations: summary.metrics.pendingRegistrations,
       activeWaitlist: summary.metrics.activeWaitlist,

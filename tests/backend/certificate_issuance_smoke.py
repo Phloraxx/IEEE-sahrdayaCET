@@ -237,6 +237,13 @@ blocked_qualification_archive = request("POST", f"/api/admin/events/{qualificati
 assert blocked_qualification_archive["code"] == "CLOSEOUT_BLOCKED"
 locked_v1 = request("POST", lock_path, {"note": "CI freezes reconciled attendance"}, admin_token)["qualification"]
 assert locked_v1["locked"] is True and locked_v1["version"] == 1 and locked_v1["requiredSessionCount"] == 1
+locked_closeout = request("GET", f"/api/admin/events/{qualification_event['id']}/operations", token=admin_token)["closeout"]
+assert locked_closeout["readyToArchive"] is True
+assert locked_closeout["certificateProgress"] == {
+    "templateCount": 1, "publishedTemplateCount": 1, "issuedBatchCount": 0,
+    "issuedCertificateCount": 0, "activeCertificateCount": 0,
+    "emailEligibleCount": 0, "sentCount": 0, "failedCount": 0, "missingEmailCount": 0,
+}
 forged_lock = request("PATCH", f"/api/collections/events/records/{qualification_event['id']}", {
     "attendanceQualificationLocked": False, "attendanceQualificationVersion": 99,
 }, admin_token, expected=(400,))
@@ -286,6 +293,12 @@ qualified_issued = request("POST", qual_issue_path, {
     "note": "CI attendance-qualified issuance",
 }, admin_token)
 assert qualified_issued["batch"]["issuedCount"] == 2
+post_issue_closeout = request("GET", f"/api/admin/events/{qualification_event['id']}/operations", token=admin_token)["closeout"]
+assert post_issue_closeout["readyToArchive"] is True
+assert post_issue_closeout["certificateProgress"]["publishedTemplateCount"] == 1
+assert post_issue_closeout["certificateProgress"]["issuedBatchCount"] == 1
+assert post_issue_closeout["certificateProgress"]["issuedCertificateCount"] == 2
+assert post_issue_closeout["certificateProgress"]["activeCertificateCount"] == 2
 
 checked_preview = request("POST", preview_path, {
     "templateId": template["id"],

@@ -62,10 +62,15 @@ Feedback must never block archive or certificate issuance.
 
 ## Slice 5D — Final closeout / archive
 
-- show certificate/template/issuance progress as an independent task;
-- require all blocking reconciliation items to be zero;
-- provide final archive action from the closeout surface;
-- retain audit, finance ledger, attendance history, certificates and attendee history after archive.
+Implementation contract:
+- the existing server-owned blocker list remains the only source of `readyToArchive`; certificate work does not become a new gate;
+- Closeout projects aggregate certificate progress for the event: template publication, issuance batches, issued/active credential records, and SMTP handoff counts;
+- Certificate progress is read-only and never changes `readyToArchive`;
+- mail progress means SMTP handoff/acceptance only and must not be presented as guaranteed inbox delivery;
+- the final archive action remains on the Closeout surface and still re-checks the same closeout contract transactionally;
+- archive keeps audit, finance ledger, attendance history, certificate templates/batches/credentials, and attendee history intact; it only retires the event from active operations.
+
+Slice 5C feedback remains optional and is not required for lifecycle completion or production promotion.
 
 ## Acceptance
 

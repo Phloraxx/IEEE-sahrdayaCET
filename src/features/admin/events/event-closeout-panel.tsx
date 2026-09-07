@@ -35,6 +35,14 @@ export function EventCloseoutPanel({
   onArchive: () => void;
 }) {
   const ready = closeout.readyToArchive;
+  const certificates = closeout.certificateProgress;
+  const certificateTitle = certificates.issuedCertificateCount > 0
+    ? `${certificates.issuedCertificateCount} certificate record${certificates.issuedCertificateCount === 1 ? "" : "s"} issued`
+    : certificates.publishedTemplateCount > 0
+      ? "Template ready; issuance not started"
+      : certificates.templateCount > 0
+        ? "Certificate templates are still drafts"
+        : "No certificate work started";
   return (
     <div className="space-y-6">
       <Card className={ready ? "border-emerald-500/30" : "border-amber-500/30"}>
@@ -84,7 +92,39 @@ export function EventCloseoutPanel({
         {closeout.warnings.map((item) => <div key={item.code} className="flex flex-col gap-3 rounded-xl border border-border p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-semibold">{item.label}</p>{item.count > 0 && <p className="mt-1 text-xs text-muted-foreground">{item.count} record{item.count === 1 ? "" : "s"}</p>}</div><Button size="sm" variant="outline" onClick={() => onOpenArea(item.area as CloseoutArea)}>{areaLabel(item.area)}</Button></div>)}
       </div></CardContent></Card>}
 
-      <Card><CardContent className="p-6"><PanelHeader eyebrow="Certificates" title="Attendance qualification stays independent" description={closeout.attendanceQualification.locked ? "Required-session rules are frozen for certificate audience calculation. Reopen attendance before making any correction that should change qualification." : "Reconcile attendance and lock required-session rules before using the attendance-qualified certificate audience."} /><div className="mt-5 flex flex-wrap gap-2"><Button variant="outline" onClick={() => onOpenArea("attendance")}>{closeout.attendanceQualification.locked ? "Review locked attendance" : "Finish attendance"}</Button><Button variant="outline" onClick={() => onOpenArea("certificates")}>Open certificates</Button></div></CardContent></Card>
+      <Card>
+        <CardContent className="p-6">
+          <PanelHeader
+            eyebrow="Certificates"
+            title={certificateTitle}
+            description="Certificate preparation and delivery stay visible at closeout, but they never block archive. Existing credentials remain historical records after archive."
+          />
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-xl border border-border bg-muted/20 p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Templates</p>
+              <p className="mt-2 text-sm font-semibold">{certificates.templateCount ? `${certificates.publishedTemplateCount}/${certificates.templateCount} published` : "Not started"}</p>
+            </div>
+            <div className="rounded-xl border border-border bg-muted/20 p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Issuance</p>
+              <p className="mt-2 text-sm font-semibold">{certificates.issuedCertificateCount} issued record{certificates.issuedCertificateCount === 1 ? "" : "s"}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{certificates.activeCertificateCount} active · {certificates.issuedBatchCount} batch{certificates.issuedBatchCount === 1 ? "" : "es"}</p>
+            </div>
+            <div className="rounded-xl border border-border bg-muted/20 p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Mail accepted</p>
+              <p className="mt-2 text-sm font-semibold">{certificates.emailEligibleCount ? `${certificates.sentCount}/${certificates.emailEligibleCount} SMTP handoffs` : "No eligible mail yet"}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{certificates.failedCount} failed · {certificates.missingEmailCount} missing email · inbox delivery is not implied</p>
+            </div>
+            <div className="rounded-xl border border-border bg-muted/20 p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Attendance basis</p>
+              <p className="mt-2 text-sm font-semibold">{closeout.attendanceQualification.locked ? `Locked · v${closeout.attendanceQualification.version}` : closeout.attendanceQualification.requiredSessionCount ? "Needs lock" : "Legacy / none"}</p>
+            </div>
+          </div>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => onOpenArea("certificates")}>Open certificates</Button>
+            <Button variant="outline" onClick={() => onOpenArea("attendance")}>{closeout.attendanceQualification.locked ? "Review locked attendance" : "Review attendance"}</Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
