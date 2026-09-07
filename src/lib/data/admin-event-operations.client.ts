@@ -92,6 +92,17 @@ export interface EventCloseoutSummary {
     requiredSessionCount: number;
     sessionCount: number;
   };
+  certificateProgress: {
+    templateCount: number;
+    publishedTemplateCount: number;
+    issuedBatchCount: number;
+    issuedCertificateCount: number;
+    activeCertificateCount: number;
+    emailEligibleCount: number;
+    sentCount: number;
+    failedCount: number;
+    missingEmailCount: number;
+  };
   metrics: {
     pendingRegistrations: number;
     unresolvedRefundRequests?: number;

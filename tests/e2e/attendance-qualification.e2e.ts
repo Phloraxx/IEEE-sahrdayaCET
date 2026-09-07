@@ -31,7 +31,11 @@ test.describe("Attendance qualification closeout", () => {
     await expect(page.getByRole("button", { name: /Attendance qualified/ })).toBeEnabled();
 
     await page.goto(`/admin/events/${eventId}?tab=closeout`);
-    await expect(page.getByText("Locked · v2", { exact: true })).toBeVisible();
-    await expect(page.getByText("Attendance qualification stays independent", { exact: true })).toBeVisible();
+    const lockedQualificationLabels = page.getByText("Locked · v2", { exact: true });
+    await expect(lockedQualificationLabels).toHaveCount(2);
+    await expect(lockedQualificationLabels.first()).toBeVisible();
+    await expect(page.getByText("2 certificate records issued", { exact: true })).toBeVisible();
+    await expect(page.getByText("2 issued records", { exact: true })).toBeVisible();
+    await expect(page.getByText(/never block archive/i)).toBeVisible();
   });
 });
