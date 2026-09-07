@@ -16,9 +16,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 BASE = os.environ.get("PB_BASE_URL", "http://127.0.0.1:8090").rstrip("/")
 SUPER_EMAIL = os.environ.get("PB_SUPERUSER_EMAIL", "ci-super@example.test")
 SUPER_PASS = os.environ.get("PB_SUPERUSER_PASSWORD", "CI-PocketBase-Smoke-2026!")
-PAYGATE_API_KEY = os.environ.get("PAYGATE_API_KEY", "CI-PayGate-Api-Key-2026!!!!")
+PAYGATE_API_KEY = os.environ.get("PAYGATE_API_KEY", "CI-PayGate-Api-Key-2026-Only-Test-32")
 PAYGATE_WEBHOOK_SECRET = os.environ.get(
-    "PAYGATE_WEBHOOK_SECRET", "CI-PayGate-Webhook-2026!!!!"
+    "PAYGATE_WEBHOOK_SECRET", "CI-PayGate-Webhook-2026-Only-Test-32"
 )
 FAKE_PORT = int(os.environ.get("PAYGATE_FAKE_PORT", "18080"))
 
