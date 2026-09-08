@@ -204,9 +204,8 @@ export async function archiveAdminEvent(id: string) {
   }) as Promise<{ archived: boolean; alreadyArchived: boolean }>;
 }
 
-export async function cancelAdminEvent(id: string, reason: string) {
+export async function cancelAdminEvent(id: string) {
   return getPbClient().send(`/api/admin/events/${encodeURIComponent(id)}/cancel`, {
     method: "POST",
-    body: { reason },
   }) as Promise<{ alreadyCancelled: boolean; cancelled: number; refundReview: number; manualRefundRequired: number; releasedPending: number }>;
 }

@@ -207,7 +207,7 @@ export default function AdminEventOperationsRoute() {
   });
 
   const cancelEventMutation = useMutation({
-    mutationFn: (reason: string) => cancelAdminEvent(id, reason),
+    mutationFn: () => cancelAdminEvent(id),
     onSuccess: (result) => {
       setCancelOpen(false);
       invalidate();
@@ -219,8 +219,7 @@ export default function AdminEventOperationsRoute() {
   });
 
   const workflowMutation = useMutation({
-    mutationFn: ({ action, note }: { action: "publish" | "unpublish" | "complete"; note?: string }) =>
-      runEventWorkflow(id, action, note),
+    mutationFn: (action: "publish" | "unpublish" | "complete") => runEventWorkflow(id, action),
     onSuccess: () => {
       invalidate();
       toast.success("Event lifecycle updated");
@@ -371,7 +370,7 @@ export default function AdminEventOperationsRoute() {
         event={event}
         permissions={permissions}
         pending={workflowMutation.isPending}
-        onAction={(action, note) => workflowMutation.mutate({ action, note })}
+        onAction={(action) => workflowMutation.mutate(action)}
       />}
 
       <div className="flex gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1">
@@ -753,7 +752,7 @@ export default function AdminEventOperationsRoute() {
         onOpenChange={setCancelOpen}
         eventTitle={event.title}
         pending={cancelEventMutation.isPending}
-        onConfirm={(reason) => cancelEventMutation.mutate(reason)}
+        onConfirm={() => cancelEventMutation.mutate()}
       />
       <CancellationDecisionDialog
         state={cancellationDecision}

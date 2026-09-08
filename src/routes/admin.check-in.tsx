@@ -58,6 +58,7 @@ interface ScanFeedback {
   title: string;
   message: string;
   ticketId?: string;
+  userName?: string;
   occurredAt?: string;
 }
 interface CorrectionState {
@@ -242,9 +243,10 @@ export default function AdminCheckIn() {
         });
         const next: ScanFeedback = {
           kind: result.replayed ? "duplicate" : "success",
-          title: result.replayed ? "Already recorded" : "Attendance recorded",
-          message: `${result.registration.sessionTitle} · ${result.presentCount} present`,
+          title: result.registration.userName || (result.replayed ? "Already recorded" : "Attendance recorded"),
+          message: `${result.replayed ? "Already recorded" : "Attendance recorded"} · ${result.registration.sessionTitle} · ${result.presentCount} present`,
           ticketId: result.registration.ticketId,
+          userName: result.registration.userName,
           occurredAt: result.registration.occurredAt,
         };
         setFeedback(next);
@@ -254,9 +256,10 @@ export default function AdminCheckIn() {
         const registration = result.registration;
         const next: ScanFeedback = {
           kind: "success",
-          title: "Checked in",
-          message: "Legacy single check-in recorded",
+          title: registration?.userName || "Checked in",
+          message: "Checked in · legacy single check-in",
           ticketId: registration?.ticketId,
+          userName: registration?.userName,
           occurredAt: registration?.checkedInAt || undefined,
         };
         setFeedback(next);
@@ -395,7 +398,7 @@ export default function AdminCheckIn() {
           <p className="text-xs font-medium text-muted-foreground">Operate</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">Attendance console</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Choose the assigned event and session once, then keep the camera running. Check-in staff see only scanner context and recent scans—not the attendee register.
+            Choose the assigned event and session once, then keep the camera running. Participant names are shown after scans, and assigned check-in staff can also use the attendee register when needed.
           </p>
         </div>
         <Button type="button" variant="outline" onClick={scanning ? stopScanner : startScanner} disabled={!scanning && scanDisabled} className="gap-2">
@@ -474,7 +477,7 @@ export default function AdminCheckIn() {
               <Card>
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between gap-3">
-                    <div><p className="font-medium">Manual ticket entry</p><p className="text-xs text-muted-foreground">Fallback for damaged QR codes. This does not open attendee search.</p></div>
+                    <div><p className="font-medium">Manual ticket entry</p><p className="text-xs text-muted-foreground">Fallback for damaged QR codes. Use the attendee register when you need to find a participant by name or ticket.</p></div>
                     {submitting && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
                   </div>
                   <div className="mt-4 flex gap-2">
@@ -545,7 +548,7 @@ export default function AdminCheckIn() {
                         <div key={row.id} className="rounded-xl border border-border p-3">
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold">Ticket check-in</p>
+                              <p className="truncate text-sm font-semibold">{row.userName || "Unnamed attendee"}</p>
                               <p className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">{row.ticketId}</p>
                               <p className="mt-1 text-xs text-muted-foreground">{formatDateTime(row.occurredAt)} · {row.type.replaceAll("_", " ")}</p>
                             </div>

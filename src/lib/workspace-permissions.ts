@@ -136,7 +136,7 @@ export function canAccessWorkspacePath(
 export function preferredWorkspacePath(workspace: WorkspaceMe | null | undefined): string {
   if (!workspace?.hasWorkspace) return "/";
   const has = (capability: WorkspaceCapability) => hasWorkspaceCapability(workspace, capability);
-  if (has("checkin.manage") && !has("registrations.view") && !has("events.edit")) return "/admin/check-in";
+  if (has("checkin.manage") && !has("registrations.manage") && !has("events.edit")) return "/admin/check-in";
   if (has("content.manage") && !has("registrations.view") && !has("events.edit")) return "/admin/blogs";
   if (has("technical.manage") || has("registrations.view")) return "/admin/dashboard";
   if (workspace.branchCapabilities?.includes("finance.view")) return "/admin/payments";

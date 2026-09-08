@@ -377,6 +377,7 @@ routerAdd("POST", "/api/workspace/attendance/check-in", function (e) {
     registration: {
       id: regResult.id,
       ticketId: regResult.getString("ticketId") || "",
+      userName: regResult.getString("userName") || "",
       eventId: eventId,
       eventTitle: event.getString("title") || "",
       sessionId: result.session.id,

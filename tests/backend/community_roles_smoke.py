@@ -240,8 +240,7 @@ req("PUT", f"/api/app/events/{event['id']}/coupons", {"coupons": [{
 changed_published = req("PATCH", f"/api/collections/events/records/{event['id']}", {"venue": "Changed Hall"}, tokens["event-lead"])
 assert changed_published["status"] == "published" and changed_published["venue"] == "Changed Hall"
 req("PATCH", f"/api/collections/events/records/{event['id']}", {"status": "draft"}, tokens["event-lead"], expected=(400, 403))
-req("POST", f"/api/workspace/events/{event['id']}/workflow", {"action": "unpublish"}, tokens["branch-secretary"], expected=(400,))
-returned = req("POST", f"/api/workspace/events/{event['id']}/workflow", {"action": "unpublish", "note": "Venue needs review"}, tokens["branch-secretary"])["event"]
+returned = req("POST", f"/api/workspace/events/{event['id']}/workflow", {"action": "unpublish"}, tokens["branch-secretary"])["event"]
 assert returned["status"] == "draft" and returned["registrationOpen"] is False
 changed = req("PATCH", f"/api/collections/events/records/{event['id']}", {"venue": "Changed Hall"}, tokens["event-lead"])
 assert changed["status"] == "draft"
@@ -272,13 +271,18 @@ registration = req("POST", "/api/collections/registrations/records", {
     },
 }, super_token)
 
-# Scanner staff cannot browse the attendee register but can perform the minimal check-in command.
+# Check-in staff can identify/search attendees for the assigned event, but finance fields remain outside the role.
 req("GET", f"/api/collections/registrations/records/{registration['id']}", token=tokens["checkin-staff"], expected=(403, 404))
+checkin_page = req("GET", f"/api/admin/registrations?eventId={event['id']}&search=Checkin%20Attendee", token=tokens["checkin-staff"])
+assert checkin_page["registrations"] and checkin_page["registrations"][0]["userName"] == "Checkin Attendee"
+for forbidden_key in ("paymentStatus", "amount", "provider", "providerStatus", "manualReview", "reviewReason", "internalNotes"):
+    assert forbidden_key not in checkin_page["registrations"][0], forbidden_key
 checked = req("POST", "/api/workspace/check-in", {"ticketId": registration["ticketId"]}, tokens["checkin-staff"])
 assert checked["success"] is True and checked["registration"]["checkedIn"] is True
-assert set(checked["registration"].keys()) <= {"id", "eventTitle", "ticketId", "checkedIn", "checkedInAt"}
-assert "userName" not in checked["registration"] and "userEmail" not in checked["registration"]
-req("GET", f"/api/admin/events/{event['id']}/operations", token=tokens["checkin-staff"], expected=(403,))
+assert checked["registration"]["userName"] == "Checkin Attendee"
+assert "userEmail" not in checked["registration"] and "userPhone" not in checked["registration"]
+checkin_ops = req("GET", f"/api/admin/events/{event['id']}/operations", token=tokens["checkin-staff"])
+assert checkin_ops["recent"] and checkin_ops["recent"][0]["userName"] == "Checkin Attendee"
 req("GET", "/api/collections/payments/records", token=tokens["event-finance"], expected=(403,))
 req("GET", "/api/collections/payment_attempts/records", token=tokens["event-finance"], expected=(403,))
 

@@ -13,7 +13,7 @@ function assignment(overrides: Partial<WorkspaceAssignment> = {}): WorkspaceAssi
     id: "a1", userId: "u1", roleCode: "event_checkin", title: "Check-in Staff",
     scopeType: "event", societyId: "", eventId: "event-a", term: "",
     startsAt: "", endsAt: "", active: true, source: "manual", notes: "",
-    capabilities: ["workspace.view", "events.view", "checkin.manage"],
+    capabilities: ["workspace.view", "events.view", "registrations.view", "checkin.manage"],
     ...overrides,
   };
 }
@@ -28,7 +28,7 @@ describe("workspace scoped permissions", () => {
     expect(hasWorkspaceCapability(ws, "checkin.manage")).toBe(true);
     expect(hasScopedWorkspaceCapability(ws, "checkin.manage", { eventId: "event-a" })).toBe(true);
     expect(hasScopedWorkspaceCapability(ws, "checkin.manage", { eventId: "event-b" })).toBe(false);
-    expect(hasScopedWorkspaceCapability(ws, "registrations.view", { eventId: "event-a" })).toBe(false);
+    expect(hasScopedWorkspaceCapability(ws, "registrations.view", { eventId: "event-a" })).toBe(true);
   });
 
   it("requires an exact society scope and ignores inactive assignments", () => {
@@ -52,7 +52,7 @@ describe("workspace scoped permissions", () => {
   it("blocks direct navigation to surfaces outside the role", () => {
     const checkin = workspace([assignment()]);
     expect(canAccessWorkspacePath(checkin, "/admin/check-in")).toBe(true);
-    expect(canAccessWorkspacePath(checkin, "/admin/registrations")).toBe(false);
+    expect(canAccessWorkspacePath(checkin, "/admin/registrations")).toBe(true);
     expect(canAccessWorkspacePath(checkin, "/admin/payments")).toBe(false);
     expect(canAccessWorkspacePath(checkin, "/admin/access")).toBe(false);
 

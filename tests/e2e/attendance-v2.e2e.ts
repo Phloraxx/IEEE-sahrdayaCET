@@ -60,7 +60,7 @@ test.describe("Attendance V2 browser lifecycle", () => {
     await ticketInput.fill(fixture.ticketId);
     await page.getByRole("button", { name: "Record", exact: true }).click();
     await expect(page.getByRole("status").getByText("Attendance recorded", { exact: true })).toBeVisible();
-    await expect(page.getByText(fixture.attendeeName, { exact: true })).toHaveCount(0);
+    await expect(page.getByText(fixture.attendeeName, { exact: true })).toBeVisible();
     await expect(page.getByText(fixture.ticketId, { exact: true }).last()).toBeVisible();
     const presentCard = page.getByText("Present", { exact: true }).locator("..");
     await expect(presentCard.getByText("1", { exact: true })).toBeVisible();
