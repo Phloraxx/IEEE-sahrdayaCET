@@ -191,7 +191,7 @@ Dokploy should route:
 - `/api` → `pocketbase:8090` without stripping the path
 - `/` → `web:3000`
 
-Do not expose PocketBase `/_/` through the public host.
+The public `/_/` path is reserved for the IEEE-owned OAuth completion page. Never route `/_/` to PocketBase or expose PocketBase administration through the public host.
 
 ## Release process
 

@@ -121,7 +121,7 @@ Staging and production must never share PocketBase data, file storage, encryptio
 
 Staging is marked `noindex, nofollow` at the web response layer.
 
-Public routing should expose `/api` to PocketBase but not map `/_/` to the PocketBase service on the public hostname.
+Public routing should expose `/api` to PocketBase. The public `/_/` path is app-owned only for OAuth completion and must never be mapped to the PocketBase service or administration UI.
 
 The canonical runtime is the Dokploy-managed Compose project. Do not shadow a service with a manually created container or temporary Compose file using the same project/service identity: that can serve stale/unreviewed code while appearing healthy.
 
