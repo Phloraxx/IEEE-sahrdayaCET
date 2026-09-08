@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
+const read = (path: string) =>
+  readFileSync(resolve(process.cwd(), path), "utf8");
 
 describe("SustainX event story", () => {
   it("keeps SustainX on the canonical event route", () => {
@@ -33,7 +34,9 @@ describe("SustainX event story", () => {
     expect(page).toContain("/media/sustainx/sustainx-01.webp");
     expect(page).toContain("/media/sustainx/sustainx-07.webp");
     expect(page).toContain("/media/sustainx/sustainx-campaign-teaser.webp");
-    expect(page).toContain("/media/sustainx/sustainx-campaign-registration.webp");
+    expect(page).toContain(
+      "/media/sustainx/sustainx-campaign-registration.webp",
+    );
     expect(page).toContain("/media/sustainx/sustainx-campaign-overview.webp");
     expect(page).toContain("Registration · 27 Jun — 07 Jul");
     expect(page).toContain("How SustainX was introduced.");
@@ -80,16 +83,21 @@ describe("SustainX event story", () => {
 
   it("keeps dense mobile archives compact and legible", () => {
     const page = read("src/components/events/SustainXEventStory.tsx");
-    expect(page).toContain('grid grid-cols-2 border-l border-t border-black/15');
-    expect(page).toContain('grid grid-cols-2 border-l border-t border-black/16');
-    expect(page).toContain('text-[10px] font-bold tabular-nums');
+    expect(page).toContain(
+      "grid grid-cols-2 border-l border-t border-black/15",
+    );
+    expect(page).toContain(
+      "grid grid-cols-2 border-l border-t border-black/16",
+    );
+    expect(page).toContain("text-[10px] font-bold tabular-nums");
   });
 
-  it("locks the page behind the mobile navigation overlay", () => {
+  it("uses a modal primitive for the mobile navigation sheet", () => {
     const navbar = read("src/components/Navbar.tsx");
-    expect(navbar).toContain('body.style.position = "fixed"');
-    expect(navbar).toContain('root.style.overflow = "hidden"');
-    expect(navbar).toContain('aria-label="Site navigation"');
+    expect(navbar).toContain("DialogPrimitive.Root");
+    expect(navbar).toContain("DialogPrimitive.Overlay");
+    expect(navbar).toContain("DialogPrimitive.Content");
+    expect(navbar).toContain('id="mobile-site-navigation"');
   });
 
   it("uses the documented 100-point judging framework", () => {
@@ -102,7 +110,9 @@ describe("SustainX event story", () => {
   });
 
   it("does not expose registration contact fields from the source material", () => {
-    const page = read("src/components/events/SustainXEventStory.tsx").toLowerCase();
+    const page = read(
+      "src/components/events/SustainXEventStory.tsx",
+    ).toLowerCase();
     expect(page).not.toContain("emailaddress");
     expect(page).not.toContain("phonenumber");
     expect(page).not.toContain("membershipnumber");
