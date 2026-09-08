@@ -168,7 +168,6 @@ test.describe("My Events attendee continuity", () => {
     await expect(card).toBeVisible();
     await card.getByRole("button", { name: "Request cancellation" }).click();
     await expect(page.getByRole("dialog")).toContainText("Requests are reviewed before any refund is recorded.");
-    await page.getByLabel("Reason").fill("Browser E2E refund request");
     await page.getByRole("button", { name: "Send refund request" }).click();
     await expect(card.getByText(/refund request is awaiting an organiser decision/i)).toBeVisible();
     await expect(card.getByText("Paid", { exact: true })).toBeVisible();

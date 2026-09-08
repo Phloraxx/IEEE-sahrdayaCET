@@ -23,19 +23,19 @@ const checkInUrl = /\/admin\/check-in(?:\?[^#]+)?$/;
 test.describe("IEEE Workspace role personas", () => {
   test.skip(!fixtures, "Workspace persona fixtures are not configured");
 
-  test("check-in staff see only the scanner surface and cannot deep-link elsewhere", async ({ page }) => {
+  test("check-in staff can use scanner and attendee register without broader admin access", async ({ page }) => {
     await signIn(page, fixtures!.PERSONAS.checkin);
     await page.goto("/admin");
     await expect(page).toHaveURL(checkInUrl);
     await expect(page.getByRole("heading", { name: "Attendance console" })).toBeVisible();
     const nav = page.getByRole("complementary", { name: "IEEE Workspace navigation" });
     await expect(nav.getByRole("link", { name: "Check-in" })).toBeVisible();
-    await expect(nav.getByRole("link", { name: "Registrations" })).toHaveCount(0);
+    await expect(nav.getByRole("link", { name: "Registrations" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Payments" })).toHaveCount(0);
     await expect(nav.getByRole("link", { name: "Access & Roles" })).toHaveCount(0);
 
     await page.goto("/admin/registrations");
-    await expect(page).toHaveURL(checkInUrl);
+    await expect(page).toHaveURL(/\/admin\/registrations$/);
     await page.goto("/admin/access");
     await expect(page).toHaveURL(checkInUrl);
   });
@@ -103,7 +103,7 @@ test.describe("IEEE Workspace role personas", () => {
     await page.getByRole("button", { name: "Open sidebar" }).click();
     const nav = page.getByRole("complementary", { name: "IEEE Workspace navigation" });
     await expect(nav.getByRole("link", { name: "Check-in" })).toBeVisible();
-    await expect(nav.getByRole("link", { name: "Registrations" })).toHaveCount(0);
+    await expect(nav.getByRole("link", { name: "Registrations" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Payments" })).toHaveCount(0);
   });
 });
