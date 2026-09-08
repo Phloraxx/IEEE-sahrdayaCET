@@ -146,7 +146,7 @@ plain_me = req("GET", "/api/workspace/me", token=tokens["plain"])
 assert plain_me["hasWorkspace"] is False and plain_me["capabilities"] == []
 checkin_me = req("GET", "/api/workspace/me", token=tokens["checkin-staff"])
 assert "checkin.manage" in checkin_me["capabilities"]
-assert "registrations.view" not in checkin_me["capabilities"]
+assert "registrations.view" in checkin_me["capabilities"]
 assert "finance.view" not in checkin_me["capabilities"]
 branch_finance_me = req("GET", "/api/workspace/me", token=tokens["branch-treasurer"])
 assert "finance.view" in branch_finance_me["capabilities"]
