@@ -941,7 +941,8 @@ attendance_scan = request("POST", "/api/workspace/attendance/check-in", {
     "deviceId": "ci-scanner",
 }, checkin_staff_token)
 assert attendance_scan["success"] is True and attendance_scan["replayed"] is False
-assert "userName" not in attendance_scan["registration"] and "userEmail" not in attendance_scan["registration"]
+assert attendance_scan["registration"]["userName"] == "Attendance Member"
+assert "userEmail" not in attendance_scan["registration"] and "userPhone" not in attendance_scan["registration"]
 assert attendance_scan["registration"]["sessionId"] == attendance_session["id"]
 assert attendance_scan["presentCount"] == 1
 attendance_replay = request("POST", "/api/workspace/attendance/check-in", {
@@ -968,6 +969,7 @@ assert attendance_reg_after_remove["checkedIn"] is True and attendance_reg_after
 attendance_state = request("GET", f"/api/workspace/attendance/sessions/{attendance_session['id']}/state", token=checkin_staff_token)
 assert attendance_state["session"]["presentCount"] == 0
 assert attendance_state["recent"][0]["type"] == "manual_remove"
+assert attendance_state["recent"][0]["userName"] == "Attendance Member"
 assert attendance_state["recent"][0]["present"] is False
 assert attendance_state["recent"][0]["isLatestForRegistration"] is True
 request("POST", "/api/workspace/attendance/correct", {
