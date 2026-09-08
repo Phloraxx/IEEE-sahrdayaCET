@@ -144,9 +144,11 @@ function recentAttendance(app, sessionId, limit) {
   return rows.map(function (row) {
     var registrationId = row.getString("registration") || ""
     var ticketId = ""
+    var userName = ""
     try {
       var registration = app.findRecordById("registrations", registrationId)
       ticketId = registration.getString("ticketId") || ""
+      userName = registration.getString("userName") || ""
     } catch (_) {}
     if (stateCache[registrationId] === undefined) {
       stateCache[registrationId] = registrationSessionState(app, sessionId, registrationId).present
@@ -157,6 +159,7 @@ function recentAttendance(app, sessionId, limit) {
       id: row.id,
       registrationId: registrationId,
       ticketId: ticketId,
+      userName: userName,
       type: row.getString("type") || "",
       occurredAt: row.getString("occurredAt") || "",
       source: row.getString("source") || "",

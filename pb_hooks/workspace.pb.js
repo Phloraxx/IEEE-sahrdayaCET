@@ -216,7 +216,6 @@ routerAdd("POST", "/api/workspace/events/{id}/workflow", function (e) {
     event.set("status", "published")
   } else if (action === "unpublish") {
     if (event.getString("status") !== "published") return authz.jsonError(e, 409, "NOT_PUBLISHED", "Only a published event can be returned to draft")
-    if (!note) return authz.jsonError(e, 400, "NOTE_REQUIRED", "Explain why the published event is being returned to draft")
     event.set("status", "draft")
     event.set("registrationOpen", false)
   } else if (action === "complete") {
@@ -300,6 +299,7 @@ routerAdd("POST", "/api/workspace/check-in", function (e) {
     id: registration.id,
     eventTitle: event.getString("title") || "",
     ticketId: ticketId,
+    userName: registration.getString("userName") || "",
     checkedIn: true,
     checkedInAt: now,
   } })

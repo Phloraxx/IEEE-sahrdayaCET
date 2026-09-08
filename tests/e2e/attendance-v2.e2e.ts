@@ -59,8 +59,10 @@ test.describe("Attendance V2 browser lifecycle", () => {
     const ticketInput = page.getByPlaceholder("TKT-…");
     await ticketInput.fill(fixture.ticketId);
     await page.getByRole("button", { name: "Record", exact: true }).click();
-    await expect(page.getByRole("status").getByText("Attendance recorded", { exact: true })).toBeVisible();
-    await expect(page.getByText(fixture.attendeeName, { exact: true })).toHaveCount(0);
+    const scanStatus = page.getByRole("status");
+    await expect(scanStatus).toContainText("Attendance recorded");
+    await expect(scanStatus.getByText(fixture.attendeeName, { exact: true })).toBeVisible();
+    await expect(page.getByText(fixture.attendeeName, { exact: true }).last()).toBeVisible();
     await expect(page.getByText(fixture.ticketId, { exact: true }).last()).toBeVisible();
     const presentCard = page.getByText("Present", { exact: true }).locator("..");
     await expect(presentCard.getByText("1", { exact: true })).toBeVisible();
@@ -85,7 +87,7 @@ test.describe("Attendance V2 browser lifecycle", () => {
 
     await ticketInput.fill(fixture.ticketId);
     await page.getByRole("button", { name: "Record", exact: true }).click();
-    await expect(page.getByRole("status").getByText("Already recorded", { exact: true })).toBeVisible();
+    await expect(page.getByRole("status")).toContainText("Already recorded");
   });
 
   test("session scanner remains usable without horizontal overflow on mobile", async ({ page, request }) => {

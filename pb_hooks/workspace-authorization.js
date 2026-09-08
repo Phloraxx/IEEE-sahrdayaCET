@@ -15,7 +15,7 @@ var CANONICAL_ROLE_CAPABILITIES = {
   ],
   finance: ["workspace.view", "events.view", "finance.view", "finance.manage"],
   registration_staff: ["workspace.view", "events.view", "registrations.view", "registrations.manage", "registrations.manual"],
-  checkin_staff: ["workspace.view", "events.view", "checkin.manage"],
+  checkin_staff: ["workspace.view", "events.view", "registrations.view", "checkin.manage"],
   content_editor: ["workspace.view", "events.view", "societies.view", "content.manage"]
 }
 

@@ -27,8 +27,7 @@ routerAdd("POST", "/api/admin/events/{id}/cancel", function (e) {
 
   var body = {}
   try { body = e.requestInfo().body || {} } catch (_) { body = {} }
-  var reason = String(body.reason || "").trim()
-  if (!reason) return e.json(400, { code: "REASON_REQUIRED", error: "A cancellation reason is required" })
+  var reason = String(body.reason || "").trim().slice(0, 4000)
 
   var result = { alreadyCancelled: false, cancelled: 0, refundReview: 0, manualRefundRequired: 0, releasedPending: 0, waitlistCancelled: 0 }
   try {
