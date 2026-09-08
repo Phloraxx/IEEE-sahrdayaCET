@@ -48,7 +48,7 @@ Before enabling live production mail, enable Google 2-Step Verification and crea
 2. Confirm the release candidate is a reviewed fast-forward/merge from the staging-accepted code.
 3. Confirm CI is green for the exact candidate SHA.
 4. Confirm staging `/`, `/healthz`, `/verify`, and an ACTIVE synthetic `/c/:token` have passed browser acceptance.
-5. Confirm staging PocketBase `/_/` is not publicly routed.
+5. Confirm staging `/_/` renders the IEEE OAuth completion page and is not routed to PocketBase administration.
 6. Confirm no synthetic staging data remains after acceptance restores.
 7. From the exact release-candidate working tree, run the certificate release preflight against the intended production environment file:
 
@@ -83,7 +83,7 @@ Verify all of the following while the certificate registry may still be empty:
 - `/healthz` → HTTP 200;
 - `/verify` renders with production site design language;
 - `/api/health` → HTTP 200;
-- `/_/` remains unavailable publicly;
+- `/_/` renders the IEEE OAuth completion page, not PocketBase administration;
 - `/admin/certificates` loads for a role with `certificates.view`;
 - the registry remains read-only: lifecycle changes still happen only in the event-scoped certificate workflow;
 - registry recipient email is present only where that event also grants `registrations.view`;
@@ -103,7 +103,7 @@ ENV_FILE=/path/to/rendered-production.env \
 ./scripts/certificate-release-preflight.sh
 ```
 
-This post-deploy pass must prove root/health/verification HTTP success, the verification UI marker, public `/_/` isolation, and continued mail-disabled safety before any certificate issuance.
+This post-deploy pass must prove root/health/verification HTTP success, the verification UI marker, the app-owned OAuth landing at `/_/`, continued PocketBase-admin isolation, and continued mail-disabled safety before any certificate issuance.
 
 ## Optional future live-mail activation
 
@@ -153,7 +153,7 @@ Stop the release and consider rollback if any of these occur:
 - PocketBase migration/startup errors;
 - certificate renderer returns 5xx or mismatched dimensions;
 - public verification exposes private recipient data;
-- `/_/` becomes publicly reachable;
+- `/_/` stops rendering the IEEE OAuth completion page or exposes PocketBase administration;
 - certificate permissions are broader than intended;
 - SMTP readiness reports ready when SMTP host/port/sender are incomplete;
 - existing registration/payment/event workflows regress.

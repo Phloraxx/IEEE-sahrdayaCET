@@ -48,33 +48,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const pb = getPbClient();
-    const sync = () => {
-      const next = mapUser(pb.authStore.record);
+    let active = true;
+    let initialized = false;
+
+    const publishStore = () => {
+      if (!active) return;
+      const next = pb.authStore.isValid ? mapUser(pb.authStore.record) : null;
       setUser((previous) => {
         if (previous?.id !== next?.id || previous?.role !== next?.role) {
           void queryClient.invalidateQueries({ queryKey: ["workspace-me"] });
         }
         return next;
       });
-      setStatus(next && pb.authStore.isValid ? "authenticated" : "unauthenticated");
+      setStatus(next ? "authenticated" : "unauthenticated");
     };
 
-    const unsubscribe = pb.authStore.onChange(sync, true);
+    // Do not publish the LocalAuthStore snapshot until the backend validates it.
+    // A syntactically valid but revoked/stale token must not make the UI look signed in.
+    const unsubscribe = pb.authStore.onChange(() => {
+      if (initialized) publishStore();
+    });
 
-    if (pb.authStore.isValid) {
-      const stagingStatic = window.location.hostname === "staging.ieeesahrdaya.com" &&
-        window.localStorage.getItem(STAGING_STATIC_AUTH_KEY) === "1";
-      if (stagingStatic) sync();
-      else void pb.collection("users").authRefresh().catch((error) => {
-        logError("auth-refresh", error);
+    const initialize = async () => {
+      if (!pb.authStore.isValid) {
+        window.localStorage.removeItem(STAGING_STATIC_AUTH_KEY);
         pb.authStore.clear();
-      });
-    } else {
-      window.localStorage.removeItem(STAGING_STATIC_AUTH_KEY);
-      sync();
-    }
+        initialized = true;
+        publishStore();
+        return;
+      }
 
-    return unsubscribe;
+      const stagingStatic =
+        window.location.hostname === "staging.ieeesahrdaya.com" &&
+        window.localStorage.getItem(STAGING_STATIC_AUTH_KEY) === "1";
+
+      if (!stagingStatic) {
+        try {
+          await pb.collection("users").authRefresh();
+        } catch (error) {
+          logError("auth-refresh", error);
+          pb.authStore.clear();
+        }
+      }
+
+      initialized = true;
+      publishStore();
+    };
+
+    void initialize();
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, [queryClient]);
 
   const signIn = useCallback(() => {
@@ -82,6 +107,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const pb = getPbClient();
     void pb.collection("users").authWithOAuth2({ provider: "google" }).catch((error) => {
       logError("auth-signin", error);
+      if (!pb.authStore.isValid) {
+        pb.authStore.clear();
+        setUser(null);
+        setStatus("unauthenticated");
+      }
     });
   }, []);
 

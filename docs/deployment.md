@@ -83,7 +83,7 @@ Each public environment host has two routes:
 /     → web:3000
 ```
 
-Do not publish application host ports from Compose and do not expose PocketBase `/_/` through a public hostname.
+Do not publish application host ports from Compose. Public `/_/` is an IEEE-owned OAuth completion route; never map it to PocketBase or expose the PocketBase administration UI through a public hostname.
 
 Both services join Dokploy's proxy network. Web and PocketBase also share the private `app-internal` network. SSR uses `POCKETBASE_INTERNAL_URL=http://pocketbase-internal:8090`; the explicit alias avoids service-name collisions between multiple Dokploy projects attached to the same proxy network.
 

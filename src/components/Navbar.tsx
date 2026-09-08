@@ -41,10 +41,11 @@ export default function Navbar({ mobileAlign = "center" }: NavbarProps) {
   const userMenuRef = useRef<HTMLDivElement>(null);
   const { pathname } = useLocation();
   const { user, status, signOut } = useAuth();
+  const authenticatedUser = status === "authenticated" ? user : null;
   const workspace = useQuery({
-    queryKey: ["workspace-me", user?.id],
+    queryKey: ["workspace-me", authenticatedUser?.id],
     queryFn: getWorkspaceMe,
-    enabled: status === "authenticated" && Boolean(user?.id),
+    enabled: Boolean(authenticatedUser?.id),
     staleTime: 30_000,
     retry: 1,
   });
@@ -96,7 +97,7 @@ export default function Navbar({ mobileAlign = "center" }: NavbarProps) {
 
   const renderAuth = () => {
     if (loading) return null;
-    if (!user) {
+    if (!authenticatedUser) {
       return (
         <button
           onClick={() => setIsLoginModalOpen(true)}
@@ -115,14 +116,14 @@ export default function Navbar({ mobileAlign = "center" }: NavbarProps) {
           className="flex items-center gap-2 whitespace-nowrap rounded-full px-3 py-2 text-[10px] font-bold tracking-wide text-blue-600 transition-all hover:bg-white/50 md:px-4 md:text-xs"
         >
           <User className="h-3 w-3 md:h-4 md:w-4" />
-          <span className="hidden md:inline">{user.name?.split(" ")[0]}</span>
+          <span className="hidden md:inline">{authenticatedUser.name?.split(" ")[0]}</span>
         </button>
         {showUserMenu && (
           <div className="pointer-events-auto absolute right-0 top-full z-[1000] mt-2 min-w-[200px] overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xl">
             <div className="border-b border-gray-50 bg-gray-50/50 px-4 py-3">
-              <p className="text-sm font-bold text-gray-900">{user.name}</p>
+              <p className="text-sm font-bold text-gray-900">{authenticatedUser.name}</p>
               <p className="mt-0.5 truncate font-mono text-[10px] text-gray-500">
-                {user.email}
+                {authenticatedUser.email}
               </p>
             </div>
             <Link
@@ -317,7 +318,7 @@ export default function Navbar({ mobileAlign = "center" }: NavbarProps) {
                 </p>
                 {loading ? (
                   <div className="mx-1 h-12 animate-pulse rounded-2xl bg-black/[0.04]" />
-                ) : !user ? (
+                ) : !authenticatedUser ? (
                   <button
                     type="button"
                     onClick={() => {
@@ -336,10 +337,10 @@ export default function Navbar({ mobileAlign = "center" }: NavbarProps) {
                   <div className="space-y-1">
                     <div className="mb-2 rounded-2xl bg-black/[0.035] px-4 py-3">
                       <p className="truncate text-sm font-bold text-[#111315]">
-                        {user.name}
+                        {authenticatedUser.name}
                       </p>
                       <p className="mt-0.5 truncate text-[11px] text-black/45">
-                        {user.email}
+                        {authenticatedUser.email}
                       </p>
                     </div>
                     <Link

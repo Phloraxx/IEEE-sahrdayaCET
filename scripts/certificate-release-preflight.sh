@@ -110,7 +110,14 @@ if [[ "$CHECK_RUNTIME" == "1" ]]; then
   check_eq "site root returns 200" "$(http_code "${BASE_URL%/}/")" "200"
   check_eq "health endpoint returns 200" "$(http_code "${BASE_URL%/}/healthz")" "200"
   check_eq "verification page returns 200" "$(http_code "${BASE_URL%/}/verify")" "200"
-  check_eq "PocketBase admin is not public" "$(http_code "${BASE_URL%/}/_/")" "404"
+  check_eq "OAuth completion page returns 200" "$(http_code "${BASE_URL%/}/_/")" "200"
+
+  oauth_landing="$(curl --max-time "$HTTP_TIMEOUT" -fsS "${BASE_URL%/}/_/" 2>/dev/null || true)"
+  if grep -Fq 'data-oauth-popup-result' <<<"$oauth_landing"; then
+    pass "PocketBase admin is not public"
+  else
+    fail "OAuth completion marker missing; PocketBase admin isolation is unproven"
+  fi
 
   verify_html=""
   verify_text=""
