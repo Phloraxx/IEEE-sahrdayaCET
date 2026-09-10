@@ -22,6 +22,18 @@ async function createDraft(page: Page, name: string) {
   await expect(page.getByRole("heading", { name })).toBeVisible();
   await expect(page.getByText(/draft · v1/i).first()).toBeVisible();
 }
+
+async function dragPlacement(page: Page, testId: string, inputId: string, dx: number, dy: number) {
+  const handle = page.getByTestId(testId);
+  const box = await handle.boundingBox();
+  expect(box).not.toBeNull();
+  const before = await page.locator(inputId).inputValue();
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box!.x + box!.width / 2 + dx, box!.y + box!.height / 2 + dy, { steps: 4 });
+  await page.mouse.up();
+  await expect(page.locator(inputId)).not.toHaveValue(before);
+}
 test.describe("Certificate editor real interactions", () => {
   test.skip(!adminToken || !eventId, "Certificate editor fixture is not configured");
 
@@ -69,19 +81,14 @@ test.describe("Certificate editor real interactions", () => {
     await page.locator("#cert-email-body").fill("Hi {{firstName}},\n\nYour {{certificateType}} certificate is ready: {{verificationUrl}}\nID {{credentialId}}");
     await expect(page.getByText("Unsaved changes")).toBeVisible();
 
-    const namePreview = page.getByTestId("certificate-name-placement");
-    const before = await namePreview.boundingBox();
-    expect(before).not.toBeNull();
-    await page.mouse.move(before!.x + before!.width / 2, before!.y + before!.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(before!.x + before!.width / 2 + 36, before!.y + before!.height / 2 + 18, { steps: 4 });
-    await page.mouse.up();
-    const after = await namePreview.boundingBox();
-    expect(after).not.toBeNull();
-    expect(Math.abs(after!.x - before!.x)).toBeGreaterThan(10);
+    await dragPlacement(page, "certificate-name-placement", "#cert-name-x", 36, 18);
+    await dragPlacement(page, "certificate-id-placement", "#cert-id-x", 28, -12);
+    await dragPlacement(page, "certificate-qr-placement", "#cert-qr-x", -24, 10);
 
     const persistedX = await page.locator("#cert-name-x").inputValue();
     const persistedY = await page.locator("#cert-name-y").inputValue();
+    const persistedIdX = await page.locator("#cert-id-x").inputValue();
+    const persistedQrX = await page.locator("#cert-qr-x").inputValue();
     await page.getByRole("button", { name: "Save draft", exact: true }).click();
     await expect(page.getByText("Unsaved changes")).toBeHidden({ timeout: 15_000 });
     await expect(page.getByText("Certificate draft saved")).toBeVisible();
@@ -90,6 +97,8 @@ test.describe("Certificate editor real interactions", () => {
     await expect(page.getByRole("heading", { name })).toBeVisible();
     await expect(page.locator("#cert-name-x")).toHaveValue(persistedX);
     await expect(page.locator("#cert-name-y")).toHaveValue(persistedY);
+    await expect(page.locator("#cert-id-x")).toHaveValue(persistedIdX);
+    await expect(page.locator("#cert-qr-x")).toHaveValue(persistedQrX);
     await expect(page.locator("#cert-name-width")).toHaveValue("72");
     await expect(page.locator("#cert-name-size")).toHaveValue("132");
     await expect(page.locator("#cert-name-min-size")).toHaveValue("44");

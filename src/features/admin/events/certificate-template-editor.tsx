@@ -103,7 +103,7 @@ export function TemplatePreview({
   onPreviewLoad: () => void;
 }) {
   const surfaceRef = useRef<HTMLDivElement>(null);
-  const draggingRef = useRef<DragTarget | null>(null);
+  const dragCleanupRef = useRef<(() => void) | null>(null);
   const [previewName, setPreviewName] = useState<string>(CERTIFICATE_PREVIEW_NAMES[1]);
   const [previewWidth, setPreviewWidth] = useState(0);
   const canvasWidth = previewDimensions?.width || template.canvasWidth || 2400;
@@ -131,6 +131,32 @@ export function TemplatePreview({
       [target]: { ...layout[target], x, y },
     });
   };
+
+  const beginDrag = (target: DragTarget, event: React.PointerEvent<HTMLButtonElement>) => {
+    if (!editable) return;
+    event.preventDefault();
+    dragCleanupRef.current?.();
+    moveTarget(target, event.clientX, event.clientY);
+    const pointerId = event.pointerId;
+    const handleMove = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId === pointerId) moveTarget(target, moveEvent.clientX, moveEvent.clientY);
+    };
+    const cleanup = () => {
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleEnd);
+      window.removeEventListener("pointercancel", handleEnd);
+      if (dragCleanupRef.current === cleanup) dragCleanupRef.current = null;
+    };
+    const handleEnd = (endEvent: PointerEvent) => {
+      if (endEvent.pointerId === pointerId) cleanup();
+    };
+    dragCleanupRef.current = cleanup;
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", handleEnd);
+    window.addEventListener("pointercancel", handleEnd);
+  };
+
+  useEffect(() => () => dragCleanupRef.current?.(), []);
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-slate-950 p-3 shadow-sm">
       <div
@@ -153,21 +179,7 @@ export function TemplatePreview({
           type="button"
           disabled={!editable}
           data-testid="certificate-name-placement"
-          onPointerDown={(event) => {
-            if (!editable) return;
-            draggingRef.current = "name";
-            event.currentTarget.setPointerCapture(event.pointerId);
-            moveTarget("name", event.clientX, event.clientY);
-          }}
-          onPointerMove={(event) => {
-            if (editable && draggingRef.current === "name") moveTarget("name", event.clientX, event.clientY);
-          }}
-          onPointerUp={(event) => {
-            if (draggingRef.current !== "name") return;
-            draggingRef.current = null;
-            if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-          }}
-          onPointerCancel={() => { if (draggingRef.current === "name") draggingRef.current = null; }}
+          onPointerDown={(event) => beginDrag("name", event)}
           className="absolute touch-none select-none rounded-md border border-primary/40 bg-white/85 px-2 py-1 shadow-sm backdrop-blur disabled:cursor-default"
           style={{
             left: `${layout.name.x * 100}%`,
@@ -188,21 +200,7 @@ export function TemplatePreview({
           type="button"
           disabled={!editable}
           data-testid="certificate-id-placement"
-          onPointerDown={(event) => {
-            if (!editable) return;
-            draggingRef.current = "credentialId";
-            event.currentTarget.setPointerCapture(event.pointerId);
-            moveTarget("credentialId", event.clientX, event.clientY);
-          }}
-          onPointerMove={(event) => {
-            if (editable && draggingRef.current === "credentialId") moveTarget("credentialId", event.clientX, event.clientY);
-          }}
-          onPointerUp={(event) => {
-            if (draggingRef.current !== "credentialId") return;
-            draggingRef.current = null;
-            if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-          }}
-          onPointerCancel={() => { if (draggingRef.current === "credentialId") draggingRef.current = null; }}
+          onPointerDown={(event) => beginDrag("credentialId", event)}
           className="absolute touch-none select-none rounded border border-slate-400/50 bg-white/80 px-1.5 py-1 font-mono shadow-sm disabled:cursor-default"
           style={{
             left: `${layout.credentialId.x * 100}%`,
@@ -220,21 +218,7 @@ export function TemplatePreview({
           type="button"
           disabled={!editable}
           data-testid="certificate-qr-placement"
-          onPointerDown={(event) => {
-            if (!editable) return;
-            draggingRef.current = "qr";
-            event.currentTarget.setPointerCapture(event.pointerId);
-            moveTarget("qr", event.clientX, event.clientY);
-          }}
-          onPointerMove={(event) => {
-            if (editable && draggingRef.current === "qr") moveTarget("qr", event.clientX, event.clientY);
-          }}
-          onPointerUp={(event) => {
-            if (draggingRef.current !== "qr") return;
-            draggingRef.current = null;
-            if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-          }}
-          onPointerCancel={() => { if (draggingRef.current === "qr") draggingRef.current = null; }}
+          onPointerDown={(event) => beginDrag("qr", event)}
           className="absolute grid aspect-square touch-none select-none place-items-center border border-slate-400/50 bg-white shadow-sm disabled:cursor-default"
           style={{ left: `${layout.qr.x * 100}%`, top: `${layout.qr.y * 100}%`, width: `${layout.qr.size * 100}%`, transform: "translate(-50%, -50%)" }}
           aria-label="QR placement preview"
