@@ -389,6 +389,19 @@ function sendOutbox(record) {
   catch (_) { throw new Error("Registration no longer exists") }
 
   var event = getEvent(registration)
+  if (kind === "ticket") {
+    var registrationStatus = registration.getString("registrationStatus") || ""
+    var ticketId = registration.getString("ticketId") || ""
+    var eventStatus = event ? (event.getString("status") || "") : ""
+    var eventEnd = event ? Date.parse(event.getString("endDate") || "") : NaN
+    var terminal = !event || event.getBool("isDeleted") || eventStatus === "cancelled" || eventStatus === "completed" || (isFinite(eventEnd) && eventEnd <= Date.now())
+    if (registrationStatus !== "confirmed" || !ticketId || terminal) {
+      var obsolete = new Error("Ticket email is no longer valid for the current registration or event state")
+      obsolete.code = "NOTIFICATION_NO_LONGER_ELIGIBLE"
+      obsolete.mailDeliveryPermanent = true
+      throw obsolete
+    }
+  }
   var template = kind === "receipt" ? receiptEmail(registration, event) : ticketEmail(registration, event)
   var from = sender()
   if (!from.smtpEnabled) throw new Error("SMTP delivery is not configured")

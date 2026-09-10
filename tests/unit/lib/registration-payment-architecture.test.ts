@@ -188,6 +188,12 @@ describe("registration/payment experience architecture", () => {
     expect(hook).toContain("$app.runInTransaction");
     expect(hook).toContain("enqueueForRegistration");
     expect(hook).toContain("/notifications/{kind}/resend");
+    const notifications = source("pb_hooks/notification-helpers.js");
+    expect(notifications).toContain('code = "NOTIFICATION_NO_LONGER_ELIGIBLE"');
+    expect(notifications).toContain("mailDeliveryPermanent = true");
+    expect(notifications).toContain('eventStatus === "cancelled"');
+    expect(notifications).toContain('eventStatus === "completed"');
+    expect(notifications).toContain("eventEnd <= Date.now()");
   });
 
   it("confirms pending payments through one audited admin command", () => {
