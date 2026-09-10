@@ -132,8 +132,8 @@ export function TemplatePreview({
     });
   };
 
-  const beginDrag = (target: DragTarget, event: React.PointerEvent<HTMLButtonElement>) => {
-    if (!editable) return;
+  const beginPointerDrag = (target: DragTarget, event: React.PointerEvent<HTMLButtonElement>) => {
+    if (!editable || event.pointerType === "mouse") return;
     event.preventDefault();
     dragCleanupRef.current?.();
     moveTarget(target, event.clientX, event.clientY);
@@ -154,6 +154,22 @@ export function TemplatePreview({
     window.addEventListener("pointermove", handleMove);
     window.addEventListener("pointerup", handleEnd);
     window.addEventListener("pointercancel", handleEnd);
+  };
+
+  const beginMouseDrag = (target: DragTarget, event: React.MouseEvent<HTMLButtonElement>) => {
+    if (!editable) return;
+    event.preventDefault();
+    dragCleanupRef.current?.();
+    moveTarget(target, event.clientX, event.clientY);
+    const handleMove = (moveEvent: MouseEvent) => moveTarget(target, moveEvent.clientX, moveEvent.clientY);
+    const cleanup = () => {
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("mouseup", cleanup);
+      if (dragCleanupRef.current === cleanup) dragCleanupRef.current = null;
+    };
+    dragCleanupRef.current = cleanup;
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("mouseup", cleanup);
   };
 
   useEffect(() => () => dragCleanupRef.current?.(), []);
@@ -179,7 +195,8 @@ export function TemplatePreview({
           type="button"
           disabled={!editable}
           data-testid="certificate-name-placement"
-          onPointerDown={(event) => beginDrag("name", event)}
+          onPointerDown={(event) => beginPointerDrag("name", event)}
+          onMouseDown={(event) => beginMouseDrag("name", event)}
           className="absolute touch-none select-none rounded-md border border-primary/40 bg-white/85 px-2 py-1 shadow-sm backdrop-blur disabled:cursor-default"
           style={{
             left: `${layout.name.x * 100}%`,
@@ -200,7 +217,8 @@ export function TemplatePreview({
           type="button"
           disabled={!editable}
           data-testid="certificate-id-placement"
-          onPointerDown={(event) => beginDrag("credentialId", event)}
+          onPointerDown={(event) => beginPointerDrag("credentialId", event)}
+          onMouseDown={(event) => beginMouseDrag("credentialId", event)}
           className="absolute touch-none select-none rounded border border-slate-400/50 bg-white/80 px-1.5 py-1 font-mono shadow-sm disabled:cursor-default"
           style={{
             left: `${layout.credentialId.x * 100}%`,
@@ -218,7 +236,8 @@ export function TemplatePreview({
           type="button"
           disabled={!editable}
           data-testid="certificate-qr-placement"
-          onPointerDown={(event) => beginDrag("qr", event)}
+          onPointerDown={(event) => beginPointerDrag("qr", event)}
+          onMouseDown={(event) => beginMouseDrag("qr", event)}
           className="absolute grid aspect-square touch-none select-none place-items-center border border-slate-400/50 bg-white shadow-sm disabled:cursor-default"
           style={{ left: `${layout.qr.x * 100}%`, top: `${layout.qr.y * 100}%`, width: `${layout.qr.size * 100}%`, transform: "translate(-50%, -50%)" }}
           aria-label="QR placement preview"
