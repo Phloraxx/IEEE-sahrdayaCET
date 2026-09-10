@@ -127,6 +127,7 @@ def create_user(label, role="user"):
 admin = create_user("admin", "admin")
 chair = create_user("chair", "chair")
 user = create_user("member", "user")
+content = create_user("content", "content")
 second_user = create_user("member-two", "user")
 admin_token = impersonate(super_token, admin["id"])
 if github_env := os.environ.get("GITHUB_ENV"):
@@ -135,6 +136,47 @@ if github_env := os.environ.get("GITHUB_ENV"):
 chair_token = impersonate(super_token, chair["id"])
 user_token = impersonate(super_token, user["id"])
 second_token = impersonate(super_token, second_user["id"])
+
+# Account-level chair/content roles are historical data only. The dedicated
+# admin command rejects new grants without changing the target, while keeping
+# the supported admin/user transitions intact.
+for blocked_role in ("chair", "content"):
+    request(
+        "POST",
+        f"/api/app/admin/users/{user['id']}/role",
+        {"role": blocked_role},
+        admin_token,
+        expected=(400,),
+    )
+    unchanged = request(
+        "GET",
+        f"/api/collections/users/records/{user['id']}",
+        token=admin_token,
+    )
+    assert unchanged["role"] == "user"
+
+for legacy_user, legacy_role in ((chair, "chair"), (content, "content")):
+    readable = request(
+        "GET",
+        f"/api/collections/users/records/{legacy_user['id']}",
+        token=admin_token,
+    )
+    assert readable["role"] == legacy_role
+
+promoted = request(
+    "POST",
+    f"/api/app/admin/users/{user['id']}/role",
+    {"role": "admin"},
+    admin_token,
+)["user"]
+assert promoted["role"] == "admin"
+demoted = request(
+    "POST",
+    f"/api/app/admin/users/{user['id']}/role",
+    {"role": "user"},
+    admin_token,
+)["user"]
+assert demoted["role"] == "user"
 
 # Payment summary remains valid on an empty ledger/refund table.
 empty_finance = request("GET", "/api/admin/payments/summary", token=admin_token)["summary"]
@@ -1411,7 +1453,7 @@ assert manual_payment_rows["items"][0]["provider"] == "manual"
 assert manual_payment_rows["items"][0]["status"] == "captured"
 
 # Event operations are explicit admin commands: walk-ins, finance corrections,
-# restores, check-in reversals and refunds are auditable and recoverable.
+# check-in and refunds are auditable and recoverable.
 ops_event = request("POST", "/api/collections/events/records", {
     "title": f"CI Event Operations {suffix}", "description": "admin event operations",
     "date": start, "endDate": end, "venue": "CI Ops Lab", "price": 120,
@@ -1454,28 +1496,14 @@ assert audit_rows["items"][0]["outcome"] == "success"
 
 ops_cancelled = request("POST", f"/api/admin/registrations/{ops_manual['id']}/command", {
     "action": "cancel",
-}, admin_token)["registration"]
-assert ops_cancelled["registrationStatus"] == "cancelled" and ops_cancelled["paymentStatus"] == "paid"
+}, admin_token, expected=(409,))
+assert ops_cancelled["code"] == "PAID_REGISTRATION_REQUIRES_REQUEST"
 ops_summary = request("GET", f"/api/admin/events/{ops_event['id']}/operations", token=admin_token)
-assert ops_summary["summary"]["cancelledPaidCount"] == 1
-assert any(row["id"] == ops_manual["id"] for row in ops_summary["attention"])
-
-ops_restored = request("POST", f"/api/admin/registrations/{ops_manual['id']}/command", {
-    "action": "restore", "note": "Payment is valid; restore seat",
-}, admin_token)["registration"]
-assert ops_restored["registrationStatus"] == "confirmed"
-ops_checked = request("POST", f"/api/admin/registrations/{ops_manual['id']}/command", {
-    "action": "check-in",
-}, admin_token)["registration"]
-assert ops_checked["checkedIn"] is True
-ops_unchecked = request("POST", f"/api/admin/registrations/{ops_manual['id']}/command", {
-    "action": "undo-check-in",
-}, admin_token)["registration"]
-assert ops_unchecked["checkedIn"] is False
+assert ops_summary["summary"]["cancelledPaidCount"] == 0
+assert all(row["id"] != ops_manual["id"] for row in ops_summary["attention"])
 
 # Check-in is a published-event invariant at both the command and record-hook layers.
-# Temporarily unpublish this approved fixture, prove both paths fail closed, then
-# republish it so the remainder of the operations smoke keeps its original state.
+# Prove both paths fail closed before recording immutable first-arrival history.
 request("POST", f"/api/workspace/events/{ops_event['id']}/workflow", {
     "action": "unpublish", "note": "CI validates inactive-event check-in guard",
 }, admin_token)
@@ -1491,13 +1519,19 @@ assert ops_inactive["checkedIn"] is False and not ops_inactive.get("checkedInAt"
 request("POST", f"/api/workspace/events/{ops_event['id']}/workflow", {
     "action": "publish",
 }, admin_token)
-ops_rechecked = request("POST", f"/api/admin/registrations/{ops_manual['id']}/command", {
+ops_checked = request("POST", f"/api/admin/registrations/{ops_manual['id']}/command", {
     "action": "check-in",
 }, admin_token)["registration"]
-assert ops_rechecked["checkedIn"] is True and ops_rechecked["checkedInAt"]
-request("POST", f"/api/admin/registrations/{ops_manual['id']}/command", {
+assert ops_checked["checkedIn"] is True and ops_checked["checkedInAt"]
+invalid_action = request("POST", f"/api/admin/registrations/{ops_manual['id']}/command", {
     "action": "undo-check-in",
-}, admin_token)
+}, admin_token, expected=(400,))
+assert invalid_action["code"] == "INVALID_ACTION"
+ops_after_invalid_undo = request(
+    "GET", f"/api/collections/registrations/records/{ops_manual['id']}", token=super_token
+)
+assert ops_after_invalid_undo["checkedIn"] is True
+assert ops_after_invalid_undo["checkedInAt"] == ops_checked["checkedInAt"]
 ops_refunded = request("POST", f"/api/admin/registrations/{ops_manual['id']}/command", {
     "action": "mark-refunded", "note": "Refund sent after cancellation",
     "reference": f"REF-{suffix}",
@@ -1704,8 +1738,19 @@ assert not public_execom.get("email") and not public_execom.get("phone")
 private_execom = request("GET", f"/api/collections/execom/records/{execom['id']}", token=super_token)
 assert private_execom["email"] == execom["email"] and private_execom["phone"] == "9999999999"
 
-# Role changes use the dedicated admin command.
-role_change = request("POST", f"/api/app/admin/users/{second_user['id']}/role", {"role": "content"}, admin_token)
-assert role_change["user"]["role"] == "content"
+# Legacy account-level content roles cannot be newly granted through the dedicated admin command.
+role_change = request(
+    "POST",
+    f"/api/app/admin/users/{second_user['id']}/role",
+    {"role": "content"},
+    admin_token,
+    expected=(400,),
+)
+unchanged_role = request(
+    "GET",
+    f"/api/collections/users/records/{second_user['id']}",
+    token=admin_token,
+)["role"]
+assert unchanged_role == "user"
 
 print(json.dumps({"ok": True, "eventSlug": event["slug"], "registrationId": registration["registrationId"]}))

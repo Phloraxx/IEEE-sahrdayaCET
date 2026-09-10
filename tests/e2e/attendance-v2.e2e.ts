@@ -47,7 +47,6 @@ test.describe("Attendance V2 browser lifecycle", () => {
     await page.getByRole("button", { name: "Attendees" }).click();
     await expect(page.getByText(fixture.attendeeName, { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Check in", exact: true })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Undo check-in", exact: true })).toHaveCount(0);
   });
 
   test("session scanner records, corrects, restores and rejects duplicates", async ({ page, request }) => {

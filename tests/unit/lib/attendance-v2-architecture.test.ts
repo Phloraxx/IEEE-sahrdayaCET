@@ -79,7 +79,7 @@ describe("Attendance V2 architecture", () => {
     expect(scanner).not.toContain("listAdminRegistrations");
   });
 
-  it("moves session-enabled attendee actions to the Attendance tab", () => {
+  it("keeps legacy attendee actions one-way and moves session actions to the Attendance tab", () => {
     const eventRoute = read("src/routes/admin.events.$id.tsx");
     expect(eventRoute).toContain('"attendance"');
     expect(eventRoute).toContain("AttendanceSessionPanel");
@@ -90,9 +90,9 @@ describe("Attendance V2 architecture", () => {
     expect(legacyCheckInAction({ canCheckIn: false, sessionAttendanceActive: false, eventCheckInActive: true, checkedIn: false, registrationStatus: "confirmed" })).toBeNull();
     expect(legacyCheckInAction({ canCheckIn: true, sessionAttendanceActive: false, eventCheckInActive: true, checkedIn: false, registrationStatus: "pending" })).toBeNull();
     expect(legacyCheckInAction({ canCheckIn: true, sessionAttendanceActive: false, eventCheckInActive: true, checkedIn: false, registrationStatus: "confirmed" })).toBe("check-in");
-    expect(legacyCheckInAction({ canCheckIn: true, sessionAttendanceActive: false, eventCheckInActive: true, checkedIn: true, registrationStatus: "cancelled" })).toBe("undo-check-in");
+    expect(legacyCheckInAction({ canCheckIn: true, sessionAttendanceActive: false, eventCheckInActive: true, checkedIn: true, registrationStatus: "cancelled" })).toBeNull();
     expect(legacyCheckInAction({ canCheckIn: true, sessionAttendanceActive: false, eventCheckInActive: false, checkedIn: false, registrationStatus: "confirmed" })).toBeNull();
-    expect(legacyCheckInAction({ canCheckIn: true, sessionAttendanceActive: false, eventCheckInActive: false, checkedIn: true, registrationStatus: "confirmed" })).toBe("undo-check-in");
+    expect(legacyCheckInAction({ canCheckIn: true, sessionAttendanceActive: false, eventCheckInActive: false, checkedIn: true, registrationStatus: "confirmed" })).toBeNull();
   });
   it("hands browser attendance fixtures across the clean-room boundary without superuser access", () => {
     const smoke = read("tests/backend/pocketbase_smoke.py");
