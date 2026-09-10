@@ -15,6 +15,13 @@ function loadCloseoutHelper() {
     Object,
     Date,
     isFinite,
+    __hooks: "pb_hooks",
+    require: (path: string) => {
+      if (path.endsWith("/attendance-qualification-helpers.js")) {
+        return { statusPayload: () => ({ locked: false, version: 0, lockedAt: "", requiredSessionCount: 0, sessionCount: 0 }) };
+      }
+      throw new Error(`Unexpected helper dependency: ${path}`);
+    },
   });
   return module.exports;
 }
@@ -27,6 +34,9 @@ describe("event closeout architecture", () => {
     expect(operations).toContain("projectCloseoutSummary(closeout, projection.finance)");
     expect(archive).toContain("closeoutSummary(txApp, current)");
     expect(archive).toContain('"CLOSEOUT_BLOCKED"');
+    const closeout = source("pb_hooks/event-closeout-helpers.js");
+    expect(closeout).toContain('"ATTENDANCE_QUALIFICATION_UNLOCKED"');
+    expect(closeout).toContain('requiredForCertificate');
   });
   it("does not reopen closeout after the event has been archived", () => {
     const helper = loadCloseoutHelper();
@@ -48,6 +58,11 @@ describe("event closeout architecture", () => {
         { code: "PENDING_REGISTRATIONS", label: "Pending", count: 1, area: "attendees" },
       ],
       warnings: [],
+      certificateProgress: {
+        templateCount: 1, publishedTemplateCount: 1, issuedBatchCount: 1,
+        issuedCertificateCount: 2, activeCertificateCount: 2,
+        emailEligibleCount: 2, sentCount: 1, failedCount: 0, missingEmailCount: 0,
+      },
       metrics: {
         pendingRegistrations: 1,
         unresolvedRefundRequests: 2,
@@ -62,8 +77,9 @@ describe("event closeout architecture", () => {
     expect(projected.blockers.map((row: any) => row.code)).toEqual(["PENDING_REGISTRATIONS", "FINANCE_RECONCILIATION"]);
     expect(projected.metrics.unresolvedRefundRequests).toBeUndefined();
     expect(projected.metrics.paymentExceptions).toBeUndefined();
+    expect(projected.certificateProgress).toMatchObject({ issuedCertificateCount: 2, activeCertificateCount: 2 });
   });
-  it("keeps closeout visible, confirmed, and certificate qualification deferred", () => {
+  it("keeps closeout visible and exposes attendance qualification independently", () => {
     const route = source("src/routes/admin.events.$id.tsx");
     const panel = source("src/features/admin/events/event-closeout-panel.tsx");
     const plan = source("docs/event-lifecycle/15-phase-5-closeout-implementation-plan.md");
@@ -71,7 +87,13 @@ describe("event closeout architecture", () => {
     expect(route).toContain("EventCloseoutPanel");
     expect(panel).toContain("Archive settled event");
     expect(panel).toContain("ConfirmButton");
-    expect(panel).toContain("Certificates stay independent");
+    expect(panel).toContain("Certificate preparation and delivery stay visible at closeout, but they never block archive");
+    expect(panel).toContain("SMTP handoffs");
+    const closeout = source("pb_hooks/event-closeout-helpers.js");
+    expect(closeout).toContain('"certificate_templates"');
+    expect(closeout).toContain('"certificate_batches"');
+    expect(closeout).toContain('"certificates"');
+    expect(plan).toContain("Certificate progress is read-only and never changes `readyToArchive`");
     expect(plan).toContain("Do not infer eligibility from the legacy first-arrival `checkedIn` projection");
   });
 });

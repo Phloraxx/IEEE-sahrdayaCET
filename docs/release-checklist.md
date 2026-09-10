@@ -118,7 +118,7 @@ Also verify:
 
 - production Google OAuth redirect/origin configuration;
 - production domain routes `/api → PocketBase` and `/ → web`;
-- no public PocketBase `/_/` route;
+- public `/_/` renders the IEEE OAuth completion page, while PocketBase administration remains unrouted;
 - production and staging use different `pb_data` volumes and encryption keys;
 - the production web container has no PocketBase superuser credential.
 

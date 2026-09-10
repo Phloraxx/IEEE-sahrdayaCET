@@ -66,8 +66,8 @@ test.describe("My Events attendee continuity", () => {
     await page.goto(`/ticket/${fixture.ticketId}`);
     const hub = page.getByTestId("ticket-attendee-hub");
     await expect(hub).toBeVisible();
-    await expect(hub.getByText("Bring laptop charger")).toBeVisible();
-    await expect(hub.getByText("College ID card required")).toBeVisible();
+    await expect(hub.getByText("Changed after publish")).toBeVisible();
+    await expect(hub.getByText("Bring laptop charger")).toHaveCount(0);
     await expect(hub.getByRole("link", { name: "WhatsApp group" })).toHaveAttribute("href", "https://chat.whatsapp.com/ci-private-group");
     await expect(hub.getByRole("link", { name: "Join online" })).toHaveAttribute("href", "https://meet.example.test/ci-private-room");
     await expect(hub.getByRole("link", { name: "Event resource" })).toHaveAttribute("href", "https://example.test/event-guide");
@@ -124,10 +124,9 @@ test.describe("My Events attendee continuity", () => {
 
     const card = page.getByRole("article").filter({ hasText: certificateFixture.eventTitle });
     await expect(card).toBeVisible();
-    await expect(card.getByRole("link", { name: "Certificate", exact: true })).toHaveAttribute(
-      "href",
-      `/c/${certificateFixture.certificateToken}`,
-    );
+    const certificateLink = card.locator(`a[href="/c/${certificateFixture.certificateToken}"]`);
+    await expect(certificateLink).toBeVisible();
+    await expect(certificateLink).toContainText(/certificate/i);
   });
 
   test("My Events remains usable at 390px without horizontal overflow", async ({ page, request }) => {
@@ -169,7 +168,6 @@ test.describe("My Events attendee continuity", () => {
     await expect(card).toBeVisible();
     await card.getByRole("button", { name: "Request cancellation" }).click();
     await expect(page.getByRole("dialog")).toContainText("Requests are reviewed before any refund is recorded.");
-    await page.getByLabel("Reason").fill("Browser E2E refund request");
     await page.getByRole("button", { name: "Send refund request" }).click();
     await expect(card.getByText(/refund request is awaiting an organiser decision/i)).toBeVisible();
     await expect(card.getByText("Paid", { exact: true })).toBeVisible();

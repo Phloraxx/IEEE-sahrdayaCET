@@ -39,8 +39,7 @@ routerAdd("POST", "/api/app/events/{eventId}/certificates/audience/preview", fun
     audienceConfig: input.audienceConfig || {},
   })
   if (audience.error) {
-    var unavailable = audienceType === "attendance_qualified"
-    return h.error(e, unavailable ? 409 : 400, unavailable ? "ATTENDANCE_DATA_UNAVAILABLE" : "INVALID_AUDIENCE", audience.error)
+    return h.error(e, audience.errorCode ? 409 : 400, audience.errorCode || "INVALID_AUDIENCE", audience.error)
   }
   return e.json(200, h.previewPayload(audience, template))
 }, $apis.requireAuth("users"))
@@ -100,7 +99,10 @@ routerAdd("POST", "/api/app/events/{eventId}/certificates/issue", function (e) {
         audienceType: audienceType,
         audienceConfig: config,
       })
-      if (audience.error) throw new Error("INVALID_AUDIENCE:" + audience.error)
+      if (audience.error) {
+        if (audience.errorCode) throw new Error("AUDIENCE_UNAVAILABLE:" + audience.errorCode + ":" + audience.error)
+        throw new Error("INVALID_AUDIENCE:" + audience.error)
+      }
       freshPreview = h.previewPayload(audience, txTemplate)
       if (audience.fingerprint !== fingerprint) throw new Error("AUDIENCE_CHANGED")
       if (!audience.recipientCount) throw new Error("EMPTY_AUDIENCE")
@@ -183,6 +185,10 @@ routerAdd("POST", "/api/app/events/{eventId}/certificates/issue", function (e) {
     }
     if (message === "EMPTY_AUDIENCE") return h.error(e, 400, "EMPTY_AUDIENCE", "No eligible recipients remain in this audience")
     if (message === "PUBLISHED_TEMPLATE_REQUIRED") return h.error(e, 409, "PUBLISHED_TEMPLATE_REQUIRED", "The selected template is no longer published")
+    if (message.indexOf("AUDIENCE_UNAVAILABLE:") === 0) {
+      var unavailableParts = message.split(":")
+      return h.error(e, 409, unavailableParts[1] || "ATTENDANCE_QUALIFICATION_UNLOCKED", unavailableParts.slice(2).join(":") || "Attendance qualification is unavailable")
+    }
     if (message.indexOf("INVALID_AUDIENCE:") === 0) return h.error(e, 400, "INVALID_AUDIENCE", message.slice(17))
     return h.error(e, 409, "ISSUE_CONFLICT", "Certificates could not be issued because the audience changed or already contains an active credential")
   }

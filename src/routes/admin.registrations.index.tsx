@@ -342,7 +342,7 @@ function QueueRow({
               onConfirm={() => { onCheckIn(row.id); return true; }}
             />
           )}
-          {canManage && row.registrationStatus !== "cancelled" && !row.checkedIn && (
+          {canManage && row.registrationStatus !== "cancelled" && row.paymentStatus !== "paid" && row.paymentStatus !== "refunded" && !row.checkedIn && (
             <ConfirmButton
               label="Cancel"
               confirmMessage={canViewFinance ? "Cancel this registration? Paid records remain visible for finance review." : "Cancel this registration?"}

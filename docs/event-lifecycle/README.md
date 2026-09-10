@@ -4,9 +4,13 @@ This directory is the implementation plan for turning the existing event, regist
 
 ## Product boundary
 
-The target lifecycle is:
+The canonical event lifecycle is:
 
-`Draft → readiness → approval → publish → registration → payment → attendee self-service → event-day operations → attendance → closeout → certificates → archive`
+`Draft → Published → Completed → Archived`
+
+`Cancelled` is a separate terminal outcome. Registration, payment, attendee
+self-service, attendance, closeout and certificates remain operational state
+around that lifecycle; they are not additional publication approvals.
 
 The system is for IEEE Sahrdaya Student Branch operations. It is **not** intended to become a generic commercial ticketing platform.
 
@@ -26,6 +30,6 @@ IEEE vTools/L31 reporting is explicitly out of scope. Completed events may later
 10. `10-phase-0-1-acceptance.md` — Phase 0/1 implementation and exact-head CI evidence.
 11. `11-phase-2-local-acceptance.md` — Attendance V2 local/fresh-backend evidence plus exact-head CI acceptance.
 12. `12-phase-3-local-acceptance.md` — My Events/calendar local evidence; exact-head Phase 3 CI is recorded in the roadmap.
-13. `13-phase-4-local-acceptance.md` — waitlist/cancellation/refund-request architecture, local gates and pending clean-room CI.
+13. `13-phase-4-local-acceptance.md` — waitlist/cancellation/refund-request architecture and its original local acceptance evidence; current clean-room/staging status is recorded in the roadmap.
 14. `14-event-audience-pricing-requirements.md` — audience eligibility, academic normalization, IEEE-member pricing, requirements, private attendee links, ticket hub, migration/testing gates and phased implementation checklist.
-15. `15-phase-5-closeout-implementation-plan.md` — closeout readiness, archive gating, attendance qualification and feedback rollout plan.
+15. `15-phase-5-closeout-implementation-plan.md` — closeout readiness, attendance qualification, certificate progress and archive gating; attendee feedback remains optional.

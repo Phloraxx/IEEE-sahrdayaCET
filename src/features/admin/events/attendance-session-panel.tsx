@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, CheckCircle2, Pencil, Plus, ScanLine, Trash2, Users } from "lucide-react";
+import { CalendarClock, CheckCircle2, Lock, LockOpen, Pencil, Plus, ScanLine, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,6 +24,8 @@ import {
   createAttendanceSession,
   deleteAttendanceSession,
   listEventAttendanceSessions,
+  lockAttendanceQualification,
+  reopenAttendanceQualification,
   updateAttendanceSession,
   type AttendanceSession,
   type AttendanceSessionInput,
@@ -123,7 +125,7 @@ function SessionDialog({
           <div className="grid gap-1.5">
             <Label htmlFor="attendance-session-weight">Attendance weight</Label>
             <Input id="attendance-session-weight" type="number" min="0" max="100" step="0.25" value={form.attendanceWeight} onChange={(e) => set("attendanceWeight", e.target.value)} />
-            <p className="text-xs text-muted-foreground">Stored for later closeout rules; certificate qualification is still disabled.</p>
+            <p className="text-xs text-muted-foreground">Frozen when completed-event attendance qualification is locked. Weight is explanatory only; it does not create a percentage threshold.</p>
           </div>
           <div className="space-y-2">
             <Label>Controls</Label>
@@ -155,6 +157,7 @@ export function AttendanceSessionPanel({
   eventStart,
   eventEnd,
   eventVenue,
+  eventStatus,
   canManage,
   canCheckIn,
 }: {
@@ -162,6 +165,7 @@ export function AttendanceSessionPanel({
   eventStart: string;
   eventEnd: string;
   eventVenue: string;
+  eventStatus: string;
   canManage: boolean;
   canCheckIn: boolean;
 }) {
@@ -198,11 +202,32 @@ export function AttendanceSessionPanel({
     },
     onError: (error) => toast.error(attendanceRequestError(error).message),
   });
+  const lockMutation = useMutation({
+    mutationFn: () => lockAttendanceQualification(eventId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["event-attendance-sessions", eventId] });
+      void queryClient.invalidateQueries({ queryKey: ["admin-event-operations", eventId] });
+      toast.success("Attendance qualification locked");
+    },
+    onError: (error) => toast.error(attendanceRequestError(error).message),
+  });
+  const reopenMutation = useMutation({
+    mutationFn: () => reopenAttendanceQualification(eventId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["event-attendance-sessions", eventId] });
+      void queryClient.invalidateQueries({ queryKey: ["admin-event-operations", eventId] });
+      toast.success("Attendance qualification reopened");
+    },
+    onError: (error) => toast.error(attendanceRequestError(error).message),
+  });
 
   if (sessions.isLoading) return <div className="space-y-3"><Skeleton className="h-28" /><Skeleton className="h-28" /></div>;
   if (sessions.isError || !sessions.data) return <Card><CardContent className="p-6 text-sm text-muted-foreground">Could not load attendance sessions.</CardContent></Card>;
 
   const rows = sessions.data.sessions;
+  const qualification = sessions.data.qualification;
+  const requiredTrackedSessions = rows.filter((session) => session.requiredForCertificate && session.attendanceEnabled).length;
+  const qualificationPending = lockMutation.isPending || reopenMutation.isPending;
   const initial = editing ? formFromSession(editing) : emptyForm(eventStart, eventEnd, eventVenue);
   return (
     <div className="space-y-5">
@@ -214,7 +239,7 @@ export function AttendanceSessionPanel({
             description={rows.length
               ? "Each scan is attached to an explicit session. Attendance history is append-only; corrections add a new audited record."
               : "This event currently uses the original one-time check-in. Add the first session only when you need multi-session or multi-day attendance."}
-            actions={canManage ? (
+            actions={canManage && !qualification.locked ? (
               <Button size="sm" className="gap-2" onClick={() => { setEditing(null); setOpen(true); }}>
                 <Plus className="h-4 w-4" /> Add session
               </Button>
@@ -223,6 +248,21 @@ export function AttendanceSessionPanel({
           {!rows.length && (
             <div className="mt-5 rounded-xl border border-dashed border-border bg-muted/20 p-5 text-sm leading-6 text-muted-foreground">
               Existing QR tickets and the Check-in page continue to work exactly as before. Creating a session switches this event to session-aware attendance; the old checked-in flag is then kept only as a first-arrival compatibility projection.
+            </div>
+          )}
+          {rows.length > 0 && eventStatus === "completed" && (
+            <div className={`mt-5 rounded-xl border p-4 ${qualification.locked ? "border-emerald-500/25 bg-emerald-500/5" : "border-amber-500/25 bg-amber-500/5"}`}>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold">{qualification.locked ? `Certificate attendance locked · v${qualification.version}` : "Certificate attendance is unlocked"}</p>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">{qualification.locked ? `Required-session rules are frozen${qualification.lockedAt ? ` since ${formatDateTime(qualification.lockedAt)}` : ""}. Reopen before correcting attendance or session rules.` : requiredTrackedSessions ? "Lock after attendance corrections are complete. Qualification requires every session marked Required for certificate." : "Mark at least one tracked session Required for certificate before locking."}</p>
+                </div>
+                {canManage && (qualification.locked ? (
+                  <ConfirmButton label="Reopen" confirmMessage="Reopen certificate attendance? Attendance-qualified certificate audiences will be unavailable until you lock it again." variant="outline" icon={<LockOpen className="h-4 w-4" />} disabled={qualificationPending} onConfirm={() => { reopenMutation.mutate(); return true; }} />
+                ) : (
+                  <ConfirmButton label="Lock qualification" confirmMessage="Freeze the current required-session rules for certificate qualification? Corrections and session changes will require reopening." icon={<Lock className="h-4 w-4" />} disabled={qualificationPending || requiredTrackedSessions === 0} onConfirm={() => { lockMutation.mutate(); return true; }} />
+                ))}
+              </div>
             </div>
           )}
           <div className="mt-5 space-y-3">
@@ -245,19 +285,19 @@ export function AttendanceSessionPanel({
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {canCheckIn && session.checkInEnabled && (
+                    {canCheckIn && eventStatus === "published" && session.checkInEnabled && (
                       <Button variant="outline" size="sm" asChild className="gap-2">
                         <Link to={`/admin/check-in?event=${encodeURIComponent(eventId)}&session=${encodeURIComponent(session.id)}`}>
                           <ScanLine className="h-4 w-4" /> Open scanner
                         </Link>
                       </Button>
                     )}
-                    {canManage && (
+                    {canManage && !qualification.locked && (
                       <Button variant="outline" size="sm" className="gap-2" onClick={() => { setEditing(session); setOpen(true); }}>
                         <Pencil className="h-4 w-4" /> Edit
                       </Button>
                     )}
-                    {canManage && session.presentCount === 0 && (
+                    {canManage && !qualification.locked && session.presentCount === 0 && (
                       <ConfirmButton
                         label="Delete"
                         confirmMessage="Delete this unused attendance session?"
@@ -275,7 +315,7 @@ export function AttendanceSessionPanel({
         </CardContent>
       </Card>
       <div className="rounded-xl border border-border bg-muted/20 px-4 py-3 text-xs leading-5 text-muted-foreground">
-        “Required for certificate” and attendance weight are stored now so closeout can use them later. The certificate audience <strong className="text-foreground">attendance_qualified</strong> remains intentionally disabled until that server-side qualification phase is implemented and accepted.
+        Certificate qualification is server-owned: a confirmed attendee qualifies only when present at every session marked <strong className="text-foreground">Required for certificate</strong>. Weights are frozen for explanation and future reporting; they do not create an implicit percentage threshold.
       </div>
       {open && (
         <SessionDialog

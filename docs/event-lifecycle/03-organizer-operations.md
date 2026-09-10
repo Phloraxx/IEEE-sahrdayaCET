@@ -8,13 +8,18 @@ The event workspace should answer three questions without reading raw status fie
 2. What blocks the next transition?
 3. What is the next safe action?
 
-Use the canonical lifecycle snapshot to render a lifecycle bar and next-action callout. Preserve detailed approval/finance states for operators who need them.
+Use the canonical lifecycle snapshot to render a lifecycle bar and next-action
+callout. Read financial exceptions from the finance operations projection, not
+from event publication state.
 
 ## Setup and readiness
 
 Keep draft creation short: title, host society, schedule, attendance mode and physical venue when applicable. Everything else belongs in the event editor.
 
-Add a readiness checklist before submit/publish. Classify checks as blocking, strong warning or optional improvement. Candidate checks include description/artwork, valid schedule, registration window, capacity, fee/payment setup, contact, event lead and check-in readiness.
+Add a readiness checklist before publish. Classify checks as blocking, strong
+warning or optional improvement. Candidate checks include description/artwork,
+valid schedule, registration window, capacity, fee/payment setup, contact,
+event lead and check-in readiness.
 
 ## Location model
 

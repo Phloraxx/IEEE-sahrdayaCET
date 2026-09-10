@@ -213,23 +213,6 @@ export async function previewPricing(eventId: string, input: {
   }) as Promise<PricingPreview>;
 }
 
-export interface CouponPreview {
-  code: string;
-  discountPercent: number;
-  baseAmount: number;
-  discountAmount: number;
-  amount: number;
-}
-
-export async function previewCoupon(eventId: string, couponCode: string): Promise<CouponPreview> {
-  const pb = getPbClient();
-  if (!pb.authStore.isValid) throw new Error("Please sign in before applying a coupon");
-  return pb.send(`/api/app/events/${encodeURIComponent(eventId)}/coupon-preview`, {
-    method: "POST",
-    body: { couponCode: couponCode.trim().toUpperCase() },
-  }) as Promise<CouponPreview>;
-}
-
 export async function createRegistration(input: {
   userId: string;
   eventId: string;

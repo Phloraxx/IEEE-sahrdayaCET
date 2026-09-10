@@ -150,6 +150,7 @@ export interface PaymentProviderPanelProps {
   payGateUpiUri: string;
   isMobileUpi: boolean;
   qrDataUrl: string;
+  qrGenerationFailed: boolean;
   providerCheckDelayed: boolean;
   reconciling: boolean;
   reduceMotion: boolean;
@@ -160,7 +161,7 @@ export interface PaymentProviderPanelProps {
 }
 
 export function PaymentProviderPanel({
-  session, payable, payGateUpiUri, isMobileUpi, qrDataUrl,
+  session, payable, payGateUpiUri, isMobileUpi, qrDataUrl, qrGenerationFailed,
   providerCheckDelayed, reconciling, reduceMotion, error, secondsLeft,
   remainingPercent, reconcilePayment,
 }: PaymentProviderPanelProps) {
@@ -251,14 +252,30 @@ export function PaymentProviderPanel({
                 </div>
               )}
 
-              {isMobileUpi && payGateUpiUri && (
-                <motion.a
-                  href={payGateUpiUri}
-                  whileTap={reduceMotion ? undefined : { scale: 0.985 }}
-                  className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-ieee-blue px-5 py-4 text-sm font-black text-white shadow-lg shadow-sky-100"
+              {payGateUpiUri && (isMobileUpi || qrGenerationFailed) && (
+                <motion.div
+                  initial={reduceMotion ? undefined : { opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-3 space-y-2"
                 >
-                  <Smartphone className="h-4 w-4" /> Open in UPI app
-                </motion.a>
+                  {qrGenerationFailed && (
+                    <p className="rounded-xl bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-800">
+                      The QR is unavailable. Use the exact UPI link below instead.
+                    </p>
+                  )}
+                  <motion.a
+                    href={payGateUpiUri}
+                    whileTap={reduceMotion ? undefined : { scale: 0.985 }}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-ieee-blue px-5 py-4 text-sm font-black text-white shadow-lg shadow-sky-100"
+                  >
+                    <Smartphone className="h-4 w-4" /> Open in UPI app
+                  </motion.a>
+                  {qrGenerationFailed && (
+                    <code className="block break-all rounded-xl bg-slate-100 px-3 py-2 text-left text-[10px] leading-4 text-slate-600">
+                      {payGateUpiUri}
+                    </code>
+                  )}
+                </motion.div>
               )}
 
               <button

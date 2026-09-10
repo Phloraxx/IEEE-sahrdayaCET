@@ -24,10 +24,9 @@ async function requireEditorRole() {
 
 function contentScopeFilter(workspace: WorkspaceMe): string {
   if (workspace.branchCapabilities.includes("content.manage")) return "";
-  const societyRoles = new Set(["society_chair", "society_vice_chair", "society_secretary", "society_content"]);
-  const eventRoles = new Set(["event_lead", "event_content"]);
-  const societyIds = Array.from(new Set(workspace.assignments.filter((a) => a.active && a.scopeType === "society" && societyRoles.has(a.roleCode)).map((a) => a.societyId).filter(Boolean)));
-  const eventIds = Array.from(new Set(workspace.assignments.filter((a) => a.active && a.scopeType === "event" && eventRoles.has(a.roleCode)).map((a) => a.eventId).filter(Boolean)));
+  const contentAssignments = workspace.assignments.filter((a) => a.active && a.capabilities.includes("content.manage"));
+  const societyIds = Array.from(new Set(contentAssignments.filter((a) => a.scopeType === "society").map((a) => a.societyId).filter(Boolean)));
+  const eventIds = Array.from(new Set(contentAssignments.filter((a) => a.scopeType === "event").map((a) => a.eventId).filter(Boolean)));
   const clauses = [
     ...societyIds.map((id) => `society = ${escapeFilterValue(id)}`),
     ...eventIds.map((id) => `event = ${escapeFilterValue(id)}`),
@@ -61,7 +60,7 @@ export async function listAdminBlogs() {
 
 export async function listSocietiesForBlog() {
   const { pb, workspace } = await requireEditorRole();
-  const managed = workspace.branchCapabilities.includes("content.manage") ? [] : Array.from(new Set(workspace.assignments.filter((a) => a.active && a.scopeType === "society" && ["society_chair", "society_vice_chair", "society_secretary", "society_content"].includes(a.roleCode)).map((a) => a.societyId).filter(Boolean)));
+  const managed = workspace.branchCapabilities.includes("content.manage") ? [] : Array.from(new Set(workspace.assignments.filter((a) => a.active && a.scopeType === "society" && a.capabilities.includes("content.manage")).map((a) => a.societyId).filter(Boolean)));
   const filter = workspace.branchCapabilities.includes("content.manage") ? undefined : (managed.length ? managed.map((id) => `id = ${escapeFilterValue(id)}`).join(" || ") : 'id = ""');
   const records = await pb.collection("societies").getFullList({ sort: "name", fields: "id,name", filter });
   return records.map((record) => ({ id: record.id, name: String(record.name || "") }));

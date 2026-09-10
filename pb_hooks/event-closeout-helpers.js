@@ -17,17 +17,67 @@ function registrationJson(registration) {
   return require(__hooks + "/registration-helpers.js").registrationJsonObject(registration.get("paymentData"))
 }
 
+function emptyCertificateProgress() {
+  return {
+    templateCount: 0,
+    publishedTemplateCount: 0,
+    issuedBatchCount: 0,
+    issuedCertificateCount: 0,
+    activeCertificateCount: 0,
+    emailEligibleCount: 0,
+    sentCount: 0,
+    failedCount: 0,
+    missingEmailCount: 0,
+  }
+}
+
+function certificateProgress(app, eventId) {
+  var progress = emptyCertificateProgress()
+  var templates = rows(app, "certificate_templates", "event = {:eventId}", { eventId: eventId })
+  progress.templateCount = templates.length
+  for (var ti = 0; ti < templates.length; ti++) {
+    if (templates[ti].getString("status") === "published") progress.publishedTemplateCount++
+  }
+
+  var batches = rows(app, "certificate_batches", "event = {:eventId}", { eventId: eventId })
+  for (var bi = 0; bi < batches.length; bi++) {
+    var batchStatus = batches[bi].getString("status") || ""
+    if (batchStatus !== "draft" && batchStatus !== "cancelled_before_issue") progress.issuedBatchCount++
+    progress.emailEligibleCount += batches[bi].getInt("emailEligibleCount") || 0
+    progress.sentCount += batches[bi].getInt("sentCount") || 0
+    progress.failedCount += batches[bi].getInt("failedCount") || 0
+    progress.missingEmailCount += batches[bi].getInt("missingEmailCount") || 0
+  }
+
+  var certificates = rows(app, "certificates", "event = {:eventId}", { eventId: eventId })
+  progress.issuedCertificateCount = certificates.length
+  for (var ci = 0; ci < certificates.length; ci++) {
+    if (certificates[ci].getString("status") === "active") progress.activeCertificateCount++
+  }
+  return progress
+}
+
 function closeoutSummary(app, event) {
   var status = event.getString("status") || ""
   var applicable = !event.getBool("isDeleted") && (status === "completed" || status === "cancelled")
   var blockers = []
   var warnings = []
+  var qualificationStatus = require(__hooks + "/attendance-qualification-helpers.js").statusPayload(event)
+  var qualification = {
+    locked: qualificationStatus.locked,
+    version: qualificationStatus.version,
+    lockedAt: qualificationStatus.lockedAt,
+    requiredSessionCount: qualificationStatus.requiredSessionCount,
+    sessionCount: qualificationStatus.sessionCount,
+  }
   if (!applicable) {
     return {
-      applicable: false, readyToArchive: false, blockers: [], warnings: [],
+      applicable: false, readyToArchive: false, blockers: [], warnings: [], attendanceQualification: qualification,
+      certificateProgress: emptyCertificateProgress(),
       metrics: { pendingRegistrations: 0, unresolvedRefundRequests: 0, paymentExceptions: 0, activeWaitlist: 0, attendanceSessions: 0, attendanceCorrections: 0, attendanceScheduleAnomalies: 0 },
     }
   }
+  var certificates = certificateProgress(app, event.id)
   var registrations = rows(app, "registrations", "event = {:eventId}", { eventId: event.id })
   var pendingRegistrations = 0
   var paymentExceptionIds = {}
@@ -81,13 +131,22 @@ function closeoutSummary(app, event) {
   var eventStart = Date.parse(event.getString("date") || "")
   var eventEnd = Date.parse(event.getString("endDate") || "")
   var anomalousSessions = 0
+  var certificateRequiredSessions = 0
   for (var si = 0; si < sessions.length; si++) {
+    if (sessions[si].getBool("requiredForCertificate")) certificateRequiredSessions++
     var sessionStart = Date.parse(sessions[si].getString("startsAt") || "")
     var sessionEnd = Date.parse(sessions[si].getString("endsAt") || "")
     if ((isFinite(eventStart) && isFinite(sessionStart) && sessionStart < eventStart) ||
         (isFinite(eventEnd) && ((isFinite(sessionStart) && sessionStart > eventEnd) || (isFinite(sessionEnd) && sessionEnd > eventEnd)))) {
       anomalousSessions++
     }
+  }
+  if (!qualification.locked) {
+    qualification.sessionCount = sessions.length
+    qualification.requiredSessionCount = certificateRequiredSessions
+  }
+  if (status === "completed" && certificateRequiredSessions > 0 && !qualification.locked) {
+    blockers.push(issue("ATTENDANCE_QUALIFICATION_UNLOCKED", "Lock reconciled attendance before archiving certificate-required sessions", certificateRequiredSessions, "attendance"))
   }
   if (corrections.length > 0) warnings.push(issue("ATTENDANCE_CORRECTIONS", "Manual attendance corrections are present in the audit history", corrections.length, "attendance"))
   if (anomalousSessions > 0) warnings.push(issue("SESSION_SCHEDULE_ANOMALY", "Attendance session timing falls outside the event schedule", anomalousSessions, "attendance"))
@@ -97,6 +156,8 @@ function closeoutSummary(app, event) {
     readyToArchive: applicable && blockers.length === 0,
     blockers: blockers,
     warnings: warnings,
+    attendanceQualification: qualification,
+    certificateProgress: certificates,
     metrics: {
       pendingRegistrations: pendingRegistrations,
       unresolvedRefundRequests: refundRequests.length,
@@ -123,6 +184,8 @@ function projectCloseoutSummary(summary, financeAllowed) {
     readyToArchive: summary.readyToArchive,
     blockers: blockers,
     warnings: summary.warnings,
+    attendanceQualification: summary.attendanceQualification,
+    certificateProgress: summary.certificateProgress,
     metrics: {
       pendingRegistrations: summary.metrics.pendingRegistrations,
       activeWaitlist: summary.metrics.activeWaitlist,

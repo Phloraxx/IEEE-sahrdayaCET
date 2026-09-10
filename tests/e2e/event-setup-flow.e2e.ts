@@ -21,7 +21,8 @@ test.describe("event setup UX", () => {
     await page.goto(`/admin/events/new?society=${fixtures!.SOCIETY_ID}`);
     await expect(page.getByText("Give the event its essentials.")).toBeVisible();
     await page.locator("#draft-title").fill("Event Setup UX Test");
-    await page.locator("#draft-date").fill("2026-09-10T14:00");
+    const futureIst = new Date(Date.now() + 24 * 60 * 60 * 1000 + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 16);
+    await page.locator("#draft-date").fill(futureIst);
     await page.locator("#draft-venue").fill("UX Lab");
     await page.getByRole("button", { name: "Create draft & continue" }).click();
     await expect(page).toHaveURL(/\/admin\/events\/[^/]+\/edit\?section=details/);
@@ -55,6 +56,7 @@ test.describe("event setup UX", () => {
     await page.locator("#ieee-member-discount").fill("10");
     await page.getByRole("button", { name: "Add Coupon" }).click();
     await page.getByLabel("Coupon code").fill("TEST20");
+    await expect(page.getByLabel("Coupon code")).toHaveValue("TEST20");
     await page.getByLabel("Discount percent").fill("20");
     await page.getByLabel("Max uses").fill("2");
     await page.getByRole("button", { name: "Save changes" }).click();
@@ -80,7 +82,7 @@ test.describe("event setup UX", () => {
     const setupNav = page.getByRole("navigation", { name: "Event setup sections" }).first();
     await expect(setupNav.getByRole("button", { name: "Registration" })).toBeVisible();
     await setupNav.getByRole("button", { name: "Review" }).click();
-    await expect(page.getByRole("heading", { name: "See the setup before you submit it" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "See the setup before you publish it" })).toBeVisible();
     await expect(page.getByText("Semesters: S3, S4, S5, S6")).toBeVisible();
     await expect(page.getByText("2 requirements")).toBeVisible();
     await expect(page.getByText("Included")).toBeVisible();

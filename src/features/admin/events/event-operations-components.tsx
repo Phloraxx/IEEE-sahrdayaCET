@@ -1,6 +1,6 @@
 import { useState, type ComponentType } from "react";
 import { Link } from "react-router";
-import { BadgeCheck, Loader2, ReceiptText, UserCheck, XCircle } from "lucide-react";
+import { BadgeCheck, Loader2, ReceiptText, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -351,9 +351,8 @@ export function legacyCheckInAction({
   eventCheckInActive: boolean;
   checkedIn: boolean;
   registrationStatus: string;
-}): "check-in" | "undo-check-in" | null {
-  if (!canCheckIn || sessionAttendanceActive) return null;
-  if (checkedIn) return "undo-check-in";
+}): "check-in" | null {
+  if (!canCheckIn || sessionAttendanceActive || checkedIn) return null;
   if (!eventCheckInActive) return null;
   return registrationStatus === "confirmed" ? "check-in" : null;
 }
@@ -430,11 +429,6 @@ export function OperationRow({
               <UserCheck className="h-3.5 w-3.5" /> Check in
             </Button>
           )}
-          {checkInAction === "undo-check-in" && (
-            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" disabled={pending} onClick={() => onImmediate("undo-check-in")}>
-              <XCircle className="h-3.5 w-3.5" /> Undo check-in
-            </Button>
-          )}
           {canRestore && (
             <Button variant="outline" size="sm" className="h-8 text-xs" disabled={pending} onClick={() => onAction("restore", "Restore registration")}>
               Restore
@@ -450,7 +444,7 @@ export function OperationRow({
               Reopen payment
             </Button>
           )}
-          {permissions["registrations.manage"] && row.registrationStatus !== "cancelled" && !row.checkedIn && (
+          {permissions["registrations.manage"] && row.registrationStatus !== "cancelled" && row.paymentStatus !== "paid" && row.paymentStatus !== "refunded" && !row.checkedIn && (
             <ConfirmButton
               label="Cancel"
               confirmMessage={canViewFinance ? "Cancel this registration? Paid registrations stay visible in the payment exception queue." : "Cancel this registration?"}

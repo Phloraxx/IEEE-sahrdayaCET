@@ -15,7 +15,8 @@ This work must preserve the existing registration/payment invariants:
 - registration is a server-side command, not direct collection CRUD;
 - capacity, waitlist reservations, pricing, ticket state and payment state remain transactional;
 - client-side controls are never treated as authorization or financial enforcement;
-- published-event operational/finance changes continue to require workflow review;
+- published-event setup changes remain capability-scoped and audited, while
+  money mutations remain finance-only;
 - production mail remains disabled during staging work;
 - no FIFA/decommission branch divergence is promoted to production as part of this project.
 
@@ -254,7 +255,8 @@ Introduce `POST /api/app/events/{id}/pricing-preview` for authenticated attendee
 
 Request may include membership claim/ID and optional coupon code. Response returns the full pricing breakdown plus an explanatory label such as `IEEE member price applied` or `Coupon SAVE20 applied`.
 
-Keep `/coupon-preview` temporarily for compatibility, but migrate `RegisterPage` to the unified pricing preview. Final registration always recalculates inside its SQLite transaction.
+Use only the unified `/pricing-preview` endpoint. Final registration always
+recalculates inside its SQLite transaction.
 
 ### 7.3 PayGate v4 payment constraints
 
@@ -333,7 +335,9 @@ For paid internal events add an `IEEE member pricing` card:
 - explain that coupons and member pricing do not stack and the better price is used;
 - validate PayGate whole-rupee compatibility immediately.
 
-Member-discount changes must be included in finance-sensitive impact detection so prior finance approval returns to review.
+Member-discount changes remain subject to the same server-side pricing and
+PayGate validation as the base fee. They do not create a second publication
+approval state.
 
 ### 8.5 Communication
 
@@ -356,7 +360,7 @@ The final organizer review should summarize at least:
 - number of requirements and attendee note presence;
 - WhatsApp configured/not configured;
 - online join details configured/not configured;
-- organization + finance approval status.
+- lifecycle status and the latest operational notes/audit entry.
 
 ## 9. Registration page UX
 
@@ -535,30 +539,29 @@ Keep legacy `formResponses.branch`/`formResponses.semester` fallback for old reg
 
 Admin filters can be added after the data is canonical. They are useful but not required for the first schema/registration PR.
 
-## 17. Event workflow / approval semantics
+## 17. Event lifecycle semantics
 
-Update the event workflow helper's sensitive-field classification.
+The event lifecycle is intentionally small:
 
-Operational-sensitive changes:
+`Draft → Published → Completed → Archived`, with `Cancelled` as a terminal
+outcome. Publish, unpublish and complete use the event lifecycle command;
+cancel and archive retain their separate transactional commands.
 
-- `eligibleSemesters`
-- `eligibleProgrammes`
-- `requirements` when the event is already published
-- attendee-private WhatsApp configuration if operational review should cover communication changes
+Authorized organizers may correct setup on a published event without returning
+it to draft. The command and ordinary edits remain capability- and
+scope-authorized, and audit history is preserved. Finance roles retain control
+of money mutations; finance is not a publication gate.
 
-Finance-sensitive changes:
+Operational/content changes that affect existing registrations must continue to
+be validated by the relevant server hooks. In particular:
 
-- `ieeeMemberDiscountPercent`
-- existing base fee/payment provider/coupon changes
+- eligibility is rechecked for new registration and waitlist commands;
+- pricing is recalculated transactionally for every registration;
+- requirements changes do not rewrite or invalidate already-issued tickets;
+- private attendee links remain protected by the confirmed-attendee endpoint.
 
-Expected behavior:
-
-- draft events can be edited normally;
-- a published event cannot silently change eligibility or finance rules;
-- organizer returns it to draft, saves the sensitive change, and re-enters the existing review flow;
-- member pricing > 0 on a paid event requires finance approval exactly like other financial configuration.
-
-Changing requirements alone should not rewrite or invalidate already-issued tickets. Tickets read current event requirements at view time, so organizers can correct preparation guidance after approval if policy allows it; decide this explicitly in implementation tests.
+Draft and published events can be edited by an authorized scoped organizer;
+status transitions themselves cannot be performed through generic CRUD.
 
 ## 18. Migration and backward compatibility
 
@@ -768,7 +771,7 @@ Before this work is considered complete, exercise one realistic event from start
 - set regular fee and IEEE-member discount;
 - configure a coupon whose discount is lower than member pricing;
 - configure attendee WhatsApp group;
-- publish through organization + finance approval;
+- publish directly through the authorized organizer lifecycle command;
 - register an eligible non-member and verify normal price;
 - register an eligible IEEE member and verify member price;
 - attempt an ineligible semester and confirm rejection;

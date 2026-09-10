@@ -19,6 +19,7 @@ import {
 } from "@/lib/data/workspace.client";
 import {
   roleLabel,
+  roleSupportsScope,
   WORKSPACE_ROLE_DEFINITIONS,
   type WorkspaceRoleCode,
   type WorkspaceScopeType,
@@ -26,9 +27,9 @@ import {
 import { formatDateShort } from "@/lib/dates";
 
 function roleOptions(scope: WorkspaceScopeType, elevated: boolean, platformAdmin: boolean): WorkspaceRoleCode[] {
-  const roles = (Object.keys(WORKSPACE_ROLE_DEFINITIONS) as WorkspaceRoleCode[]).filter((role) => WORKSPACE_ROLE_DEFINITIONS[role].scope === scope);
+  const roles = (Object.keys(WORKSPACE_ROLE_DEFINITIONS) as WorkspaceRoleCode[]).filter((role) => roleSupportsScope(role, scope));
   if (scope === "branch") return platformAdmin ? roles : [];
-  if (scope === "society" && !elevated) return roles.filter((role) => ["society_vice_chair", "society_secretary", "society_content", "society_team"].includes(role));
+  if (scope === "society" && !elevated) return roles.filter((role) => role === "content_editor");
   return roles;
 }
 
@@ -51,7 +52,7 @@ export default function AdminAccess() {
   );
   const [scopeType, setScopeType] = useState<"branch" | "society">("branch");
   const [societyId, setSocietyId] = useState("");
-  const [roleCode, setRoleCode] = useState<WorkspaceRoleCode>("branch_secretary");
+  const [roleCode, setRoleCode] = useState<WorkspaceRoleCode>("organizer");
   const [userQuery, setUserQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<{ id: string; name: string; email: string } | null>(null);
   const [title, setTitle] = useState("");
@@ -65,7 +66,7 @@ export default function AdminAccess() {
     if (!canBranch && manageableSocieties.length) {
       setScopeType("society");
       setSocietyId((current) => current || manageableSocieties[0] || "");
-      setRoleCode("society_secretary");
+      setRoleCode("organizer");
     }
   }, [workspace.data, canBranch, manageableSocieties]);
 
@@ -149,7 +150,7 @@ export default function AdminAccess() {
 
       <Card><CardContent className="p-6">
         <div className="mb-5 flex items-start justify-between gap-4"><div><h2 className="text-sm font-semibold">Current appointments</h2><p className="mt-1 text-xs text-muted-foreground">Inactive appointments remain in the audit history.</p></div><KeyRound className="h-5 w-5 text-muted-foreground" /></div>
-        {assignments.isLoading ? <p className="py-10 text-center text-sm text-muted-foreground">Loading assignments…</p> : assignments.data?.assignments.length ? <div className="space-y-2">{assignments.data.assignments.map((assignment) => <div key={assignment.id} className={`rounded-xl border p-4 ${assignment.active ? "border-border" : "border-border bg-muted/30 opacity-70"}`}><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="truncate text-sm font-semibold">{assignment.userName || assignment.userEmail}</p><Badge variant={assignment.active ? "secondary" : "outline"}>{assignment.active ? "Active" : "Inactive"}</Badge></div><p className="mt-1 text-xs text-muted-foreground">{assignment.title || roleLabel(assignment.roleCode)} · {roleLabel(assignment.roleCode)}</p><p className="mt-1 font-mono text-[10px] text-muted-foreground">{assignment.term || "No term"} · {assignmentWindow(assignment.startsAt, assignment.endsAt)}</p></div>{assignment.active && <Button variant="ghost" size="sm" className="text-destructive" disabled={deactivateMutation.isPending} onClick={() => { if (window.confirm(`Remove ${assignment.title || roleLabel(assignment.roleCode)} access for ${assignment.userName || assignment.userEmail}?`)) deactivateMutation.mutate(assignment.id); }}>Remove</Button>}</div></div>)}</div> : <div className="rounded-xl border border-dashed border-border px-4 py-12 text-center text-sm text-muted-foreground">No assignments in this scope.</div>}
+         {assignments.isLoading ? <p className="py-10 text-center text-sm text-muted-foreground">Loading assignments…</p> : assignments.data?.assignments.length ? <div className="space-y-2">{assignments.data.assignments.map((assignment) => { const accessRole = assignment.accessRole || assignment.roleCode; return <div key={assignment.id} className={`rounded-xl border p-4 ${assignment.active ? "border-border" : "border-border bg-muted/30 opacity-70"}`}><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="truncate text-sm font-semibold">{assignment.userName || assignment.userEmail}</p><Badge variant={assignment.active ? "secondary" : "outline"}>{assignment.active ? "Active" : "Inactive"}</Badge></div><p className="mt-1 text-xs text-muted-foreground">{assignment.title || roleLabel(accessRole)} · {roleLabel(accessRole)}</p><p className="mt-1 font-mono text-[10px] text-muted-foreground">{assignment.term || "No term"} · {assignmentWindow(assignment.startsAt, assignment.endsAt)}</p></div>{assignment.active && <Button variant="ghost" size="sm" className="text-destructive" disabled={deactivateMutation.isPending} onClick={() => { if (window.confirm(`Remove ${assignment.title || roleLabel(accessRole)} access for ${assignment.userName || assignment.userEmail}?`)) deactivateMutation.mutate(assignment.id); }}>Remove</Button>}</div></div>; })}</div> : <div className="rounded-xl border border-dashed border-border px-4 py-12 text-center text-sm text-muted-foreground">No assignments in this scope.</div>}
       </CardContent></Card>
     </div>
   </div>;

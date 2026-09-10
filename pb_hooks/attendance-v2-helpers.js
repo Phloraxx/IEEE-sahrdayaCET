@@ -88,6 +88,26 @@ function registrationSessionState(app, sessionId, registrationId) {
   return { present: present, lastAt: lastAt, lastType: lastType, recordCount: rows.length }
 }
 
+function firstCreditedAttendanceAt(app, eventId, registrationId) {
+  try {
+    var rows = app.findRecordsByFilter(
+      "attendance_records",
+      "event = {:eventId} && registration = {:registrationId} && (type = {:present} || type = {:entry} || type = {:manualAdd})",
+      "occurredAt,created,id",
+      1,
+      0,
+      {
+        eventId: String(eventId || ""),
+        registrationId: String(registrationId || ""),
+        present: "present",
+        entry: "entry",
+        manualAdd: "manual_add",
+      }
+    )
+    return rows.length ? (rows[0].getString("occurredAt") || "") : ""
+  } catch (_) { return "" }
+}
+
 function presentCount(app, sessionId) {
   var rows = attendanceRows(app, sessionId, "")
   var states = {}
@@ -123,12 +143,12 @@ function recentAttendance(app, sessionId, limit) {
   var seenRegistration = {}
   return rows.map(function (row) {
     var registrationId = row.getString("registration") || ""
-    var name = ""
     var ticketId = ""
+    var userName = ""
     try {
       var registration = app.findRecordById("registrations", registrationId)
-      name = registration.getString("userName") || ""
       ticketId = registration.getString("ticketId") || ""
+      userName = registration.getString("userName") || ""
     } catch (_) {}
     if (stateCache[registrationId] === undefined) {
       stateCache[registrationId] = registrationSessionState(app, sessionId, registrationId).present
@@ -138,8 +158,8 @@ function recentAttendance(app, sessionId, limit) {
     return {
       id: row.id,
       registrationId: registrationId,
-      userName: name,
       ticketId: ticketId,
+      userName: userName,
       type: row.getString("type") || "",
       occurredAt: row.getString("occurredAt") || "",
       source: row.getString("source") || "",
@@ -176,6 +196,7 @@ module.exports = {
   sessionPayload: sessionPayload,
   nextCreditState: nextCreditState,
   registrationSessionState: registrationSessionState,
+  firstCreditedAttendanceAt: firstCreditedAttendanceAt,
   presentCount: presentCount,
   recentAttendance: recentAttendance,
   idempotencyRecord: idempotencyRecord,

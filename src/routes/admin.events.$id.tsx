@@ -207,7 +207,7 @@ export default function AdminEventOperationsRoute() {
   });
 
   const cancelEventMutation = useMutation({
-    mutationFn: (reason: string) => cancelAdminEvent(id, reason),
+    mutationFn: () => cancelAdminEvent(id),
     onSuccess: (result) => {
       setCancelOpen(false);
       invalidate();
@@ -219,13 +219,12 @@ export default function AdminEventOperationsRoute() {
   });
 
   const workflowMutation = useMutation({
-    mutationFn: ({ action, note }: { action: "submit" | "approve" | "request_changes" | "finance_approve" | "finance_changes" | "publish" | "unpublish" | "complete"; note?: string }) =>
-      runEventWorkflow(id, action, note),
+    mutationFn: (action: "publish" | "unpublish" | "complete") => runEventWorkflow(id, action),
     onSuccess: () => {
       invalidate();
-      toast.success("Event workflow updated");
+      toast.success("Event lifecycle updated");
     },
-    onError: (error: Error) => toast.error(error.message || "Could not update event workflow"),
+    onError: (error: Error) => toast.error(error.message || "Could not update event lifecycle"),
   });
 
   const archiveMutation = useMutation({
@@ -280,8 +279,6 @@ export default function AdminEventOperationsRoute() {
   const isPlatformAdmin = user?.role === "admin";
   const canViewWorkflow = Boolean(
     permissions["events.edit"] ||
-    permissions["events.submit"] ||
-    permissions["events.approve"] ||
     permissions["events.publish"] ||
     permissions["events.cancel"] ||
     permissions["events.archive"] ||
@@ -373,8 +370,7 @@ export default function AdminEventOperationsRoute() {
         event={event}
         permissions={permissions}
         pending={workflowMutation.isPending}
-        canViewFinance={canViewFinance}
-        onAction={(action, note) => workflowMutation.mutate({ action, note })}
+        onAction={(action) => workflowMutation.mutate(action)}
       />}
 
       <div className="flex gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1">
@@ -570,6 +566,7 @@ export default function AdminEventOperationsRoute() {
           eventStart={event.date}
           eventEnd={event.endDate}
           eventVenue={event.venue}
+          eventStatus={event.status}
           canManage={Boolean(permissions["events.edit"])}
           canCheckIn={Boolean(permissions["checkin.manage"])}
         />
@@ -755,7 +752,7 @@ export default function AdminEventOperationsRoute() {
         onOpenChange={setCancelOpen}
         eventTitle={event.title}
         pending={cancelEventMutation.isPending}
-        onConfirm={(reason) => cancelEventMutation.mutate(reason)}
+        onConfirm={() => cancelEventMutation.mutate()}
       />
       <CancellationDecisionDialog
         state={cancellationDecision}

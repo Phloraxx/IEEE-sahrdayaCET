@@ -47,7 +47,7 @@ jobs:
           check_code /healthz 200
           check_code /api/health 200
           check_code /verify 200
-          check_code /_/ 404
+          check_code /_/ 200
           check_code /api/webhooks/resend 404
           check_unavailable https://db.ieeesahrdaya.com/_/
           check_unavailable https://db.ieeesahrdaya.com/api/health
@@ -66,5 +66,8 @@ jobs:
           html=$(curl --max-time 15 -fsS "${BASE_URL}/verify")
           text=$(printf '%s' "$html" | sed -E 's/<[^>]+>/ /g' | tr '\n' ' ')
           grep -Eqi 'Verify[[:space:]]+a[[:space:]]+certificate' <<<"$text"
+
+          oauth_landing=$(curl --max-time 15 -fsS "${BASE_URL}/_/")
+          grep -Fq 'data-oauth-popup-result' <<<"$oauth_landing"
 
           echo "Production health checks passed."

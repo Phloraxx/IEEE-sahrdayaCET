@@ -111,15 +111,6 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
     },
   });
 
-  const undoCheckInMutation = useMutation({
-    mutationFn: () => runRegistrationAdminCommand(registrationId, "undo-check-in"),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-registration", registrationId] });
-      queryClient.invalidateQueries({ queryKey: ["admin-registrations"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-event-operations"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
-    },
-  });
 
   const cancelMutation = useMutation({
     mutationFn: () => runRegistrationAdminCommand(registrationId, "cancel"),
@@ -244,16 +235,7 @@ export function RegistrationDetail({ registrationId }: RegistrationDetailProps) 
                 disabled={checkInMutation.isPending}
               />
             )}
-            {canCheckIn && reg.checkedIn && (
-              <ConfirmButton
-                label="Undo check-in"
-                confirmMessage="Undo this attendee's check-in?"
-                variant="outline"
-                onConfirm={() => { undoCheckInMutation.mutate(); return true; }}
-                disabled={undoCheckInMutation.isPending}
-              />
-            )}
-            {canManage && reg.registrationStatus !== "cancelled" && !reg.checkedIn && (
+            {canManage && reg.registrationStatus !== "cancelled" && reg.paymentStatus !== "paid" && reg.paymentStatus !== "refunded" && !reg.checkedIn && (
               <ConfirmButton
                 label="Cancel registration"
                 confirmMessage={canViewFinance ? "Cancel this registration? Paid records remain visible for finance review." : "Cancel this registration?"}

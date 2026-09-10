@@ -15,9 +15,29 @@ export interface AttendanceSession {
   presentCount: number;
 }
 
+export interface AttendanceQualificationStatus {
+  locked: boolean;
+  version: number;
+  lockedAt: string;
+  lockedBy: string;
+  requiredSessionCount: number;
+  sessionCount: number;
+  snapshot?: {
+    version?: number;
+    lockedAt?: string;
+    rule?: string;
+    sessions?: Array<{
+      id: string; title: string; startsAt?: string; endsAt?: string;
+      attendanceEnabled: boolean; requiredForCertificate: boolean; attendanceWeight: number;
+    }>;
+  };
+  idempotent?: boolean;
+}
+
 export interface AttendanceSessionsResponse {
   mode: "legacy" | "sessions";
   sessions: AttendanceSession[];
+  qualification: AttendanceQualificationStatus;
 }
 
 export interface AttendanceSessionInput {
@@ -48,8 +68,8 @@ export interface AttendanceContextEvent {
 export interface AttendanceRecentRow {
   id: string;
   registrationId: string;
-  userName: string;
   ticketId: string;
+  userName: string;
   type: "present" | "entry" | "exit" | "manual_add" | "manual_remove" | string;
   occurredAt: string;
   source: string;
@@ -63,8 +83,8 @@ export interface AttendanceCheckInResponse {
   message: string;
   registration: {
     id: string;
-    userName: string;
     ticketId: string;
+    userName: string;
     eventId: string;
     eventTitle: string;
     sessionId: string;
@@ -161,4 +181,16 @@ export async function correctSessionAttendance(input: {
     occurredAt: string;
     presentCount: number;
   }>;
+}
+
+export async function lockAttendanceQualification(eventId: string, note = "") {
+  return getPbClient().send(`/api/app/events/${encodeURIComponent(eventId)}/attendance/qualification/lock`, {
+    method: "POST", body: { note },
+  }) as Promise<{ qualification: AttendanceQualificationStatus }>;
+}
+
+export async function reopenAttendanceQualification(eventId: string, note = "") {
+  return getPbClient().send(`/api/app/events/${encodeURIComponent(eventId)}/attendance/qualification/reopen`, {
+    method: "POST", body: { note },
+  }) as Promise<{ qualification: AttendanceQualificationStatus }>;
 }

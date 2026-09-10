@@ -2,6 +2,7 @@ import { index, route, type RouteConfig } from "@react-router/dev/routes";
 
 export default [
   route("healthz", "routes/healthz.ts"),
+  route("_", "routes/oauth-popup-result.tsx"),
   route("robots.txt", "routes/robots.ts"),
   route("sitemap.xml", "routes/sitemap.ts"),
   index("routes/index.tsx"),
@@ -19,7 +20,6 @@ export default [
   route("contact", "routes/contact.tsx"),
   route("pricing", "routes/pricing.tsx"),
   route("shipping-and-delivery-policy", "routes/shipping-and-delivery-policy.tsx"),
-  route("staging-login", "routes/staging-login.tsx"),
   route("terms-and-conditions", "routes/terms-and-conditions.tsx"),
   route("privacy-policy", "routes/privacy-policy.tsx"),
   route("refund-and-cancellation-policy", "routes/refund-and-cancellation-policy.tsx"),

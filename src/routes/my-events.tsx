@@ -20,7 +20,6 @@ import { useAuth } from "@/lib/auth-context";
 import { cancelMyRegistration, listMyEvents, type MyEventItem, type MyEventWaitlistItem } from "@/lib/data/my-events.client";
 import { leaveEventWaitlist } from "@/lib/data/public-client";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { downloadRegistrationReceipt } from "@/lib/data/receipt.client";
 import { formatDate, formatDateTime, formatEventTime } from "@/lib/dates";
@@ -93,10 +92,9 @@ function CancellationDialog({ item, pending, onClose, onSubmit }: {
   onClose: () => void;
   onSubmit: (reason: string) => void;
 }) {
-  const [reason, setReason] = useState("");
   const refund = item?.cancellation.mode === "refund_request";
   return (
-    <Dialog open={Boolean(item)} onOpenChange={(open) => { if (!open) { setReason(""); onClose(); } }}>
+    <Dialog open={Boolean(item)} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{refund ? "Request cancellation and refund" : "Cancel registration"}</DialogTitle>
@@ -112,13 +110,9 @@ function CancellationDialog({ item, pending, onClose, onSubmit }: {
             <strong className="text-black/75">Refund policy:</strong> {item.cancellation.refundPolicy}
           </div>
         )}
-        <div>
-          <label htmlFor="attendee-cancel-reason" className="text-xs font-bold">Reason <span className="font-normal text-black/40">(optional)</span></label>
-          <Textarea id="attendee-cancel-reason" rows={4} value={reason} onChange={(e) => setReason(e.target.value)} className="mt-2" placeholder="Anything the organisers should know" />
-        </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => { setReason(""); onClose(); }} disabled={pending}>Keep registration</Button>
-          <Button variant="destructive" disabled={pending} onClick={() => onSubmit(reason.trim())}>
+          <Button variant="outline" onClick={onClose} disabled={pending}>Keep registration</Button>
+          <Button variant="destructive" disabled={pending} onClick={() => onSubmit("")}>
             {pending ? "Saving…" : refund ? "Send refund request" : "Cancel registration"}
           </Button>
         </DialogFooter>

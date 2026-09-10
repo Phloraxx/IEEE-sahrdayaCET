@@ -24,6 +24,7 @@ test.describe("Event closeout workspace", () => {
     await expect(page.getByText("Finish reconciliation before archive")).toBeVisible();
     await expect(page.getByText("Pending registrations still need a final decision")).toBeVisible();
     await expect(page.getByRole("button", { name: "Archive settled event" })).toHaveCount(0);
+    await expect(page.getByText("No certificate work started", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Open attendees" }).click();
     await expect(page).toHaveURL(new RegExp(`/admin/events/${eventId}\\?tab=attendees`));
   });

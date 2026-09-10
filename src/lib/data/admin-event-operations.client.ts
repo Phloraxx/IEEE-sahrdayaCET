@@ -85,6 +85,24 @@ export interface EventCloseoutSummary {
   readyToArchive: boolean;
   blockers: EventCloseoutIssue[];
   warnings: EventCloseoutIssue[];
+  attendanceQualification: {
+    locked: boolean;
+    version: number;
+    lockedAt: string;
+    requiredSessionCount: number;
+    sessionCount: number;
+  };
+  certificateProgress: {
+    templateCount: number;
+    publishedTemplateCount: number;
+    issuedBatchCount: number;
+    issuedCertificateCount: number;
+    activeCertificateCount: number;
+    emailEligibleCount: number;
+    sentCount: number;
+    failedCount: number;
+    missingEmailCount: number;
+  };
   metrics: {
     pendingRegistrations: number;
     unresolvedRefundRequests?: number;
@@ -118,17 +136,6 @@ export interface AdminEventOperations {
     registeredCount: number;
     checkedInCount: number;
     society: string;
-    approvalStatus?: "draft" | "submitted" | "changes_requested" | "approved" | string;
-    approvalNote?: string;
-    submittedBy?: string;
-    submittedAt?: string;
-    approvedBy?: string;
-    approvedAt?: string;
-    approvalRevision?: number;
-    financeApprovalStatus?: "not_required" | "pending" | "changes_requested" | "approved" | string;
-    financeApprovalNote?: string;
-    financeApprovedBy?: string;
-    financeApprovedAt?: string;
   };
   summary: EventFinanceSummary;
   recent?: AdminRegistrationOperationRow[];
@@ -220,7 +227,6 @@ export async function createManualRegistration(
 
 export type RegistrationAdminAction =
   | "check-in"
-  | "undo-check-in"
   | "cancel"
   | "confirm-payment"
   | "restore"

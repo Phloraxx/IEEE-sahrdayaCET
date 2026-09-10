@@ -68,7 +68,7 @@ When adding or changing a command, test the failure path as carefully as the suc
 
 ## Authentication and roles
 
-Application roles are:
+PocketBase account roles remain:
 
 ```text
 user
@@ -81,6 +81,13 @@ admin
 - `chair` is scoped to societies they chair.
 - `content` owns editorial blog records they create.
 - `admin` has administrative access and privileged commands.
+
+Workspace assignments use the simplified capability roles `Organizer`,
+`Finance`, `Registration Staff`, `Check-in Staff`, and `Content Editor`.
+Assignments are branch-, society-, or event-scoped as appropriate. Historical
+role codes remain readable and are normalized to compatible storage aliases;
+organizational titles stay in Execom/assignment metadata and do not grant
+permissions by themselves.
 
 Generic user updates must not be able to change `role`; use the dedicated admin role command.
 
@@ -137,7 +144,12 @@ For regressions found on staging, add a test when practical before declaring the
 
 ## Branch and deployment contract
 
-CI runs on pushes to `main` and `dev`, and on pull requests/manual dispatch.
+CI runs full validation, clean-room backend checks, browser E2E, and container
+builds for pull requests into `dev`, final pushes to `main`, and manual runs.
+Merged `dev` pushes and pull requests into `main` retain a lighter validation
+gate; they do not repeat the heavyweight integration jobs. Production CD
+still deploys only after the full `main` push gate and its exact-SHA freshness
+check.
 
 Successful branch CI is mapped as follows:
 

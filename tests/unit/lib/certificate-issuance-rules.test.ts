@@ -26,9 +26,8 @@ describe("certificate issuance audience rules", () => {
     expect(rules.normalizeAudienceConfig("selected", { registrationIds: ["b", "a", "b", ""] })).toEqual({ registrationIds: ["a", "b"] });
   });
 
-  it("keeps attendance-qualified audiences unavailable until sessions exist", () => {
-    const errors = rules.audienceInputErrors("attendance_qualified", {});
-    expect(errors.join(" ")).toMatch(/attendance sessions/i);
+  it("accepts attendance-qualified audience input while runtime lock state remains server-owned", () => {
+    expect(rules.audienceInputErrors("attendance_qualified", {})).toEqual([]);
   });
 
   it("requires an explicit non-empty selected audience", () => {
@@ -57,9 +56,13 @@ describe("certificate issuance audience rules", () => {
       certificateType: "completion",
       audienceType: "selected",
       audienceConfig: { registrationIds: ["reg2", "reg1"] },
+      qualification: { version: 2, rule: "all_required_sessions", requiredSessionCount: 1 },
       recipients: [{ id: "reg1", name: "Alice", email: "a@example.com" }],
     });
-    expect(payload).toMatchObject({ audienceConfig: { registrationIds: ["reg1", "reg2"] } });
+    expect(payload).toMatchObject({
+      audienceConfig: { registrationIds: ["reg1", "reg2"] },
+      qualification: { version: 2, rule: "all_required_sessions", requiredSessionCount: 1 },
+    });
     expect(payload.recipients).toEqual([{ id: "reg1", name: "Alice", email: "a@example.com" }]);
   });
 });

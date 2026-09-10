@@ -36,6 +36,7 @@ PAYGATE_WEBHOOK_SECRET
 PAYGATE_REGISTRATION_GRACE_SECONDS
 PAYGATE_WEBHOOK_TOLERANCE_SECONDS
 PAYGATE_CLIENT_NAMESPACE
+
 FOOTBALL_DATA_API_TOKEN
 SMTP_HOST
 SMTP_PORT
@@ -43,6 +44,9 @@ SMTP_USERNAME
 SMTP_PASSWORD
 SMTP_FROM
 ```
+`PAYGATE_WEBHOOK_TOLERANCE_SECONDS` defaults to 300 seconds and is capped at
+900 seconds by the runtime. `PAYGATE_URL` must be HTTPS except for loopback
+or `host.docker.internal` fake-provider endpoints used by local/CI tests.
 
 Never reuse a production encryption key, OAuth application, payment secret, SMTP credential, or `pb_data` volume in staging.
 
@@ -79,7 +83,7 @@ Each public environment host has two routes:
 /     → web:3000
 ```
 
-Do not publish application host ports from Compose and do not expose PocketBase `/_/` through a public hostname.
+Do not publish application host ports from Compose. Public `/_/` is an IEEE-owned OAuth completion route; never map it to PocketBase or expose the PocketBase administration UI through a public hostname.
 
 Both services join Dokploy's proxy network. Web and PocketBase also share the private `app-internal` network. SSR uses `POCKETBASE_INTERNAL_URL=http://pocketbase-internal:8090`; the explicit alias avoids service-name collisions between multiple Dokploy projects attached to the same proxy network.
 
@@ -120,13 +124,21 @@ Staging intentionally returns `X-Robots-Tag: noindex, nofollow`. Its records may
 
 ## CI
 
-`.github/workflows/ci.yml` runs on pushes to `main` and `dev`, on pull requests, and on manual dispatch.
+`.github/workflows/ci.yml` runs on pushes to `main` and `dev`, on pull requests,
+and on manual dispatch. The expensive gates run for pull requests into `dev`,
+final `main` pushes, and manual runs. A merged `dev` push or a `dev` → `main`
+pull request runs the lighter validation job without repeating clean-room,
+browser, and container work.
 
-It has three gates:
+The workflow has three full gates:
 
 1. lint, typecheck, unit tests, and production web build;
 2. a clean-room PocketBase boot, backend invariant smoke suite, and Playwright Chromium tests;
 3. production Docker builds for the web and PocketBase images.
+
+The lighter merged-`dev` path still runs runtime syntax, lint, typecheck, unit tests,
+and the production web build for the exact SHA that staging CD may deploy. The final
+`main` push retains all three full gates, so CD's exact-SHA freshness check is not weakened.
 
 The clean-room backend starts with an empty PocketBase data directory. A successful run proves that committed migrations and hooks can construct a usable backend without depending on a long-lived database.
 

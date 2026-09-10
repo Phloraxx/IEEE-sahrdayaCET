@@ -25,7 +25,7 @@ Status: accepted on exact feature head `49877d898ae39ca20388145305063046dcc9e045
 
 ## Phase 2 — Attendance V2
 
-Status: accepted on exact feature head `8318476fc4ede335c7c6b7131a4420cb15932d72`; GitHub CI #936 passed validation, container builds, authenticated clean-room backend and Attendance V2 Browser E2E. Staging acceptance remains pending.
+Status: implemented and accepted. The original exact-head acceptance was `8318476fc4ede335c7c6b7131a4420cb15932d72`; later lifecycle releases preserved the same Attendance V2 invariants through clean-room CI and staging. Phase 5B now supplies the certificate-authoritative qualification lock.
 
 - Server-owned `event_sessions` plus append-only `attendance_records`.
 - Sessionless events retain legacy one-time check-in.
@@ -33,10 +33,10 @@ Status: accepted on exact feature head `8318476fc4ede335c7c6b7131a4420cb15932d72
 - Legacy arrival projection preserved for compatibility.
 - Continuous scoped scanner, live counts, recent scans and audited corrections.
 - Organizer Attendance tab and session management.
-- `attendance_qualified` remains disabled until Phase 5 closeout.
+- `attendance_qualified` is available only after a completed event explicitly locks Phase 5B attendance qualification; legacy first-arrival `checkedIn` never determines eligibility.
 ## Phase 3 — attendee continuity
 
-Status: accepted on exact feature head `22c8356c62022db2a193d709100c5babac52b3b9`; GitHub CI #938 passed validation, container builds, authenticated clean-room backend and My Events Browser E2E. Staging acceptance remains pending.
+Status: implemented and accepted. The original exact-head acceptance was `22c8356c62022db2a193d709100c5babac52b3b9`; subsequent lifecycle releases keep the My Events/calendar contract covered by clean-room Browser E2E and staging.
 
 - Authenticated `/my-events` server projection.
 - Stable ticket/payment/receipt/join-access actions.
@@ -46,7 +46,7 @@ Status: accepted on exact feature head `22c8356c62022db2a193d709100c5babac52b3b9
 
 ## Phase 4 — capacity/self-service
 
-Status: implemented locally on top of accepted Phase 3; fresh migration boot, local full repository gate and browser fixture construction are green. Authenticated clean-room CI remains pending.
+Status: implemented and accepted. Waitlist reservation, self-cancellation, paid refund-request separation and finance reconciliation are covered by current clean-room backend/browser regression and are present on staging.
 
 - Private FIFO waitlist lifecycle with capacity-reserving offers and expiry.
 - Free/unpaid self-cancellation with transactional seat release.
@@ -58,15 +58,19 @@ Status: implemented locally on top of accepted Phase 3; fresh migration boot, lo
 
 ## Phase 5 — closeout
 
-- Ended-event closeout workspace.
-- Attendance reconciliation/corrections.
-- Payment/refund exceptions.
-- Optional lightweight feedback.
-- Certificate eligibility from Attendance V2.
-- Archive readiness.
+Status: implemented and staging-accepted through merged `dev` `8c0f895a858e6f59d82b0294e358d793f92c5711`. Phase 5C attendee feedback is optional and is not required for lifecycle completion or production promotion.
+
+- Server-owned ended/completed-event closeout readiness and archive enforcement.
+- Append-only attendance reconciliation with explicit qualification lock/reopen versions.
+- Payment/refund exception blockers with finance-detail redaction for non-finance roles.
+- Deterministic `attendance_qualified` certificate audiences from required session evidence.
+- Read-only certificate/template/issuance and SMTP-handoff progress on Closeout.
+- Final archive action preserves attendee, attendance, finance, audit and certificate history.
 
 ## Phase 6 — code quality and end-to-end contract
 
-Refactor large event/payment surfaces into feature modules without changing business state machines, then add the single full browser lifecycle E2E.
+Status: the release contract is in place. Major event/payment/certificate responsibility refactors have already landed, and exact-head CI now runs an integrated clean-room backend plus Browser E2E suite across setup, attendance, attendee continuity, waitlist/refunds, payments, certificates and closeout.
 
-Each phase must pass focused tests, full typecheck, fresh PocketBase, GitHub clean-room CI and staging acceptance before production consideration.
+A single giant browser test is deliberately not added: the existing integrated scenario suite gives better failure isolation while exercising the same cross-feature contract in one fresh backend environment. Continue responsibility refactors only when a concrete boundary or defect justifies them; do not split files solely to reduce line counts.
+
+Every lifecycle change must still pass focused tests, full typecheck/build, fresh PocketBase clean-room regression, exact-head GitHub CI and staging acceptance before production consideration.

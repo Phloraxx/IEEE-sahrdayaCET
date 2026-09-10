@@ -76,7 +76,7 @@ test.describe("Certificate Template Studio", () => {
     await expect(page.getByText("Published artwork is read-only")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Recipients → Review → Issue", exact: true })).toBeVisible();
     await expect(page.getByText("No automatic email")).toBeVisible();
-    await page.getByRole("button", { name: /Confirmed/ }).click();
+    await page.getByRole("button", { name: /^Confirmed\b/ }).click();
     await page.getByRole("button", { name: "Review recipients", exact: true }).click();
     await expect(page.getByText("Review the exact audience")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole("button", { name: /Issue 1 certificate/ })).toBeDisabled();
