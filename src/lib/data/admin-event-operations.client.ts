@@ -227,7 +227,6 @@ export async function createManualRegistration(
 
 export type RegistrationAdminAction =
   | "check-in"
-  | "undo-check-in"
   | "cancel"
   | "confirm-payment"
   | "restore"

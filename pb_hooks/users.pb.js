@@ -17,7 +17,11 @@ routerAdd(
     }
 
     var nextRole = String(body.role || "")
-    var allowed = ["user", "chair", "admin", "content"]
+    // Legacy chair/content account roles remain readable, but may no longer be newly granted.
+    var allowed = ["user", "admin"]
+    if (nextRole === "chair" || nextRole === "content") {
+      return e.json(400, { error: "Chair/content account roles cannot be newly assigned" })
+    }
     if (allowed.indexOf(nextRole) === -1) {
       return e.json(400, { error: "Invalid role" })
     }

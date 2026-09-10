@@ -218,9 +218,12 @@ function UserList({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    {(u.role === "chair" || u.role === "content") && (
+                      <SelectItem value={u.role} disabled>
+                        {u.role === "chair" ? "Chair (legacy)" : "Content (legacy)"}
+                      </SelectItem>
+                    )}
                     <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="chair">Chair</SelectItem>
-                    <SelectItem value="content">Content</SelectItem>
                     <SelectItem value="user">User</SelectItem>
                   </SelectContent>
                 </Select>

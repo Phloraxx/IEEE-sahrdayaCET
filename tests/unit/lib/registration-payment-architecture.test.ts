@@ -155,11 +155,24 @@ describe("registration/payment experience architecture", () => {
   it("keeps external refund recording provider-neutral", () => {
     const cancellation = source("pb_hooks/event-cancellation.pb.js");
     const admin = source("pb_hooks/admin-operations.pb.js");
+    const lifecycleHelpers = source("pb_hooks/attendee-lifecycle-helpers.js");
     const operations = source("src/features/admin/events/event-operations-components.tsx");
+    const registrationDetail = source("src/features/admin/registrations/registration-detail.tsx");
+    const registrationQueue = source("src/routes/admin.registrations.index.tsx");
     expect(cancellation).toContain("manual refund requires organizer resolution");
     expect(cancellation).not.toContain("Razorpay Dashboard");
     expect(admin).not.toContain("RAZORPAY_REFUND_MANUAL_ONLY");
+    expect(admin).toContain("cancelUnpaidRegistration(txApp, reg, auth.id, note, now)");
+    expect(admin).toContain('code: "PAID_REGISTRATION_REQUIRES_REQUEST"');
+    expect(lifecycleHelpers).toContain('ledgerStatus === "created" || ledgerStatus === "pending" || ledgerStatus === "authorized"');
+    expect(lifecycleHelpers).toContain('payments", "registration = {:registration}"');
     expect(operations).toContain('row.paymentStatus === "paid"');
+    expect(operations).toContain('row.paymentStatus !== "paid"');
+    expect(registrationDetail).toContain('reg.paymentStatus !== "paid"');
+    expect(registrationQueue).toContain('row.paymentStatus !== "paid"');
+    expect(operations).toContain('row.paymentStatus !== "refunded"');
+    expect(registrationDetail).toContain('reg.paymentStatus !== "refunded"');
+    expect(registrationQueue).toContain('row.paymentStatus !== "refunded"');
     expect(operations).not.toContain('row.provider !== "razorpay"');
   });
 

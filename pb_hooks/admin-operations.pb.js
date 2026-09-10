@@ -512,7 +512,6 @@ routerAdd("POST", "/api/admin/registrations/{id}/command", function (e) {
   var note = String(body.note || "").trim()
   var requiredCapability = {
     "check-in": "checkin.manage",
-    "undo-check-in": "checkin.manage",
     "cancel": "registrations.manage",
     "confirm-payment": "finance.manage",
     "restore": "registrations.manage",
@@ -525,7 +524,6 @@ routerAdd("POST", "/api/admin/registrations/{id}/command", function (e) {
 
   var allowed = {
     "check-in": true,
-    "undo-check-in": true,
     "cancel": true,
     "confirm-payment": true,
     "restore": true,
@@ -535,7 +533,7 @@ routerAdd("POST", "/api/admin/registrations/{id}/command", function (e) {
   if (!allowed[action]) {
     return e.json(400, { code: "INVALID_ACTION", error: "Unknown registration action" })
   }
-  if ((action === "check-in" || action === "undo-check-in") && require(__hooks + "/attendance-v2-helpers.js").eventHasSessions($app, event.id)) {
+  if (action === "check-in" && require(__hooks + "/attendance-v2-helpers.js").eventHasSessions($app, event.id)) {
     return e.json(409, { code: "USE_ATTENDANCE_V2", error: "Use the Attendance console for session-enabled events" })
   }
   if (action === "check-in") {
@@ -577,15 +575,18 @@ routerAdd("POST", "/api/admin/registrations/{id}/command", function (e) {
           reg.set("checkedIn", true)
           reg.set("checkedInAt", now)
         }
-      } else if (action === "undo-check-in") {
-        if (reg.getBool("checkedIn")) {
-          reg.set("checkedIn", false)
-          reg.set("checkedInAt", "")
-        }
       } else if (action === "cancel") {
         if (regStatus !== "cancelled") {
-          reg.set("registrationStatus", "cancelled")
-          if (payStatus === "pending") reg.set("paymentStatus", "failed")
+          try {
+            attendeeLifecycle.cancelUnpaidRegistration(txApp, reg, auth.id, note, now)
+          } catch (err) {
+            if (String(err && err.message || err) === "PAID_REGISTRATION_REQUIRES_REQUEST") {
+              failure = { status: 409, code: "PAID_REGISTRATION_REQUIRES_REQUEST", error: "Paid registrations must use the refund workflow" }
+              return
+            }
+            throw err
+          }
+          data = helpers.jsonObject(reg.get("paymentData"))
           data.adminCancellation = {
             cancelledAt: now,
             cancelledBy: auth.id,
@@ -719,7 +720,7 @@ routerAdd("POST", "/api/admin/registrations/{id}/command", function (e) {
           return
         }
         if (reg.getBool("checkedIn")) {
-          failure = { status: 409, code: "ALREADY_CHECKED_IN", error: "Undo check-in before reopening this payment" }
+          failure = { status: 409, code: "ALREADY_CHECKED_IN", error: "Checked-in registrations cannot be reopened" }
           return
         }
         var providerStatus = String(data.providerStatus || "")

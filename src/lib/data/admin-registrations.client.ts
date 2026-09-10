@@ -112,7 +112,7 @@ export async function getAdminRegistration(id: string): Promise<{ registration: 
 
 export async function runRegistrationAdminCommand(
   id: string,
-  command: "check-in" | "cancel" | "undo-check-in",
+  command: "check-in" | "cancel",
 ) {
   return runAdminRegistrationCommand(id, { action: command });
 }
