@@ -68,7 +68,7 @@ test.describe("Certificate editor real interactions", () => {
     await page.locator("#cert-email-body").fill("Hi {{firstName}},\n\nYour {{certificateType}} certificate is ready: {{verificationUrl}}\nID {{credentialId}}");
     await expect(page.getByText("Unsaved changes")).toBeVisible();
 
-    const namePreview = page.getByRole("button", { name: "Alexandra Joseph", exact: true });
+    const namePreview = page.getByRole("button", { name: "Alexandra Joseph", exact: true }).first();
     const before = await namePreview.boundingBox();
     expect(before).not.toBeNull();
     await page.mouse.move(before!.x + before!.width / 2, before!.y + before!.height / 2);
@@ -95,7 +95,7 @@ test.describe("Certificate editor real interactions", () => {
     await expect(page.locator("#cert-name-color")).toHaveValue("#123456");
     await expect(page.getByLabel("QR")).toBeChecked();
     await expect(page.locator("#cert-email-subject")).toHaveValue("Certificate for {{eventTitle}} · {{name}}");
-    await expect(page.locator("#cert-email-body")).toContainText("Your {{certificateType}} certificate is ready");
+    await expect(page.locator("#cert-email-body")).toHaveValue("Hi {{firstName}},\n\nYour {{certificateType}} certificate is ready: {{verificationUrl}}\nID {{credentialId}}");
     await expect(page.getByAltText("Certificate render base preview")).toBeVisible();
 
     await page.getByRole("button", { name: "Send test email", exact: true }).click();
