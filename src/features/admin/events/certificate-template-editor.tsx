@@ -52,7 +52,7 @@ function previewNameFontSize(name: string, layout: CertificateTemplateLayout["na
 }
 
 function percent(value: number) {
-  return Math.round(value * 100);
+  return Math.round(value * 1000) / 10;
 }
 
 function numberFromPercent(value: string, fallback: number) {
@@ -103,7 +103,7 @@ export function TemplatePreview({
   onPreviewLoad: () => void;
 }) {
   const surfaceRef = useRef<HTMLDivElement>(null);
-  const [dragging, setDragging] = useState<DragTarget | null>(null);
+  const draggingRef = useRef<DragTarget | null>(null);
   const [previewName, setPreviewName] = useState<string>(CERTIFICATE_PREVIEW_NAMES[1]);
   const [previewWidth, setPreviewWidth] = useState(0);
   const canvasWidth = previewDimensions?.width || template.canvasWidth || 2400;
@@ -137,11 +137,6 @@ export function TemplatePreview({
         ref={surfaceRef}
         className="relative w-full overflow-hidden rounded-xl bg-white shadow-2xl"
         style={{ aspectRatio: `${canvasWidth} / ${canvasHeight}` }}
-        onPointerMove={(event) => {
-          if (editable && dragging) moveTarget(dragging, event.clientX, event.clientY);
-        }}
-        onPointerUp={() => setDragging(null)}
-        onPointerCancel={() => setDragging(null)}
       >
         {previewUrl ? (
           <img src={previewUrl} alt="Certificate render base preview" className="absolute inset-0 h-full w-full object-fill" onLoad={onPreviewLoad} />
@@ -157,12 +152,22 @@ export function TemplatePreview({
         <button
           type="button"
           disabled={!editable}
+          data-testid="certificate-name-placement"
           onPointerDown={(event) => {
             if (!editable) return;
+            draggingRef.current = "name";
             event.currentTarget.setPointerCapture(event.pointerId);
-            setDragging("name");
             moveTarget("name", event.clientX, event.clientY);
           }}
+          onPointerMove={(event) => {
+            if (editable && draggingRef.current === "name") moveTarget("name", event.clientX, event.clientY);
+          }}
+          onPointerUp={(event) => {
+            if (draggingRef.current !== "name") return;
+            draggingRef.current = null;
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+          }}
+          onPointerCancel={() => { if (draggingRef.current === "name") draggingRef.current = null; }}
           className="absolute touch-none select-none rounded-md border border-primary/40 bg-white/85 px-2 py-1 shadow-sm backdrop-blur disabled:cursor-default"
           style={{
             left: `${layout.name.x * 100}%`,
@@ -182,12 +187,22 @@ export function TemplatePreview({
         <button
           type="button"
           disabled={!editable}
+          data-testid="certificate-id-placement"
           onPointerDown={(event) => {
             if (!editable) return;
+            draggingRef.current = "credentialId";
             event.currentTarget.setPointerCapture(event.pointerId);
-            setDragging("credentialId");
             moveTarget("credentialId", event.clientX, event.clientY);
           }}
+          onPointerMove={(event) => {
+            if (editable && draggingRef.current === "credentialId") moveTarget("credentialId", event.clientX, event.clientY);
+          }}
+          onPointerUp={(event) => {
+            if (draggingRef.current !== "credentialId") return;
+            draggingRef.current = null;
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+          }}
+          onPointerCancel={() => { if (draggingRef.current === "credentialId") draggingRef.current = null; }}
           className="absolute touch-none select-none rounded border border-slate-400/50 bg-white/80 px-1.5 py-1 font-mono shadow-sm disabled:cursor-default"
           style={{
             left: `${layout.credentialId.x * 100}%`,
@@ -204,12 +219,22 @@ export function TemplatePreview({
         {layout.qr.enabled !== false && <button
           type="button"
           disabled={!editable}
+          data-testid="certificate-qr-placement"
           onPointerDown={(event) => {
             if (!editable) return;
+            draggingRef.current = "qr";
             event.currentTarget.setPointerCapture(event.pointerId);
-            setDragging("qr");
             moveTarget("qr", event.clientX, event.clientY);
           }}
+          onPointerMove={(event) => {
+            if (editable && draggingRef.current === "qr") moveTarget("qr", event.clientX, event.clientY);
+          }}
+          onPointerUp={(event) => {
+            if (draggingRef.current !== "qr") return;
+            draggingRef.current = null;
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+          }}
+          onPointerCancel={() => { if (draggingRef.current === "qr") draggingRef.current = null; }}
           className="absolute grid aspect-square touch-none select-none place-items-center border border-slate-400/50 bg-white shadow-sm disabled:cursor-default"
           style={{ left: `${layout.qr.x * 100}%`, top: `${layout.qr.y * 100}%`, width: `${layout.qr.size * 100}%`, transform: "translate(-50%, -50%)" }}
           aria-label="QR placement preview"

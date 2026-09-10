@@ -47,7 +47,8 @@ test.describe("Certificate editor real interactions", () => {
     });
     await expect(page.getByText("1800×1200 · unsaved artwork")).toBeVisible();
 
-    await page.locator("#cert-name-x").fill("63");
+    await page.locator("#cert-name-x").fill("63.5");
+    await expect(page.locator("#cert-name-x")).toHaveValue("63.5");
     await page.locator("#cert-name-y").fill("41");
     await page.locator("#cert-name-width").fill("72");
     await page.locator("#cert-name-size").fill("132");
@@ -68,7 +69,7 @@ test.describe("Certificate editor real interactions", () => {
     await page.locator("#cert-email-body").fill("Hi {{firstName}},\n\nYour {{certificateType}} certificate is ready: {{verificationUrl}}\nID {{credentialId}}");
     await expect(page.getByText("Unsaved changes")).toBeVisible();
 
-    const namePreview = page.getByRole("button", { name: "Alexandra Joseph", exact: true }).first();
+    const namePreview = page.getByTestId("certificate-name-placement");
     const before = await namePreview.boundingBox();
     expect(before).not.toBeNull();
     await page.mouse.move(before!.x + before!.width / 2, before!.y + before!.height / 2);
