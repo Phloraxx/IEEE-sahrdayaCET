@@ -52,7 +52,7 @@ function previewNameFontSize(name: string, layout: CertificateTemplateLayout["na
 }
 
 function percent(value: number) {
-  return Math.round(value * 100);
+  return Math.round(value * 1000) / 10;
 }
 
 function numberFromPercent(value: string, fallback: number) {
@@ -157,6 +157,7 @@ export function TemplatePreview({
         <button
           type="button"
           disabled={!editable}
+          data-testid="certificate-name-placement"
           onPointerDown={(event) => {
             if (!editable) return;
             event.currentTarget.setPointerCapture(event.pointerId);
@@ -182,6 +183,7 @@ export function TemplatePreview({
         <button
           type="button"
           disabled={!editable}
+          data-testid="certificate-id-placement"
           onPointerDown={(event) => {
             if (!editable) return;
             event.currentTarget.setPointerCapture(event.pointerId);
@@ -204,6 +206,7 @@ export function TemplatePreview({
         {layout.qr.enabled !== false && <button
           type="button"
           disabled={!editable}
+          data-testid="certificate-qr-placement"
           onPointerDown={(event) => {
             if (!editable) return;
             event.currentTarget.setPointerCapture(event.pointerId);
