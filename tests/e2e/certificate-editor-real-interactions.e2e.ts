@@ -27,11 +27,30 @@ async function dragPlacement(page: Page, testId: string, inputId: string, dx: nu
   const handle = page.getByTestId(testId);
   const box = await handle.boundingBox();
   expect(box).not.toBeNull();
+  await expect(handle).toBeEnabled();
   const before = await page.locator(inputId).inputValue();
-  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+  const center = { x: box!.x + box!.width / 2, y: box!.y + box!.height / 2 };
+  await page.evaluate(({ x, y }) => {
+    const hit = document.elementFromPoint(x, y) as HTMLElement | null;
+    console.log("CERT_DRAG_HIT", JSON.stringify({
+      tag: hit?.tagName || "", testId: hit?.dataset.testid || "",
+      parentTestId: hit?.parentElement?.dataset.testid || "", text: (hit?.textContent || "").trim().slice(0, 60),
+    }));
+    (window as typeof window & { __certDragProbe?: string[] }).__certDragProbe = [];
+    for (const type of ["pointerdown", "mousedown", "pointermove", "mousemove", "pointerup", "mouseup"]) {
+      window.addEventListener(type, (event) => {
+        const target = event.target as HTMLElement | null;
+        (window as typeof window & { __certDragProbe?: string[] }).__certDragProbe?.push(
+          `${type}:${target?.dataset.testid || target?.parentElement?.dataset.testid || target?.tagName || ""}`,
+        );
+      }, { capture: true, once: false });
+    }
+  }, center);
+  await page.mouse.move(center.x, center.y);
   await page.mouse.down();
-  await page.mouse.move(box!.x + box!.width / 2 + dx, box!.y + box!.height / 2 + dy, { steps: 4 });
+  await page.mouse.move(center.x + dx, center.y + dy, { steps: 4 });
   await page.mouse.up();
+  console.log("CERT_DRAG_EVENTS", await page.evaluate(() => (window as typeof window & { __certDragProbe?: string[] }).__certDragProbe));
   await expect(page.locator(inputId)).not.toHaveValue(before);
 }
 test.describe("Certificate editor real interactions", () => {
