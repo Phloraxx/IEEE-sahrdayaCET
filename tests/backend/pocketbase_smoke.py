@@ -1643,6 +1643,14 @@ closeout_paid = request("POST", f"/api/admin/events/{closeout_event['id']}/regis
     "name": "Closeout Refund", "email": second_user["email"], "userId": second_user["id"],
     "paymentMode": "paid", "paymentReference": f"CLOSEOUT-{suffix}", "note": "CI closeout paid registration",
 }, admin_token)["registration"]
+terminal_reassignment = request("PATCH", f"/api/collections/registrations/records/{closeout_paid['id']}", {
+    "event": ops_event["id"],
+}, super_token, expected=(400,))
+assert "cancelled or archived events" in json.dumps(terminal_reassignment).lower()
+closeout_paid_after_reassignment = request(
+    "GET", f"/api/collections/registrations/records/{closeout_paid['id']}", token=super_token
+)
+assert closeout_paid_after_reassignment["event"] == closeout_event["id"]
 closeout_request = request("POST", "/api/collections/registration_cancellation_requests/records", {
     "registration": closeout_paid["id"], "event": closeout_event["id"], "user": second_user["id"],
     "kind": "refund", "status": "open", "activeKey": f"closeout:{closeout_paid['id']}",
