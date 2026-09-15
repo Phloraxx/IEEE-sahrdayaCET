@@ -179,9 +179,9 @@ The current `/events` page is a programme-first editorial schedule.
 Keep:
 - the shared Navbar/Footer and light `#F8F9FA` surface;
 - a compact asymmetric `Events` programme header directly above the rows;
-- one continuous upcoming-to-archive programme canvas;
-- a compact `Programme index` handoff rather than a second oversized section introduction;
-- sharp typographic status tabs plus visibly labelled search/society controls;
+- one continuous upcoming-to-past programme canvas;
+- a compact `Past programme` archive handoff rather than a second oversized section introduction;
+- visibly labelled search/society controls for the archive, without lifecycle tabs that duplicate the upcoming schedule;
 - strong desktop/mobile information density;
 - current footer transition.
 

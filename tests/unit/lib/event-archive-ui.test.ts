@@ -6,22 +6,25 @@ const read = (relativePath: string) =>
   fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 
 describe("event programme UI", () => {
-  it("opens with a compact programme schedule while keeping the complete index searchable and bounded", () => {
+  it("opens with a compact upcoming schedule and a searchable, bounded past programme", () => {
     const source = read("src/features/events/EventsPageClient.tsx");
 
     expect(source).not.toContain("EventHeroSection");
     expect(source).not.toContain("function FeaturedEvent");
     expect(source).toContain('title="Events"');
     expect(source).toContain('const ARCHIVE_PAGE_SIZE = 10');
-    expect(source).toContain('useState<ArchiveFilter>("past")');
-    expect(source).toContain('placeholder="Event or venue"');
-    expect(source).toContain('const ARCHIVE_FILTERS = ["all", "upcoming", "past"] as const');
-    expect(source).toContain('aria-label="Filter by society"');
+    expect(source).not.toContain("ArchiveFilter");
+    expect(source).not.toContain("ARCHIVE_FILTERS");
+    expect(source).toContain("const pastEvents = useMemo");
+    expect(source).toContain('placeholder="Title, society or venue"');
+    expect(source).toContain('aria-label="Filter past events by society"');
+    expect(source).toContain("focus-visible:ring-2");
     expect(source).toContain('visibleArchiveEvents = filteredArchiveEvents.slice(0, visibleArchiveCount)');
     expect(source).toContain("archiveGroups");
-    expect(source).toContain("Programme index");
+    expect(source).toContain("Past programme");
+    expect(source).not.toContain("Programme index");
     expect(source).not.toContain("Past, present, next.");
-    expect(source).toContain("Load next 10 events");
+    expect(source).toContain("Show 10 more events");
     expect(source).not.toContain("InfiniaTeaserSection");
 
     const route = read("src/routes/events.tsx");
@@ -73,10 +76,16 @@ describe("event programme UI", () => {
     expect(card).toContain("EventArtworkPreview");
     expect(card).toContain("EventBannerFallback");
     expect(card).toContain("data-next");
+    expect(card).toContain("Registration open");
+    expect(card).toContain('aria-hidden="true"');
+    expect(card).not.toContain("motion.span");
+    expect(card).not.toContain("whileTap");
+    expect(card).not.toContain("animateEntrance");
     expect(card).not.toContain("onActivate");
     expect(styles).not.toContain("event-programme-hero");
     expect(styles).not.toContain("event-programme-grid");
     expect(styles).toContain("event-signal-pulse");
+    expect(styles).toContain('--font-sans: "Geist Variable"');
     expect(styles).toContain("@media (prefers-reduced-motion: reduce)");
     expect(fallback).toContain("SOCIETY_COLORS");
     expect(fallback).not.toContain("bg-linear-to-br");
