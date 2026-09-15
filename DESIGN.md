@@ -52,18 +52,16 @@ Do not couple homepage card layout to uploaded event-poster aspect ratios.
 
 ## Events page
 
-The Events page uses a playful editorial language on a light `#F8F9FA` surface:
+The Events page uses an OFFF Forum-inspired programme register while remaining recognisably IEEE Sahrdaya: a light `#F8F9FA` surface, precise rules, asymmetric calendar columns, pixel/mono labels, and real event artwork used as small supporting signals.
 
-- very large type;
-- IEEE blue as the main accent;
-- rounded white event cards;
-- handwritten annotations/doodles;
-- strong whitespace and asymmetrical poster-like compositions;
-- real event banners remain appropriate on event cards/detail surfaces.
-
-The Infinia teaser sits between Upcoming Events and the event archive. It is intentionally a teaser, not a conventional registration card: oversized background type, chef cutout, handwritten leak-style copy, recipe metadata, and the flagship lineage strip.
-
-Do not turn that section into a generic blue CTA block unless the product intent changes from tease to launch.
+- The opening experience starts directly below the shared Navbar with a compact programme header; there is no standalone dark hero or preamble.
+- The live programme header uses a three-column left rail for the index/count and a larger title/calendar area, then places the first useful event row immediately in the first viewport.
+- Upcoming events are direct, crawlable links in an editorial schedule. Every row keeps date, society, entry state, time/TBC, venue, availability and an inline artwork/fallback thumbnail visible without hover.
+- The first/next row may carry only a restrained IEEE-blue rule/dot; do not turn rows into dark selected cards.
+- The layout adapts for zero, one or many upcoming events and never allocates a fixed poster rail or duplicated preview area.
+- The archive keeps `all`, `upcoming`, and `past` filters, search, society filtering, chronological groups, and direct leaf routes. Keep the archive toolbar compact and adjacent to the groups.
+- Use brief Framer Motion reveals and micro-interactions (approximately 360ms header, 35–45ms row stagger, 3px row nudge, subtle thumbnail scale) and honour `prefers-reduced-motion` by making them immediate.
+- Real event banners remain appropriate on event detail surfaces; the index should not depend on their aspect ratio.
 
 ### SustainX event story
 
