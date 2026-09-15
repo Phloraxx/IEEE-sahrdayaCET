@@ -32,20 +32,20 @@ function ArchiveRow({ event, index }: { event: ExtendedEvent; index: number }) {
     >
       <Link
         to={`/events/${event.slug}`}
-        className="group grid grid-cols-[64px_minmax(0,1fr)_auto] items-center gap-4 py-5 sm:grid-cols-[88px_minmax(0,1fr)_190px_90px] sm:gap-6 md:py-6"
+        className="group grid grid-cols-[64px_minmax(0,1fr)_auto] items-center gap-4 px-3 py-5 transition-colors hover:bg-[#00629B]/[0.035] focus-visible:bg-[#00629B]/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#00629B] sm:grid-cols-[88px_minmax(0,1fr)_190px_90px] sm:gap-6 md:px-4 md:py-6"
       >
         <div>
           <div className="text-2xl font-semibold tracking-[-0.05em] tabular-nums text-[#111315]">{formatDay(event.date)}</div>
           <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.15em] text-black/35">{formatWeekdayShort(event.date)}</div>
         </div>
         <div className="min-w-0">
-          <div className="line-clamp-2 text-lg font-semibold leading-tight tracking-[-0.025em] text-[#111315] transition group-hover:text-[#00629B] sm:text-xl">{event.title}</div>
+          <div className="line-clamp-2 text-lg font-semibold leading-tight tracking-[-0.025em] text-[#111315] transition-colors group-hover:text-[#00629B] group-focus-visible:text-[#00629B] sm:text-xl">{event.title}</div>
           <div className="mt-1 truncate text-xs text-black/42 sm:hidden">{societyName}</div>
         </div>
         <div className="hidden truncate text-xs font-medium text-black/42 sm:block">{societyName}</div>
         <div className="flex items-center justify-end gap-3">
           <span className="hidden text-[9px] font-bold uppercase tracking-[0.15em] text-black/38 md:inline">{event.price > 0 ? `₹${event.price}` : "Free"}</span>
-          <span className="grid h-9 w-9 place-items-center rounded-full border border-black/14 transition group-hover:border-[#00629B] group-hover:bg-[#00629B] group-hover:text-white">
+          <span className="grid h-10 w-10 place-items-center border border-black/14 transition group-hover:border-[#00629B] group-hover:bg-[#00629B] group-hover:text-white group-focus-visible:border-[#00629B] group-focus-visible:bg-[#00629B] group-focus-visible:text-white">
             <ArrowUpRight className="h-4 w-4" />
           </span>
         </div>
@@ -125,91 +125,107 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
     <main className="min-h-screen overflow-x-hidden bg-[#f8f9fa] font-sans text-[#111315] selection:bg-[#00629B] selection:text-white">
       <Navbar mobileAlign="right" />
       <div className="px-5 pt-20 sm:px-8 md:pt-24 lg:px-12">
-        <div className="mx-auto max-w-[1440px] pb-20 pt-4 md:pb-28 md:pt-6" id="upcoming-events">
+        <div className="mx-auto max-w-[1440px] pb-10 pt-4 md:pb-14 md:pt-6" id="upcoming-events">
           <EventListSection
             events={upcomingEvents}
             loading={false}
             error={null}
             onRetry={() => revalidator.revalidate()}
-            title="Upcoming programme"
+            title="Events"
             emptyTitle="Nothing scheduled yet"
             emptyMessage="New events will appear here as soon as they are announced."
           />
         </div>
 
         <section id="event-archive" className="mx-auto max-w-[1440px] pb-28 md:pb-36">
-          <div className="border-t border-black/10 pt-6">
-            <div className="flex flex-col gap-4 py-6 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <p className="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-[#00629B]"><span className="font-pixel text-[8px] text-black/35">02</span> / Programme index</p>
-                <h2 className="mt-2 text-3xl font-semibold leading-none tracking-[-0.055em] text-[#111315] sm:text-4xl">Past, present, next.</h2>
+          <div className="border-t border-black/10">
+            <div className="grid gap-4 py-5 md:grid-cols-12 md:items-end md:gap-8 md:py-6">
+              <div className="md:col-span-3">
+                <p className="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-[#00629B]">
+                  <span className="font-pixel text-[8px] text-black/35">02</span> / Full index
+                </p>
+                <p className="mt-2 font-mono text-[9px] font-semibold uppercase tracking-[0.15em] text-black/35">
+                  {String(extendedEvents.length).padStart(2, "0")} records
+                </p>
               </div>
-              <p className="max-w-md text-sm leading-relaxed text-black/48 sm:text-right">
-                Search the complete programme by status or society, then open any event for the full details.
-              </p>
+              <div className="md:col-span-9 md:flex md:items-end md:justify-between md:gap-8">
+                <h2 className="text-2xl font-semibold leading-none tracking-[-0.05em] text-[#111315] sm:text-3xl">Programme index</h2>
+                <p className="mt-2 max-w-md text-sm leading-relaxed text-black/48 md:mt-0 md:text-right">
+                  Move through the complete programme without leaving the timetable.
+                </p>
+              </div>
             </div>
 
-            <div className="sticky top-20 z-20 -mx-5 border-y border-black/10 bg-[#f8f9fa]/92 px-5 py-4 backdrop-blur-xl sm:-mx-8 sm:px-8 lg:mx-0 lg:px-0">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="event-filter-scroll flex items-center gap-2 overflow-x-auto" aria-label="Filter events by status">
+            <div className="-mx-5 border-y border-black/10 bg-[#f8f9fa] px-5 py-3 sm:-mx-8 sm:px-8 lg:sticky lg:top-20 lg:z-20 lg:mx-0 lg:px-0">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div className="event-filter-scroll flex items-center gap-6 overflow-x-auto" aria-label="Filter events by status">
                   {ARCHIVE_FILTERS.map((filter) => (
                     <button
                       key={filter}
                       type="button"
                       onClick={() => setArchiveFilter(filter)}
                       aria-pressed={archiveFilter === filter}
-                      className={`shrink-0 rounded-full px-4 py-2 text-[10px] font-bold uppercase tracking-[0.15em] transition ${archiveFilter === filter ? "bg-[#111315] text-white" : "border border-black/15 text-black/55 hover:border-black/35 hover:text-black"}`}
+                      className={`relative min-h-11 shrink-0 px-0.5 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors ${archiveFilter === filter ? "text-[#111315]" : "text-black/42 hover:text-black"}`}
                     >
                       {filter}
+                      <span
+                        aria-hidden="true"
+                        className={`absolute inset-x-0 bottom-0 h-0.5 origin-left bg-[#00629B] transition-transform duration-200 ${archiveFilter === filter ? "scale-x-100" : "scale-x-0"}`}
+                      />
                     </button>
                   ))}
                 </div>
 
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <label className="relative block min-w-0 sm:w-72">
-                    <Search className="pointer-events-none absolute left-0 top-1/2 h-4 w-4 -translate-y-1/2 text-black/35" />
-                    <input
-                      type="search"
-                      value={archiveSearch}
-                      onChange={(event) => setArchiveSearch(event.target.value)}
-                      placeholder="Search events"
-                      aria-label="Search events"
-                      className="h-10 w-full border-b border-black/20 bg-transparent pl-7 pr-8 text-sm outline-none transition placeholder:text-black/35 focus:border-[#00629B]"
-                    />
-                    {archiveSearch && (
-                      <button type="button" onClick={() => setArchiveSearch("")} aria-label="Clear search" className="absolute right-0 top-1/2 -translate-y-1/2 text-black/40 hover:text-black">
-                        <X className="h-4 w-4" />
-                      </button>
-                    )}
+                <div className="grid gap-3 sm:grid-cols-[minmax(0,18rem)_minmax(0,15rem)] sm:items-end">
+                  <label className="grid min-w-0 gap-1">
+                    <span className="font-mono text-[8px] font-bold uppercase tracking-[0.16em] text-black/35">Search</span>
+                    <span className="relative block">
+                      <Search className="pointer-events-none absolute left-0 top-1/2 h-4 w-4 -translate-y-1/2 text-black/35" />
+                      <input
+                        type="search"
+                        value={archiveSearch}
+                        onChange={(event) => setArchiveSearch(event.target.value)}
+                        placeholder="Event or venue"
+                        className="h-11 w-full border-b border-black/20 bg-transparent pl-7 pr-11 text-sm outline-none transition placeholder:text-black/30 focus:border-[#00629B]"
+                      />
+                      {archiveSearch && (
+                        <button type="button" onClick={() => setArchiveSearch("")} aria-label="Clear search" className="absolute right-0 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center text-black/40 transition hover:text-black focus-visible:outline-2 focus-visible:outline-[#00629B]">
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </span>
                   </label>
 
-                  <select
-                    value={archiveSociety}
-                    onChange={(event) => setArchiveSociety(event.target.value)}
-                    aria-label="Filter by society"
-                    className="h-10 max-w-full border-b border-black/20 bg-transparent pr-5 text-xs font-semibold text-black/60 outline-none focus:border-[#00629B]"
-                  >
-                    {societyOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-                  </select>
+                  <label className="grid min-w-0 gap-1">
+                    <span className="font-mono text-[8px] font-bold uppercase tracking-[0.16em] text-black/35">Society</span>
+                    <select
+                      value={archiveSociety}
+                      onChange={(event) => setArchiveSociety(event.target.value)}
+                      aria-label="Filter by society"
+                      className="h-11 max-w-full border-b border-black/20 bg-transparent pr-5 text-xs font-semibold text-black/60 outline-none focus:border-[#00629B]"
+                    >
+                      {societyOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                    </select>
+                  </label>
                 </div>
               </div>
             </div>
 
-            <div className="mt-6 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.14em] text-black/40">
+            <div className="mt-4 flex min-h-10 items-center justify-between border-b border-black/10 text-[10px] font-semibold uppercase tracking-[0.14em] text-black/40">
               <span>{filteredArchiveEvents.length} {filteredArchiveEvents.length === 1 ? "event" : "events"}</span>
               {(archiveSearch || archiveFilter !== "past" || archiveSociety !== "All societies") && (
                 <button type="button" onClick={resetArchive} className="transition hover:text-[#00629B]">Reset</button>
               )}
             </div>
 
-            <div className="mt-8 space-y-12 md:mt-10 md:space-y-16">
+            <div className="mt-6 space-y-10 md:mt-8 md:space-y-12">
               {archiveGroups.length > 0 ? (
                 archiveGroups.map((group, groupIndex) => (
-                  <section key={group.label} className="grid gap-5 md:grid-cols-[210px_minmax(0,1fr)] md:gap-10">
+                  <section key={group.label} className="grid gap-4 md:grid-cols-[190px_minmax(0,1fr)] md:gap-8">
                     <div>
                       <div className="md:sticky md:top-40">
-                        <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/35">Month</div>
-                        <h3 className="mt-2 text-3xl font-semibold leading-none tracking-[-0.055em] text-[#111315] sm:text-4xl">{group.label}</h3>
+                        <div className="font-mono text-[8px] font-bold uppercase tracking-[0.2em] text-black/35">Index / month</div>
+                        <h3 className="mt-2 text-2xl font-semibold leading-none tracking-[-0.05em] text-[#111315] sm:text-3xl">{group.label}</h3>
                         <div className="mt-3 text-[9px] font-bold uppercase tracking-[0.16em] text-[#00629B]">{String(group.events.length).padStart(2, "0")} listed</div>
                       </div>
                     </div>
@@ -233,8 +249,8 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
 
             {hasMoreArchiveEvents && (
               <div className="mt-10 flex justify-center">
-                <button type="button" onClick={() => setVisibleArchiveCount((count) => count + ARCHIVE_PAGE_SIZE)} className="rounded-full border border-black/20 px-6 py-3 text-[10px] font-bold uppercase tracking-[0.16em] transition hover:border-[#111315] hover:bg-[#111315] hover:text-white">
-                  Show more
+                <button type="button" onClick={() => setVisibleArchiveCount((count) => count + ARCHIVE_PAGE_SIZE)} className="min-h-11 border-b-2 border-[#00629B] px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#111315] transition-colors hover:text-[#00629B] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#00629B]">
+                  Load next 10 events ↓
                 </button>
               </div>
             )}

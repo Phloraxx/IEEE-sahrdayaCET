@@ -77,14 +77,14 @@ export function EventRow({
                 <span aria-hidden="true" className="text-black/25">/</span>
                 <span>{event.price > 0 ? `₹${event.price}` : "Free"}</span>
               </div>
-              <h3 className="max-w-3xl break-words text-[1.18rem] font-semibold leading-[1.04] tracking-[-0.045em] sm:text-2xl lg:text-[2rem]">{event.title}</h3>
+              <h3 className="max-w-3xl break-words text-[1.18rem] font-semibold leading-[1.04] tracking-[-0.045em] transition-colors duration-200 group-hover:text-[#00629B] group-focus-visible:text-[#00629B] sm:text-2xl lg:text-[2rem]">{event.title}</h3>
               <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] leading-tight text-black/48 sm:hidden">
                 <span>{time}</span>
                 <span aria-hidden="true">·</span>
                 <span className="break-words">{event.venue || "Venue TBA"}</span>
               </div>
             </div>
-            <div className="relative hidden h-12 w-16 shrink-0 overflow-hidden rounded-[2px] border border-black/10 bg-[#111315] sm:block sm:h-14 sm:w-20">
+            <div className="relative hidden h-12 w-16 shrink-0 overflow-hidden border border-black/10 bg-[#111315] transition-transform duration-300 ease-out group-hover:scale-[1.03] group-focus-visible:scale-[1.03] sm:block sm:h-14 sm:w-20">
               {artwork ? (
                 <EventArtworkPreview src={artwork.src} alt={`${event.title} event artwork`} className="h-full w-full" />
               ) : (
@@ -106,7 +106,7 @@ export function EventRow({
               {availability.label}
             </span>
             <motion.span
-              className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-black/14 transition-colors group-hover:border-[#00629B] group-hover:bg-[#00629B] group-hover:text-white sm:h-9 sm:w-9"
+              className="grid h-10 w-10 shrink-0 place-items-center border border-black/14 transition-colors group-hover:border-[#00629B] group-hover:bg-[#00629B] group-hover:text-white group-focus-visible:border-[#00629B] group-focus-visible:bg-[#00629B] group-focus-visible:text-white"
               whileHover={reduceMotion ? undefined : { scale: 1.02 }}
               whileTap={reduceMotion ? undefined : { scale: 0.96 }}
               transition={{ duration: reduceMotion ? 0 : MOTION_DURATION.micro, ease: MOTION_EASE }}

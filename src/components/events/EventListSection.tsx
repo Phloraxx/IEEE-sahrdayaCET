@@ -26,7 +26,7 @@ export function EventListSection({
   loading,
   error,
   onRetry,
-  title = "Upcoming programme",
+  title = "Events",
   emptyTitle = "Nothing scheduled yet",
   emptyMessage = "New events will appear here as soon as they are announced.",
   sectionId = "events-section",
@@ -43,36 +43,36 @@ export function EventListSection({
     <section className="mx-auto max-w-[1440px]" id={sectionId}>
       {showHeader && (
         <motion.header
-          initial={reduceMotion || !animateCards ? false : { opacity: 0, y: 10 }}
+          initial={reduceMotion || !animateCards ? false : { opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: reduceMotion ? 0 : 0.36, ease: [0.16, 1, 0.3, 1] }}
-          className="grid gap-6 border-y border-black/10 py-6 md:grid-cols-12 md:items-end md:gap-8 md:py-7"
+          transition={{ duration: reduceMotion ? 0 : 0.32, ease: [0.16, 1, 0.3, 1] }}
+          className="grid gap-5 border-y border-black/10 py-5 md:grid-cols-12 md:items-end md:gap-8 md:py-6"
         >
           <div className="md:col-span-3">
             <div className="flex items-center gap-2 font-mono text-[9px] font-bold uppercase tracking-[0.18em] text-[#00629B]">
               <span className="font-pixel text-[8px] text-black/35">01</span>
-              <span>Live programme</span>
+              <span>Programme / {year}</span>
             </div>
-            <div className="mt-4 flex items-end gap-3" aria-live="polite">
-              <span className="font-mono text-4xl font-semibold leading-none tracking-[-0.08em] text-[#111315] tabular-nums sm:text-5xl">
+            <div className="mt-3 flex items-baseline gap-3" aria-live="polite">
+              <span className="font-mono text-3xl font-semibold leading-none tracking-[-0.08em] text-[#111315] tabular-nums sm:text-4xl">
                 {String(events.length).padStart(2, "0")}
               </span>
-              <span className="pb-0.5 text-[9px] font-bold uppercase leading-tight tracking-[0.14em] text-black/40">
-                {events.length === 1 ? "event" : "upcoming\nevents"}
+              <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-black/40">
+                upcoming
               </span>
             </div>
-            <p className="mt-3 font-mono text-[9px] font-semibold uppercase tracking-[0.15em] text-black/35">{year} / Sahrdaya</p>
+            <p className="mt-2 font-mono text-[9px] font-semibold uppercase tracking-[0.15em] text-black/35">Kodakara / Thrissur</p>
           </div>
 
           <div className="md:col-span-9 md:flex md:items-end md:justify-between md:gap-10">
             <div>
               <p className="font-pixel text-[8px] uppercase tracking-[0.14em] text-[#00629B]">IEEE / Sahrdaya</p>
-              <h1 className="mt-3 max-w-4xl text-[clamp(2.55rem,6vw,5.9rem)] font-semibold leading-[0.88] tracking-[-0.075em] text-[#111315]">
+              <h1 className="mt-2 max-w-4xl text-[clamp(2.65rem,4.8vw,4.75rem)] font-semibold leading-[0.9] tracking-[-0.07em] text-[#111315]">
                 {title}
               </h1>
             </div>
-            <p className="mt-5 max-w-xs text-sm leading-relaxed text-black/48 md:mb-1 md:mt-0">
-              A living calendar of workshops, competitions and conversations for people who build things.
+            <p className="mt-4 max-w-sm text-sm leading-relaxed text-black/48 md:mb-0.5 md:mt-0">
+              Workshops, competitions and conversations—indexed like a live technical programme.
             </p>
           </div>
         </motion.header>
@@ -88,8 +88,15 @@ export function EventListSection({
       )}
 
       {!loading && !error && events.length > 0 && (
-        <div className="mt-5 md:mt-7">
-          <div className="hidden grid-cols-[92px_minmax(0,1fr)_112px_76px] gap-4 border-b border-black/10 px-4 pb-3 font-mono text-[8px] font-bold uppercase tracking-[0.18em] text-black/35 sm:grid sm:px-5 lg:grid-cols-[92px_minmax(0,1fr)_148px_86px] lg:gap-6 lg:px-6">
+        <div className="mt-4 md:mt-5">
+          <div className="flex min-h-11 items-center justify-between gap-4 border-b border-black/10 px-3 font-mono text-[8px] font-bold uppercase tracking-[0.16em] sm:px-5 lg:px-6">
+            <span className="flex items-center gap-2 text-[#00629B]">
+              <span aria-hidden="true" className="event-signal-dot h-1.5 w-1.5 rounded-full bg-[#00629B]" />
+              Next transmission
+            </span>
+            <span className="truncate text-right text-black/35">{events[0]?.title}</span>
+          </div>
+          <div className="hidden grid-cols-[92px_minmax(0,1fr)_112px_76px] gap-4 border-b border-black/10 px-4 py-3 font-mono text-[8px] font-bold uppercase tracking-[0.18em] text-black/35 sm:grid sm:px-5 lg:grid-cols-[92px_minmax(0,1fr)_148px_86px] lg:gap-6 lg:px-6">
             <span>Date</span>
             <span>Event / society</span>
             <span>When / where</span>
