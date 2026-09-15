@@ -6,6 +6,22 @@
   display: none;
 }
 
+@keyframes event-signal-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(0 98 155 / 0);
+    opacity: 0.72;
+  }
+  45% {
+    box-shadow: 0 0 0 6px rgb(0 98 155 / 0.12);
+    opacity: 1;
+  }
+}
+
+.event-signal-dot {
+  animation: event-signal-pulse 2.8s ease-out infinite;
+}
+
 @keyframes sustainx-marquee {
   from {
     transform: translate3d(0, 0, 0);
@@ -21,8 +37,17 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .event-signal-dot,
   .sustainx-marquee-track {
     animation: none;
+  }
+
+  .event-signal-dot {
+    box-shadow: none;
+    opacity: 1;
+  }
+
+  .sustainx-marquee-track {
     transform: none;
   }
 }

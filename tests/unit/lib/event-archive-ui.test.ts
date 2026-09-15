@@ -11,16 +11,17 @@ describe("event programme UI", () => {
 
     expect(source).not.toContain("EventHeroSection");
     expect(source).not.toContain("function FeaturedEvent");
-    expect(source).toContain('title="Upcoming programme"');
+    expect(source).toContain('title="Events"');
     expect(source).toContain('const ARCHIVE_PAGE_SIZE = 10');
     expect(source).toContain('useState<ArchiveFilter>("past")');
-    expect(source).toContain('placeholder="Search events"');
+    expect(source).toContain('placeholder="Event or venue"');
     expect(source).toContain('const ARCHIVE_FILTERS = ["all", "upcoming", "past"] as const');
     expect(source).toContain('aria-label="Filter by society"');
     expect(source).toContain('visibleArchiveEvents = filteredArchiveEvents.slice(0, visibleArchiveCount)');
     expect(source).toContain("archiveGroups");
-    expect(source).toContain("Past, present, next.");
-    expect(source).toContain("Show more");
+    expect(source).toContain("Programme index");
+    expect(source).not.toContain("Past, present, next.");
+    expect(source).toContain("Load next 10 events");
     expect(source).not.toContain("InfiniaTeaserSection");
 
     const route = read("src/routes/events.tsx");
@@ -60,7 +61,8 @@ describe("event programme UI", () => {
     const barrel = read("src/components/events/index.ts");
 
     expect(barrel).not.toContain("EventHeroSection");
-    expect(list).toContain("Live programme");
+    expect(list).toContain("Programme / {year}");
+    expect(list).toContain("Next transmission");
     expect(list).toContain('aria-live="polite"');
     expect(list).not.toContain("activeEventId");
     expect(list).not.toContain("Programme preview");
@@ -74,6 +76,8 @@ describe("event programme UI", () => {
     expect(card).not.toContain("onActivate");
     expect(styles).not.toContain("event-programme-hero");
     expect(styles).not.toContain("event-programme-grid");
+    expect(styles).toContain("event-signal-pulse");
+    expect(styles).toContain("@media (prefers-reduced-motion: reduce)");
     expect(fallback).toContain("SOCIETY_COLORS");
     expect(fallback).not.toContain("bg-linear-to-br");
     expect(artworkPreview).toContain("object-contain");
