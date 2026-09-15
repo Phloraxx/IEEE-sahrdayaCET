@@ -27,7 +27,7 @@ The target is not visual uniformity. IEEE Sahrdaya should keep related visual re
 
 1. **Societies index** — anti-hero entrance, searchable directory, restrained technical metadata, Live Signal section.
 2. **Blog** — Home-aligned star/noise environment, pixel metadata, IEEE blue/slate palette, lead story + signals + Grid/Index archive.
-3. **Events index** — dark programme opening, cream programme body, live/upcoming hierarchy, archive index.
+3. **Events index** — light programme-first schedule, compact live/upcoming hierarchy, archive index.
 4. **WIE** — bespoke sub-brand page with strong activity, people, archive, and CTA hierarchy.
 5. **Shared Navbar/Footer** — visually strong enough to preserve while improving consistency of use.
 
@@ -174,18 +174,22 @@ Home should use the new Blog identity rather than generic cards.
 
 ### Events index
 
-The current `/events` page is a preserve-first surface.
+The current `/events` page is a programme-first editorial schedule.
 
 Keep:
-- dark opening programme block;
-- cream/light programme body;
+- the shared Navbar/Footer and light `#F8F9FA` surface;
+- a compact asymmetric programme header directly above the rows;
 - `Upcoming programme` hierarchy;
 - `Past, present, next.` archive language;
 - search/filter controls;
 - strong desktop/mobile information density;
 - current footer transition.
 
-Change only where necessary:
+The schedule contract is:
+- no standalone dark hero, fixed poster rail, or duplicated preview;
+- date, society, entry state, time/TBC, venue, availability and direct leaf links remain visible in each row;
+- first/next event receives only restrained IEEE-blue emphasis;
+- zero, one and many upcoming events remain useful without reserved empty space;
 - timezone-safe day/month rendering;
 - structured TBC time handling;
 - clearer state labels for `OPEN`, `CLOSED`, `FREE`, `PAID`, `TBC`;

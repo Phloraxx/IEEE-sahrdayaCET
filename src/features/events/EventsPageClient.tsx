@@ -5,7 +5,7 @@ import { ArrowUpRight, Search, Ticket, X } from "lucide-react";
 import "@/styles/events.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { EventHeroSection, EventListSection } from "@/components/events";
+import { EventListSection } from "@/components/events";
 import type { EventWithSociety, ExtendedEvent } from "@/types";
 import { isPastEvent } from "@/lib/event-lifecycle";
 import { formatDay, formatMonthYear, formatWeekdayShort } from "@/lib/dates";
@@ -122,12 +122,10 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
   };
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#f4f2ed] font-sans text-[#111315] selection:bg-[#00629B] selection:text-white">
+    <main className="min-h-screen overflow-x-hidden bg-[#f8f9fa] font-sans text-[#111315] selection:bg-[#00629B] selection:text-white">
       <Navbar mobileAlign="right" />
-      <EventHeroSection upcomingCount={upcomingEvents.length} totalCount={extendedEvents.length} />
-
-      <div className="px-5 sm:px-8 lg:px-12">
-        <div className="mx-auto max-w-[1440px] pb-24 pt-20 md:pb-32 md:pt-28" id="upcoming-events">
+      <div className="px-5 pt-20 sm:px-8 md:pt-24 lg:px-12">
+        <div className="mx-auto max-w-[1440px] pb-20 pt-4 md:pb-28 md:pt-6" id="upcoming-events">
           <EventListSection
             events={upcomingEvents}
             loading={false}
@@ -141,17 +139,17 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
 
         <section id="event-archive" className="mx-auto max-w-[1440px] pb-28 md:pb-36">
           <div className="border-t border-black/10 pt-6">
-            <div className="grid gap-8 py-10 md:grid-cols-12 md:items-end md:py-14">
-              <div className="md:col-span-7">
-                <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.22em] text-[#00629B]">Programme index</p>
-                <h2 className="text-5xl font-semibold leading-[0.94] tracking-[-0.06em] sm:text-6xl lg:text-7xl">Past, present, next.</h2>
+            <div className="flex flex-col gap-4 py-6 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-[#00629B]"><span className="font-pixel text-[8px] text-black/35">02</span> / Programme index</p>
+                <h2 className="mt-2 text-3xl font-semibold leading-none tracking-[-0.055em] text-[#111315] sm:text-4xl">Past, present, next.</h2>
               </div>
-              <p className="max-w-md text-sm leading-relaxed text-black/50 md:col-span-4 md:col-start-9 md:text-base">
+              <p className="max-w-md text-sm leading-relaxed text-black/48 sm:text-right">
                 Search the complete programme by status or society, then open any event for the full details.
               </p>
             </div>
 
-            <div className="sticky top-20 z-20 -mx-5 border-y border-black/10 bg-[#f4f2ed]/92 px-5 py-4 backdrop-blur-xl sm:-mx-8 sm:px-8 lg:mx-0 lg:px-0">
+            <div className="sticky top-20 z-20 -mx-5 border-y border-black/10 bg-[#f8f9fa]/92 px-5 py-4 backdrop-blur-xl sm:-mx-8 sm:px-8 lg:mx-0 lg:px-0">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="event-filter-scroll flex items-center gap-2 overflow-x-auto" aria-label="Filter events by status">
                   {ARCHIVE_FILTERS.map((filter) => (
