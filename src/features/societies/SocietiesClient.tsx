@@ -444,7 +444,7 @@ export default function SocietiesClient({ societies, activityBySociety, upcoming
         <div className="relative z-10 h-full"><TechnicalDetails /></div>
       </div>
       <ReactiveBackdrop society={activeSociety} reduceMotion={Boolean(reduceMotion)} />
-      <Navbar mobileAlign="right" />
+      <Navbar />
       {(scrollSocietyId || manualSocietyId) && activeSociety && (
         <motion.aside
           key={activeSociety.id}

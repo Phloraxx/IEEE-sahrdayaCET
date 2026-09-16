@@ -1,42 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
+import { MASCOT_BODY, MASCOT_HEAD, PixelGrid } from './mascot';
 
 const PIXEL = 3;
 
-const HEAD: string[][] = [
-  ['#00629B','#00629B','#00629B','#00629B','#00629B','#00629B','#00629B','#00629B'],
-  ['#00629B','#0099D6','#0099D6','#0099D6','#0099D6','#0099D6','#0099D6','#00629B'],
-  ['#00629B','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#00629B'],
-  ['#f5d5b8','#f5d5b8','#ffffff','#0099D6','#0099D6','#ffffff','#f5d5b8','#f5d5b8'],
-  ['#f5d5b8','#f5d5b8','#f5d5b8','#e8c4a0','#e8c4a0','#f5d5b8','#f5d5b8','#f5d5b8'],
-  ['#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8'],
-  ['#f5d5b8','#e8c4a0','#e8c4a0','#e8c4a0','#e8c4a0','#e8c4a0','#e8c4a0','#f5d5b8'],
-  ['transparent','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','transparent'],
-];
-
-const BODY: string[][] = [
-  ['transparent','#004a7c','#00629B','#00629B','#00629B','#00629B','#004a7c','transparent'],
-  ['transparent','#004a7c','#00629B','#ffffff','#ffffff','#00629B','#004a7c','transparent'],
-  ['#f5d5b8','#004a7c','#00629B','#00629B','#00629B','#00629B','#004a7c','#f5d5b8'],
-  ['#f5d5b8','#004a7c','#004a7c','#0099D6','#0099D6','#004a7c','#004a7c','#f5d5b8'],
-  ['transparent','#004a7c','#004a7c','#00629B','#00629B','#004a7c','#004a7c','transparent'],
-  ['transparent','#2c3e50','#2c3e50','#2c3e50','#2c3e50','#2c3e50','#2c3e50','transparent'],
-  ['transparent','#2c3e50','#2c3e50','transparent','transparent','#2c3e50','#2c3e50','transparent'],
-  ['transparent','#1a252f','#1a252f','transparent','transparent','#1a252f','#1a252f','transparent'],
-];
-
 type IdleAction = 'idle' | 'walking' | 'jumping' | 'looking' | 'crouching' | 'headBob';
-
-const PixelGrid: React.FC<{ grid: string[][]; size: number }> = ({ grid, size }) => (
-  <div style={{ display: 'grid', gridTemplateColumns: `repeat(${grid[0]!.length}, ${size}px)`, lineHeight: 0 }}>
-    {grid.flat().map((color, i) => (
-      <div
-        key={i}
-        style={{ width: size, height: size, backgroundColor: color, imageRendering: 'pixelated' }}
-      />
-    ))}
-  </div>
-);
 
 export const FloatingAction: React.FC = () => {
   const reduceMotion = Boolean(useReducedMotion());
@@ -144,7 +112,7 @@ export const FloatingAction: React.FC = () => {
   }, [reduceMotion]);
 
   const getHead = useCallback((): string[][] => {
-    const head = HEAD.map(row => [...row]);
+    const head = MASCOT_HEAD.map(row => [...row]);
     const row3 = head[3]!;
     if (isBlinking) {
       row3[2] = '#f5d5b8'; row3[3] = '#f5d5b8';
@@ -159,7 +127,7 @@ export const FloatingAction: React.FC = () => {
     return head;
   }, [isBlinking, lookDir]);
   const getBody = useCallback((): string[][] => {
-    const body = BODY.map(row => [...row]);
+    const body = MASCOT_BODY.map(row => [...row]);
     if (action === 'walking') {
       if (walkCycle === 0) {
         body[6]! = ['transparent','#2c2c54','#2c2c54','#2c2c54','transparent','transparent','#2c2c54','transparent'];
@@ -184,7 +152,7 @@ export const FloatingAction: React.FC = () => {
       initial={reduceMotion ? false : { opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: reduceMotion ? 0 : 3, duration: reduceMotion ? 0 : 0.8 }}
-      className="fixed bottom-2 z-30 pointer-events-none select-none"
+      className="fixed bottom-2 z-30 hidden pointer-events-none select-none md:block"
       style={{
         left: `${posX}%`,
         transform: 'translateX(-50%)',

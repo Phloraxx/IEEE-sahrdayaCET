@@ -107,6 +107,8 @@ Prefer existing admin utilities such as `.vh-touch`, `.vh-press`, `.vh-mono`, `.
 - Mobile-first.
 - Avoid hover-only information on user-critical flows.
 - Keep touch targets at least 44px where practical.
+- On mobile, the shared public shell uses a fixed bottom navigation dock with four frequent destinations (Home, Events, Societies, Blog) and a `More` action for secondary navigation and account actions. Use icons with visible labels; do not rely on icon-only navigation.
+- The mobile `More` action opens the shared navigation dialog as a contained bottom sheet. Keep its active-page state, account separation, focus handling, Escape/outside dismissal, scroll lock, and reduced-motion behavior intact.
 - Use existing page max-widths rather than forcing one width across the whole site.
 - Preserve meaningful whitespace; avoid nested cards for every grouping.
 - Uploaded media should use an explicit aspect ratio and `object-cover`/`object-contain` based on the content, not accidental intrinsic dimensions.

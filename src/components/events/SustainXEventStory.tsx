@@ -673,7 +673,7 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
     <main className="min-h-screen overflow-hidden bg-[#f3f2f8] text-[#101114] selection:bg-[#6558c9] selection:text-white">
       <link rel="canonical" href={canonicalUrl} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: schemaJson }} />
-      <Navbar mobileAlign="right" />
+      <Navbar />
 
       <section ref={heroRef} className="relative isolate min-h-[100svh] overflow-hidden bg-[#090a0d] text-white">
         <motion.div className="absolute inset-0" style={{ y: mediaY }} aria-hidden="true">

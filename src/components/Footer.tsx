@@ -237,7 +237,7 @@ const Footer: React.FC<FooterProps> = ({ seamless = false }) => {
         </div>
 
         {/* Bottom Bar */}
-        <div className="flex flex-col items-center justify-between gap-3 py-5 md:flex-row md:gap-4 md:py-6">
+        <div className="flex flex-col items-center justify-between gap-3 px-1 pb-[calc(4rem+env(safe-area-inset-bottom,0px))] pt-5 md:flex-row md:gap-4 md:px-0 md:py-6">
           <div className="text-center font-mono text-[10px] tracking-wider text-white/60 md:text-left">
             &copy; {currentYear} IEEE SAHRDAYA SB &mdash; ALL RIGHTS RESERVED
           </div>

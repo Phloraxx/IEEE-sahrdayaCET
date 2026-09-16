@@ -16,7 +16,7 @@ export function PublicCertificateShell({ section, title, description, children }
   return (
     <div className="relative min-h-screen overflow-hidden bg-white font-sans text-gray-950 selection:bg-ieee-blue/20">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[560px] bg-[radial-gradient(circle_at_1px_1px,rgba(15,23,42,0.12)_1px,transparent_0)] [background-size:28px_28px] [mask-image:linear-gradient(to_bottom,black,transparent)]" />
-      <Navbar mobileAlign="right" />
+      <Navbar />
 
       <main className="relative z-10 pt-24 md:pt-32">
         <section className="border-b border-black/10">

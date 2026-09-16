@@ -384,7 +384,7 @@ export default function EventDetailPage() {
     <main className="min-h-screen bg-[#f4f2ed] text-[#111315] selection:bg-[#00629B] selection:text-white">
       <link rel="canonical" href={canonicalUrl} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJson(eventSchema) }} />
-      <Navbar mobileAlign="right" />
+      <Navbar />
 
       <section data-testid="event-programme-hero" className="relative overflow-hidden bg-[#07121f] text-[#f4f2ed]">
         <div className="pointer-events-none absolute inset-0 opacity-[0.22] [background-image:linear-gradient(rgba(255,255,255,.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.05)_1px,transparent_1px)] [background-size:72px_72px]" />

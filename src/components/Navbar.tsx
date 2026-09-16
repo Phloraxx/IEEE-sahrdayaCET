@@ -4,12 +4,15 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Link, useLocation } from "react-router";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import {
+  BookOpen,
   CalendarDays,
   ChevronRight,
+  Home,
   LayoutDashboard,
   LogOut,
-  Menu,
+  MoreHorizontal,
   User,
+  UsersRound,
   X,
 } from "lucide-react";
 import { type NavItem } from "@/types";
@@ -17,6 +20,7 @@ import { useAuth } from "@/lib/auth-context";
 import { getWorkspaceMe } from "@/lib/data/workspace.client";
 import { preferredWorkspacePath } from "@/lib/workspace-permissions";
 import LoginModal from "./LoginModal";
+import { MASCOT_BODY, MASCOT_HEAD, PixelGrid } from "./mascot";
 
 const navItems: NavItem[] = [
   { label: "HOME", href: "/" },
@@ -26,11 +30,30 @@ const navItems: NavItem[] = [
   { label: "EXECOM", href: "/#execom" },
 ];
 
-interface NavbarProps {
-  mobileAlign?: "center" | "right";
+const mobilePrimaryItems = [
+  { label: "Home", href: "/", Icon: Home },
+  { label: "Events", href: "/events", Icon: CalendarDays },
+  { label: "Societies", href: "/societies", Icon: UsersRound },
+  { label: "Blog", href: "/blog", Icon: BookOpen },
+] as const;
+
+function MobileMascot() {
+  return (
+    <div
+      aria-hidden="true"
+      className="relative flex h-12 w-8 shrink-0 items-start justify-center"
+    >
+      <div className="absolute left-1/2 top-0 -translate-x-1/2">
+        <PixelGrid grid={MASCOT_HEAD} size={3} />
+      </div>
+      <div className="absolute left-1/2 top-6 -translate-x-1/2">
+        <PixelGrid grid={MASCOT_BODY} size={3} />
+      </div>
+    </div>
+  );
 }
 
-export default function Navbar({ mobileAlign = "center" }: NavbarProps) {
+export default function Navbar() {
   const reduceMotion = Boolean(useReducedMotion());
   const [isVisible, setIsVisible] = useState(true);
   const [activeSection, setActiveSection] = useState("/");
@@ -39,7 +62,7 @@ export default function Navbar({ mobileAlign = "center" }: NavbarProps) {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
-  const { pathname } = useLocation();
+  const { pathname, hash } = useLocation();
   const { user, status, signOut } = useAuth();
   const authenticatedUser = status === "authenticated" ? user : null;
   const workspace = useQuery({
@@ -52,9 +75,9 @@ export default function Navbar({ mobileAlign = "center" }: NavbarProps) {
   const loading = status === "loading";
 
   useEffect(() => {
-    setActiveSection(pathname || "/");
+    setActiveSection(`${pathname || "/"}${hash || ""}`);
     setMobileMenuOpen(false);
-  }, [pathname]);
+  }, [hash, pathname]);
 
   useEffect(() => {
     const closeDesktopMenu = () => {
@@ -167,7 +190,7 @@ export default function Navbar({ mobileAlign = "center" }: NavbarProps) {
         pathname === "/" && activeSection.includes(item.href.replace("/#", ""))
       );
     }
-    if (item.href === "/") return pathname === "/";
+    if (item.href === "/") return pathname === "/" && !hash;
     return pathname === item.href || pathname.startsWith(`${item.href}/`);
   };
 
@@ -177,6 +200,10 @@ export default function Navbar({ mobileAlign = "center" }: NavbarProps) {
         ? "bg-white text-gray-900 shadow-xs"
         : "text-gray-500 hover:bg-white/50 hover:text-blue-600"
     }`;
+  const isMoreActive =
+    pathname === "/full-execom" ||
+    pathname.startsWith("/my-events") ||
+    (pathname === "/" && hash === "#execom");
 
   return (
     <>
@@ -187,16 +214,47 @@ export default function Navbar({ mobileAlign = "center" }: NavbarProps) {
           if (open) setShowUserMenu(false);
         }}
       >
-        <DialogPrimitive.Trigger asChild>
-          <button
-            className={`fixed top-3 z-[101] inline-flex min-h-11 items-center gap-2 rounded-full border border-black/10 bg-white/[0.82] px-3.5 text-[11px] font-bold uppercase tracking-[0.13em] text-[#17202b] shadow-lg shadow-black/5 backdrop-blur-xl transition-all md:hidden ${mobileMenuOpen ? "pointer-events-none scale-95 opacity-0" : "opacity-100"} ${mobileAlign === "right" ? "right-3" : "left-1/2 -translate-x-1/2"}`}
-            aria-label="Open menu"
-            aria-controls="mobile-site-navigation"
-          >
-            <Menu className="h-4 w-4" />
-            <span>Menu</span>
-          </button>
-        </DialogPrimitive.Trigger>
+        <nav
+          aria-label="Mobile site navigation"
+          className={`fixed inset-x-0 bottom-0 z-[101] border-t border-black/10 bg-white/[0.96] shadow-[0_-10px_30px_rgba(6,17,29,0.08)] backdrop-blur-xl transition-opacity md:hidden ${mobileMenuOpen ? "pointer-events-none opacity-0" : "opacity-100"}`}
+        >
+          <div className="grid min-h-16 w-full grid-cols-5 pb-[env(safe-area-inset-bottom)]">
+            {mobilePrimaryItems.map(({ label, href, Icon }) => {
+              const isActive = isNavItemActive({ label: label.toUpperCase(), href });
+              return (
+                <Link
+                  key={label}
+                  to={href}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`relative flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 px-1 pt-1 text-[9px] font-bold uppercase tracking-[0.08em] transition-colors focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-[#00629B] ${isActive ? "text-[#00629B]" : "text-black/50 hover:text-[#00629B]"}`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`absolute inset-x-3 top-0 h-0.5 transition-colors ${isActive ? "bg-[#00629B]" : "bg-transparent"}`}
+                  />
+                  <Icon className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+                  <span className="truncate">{label}</span>
+                </Link>
+              );
+            })}
+            <DialogPrimitive.Trigger asChild>
+              <button
+                type="button"
+                aria-label="Open more navigation"
+                aria-controls="mobile-site-navigation"
+                aria-expanded={mobileMenuOpen}
+                className={`relative flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 px-1 pt-1 text-[9px] font-bold uppercase tracking-[0.08em] transition-colors focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-[#00629B] ${isMoreActive ? "text-[#00629B]" : "text-black/50 hover:text-[#00629B]"}`}
+              >
+                <span
+                  aria-hidden="true"
+                  className={`absolute inset-x-3 top-0 h-0.5 transition-colors ${isMoreActive ? "bg-[#00629B]" : "bg-transparent"}`}
+                />
+                <MoreHorizontal className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+                <span>More</span>
+              </button>
+            </DialogPrimitive.Trigger>
+          </div>
+        </nav>
 
         <motion.div
           initial={reduceMotion ? false : { y: -100, opacity: 0 }}
@@ -231,10 +289,10 @@ export default function Navbar({ mobileAlign = "center" }: NavbarProps) {
         </motion.div>
 
         <DialogPrimitive.Portal>
-          <DialogPrimitive.Overlay className="fixed inset-0 z-[100] bg-[#06111d]/35 backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 motion-reduce:animate-none md:hidden" />
+          <DialogPrimitive.Overlay className="mobile-nav-overlay fixed inset-0 z-[100] bg-[#06111d]/35 backdrop-blur-[2px] md:hidden" />
           <DialogPrimitive.Content
             id="mobile-site-navigation"
-            className="fixed inset-x-3 top-3 z-[102] max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-[28px] border border-black/10 bg-white/[0.96] shadow-2xl shadow-black/20 backdrop-blur-2xl data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-top-3 motion-reduce:animate-none md:hidden"
+            className="mobile-nav-sheet fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] z-[102] max-h-[calc(100dvh-1.5rem-env(safe-area-inset-bottom,0px))] overflow-y-auto rounded-[28px] border border-black/10 bg-white/[0.96] shadow-2xl shadow-black/20 backdrop-blur-2xl md:hidden"
           >
             <DialogPrimitive.Title className="sr-only">
               Site navigation
@@ -263,15 +321,18 @@ export default function Navbar({ mobileAlign = "center" }: NavbarProps) {
                   </p>
                 </div>
               </Link>
-              <DialogPrimitive.Close asChild>
-                <button
-                  type="button"
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/[0.045] text-[#17202b] transition-colors hover:bg-black/[0.08]"
-                  aria-label="Close menu"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </DialogPrimitive.Close>
+              <div className="flex items-center gap-3">
+                <MobileMascot />
+                <DialogPrimitive.Close asChild>
+                  <button
+                    type="button"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/[0.045] text-[#17202b] transition-colors hover:bg-black/[0.08]"
+                    aria-label="Close menu"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </DialogPrimitive.Close>
+              </div>
             </div>
 
             <div className="px-3 pb-4 pt-3">

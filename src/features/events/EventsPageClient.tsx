@@ -113,7 +113,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
 
   return (
     <main className="events-page min-h-screen overflow-x-hidden bg-[#f8f9fa] text-[#111315] selection:bg-[#00629B] selection:text-white">
-      <Navbar mobileAlign="right" />
+      <Navbar />
       <div className="px-5 pt-20 sm:px-8 md:pt-24 lg:px-12">
         <div className="mx-auto max-w-[1440px] pb-10 pt-4 md:pb-14 md:pt-6" id="upcoming-events">
           <EventListSection

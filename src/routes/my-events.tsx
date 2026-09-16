@@ -315,7 +315,7 @@ export default function MyEventsPage() {
 
   return (
     <main className="min-h-screen bg-[#f4f2ed] text-[#111315] selection:bg-[#00629B] selection:text-white">
-      <Navbar mobileAlign="right" />
+      <Navbar />
       <section className="border-b border-black/10 bg-[#07121f] text-white">
         <div className="mx-auto max-w-[1200px] px-5 pb-12 pt-28 sm:px-8 lg:px-12 lg:pb-16 lg:pt-36">
           <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-[#58c6ff]">Attendee record</p>

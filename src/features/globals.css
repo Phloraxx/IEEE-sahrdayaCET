@@ -140,6 +140,48 @@
   animation: cell-ripple var(--duration, 500ms) var(--delay, 0ms) ease-out forwards;
 }
 
+@keyframes mobile-nav-sheet-in {
+  from { opacity: 0; transform: translateY(1.5rem) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes mobile-nav-sheet-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(1rem) scale(0.985); }
+}
+
+@keyframes mobile-nav-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes mobile-nav-overlay-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.mobile-nav-sheet[data-state="open"] {
+  animation: mobile-nav-sheet-in 240ms var(--vh-ease-glide) both;
+}
+
+.mobile-nav-sheet[data-state="closed"] {
+  animation: mobile-nav-sheet-out 180ms var(--vh-ease-in) both;
+}
+
+.mobile-nav-overlay[data-state="open"] {
+  animation: mobile-nav-overlay-in 200ms ease-out both;
+}
+
+.mobile-nav-overlay[data-state="closed"] {
+  animation: mobile-nav-overlay-out 160ms ease-in both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-nav-sheet,
+  .mobile-nav-overlay {
+    animation: none !important;
+  }
+}
 /* ═══════════════════════════════════════════════════════════
    SHADCN/UI BASE CSS VARIABLES — :root defaults
    ═══════════════════════════════════════════════════════════ */

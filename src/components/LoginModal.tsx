@@ -1,18 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import GoogleLoginButton from './GoogleLoginButton';
-
-function PixelGrid({ grid, size }: { grid: string[][]; size: number }) {
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${grid[0]?.length ?? 0}, ${size}px)`, gap: 0 }}>
-      {grid.flatMap((row, y) =>
-        row.map((color, x) => (
-          <div key={`${x}-${y}`} style={{ width: size, height: size, backgroundColor: color }} />
-        ))
-      )}
-    </div>
-  );
-}
+import { MASCOT_BODY_PEEK, MASCOT_HEAD, PixelGrid } from './mascot';
 
 
 interface LoginModalProps {
@@ -22,24 +11,6 @@ interface LoginModalProps {
 }
 
 const PIXEL = 5;
-
-const HEAD: string[][] = [
-    ['#00629B','#00629B','#00629B','#00629B','#00629B','#00629B','#00629B','#00629B'],
-    ['#00629B','#0099D6','#0099D6','#0099D6','#0099D6','#0099D6','#0099D6','#00629B'],
-    ['#00629B','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#00629B'],
-    ['#f5d5b8','#f5d5b8','#ffffff','#0099D6','#0099D6','#ffffff','#f5d5b8','#f5d5b8'],
-    ['#f5d5b8','#f5d5b8','#f5d5b8','#e8c4a0','#e8c4a0','#f5d5b8','#f5d5b8','#f5d5b8'],
-    ['#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8'],
-    ['#f5d5b8','#e8c4a0','#e8c4a0','#e8c4a0','#e8c4a0','#e8c4a0','#e8c4a0','#f5d5b8'],
-    ['transparent','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','#f5d5b8','transparent'],
-];
-
-const BODY_PEEK: string[][] = [
-    ['transparent','#004a7c','#00629B','#00629B','#00629B','#00629B','#004a7c','transparent'],
-    ['transparent','#004a7c','#00629B','#ffffff','#ffffff','#00629B','#004a7c','transparent'],
-    ['#f5d5b8','#004a7c','#00629B','#00629B','#00629B','#00629B','#004a7c','#f5d5b8'],
-];
-
 
 export default function LoginModal({ isOpen, onClose, message }: LoginModalProps) {
     const dialogRef = useRef<HTMLDivElement>(null);
@@ -119,8 +90,8 @@ export default function LoginModal({ isOpen, onClose, message }: LoginModalProps
                         className="absolute -top-1 left-6"
                         style={{ imageRendering: 'pixelated', filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.1))' }}
                     >
-                        <PixelGrid grid={HEAD} size={PIXEL} />
-                        <PixelGrid grid={BODY_PEEK} size={PIXEL} />
+                        <PixelGrid grid={MASCOT_HEAD} size={PIXEL} />
+                        <PixelGrid grid={MASCOT_BODY_PEEK} size={PIXEL} />
                     </div>
 
                     {/* Header */}
