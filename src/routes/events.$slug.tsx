@@ -421,7 +421,7 @@ export default function EventDetailPage() {
             </div>
 
             <motion.div {...revealUp(reduceMotion, 12)} className="md:col-span-5 lg:col-span-4">
-              <div className="relative aspect-[4/3] overflow-hidden border border-white/12 bg-black/20 md:aspect-[4/5]">
+              <div className="relative aspect-[4/3] overflow-hidden border border-white/12 bg-black/20 md:aspect-[5/4]">
                 {eventArtwork ? (
                   <EventArtworkPreview src={eventArtwork.src} alt={`${event.title} event artwork`} />
                 ) : (
