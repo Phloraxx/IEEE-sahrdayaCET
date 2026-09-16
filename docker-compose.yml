@@ -58,6 +58,7 @@ services:
       CERTIFICATE_RENDER_CAPABILITY_KEY: ${CERTIFICATE_RENDER_CAPABILITY_KEY:?CERTIFICATE_RENDER_CAPABILITY_KEY is required}
     volumes:
       - pb_data:/pb/pb_data
+      - pb_backups:/pb/pb_data/backups
     expose:
       - "8090"
     healthcheck:
@@ -74,6 +75,7 @@ services:
 
 volumes:
   pb_data:
+  pb_backups:
 
 networks:
   app-internal:
