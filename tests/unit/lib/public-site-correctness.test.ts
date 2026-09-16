@@ -29,7 +29,7 @@ describe("public site correctness invariants", () => {
     expect(index).toContain("formatDay(event.date)");
     expect(index).toContain("formatMonthYear(event.date)");
     expect(index).not.toContain("date.getDate()");
-    expect(row).toContain("formatWeekdayLong(event.date)");
+    expect(row).toContain("formatWeekdayShort(event.date)");
     expect(row).not.toContain("date.getDate()");
   });
   it("uses structured time-TBC data from schema through public and registration paths", () => {

@@ -1,24 +1,22 @@
-.event-programme-hero {
-  background:
-    radial-gradient(circle at 84% 18%, rgba(0, 164, 228, 0.13), transparent 24rem),
-    radial-gradient(circle at 16% 92%, rgba(0, 98, 155, 0.1), transparent 30rem),
-    #0b0d0f;
+.events-page {
+  --font-sans: "Geist Variable", "Geist", ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-sans);
 }
 
-.event-programme-grid {
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
-  background-size: 72px 72px;
-  mask-image: linear-gradient(to bottom, black, transparent 88%);
+@keyframes event-signal-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(0 98 155 / 0);
+    opacity: 0.72;
+  }
+  45% {
+    box-shadow: 0 0 0 6px rgb(0 98 155 / 0.12);
+    opacity: 1;
+  }
 }
 
-.event-filter-scroll {
-  scrollbar-width: none;
-}
-
-.event-filter-scroll::-webkit-scrollbar {
-  display: none;
+.event-signal-dot {
+  animation: event-signal-pulse 2.8s ease-out infinite;
 }
 
 @keyframes sustainx-marquee {
@@ -36,8 +34,17 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .event-signal-dot,
   .sustainx-marquee-track {
     animation: none;
+  }
+
+  .event-signal-dot {
+    box-shadow: none;
+    opacity: 1;
+  }
+
+  .sustainx-marquee-track {
     transform: none;
   }
 }

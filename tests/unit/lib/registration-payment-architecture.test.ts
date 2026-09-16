@@ -78,6 +78,8 @@ describe("registration/payment experience architecture", () => {
     const row = source("src/features/admin/events/event-operations-components.tsx");
     const opsHelper = source("pb_hooks/admin-operations-helpers.js");
     expect(modelHook).toContain('require(__hooks + "/registration-event-state-helpers.js")');
+    expect(modelHook).toContain('oldEventId !== newEventId');
+    expect(modelHook).toContain('newStatus !== "cancelled"');
     expect(modelHelper).toContain('event.getBool("isDeleted") || event.getString("status") === "cancelled"');
     expect(adminOps).toContain('code: "EVENT_FINAL"');
     expect(adminOps).toContain("Cancelled or archived events cannot receive new registrations");

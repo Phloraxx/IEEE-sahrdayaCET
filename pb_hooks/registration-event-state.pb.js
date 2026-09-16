@@ -14,7 +14,11 @@ onRecordUpdate(function (e) {
   var oldRecord = e.record.original()
   var oldStatus = oldRecord.getString("registrationStatus") || ""
   var newStatus = e.record.getString("registrationStatus") || ""
-  if (oldStatus === "cancelled" && newStatus !== "cancelled") {
+  var oldEventId = oldRecord.getString("event") || ""
+  var newEventId = e.record.getString("event") || ""
+  var restoringActiveRegistration = oldStatus === "cancelled" && newStatus !== "cancelled"
+  var movingActiveRegistration = newStatus !== "cancelled" && oldEventId !== newEventId
+  if (restoringActiveRegistration || movingActiveRegistration) {
     var helper = require(__hooks + "/registration-event-state-helpers.js")
     var decision = helper.activeRegistrationEventState($app, e.record)
     if (!decision.ok) throw new BadRequestError(decision.message)
