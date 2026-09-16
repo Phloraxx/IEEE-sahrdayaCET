@@ -1,4 +1,3 @@
-import { motion, useReducedMotion } from "framer-motion";
 import { CalendarDays } from "lucide-react";
 import type { ExtendedEvent } from "@/types";
 import { EventRow } from "./AnnotatedEventCard";
@@ -13,7 +12,6 @@ interface EventListSectionProps {
   emptyMessage?: string;
   sectionId?: string;
   showHeader?: boolean;
-  animateCards?: boolean;
 }
 
 /**
@@ -31,9 +29,7 @@ export function EventListSection({
   emptyMessage = "New events will appear here as soon as they are announced.",
   sectionId = "events-section",
   showHeader = true,
-  animateCards = true,
 }: EventListSectionProps) {
-  const reduceMotion = Boolean(useReducedMotion());
   const year = new Intl.DateTimeFormat("en-IN", { year: "numeric", timeZone: "Asia/Kolkata" }).format(new Date());
   const countLabel = events.length === 0
     ? "No upcoming events"
@@ -42,26 +38,21 @@ export function EventListSection({
   return (
     <section className="mx-auto max-w-[1440px]" id={sectionId}>
       {showHeader && (
-        <motion.header
-          initial={reduceMotion || !animateCards ? false : { opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: reduceMotion ? 0 : 0.32, ease: [0.16, 1, 0.3, 1] }}
-          className="grid gap-5 border-y border-black/10 py-5 md:grid-cols-12 md:items-end md:gap-8 md:py-6"
-        >
+        <header className="grid gap-5 border-y border-black/10 py-5 md:grid-cols-12 md:items-end md:gap-8 md:py-6">
           <div className="md:col-span-3">
-            <div className="flex items-center gap-2 font-mono text-[9px] font-bold uppercase tracking-[0.18em] text-[#00629B]">
-              <span className="font-pixel text-[8px] text-black/35">01</span>
+            <div className="flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#00629B]">
+              <span className="font-pixel text-[8px] text-black/55">01</span>
               <span>Programme / {year}</span>
             </div>
             <div className="mt-3 flex items-baseline gap-3" aria-live="polite">
               <span className="font-mono text-3xl font-semibold leading-none tracking-[-0.08em] text-[#111315] tabular-nums sm:text-4xl">
                 {String(events.length).padStart(2, "0")}
               </span>
-              <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-black/40">
+              <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-black/55">
                 upcoming
               </span>
             </div>
-            <p className="mt-2 font-mono text-[9px] font-semibold uppercase tracking-[0.15em] text-black/35">Kodakara / Thrissur</p>
+            <p className="mt-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-black/55">Kodakara / Thrissur</p>
           </div>
 
           <div className="md:col-span-9 md:flex md:items-end md:justify-between md:gap-10">
@@ -71,11 +62,11 @@ export function EventListSection({
                 {title}
               </h1>
             </div>
-            <p className="mt-4 max-w-sm text-sm leading-relaxed text-black/48 md:mb-0.5 md:mt-0">
-              Workshops, competitions and conversations—indexed like a live technical programme.
+            <p className="mt-4 max-w-sm text-sm leading-relaxed text-black/60 md:mb-0.5 md:mt-0">
+              Workshops, competitions and conversations—see what’s next and how to join.
             </p>
           </div>
-        </motion.header>
+        </header>
       )}
 
       {loading && <div className="h-48 animate-pulse border-b border-black/10 bg-black/[0.025]" />}
@@ -89,14 +80,13 @@ export function EventListSection({
 
       {!loading && !error && events.length > 0 && (
         <div className="mt-4 md:mt-5">
-          <div className="flex min-h-11 items-center justify-between gap-4 border-b border-black/10 px-3 font-mono text-[8px] font-bold uppercase tracking-[0.16em] sm:px-5 lg:px-6">
+          <div className="flex min-h-11 items-center border-b border-black/10 px-3 font-mono text-[9px] font-bold uppercase tracking-[0.16em] sm:px-5 lg:px-6">
             <span className="flex items-center gap-2 text-[#00629B]">
               <span aria-hidden="true" className="event-signal-dot h-1.5 w-1.5 rounded-full bg-[#00629B]" />
               Next transmission
             </span>
-            <span className="truncate text-right text-black/35">{events[0]?.title}</span>
           </div>
-          <div className="hidden grid-cols-[92px_minmax(0,1fr)_112px_76px] gap-4 border-b border-black/10 px-4 py-3 font-mono text-[8px] font-bold uppercase tracking-[0.18em] text-black/35 sm:grid sm:px-5 lg:grid-cols-[92px_minmax(0,1fr)_148px_86px] lg:gap-6 lg:px-6">
+          <div className="hidden grid-cols-[92px_minmax(0,1fr)_112px_76px] gap-4 border-b border-black/10 px-4 py-3 font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-black/55 sm:grid sm:px-5 lg:grid-cols-[92px_minmax(0,1fr)_148px_86px] lg:gap-6 lg:px-6">
             <span>Date</span>
             <span>Event / society</span>
             <span>When / where</span>
@@ -107,8 +97,6 @@ export function EventListSection({
               <EventRow
                 key={event.id}
                 event={event}
-                index={index}
-                animateEntrance={animateCards}
                 isNext={index === 0}
               />
             ))}

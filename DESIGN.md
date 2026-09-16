@@ -59,8 +59,8 @@ The Events page uses an OFFF Forum-inspired programme register while remaining r
 - Upcoming events are direct, crawlable links in an editorial schedule. Every row keeps date, society, entry state, time/TBC, venue, availability and an inline artwork/fallback thumbnail visible without hover.
 - The first/next row may carry only a restrained IEEE-blue rule/dot; do not turn rows into dark selected cards.
 - The layout adapts for zero, one or many upcoming events and never allocates a fixed poster rail or duplicated preview area.
-- Upcoming and archived events read as one continuous programme canvas. The archive keeps `all`, `upcoming`, and `past` filters, visible search/society labels, chronological groups, and direct leaf routes; use sharp typographic tabs rather than rounded SaaS pills.
-- Use brief Framer Motion reveals and micro-interactions (approximately 360ms header, 35–45ms row stagger, 3px row nudge, subtle thumbnail scale) and honour `prefers-reduced-motion` by making them immediate.
+- Upcoming and archived events read as one continuous programme canvas. Upcoming rows own the future schedule; the past programme is a searchable, society-filtered archive with chronological groups and direct leaf routes. Do not duplicate future events in a second status-filter system.
+- Keep substantive schedule content visible in the server-rendered baseline. Motion is limited to brief hover/focus colour, thumbnail and arrow feedback plus the restrained next-event signal; honour `prefers-reduced-motion`.
 - Real event banners remain appropriate on event detail surfaces; the index should not depend on their aspect ratio.
 
 ### SustainX event story

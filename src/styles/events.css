@@ -1,9 +1,6 @@
-.event-filter-scroll {
-  scrollbar-width: none;
-}
-
-.event-filter-scroll::-webkit-scrollbar {
-  display: none;
+.events-page {
+  --font-sans: "Geist Variable", "Geist", ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-sans);
 }
 
 @keyframes event-signal-pulse {
