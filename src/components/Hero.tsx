@@ -33,7 +33,7 @@ export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societ
     };
 
     return (
-        <section className="relative h-[max(78svh,480px)] flex flex-col items-center justify-center z-20 px-4 overflow-hidden md:h-[82svh]">
+        <section className="relative h-[max(78svh,480px)] flex flex-col items-center justify-center z-20 px-4 overflow-hidden md:h-dvh">
             <motion.div
                 style={reduceMotion ? undefined : { scale, opacity, y }}
                 className="w-full h-full flex flex-col items-center justify-center relative"
@@ -68,7 +68,7 @@ export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societ
                     <motion.div
                         initial={reduceMotion ? false : { opacity: 0 }}
                         animate={{ opacity: 0.7 }}
-                        transition={{ delay: reduceMotion ? 0 : 2, duration: reduceMotion ? 0 : 1 }}
+                        transition={{ delay: reduceMotion ? 0 : 0.4, duration: reduceMotion ? 0 : 1 }}
                         className="flex items-center justify-center gap-4 md:gap-6 mt-8 md:mt-12"
                     >
                         <div className="h-px bg-gray-400 w-12 md:w-32 hidden sm:block" />
@@ -79,7 +79,7 @@ export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societ
                                     key={word}
                                     initial={reduceMotion ? false : { opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: reduceMotion ? 0 : 2.2 + i * 0.3, duration: reduceMotion ? 0 : undefined }}
+                                    transition={{ delay: reduceMotion ? 0 : 0.55 + i * 0.15, duration: reduceMotion ? 0 : undefined }}
                                 >
                                     {word}.
                                 </motion.span>
@@ -93,7 +93,7 @@ export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societ
                 <motion.div
                     initial={reduceMotion ? false : { opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    transition={{ delay: reduceMotion ? 0 : 2.8, duration: reduceMotion ? 0 : 0.8 }}
+                    transition={{ delay: reduceMotion ? 0 : 0.7, duration: reduceMotion ? 0 : 0.8 }}
                     className="absolute bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] left-4 right-4 mx-auto grid max-w-5xl grid-cols-3 border-y border-gray-200/80 bg-white/55 backdrop-blur-[2px] md:bottom-14"
                 >
                     <div className="px-3 py-3 sm:px-5">

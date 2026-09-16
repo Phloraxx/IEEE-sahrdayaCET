@@ -46,7 +46,7 @@ export default function Home() {
     <>
       <CanonicalLink path="/" />
     <div className="relative w-full bg-white text-gray-900 font-sans selection:bg-ieee-blue/20">
-      <div className="fixed inset-x-0 top-0 z-0 h-[max(78svh,480px)] overflow-hidden md:h-[82svh]">
+      <div className="fixed inset-x-0 top-0 z-0 h-[max(78svh,480px)] overflow-hidden md:h-dvh">
         <StarsBackground starDensity={0.0004} allStarsTwinkle starColor="#1e293b" />
         <ShootingStars starColor="#00629b" trailColor="#0099D6" minDelay={1500} maxDelay={4000} minSpeed={8} maxSpeed={20} starWidth={12} starHeight={2} />
         <ShootingStars starColor="#00629b" trailColor="#0099D6" minDelay={2000} maxDelay={5000} minSpeed={12} maxSpeed={25} starWidth={10} starHeight={1} />
@@ -58,7 +58,7 @@ export default function Home() {
       </div>
       <Navbar />
       <ErrorBoundary>
-        <div className="relative z-10 mt-[max(78svh,480px)] md:mt-[82svh]">
+        <div className="relative z-10 mt-[max(78svh,480px)] md:mt-[100dvh]">
           <NowAtSahrdaya events={upcomingEvents} upcomingCount={upcomingCount} societyCount={societies.length} execomCount={execomCount} />
           <Execom societyCount={societies.length} rosterCount={execomCount} upcomingCount={upcomingCount} />
           {/* Intentionally hardcoded visual showcase; live event data is used above. */}
