@@ -33,7 +33,7 @@ export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societ
     };
 
     return (
-        <section className="relative h-[78svh] flex flex-col items-center justify-center z-20 px-4 overflow-hidden md:h-[82svh]">
+        <section className="relative h-[max(78svh,480px)] flex flex-col items-center justify-center z-20 px-4 overflow-hidden md:h-[82svh]">
             <motion.div
                 style={reduceMotion ? undefined : { scale, opacity, y }}
                 className="w-full h-full flex flex-col items-center justify-center relative"
