@@ -15,9 +15,9 @@ export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societ
 
     // Scroll Transformations
     // Animation starts after scrolling 300px, closer to when content overlaps
-    const scale = useTransform(scrollY, [300, 800], [1, 1.3]);
+    const scale = useTransform(scrollY, [300, 800], [1, 1.12]);
     const opacity = useTransform(scrollY, [500, 800], [1, 0]);
-    const y = useTransform(scrollY, [300, 800], [0, -100]);
+    const y = useTransform(scrollY, [300, 800], [0, -56]);
 
     const textVariants = {
         hidden: { y: 50, opacity: 0 },
@@ -33,7 +33,7 @@ export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societ
     };
 
     return (
-        <section className="relative h-dvh flex flex-col items-center justify-center z-20 px-4 overflow-hidden">
+        <section className="relative h-[78svh] flex flex-col items-center justify-center z-20 px-4 overflow-hidden md:h-[82svh]">
             <motion.div
                 style={reduceMotion ? undefined : { scale, opacity, y }}
                 className="w-full h-full flex flex-col items-center justify-center relative"
@@ -94,7 +94,7 @@ export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societ
                     initial={reduceMotion ? false : { opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: reduceMotion ? 0 : 2.8, duration: reduceMotion ? 0 : 0.8 }}
-                    className="absolute bottom-14 left-4 right-4 mx-auto grid max-w-5xl grid-cols-3 border-y border-gray-200/80 bg-white/55 backdrop-blur-[2px]"
+                    className="absolute bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] left-4 right-4 mx-auto grid max-w-5xl grid-cols-3 border-y border-gray-200/80 bg-white/55 backdrop-blur-[2px] md:bottom-14"
                 >
                     <div className="px-3 py-3 sm:px-5">
                         <p className="font-mono text-[7px] font-semibold uppercase tracking-[0.16em] text-gray-400 sm:text-[8px]">Next</p>

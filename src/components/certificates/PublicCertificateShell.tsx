@@ -18,7 +18,7 @@ export function PublicCertificateShell({ section, title, description, children }
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[560px] bg-[radial-gradient(circle_at_1px_1px,rgba(15,23,42,0.12)_1px,transparent_0)] [background-size:28px_28px] [mask-image:linear-gradient(to_bottom,black,transparent)]" />
       <Navbar />
 
-      <main className="relative z-10 pt-24 md:pt-32">
+      <main className="relative z-10 pt-14 sm:pt-20 md:pt-32">
         <section className="border-b border-black/10">
           <div className="container mx-auto px-4 pb-10 pt-8 md:pb-14 md:pt-12">
             <div className="flex items-center justify-between gap-4 border-b border-black/10 pb-4">

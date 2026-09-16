@@ -388,7 +388,7 @@ export default function EventDetailPage() {
 
       <section data-testid="event-programme-hero" className="relative overflow-hidden bg-[#07121f] text-[#f4f2ed]">
         <div className="pointer-events-none absolute inset-0 opacity-[0.22] [background-image:linear-gradient(rgba(255,255,255,.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.05)_1px,transparent_1px)] [background-size:72px_72px]" />
-        <div className="relative mx-auto max-w-[1440px] px-5 pb-10 pt-28 sm:px-8 sm:pb-12 lg:px-12 lg:pt-36">
+        <div className="relative mx-auto max-w-[1440px] px-5 pb-10 pt-16 sm:px-8 sm:pb-12 sm:pt-20 md:pt-24 lg:px-12 lg:pt-28">
           <motion.div {...revealUp(reduceMotion, 8)} className="flex items-center justify-between border-b border-white/15 pb-5">
             <Link to={backHref} className="group inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-white/55 transition hover:text-[#58c6ff]">
               <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" /> {backLabel}
@@ -396,7 +396,7 @@ export default function EventDetailPage() {
             <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/38">Programme / {formatYear(event.date)}</span>
           </motion.div>
 
-          <header className="grid gap-10 py-10 md:grid-cols-12 md:items-end md:gap-8 md:py-14 lg:py-16">
+          <header className="grid gap-8 py-8 md:grid-cols-12 md:items-end md:gap-7 md:py-10 lg:py-12">
             <div className="md:col-span-7 lg:col-span-8">
               {event.society ? (
                 <motion.div {...revealUp(reduceMotion, 8)} transition={{ duration: reduceMotion ? 0 : MOTION_DURATION.ui, ease: MOTION_EASE, delay: reduceMotion ? 0 : 0.06 }}>
@@ -600,7 +600,7 @@ export default function EventDetailPage() {
           initial={reduceMotion ? false : { y: "100%", opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: reduceMotion ? 0 : MOTION_DURATION.ui, ease: MOTION_EASE }}
-          className={`fixed inset-x-0 bottom-0 z-50 border-t border-black/10 bg-[#f4f2ed]/95 px-5 backdrop-blur-xl lg:hidden ${compactMobileAction ? "py-2" : "py-3"}`}
+          className={`fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] z-50 border-t border-black/10 bg-[#f4f2ed]/95 px-5 backdrop-blur-xl md:bottom-0 lg:hidden ${compactMobileAction ? "py-2" : "py-3"}`}
         >
           <div className="mx-auto flex max-w-lg items-center gap-4">
             <AnimatePresence initial={false}>

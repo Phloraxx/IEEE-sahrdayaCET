@@ -68,7 +68,7 @@ export default function BlogClient({ blogs = [] }: { blogs?: BlogPost[] }) {
       <Navbar />
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-[100dvh]"><TechnicalDetails /></div>
 
-      <main className="relative z-20 mx-auto w-full max-w-[1320px] px-5 pb-24 pt-28 sm:px-6 sm:pt-32 lg:px-10">
+      <main className="relative z-20 mx-auto w-full max-w-[1320px] px-5 pb-24 pt-16 sm:px-6 sm:pt-20 md:pt-32 lg:px-10">
         <header data-testid="blog-journal-masthead" className="border-t border-gray-200 pt-6 sm:pt-8">
           <div className="flex flex-wrap items-center justify-between gap-4 font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-gray-400">
             <h1 className="text-gray-600">IEEE Sahrdaya / Blog</h1>

@@ -186,7 +186,7 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
       <main>
         <section
           ref={heroRef}
-          className="relative isolate overflow-hidden border-b border-[#2c1a31]/10 pb-16 pt-28 sm:pb-24 sm:pt-32 lg:min-h-[850px] lg:pb-28"
+          className="relative isolate overflow-hidden border-b border-[#2c1a31]/10 pb-16 pt-16 sm:pb-24 sm:pt-20 md:pt-24 lg:min-h-[850px] lg:pb-28 lg:pt-32"
         >
           <div
             className="absolute inset-0 -z-20 opacity-[0.4]"

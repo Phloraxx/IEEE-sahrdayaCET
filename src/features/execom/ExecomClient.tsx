@@ -456,7 +456,7 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
 
       <AnimatePresence>{selectedMember && <MemberDrawer member={selectedMember} onClose={() => setSelectedMember(null)} />}</AnimatePresence>
 
-      <main className="relative z-20 mx-auto w-full max-w-[1440px] px-5 pb-24 pt-28 sm:px-8 sm:pt-32 lg:px-12">
+      <main className="relative z-20 mx-auto w-full max-w-[1440px] px-5 pb-24 pt-16 sm:px-8 sm:pt-20 md:pt-32 lg:px-12">
         <header data-testid="execom-directory-header" className="border-t border-black/10 pt-5 sm:pt-7">
           <div className="flex flex-wrap items-center justify-between gap-4 font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-black/38">
             <h1 className="text-black/55">IEEE Sahrdaya / Execom</h1>

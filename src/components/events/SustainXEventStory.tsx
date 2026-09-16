@@ -710,7 +710,7 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
         <div aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,9,12,.58)_0%,rgba(8,9,12,.08)_34%,rgba(8,9,12,.2)_62%,rgba(8,9,12,.88)_100%)]" />
         <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,transparent_20%,rgba(0,0,0,.34)_100%)]" />
 
-        <div className="relative mx-auto flex min-h-[100svh] max-w-[1600px] flex-col px-5 pb-7 pt-24 sm:px-8 sm:pt-28 lg:px-12">
+        <div className="relative mx-auto flex min-h-[100svh] max-w-[1600px] flex-col px-5 pb-7 pt-16 sm:px-8 sm:pt-20 md:pt-24 lg:px-12 lg:pt-28">
           <div className="flex items-center justify-between border-b border-white/22 py-4 text-white">
             <Link to="/events" className="group inline-flex min-h-11 items-center gap-2 text-[9px] font-bold uppercase tracking-[0.2em] text-white/72 transition hover:text-white">
               <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" /> All events

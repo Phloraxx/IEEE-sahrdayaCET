@@ -129,7 +129,7 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
       <section data-testid="society-profile-hero" className="relative overflow-hidden border-b border-black/10 bg-[#f7f8f8]">
         <div className="pointer-events-none absolute inset-0 opacity-[0.26] [background-image:radial-gradient(circle_at_center,rgba(12,35,52,.18)_0.7px,transparent_0.8px)] [background-size:24px_24px]" />
         <div className="pointer-events-none absolute -right-24 top-24 h-[36rem] w-[36rem] rounded-full blur-3xl" style={{ backgroundColor: `${palette.accent}0d` }} />
-        <div className="relative mx-auto max-w-[1440px] px-5 pb-10 pt-28 sm:px-8 sm:pb-12 lg:px-12 lg:pt-36">
+        <div className="relative mx-auto max-w-[1440px] px-5 pb-10 pt-16 sm:px-8 sm:pb-12 sm:pt-20 md:pt-24 lg:px-12 lg:pt-28">
           <div className="flex items-center justify-between border-b border-black/12 pb-5">
             <Link to="/societies" className="group inline-flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.2em] text-black/45 transition hover:text-[#00629B]">
               <ArrowLeft className="h-3.5 w-3.5 transition group-hover:-translate-x-0.5" /> Society directory

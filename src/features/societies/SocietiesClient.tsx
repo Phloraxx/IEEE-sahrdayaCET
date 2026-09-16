@@ -461,7 +461,7 @@ export default function SocietiesClient({ societies, activityBySociety, upcoming
         </motion.aside>
       )}
 
-      <main className="relative z-10 px-5 pb-0 pt-28 sm:px-6 sm:pt-32">
+      <main className="relative z-10 px-5 pb-0 pt-16 sm:px-6 sm:pt-20 md:pt-32">
         <div className="mx-auto max-w-7xl">
           <motion.section
             data-testid="society-antihero"

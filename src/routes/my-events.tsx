@@ -317,7 +317,7 @@ export default function MyEventsPage() {
     <main className="min-h-screen bg-[#f4f2ed] text-[#111315] selection:bg-[#00629B] selection:text-white">
       <Navbar />
       <section className="border-b border-black/10 bg-[#07121f] text-white">
-        <div className="mx-auto max-w-[1200px] px-5 pb-12 pt-28 sm:px-8 lg:px-12 lg:pb-16 lg:pt-36">
+        <div className="mx-auto max-w-[1200px] px-5 pb-12 pt-16 sm:px-8 sm:pt-20 md:pt-24 lg:px-12 lg:pb-16 lg:pt-32">
           <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-[#58c6ff]">Attendee record</p>
           <h1 className="mt-4 max-w-4xl text-5xl font-semibold leading-[0.9] tracking-[-0.065em] sm:text-7xl">Your events, in one place.</h1>
           <p className="mt-6 max-w-2xl text-sm leading-6 text-white/50 sm:text-base">Tickets, payments, attendee access, attendance and certificates stay available after you leave an event page.</p>

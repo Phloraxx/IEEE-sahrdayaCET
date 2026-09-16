@@ -26,7 +26,7 @@ export function PolicyPage({
       <CanonicalLink path={path} />
       <div className="min-h-screen bg-white text-gray-900">
         <Navbar />
-        <main className="mx-auto w-full max-w-4xl px-4 pb-20 pt-32 sm:px-6 lg:px-8">
+        <main className="mx-auto w-full max-w-4xl px-4 pb-20 pt-14 sm:px-6 sm:pt-20 md:pt-32 lg:px-8">
           <Link
             to="/"
             className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition-colors hover:text-ieee-blue"
