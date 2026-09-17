@@ -157,7 +157,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
                       value={archiveSearch}
                       onChange={(event) => setArchiveSearch(event.target.value)}
                       placeholder="Title, society or venue"
-                      className="h-11 w-full border-b border-black/25 bg-transparent pl-7 pr-11 text-sm outline-none transition-colors placeholder:text-black/45 focus:border-[#00629B] focus-visible:ring-2 focus-visible:ring-[#00629B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#f8f9fa]"
+                      className="h-11 w-full border-b border-black/25 bg-transparent pl-7 pr-11 text-base outline-none transition-colors placeholder:text-black/45 focus:border-[#00629B] focus-visible:ring-2 focus-visible:ring-[#00629B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#f8f9fa] lg:text-sm"
                     />
                     {archiveSearch && (
                       <button type="button" onClick={() => setArchiveSearch("")} aria-label="Clear search" className="absolute right-0 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center text-black/55 transition-colors hover:text-black focus-visible:outline-2 focus-visible:outline-[#00629B]">
@@ -173,7 +173,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
                     value={archiveSociety}
                     onChange={(event) => setArchiveSociety(event.target.value)}
                     aria-label="Filter past events by society"
-                    className="h-11 max-w-full border-b border-black/25 bg-transparent pr-5 text-sm font-semibold text-black/65 outline-none transition-colors focus:border-[#00629B] focus-visible:ring-2 focus-visible:ring-[#00629B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#f8f9fa]"
+                    className="h-11 max-w-full border-b border-black/25 bg-transparent pr-5 text-base font-semibold text-black/65 outline-none transition-colors focus:border-[#00629B] focus-visible:ring-2 focus-visible:ring-[#00629B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#f8f9fa] lg:text-sm"
                   >
                     {societyOptions.map((option) => <option key={option} value={option}>{option}</option>)}
                   </select>

@@ -584,14 +584,14 @@ export default function SocietiesClient({ societies, activityBySociety, upcoming
               <label htmlFor="society-search" className="sr-only">Search societies</label>
               <div className="relative flex-1">
                 <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input id="society-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search societies, fields or interests…" className="h-11 w-full border-0 bg-transparent pl-10 pr-20 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:bg-slate-50/50" />
-                {query ? <button type="button" aria-label="Clear search" onClick={() => setQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X className="h-4 w-4" /></button> : <kbd className="absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-slate-200 bg-white px-2 py-1 font-mono text-[10px] text-slate-400 sm:block">/</kbd>}
+                <input id="society-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search societies, fields or interests…" className="h-11 w-full border-0 bg-transparent pl-10 pr-20 text-base text-slate-900 outline-none transition placeholder:text-slate-400 focus:bg-slate-50/50 lg:text-sm" />
+                {query ? <button type="button" aria-label="Clear search" onClick={() => setQuery("")} className="absolute right-0 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X className="h-4 w-4" /></button> : <kbd className="absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-slate-200 bg-white px-2 py-1 font-mono text-[10px] text-slate-400 sm:block">/</kbd>}
               </div>
               <div className="flex items-center justify-between gap-3 px-1 sm:px-0">
                 <span className="whitespace-nowrap font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-400 sm:pl-3">{query ? `SEARCH / ${query.toUpperCase()} · ${filtered.length} ${filtered.length === 1 ? "MATCH" : "MATCHES"}` : `${filtered.length} RESULTS`}</span>
                 <div className="flex border-l border-slate-200 pl-2" role="group" aria-label="Society view">
-                  <button type="button" aria-label="Grid view" title="Grid view (G)" aria-pressed={view === "grid"} onClick={() => chooseView("grid")} className={`p-2 transition ${view === "grid" ? "text-slate-950" : "text-slate-300 hover:text-slate-600"}`}><Grid3X3 className="h-4 w-4" /></button>
-                  <button type="button" aria-label="List view" title="List view (L)" aria-pressed={view === "list"} onClick={() => chooseView("list")} className={`p-2 transition ${view === "list" ? "text-slate-950" : "text-slate-300 hover:text-slate-600"}`}><List className="h-4 w-4" /></button>
+                  <button type="button" aria-label="Grid view" title="Grid view (G)" aria-pressed={view === "grid"} onClick={() => chooseView("grid")} className={`inline-grid h-11 w-11 place-items-center transition ${view === "grid" ? "text-slate-950" : "text-slate-300 hover:text-slate-600"}`}><Grid3X3 className="h-4 w-4" /></button>
+                  <button type="button" aria-label="List view" title="List view (L)" aria-pressed={view === "list"} onClick={() => chooseView("list")} className={`inline-grid h-11 w-11 place-items-center transition ${view === "list" ? "text-slate-950" : "text-slate-300 hover:text-slate-600"}`}><List className="h-4 w-4" /></button>
                 </div>
               </div>
             </div>

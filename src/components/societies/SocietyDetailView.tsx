@@ -231,8 +231,8 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
                 <p className="mt-3 text-sm text-white/48">{advisor.position}{advisor.department ? ` · ${advisor.department}` : ""}</p>
               </div>
               <div className="flex gap-4 md:col-start-2 lg:col-start-auto lg:justify-self-end">
-                {advisor.linkedin && <a href={advisor.linkedin} target="_blank" rel="noopener noreferrer" aria-label={`${advisor.name} on LinkedIn`} className="text-white/45 transition hover:text-white"><Linkedin className="h-5 w-5" /></a>}
-                {advisor.instagram && <a href={advisor.instagram} target="_blank" rel="noopener noreferrer" aria-label={`${advisor.name} on Instagram`} className="text-white/45 transition hover:text-white"><Instagram className="h-5 w-5" /></a>}
+                {advisor.linkedin && <a href={advisor.linkedin} target="_blank" rel="noopener noreferrer" aria-label={`${advisor.name} on LinkedIn`} className="inline-grid h-11 w-11 place-items-center text-white/45 transition hover:text-white"><Linkedin className="h-5 w-5" /></a>}
+                {advisor.instagram && <a href={advisor.instagram} target="_blank" rel="noopener noreferrer" aria-label={`${advisor.name} on Instagram`} className="inline-grid h-11 w-11 place-items-center text-white/45 transition hover:text-white"><Instagram className="h-5 w-5" /></a>}
               </div>
             </div>
           )}
@@ -249,8 +249,8 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
                         <h3 className="mt-2 text-2xl font-semibold leading-tight tracking-[-0.04em]">{member.name}</h3>
                       </div>
                       <div className="flex shrink-0 gap-3 pt-1">
-                        {member.linkedin && <a href={member.linkedin} target="_blank" rel="noopener noreferrer" aria-label={`${member.name} on LinkedIn`} className="text-white/35 transition hover:text-white"><Linkedin className="h-4 w-4" /></a>}
-                        {member.instagram && <a href={member.instagram} target="_blank" rel="noopener noreferrer" aria-label={`${member.name} on Instagram`} className="text-white/35 transition hover:text-white"><Instagram className="h-4 w-4" /></a>}
+                        {member.linkedin && <a href={member.linkedin} target="_blank" rel="noopener noreferrer" aria-label={`${member.name} on LinkedIn`} className="inline-grid h-11 w-11 place-items-center text-white/35 transition hover:text-white"><Linkedin className="h-4 w-4" /></a>}
+                        {member.instagram && <a href={member.instagram} target="_blank" rel="noopener noreferrer" aria-label={`${member.name} on Instagram`} className="inline-grid h-11 w-11 place-items-center text-white/35 transition hover:text-white"><Instagram className="h-4 w-4" /></a>}
                       </div>
                     </div>
                     {(member.department || member.batch) && <p className="mt-3 text-xs uppercase tracking-[0.12em] text-white/35">{[member.department, member.batch].filter(Boolean).join(" · ")}</p>}

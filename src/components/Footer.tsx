@@ -14,9 +14,10 @@ const policyLinks = [
 
 interface FooterProps {
   seamless?: boolean;
+  mobileActionClearance?: boolean;
 }
 
-const Footer: React.FC<FooterProps> = ({ seamless = false }) => {
+const Footer: React.FC<FooterProps> = ({ seamless = false, mobileActionClearance = false }) => {
   const currentYear = new Date().getFullYear();
 
   return (
@@ -139,12 +140,12 @@ const Footer: React.FC<FooterProps> = ({ seamless = false }) => {
         </div>
         {/* Logos Row */}
         <div className="border-b border-white/10 py-7 md:py-10">
-          <div className="flex items-center justify-center gap-4 sm:gap-8 md:gap-16">
+          <div className="grid grid-cols-3 items-stretch divide-x divide-white/40 sm:flex sm:items-center sm:justify-center sm:gap-8 sm:divide-x-0 md:gap-16">
             <a
               href="https://ieee-link.org/"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-11 items-center opacity-70 transition-opacity duration-300 hover:opacity-100"
+              className="inline-flex min-h-11 min-w-0 items-center justify-center px-2 opacity-70 transition-opacity duration-300 hover:opacity-100 sm:px-0"
             >
               <img
                 loading="lazy"
@@ -152,16 +153,15 @@ const Footer: React.FC<FooterProps> = ({ seamless = false }) => {
                 alt="IEEE"
                 width={314}
                 height={76}
-                className="h-9 sm:h-11 md:h-16 w-auto object-contain brightness-0 invert"
+                className="h-auto max-h-9 w-full max-w-[7rem] object-contain brightness-0 invert sm:h-11 sm:max-h-none sm:w-auto sm:max-w-none lg:h-16"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.textContent = 'IEEE LINK'; }}
               />
             </a>
-            <div className="h-10 w-px bg-white/40 sm:h-12 md:h-14 md:bg-white/50" />
             <a
               href="https://www.sahrdaya.ac.in"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-11 items-center opacity-70 transition-opacity duration-300 hover:opacity-100"
+              className="inline-flex min-h-11 min-w-0 items-center justify-center px-2 opacity-70 transition-opacity duration-300 hover:opacity-100 sm:px-0"
             >
               <img
                 loading="lazy"
@@ -169,16 +169,15 @@ const Footer: React.FC<FooterProps> = ({ seamless = false }) => {
                 alt="Sahrdaya"
                 width={1623}
                 height={531}
-                className="h-9 sm:h-11 md:h-16 w-auto object-contain brightness-0 invert"
+                className="h-auto max-h-9 w-full max-w-[7rem] object-contain brightness-0 invert sm:h-11 sm:max-h-none sm:w-auto sm:max-w-none lg:h-16"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.textContent = 'Sahrdaya College'; }}
               />
             </a>
-            <div className="h-10 w-px bg-white/40 sm:h-12 md:h-14 md:bg-white/50" />
             <a
               href="https://ieeekerala.org"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-11 items-center opacity-80 transition-opacity duration-300 hover:opacity-100"
+              className="inline-flex min-h-11 min-w-0 items-center justify-center px-2 opacity-80 transition-opacity duration-300 hover:opacity-100 sm:px-0"
             >
               <img
                 loading="lazy"
@@ -186,7 +185,7 @@ const Footer: React.FC<FooterProps> = ({ seamless = false }) => {
                 alt="IEEE Kerala Section"
                 width={557}
                 height={135}
-                className="h-9 sm:h-11 md:h-16 w-auto object-contain brightness-100"
+                className="h-auto max-h-9 w-full max-w-[7rem] object-contain brightness-100 sm:h-11 sm:max-h-none sm:w-auto sm:max-w-none lg:h-16"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.textContent = 'IEEE Kerala Section'; }}
               />
             </a>
@@ -237,7 +236,7 @@ const Footer: React.FC<FooterProps> = ({ seamless = false }) => {
         </div>
 
         {/* Bottom Bar */}
-        <div className="flex flex-col items-center justify-between gap-3 px-1 pb-[calc(4rem+env(safe-area-inset-bottom,0px))] pt-5 md:flex-row md:gap-4 md:px-0 md:py-6">
+        <div className={`flex flex-col items-center justify-between gap-3 px-1 pt-5 md:flex-row md:gap-4 md:px-0 md:pt-6 ${mobileActionClearance ? "pb-[calc(8.5rem+env(safe-area-inset-bottom,0px))] md:pb-20 lg:pb-6" : "pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:pb-6"}`}>
           <div className="text-center font-mono text-[10px] tracking-wider text-white/60 md:text-left">
             &copy; {currentYear} IEEE SAHRDAYA SB &mdash; ALL RIGHTS RESERVED
           </div>

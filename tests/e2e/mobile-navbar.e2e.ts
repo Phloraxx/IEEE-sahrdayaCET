@@ -15,6 +15,22 @@ test.describe("mobile public navigation", () => {
     const trigger = dock.getByRole("button", { name: "Open more navigation" });
     await expect(trigger).toBeVisible();
     await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    const mascot = dock.locator('[data-mobile-mascot="dock"]');
+    await expect(mascot).toBeVisible();
+
+    const mascotGeometry = await mascot.evaluate((element) => {
+      const mascotRect = element.getBoundingClientRect();
+      const triggerRect = element.parentElement?.getBoundingClientRect();
+      return {
+        mascot: { top: mascotRect.top, bottom: mascotRect.bottom, left: mascotRect.left, right: mascotRect.right },
+        trigger: triggerRect ? { top: triggerRect.top, bottom: triggerRect.bottom, left: triggerRect.left, right: triggerRect.right } : null,
+      };
+    });
+    expect(mascotGeometry.trigger).not.toBeNull();
+    expect(mascotGeometry.mascot.top).toBeGreaterThanOrEqual(mascotGeometry.trigger!.top);
+    expect(mascotGeometry.mascot.bottom).toBeLessThanOrEqual(mascotGeometry.trigger!.bottom);
+    expect(mascotGeometry.mascot.left).toBeGreaterThanOrEqual(mascotGeometry.trigger!.left);
+    expect(mascotGeometry.mascot.right).toBeLessThanOrEqual(mascotGeometry.trigger!.right);
 
     const dockGeometry = await dock.evaluate((element) => {
       const rect = element.getBoundingClientRect();

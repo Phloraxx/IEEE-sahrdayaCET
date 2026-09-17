@@ -182,7 +182,7 @@ function MemberDrawer({
       role="dialog"
       aria-modal="true"
       aria-label={member.name}
-      className="fixed inset-0 z-[100] bg-[#06111e]/55 backdrop-blur-sm"
+      className="fixed inset-0 z-[120] bg-[#06111e]/55 backdrop-blur-sm"
       initial={reduceMotion ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={reduceMotion ? undefined : { opacity: 0 }}
@@ -190,7 +190,7 @@ function MemberDrawer({
     >
       <motion.aside
         ref={panelRef}
-        className="absolute inset-y-0 right-0 flex w-full max-w-[520px] flex-col overflow-y-auto bg-[#f7f8f8] shadow-2xl"
+        className="absolute inset-y-0 right-0 flex w-full max-w-[520px] flex-col overflow-y-auto bg-[#f7f8f8] pb-[calc(5rem+env(safe-area-inset-bottom,0px))] pt-[env(safe-area-inset-top,0px)] shadow-2xl sm:pb-7"
         initial={reduceMotion ? false : { x: "100%" }}
         animate={{ x: 0 }}
         exit={reduceMotion ? undefined : { x: "100%" }}
@@ -206,7 +206,7 @@ function MemberDrawer({
             type="button"
             onClick={onClose}
             aria-label="Close member profile"
-            className="grid h-9 w-9 place-items-center rounded-full border border-black/10 text-black/55 transition hover:border-ieee-blue hover:text-ieee-blue"
+            className="grid h-11 w-11 place-items-center rounded-full border border-black/10 text-black/55 transition hover:border-ieee-blue hover:text-ieee-blue"
           >
             <X className="h-4 w-4" />
           </button>
@@ -435,13 +435,17 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
 
   if (!docs.length) {
     return (
-      <div className="grid min-h-screen place-items-center bg-white px-5 text-center">
-        <div className="max-w-md">
-          <Users className="mx-auto h-12 w-12 text-slate-300" />
-          <h1 className="mt-6 text-3xl font-bold tracking-[-0.04em]">Execom directory unavailable.</h1>
-          <p className="mt-3 text-sm leading-6 text-black/45">The public roster could not be loaded right now.</p>
-          <Link to="/" className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-ieee-blue">Return home <ArrowRight className="h-4 w-4" /></Link>
-        </div>
+      <div className="relative min-h-screen overflow-x-hidden bg-[#f7f8f8] text-gray-950">
+        <Navbar />
+        <main className="relative z-20 mx-auto grid min-h-[60vh] w-full max-w-[1440px] place-items-center px-5 pb-24 pt-28 text-center sm:px-8 sm:pt-32 lg:px-12">
+          <div className="max-w-md">
+            <Users className="mx-auto h-12 w-12 text-slate-300" />
+            <h1 className="mt-6 text-3xl font-bold tracking-[-0.04em]">Execom directory unavailable.</h1>
+            <p className="mt-3 text-sm leading-6 text-black/45">The public roster could not be loaded right now.</p>
+            <Link to="/" className="mt-6 inline-flex min-h-11 items-center gap-2 text-sm font-bold text-ieee-blue">Return home <ArrowRight className="h-4 w-4" /></Link>
+          </div>
+        </main>
+        <div className="relative z-20"><Footer /></div>
       </div>
     );
   }
@@ -500,10 +504,10 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Search the roster…"
-                  className="h-11 w-full rounded-full border border-black/10 bg-white/85 pl-9 pr-9 text-sm shadow-sm outline-none transition placeholder:text-black/30 focus:border-ieee-blue"
+                  className="h-11 w-full rounded-full border border-black/10 bg-white/85 pl-9 pr-11 text-base shadow-sm outline-none transition placeholder:text-black/30 focus:border-ieee-blue lg:text-sm"
                 />
                 {query && (
-                  <button type="button" onClick={() => setQuery("")} aria-label="Clear Execom search" className="absolute right-3 top-1/2 -translate-y-1/2 text-black/30 hover:text-ieee-blue"><X className="h-4 w-4" /></button>
+                  <button type="button" onClick={() => setQuery("")} aria-label="Clear Execom search" className="absolute right-0 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center text-black/30 hover:text-ieee-blue"><X className="h-4 w-4" /></button>
                 )}
               </label>
               <div className="inline-flex rounded-full border border-black/10 bg-white/85 p-1 shadow-sm" aria-label="Execom directory view">

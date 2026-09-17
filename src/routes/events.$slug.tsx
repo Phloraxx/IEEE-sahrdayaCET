@@ -600,7 +600,7 @@ export default function EventDetailPage() {
           initial={reduceMotion ? false : { y: "100%", opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: reduceMotion ? 0 : MOTION_DURATION.ui, ease: MOTION_EASE }}
-          className={`fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] z-50 border-t border-black/10 bg-[#f4f2ed]/95 px-5 backdrop-blur-xl md:bottom-0 lg:hidden ${compactMobileAction ? "py-2" : "py-3"}`}
+          className={`fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] z-50 border-t border-black/10 bg-[#f4f2ed]/95 pl-[calc(1.25rem+env(safe-area-inset-left,0px))] pr-[calc(1.25rem+env(safe-area-inset-right,0px))] backdrop-blur-xl md:bottom-0 lg:hidden ${compactMobileAction ? "py-2" : "py-3"}`}
         >
           <div className="mx-auto flex max-w-lg items-center gap-4">
             <AnimatePresence initial={false}>
@@ -618,7 +618,7 @@ export default function EventDetailPage() {
           </div>
         </motion.div>
       )}
-      <Footer />
+      <Footer mobileActionClearance />
     </main>
   );
 }

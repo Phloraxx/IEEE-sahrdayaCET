@@ -129,12 +129,12 @@ export default function BlogClient({ blogs = [] }: { blogs?: BlogPost[] }) {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <div className="relative min-w-[250px]">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <input value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Search blog stories" placeholder="Search stories…" className="h-11 w-full rounded-full border border-gray-200 bg-white pl-9 pr-9 text-sm shadow-sm outline-none transition placeholder:text-gray-400 focus:border-ieee-blue" />
-                {query ? <button type="button" aria-label="Clear story search" onClick={() => setQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"><X className="h-4 w-4" /></button> : null}
+                <input value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Search blog stories" placeholder="Search stories…" className="h-11 w-full rounded-full border border-gray-200 bg-white pl-9 pr-11 text-base shadow-sm outline-none transition placeholder:text-gray-400 focus:border-ieee-blue lg:text-sm" />
+                {query ? <button type="button" aria-label="Clear story search" onClick={() => setQuery("")} className="absolute right-0 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center text-gray-400 hover:text-gray-700"><X className="h-4 w-4" /></button> : null}
               </div>
               <div className="inline-flex rounded-full border border-gray-200 bg-white p-1 shadow-sm" aria-label="Blog archive view">
-                <button type="button" onClick={() => setViewMode("grid")} aria-pressed={viewMode === "grid"} className={`inline-flex items-center gap-2 rounded-full px-3 py-2 font-mono text-[8px] font-semibold uppercase tracking-[0.14em] transition ${viewMode === "grid" ? "bg-gray-950 text-white" : "text-gray-500 hover:text-gray-900"}`}><Grid2X2 className="h-3.5 w-3.5" /> Grid</button>
-                <button type="button" onClick={() => setViewMode("index")} aria-pressed={viewMode === "index"} className={`inline-flex items-center gap-2 rounded-full px-3 py-2 font-mono text-[8px] font-semibold uppercase tracking-[0.14em] transition ${viewMode === "index" ? "bg-gray-950 text-white" : "text-gray-500 hover:text-gray-900"}`}><List className="h-3.5 w-3.5" /> Index</button>
+                <button type="button" onClick={() => setViewMode("grid")} aria-pressed={viewMode === "grid"} className={`inline-flex min-h-11 items-center gap-2 rounded-full px-3 py-2 font-mono text-[8px] font-semibold uppercase tracking-[0.14em] transition ${viewMode === "grid" ? "bg-gray-950 text-white" : "text-gray-500 hover:text-gray-900"}`}><Grid2X2 className="h-3.5 w-3.5" /> Grid</button>
+                <button type="button" onClick={() => setViewMode("index")} aria-pressed={viewMode === "index"} className={`inline-flex min-h-11 items-center gap-2 rounded-full px-3 py-2 font-mono text-[8px] font-semibold uppercase tracking-[0.14em] transition ${viewMode === "index" ? "bg-gray-950 text-white" : "text-gray-500 hover:text-gray-900"}`}><List className="h-3.5 w-3.5" /> Index</button>
               </div>
             </div>
           </div>

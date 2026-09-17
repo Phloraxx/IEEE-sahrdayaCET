@@ -15,20 +15,36 @@ const PIXEL = 5;
 export default function LoginModal({ isOpen, onClose, message }: LoginModalProps) {
     const dialogRef = useRef<HTMLDivElement>(null);
 
-    // Focus trap
+    // Focus trap and scroll lock
     useEffect(() => {
       if (!isOpen) return;
       const dialog = dialogRef.current;
-      if (dialog) {
-        const focusable = dialog.querySelector<HTMLElement>(
+      const focusFirst = () => {
+        const activeDialog = dialogRef.current;
+        if (!activeDialog) return;
+        const focusable = activeDialog.querySelector<HTMLElement>(
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
         );
         if (focusable) {
           focusable.focus();
         } else {
-          dialog.focus();
+          activeDialog.focus();
         }
-      }
+      };
+
+      const previousOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      focusFirst();
+
+      const handleFocusIn = (event: FocusEvent) => {
+        if (dialog && !dialog.contains(event.target as Node)) focusFirst();
+      };
+      document.addEventListener('focusin', handleFocusIn);
+
+      return () => {
+        document.body.style.overflow = previousOverflow;
+        document.removeEventListener('focusin', handleFocusIn);
+      };
     }, [isOpen]);
 
     if (!isOpen) return null;
@@ -36,7 +52,7 @@ export default function LoginModal({ isOpen, onClose, message }: LoginModalProps
     return (
         <div
             ref={dialogRef}
-            className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-xs"
+            className="fixed inset-0 z-[130] flex items-center justify-center bg-black/50 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-[calc(1rem+env(safe-area-inset-top,0px))] backdrop-blur-xs"
             onClick={onClose}
             role="dialog"
             aria-modal="true"
@@ -68,7 +84,7 @@ export default function LoginModal({ isOpen, onClose, message }: LoginModalProps
             tabIndex={-1}
         >
             <div
-                className="relative w-full max-w-sm mx-4 bg-white border border-gray-200 rounded-xl shadow-2xl overflow-hidden"
+                className="relative max-h-[calc(100dvh-2rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] w-full max-w-sm overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-2xl"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Top accent */}
@@ -77,8 +93,8 @@ export default function LoginModal({ isOpen, onClose, message }: LoginModalProps
                 {/* Close button */}
                 <button
                     onClick={onClose}
-                    aria-label="Close"
-                    className="absolute top-4 right-4 text-gray-400 hover:text-gray-900 transition-colors z-10"
+                    aria-label="Close sign in dialog"
+                    className="absolute right-4 top-4 z-10 grid h-11 w-11 place-items-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-900"
                 >
                     <X size={18} />
                 </button>

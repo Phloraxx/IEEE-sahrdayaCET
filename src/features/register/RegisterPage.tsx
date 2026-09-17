@@ -60,7 +60,7 @@ function requestErrorMessage(error: unknown, fallback: string) {
 }
 
 const fieldClass =
-  "w-full border-0 border-b border-black/15 bg-transparent bg-[linear-gradient(#00629B,#00629B)] bg-[length:0_1px] bg-[position:0_100%] bg-no-repeat px-0 py-3 text-[15px] text-[#111315] outline-none transition-[border-color,background-size] duration-200 placeholder:text-black/30 focus:border-transparent focus:bg-[length:100%_1px] focus:ring-0 disabled:text-black/40";
+  "w-full border-0 border-b border-black/15 bg-transparent bg-[linear-gradient(#00629B,#00629B)] bg-[length:0_1px] bg-[position:0_100%] bg-no-repeat px-0 py-3 text-base text-[#111315] outline-none transition-[border-color,background-size] duration-200 placeholder:text-black/30 focus:border-transparent focus:bg-[length:100%_1px] focus:ring-0 disabled:text-black/40 lg:text-[15px]";
 
 function BookingProgress({ paid, stage = "details" }: { paid: boolean; stage?: "details" | "payment" | "ticket" }) {
   const reduceMotion = Boolean(useReducedMotion());

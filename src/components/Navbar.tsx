@@ -10,7 +10,6 @@ import {
   Home,
   LayoutDashboard,
   LogOut,
-  MoreHorizontal,
   User,
   UsersRound,
   X,
@@ -37,19 +36,32 @@ const mobilePrimaryItems = [
   { label: "Blog", href: "/blog", Icon: BookOpen },
 ] as const;
 
-function MobileMascot() {
+function MobileMascot({
+  pixel = 3,
+  placement,
+}: {
+  pixel?: number;
+  placement: "dock" | "sheet";
+}) {
+  const sectionSize = pixel * 8;
+
   return (
-    <div
+    <span
       aria-hidden="true"
-      className="relative flex h-12 w-8 shrink-0 items-start justify-center"
+      data-mobile-mascot={placement}
+      className="relative block shrink-0"
+      style={{ width: sectionSize, height: sectionSize * 2 }}
     >
-      <div className="absolute left-1/2 top-0 -translate-x-1/2">
-        <PixelGrid grid={MASCOT_HEAD} size={3} />
-      </div>
-      <div className="absolute left-1/2 top-6 -translate-x-1/2">
-        <PixelGrid grid={MASCOT_BODY} size={3} />
-      </div>
-    </div>
+      <span className="absolute left-1/2 top-0 -translate-x-1/2">
+        <PixelGrid grid={MASCOT_HEAD} size={pixel} />
+      </span>
+      <span
+        className="absolute left-1/2 -translate-x-1/2"
+        style={{ top: sectionSize }}
+      >
+        <PixelGrid grid={MASCOT_BODY} size={pixel} />
+      </span>
+    </span>
   );
 }
 
@@ -62,6 +74,7 @@ export default function Navbar() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const handoffToLoginRef = useRef(false);
   const { pathname, hash } = useLocation();
   const { user, status, signOut } = useAuth();
   const authenticatedUser = status === "authenticated" ? user : null;
@@ -195,7 +208,7 @@ export default function Navbar() {
   };
 
   const linkClass = (active: boolean) =>
-    `relative whitespace-nowrap rounded-full px-3 py-2 text-[10px] font-bold tracking-wide transition-all md:px-5 md:text-xs ${
+    `relative inline-flex min-h-11 items-center whitespace-nowrap rounded-full px-3 py-2 text-[10px] font-bold tracking-wide transition-all md:px-5 md:text-xs ${
       active
         ? "bg-white text-gray-900 shadow-xs"
         : "text-gray-500 hover:bg-white/50 hover:text-blue-600"
@@ -216,7 +229,7 @@ export default function Navbar() {
       >
         <nav
           aria-label="Mobile site navigation"
-          className={`fixed inset-x-0 bottom-0 z-[101] border-t border-black/10 bg-white/[0.96] shadow-[0_-10px_30px_rgba(6,17,29,0.08)] backdrop-blur-xl transition-opacity md:hidden ${mobileMenuOpen ? "pointer-events-none opacity-0" : "opacity-100"}`}
+          className={`fixed inset-x-0 bottom-0 z-[101] border-t border-black/10 bg-white/[0.96] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)] shadow-[0_-10px_30px_rgba(6,17,29,0.08)] backdrop-blur-xl transition-opacity md:hidden ${mobileMenuOpen ? "pointer-events-none opacity-0" : "opacity-100"}`}
         >
           <div className="grid min-h-16 w-full grid-cols-5 pb-[env(safe-area-inset-bottom)]">
             {mobilePrimaryItems.map(({ label, href, Icon }) => {
@@ -249,7 +262,7 @@ export default function Navbar() {
                   aria-hidden="true"
                   className={`absolute inset-x-3 top-0 h-0.5 transition-colors ${isMoreActive ? "bg-[#00629B]" : "bg-transparent"}`}
                 />
-                <MoreHorizontal className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+                <MobileMascot pixel={2} placement="dock" />
                 <span>More</span>
               </button>
             </DialogPrimitive.Trigger>
@@ -292,7 +305,13 @@ export default function Navbar() {
           <DialogPrimitive.Overlay className="mobile-nav-overlay fixed inset-0 z-[100] bg-[#06111d]/35 backdrop-blur-[2px] md:hidden" />
           <DialogPrimitive.Content
             id="mobile-site-navigation"
-            className="mobile-nav-sheet fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] z-[102] max-h-[calc(100dvh-1.5rem-env(safe-area-inset-bottom,0px))] overflow-y-auto rounded-[28px] border border-black/10 bg-white/[0.96] shadow-2xl shadow-black/20 backdrop-blur-2xl md:hidden"
+            onCloseAutoFocus={(event) => {
+              if (handoffToLoginRef.current) {
+                event.preventDefault();
+                handoffToLoginRef.current = false;
+              }
+            }}
+            className="mobile-nav-sheet fixed left-[calc(0.75rem+env(safe-area-inset-left,0px))] right-[calc(0.75rem+env(safe-area-inset-right,0px))] bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] z-[102] max-h-[calc(100dvh-1.5rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] overflow-y-auto rounded-[28px] border border-black/10 bg-white/[0.96] shadow-2xl shadow-black/20 backdrop-blur-2xl md:hidden"
           >
             <DialogPrimitive.Title className="sr-only">
               Site navigation
@@ -304,7 +323,7 @@ export default function Navbar() {
               <Link
                 to="/"
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex min-w-0 items-center gap-3 rounded-xl pr-3"
+                className="flex min-h-11 min-w-0 items-center gap-3 rounded-xl pr-3"
               >
                 <img
                   src="/emblem.png"
@@ -322,7 +341,7 @@ export default function Navbar() {
                 </div>
               </Link>
               <div className="flex items-center gap-3">
-                <MobileMascot />
+                <MobileMascot placement="sheet" />
                 <DialogPrimitive.Close asChild>
                   <button
                     type="button"
@@ -383,6 +402,7 @@ export default function Navbar() {
                   <button
                     type="button"
                     onClick={() => {
+                      handoffToLoginRef.current = true;
                       setMobileMenuOpen(false);
                       setIsLoginModalOpen(true);
                     }}
