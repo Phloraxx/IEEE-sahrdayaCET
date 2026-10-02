@@ -4,6 +4,7 @@ Scope: public navigation, discovery, lifecycle language, keyboard access and fai
 
 ## Changes
 
+- Replace unsourced footer figures with useful branch and attendee navigation; label the IEEE LINK logo correctly.
 - Keep desktop navigation stable while scrolling; use active-page semantics and route EXECOM to the full directory. Retain the existing mobile bottom dock.
 - Use Radix for sign-in and account menus, including keyboard focus, Escape, background isolation, and restoration. Display a recoverable OAuth failure.
 - Keep pixel branding and curated photos. Add visible hero actions, shorten desktop hero spacing, remove build-version chrome, and compact the no-upcoming state.

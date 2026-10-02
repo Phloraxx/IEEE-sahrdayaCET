@@ -9,7 +9,7 @@ import { normalizeEventRequirements } from "@/lib/event-requirements";
 export async function fetchEventForRegistration(eventId: string) {
     const pb = createPublicPB();
     const record = await pb.collection("events").getOne(eventId);
-    if (!record) throw new Error("Event not found");
+    if (!record) throw new Response("Event not found", { status: 404 });
 
     const lifecycle = {
       status: getField(record, "status", ""),
@@ -24,7 +24,7 @@ export async function fetchEventForRegistration(eventId: string) {
       isDeleted: !!getField(record, "isDeleted", false),
     };
 
-    if (!isPublicEvent(lifecycle)) throw new Error("Event not found");
+    if (!isPublicEvent(lifecycle)) throw new Response("Event not found", { status: 404 });
 
     const price = Number(getField(record, "price", 0)) || 0;
     const bannerRaw = getField(record, "banner", "");

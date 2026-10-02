@@ -150,7 +150,7 @@ const Footer: React.FC<FooterProps> = ({ seamless = false, mobileActionClearance
               <img
                 loading="lazy"
                 src="/IEEELink_footer.png"
-                alt="IEEE"
+                alt="IEEE LINK"
                 width={314}
                 height={76}
                 className="h-auto max-h-9 w-full max-w-[7rem] object-contain brightness-0 invert sm:h-11 sm:max-h-none sm:w-auto sm:max-w-none lg:h-16"
@@ -192,35 +192,15 @@ const Footer: React.FC<FooterProps> = ({ seamless = false, mobileActionClearance
           </div>
         </div>
 
-        {/* Stats Strip */}
-        <div className="border-b border-white/10 py-6 md:py-8">
-          <div className="grid grid-cols-3 gap-4">
-            <div className="text-center">
-              <div className="font-pixel text-2xl md:text-4xl text-white leading-none">
-                1000<span className="text-ieee-blue">+</span>
-              </div>
-              <div className="font-mono text-[9px] tracking-[0.3em] text-white/60 uppercase mt-2">
-                Members
-              </div>
-            </div>
-            <div className="text-center border-x border-white/10">
-              <div className="font-pixel text-2xl md:text-4xl text-white leading-none">
-                22<span className="text-ieee-blue">+</span>
-              </div>
-              <div className="font-mono text-[9px] tracking-[0.3em] text-white/60 uppercase mt-2">
-                Professionals
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="font-pixel text-2xl md:text-4xl text-white leading-none">
-                14
-              </div>
-              <div className="font-mono text-[9px] tracking-[0.3em] text-white/60 uppercase mt-2">
-                Years
-              </div>
-            </div>
-          </div>
-        </div>
+        <nav aria-label="Branch and attendee links" className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 border-b border-white/10 py-5">
+          {[
+            { label: "Events", href: "/events" },
+            { label: "Communities", href: "/societies" },
+            { label: "Team", href: "/full-execom" },
+            { label: "My events", href: "/my-events" },
+            { label: "Verify a certificate", href: "/verify" },
+          ].map(link => <Link key={link.href} to={link.href} className="inline-flex min-h-11 items-center text-sm font-semibold text-white/80 hover:text-white">{link.label}</Link>)}
+        </nav>
 
         {/* Policy Links */}
         <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 border-b border-white/10 py-4 md:gap-x-6 md:gap-y-3 md:py-5">
@@ -228,7 +208,7 @@ const Footer: React.FC<FooterProps> = ({ seamless = false, mobileActionClearance
             <Link
               key={policy.href}
               to={policy.href}
-              className="inline-flex min-h-8 items-center px-1 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-white/50 transition-colors hover:text-ieee-light-blue md:text-[9px] md:tracking-[0.16em]"
+              className="inline-flex min-h-11 items-center px-1 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-white/50 transition-colors hover:text-ieee-light-blue md:text-[9px] md:tracking-[0.16em]"
             >
               {policy.label}
             </Link>

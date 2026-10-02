@@ -1,7 +1,7 @@
 import { useLoaderData } from "react-router";
 import { APP_URL } from "@/lib/constants";
 import { fetchExecomData } from "@/server/public/execom.server";
-import { logError } from "@/lib/logger";
+import { publicDataUnavailable } from "@/server/public/errors.server";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import ExecomClient, {
   type ExecomMemberDoc,
@@ -25,7 +25,7 @@ export const meta = () => [
 
 export async function loader(): Promise<ExecomMemberDoc[]> {
   try { return await fetchExecomData(); }
-  catch (error) { logError("full-execom-loader", error); return []; }
+  catch (error) { publicDataUnavailable("full-execom-loader", error); }
 }
 
 export default function FullExecomPage() {
