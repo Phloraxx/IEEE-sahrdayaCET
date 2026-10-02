@@ -1,5 +1,6 @@
 import React from 'react';
-import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
+import { Link } from 'react-router';
+import { motion, useReducedMotion } from 'framer-motion';
 import { formatDateCompact } from '@/lib/dates';
 import type { HomeEventSummary } from '@/server/public/home.server';
 
@@ -7,18 +8,11 @@ interface HeroProps {
     nextEvent?: HomeEventSummary;
     upcomingCount?: number;
     societyCount?: number;
+    dataAvailable?: boolean;
 }
 
-export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societyCount = 0 }) => {
+export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societyCount = 0, dataAvailable = true }) => {
     const reduceMotion = Boolean(useReducedMotion());
-    const { scrollY } = useScroll();
-
-    // Scroll Transformations
-    // Animation starts after scrolling 300px, closer to when content overlaps
-    const scale = useTransform(scrollY, [300, 800], [1, 1.12]);
-    const opacity = useTransform(scrollY, [500, 800], [1, 0]);
-    const y = useTransform(scrollY, [300, 800], [0, -56]);
-
     const textVariants = {
         hidden: { y: 50, opacity: 0 },
         visible: (i: number) => ({
@@ -33,9 +27,9 @@ export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societ
     };
 
     return (
-        <section className="relative h-[max(78svh,480px)] flex flex-col items-center justify-center z-20 px-4 overflow-hidden md:h-dvh">
+        <section className="relative h-[max(78svh,560px)] flex flex-col items-center justify-center z-20 px-4 overflow-hidden md:h-[max(84svh,640px)]">
             <motion.div
-                style={reduceMotion ? undefined : { scale, opacity, y }}
+
                 className="w-full h-full flex flex-col items-center justify-center relative"
             >
 
@@ -45,7 +39,7 @@ export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societ
                         <motion.h1
                             custom={0}
                             variants={textVariants}
-                            initial={reduceMotion ? false : "hidden"}
+                            initial={false}
                             animate="visible"
                             className="font-pixel text-5xl sm:text-7xl md:text-8xl lg:text-9xl text-ieee-blue tracking-tighter"
                             style={{ textShadow: '4px 4px 0px rgba(0,0,0,0.1)' }}
@@ -55,7 +49,7 @@ export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societ
                         <motion.h2
                             custom={1}
                             variants={textVariants}
-                            initial={reduceMotion ? false : "hidden"}
+                            initial={false}
                             animate="visible"
                             className="font-pixel text-3xl sm:text-5xl md:text-6xl lg:text-7xl text-gray-900 tracking-tighter"
                             style={{ textShadow: '4px 4px 0px rgba(0,0,0,0.1)' }}
@@ -88,17 +82,22 @@ export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societ
 
                         <div className="h-px bg-gray-400 w-12 md:w-32 hidden sm:block" />
                     </motion.div>
+                    <p className="mx-auto mt-6 max-w-md text-sm leading-6 text-gray-600 sm:text-base">Build, learn and connect with the IEEE student community at Sahrdaya.</p>
+                    <div className="mt-5 flex flex-wrap justify-center gap-3">
+                      <Link to="/events" className="inline-flex min-h-11 items-center rounded-full bg-ieee-blue px-5 text-sm font-semibold text-white hover:bg-gray-900">Explore events</Link>
+                      <Link to="/societies" className="inline-flex min-h-11 items-center rounded-full border border-gray-300 bg-white/70 px-5 text-sm font-semibold text-gray-800 hover:border-ieee-blue">Meet our communities</Link>
+                    </div>
                 </div>
 
-                <motion.div
-                    initial={reduceMotion ? false : { opacity: 0 }}
+                {dataAvailable && <motion.div
+                    initial={false}
                     animate={{ opacity: 1 }}
                     transition={{ delay: reduceMotion ? 0 : 0.7, duration: reduceMotion ? 0 : 0.8 }}
                     className="absolute bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] left-4 right-4 mx-auto grid max-w-5xl grid-cols-3 border-y border-gray-200/80 bg-white/55 backdrop-blur-[2px] md:bottom-14"
                 >
                     <div className="px-3 py-3 sm:px-5">
                         <p className="font-mono text-[7px] font-semibold uppercase tracking-[0.16em] text-gray-400 sm:text-[8px]">Next</p>
-                        <p className="mt-1 truncate text-[10px] font-semibold text-gray-700 sm:text-xs">{nextEvent ? <><span className="sm:hidden">{formatDateCompact(nextEvent.date)}</span><span className="hidden sm:inline">{formatDateCompact(nextEvent.date)} · {nextEvent.title}</span></> : "Programme updating"}</p>
+                        <p className="mt-1 truncate text-[10px] font-semibold text-gray-700 sm:text-xs">{nextEvent ? <><span className="sm:hidden">{formatDateCompact(nextEvent.date)}</span><span className="hidden sm:inline">{formatDateCompact(nextEvent.date)} · {nextEvent.title}</span></> : "No upcoming events"}</p>
                     </div>
                     <div className="border-x border-gray-200/80 px-3 py-3 text-center sm:px-5">
                         <p className="font-mono text-[7px] font-semibold uppercase tracking-[0.16em] text-gray-400 sm:text-[8px]">Upcoming</p>
@@ -108,7 +107,7 @@ export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societ
                         <p className="font-mono text-[7px] font-semibold uppercase tracking-[0.16em] text-gray-400 sm:text-[8px]">Communities</p>
                         <p className="mt-1 font-pixel text-[11px] text-gray-800 sm:text-sm">{String(societyCount).padStart(2, "0")}</p>
                     </div>
-                </motion.div>
+                </motion.div>}
             </motion.div>
         </section>
     );

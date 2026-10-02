@@ -4,6 +4,9 @@ import { blogHtmlToPlainText } from "@/lib/blog-content";
 import { getLatestPublishedBlogs } from "@/lib/blog-public.server";
 import { canRegisterForEvent, isPastEvent } from "@/lib/event-lifecycle";
 import { getExpand, getField } from "@/lib/safe-get";
+import { fetchExecomData } from "./execom.server";
+import { logError } from "@/lib/logger";
+import type { ExecomMemberDoc } from "@/features/execom/ExecomClient";
 import type { BlogPost, Society } from "@/types";
 
 export interface HomeEventSummary {
@@ -27,6 +30,8 @@ export interface HomeData {
   societies: Society[];
   execomCount: number;
   latestBlogs: BlogPost[];
+  coreTeam: ExecomMemberDoc[];
+  unavailable: string[];
 }
 
 function mapHomeEvent(raw: Record<string, unknown>): HomeEventSummary {
@@ -83,6 +88,8 @@ export async function fetchHomeData(): Promise<HomeData> {
     societies: [],
     execomCount: 0,
     latestBlogs: [],
+    coreTeam: [],
+    unavailable: ["programme", "communities", "team", "stories"],
   };
 
   try {
@@ -102,7 +109,7 @@ export async function fetchHomeData(): Promise<HomeData> {
         sort: "name",
         fields: "id,name,slug,logo",
       }),
-      pb.collection("execom").getList(1, 1, { fields: "id" }),
+      fetchExecomData(),
       getLatestPublishedBlogs(3),
     ]);
 
@@ -129,14 +136,24 @@ export async function fetchHomeData(): Promise<HomeData> {
             .filter((event) => !isPastEvent(event))
         : [];
 
+    const sections = ["programme", "communities", "team", "stories"];
+    const results = [eventsResult, societiesResult, execomResult, blogsResult];
+    const unavailable = results.flatMap((result, index) => {
+      if (result.status === "fulfilled") return [];
+      logError(`home-${sections[index]}`, result.reason);
+      return [sections[index] ?? "content"];
+    });
     return {
+      coreTeam: execomResult.status === "fulfilled" ? execomResult.value.filter(member => member.sectionId === "core") : [],
+      unavailable,
       upcomingEvents: allUpcoming.slice(0, 4),
       upcomingCount: allUpcoming.length,
       societies,
-      execomCount: execomResult.status === "fulfilled" ? execomResult.value.totalItems : 0,
+      execomCount: execomResult.status === "fulfilled" ? execomResult.value.length : 0,
       latestBlogs: blogsResult.status === "fulfilled" ? (blogsResult.value as BlogPost[]) : [],
     };
-  } catch {
+  } catch (error) {
+    logError("fetchHomeData", error);
     return fallback;
   }
 }

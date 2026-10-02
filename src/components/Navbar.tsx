@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, useReducedMotion } from "framer-motion";
 import { Link, useLocation } from "react-router";
-import { Dialog as DialogPrimitive } from "radix-ui";
+import { DropdownMenu, Dialog as DialogPrimitive } from "radix-ui";
 import {
   BookOpen,
   CalendarDays,
@@ -26,7 +26,7 @@ const navItems: NavItem[] = [
   { label: "EVENTS", href: "/events" },
   { label: "SOCIETIES", href: "/societies" },
   { label: "BLOG", href: "/blog" },
-  { label: "EXECOM", href: "/#execom" },
+  { label: "EXECOM", href: "/full-execom" },
 ];
 
 const mobilePrimaryItems = [
@@ -67,14 +67,13 @@ function MobileMascot({
 
 export default function Navbar() {
   const reduceMotion = Boolean(useReducedMotion());
-  const [isVisible, setIsVisible] = useState(true);
   const [activeSection, setActiveSection] = useState("/");
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const userMenuRef = useRef<HTMLDivElement>(null);
   const handoffToLoginRef = useRef(false);
+  const loginFromMobile = useRef(false);
+  const mobileMoreRef = useRef<HTMLButtonElement>(null);
   const { pathname, hash } = useLocation();
   const { user, status, signOut } = useAuth();
   const authenticatedUser = status === "authenticated" ? user : null;
@@ -100,32 +99,6 @@ export default function Navbar() {
     return () => window.removeEventListener("resize", closeDesktopMenu);
   }, []);
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        userMenuRef.current &&
-        !userMenuRef.current.contains(event.target as Node)
-      ) {
-        setShowUserMenu(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  useEffect(() => {
-    const handleScrollEvent = () => {
-      setIsVisible(false);
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      timeoutRef.current = setTimeout(() => setIsVisible(true), 500);
-    };
-    window.addEventListener("scroll", handleScrollEvent, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", handleScrollEvent);
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
-  }, []);
-
   const handleLogout = () => {
     signOut();
     setShowUserMenu(false);
@@ -136,7 +109,7 @@ export default function Navbar() {
     if (!authenticatedUser) {
       return (
         <button
-          onClick={() => setIsLoginModalOpen(true)}
+          onClick={() => { loginFromMobile.current = false; setIsLoginModalOpen(true); }}
           className="min-h-[44px] whitespace-nowrap rounded-full px-3 py-2 text-[10px] font-bold tracking-wide text-blue-600 transition-all hover:bg-white/50 md:px-5 md:text-xs"
         >
           SIGN IN
@@ -144,56 +117,58 @@ export default function Navbar() {
       );
     }
     return (
-      <div className="relative" ref={userMenuRef}>
+      <DropdownMenu.Root open={showUserMenu} onOpenChange={setShowUserMenu}>
+        <DropdownMenu.Trigger asChild>
         <button
-          onClick={() => setShowUserMenu(!showUserMenu)}
           aria-expanded={showUserMenu}
-          aria-haspopup="true"
-          className="flex items-center gap-2 whitespace-nowrap rounded-full px-3 py-2 text-[10px] font-bold tracking-wide text-blue-600 transition-all hover:bg-white/50 md:px-4 md:text-xs"
+          aria-label="Open account menu"
+          aria-haspopup="menu"
+          className="flex min-h-11 items-center gap-2 whitespace-nowrap rounded-full px-3 py-2 text-[10px] font-bold tracking-wide text-blue-600 transition-all hover:bg-white/50 md:px-4 md:text-xs"
         >
           <User className="h-3 w-3 md:h-4 md:w-4" />
           <span className="hidden md:inline">{authenticatedUser.name?.split(" ")[0]}</span>
         </button>
-        {showUserMenu && (
-          <div className="pointer-events-auto absolute right-0 top-full z-[1000] mt-2 min-w-[200px] overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xl">
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Portal>
+          <DropdownMenu.Content sideOffset={8} align="end" className="z-[120] min-w-[200px] overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xl focus:outline-none">
             <div className="border-b border-gray-50 bg-gray-50/50 px-4 py-3">
               <p className="text-sm font-bold text-gray-900">{authenticatedUser.name}</p>
               <p className="mt-0.5 truncate font-mono text-[10px] text-gray-500">
                 {authenticatedUser.email}
               </p>
             </div>
-            <Link
+            <DropdownMenu.Item asChild><Link
               to="/my-events"
-              className="flex w-full items-center gap-3 px-4 py-3 text-left text-xs font-bold tracking-wide text-blue-600 transition-colors hover:bg-blue-50"
+              className="flex w-full items-center gap-3 px-4 py-3 text-left text-xs font-bold tracking-wide text-blue-600 transition-colors hover:bg-blue-50 focus:bg-blue-50 focus:outline-none"
               onClick={() => setShowUserMenu(false)}
             >
               <CalendarDays className="h-4 w-4" />
               My Events
-            </Link>
+            </Link></DropdownMenu.Item>
             {workspace.data?.hasWorkspace && (
               <>
                 <div className="h-px bg-gray-100" />
-                <Link
+                <DropdownMenu.Item asChild><Link
                   to={preferredWorkspacePath(workspace.data)}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-left text-xs font-bold tracking-wide text-blue-600 transition-colors hover:bg-blue-50"
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left text-xs font-bold tracking-wide text-blue-600 transition-colors hover:bg-blue-50 focus:bg-blue-50 focus:outline-none"
                   onClick={() => setShowUserMenu(false)}
                 >
                   <LayoutDashboard className="h-4 w-4" />
                   IEEE Workspace
-                </Link>
+                </Link></DropdownMenu.Item>
               </>
             )}
             <div className="h-px bg-gray-100" />
-            <button
+            <DropdownMenu.Item asChild><button
               onClick={handleLogout}
-              className="flex w-full items-center gap-3 px-4 py-3 text-left text-xs font-bold tracking-wide text-red-500 transition-colors hover:bg-red-50"
+              className="flex w-full items-center gap-3 px-4 py-3 text-left text-xs font-bold tracking-wide text-red-500 transition-colors hover:bg-red-50 focus:bg-red-50 focus:outline-none"
             >
               <LogOut className="h-4 w-4" />
               Sign Out
-            </button>
-          </div>
-        )}
-      </div>
+            </button></DropdownMenu.Item>
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu.Root>
     );
   };
 
@@ -253,6 +228,7 @@ export default function Navbar() {
             <DialogPrimitive.Trigger asChild>
               <button
                 type="button"
+                ref={mobileMoreRef}
                 aria-label="Open more navigation"
                 aria-controls="mobile-site-navigation"
                 aria-expanded={mobileMenuOpen}
@@ -271,7 +247,7 @@ export default function Navbar() {
 
         <motion.div
           initial={reduceMotion ? false : { y: -100, opacity: 0 }}
-          animate={{ y: isVisible ? 0 : -100, opacity: isVisible ? 1 : 0 }}
+          animate={{ y: 0, opacity: 1 }}
           transition={{
             duration: reduceMotion ? 0 : 0.5,
             ease: [0.16, 1, 0.3, 1],
@@ -289,6 +265,7 @@ export default function Navbar() {
                   <Link
                     key={item.label}
                     to={item.href}
+                    aria-current={isActive ? "page" : undefined}
                     className={linkClass(isActive)}
                   >
                     {item.label}
@@ -403,6 +380,7 @@ export default function Navbar() {
                     type="button"
                     onClick={() => {
                       handoffToLoginRef.current = true;
+                      loginFromMobile.current = true;
                       setMobileMenuOpen(false);
                       setIsLoginModalOpen(true);
                     }}
@@ -450,7 +428,7 @@ export default function Navbar() {
                         handleLogout();
                         setMobileMenuOpen(false);
                       }}
-                      className="flex min-h-[50px] w-full items-center gap-3 rounded-2xl px-4 text-left text-sm font-semibold text-red-600 hover:bg-red-50"
+                      className="flex min-h-[50px] w-full items-center gap-3 rounded-2xl px-4 text-left text-sm font-semibold text-red-600 hover:bg-red-50 focus:bg-red-50 focus:outline-none"
                     >
                       <LogOut className="h-4 w-4" />
                       <span>Sign out</span>
@@ -464,6 +442,7 @@ export default function Navbar() {
       </DialogPrimitive.Root>
 
       <LoginModal
+        returnFocus={() => loginFromMobile.current ? mobileMoreRef.current : null}
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
       />

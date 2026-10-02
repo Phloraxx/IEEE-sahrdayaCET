@@ -1,7 +1,7 @@
 import { createPublicPB } from "@/lib/pb.server";
 import { buildFileUrl } from "@/lib/pb";
 import { getField } from "@/lib/safe-get";
-import { logError } from "@/lib/logger";
+import { publicDataUnavailable } from "./errors.server";
 import type { Society } from "@/types";
 
 export async function fetchSocieties(): Promise<Society[]> {
@@ -24,7 +24,6 @@ export async function fetchSocieties(): Promise<Society[]> {
       };
     });
   } catch (error) {
-    logError("fetchSocieties", error);
-    return [];
+    publicDataUnavailable("fetchSocieties", error);
   }
 }

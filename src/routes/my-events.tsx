@@ -250,7 +250,7 @@ function EventCard({ item, onManageCancellation }: { item: MyEventItem; onManage
             </Link>
           )}
           {item.registration.receiptAvailable && (
-            <button type="button" onClick={() => void downloadRegistrationReceipt(item.registration.id).catch(() => undefined)} className="inline-flex min-h-11 items-center gap-1.5 px-1 text-xs font-bold text-black/48 transition hover:text-[#00629B]">
+            <button type="button" onClick={() => void downloadRegistrationReceipt(item.registration.id).catch(() => toast.error("Receipt could not be downloaded. Please try again."))} className="inline-flex min-h-11 items-center gap-1.5 px-1 text-xs font-bold text-black/48 transition hover:text-[#00629B]">
               Receipt <ReceiptText className="h-3.5 w-3.5" />
             </button>
           )}

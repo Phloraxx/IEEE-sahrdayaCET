@@ -1,5 +1,6 @@
 import { createPublicPB } from "@/lib/pb.server";
 import { buildFileUrl, escapeFilterValue } from "@/lib/pb";
+import { isMissingRecord, publicDataUnavailable } from "./errors.server";
 import { getField } from "@/lib/safe-get";
 
 export interface SocietyPageData {
@@ -54,9 +55,9 @@ export async function fetchSocietyData(slug: string): Promise<SocietyPageData> {
     .getFirstListItem(`slug = ${escapeFilterValue(slug.toLowerCase())} && isHidden = false`, {
       fields: "id,name,slug,bio,chairs,defaultWhatsappLink,logo,banner",
     })
-    .catch(() => null);
+    .catch((error: unknown) => { if (isMissingRecord(error)) return null; publicDataUnavailable("fetchSociety", error); });
 
-  if (!society) throw new Error("Society not found");
+  if (!society) throw new Response("Society not found", { status: 404 });
 
   const [events, members] = await Promise.all([
     pb
@@ -68,7 +69,7 @@ export async function fetchSocietyData(slug: string): Promise<SocietyPageData> {
         fields:
           "id,slug,title,description,date,endDate,timeTbc,registrationStart,registrationDeadline,venue,price,status,tags,banner,externalFormUrl,externalLink,contactEmail,contactPhone",
       })
-      .catch(() => []),
+      .catch((error: unknown) => publicDataUnavailable("fetchSocietyContent", error)),
     // `society` is the canonical relation. `sectionId` is a legacy display/grouping
     // key and is not guaranteed to match the society slug (for example CAS).
     pb
@@ -80,7 +81,7 @@ export async function fetchSocietyData(slug: string): Promise<SocietyPageData> {
         fields:
           "id,name,position,department,batch,photo,linkedin,instagram,email,phone",
       })
-      .catch(() => []),
+      .catch((error: unknown) => publicDataUnavailable("fetchSocietyContent", error)),
   ]);
 
   const societyId = society.id;

@@ -616,3 +616,8 @@
     transform: none;
   }
 }
+
+/* Public interaction defaults: preserve the IEEE and editorial registers. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible { outline: 2px solid #00629B; outline-offset: 3px; }
+:where(h1, h2, h3, [data-page-content], section[id]) { scroll-margin-top: 6rem; }
+@media (max-width: 767px) { :where(h1, h2, h3, [data-page-content], section[id]) { scroll-margin-top: 1rem; } }

@@ -4,6 +4,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { CanonicalLink } from "@/components/CanonicalLink";
 import { APP_URL } from "@/lib/constants";
+import { isPastEvent } from "@/lib/event-lifecycle";
 import { formatDate } from "@/lib/dates";
 import { fetchEvents, type SerializableEvent } from "@/server/public/events.server";
 
@@ -22,8 +23,8 @@ export const meta = () => [
 export async function loader() {
   const events = await fetchEvents();
   return {
-    current: events.filter((event) => event.status === "published"),
-    past: events.filter((event) => event.status === "completed").slice(-12).reverse(),
+    current: events.filter((event) => !isPastEvent(event)).sort((a, b) => Date.parse(a.date) - Date.parse(b.date)),
+    past: events.filter((event) => isPastEvent(event)).sort((a, b) => Date.parse(b.date) - Date.parse(a.date)).slice(0, 12),
   };
 }
 function EventPriceCard({ event }: { event: SerializableEvent }) {
@@ -65,7 +66,7 @@ export default function PricingPage() {
           </header>
           <section className="mt-10">
             <div className="flex items-end justify-between gap-4">
-              <div><p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-ieee-blue">Current catalog</p><h2 className="mt-2 text-2xl font-semibold text-gray-950">Published events</h2></div>
+              <div><p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-ieee-blue">Current catalog</p><h2 className="mt-2 text-2xl font-semibold text-gray-950">Upcoming events</h2></div>
               <Link to="/events" className="text-sm font-semibold text-ieee-blue hover:underline">Browse all events</Link>
             </div>
             {current.length ? (
@@ -74,7 +75,7 @@ export default function PricingPage() {
               </div>
             ) : (
               <div className="mt-5 rounded-2xl border border-dashed border-gray-300 bg-white px-5 py-10 text-center text-sm text-gray-600">
-                No event is currently published for registration. New listings and their prices will appear here when announced.
+                No upcoming event is currently announced. New listings and their prices will appear here when announced.
               </div>
             )}
           </section>

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link, useRevalidator } from "react-router";
+import { useEffect, useMemo } from "react";
+import { Link, useRevalidator, useSearchParams } from "react-router";
 import { ArrowUpRight, Search, Ticket, X } from "lucide-react";
 import "@/styles/events.css";
 import Navbar from "@/components/Navbar";
@@ -33,8 +33,8 @@ function ArchiveRow({ event }: { event: ExtendedEvent }) {
           <div className="mt-1 truncate text-xs text-black/55 sm:hidden">{societyName}</div>
         </div>
         <div className="hidden truncate text-xs font-medium text-black/55 sm:block">{societyName}</div>
-        <div className="flex items-center justify-end gap-3">
-          <span className="hidden text-[10px] font-bold uppercase tracking-[0.12em] text-black/55 md:inline">{event.price > 0 ? `₹${event.price} entry` : "Free entry"}</span>
+        <div className="flex flex-col items-end justify-end gap-2 sm:flex-row sm:items-center">
+          <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-black/55">{event.price > 0 ? `₹${event.price} entry` : "Free entry"}</span>
           <span className="grid h-10 w-10 place-items-center border border-black/14 transition group-hover:border-[#00629B] group-hover:bg-[#00629B] group-hover:text-white group-focus-visible:border-[#00629B] group-focus-visible:bg-[#00629B] group-focus-visible:text-white">
             <ArrowUpRight className="h-4 w-4" />
           </span>
@@ -46,9 +46,18 @@ function ArchiveRow({ event }: { event: ExtendedEvent }) {
 
 export default function EventsPageClient({ initialEvents }: EventsPageClientProps) {
   const revalidator = useRevalidator();
-  const [archiveSearch, setArchiveSearch] = useState("");
-  const [archiveSociety, setArchiveSociety] = useState("All societies");
-  const [visibleArchiveCount, setVisibleArchiveCount] = useState(ARCHIVE_PAGE_SIZE);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const archiveSearch = searchParams.get("q") || "";
+  const archiveSociety = searchParams.get("society") || "All societies";
+  const visibleArchiveCount = Math.max(ARCHIVE_PAGE_SIZE, Math.min(initialEvents.length || ARCHIVE_PAGE_SIZE, Number(searchParams.get("limit")) || ARCHIVE_PAGE_SIZE));
+  const setFilter = (key: string, value: string) => setSearchParams(previous => {
+    const next = new URLSearchParams(previous);
+    if (value && value !== "All societies") next.set(key, value); else next.delete(key);
+    if (key !== "limit") next.delete("limit");
+    return next;
+  }, { replace: true, preventScrollReset: true });
+  const setArchiveSearch = (value: string) => setFilter("q", value);
+  const setArchiveSociety = (value: string) => setFilter("society", value);
 
   useEffect(() => {
     const refreshLifecycle = () => {
@@ -62,7 +71,6 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
     };
   }, [revalidator]);
 
-  useEffect(() => setVisibleArchiveCount(ARCHIVE_PAGE_SIZE), [archiveSearch, archiveSociety]);
 
   const extendedEvents: ExtendedEvent[] = useMemo(
     () => initialEvents.map((event) => ({ ...event, about: event.description || "Join us for this IEEE Sahrdaya event." })),
@@ -107,8 +115,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
   }, []);
 
   const resetArchive = () => {
-    setArchiveSearch("");
-    setArchiveSociety("All societies");
+    setSearchParams(previous => { const next = new URLSearchParams(previous); next.delete("q"); next.delete("society"); next.delete("limit"); return next; }, { replace: true, preventScrollReset: true });
   };
 
   return (
@@ -182,7 +189,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
             </div>
 
             <div className="mt-4 flex min-h-11 items-center justify-between border-b border-black/10 text-[10px] font-semibold uppercase tracking-[0.14em] text-black/55">
-              <span>Showing {Math.min(visibleArchiveCount, filteredArchiveEvents.length)} of {filteredArchiveEvents.length} {filteredArchiveEvents.length === 1 ? "past event" : "past events"}</span>
+              <span role="status" aria-live="polite">Showing {Math.min(visibleArchiveCount, filteredArchiveEvents.length)} of {filteredArchiveEvents.length} {filteredArchiveEvents.length === 1 ? "past event" : "past events"}</span>
               {(archiveSearch || archiveSociety !== "All societies") && (
                 <button type="button" onClick={resetArchive} className="inline-flex min-h-11 items-center px-3 transition-colors hover:text-[#00629B] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00629B]">Reset filters</button>
               )}
@@ -219,7 +226,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
 
             {hasMoreArchiveEvents && (
               <div className="mt-10 flex justify-center">
-                <button type="button" onClick={() => setVisibleArchiveCount((count) => count + ARCHIVE_PAGE_SIZE)} className="min-h-11 border-b-2 border-[#00629B] px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#111315] transition-colors hover:text-[#00629B] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#00629B]">
+                <button type="button" onClick={() => setFilter("limit", String(visibleArchiveCount + ARCHIVE_PAGE_SIZE))} className="min-h-11 border-b-2 border-[#00629B] px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#111315] transition-colors hover:text-[#00629B] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#00629B]">
                   Show 10 more events
                 </button>
               </div>

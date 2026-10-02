@@ -273,7 +273,7 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
             </div>
             <div className="flex items-center gap-5 lg:col-span-4 lg:justify-self-end">
               {canEdit && <a href={`/admin/events/new?society=${society.id}`} className="inline-flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.17em]" style={{ color: palette.accent }}><Plus className="h-4 w-4" /> Add event</a>}
-              <Link to="/events" className="group inline-flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.17em] text-black/48 transition hover:text-black">Full programme <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" /></Link>
+              <Link to={`/events?society=${encodeURIComponent(society.name)}#event-archive`} className="group inline-flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.17em] text-black/48 transition hover:text-black">Full programme <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" /></Link>
             </div>
           </div>
 
@@ -307,7 +307,7 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
                     </div>
                   ))}
                   {hiddenActivityCount > 0 && (
-                    <Link to="/events" className="group flex items-center justify-between border-b border-black/10 py-5 text-[9px] font-bold uppercase tracking-[0.17em] text-black/42 transition hover:text-black">
+                    <Link to={`/events?society=${encodeURIComponent(society.name)}#event-archive`} className="group flex items-center justify-between border-b border-black/10 py-5 text-[9px] font-bold uppercase tracking-[0.17em] text-black/42 transition hover:text-black">
                       <span>+ {hiddenActivityCount} more {hiddenActivityCount === 1 ? "record" : "records"} in the programme archive</span>
                       <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
                     </Link>

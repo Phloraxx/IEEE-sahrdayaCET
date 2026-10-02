@@ -5,7 +5,7 @@ import { canRegisterForEvent, getRegistrationMode, type EventRegistrationMode } 
 import { getEventAttendanceMode, type EventAttendanceMode } from "@/lib/event-presentation";
 import { normalizeEligibleProgrammes, normalizeEligibleSemesters } from "@/lib/event-audience";
 import { normalizeEventRequirements } from "@/lib/event-requirements";
-import { logError } from "@/lib/logger";
+import { publicDataUnavailable, isMissingRecord } from "./errors.server";
 
 const PUBLIC_EVENT_FIELDS =
   "id,created,updated,title,slug,description,date,endDate,timeTbc,venue,timezone,attendanceMode,locationAddress,price,banner,status,registrationOpen,registrationMode,registrationStart,registrationDeadline,maxCapacity,registeredCount,waitlistEnabled,waitlistReservedCount,externalFormUrl,externalLink,collectIeeeMember,ieeeMemberDiscountPercent,eligibleSemesters,eligibleProgrammes,requirements,attendeeNote,society,expand.society.id,expand.society.name,expand.society.slug,expand.society.logo";
@@ -146,8 +146,7 @@ export async function fetchEvents(): Promise<SerializableEvent[]> {
     });
     return records.map((record) => mapPublicEvent(record));
   } catch (error) {
-    logError("fetchEvents", error);
-    return [];
+    publicDataUnavailable("fetchEvents", error);
   }
 }
 
@@ -162,7 +161,8 @@ export async function fetchEventBySlug(
         { expand: "society", fields: PUBLIC_EVENT_FIELDS },
       );
     return mapPublicEvent(record);
-  } catch {
-    return null;
+  } catch (error) {
+    if (isMissingRecord(error)) return null;
+    publicDataUnavailable("fetchEventBySlug", error);
   }
 }

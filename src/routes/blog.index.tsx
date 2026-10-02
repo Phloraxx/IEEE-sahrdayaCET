@@ -1,3 +1,4 @@
+import { publicDataUnavailable } from "@/server/public/errors.server";
 import { useLoaderData } from "react-router";
 import { APP_URL } from "@/lib/constants";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -20,7 +21,7 @@ export const meta = () => [
   { name: "twitter:image", content: `${APP_URL}/web.png` },
 ];
 export async function loader() {
-  try { return await getPublishedBlogs(); } catch { return []; }
+  try { return await getPublishedBlogs(); } catch (error) { publicDataUnavailable("blog-index-loader", error); }
 }
 
 export default function BlogPage() {
