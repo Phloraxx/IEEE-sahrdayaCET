@@ -11,3 +11,5 @@ Scope: public Events, Blog and Execom usability. No backend, payments, notificat
 - Render desktop navigation visibly in the server baseline; do not delay critical links behind an entrance animation.
 
 Validation: lint, typecheck, unit tests, production build, full PR CI and read-only staging checks. Cover filtered result correctness, reload/Back, mobile group selection, profile focus/background isolation, empty states and overflow in grid/roster/index at 320/390/768/1024/1440. No registration submission, delivery, resend, OAuth or SMTP testing against staging.
+
+The Blog search controls precede the featured promotion so filtering cannot shift the focused field off-screen.

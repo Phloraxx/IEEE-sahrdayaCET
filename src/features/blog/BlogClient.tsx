@@ -78,6 +78,35 @@ export default function BlogClient({ blogs = [] }: { blogs?: BlogPost[] }) {
           </div>
         </header>
 
+
+        <section id="archive" className="border-t border-gray-200 pt-8 sm:pt-10">
+          <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
+            <div>
+              <p className="font-pixel text-[11px] text-ieee-blue">BRANCH LOG / {String(visible.length).padStart(2, "0")}</p>
+              <h2 className="mt-2 text-3xl font-bold tracking-[-0.035em] sm:text-4xl">Browse the archive.</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">Find stories by title, topic or author. Choose a grid or a compact reading index.</p>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="relative min-w-0 sm:min-w-[250px]">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+                <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Search blog stories" placeholder="Search stories…" className="h-11 w-full rounded-full border border-gray-200 bg-white pl-9 pr-11 text-base shadow-sm outline-none transition placeholder:text-gray-500 focus:border-ieee-blue lg:text-sm" />
+                {query ? <button type="button" aria-label="Clear story search" onClick={() => setQuery("")} className="absolute right-0 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center text-gray-500 hover:text-gray-700"><X className="h-4 w-4" /></button> : null}
+              </div>
+              <div className="inline-flex rounded-full border border-gray-200 bg-white p-1 shadow-sm" aria-label="Blog archive view">
+                <button type="button" onClick={() => setViewMode("grid")} aria-pressed={viewMode === "grid"} className={`inline-flex min-h-11 items-center gap-2 rounded-full px-3 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] transition ${viewMode === "grid" ? "bg-gray-950 text-white" : "text-gray-500 hover:text-gray-900"}`}><Grid2X2 className="h-3.5 w-3.5" /> Grid</button>
+                <button type="button" onClick={() => setViewMode("index")} aria-pressed={viewMode === "index"} className={`inline-flex min-h-11 items-center gap-2 rounded-full px-3 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] transition ${viewMode === "index" ? "bg-gray-950 text-white" : "text-gray-500 hover:text-gray-900"}`}><List className="h-3.5 w-3.5" /> Index</button>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-wrap gap-2 border-y border-gray-200 py-3" aria-label="Filter blog stories">
+            {filters.map((label) => <button key={label} type="button" onClick={() => setFilter(label)} aria-pressed={filter === label} className={`inline-flex min-h-11 shrink-0 items-center rounded-full border px-3 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.15em] transition ${filter === label ? "border-ieee-blue bg-ieee-blue text-white" : "border-gray-200 bg-white text-gray-500 hover:border-gray-400 hover:text-gray-900"}`}>{label}</button>)}
+          </div>
+
+          <div className="mt-3 flex min-h-11 items-center justify-between gap-3 text-xs text-gray-600">
+            <p role="status" aria-live="polite">Showing {visible.length} of {blogs.length} {blogs.length === 1 ? "story" : "stories"}</p>
+            {hasFilters && <button type="button" onClick={resetArchive} className="min-h-11 px-3 font-semibold text-ieee-blue">Reset filters</button>}
+          </div>
         {lead && !hasFilters ? (
           <section data-testid="blog-lead-story" className="py-8 sm:py-10">
             <div className="mb-4 flex items-center gap-3"><span className="h-2 w-2 bg-ieee-blue" /><p className="font-pixel text-[11px] text-gray-700">LATEST / 01</p><div className="h-px flex-1 bg-gray-200" /></div>
@@ -110,34 +139,7 @@ export default function BlogClient({ blogs = [] }: { blogs?: BlogPost[] }) {
           </section>
         ) : null}
 
-        <section id="archive" className="border-t border-gray-200 pt-8 sm:pt-10">
-          <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
-            <div>
-              <p className="font-pixel text-[11px] text-ieee-blue">BRANCH LOG / {String(visible.length).padStart(2, "0")}</p>
-              <h2 className="mt-2 text-3xl font-bold tracking-[-0.035em] sm:text-4xl">Browse the archive.</h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">Find stories by title, topic or author. Choose a grid or a compact reading index.</p>
-            </div>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <div className="relative min-w-0 sm:min-w-[250px]">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-                <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Search blog stories" placeholder="Search stories…" className="h-11 w-full rounded-full border border-gray-200 bg-white pl-9 pr-11 text-base shadow-sm outline-none transition placeholder:text-gray-500 focus:border-ieee-blue lg:text-sm" />
-                {query ? <button type="button" aria-label="Clear story search" onClick={() => setQuery("")} className="absolute right-0 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center text-gray-500 hover:text-gray-700"><X className="h-4 w-4" /></button> : null}
-              </div>
-              <div className="inline-flex rounded-full border border-gray-200 bg-white p-1 shadow-sm" aria-label="Blog archive view">
-                <button type="button" onClick={() => setViewMode("grid")} aria-pressed={viewMode === "grid"} className={`inline-flex min-h-11 items-center gap-2 rounded-full px-3 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] transition ${viewMode === "grid" ? "bg-gray-950 text-white" : "text-gray-500 hover:text-gray-900"}`}><Grid2X2 className="h-3.5 w-3.5" /> Grid</button>
-                <button type="button" onClick={() => setViewMode("index")} aria-pressed={viewMode === "index"} className={`inline-flex min-h-11 items-center gap-2 rounded-full px-3 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] transition ${viewMode === "index" ? "bg-gray-950 text-white" : "text-gray-500 hover:text-gray-900"}`}><List className="h-3.5 w-3.5" /> Index</button>
-              </div>
-            </div>
-          </div>
 
-          <div className="mt-6 flex flex-wrap gap-2 border-y border-gray-200 py-3" aria-label="Filter blog stories">
-            {filters.map((label) => <button key={label} type="button" onClick={() => setFilter(label)} aria-pressed={filter === label} className={`inline-flex min-h-11 shrink-0 items-center rounded-full border px-3 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.15em] transition ${filter === label ? "border-ieee-blue bg-ieee-blue text-white" : "border-gray-200 bg-white text-gray-500 hover:border-gray-400 hover:text-gray-900"}`}>{label}</button>)}
-          </div>
-
-          <div className="mt-3 flex min-h-11 items-center justify-between gap-3 text-xs text-gray-600">
-            <p role="status" aria-live="polite">Showing {visible.length} of {blogs.length} {blogs.length === 1 ? "story" : "stories"}</p>
-            {hasFilters && <button type="button" onClick={resetArchive} className="min-h-11 px-3 font-semibold text-ieee-blue">Reset filters</button>}
-          </div>
           {visible.length === 0 ? (
             <div data-testid="blog-archive" className="py-12 text-center">
               <h3 className="text-xl font-semibold text-gray-900">{blogs.length ? "No stories match your filters" : "Stories coming soon."}</h3>

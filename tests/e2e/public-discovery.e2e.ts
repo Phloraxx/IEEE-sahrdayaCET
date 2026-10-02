@@ -38,7 +38,10 @@ test("a featured blog story is searchable", async ({ page }) => {
   test.skip(await lead.count() === 0, "No published blog stories in this database");
   const title = await lead.locator("h2").innerText();
   const href = await lead.locator('a[href^="/blog/"]').first().getAttribute("href");
-  await page.getByRole("searchbox", { name: "Search blog stories" }).fill(title);
+  const search = page.getByRole("searchbox", { name: "Search blog stories" });
+  await search.fill(title);
+  await expect(search).toBeInViewport();
+  await expect(search).toBeFocused();
   await expect(page.getByTestId("blog-lead-story")).toHaveCount(0);
   await expect(page.locator(`[data-blog-archive-row] a[href="${href}"]`)).toBeVisible();
 });
