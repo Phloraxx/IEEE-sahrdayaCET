@@ -19,6 +19,18 @@ test.describe("Home narrative", () => {
     }
   });
 
+  test("keeps a useful team section when the database has no core roster", async ({ page }) => {
+    await page.goto("/");
+    const section = page.locator("section#execom");
+    await expect(section.getByRole("link", { name: "View full Execom" })).toBeVisible();
+    if (await section.getByRole("list", { name: "Core executive committee" }).count()) {
+      await expect(section.getByRole("listitem").first()).toBeVisible();
+    } else {
+      await expect(section.getByText(/The core team roster is not available here yet/)).toBeVisible();
+      await expect(section.getByRole("button")).toHaveCount(0);
+    }
+  });
+
   test("keeps the curated archive static when reduced motion is requested", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/");
