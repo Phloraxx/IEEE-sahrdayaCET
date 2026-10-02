@@ -1,3 +1,4 @@
+import { isMissingRecord, publicDataUnavailable } from "@/server/public/errors.server";
 import { createPublicPB } from "@/lib/pb.server";
 import { escapeFilterValue } from "@/lib/pb";
 import { mapBlogRecord } from "@/lib/blog-record";
@@ -45,7 +46,8 @@ export async function getBlogBySlug(slug: string) {
       { expand: "relation,society,event" },
     );
     return mapBlogRecord(record);
-  } catch {
-    return null;
+  } catch (error) {
+    if (isMissingRecord(error)) return null;
+    publicDataUnavailable("getBlogBySlug", error);
   }
 }

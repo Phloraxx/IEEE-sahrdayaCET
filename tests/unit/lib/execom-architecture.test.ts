@@ -5,11 +5,13 @@ import { resolve } from "node:path";
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
 
 describe("execom architecture invariants", () => {
-  it("keeps the homepage execom intentionally hardcoded", () => {
+  it("uses the same public roster for the homepage core committee", () => {
     const homepage = read("src/components/Execom.tsx");
-    expect(homepage).toContain('image: "/Execom/midhun-pm/midhun-pm.jpg"');
-    expect(homepage).toContain('portfolio: "https://midhunpm.in"');
-    expect(homepage).not.toContain("fetchExecomData");
+    const homeReader = read("src/server/public/home.server.ts");
+    expect(homeReader).toContain("fetchExecomData()");
+    expect(homeReader).toContain('member.sectionId === "core"');
+    expect(homepage).toContain("member.portfolio");
+    expect(homepage).not.toContain("execomMembers");
   });
 
   it("drives the full directory portfolio from PocketBase", () => {

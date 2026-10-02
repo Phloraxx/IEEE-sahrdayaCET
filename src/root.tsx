@@ -90,7 +90,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <body className="font-sans antialiased">
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-white focus:text-ieee-blue focus:px-4 focus:py-2 focus:rounded focus:shadow-lg"
+          onClick={(event) => {
+            const target = document.querySelector<HTMLElement>('[data-page-content]') || document.querySelector<HTMLElement>('main h1') || document.querySelector<HTMLElement>('main');
+            if (target) { event.preventDefault(); target.tabIndex = -1; target.focus(); target.scrollIntoView({ block: 'start' }); }
+          }}
+          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[150] focus:bg-white focus:text-ieee-blue focus:px-4 focus:py-2 focus:rounded focus:shadow-lg"
         >
           Skip to content
         </a>
@@ -158,25 +162,20 @@ export default function App() {
 }
 
 export function ErrorBoundary({ error }: { error: unknown }) {
-  const is404 = isRouteErrorResponse(error) && error.status === 404;
-  const message =
-    error instanceof Error
-      ? error.message
-      : isRouteErrorResponse(error)
-        ? error.statusText
-        : "An unexpected error occurred";
-
+  const status = isRouteErrorResponse(error) ? error.status : 500;
+  const is404 = status === 404;
+  const forbidden = status === 403;
   return (
-    <main className="min-h-screen bg-white px-4 flex items-center justify-center text-center">
+    <main data-page-content tabIndex={-1} className="flex min-h-screen items-center justify-center bg-white px-5 text-center">
       <div className="max-w-md">
-        <p className="font-pixel text-6xl text-[#00629B] mb-4">{is404 ? "404" : "!"}</p>
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          {is404 ? "Page Not Found" : "Something went wrong"}
-        </h1>
-        <p className="text-gray-500 mb-6">{message}</p>
-        <Link to="/" className="inline-flex rounded-full bg-[#00629B] px-6 py-3 text-sm font-bold text-white">
-          Go Home
-        </Link>
+        <p className="mb-4 font-pixel text-5xl text-ieee-blue">{is404 ? '404' : forbidden ? '403' : '!'}</p>
+        <h1 className="mb-3 text-2xl font-bold text-gray-900">{is404 ? 'Page not found' : forbidden ? 'Access unavailable' : 'Content temporarily unavailable'}</h1>
+        <p className="mb-6 text-sm leading-6 text-gray-600">{is404 ? 'This page may have moved or is no longer published.' : forbidden ? 'Sign in with an account that has access, or contact the branch for help.' : 'We could not load this page. Please try again in a moment.'}</p>
+        <div className="flex flex-wrap justify-center gap-3">
+          {!is404 && !forbidden && <button type="button" onClick={() => window.location.reload()} className="min-h-11 rounded-full bg-ieee-blue px-6 text-sm font-semibold text-white">Try again</button>}
+          <Link to="/" className="inline-flex min-h-11 items-center rounded-full border border-gray-300 px-6 text-sm font-semibold text-gray-700">Go home</Link>
+          <Link to="/contact" className="inline-flex min-h-11 items-center px-3 text-sm font-semibold text-ieee-blue">Contact the branch</Link>
+        </div>
       </div>
     </main>
   );

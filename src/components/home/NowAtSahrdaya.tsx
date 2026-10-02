@@ -79,7 +79,7 @@ export function NowAtSahrdaya({ events, upcomingCount, societyCount, execomCount
             </aside>
           </div>
         ) : (
-          <div className="mt-10 rounded-2xl border border-dashed border-gray-300 px-6 py-16 text-center"><p className="font-pixel text-[10px] text-gray-400">NO UPCOMING PROGRAMME</p><Link to="/events" className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-ieee-blue">Browse event archive <ArrowRight className="h-4 w-4" /></Link></div>
+          <div className="mt-10 rounded-2xl border border-gray-200 px-6 py-7 text-center"><p className="font-pixel text-[10px] text-gray-400">NO UPCOMING EVENTS</p><Link to="/events" className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-ieee-blue">Browse event archive <ArrowRight className="h-4 w-4" /></Link><Link to="/societies" className="ml-5 mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-gray-700">Explore communities</Link></div>
         )}
 
         <div className="mt-6 grid border-y border-gray-200 sm:grid-cols-3">

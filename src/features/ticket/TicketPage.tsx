@@ -60,6 +60,8 @@ export default function TicketPage({ ticketId }: PageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [qrError, setQrError] = useState(false);
+  const [qrAttempt, setQrAttempt] = useState(0);
   const [qrSaved, setQrSaved] = useState(false);
   const [joinDetails, setJoinDetails] = useState<EventJoinDetails | null>(null);
   const [privateAccessLoading, setPrivateAccessLoading] = useState(false);
@@ -97,11 +99,12 @@ export default function TicketPage({ ticketId }: PageProps) {
     if (!ticketData?.ticket || checkInState !== "eligible") {
       return () => { active = false; };
     }
+    setQrError(false);
     void generateQRDataUrl(`${window.location.origin}/ticket/${ticketData.ticket.id || ticketId}`)
       .then((qr) => { if (active) setQrDataUrl(qr); })
-      .catch((err: unknown) => logError("ticket-qr", err));
+      .catch((err: unknown) => { logError("ticket-qr", err); if (active) setQrError(true); });
     return () => { active = false; };
-  }, [checkInState, ticketData?.ticket, ticketId]);
+  }, [checkInState, ticketData?.ticket, ticketId, qrAttempt]);
 
   useEffect(() => {
     const eventId = ticketData?.event?.id || "";
@@ -239,9 +242,9 @@ export default function TicketPage({ ticketId }: PageProps) {
                     initial={reduceMotion ? false : { opacity: 0, scale: 0.94 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: reduceMotion ? 0 : MOTION_DURATION.success, ease: MOTION_EASE, delay: reduceMotion ? 0 : 0.12 }}
-                    className="h-56 w-56 sm:h-64 sm:w-64"
+                    className="h-auto w-full max-w-64"
                   />
-                ) : <div className="grid h-56 w-56 place-items-center sm:h-64 sm:w-64"><Loader2 className="h-7 w-7 animate-spin text-black/20" /></div>}
+                ) : qrError ? <div role="alert" className="max-w-64 py-5 text-sm leading-6 text-gray-600"><p>The QR code could not load. Show your ticket ID to check-in staff if needed.</p><button type="button" onClick={() => setQrAttempt(value => value + 1)} className="mt-3 min-h-11 font-semibold text-ieee-blue">Retry QR code</button></div> : <div role="status" aria-label="Generating QR code" className="grid h-48 w-48 place-items-center sm:h-64 sm:w-64"><Loader2 className="h-7 w-7 animate-spin text-black/20" /></div>}
               </div>
               <h2 className="mt-6 text-2xl font-semibold tracking-[-0.04em]">Show this at check-in.</h2>
               <p className="mt-2 max-w-xs text-sm leading-6 text-black/48">Keep this page available on your phone when you arrive.</p>

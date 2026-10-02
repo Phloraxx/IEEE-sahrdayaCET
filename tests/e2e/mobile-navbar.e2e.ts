@@ -12,7 +12,8 @@ test.describe("mobile public navigation", () => {
     for (const label of ["Home", "Events", "Societies", "Blog"]) {
       await expect(dock.getByRole("link", { name: label, exact: true })).toBeVisible();
     }
-    const trigger = dock.getByRole("button", { name: "Open more navigation" });
+    // The modal correctly hides the background dock from the accessibility tree.
+    const trigger = page.locator('nav[aria-label="Mobile site navigation"] button[aria-label="Open more navigation"]');
     await expect(trigger).toBeVisible();
     await expect(trigger).toHaveAttribute("aria-expanded", "false");
     const mascot = dock.locator('[data-mobile-mascot="dock"]');

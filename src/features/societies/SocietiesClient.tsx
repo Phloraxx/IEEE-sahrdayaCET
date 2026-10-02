@@ -165,7 +165,7 @@ function LiveActivitySection({ upcomingEvents, totalUpcoming, activeCommunities 
           </div>
           <div className="flex gap-8 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white/45 lg:text-right">
             <span>{String(totalUpcoming).padStart(2, "0")} upcoming events</span>
-            <span>{String(activeCommunities).padStart(2, "0")} active communities</span>
+            <span>{String(activeCommunities).padStart(2, "0")} communities with upcoming events</span>
           </div>
         </div>
 
@@ -489,7 +489,7 @@ export default function SocietiesClient({ societies, activityBySociety, upcoming
                   Branch signal
                 </div>
                 <p className="mt-3">{String(upcomingEventCount).padStart(2, "0")} upcoming events</p>
-                <p>{String(activeCommunityCount).padStart(2, "0")} active communities</p>
+                <p>{String(activeCommunityCount).padStart(2, "0")} communities with upcoming events</p>
                 {upcomingEvents[0] ? (
                   <p className="mt-3 border-t border-slate-200 pt-3 text-slate-600">
                     Next / {formatSignalDate(upcomingEvents[0].date)} · {upcomingEvents[0].title}

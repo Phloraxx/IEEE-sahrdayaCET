@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import pkg from "../../package.json";
-const { version } = pkg;
 
 export const TechnicalDetails: React.FC = () => {
   const reduceMotion = Boolean(useReducedMotion());
@@ -48,18 +46,6 @@ export const TechnicalDetails: React.FC = () => {
           loading="eager"
           className="h-16 w-16 object-contain contrast-125 drop-shadow-[0_1px_0_rgba(255,255,255,0.9)] 2xl:h-[4.5rem] 2xl:w-[4.5rem]"
         />
-      </motion.div>
-
-      {/* Bottom Right - BUILD_VER */}
-      <motion.div
-        initial={reduceMotion ? false : { opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: reduceMotion ? 0 : 1.2, duration: reduceMotion ? 0 : 0.8 }}
-        className="absolute bottom-6 right-6 z-10 hidden md:block text-right"
-      >
-        <p className="font-mono text-[10px] text-gray-400">
-          BUILD_VER: {version}
-        </p>
       </motion.div>
 
       {/* Bottom Left - Copyright */}

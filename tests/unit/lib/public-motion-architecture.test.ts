@@ -21,9 +21,10 @@ describe("public motion architecture", () => {
     const nav = read("src/components/Navbar.tsx");
 
     expect(execom).toContain("data-home-execom-static");
-    expect(execom).toContain("if (reduceMotion) return;");
+    expect(execom).not.toContain("requestAnimationFrame");
     expect(character).toContain("useReducedMotion");
-    expect(hero).toContain("style={reduceMotion ? undefined : { scale, opacity, y }}");
+    expect(hero).not.toContain("useScroll");
+    expect(read("src/components/EventsShowcase.tsx")).toContain("const stopped = reduceMotion || paused;");
     expect(chrome).toContain("duration: reduceMotion ? 0 : 0.45");
     expect(nav).toContain("duration: reduceMotion ? 0 : 0.5");
   });

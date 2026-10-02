@@ -9,7 +9,8 @@ import { logError } from "./logger";
 interface AuthContextValue {
   user: AuthUser | null;
   status: "loading" | "authenticated" | "unauthenticated";
-  signIn: () => void;
+  signIn: () => Promise<void>;
+  signInError: string | null;
   signOut: () => void;
 }
 
@@ -18,7 +19,8 @@ const noop = () => undefined;
 const AuthContext = createContext<AuthContextValue>({
   user: null,
   status: "loading",
-  signIn: noop,
+  signIn: async () => undefined,
+  signInError: null,
   signOut: noop,
 });
 
@@ -42,6 +44,7 @@ function mapUser(record: RecordModel | null): AuthUser | null {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
+  const [signInError, setSignInError] = useState<string | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [status, setStatus] = useState<AuthContextValue["status"]>("loading");
 
@@ -97,7 +100,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = useCallback(() => {
     // Keep the initial call synchronous with the click event so Safari does not block the OAuth popup.
     const pb = getPbClient();
-    void pb.collection("users").authWithOAuth2({ provider: "google" }).catch((error) => {
+    setSignInError(null);
+    return pb.collection("users").authWithOAuth2({ provider: "google" }).then(() => undefined).catch((error) => {
+      setSignInError("Sign-in could not be completed. Allow popups in your browser and try again.");
       logError("auth-signin", error);
       if (!pb.authStore.isValid) {
         pb.authStore.clear();
@@ -115,7 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.location.assign("/");
   }, []);
 
-  return <AuthContext.Provider value={{ user, status, signIn, signOut }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, status, signIn, signInError, signOut }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth(): AuthContextValue {

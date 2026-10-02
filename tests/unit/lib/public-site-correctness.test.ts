@@ -9,11 +9,11 @@ describe("public site correctness invariants", () => {
     const home = read("src/server/public/home.server.ts");
     const directory = read("src/server/public/societies.server.ts");
     const route = read("src/routes/index.tsx");
-    const execom = read("src/components/Execom.tsx");
+    const now = read("src/components/home/NowAtSahrdaya.tsx");
     expect(home).toContain('filter: "isHidden=false"');
     expect(directory).toContain('filter: "isHidden=false"');
-    expect(route).toContain("<Execom societyCount={societies.length}");
-    expect(execom).toContain('["Societies", societyCount]');
+    expect(route).toContain("societyCount={societies.length}");
+    expect(now).toContain("societyCount");
   });
 
   it("keeps the handpicked Event Showcase explicitly curated", () => {
@@ -80,18 +80,19 @@ describe("Home redesign invariants", () => {
     expect(people).toContain('index="02"');
     expect(showcase).toContain('index="03"');
     expect(signals).toContain('index="04"');
-    expect(showcase).toContain("Deliberately curated visual archive");
-    expect(showcase).toContain("Curated selection");
+    expect(showcase).toContain("Deliberately curated archive");
+    expect(showcase).toContain("07 handpicked moments");
   });
 
-  it("uses data-backed Home people statistics", () => {
+  it("uses the shared public core roster and keeps aggregate statistics in the programme", () => {
     const route = read("src/routes/index.tsx");
     const people = read("src/components/Execom.tsx");
-    expect(route).toContain("rosterCount={execomCount}");
-    expect(route).toContain("upcomingCount={upcomingCount}");
-    expect(people).toContain('["Roster", rosterCount]');
-    expect(people).toContain('["Societies", societyCount]');
-    expect(people).toContain('["Upcoming", upcomingCount]');
+    const home = read("src/server/public/home.server.ts");
+    expect(route).toContain("members={loaderData.coreTeam ?? []}");
+    expect(home).toContain("fetchExecomData()");
+    expect(home).toContain('member.sectionId === "core"');
+    expect(route).toContain("execomCount={execomCount}");
+    expect(people).not.toContain("execomMembers");
     expect(people).not.toContain("100+");
   });
 });

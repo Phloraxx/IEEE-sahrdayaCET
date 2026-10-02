@@ -147,3 +147,7 @@ Emoji are acceptable only where the existing playful public/event language calls
 Before adding a new visual system, identify whether the work belongs to the public IEEE, Events editorial, or Admin register. Extend that register first.
 
 When a design change introduces a reusable token, font, motion rule, or layout convention, update this document and the global CSS deliberately rather than leaving the convention trapped in one component.
+
+## Public audit interaction update (October 2026)
+
+Desktop navigation remains available during scroll. Homepage core-team cards use the directory's public projection and manual scroll controls; names and published contacts remain visible. The curated photo archive has a persistent pause control and a single accessible canonical set. Hero actions and real content are visible without a staged reveal, with a shorter desktop composition. Shared focus outlines and anchor offsets apply across page families; error and empty states must distinguish service failure from a genuinely empty programme.

@@ -1,3 +1,4 @@
+import { isPastEvent } from "@/lib/event-lifecycle";
 import { useEffect, useState } from "react";
 import { Link, useLoaderData, type LoaderFunctionArgs } from "react-router";
 import { toast } from "sonner";
@@ -260,7 +261,7 @@ export default function EventDetailPage() {
 
   const downloadReceipt = () => {
     if (!myRegistration?.registrationId) return;
-    void downloadRegistrationReceipt(myRegistration.registrationId).catch(() => undefined);
+    void downloadRegistrationReceipt(myRegistration.registrationId).catch(() => toast.error("Receipt could not be downloaded. Please try again."));
   };
   const canonicalUrl = `${APP_URL}/events/${event.slug}`;
   const isWieEvent = getEventSocietySlug(event) === "wie";
@@ -296,8 +297,9 @@ export default function EventDetailPage() {
     full: "text-rose-700",
     closed: "text-black/40",
   };
+  const eventEnded = isPastEvent(event);
   const unavailableRegistrationLabel =
-    availability.kind === "opening-soon"
+    eventEnded ? "Event completed" : availability.kind === "opening-soon"
       ? "Registration opens soon"
       : availability.kind === "full"
         ? "Registration full"
@@ -416,7 +418,7 @@ export default function EventDetailPage() {
                 </motion.h1>
               </div>
               <p className="mt-6 max-w-2xl text-sm leading-6 text-white/48 sm:text-base">
-                {description || "Event details from the IEEE Sahrdaya programme."}
+                {description.length > 220 ? `${description.slice(0, 220).replace(/\s+\S*$/, "")}…` : description || "Event details from the IEEE Sahrdaya programme."}
               </p>
             </div>
 
@@ -445,7 +447,7 @@ export default function EventDetailPage() {
               ["Date", formatDate(event.date)],
               ["Time", formatEventTime(event.date, event.timeTbc)],
               ["Venue", event.attendanceMode === "online" ? "Online" : event.venue || "Sahrdaya College of Engineering & Technology"],
-              ["Entry / status", `${event.price > 0 ? `₹${event.price}` : "Free"} · ${availability.label}`],
+              ["Entry / status", `${event.price > 0 ? `₹${event.price}` : "Free"} · ${eventEnded ? "Event completed" : availability.label}`],
             ].map(([label, value], index) => (
               <div key={String(label)} className={`min-w-0 py-5 sm:px-5 ${index > 0 ? "sm:border-l sm:border-white/10" : ""} ${index > 1 ? "border-t border-white/10 lg:border-t-0" : index === 1 ? "border-t border-white/10 sm:border-t-0" : ""}`}>
                 <p className="text-[8px] font-bold uppercase tracking-[0.18em] text-white/32">{label}</p>
@@ -520,7 +522,7 @@ export default function EventDetailPage() {
                   {myRegistration.receiptAvailable && <button type="button" onClick={downloadReceipt} className="mt-4 inline-flex items-center gap-2 text-xs font-bold text-black/50 hover:text-[#00629B]"><ReceiptText className="h-4 w-4" /> Payment receipt</button>}
                 </>
               ) : null
-            ) : lifecycle.phase === "completed" ? (
+            ) : eventEnded ? (
               <>
                 <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Event status</p>
                 <h2 className="mt-3 text-4xl font-semibold tracking-[-0.055em]">Completed.</h2>
