@@ -1,4 +1,6 @@
-import { CalendarDays } from "lucide-react";
+import { ArrowUpRight, CalendarDays } from "lucide-react";
+import { Link } from "react-router";
+import type { ReactNode } from "react";
 import type { ExtendedEvent } from "@/types";
 import { EventRow } from "./AnnotatedEventCard";
 
@@ -10,6 +12,7 @@ interface EventListSectionProps {
   title?: string;
   emptyTitle?: string;
   emptyMessage?: string;
+  emptyAction?: ReactNode;
   sectionId?: string;
   showHeader?: boolean;
 }
@@ -27,6 +30,7 @@ export function EventListSection({
   title = "Events",
   emptyTitle = "Nothing scheduled yet",
   emptyMessage = "New events will appear here as soon as they are announced.",
+  emptyAction,
   sectionId = "events-section",
   showHeader = true,
 }: EventListSectionProps) {
@@ -105,12 +109,13 @@ export function EventListSection({
       )}
 
       {!loading && !error && events.length === 0 && (
-        <div className="grid min-h-48 place-items-center border-b border-black/10 py-12 text-center">
-          <div>
-            <CalendarDays className="mx-auto mb-4 h-7 w-7 text-black/30" />
-            <h2 className="text-2xl font-semibold tracking-[-0.04em] text-[#111315]">{emptyTitle}</h2>
-            <p className="mt-2 text-sm text-black/48">{emptyMessage}</p>
+        <div className="flex flex-col gap-5 border-b border-black/10 py-7 md:flex-row md:items-center md:justify-between md:gap-8 md:py-8">
+          <div className="flex items-start gap-4">
+            <CalendarDays aria-hidden="true" className="mt-1 h-6 w-6 shrink-0 text-ieee-blue" />
+            <div><h2 className="text-xl font-semibold tracking-[-0.04em] text-[#111315]">{emptyTitle}</h2>
+            <p className="mt-2 text-sm leading-relaxed text-black/60">{emptyMessage}</p></div>
           </div>
+          {emptyAction || <Link to="/societies" className="inline-flex min-h-11 shrink-0 items-center gap-2 text-sm font-semibold text-ieee-blue">Explore communities <ArrowUpRight aria-hidden="true" className="h-4 w-4" /></Link>}
         </div>
       )}
 

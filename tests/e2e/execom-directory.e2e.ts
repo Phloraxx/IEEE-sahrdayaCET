@@ -5,7 +5,7 @@ test.describe("Execom directory", () => {
     const response = await page.goto("/full-execom");
     expect(response?.status()).toBe(200);
 
-    const empty = page.getByText("Execom directory unavailable.");
+    const empty = page.getByText("The team directory is being updated.");
     if (await empty.isVisible().catch(() => false)) return;
 
     await expect(page.getByTestId("execom-directory-header")).toBeVisible();

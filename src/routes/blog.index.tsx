@@ -35,3 +35,5 @@ export default function BlogPage() {
     </>
   );
 }
+
+export { shouldRevalidatePublicListing as shouldRevalidate } from "@/lib/public-listing-navigation";

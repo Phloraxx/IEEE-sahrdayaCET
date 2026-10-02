@@ -26,7 +26,7 @@ describe("execom architecture invariants", () => {
     expect(reader).toContain("linkedin,instagram,portfolio");
     expect(reader).toContain("portfolio: record.portfolio");
     expect(client).toContain("...Array.from(remaining).sort()");
-    expect(client).toContain('useState("all")');
+    expect(client).toContain('searchParams.get("group")');
     expect(client).toContain('type ViewMode = "grid" | "roster"');
     expect(client).toContain('data-testid="execom-grid"');
     expect(client).toContain('data-testid="execom-roster"');

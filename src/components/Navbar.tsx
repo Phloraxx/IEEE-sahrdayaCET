@@ -246,7 +246,7 @@ export default function Navbar() {
         </nav>
 
         <motion.div
-          initial={reduceMotion ? false : { y: -100, opacity: 0 }}
+          initial={false}
           animate={{ y: 0, opacity: 1 }}
           transition={{
             duration: reduceMotion ? 0 : 0.5,

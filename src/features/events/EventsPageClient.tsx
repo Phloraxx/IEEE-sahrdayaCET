@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { Link, useRevalidator, useSearchParams } from "react-router";
-import { ArrowUpRight, Search, Ticket, X } from "lucide-react";
+import { ArrowDown, ArrowUpRight, Search, Ticket, X } from "lucide-react";
 import "@/styles/events.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -122,7 +122,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
     <main className="events-page min-h-screen overflow-x-hidden bg-[#f8f9fa] text-[#111315] selection:bg-[#00629B] selection:text-white">
       <Navbar />
       <div className="px-5 pt-10 sm:px-8 sm:pt-12 md:pt-24 lg:px-12">
-        <div className="mx-auto max-w-[1440px] pb-10 pt-2 md:pb-14 md:pt-6" id="upcoming-events">
+        <div className="mx-auto max-w-[1440px] pb-6 pt-2 md:pb-8 md:pt-6" id="upcoming-events">
           <EventListSection
             events={upcomingEvents}
             loading={false}
@@ -131,6 +131,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
             title="Events"
             emptyTitle="Nothing scheduled yet"
             emptyMessage="New events will appear here as soon as they are announced."
+            emptyAction={<a href="#event-archive" className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-[#00629B]/25 px-5 text-sm font-semibold text-[#00629B] transition-colors hover:bg-[#00629B]/5">Browse past events <ArrowDown aria-hidden="true" className="h-4 w-4" /></a>}
           />
         </div>
 
@@ -154,7 +155,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
             </div>
 
             <div className="-mx-5 border-y border-black/10 bg-[#f8f9fa] px-5 py-3 sm:-mx-8 sm:px-8 lg:sticky lg:top-20 lg:z-20 lg:mx-0 lg:px-0">
-              <div className="grid gap-3 sm:grid-cols-[minmax(0,18rem)_minmax(0,15rem)] sm:items-end lg:ml-auto lg:w-fit">
+              <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,18rem)] sm:items-end">
                 <label className="grid min-w-0 gap-1">
                   <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-black/55">Search past events</span>
                   <span className="relative block">
@@ -214,11 +215,12 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
                   </section>
                 ))
               ) : (
-                <div className="grid min-h-56 place-items-center border-y border-black/10 text-center">
+                <div className="grid min-h-56 place-items-center border-y border-black/10 px-4 py-8 text-center">
                   <div>
                     <Ticket className="mx-auto mb-4 h-6 w-6 text-black/30" />
-                    <h3 className="text-xl font-semibold">{archiveSearch ? `No past events match “${archiveSearch}”` : "No past events match these filters"}</h3>
-                    <button type="button" onClick={resetArchive} className="mt-3 inline-flex min-h-11 items-center px-3 text-xs font-bold uppercase tracking-[0.14em] text-[#00629B] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00629B]">Reset filters</button>
+                    <h3 className="break-words text-xl font-semibold">{pastEvents.length === 0 ? "The event archive is growing" : "No past events match your filters"}</h3>
+                    <p className="mt-2 text-sm text-black/60">{pastEvents.length === 0 ? "Completed programmes will appear here." : "Try another keyword or choose a different society."}</p>
+                    {pastEvents.length > 0 && <button type="button" onClick={resetArchive} className="mt-3 inline-flex min-h-11 items-center px-3 text-xs font-bold uppercase tracking-[0.14em] text-[#00629B] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00629B]">Reset filters</button>}
                   </div>
                 </div>
               )}
