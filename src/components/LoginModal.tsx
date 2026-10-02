@@ -3,8 +3,8 @@ import { Dialog } from 'radix-ui';
 import { X } from 'lucide-react';
 import GoogleLoginButton from './GoogleLoginButton';
 import { MASCOT_BODY_PEEK, MASCOT_HEAD, PixelGrid } from './mascot';
-interface LoginModalProps { isOpen: boolean; onClose: () => void; message?: string; }
-export default function LoginModal({ isOpen, onClose, message }: LoginModalProps) {
+interface LoginModalProps { isOpen: boolean; onClose: () => void; message?: string; returnFocus?: () => HTMLElement | null; }
+export default function LoginModal({ isOpen, onClose, message, returnFocus }: LoginModalProps) {
   const opener = useRef<HTMLElement | null>(null);
   return (
     <Dialog.Root open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -12,7 +12,11 @@ export default function LoginModal({ isOpen, onClose, message }: LoginModalProps
         <Dialog.Overlay className="fixed inset-0 z-[130] bg-black/50 backdrop-blur-xs" />
         <Dialog.Content
           onOpenAutoFocus={() => { opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; }}
-          onCloseAutoFocus={(event) => { if (opener.current?.isConnected) { event.preventDefault(); opener.current.focus(); } }}
+          onCloseAutoFocus={(event) => {
+            const explicitTarget = returnFocus?.();
+            const target = explicitTarget || (opener.current?.isConnected && opener.current.tagName !== 'BODY' ? opener.current : document.querySelector<HTMLElement>('button[aria-label="Open more navigation"]'));
+            if (target) { event.preventDefault(); target.focus(); }
+          }}
           className="fixed left-1/2 top-1/2 z-[131] max-h-[calc(100dvh-2rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-2xl focus:outline-none"
         >
           <div className="h-1 bg-linear-to-r from-ieee-blue via-ieee-light-blue to-ieee-blue" />

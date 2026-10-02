@@ -63,3 +63,16 @@ for (const width of [320, 390, 768, 1440]) {
     }
   });
 }
+
+test('mobile sign-in closes back to the More control', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/events');
+  const more = page.getByRole('button', { name: 'Open more navigation' });
+  await more.click();
+  await page.getByRole('dialog', { name: 'Site navigation' }).getByRole('button', { name: 'Sign in', exact: true }).click();
+  const signIn = page.getByRole('dialog', { name: 'SIGN IN', exact: true });
+  await expect(signIn).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(signIn).not.toBeVisible();
+  await expect(more).toBeFocused();
+});

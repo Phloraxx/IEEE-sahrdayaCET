@@ -72,6 +72,8 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const handoffToLoginRef = useRef(false);
+  const loginFromMobile = useRef(false);
+  const mobileMoreRef = useRef<HTMLButtonElement>(null);
   const { pathname, hash } = useLocation();
   const { user, status, signOut } = useAuth();
   const authenticatedUser = status === "authenticated" ? user : null;
@@ -107,7 +109,7 @@ export default function Navbar() {
     if (!authenticatedUser) {
       return (
         <button
-          onClick={() => setIsLoginModalOpen(true)}
+          onClick={() => { loginFromMobile.current = false; setIsLoginModalOpen(true); }}
           className="min-h-[44px] whitespace-nowrap rounded-full px-3 py-2 text-[10px] font-bold tracking-wide text-blue-600 transition-all hover:bg-white/50 md:px-5 md:text-xs"
         >
           SIGN IN
@@ -226,6 +228,7 @@ export default function Navbar() {
             <DialogPrimitive.Trigger asChild>
               <button
                 type="button"
+                ref={mobileMoreRef}
                 aria-label="Open more navigation"
                 aria-controls="mobile-site-navigation"
                 aria-expanded={mobileMenuOpen}
@@ -377,6 +380,7 @@ export default function Navbar() {
                     type="button"
                     onClick={() => {
                       handoffToLoginRef.current = true;
+                      loginFromMobile.current = true;
                       setMobileMenuOpen(false);
                       setIsLoginModalOpen(true);
                     }}
@@ -438,6 +442,7 @@ export default function Navbar() {
       </DialogPrimitive.Root>
 
       <LoginModal
+        returnFocus={() => loginFromMobile.current ? mobileMoreRef.current : null}
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
       />
