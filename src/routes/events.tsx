@@ -1,4 +1,3 @@
-import type { ShouldRevalidateFunctionArgs } from "react-router";
 import { useLoaderData } from "react-router";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { APP_URL } from "@/lib/constants";
@@ -65,7 +64,4 @@ export default function EventsPage() {
   );
 }
 
-export function shouldRevalidate({ currentUrl, nextUrl, defaultShouldRevalidate }: ShouldRevalidateFunctionArgs) {
-  if (currentUrl.pathname === nextUrl.pathname && currentUrl.search !== nextUrl.search) return false;
-  return defaultShouldRevalidate;
-}
+export { shouldRevalidatePublicListing as shouldRevalidate } from "@/lib/public-listing-navigation";

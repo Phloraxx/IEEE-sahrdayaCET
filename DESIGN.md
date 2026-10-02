@@ -151,3 +151,7 @@ When a design change introduces a reusable token, font, motion rule, or layout c
 ## Public audit interaction update (October 2026)
 
 Desktop navigation remains available during scroll. Homepage core-team cards use the directory's public projection and manual scroll controls; names and published contacts remain visible. The curated photo archive has a persistent pause control and a single accessible canonical set. Hero actions and real content are visible without a staged reveal, with a shorter desktop composition. Shared focus outlines and anchor offsets apply across page families; error and empty states must distinguish service failure from a genuinely empty programme.
+
+## Public discovery refinements (October 2026)
+
+An empty programme uses a compact editorial row and a direct archive action. Blog search includes every published story; the featured promotion yields to active search/topic results. Blog and Execom search, group/topic and view preferences live in URL parameters and survive reload/Back. Public filters use at least 44px controls with readable mono labels; mobile Execom groups use full names in a native select. Member profiles use the shared Radix modal with background isolation and focus restoration. Empty data states describe unpublished content; filtered zero-results states offer a reset.

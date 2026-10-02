@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
+import { Dialog } from "radix-ui";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -135,74 +136,21 @@ function MemberDrawer({
   member: ExecomMemberDoc;
   onClose: () => void;
 }) {
-  const reduceMotion = Boolean(useReducedMotion());
-  const panelRef = useRef<HTMLElement | null>(null);
-  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
-
-  useEffect(() => {
-    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const focusFrame = requestAnimationFrame(() => closeButtonRef.current?.focus());
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-        return;
-      }
-      if (event.key !== "Tab" || !panelRef.current) return;
-      const focusable = Array.from(
-        panelRef.current.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
-        ),
-      ).filter((element) => element.offsetParent !== null);
-      if (!focusable.length) return;
-      const first = focusable[0]!;
-      const last = focusable[focusable.length - 1]!;
-      const active = document.activeElement;
-      if (event.shiftKey && (active === first || !panelRef.current.contains(active))) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && active === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      cancelAnimationFrame(focusFrame);
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", onKeyDown);
-      previousFocus?.focus();
-    };
-  }, [onClose]);
-
+  const opener = useRef<HTMLElement | null>(null);
   return (
-    <motion.div
-      role="dialog"
-      aria-modal="true"
-      aria-label={member.name}
-      className="fixed inset-0 z-[120] bg-[#06111e]/55 backdrop-blur-sm"
-      initial={reduceMotion ? false : { opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={reduceMotion ? undefined : { opacity: 0 }}
-      onMouseDown={onClose}
-    >
-      <motion.aside
-        ref={panelRef}
-        className="absolute inset-y-0 right-0 flex w-full max-w-[520px] flex-col overflow-y-auto bg-[#f7f8f8] pb-[calc(5rem+env(safe-area-inset-bottom,0px))] pt-[env(safe-area-inset-top,0px)] shadow-2xl sm:pb-7"
-        initial={reduceMotion ? false : { x: "100%" }}
-        animate={{ x: 0 }}
-        exit={reduceMotion ? undefined : { x: "100%" }}
-        transition={{ duration: reduceMotion ? 0 : 0.34, ease: [0.22, 1, 0.36, 1] }}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
+    <Dialog.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-[130] bg-[#06111e]/55 backdrop-blur-sm" />
+        <Dialog.Content
+          onOpenAutoFocus={() => { opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; }}
+          onCloseAutoFocus={(event) => { if (opener.current?.isConnected) { event.preventDefault(); opener.current.focus(); } }}
+          className="fixed inset-y-0 right-0 z-[131] flex w-full max-w-[520px] flex-col overflow-y-auto bg-[#f7f8f8] pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] pt-[env(safe-area-inset-top,0px)] shadow-2xl focus:outline-none"
+        >
         <div className="flex items-center justify-between border-b border-black/10 px-5 py-4 sm:px-7">
-          <p className="font-mono text-[8px] font-semibold uppercase tracking-[0.2em] text-black/40">
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-black/40">
             Execom / {sectionLabel(member.sectionId)} / {String(member.slNo).padStart(2, "0")}
           </p>
           <button
-            ref={closeButtonRef}
             type="button"
             onClick={onClose}
             aria-label="Close member profile"
@@ -222,22 +170,22 @@ function MemberDrawer({
           </div>
 
           <div className="border-b border-black/10 py-7">
-            <p className="font-mono text-[8px] font-semibold uppercase tracking-[0.2em] text-ieee-blue">
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-ieee-blue">
               {member.position || "Execom member"}
             </p>
-            <h2 className="mt-2 text-4xl font-bold leading-[0.96] tracking-[-0.05em] text-gray-950 sm:text-5xl">
+            <Dialog.Title className="mt-2 break-words text-4xl font-bold leading-[0.96] tracking-[-0.05em] text-gray-950 sm:text-5xl">
               {member.name}
-            </h2>
-            <p className="mt-4 text-sm leading-6 text-black/50">
+            </Dialog.Title>
+            <Dialog.Description className="mt-4 text-sm leading-6 text-black/60">
               {sectionLongLabel(member.sectionId)}
               {(member.department || member.semester) && " · "}
               {[member.department, member.semester].filter(Boolean).join(" / ")}
-            </p>
+            </Dialog.Description>
           </div>
 
           {(member.linkedin || member.instagram || member.portfolio) && (
             <div className="py-6">
-              <p className="font-mono text-[8px] font-semibold uppercase tracking-[0.2em] text-black/35">Connect</p>
+              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-black/60">Connect</p>
               <div className="mt-4 divide-y divide-black/10 border-y border-black/10">
                 {member.linkedin && (
                   <a href={member.linkedin} target="_blank" rel="noopener noreferrer" className="group flex items-center justify-between py-4 text-sm font-semibold transition hover:text-ieee-blue">
@@ -258,8 +206,9 @@ function MemberDrawer({
             </div>
           )}
         </div>
-      </motion.aside>
-    </motion.div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
 
@@ -283,7 +232,7 @@ function GridMemberCard({
         <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-[#edf1f3]">
           <MemberPortrait member={member} className="h-full w-full transition duration-700 group-hover:scale-[1.025]" eager={index < 8} />
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/55 to-transparent opacity-0 transition duration-300 group-hover:opacity-100" />
-          <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 font-mono text-[7px] font-bold uppercase tracking-[0.15em] text-black/55 backdrop-blur-sm">
+          <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.15em] text-black/55 backdrop-blur-sm">
             {sectionLabel(member.sectionId)}
           </span>
           <span className="absolute bottom-3 right-3 font-pixel text-3xl text-white opacity-0 transition duration-300 group-hover:opacity-60">
@@ -291,7 +240,7 @@ function GridMemberCard({
           </span>
         </div>
         <div className="pt-3.5">
-          <p className="font-mono text-[7px] font-semibold uppercase tracking-[0.16em] text-ieee-blue">{member.position || "Member"}</p>
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-ieee-blue">{member.position || "Member"}</p>
           <h3 className="mt-1.5 text-[15px] font-semibold leading-snug text-gray-900 transition group-hover:text-ieee-blue sm:text-base">{member.name}</h3>
           <p className="mt-1 truncate text-[13px] text-gray-500">{[member.department, member.semester].filter(Boolean).join(" · ") || sectionLongLabel(member.sectionId)}</p>
         </div>
@@ -302,7 +251,7 @@ function GridMemberCard({
           target="_blank"
           rel="noopener noreferrer"
           aria-label={`Visit ${member.name}'s portfolio`}
-          className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-ieee-blue underline-offset-4 transition hover:underline"
+          className="mt-2 inline-flex min-h-11 items-center gap-1.5 text-xs font-semibold text-ieee-blue underline-offset-4 transition hover:underline"
         >
           <Globe2 className="h-3.5 w-3.5" />
           Portfolio
@@ -326,9 +275,9 @@ function RosterView({
   const preview = members.find((member) => member.id === previewId) ?? members[0];
 
   return (
-    <div data-testid="execom-roster" className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_380px]">
+    <div data-testid="execom-roster" className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_380px]">
       <div className="border-t border-black/12">
-        <div className="hidden grid-cols-[54px_minmax(180px,1.1fr)_minmax(150px,0.9fr)_minmax(120px,0.7fr)_90px] gap-4 border-b border-black/10 py-3 font-mono text-[7px] font-semibold uppercase tracking-[0.16em] text-black/35 md:grid">
+        <div className="hidden grid-cols-[54px_minmax(180px,1.1fr)_minmax(150px,0.9fr)_minmax(120px,0.7fr)_90px] gap-4 border-b border-black/10 py-3 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-black/60 md:grid">
           <span>No.</span><span>Name</span><span>Role</span><span>Group</span><span>Course</span>
         </div>
         {members.map((member, index) => (
@@ -345,30 +294,30 @@ function RosterView({
             <div className="md:hidden"><MemberPortrait member={member} className="h-[72px] w-[54px]" /></div>
             <span className="hidden font-pixel text-[9px] text-black/30 md:block">{String(index + 1).padStart(2, "0")}</span>
             <span className="min-w-0">
-              <span className="block truncate text-sm font-bold text-gray-950 transition group-hover:text-ieee-blue md:text-base">{member.name}</span>
-              <span className="mt-1 block truncate font-mono text-[7px] font-semibold uppercase tracking-[0.14em] text-ieee-blue md:hidden">{member.position || "Member"} · {sectionLabel(member.sectionId)}</span>
+              <span className="block break-words text-sm font-bold text-gray-950 transition group-hover:text-ieee-blue md:text-base">{member.name}</span>
+              <span className="mt-1 block font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-ieee-blue md:hidden">{member.position || "Member"} · {sectionLabel(member.sectionId)}</span>
             </span>
-            <span className="hidden truncate text-xs text-black/52 md:block">{member.position || "Member"}</span>
-            <span className="hidden truncate font-mono text-[8px] font-semibold uppercase tracking-[0.12em] text-black/42 md:block">{sectionLabel(member.sectionId)}</span>
-            <span className="hidden truncate text-[11px] text-black/38 md:block">{[member.department, member.semester].filter(Boolean).join(" / ") || "—"}</span>
+            <span className="hidden break-words text-xs text-black/60 md:block">{member.position || "Member"}</span>
+            <span className="hidden truncate font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-black/60 md:block">{sectionLabel(member.sectionId)}</span>
+            <span className="hidden truncate text-[11px] text-black/60 md:block">{[member.department, member.semester].filter(Boolean).join(" / ") || "—"}</span>
             <ArrowRight className="h-3.5 w-3.5 text-black/25 transition group-hover:translate-x-1 group-hover:text-ieee-blue md:hidden" />
           </button>
         ))}
       </div>
 
       {preview && (
-        <aside className="sticky top-28 hidden h-fit lg:block">
+        <aside className="sticky top-28 hidden h-fit xl:block">
           <button type="button" onClick={() => onOpen(preview)} aria-label={`View details for ${preview.name}`} className="group block w-full text-left">
             <div className="relative aspect-[3/4] overflow-hidden bg-[#edf1f3]">
               <MemberPortrait member={preview} className="h-full w-full transition duration-500 group-hover:scale-[1.02]" eager />
               <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/60 to-transparent" />
-              <span className="absolute bottom-4 left-4 font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-white/65">Preview / {sectionLabel(preview.sectionId)}</span>
+              <span className="absolute bottom-4 left-4 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-white/65">Preview / {sectionLabel(preview.sectionId)}</span>
               <span className="absolute bottom-4 right-4 font-pixel text-4xl text-white/60">{String(preview.slNo).padStart(2, "0")}</span>
             </div>
             <div className="border-b border-black/10 py-4">
-              <p className="font-mono text-[7px] font-semibold uppercase tracking-[0.16em] text-ieee-blue">{preview.position || "Member"}</p>
+              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-ieee-blue">{preview.position || "Member"}</p>
               <h3 className="mt-1 text-2xl font-bold tracking-[-0.04em] text-gray-950">{preview.name}</h3>
-              <p className="mt-2 text-xs text-black/42">{sectionLongLabel(preview.sectionId)}</p>
+              <p className="mt-2 text-xs text-black/60">{sectionLongLabel(preview.sectionId)}</p>
             </div>
           </button>
           {preview.portfolio && (
@@ -377,7 +326,7 @@ function RosterView({
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`Visit ${preview.name}'s portfolio`}
-              className="group flex items-center justify-between border-b border-black/10 py-3 font-mono text-[8px] font-semibold uppercase tracking-[0.14em] text-black/42 transition hover:text-ieee-blue"
+              className="group flex items-center justify-between border-b border-black/10 py-3 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-black/60 transition hover:text-ieee-blue"
             >
               <span>Portfolio</span>
               <ArrowUpRight className="h-3.5 w-3.5 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
@@ -391,9 +340,22 @@ function RosterView({
 
 const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
   const reduceMotion = Boolean(useReducedMotion());
-  const [activeFilter, setActiveFilter] = useState("all");
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
-  const [query, setQuery] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedGroup = searchParams.get("group") || "all";
+  const activeFilter = initialDocs.some(member => member.sectionId === requestedGroup) ? requestedGroup : "all";
+  const viewMode: ViewMode = searchParams.get("view") === "roster" ? "roster" : "grid";
+  const query = searchParams.get("q") || "";
+  const updateFilter = (key: string, value: string) => setSearchParams(previous => {
+    const next = new URLSearchParams(previous);
+    if (value && value !== "all" && value !== "grid") next.set(key, value); else next.delete(key);
+    return next;
+  }, { replace: true, preventScrollReset: true });
+  const setActiveFilter = (value: string) => updateFilter("group", value);
+  const setViewMode = (value: ViewMode) => updateFilter("view", value);
+  const setQuery = (value: string) => updateFilter("q", value);
+  const resetDirectory = () => setSearchParams(previous => {
+    const next = new URLSearchParams(previous); next.delete("group"); next.delete("q"); return next;
+  }, { replace: true, preventScrollReset: true });
   const [selectedMember, setSelectedMember] = useState<ExecomMemberDoc | null>(null);
 
   const docs = useMemo(
@@ -440,8 +402,8 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
         <main className="relative z-20 mx-auto grid min-h-[60vh] w-full max-w-[1440px] place-items-center px-5 pb-24 pt-28 text-center sm:px-8 sm:pt-32 lg:px-12">
           <div className="max-w-md">
             <Users className="mx-auto h-12 w-12 text-slate-300" />
-            <h1 className="mt-6 text-3xl font-bold tracking-[-0.04em]">Execom directory unavailable.</h1>
-            <p className="mt-3 text-sm leading-6 text-black/45">The public roster could not be loaded right now.</p>
+            <h1 className="mt-6 text-3xl font-bold tracking-[-0.04em]">The team directory is being updated.</h1>
+            <p className="mt-3 text-sm leading-6 text-black/60">Committee profiles will appear here when they are published. You can contact the branch for current details.</p>
             <Link to="/" className="mt-6 inline-flex min-h-11 items-center gap-2 text-sm font-bold text-ieee-blue">Return home <ArrowRight className="h-4 w-4" /></Link>
           </div>
         </main>
@@ -458,21 +420,21 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
       <Navbar />
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-[100dvh]"><TechnicalDetails /></div>
 
-      <AnimatePresence>{selectedMember && <MemberDrawer member={selectedMember} onClose={() => setSelectedMember(null)} />}</AnimatePresence>
+      {selectedMember && <MemberDrawer member={selectedMember} onClose={() => setSelectedMember(null)} />}
 
       <main className="relative z-20 mx-auto w-full max-w-[1440px] px-5 pb-24 pt-16 sm:px-8 sm:pt-20 md:pt-32 lg:px-12">
         <header data-testid="execom-directory-header" className="border-t border-black/10 pt-5 sm:pt-7">
-          <div className="flex flex-wrap items-center justify-between gap-4 font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-black/38">
-            <h1 className="text-black/55">IEEE Sahrdaya / Execom</h1>
+          <div className="flex flex-wrap items-center justify-between gap-4 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-black/60">
+            <span className="text-black/55">IEEE Sahrdaya / Execom</span>
             <span>Directory / 2026</span>
           </div>
 
           <div className="mt-8 grid gap-8 border-b border-black/10 pb-9 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end lg:gap-16 sm:pb-11">
             <div>
               <p className="font-pixel text-[10px] text-ieee-blue">THE PEOPLE / {String(docs.length).padStart(2, "0")}</p>
-              <p className="mt-4 max-w-4xl text-[3rem] font-bold leading-[0.9] tracking-[-0.065em] sm:text-[4.7rem] lg:text-[6.1rem]">
+              <h1 className="mt-4 max-w-4xl text-[2.75rem] font-bold leading-[0.9] tracking-[-0.065em] sm:text-[4.7rem] lg:text-[5rem]">
                 {docs.length} people.<br /><span className="text-ieee-blue">One branch.</span>
-              </p>
+              </h1>
             </div>
             <div className="grid grid-cols-3 border-y border-black/10 lg:grid-cols-1 lg:border-y-0 lg:border-l lg:pl-7">
               {[
@@ -481,7 +443,7 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
                 ["Year", "2026"],
               ].map(([label, value], index) => (
                 <div key={String(label)} className={`py-4 lg:flex lg:items-baseline lg:justify-between lg:gap-5 ${index > 0 ? "border-l border-black/10 lg:border-l-0 lg:border-t" : ""}`}>
-                  <span className="block font-mono text-[7px] font-semibold uppercase tracking-[0.16em] text-black/35">{label}</span>
+                  <span className="block font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-black/60">{label}</span>
                   <span className="mt-2 block font-pixel text-lg text-gray-900 lg:mt-0">{typeof value === "number" ? String(value).padStart(2, "0") : value}</span>
                 </div>
               ))}
@@ -494,13 +456,14 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
             <div>
               <p className="font-pixel text-[9px] text-ieee-blue">DIRECTORY / {String(visibleMembers.length).padStart(2, "0")}</p>
               <h2 className="mt-2 text-3xl font-bold tracking-[-0.04em] sm:text-4xl">{currentLabel}</h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-black/45">Search by name, role, team or course. Switch views without losing your filter.</p>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-black/60">Search by name, role, team or course. Switch views without losing your filter.</p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <label className="relative min-w-[250px]">
                 <span className="sr-only">Search Execom</span>
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/30" />
                 <input
+                  type="search"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Search the roster…"
@@ -511,21 +474,32 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
                 )}
               </label>
               <div className="inline-flex rounded-full border border-black/10 bg-white/85 p-1 shadow-sm" aria-label="Execom directory view">
-                <button type="button" onClick={() => setViewMode("grid")} aria-pressed={viewMode === "grid"} className={`inline-flex items-center gap-2 rounded-full px-3 py-2 font-mono text-[8px] font-semibold uppercase tracking-[0.13em] transition ${viewMode === "grid" ? "bg-gray-950 text-white" : "text-black/45 hover:text-black"}`}><Grid3X3 className="h-3.5 w-3.5" /> Grid</button>
-                <button type="button" onClick={() => setViewMode("roster")} aria-pressed={viewMode === "roster"} className={`inline-flex items-center gap-2 rounded-full px-3 py-2 font-mono text-[8px] font-semibold uppercase tracking-[0.13em] transition ${viewMode === "roster" ? "bg-gray-950 text-white" : "text-black/45 hover:text-black"}`}><List className="h-3.5 w-3.5" /> Roster</button>
+                <button type="button" onClick={() => setViewMode("grid")} aria-pressed={viewMode === "grid"} className={`inline-flex min-h-11 items-center gap-2 rounded-full px-3 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.13em] transition ${viewMode === "grid" ? "bg-gray-950 text-white" : "text-black/60 hover:text-black"}`}><Grid3X3 className="h-3.5 w-3.5" /> Grid</button>
+                <button type="button" onClick={() => setViewMode("roster")} aria-pressed={viewMode === "roster"} className={`inline-flex min-h-11 items-center gap-2 rounded-full px-3 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.13em] transition ${viewMode === "roster" ? "bg-gray-950 text-white" : "text-black/60 hover:text-black"}`}><List className="h-3.5 w-3.5" /> Roster</button>
               </div>
             </div>
           </div>
 
-          <div className="mt-6 flex gap-2 overflow-x-auto border-y border-black/10 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Filter Execom by group">
-            <button type="button" onClick={() => setActiveFilter("all")} aria-pressed={activeFilter === "all"} className={`shrink-0 rounded-full border px-3 py-2 font-mono text-[8px] font-semibold uppercase tracking-[0.14em] transition ${activeFilter === "all" ? "border-ieee-blue bg-ieee-blue text-white" : "border-black/10 bg-white/80 text-black/45 hover:border-black/30 hover:text-black"}`}>All <span className="ml-1 opacity-65">{docs.length}</span></button>
+          <label className="mt-6 grid gap-2 border-y border-black/10 py-4 sm:hidden">
+            <span className="text-xs font-semibold text-gray-600">Choose a group</span>
+            <select aria-label="Filter Execom by group" value={activeFilter} onChange={event => setActiveFilter(event.target.value)} className="h-11 w-full rounded-lg border border-black/15 bg-white px-3 text-base">
+              <option value="all">All groups ({docs.length})</option>
+              {presentSections.map(section => <option key={section} value={section}>{sectionLongLabel(section)} ({counts.get(section) ?? 0})</option>)}
+            </select>
+          </label>
+          <div className="mt-6 hidden flex-wrap gap-2 border-y border-black/10 py-3 sm:flex" aria-label="Filter Execom by group">
+            <button type="button" onClick={() => setActiveFilter("all")} aria-pressed={activeFilter === "all"} className={`inline-flex min-h-11 shrink-0 items-center rounded-full border px-3 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] transition ${activeFilter === "all" ? "border-ieee-blue bg-ieee-blue text-white" : "border-black/10 bg-white/80 text-black/60 hover:border-black/30 hover:text-black"}`}>All <span className="ml-1 opacity-65">{docs.length}</span></button>
             {presentSections.map((section) => (
-              <button key={section} type="button" onClick={() => setActiveFilter(section)} aria-pressed={activeFilter === section} className={`shrink-0 rounded-full border px-3 py-2 font-mono text-[8px] font-semibold uppercase tracking-[0.14em] transition ${activeFilter === section ? "border-ieee-blue bg-ieee-blue text-white" : "border-black/10 bg-white/80 text-black/45 hover:border-black/30 hover:text-black"}`}>
+              <button key={section} type="button" onClick={() => setActiveFilter(section)} aria-pressed={activeFilter === section} className={`inline-flex min-h-11 shrink-0 items-center rounded-full border px-3 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] transition ${activeFilter === section ? "border-ieee-blue bg-ieee-blue text-white" : "border-black/10 bg-white/80 text-black/60 hover:border-black/30 hover:text-black"}`}>
                 {sectionLabel(section)} <span className="ml-1 opacity-65">{counts.get(section) ?? 0}</span>
               </button>
             ))}
           </div>
 
+          <div className="mt-4 flex min-h-11 items-center justify-between gap-3 text-xs text-gray-600">
+            <p role="status" aria-live="polite">Showing {visibleMembers.length} of {docs.length} people</p>
+            {(query || activeFilter !== "all") && <button type="button" onClick={resetDirectory} className="min-h-11 px-3 font-semibold text-ieee-blue">Reset filters</button>}
+          </div>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={viewMode}
@@ -539,7 +513,7 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
                 <div className="border-y border-black/10 py-20 text-center">
                   <Users className="mx-auto h-8 w-8 text-black/20" />
                   <p className="mt-4 text-xl font-bold tracking-[-0.03em]">No matching people.</p>
-                  <button type="button" onClick={() => { setQuery(""); setActiveFilter("all"); }} className="mt-4 font-mono text-[8px] font-semibold uppercase tracking-[0.16em] text-ieee-blue">Reset directory</button>
+                  <button type="button" onClick={resetDirectory} className="mt-4 inline-flex min-h-11 items-center px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-ieee-blue">Reset directory</button>
                 </div>
               ) : viewMode === "grid" ? (
                 <div data-testid="execom-grid" className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4 lg:gap-x-7">
@@ -556,7 +530,7 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
           <div>
             <p className="font-pixel text-[9px] text-ieee-blue">NEXT / GET INVOLVED</p>
             <h2 className="mt-3 text-3xl font-bold tracking-[-0.04em] sm:text-4xl">The next roster starts with participation.</h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-black/45">Explore the societies, attend programmes and take part in the work behind the branch.</p>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-black/60">Explore the societies, attend programmes and take part in the work behind the branch.</p>
           </div>
           <div className="flex flex-wrap gap-3">
             <Link to="/societies" className="group inline-flex items-center gap-2 rounded-full border border-black/15 bg-white px-5 py-3 text-xs font-bold transition hover:border-ieee-blue hover:text-ieee-blue">Explore societies <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" /></Link>
