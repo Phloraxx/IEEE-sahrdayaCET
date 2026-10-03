@@ -20,24 +20,24 @@ export function PublicCertificateShell({ section, title, description, children }
 
       <main className="relative z-10 pt-14 sm:pt-20 md:pt-32">
         <section className="border-b border-black/10">
-          <div className="container mx-auto px-4 pb-10 pt-8 md:pb-14 md:pt-12">
+          <div className="container mx-auto px-4 pb-7 pt-5 sm:pb-10 sm:pt-8 md:pb-14 md:pt-12">
             <div className="flex items-center justify-between gap-4 border-b border-black/10 pb-4">
-              <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.28em] text-black/45">
+              <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-black/65">
                 <span className="mr-3 text-ieee-blue">01</span><span>{section}</span>
               </p>
-              <Link to="/" className="group hidden items-center gap-2 font-mono text-[9px] font-semibold uppercase tracking-[0.24em] text-black/45 transition hover:text-black sm:inline-flex">
+              <Link to="/" className="group hidden min-h-11 items-center gap-2 font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-black/65 transition hover:text-black sm:inline-flex">
                 IEEE Sahrdaya <ArrowUpRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </Link>
             </div>
-            <div className="grid gap-6 pt-8 md:grid-cols-12 md:items-end md:gap-8 md:pt-10">
+            <div className="grid gap-5 pt-6 md:grid-cols-12 md:items-end md:gap-8 md:pt-10">
               <div className="md:col-span-8">
-                <h1 className="max-w-4xl text-[clamp(2.8rem,7vw,6.5rem)] font-semibold leading-[0.88] tracking-[-0.065em] text-black">
+                <h1 className="max-w-4xl text-[clamp(2.4rem,7vw,6.5rem)] font-semibold leading-[0.98] tracking-[-0.065em] text-black">
                   {title}
                 </h1>
               </div>
               <div className="md:col-span-4 md:pb-1">
-                <p className="max-w-md text-sm leading-6 text-black/55 md:ml-auto">{description}</p>
-                <div className="mt-5 flex items-center gap-3 font-mono text-[9px] font-semibold uppercase tracking-[0.22em] text-black/35">
+                <p className="max-w-md text-sm leading-6 text-black/65 md:ml-auto">{description}</p>
+                <div className="mt-5 flex items-center gap-3 font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-black/60">
                   <span>Live registry</span><span className="h-px w-7 bg-ieee-blue" /><span>Public record</span>
                 </div>
               </div>
