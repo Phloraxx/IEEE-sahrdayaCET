@@ -36,6 +36,18 @@ for (const width of [320, 390, 768, 1440]) {
     await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
     const back = page.getByTestId("blog-article-header").getByRole("link", { name: "Blog / Archive" });
     expect((await back.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    if (width >= 1280 && await page.getByTestId("article-body").locator("h2, h3").count() > 1) {
+      const contents = page.getByRole("navigation", {name:"Article contents",exact:true}).filter({visible:true});
+      await contents.getByRole("link").first().click();
+      const rail = await contents.evaluate(node => {
+        const aside = node.closest("aside");
+        return aside ? {position:getComputedStyle(aside).position,top:aside.getBoundingClientRect().top,height:aside.getBoundingClientRect().height} : null;
+      });
+      expect(rail?.position).toBe("sticky");
+      expect(rail?.top).toBeGreaterThanOrEqual(100);
+      expect(rail?.top).toBeLessThanOrEqual(120);
+      expect(rail?.height).toBeLessThanOrEqual(772);
+    }
     await checkContents(page, width);
     const footer = page.getByRole("navigation", { name: "Article navigation", exact: true });
     await footer.getByRole("link", { name: "Back to top" }).click();
