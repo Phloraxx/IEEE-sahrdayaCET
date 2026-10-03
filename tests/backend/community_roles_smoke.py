@@ -388,7 +388,8 @@ if os.environ.get("E2E_WORKSPACE_FIXTURE"):
             "slug": f"reading-regression-{label}-{suffix}",
             "content": content, "published": True, "published_at": published_at,
             "relation": users["event-content"]["id"],
-        }, super_token)
+            "event": event["id"], "society": society["id"],
+        }, tokens["event-content"])
 
 # Registration memory reuses only common attendee details from the latest registration.
 registration_memory = req("GET", "/api/app/registration-memory", token=tokens["plain"])
