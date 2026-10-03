@@ -173,3 +173,12 @@ The community directory follows the shared URL-based discovery pattern: search a
 - Credential ID lookup reports pending, invalid, active, revoked, superseded and unavailable states beside the input. A failed registry read returns 503 and never becomes an invalid-certificate claim. Keep all verification data no-store/noindex and preserve the safe public projection.
 - The GET lookup remains usable without JavaScript, moves keyboard focus to its result after submission, and restores the displayed ID on browser history navigation. Invalid QR references offer an ID lookup recovery link.
 - Generic event details show date/time/full venue/entry status before artwork on phones and below the title/artwork row on desktop. Use semantic facts and wrap all venue text. Critical title/navigation/artwork/actions remain server-visible.
+
+## Article reading and profile navigation
+
+- Article contents remain available below 1280px through a native disclosure; desktop uses its sticky contents rail. All section links have 44px targets and work without JavaScript. Keep a single article h1 and stable section anchors.
+- Article metadata uses readable 11px mono labels and sufficient contrast. Long titles, authors and inline URLs wrap; preformatted code retains its horizontal scroll area.
+- Every article offers archive and back-to-top navigation, including when it has no related stories.
+- Generic society profiles expose About/People/Activity shortcuts, semantic facts in two columns on phones, complete wrapping headings and touch-sized community links. Preserve all public record counts and the bespoke WIE surface.
+
+Mobile native scrolling keeps focused controls clear of the fixed dock using bottom scroll padding/margins, including when JavaScript is disabled.

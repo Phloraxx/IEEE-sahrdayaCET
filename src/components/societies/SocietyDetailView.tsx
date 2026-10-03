@@ -130,7 +130,7 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
         <div className="pointer-events-none absolute inset-0 opacity-[0.26] [background-image:radial-gradient(circle_at_center,rgba(12,35,52,.18)_0.7px,transparent_0.8px)] [background-size:24px_24px]" />
         <div className="pointer-events-none absolute -right-24 top-24 h-[36rem] w-[36rem] rounded-full blur-3xl" style={{ backgroundColor: `${palette.accent}0d` }} />
         <div className="relative mx-auto max-w-[1440px] px-5 pb-10 pt-16 sm:px-8 sm:pb-12 sm:pt-20 md:pt-24 lg:px-12 lg:pt-28">
-          <div className="flex items-center justify-between border-b border-black/12 pb-5">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/12 pb-5">
             <Link to="/societies" className="group inline-flex min-h-11 items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-black/60 transition hover:text-[#00629B]">
               <ArrowLeft className="h-3.5 w-3.5 transition group-hover:-translate-x-0.5" /> Society directory
             </Link>
@@ -142,15 +142,16 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
           <div className="grid gap-10 py-10 md:grid-cols-12 md:items-end md:gap-8 md:py-14 lg:py-16">
             <div className="md:col-span-7 lg:col-span-8">
               <p className="text-[10px] font-bold uppercase tracking-[0.23em]" style={{ color: palette.accent }}>IEEE Sahrdaya / {code}</p>
-              <h1 className="mt-5 max-w-5xl text-[clamp(3rem,7.4vw,7.4rem)] font-semibold leading-[0.86] tracking-[-0.072em] text-[#111315]">
+              <h1 className="mt-5 max-w-5xl break-words text-[clamp(2.5rem,7.4vw,7.4rem)] font-semibold leading-[1] tracking-[-0.072em] text-[#111315]">
                 {society.name}
               </h1>
               <p className="mt-7 max-w-2xl text-base leading-7 text-black/52 sm:text-lg sm:leading-8">{heroSummary}</p>
               <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-[10px] font-bold uppercase tracking-[0.18em]">
+                <a href="#about" className="inline-flex min-h-11 items-center gap-2 text-black/60 transition hover:text-black">About {code} <ArrowRight className="h-3.5 w-3.5" /></a>
                 <a href="#people" className="group inline-flex min-h-11 items-center gap-2 text-black/60 transition hover:text-black">Meet the people <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-1" /></a>
                 <a href="#activity" className="group inline-flex min-h-11 items-center gap-2 text-black/60 transition hover:text-black">See activity <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-1" /></a>
                 {society.defaultWhatsappLink && (
-                  <a href={society.defaultWhatsappLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2" style={{ color: palette.accent }}>Join community <ExternalLink className="h-3.5 w-3.5" /></a>
+                  <a href={society.defaultWhatsappLink} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2" style={{ color: palette.accent }}>Join community <ExternalLink className="h-3.5 w-3.5" /></a>
                 )}
               </div>
             </div>
@@ -171,19 +172,19 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
             </div>
           </div>
 
-          <div className="grid border-y border-black/12 sm:grid-cols-4">
+          <dl data-testid="society-profile-facts" className="grid grid-cols-2 border-y border-black/12 sm:grid-cols-4">
             {[
               ["People", String(members.length).padStart(2, "0")],
               ["Activities", String(events.length).padStart(2, "0")],
               ["Next", upcoming[0] ? formatSignalDate(upcoming[0].date) : "—"],
               ["Directory", `${String(directoryIndex + 1).padStart(2, "0")} / ${String(directory.length).padStart(2, "0")}`],
             ].map(([label, value], index) => (
-              <div key={label} className={`py-4 sm:px-5 ${index > 0 ? "sm:border-l sm:border-black/10" : ""} ${index > 1 ? "border-t border-black/10 sm:border-t-0" : index === 1 ? "border-t border-black/10 sm:border-t-0" : ""}`}>
-                <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-black/60">{label}</p>
-                <p className="mt-2 text-lg font-semibold tracking-[-0.035em]">{value}</p>
+              <div key={label} className={`min-w-0 py-4 ${index % 2 ? "border-l border-black/10 pl-4" : ""} ${index > 1 ? "border-t border-black/10 sm:border-t-0" : ""} ${index > 0 ? "sm:border-l sm:border-black/10 sm:px-5" : ""}`}>
+                <dt className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-black/60">{label}</dt>
+                <dd className="mt-2 break-words text-lg font-semibold tracking-[-0.035em]">{value}</dd>
               </div>
             ))}
-          </div>
+          </dl>
         </div>
       </section>
 
@@ -227,7 +228,7 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
               <div className="group max-w-[260px]"><MemberPortrait member={advisor} accent={palette.accent} /></div>
               <div>
                 <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: palette.accent }}>Faculty advisor</p>
-                <h3 className="mt-3 text-4xl font-semibold tracking-[-0.055em] sm:text-5xl">{advisor.name}</h3>
+                <h3 className="mt-3 break-words text-4xl font-semibold tracking-[-0.055em] sm:text-5xl">{advisor.name}</h3>
                 <p className="mt-3 text-sm text-white/48">{advisor.position}{advisor.department ? ` · ${advisor.department}` : ""}</p>
               </div>
               <div className="flex gap-4 md:col-start-2 lg:col-start-auto lg:justify-self-end">
@@ -281,9 +282,9 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
             <>
               <Link to={`/events/${featuredEvent.slug}`} className="group grid gap-7 border-b border-black/12 py-10 lg:grid-cols-12 lg:items-center">
                 <div className="relative aspect-[4/3] overflow-hidden bg-[#07121f] sm:aspect-[16/9] lg:col-span-5 lg:aspect-[4/3]"><EventVisual event={featuredEvent} society={society} /></div>
-                <div className="lg:col-span-6 lg:col-start-7">
-                  <div className="flex items-center justify-between gap-4 font-mono text-[10px] font-semibold uppercase tracking-[0.18em]"><span style={{ color: palette.accent }}>{eventState(featuredEvent)} / Lead activity</span><span className="text-black/60">{formatDate(featuredEvent.date)}</span></div>
-                  <h3 className="mt-5 text-4xl font-semibold leading-[0.95] tracking-[-0.055em] transition group-hover:text-[#00629B] sm:text-5xl">{featuredEvent.title}</h3>
+                <div className="min-w-0 lg:col-span-6 lg:col-start-7">
+                  <div className="flex flex-wrap items-center justify-between gap-4 font-mono text-[10px] font-semibold uppercase tracking-[0.18em]"><span style={{ color: palette.accent }}>{eventState(featuredEvent)} / Lead activity</span><span className="text-black/60">{formatDate(featuredEvent.date)}</span></div>
+                  <h3 className="mt-5 break-words text-4xl font-semibold leading-[0.95] tracking-[-0.055em] transition group-hover:text-[#00629B] sm:text-5xl">{featuredEvent.title}</h3>
                   <p className="mt-5 max-w-xl text-sm leading-6 text-black/52">{blogHtmlToPlainText(featuredEvent.description || "").replace(/\s+/g, " ").trim() || "Open the programme record for full details."}</p>
                   <div className="mt-7 flex flex-wrap gap-x-6 gap-y-3 text-[10px] font-bold uppercase tracking-[0.15em] text-black/60"><span>{formatEventTime(featuredEvent.date, featuredEvent.timeTbc)}</span><span>{featuredEvent.venue || "Venue TBC"}</span><span>{featuredEvent.price > 0 ? `₹${featuredEvent.price}` : "Free"}</span></div>
                   <div className="mt-8 inline-flex items-center gap-2 text-sm font-bold" style={{ color: palette.accent }}>Open event record <ArrowUpRight className="h-4 w-4 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" /></div>
@@ -343,7 +344,7 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
                   <div className="relative aspect-[4/3] overflow-hidden bg-[#07121f]"><StoryVisual story={story} accent={palette.accent} /></div>
                   <div className="pt-5">
                     <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.17em]" style={{ color: palette.accent }}>{String(index + 1).padStart(2, "0")} / {getBlogContentType(story)}</p>
-                    <h3 className="mt-3 text-2xl font-semibold leading-[1.02] tracking-[-0.045em] transition group-hover:text-[#00629B]">{story.title}</h3>
+                    <h3 className="mt-3 break-words text-2xl font-semibold leading-[1.02] tracking-[-0.045em] transition group-hover:text-[#00629B]">{story.title}</h3>
                     <div className="mt-4 flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.14em] text-black/60"><span>{story.readMinutes || 1} min</span><ArrowUpRight className="h-4 w-4 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" /></div>
                   </div>
                 </Link>
@@ -359,14 +360,14 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
           <div className="mt-6 grid gap-px bg-black/10 md:grid-cols-2">
             {previous ? (
               <Link to={`/societies/${previous.slug}`} className="group bg-[#f7f8f8] p-6 transition hover:bg-white sm:p-8">
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-black/60">Previous society</p><div className="mt-4 flex items-end justify-between gap-5"><h2 className="text-3xl font-semibold leading-none tracking-[-0.05em]">{previous.name}</h2><ArrowLeft className="h-5 w-5 text-black/60 transition group-hover:-translate-x-1" /></div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-black/60">Previous society</p><div className="mt-4 flex items-end justify-between gap-5"><h2 className="min-w-0 break-words text-3xl font-semibold leading-tight tracking-[-0.05em]">{previous.name}</h2><ArrowLeft className="h-5 w-5 shrink-0 text-black/60 transition group-hover:-translate-x-1" /></div>
               </Link>
-            ) : <Link to="/societies" className="group bg-[#f7f8f8] p-6 transition hover:bg-white sm:p-8"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-black/60">Back to</p><div className="mt-4 flex items-end justify-between gap-5"><h2 className="text-3xl font-semibold leading-none tracking-[-0.05em]">Society directory</h2><ArrowLeft className="h-5 w-5 text-black/60" /></div></Link>}
+            ) : <Link to="/societies" className="group bg-[#f7f8f8] p-6 transition hover:bg-white sm:p-8"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-black/60">Back to</p><div className="mt-4 flex items-end justify-between gap-5"><h2 className="min-w-0 break-words text-3xl font-semibold leading-tight tracking-[-0.05em]">Society directory</h2><ArrowLeft className="h-5 w-5 shrink-0 text-black/60" /></div></Link>}
             {next ? (
               <Link to={`/societies/${next.slug}`} className="group bg-[#f7f8f8] p-6 transition hover:bg-white sm:p-8 md:text-right">
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-black/60">Next society</p><div className="mt-4 flex items-end justify-between gap-5 md:flex-row-reverse"><h2 className="text-3xl font-semibold leading-none tracking-[-0.05em]">{next.name}</h2><ArrowRight className="h-5 w-5 text-black/60 transition group-hover:translate-x-1" /></div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-black/60">Next society</p><div className="mt-4 flex items-end justify-between gap-5 md:flex-row-reverse"><h2 className="min-w-0 break-words text-3xl font-semibold leading-tight tracking-[-0.05em]">{next.name}</h2><ArrowRight className="h-5 w-5 shrink-0 text-black/60 transition group-hover:translate-x-1" /></div>
               </Link>
-            ) : <Link to="/societies" className="group bg-[#f7f8f8] p-6 transition hover:bg-white sm:p-8 md:text-right"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-black/60">Return to</p><div className="mt-4 flex items-end justify-between gap-5 md:flex-row-reverse"><h2 className="text-3xl font-semibold leading-none tracking-[-0.05em]">Society directory</h2><ArrowRight className="h-5 w-5 text-black/60" /></div></Link>}
+            ) : <Link to="/societies" className="group bg-[#f7f8f8] p-6 transition hover:bg-white sm:p-8 md:text-right"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-black/60">Return to</p><div className="mt-4 flex items-end justify-between gap-5 md:flex-row-reverse"><h2 className="min-w-0 break-words text-3xl font-semibold leading-tight tracking-[-0.05em]">Society directory</h2><ArrowRight className="h-5 w-5 shrink-0 text-black/60" /></div></Link>}
           </div>
         </div>
       </section>
