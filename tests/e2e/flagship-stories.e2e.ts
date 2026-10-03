@@ -1,121 +1,148 @@
 import { expect, test } from "@playwright/test";
 
-test.describe("flagship story archive", () => {
-  test("serves complete story content and metadata without JavaScript", async ({ browser, request }) => {
+test.describe("Infinia showcase and independent Altair archive", () => {
+  test("serves the showcase, distinct editions and native workshop content without JavaScript", async ({ browser }) => {
     const context = await browser.newContext({ javaScriptEnabled: false, baseURL: test.info().project.use.baseURL });
     const page = await context.newPage();
     try {
-      await page.goto("/flagships");
-      await expect(page.getByRole("heading", { level: 1 })).toContainText("Shared stories");
-      await page.getByRole("link", { name: "Discover Infinia", exact: true }).click();
-      await expect(page.getByRole("heading", { level: 1, name: "Infinia", exact: true })).toBeVisible();
-      await expect(page.getByText("26–28 September 2025", { exact: true })).toBeVisible();
-      await expect(page.getByText("27–29 September 2024", { exact: true })).toBeVisible();
-      await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", "https://ieeesahrdaya.com/flagships/infinia");
-      await expect(page.locator('meta[property="og:image"]')).toHaveAttribute("content", /infinia-2025-community.webp$/);
-      await page.getByRole("link", { name: "Altair", exact: true }).click();
-      await expect(page.getByRole("heading", { level: 1, name: "Altair", exact: true })).toBeVisible();
-      await expect(page.getByText("11–13 November 2022", { exact: true })).toBeVisible();
+      await page.goto("/infinia");
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("INFINIA");
+      await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", "https://ieeesahrdaya.com/infinia");
+      await expect(page.locator(".infinia-stat-grid dd")).toHaveText(["400+", "70", "15", "10+"]);
+      await expect(page.locator(".infinia-vitals-stats dd")).toHaveText(["724", "270+", "150+", "12"]);
+      await expect(page.getByText(/Registrations are separate from Infinia 2.0 attendance/)).toBeVisible();
+      const workshop = page.locator(".infinia-workshop-grid article").first();
+      await workshop.locator("summary").click();
+      await expect(workshop.getByText(/63 attendees reported for this workshop/)).toBeVisible();
+      const editions = page.getByRole("navigation", { name: "Infinia editions" });
+      await expect(editions.getByRole("link")).toHaveText(["Infinia 2.02025", "TechX Infinia2024"]);
+      await editions.getByRole("link", { name: /TechX Infinia/ }).click();
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("TechX Infinia");
+      await expect(page.locator(".infinia-track-list h3")).toHaveCount(9);
+      await expect(page.locator(".infinia-stat-grid")).toHaveCount(0);
+      await expect(page.getByRole("link", { name: "Read the 2024 event recap", exact: true })).toHaveAttribute("href", "/blog/event-recap-techx-infinia-2024-where-imagination-meets-technology");
+      await page.getByRole("link", { name: "Altair archive", exact: true }).click();
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Altair");
       await expect(page.getByText("2023 programme", { exact: true })).toBeVisible();
-      const missing = await request.get("/flagships/unknown");
-      expect(missing.status()).toBe(404);
+      await expect(page.getByText("11–13 November 2022", { exact: true })).toBeVisible();
     } finally { await context.close(); }
   });
 
-  test("keeps four editions separate and crawlable without JavaScript", async ({ browser, request }) => {
-    const context = await browser.newContext({ javaScriptEnabled: false, baseURL: test.info().project.use.baseURL, viewport: { width: 390, height: 844 } });
-    const page = await context.newPage();
-    const editions = [
-      { title: "Altair", path: "/altair/2022", year: "2022", date: "11–13 November 2022" },
-      { title: "Altair 2.0", path: "/altair/2023", year: "2023", date: "2023 programme" },
-      { title: "TechX Infinia", path: "/infinia/2024", year: "2024", date: "27–29 September 2024" },
-      { title: "Infinia 2.0", path: "/infinia/2025", year: "2025", date: "26–28 September 2025" },
-    ].reverse();
-    try {
-      await page.goto("/flagships");
-      await expect(page.locator('section[aria-label="Flagship edition timeline"] h2')).toHaveText(editions.map(item => item.title));
-      for (const edition of editions) {
-        await page.goto("/flagships");
-        await page.getByRole("link", { name: `Explore ${edition.title}`, exact: true }).click();
-        await expect(page).toHaveURL(new RegExp(`/flagships${edition.path}$`));
-        await expect(page.getByRole("heading", { level: 1 })).toHaveText(edition.title);
-        await expect(page.getByText(edition.date, { exact: true })).toBeVisible();
-        await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `https://ieeesahrdaya.com/flagships${edition.path}`);
-        await expect(page.locator('meta[property="og:url"]')).toHaveAttribute("content", `https://ieeesahrdaya.com/flagships${edition.path}`);
-        if (edition.year === "2023") {
-          await expect(page.getByText("Programme archive", { exact: false }).first()).toBeVisible();
-          await expect(page.locator('main img[src$="altair-2023-teamwork.webp"]')).toBeVisible();
-          await expect(page.getByText(/announced in the Altair 2.0 brochure/)).toBeVisible();
-        }
-        const images = await page.locator("main img").evaluateAll(elements => elements.map(element => element.getAttribute("src")));
-        expect(images.length).toBeGreaterThanOrEqual(2);
-        for (const src of images) expect(src).toContain(`-${edition.year}-`);
-        await expect(page.locator('meta[property="og:image"]')).toHaveAttribute("content", new RegExp(`-${edition.year}-.*\\.webp$`));
-        await page.getByRole("link", { name: "Flagship timeline", exact: true }).click();
-        await expect(page).toHaveURL(new RegExp(`/flagships#year-${edition.year}$`));
-        await page.reload();
-        await expect(page.locator(`#title-${edition.year}`)).toBeInViewport();
-      }
-      expect((await request.get("/flagships/altair/2025")).status()).toBe(404);
-      expect((await request.get("/flagships/infinia/2099")).status()).toBe(404);
-    } finally { await context.close(); }
+  test("preserves legacy links with permanent redirects and rejects unknown editions", async ({ request }) => {
+    for (const [from, to] of [
+      ["/flagships", "/infinia"],
+      ["/flagships/infinia", "/infinia"],
+      ["/flagships/infinia/2025", "/infinia/2025"],
+      ["/flagships/infinia/2024", "/infinia/2024"],
+    ]) {
+      const response = await request.get(from!, { maxRedirects: 0 });
+      expect(response.status()).toBe(301);
+      expect(response.headers().location).toBe(to);
+    }
+    for (const path of ["/infinia/2099", "/flagships/unknown", "/flagships/infinia/2099", "/flagships/altair/2025"])
+      expect((await request.get(path)).status()).toBe(404);
   });
 
-  test("timeline year links keep the selected chapter clear of the desktop navbar", async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto("/flagships");
-    await page.getByRole("navigation", { name: "Timeline years" }).getByRole("link", { name: "2025", exact: true }).click();
-    await expect(page).toHaveURL(/#year-2025$/);
-    const top = await page.locator("#title-2025").evaluate(element => element.getBoundingClientRect().top);
-    expect(top).toBeGreaterThanOrEqual(95);
-    expect(top).toBeLessThan(400);
-    await page.getByRole("link", { name: "Explore Infinia 2.0", exact: true }).click();
-    await page.getByRole("navigation", { name: "Other editions" }).getByRole("link", { name: "TechX Infinia · 2024" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("TechX Infinia");
+  test("keeps canonical metadata and media tied to each edition", async ({ page }) => {
+    for (const [path, title, year] of [
+      ["/infinia/2025", "Infinia 2.0", "2025"],
+      ["/infinia/2024", "TechX Infinia", "2024"],
+      ["/flagships/altair/2023", "Altair 2.0", "2023"],
+      ["/flagships/altair/2022", "Altair", "2022"],
+    ]) {
+      await page.goto(path!);
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText(title!);
+      await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", "https://ieeesahrdaya.com" + path);
+      await expect(page.locator('meta[property="og:url"]')).toHaveAttribute("content", "https://ieeesahrdaya.com" + path);
+      await expect(page.locator('meta[property="og:image"]')).toHaveAttribute("content", new RegExp("-" + year + "-"));
+      // Infinia's explicitly labelled next-edition card is separate from this chapter's gallery.
+      const images = await page.locator(path!.startsWith("/infinia") ? ".infinia-photo-grid img" : "main img").evaluateAll(elements => elements.map(element => element.getAttribute("src")));
+      for (const src of images) expect(src).toContain(year!);
+      if (year === "2023") await expect(page.getByText(/announced in the Altair 2.0 brochure/)).toBeVisible();
+    }
+  });
+
+  test("opens full posters and returns keyboard focus when dismissed", async ({ page }) => {
+    await page.goto("/infinia/2025");
+    await expect(page.getByRole("button", { name: "SIGN IN", exact: true })).toBeVisible();
+    const trigger = page.getByRole("link", { name: "View AEGIS · Agentic AI", exact: true });
+    await trigger.focus();
+    await page.keyboard.press("Enter");
+    const dialog = page.getByRole("dialog", { name: "AEGIS · Agentic AI", exact: true });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.locator("img")).toHaveAttribute("src", "/media/infinia/2025-aegis-poster.webp");
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    const photo = page.getByRole("link", { name: "View Opening a shared conversation · 2025", exact: true });
+    await photo.click();
+    await expect(page.getByRole("dialog", { name: "Opening a shared conversation · 2025", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Close image", exact: true }).click();
+    await expect(photo).toBeFocused();
+  });
+
+  test("keeps the 2024 film user-initiated and playable with a text alternative", async ({ page, request }) => {
+    await page.goto("/infinia/2024#film");
+    const video = page.locator("video");
+    await expect(video).toHaveAttribute("preload", "none");
+    await expect(video).not.toHaveAttribute("autoplay");
+    await expect(video.locator("track")).toHaveAttribute("src", "/media/infinia/techx-2024-highlights.vtt");
+    await page.getByText("Read the visual description", { exact: true }).click();
+    await expect(page.getByText(/The film opens on expo tables/)).toBeVisible();
+    await video.evaluate(element => (element as HTMLVideoElement).play());
+    await expect.poll(() => video.evaluate(element => (element as HTMLVideoElement).currentTime)).toBeGreaterThan(0);
+    await video.evaluate(element => (element as HTMLVideoElement).pause());
+    const range = await request.get("/media/infinia/techx-2024-highlights.mp4", { headers: { Range: "bytes=0-99" } });
+    expect(range.status()).toBe(206);
+    await page.goto("/infinia/2025");
+    await expect(page.locator("video")).toHaveCount(0);
   });
 
   for (const width of [320, 390, 768, 1440]) {
-    test(`keeps story pages readable at ${width}px`, async ({ page }) => {
+    test(`keeps Infinia and Altair readable at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ reducedMotion: "reduce" });
-      for (const slug of ["", "/infinia", "/altair", "/altair/2022", "/altair/2023", "/infinia/2024", "/infinia/2025"]) {
-        await page.goto(`/flagships${slug}`);
+      for (const path of ["/infinia", "/infinia/2025", "/infinia/2024", "/flagships/altair", "/flagships/altair/2022", "/flagships/altair/2023"]) {
+        await page.goto(path);
         await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
         for (const image of await page.locator("main img").all()) {
           await image.scrollIntoViewIfNeeded();
           await expect.poll(() => image.evaluate(element => (element as HTMLImageElement).complete && (element as HTMLImageElement).naturalWidth > 0)).toBe(true);
         }
-        const linkHeights = await page.locator("main a").evaluateAll(elements => elements.map(element => element.getBoundingClientRect().height));
-        expect(linkHeights.every(height => height >= 44)).toBe(true);
+        const heights = await page.locator("main a, main button, main summary").evaluateAll(elements => elements.map(element => element.getBoundingClientRect().height));
+        expect(heights.every(height => height >= 44)).toBe(true);
       }
     });
   }
 
-  test("links the mobile More menu to the hub and marks nested stories active", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto("/flagships/infinia");
-    await page.getByRole("button", { name: "Open more navigation" }).click();
-    const sheet = page.getByRole("dialog", { name: "Site navigation" });
-    await sheet.getByRole("link", { name: /FLAGSHIPS/ }).click();
-    await expect(page).toHaveURL(/\/flagships$/);
-    await expect(sheet).toHaveCount(0);
-    await page.getByRole("link", { name: "Discover Altair", exact: true }).click();
-    await page.getByRole("button", { name: "Open more navigation" }).click();
-    await expect(sheet.getByRole("link", { name: /FLAGSHIPS/ })).toHaveAttribute("aria-current", "page");
-    await page.keyboard.press("Escape");
-    await expect(page.getByRole("button", { name: "Open more navigation" })).toBeFocused();
+  test("shows rainbow Infinia in shared navigation with reduced-motion support", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/infinia/2025");
+    const link = page.getByRole("navigation", { name: "Primary navigation" }).getByRole("link", { name: "INFINIA", exact: true });
+    await expect(link).toHaveAttribute("href", "/infinia");
+    await expect(link).toHaveAttribute("aria-current", "page");
+    expect(await link.locator("span").evaluate(element => getComputedStyle(element).animationName)).toBe("none");
+    await page.goto("/");
+    const shared = page.getByRole("navigation", { name: "Primary navigation" }).getByRole("link", { name: "INFINIA", exact: true });
+    expect(await shared.locator("span").evaluate(element => getComputedStyle(element).backgroundImage)).toContain("linear-gradient");
+    await expect(page.getByRole("link", { name: "FLAGSHIPS", exact: true })).toHaveCount(0);
   });
 
-  test("edition anchors work and the verified recap stays reachable", async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto("/flagships/infinia");
-    await expect(page.getByRole("navigation", { name: "Primary navigation" }).getByRole("link", { name: "FLAGSHIPS", exact: true })).toHaveAttribute("aria-current", "page");
-    await page.getByRole("navigation", { name: "Edition navigation" }).getByRole("link", { name: "TechX Infinia · 2024" }).click();
-    await expect(page).toHaveURL(/#edition-2024$/);
-    const headingTop = await page.locator("#heading-2024").evaluate(element => element.getBoundingClientRect().top);
-    expect(headingTop).toBeGreaterThanOrEqual(95);
-    expect(headingTop).toBeLessThan(400);
-    await expect(page.getByRole("link", { name: "Read the 2024 event recap", exact: true })).toHaveAttribute("href", "/blog/event-recap-techx-infinia-2024-where-imagination-meets-technology");
+  test("keeps mobile More navigation and focus behavior on the new edition routes", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/infinia/2024");
+    await page.getByRole("button", { name: "Open more navigation" }).click();
+    const sheet = page.getByRole("dialog", { name: "Site navigation" });
+    await expect(sheet.getByRole("link", { name: /INFINIA/ })).toHaveAttribute("aria-current", "page");
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("button", { name: "Open more navigation" })).toBeFocused();
+    await page.getByRole("button", { name: "Open more navigation" }).click();
+    await sheet.getByRole("link", { name: /INFINIA/ }).click();
+    await expect(page).toHaveURL(/\/infinia$/);
+    await expect(sheet).toHaveCount(0);
+    await expect(page.getByText("Two identities. A shared spirit.", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Explore all events", exact: true })).toHaveCount(0);
   });
 });

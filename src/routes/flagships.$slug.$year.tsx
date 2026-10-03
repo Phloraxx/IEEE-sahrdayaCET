@@ -1,5 +1,5 @@
 import { ArrowLeft, ArrowRight } from "lucide-react";
-import { Link, useLoaderData, type LoaderFunctionArgs } from "react-router";
+import { Link, redirect, useLoaderData, type LoaderFunctionArgs } from "react-router";
 import { APP_URL } from "@/lib/constants";
 import { FLAGSHIP_TIMELINE } from "@/lib/flagships";
 import { EditionContent } from "@/components/flagships/EditionContent";
@@ -8,6 +8,7 @@ import { FlagshipLayout, FlagshipPhoto, flagshipLabelClass, flagshipLinkClass } 
 export function loader({ params }: LoaderFunctionArgs) {
   const item = FLAGSHIP_TIMELINE.find(item => item.flagship.slug === params.slug && item.edition.year === params.year);
   if (!item) throw new Response("Edition not found", { status: 404 });
+  if (params.slug === "infinia") throw redirect(`/infinia/${item.edition.year}`, 301);
   const siblings = FLAGSHIP_TIMELINE.filter(entry => entry.flagship.slug === params.slug);
   return { ...item, siblings };
 }
@@ -32,7 +33,7 @@ export default function FlagshipEditionPage() {
   return (
     <FlagshipLayout path={href}>
       <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-x-3 text-xs text-slate-500">
-        <Link to={`/flagships#year-${edition.year}`} className={flagshipLinkClass}><ArrowLeft className="h-3 w-3" aria-hidden="true" />Flagship timeline</Link>
+        <Link to="/infinia" className={flagshipLinkClass}><ArrowLeft className="h-3 w-3" aria-hidden="true" />Infinia showcase</Link>
         <span aria-hidden="true">/</span><Link to={`/flagships/${flagship.slug}`} className={flagshipLinkClass}>{flagship.name}</Link>
         <span aria-hidden="true">/</span><span aria-current="page">{edition.year}</span>
       </nav>

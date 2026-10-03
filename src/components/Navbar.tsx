@@ -24,7 +24,7 @@ import { MASCOT_BODY, MASCOT_HEAD, PixelGrid } from "./mascot";
 const navItems: NavItem[] = [
   { label: "HOME", href: "/" },
   { label: "EVENTS", href: "/events" },
-  { label: "FLAGSHIPS", href: "/flagships" },
+  { label: "INFINIA", href: "/infinia" },
   { label: "SOCIETIES", href: "/societies" },
   { label: "BLOG", href: "/blog" },
   { label: "EXECOM", href: "/full-execom" },
@@ -202,6 +202,7 @@ export default function Navbar() {
     }`;
   const isMoreActive =
     pathname === "/full-execom" ||
+    pathname === "/infinia" || pathname.startsWith("/infinia/") ||
     pathname === "/flagships" || pathname.startsWith("/flagships/") ||
     pathname.startsWith("/my-events") ||
     mobileHelpItems.some((item) => pathname === item.href) ||
@@ -284,7 +285,7 @@ export default function Navbar() {
                     aria-current={isActive ? "page" : undefined}
                     className={linkClass(isActive)}
                   >
-                    {item.label}
+                    <span className={item.label === "INFINIA" ? "infinia-nav-rainbow" : undefined}>{item.label}</span>
                   </Link>
                 );
               })}
@@ -377,7 +378,7 @@ export default function Navbar() {
                       >
                         {String(index + 1).padStart(2, "0")}
                       </span>
-                      <span className="flex-1 text-sm font-bold tracking-[0.06em]">
+                      <span className={`flex-1 text-sm font-bold tracking-[0.06em] ${item.label === "INFINIA" ? `infinia-nav-rainbow${  isActive ? " infinia-nav-rainbow-light" : ""}` : ""}`}>
                         {item.label}
                       </span>
                       {isActive ? (

@@ -25,7 +25,7 @@ The IEEE Sahrdaya platform is the Student Branch's public website and event-oper
 
 The main public product includes the home page, events, flagship stories, societies, society detail pages, blog, Execom, legal/compliance pages, public certificate verification, and attendee-facing event state.
 
-Flagship Events provides a permanent story hub for Infinia and Altair, with separate edition histories and contextual media. This editorial archive links to the existing event programme and published recaps; it does not duplicate registrations or event operations.
+Infinia has a dedicated flagship showcase at /infinia, with separate 2025 and 2024 stories, source-backed figures, workshops, posters, photographs and a 2024 highlights film. Altair remains an independent archive. These editorial surfaces do not duplicate registrations or event operations.
 
 ## Authenticated surfaces
 
@@ -37,8 +37,10 @@ The public site and operations product share one identity model, PocketBase data
 
 See `AGENTS.md`, `DESIGN.md`, `docs/architecture.md`, and `docs/security-architecture.md` for implementation contracts.
 
-## Separate flagship editions (3 October 2026)
+## Distinct Infinia chapters (3 October 2026)
 
-The public flagship hub now presents Altair (2022), Altair 2.0 (2023), TechX Infinia (2024), and Infinia 2.0 (2025) as distinct chapters in a latest-first timeline (2025 → 2024 → 2023 → 2022). Stable edition URLs use `/flagships/:slug/:year`; parent programme histories remain at `/flagships/infinia` and `/flagships/altair`. Edition content is shared from the existing typed, source-backed editorial archive. Unknown programme/year combinations return 404. Production sitemap includes all edition leaves; staging stays noindex.
+Infinia 2.0 (2025) and TechX Infinia (2024) have stable SSR URLs at /infinia/2025 and /infinia/2024. The showcase replaces the mixed flagship timeline. Legacy /flagships and Infinia paths redirect permanently; valid Altair parent/edition URLs remain accessible through the compact archive link. Unknown editions return 404.
 
-Altair 2.0 is a brochure-derived programme archive. No inferred completion date, attendance or award was added. Photography is confined to the year it documents. Existing event, registration, payment and notification data and delivery flows are untouched.
+The completed 2025 report supports 400+ participants, 70 volunteers, 15 professional speakers and 10+ industry collaborations. Workshop attendance is per session. Vitals 24 registration figures belong to the separate 2025 pre-event. Conflicting 2024 attendance claims remain unpublished. Original posters and full-frame photographs have keyboard-accessible viewers; the 2024 film is silent, user-initiated and described in text.
+
+Altair 2.0 remains a brochure-derived programme archive. No inferred date, attendance, award or successor relationship is added. Existing event, registration, payment, notification and mail data/delivery flows are untouched. Source and visual decisions are documented in docs/infinia-showcase-20261004.md.
