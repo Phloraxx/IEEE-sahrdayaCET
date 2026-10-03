@@ -15,7 +15,7 @@ export function FlagshipPhoto({ photo, priority = false }: { photo: FlagshipImag
       <div className="overflow-hidden bg-slate-100">
         <img src={photo.src} alt={photo.alt} width={photo.width} height={photo.height}
           loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : undefined}
-          className="block h-auto w-full" />
+          className={`block h-auto w-full ${photo.height > photo.width ? "max-h-[640px] object-contain" : ""}`} />
       </div>
       <figcaption className="mt-3 text-xs leading-relaxed text-slate-500">{photo.caption}</figcaption>
     </figure>
