@@ -165,7 +165,7 @@ The community directory follows the shared URL-based discovery pattern: search a
 
 - The mobile More sheet includes a labelled Help & branch group for Contact, certificate verification, event pricing and About. Keep these routes in its active state and preserve account focus handling.
 - Contact offers direct self-service links before official branch contact details. Any account requirement is visible before navigation; contact links never send automatically.
-- Long policy pages retain their official wording, use native section anchors and explicit ordered-list markers, and keep text within a readable column. Mobile contents use a native disclosure; desktop contents remain alongside the text.
+- Long policy pages retain their official wording, use native section anchors and explicit ordered-list markers, and keep text within a readable column. Mobile contents use a compact visible link grid with stable height across fragment reloads; desktop contents remain alongside the text.
 - Catalog cards expose full event names and direct policy links. Display polish must not alter fees, discounts or payment behavior.
 
 ## Verification and event detail usability
