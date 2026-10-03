@@ -1,4 +1,4 @@
-import { FLAGSHIPS } from "@/lib/flagships";
+import { FLAGSHIPS, FLAGSHIP_TIMELINE } from "@/lib/flagships";
 import { APP_URL } from "@/lib/constants";
 import { getPublishedBlogs } from "@/lib/blog-public.server";
 import { fetchEvents } from "@/server/public/events.server";
@@ -38,6 +38,7 @@ export async function loader() {
     urlEntry("/events"),
     urlEntry("/flagships"),
     ...FLAGSHIPS.map(flagship => urlEntry(`/flagships/${flagship.slug}`)),
+    ...FLAGSHIP_TIMELINE.map(item => urlEntry(item.href)),
     urlEntry("/blog"),
     urlEntry("/societies"),
     urlEntry("/full-execom"),

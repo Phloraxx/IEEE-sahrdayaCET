@@ -130,3 +130,9 @@ CD reacts only to successful CI on `main` or `dev`, verifies the tested SHA is s
 ## Flagship story archive
 
 Public SSR /flagships and /flagships/:slug use curated, source-backed src/lib/flagships.ts data, independent of PocketBase availability. Missing slugs return 404. The archive has canonical leaf URLs and production sitemap entries, links to existing event/blog surfaces, and no mutation, registration or email pathway. Media provenance is recorded in docs/flagship-stories-20261003.md.
+
+## Separate flagship editions (3 October 2026)
+
+The public flagship hub now presents Altair (2022), Altair 2.0 (2023), TechX Infinia (2024), and Infinia 2.0 (2025) as distinct chapters in a chronological timeline. Stable edition URLs use `/flagships/:slug/:year`; parent programme histories remain at `/flagships/infinia` and `/flagships/altair`. Edition content is shared from the existing typed, source-backed editorial archive. Unknown programme/year combinations return 404. Production sitemap includes all edition leaves; staging stays noindex.
+
+Altair 2.0 is a brochure-derived programme archive. No inferred completion date, attendance or award was added. Photography is confined to the year it documents. Existing event, registration, payment and notification data and delivery flows are untouched.

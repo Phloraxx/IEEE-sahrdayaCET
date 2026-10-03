@@ -1,5 +1,6 @@
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { Link, useLoaderData, type LoaderFunctionArgs } from "react-router";
+import { EditionContent } from "@/components/flagships/EditionContent";
 import { APP_URL } from "@/lib/constants";
 import { FLAGSHIPS, getFlagship, type Flagship } from "@/lib/flagships";
 import { FlagshipLayout, FlagshipPhoto, flagshipLabelClass, flagshipLinkClass } from "@/components/flagships/FlagshipLayout";
@@ -54,25 +55,10 @@ export default function FlagshipStoryPage() {
           <div className="grid gap-6 lg:grid-cols-[1fr_2fr] lg:gap-16">
             <div>
               <p className="font-mono text-sm font-semibold text-ieee-blue">{edition.year}</p>
-              <h2 id={`heading-${edition.year}`} className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">{edition.title}</h2>
+              <h2 id={`heading-${edition.year}`} className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl"><Link to={`/flagships/${flagship.slug}/${edition.year}`} className="inline-flex min-h-11 items-center gap-3 hover:text-ieee-blue">{edition.title}<ArrowRight className="h-5 w-5" aria-hidden="true" /></Link></h2>
               <p className="mt-3 text-sm text-slate-500">{edition.date}</p>
             </div>
-            <div>
-              <p className="max-w-3xl text-lg leading-relaxed text-slate-600">{edition.summary}</p>
-              <h3 className={`mt-7 ${flagshipLabelClass}`}>Workshop tracks</h3>
-              <ul className="mt-3 flex flex-wrap gap-2">
-                {edition.tracks.map(track => <li key={track} className="rounded-sm border border-slate-200 bg-white px-3 py-2 text-xs leading-relaxed text-slate-700">{track}</li>)}
-              </ul>
-              <div className="mt-8 space-y-7">
-                {edition.highlights.map((highlight, index) => (
-                  <div key={highlight.title} className="flex gap-4 sm:gap-6">
-                    <span aria-hidden="true" className="pt-1 font-mono text-xs text-ieee-blue">{String(index + 1).padStart(2, "0")}</span>
-                    <div><h3 className="text-lg font-semibold tracking-tight">{highlight.title}</h3><p className="mt-2 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">{highlight.text}</p></div>
-                  </div>
-                ))}
-              </div>
-              {edition.recap && <Link to={edition.recap.href} className={`mt-7 ${flagshipLinkClass}`}>{edition.recap.label}<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>}
-            </div>
+            <EditionContent edition={edition} />
           </div>
         </section>
       ))}
