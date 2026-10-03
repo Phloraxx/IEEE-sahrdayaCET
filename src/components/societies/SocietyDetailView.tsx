@@ -55,7 +55,7 @@ function MemberPortrait({ member, accent }: { member: SocietyMember; accent: str
         <img src={member.photoUrl} alt={member.name} loading="lazy" className="h-full w-full object-cover object-top transition duration-500 group-hover:scale-[1.025]" />
       ) : (
         <div className="grid h-full place-items-center" style={{ backgroundColor: `${accent}16` }}>
-          <span className="text-4xl font-semibold text-white/45">{personInitials(member.name)}</span>
+          <span className="text-4xl font-semibold text-white/70">{personInitials(member.name)}</span>
         </div>
       )}
     </div>
@@ -78,7 +78,7 @@ function StoryVisual({ story, accent }: { story: BlogPost; accent: string }) {
     <div className="relative h-full w-full overflow-hidden bg-[#07121f]">
       <div className="absolute inset-0 opacity-40" style={{ background: `radial-gradient(circle at 70% 25%, ${accent}aa 0, transparent 38%)` }} />
       <div className="absolute inset-0 opacity-20 [background-image:linear-gradient(rgba(255,255,255,.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.08)_1px,transparent_1px)] [background-size:32px_32px]" />
-      <span className="absolute bottom-4 left-4 font-pixel text-[8px] uppercase tracking-[0.18em] text-white/55">IEEE / STORY</span>
+      <span className="absolute bottom-4 left-4 font-pixel text-[10px] uppercase tracking-[0.18em] text-white/70">IEEE / STORY</span>
     </div>
   );
 }
@@ -131,24 +131,24 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
         <div className="pointer-events-none absolute -right-24 top-24 h-[36rem] w-[36rem] rounded-full blur-3xl" style={{ backgroundColor: `${palette.accent}0d` }} />
         <div className="relative mx-auto max-w-[1440px] px-5 pb-10 pt-16 sm:px-8 sm:pb-12 sm:pt-20 md:pt-24 lg:px-12 lg:pt-28">
           <div className="flex items-center justify-between border-b border-black/12 pb-5">
-            <Link to="/societies" className="group inline-flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.2em] text-black/45 transition hover:text-[#00629B]">
+            <Link to="/societies" className="group inline-flex min-h-11 items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-black/60 transition hover:text-[#00629B]">
               <ArrowLeft className="h-3.5 w-3.5 transition group-hover:-translate-x-0.5" /> Society directory
             </Link>
-            <span className="font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-black/35">
+            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-black/60">
               Profile {String(directoryIndex + 1).padStart(2, "0")} / {String(directory.length).padStart(2, "0")}
             </span>
           </div>
 
           <div className="grid gap-10 py-10 md:grid-cols-12 md:items-end md:gap-8 md:py-14 lg:py-16">
             <div className="md:col-span-7 lg:col-span-8">
-              <p className="text-[9px] font-bold uppercase tracking-[0.23em]" style={{ color: palette.accent }}>IEEE Sahrdaya / {code}</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.23em]" style={{ color: palette.accent }}>IEEE Sahrdaya / {code}</p>
               <h1 className="mt-5 max-w-5xl text-[clamp(3rem,7.4vw,7.4rem)] font-semibold leading-[0.86] tracking-[-0.072em] text-[#111315]">
                 {society.name}
               </h1>
               <p className="mt-7 max-w-2xl text-base leading-7 text-black/52 sm:text-lg sm:leading-8">{heroSummary}</p>
-              <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-[9px] font-bold uppercase tracking-[0.18em]">
-                <a href="#people" className="group inline-flex items-center gap-2 text-black/48 transition hover:text-black">Meet the people <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-1" /></a>
-                <a href="#activity" className="group inline-flex items-center gap-2 text-black/48 transition hover:text-black">See activity <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-1" /></a>
+              <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-[10px] font-bold uppercase tracking-[0.18em]">
+                <a href="#people" className="group inline-flex min-h-11 items-center gap-2 text-black/60 transition hover:text-black">Meet the people <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-1" /></a>
+                <a href="#activity" className="group inline-flex min-h-11 items-center gap-2 text-black/60 transition hover:text-black">See activity <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-1" /></a>
                 {society.defaultWhatsappLink && (
                   <a href={society.defaultWhatsappLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2" style={{ color: palette.accent }}>Join community <ExternalLink className="h-3.5 w-3.5" /></a>
                 )}
@@ -158,13 +158,13 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
             <div className="md:col-span-5 lg:col-span-4">
               <div className="relative aspect-square overflow-hidden border bg-white" style={{ borderColor: `${palette.accent}26`, background: `linear-gradient(145deg, ${palette.soft}, #ffffff 62%)` }}>
                 <span aria-hidden="true" className="absolute -bottom-[0.12em] -right-[0.08em] select-none text-[clamp(7rem,17vw,15rem)] font-black leading-none tracking-[-0.09em]" style={{ color: `${palette.accent}0c` }}>{code}</span>
-                <div className="absolute left-5 top-5 flex items-center gap-2 font-mono text-[7px] font-semibold uppercase tracking-[0.18em] text-black/38">
+                <div className="absolute left-5 top-5 flex items-center gap-2 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-black/60">
                   <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: palette.accent }} /> IEEE Sahrdaya
                 </div>
                 <div className="absolute inset-[18%] grid place-items-center">
                   {society.logoUrl ? <img src={society.logoUrl} alt={`${society.name} logo`} className="max-h-full max-w-full object-contain" /> : <span className="text-7xl font-semibold" style={{ color: palette.accent }}>{code}</span>}
                 </div>
-                <div className="absolute inset-x-5 bottom-5 flex items-center justify-between border-t border-black/10 pt-3 font-mono text-[7px] font-semibold uppercase tracking-[0.16em] text-black/35">
+                <div className="absolute inset-x-5 bottom-5 flex items-center justify-between border-t border-black/10 pt-3 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-black/60">
                   <span>Society identity</span><span>{code} / 2026</span>
                 </div>
               </div>
@@ -179,7 +179,7 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
               ["Directory", `${String(directoryIndex + 1).padStart(2, "0")} / ${String(directory.length).padStart(2, "0")}`],
             ].map(([label, value], index) => (
               <div key={label} className={`py-4 sm:px-5 ${index > 0 ? "sm:border-l sm:border-black/10" : ""} ${index > 1 ? "border-t border-black/10 sm:border-t-0" : index === 1 ? "border-t border-black/10 sm:border-t-0" : ""}`}>
-                <p className="font-mono text-[7px] font-semibold uppercase tracking-[0.18em] text-black/32">{label}</p>
+                <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-black/60">{label}</p>
                 <p className="mt-2 text-lg font-semibold tracking-[-0.035em]">{value}</p>
               </div>
             ))}
@@ -192,7 +192,7 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
           <div className="relative aspect-[16/8] overflow-hidden sm:aspect-[16/6] lg:aspect-[16/5]">
             <img src={society.bannerUrl} alt={`${society.name} chapter`} className="h-full w-full object-cover" />
             <div className="absolute inset-0 bg-linear-to-t from-black/45 via-transparent to-transparent" />
-            <figcaption className="absolute bottom-4 left-5 font-mono text-[7px] font-semibold uppercase tracking-[0.18em] text-white/65 sm:left-8">Chapter frame / {code}</figcaption>
+            <figcaption className="absolute bottom-4 left-5 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-white/65 sm:left-8">Chapter frame / {code}</figcaption>
           </div>
         </figure>
       )}
@@ -200,13 +200,13 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
       <section id="about" className="bg-white">
         <div className="mx-auto grid max-w-[1440px] gap-8 border-b border-black/10 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-12 lg:px-12 lg:py-24">
           <div className="lg:col-span-4">
-            <p className="font-mono text-[8px] font-semibold uppercase tracking-[0.2em]" style={{ color: palette.accent }}>01 / Mission</p>
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: palette.accent }}>01 / Mission</p>
             <h2 className="mt-4 max-w-sm text-4xl font-semibold leading-[0.95] tracking-[-0.055em] sm:text-5xl">What {code} is here to advance.</h2>
           </div>
           <div className="lg:col-span-7 lg:col-start-6">
             <p className="text-xl leading-[1.55] tracking-[-0.02em] text-black/68 sm:text-2xl">{bio}</p>
             <div className="mt-10 h-px w-24" style={{ backgroundColor: palette.accent }} />
-            <p className="mt-5 max-w-xl text-sm leading-6 text-black/42">Part of IEEE Sahrdaya Student Branch · Kodakara, Thrissur. Activity and leadership below are drawn from the branch’s public records.</p>
+            <p className="mt-5 max-w-xl text-sm leading-6 text-black/60">Part of IEEE Sahrdaya Student Branch · Kodakara, Thrissur. Activity and leadership below are drawn from the branch’s public records.</p>
           </div>
         </div>
       </section>
@@ -216,7 +216,7 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
         <div className="relative mx-auto max-w-[1440px] px-5 py-16 sm:px-8 sm:py-20 lg:px-12 lg:py-24">
           <div className="grid gap-7 border-b border-white/12 pb-10 lg:grid-cols-12 lg:items-end">
             <div className="lg:col-span-8">
-              <p className="font-mono text-[8px] font-semibold uppercase tracking-[0.2em]" style={{ color: palette.accent }}>02 / People</p>
+              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: palette.accent }}>02 / People</p>
               <h2 className="mt-4 text-5xl font-semibold leading-[0.9] tracking-[-0.065em] sm:text-6xl lg:text-7xl">The people behind {code}.</h2>
             </div>
             <p className="max-w-sm text-sm leading-6 text-white/46 lg:col-span-4 lg:justify-self-end">Current public office-bearer records for {society.name}.</p>
@@ -226,13 +226,13 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
             <div className="grid gap-6 border-b border-white/12 py-10 md:grid-cols-[220px_minmax(0,1fr)] md:items-end lg:grid-cols-[260px_minmax(0,1fr)_220px]">
               <div className="group max-w-[260px]"><MemberPortrait member={advisor} accent={palette.accent} /></div>
               <div>
-                <p className="font-mono text-[8px] font-semibold uppercase tracking-[0.18em]" style={{ color: palette.accent }}>Faculty advisor</p>
+                <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: palette.accent }}>Faculty advisor</p>
                 <h3 className="mt-3 text-4xl font-semibold tracking-[-0.055em] sm:text-5xl">{advisor.name}</h3>
                 <p className="mt-3 text-sm text-white/48">{advisor.position}{advisor.department ? ` · ${advisor.department}` : ""}</p>
               </div>
               <div className="flex gap-4 md:col-start-2 lg:col-start-auto lg:justify-self-end">
-                {advisor.linkedin && <a href={advisor.linkedin} target="_blank" rel="noopener noreferrer" aria-label={`${advisor.name} on LinkedIn`} className="inline-grid h-11 w-11 place-items-center text-white/45 transition hover:text-white"><Linkedin className="h-5 w-5" /></a>}
-                {advisor.instagram && <a href={advisor.instagram} target="_blank" rel="noopener noreferrer" aria-label={`${advisor.name} on Instagram`} className="inline-grid h-11 w-11 place-items-center text-white/45 transition hover:text-white"><Instagram className="h-5 w-5" /></a>}
+                {advisor.linkedin && <a href={advisor.linkedin} target="_blank" rel="noopener noreferrer" aria-label={`${advisor.name} on LinkedIn`} className="inline-grid h-11 w-11 place-items-center text-white/70 transition hover:text-white"><Linkedin className="h-5 w-5" /></a>}
+                {advisor.instagram && <a href={advisor.instagram} target="_blank" rel="noopener noreferrer" aria-label={`${advisor.name} on Instagram`} className="inline-grid h-11 w-11 place-items-center text-white/70 transition hover:text-white"><Instagram className="h-5 w-5" /></a>}
               </div>
             </div>
           )}
@@ -243,23 +243,23 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
                 <article key={member.id} className="group bg-[#07121f] p-4 sm:p-5">
                   <MemberPortrait member={member} accent={palette.accent} />
                   <div className="pt-5">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="font-mono text-[7px] font-semibold uppercase tracking-[0.18em]" style={{ color: palette.accent }}>{String(index + 1).padStart(2, "0")} / {member.position}</p>
-                        <h3 className="mt-2 text-2xl font-semibold leading-tight tracking-[-0.04em]">{member.name}</h3>
+                    <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:gap-4">
+                      <div className="flex min-h-11 min-w-0 flex-col justify-center">
+                        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: palette.accent }}>{String(index + 1).padStart(2, "0")} / {member.position}</p>
+                        <h3 className="mt-2 break-words text-2xl font-semibold leading-tight tracking-[-0.04em]">{member.name}</h3>
                       </div>
                       <div className="flex shrink-0 gap-3 pt-1">
-                        {member.linkedin && <a href={member.linkedin} target="_blank" rel="noopener noreferrer" aria-label={`${member.name} on LinkedIn`} className="inline-grid h-11 w-11 place-items-center text-white/35 transition hover:text-white"><Linkedin className="h-4 w-4" /></a>}
-                        {member.instagram && <a href={member.instagram} target="_blank" rel="noopener noreferrer" aria-label={`${member.name} on Instagram`} className="inline-grid h-11 w-11 place-items-center text-white/35 transition hover:text-white"><Instagram className="h-4 w-4" /></a>}
+                        {member.linkedin && <a href={member.linkedin} target="_blank" rel="noopener noreferrer" aria-label={`${member.name} on LinkedIn`} className="inline-grid h-11 w-11 place-items-center text-white/70 transition hover:text-white"><Linkedin className="h-4 w-4" /></a>}
+                        {member.instagram && <a href={member.instagram} target="_blank" rel="noopener noreferrer" aria-label={`${member.name} on Instagram`} className="inline-grid h-11 w-11 place-items-center text-white/70 transition hover:text-white"><Instagram className="h-4 w-4" /></a>}
                       </div>
                     </div>
-                    {(member.department || member.batch) && <p className="mt-3 text-xs uppercase tracking-[0.12em] text-white/35">{[member.department, member.batch].filter(Boolean).join(" · ")}</p>}
+                    {(member.department || member.batch) && <p className="mt-3 text-xs uppercase tracking-[0.12em] text-white/70">{[member.department, member.batch].filter(Boolean).join(" · ")}</p>}
                   </div>
                 </article>
               ))}
             </div>
           ) : !advisor ? (
-            <div className="border-b border-white/12 py-16 text-sm text-white/45">Leadership details will appear here when they are published.</div>
+            <div className="border-b border-white/12 py-16 text-sm text-white/70">Leadership details will appear here when they are published.</div>
           ) : null}
         </div>
       </section>
@@ -268,12 +268,12 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
         <div className="mx-auto max-w-[1440px] px-5 py-16 sm:px-8 sm:py-20 lg:px-12 lg:py-24">
           <div className="grid gap-7 border-b border-black/12 pb-10 lg:grid-cols-12 lg:items-end">
             <div className="lg:col-span-8">
-              <p className="font-mono text-[8px] font-semibold uppercase tracking-[0.2em]" style={{ color: palette.accent }}>03 / Activity</p>
+              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: palette.accent }}>03 / Activity</p>
               <h2 className="mt-4 text-5xl font-semibold leading-[0.9] tracking-[-0.065em] sm:text-6xl lg:text-7xl">Built, taught, tested.</h2>
             </div>
             <div className="flex items-center gap-5 lg:col-span-4 lg:justify-self-end">
-              {canEdit && <a href={`/admin/events/new?society=${society.id}`} className="inline-flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.17em]" style={{ color: palette.accent }}><Plus className="h-4 w-4" /> Add event</a>}
-              <Link to={`/events?society=${encodeURIComponent(society.name)}#event-archive`} className="group inline-flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.17em] text-black/48 transition hover:text-black">Full programme <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" /></Link>
+              {canEdit && <a href={`/admin/events/new?society=${society.id}`} className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.17em]" style={{ color: palette.accent }}><Plus className="h-4 w-4" /> Add event</a>}
+              <Link to={`/events?society=${encodeURIComponent(society.name)}#event-archive`} className="group inline-flex min-h-11 items-center gap-2 text-[10px] font-bold uppercase tracking-[0.17em] text-black/60 transition hover:text-black">Full programme <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" /></Link>
             </div>
           </div>
 
@@ -282,10 +282,10 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
               <Link to={`/events/${featuredEvent.slug}`} className="group grid gap-7 border-b border-black/12 py-10 lg:grid-cols-12 lg:items-center">
                 <div className="relative aspect-[4/3] overflow-hidden bg-[#07121f] sm:aspect-[16/9] lg:col-span-5 lg:aspect-[4/3]"><EventVisual event={featuredEvent} society={society} /></div>
                 <div className="lg:col-span-6 lg:col-start-7">
-                  <div className="flex items-center justify-between gap-4 font-mono text-[8px] font-semibold uppercase tracking-[0.18em]"><span style={{ color: palette.accent }}>{eventState(featuredEvent)} / Lead activity</span><span className="text-black/32">{formatDate(featuredEvent.date)}</span></div>
+                  <div className="flex items-center justify-between gap-4 font-mono text-[10px] font-semibold uppercase tracking-[0.18em]"><span style={{ color: palette.accent }}>{eventState(featuredEvent)} / Lead activity</span><span className="text-black/60">{formatDate(featuredEvent.date)}</span></div>
                   <h3 className="mt-5 text-4xl font-semibold leading-[0.95] tracking-[-0.055em] transition group-hover:text-[#00629B] sm:text-5xl">{featuredEvent.title}</h3>
                   <p className="mt-5 max-w-xl text-sm leading-6 text-black/52">{blogHtmlToPlainText(featuredEvent.description || "").replace(/\s+/g, " ").trim() || "Open the programme record for full details."}</p>
-                  <div className="mt-7 flex flex-wrap gap-x-6 gap-y-3 text-[9px] font-bold uppercase tracking-[0.15em] text-black/42"><span>{formatEventTime(featuredEvent.date, featuredEvent.timeTbc)}</span><span>{featuredEvent.venue || "Venue TBC"}</span><span>{featuredEvent.price > 0 ? `₹${featuredEvent.price}` : "Free"}</span></div>
+                  <div className="mt-7 flex flex-wrap gap-x-6 gap-y-3 text-[10px] font-bold uppercase tracking-[0.15em] text-black/60"><span>{formatEventTime(featuredEvent.date, featuredEvent.timeTbc)}</span><span>{featuredEvent.venue || "Venue TBC"}</span><span>{featuredEvent.price > 0 ? `₹${featuredEvent.price}` : "Free"}</span></div>
                   <div className="mt-8 inline-flex items-center gap-2 text-sm font-bold" style={{ color: palette.accent }}>Open event record <ArrowUpRight className="h-4 w-4 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" /></div>
                 </div>
               </Link>
@@ -294,20 +294,20 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
                 <div data-testid="society-activity-index">
                   {activityRows.map((event, index) => (
                     <div key={event.id} className="group grid gap-3 border-b border-black/10 py-5 sm:grid-cols-[58px_minmax(0,1fr)_180px_80px] sm:items-center">
-                      <span className="font-mono text-[8px] font-semibold text-black/28">{String(index + 2).padStart(2, "0")}</span>
-                      <Link to={`/events/${event.slug}`} className="min-w-0">
-                        <p className="font-mono text-[7px] font-semibold uppercase tracking-[0.16em]" style={{ color: palette.accent }}>{eventState(event)}</p>
-                        <h3 className="mt-1 truncate text-xl font-semibold tracking-[-0.035em] transition group-hover:text-[#00629B]">{event.title}</h3>
+                      <span className="font-mono text-[10px] font-semibold text-black/60">{String(index + 2).padStart(2, "0")}</span>
+                      <Link to={`/events/${event.slug}`} className="flex min-h-11 min-w-0 flex-col justify-center">
+                        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: palette.accent }}>{eventState(event)}</p>
+                        <h3 className="mt-1 break-words text-xl font-semibold tracking-[-0.035em] transition group-hover:text-[#00629B]">{event.title}</h3>
                       </Link>
-                      <p className="text-xs leading-5 text-black/42">{formatDate(event.date)}<br />{formatEventTime(event.date, event.timeTbc)}</p>
+                      <p className="text-xs leading-5 text-black/60">{formatDate(event.date)}<br />{formatEventTime(event.date, event.timeTbc)}</p>
                       <div className="flex items-center gap-3 sm:justify-end">
-                        {canEdit && <a href={`/admin/events/${event.id}/edit`} aria-label={`Edit ${event.title}`} className="text-black/30 transition hover:text-black"><Pencil className="h-3.5 w-3.5" /></a>}
-                        <Link to={`/events/${event.slug}`} aria-label={`Open ${event.title}`} className="text-black/30 transition group-hover:translate-x-1 group-hover:text-[#00629B]"><ArrowRight className="h-4 w-4" /></Link>
+                        {canEdit && <a href={`/admin/events/${event.id}/edit`} aria-label={`Edit ${event.title}`} className="inline-grid h-11 w-11 shrink-0 place-items-center text-black/60 transition hover:text-black"><Pencil className="h-3.5 w-3.5" /></a>}
+                        <Link to={`/events/${event.slug}`} aria-label={`Open ${event.title}`} className="inline-grid h-11 w-11 shrink-0 place-items-center text-black/60 transition group-hover:translate-x-1 group-hover:text-[#00629B]"><ArrowRight className="h-4 w-4" /></Link>
                       </div>
                     </div>
                   ))}
                   {hiddenActivityCount > 0 && (
-                    <Link to={`/events?society=${encodeURIComponent(society.name)}#event-archive`} className="group flex items-center justify-between border-b border-black/10 py-5 text-[9px] font-bold uppercase tracking-[0.17em] text-black/42 transition hover:text-black">
+                    <Link to={`/events?society=${encodeURIComponent(society.name)}#event-archive`} className="group flex items-center justify-between border-b border-black/10 py-5 text-[10px] font-bold uppercase tracking-[0.17em] text-black/60 transition hover:text-black">
                       <span>+ {hiddenActivityCount} more {hiddenActivityCount === 1 ? "record" : "records"} in the programme archive</span>
                       <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
                     </Link>
@@ -320,7 +320,7 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
               <div>
                 <CalendarDays className="mx-auto h-7 w-7 text-black/25" />
                 <h3 className="mt-5 text-3xl font-semibold tracking-[-0.04em]">No public activity yet.</h3>
-                <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-black/45">When {society.name} publishes an event, it will become part of this programme record.</p>
+                <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-black/60">When {society.name} publishes an event, it will become part of this programme record.</p>
               </div>
             </div>
           )}
@@ -332,19 +332,19 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
           <div className="mx-auto max-w-[1440px] px-5 py-16 sm:px-8 sm:py-20 lg:px-12 lg:py-24">
             <div className="grid gap-7 border-b border-black/12 pb-9 lg:grid-cols-12 lg:items-end">
               <div className="lg:col-span-8">
-                <p className="font-mono text-[8px] font-semibold uppercase tracking-[0.2em]" style={{ color: palette.accent }}>04 / Stories</p>
+                <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: palette.accent }}>04 / Stories</p>
                 <h2 className="mt-4 text-5xl font-semibold leading-[0.9] tracking-[-0.065em] sm:text-6xl">From this society.</h2>
               </div>
-              <Link to="/blog" className="group inline-flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.17em] text-black/48 transition hover:text-black lg:col-span-4 lg:justify-self-end">Open Blog <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" /></Link>
+              <Link to="/blog" className="group inline-flex min-h-11 items-center gap-2 text-[10px] font-bold uppercase tracking-[0.17em] text-black/60 transition hover:text-black lg:col-span-4 lg:justify-self-end">Open Blog <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" /></Link>
             </div>
             <div className="grid gap-px bg-black/10 md:grid-cols-3">
               {stories.slice(0, 3).map((story, index) => (
                 <Link key={story.id} to={`/blog/${story.slug}`} className="group bg-white p-4 sm:p-5">
                   <div className="relative aspect-[4/3] overflow-hidden bg-[#07121f]"><StoryVisual story={story} accent={palette.accent} /></div>
                   <div className="pt-5">
-                    <p className="font-mono text-[7px] font-semibold uppercase tracking-[0.17em]" style={{ color: palette.accent }}>{String(index + 1).padStart(2, "0")} / {getBlogContentType(story)}</p>
+                    <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.17em]" style={{ color: palette.accent }}>{String(index + 1).padStart(2, "0")} / {getBlogContentType(story)}</p>
                     <h3 className="mt-3 text-2xl font-semibold leading-[1.02] tracking-[-0.045em] transition group-hover:text-[#00629B]">{story.title}</h3>
-                    <div className="mt-4 flex items-center justify-between text-[8px] font-bold uppercase tracking-[0.14em] text-black/35"><span>{story.readMinutes || 1} min</span><ArrowUpRight className="h-4 w-4 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" /></div>
+                    <div className="mt-4 flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.14em] text-black/60"><span>{story.readMinutes || 1} min</span><ArrowUpRight className="h-4 w-4 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" /></div>
                   </div>
                 </Link>
               ))}
@@ -355,18 +355,18 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
 
       <section className="border-t border-black/10 bg-[#f7f8f8]">
         <div className="mx-auto max-w-[1440px] px-5 py-12 sm:px-8 lg:px-12">
-          <p className="font-mono text-[8px] font-semibold uppercase tracking-[0.2em] text-black/32">Continue through the directory</p>
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-black/60">Continue through the directory</p>
           <div className="mt-6 grid gap-px bg-black/10 md:grid-cols-2">
             {previous ? (
               <Link to={`/societies/${previous.slug}`} className="group bg-[#f7f8f8] p-6 transition hover:bg-white sm:p-8">
-                <p className="text-[8px] font-bold uppercase tracking-[0.16em] text-black/35">Previous society</p><div className="mt-4 flex items-end justify-between gap-5"><h2 className="text-3xl font-semibold leading-none tracking-[-0.05em]">{previous.name}</h2><ArrowLeft className="h-5 w-5 text-black/30 transition group-hover:-translate-x-1" /></div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-black/60">Previous society</p><div className="mt-4 flex items-end justify-between gap-5"><h2 className="text-3xl font-semibold leading-none tracking-[-0.05em]">{previous.name}</h2><ArrowLeft className="h-5 w-5 text-black/60 transition group-hover:-translate-x-1" /></div>
               </Link>
-            ) : <Link to="/societies" className="group bg-[#f7f8f8] p-6 transition hover:bg-white sm:p-8"><p className="text-[8px] font-bold uppercase tracking-[0.16em] text-black/35">Back to</p><div className="mt-4 flex items-end justify-between gap-5"><h2 className="text-3xl font-semibold leading-none tracking-[-0.05em]">Society directory</h2><ArrowLeft className="h-5 w-5 text-black/30" /></div></Link>}
+            ) : <Link to="/societies" className="group bg-[#f7f8f8] p-6 transition hover:bg-white sm:p-8"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-black/60">Back to</p><div className="mt-4 flex items-end justify-between gap-5"><h2 className="text-3xl font-semibold leading-none tracking-[-0.05em]">Society directory</h2><ArrowLeft className="h-5 w-5 text-black/60" /></div></Link>}
             {next ? (
               <Link to={`/societies/${next.slug}`} className="group bg-[#f7f8f8] p-6 transition hover:bg-white sm:p-8 md:text-right">
-                <p className="text-[8px] font-bold uppercase tracking-[0.16em] text-black/35">Next society</p><div className="mt-4 flex items-end justify-between gap-5 md:flex-row-reverse"><h2 className="text-3xl font-semibold leading-none tracking-[-0.05em]">{next.name}</h2><ArrowRight className="h-5 w-5 text-black/30 transition group-hover:translate-x-1" /></div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-black/60">Next society</p><div className="mt-4 flex items-end justify-between gap-5 md:flex-row-reverse"><h2 className="text-3xl font-semibold leading-none tracking-[-0.05em]">{next.name}</h2><ArrowRight className="h-5 w-5 text-black/60 transition group-hover:translate-x-1" /></div>
               </Link>
-            ) : <Link to="/societies" className="group bg-[#f7f8f8] p-6 transition hover:bg-white sm:p-8 md:text-right"><p className="text-[8px] font-bold uppercase tracking-[0.16em] text-black/35">Return to</p><div className="mt-4 flex items-end justify-between gap-5 md:flex-row-reverse"><h2 className="text-3xl font-semibold leading-none tracking-[-0.05em]">All 13 societies</h2><ArrowRight className="h-5 w-5 text-black/30" /></div></Link>}
+            ) : <Link to="/societies" className="group bg-[#f7f8f8] p-6 transition hover:bg-white sm:p-8 md:text-right"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-black/60">Return to</p><div className="mt-4 flex items-end justify-between gap-5 md:flex-row-reverse"><h2 className="text-3xl font-semibold leading-none tracking-[-0.05em]">Society directory</h2><ArrowRight className="h-5 w-5 text-black/60" /></div></Link>}
           </div>
         </div>
       </section>
