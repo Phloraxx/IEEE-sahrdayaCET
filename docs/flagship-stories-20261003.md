@@ -33,3 +33,9 @@ Read-only protected-state audit: staging mail mode disabled, notification/paymen
 Local validation: 420 unit tests pass, three environment font tests skipped; lint/typecheck/build pass. Visual inspection of hub desktop/mobile, Infinia desktop and Altair mobile confirms real media, readable story hierarchy and no content clipping. Navigation test additionally covers Escape focus after client navigation; More explicitly restores the current trigger after a page-shell replacement. Initial local navigation checks required a disposable PocketBase instance because no backend was listening on localhost:8090; real staging data was never seeded or mutated.
 
 Full CI regression: 133 browser checks passed, but the existing no-JavaScript policy anchor reload assertion failed. Reproduction measured a 325px change when native details reset from expanded to collapsed while Chromium retained the former pixel scroll position. The mobile policy contents now use a stable, compact visible link grid. This keeps full section labels and 44px targets, avoids disclosure reflow on reload, and retains the original anchor-reload assertion. Desktop contents are unchanged.
+
+## Separate flagship editions (3 October 2026)
+
+The public flagship hub now presents Altair (2022), Altair 2.0 (2023), TechX Infinia (2024), and Infinia 2.0 (2025) as distinct chapters in a chronological timeline. Stable edition URLs use `/flagships/:slug/:year`; parent programme histories remain at `/flagships/infinia` and `/flagships/altair`. Edition content is shared from the existing typed, source-backed editorial archive. Unknown programme/year combinations return 404. Production sitemap includes all edition leaves; staging stays noindex.
+
+Altair 2.0 is a brochure-derived programme archive. No inferred completion date, attendance or award was added. Photography is confined to the year it documents. Existing event, registration, payment and notification data and delivery flows are untouched.

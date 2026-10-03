@@ -192,3 +192,11 @@ Article sidebars must stick to the page viewport. Use horizontal clipping that d
 - Keep content and essential links visible in SSR and reduced-motion views. Every link has a 44px target. No hover-only information or automatic media.
 - Desktop Flagships is primary navigation; mobile More exposes the same destination and remains active on nested story routes. Keep the four primary dock items.
 - No invented counts, awards, future dates or successor relationships. See docs/flagship-stories-20261003.md for source boundaries.
+
+### Flagship edition timeline
+
+The flagship hub is a chronological editorial timeline, with four separate edition entries (2022–2025), large year markers, a fine vertical rule and visible titles/dates. Each links to its own `/flagships/:slug/:year` SSR page; Infinia and Altair retain their parent story pages. Native year anchors work without JavaScript and clear the fixed desktop navigation.
+
+Awwwards references reviewed: [Sperotto history timeline](https://www.awwwards.com/inspiration/history-scroll-animation-sperotto-s-p-a) and [Prague Quadrennial archive](https://www.awwwards.com/inspiration/archive-prague-quadrennial-pq-2023) / [programme timeline](https://www.awwwards.com/inspiration/interactive-timeline-prague-quadrennial-pq-2023). Interpret their year hierarchy, editorial spacing and programme structure within the existing IEEE blue/slate and bundled typography. No copied artwork, fonts or new motion dependency.
+
+Edition photos must depict that edition. Altair 2022 and Infinia 2.0 have genuine archive images; the 2023/2024 entries use typographic workshop summaries. Altair 2.0 remains labelled as a programme archive. Keep every title, date and link visible at rest, 44px targets, reduced-motion feedback and mobile single-column reading order.
