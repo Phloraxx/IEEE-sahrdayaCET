@@ -391,38 +391,52 @@ export default function EventDetailPage() {
       <section data-testid="event-programme-hero" className="relative overflow-hidden bg-[#07121f] text-[#f4f2ed]">
         <div className="pointer-events-none absolute inset-0 opacity-[0.22] [background-image:linear-gradient(rgba(255,255,255,.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.05)_1px,transparent_1px)] [background-size:72px_72px]" />
         <div className="relative mx-auto max-w-[1440px] px-5 pb-10 pt-16 sm:px-8 sm:pb-12 sm:pt-20 md:pt-24 lg:px-12 lg:pt-28">
-          <motion.div {...revealUp(reduceMotion, 8)} className="flex items-center justify-between border-b border-white/15 pb-5">
-            <Link to={backHref} className="group inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-white/55 transition hover:text-[#58c6ff]">
+          <motion.div {...revealUp(reduceMotion, 8)} initial={false} className="flex flex-wrap items-center justify-between gap-3 border-b border-white/15 pb-5">
+            <Link to={backHref} className="group inline-flex min-h-11 items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-white/55 transition hover:text-[#58c6ff]">
               <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" /> {backLabel}
             </Link>
-            <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/38">Programme / {formatYear(event.date)}</span>
+            <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/65">Programme / {formatYear(event.date)}</span>
           </motion.div>
 
           <header className="grid gap-8 py-8 md:grid-cols-12 md:items-end md:gap-7 md:py-10 lg:py-12">
-            <div className="md:col-span-7 lg:col-span-8">
+            <div className="order-1 min-w-0 md:col-span-7 lg:col-span-8">
               {event.society ? (
-                <motion.div {...revealUp(reduceMotion, 8)} transition={{ duration: reduceMotion ? 0 : MOTION_DURATION.ui, ease: MOTION_EASE, delay: reduceMotion ? 0 : 0.06 }}>
-                  <Link to={`/societies/${event.society.slug}`} className="text-[9px] font-bold uppercase tracking-[0.22em] text-[#58c6ff] transition hover:text-white">
+                <motion.div {...revealUp(reduceMotion, 8)} initial={false} transition={{ duration: reduceMotion ? 0 : MOTION_DURATION.ui, ease: MOTION_EASE, delay: reduceMotion ? 0 : 0.06 }}>
+                  <Link to={`/societies/${event.society.slug}`} className="inline-flex min-h-11 items-center text-[11px] font-bold uppercase tracking-[0.16em] text-[#58c6ff] transition hover:text-white">
                     {event.society.name}
                   </Link>
                 </motion.div>
               ) : <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-[#58c6ff]">IEEE Sahrdaya</p>}
-              <div className="mt-5 overflow-hidden pb-[0.09em]">
+              <div className="mt-3 overflow-hidden pb-[0.09em]">
                 <motion.h1
-                  initial={reduceMotion ? false : { y: "108%", opacity: 0.25 }}
+                  initial={false}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ duration: reduceMotion ? 0 : 0.62, ease: MOTION_EASE, delay: reduceMotion ? 0 : 0.08 }}
-                  className={`max-w-5xl ${titleSize} font-semibold leading-[0.88] tracking-[-0.07em] text-[#f4f2ed]`}
+                  className={`max-w-5xl ${titleSize} break-words font-semibold leading-[0.88] tracking-[-0.07em] text-[#f4f2ed]`}
                 >
                   {event.title}
                 </motion.h1>
               </div>
-              <p className="mt-6 max-w-2xl text-sm leading-6 text-white/48 sm:text-base">
+              <p className="mt-6 max-w-2xl text-sm leading-6 text-white/70 sm:text-base">
                 {description.length > 220 ? `${description.slice(0, 220).replace(/\s+\S*$/, "")}…` : description || "Event details from the IEEE Sahrdaya programme."}
               </p>
             </div>
 
-            <motion.div {...revealUp(reduceMotion, 12)} className="md:col-span-5 lg:col-span-4">
+            <dl data-testid="event-facts" className="order-2 grid grid-cols-2 border-y border-white/15 md:order-3 md:col-span-12 lg:grid-cols-4">
+              {[
+                ["Date", formatDate(event.date)],
+                ["Time", formatEventTime(event.date, event.timeTbc)],
+                ["Venue", event.attendanceMode === "online" ? "Online" : event.venue || "Sahrdaya College of Engineering & Technology"],
+                ["Entry / status", `${event.price > 0 ? `₹${event.price}` : "Free"} · ${eventEnded ? "Event completed" : availability.label}`],
+              ].map(([label, value], index) => (
+                <div key={String(label)} className={`min-w-0 px-4 py-4 ${index % 2 === 1 ? "border-l border-white/10" : ""} ${index > 1 ? "border-t border-white/10 lg:border-t-0" : ""} ${index === 2 ? "lg:border-l lg:border-white/10" : ""}`}>
+                  <dt className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/70">{label}</dt>
+                  <dd className="mt-2 break-words text-sm font-semibold leading-6 text-white/90">{value}</dd>
+                </div>
+              ))}
+            </dl>
+
+            <motion.div {...revealUp(reduceMotion, 12)} initial={false} data-testid="event-artwork" className="order-3 min-w-0 md:order-2 md:col-span-5 lg:col-span-4">
               <div className="relative aspect-[4/3] overflow-hidden border border-white/12 bg-black/20 md:aspect-[5/4]">
                 {eventArtwork ? (
                   <EventArtworkPreview src={eventArtwork.src} alt={`${event.title} event artwork`} />
@@ -435,33 +449,20 @@ export default function EventDetailPage() {
                   />
                 )}
               </div>
-              <div className="mt-3 flex items-center justify-between text-[8px] font-bold uppercase tracking-[0.18em] text-white/35">
+              <div className="mt-3 flex items-center justify-between text-[11px] font-bold uppercase tracking-[0.12em] text-white/65">
                 <span>Event record / {formatYear(event.date)}</span>
                 <span>{eventArtwork ? "Official artwork" : "Programme identity"}</span>
               </div>
             </motion.div>
           </header>
 
-          <div className="grid border-y border-white/15 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              ["Date", formatDate(event.date)],
-              ["Time", formatEventTime(event.date, event.timeTbc)],
-              ["Venue", event.attendanceMode === "online" ? "Online" : event.venue || "Sahrdaya College of Engineering & Technology"],
-              ["Entry / status", `${event.price > 0 ? `₹${event.price}` : "Free"} · ${eventEnded ? "Event completed" : availability.label}`],
-            ].map(([label, value], index) => (
-              <div key={String(label)} className={`min-w-0 py-5 sm:px-5 ${index > 0 ? "sm:border-l sm:border-white/10" : ""} ${index > 1 ? "border-t border-white/10 lg:border-t-0" : index === 1 ? "border-t border-white/10 sm:border-t-0" : ""}`}>
-                <p className="text-[8px] font-bold uppercase tracking-[0.18em] text-white/32">{label}</p>
-                <p className="mt-2 line-clamp-2 text-sm font-semibold leading-snug text-white/82">{value}</p>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
       <article className="mx-auto max-w-[1440px] px-5 pb-36 sm:px-8 lg:px-12 lg:pb-28">
         <div className="grid gap-14 py-12 md:py-16 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-20 lg:py-20">
           <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#00629B]">About the event</p>
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#00629B]">About the event</h2>
             {event.description ? (
               <section className="prose prose-slate mt-6 max-w-3xl prose-headings:font-semibold prose-headings:tracking-[-0.035em] prose-p:text-[1.05rem] prose-p:leading-8 prose-p:text-black/68 prose-a:text-[#00629B]" dangerouslySetInnerHTML={{ __html: sanitizeBlogHtml(event.description) }} />
             ) : (
@@ -587,7 +588,7 @@ export default function EventDetailPage() {
                 <h2 className="mt-3 text-4xl font-semibold leading-[0.95] tracking-[-0.055em] sm:text-5xl">More from the programme.</h2>
               </div>
               <div className="lg:col-span-5 lg:text-right">
-                <Link to="/events" className="group inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-black/55 transition hover:text-[#00629B]">
+                <Link to="/events" className="group inline-flex min-h-11 items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-black/55 transition hover:text-[#00629B]">
                   Browse full programme <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
                 </Link>
               </div>
@@ -599,7 +600,7 @@ export default function EventDetailPage() {
 
       {actionHref && actionLabel && !myRegistration?.manualReview && (
         <motion.div
-          initial={reduceMotion ? false : { y: "100%", opacity: 0 }}
+          initial={false}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: reduceMotion ? 0 : MOTION_DURATION.ui, ease: MOTION_EASE }}
           className={`fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] z-50 border-t border-black/10 bg-[#f4f2ed]/95 pl-[calc(1.25rem+env(safe-area-inset-left,0px))] pr-[calc(1.25rem+env(safe-area-inset-right,0px))] backdrop-blur-xl md:bottom-0 lg:hidden ${compactMobileAction ? "py-2" : "py-3"}`}

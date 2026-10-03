@@ -1,4 +1,5 @@
-import { FileDown, ShieldCheck } from "lucide-react";
+import { Link } from "react-router";
+import { ArrowRight, FileDown, ShieldCheck } from "lucide-react";
 
 import type { CertificateVerification } from "@/server/public/certificate.server";
 import { certificateStatusPresentation, formatCertificateIssueDate, labelCertificateType } from "@/lib/certificate-verification";
@@ -32,7 +33,8 @@ export function PublicCertificateRecord({ verification, token, compactInvalid = 
 
   return (
     <section className="border-b border-black/10 bg-white">
-      <div className="container mx-auto px-4 py-10 md:py-16">        <div className="overflow-hidden rounded-2xl border border-black/10 shadow-[0_18px_50px_-35px_rgba(15,23,42,.45)]">
+      <div className="container mx-auto px-4 py-10 md:py-16">
+        <div className="overflow-hidden rounded-2xl border border-black/10 shadow-[0_18px_50px_-35px_rgba(15,23,42,.45)]">
           <div className="grid lg:grid-cols-[0.78fr_1.22fr]">
             <div className="relative overflow-hidden bg-[#06111f] p-6 text-white sm:p-8 lg:min-h-[520px] lg:p-10">
               <div className={`absolute inset-x-0 top-0 h-1 ${rule}`} />
@@ -40,31 +42,31 @@ export function PublicCertificateRecord({ verification, token, compactInvalid = 
                 <span className="grid h-12 w-12 place-items-center border border-white/15 bg-white/5">
                   <StatusIcon className={`h-6 w-6 ${accent}`} aria-hidden="true" />
                 </span>
-                <span className="border border-white/15 px-3 py-1.5 font-mono text-[9px] font-semibold uppercase tracking-[0.24em] text-white/70">
+                <span className="border border-white/15 px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">
                   {verification.status}
                 </span>
               </div>
 
               <div className="mt-16 max-w-md lg:mt-24">
-                <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.28em] text-white/40">Registry result</p>
+                <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">Registry result</p>
                 <h2 className="mt-4 text-4xl font-semibold leading-[0.95] tracking-[-0.055em] sm:text-5xl">{view.title}</h2>
-                <p className="mt-5 text-sm leading-6 text-white/55 sm:text-base">{view.body}</p>
+                <p className="mt-5 text-sm leading-6 text-white/75 sm:text-base">{view.body}</p>
               </div>
 
-              <div className="mt-14 flex items-center gap-3 border-t border-white/10 pt-5 font-mono text-[9px] uppercase tracking-[0.18em] text-white/45 lg:absolute lg:inset-x-10 lg:bottom-10">
+              <div className="mt-14 flex items-center gap-3 border-t border-white/10 pt-5 font-mono text-[11px] uppercase tracking-[0.18em] text-white/70 lg:absolute lg:inset-x-10 lg:bottom-10">
                 <ShieldCheck className={`h-4 w-4 ${accent}`} aria-hidden="true" />
                 Live issuer registry
               </div>
             </div>
-            <div className="bg-white p-6 sm:p-8 lg:p-10">
+            <div className="min-w-0 bg-white p-6 sm:p-8 lg:p-10">
               {valid ? (
                 <>
                   <div className="flex flex-col gap-3 border-b border-black/10 pb-7 sm:flex-row sm:items-end sm:justify-between">
-                    <div>
-                      <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.28em] text-black/35">Certificate record</p>
-                      <h3 className="mt-3 text-3xl font-semibold leading-none tracking-[-0.045em] sm:text-4xl">{verification.recipientName}</h3>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-black/60">Certificate record</p>
+                      <h3 className="mt-3 break-words text-3xl font-semibold leading-tight tracking-[-0.045em] sm:text-4xl">{verification.recipientName}</h3>
                     </div>
-                    <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.22em] text-ieee-blue">{labelCertificateType(verification.certificateType)}</span>
+                    <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-ieee-blue">{labelCertificateType(verification.certificateType)}</span>
                   </div>
 
                   <dl className="grid border-b border-black/10 sm:grid-cols-2">
@@ -94,7 +96,7 @@ export function PublicCertificateRecord({ verification, token, compactInvalid = 
 function RecordField({ index, label, value, wide = false, mono = false }: { index: string; label: string; value: string; wide?: boolean; mono?: boolean }) {
   return (
     <div className={`border-black/10 py-5 sm:px-5 sm:first:pl-0 ${wide ? "sm:col-span-2" : "sm:border-r last:sm:border-r-0"}`}>
-      <dt className="flex items-center gap-3 font-mono text-[9px] font-semibold uppercase tracking-[0.22em] text-black/35">
+      <dt className="flex items-center gap-3 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-black/60">
         <span className="text-ieee-blue">{index}</span>{label}
       </dt>
       <dd className={`mt-2 break-words text-sm font-medium text-black/75 ${mono ? "font-mono" : ""}`}>{value}</dd>
@@ -113,9 +115,10 @@ function DownloadLink({ href, label, primary = false }: { href: string; label: s
 function InvalidRecord({ compact }: { compact: boolean }) {
   return (
     <div className={`flex flex-col justify-center ${compact ? "min-h-52" : "min-h-[360px]"}`}>
-      <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.28em] text-black/35">No public record</p>
+      <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-black/60">No public record</p>
       <h3 className="mt-4 max-w-xl text-3xl font-semibold leading-[0.98] tracking-[-0.045em] sm:text-4xl">Check the Credential ID and try again.</h3>
-      <p className="mt-4 max-w-xl text-sm leading-6 text-black/50">A genuine IEEE Sahrdaya credential must match an issued record in the live registry. Invalid or incomplete references are never treated as valid certificates.</p>
+      <p className="mt-4 max-w-xl text-sm leading-6 text-black/65">A genuine IEEE Sahrdaya credential must match an issued record in the live registry. Invalid or incomplete references are never treated as valid certificates.</p>
+      <Link to="/verify" className="mt-5 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-ieee-blue">Look up a Credential ID <ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
     </div>
   );
 }

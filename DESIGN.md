@@ -167,3 +167,9 @@ The community directory follows the shared URL-based discovery pattern: search a
 - Contact offers direct self-service links before official branch contact details. Any account requirement is visible before navigation; contact links never send automatically.
 - Long policy pages retain their official wording, use native section anchors and explicit ordered-list markers, and keep text within a readable column. Mobile contents use a native disclosure; desktop contents remain alongside the text.
 - Catalog cards expose full event names and direct policy links. Display polish must not alter fees, discounts or payment behavior.
+
+## Verification and event detail usability
+
+- Credential ID lookup reports pending, invalid, active, revoked, superseded and unavailable states beside the input. A failed registry read returns 503 and never becomes an invalid-certificate claim. Keep all verification data no-store/noindex and preserve the safe public projection.
+- The GET lookup remains usable without JavaScript, moves keyboard focus to its result after submission, and restores the displayed ID on browser history navigation. Invalid QR references offer an ID lookup recovery link.
+- Generic event details show date/time/full venue/entry status before artwork on phones and below the title/artwork row on desktop. Use semantic facts and wrap all venue text. Critical title/navigation/artwork/actions remain server-visible.
