@@ -23,7 +23,9 @@ The IEEE Sahrdaya platform is the Student Branch's public website and event-oper
 
 ## Public surfaces
 
-The main public product includes the home page, events, societies, society detail pages, blog, Execom, legal/compliance pages, public certificate verification, and attendee-facing event state.
+The main public product includes the home page, events, flagship stories, societies, society detail pages, blog, Execom, legal/compliance pages, public certificate verification, and attendee-facing event state.
+
+Flagship Events provides a permanent story hub for Infinia and Altair, with separate edition histories and contextual media. This editorial archive links to the existing event programme and published recaps; it does not duplicate registrations or event operations.
 
 ## Authenticated surfaces
 

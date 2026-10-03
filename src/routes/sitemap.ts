@@ -1,3 +1,4 @@
+import { FLAGSHIPS } from "@/lib/flagships";
 import { APP_URL } from "@/lib/constants";
 import { getPublishedBlogs } from "@/lib/blog-public.server";
 import { fetchEvents } from "@/server/public/events.server";
@@ -35,6 +36,8 @@ export async function loader() {
   const entries = [
     urlEntry("/"),
     urlEntry("/events"),
+    urlEntry("/flagships"),
+    ...FLAGSHIPS.map(flagship => urlEntry(`/flagships/${flagship.slug}`)),
     urlEntry("/blog"),
     urlEntry("/societies"),
     urlEntry("/full-execom"),
