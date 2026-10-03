@@ -51,6 +51,7 @@ test.describe('societies directory', () => {
     await page.keyboard.press('/')
     await expect(page.locator('#society-search')).toBeFocused()
     await page.keyboard.type(societyName)
+    await expect(page.locator('#society-search')).toHaveValue(societyName)
     await expect(page.locator('[data-society-id]')).toHaveCount(1)
     await expect(page.locator('[data-society-id] h2')).toHaveText(societyName)
     await page.keyboard.press('Escape')
