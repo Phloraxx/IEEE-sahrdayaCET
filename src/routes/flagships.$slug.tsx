@@ -1,11 +1,12 @@
 import { ArrowLeft, ArrowRight } from "lucide-react";
-import { Link, useLoaderData, type LoaderFunctionArgs } from "react-router";
+import { Link, redirect, useLoaderData, type LoaderFunctionArgs } from "react-router";
 import { EditionContent } from "@/components/flagships/EditionContent";
 import { APP_URL } from "@/lib/constants";
 import { FLAGSHIPS, getFlagship, type Flagship } from "@/lib/flagships";
 import { FlagshipLayout, FlagshipPhoto, flagshipLabelClass, flagshipLinkClass } from "@/components/flagships/FlagshipLayout";
 
 export function loader({ params }: LoaderFunctionArgs): { flagship: Flagship } {
+  if (params.slug === "infinia") throw redirect("/infinia", 301);
   const flagship = getFlagship(params.slug);
   if (!flagship) throw new Response("Flagship not found", { status: 404 });
   return { flagship };

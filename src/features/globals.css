@@ -627,3 +627,13 @@
   html { scroll-padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)); }
   :where(a, button, input, select, textarea, [tabindex]) { scroll-margin-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* Rainbow text remains readable against both navigation backgrounds. */
+@supports (background-clip:text) {
+ .infinia-nav-rainbow { background:linear-gradient(100deg,#9d174d,#854d0e,#166534,#075985,#5b21b6,#9d174d); background-size:300% 100%; background-clip:text; color:transparent; animation:infinia-rainbow 12s ease-in-out infinite; }
+ .infinia-nav-rainbow-light { background-image:linear-gradient(100deg,#fff1f5,#fff5c2,#caffdf,#d1f1ff,#eee2ff,#fff1f5); }
+ a:hover .infinia-nav-rainbow, a:focus-visible .infinia-nav-rainbow { animation-play-state:paused; }
+}
+@keyframes infinia-rainbow { 0%,100% { background-position:0% 50%; } 50% { background-position:100% 50%; } }
+@media (prefers-reduced-motion:reduce) { .infinia-nav-rainbow { animation:none; } }
+@media (forced-colors:active) { .infinia-nav-rainbow { background:none; color:LinkText; } }

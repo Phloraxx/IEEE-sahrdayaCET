@@ -185,18 +185,13 @@ Mobile native scrolling keeps focused controls clear of the fixed dock using bot
 
 Article sidebars must stick to the page viewport. Use horizontal clipping that does not create a scroll container, place sticky positioning on the grid item itself and keep long desktop contents scrollable within the viewport.
 
-## Flagship Events
+## Infinia showcase and Altair archive
 
-- The hub and Infinia/Altair stories extend the light editorial events design: blue/slate type, compact pixel labels, real photographs and generous reading measures.
-- Permanent story identity and edition history precede workshop details. Latest edition first, native anchors, explicit dated captions, and archive posters shown at their full aspect.
-- Keep content and essential links visible in SSR and reduced-motion views. Every link has a 44px target. No hover-only information or automatic media.
-- Desktop Flagships is primary navigation; mobile More exposes the same destination and remains active on nested story routes. Keep the four primary dock items.
-- No invented counts, awards, future dates or successor relationships. See docs/flagship-stories-20261003.md for source boundaries.
+Infinia intentionally has a distinctive black, iridescent and warm-paper editorial identity, drawn from its original posters. Its oversized wordmark leads into edition navigation, a real community photograph, clearly scoped numbers, workshops, day stories, speakers, the separate Vitals pre-event, a poster wall and a captioned photo gallery. The mixed-programme timeline and shared lower all-events promotion/oversized footer are removed from this experience. Keep a compact branch/archive/privacy footer.
 
-### Flagship edition timeline
-
-The flagship hub is a latest-first editorial timeline, with four separate edition entries (2025 → 2024 → 2023 → 2022), large year markers, a fine vertical rule and visible titles/dates. Each links to its own `/flagships/:slug/:year` SSR page; Infinia and Altair retain their parent story pages. Native year anchors work without JavaScript and clear the fixed desktop navigation.
-
-Awwwards references reviewed: [Sperotto history timeline](https://www.awwwards.com/inspiration/history-scroll-animation-sperotto-s-p-a) and [Prague Quadrennial archive](https://www.awwwards.com/inspiration/archive-prague-quadrennial-pq-2023) / [programme timeline](https://www.awwwards.com/inspiration/interactive-timeline-prague-quadrennial-pq-2023). Interpret their year hierarchy, editorial spacing and programme structure within the existing IEEE blue/slate and bundled typography. No copied artwork, fonts or new motion dependency.
-
-Edition photos must depict that edition. All four entries have genuine archive images. Each edition owns its gallery, so individual stories cannot inherit photos from another year. Preserve complete image framing and contain portrait photos rather than cropping people. Altair 2.0 remains labelled as a programme archive. Keep every title, date and link visible at rest, 44px targets, reduced-motion feedback and mobile single-column reading order.
+- Canonical chapters are /infinia/2025 and /infinia/2024, latest first. No year-mixed galleries. Historical numbers include edition/source labels; session attendance and pre-event registrations stay separate.
+- INFINIA replaces FLAGSHIPS in shared desktop and mobile More navigation. Rainbow text uses contrast-safe palettes, pauses on hover/focus, stops under reduced motion and respects forced colours. Preserve the four dock destinations.
+- Critical copy and chapter links render in SSR. Workshop disclosures use native details. Poster/photo viewers use accessible Radix dialogs with Escape, focus trapping and focus return. Preserve full image framing and visible captions.
+- Media never autoplays. The unrestricted design-folder film depicts TechX Infinia 2024 and appears only in that chapter. The silent derivative includes native controls, descriptive captions and adjacent text.
+- Altair retains its independent blue/slate archive, 2023 brochure status and 2022/2023 galleries. No successor relationship, future date, award or unsupported outcome is inferred.
+- Scoped CSS preserves all other page identities and bundled fonts. See docs/infinia-showcase-20261004.md for component-specific Awwwards references and Drive provenance.

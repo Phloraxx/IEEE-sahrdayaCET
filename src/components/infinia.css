@@ -1,0 +1,187 @@
+/* Infinia has its own editorial language; all rules are scoped to this experience. */
+.infinia-site { background:#eeede8; color:#151515; padding-bottom:64px; }
+.infinia-site *, .infinia-viewer * { box-sizing:border-box; }
+.infinia-site a, .infinia-site button, .infinia-site summary { -webkit-tap-highlight-color:transparent; }
+.infinia-site a:focus-visible, .infinia-site button:focus-visible, .infinia-site summary:focus-visible, .infinia-viewer button:focus-visible { outline:3px solid #8056db; outline-offset:5px; }
+.infinia-site main { overflow:clip; }
+.infinia-site img { display:block; width:100%; height:auto; }
+.infinia-site p { text-wrap:pretty; }
+.infinia-site .infinia-eyebrow { font-size:10px; line-height:1.6; font-weight:650; text-transform:uppercase; letter-spacing:.13em; }
+.infinia-skip { position:fixed; top:8px; left:8px; transform:translateY(-200%); z-index:200; background:white; padding:12px 20px; }
+.infinia-skip:focus { transform:none; }
+.infinia-hero { position:relative; isolation:isolate; background:#101112; color:#faf9f3; padding:108px max(24px,5vw) 0; }
+.infinia-hero-meta { display:flex; justify-content:space-between; gap:20px; align-items:center; font-size:11px; text-transform:uppercase; letter-spacing:.08em; }
+.infinia-hero-meta a { display:inline-flex; min-height:44px; gap:8px; align-items:center; }
+.infinia-wordmark { font-size:clamp(66px,17.6vw,265px); font-weight:900; letter-spacing:-.065em; line-height:1; margin:20px 0 36px; }
+.infinia-edition-wordmark { font-size:clamp(48px,11vw,168px); font-weight:900; letter-spacing:-.055em; line-height:1.03; margin:32px 0 46px; }
+.infinia-hero-bottom { display:grid; grid-template-columns:1.6fr 1fr; align-items:end; gap:40px; padding-bottom:56px; }
+.infinia-hero-line { font-size:clamp(30px,4.3vw,64px); line-height:1.06; letter-spacing:-.05em; font-weight:600; margin-top:18px; }
+.infinia-hero-line span { color:#c7bed9; }
+.infinia-hero-intro { max-width:380px; justify-self:end; font-size:15px; line-height:1.75; color:#d0d0cf; }
+.infinia-link { display:inline-flex; align-items:center; justify-content:space-between; gap:24px; min-height:48px; font-size:12px; font-weight:650; border-bottom:1px solid currentColor; }
+.infinia-hero-intro .infinia-link { margin-top:20px; color:#fff; }
+.infinia-spectrum { height:7px; margin:0 calc(-1 * max(24px,5vw)); background:linear-gradient(100deg,#c8fcde,#9cb9fb,#dbc4f6,#f2c6cd,#ece89f,#b5e4ed); }
+.infinia-editions { display:grid; grid-template-columns:1fr 1.2fr 1.2fr; align-items:center; gap:24px; padding:20px max(24px,5vw); background:#19191a; color:#eee; border-top:1px solid #404042; }
+.infinia-editions>a { min-height:54px; display:flex; align-items:center; gap:18px; padding:12px 0; border-bottom:1px solid #646466; font-size:16px; }
+.infinia-editions>a[aria-current] { border-color:#d2c4ff; color:#d2c4ff; }
+.infinia-edition-year { margin-left:auto; font-family:monospace; font-size:12px; }
+.infinia-section { padding:90px max(24px,5vw); scroll-margin-top:105px; }
+.infinia-section-heading { display:grid; grid-template-columns:1fr 2.3fr; gap:36px; margin-bottom:48px; align-items:start; }
+.infinia-section-heading h2, .infinia-intro h2, .infinia-film h2 { font-size:clamp(32px,4.8vw,68px); font-weight:550; letter-spacing:-.05em; line-height:1.04; max-width:880px; }
+.infinia-section-heading .infinia-eyebrow { padding-top:8px; }
+.infinia-intro { display:grid; grid-template-columns:1.35fr 1fr; gap:64px; }
+.infinia-intro h2 { margin-top:28px; }
+.infinia-intro em { font-style:normal; color:#655273; }
+.infinia-intro-copy { max-width:540px; align-self:end; font-size:19px; line-height:1.65; }
+.infinia-intro-copy p+p { margin-top:20px; font-size:15px; line-height:1.85; color:#53514f; }
+.infinia-community { margin:0 max(24px,5vw); }
+.infinia-community figcaption { font-size:11px; margin-top:14px; color:#53514f; }
+.infinia-numbers { padding-top:60px; }
+.infinia-numbers-top { display:flex; align-items:end; justify-content:space-between; gap:30px; margin-bottom:35px; }
+.infinia-numbers h2 { font-size:clamp(27px,3vw,42px); letter-spacing:-.04em; line-height:1.1; }
+.infinia-numbers-top p { font-size:12px; line-height:1.8; color:#53514f; }
+.infinia-stat-grid { display:grid; grid-template-columns:repeat(4,1fr); border-top:1px solid #aaa6a0; }
+.infinia-stat-grid>div { display:flex; flex-direction:column-reverse; padding:30px 20px 0 0; }
+.infinia-stat-grid dd { font-size:clamp(40px,6.4vw,96px); font-weight:450; line-height:1.1; letter-spacing:-.065em; }
+.infinia-stat-grid dt { font-size:12px; margin-top:10px; }
+.infinia-workshops { background:#deddd5; }
+.infinia-workshop-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:50px 30px; }
+.infinia-workshop-top { display:flex; justify-content:space-between; gap:12px; border-top:1px solid #96958d; padding-top:12px; margin-bottom:14px; font-size:11px; }
+.infinia-workshop-grid .infinia-poster figcaption { display:none; }
+.infinia-workshop-grid h3 { font-size:36px; font-weight:600; letter-spacing:-.035em; margin-top:20px; }
+.infinia-workshop-description { font-size:16px; line-height:1.5; margin-top:7px; }
+.infinia-host { font-size:11px; line-height:1.7; margin:14px 0; color:#4c4a45; }
+.infinia-site details { border-top:1px solid #aaa69f; margin-top:20px; }
+.infinia-site summary { min-height:48px; padding:14px 0; cursor:pointer; font-size:12px; font-weight:600; }
+.infinia-site details p { font-size:13px; line-height:1.8; padding-bottom:15px; }
+.infinia-attendance { color:#4e4264; font-weight:600; }
+.infinia-source-note { font-size:11px; line-height:1.8; color:#55524f; margin-top:24px; }
+.infinia-track-list { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px 35px; }
+.infinia-track-list>div { border-top:1px solid #96958d; min-height:120px; padding-top:20px; }
+.infinia-track-list span { font:12px monospace; color:#59554d; }
+.infinia-track-list h3 { font-size:21px; margin-top:14px; }
+.infinia-days { background:#d0c2e2; }
+.infinia-day-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:30px; }
+.infinia-day-number { display:block; border-top:1px solid #8e7f9e; padding-top:20px; font-size:68px; font-weight:350; letter-spacing:-.05em; }
+.infinia-day-grid h3 { font-size:20px; line-height:1.3; letter-spacing:-.025em; margin:20px 0 16px; }
+.infinia-day-grid p { font-size:13px; line-height:1.85; color:#38323f; }
+.infinia-conversation-grid { display:grid; grid-template-columns:1.5fr 1fr; gap:56px; }
+.infinia-panel-theme { font-size:28px; line-height:1.2; letter-spacing:-.025em; margin-bottom:18px; }
+.infinia-conversation-grid p:not(.infinia-panel-theme):not(.infinia-source-note) { font-size:14px; line-height:1.8; color:#53514f; }
+.infinia-conversation-grid ul { margin-top:25px; }
+.infinia-conversation-grid li { border-top:1px solid #bbb6ae; padding:12px 0; }
+.infinia-conversation-grid strong, .infinia-conversation-grid li span { display:block; }
+.infinia-conversation-grid strong { font-size:14px; font-weight:550; }
+.infinia-conversation-grid li span { font-size:11px; color:#53514f; margin-top:4px; }
+.infinia-vitals { background:#141416; color:#faf9f3; display:grid; grid-template-columns:1.25fr 1fr; gap:44px 80px; }
+.infinia-vitals h2 { font-size:clamp(40px,5.5vw,82px); line-height:1.02; letter-spacing:-.05em; margin:25px 0; }
+.infinia-vitals h2 span { display:block; font-size:.38em; margin-top:20px; color:#c9bddc; }
+.infinia-vitals p:not(.infinia-eyebrow):not(.infinia-source-note):not(.infinia-vitals-note) { font-size:14px; line-height:1.85; max-width:560px; color:#d5d1d9; }
+.infinia-vitals .infinia-source-note { color:#b5abbf; }
+.infinia-vitals-stats { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:28px; align-self:center; }
+.infinia-vitals-stats>div { display:flex; flex-direction:column-reverse; border-top:1px solid #646066; padding-top:18px; }
+.infinia-vitals-stats dd { font-size:52px; letter-spacing:-.055em; line-height:1.1; }
+.infinia-vitals-stats dt { font-size:11px; line-height:1.6; color:#d5d1d9; margin-top:10px; }
+.infinia-vitals-note { grid-column:1/-1; font-size:11px; color:#b5abbf; line-height:1.8; }
+.infinia-poster-section { background:#e0e5da; }
+.infinia-section-lede { max-width:650px; font-size:16px; line-height:1.8; margin:0 0 40px auto; }
+.infinia-poster-wall { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); align-items:start; gap:34px 28px; }
+.infinia-poster-wall>figure:nth-child(3n+2) { padding-top:45px; }
+.infinia-media-trigger { position:relative; width:100%; display:block; cursor:zoom-in; background:#141416; border:0; padding:0; }
+.infinia-media-trigger img { height:auto; }
+.infinia-expand { position:absolute; right:10px; bottom:10px; display:grid; place-items:center; width:34px; height:34px; border:1px solid #fff8; background:#141416cc; color:#fff; }
+.infinia-poster figcaption, .infinia-photo figcaption { font-size:11px; line-height:1.7; margin-top:12px; color:#53514f; }
+.infinia-photo-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:40px 28px; align-items:start; }
+.infinia-photo-grid>figure:nth-child(4n+2) { padding-top:50px; }
+.infinia-photo-grid>figure:nth-child(5n) { grid-column:1/-1; width:76%; margin-inline:auto; }
+.infinia-film { background:#d0c2e2; display:grid; grid-template-columns:1.4fr 1fr; gap:64px; align-items:center; }
+.infinia-film h2 { margin:25px 0; }
+.infinia-film p:not(.infinia-eyebrow):not(.infinia-source-note) { font-size:16px; line-height:1.85; max-width:560px; }
+.infinia-film video { display:block; width:min(100%,360px); height:auto; justify-self:center; background:black; border:1px solid #887796; }
+.infinia-film details { max-width:560px; }
+.infinia-film .infinia-link { margin-top:25px; }
+.infinia-next-edition { display:grid; grid-template-columns:1fr 1.2fr; gap:60px; padding:70px max(24px,5vw); border-top:1px solid #aaa6a0; scroll-margin-top:105px; }
+.infinia-next-edition h2 { font-size:clamp(80px,11vw,155px); font-weight:400; letter-spacing:-.065em; line-height:1; margin:25px 0; }
+.infinia-next-link { display:flex; align-items:center; justify-content:space-between; gap:20px; min-height:54px; max-width:400px; font-size:clamp(23px,3vw,38px); letter-spacing:-.04em; font-weight:550; }
+.infinia-next-link svg { width:30px; height:30px; }
+.infinia-next-edition p:not(.infinia-eyebrow) { max-width:400px; font-size:14px; line-height:1.8; margin-top:18px; color:#53514f; }
+.infinia-next-edition>a { align-self:center; min-height:44px; }
+.infinia-next-edition .infinia-link { margin-top:20px; }
+.infinia-footer { padding:25px max(24px,5vw); display:flex; align-items:center; justify-content:space-between; gap:24px; background:#141416; color:#dedbe0; font-size:11px; }
+.infinia-footer a { display:inline-flex; align-items:center; min-height:44px; gap:8px; }
+.infinia-footer nav { display:flex; gap:20px; }
+.infinia-viewer-overlay { position:fixed; inset:0; z-index:150; background:#08080bf0; }
+.infinia-viewer { position:fixed; inset:20px; z-index:151; display:flex; flex-direction:column; align-items:center; gap:12px; color:#fff; }
+.infinia-viewer-top { display:flex; align-items:center; justify-content:space-between; gap:20px; width:100%; max-width:1200px; font-size:13px; }
+.infinia-viewer-close { min-width:44px; min-height:44px; display:grid; place-items:center; background:#fff2; border:1px solid #fff5; cursor:pointer; }
+.infinia-viewer>img { width:auto; height:auto; max-width:100%; max-height:calc(100dvh - 108px); object-fit:contain; min-height:0; }
+@media (min-width:768px) { .infinia-site { padding-bottom:0; } }
+@media (max-width:1000px) {
+ .infinia-day-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:35px; }
+ .infinia-conversation-grid { gap:30px; }
+ .infinia-workshop-grid { gap:40px 20px; }
+ .infinia-vitals { gap:40px; }
+}
+@media (max-width:767px) {
+ .infinia-hero { padding-top:35px; }
+ .infinia-hero-meta { font-size:9px; gap:12px; align-items:start; }
+ .infinia-hero-meta>span { text-align:right; padding-top:14px; max-width:140px; }
+ .infinia-hero-bottom, .infinia-intro, .infinia-conversation-grid, .infinia-vitals, .infinia-film, .infinia-next-edition { grid-template-columns:1fr; }
+ .infinia-hero-bottom { gap:28px; padding-bottom:35px; }
+ .infinia-hero-intro { justify-self:start; font-size:14px; max-width:480px; }
+ .infinia-editions { grid-template-columns:1fr 1fr; gap:12px; }
+ .infinia-editions>.infinia-eyebrow { grid-column:1/-1; }
+ .infinia-editions>a { font-size:12px; flex-wrap:wrap; gap:8px; }
+ .infinia-edition-year { margin-left:0; }
+ .infinia-editions>a>span:first-child { width:100%; }
+ .infinia-editions>a>svg { margin-left:auto; }
+ .infinia-section { padding-top:55px; padding-bottom:55px; scroll-margin-top:25px; }
+ .infinia-intro { gap:32px; }
+ .infinia-intro-copy { font-size:17px; }
+ .infinia-section-heading { grid-template-columns:1fr; gap:18px; margin-bottom:30px; }
+ .infinia-numbers-top { display:block; }
+ .infinia-numbers-top>p { margin-top:18px; }
+ .infinia-stat-grid { grid-template-columns:repeat(2,minmax(0,1fr)); row-gap:20px; }
+ .infinia-stat-grid dd { font-size:54px; }
+ .infinia-workshop-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:30px 18px; }
+ .infinia-workshop-top { font-size:9px; min-height:46px; }
+ .infinia-workshop-grid h3 { font-size:28px; }
+ .infinia-workshop-description { font-size:14px; }
+ .infinia-track-list { grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; }
+ .infinia-track-list h3 { font-size:17px; }
+ .infinia-day-grid { gap:24px; }
+ .infinia-day-grid h3 { font-size:18px; }
+ .infinia-day-grid p { font-size:12px; }
+ .infinia-conversation-grid { gap:30px; }
+ .infinia-vitals-stats { gap:24px; }
+ .infinia-vitals-stats dd { font-size:48px; }
+ .infinia-section-lede { font-size:14px; margin-bottom:28px; }
+ .infinia-poster-wall { grid-template-columns:repeat(2,minmax(0,1fr)); gap:28px 18px; }
+ .infinia-poster-wall>figure:nth-child(3n+2) { padding-top:0; }
+ .infinia-poster-wall>figure:nth-child(even) { padding-top:30px; }
+ .infinia-photo-grid { gap:28px 18px; }
+ .infinia-photo-grid>figure:nth-child(4n+2) { padding-top:25px; }
+ .infinia-photo-grid>figure:nth-child(5n) { width:100%; }
+ .infinia-next-edition { padding-top:50px; padding-bottom:50px; gap:30px; }
+ .infinia-footer { flex-wrap:wrap; gap:8px 20px; }
+ .infinia-footer>p { width:100%; order:3; }
+ .infinia-viewer { inset:14px; }
+}
+@media (max-width:359px) {
+ .infinia-workshop-grid, .infinia-day-grid, .infinia-track-list { grid-template-columns:1fr; }
+ .infinia-hero-line { font-size:28px; }
+ .infinia-wordmark { font-size:17vw; }
+ .infinia-photo-grid { grid-template-columns:1fr; }
+ .infinia-photo-grid>figure:nth-child(4n+2) { padding-top:0; }
+}
+
+.infinia-collaborators { border-top:1px solid #aaa6a0; margin-top:45px; padding-top:24px; }
+.infinia-collaborators ul { display:flex; flex-wrap:wrap; align-items:center; gap:20px 40px; margin-top:18px; font-size:clamp(15px,2vw,25px); font-weight:550; letter-spacing:-.025em; }
+
+@media (max-width:767px) {
+ .infinia-day-grid { grid-template-columns:1fr; gap:0; }
+ .infinia-day-grid article { display:grid; grid-template-columns:56px minmax(0,1fr); gap:14px 18px; padding:26px 0; border-top:1px solid #8e7f9e; }
+ .infinia-day-number { border:0; padding:0; font-size:44px; line-height:1; }
+ .infinia-day-grid h3 { margin:0; font-size:20px; }
+ .infinia-day-grid p { grid-column:2; font-size:14px; }
+}

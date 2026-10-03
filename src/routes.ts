@@ -7,6 +7,8 @@ export default [
   route("sitemap.xml", "routes/sitemap.ts"),
   index("routes/index.tsx"),
   route("events", "routes/events.tsx"),
+  route("infinia", "routes/infinia.tsx"),
+  route("infinia/:year", "routes/infinia.$year.tsx"),
   route("flagships", "routes/flagships.tsx"),
   route("flagships/:slug/:year", "routes/flagships.$slug.$year.tsx"),
   route("flagships/:slug", "routes/flagships.$slug.tsx"),

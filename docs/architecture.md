@@ -127,12 +127,10 @@ dev  → CI → deploy/staging    → staging
 
 CD reacts only to successful CI on `main` or `dev`, verifies the tested SHA is still the branch head, pins that exact SHA to the matching immutable deployment ref, and then triggers the corresponding Dokploy webhook. Dokploy must deploy the pinned ref rather than mutable `main`/`dev`.
 
-## Flagship story archive
+## Infinia showcase and independent Altair archive
 
-Public SSR /flagships and /flagships/:slug use curated, source-backed src/lib/flagships.ts data, independent of PocketBase availability. Missing slugs return 404. The archive has canonical leaf URLs and production sitemap entries, links to existing event/blog surfaces, and no mutation, registration or email pathway. Media provenance is recorded in docs/flagship-stories-20261003.md.
+Public SSR /infinia and /infinia/:year use curated src/lib/infinia.ts and src/lib/flagships.ts data and the scoped InfiniaShowcase component, independent of PocketBase. Missing years return 404. Legacy /flagships, /flagships/infinia and valid Infinia edition paths issue 301 redirects to canonical showcase routes. /flagships/altair and its 2023/2022 leaves retain their existing archive.
 
-## Separate flagship editions (3 October 2026)
+Production sitemap lists only canonical Infinia URLs plus Altair URLs. Staging remains noindex. Local optimised media under public/media/infinia includes full-frame WebP images and a user-initiated WebM/VP9 film with an H.264 fallback with VTT descriptions. The film is confined to 2024; 2025 report counts and pre-event figures are separately labelled.
 
-The public flagship hub now presents Altair (2022), Altair 2.0 (2023), TechX Infinia (2024), and Infinia 2.0 (2025) as distinct chapters in a latest-first timeline (2025 → 2024 → 2023 → 2022). Stable edition URLs use `/flagships/:slug/:year`; parent programme histories remain at `/flagships/infinia` and `/flagships/altair`. Edition content is shared from the existing typed, source-backed editorial archive. Unknown programme/year combinations return 404. Production sitemap includes all edition leaves; staging stays noindex.
-
-Altair 2.0 is a brochure-derived programme archive. No inferred completion date, attendance or award was added. Photography is confined to the year it documents. Existing event, registration, payment and notification data and delivery flows are untouched.
+No API, PocketBase schema/data mutation, registration, financial, notification or email pathway is introduced. Shared navigation alone gains INFINIA rainbow text; experience styling is scoped. Source provenance, privacy exclusions and Awwwards component mapping are recorded in docs/infinia-showcase-20261004.md.
