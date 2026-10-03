@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowUpRight, Grid3X3, List, Search, X } from "lucide-react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 import { TechnicalDetails } from "@/components/TechnicalDetails";
@@ -160,10 +160,10 @@ function LiveActivitySection({ upcomingEvents, totalUpcoming, activeCommunities 
       <div className="mx-auto max-w-7xl px-5 pb-16 pt-12 sm:px-6 sm:pb-20 sm:pt-14">
         <div className="grid gap-8 border-b border-white/15 pb-9 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
-            <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.2em] text-sky-300">Live signal / IEEE Sahrdaya</p>
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-sky-300">Live signal / IEEE Sahrdaya</p>
             <h2 className="mt-4 text-4xl font-semibold tracking-[-0.045em] sm:text-5xl">What&apos;s happening next.</h2>
           </div>
-          <div className="flex gap-8 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white/45 lg:text-right">
+          <div className="flex gap-8 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-white/65 lg:text-right">
             <span>{String(totalUpcoming).padStart(2, "0")} upcoming events</span>
             <span>{String(activeCommunities).padStart(2, "0")} communities with upcoming events</span>
           </div>
@@ -175,14 +175,14 @@ function LiveActivitySection({ upcomingEvents, totalUpcoming, activeCommunities 
               const accent = societyAccent(event.society.slug);
               return (
                 <Link key={event.id} to={`/events/${event.slug}`} className="group relative grid gap-3 border-b border-white/12 py-6 transition-colors hover:bg-white/[0.025] sm:grid-cols-[105px_minmax(0,1fr)_140px_28px] sm:items-center sm:px-2">
-                  <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">
+                  <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-white/65">
                     <span className="mr-3 text-white/20">{String(index + 1).padStart(2, "0")}</span>{formatSignalDate(event.date)}
                   </div>
                   <div className="min-w-0">
                     <h3 className="text-xl font-semibold tracking-[-0.025em] text-white transition-transform duration-300 group-hover:translate-x-1 motion-reduce:transform-none sm:text-2xl">{event.title}</h3>
-                    {event.venue && <p className="mt-1 truncate text-sm text-white/40">{event.venue}</p>}
+                    {event.venue && <p className="mt-1 truncate text-sm text-white/65">{event.venue}</p>}
                   </div>
-                  <div className="flex items-center gap-2 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-white/55">
+                  <div className="flex items-center gap-2 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">
                     <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accent.color }} />
                     {event.society.slug.toUpperCase()}
                   </div>
@@ -196,7 +196,7 @@ function LiveActivitySection({ upcomingEvents, totalUpcoming, activeCommunities 
           </div>
         ) : (
           <div className="flex flex-col gap-5 border-b border-white/12 py-10 sm:flex-row sm:items-center sm:justify-between">
-            <p className="max-w-xl text-lg text-white/55">No future events are published yet. Explore the directory and check back as communities announce their next sessions.</p>
+            <p className="max-w-xl text-lg text-white/70">No future events are published yet. Explore the directory and check back as communities announce their next sessions.</p>
             <Link to="/events" className="inline-flex items-center gap-2 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-white/75">Explore events <ArrowUpRight className="h-4 w-4" /></Link>
           </div>
         )}
@@ -224,7 +224,7 @@ function GridCard({ society, index, total, activity, onActivate }: { society: So
           {society.slug}
         </span>
 
-        <div className="relative z-10 flex items-center justify-between gap-4 font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-400 sm:text-[9px]">
+        <div className="relative z-10 flex items-center justify-between gap-4 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 sm:text-[10px]">
           <span>IEEE / {society.slug.toUpperCase()}</span>
           <span>{String(index + 1).padStart(2, "0")} / {String(total).padStart(2, "0")}</span>
         </div>
@@ -235,7 +235,7 @@ function GridCard({ society, index, total, activity, onActivate }: { society: So
               {society.name}
             </h2>
             {nextDate && (
-              <div className="mt-3 flex items-center gap-2 font-mono text-[8px] font-semibold uppercase tracking-[0.16em] text-slate-400 sm:text-[9px]">
+              <div className="mt-3 flex items-center gap-2 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 sm:text-[10px]">
                 <span className={`h-1.5 w-1.5 rounded-full ${accent.line}`} />
                 <span>NEXT / {nextDate}</span>
                 {activity && activity.eventCount > 1 && <span>+{activity.eventCount - 1}</span>}
@@ -254,10 +254,10 @@ function GridCard({ society, index, total, activity, onActivate }: { society: So
         )}
 
         <div className="relative z-10 mt-auto flex items-end justify-between gap-4 pt-5 sm:pt-8">
-          <span className="font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-400 transition-all duration-300 group-hover:tracking-[0.22em] group-hover:text-slate-700 sm:text-[9px]">
+          <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 transition-all duration-300 group-hover:tracking-[0.22em] group-hover:text-slate-700 sm:text-[10px]">
             OPEN / {society.slug.toUpperCase()}
           </span>
-          <span className="grid h-7 w-7 place-items-center rounded-full border border-slate-200 text-slate-400 transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 motion-reduce:transform-none motion-reduce:transition-none group-hover:border-slate-300 group-hover:bg-white sm:h-8 sm:w-8">
+          <span className="grid h-7 w-7 place-items-center rounded-full border border-slate-200 text-slate-500 transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 motion-reduce:transform-none motion-reduce:transition-none group-hover:border-slate-300 group-hover:bg-white sm:h-8 sm:w-8">
             <ArrowUpRight className={`h-3.5 w-3.5 ${accent.text}`} />
           </span>
         </div>
@@ -280,18 +280,18 @@ function ListRow({ society, index, activity, onActivate }: { society: Society; i
       onBlur={() => onActivate(null)}
       className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ieee-blue focus-visible:ring-offset-4"
     >
-      <article className={`relative grid grid-cols-[42px_minmax(0,1fr)_auto] items-center gap-4 overflow-hidden border-t border-slate-200 px-1 py-4 transition-colors duration-500 sm:grid-cols-[42px_64px_minmax(0,1fr)_minmax(220px,0.85fr)_auto] sm:px-2 sm:py-5 ${accent.wash}`}>
+      <article className={`relative grid grid-cols-[42px_minmax(0,1fr)_auto] items-center gap-4 overflow-hidden border-t border-slate-200 px-1 py-4 transition-colors duration-500 sm:grid-cols-[32px_52px_minmax(0,1fr)_auto] lg:grid-cols-[42px_64px_minmax(0,1fr)_minmax(220px,0.85fr)_auto] sm:px-2 sm:py-5 ${accent.wash}`}>
         <div className={`absolute inset-x-0 top-0 h-px origin-left scale-x-0 transition-transform duration-500 group-hover:scale-x-100 ${accent.line}`} />
         <span aria-hidden="true" className={`pointer-events-none absolute right-20 top-1/2 hidden -translate-y-1/2 select-none text-6xl font-black uppercase tracking-[-0.08em] opacity-0 transition-opacity duration-500 group-hover:opacity-100 lg:block ${accent.ghost}`}>{society.slug}</span>
-        <span className="relative z-10 font-mono text-[9px] font-semibold tracking-[0.16em] text-slate-400">{String(index + 1).padStart(2, "0")}</span>
+        <span className="relative z-10 font-mono text-[10px] font-semibold tracking-[0.16em] text-slate-500">{String(index + 1).padStart(2, "0")}</span>
         <div className="relative z-10 hidden h-10 w-14 items-center justify-start transition-transform duration-500 group-hover:scale-105 motion-reduce:transform-none motion-reduce:transition-none sm:flex"><SocietyLogo society={society} /></div>
         <div className="relative z-10 min-w-0">
-          <p className="font-mono text-[8px] font-semibold uppercase tracking-[0.16em] text-slate-400 sm:text-[9px]">IEEE / {society.slug.toUpperCase()}</p>
-          <h2 className={`mt-1 truncate text-base font-semibold tracking-[-0.02em] text-slate-950 transition-colors sm:text-lg ${accent.text}`}>{society.name}</h2>
-          {nextDate && <p className="mt-1 font-mono text-[8px] font-semibold uppercase tracking-[0.14em] text-slate-400">NEXT / {nextDate}</p>}
+          <p className="[overflow-wrap:anywhere] font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">IEEE / {society.slug.toUpperCase()}</p>
+          <h2 className={`mt-1 [overflow-wrap:anywhere] text-base font-semibold tracking-[-0.02em] text-slate-950 transition-colors sm:text-lg ${accent.text}`}>{society.name}</h2>
+          {nextDate && <p className="mt-1 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">NEXT / {nextDate}</p>}
         </div>
-        <p className="relative z-10 hidden line-clamp-2 text-sm leading-5 text-slate-500 sm:block">{description}</p>
-        <ArrowUpRight className={`relative z-10 h-4 w-4 text-slate-400 transition duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 motion-reduce:transform-none motion-reduce:transition-none ${accent.text}`} />
+        <div className="relative z-10 hidden lg:block"><p className="line-clamp-2 text-sm leading-5 text-slate-600">{description}</p></div>
+        <ArrowUpRight className={`relative z-10 h-4 w-4 text-slate-500 transition duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 motion-reduce:transform-none motion-reduce:transition-none ${accent.text}`} />
       </article>
     </Link>
   );
@@ -299,23 +299,40 @@ function ListRow({ society, index, activity, onActivate }: { society: Society; i
 
 export default function SocietiesClient({ societies, activityBySociety, upcomingEvents }: SocietiesClientProps) {
   const reduceMotion = useReducedMotion();
-  const [query, setQuery] = useState("");
-  const [view, setView] = useState<ViewMode>("grid");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [listingParams, setListingParams] = useState(searchParams);
+  const latestParams = useRef(searchParams);
+  const pendingSearches = useRef(new Set<string>());
+  const query = listingParams.get("q") ?? "";
+  const view: ViewMode = listingParams.get("view") === "list" ? "list" : "grid";
+
+  // Input updates must render immediately. Router navigations can overlap when
+  // typing quickly; acknowledging our URL writes must not restore older drafts.
+  useEffect(() => {
+    const search = searchParams.toString();
+    if (pendingSearches.current.has(search)) {
+      if (search === latestParams.current.toString()) pendingSearches.current.clear();
+      return;
+    }
+    latestParams.current = searchParams;
+    setListingParams(searchParams);
+  }, [searchParams]);
+
+  const updateParams = useCallback((key: "q" | "view", value: string) => {
+    const next = new URLSearchParams(latestParams.current);
+    if (value) next.set(key, value); else next.delete(key);
+    latestParams.current = next;
+    pendingSearches.current.add(next.toString());
+    setListingParams(next);
+    setSearchParams(next, { replace: true, preventScrollReset: true });
+  }, [setSearchParams]);
+  const setQuery = useCallback((value: string) => updateParams("q", value), [updateParams]);
+  const chooseView = useCallback((next: ViewMode) => updateParams("view", next), [updateParams]);
   const [hoveredSocietyId, setHoveredSocietyId] = useState<string | null>(null);
   const [manualSocietyId, setManualSocietyId] = useState<string | null>(null);
   const [scrollSocietyId, setScrollSocietyId] = useState<string | null>(null);
   const manualTimerRef = useRef<number | null>(null);
   const activeSocietyId = hoveredSocietyId ?? manualSocietyId ?? scrollSocietyId;
-
-  useEffect(() => {
-    const saved = window.localStorage.getItem("societies-view");
-    if (saved === "grid" || saved === "list") setView(saved);
-  }, []);
-
-  const chooseView = (next: ViewMode) => {
-    setView(next);
-    window.localStorage.setItem("societies-view", next);
-  };
 
   useEffect(() => {
     setHoveredSocietyId(null);
@@ -329,9 +346,10 @@ export default function SocietiesClient({ societies, activityBySociety, upcoming
   }, []);
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
       const target = event.target as HTMLElement | null;
-      const editing = target?.tagName === "INPUT" || target?.tagName === "TEXTAREA";
+      if (target?.closest('[role="dialog"], [role="alertdialog"]')) return;
+      const editing = target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.tagName === "SELECT" || target?.isContentEditable;
       if (event.key === "Escape") {
         if (query) setQuery("");
         if (editing) target?.blur();
@@ -343,16 +361,14 @@ export default function SocietiesClient({ societies, activityBySociety, upcoming
         event.preventDefault();
         document.getElementById("society-search")?.focus();
       } else if (key === "g") {
-        setView("grid");
-        window.localStorage.setItem("societies-view", "grid");
+        chooseView("grid");
       } else if (key === "l") {
-        setView("list");
-        window.localStorage.setItem("societies-view", "list");
+        chooseView("list");
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [query]);
+  }, [query, setQuery, chooseView]);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -451,7 +467,7 @@ export default function SocietiesClient({ societies, activityBySociety, upcoming
           initial={reduceMotion ? false : { opacity: 0, x: 8 }}
           animate={{ opacity: 1, x: 0 }}
           data-testid="society-position-indicator"
-          className="pointer-events-none fixed right-4 top-1/2 z-[19] hidden -translate-y-1/2 flex-col items-center gap-2 font-mono text-[8px] font-semibold uppercase tracking-[0.14em] text-slate-400 xl:flex"
+          className="pointer-events-none fixed right-4 top-1/2 z-[19] hidden -translate-y-1/2 flex-col items-center gap-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 xl:flex"
           aria-hidden="true"
         >
           <span>{String(activeIndex + 1).padStart(2, "0")}</span>
@@ -461,29 +477,29 @@ export default function SocietiesClient({ societies, activityBySociety, upcoming
         </motion.aside>
       )}
 
-      <main className="relative z-10 px-5 pb-0 pt-16 sm:px-6 sm:pt-20 md:pt-32">
+      <main className="relative z-10 px-5 pb-0 pt-8 sm:px-6 sm:pt-20 md:pt-32">
         <div className="mx-auto max-w-7xl">
           <motion.section
             data-testid="society-antihero"
-            initial={reduceMotion ? false : { opacity: 0, y: 14 }}
+            initial={false}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.48, ease: [0.22, 1, 0.36, 1] }}
             className="border-b border-slate-200 pb-7 sm:pb-8 lg:pb-9"
           >
-            <div className="flex items-center justify-between gap-6 font-mono text-[9px] font-semibold uppercase tracking-[0.19em] text-slate-400 sm:text-[10px]">
-              <h1 className="font-mono text-[9px] font-semibold uppercase tracking-[0.19em] text-slate-500 sm:text-[10px]">IEEE Sahrdaya / Societies</h1>
+            <div className="flex items-center justify-between gap-6 font-mono text-[10px] font-semibold uppercase tracking-[0.19em] text-slate-500 sm:text-[10px]">
+              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.19em] text-slate-500 sm:text-[10px]">IEEE Sahrdaya / Societies</p>
               <span>Directory · 2026</span>
             </div>
 
             <div className="mt-7 grid gap-7 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end lg:gap-12">
               <div>
-                <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.2em] text-ieee-blue">Community directory / {String(societies.length).padStart(2, "0")}</p>
-                <p className="mt-4 max-w-4xl text-[2.15rem] font-semibold leading-[0.98] tracking-[-0.045em] text-slate-950 sm:text-[2.8rem] lg:text-[3.55rem]">
+                <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-ieee-blue">Community directory / {String(societies.length).padStart(2, "0")}</p>
+                <h1 className="mt-4 max-w-4xl text-[1.8rem] font-semibold leading-[0.98] tracking-[-0.045em] text-slate-950 sm:text-[2.8rem] lg:text-[3.55rem]">
                   A home for the communities that build beyond the classroom.
-                </p>
+                </h1>
               </div>
 
-              <aside className="border-l border-slate-200 pl-5 font-mono text-[8px] font-semibold uppercase leading-5 tracking-[0.16em] text-slate-400 sm:pl-6" aria-label="Branch activity summary">
+              <aside className="hidden border-l border-slate-200 pl-5 font-mono text-[10px] font-semibold uppercase leading-5 tracking-[0.16em] text-slate-500 sm:block sm:pl-6" aria-label="Branch activity summary">
                 <div className="flex items-center gap-2 text-slate-950">
                   <span className={`h-1.5 w-1.5 rounded-full ${upcomingEventCount > 0 ? "bg-ieee-blue" : "bg-slate-300"}`} />
                   Branch signal
@@ -500,15 +516,15 @@ export default function SocietiesClient({ societies, activityBySociety, upcoming
               </aside>
             </div>
 
-            <div className="mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4 font-mono text-[8px] font-semibold uppercase tracking-[0.17em] text-slate-400 sm:text-[9px]">
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4 font-mono text-[10px] font-semibold uppercase tracking-[0.17em] text-slate-500 sm:text-[10px]">
               <span>{String(societies.length).padStart(2, "0")} communities · Thrissur · Kerala</span>
-              <span className="text-slate-600">Search · switch views · jump by index ↓</span>
+              <span className="hidden text-slate-600 sm:block">Search · switch views · jump by index ↓</span>
             </div>
           </motion.section>
 
-          <div id="society-directory" data-testid="society-directory-controls" className="sticky top-20 z-20 scroll-mt-24 bg-white/94 backdrop-blur-xl">
-          <section data-testid="society-network" className="hidden border-b border-slate-200 py-4 md:block" aria-label="Society network status">
-            <div className="flex items-center justify-between gap-6 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+          <div id="society-directory" data-testid="society-directory-controls" className="sticky top-0 z-20 md:top-24 scroll-mt-24 bg-white/94 backdrop-blur-xl">
+          {societies.length > 0 && <section data-testid="society-network" className="hidden border-b border-slate-200 py-4 md:block" aria-label="Society network status">
+            <div className="flex items-center justify-between gap-6 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
               <motion.p
                 key={activeSociety?.id ?? "network-idle"}
                 initial={reduceMotion ? false : { opacity: 0, y: 4 }}
@@ -550,7 +566,7 @@ export default function SocietiesClient({ societies, activityBySociety, upcoming
                     <motion.button
                       key={society.id}
                       type="button"
-                      initial={reduceMotion ? false : { opacity: 0, scale: 0.55 }}
+                      initial={false}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ duration: 0.3, delay: reduceMotion ? 0 : 0.2 + index * 0.035 }}
                       onPointerDown={(event) => {
@@ -564,34 +580,37 @@ export default function SocietiesClient({ societies, activityBySociety, upcoming
                       onMouseLeave={() => setHoveredSocietyId(null)}
                       onFocus={() => setHoveredSocietyId(society.id)}
                       onBlur={() => setHoveredSocietyId(null)}
+                      title={society.name}
                       data-society-node={society.slug.toLowerCase()}
+                      disabled={!filtered.some((entry) => entry.id === society.id)}
                       aria-label={`Jump to ${society.name}${eventCount ? `, ${eventCount} upcoming ${eventCount === 1 ? "event" : "events"}` : ""}`}
-                      className="group/node flex h-6 items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ieee-blue focus-visible:ring-offset-2"
+                      className="group/node flex min-h-11 flex-col items-center justify-center gap-2 disabled:cursor-default disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ieee-blue focus-visible:ring-offset-2"
                     >
                       <span className={`relative block rounded-full border transition-all duration-300 ${eventCount > 1 ? "h-3 w-3" : "h-2.5 w-2.5"} ${active ? `scale-[1.45] border-white ring-1 ring-slate-300 ${accent.line}` : eventCount ? `border-white ring-1 ring-slate-300 ${accent.line}` : "border-slate-300 bg-white"}`}>
                         {eventCount > 1 && <span className="absolute inset-[-4px] rounded-full border opacity-35" style={{ borderColor: accent.color }} />}
                         {eventCount === 1 && !active && <span className={`absolute inset-[-3px] rounded-full opacity-20 ${accent.line}`} />}
                       </span>
+                      <span className="w-full truncate px-1 text-[10px] text-slate-600">{society.slug === "ieee-student-branch" ? "SB" : society.slug.toUpperCase()}</span>
                     </motion.button>
                   );
                 })}
               </div>
             </div>
-          </section>
+          </section>}
 
           <section className="border-b border-slate-200 py-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <label htmlFor="society-search" className="sr-only">Search societies</label>
-              <div className="relative flex-1">
-                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input id="society-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search societies, fields or interests…" className="h-11 w-full border-0 bg-transparent pl-10 pr-20 text-base text-slate-900 outline-none transition placeholder:text-slate-400 focus:bg-slate-50/50 lg:text-sm" />
-                {query ? <button type="button" aria-label="Clear search" onClick={() => setQuery("")} className="absolute right-0 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X className="h-4 w-4" /></button> : <kbd className="absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-slate-200 bg-white px-2 py-1 font-mono text-[10px] text-slate-400 sm:block">/</kbd>}
+              <div className="relative min-w-0 flex-1">
+                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                <input type="search" id="society-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search societies, fields or interests…" className="h-11 w-full border-0 bg-transparent pl-10 pr-12 text-base sm:pr-16 text-slate-900 outline-none transition placeholder:text-slate-500 focus:bg-slate-50/50 lg:text-sm" />
+                {query ? <button type="button" aria-label="Clear search" onClick={() => setQuery("")} className="absolute right-0 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center text-slate-500 hover:bg-slate-100 hover:text-slate-700"><X className="h-4 w-4" /></button> : <kbd className="absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-slate-200 bg-white px-2 py-1 font-mono text-[10px] text-slate-500 sm:block">/</kbd>}
               </div>
-              <div className="flex items-center justify-between gap-3 px-1 sm:px-0">
-                <span className="whitespace-nowrap font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-400 sm:pl-3">{query ? `SEARCH / ${query.toUpperCase()} · ${filtered.length} ${filtered.length === 1 ? "MATCH" : "MATCHES"}` : `${filtered.length} RESULTS`}</span>
+              <div className="flex flex-wrap items-center justify-between gap-3 px-1 sm:px-0">
+                <span role="status" className="font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-600 sm:pl-3">Showing {filtered.length} of {societies.length} communities</span>
                 <div className="flex border-l border-slate-200 pl-2" role="group" aria-label="Society view">
-                  <button type="button" aria-label="Grid view" title="Grid view (G)" aria-pressed={view === "grid"} onClick={() => chooseView("grid")} className={`inline-grid h-11 w-11 place-items-center transition ${view === "grid" ? "text-slate-950" : "text-slate-300 hover:text-slate-600"}`}><Grid3X3 className="h-4 w-4" /></button>
-                  <button type="button" aria-label="List view" title="List view (L)" aria-pressed={view === "list"} onClick={() => chooseView("list")} className={`inline-grid h-11 w-11 place-items-center transition ${view === "list" ? "text-slate-950" : "text-slate-300 hover:text-slate-600"}`}><List className="h-4 w-4" /></button>
+                  <button type="button" aria-label="Grid view" title="Grid view (G)" aria-pressed={view === "grid"} onClick={() => chooseView("grid")} className={`inline-flex min-h-11 items-center justify-center gap-2 px-3 transition ${view === "grid" ? "text-slate-950" : "text-slate-500 hover:text-slate-700"}`}><Grid3X3 className="h-4 w-4" /><span className="text-xs font-semibold">Grid</span></button>
+                  <button type="button" aria-label="List view" title="List view (L)" aria-pressed={view === "list"} onClick={() => chooseView("list")} className={`inline-flex min-h-11 items-center justify-center gap-2 px-3 transition ${view === "list" ? "text-slate-950" : "text-slate-500 hover:text-slate-700"}`}><List className="h-4 w-4" /><span className="text-xs font-semibold">List</span></button>
                 </div>
               </div>
             </div>
@@ -600,14 +619,14 @@ export default function SocietiesClient({ societies, activityBySociety, upcoming
           <section className="mt-6 pb-20 sm:mt-8 sm:pb-28">
             {filtered.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-slate-300 bg-white/75 px-6 py-16 text-center">
-                <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">No matching societies</p>
-                <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900">Try another field or interest.</h2>
-                <button type="button" onClick={() => setQuery("")} className="mt-5 text-sm font-semibold text-ieee-blue hover:underline">Clear search</button>
+                <h2 className="text-2xl font-semibold tracking-tight text-slate-900">{societies.length ? "No communities match your search." : "The community directory is being updated."}</h2>
+                <p className="mt-3 text-sm leading-6 text-slate-600">{societies.length ? "Try a society name, abbreviation or area of interest." : "Community profiles will appear here when they are published."}</p>
+                {societies.length ? <button type="button" onClick={() => setQuery("")} className="mt-5 inline-flex min-h-11 items-center px-4 text-sm font-semibold text-ieee-blue hover:underline">Clear search</button> : <Link to="/events" className="mt-5 inline-flex min-h-11 items-center px-4 text-sm font-semibold text-ieee-blue hover:underline">Explore events</Link>}
               </div>
             ) : view === "grid" ? (
               <motion.div layout className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                 {filtered.map((society, index) => (
-                  <motion.div key={society.id} layout initial={reduceMotion ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: reduceMotion ? 0 : Math.min(index * 0.025, 0.2) }}>
+                  <motion.div key={society.id} layout initial={false} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: reduceMotion ? 0 : Math.min(index * 0.025, 0.2) }}>
                     <GridCard society={society} index={societies.indexOf(society)} total={societies.length} activity={activityBySociety[society.id]} onActivate={setHoveredSocietyId} />
                   </motion.div>
                 ))}
@@ -615,7 +634,7 @@ export default function SocietiesClient({ societies, activityBySociety, upcoming
             ) : (
               <motion.div layout>
                 {filtered.map((society) => (
-                  <motion.div key={society.id} layout initial={reduceMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
+                  <motion.div key={society.id} layout initial={false} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
                     <ListRow society={society} index={societies.indexOf(society)} activity={activityBySociety[society.id]} onActivate={setHoveredSocietyId} />
                   </motion.div>
                 ))}
@@ -629,14 +648,14 @@ export default function SocietiesClient({ societies, activityBySociety, upcoming
       <section data-testid="society-directory-end" className="relative z-20 border-y border-slate-200 bg-white">
         <div className="mx-auto grid max-w-7xl gap-8 px-5 py-14 sm:px-6 sm:py-20 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
-            <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.19em] text-slate-400">End / Society directory</p>
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.19em] text-slate-500">End / Society directory</p>
             <h2 className="mt-4 max-w-2xl text-3xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-4xl">Keep exploring IEEE Sahrdaya.</h2>
           </div>
-          <div className="flex flex-wrap gap-x-7 gap-y-4 font-mono text-[9px] font-semibold uppercase tracking-[0.17em] text-slate-500">
-            <Link to="/events" className="transition hover:text-ieee-blue">Events ↗</Link>
-            <Link to="/blog" className="transition hover:text-ieee-blue">Blog ↗</Link>
-            <Link to="/#execom" className="transition hover:text-ieee-blue">Execom ↗</Link>
-            <a href="#societies-top" className="transition hover:text-ieee-blue">Back to top ↑</a>
+          <div className="flex flex-wrap gap-x-7 gap-y-4 font-mono text-[10px] font-semibold uppercase tracking-[0.17em] text-slate-500">
+            <Link to="/events" className="inline-flex min-h-11 items-center transition hover:text-ieee-blue">Events ↗</Link>
+            <Link to="/blog" className="inline-flex min-h-11 items-center transition hover:text-ieee-blue">Blog ↗</Link>
+            <Link to="/#execom" className="inline-flex min-h-11 items-center transition hover:text-ieee-blue">Execom ↗</Link>
+            <a href="#societies-top" className="inline-flex min-h-11 items-center transition hover:text-ieee-blue">Back to top ↑</a>
           </div>
         </div>
       </section>

@@ -155,3 +155,8 @@ Desktop navigation remains available during scroll. Homepage core-team cards use
 ## Public discovery refinements (October 2026)
 
 An empty programme uses a compact editorial row and a direct archive action. Blog search includes every published story; the featured promotion yields to active search/topic results. Blog and Execom search, group/topic and view preferences live in URL parameters and survive reload/Back. Public filters use at least 44px controls with readable mono labels; mobile Execom groups use full names in a native select. Member profiles use the shared Radix modal with background isolation and focus restoration. Empty data states describe unpublished content; filtered zero-results states offer a reset.
+
+
+## Society discovery refinements (October 2026)
+
+The community directory follows the shared URL-based discovery pattern: search and grid/list view survive reload and detail-page Back navigation. Search counts describe the current subset without repeating unbounded input. Network nodes show abbreviations, provide 44px targets, and disable destinations excluded by the active search. Full community names wrap in the list; descriptions join the row only when desktop width allows them. Directory content is visible in the server-rendered baseline. Generic society profiles use readable metadata and wrapping titles, with touch-sized activity links. Empty published data and zero search results have different recovery actions.

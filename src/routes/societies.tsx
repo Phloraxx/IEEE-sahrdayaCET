@@ -8,6 +8,8 @@ import { isPastEvent } from "@/lib/event-lifecycle";
 import { fetchEvents } from "@/server/public/events.server";
 import { CanonicalLink } from "@/components/CanonicalLink";
 
+export { shouldRevalidatePublicListing as shouldRevalidate } from "@/lib/public-listing-navigation";
+
 const description = "Explore technical societies under IEEE Sahrdaya Student Branch — Computer Society, RAS, WIE, IAS, PES and more.";
 
 export const meta = () => [

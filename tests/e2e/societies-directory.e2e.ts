@@ -5,7 +5,7 @@ test.describe('societies directory', () => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto('/societies', { waitUntil: 'networkidle' })
 
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('IEEE Sahrdaya / Societies')
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('A home for the communities')
     const entrance = page.getByTestId('society-antihero')
     await expect(entrance).toBeVisible()
     await expect(entrance).toContainText('A home for the communities that build beyond the classroom.')
@@ -62,7 +62,7 @@ test.describe('societies directory', () => {
     await page.goto('/societies', { waitUntil: 'networkidle' })
     await expect(page.getByTestId('society-network')).toBeHidden()
     await expect(page.getByTestId('society-antihero')).toBeVisible()
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('IEEE Sahrdaya / Societies')
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('A home for the communities')
     await expect(page.locator('#society-search')).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390)
   })
