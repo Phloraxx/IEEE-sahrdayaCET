@@ -30,7 +30,7 @@ test.describe("flagship story archive", () => {
       { title: "Altair 2.0", path: "/altair/2023", year: "2023", date: "2023 programme" },
       { title: "TechX Infinia", path: "/infinia/2024", year: "2024", date: "27–29 September 2024" },
       { title: "Infinia 2.0", path: "/infinia/2025", year: "2025", date: "26–28 September 2025" },
-    ];
+    ].reverse();
     try {
       await page.goto("/flagships");
       await expect(page.locator('section[aria-label="Flagship edition timeline"] h2')).toHaveText(editions.map(item => item.title));
@@ -44,10 +44,13 @@ test.describe("flagship story archive", () => {
         await expect(page.locator('meta[property="og:url"]')).toHaveAttribute("content", `https://ieeesahrdaya.com/flagships${edition.path}`);
         if (edition.year === "2023") {
           await expect(page.getByText("Programme archive", { exact: false }).first()).toBeVisible();
-          await expect(page.locator("main img")).toHaveCount(0);
+          await expect(page.locator('main img[src$="altair-2023-teamwork.webp"]')).toBeVisible();
           await expect(page.getByText(/announced in the Altair 2.0 brochure/)).toBeVisible();
         }
-        if (edition.year === "2024") await expect(page.locator("main img")).toHaveCount(0);
+        const images = await page.locator("main img").evaluateAll(elements => elements.map(element => element.getAttribute("src")));
+        expect(images.length).toBeGreaterThanOrEqual(2);
+        for (const src of images) expect(src).toContain(`-${edition.year}-`);
+        await expect(page.locator('meta[property="og:image"]')).toHaveAttribute("content", new RegExp(`-${edition.year}-.*\\.webp$`));
         await page.getByRole("link", { name: "Flagship timeline", exact: true }).click();
         await expect(page).toHaveURL(new RegExp(`/flagships#year-${edition.year}$`));
         await page.reload();

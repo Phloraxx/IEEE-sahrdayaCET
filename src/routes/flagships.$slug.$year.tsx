@@ -28,7 +28,7 @@ export const meta = ({ data }: { data?: ReturnType<typeof loader> }) => {
 export default function FlagshipEditionPage() {
   const { flagship, edition, href, siblings } = useLoaderData<typeof loader>();
   // Gallery media belongs to a specific edition; never imply that 2022/2025 media depicts another year.
-  const gallery = edition.image ? flagship.gallery : [];
+  const gallery = edition.gallery;
   return (
     <FlagshipLayout path={href}>
       <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-x-3 text-xs text-slate-500">
@@ -49,7 +49,7 @@ export default function FlagshipEditionPage() {
       </section>
       {gallery.length > 0 && <section aria-labelledby="edition-archive-heading" className="mt-12 border-t border-slate-300 pt-8 sm:mt-16">
         <p className={flagshipLabelClass}>From this edition</p>
-        <h2 id="edition-archive-heading" className="mt-3 text-3xl font-bold tracking-tight">{edition.recordType === "programme" || flagship.slug === "altair" ? "The programme in print." : "Inside the experience."}</h2>
+        <h2 id="edition-archive-heading" className="mt-3 text-3xl font-bold tracking-tight">From the edition archive.</h2>
         <div className={`mt-7 grid items-start gap-7 ${gallery.length > 1 ? "sm:grid-cols-2" : "max-w-3xl"}`}>
           {gallery.map(photo => <FlagshipPhoto key={photo.src} photo={photo} />)}
         </div>

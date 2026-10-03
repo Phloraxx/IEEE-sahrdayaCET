@@ -36,6 +36,30 @@ Full CI regression: 133 browser checks passed, but the existing no-JavaScript po
 
 ## Separate flagship editions (3 October 2026)
 
-The public flagship hub now presents Altair (2022), Altair 2.0 (2023), TechX Infinia (2024), and Infinia 2.0 (2025) as distinct chapters in a chronological timeline. Stable edition URLs use `/flagships/:slug/:year`; parent programme histories remain at `/flagships/infinia` and `/flagships/altair`. Edition content is shared from the existing typed, source-backed editorial archive. Unknown programme/year combinations return 404. Production sitemap includes all edition leaves; staging stays noindex.
+The public flagship hub now presents Altair (2022), Altair 2.0 (2023), TechX Infinia (2024), and Infinia 2.0 (2025) as distinct chapters in a latest-first timeline (2025 → 2024 → 2023 → 2022). Stable edition URLs use `/flagships/:slug/:year`; parent programme histories remain at `/flagships/infinia` and `/flagships/altair`. Edition content is shared from the existing typed, source-backed editorial archive. Unknown programme/year combinations return 404. Production sitemap includes all edition leaves; staging stays noindex.
 
 Altair 2.0 is a brochure-derived programme archive. No inferred completion date, attendance or award was added. Photography is confined to the year it documents. Existing event, registration, payment and notification data and delivery flows are untouched.
+
+## Latest-first archive and richer stories (4 October 2026)
+
+The hub and its year navigation now run 2025 → 2024 → 2023 → 2022. Start with Infinia 2.0, followed by TechX Infinia, Altair 2.0 and Altair. All four leaf stories retain independent URLs, source-backed copy and genuine cover photos. The typed edition record explicitly owns its gallery; leaf routes never inherit the parent programme's mixed-year gallery. Parent archives can show multiple years with explicit captions.
+
+Completed reports supply the 2022/2024 day-by-day narratives and the 2025 workshop examples (Figma flows/wireframes, Verilog/Basys 3 examples, drone dynamics, a Hyundai EV demonstration and diagnostics). The 2023 brochure supplies announced workshop trainers and sessions; 2023 media supplies only observable photographic context. October 1/2 photo timestamps are not used to infer the event's full dates or validate all advertised outcomes. No attendance, award or successor claims were added.
+
+### Newly selected image provenance
+
+| Derivative | Drive original | Evidence and framing |
+| --- | --- | --- |
+| altair-2022-community.webp | IMG_0388.JPG, 1hjPSKumyAnJ0x51n1Je6G2-hf6BBL_ZR | Altair 2022 Day 3 media folder 1lmUi3kR9ewOLC1VS1YTL2P4pWzC8yUG0; source EXIF DateTime 13 November 2022. Campus group with ALTAIR letters; no identity assumptions. |
+| altair-2023-audience.webp | IMG_5173.HEIC, 1MKiILlajQtYhxVw0N97h8O4CyrDHhjlJ | Altair 2023 Media/Rahul archive; visible Altair 2.0 stage display; no exact capture date asserted. |
+| altair-2023-teamwork.webp | IMG_5232.JPG, 1q2tKWTkfWfPj6Z9e55GNduY88wRO-_U8 | Same 2023 photo archive; EXIF capture 1 October 2023; group activity only, no unverified trainer or workshop identification. |
+| altair-2023-conversations.webp | IMG_5274.JPG, 1BR-tTi3GGhukjehTtAbcRY7m2PQklMyI | Same 2023 photo archive; EXIF capture 2 October 2023; speakers not identified from appearance. |
+| infinia-2024-community.webp | P2239317.JPG, 1vcFlqheHVoNzbcqF9by9DxJrR-hYJaIJ | 2024 Infinia group-photo folder; EXIF capture 29 September 2024. |
+| infinia-2024-robotics.webp | IMG-20241006-WA0059.jpg, 1vXQXifjYWfa98dLXkM-yX3ViS14nRWRH | 2024 ROBOTICS EXPO folder; filename reflects a later share date, so no exact capture date asserted. |
+| infinia-2025-expo.webp | P2297438.JPG, 1CdMrDIkkHUlqLP4OJrkqTT6ao9EYSEMb | Infinia 2025 EXPO folder; EXIF capture 28 September 2025; caption describes the visible demonstration without assigning an unverified exhibit. |
+
+Seven new WebP derivatives total approximately 1.14 MB. Orientation is corrected from EXIF before export; private EXIF is removed. Covers retain full framing, and portrait gallery images use contain rather than face-cropping. All transfer hashes were verified. Original Drive items and permissions are untouched. No named participant certificates, private response sheets, AppleDouble resource files or restricted videos are included. All media remains within the authorised staging preview pending any production media review.
+
+Acceptance additionally checks newest-first DOM order, correct-year social covers and at least two genuine/labelled images per edition leaf, with no cross-year gallery leakage.
+
+Current change validation: lint/typecheck/build passed; 420 unit tests passed with three local font-environment skips. Nine focused browser checks passed across 320/390/768/1440px, including no-JavaScript descending timeline navigation, canonical/social metadata and correct-year galleries. Desktop/mobile hub captures and Altair 2.0 portrait gallery were visually inspected. Exact-head full PR CI and live staging validation remain required before completion.

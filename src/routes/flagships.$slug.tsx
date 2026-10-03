@@ -64,7 +64,7 @@ export default function FlagshipStoryPage() {
       ))}
       <section aria-labelledby="archive-heading" className="mt-10 sm:mt-16">
         <p className={flagshipLabelClass}>From the archive</p>
-        <h2 id="archive-heading" className="mt-3 text-3xl font-bold tracking-tight">{flagship.slug === "altair" ? "The programme in print." : "Inside the experience."}</h2>
+        <h2 id="archive-heading" className="mt-3 text-3xl font-bold tracking-tight">Moments across the editions.</h2>
         <div className={`mt-7 grid items-start gap-7 ${flagship.gallery.length > 1 ? "sm:grid-cols-2" : "max-w-3xl"}`}>
           {flagship.gallery.map(photo => <FlagshipPhoto key={photo.src} photo={photo} />)}
         </div>
