@@ -1,4 +1,4 @@
-import { ArrowLeft, Mail, MapPin, Phone } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Mail, MapPin, Phone } from "lucide-react";
 import { Link } from "react-router";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -18,6 +18,12 @@ export const meta = () => [
   { property: "og:url", content: `${APP_URL}${path}` },
 ];
 
+const supportLinks = [
+  { title: "Tickets & registrations", description: "Find your registered events and ticket access. Sign-in required.", href: "/my-events" },
+  { title: "Verify a certificate", description: "Check a certificate using its verification code.", href: "/verify" },
+  { title: "Event pricing", description: "See published registration fees and event details.", href: "/pricing" },
+  { title: "Refund & cancellation policy", description: "Read eligibility and the refund request process.", href: "/refund-and-cancellation-policy" },
+];
 const cards = [
   { label: "Email", value: BUSINESS_INFO.email, href: `mailto:${BUSINESS_INFO.email}`, icon: Mail },
   { label: "Phone", value: `${BUSINESS_INFO.phoneDisplay} · ${BUSINESS_INFO.contactPerson}, ${BUSINESS_INFO.contactRole}`, href: BUSINESS_INFO.phoneHref, icon: Phone },
@@ -30,7 +36,7 @@ export default function ContactPage() {
       <div className="min-h-screen bg-white text-gray-900">
         <Navbar />
         <main className="mx-auto w-full max-w-5xl px-4 pb-20 pt-14 sm:px-6 sm:pt-20 md:pt-32 lg:px-8">
-          <Link to="/" className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-ieee-blue">
+          <Link to="/" className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-gray-500 hover:text-ieee-blue">
             <ArrowLeft className="h-4 w-4" /> Back to IEEE Sahrdaya
           </Link>
           <header className="mt-8 max-w-3xl border-b border-gray-200 pb-8">
@@ -40,15 +46,32 @@ export default function ContactPage() {
               For event registration, payment status, refunds, ticket access, certificates or website support, use the official branch contact details below.
             </p>
           </header>
-          <div className="mt-10 grid gap-4 md:grid-cols-3">
-            {cards.map(({ label, value, href, icon: Icon }) => (
-              <a key={label} href={href} target={label === "Visit" ? "_blank" : undefined} rel={label === "Visit" ? "noopener noreferrer" : undefined} className="group rounded-2xl border border-gray-200 p-5 transition hover:border-ieee-blue/40 hover:shadow-sm">
-                <Icon className="h-5 w-5 text-ieee-blue" />
-                <p className="mt-5 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">{label}</p>
-                <p className="mt-2 text-sm font-medium leading-6 text-gray-900 group-hover:text-ieee-blue">{value}</p>
-              </a>
-            ))}
-          </div>
+          <section className="mt-8" aria-labelledby="support-shortcuts-title">
+            <h2 id="support-shortcuts-title" className="text-lg font-semibold text-gray-950">Find what you need</h2>
+            <nav aria-label="Support shortcuts" className="mt-4 grid gap-3 sm:grid-cols-2">
+              {supportLinks.map(({ title, description, href }) => (
+                <Link key={href} to={href} className="group flex min-w-0 items-start justify-between gap-4 rounded-xl border border-gray-200 bg-gray-50 px-5 py-4 transition hover:border-ieee-blue/40 hover:bg-white">
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-semibold leading-6 text-gray-950 group-hover:text-ieee-blue">{title}</h3>
+                    <p className="mt-1 text-sm leading-6 text-gray-600">{description}</p>
+                  </div>
+                  <ArrowUpRight className="mt-1 h-4 w-4 shrink-0 text-ieee-blue" aria-hidden="true" />
+                </Link>
+              ))}
+            </nav>
+          </section>
+          <section className="mt-10" aria-labelledby="branch-contact-title">
+            <h2 id="branch-contact-title" className="text-lg font-semibold text-gray-950">Contact the branch</h2>
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
+              {cards.map(({ label, value, href, icon: Icon }) => (
+                <a key={label} href={href} target={label === "Visit" ? "_blank" : undefined} rel={label === "Visit" ? "noopener noreferrer" : undefined} className="group rounded-2xl border border-gray-200 p-5 transition hover:border-ieee-blue/40 hover:shadow-sm">
+                  <Icon className="h-5 w-5 text-ieee-blue" />
+                  <p className="mt-5 font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-600">{label}</p>
+                  <p className="mt-2 break-words text-sm font-medium leading-6 text-gray-900 group-hover:text-ieee-blue">{value}</p>
+                </a>
+              ))}
+            </div>
+          </section>
           <section className="mt-8 rounded-2xl bg-gray-50 p-6 text-sm leading-7 text-gray-600">
             <h2 className="text-lg font-semibold text-gray-950">When contacting us</h2>
             <p className="mt-2">

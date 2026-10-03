@@ -36,6 +36,13 @@ const mobilePrimaryItems = [
   { label: "Blog", href: "/blog", Icon: BookOpen },
 ] as const;
 
+const mobileHelpItems = [
+  { label: "Contact & support", href: "/contact" },
+  { label: "Verify a certificate", href: "/verify" },
+  { label: "Event pricing", href: "/pricing" },
+  { label: "About the branch", href: "/about" },
+] as const;
+
 function MobileMascot({
   pixel = 3,
   placement,
@@ -191,6 +198,7 @@ export default function Navbar() {
   const isMoreActive =
     pathname === "/full-execom" ||
     pathname.startsWith("/my-events") ||
+    mobileHelpItems.some((item) => pathname === item.href) ||
     (pathname === "/" && hash === "#execom");
 
   return (
@@ -230,6 +238,7 @@ export default function Navbar() {
                 type="button"
                 ref={mobileMoreRef}
                 aria-label="Open more navigation"
+                aria-current={isMoreActive ? "page" : undefined}
                 aria-controls="mobile-site-navigation"
                 aria-expanded={mobileMenuOpen}
                 className={`relative flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 px-1 pt-1 text-[9px] font-bold uppercase tracking-[0.08em] transition-colors focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-[#00629B] ${isMoreActive ? "text-[#00629B]" : "text-black/50 hover:text-[#00629B]"}`}
@@ -435,6 +444,26 @@ export default function Navbar() {
                     </button>
                   </div>
                 )}
+              </div>
+              <div className="mt-3 border-t border-black/[0.08] pt-3">
+                <p className="px-3 pb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-black/60">Help & branch</p>
+                <nav className="grid gap-1" aria-label="Mobile help navigation">
+                  {mobileHelpItems.map((item) => {
+                    const isActive = pathname === item.href;
+                    return (
+                      <Link
+                        key={item.href}
+                        to={item.href}
+                        onClick={() => setMobileMenuOpen(false)}
+                        aria-current={isActive ? "page" : undefined}
+                        className={`flex min-h-12 items-center justify-between gap-3 rounded-2xl px-4 text-sm font-semibold ${isActive ? "bg-[#e9f6fc] text-[#00629B]" : "text-[#1e2732] hover:bg-black/[0.045]"}`}
+                      >
+                        <span>{item.label}</span>
+                        <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+                      </Link>
+                    );
+                  })}
+                </nav>
               </div>
             </div>
           </DialogPrimitive.Content>

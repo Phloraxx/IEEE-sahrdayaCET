@@ -160,3 +160,10 @@ An empty programme uses a compact editorial row and a direct archive action. Blo
 ## Society discovery refinements (October 2026)
 
 The community directory follows the shared URL-based discovery pattern: search and grid/list view survive reload and detail-page Back navigation. Search counts describe the current subset without repeating unbounded input. Network nodes show abbreviations, provide 44px targets, and disable destinations excluded by the active search. Full community names wrap in the list; descriptions join the row only when desktop width allows them. Directory content is visible in the server-rendered baseline. Generic society profiles use readable metadata and wrapping titles, with touch-sized activity links. Empty published data and zero search results have different recovery actions.
+
+## Support and policy pages
+
+- The mobile More sheet includes a labelled Help & branch group for Contact, certificate verification, event pricing and About. Keep these routes in its active state and preserve account focus handling.
+- Contact offers direct self-service links before official branch contact details. Any account requirement is visible before navigation; contact links never send automatically.
+- Long policy pages retain their official wording, use native section anchors and explicit ordered-list markers, and keep text within a readable column. Mobile contents use a native disclosure; desktop contents remain alongside the text.
+- Catalog cards expose full event names and direct policy links. Display polish must not alter fees, discounts or payment behavior.
