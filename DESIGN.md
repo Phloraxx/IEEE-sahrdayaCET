@@ -182,3 +182,5 @@ The community directory follows the shared URL-based discovery pattern: search a
 - Generic society profiles expose About/People/Activity shortcuts, semantic facts in two columns on phones, complete wrapping headings and touch-sized community links. Preserve all public record counts and the bespoke WIE surface.
 
 Mobile native scrolling keeps focused controls clear of the fixed dock using bottom scroll padding/margins, including when JavaScript is disabled.
+
+Article sidebars must stick to the page viewport. Use horizontal clipping that does not create a scroll container, place sticky positioning on the grid item itself and keep long desktop contents scrollable within the viewport.

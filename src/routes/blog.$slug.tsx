@@ -104,7 +104,7 @@ export default function BlogPostPage() {
 
   return (
     <ErrorBoundary>
-      <div className="relative min-h-screen w-full overflow-x-hidden bg-white text-gray-900 selection:bg-ieee-blue/20">
+      <div className="relative min-h-screen w-full overflow-x-clip bg-white text-gray-900 selection:bg-ieee-blue/20">
         <link rel="canonical" href={canonicalUrl} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(blogSchema).replace(/</g, "\\u003c") }} />
         <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
@@ -144,9 +144,9 @@ export default function BlogPostPage() {
                   <div className="pb-4"><ArticleContents headings={article.headings} /></div>
                 </details>
               ) : null}
-              <aside className="hidden min-w-0 xl:block">
+              <aside className="hidden min-w-0 xl:sticky xl:top-28 xl:block xl:max-h-[calc(100dvh-8rem)] xl:overflow-y-auto">
                 {article.headings.length > 1 ? (
-                  <div className="sticky top-28">
+                  <div>
                     <p className="mb-4 font-pixel text-[10px] text-gray-700">CONTENTS</p>
                     <ArticleContents headings={article.headings} />
                   </div>
