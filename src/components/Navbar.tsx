@@ -24,6 +24,7 @@ import { MASCOT_BODY, MASCOT_HEAD, PixelGrid } from "./mascot";
 const navItems: NavItem[] = [
   { label: "HOME", href: "/" },
   { label: "EVENTS", href: "/events" },
+  { label: "FLAGSHIPS", href: "/flagships" },
   { label: "SOCIETIES", href: "/societies" },
   { label: "BLOG", href: "/blog" },
   { label: "EXECOM", href: "/full-execom" },
@@ -105,6 +106,10 @@ export default function Navbar() {
     window.addEventListener("resize", closeDesktopMenu);
     return () => window.removeEventListener("resize", closeDesktopMenu);
   }, []);
+
+  const getMobileMoreTrigger = () => mobileMoreRef.current?.isConnected
+    ? mobileMoreRef.current
+    : document.querySelector<HTMLButtonElement>("[data-mobile-more-trigger]");
 
   const handleLogout = () => {
     signOut();
@@ -197,6 +202,7 @@ export default function Navbar() {
     }`;
   const isMoreActive =
     pathname === "/full-execom" ||
+    pathname === "/flagships" || pathname.startsWith("/flagships/") ||
     pathname.startsWith("/my-events") ||
     mobileHelpItems.some((item) => pathname === item.href) ||
     (pathname === "/" && hash === "#execom");
@@ -237,6 +243,7 @@ export default function Navbar() {
               <button
                 type="button"
                 ref={mobileMoreRef}
+                data-mobile-more-trigger
                 aria-label="Open more navigation"
                 aria-current={isMoreActive ? "page" : undefined}
                 aria-controls="mobile-site-navigation"
@@ -295,6 +302,13 @@ export default function Navbar() {
               if (handoffToLoginRef.current) {
                 event.preventDefault();
                 handoffToLoginRef.current = false;
+                return;
+              }
+              // Use the current trigger after navigation has replaced the page shell.
+              const trigger = getMobileMoreTrigger();
+              if (window.innerWidth < 768 && trigger) {
+                event.preventDefault();
+                trigger.focus();
               }
             }}
             className="mobile-nav-sheet fixed left-[calc(0.75rem+env(safe-area-inset-left,0px))] right-[calc(0.75rem+env(safe-area-inset-right,0px))] bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] z-[102] max-h-[calc(100dvh-1.5rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] overflow-y-auto rounded-[28px] border border-black/10 bg-white/[0.96] shadow-2xl shadow-black/20 backdrop-blur-2xl md:hidden"
@@ -471,7 +485,7 @@ export default function Navbar() {
       </DialogPrimitive.Root>
 
       <LoginModal
-        returnFocus={() => loginFromMobile.current ? mobileMoreRef.current : null}
+        returnFocus={() => loginFromMobile.current ? getMobileMoreTrigger() : null}
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
       />

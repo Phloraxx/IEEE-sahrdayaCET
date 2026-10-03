@@ -4,6 +4,7 @@ import { BRANCH_SOCIAL_LINKS } from "@/lib/social-links";
 
 const policyLinks = [
   { label: "About Us", href: "/about" },
+  { label: "Flagship Events", href: "/flagships" },
   { label: "Contact Us", href: "/contact" },
   { label: "Event Pricing", href: "/pricing" },
   { label: "Shipping & Delivery", href: "/shipping-and-delivery-policy" },

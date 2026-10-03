@@ -165,7 +165,7 @@ The community directory follows the shared URL-based discovery pattern: search a
 
 - The mobile More sheet includes a labelled Help & branch group for Contact, certificate verification, event pricing and About. Keep these routes in its active state and preserve account focus handling.
 - Contact offers direct self-service links before official branch contact details. Any account requirement is visible before navigation; contact links never send automatically.
-- Long policy pages retain their official wording, use native section anchors and explicit ordered-list markers, and keep text within a readable column. Mobile contents use a native disclosure; desktop contents remain alongside the text.
+- Long policy pages retain their official wording, use native section anchors and explicit ordered-list markers, and keep text within a readable column. Mobile contents use a compact visible link grid with stable height across fragment reloads; desktop contents remain alongside the text.
 - Catalog cards expose full event names and direct policy links. Display polish must not alter fees, discounts or payment behavior.
 
 ## Verification and event detail usability
@@ -184,3 +184,11 @@ The community directory follows the shared URL-based discovery pattern: search a
 Mobile native scrolling keeps focused controls clear of the fixed dock using bottom scroll padding/margins, including when JavaScript is disabled.
 
 Article sidebars must stick to the page viewport. Use horizontal clipping that does not create a scroll container, place sticky positioning on the grid item itself and keep long desktop contents scrollable within the viewport.
+
+## Flagship Events
+
+- The hub and Infinia/Altair stories extend the light editorial events design: blue/slate type, compact pixel labels, real photographs and generous reading measures.
+- Permanent story identity and edition history precede workshop details. Latest edition first, native anchors, explicit dated captions, and archive posters shown at their full aspect.
+- Keep content and essential links visible in SSR and reduced-motion views. Every link has a 44px target. No hover-only information or automatic media.
+- Desktop Flagships is primary navigation; mobile More exposes the same destination and remains active on nested story routes. Keep the four primary dock items.
+- No invented counts, awards, future dates or successor relationships. See docs/flagship-stories-20261003.md for source boundaries.

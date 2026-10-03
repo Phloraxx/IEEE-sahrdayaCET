@@ -45,8 +45,7 @@ test("policy contents and ordered lists work without JavaScript", async ({ brows
   try {
     const page = await context.newPage();
     await page.goto(`${baseURL}/privacy-policy`);
-    await expect(page.getByRole("navigation", { name: "Policy contents" })).not.toBeVisible();
-    await page.locator("summary").click();
+    await expect(page.getByRole("navigation", { name: "Policy contents" })).toBeVisible();
     const contents = page.getByRole("navigation", { name: "Policy contents" });
     await contents.getByRole("link", { name: "How we use information", exact: true }).click();
     await expect(page).toHaveURL(/#policy-section-2$/);

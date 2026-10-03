@@ -1,4 +1,4 @@
-import { ArrowLeft, ChevronDown } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -57,12 +57,10 @@ export function PolicyPage({
           <div className={`mt-8 grid items-start gap-8 ${contents.length > 1 ? "lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-12" : ""}`}>
             {contents.length > 1 && (
               <aside className="lg:sticky lg:top-28">
-                <details className="group rounded-xl border border-gray-200 bg-gray-50 lg:hidden">
-                  <summary className="flex min-h-12 cursor-pointer items-center justify-between gap-4 px-4 text-sm font-semibold text-gray-950">
-                    On this page <span className="flex items-center gap-2 text-xs font-normal text-gray-600">{contents.length} sections<ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" aria-hidden="true" /></span>
-                  </summary>
-                  <nav aria-label="Policy contents" className="border-t border-gray-200 p-2"><ul>{contentsLinks}</ul></nav>
-                </details>
+                <nav aria-label="Policy contents" className="rounded-xl border border-gray-200 bg-gray-50 p-3 lg:hidden">
+                  <h2 className="px-3 py-2 text-sm font-semibold text-gray-950">On this page</h2>
+                  <ul className="grid gap-1 min-[360px]:grid-cols-2">{contentsLinks}</ul>
+                </nav>
                 <nav aria-label="Policy contents" className="hidden lg:block">
                   <h2 className="mb-3 px-3 text-sm font-semibold text-gray-950">On this page</h2>
                   <ul className="border-l border-gray-200 pl-2">{contentsLinks}</ul>

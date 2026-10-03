@@ -7,6 +7,8 @@ export default [
   route("sitemap.xml", "routes/sitemap.ts"),
   index("routes/index.tsx"),
   route("events", "routes/events.tsx"),
+  route("flagships", "routes/flagships.tsx"),
+  route("flagships/:slug", "routes/flagships.$slug.tsx"),
   route("events/:slug/calendar.ics", "routes/events.$slug.calendar.ts"),
   route("events/:slug", "routes/events.$slug.tsx"),
   route("my-events", "routes/my-events.tsx"),

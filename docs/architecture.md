@@ -126,3 +126,7 @@ dev  → CI → deploy/staging    → staging
 ```
 
 CD reacts only to successful CI on `main` or `dev`, verifies the tested SHA is still the branch head, pins that exact SHA to the matching immutable deployment ref, and then triggers the corresponding Dokploy webhook. Dokploy must deploy the pinned ref rather than mutable `main`/`dev`.
+
+## Flagship story archive
+
+Public SSR /flagships and /flagships/:slug use curated, source-backed src/lib/flagships.ts data, independent of PocketBase availability. Missing slugs return 404. The archive has canonical leaf URLs and production sitemap entries, links to existing event/blog surfaces, and no mutation, registration or email pathway. Media provenance is recorded in docs/flagship-stories-20261003.md.
