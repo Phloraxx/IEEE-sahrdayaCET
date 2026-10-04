@@ -109,3 +109,13 @@ The hero camera originals are from the unrestricted IEEE HIGHLIGHTS design folde
 | 2025-evening-photo.webp | 1VdoT0GZ9QsKUPFLUR4FmX2RUHj5gCQ7H / P2296746.JPG | 2400 × 1600 |
 
 The Footer component is used unchanged after the Infinia wrapper. This retains branch, attendee, policy and contact links and the existing logo treatment. The latest-first four-edition timeline remains the last section of the hub’s main landmark. No mail actions, notification resends, registration or financial mutations are introduced.
+
+## Follow-up: technical-festival identity and independent video scenes
+
+The current design supersedes the editorial/triptych description above. The RC-car recording is now the sole hero film, with its complete portrait composition preserved. Independent blue, sky and amber sections show robot football, flight and Lantern Fest. The flight loop returns to its beginning at three seconds, avoiding the later empty-sky footage while reusing the existing high-quality source. All clips remain explicitly TechX Infinia 2024; the 2025 leaf has no 2024 video scenes.
+
+The robot-football source is IMG_5482.MOV.mp4, Drive file 1_jAW2-zgvj7bb8K5yFz0fVHBiW-eK5Z8, created 29 September 2024. It depicts remote-controlled robots on a tabletop football pitch. The 3840×2160 HLG original was tone-mapped using zscale → linear → Mobius → BT.709 and downsampled to 1920×1080 at 24 fps, with audio and location metadata stripped. Local derivatives: techx-2024-robot-football.mp4 (1,852,882 bytes), .webm (662,932 bytes), .webp (71,718 bytes). No artificial upscaling or generated event material.
+
+The new scoped graphite/lime visual system uses workshop lineup cards, electric-blue day cards, report-backed number tiles and full original posters. The shared Footer is unchanged. The hub timeline still closes with all four editions newest-first.
+
+See docs/infinia-immersive-plan-20261004.md for the full reference review, scene-by-scene plan and acceptance criteria. Current Awwwards references were visually reviewed: Zentry Homepage, ELEMENTIS Innovation Scroll and STR8FIRE Cards Grid. Charles Leclerc's listing was read but its preview did not render; it is not claimed as a visually verified reference.

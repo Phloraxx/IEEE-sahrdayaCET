@@ -1,247 +1,172 @@
-/* Infinia has its own editorial language; all rules are scoped to this experience. */
-.infinia-site { background:#eeede8; color:#151515; font-family:"Geist Variable", ui-sans-serif, system-ui, sans-serif; }
-.infinia-site h1, .infinia-site h2, .infinia-site h3 { font-family:inherit; }
-.infinia-site *, .infinia-viewer * { box-sizing:border-box; }
-.infinia-site a, .infinia-site button, .infinia-site summary { -webkit-tap-highlight-color:transparent; }
-.infinia-site a:focus-visible, .infinia-site button:focus-visible, .infinia-site summary:focus-visible, .infinia-viewer button:focus-visible { outline:3px solid #8056db; outline-offset:5px; }
-.infinia-site main { overflow:clip; }
-.infinia-site img { display:block; width:100%; height:auto; }
-.infinia-site p { text-wrap:pretty; }
-.infinia-site .infinia-eyebrow { font-size:10px; line-height:1.6; font-weight:650; text-transform:uppercase; letter-spacing:.13em; }
-.infinia-skip { position:fixed; top:8px; left:8px; transform:translateY(-200%); z-index:200; background:white; padding:12px 20px; }
-.infinia-skip:focus { transform:none; }
-.infinia-hero { position:relative; isolation:isolate; background:#101112; color:#faf9f3; display:flex; flex-direction:column; min-height:780px; min-height:min(850px,100svh); padding:112px max(24px,5vw) 22px; }
-.infinia-hero-backdrop { position:absolute; inset:0; z-index:-2; overflow:hidden; background:#17181a; }
-.infinia-site .infinia-hero-still { width:100%; height:100%; object-fit:cover; object-position:center; }
-.infinia-hero-backdrop::after { content:""; position:absolute; inset:0; background:linear-gradient(180deg,#080910b0 0%,#08091070 32%,#08091080 62%,#080910e8 100%),linear-gradient(90deg,#08091070,transparent 70%); }
-.infinia-hero-filmstrip { position:absolute; inset:0; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px; opacity:0; transition:opacity .7s ease; }
-.infinia-hero[data-ready="true"] .infinia-hero-filmstrip { opacity:1; }
-.infinia-hero-filmstrip video { display:block; width:100%; height:100%; min-height:0; object-fit:cover; background:#141416; }
-.infinia-hero-meta { display:flex; justify-content:space-between; gap:20px; align-items:center; font-size:11px; text-transform:uppercase; letter-spacing:.1em; }
-.infinia-hero-meta a { display:inline-flex; min-height:44px; gap:8px; align-items:center; }
-.infinia-hero-story { padding:50px 0 30px; flex:1; display:flex; flex-direction:column; justify-content:center; }
-.infinia-hero-story .infinia-eyebrow { color:#e1d4fb; }
-.infinia-hero-line { font-size:clamp(35px,4.9vw,70px); line-height:1.06; letter-spacing:-.05em; font-weight:500; margin:18px 0; max-width:900px; }
-.infinia-hero-description { font-size:14px; line-height:1.7; max-width:340px; margin-bottom:26px; color:#f0edf2; }
-.infinia-hero-line span { color:#faf9f3; }
-.infinia-hero-actions { display:flex; flex-wrap:wrap; align-items:center; gap:12px 30px; }
-.infinia-hero-enter { display:inline-flex; min-height:50px; align-items:center; justify-content:space-between; gap:40px; padding:12px 18px; border:1px solid #faf9f3; background:#faf9f3; color:#17151c; font-size:12px; font-weight:650; border-radius:2px; }
-.infinia-hero-watch { display:inline-flex; align-items:center; gap:10px; min-height:50px; font-size:12px; border-bottom:1px solid #ffffff70; }
-.infinia-wordmark { font-size:clamp(68px,18.2vw,280px); font-weight:800; letter-spacing:-.065em; line-height:.9; margin:0 0 18px -.01em; }
-.infinia-edition-wordmark { font-size:clamp(44px,11vw,168px); font-weight:750; letter-spacing:-.055em; line-height:1; margin:0 0 20px; }
-.infinia-hero-caption { display:flex; align-items:center; gap:15px 30px; justify-content:space-between; border-top:1px solid #ffffff50; font-size:10px; letter-spacing:.04em; }
-.infinia-hero-caption>p { padding:15px 0; }
-.infinia-film-toggle, .infinia-hero-history { display:inline-flex; min-height:44px; align-items:center; gap:9px; font-size:10px; color:#faf9f3; background:transparent; border:0; cursor:pointer; }
-.infinia-film-toggle { margin-left:auto; }
-.infinia-hero-history { border-bottom:1px solid transparent; }
-.infinia-link { display:inline-flex; align-items:center; justify-content:space-between; gap:24px; min-height:48px; font-size:12px; font-weight:650; border-bottom:1px solid currentColor; }
-@media (hover:hover) {
- .infinia-hero-enter:hover { background:#dfd0f5; border-color:#dfd0f5; }
- .infinia-hero-watch:hover, .infinia-hero-history:hover { border-bottom-color:#faf9f3; }
+/* Scoped technical-festival identity; shared navigation and Footer stay independent. */
+.infinia-site{--ink:#0a0c10;--panel:#141821;--line:#343d4a;--muted:#bac4d2;--lime:#d0ff5b;background:var(--ink);color:#f7f9ff;font-family:"Geist Variable",ui-sans-serif,system-ui,sans-serif}
+.infinia-site h1,.infinia-site h2,.infinia-site h3{font-family:inherit}
+.infinia-site *,.infinia-viewer *{box-sizing:border-box}
+.infinia-site main{overflow:clip}
+.infinia-site img{display:block;width:100%;height:auto}
+.infinia-site p{text-wrap:pretty}
+.infinia-site a,.infinia-site button,.infinia-site summary{-webkit-tap-highlight-color:transparent}
+.infinia-site a:focus-visible,.infinia-site button:focus-visible,.infinia-site summary:focus-visible,.infinia-viewer button:focus-visible{outline:3px solid #d0ff5b;outline-offset:5px}
+.infinia-site .infinia-eyebrow{font-size:11px;line-height:1.7;font-weight:600;text-transform:uppercase;letter-spacing:.12em}
+.infinia-hero{position:relative;background:#0a0c10}
+.infinia-hero-stage{position:relative;isolation:isolate;display:flex;flex-direction:column;min-height:100svh;padding:105px max(24px,5vw) 20px;overflow:hidden}
+.infinia-orbit{position:absolute;inset:0;z-index:-1;overflow:hidden;background:radial-gradient(ellipse at 75% 50%,#21331780,transparent 65%)}
+.infinia-orbit span{position:absolute;width:950px;height:950px;border:1px solid #d0ff5b20;border-radius:50%;right:-350px;top:-40px}
+.infinia-orbit span:nth-child(2){width:1200px;height:1200px;right:-470px;top:-170px}
+.infinia-orbit span:nth-child(3){width:1500px;height:1500px;right:-620px;top:-320px}
+.infinia-hero-meta{display:flex;justify-content:space-between;align-items:center;gap:20px;font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
+.infinia-hero-meta a{display:inline-flex;align-items:center;gap:8px;min-height:44px;color:#f7f9ff}
+.infinia-hero-layout{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:48px;align-items:center;flex:1;padding:25px 0}
+.infinia-hero-story{position:relative;z-index:2}
+.infinia-hero-story .infinia-eyebrow{color:var(--lime)}
+.infinia-wordmark{font-size:clamp(72px,10.2vw,170px);font-weight:850;line-height:.95;letter-spacing:-.075em;margin:24px 0 26px}
+.infinia-edition-wordmark{font-size:clamp(55px,6.5vw,100px);font-weight:800;line-height:1;letter-spacing:-.065em;margin:24px 0 26px}
+.infinia-hero-line{font-size:clamp(30px,3.6vw,55px);font-weight:600;line-height:1.06;letter-spacing:-.035em;margin-bottom:20px}
+.infinia-hero-line span{color:var(--lime)}
+.infinia-hero-description{font-size:14px;line-height:1.7;max-width:350px;color:var(--muted);margin-bottom:25px}
+.infinia-hero-actions{display:flex;flex-wrap:wrap;gap:12px 26px;align-items:center}
+.infinia-hero-enter{display:inline-flex;min-height:52px;align-items:center;justify-content:space-between;gap:25px;padding:12px 20px;color:#11140d;background:var(--lime);border-radius:4px;font-size:12px;font-weight:700}
+.infinia-hero-watch,.infinia-hero-history{display:inline-flex;align-items:center;gap:10px;min-height:44px;font-size:11px}
+.infinia-hero-screen{position:relative;width:100%;max-width:400px;justify-self:end;padding:10px;border:1px solid #d0ff5b80;border-radius:18px 18px 4px 18px;background:#141a12;transform-origin:center}
+.infinia-hero-screen>.infinia-scene-media{max-height:min(66svh,calc(100svh - 350px))}
+.infinia-hero-screen>img{border-radius:10px}
+.infinia-screen-marker{position:absolute;left:-20px;top:25px;padding:12px 10px;background:var(--lime);color:#11140d;font:700 11px monospace}
+.infinia-scene-media{position:relative;overflow:hidden;aspect-ratio:9/16;border-radius:9px;background:#171b20}
+.infinia-site .infinia-scene-media>img{width:100%;height:100%;object-fit:contain}
+.infinia-scene-media video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity .3s}
+.infinia-scene-media[data-ready="true"] video{opacity:1}
+.infinia-scene-landscape{aspect-ratio:16/9}
+.infinia-scene-caption{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;font-size:10px;color:#e2e9f2}
+.infinia-scene-caption>span{padding-left:4px}
+.infinia-film-toggle{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;min-width:70px;border:1px solid #66705d;border-radius:4px;background:#0a0c1080;color:#fff;font-size:11px;cursor:pointer;flex-shrink:0}
+.infinia-hero-caption{display:flex;align-items:center;gap:20px;min-height:55px;border-top:1px solid var(--line);font-size:10px;color:var(--muted)}
+.infinia-hero-caption>p{max-width:220px}
+.infinia-hero-caption .infinia-scene-progress{flex:1}
+.infinia-scene-progress{height:2px;overflow:hidden;background:#627045;min-width:40px}
+.infinia-scene-progress>span{display:block;height:100%;width:100%;background:var(--accent,var(--lime));transform-origin:left}
+.infinia-video-chapter{--accent:#78b8ff;position:relative;background:#0d1526;scroll-margin-top:0}
+.infinia-scene-sky{--accent:#c5efff;background:#15282f}
+.infinia-scene-amber{--accent:#ffc478;background:#20150e}
+.infinia-scene-stage{display:flex;flex-direction:column;justify-content:space-between;min-height:100svh;padding:110px max(24px,5vw) 25px}
+.infinia-scene-top,.infinia-scene-bottom{display:flex;align-items:center;justify-content:space-between;gap:25px;font-size:10px;line-height:1.7;text-transform:uppercase;letter-spacing:.11em;color:#c5cdd8}
+.infinia-scene-top{padding-bottom:20px;border-bottom:1px solid #ffffff30}
+.infinia-scene-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);align-items:center;gap:65px;padding:25px 0;flex:1}
+.infinia-scene-copy h2{font-size:clamp(44px,6vw,90px);font-weight:750;letter-spacing:-.06em;line-height:1;margin:22px 0}
+.infinia-scene-copy .infinia-eyebrow{color:var(--accent)}
+.infinia-scene-copy>p:not(.infinia-eyebrow){max-width:360px;font-size:16px;line-height:1.8;color:#d1d9e4}
+.infinia-scene-copy .infinia-link{color:var(--accent);margin-top:30px}
+.infinia-scene-frame{border:1px solid #ffffff50;padding:10px;border-radius:16px 16px 4px 16px;background:#080c1080;width:100%}
+.infinia-scene-frame:has(.infinia-scene-media:not(.infinia-scene-landscape)){width:min(100%,340px);justify-self:center}
+.infinia-scene-frame .infinia-scene-media:not(.infinia-scene-landscape){max-height:min(61svh,calc(100svh - 350px))}
+.infinia-scene-bottom{border-top:1px solid #ffffff30;padding-top:20px}
+.infinia-scene-bottom .infinia-scene-progress{flex:1;background:#ffffff30}
+@media(min-width:1001px) and (min-height:740px){.infinia-hero[data-enhanced="true"]{min-height:135svh}.infinia-video-chapter[data-enhanced="true"]{min-height:125svh}.infinia-hero[data-enhanced="true"] .infinia-hero-stage,.infinia-video-chapter[data-enhanced="true"] .infinia-scene-stage{position:sticky;top:0;height:100svh}}
+.infinia-link{display:inline-flex;align-items:center;justify-content:space-between;gap:22px;min-height:48px;border-bottom:1px solid currentColor;font-size:12px;font-weight:650}
+.infinia-editions{display:grid;grid-template-columns:1fr 1.2fr 1.2fr;align-items:center;gap:24px;padding:26px max(24px,5vw);background:#d0ff5b;color:#10140a}
+.infinia-editions>a{display:flex;min-height:64px;align-items:center;gap:18px;padding:12px 16px;border:1px solid #456012;border-radius:6px;font-size:18px;font-weight:650}
+.infinia-editions>a[aria-current]{background:#11170c;color:#d0ff5b}
+.infinia-editions-archive{display:inline-flex;align-items:center;gap:10px;min-height:44px;font-size:11px}
+.infinia-edition-year{margin-left:auto;font:12px monospace}
+.infinia-section{padding:90px max(24px,5vw);scroll-margin-top:105px}
+.infinia-section-heading{display:flex;flex-direction:column;align-items:start;gap:18px;margin-bottom:45px}
+.infinia-section-heading .infinia-eyebrow{color:var(--lime)}
+.infinia-section-heading h2,.infinia-intro h2,.infinia-film h2{font-size:clamp(36px,5.2vw,76px);line-height:1.04;font-weight:750;letter-spacing:-.055em;max-width:930px}
+.infinia-intro{display:grid;grid-template-columns:1.1fr 1fr;gap:70px}
+.infinia-intro h2{margin-top:22px}.infinia-intro em{font-style:normal;color:var(--lime)}
+.infinia-intro-copy{font-size:19px;line-height:1.7;max-width:560px;align-self:end}
+.infinia-intro-copy p+p{font-size:15px;line-height:1.9;color:var(--muted);margin-top:20px}
+.infinia-community{margin:0 max(24px,5vw)}.infinia-community img{border-radius:16px}
+.infinia-community figcaption{margin-top:14px;color:var(--muted);font-size:11px}
+.infinia-numbers-top{display:flex;align-items:end;justify-content:space-between;gap:25px;margin-bottom:30px}
+.infinia-numbers h2{font-size:clamp(30px,3.4vw,48px);line-height:1.1;font-weight:700;letter-spacing:-.035em}
+.infinia-numbers-top p{font-size:12px;line-height:1.8;color:var(--muted)}
+.infinia-stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:15px}
+.infinia-stat-grid>div{display:flex;flex-direction:column-reverse;padding:28px 22px;border:1px solid var(--line);background:var(--panel);border-radius:10px}
+.infinia-stat-grid dd{font-size:clamp(44px,5.5vw,84px);line-height:1.1;font-weight:700;letter-spacing:-.06em;color:var(--lime)}
+.infinia-stat-grid dt{font-size:12px;color:#d4dce6;margin-top:14px}
+.infinia-collaborators{margin-top:38px}.infinia-collaborators ul{display:flex;flex-wrap:wrap;gap:15px 35px;margin-top:18px;font-size:clamp(17px,2vw,27px);font-weight:650}
+.infinia-workshops{background:#101620}
+.infinia-workshop-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}
+.infinia-workshop-grid article{position:relative;padding:18px;border:1px solid #394655;border-radius:14px 14px 4px 14px;background:#19222e}
+.infinia-workshop-top{display:flex;justify-content:space-between;gap:12px;font-size:11px;line-height:1.6;color:#c4edff;padding:2px 0 16px}
+.infinia-workshop-photo img{border-radius:6px}.infinia-workshop-photo figcaption{font-size:10px}
+.infinia-workshop-grid h3{font-size:38px;letter-spacing:-.04em;font-weight:750;margin-top:22px}
+.infinia-workshop-description{font-size:15px;line-height:1.7;margin-top:8px}.infinia-host{font-size:11px;line-height:1.8;color:#bac4d2;margin:14px 0}
+.infinia-poster-compact{margin-top:16px}.infinia-poster-compact .infinia-media-trigger{display:flex;gap:15px;align-items:center;min-height:64px;padding:12px 0;border-top:1px solid #465466;border-radius:0;background:transparent}
+.infinia-poster-compact .infinia-media-trigger img{width:38px;height:48px;object-fit:contain;background:#0a0c10;border-radius:0}
+.infinia-poster-label{display:inline-flex;gap:12px;align-items:center;font-size:11px}.infinia-poster-compact figcaption{display:none}
+.infinia-site details{border-top:1px solid #465466;margin-top:18px}.infinia-site summary{min-height:48px;padding:14px 0;cursor:pointer;font-size:12px;font-weight:650}
+.infinia-site details p{font-size:13px;line-height:1.8;padding-bottom:15px}.infinia-attendance{color:#d0ff5b}
+.infinia-source-note{font-size:11px;line-height:1.8;color:#bac4d2;margin-top:22px}
+.infinia-track-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.infinia-track-list>div{padding:22px;border:1px solid #394655;border-radius:8px;background:#19222e;min-height:140px}
+.infinia-track-list span{font:12px monospace;color:#c4edff}.infinia-track-list h3{font-size:22px;margin-top:15px}
+.infinia-days{background:#1436ac}.infinia-days .infinia-eyebrow{color:#d7edff}
+.infinia-day-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}.infinia-day-grid article{padding:22px;background:#0d256a;border:1px solid #7292e4;border-radius:12px}
+.infinia-day-grid img{border-radius:5px;margin-bottom:22px}.infinia-day-number{display:block;font-size:66px;line-height:1;font-weight:750;letter-spacing:-.06em;color:#d0ff5b}
+.infinia-day-grid h3{font-size:21px;font-weight:650;line-height:1.35;margin:20px 0 16px}.infinia-day-grid p{font-size:14px;line-height:1.8;color:#dce7ff}
+.infinia-evening{position:relative;display:grid;grid-template-columns:1.6fr 1fr;align-items:center;background:#1c1031}
+.infinia-evening-copy{padding:45px max(24px,4vw)}.infinia-evening h2{font-size:clamp(36px,4.2vw,60px);font-weight:700;line-height:1.06;letter-spacing:-.045em;margin:24px 0}
+.infinia-evening-copy>p:last-child{font-size:15px;line-height:1.8;color:#d8cfe9}
+.infinia-conversation-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:55px}.infinia-conversation-grid img{border-radius:12px}
+.infinia-panel-theme{font-size:28px;font-weight:600;line-height:1.25;letter-spacing:-.03em;margin-bottom:18px}
+.infinia-conversation-grid p:not(.infinia-panel-theme):not(.infinia-source-note){font-size:14px;line-height:1.8;color:var(--muted)}
+.infinia-conversation-grid ul{margin-top:25px}.infinia-conversation-grid li{border-top:1px solid var(--line);padding:15px 0}
+.infinia-conversation-grid strong,.infinia-conversation-grid li span{display:block}.infinia-conversation-grid strong{font-size:15px}.infinia-conversation-grid li span{font-size:11px;color:var(--muted);margin-top:6px}
+.infinia-vitals{display:grid;grid-template-columns:1.2fr 1fr;gap:40px 70px;background:#d0ff5b;color:#11170a}
+.infinia-vitals h2{font-size:clamp(42px,5.7vw,84px);font-weight:800;line-height:1.02;letter-spacing:-.06em;margin:24px 0}.infinia-vitals h2 span{display:block;font-size:.4em;margin-top:18px}
+.infinia-vitals p:not(.infinia-eyebrow):not(.infinia-source-note):not(.infinia-vitals-note){font-size:15px;line-height:1.8;max-width:560px}.infinia-vitals .infinia-source-note{color:#344319}
+.infinia-vitals-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;align-self:center}.infinia-vitals-stats>div{display:flex;flex-direction:column-reverse;padding:18px;border:1px solid #5b7725;border-radius:6px}
+.infinia-vitals-stats dd{font-size:52px;font-weight:750;letter-spacing:-.055em;line-height:1.1}.infinia-vitals-stats dt{font-size:11px;margin-top:10px;line-height:1.7}
+.infinia-vitals-note{grid-column:1/-1;font-size:11px;line-height:1.8;color:#344319}
+.infinia-poster-section{background:#151a24}.infinia-section-lede{max-width:650px;font-size:15px;line-height:1.8;color:var(--muted);margin-bottom:36px}
+.infinia-poster-wall{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:30px 24px;max-width:1060px;margin-inline:auto;align-items:start}
+.infinia-media-trigger{position:relative;display:block;width:100%;padding:0;border:0;border-radius:6px;overflow:hidden;background:#0a0c10;cursor:zoom-in}
+.infinia-expand{position:absolute;right:10px;bottom:10px;display:grid;place-items:center;width:34px;height:34px;color:#fff;background:#0a0c10c0;border:1px solid #ffffff80}
+.infinia-photo figcaption,.infinia-poster figcaption{font-size:11px;line-height:1.7;color:var(--muted);margin-top:12px}
+.infinia-photo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:32px 24px;align-items:start}.infinia-photo-grid>figure:first-child{grid-column:span 2}
+.infinia-film{display:grid;grid-template-columns:1.3fr 1fr;gap:60px;align-items:center;background:#102b46}.infinia-film h2{margin:24px 0}
+.infinia-film p:not(.infinia-eyebrow):not(.infinia-source-note){font-size:16px;line-height:1.8;max-width:560px}.infinia-film video{width:min(100%,360px);display:block;height:auto;justify-self:center;border:1px solid #7ea6c4;border-radius:12px;background:black}.infinia-film .infinia-link{margin-top:25px}
+.infinia-next-edition{display:grid;grid-template-columns:1fr 1.2fr;align-items:center;gap:60px;padding:70px max(24px,5vw);border-top:1px solid var(--line);scroll-margin-top:105px;background:#101620}
+.infinia-next-edition h2{font-size:clamp(80px,12vw,170px);font-weight:750;letter-spacing:-.075em;line-height:1;margin:22px 0;color:var(--lime)}
+.infinia-next-link{display:flex;align-items:center;justify-content:space-between;gap:20px;min-height:54px;max-width:400px;font-size:clamp(24px,3vw,40px);letter-spacing:-.04em;font-weight:650}
+.infinia-next-edition p:not(.infinia-eyebrow){max-width:400px;font-size:14px;line-height:1.8;color:var(--muted);margin-top:18px}.infinia-next-edition img{border-radius:12px}.infinia-next-edition .infinia-link{margin-top:20px}
+.infinia-timeline{background:#0a0c10}.infinia-timeline-heading{max-width:750px;margin-bottom:40px}.infinia-timeline-heading h2{font-size:clamp(36px,5vw,72px);font-weight:750;letter-spacing:-.055em;line-height:1.08;margin:20px 0}
+.infinia-timeline-heading>p:last-child{font-size:15px;line-height:1.8;color:var(--muted)}.infinia-timeline-list{display:grid;gap:16px}
+.infinia-timeline-entry{display:grid;grid-template-columns:130px minmax(0,1fr) minmax(180px,.6fr);gap:30px;align-items:start;padding:28px;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.infinia-timeline-year{font-size:clamp(44px,4.4vw,64px);line-height:1;font-weight:700;letter-spacing:-.065em;color:var(--lime)}
+.infinia-timeline-copy h3{display:flex;align-items:center;gap:18px;font-size:clamp(26px,2.7vw,40px);line-height:1.1;letter-spacing:-.04em;font-weight:650;margin:14px 0}.infinia-timeline-copy h3 svg{flex-shrink:0}
+.infinia-timeline-summary{font-size:14px;line-height:1.8;color:var(--muted)}.infinia-timeline-status{display:inline-block;font-size:10px;line-height:1.7;padding:5px 10px;border:1px solid #64734d;color:#d0ff5b;margin-top:18px;border-radius:20px}
+.infinia-timeline-entry img{border-radius:6px}.infinia-timeline-entry figcaption{font-size:10px;line-height:1.7;color:var(--muted);margin-top:10px}
+.infinia-viewer-overlay{position:fixed;inset:0;z-index:150;background:#08080bf0}.infinia-viewer{position:fixed;inset:20px;z-index:151;display:flex;flex-direction:column;align-items:center;gap:12px;color:#fff}
+.infinia-viewer-top{display:flex;align-items:center;justify-content:space-between;gap:20px;width:100%;max-width:1200px;font-size:13px}.infinia-viewer-close{min-width:44px;min-height:44px;display:grid;place-items:center;border:1px solid #fff5;background:#fff2;cursor:pointer}
+.infinia-viewer>img{width:auto;height:auto;max-width:100%;max-height:calc(100dvh - 108px);object-fit:contain;min-height:0}
+@media(hover:hover){.infinia-hero-enter:hover{background:#e2ff9c}.infinia-hero-watch:hover,.infinia-hero-history:hover{color:var(--lime)}.infinia-workshop-grid article:hover{border-color:#9ad6ff}.infinia-timeline-entry:hover{border-color:#a2c653}}
+@media(max-width:1000px){.infinia-hero-layout,.infinia-scene-layout{gap:30px}.infinia-workshop-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.infinia-day-grid{gap:16px}.infinia-day-grid article{padding:18px}.infinia-timeline-entry{grid-template-columns:95px minmax(0,1fr) 180px;gap:20px}}
+@media(max-width:767px){
+ .infinia-hero-stage{padding:25px 24px 20px;min-height:0}.infinia-hero-meta{font-size:9px;align-items:start;gap:10px}.infinia-hero-meta>span{max-width:145px;text-align:right;padding-top:12px}
+ .infinia-hero-layout{grid-template-columns:1fr;gap:30px;padding:25px 0}.infinia-wordmark{font-size:18vw;margin:18px 0 22px}.infinia-edition-wordmark{font-size:13vw}
+ .infinia-hero-line{font-size:32px}.infinia-hero-description{font-size:14px}
+ .infinia-hero-screen{width:min(100%,260px);justify-self:center}.infinia-hero-screen>.infinia-scene-media{max-height:48svh}
+ .infinia-hero-caption{flex-wrap:wrap;gap:8px 20px;padding-top:15px}.infinia-hero-caption>p{width:100%;max-width:none}.infinia-hero-caption .infinia-scene-progress{display:none}
+ .infinia-scene-stage{padding:35px 24px;min-height:0}.infinia-scene-top{gap:16px;font-size:9px}.infinia-scene-top>span:last-child{text-align:right}
+ .infinia-scene-layout{grid-template-columns:1fr;gap:30px;padding:30px 0}.infinia-scene-copy h2{font-size:48px}.infinia-scene-copy>p:not(.infinia-eyebrow){font-size:15px}.infinia-scene-copy .infinia-link{margin-top:18px}
+ .infinia-scene-frame:has(.infinia-scene-media:not(.infinia-scene-landscape)){width:min(100%,310px)}.infinia-scene-frame .infinia-scene-media:not(.infinia-scene-landscape){max-height:none}.infinia-scene-bottom{display:none}
+ .infinia-editions{grid-template-columns:1fr 1fr;padding:24px;gap:12px}.infinia-editions>div{grid-column:1/-1}.infinia-editions>a{flex-wrap:wrap;gap:10px;font-size:12px;padding:12px}.infinia-editions>a>span:first-child{width:100%}.infinia-edition-year{margin-left:0}.infinia-editions>a>svg{margin-left:auto}
+ .infinia-section{padding:55px 24px;scroll-margin-top:25px}.infinia-section-heading{gap:16px;margin-bottom:30px}.infinia-section-heading h2,.infinia-intro h2{font-size:40px}
+ .infinia-intro,.infinia-conversation-grid,.infinia-evening,.infinia-vitals,.infinia-film,.infinia-next-edition{grid-template-columns:1fr;gap:30px}.infinia-intro-copy{font-size:17px}
+ .infinia-numbers-top{display:block}.infinia-numbers-top p{margin-top:18px}.infinia-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.infinia-stat-grid>div{padding:20px 16px}.infinia-stat-grid dd{font-size:52px}.infinia-stat-grid dt{font-size:11px}
+ .infinia-workshop-grid{grid-template-columns:1fr;gap:20px}.infinia-workshop-grid h3{font-size:38px}.infinia-track-list{grid-template-columns:1fr}
+ .infinia-day-grid{grid-template-columns:1fr;gap:20px}.infinia-day-grid article{display:grid;grid-template-columns:50px minmax(0,1fr);gap:18px;padding:20px}.infinia-day-grid article>img{grid-column:1/-1;margin-bottom:0}.infinia-day-number{font-size:44px}.infinia-day-grid h3{font-size:20px;margin:0}.infinia-day-grid p{grid-column:2}
+ .infinia-evening-copy{padding:12px 24px 40px}.infinia-vitals-stats{gap:14px}.infinia-vitals-stats>div{padding:14px}.infinia-vitals-stats dd{font-size:46px}
+ .infinia-poster-wall{grid-template-columns:repeat(2,minmax(0,1fr));gap:24px 16px}.infinia-photo-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:24px 16px}
+ .infinia-next-edition{padding:50px 24px;scroll-margin-top:25px}.infinia-timeline-entry{grid-template-columns:1fr;gap:20px;padding:24px}.infinia-timeline-copy h3{font-size:30px}.infinia-viewer{inset:14px}
 }
-@media (prefers-reduced-motion:reduce) { .infinia-hero-filmstrip { display:none; transition:none; } }
-.infinia-editions { display:grid; grid-template-columns:1fr 1.2fr 1.2fr; align-items:center; gap:24px; padding:20px max(24px,5vw); background:#19191a; color:#eee; border-top:1px solid #404042; }
-.infinia-editions>a { min-height:54px; display:flex; align-items:center; gap:18px; padding:12px 0; border-bottom:1px solid #646466; font-size:16px; }
-.infinia-editions>a[aria-current] { border-color:#d2c4ff; color:#d2c4ff; }
-.infinia-editions-archive { display:inline-flex; align-items:center; gap:10px; min-height:44px; font-size:11px; color:#bcb7c5; }
-.infinia-editions-archive:hover { color:#fff; }
-.infinia-edition-year { margin-left:auto; font-family:monospace; font-size:12px; }
-.infinia-section { padding:90px max(24px,5vw); scroll-margin-top:105px; }
-.infinia-section-heading { display:grid; grid-template-columns:1fr 2.3fr; gap:36px; margin-bottom:48px; align-items:start; }
-.infinia-section-heading h2, .infinia-intro h2, .infinia-film h2 { font-size:clamp(32px,4.8vw,68px); font-weight:550; letter-spacing:-.05em; line-height:1.04; max-width:880px; }
-.infinia-section-heading .infinia-eyebrow { padding-top:8px; }
-.infinia-intro { display:grid; grid-template-columns:1.35fr 1fr; gap:64px; }
-.infinia-intro h2 { margin-top:28px; }
-.infinia-intro em { font-style:normal; color:#655273; }
-.infinia-intro-copy { max-width:540px; align-self:end; font-size:19px; line-height:1.65; }
-.infinia-intro-copy p+p { margin-top:20px; font-size:15px; line-height:1.85; color:#53514f; }
-.infinia-community { margin:0 max(24px,5vw); }
-.infinia-community figcaption { font-size:11px; margin-top:14px; color:#53514f; }
-.infinia-numbers { padding-top:60px; }
-.infinia-numbers-top { display:flex; align-items:end; justify-content:space-between; gap:30px; margin-bottom:35px; }
-.infinia-numbers h2 { font-size:clamp(27px,3vw,42px); letter-spacing:-.04em; line-height:1.1; }
-.infinia-numbers-top p { font-size:12px; line-height:1.8; color:#53514f; }
-.infinia-stat-grid { display:grid; grid-template-columns:repeat(4,1fr); border-top:1px solid #aaa6a0; }
-.infinia-stat-grid>div { display:flex; flex-direction:column-reverse; padding:30px 20px 0 0; }
-.infinia-stat-grid dd { font-size:clamp(40px,6.4vw,96px); font-weight:450; line-height:1.1; letter-spacing:-.065em; }
-.infinia-stat-grid dt { font-size:12px; margin-top:10px; }
-.infinia-workshops { background:#deddd5; }
-.infinia-workshop-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:50px 30px; }
-.infinia-workshop-top { display:flex; justify-content:space-between; gap:12px; border-top:1px solid #96958d; padding-top:12px; margin-bottom:14px; font-size:11px; }
-.infinia-workshop-photo { overflow:hidden; }
-.infinia-workshop-photo figcaption { font-size:10px; margin-top:9px; }
-.infinia-poster-compact { margin-top:18px; }
-.infinia-poster-compact .infinia-media-trigger { display:flex; align-items:center; gap:16px; min-height:64px; background:transparent; border-top:1px solid #aaa69f; padding:12px 0; }
-.infinia-poster-compact .infinia-media-trigger img { width:38px; height:48px; object-fit:contain; background:#141416; }
-.infinia-poster-label { display:inline-flex; align-items:center; gap:16px; font-size:11px; font-weight:550; }
-.infinia-poster-compact figcaption { display:none; }
-.infinia-workshop-grid h3 { font-size:36px; font-weight:600; letter-spacing:-.035em; margin-top:20px; }
-.infinia-workshop-description { font-size:16px; line-height:1.5; margin-top:7px; }
-.infinia-host { font-size:11px; line-height:1.7; margin:14px 0; color:#4c4a45; }
-.infinia-site details { border-top:1px solid #aaa69f; margin-top:20px; }
-.infinia-site summary { min-height:48px; padding:14px 0; cursor:pointer; font-size:12px; font-weight:600; }
-.infinia-site details p { font-size:13px; line-height:1.8; padding-bottom:15px; }
-.infinia-attendance { color:#4e4264; font-weight:600; }
-.infinia-source-note { font-size:11px; line-height:1.8; color:#55524f; margin-top:24px; }
-.infinia-track-list { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px 35px; }
-.infinia-track-list>div { border-top:1px solid #96958d; min-height:120px; padding-top:20px; }
-.infinia-track-list span { font:12px monospace; color:#59554d; }
-.infinia-track-list h3 { font-size:21px; margin-top:14px; }
-.infinia-days { background:#d0c2e2; }
-.infinia-day-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:30px; }
-.infinia-day-grid[data-days="3"] { grid-template-columns:repeat(3,minmax(0,1fr)); }
-.infinia-day-grid article>img { margin-bottom:22px; }
-.infinia-day-number { display:block; border-top:1px solid #8e7f9e; padding-top:20px; font-size:68px; font-weight:350; letter-spacing:-.05em; }
-.infinia-day-grid h3 { font-size:20px; line-height:1.3; letter-spacing:-.025em; margin:20px 0 16px; }
-.infinia-day-grid p { font-size:13px; line-height:1.85; color:#38323f; }
-.infinia-evening { display:grid; grid-template-columns:1.8fr 1fr; align-items:center; background:#141416; color:#faf9f3; }
-.infinia-evening-copy { padding:45px max(24px,4vw); }
-.infinia-evening h2 { font-size:clamp(32px,4vw,56px); line-height:1.06; letter-spacing:-.04em; font-weight:550; margin:24px 0; }
-.infinia-evening-copy>p:last-child { font-size:15px; line-height:1.8; color:#ddd5e4; max-width:340px; }
-.infinia-conversation-grid { display:grid; grid-template-columns:1.5fr 1fr; gap:56px; }
-.infinia-panel-theme { font-size:28px; line-height:1.2; letter-spacing:-.025em; margin-bottom:18px; }
-.infinia-conversation-grid p:not(.infinia-panel-theme):not(.infinia-source-note) { font-size:14px; line-height:1.8; color:#53514f; }
-.infinia-conversation-grid ul { margin-top:25px; }
-.infinia-conversation-grid li { border-top:1px solid #bbb6ae; padding:12px 0; }
-.infinia-conversation-grid strong, .infinia-conversation-grid li span { display:block; }
-.infinia-conversation-grid strong { font-size:14px; font-weight:550; }
-.infinia-conversation-grid li span { font-size:11px; color:#53514f; margin-top:4px; }
-.infinia-vitals { background:#141416; color:#faf9f3; display:grid; grid-template-columns:1.25fr 1fr; gap:44px 80px; }
-.infinia-vitals h2 { font-size:clamp(40px,5.5vw,82px); line-height:1.02; letter-spacing:-.05em; margin:25px 0; }
-.infinia-vitals h2 span { display:block; font-size:.38em; margin-top:20px; color:#c9bddc; }
-.infinia-vitals p:not(.infinia-eyebrow):not(.infinia-source-note):not(.infinia-vitals-note) { font-size:14px; line-height:1.85; max-width:560px; color:#d5d1d9; }
-.infinia-vitals .infinia-source-note { color:#b5abbf; }
-.infinia-vitals-stats { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:28px; align-self:center; }
-.infinia-vitals-stats>div { display:flex; flex-direction:column-reverse; border-top:1px solid #646066; padding-top:18px; }
-.infinia-vitals-stats dd { font-size:52px; letter-spacing:-.055em; line-height:1.1; }
-.infinia-vitals-stats dt { font-size:11px; line-height:1.6; color:#d5d1d9; margin-top:10px; }
-.infinia-vitals-note { grid-column:1/-1; font-size:11px; color:#b5abbf; line-height:1.8; }
-.infinia-poster-section { background:#e0e5da; }
-.infinia-section-lede { max-width:650px; font-size:16px; line-height:1.8; margin:0 0 40px auto; }
-.infinia-poster-wall { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); align-items:start; gap:34px 28px; max-width:1060px; margin-inline:auto; }
-.infinia-media-trigger { position:relative; width:100%; display:block; cursor:zoom-in; background:#141416; border:0; padding:0; }
-.infinia-media-trigger img { height:auto; }
-.infinia-expand { position:absolute; right:10px; bottom:10px; display:grid; place-items:center; width:34px; height:34px; border:1px solid #fff8; background:#141416cc; color:#fff; }
-.infinia-poster figcaption, .infinia-photo figcaption { font-size:11px; line-height:1.7; margin-top:12px; color:#53514f; }
-.infinia-photo-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:40px 28px; align-items:start; }
-.infinia-photo-grid>figure:first-child { grid-column:span 2; }
-.infinia-film { background:#d0c2e2; display:grid; grid-template-columns:1.4fr 1fr; gap:64px; align-items:center; }
-.infinia-film h2 { margin:25px 0; }
-.infinia-film p:not(.infinia-eyebrow):not(.infinia-source-note) { font-size:16px; line-height:1.85; max-width:560px; }
-.infinia-film video { display:block; width:min(100%,360px); height:auto; justify-self:center; background:black; border:1px solid #887796; }
-.infinia-film details { max-width:560px; }
-.infinia-film .infinia-link { margin-top:25px; }
-.infinia-next-edition { display:grid; grid-template-columns:1fr 1.2fr; gap:60px; padding:70px max(24px,5vw); border-top:1px solid #aaa6a0; scroll-margin-top:105px; }
-.infinia-next-edition h2 { font-size:clamp(80px,11vw,155px); font-weight:400; letter-spacing:-.065em; line-height:1; margin:25px 0; }
-.infinia-next-link { display:flex; align-items:center; justify-content:space-between; gap:20px; min-height:54px; max-width:400px; font-size:clamp(23px,3vw,38px); letter-spacing:-.04em; font-weight:550; }
-.infinia-next-link svg { width:30px; height:30px; }
-.infinia-next-edition p:not(.infinia-eyebrow) { max-width:400px; font-size:14px; line-height:1.8; margin-top:18px; color:#53514f; }
-.infinia-next-edition>a { align-self:center; min-height:44px; }
-.infinia-next-edition .infinia-link { margin-top:20px; }
-.infinia-viewer-overlay { position:fixed; inset:0; z-index:150; background:#08080bf0; }
-.infinia-viewer { position:fixed; inset:20px; z-index:151; display:flex; flex-direction:column; align-items:center; gap:12px; color:#fff; }
-.infinia-viewer-top { display:flex; align-items:center; justify-content:space-between; gap:20px; width:100%; max-width:1200px; font-size:13px; }
-.infinia-viewer-close { min-width:44px; min-height:44px; display:grid; place-items:center; background:#fff2; border:1px solid #fff5; cursor:pointer; }
-.infinia-viewer>img { width:auto; height:auto; max-width:100%; max-height:calc(100dvh - 108px); object-fit:contain; min-height:0; }
-@media (min-width:768px) { .infinia-site { padding-bottom:0; } }
-@media (max-width:1000px) {
- .infinia-day-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:35px; }
- .infinia-day-grid[data-days="3"] { gap:24px; }
- .infinia-conversation-grid { gap:30px; }
- .infinia-workshop-grid { gap:40px 20px; }
- .infinia-vitals { gap:40px; }
-}
-@media (max-width:767px) {
- .infinia-hero { min-height:660px; min-height:max(620px,calc(100svh - 64px)); padding:28px 24px 12px; }
- .infinia-hero-filmstrip { grid-template-columns:1fr; }
- .infinia-hero-story { padding:45px 0 40px; }
- .infinia-hero-line { font-size:clamp(34px,7.7vw,55px); }
- .infinia-wordmark { font-size:18vw; margin-bottom:22px; }
- .infinia-edition-wordmark { font-size:10.5vw; }
- .infinia-hero-caption { flex-wrap:wrap; gap:0 16px; }
- .infinia-hero-caption>p { width:100%; padding:12px 0 0; font-size:9px; }
- .infinia-film-toggle { margin-left:0; margin-right:auto; }
- .infinia-hero-meta>span { max-width:155px; }
- .infinia-hero-history { font-size:9px; }
- .infinia-hero-meta { font-size:9px; gap:12px; align-items:start; }
- .infinia-hero-meta>span { text-align:right; padding-top:14px; max-width:140px; }
- .infinia-intro, .infinia-conversation-grid, .infinia-vitals, .infinia-film, .infinia-next-edition, .infinia-evening { grid-template-columns:1fr; }
- .infinia-evening-copy { padding:38px 24px; }
- .infinia-editions { grid-template-columns:1fr 1fr; gap:12px; }
- .infinia-editions>.infinia-eyebrow { grid-column:1/-1; }
- .infinia-editions>a { font-size:12px; flex-wrap:wrap; gap:8px; }
- .infinia-edition-year { margin-left:0; }
- .infinia-editions>a>span:first-child { width:100%; }
- .infinia-editions>a>svg { margin-left:auto; }
- .infinia-section { padding-top:55px; padding-bottom:55px; scroll-margin-top:25px; }
- .infinia-intro { gap:32px; }
- .infinia-intro-copy { font-size:17px; }
- .infinia-section-heading { grid-template-columns:1fr; gap:18px; margin-bottom:30px; }
- .infinia-numbers-top { display:block; }
- .infinia-numbers-top>p { margin-top:18px; }
- .infinia-stat-grid { grid-template-columns:repeat(2,minmax(0,1fr)); row-gap:20px; }
- .infinia-stat-grid dd { font-size:54px; }
- .infinia-workshop-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:30px 18px; }
- .infinia-workshop-top { font-size:9px; min-height:46px; }
- .infinia-workshop-grid h3 { font-size:28px; }
- .infinia-workshop-description { font-size:14px; }
- .infinia-track-list { grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; }
- .infinia-track-list h3 { font-size:17px; }
- .infinia-day-grid { gap:24px; }
- .infinia-day-grid h3 { font-size:18px; }
- .infinia-day-grid p { font-size:12px; }
- .infinia-conversation-grid { gap:30px; }
- .infinia-vitals-stats { gap:24px; }
- .infinia-vitals-stats dd { font-size:48px; }
- .infinia-section-lede { font-size:14px; margin-bottom:28px; }
- .infinia-poster-wall { grid-template-columns:repeat(2,minmax(0,1fr)); gap:28px 18px; }
- .infinia-photo-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:28px 18px; }
- .infinia-next-edition { padding-top:50px; padding-bottom:50px; gap:30px; }
- .infinia-viewer { inset:14px; }
-}
-@media (max-width:359px) {
- .infinia-workshop-grid, .infinia-day-grid, .infinia-track-list { grid-template-columns:1fr; }
- .infinia-photo-grid { grid-template-columns:1fr; }
- .infinia-photo-grid>figure:first-child { grid-column:auto; }
-}
+@media(max-width:359px){.infinia-photo-grid{grid-template-columns:1fr}.infinia-photo-grid>figure:first-child{grid-column:auto}}
+@media(prefers-reduced-motion:reduce){.infinia-hero,.infinia-video-chapter{min-height:0!important}.infinia-hero-stage,.infinia-scene-stage{position:relative!important;height:auto!important}.infinia-scene-media video{display:none;transition:none}}
 
-.infinia-collaborators { border-top:1px solid #aaa6a0; margin-top:45px; padding-top:24px; }
-.infinia-collaborators ul { display:flex; flex-wrap:wrap; align-items:center; gap:20px 40px; margin-top:18px; font-size:clamp(15px,2vw,25px); font-weight:550; letter-spacing:-.025em; }
+.infinia-editions a:focus-visible{outline-color:#11170a}
+.infinia-hero[data-film="false"] .infinia-hero-layout{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr)}
+.infinia-hero[data-film="false"] .infinia-hero-screen{max-width:700px}
+@media(max-width:767px){.infinia-hero[data-film="false"] .infinia-hero-layout{grid-template-columns:1fr}}
 
-@media (max-width:767px) {
- .infinia-day-grid, .infinia-day-grid[data-days="3"] { grid-template-columns:1fr; gap:0; }
- .infinia-day-grid article { display:grid; grid-template-columns:56px minmax(0,1fr); gap:14px 18px; padding:26px 0; border-top:1px solid #8e7f9e; }
- .infinia-day-grid article>img { grid-column:1/-1; margin-bottom:10px; }
- .infinia-day-number { border:0; padding:0; font-size:44px; line-height:1; }
- .infinia-day-grid h3 { margin:0; font-size:20px; }
- .infinia-day-grid p { grid-column:2; font-size:14px; }
-}
-
-/* The hub's shared chronology keeps Infinia and Altair as independent editions. */
-.infinia-timeline { background:#e5dfeb; }
-.infinia-timeline-heading { max-width:740px; margin-bottom:40px; }
-.infinia-timeline-heading h2 { font-size:clamp(34px,4.8vw,68px); font-weight:550; letter-spacing:-.05em; line-height:1.08; margin:18px 0; }
-.infinia-timeline-heading>p:last-child { font-size:15px; line-height:1.8; color:#53514f; }
-.infinia-timeline-list { border-left:1px solid #9c91aa; padding-left:28px; }
-.infinia-timeline-list>li+li { border-top:1px solid #b5aabd; }
-.infinia-timeline-entry { display:grid; grid-template-columns:150px minmax(0,1fr) minmax(180px,.65fr); gap:30px; padding:32px 0; align-items:start; }
-.infinia-timeline-year { position:relative; font-size:clamp(40px,4.2vw,60px); line-height:1; font-weight:450; letter-spacing:-.06em; color:#655273; }
-.infinia-timeline-year::before { content:""; position:absolute; width:10px; height:10px; border:2px solid #e5dfeb; background:#655273; border-radius:50%; left:-34px; top:20px; }
-.infinia-timeline-copy h3 { display:flex; align-items:center; gap:18px; font-size:clamp(26px,2.8vw,40px); line-height:1.15; letter-spacing:-.045em; font-weight:550; margin:12px 0; }
-.infinia-timeline-copy h3 svg { flex-shrink:0; }
-.infinia-timeline-summary { font-size:14px; line-height:1.85; max-width:580px; color:#454046; }
-.infinia-timeline-status { display:inline-block; font-size:10px; line-height:1.6; text-transform:uppercase; letter-spacing:.08em; margin-top:18px; border:1px solid #a79aaf; padding:5px 9px; }
-.infinia-timeline-entry figure { margin:0; }
-.infinia-timeline-entry figcaption { font-size:10px; line-height:1.7; color:#53514f; margin-top:9px; }
-@media (hover:hover) { .infinia-timeline-entry:hover h3 { text-decoration:underline; text-underline-offset:6px; } }
-@media (max-width:1000px) {
- .infinia-timeline-entry { grid-template-columns:100px minmax(0,1fr) minmax(160px,.7fr); gap:24px; }
- .infinia-timeline-year { font-size:42px; }
-}
-@media (max-width:767px) {
- .infinia-timeline-list { padding-left:20px; }
- .infinia-timeline-entry { grid-template-columns:minmax(0,1fr); gap:18px; padding:30px 0; }
- .infinia-timeline-year::before { left:-26px; top:16px; }
- .infinia-timeline-copy h3 { font-size:30px; }
- .infinia-timeline-entry figure { max-width:460px; }
-}
+@media(min-width:1001px) and (max-height:849px){.infinia-wordmark{font-size:clamp(72px,9vw,140px)}.infinia-hero-line{font-size:clamp(30px,3vw,46px)}}
