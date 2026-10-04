@@ -97,7 +97,7 @@ export function InfiniaShowcase({ year = "2025", hub = false }: { year?: string;
         <div className="infinia-collaborators"><p className="infinia-eyebrow">Collaborations included / 2025</p><ul>{["TCS", "Hyundai", "Inker Robotics", "SpinX", "NIELIT"].map(name => <li key={name}>{name}</li>)}</ul></div>
       </section>}
       <section id="workshops" className="infinia-section infinia-workshops" aria-labelledby="workshops-heading">
-        <Heading number="01" label={latest ? "27 September 2025 / Workshop day" : "28 September 2024 / Workshop day"} title={latest ? "Choose your workshop." : "The workshop lineup."} id="workshops-heading" />
+        <Heading number="01" label={latest ? "27 September 2025 / Workshop day" : "28 September 2024 / Workshop day"} title={latest ? "Six workshop tracks." : "Nine workshop tracks."} id="workshops-heading" />
         {latest ? <><div className="infinia-workshop-grid">{INFINIA_WORKSHOPS.map((workshop, index) => <article key={workshop.name}>
           <div className="infinia-workshop-top"><span>{String(index + 1).padStart(2, "0")}</span><span>{workshop.topic}</span></div>
           <div className="infinia-workshop-photo"><MediaView photo={workshop.photo} /></div>

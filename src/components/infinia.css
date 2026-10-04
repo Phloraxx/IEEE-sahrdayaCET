@@ -145,8 +145,8 @@
 @media(max-width:767px){
  .infinia-hero-stage{padding:25px 24px 20px;min-height:0}.infinia-hero-meta{font-size:9px;align-items:start;gap:10px}.infinia-hero-meta>span{max-width:145px;text-align:right;padding-top:12px}
  .infinia-hero-layout{grid-template-columns:1fr;gap:30px;padding:25px 0}.infinia-wordmark{font-size:18vw;margin:18px 0 22px}.infinia-edition-wordmark{font-size:13vw}
- .infinia-hero-line{font-size:36px}.infinia-hero-line br:first-child{display:none}.infinia-hero-description{font-size:14px}
- .infinia-hero-screen{width:min(100%,310px);justify-self:center}.infinia-hero-screen>.infinia-scene-media{max-height:none}
+ .infinia-hero-line{font-size:32px}.infinia-hero-description{font-size:14px}
+ .infinia-hero-screen{width:min(100%,260px);justify-self:center}.infinia-hero-screen>.infinia-scene-media{max-height:48svh}
  .infinia-hero-caption{flex-wrap:wrap;gap:8px 20px;padding-top:15px}.infinia-hero-caption>p{width:100%;max-width:none}.infinia-hero-caption .infinia-scene-progress{display:none}
  .infinia-scene-stage{padding:35px 24px;min-height:0}.infinia-scene-top{gap:16px;font-size:9px}.infinia-scene-top>span:last-child{text-align:right}
  .infinia-scene-layout{grid-template-columns:1fr;gap:30px;padding:30px 0}.infinia-scene-copy h2{font-size:48px}.infinia-scene-copy>p:not(.infinia-eyebrow){font-size:15px}.infinia-scene-copy .infinia-link{margin-top:18px}

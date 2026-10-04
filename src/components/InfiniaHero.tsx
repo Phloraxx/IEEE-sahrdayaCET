@@ -17,7 +17,7 @@ export function InfiniaHero({ hub, latest, title, date, photo }: {
         <div className="infinia-hero-story">
           <p className="infinia-eyebrow">IEEE Sahrdaya’s flagship technical event</p>
           <h1 className={hub ? "infinia-wordmark" : "infinia-edition-wordmark"}>{title}</h1>
-          <p className="infinia-hero-line">Workshops.<br />Expos.<br /><span>All on campus.</span></p>
+          <p className="infinia-hero-line">Workshops. Expos.<br /><span>Campus nights.</span></p>
           <p className="infinia-hero-description">Three days of technology, demonstrations and evenings together at Sahrdaya.</p>
           <div className="infinia-hero-actions"><a href="#experience" className="infinia-hero-enter">{hub ? "Explore Infinia 2.0" : "Explore the programme"}<ArrowDown size={18} aria-hidden="true" /></a>{film && <a href="#expo-floor" className="infinia-hero-watch">See it in motion<ArrowDown size={18} aria-hidden="true" /></a>}</div>
         </div>
