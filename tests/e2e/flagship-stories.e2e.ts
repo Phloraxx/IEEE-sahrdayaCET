@@ -123,10 +123,12 @@ test.describe("Infinia showcase and independent Altair archive", () => {
     const link = page.getByRole("navigation", { name: "Primary navigation" }).getByRole("link", { name: "INFINIA", exact: true });
     await expect(link).toHaveAttribute("href", "/infinia");
     await expect(link).toHaveAttribute("aria-current", "page");
-    expect(await link.locator("span").evaluate(element => getComputedStyle(element).animationName)).toBe("none");
+    // Hydration may replace the SSR navbar between locator resolution and evaluation.
+    // Poll the live node so a detached SSR span cannot produce an empty style.
+    await expect.poll(() => link.locator("span").evaluate(element => getComputedStyle(element).animationName)).toBe("none");
     await page.goto("/");
     const shared = page.getByRole("navigation", { name: "Primary navigation" }).getByRole("link", { name: "INFINIA", exact: true });
-    expect(await shared.locator("span").evaluate(element => getComputedStyle(element).backgroundImage)).toContain("linear-gradient");
+    await expect.poll(() => shared.locator("span").evaluate(element => getComputedStyle(element).backgroundImage)).toContain("linear-gradient");
     await expect(page.getByRole("link", { name: "FLAGSHIPS", exact: true })).toHaveCount(0);
   });
 
