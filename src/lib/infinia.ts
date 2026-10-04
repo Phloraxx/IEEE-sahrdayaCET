@@ -8,26 +8,40 @@ export const INFINIA_STATS = [
   { value: "15", label: "Professional speakers" },
   { value: "10+", label: "Industry collaborations" },
 ];
+const workshopPhoto = (name: string, alt: string, caption: string): FlagshipImage => ({
+  src: `/media/infinia/2025-${name}-workshop.webp`, alt, caption: `${caption} · 2025`, width: 1600, height: 1067,
+});
 export const INFINIA_WORKSHOPS = [
   { name: "AEGIS", topic: "Agentic AI", host: "Muhammed Nisham · Soft Served Web", count: 63, poster: "aegis",
-    text: "Explore how AI agents plan, reason and work together.",
+    photo: workshopPhoto("aegis", "Students taking part in the AEGIS workshop", "AEGIS · Agentic AI workshop"),
+    text: "Agentic AI architectures, orchestration and multi-agent workflows.",
     detail: "Chained requests, single-agent orchestration and multi-agent teams led into a practical discussion of secure, structured agent design." },
   { name: "UIXOR", topic: "UI & UX design", host: "Lakshmi K P & Toshi Panwalker", count: 61, poster: "uixor",
-    text: "Start with people. Turn their needs into a product.",
+    photo: workshopPhoto("uixor", "Students working at computers during the UIXOR design workshop", "UIXOR · Design workshop"),
+    text: "User interviews, app flows and wireframes built in Figma.",
     detail: "Students mapped shopping-app flows in Figma, built wireframes and used team interviews to design a college companion app." },
   { name: "HOVERX", topic: "Drone technology", host: "Team SpinX", count: 52, poster: "hoverx",
-    text: "Understand the machine before taking it into the sky.",
+    photo: workshopPhoto("hoverx", "Students examining drone components together at a workshop table", "HOVERX · Working with drone components"),
+    text: "Drone components, quadcopter dynamics and a flying demonstration.",
     detail: "UAV fundamentals, quadcopter dynamics and drone components connected to a live flying demonstration led by the SpinX team." },
   { name: "QBIT", topic: "FPGA & digital design", host: "Sreejeesh Sreedharan · NIELIT", count: 40, poster: "qbit",
-    text: "Give digital logic a physical form.",
+    photo: workshopPhoto("qbit", "Students participating in the QBIT FPGA workshop", "QBIT · Digital design workshop"),
+    text: "Verilog and digital circuits implemented on a Basys 3 FPGA board.",
     detail: "Verilog and FPGA architecture became hands-on examples: multiplexers and a magnitude comparator implemented on a Basys 3 board." },
   { name: "IONIX", topic: "Electric vehicles", host: "Sunil Jacob & Sajeesh · Hyundai", count: 53, poster: "ionix",
-    text: "Get closer to the engineering behind electric mobility.",
+    photo: workshopPhoto("ionix", "Students looking under the open bonnet during Hyundai’s electric-vehicle demonstration", "IONIX · Hyundai vehicle demonstration"),
+    text: "EV architecture, charging and a live Hyundai vehicle demonstration.",
     detail: "EV fundamentals, charging and vehicle architecture were paired with a live Hyundai electric-car demonstration." },
   { name: "AXIOM", topic: "Biomedical diagnostics", host: "Jasmine Francis & Dil Sabu · Agappe Diagnostics", count: 30, poster: "axiom",
-    text: "See how laboratory principles become diagnostic tools.",
+    photo: workshopPhoto("axiom", "Students attending the Agappe biomedical diagnostics workshop beside laboratory instruments", "AXIOM · Biomedical diagnostics workshop"),
+    text: "Diagnostic instruments, analytical principles and their internal components.",
     detail: "Analytical principles met real instruments and their internal components, connecting biotechnology to the practice of modern diagnostics." },
 ];
+export const INFINIA_EVENING: FlagshipImage = {
+  src: "/media/infinia/2025-evening-photo.webp",
+  alt: "Students gathered on the Infinia 2.0 stage beneath blue lights",
+  caption: "On stage at Infinia 2.0 · 2025", width: 2400, height: 1600,
+};
 
 export function infiniaPoster(name: string, caption: string): FlagshipImage {
   const small = name === "healthcare";
@@ -46,13 +60,13 @@ const photo = (name: string, alt: string, caption: string): FlagshipImage => ({
   src: `/media/infinia/2025-${name}-photo.webp`, alt, caption: `${caption  } · 2025`, width: 1200, height: 800,
 });
 export const INFINIA_PHOTOS = [
-  photo("opening", "Guests lighting the ceremonial lamp on the Infinia 2.0 stage", "Opening a shared conversation"),
+  photo("opening", "Guests lighting the ceremonial lamp on the Infinia 2.0 stage", "The opening ceremony"),
   photo("panel", "Industry and academic speakers in conversation on the Infinia 2.0 stage", "The future-proof skills panel"),
   photo("aegis", "Students gathered with their workshop group in a computer lab", "AEGIS · Agentic AI"),
   ...INFINIA.editions[0]!.gallery,
   photo("drones", "Drones and electronic components arranged on a demonstration table", "HOVERX · Inside the technology"),
   photo("fpga", "Students listening to an instructor during the FPGA workshop", "QBIT · Digital design in practice"),
-  photo("closing", "The Infinia 2.0 community gathered beneath the event sign", "One edition, many shared moments"),
+  photo("closing", "The Infinia 2.0 community gathered beneath the event sign", "The closing ceremony"),
 ];
 export const INFINIA_PANEL = [
   ["Vinil Vijayan", "Project Manager · UST"],

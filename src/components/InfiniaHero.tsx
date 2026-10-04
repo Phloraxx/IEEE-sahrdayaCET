@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { type FlagshipImage } from "@/lib/flagships";
 
 type Connection = EventTarget & { saveData?: boolean; effectiveType?: string };
+const FILMS = ["techx-2024-film-1", "techx-2024-film-2", "techx-2024-film-3"];
 
 // The film is TechX Infinia 2024. It can introduce the shared hub, never the 2025 leaf.
 export function InfiniaHero({ hub, latest, title, date, photo }: {
@@ -92,23 +93,24 @@ export function InfiniaHero({ hub, latest, title, date, photo }: {
       <img className="infinia-hero-still" src={photo.src} alt="" width={photo.width} height={photo.height} fetchPriority="high" />
       {showFilm && <div className="infinia-hero-filmstrip">{panels.map(index => <video
         key={index} ref={node => { videos.current[index] = node; }}
-        muted loop playsInline preload="none" tabIndex={-1}
-        onLoadedMetadata={event => { event.currentTarget.currentTime = index === 0 ? 14 : index === 2 ? 27 : 0; }}
+        muted loop playsInline preload="none" tabIndex={-1} width={1080} height={1920}
+        poster={`/media/infinia/${FILMS[index]}.webp`}
         onLoadedData={() => { if (index === 1) setReady(true); }}
         onPlaying={event => { if (index === 1) setPlaying(!event.currentTarget.paused); }}
         onPause={() => { if (index === 1) setPlaying(false); }}
         onError={() => { if (index === 1) { setFailed(true); setPlaying(false); } }}
-      ><source src="/media/infinia/techx-2024-highlights.webm" type="video/webm" /><source src="/media/infinia/techx-2024-highlights.mp4" type="video/mp4" /></video>)}</div>}
+      ><source src={`/media/infinia/${FILMS[index]}.webm`} type="video/webm" /><source src={`/media/infinia/${FILMS[index]}.mp4`} type="video/mp4" /></video>)}</div>}
     </div>
     <div className="infinia-hero-meta">
       <Link to="/">IEEE Sahrdaya SB <ArrowUpRight size={15} aria-hidden="true" /></Link>
-      <span>Sahrdaya, Kerala / {hub ? "The Infinia experience" : date}</span>
+      <span>Sahrdaya, Kerala / {hub ? "2024–2025" : date}</span>
     </div>
     <div className="infinia-hero-story">
-      <p className="infinia-eyebrow">{hub ? "Our flagship. Your next perspective." : date}</p>
-      <p className="infinia-hero-line">Three days.<br /><span>A world of possibility.</span></p>
+      <p className="infinia-eyebrow">{hub ? "IEEE Sahrdaya’s flagship technical event" : date}</p>
+      <p className="infinia-hero-line">Three days<br /><span>at Sahrdaya.</span></p>
+      <p className="infinia-hero-description">Workshops, talks, expos and evenings on campus.</p>
       <div className="infinia-hero-actions">
-        <a href="#experience" className="infinia-hero-enter">Step inside <ArrowDown size={18} aria-hidden="true" /></a>
+        <a href="#experience" className="infinia-hero-enter">{hub ? "Explore Infinia 2.0" : "Explore the programme"} <ArrowDown size={18} aria-hidden="true" /></a>
         {film && <Link to={hub ? "/infinia/2024#film" : "#film"} className="infinia-hero-watch"><Play size={15} aria-hidden="true" />Watch the 2024 film <ArrowUpRight size={16} aria-hidden="true" /></Link>}
       </div>
     </div>
