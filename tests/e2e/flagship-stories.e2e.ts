@@ -73,17 +73,19 @@ test.describe("Infinia showcase and independent Altair archive", () => {
     await page.emulateMedia({ reducedMotion: "no-preference" });
     await page.goto("/infinia");
     const hero = page.locator(".infinia-hero");
-    const car = hero.locator("video");
+    const car = hero.locator(".infinia-hero-panel-car video");
     await expect(car).toHaveCount(1);
+    await expect(hero.locator("video")).toHaveCount(3);
+    await expect.poll(() => hero.locator("video").evaluateAll(elements => elements.every(element => !(element as HTMLVideoElement).paused))).toBe(true);
     await expect(page.locator(".infinia-video-chapter video")).toHaveCount(0);
     await expect.poll(() => car.evaluate(element => !(element as HTMLVideoElement).paused)).toBe(true);
     expect(await car.evaluate(element => [(element as HTMLVideoElement).videoWidth, (element as HTMLVideoElement).videoHeight])).toEqual([1080, 1920]);
-    await expect(hero.getByText("RC-car expo · TechX Infinia, 2024", { exact: true })).toBeVisible();
+    await expect(hero.getByText("Lanterns · RC cars · Flight / TechX Infinia, 2024", { exact: true })).toBeVisible();
     await page.evaluate(() => window.scrollTo(0, 180));
     await expect.poll(() => hero.locator(".infinia-scene-progress span").evaluate(element => new DOMMatrixReadOnly(getComputedStyle(element).transform).a)).toBeGreaterThan(.2);
     expect(await hero.locator(".infinia-hero-stage").evaluate(element => Math.round(element.getBoundingClientRect().top))).toBe(0);
-    await hero.getByRole("button", { name: "Pause RC-car film", exact: true }).click();
-    await expect.poll(() => car.evaluate(element => (element as HTMLVideoElement).paused)).toBe(true);
+    await hero.getByRole("button", { name: "Pause hero films", exact: true }).click();
+    await expect.poll(() => hero.locator("video").evaluateAll(elements => elements.every(element => (element as HTMLVideoElement).paused))).toBe(true);
     await hero.getByRole("link", { name: "See it in motion", exact: true }).click();
     await expect(page).toHaveURL(/#expo-floor$/);
     const robot = page.locator("#expo-floor video");
@@ -99,9 +101,9 @@ test.describe("Infinia showcase and independent Altair archive", () => {
     await expect.poll(() => page.locator("#lantern-fest video").evaluate(element => !(element as HTMLVideoElement).paused)).toBe(true);
     await expect.poll(() => page.locator(".infinia-scene-media video").evaluateAll(elements => elements.filter(element => !(element as HTMLVideoElement).paused).length)).toBe(1);
     await page.evaluate(() => window.scrollTo(0,0));
-    await expect(hero.getByRole("button", { name: "Play RC-car film", exact: true })).toBeVisible();
+    await expect(hero.getByRole("button", { name: "Play hero films", exact: true })).toBeVisible();
     await expect.poll(() => car.evaluate(element => (element as HTMLVideoElement).paused)).toBe(true);
-    await hero.getByRole("button", { name: "Play RC-car film", exact: true }).click();
+    await hero.getByRole("button", { name: "Play hero films", exact: true }).click();
     await expect.poll(() => car.evaluate(element => !(element as HTMLVideoElement).paused)).toBe(true);
     for (const video of await page.locator(".infinia-scene-media video").all()) {
       expect(await video.evaluate(element => (element as HTMLVideoElement).muted && (element as HTMLVideoElement).loop)).toBe(true);
@@ -109,7 +111,7 @@ test.describe("Infinia showcase and independent Altair archive", () => {
     }
     await page.emulateMedia({ reducedMotion: "reduce" });
     await expect(page.locator(".infinia-scene-media video")).toHaveCount(0);
-    await expect(hero.locator("img")).toBeVisible();
+    await expect(hero.locator("img").first()).toBeVisible();
     await page.goto("/infinia/2025");
     await expect(page.locator("video, .infinia-video-chapter")).toHaveCount(0);
     await expect(page.locator(".infinia-hero img")).toHaveAttribute("src", /2025/);
@@ -118,17 +120,17 @@ test.describe("Infinia showcase and independent Altair archive", () => {
   test("pauses on page hiding and handles rejected autoplay with a usable play button", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "no-preference" });
     await page.goto("/infinia");
-    const video = page.locator(".infinia-hero video");
+    const video = page.locator(".infinia-hero-panel-car video");
     await expect.poll(() => video.evaluate(element => !(element as HTMLVideoElement).paused)).toBe(true);
     await page.evaluate(() => { Object.defineProperty(document,"visibilityState",{configurable:true,value:"hidden"}); document.dispatchEvent(new Event("visibilitychange")); });
-    await expect.poll(() => video.evaluate(element => (element as HTMLVideoElement).paused)).toBe(true);
+    await expect.poll(() => page.locator(".infinia-hero video").evaluateAll(elements => elements.every(element => (element as HTMLVideoElement).paused))).toBe(true);
     await page.evaluate(() => { Object.defineProperty(document,"visibilityState",{configurable:true,value:"visible"}); document.dispatchEvent(new Event("visibilitychange")); });
     await expect.poll(() => video.evaluate(element => !(element as HTMLVideoElement).paused)).toBe(true);
     await page.addInitScript(() => { HTMLMediaElement.prototype.play = function() { return Promise.reject(new DOMException("Autoplay declined", "NotAllowedError")); }; });
     await page.reload();
-    await expect(page.locator(".infinia-hero video")).toHaveCount(1);
-    await expect(page.getByRole("button", {name:"Play RC-car film",exact:true})).toBeVisible();
-    await expect(page.locator(".infinia-hero img")).toBeVisible();
+    await expect(page.locator(".infinia-hero video")).toHaveCount(3);
+    await expect(page.getByRole("button", {name:"Play hero films",exact:true})).toBeVisible();
+    await expect(page.locator(".infinia-hero img").first()).toBeVisible();
     await page.getByRole("link", {name:"Explore Infinia 2.0",exact:true}).click();
     await expect(page).toHaveURL(/#experience$/);
   });
@@ -139,7 +141,7 @@ test.describe("Infinia showcase and independent Altair archive", () => {
       const page = await context.newPage();
       await page.goto("/infinia");
       await expect(page.locator(".infinia-hero video")).toHaveCount(1);
-      await expect(page.getByRole("button", { name: "Pause RC-car film", exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Pause hero films", exact: true })).toBeVisible();
       await page.getByRole("link", {name:"See it in motion",exact:true}).click();
       await expect.poll(() => page.locator("#expo-floor video").evaluate(element => !(element as HTMLVideoElement).paused)).toBe(true);
       await expect.poll(() => page.locator(".infinia-scene-media video").evaluateAll(elements => elements.filter(element => !(element as HTMLVideoElement).paused).length)).toBe(1);
@@ -169,7 +171,7 @@ test.describe("Infinia showcase and independent Altair archive", () => {
     const hero = page.locator(".infinia-hero");
     await expect(page.getByRole("button", { name: "SIGN IN", exact: true })).toBeVisible();
     await expect(hero.locator("video")).toHaveCount(0);
-    await expect(hero.locator("img")).toBeVisible();
+    await expect(hero.locator("img").first()).toBeVisible();
     await expect(hero.getByRole("heading", { level: 1 })).toHaveText("INFINIA");
     await expect(hero.getByRole("link", { name: "Watch the 2024 film", exact: true })).toHaveAttribute("href", "/infinia/2024#film");
     await hero.getByRole("link", { name: "Explore Infinia 2.0", exact: true }).click();
@@ -182,7 +184,7 @@ test.describe("Infinia showcase and independent Altair archive", () => {
       await page.setViewportSize({width,height});
       await page.goto("/infinia");
       const stage = page.locator(".infinia-hero-stage");
-      await expect(page.getByRole("button",{name:"Pause RC-car film",exact:true})).toBeVisible();
+      await expect(page.getByRole("button",{name:"Pause hero films",exact:true})).toBeVisible();
       expect(await stage.evaluate(element => getComputedStyle(element).position)).toBe(height < 850 ? "relative" : "sticky");
       const caption = page.locator(".infinia-hero-caption");
       if (height < 850) await caption.scrollIntoViewIfNeeded();
@@ -197,22 +199,44 @@ test.describe("Infinia showcase and independent Altair archive", () => {
     }
   });
 
-  test("fills the hero and chapter stages with footage on desktop and mobile", async ({page}) => {
+  test("restores three portrait panels with rainbow type, safe motion and curved controls", async ({page}) => {
     for (const width of [390,1440]) {
       await page.setViewportSize({width,height:900});
       await page.emulateMedia({reducedMotion:"reduce"});
       await page.goto("/infinia");
-      for (const selector of [".infinia-hero-stage", "#expo-floor .infinia-scene-stage", "#flight-demo .infinia-scene-stage", "#lantern-fest .infinia-scene-stage"]) {
-        const stage=page.locator(selector);
+      const hero=page.locator(".infinia-hero");
+      await expect(hero.locator(".infinia-hero-panel")).toHaveCount(3);
+      await expect(hero.locator("video")).toHaveCount(0);
+      for(const panel of await hero.locator(".infinia-hero-panel").all()) {
+        const rect=await panel.boundingBox();
+        expect(rect!.height).toBeGreaterThan(rect!.width);
+        expect(await panel.locator("img").evaluate(e=>(e as HTMLImageElement).naturalWidth)).toBe(1080);
+      }
+      const word=hero.locator(".infinia-rainbow-word");
+      expect(await word.evaluate(e=>getComputedStyle(e).backgroundImage)).toContain("linear-gradient");
+      expect(await word.evaluate(e=>getComputedStyle(e).animationName)).toBe("none");
+      expect(parseFloat(await hero.locator(".infinia-hero-enter").evaluate(e=>getComputedStyle(e).borderRadius))).toBeGreaterThan(30);
+      for(const selector of ["#expo-floor", "#flight-demo", "#lantern-fest"]) {
+        const stage=page.locator(selector+" .infinia-scene-stage");
         const frame=await stage.boundingBox();
         const media=await stage.locator(".infinia-scene-media").boundingBox();
-        expect(frame).not.toBeNull(); expect(media).not.toBeNull();
         expect(media!.width).toBeGreaterThanOrEqual(frame!.width-1);
         expect(media!.height).toBeGreaterThanOrEqual(frame!.height-1);
       }
-      expect(await page.locator(".infinia-hero-enter").evaluate(el=>getComputedStyle(el).borderRadius)).not.toBe("50%");
-      await expect(page.locator(".infinia-hero-layout")).not.toContainText("Three days.");
     }
+    await page.setViewportSize({width:1440,height:900});
+    await page.emulateMedia({reducedMotion:"no-preference"});
+    await page.goto("/infinia");
+    await expect(page.getByRole("button",{name:"Pause hero films",exact:true})).toBeVisible();
+    const car=page.locator(".infinia-hero-panel-car");
+    await expect.poll(() => page.locator(".infinia-rainbow-word").evaluate(e=>getComputedStyle(e).animationPlayState)).toBe("running");
+    const before=(await car.boundingBox())!.width;
+    await page.evaluate(()=>window.scrollTo(0,220));
+    await expect.poll(async()=>(await car.boundingBox())!.width).toBeGreaterThan(before*1.5);
+    await page.getByRole("button",{name:"Pause hero films",exact:true}).click();
+    const stopped=(await car.boundingBox())!.width;
+    await page.evaluate(()=>window.scrollTo(0,300));
+    expect((await car.boundingBox())!.width).toBeCloseTo(stopped,0);
   });
 
   test("keeps film metadata readable even over a white video frame", async ({page}) => {

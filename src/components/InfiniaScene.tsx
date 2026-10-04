@@ -10,6 +10,7 @@ export function useInfiniaScene(enabled = true) {
   const section = useRef<HTMLElement>(null);
   const stage = useRef<HTMLDivElement>(null);
   const video = useRef<HTMLVideoElement>(null);
+  const companions = useRef<Array<HTMLVideoElement | null>>([]);
   const desired = useRef(false);
   const [allowed, setAllowed] = useState(false);
   const [entered, setEntered] = useState(false);
@@ -20,6 +21,7 @@ export function useInfiniaScene(enabled = true) {
   const [failed, setFailed] = useState(false);
   const [ready, setReady] = useState(false);
   const [canPin, setCanPin] = useState(false);
+  const [wide, setWide] = useState(false);
   const { scrollYProgress } = useScroll({ target: section, offset: ["start start", "end end"] });
   const reveal = useTransform(scrollYProgress, [0, 1], ["inset(0% round 0px)", "inset(3% round 16px)"]);
 
@@ -31,6 +33,7 @@ export function useInfiniaScene(enabled = true) {
     const measure = () => {
       pending = 0;
       setCanPin(window.innerWidth > 1000 && window.innerHeight >= 850);
+      setWide(window.innerWidth > 767);
       const rect = stage.current?.getBoundingClientRect();
       const centre = window.innerHeight / 2;
       const ownsCentre = !!rect && rect.top <= centre && rect.bottom > centre;
@@ -58,38 +61,45 @@ export function useInfiniaScene(enabled = true) {
 
   const showVideo = enabled && allowed && entered && !failed;
   useEffect(() => {
-    const node = video.current;
     const run = showVideo && active && visible && !paused;
     desired.current = run;
-    if (!node) return;
-    if (run) void node.play().then(() => {
-      if (!desired.current) node.pause();
-      setPlaying(!node.paused);
-    }).catch(() => setPlaying(false));
-    else node.pause();
-  }, [showVideo, active, visible, paused]);
+    [video.current, ...companions.current].forEach((node, index) => {
+      if (!node) return;
+      if (run) void node.play().then(() => {
+        if (!desired.current) node.pause();
+        if (index === 0) setPlaying(!node.paused);
+      }).catch(() => { if (index === 0) setPlaying(false); });
+      else node.pause();
+    });
+  }, [showVideo, active, visible, paused, wide]);
 
   function toggle() {
     const stop = !video.current?.paused;
     setPaused(stop);
     desired.current = !stop;
-    if (stop) { video.current?.pause(); setPlaying(false); }
-    else if (video.current) void video.current.play().then(() => {
-      if (!desired.current) video.current?.pause();
-      setPlaying(!video.current?.paused);
-    }).catch(() => setPlaying(false));
+    [video.current, ...companions.current].forEach((node, index) => {
+      if (!node) return;
+      if (stop) { node.pause(); if (index === 0) setPlaying(false); }
+      else void node.play().then(() => {
+        if (!desired.current) node.pause();
+        if (index === 0) setPlaying(!node.paused);
+      }).catch(() => { if (index === 0) setPlaying(false); });
+    });
   }
-  return { section, stage, video, allowed, canReveal: allowed && canPin, paused, playing, ready, active, showVideo, reveal, progress: scrollYProgress, toggle,
+  return { section, stage, video, companions, wide, allowed, canReveal: allowed && canPin, paused, playing, ready, active, showVideo, reveal, progress: scrollYProgress, toggle,
     loaded: () => setReady(true), started: () => setPlaying(true), stopped: () => setPlaying(false),
     error: () => { setFailed(true); setReady(false); setPlaying(false); } };
 }
 
-export function SceneMedia({ scene, file, landscape = false, priority = false, label, loopEnd }: {
-  scene: ReturnType<typeof useInfiniaScene>; file: string; landscape?: boolean; priority?: boolean; label: string; loopEnd?: number;
+export function SceneMedia({ scene, file, landscape = false, priority = false, label, loopEnd, companion }: {
+  scene: ReturnType<typeof useInfiniaScene>; file: string; landscape?: boolean; priority?: boolean; label: string; loopEnd?: number; companion?: number;
 }) {
-  return <div className={`infinia-scene-media${landscape ? " infinia-scene-landscape" : ""}`} data-ready={scene.ready && scene.showVideo}>
+  const [companionReady, setCompanionReady] = useState(false);
+  const secondary = companion !== undefined;
+  const mounted = scene.showVideo && (!secondary || scene.wide);
+  return <div className={`infinia-scene-media${landscape ? " infinia-scene-landscape" : ""}`} data-ready={(secondary ? companionReady : scene.ready) && mounted}>
     <img src={`/media/infinia/${file}.webp`} alt={label} width={landscape ? 1920 : 1080} height={landscape ? 1080 : 1920} loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : undefined} />
-    {scene.showVideo && <video ref={scene.video} muted loop playsInline preload="none" tabIndex={-1} aria-hidden="true" width={landscape ? 1920 : 1080} height={landscape ? 1080 : 1920} poster={`/media/infinia/${file}.webp`} onLoadedData={scene.loaded} onPlaying={scene.started} onPause={scene.stopped} onError={scene.error} onTimeUpdate={loopEnd ? event => { if (event.currentTarget.currentTime >= loopEnd) event.currentTarget.currentTime = 0; } : undefined}>
+    {mounted && <video ref={secondary ? node => { scene.companions.current[companion!] = node; } : scene.video} muted loop playsInline preload="none" tabIndex={-1} aria-hidden="true" width={landscape ? 1920 : 1080} height={landscape ? 1080 : 1920} poster={`/media/infinia/${file}.webp`} onLoadedData={secondary ? () => setCompanionReady(true) : scene.loaded} onPlaying={secondary ? undefined : scene.started} onPause={secondary ? undefined : scene.stopped} onError={secondary ? () => setCompanionReady(false) : scene.error} onTimeUpdate={loopEnd ? event => { if (event.currentTarget.currentTime >= loopEnd) event.currentTarget.currentTime = 0; } : undefined}>
       <source src={`/media/infinia/${file}.webm`} type="video/webm" /><source src={`/media/infinia/${file}.mp4`} type="video/mp4" />
     </video>}
   </div>;

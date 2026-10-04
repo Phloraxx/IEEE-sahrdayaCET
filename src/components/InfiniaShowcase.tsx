@@ -79,7 +79,7 @@ export function InfiniaShowcase({ year = "2025", hub = false }: { year?: string;
   const latest = year === "2025";
   const path = hub ? "/infinia" : `/infinia/${year}`;
   const gallery = latest ? INFINIA_PHOTOS : INFINIA_2024_PHOTOS;
-  return <><div className="infinia-site infinia-cinema">
+  return <><div className="infinia-site infinia-cinema infinia-playful">
     <CanonicalLink path={path} />
     <Navbar />
     <main id="main-content">
