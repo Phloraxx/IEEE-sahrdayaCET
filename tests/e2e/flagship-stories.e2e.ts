@@ -143,7 +143,7 @@ test.describe("Infinia showcase and independent Altair archive", () => {
       await page.getByRole("link", {name:"See it in motion",exact:true}).click();
       await expect.poll(() => page.locator("#expo-floor video").evaluate(element => !(element as HTMLVideoElement).paused)).toBe(true);
       await expect.poll(() => page.locator(".infinia-scene-media video").evaluateAll(elements => elements.filter(element => !(element as HTMLVideoElement).paused).length)).toBe(1);
-      expect(await page.locator("#expo-floor .infinia-scene-stage").evaluate(element => getComputedStyle(element).position)).toBe("static");
+      expect(await page.locator("#expo-floor .infinia-scene-stage").evaluate(element => getComputedStyle(element).position)).not.toBe("sticky");
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
       await page.addInitScript(() => Object.defineProperty(navigator, "connection", {
         configurable: true, value: Object.assign(new EventTarget(), { saveData: true, effectiveType: "4g" }),
@@ -176,20 +176,42 @@ test.describe("Infinia showcase and independent Altair archive", () => {
     await expect(page).toHaveURL(/#experience$/);
   });
 
-  test("keeps pinned scene controls inside short desktop viewports", async ({ page }) => {
+  test("keeps scene controls reachable on short desktops and visible during tall desktop pins", async ({ page }) => {
     await page.emulateMedia({reducedMotion:"no-preference"});
-    for (const width of [1440,1760]) {
-      await page.setViewportSize({width,height:740});
+    for (const height of [740,900]) for (const width of [1440,1760]) {
+      await page.setViewportSize({width,height});
       await page.goto("/infinia");
+      const stage = page.locator(".infinia-hero-stage");
       await expect(page.getByRole("button",{name:"Pause RC-car film",exact:true})).toBeVisible();
-      const bottom = await page.locator(".infinia-hero-caption").evaluate(element => element.getBoundingClientRect().bottom);
-      expect(bottom).toBeLessThanOrEqual(740);
+      expect(await stage.evaluate(element => getComputedStyle(element).position)).toBe(height < 850 ? "relative" : "sticky");
+      const caption = page.locator(".infinia-hero-caption");
+      if (height < 850) await caption.scrollIntoViewIfNeeded();
+      expect(await caption.evaluate(element => element.getBoundingClientRect().bottom)).toBeLessThanOrEqual(height);
       await page.getByRole("link",{name:"See it in motion",exact:true}).click();
       await page.getByRole("link",{name:"Next: flight demonstration",exact:true}).click();
-      const bounds = await page.locator("#flight-demo .infinia-scene-caption").evaluate(element => ({top:element.getBoundingClientRect().top,bottom:element.getBoundingClientRect().bottom}));
+      const controls = page.locator("#flight-demo .infinia-scene-caption");
+      if (height < 850) await controls.scrollIntoViewIfNeeded();
+      const bounds = await controls.evaluate(element => ({top:element.getBoundingClientRect().top,bottom:element.getBoundingClientRect().bottom}));
       expect(bounds.top).toBeGreaterThanOrEqual(0);
-      expect(bounds.bottom).toBeLessThanOrEqual(740);
+      expect(bounds.bottom).toBeLessThanOrEqual(height);
     }
+  });
+
+  test("keeps expo overlay content inside the footage and preserves usable controls", async ({page}) => {
+    await page.setViewportSize({width:1440,height:900});
+    await page.goto("/infinia");
+    await page.getByRole("link",{name:"See it in motion",exact:true}).click();
+    const chapter = page.locator("#expo-floor");
+    await expect(chapter.getByRole("button",{name:"Pause expo floor film",exact:true})).toBeVisible();
+    const media = await chapter.locator(".infinia-scene-media").boundingBox();
+    const copy = await chapter.locator(".infinia-scene-copy").boundingBox();
+    expect(media).not.toBeNull(); expect(copy).not.toBeNull();
+    expect(copy!.x).toBeGreaterThanOrEqual(media!.x);
+    expect(copy!.x+copy!.width).toBeLessThanOrEqual(media!.x+media!.width);
+    expect(copy!.y).toBeGreaterThanOrEqual(media!.y);
+    expect(copy!.y+copy!.height).toBeLessThanOrEqual(media!.y+media!.height);
+    await chapter.getByRole("button",{name:"Pause expo floor film",exact:true}).click();
+    await expect(chapter.getByRole("button",{name:"Play expo floor film",exact:true})).toBeVisible();
   });
 
   test("preserves legacy links with permanent redirects and rejects unknown editions", async ({ request }) => {

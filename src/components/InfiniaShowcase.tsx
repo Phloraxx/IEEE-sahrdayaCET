@@ -79,7 +79,7 @@ export function InfiniaShowcase({ year = "2025", hub = false }: { year?: string;
   const latest = year === "2025";
   const path = hub ? "/infinia" : `/infinia/${year}`;
   const gallery = latest ? INFINIA_PHOTOS : INFINIA_2024_PHOTOS;
-  return <><div className="infinia-site">
+  return <><div className="infinia-site infinia-canvas">
     <CanonicalLink path={path} />
     <Navbar />
     <main id="main-content">
@@ -99,12 +99,12 @@ export function InfiniaShowcase({ year = "2025", hub = false }: { year?: string;
       <section id="workshops" className="infinia-section infinia-workshops" aria-labelledby="workshops-heading">
         <Heading number="01" label={latest ? "27 September 2025 / Workshop day" : "28 September 2024 / Workshop day"} title={latest ? "Six workshop tracks." : "Nine workshop tracks."} id="workshops-heading" />
         {latest ? <><div className="infinia-workshop-grid">{INFINIA_WORKSHOPS.map((workshop, index) => <article key={workshop.name}>
-          <div className="infinia-workshop-top"><span>{String(index + 1).padStart(2, "0")}</span><span>{workshop.topic}</span></div>
+          <span className="infinia-workshop-number">{String(index + 1).padStart(2, "0")}</span>
           <div className="infinia-workshop-photo"><MediaView photo={workshop.photo} /></div>
-          <h3>{workshop.name}</h3><p className="infinia-workshop-description">{workshop.text}</p>
-          <p className="infinia-host">{workshop.host}</p>
-          <MediaView photo={infiniaPoster(workshop.poster, `${workshop.name  } · ${  workshop.topic}`)} poster compact />
-          <details><summary>Inside {workshop.name}</summary><p>{workshop.detail}</p><p className="infinia-attendance">{workshop.count} attendees reported for this workshop · 2025</p></details>
+          <div className="infinia-workshop-info"><p className="infinia-eyebrow">{workshop.topic}</p><h3>{workshop.name}</h3><p className="infinia-workshop-description">{workshop.text}</p><p className="infinia-host">{workshop.host}</p>
+            <details><summary>Inside {workshop.name}</summary><p>{workshop.detail}</p><p className="infinia-attendance">{workshop.count} attendees reported for this workshop · 2025</p></details>
+          </div>
+          <MediaView photo={infiniaPoster(workshop.poster, `${workshop.name} · ${workshop.topic}`)} poster compact />
         </article>)}</div><p className="infinia-source-note">Workshop attendance is reported per session and is separate from the event’s overall participant figure.</p></>
         : <div className="infinia-track-list">{edition.tracks.map((track, index) => <div key={track}><span>{String(index + 1).padStart(2, "0")}</span><h3>{track}</h3></div>)}</div>}
       </section>

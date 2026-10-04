@@ -20,7 +20,7 @@ export function useInfiniaScene(enabled = true) {
   const [failed, setFailed] = useState(false);
   const [ready, setReady] = useState(false);
   const { scrollYProgress } = useScroll({ target: section, offset: ["start start", "end end"] });
-  const scale = useTransform(scrollYProgress, [0, 1], [1, .94]);
+  const scale = useTransform(scrollYProgress, [0, 1], [1, 1.05]);
   const y = useTransform(scrollYProgress, [0, 1], [0, -20]);
 
   useEffect(() => {
@@ -110,6 +110,7 @@ function VideoChapter({ chapter }: { chapter: typeof CHAPTERS[number] }) {
   const scene = useInfiniaScene();
   return <section ref={scene.section} id={chapter.id} className={`infinia-video-chapter infinia-scene-${chapter.theme}`} data-enhanced={scene.allowed} data-active={scene.active} aria-labelledby={`${chapter.id}-heading`}>
     <div ref={scene.stage} className="infinia-scene-stage">
+      <span className="infinia-scene-art" aria-hidden="true">{chapter.id === "flight-demo" ? "UP↑" : chapter.id === "lantern-fest" ? "AFTER HOURS" : "EXPO"}</span>
       <div className="infinia-scene-top"><span>{chapter.number} / 04 — {chapter.tag}</span><span>TechX Infinia · 2024</span></div>
       <div className="infinia-scene-layout">
         <div className="infinia-scene-copy"><p className="infinia-eyebrow">{chapter.date}</p><h2 id={`${chapter.id}-heading`}>{chapter.title}</h2><p>{chapter.text}</p><a href={`#${chapter.next}`} className="infinia-link">{chapter.nextLabel}<ArrowDown size={18} aria-hidden="true" /></a></div>
