@@ -4,7 +4,7 @@ import { Dialog } from "radix-ui";
 import { Link } from "react-router";
 import Navbar from "@/components/Navbar";
 import { CanonicalLink } from "@/components/CanonicalLink";
-import { type FlagshipImage } from "@/lib/flagships";
+import { FLAGSHIP_TIMELINE, type FlagshipImage } from "@/lib/flagships";
 import { INFINIA, INFINIA_2024_PHOTOS, INFINIA_PANEL, INFINIA_PHOTOS, INFINIA_POSTERS, INFINIA_STATS, INFINIA_WORKSHOPS, infiniaPoster } from "@/lib/infinia";
 import "./infinia.css";
 
@@ -47,6 +47,30 @@ function Editions({ year }: { year: string }) {
   </nav>;
 }
 
+function FlagshipTimeline() {
+  return <section id="timeline" className="infinia-section infinia-timeline" aria-labelledby="timeline-heading">
+    <header className="infinia-timeline-heading">
+      <p className="infinia-eyebrow">IEEE Sahrdaya SB / Our flagship events</p>
+      <h2 id="timeline-heading">Flagship timeline</h2>
+      <p>Infinia and Altair, edition by edition. Explore the chapters from newest to earliest.</p>
+    </header>
+    <ol className="infinia-timeline-list" role="list">
+      {FLAGSHIP_TIMELINE.map(({ flagship, edition, href }) => <li key={`${flagship.slug}-${edition.year}`}>
+        <Link to={href} className="infinia-timeline-entry" aria-label={`Explore ${edition.title} ${edition.year}`}>
+          <span className="infinia-timeline-year">{edition.year}</span>
+          <div className="infinia-timeline-copy">
+            <p className="infinia-eyebrow">{flagship.name} / {edition.date}</p>
+            <h3>{edition.title}<ArrowUpRight size={24} aria-hidden="true" /></h3>
+            <p className="infinia-timeline-summary">{edition.summary}</p>
+            <span className="infinia-timeline-status">{edition.recordType === "programme" ? "Programme archive" : "Event recap"}</span>
+          </div>
+          {edition.image && <figure><Photo photo={edition.image} /><figcaption>{edition.image.caption}</figcaption></figure>}
+        </Link>
+      </li>)}
+    </ol>
+  </section>;
+}
+
 export function InfiniaShowcase({ year = "2025", hub = false }: { year?: string; hub?: boolean }) {
   const edition = INFINIA.editions.find(edition => edition.year === year)!;
   const latest = year === "2025";
@@ -63,11 +87,12 @@ export function InfiniaShowcase({ year = "2025", hub = false }: { year?: string;
           <div><p className="infinia-eyebrow">{latest ? "Infinia 2.0" : "The first edition"} / {edition.date}</p>
             <p className="infinia-hero-line">{latest ? <>Beyond imagination.<br /><span>Into experience.</span></> : <>Where imagination<br /><span>meets technology.</span></>}</p>
           </div>
-          <div className="infinia-hero-intro"><p>A meeting place for curious minds. Hands-on technology, industry conversations and the people who make it happen.</p><a href="#experience" className="infinia-link">Step inside <ArrowDown size={18} aria-hidden="true" /></a></div>
+          <div className="infinia-hero-intro"><p>A meeting place for curious minds. Hands-on technology, industry conversations and the people who make it happen.</p><a href={hub ? "#timeline" : "#experience"} className="infinia-link">Step inside <ArrowDown size={18} aria-hidden="true" /></a></div>
         </div>
         <div className="infinia-spectrum" aria-hidden="true" />
       </header>
       <Editions year={year} />
+      {hub && <FlagshipTimeline />}
       <section id="experience" className="infinia-section infinia-intro" aria-labelledby="experience-heading">
         <div><p className="infinia-eyebrow">Sahrdaya, Kerala / {year}</p><h2 id="experience-heading">The ideas are big.<br />The experience<br /><em>is hands-on.</em></h2></div>
         <div className="infinia-intro-copy"><p>{edition.summary}</p><p>{latest ? "Build an interface. Explore an electric car. Put logic on a board. Infinia 2.0 connected what students learn on campus with the tools, questions and people shaping industry." : "The first edition brought nine technical workshop tracks together with a hackathon, four expos and STEM outreach. Making, conversation and community shared the same campus."}</p></div>

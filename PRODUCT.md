@@ -39,7 +39,7 @@ See `AGENTS.md`, `DESIGN.md`, `docs/architecture.md`, and `docs/security-archite
 
 ## Distinct Infinia chapters (3 October 2026)
 
-Infinia 2.0 (2025) and TechX Infinia (2024) have stable SSR URLs at /infinia/2025 and /infinia/2024. The showcase replaces the mixed flagship timeline. Legacy /flagships and Infinia paths redirect permanently; valid Altair parent/edition URLs remain accessible through the compact archive link. Unknown editions return 404.
+Infinia 2.0 (2025) and TechX Infinia (2024) have stable SSR URLs at /infinia/2025 and /infinia/2024. The showcase hub includes a latest-first flagship timeline with all four archived Infinia/Altair editions; each links to its independent story. Legacy /flagships and Infinia paths redirect permanently; valid Altair parent/edition URLs are reachable directly from the timeline and compact archive link. Unknown editions return 404.
 
 The completed 2025 report supports 400+ participants, 70 volunteers, 15 professional speakers and 10+ industry collaborations. Workshop attendance is per session. Vitals 24 registration figures belong to the separate 2025 pre-event. Conflicting 2024 attendance claims remain unpublished. Original posters and full-frame photographs have keyboard-accessible viewers; the 2024 film is silent, user-initiated and described in text.
 

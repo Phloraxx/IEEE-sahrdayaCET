@@ -129,7 +129,7 @@ CD reacts only to successful CI on `main` or `dev`, verifies the tested SHA is s
 
 ## Infinia showcase and independent Altair archive
 
-Public SSR /infinia and /infinia/:year use curated src/lib/infinia.ts and src/lib/flagships.ts data and the scoped InfiniaShowcase component, independent of PocketBase. Missing years return 404. Legacy /flagships, /flagships/infinia and valid Infinia edition paths issue 301 redirects to canonical showcase routes. /flagships/altair and its 2023/2022 leaves retain their existing archive.
+Public SSR /infinia and /infinia/:year use curated src/lib/infinia.ts and src/lib/flagships.ts data and the scoped InfiniaShowcase component, independent of PocketBase. The hub alone includes a newest-first, server-rendered Infinia/Altair timeline using FLAGSHIP_TIMELINE and canonical edition hrefs, also shared with the sitemap. Edition leaves retain their own year-specific content. Missing years return 404. Legacy /flagships, /flagships/infinia and valid Infinia edition paths issue 301 redirects to canonical showcase routes. /flagships/altair and its 2023/2022 leaves retain their existing archive.
 
 Production sitemap lists only canonical Infinia URLs plus Altair URLs. Staging remains noindex. Local optimised media under public/media/infinia includes full-frame WebP images and a user-initiated WebM/VP9 film with an H.264 fallback with VTT descriptions. The film is confined to 2024; 2025 report counts and pre-event figures are separately labelled.
 

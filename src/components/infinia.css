@@ -185,3 +185,32 @@
  .infinia-day-grid h3 { margin:0; font-size:20px; }
  .infinia-day-grid p { grid-column:2; font-size:14px; }
 }
+
+/* The hub's shared chronology keeps Infinia and Altair as independent editions. */
+.infinia-timeline { background:#e5dfeb; }
+.infinia-timeline-heading { max-width:740px; margin-bottom:40px; }
+.infinia-timeline-heading h2 { font-size:clamp(34px,4.8vw,68px); font-weight:550; letter-spacing:-.05em; line-height:1.08; margin:18px 0; }
+.infinia-timeline-heading>p:last-child { font-size:15px; line-height:1.8; color:#53514f; }
+.infinia-timeline-list { border-left:1px solid #9c91aa; padding-left:28px; }
+.infinia-timeline-list>li+li { border-top:1px solid #b5aabd; }
+.infinia-timeline-entry { display:grid; grid-template-columns:150px minmax(0,1fr) minmax(180px,.65fr); gap:30px; padding:32px 0; align-items:start; }
+.infinia-timeline-year { position:relative; font-size:clamp(40px,4.2vw,60px); line-height:1; font-weight:450; letter-spacing:-.06em; color:#655273; }
+.infinia-timeline-year::before { content:""; position:absolute; width:10px; height:10px; border:2px solid #e5dfeb; background:#655273; border-radius:50%; left:-34px; top:20px; }
+.infinia-timeline-copy h3 { display:flex; align-items:center; gap:18px; font-size:clamp(26px,2.8vw,40px); line-height:1.15; letter-spacing:-.045em; font-weight:550; margin:12px 0; }
+.infinia-timeline-copy h3 svg { flex-shrink:0; }
+.infinia-timeline-summary { font-size:14px; line-height:1.85; max-width:580px; color:#454046; }
+.infinia-timeline-status { display:inline-block; font-size:10px; line-height:1.6; text-transform:uppercase; letter-spacing:.08em; margin-top:18px; border:1px solid #a79aaf; padding:5px 9px; }
+.infinia-timeline-entry figure { margin:0; }
+.infinia-timeline-entry figcaption { font-size:10px; line-height:1.7; color:#53514f; margin-top:9px; }
+@media (hover:hover) { .infinia-timeline-entry:hover h3 { text-decoration:underline; text-underline-offset:6px; } }
+@media (max-width:1000px) {
+ .infinia-timeline-entry { grid-template-columns:100px minmax(0,1fr) minmax(160px,.7fr); gap:24px; }
+ .infinia-timeline-year { font-size:42px; }
+}
+@media (max-width:767px) {
+ .infinia-timeline-list { padding-left:20px; }
+ .infinia-timeline-entry { grid-template-columns:minmax(0,1fr); gap:18px; padding:30px 0; }
+ .infinia-timeline-year::before { left:-26px; top:16px; }
+ .infinia-timeline-copy h3 { font-size:30px; }
+ .infinia-timeline-entry figure { max-width:460px; }
+}
