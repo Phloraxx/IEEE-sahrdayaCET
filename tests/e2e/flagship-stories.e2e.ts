@@ -197,6 +197,24 @@ test.describe("Infinia showcase and independent Altair archive", () => {
     }
   });
 
+  test("fills the hero and chapter stages with footage on desktop and mobile", async ({page}) => {
+    for (const width of [390,1440]) {
+      await page.setViewportSize({width,height:900});
+      await page.emulateMedia({reducedMotion:"reduce"});
+      await page.goto("/infinia");
+      for (const selector of [".infinia-hero-stage", "#expo-floor .infinia-scene-stage", "#flight-demo .infinia-scene-stage", "#lantern-fest .infinia-scene-stage"]) {
+        const stage=page.locator(selector);
+        const frame=await stage.boundingBox();
+        const media=await stage.locator(".infinia-scene-media").boundingBox();
+        expect(frame).not.toBeNull(); expect(media).not.toBeNull();
+        expect(media!.width).toBeGreaterThanOrEqual(frame!.width-1);
+        expect(media!.height).toBeGreaterThanOrEqual(frame!.height-1);
+      }
+      expect(await page.locator(".infinia-hero-enter").evaluate(el=>getComputedStyle(el).borderRadius)).not.toBe("50%");
+      await expect(page.locator(".infinia-hero-layout")).not.toContainText("Three days.");
+    }
+  });
+
   test("keeps expo overlay content inside the footage and preserves usable controls", async ({page}) => {
     await page.setViewportSize({width:1440,height:900});
     await page.goto("/infinia");

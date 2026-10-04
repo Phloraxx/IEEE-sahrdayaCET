@@ -19,9 +19,9 @@ export function useInfiniaScene(enabled = true) {
   const [playing, setPlaying] = useState(false);
   const [failed, setFailed] = useState(false);
   const [ready, setReady] = useState(false);
+  const [canPin, setCanPin] = useState(false);
   const { scrollYProgress } = useScroll({ target: section, offset: ["start start", "end end"] });
-  const scale = useTransform(scrollYProgress, [0, 1], [1, 1.05]);
-  const y = useTransform(scrollYProgress, [0, 1], [0, -20]);
+  const reveal = useTransform(scrollYProgress, [0, 1], ["inset(0% round 0px)", "inset(3% round 16px)"]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -30,6 +30,7 @@ export function useInfiniaScene(enabled = true) {
     let pending = 0;
     const measure = () => {
       pending = 0;
+      setCanPin(window.innerWidth > 1000 && window.innerHeight >= 850);
       const rect = stage.current?.getBoundingClientRect();
       const centre = window.innerHeight / 2;
       const ownsCentre = !!rect && rect.top <= centre && rect.bottom > centre;
@@ -78,7 +79,7 @@ export function useInfiniaScene(enabled = true) {
       setPlaying(!video.current?.paused);
     }).catch(() => setPlaying(false));
   }
-  return { section, stage, video, allowed, paused, playing, ready, active, showVideo, scale, y, progress: scrollYProgress, toggle,
+  return { section, stage, video, allowed, canReveal: allowed && canPin, paused, playing, ready, active, showVideo, reveal, progress: scrollYProgress, toggle,
     loaded: () => setReady(true), started: () => setPlaying(true), stopped: () => setPlaying(false),
     error: () => { setFailed(true); setReady(false); setPlaying(false); } };
 }
@@ -110,15 +111,14 @@ function VideoChapter({ chapter }: { chapter: typeof CHAPTERS[number] }) {
   const scene = useInfiniaScene();
   return <section ref={scene.section} id={chapter.id} className={`infinia-video-chapter infinia-scene-${chapter.theme}`} data-enhanced={scene.allowed} data-active={scene.active} aria-labelledby={`${chapter.id}-heading`}>
     <div ref={scene.stage} className="infinia-scene-stage">
-      <span className="infinia-scene-art" aria-hidden="true">{chapter.id === "flight-demo" ? "UP↑" : chapter.id === "lantern-fest" ? "AFTER HOURS" : "EXPO"}</span>
       <div className="infinia-scene-top"><span>{chapter.number} / 04 — {chapter.tag}</span><span>TechX Infinia · 2024</span></div>
+      <motion.div className="infinia-scene-frame" style={scene.canReveal && !scene.paused ? { clipPath: scene.reveal } : undefined}>
+        <SceneMedia scene={scene} file={chapter.file} landscape={chapter.landscape} label={chapter.label} loopEnd={chapter.id === "flight-demo" ? 3 : undefined} />
+      </motion.div>
       <div className="infinia-scene-layout">
         <div className="infinia-scene-copy"><p className="infinia-eyebrow">{chapter.date}</p><h2 id={`${chapter.id}-heading`}>{chapter.title}</h2><p>{chapter.text}</p><a href={`#${chapter.next}`} className="infinia-link">{chapter.nextLabel}<ArrowDown size={18} aria-hidden="true" /></a></div>
-        <motion.div className="infinia-scene-frame" style={scene.allowed && !scene.paused ? { scale: scene.scale, y: scene.y } : undefined}>
-          <SceneMedia scene={scene} file={chapter.file} landscape={chapter.landscape} label={chapter.label} loopEnd={chapter.id === "flight-demo" ? 3 : undefined} />
-          <div className="infinia-scene-caption"><span>{chapter.tag} · TechX Infinia, 2024</span><SceneControl scene={scene} name={`${chapter.tag.toLowerCase()} film`} /></div>
-        </motion.div>
       </div>
+      <div className="infinia-scene-caption"><span>{chapter.tag} · TechX Infinia, 2024</span><SceneControl scene={scene} name={`${chapter.tag.toLowerCase()} film`} /></div>
       <div className="infinia-scene-bottom" aria-hidden="true"><span>Scroll to continue</span><div className="infinia-scene-progress"><motion.span style={scene.allowed && !scene.paused ? { scaleX: scene.progress } : { scaleX: 0 }} /></div><span>{chapter.number} / 04</span></div>
     </div>
   </section>;
