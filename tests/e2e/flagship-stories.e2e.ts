@@ -7,6 +7,10 @@ test.describe("Infinia showcase and independent Altair archive", () => {
     try {
       await page.goto("/infinia");
       await expect(page.getByRole("heading", { level: 1 })).toHaveText("INFINIA");
+      const footer = page.getByRole("contentinfo");
+      await expect(footer.getByRole("navigation", { name: "Branch and attendee links" })).toBeVisible();
+      await expect(footer.getByRole("link", { name: "Verify a certificate", exact: true })).toHaveAttribute("href", "/verify");
+      await expect(footer.getByRole("img", { name: "IEEE Kerala Section", exact: true })).toHaveCount(1);
       await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", "https://ieeesahrdaya.com/infinia");
       await expect(page.locator(".infinia-stat-grid dd")).toHaveText(["400+", "70", "15", "10+"]);
       await expect(page.locator(".infinia-vitals-stats dd")).toHaveText(["724", "270+", "150+", "12"]);
@@ -15,7 +19,7 @@ test.describe("Infinia showcase and independent Altair archive", () => {
       await workshop.locator("summary").click();
       await expect(workshop.getByText(/63 attendees reported for this workshop/)).toBeVisible();
       const editions = page.getByRole("navigation", { name: "Infinia editions" });
-      await expect(editions.getByRole("link")).toHaveText(["Infinia 2.02025", "TechX Infinia2024"]);
+      await expect(editions.getByRole("link")).toHaveText(["Altair archive", "Infinia 2.02025", "TechX Infinia2024"]);
       await editions.getByRole("link", { name: /TechX Infinia/ }).click();
       await expect(page.getByRole("heading", { level: 1 })).toHaveText("TechX Infinia");
       await expect(page.locator(".infinia-track-list h3")).toHaveCount(9);
@@ -33,9 +37,9 @@ test.describe("Infinia showcase and independent Altair archive", () => {
     try {
       const page = await context.newPage();
       await page.goto("/infinia");
-      await page.getByRole("link", { name: "Step inside", exact: true }).click();
+      await page.getByRole("link", { name: "Explore Infinia 2.0", exact: true }).click();
       await expect(page).toHaveURL(/#experience$/);
-      await expect(page.getByRole("heading", { name: /The ideas are big/ })).toBeInViewport();
+      await expect(page.getByRole("heading", { name: /Infinia 2.0.*26–28 September.*2025/ })).toBeInViewport();
       await page.getByRole("link", { name: "Explore the timeline", exact: true }).click();
       await expect(page).toHaveURL(/#timeline$/);
       const timeline = page.getByRole("region", { name: "Flagship timeline", exact: true });
@@ -71,6 +75,12 @@ test.describe("Infinia showcase and independent Altair archive", () => {
     await expect(videos).toHaveCount(3);
     const centre = videos.nth(1);
     await expect.poll(() => centre.evaluate(element => !(element as HTMLVideoElement).paused)).toBe(true);
+    await expect.poll(() => videos.evaluateAll(elements => elements.every(element => {
+      const video = element as HTMLVideoElement;
+      return video.videoWidth === 1080 && video.videoHeight === 1920 && !video.paused;
+    }))).toBe(true);
+    const sources = await videos.evaluateAll(elements => elements.map(element => (element as HTMLVideoElement).currentSrc));
+    expect(new Set(sources).size).toBe(3);
     for (const video of await videos.all()) {
       expect(await video.evaluate(element => (element as HTMLVideoElement).muted && (element as HTMLVideoElement).loop)).toBe(true);
       await expect(video).toHaveAttribute("playsinline", "");
@@ -78,7 +88,7 @@ test.describe("Infinia showcase and independent Altair archive", () => {
     await expect(hero.getByText("In motion · TechX Infinia, 2024", { exact: true })).toBeVisible();
     await hero.getByRole("button", { name: "Pause background film", exact: true }).click();
     await expect.poll(() => videos.evaluateAll(elements => elements.every(element => (element as HTMLVideoElement).paused))).toBe(true);
-    await hero.getByRole("link", { name: "Step inside", exact: true }).click();
+    await hero.getByRole("link", { name: "Explore Infinia 2.0", exact: true }).click();
     await expect(page).toHaveURL(/#experience$/);
     await page.evaluate(() => window.scrollTo(0, 0));
     await expect(hero.getByRole("button", { name: "Play background film", exact: true })).toBeVisible();
@@ -107,7 +117,7 @@ test.describe("Infinia showcase and independent Altair archive", () => {
         configurable: true, value: Object.assign(new EventTarget(), { saveData: true, effectiveType: "4g" }),
       }));
       const requests: string[] = [];
-      page.on("request", request => { if (/highlights\.(webm|mp4)/.test(request.url())) requests.push(request.url()); });
+      page.on("request", request => { if (/techx-2024-film-\d\.(webm|mp4)/.test(request.url())) requests.push(request.url()); });
       await page.reload();
       await page.getByRole("button", { name: "Open more navigation", exact: true }).click();
       await expect(page.getByRole("dialog", { name: "Site navigation", exact: true })).toBeVisible();
@@ -120,7 +130,7 @@ test.describe("Infinia showcase and independent Altair archive", () => {
 
   test("retains the photo, story and film link if background playback fails", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "no-preference" });
-    await page.route("**/media/infinia/techx-2024-highlights.*", route => route.abort());
+    await page.route("**/media/infinia/techx-2024-film-*", route => route.abort());
     await page.goto("/infinia");
     const hero = page.locator(".infinia-hero");
     await expect(page.getByRole("button", { name: "SIGN IN", exact: true })).toBeVisible();
@@ -128,7 +138,7 @@ test.describe("Infinia showcase and independent Altair archive", () => {
     await expect(hero.locator("img")).toBeVisible();
     await expect(hero.getByRole("heading", { level: 1 })).toHaveText("INFINIA");
     await expect(hero.getByRole("link", { name: "Watch the 2024 film", exact: true })).toHaveAttribute("href", "/infinia/2024#film");
-    await hero.getByRole("link", { name: "Step inside", exact: true }).click();
+    await hero.getByRole("link", { name: "Explore Infinia 2.0", exact: true }).click();
     await expect(page).toHaveURL(/#experience$/);
   });
 
@@ -178,9 +188,9 @@ test.describe("Infinia showcase and independent Altair archive", () => {
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
     await expect(trigger).toBeFocused();
-    const photo = page.getByRole("link", { name: "View Opening a shared conversation · 2025", exact: true });
+    const photo = page.getByRole("link", { name: "View The opening ceremony · 2025", exact: true });
     await photo.click();
-    await expect(page.getByRole("dialog", { name: "Opening a shared conversation · 2025", exact: true })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "The opening ceremony · 2025", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Close image", exact: true }).click();
     await expect(photo).toBeFocused();
   });

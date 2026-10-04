@@ -37,9 +37,9 @@ The public site and operations product share one identity model, PocketBase data
 
 See `AGENTS.md`, `DESIGN.md`, `docs/architecture.md`, and `docs/security-architecture.md` for implementation contracts.
 
-## Distinct Infinia chapters (3 October 2026)
+## Distinct Infinia chapters (4 October 2026)
 
-Infinia 2.0 (2025) and TechX Infinia (2024) have stable SSR URLs at /infinia/2025 and /infinia/2024. The showcase hub opens with a silent, pausable TechX Infinia 2024 filmstrip and ends with a latest-first flagship timeline with all four archived Infinia/Altair editions; each links to its independent story. Legacy /flagships and Infinia paths redirect permanently; valid Altair parent/edition URLs are reachable directly from the timeline and compact archive link. Unknown editions return 404.
+Infinia 2.0 (2025) and TechX Infinia (2024) have stable SSR URLs at /infinia/2025 and /infinia/2024. The showcase hub opens with three silent, pausable 1080p films from TechX Infinia 2024 camera originals and ends with a latest-first flagship timeline with all four archived Infinia/Altair editions; each links to its independent story. Legacy /flagships and Infinia paths redirect permanently; valid Altair parent/edition URLs are reachable directly from the timeline and compact archive link. Unknown editions return 404. The shared site footer closes every Infinia page. Six original workshop photographs and a full-frame evening photograph lead the 2025 story, with the programme organised into its three actual days.
 
 The completed 2025 report supports 400+ participants, 70 volunteers, 15 professional speakers and 10+ industry collaborations. Workshop attendance is per session. Vitals 24 registration figures belong to the separate 2025 pre-event. Conflicting 2024 attendance claims remain unpublished. Original posters and full-frame photographs have keyboard-accessible viewers; the 2024 film is silent, user-initiated and described in text.
 
