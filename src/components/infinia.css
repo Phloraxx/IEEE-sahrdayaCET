@@ -79,3 +79,65 @@
 }
 @media(max-width:359px){.infinia-hero-stage,.infinia-scene-stage{padding-inline:20px}.infinia-hero-description{font-size:13px}.infinia-photo-grid{grid-template-columns:1fr}.infinia-photo-grid>figure:first-child{grid-column:auto}.infinia-section-heading h2,.infinia-intro h2{font-size:37px}}
 @media(prefers-reduced-motion:reduce){.infinia-hero,.infinia-video-chapter{min-height:0!important}.infinia-hero-stage,.infinia-scene-stage{position:relative!important;height:auto!important}.infinia-scene-media video{display:none;transition:none}.infinia-hero-enter,.infinia-timeline-entry figure{transition:none}.infinia-hero-enter:hover,.infinia-timeline-entry:hover figure{transform:none}}
+
+/* Playful triptych: original portrait films, rainbow type and native scroll opening. */
+.infinia-playful{--blue:#6940ad;--accent:#a769de}
+.infinia-playful-hero{background:#100b21}
+.infinia-playful-hero .infinia-hero-stage{min-height:max(780px,100svh);padding-bottom:36px}
+.infinia-playful-hero .infinia-hero-stage::after{background:linear-gradient(180deg,#100b2199,transparent 25%,#100b2155 40%,#100b21ba 67%,#100b21f5 94%);z-index:-1}
+.infinia-shape-definitions{position:absolute;pointer-events:none}
+.infinia-hero-triptych{position:absolute;inset:0;z-index:-2;overflow:hidden;pointer-events:none}
+.infinia-hero-panel{position:absolute;top:0;height:100%;width:35%;overflow:hidden;transform-origin:center}
+.infinia-hero-panel .infinia-scene-media{width:100%;height:100%;aspect-ratio:auto}
+.infinia-hero-panel-night{left:0;z-index:2}
+.infinia-hero-panel-night img,.infinia-hero-panel-night video{object-position:50% 60%;filter:brightness(1.12)}
+.infinia-hero-panel-car{left:50%;width:34.5%;transform:translateX(-50%);z-index:1}
+.infinia-hero-panel-car img,.infinia-hero-panel-car video{object-position:50% 58%}
+.infinia-hero-panel-flight{right:0;z-index:2}
+.infinia-hero-panel-flight img,.infinia-hero-panel-flight video{object-position:50% 39%;filter:brightness(.78)}
+.infinia-playful-hero .infinia-hero-meta a,.infinia-playful-hero .infinia-hero-meta>span{border-radius:999px;background:#100b21e6;padding:10px 15px}
+.infinia-playful-hero .infinia-hero-layout{display:flex;flex-direction:column;align-items:center;justify-content:end;gap:28px;padding:125px 0 32px;text-align:center}
+.infinia-playful-hero .infinia-wordmark{font-size:clamp(90px,14.8vw,215px);letter-spacing:-.065em;font-weight:750;line-height:1.02;margin:10px 0 6px}
+.infinia-playful-hero .infinia-edition-wordmark{font-size:clamp(70px,10vw,150px);font-weight:700;margin:14px 0}
+.infinia-rainbow-word{color:#e9c4ff;background:linear-gradient(110deg,#ff9fc6 5%,#ffd59b 22%,#f1eaa4 38%,#a0edd2 53%,#abd1ff 70%,#d9b3ff 85%,#ff9fc6 100%);background-size:220% 100%;background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 4px 18px #100b21);animation:infinia-spectrum-drift 12s ease-in-out infinite alternate}
+.infinia-playful-hero .infinia-hero-description{font-size:clamp(15px,1.55vw,22px);letter-spacing:.015em;margin:12px 0 8px;color:#fff}
+.infinia-playful-hero .infinia-hero-watch,.infinia-playful-hero .infinia-hero-history{font-size:12px}
+.infinia-playful-hero .infinia-hero-story>.infinia-hero-watch svg{animation:infinia-arrow-nudge 2.8s ease-in-out infinite}
+.infinia-playful-hero .infinia-hero-invite{display:grid;grid-template-columns:auto auto;column-gap:24px;align-items:center;justify-self:auto;min-width:0;text-align:left}
+.infinia-playful-hero .infinia-hero-invite>.infinia-eyebrow{grid-column:1;font-size:10px}
+.infinia-playful-hero .infinia-hero-date{grid-column:1;grid-row:2;margin:3px 0 0;font-size:16px}
+.infinia-playful-hero .infinia-hero-enter{grid-column:2;grid-row:1/3;border:2px solid transparent;border-radius:999px;background:linear-gradient(#171024,#171024) padding-box,linear-gradient(105deg,#ff9fc6,#ffd59b,#a0edd2,#abd1ff,#d9b3ff) border-box;color:#fff;min-height:62px;padding:12px 15px 12px 25px;min-width:240px}
+.infinia-playful-hero .infinia-hero-enter svg{width:32px;height:32px;padding:5px;border-radius:50%;color:#171024;background:#d9b3ff;transition:transform .3s}
+.infinia-playful-hero .infinia-hero-caption{border-color:#ffffff40;font-size:10px;gap:20px}
+.infinia-playful-hero .infinia-hero-caption>p{max-width:280px}
+.infinia-playful-hero .infinia-film-toggle,.infinia-playful .infinia-scene-top>span,.infinia-playful .infinia-video-chapter .infinia-film-toggle{border-radius:999px}
+.infinia-playful-hero .infinia-scene-progress>span{background:linear-gradient(90deg,#ff9fc6,#ffd59b,#a0edd2,#abd1ff,#d9b3ff)}
+.infinia-rainbow-ribbon{position:absolute;left:0;bottom:-6px;width:100%;height:45px;pointer-events:none;overflow:visible}
+.infinia-playful .infinia-workshop-photo img{border-radius:25px 55px 25px 25px}
+.infinia-playful .infinia-workshop-grid article:nth-child(even) .infinia-workshop-photo img{border-radius:55px 25px 25px 25px}
+.infinia-playful .infinia-community img{border-radius:25px}
+.infinia-playful .infinia-day-grid img{border-radius:24px}
+.infinia-playful .infinia-editions>a{border-radius:18px 18px 0 0}
+@keyframes infinia-spectrum-drift{to{background-position:100% 50%}}
+@keyframes infinia-arrow-nudge{0%,100%{transform:translateY(0)}50%{transform:translateY(5px)}}
+.infinia-playful-hero[data-paused="true"] .infinia-rainbow-word,.infinia-playful-hero[data-paused="true"] .infinia-hero-story>.infinia-hero-watch svg{animation-play-state:paused}
+@media(hover:hover){.infinia-playful-hero .infinia-hero-enter:hover{background:linear-gradient(#2c1b44,#2c1b44) padding-box,linear-gradient(105deg,#ff9fc6,#ffd59b,#a0edd2,#abd1ff,#d9b3ff) border-box;transform:translateY(-3px) rotate(-2deg)}.infinia-playful-hero .infinia-hero-enter:hover svg{transform:rotate(-15deg)}}
+.infinia-playful-hero:focus-within .infinia-rainbow-word,.infinia-playful-hero .infinia-rainbow-word:hover{animation-play-state:paused}
+@media(min-width:1001px) and (min-height:850px){.infinia-playful-hero[data-enhanced="true"]{min-height:145svh}.infinia-playful-hero[data-enhanced="true"] .infinia-hero-stage{height:100svh;min-height:0}}
+@media(max-width:767px){
+ .infinia-playful-hero .infinia-hero-stage{min-height:max(750px,100svh);padding:28px 22px 114px}
+ .infinia-hero-panel-night,.infinia-hero-panel-flight{width:30%}.infinia-hero-panel-car{width:44%}
+ .infinia-playful-hero .infinia-hero-layout{padding:145px 0 22px;gap:20px;align-items:stretch}
+ .infinia-playful-hero .infinia-hero-meta a,.infinia-playful-hero .infinia-hero-meta>span{padding:8px 10px}
+ .infinia-playful-hero .infinia-wordmark{font-size:17.4vw;margin-top:12px}
+ .infinia-playful-hero .infinia-edition-wordmark{font-size:14vw}
+ .infinia-playful-hero .infinia-hero-description{font-size:14px}
+ .infinia-playful-hero .infinia-hero-invite{grid-template-columns:1fr;justify-items:center;text-align:center;gap:4px}
+ .infinia-playful-hero .infinia-hero-date{margin:0;font-size:15px}
+ .infinia-playful-hero .infinia-hero-enter{grid-row:3;grid-column:1;width:100%;min-height:56px;margin-top:12px}
+ .infinia-playful-hero .infinia-hero-caption{gap:5px 14px;padding-top:12px}
+ .infinia-playful-hero .infinia-hero-caption>p{max-width:none}
+ .infinia-rainbow-ribbon{bottom:70px;height:26px}
+}
+@media(prefers-reduced-motion:reduce){.infinia-rainbow-word,.infinia-playful-hero .infinia-hero-story>.infinia-hero-watch svg{animation:none!important}.infinia-playful-hero .infinia-hero-enter,.infinia-playful-hero .infinia-hero-enter svg{transition:none}.infinia-playful-hero .infinia-hero-enter:hover{transform:none}}
+@media(forced-colors:active){.infinia-rainbow-word{background:none;filter:none;-webkit-text-fill-color:CanvasText;color:CanvasText}.infinia-playful-hero .infinia-hero-enter{border:2px solid LinkText}}
