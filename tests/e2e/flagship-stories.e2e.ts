@@ -28,6 +28,36 @@ test.describe("Infinia showcase and independent Altair archive", () => {
     } finally { await context.close(); }
   });
 
+  test("includes every flagship edition in a newest-first timeline without JavaScript", async ({ browser }) => {
+    const context = await browser.newContext({ javaScriptEnabled: false, baseURL: test.info().project.use.baseURL });
+    try {
+      const page = await context.newPage();
+      await page.goto("/infinia");
+      await page.getByRole("link", { name: "Step inside", exact: true }).click();
+      await expect(page).toHaveURL(/#timeline$/);
+      const timeline = page.getByRole("region", { name: "Flagship timeline", exact: true });
+      await expect(timeline.getByRole("heading", { name: "Flagship timeline", exact: true })).toBeInViewport();
+      await expect(timeline.getByRole("link")).toHaveCount(4);
+      await expect(timeline.getByRole("heading", { level: 3 })).toHaveText(["Infinia 2.0", "TechX Infinia", "Altair 2.0", "Altair"]);
+      await expect(timeline.locator(".infinia-timeline-year")).toHaveText(["2025", "2024", "2023", "2022"]);
+      await expect(timeline.getByText("Programme archive", { exact: true })).toHaveCount(1);
+      for (const [name, href, title] of [
+        ["Explore Infinia 2.0 2025", "/infinia/2025", "Infinia 2.0"],
+        ["Explore TechX Infinia 2024", "/infinia/2024", "TechX Infinia"],
+        ["Explore Altair 2.0 2023", "/flagships/altair/2023", "Altair 2.0"],
+        ["Explore Altair 2022", "/flagships/altair/2022", "Altair"],
+      ]) {
+        await page.goto("/infinia#timeline");
+        const link = timeline.getByRole("link", { name: name!, exact: true });
+        await expect(link).toHaveAttribute("href", href!);
+        await link.click();
+        await expect(page).toHaveURL(new RegExp(href + "$"));
+        await expect(page.getByRole("heading", { level: 1 })).toHaveText(title!);
+        await expect(page.getByRole("region", { name: "Flagship timeline", exact: true })).toHaveCount(0);
+      }
+    } finally { await context.close(); }
+  });
+
   test("preserves legacy links with permanent redirects and rejects unknown editions", async ({ request }) => {
     for (const [from, to] of [
       ["/flagships", "/infinia"],

@@ -151,5 +151,5 @@ export function getFlagship(slug: string | undefined): Flagship | undefined {
 }
 
 export const FLAGSHIP_TIMELINE = FLAGSHIPS.flatMap(flagship =>
-  flagship.editions.map(edition => ({ flagship, edition, href: `/flagships/${flagship.slug}/${edition.year}` }))
+  flagship.editions.map(edition => ({ flagship, edition, href: flagship.slug === "infinia" ? `/infinia/${edition.year}` : `/flagships/${flagship.slug}/${edition.year}` }))
 ).sort((a, b) => Number(b.edition.year) - Number(a.edition.year));

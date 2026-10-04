@@ -38,7 +38,7 @@ export async function loader() {
     urlEntry("/events"),
     urlEntry("/infinia"),
     ...FLAGSHIPS.filter(flagship => flagship.slug === "altair").map(flagship => urlEntry(`/flagships/${flagship.slug}`)),
-    ...FLAGSHIP_TIMELINE.map(item => urlEntry(item.flagship.slug === "infinia" ? `/infinia/${item.edition.year}` : item.href)),
+    ...FLAGSHIP_TIMELINE.map(item => urlEntry(item.href)),
     urlEntry("/blog"),
     urlEntry("/societies"),
     urlEntry("/full-execom"),

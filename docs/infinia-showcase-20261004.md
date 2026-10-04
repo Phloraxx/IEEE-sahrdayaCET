@@ -1,6 +1,6 @@
 # Infinia showcase — source and design record
 
-The user requested a distinct Infinia experience, an animated rainbow INFINIA navigation label and removal of the mixed flagship timeline/lower promotional sections. Scope is public editorial UI on staging; no operational records or email pathways change.
+The user requested a distinct Infinia experience, an animated rainbow INFINIA navigation label and removal of the lower promotional sections. Their follow-up adds all Altair editions to the flagship timeline on the showcase hub. Scope is public editorial UI on staging; no operational records or email pathways change.
 
 ## Source hierarchy and figures
 
@@ -51,7 +51,7 @@ References were searched, opened and visually reviewed in the browser, including
 | Component | Awwwards reference | Adaptation |
 | --- | --- | --- |
 | Hero and introduction | [Charles Leclerc / Homepage Scroll](https://www.awwwards.com/inspiration/homepage-scroll-charles-leclerc) | Oversized identity, strong framing, concise opening; real photo follows. No autoplay hero or scroll hijacking. |
-| Edition navigation | [Prague Quadrennial / Archive](https://www.awwwards.com/inspiration/archive-prague-quadrennial-pq-2023) | Clear date-led archive navigation, reduced to two separate latest-first chapter links. The mixed-programme vertical timeline is removed. |
+| Edition navigation | [Prague Quadrennial / Archive](https://www.awwwards.com/inspiration/archive-prague-quadrennial-pq-2023) | Clear date-led archive navigation: two separate Infinia chapter links plus a latest-first flagship timeline on the hub, with independent entries for all Infinia and Altair editions. |
 | Workshops and speaker content | [Prague Quadrennial / Exhibitions](https://www.awwwards.com/inspiration/exhibitions-prague-quadrennial-pq-2023) | Editorial grid, full media, visible titles/credits and fine rules. Native workshop disclosures work without JavaScript. |
 | Figures and Vitals pre-event | [Austin Urology Institute / Stats Counter](https://www.awwwards.com/inspiration/stats-counter-austin-urology-institute) | Large numbers with explicit labels and historical scope. Values render immediately; no misleading count-up. |
 | Day stories | [Charles Leclerc / Calendar Typography](https://www.awwwards.com/inspiration/calendar-typography-charles-leclerc) | Strong numerical hierarchy and dates in chapter cards, rather than the old timeline. |
@@ -66,3 +66,9 @@ References were searched, opened and visually reviewed in the browser, including
 Canonical SSR URLs: /infinia, /infinia/2025 and /infinia/2024. /flagships and /flagships/infinia redirect 301 to /infinia; valid legacy Infinia edition paths redirect 301 to their new leaf. Unknown editions return 404. Altair parent/2023/2022 pages remain independently crawlable. Production sitemap lists canonical routes, while staging retains noindex.
 
 No PocketBase dependency, schema, registration, payment, notification or mail mutation is introduced. Fonts remain bundled. Hero community photo is eager, other imagery lazy, intrinsic dimensions reserve space, video fetch waits for play. Critical copy and edition links are SSR; poster/photo viewer supports keyboard focus, Escape and focus return. Native image links remain usable without JavaScript; the document’s shared skip link targets the main landmark.
+
+## Follow-up: include Altair in the flagship timeline
+
+The user's follow-up restores a shared timeline on the /infinia hub while keeping the distinct Infinia showcase and rainbow navigation. Directly below the two Infinia edition links, an ordered, latest-first timeline includes all four verified archive editions: Infinia 2.0 (2025), TechX Infinia (2024), Altair 2.0 (2023) and Altair (2022). Every entry carries its own genuine cover, summary, date/status label and canonical edition link. Altair 2.0 remains a programme archive; no additional completed-outcome claims, event dates or counts are introduced.
+
+The timeline reuses the existing source-backed FLAGSHIP_TIMELINE data and the Prague Quadrennial archive reference above. A restrained lilac background, continuous rail, large year labels and editorial rows fit the Infinia identity; on mobile, rows stack without horizontal scrolling or hidden details. It is server-rendered and usable without JavaScript. Edition leaves do not receive this mixed-year timeline, preserving their year-specific media and content. The compact footer and removed lower promotional section stay as designed.
