@@ -28,7 +28,7 @@
 .infinia-hero-enter{display:inline-flex;min-height:52px;align-items:center;justify-content:space-between;gap:25px;padding:12px 20px;color:#11140d;background:var(--lime);border-radius:4px;font-size:12px;font-weight:700}
 .infinia-hero-watch,.infinia-hero-history{display:inline-flex;align-items:center;gap:10px;min-height:44px;font-size:11px}
 .infinia-hero-screen{position:relative;width:100%;max-width:400px;justify-self:end;padding:10px;border:1px solid #d0ff5b80;border-radius:18px 18px 4px 18px;background:#141a12;transform-origin:center}
-.infinia-hero-screen>.infinia-scene-media{max-height:66svh}
+.infinia-hero-screen>.infinia-scene-media{max-height:min(66svh,calc(100svh - 350px))}
 .infinia-hero-screen>img{border-radius:10px}
 .infinia-screen-marker{position:absolute;left:-20px;top:25px;padding:12px 10px;background:var(--lime);color:#11140d;font:700 11px monospace}
 .infinia-scene-media{position:relative;overflow:hidden;aspect-ratio:9/16;border-radius:9px;background:#171b20}
@@ -57,7 +57,7 @@
 .infinia-scene-copy .infinia-link{color:var(--accent);margin-top:30px}
 .infinia-scene-frame{border:1px solid #ffffff50;padding:10px;border-radius:16px 16px 4px 16px;background:#080c1080;width:100%}
 .infinia-scene-frame:has(.infinia-scene-media:not(.infinia-scene-landscape)){width:min(100%,340px);justify-self:center}
-.infinia-scene-frame .infinia-scene-media:not(.infinia-scene-landscape){max-height:61svh}
+.infinia-scene-frame .infinia-scene-media:not(.infinia-scene-landscape){max-height:min(61svh,calc(100svh - 350px))}
 .infinia-scene-bottom{border-top:1px solid #ffffff30;padding-top:20px}
 .infinia-scene-bottom .infinia-scene-progress{flex:1;background:#ffffff30}
 @media(min-width:1001px) and (min-height:740px){.infinia-hero[data-enhanced="true"]{min-height:135svh}.infinia-video-chapter[data-enhanced="true"]{min-height:125svh}.infinia-hero[data-enhanced="true"] .infinia-hero-stage,.infinia-video-chapter[data-enhanced="true"] .infinia-scene-stage{position:sticky;top:0;height:100svh}}
@@ -168,3 +168,5 @@
 .infinia-hero[data-film="false"] .infinia-hero-layout{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr)}
 .infinia-hero[data-film="false"] .infinia-hero-screen{max-width:700px}
 @media(max-width:767px){.infinia-hero[data-film="false"] .infinia-hero-layout{grid-template-columns:1fr}}
+
+@media(min-width:1001px) and (max-height:849px){.infinia-wordmark{font-size:clamp(72px,9vw,140px)}.infinia-hero-line{font-size:clamp(30px,3vw,46px)}}

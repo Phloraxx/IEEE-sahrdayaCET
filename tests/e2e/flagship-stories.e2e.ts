@@ -176,6 +176,22 @@ test.describe("Infinia showcase and independent Altair archive", () => {
     await expect(page).toHaveURL(/#experience$/);
   });
 
+  test("keeps pinned scene controls inside short desktop viewports", async ({ page }) => {
+    await page.emulateMedia({reducedMotion:"no-preference"});
+    for (const width of [1440,1760]) {
+      await page.setViewportSize({width,height:740});
+      await page.goto("/infinia");
+      await expect(page.getByRole("button",{name:"Pause RC-car film",exact:true})).toBeVisible();
+      const bottom = await page.locator(".infinia-hero-caption").evaluate(element => element.getBoundingClientRect().bottom);
+      expect(bottom).toBeLessThanOrEqual(740);
+      await page.getByRole("link",{name:"See it in motion",exact:true}).click();
+      await page.getByRole("link",{name:"Next: flight demonstration",exact:true}).click();
+      const bounds = await page.locator("#flight-demo .infinia-scene-caption").evaluate(element => ({top:element.getBoundingClientRect().top,bottom:element.getBoundingClientRect().bottom}));
+      expect(bounds.top).toBeGreaterThanOrEqual(0);
+      expect(bounds.bottom).toBeLessThanOrEqual(740);
+    }
+  });
+
   test("preserves legacy links with permanent redirects and rejects unknown editions", async ({ request }) => {
     for (const [from, to] of [
       ["/flagships", "/infinia"],
