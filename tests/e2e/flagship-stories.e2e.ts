@@ -215,6 +215,22 @@ test.describe("Infinia showcase and independent Altair archive", () => {
     }
   });
 
+  test("keeps film metadata readable even over a white video frame", async ({page}) => {
+    await page.goto("/infinia");
+    const contrast=await page.locator(".infinia-hero-meta a, .infinia-hero-meta>span, .infinia-scene-top>span").evaluateAll(elements=>elements.map(element=>{
+      const style=getComputedStyle(element);
+      const channels=(color:string)=>(color.match(/[\d.]+/g) ?? []).map(Number);
+      const foreground=channels(style.color),background=channels(style.backgroundColor);
+      const alpha=background[3] ?? 1;
+      const brightest=background.slice(0,3).map(channel=>channel*alpha+255*(1-alpha));
+      const luminance=(rgb:number[])=>rgb.map(channel=>channel/255).map(channel=>channel<=.04045?channel/12.92:((channel+.055)/1.055)**2.4).reduce((sum,channel,index)=>sum+channel*[.2126,.7152,.0722][index]!,0);
+      const a=luminance(foreground.slice(0,3)),b=luminance(brightest);
+      return (Math.max(a,b)+.05)/(Math.min(a,b)+.05);
+    }));
+    expect(contrast).toHaveLength(8);
+    for(const ratio of contrast) expect(ratio).toBeGreaterThanOrEqual(4.5);
+  });
+
   test("keeps expo overlay content inside the footage and preserves usable controls", async ({page}) => {
     await page.setViewportSize({width:1440,height:900});
     await page.goto("/infinia");

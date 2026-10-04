@@ -11,6 +11,7 @@
 .infinia-hero-screen .infinia-scene-media>img,.infinia-hero-screen .infinia-scene-media>video{object-position:50% 58%}
 .infinia-hero-stage::after,.infinia-scene-stage::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(180deg,#07130d33,transparent 25%,#07130d70 42%,#06120ec9 82%,#05100df2)}
 .infinia-hero-meta{display:flex;justify-content:space-between;align-items:center;gap:20px;font-size:10px;text-transform:uppercase;letter-spacing:.09em}.infinia-hero-meta a{display:inline-flex;align-items:center;gap:8px;min-height:44px}
+.infinia-hero-meta a,.infinia-hero-meta>span,.infinia-scene-top>span{background:#0d1c15dd;border-radius:3px;padding:8px 10px;color:#fff}
 .infinia-hero-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,.4fr);gap:50px;align-items:end;margin-top:auto;padding:100px 0 36px}.infinia-hero-story{min-width:0}
 .infinia-wordmark{font-size:clamp(85px,12vw,190px);font-weight:650;line-height:.98;letter-spacing:-.06em;margin:10px 0 12px}.infinia-edition-wordmark{font-size:clamp(68px,9vw,145px);font-weight:600;line-height:.98;letter-spacing:-.065em;margin:10px 0 18px;max-width:850px}
 .infinia-hero-description{font-size:clamp(15px,1.45vw,21px);line-height:1.7;color:#f2f5ef;margin-bottom:14px}.infinia-hero-watch,.infinia-hero-history{display:inline-flex;align-items:center;gap:12px;min-height:44px;font-size:11px}

@@ -17,7 +17,7 @@ Awwwards reference reviewed: Charles Leclerc — Homepage Scroll, https://www.aw
 
 ## Motion, usability and source boundaries
 
-Tall desktop native sticky stages receive only a small inset reveal of the film boundary. No wheel interception, media seeking on scroll or forced horizontal navigation. Short desktops and phones retain native document flow. Reduced-motion, Save-Data and slow networks do not mount video sources. Existing hidden/offscreen/user-pause/autoplay-error behavior remains intact, with at most one playing scene. Critical content, posters, links and native disclosures are server rendered and usable without JavaScript. Original full-image dialogs retain Escape and focus restoration. Controls have at least 44px targets.
+Tall desktop native sticky stages receive only a small inset reveal of the film boundary. No wheel interception, media seeking on scroll or forced horizontal navigation. Short desktops and phones retain native document flow. Reduced-motion, Save-Data and slow networks do not mount video sources. Existing hidden/offscreen/user-pause/autoplay-error behavior remains intact, with at most one playing scene. Critical content, posters, links and native disclosures are server rendered and usable without JavaScript. Original full-image dialogs retain Escape and focus restoration. Controls have at least 44px targets. Small upper metadata labels have a dark backing; their foreground contrast must remain at least 4.5:1 even over a white source frame.
 
 2024 clips remain explicitly attributed to 2024; the 2025 leaf mounts no 2024 media. Existing assets are reused without reencoding, upscaling or generated additions. No backend, email, notification, registration or payment operations change. Staging only.
 
