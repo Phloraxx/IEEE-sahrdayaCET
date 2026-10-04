@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { ArrowDown, ArrowUpRight, Maximize2, X } from "lucide-react";
+import { ArrowUpRight, Maximize2, X } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { Link } from "react-router";
 import Navbar from "@/components/Navbar";
+import { InfiniaHero } from "@/components/InfiniaHero";
 import { CanonicalLink } from "@/components/CanonicalLink";
 import { FLAGSHIP_TIMELINE, type FlagshipImage } from "@/lib/flagships";
 import { INFINIA, INFINIA_2024_PHOTOS, INFINIA_PANEL, INFINIA_PHOTOS, INFINIA_POSTERS, INFINIA_STATS, INFINIA_WORKSHOPS, infiniaPoster } from "@/lib/infinia";
@@ -80,24 +81,13 @@ export function InfiniaShowcase({ year = "2025", hub = false }: { year?: string;
     <CanonicalLink path={path} />
     <Navbar />
     <main id="main-content">
-      <header className="infinia-hero">
-        <div className="infinia-hero-meta"><Link to="/">IEEE Sahrdaya SB <ArrowUpRight size={15} aria-hidden="true" /></Link><span>Flagship experience / Edition archive</span></div>
-        <h1 className={hub ? "infinia-wordmark" : "infinia-edition-wordmark"}>{hub ? "INFINIA" : edition.title}</h1>
-        <div className="infinia-hero-bottom">
-          <div><p className="infinia-eyebrow">{latest ? "Infinia 2.0" : "The first edition"} / {edition.date}</p>
-            <p className="infinia-hero-line">{latest ? <>Beyond imagination.<br /><span>Into experience.</span></> : <>Where imagination<br /><span>meets technology.</span></>}</p>
-          </div>
-          <div className="infinia-hero-intro"><p>A meeting place for curious minds. Hands-on technology, industry conversations and the people who make it happen.</p><a href={hub ? "#timeline" : "#experience"} className="infinia-link">Step inside <ArrowDown size={18} aria-hidden="true" /></a></div>
-        </div>
-        <div className="infinia-spectrum" aria-hidden="true" />
-      </header>
+      <InfiniaHero key={path} hub={hub} latest={latest} title={hub ? "INFINIA" : edition.title} date={edition.date} photo={hub ? INFINIA.editions[1]!.image! : edition.image!} />
       <Editions year={year} />
-      {hub && <FlagshipTimeline />}
       <section id="experience" className="infinia-section infinia-intro" aria-labelledby="experience-heading">
         <div><p className="infinia-eyebrow">Sahrdaya, Kerala / {year}</p><h2 id="experience-heading">The ideas are big.<br />The experience<br /><em>is hands-on.</em></h2></div>
         <div className="infinia-intro-copy"><p>{edition.summary}</p><p>{latest ? "Build an interface. Explore an electric car. Put logic on a board. Infinia 2.0 connected what students learn on campus with the tools, questions and people shaping industry." : "The first edition brought nine technical workshop tracks together with a hackathon, four expos and STEM outreach. Making, conversation and community shared the same campus."}</p></div>
       </section>
-      <figure className="infinia-community"><Photo photo={edition.image!} priority /><figcaption>{edition.image!.caption}</figcaption></figure>
+      <figure className="infinia-community"><Photo photo={edition.image!} /><figcaption>{edition.image!.caption}</figcaption></figure>
       {latest && <section className="infinia-section infinia-numbers" aria-labelledby="numbers-heading">
         <div className="infinia-numbers-top"><h2 id="numbers-heading">One edition.<br />A collective effort.</h2><p>Infinia 2.0 · 2025<br />Figures from the completed event report.</p></div>
         <dl className="infinia-stat-grid">{INFINIA_STATS.map(stat => <div key={stat.label}><dt>{stat.label}</dt><dd>{stat.value}</dd></div>)}</dl>
@@ -151,6 +141,7 @@ export function InfiniaShowcase({ year = "2025", hub = false }: { year?: string;
         <div><p className="infinia-eyebrow">{latest ? "Revisit the first chapter" : "Discover the next chapter"}</p><h2 id="next-edition-heading">{latest ? "2024" : "2025"}</h2><Link to={latest ? "/infinia/2024" : "/infinia/2025"} className="infinia-next-link">{latest ? "TechX Infinia" : "Infinia 2.0"} <ArrowUpRight aria-hidden="true" /></Link><p>{latest ? "Nine workshop tracks, four expos, a hackathon and the beginning of the Infinia story." : "Six workshop tracks and a new meeting between campus learning and industry practice."}</p>{latest && <Link className="infinia-link" to="/infinia/2024#film">Watch the 2024 highlights <ArrowUpRight size={18} aria-hidden="true" /></Link>}</div>
         <Link to={latest ? "/infinia/2024" : "/infinia/2025"} aria-label={latest ? "Explore TechX Infinia 2024" : "Explore Infinia 2.0 2025"}><Photo photo={INFINIA.editions[latest ? 1 : 0]!.image!} /></Link>
       </section>
+      {hub && <FlagshipTimeline />}
     </main>
     <footer className="infinia-footer"><Link to="/">IEEE Sahrdaya SB <ArrowUpRight size={16} aria-hidden="true" /></Link><p>Curiosity. Community. Infinia.</p><nav aria-label="Infinia footer"><Link to="/flagships/altair">Altair archive</Link><Link to="/privacy-policy">Privacy</Link></nav></footer>
   </div>;
