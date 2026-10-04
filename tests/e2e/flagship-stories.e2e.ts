@@ -34,10 +34,14 @@ test.describe("Infinia showcase and independent Altair archive", () => {
       const page = await context.newPage();
       await page.goto("/infinia");
       await page.getByRole("link", { name: "Step inside", exact: true }).click();
+      await expect(page).toHaveURL(/#experience$/);
+      await expect(page.getByRole("heading", { name: /The ideas are big/ })).toBeInViewport();
+      await page.getByRole("link", { name: "Explore the timeline", exact: true }).click();
       await expect(page).toHaveURL(/#timeline$/);
       const timeline = page.getByRole("region", { name: "Flagship timeline", exact: true });
       await expect(timeline.getByRole("heading", { name: "Flagship timeline", exact: true })).toBeInViewport();
       await expect(timeline.getByRole("link")).toHaveCount(4);
+      expect(await page.locator("main > :last-child").getAttribute("id")).toBe("timeline");
       await expect(timeline.getByRole("heading", { level: 3 })).toHaveText(["Infinia 2.0", "TechX Infinia", "Altair 2.0", "Altair"]);
       await expect(timeline.locator(".infinia-timeline-year")).toHaveText(["2025", "2024", "2023", "2022"]);
       await expect(timeline.getByText("Programme archive", { exact: true })).toHaveCount(1);
@@ -56,6 +60,76 @@ test.describe("Infinia showcase and independent Altair archive", () => {
         await expect(page.getByRole("region", { name: "Flagship timeline", exact: true })).toHaveCount(0);
       }
     } finally { await context.close(); }
+  });
+
+  test("plays a muted filmstrip with working pause, off-screen suspension and motion preferences", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.goto("/infinia");
+    const hero = page.locator(".infinia-hero");
+    const videos = hero.locator("video");
+    await expect(videos).toHaveCount(3);
+    const centre = videos.nth(1);
+    await expect.poll(() => centre.evaluate(element => !(element as HTMLVideoElement).paused)).toBe(true);
+    for (const video of await videos.all()) {
+      expect(await video.evaluate(element => (element as HTMLVideoElement).muted && (element as HTMLVideoElement).loop)).toBe(true);
+      await expect(video).toHaveAttribute("playsinline", "");
+    }
+    await expect(hero.getByText("In motion · TechX Infinia, 2024", { exact: true })).toBeVisible();
+    await hero.getByRole("button", { name: "Pause background film", exact: true }).click();
+    await expect.poll(() => videos.evaluateAll(elements => elements.every(element => (element as HTMLVideoElement).paused))).toBe(true);
+    await hero.getByRole("link", { name: "Step inside", exact: true }).click();
+    await expect(page).toHaveURL(/#experience$/);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect(hero.getByRole("button", { name: "Play background film", exact: true })).toBeVisible();
+    await hero.getByRole("button", { name: "Play background film", exact: true }).click();
+    await expect.poll(() => centre.evaluate(element => !(element as HTMLVideoElement).paused)).toBe(true);
+    await hero.getByRole("link", { name: "Explore the timeline", exact: true }).click();
+    await expect.poll(() => videos.evaluateAll(elements => elements.every(element => (element as HTMLVideoElement).paused))).toBe(true);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect(videos).toHaveCount(0);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect(hero.locator("img")).toBeVisible();
+    await page.goto("/infinia/2025");
+    await expect(page.locator(".infinia-hero video")).toHaveCount(0);
+    await expect(page.locator(".infinia-hero img")).toHaveAttribute("src", /2025/);
+  });
+
+  test("uses one background stream on mobile and no video download in data-saving mode", async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: "no-preference", baseURL: test.info().project.use.baseURL });
+    try {
+      const page = await context.newPage();
+      await page.goto("/infinia");
+      await expect(page.locator(".infinia-hero video")).toHaveCount(1);
+      await expect(page.getByRole("button", { name: "Pause background film", exact: true })).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+      await page.addInitScript(() => Object.defineProperty(navigator, "connection", {
+        configurable: true, value: Object.assign(new EventTarget(), { saveData: true, effectiveType: "4g" }),
+      }));
+      const requests: string[] = [];
+      page.on("request", request => { if (/highlights\.(webm|mp4)/.test(request.url())) requests.push(request.url()); });
+      await page.reload();
+      await page.getByRole("button", { name: "Open more navigation", exact: true }).click();
+      await expect(page.getByRole("dialog", { name: "Site navigation", exact: true })).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(page.locator(".infinia-hero video")).toHaveCount(0);
+      await expect(page.locator(".infinia-hero img")).toBeVisible();
+      expect(requests).toEqual([]);
+    } finally { await context.close(); }
+  });
+
+  test("retains the photo, story and film link if background playback fails", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.route("**/media/infinia/techx-2024-highlights.*", route => route.abort());
+    await page.goto("/infinia");
+    const hero = page.locator(".infinia-hero");
+    await expect(page.getByRole("button", { name: "SIGN IN", exact: true })).toBeVisible();
+    await expect(hero.locator("video")).toHaveCount(0);
+    await expect(hero.locator("img")).toBeVisible();
+    await expect(hero.getByRole("heading", { level: 1 })).toHaveText("INFINIA");
+    await expect(hero.getByRole("link", { name: "Watch the 2024 film", exact: true })).toHaveAttribute("href", "/infinia/2024#film");
+    await hero.getByRole("link", { name: "Step inside", exact: true }).click();
+    await expect(page).toHaveURL(/#experience$/);
   });
 
   test("preserves legacy links with permanent redirects and rejects unknown editions", async ({ request }) => {
@@ -113,7 +187,7 @@ test.describe("Infinia showcase and independent Altair archive", () => {
 
   test("keeps the 2024 film user-initiated and playable with a text alternative", async ({ page, request }) => {
     await page.goto("/infinia/2024#film");
-    const video = page.locator("video");
+    const video = page.locator("#film video");
     await expect(video).toHaveAttribute("preload", "none");
     await expect(video).not.toHaveAttribute("autoplay");
     await expect(video.locator("track")).toHaveAttribute("src", "/media/infinia/techx-2024-highlights.vtt");

@@ -9,18 +9,35 @@
 .infinia-site .infinia-eyebrow { font-size:10px; line-height:1.6; font-weight:650; text-transform:uppercase; letter-spacing:.13em; }
 .infinia-skip { position:fixed; top:8px; left:8px; transform:translateY(-200%); z-index:200; background:white; padding:12px 20px; }
 .infinia-skip:focus { transform:none; }
-.infinia-hero { position:relative; isolation:isolate; background:#101112; color:#faf9f3; padding:108px max(24px,5vw) 0; }
-.infinia-hero-meta { display:flex; justify-content:space-between; gap:20px; align-items:center; font-size:11px; text-transform:uppercase; letter-spacing:.08em; }
+.infinia-hero { position:relative; isolation:isolate; background:#101112; color:#faf9f3; display:flex; flex-direction:column; min-height:780px; min-height:min(850px,100svh); padding:112px max(24px,5vw) 22px; }
+.infinia-hero-backdrop { position:absolute; inset:0; z-index:-2; overflow:hidden; background:#17181a; }
+.infinia-site .infinia-hero-still { width:100%; height:100%; object-fit:cover; object-position:center; }
+.infinia-hero-backdrop::after { content:""; position:absolute; inset:0; background:linear-gradient(180deg,#08091080 0%,#08091060 25%,#080910a8 62%,#080910ed 100%),linear-gradient(90deg,#080910a0,transparent 80%); }
+.infinia-hero-filmstrip { position:absolute; inset:0; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px; opacity:0; transition:opacity .7s ease; }
+.infinia-hero[data-ready="true"] .infinia-hero-filmstrip { opacity:1; }
+.infinia-hero-filmstrip video { display:block; width:100%; height:100%; min-height:0; object-fit:cover; background:#141416; }
+.infinia-hero-meta { display:flex; justify-content:space-between; gap:20px; align-items:center; font-size:10px; text-transform:uppercase; letter-spacing:.1em; }
 .infinia-hero-meta a { display:inline-flex; min-height:44px; gap:8px; align-items:center; }
-.infinia-wordmark { font-size:clamp(66px,17.6vw,265px); font-weight:900; letter-spacing:-.065em; line-height:1; margin:20px 0 36px; }
-.infinia-edition-wordmark { font-size:clamp(48px,11vw,168px); font-weight:900; letter-spacing:-.055em; line-height:1.03; margin:32px 0 46px; }
-.infinia-hero-bottom { display:grid; grid-template-columns:1.6fr 1fr; align-items:end; gap:40px; padding-bottom:56px; }
-.infinia-hero-line { font-size:clamp(30px,4.3vw,64px); line-height:1.06; letter-spacing:-.05em; font-weight:600; margin-top:18px; }
-.infinia-hero-line span { color:#c7bed9; }
-.infinia-hero-intro { max-width:380px; justify-self:end; font-size:15px; line-height:1.75; color:#d0d0cf; }
+.infinia-hero-story { padding:50px 0 30px; flex:1; display:flex; flex-direction:column; justify-content:center; }
+.infinia-hero-story .infinia-eyebrow { color:#e1d4fb; }
+.infinia-hero-line { font-size:clamp(35px,4.9vw,70px); line-height:1.06; letter-spacing:-.05em; font-weight:500; margin:18px 0 28px; max-width:900px; }
+.infinia-hero-line span { color:#faf9f3; }
+.infinia-hero-actions { display:flex; flex-wrap:wrap; align-items:center; gap:12px 30px; }
+.infinia-hero-enter { display:inline-flex; min-height:50px; align-items:center; justify-content:space-between; gap:40px; padding:12px 18px; border:1px solid #faf9f3; background:#faf9f3; color:#17151c; font-size:12px; font-weight:650; border-radius:2px; }
+.infinia-hero-watch { display:inline-flex; align-items:center; gap:10px; min-height:50px; font-size:12px; border-bottom:1px solid #ffffff70; }
+.infinia-wordmark { font-size:clamp(68px,18.2vw,280px); font-weight:800; letter-spacing:-.065em; line-height:.9; margin:0 0 18px -.01em; }
+.infinia-edition-wordmark { font-size:clamp(44px,11vw,168px); font-weight:750; letter-spacing:-.055em; line-height:1; margin:0 0 20px; }
+.infinia-hero-caption { display:flex; align-items:center; gap:15px 30px; justify-content:space-between; border-top:1px solid #ffffff50; font-size:10px; letter-spacing:.04em; }
+.infinia-hero-caption>p { padding:15px 0; }
+.infinia-film-toggle, .infinia-hero-history { display:inline-flex; min-height:44px; align-items:center; gap:9px; font-size:10px; color:#faf9f3; background:transparent; border:0; cursor:pointer; }
+.infinia-film-toggle { margin-left:auto; }
+.infinia-hero-history { border-bottom:1px solid transparent; }
 .infinia-link { display:inline-flex; align-items:center; justify-content:space-between; gap:24px; min-height:48px; font-size:12px; font-weight:650; border-bottom:1px solid currentColor; }
-.infinia-hero-intro .infinia-link { margin-top:20px; color:#fff; }
-.infinia-spectrum { height:7px; margin:0 calc(-1 * max(24px,5vw)); background:linear-gradient(100deg,#c8fcde,#9cb9fb,#dbc4f6,#f2c6cd,#ece89f,#b5e4ed); }
+@media (hover:hover) {
+ .infinia-hero-enter:hover { background:#dfd0f5; border-color:#dfd0f5; }
+ .infinia-hero-watch:hover, .infinia-hero-history:hover { border-bottom-color:#faf9f3; }
+}
+@media (prefers-reduced-motion:reduce) { .infinia-hero-filmstrip { display:none; transition:none; } }
 .infinia-editions { display:grid; grid-template-columns:1fr 1.2fr 1.2fr; align-items:center; gap:24px; padding:20px max(24px,5vw); background:#19191a; color:#eee; border-top:1px solid #404042; }
 .infinia-editions>a { min-height:54px; display:flex; align-items:center; gap:18px; padding:12px 0; border-bottom:1px solid #646466; font-size:16px; }
 .infinia-editions>a[aria-current] { border-color:#d2c4ff; color:#d2c4ff; }
@@ -123,12 +140,20 @@
  .infinia-vitals { gap:40px; }
 }
 @media (max-width:767px) {
- .infinia-hero { padding-top:35px; }
+ .infinia-hero { min-height:660px; min-height:max(620px,calc(100svh - 64px)); padding:28px 24px 12px; }
+ .infinia-hero-filmstrip { grid-template-columns:1fr; }
+ .infinia-hero-story { padding:45px 0 40px; }
+ .infinia-hero-line { font-size:clamp(34px,7.7vw,55px); }
+ .infinia-wordmark { font-size:18vw; margin-bottom:22px; }
+ .infinia-edition-wordmark { font-size:10.5vw; }
+ .infinia-hero-caption { flex-wrap:wrap; gap:0 16px; }
+ .infinia-hero-caption>p { width:100%; padding:12px 0 0; font-size:9px; }
+ .infinia-film-toggle { margin-left:0; margin-right:auto; }
+ .infinia-hero-meta>span { max-width:155px; }
+ .infinia-hero-history { font-size:9px; }
  .infinia-hero-meta { font-size:9px; gap:12px; align-items:start; }
  .infinia-hero-meta>span { text-align:right; padding-top:14px; max-width:140px; }
- .infinia-hero-bottom, .infinia-intro, .infinia-conversation-grid, .infinia-vitals, .infinia-film, .infinia-next-edition { grid-template-columns:1fr; }
- .infinia-hero-bottom { gap:28px; padding-bottom:35px; }
- .infinia-hero-intro { justify-self:start; font-size:14px; max-width:480px; }
+ .infinia-intro, .infinia-conversation-grid, .infinia-vitals, .infinia-film, .infinia-next-edition { grid-template-columns:1fr; }
  .infinia-editions { grid-template-columns:1fr 1fr; gap:12px; }
  .infinia-editions>.infinia-eyebrow { grid-column:1/-1; }
  .infinia-editions>a { font-size:12px; flex-wrap:wrap; gap:8px; }
@@ -169,8 +194,6 @@
 }
 @media (max-width:359px) {
  .infinia-workshop-grid, .infinia-day-grid, .infinia-track-list { grid-template-columns:1fr; }
- .infinia-hero-line { font-size:28px; }
- .infinia-wordmark { font-size:17vw; }
  .infinia-photo-grid { grid-template-columns:1fr; }
  .infinia-photo-grid>figure:nth-child(4n+2) { padding-top:0; }
 }
