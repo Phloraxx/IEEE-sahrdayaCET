@@ -111,25 +111,24 @@ export function SceneControl({ scene, name }: { scene: ReturnType<typeof useInfi
   </button> : null;
 }
 
+// The three portrait clips belong exclusively to the hero. This is separate footage.
 const CHAPTERS = [
-  { id: "expo-floor", file: "techx-2024-robot-football", title: "Robot football.", label: "Robots moving across a miniature football pitch at the 2024 expo", number: "02", tag: "Expo floor", date: "29 September 2024", text: "A miniature pitch, remote-controlled robots and students gathered around the expo table.", next: "flight-demo", nextLabel: "Next: flight demonstration", theme: "blue", landscape: true },
-  { id: "flight-demo", file: "techx-2024-film-3", title: "Taking flight.", label: "A yellow model aircraft flying over the campus in 2024", number: "03", tag: "Outside the expo", date: "29 September 2024", text: "The demonstrations moved outdoors, with a model aircraft flying above the campus.", next: "lantern-fest", nextLabel: "Next: Lantern Fest", theme: "sky", landscape: false },
-  { id: "lantern-fest", file: "techx-2024-film-1", title: "Lantern Fest.", label: "Students releasing a glowing lantern together at Lantern Fest in 2024", number: "04", tag: "After dark", date: "28 September 2024", text: "After the workshop day, students gathered outside to release lanterns into the night sky.", next: "experience", nextLabel: "Explore the programme", theme: "amber", landscape: false },
+  { id: "expo-floor", file: "techx-2024-robot-football", title: "Robot football.", label: "Robots moving across a miniature football pitch at the 2024 expo", number: "02", tag: "Expo floor", date: "29 September 2024", text: "A miniature pitch, remote-controlled robots and students gathered around the expo table.", next: "experience", nextLabel: "Explore the programme", theme: "blue", landscape: true },
 ];
 
 function VideoChapter({ chapter }: { chapter: typeof CHAPTERS[number] }) {
   const scene = useInfiniaScene();
   return <section ref={scene.section} id={chapter.id} className={`infinia-video-chapter infinia-scene-${chapter.theme}`} data-enhanced={scene.allowed} data-active={scene.active} aria-labelledby={`${chapter.id}-heading`}>
     <div ref={scene.stage} className="infinia-scene-stage">
-      <div className="infinia-scene-top"><span>{chapter.number} / 04 — {chapter.tag}</span><span>TechX Infinia · 2024</span></div>
+      <div className="infinia-scene-top"><span>{chapter.number} / 02 — {chapter.tag}</span><span>TechX Infinia · 2024</span></div>
       <motion.div className="infinia-scene-frame" style={scene.canReveal && !scene.paused ? { clipPath: scene.reveal } : undefined}>
-        <SceneMedia scene={scene} file={chapter.file} landscape={chapter.landscape} label={chapter.label} loopEnd={chapter.id === "flight-demo" ? 3 : undefined} />
+        <SceneMedia scene={scene} file={chapter.file} landscape={chapter.landscape} label={chapter.label} />
       </motion.div>
       <div className="infinia-scene-layout">
         <div className="infinia-scene-copy"><p className="infinia-eyebrow">{chapter.date}</p><h2 id={`${chapter.id}-heading`}>{chapter.title}</h2><p>{chapter.text}</p><a href={`#${chapter.next}`} className="infinia-link">{chapter.nextLabel}<ArrowDown size={18} aria-hidden="true" /></a></div>
       </div>
       <div className="infinia-scene-caption"><span>{chapter.tag} · TechX Infinia, 2024</span><SceneControl scene={scene} name={`${chapter.tag.toLowerCase()} film`} /></div>
-      <div className="infinia-scene-bottom" aria-hidden="true"><span>Scroll to continue</span><div className="infinia-scene-progress"><motion.span style={scene.allowed && !scene.paused ? { scaleX: scene.progress } : { scaleX: 0 }} /></div><span>{chapter.number} / 04</span></div>
+      <div className="infinia-scene-bottom" aria-hidden="true"><span>Scroll to continue</span><div className="infinia-scene-progress"><motion.span style={scene.allowed && !scene.paused ? { scaleX: scene.progress } : { scaleX: 0 }} /></div><span>{chapter.number} / 02</span></div>
     </div>
   </section>;
 }

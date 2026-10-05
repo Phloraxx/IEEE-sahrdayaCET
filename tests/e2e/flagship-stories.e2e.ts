@@ -8,7 +8,7 @@ test.describe("Infinia showcase and independent Altair archive", () => {
       await page.goto("/infinia");
       await expect(page.getByRole("heading", { level: 1 })).toHaveText("INFINIA");
       await expect(page.locator(".infinia-scene-media video")).toHaveCount(0);
-      await expect(page.locator(".infinia-video-chapter h2")).toHaveText(["Robot football.", "Taking flight.", "Lantern Fest."]);
+      await expect(page.locator(".infinia-video-chapter h2")).toHaveText(["Robot football."]);
       const footer = page.getByRole("contentinfo");
       await expect(footer.getByRole("navigation", { name: "Branch and attendee links" })).toBeVisible();
       await expect(footer.getByRole("link", { name: "Verify a certificate", exact: true })).toHaveAttribute("href", "/verify");
@@ -92,14 +92,11 @@ test.describe("Infinia showcase and independent Altair archive", () => {
     await expect.poll(() => robot.evaluate(element => !(element as HTMLVideoElement).paused)).toBe(true);
     expect(await robot.evaluate(element => [(element as HTMLVideoElement).videoWidth, (element as HTMLVideoElement).videoHeight])).toEqual([1920,1080]);
     await expect.poll(() => car.evaluate(element => (element as HTMLVideoElement).paused)).toBe(true);
-    await expect(page.locator("#flight-demo video, #lantern-fest video")).toHaveCount(0);
-    await page.getByRole("link", { name: "Next: flight demonstration", exact: true }).click();
-    const flight = page.locator("#flight-demo video");
-    await expect.poll(() => flight.evaluate(element => !(element as HTMLVideoElement).paused)).toBe(true);
-    await expect.poll(() => robot.evaluate(element => (element as HTMLVideoElement).paused)).toBe(true);
-    await page.getByRole("link", { name: "Next: Lantern Fest", exact: true }).click();
-    await expect.poll(() => page.locator("#lantern-fest video").evaluate(element => !(element as HTMLVideoElement).paused)).toBe(true);
+    await expect(page.locator("#flight-demo, #lantern-fest")).toHaveCount(0);
     await expect.poll(() => page.locator(".infinia-scene-media video").evaluateAll(elements => elements.filter(element => !(element as HTMLVideoElement).paused).length)).toBe(1);
+    await page.getByRole("link", { name: "Explore the programme", exact: true }).click();
+    await expect(page).toHaveURL(/#experience$/);
+    await expect.poll(() => robot.evaluate(element => (element as HTMLVideoElement).paused)).toBe(true);
     await page.evaluate(() => window.scrollTo(0,0));
     await expect(hero.getByRole("button", { name: "Play hero films", exact: true })).toBeVisible();
     await expect.poll(() => car.evaluate(element => (element as HTMLVideoElement).paused)).toBe(true);
@@ -190,8 +187,7 @@ test.describe("Infinia showcase and independent Altair archive", () => {
       if (height < 850) await caption.scrollIntoViewIfNeeded();
       expect(await caption.evaluate(element => element.getBoundingClientRect().bottom)).toBeLessThanOrEqual(height);
       await page.getByRole("link",{name:"See it in motion",exact:true}).click();
-      await page.getByRole("link",{name:"Next: flight demonstration",exact:true}).click();
-      const controls = page.locator("#flight-demo .infinia-scene-caption");
+      const controls = page.locator("#expo-floor .infinia-scene-caption");
       if (height < 850) await controls.scrollIntoViewIfNeeded();
       const bounds = await controls.evaluate(element => ({top:element.getBoundingClientRect().top,bottom:element.getBoundingClientRect().bottom}));
       expect(bounds.top).toBeGreaterThanOrEqual(0);
@@ -216,7 +212,7 @@ test.describe("Infinia showcase and independent Altair archive", () => {
       expect(await word.evaluate(e=>getComputedStyle(e).backgroundImage)).toContain("linear-gradient");
       expect(await word.evaluate(e=>getComputedStyle(e).animationName)).toBe("none");
       expect(parseFloat(await hero.locator(".infinia-hero-enter").evaluate(e=>getComputedStyle(e).borderRadius))).toBeGreaterThan(30);
-      for(const selector of ["#expo-floor", "#flight-demo", "#lantern-fest"]) {
+      for(const selector of ["#expo-floor"]) {
         const stage=page.locator(selector+" .infinia-scene-stage");
         const frame=await stage.boundingBox();
         const media=await stage.locator(".infinia-scene-media").boundingBox();
@@ -239,6 +235,32 @@ test.describe("Infinia showcase and independent Altair archive", () => {
     expect((await car.boundingBox())!.width).toBeCloseTo(stopped,0);
   });
 
+  test("uses each background clip once and loads the scoped display face", async ({page,request}) => {
+    await page.setViewportSize({width:1440,height:900});
+    for (const path of ["/infinia","/infinia/2024"]) {
+      await page.goto(path);
+      const hero=page.locator(".infinia-hero");
+      await expect(hero.locator("video")).toHaveCount(3);
+      await hero.getByRole("link",{name:"See it in motion",exact:true}).click();
+      await expect(page.locator("#expo-floor video")).toHaveCount(1);
+      const sources=await page.locator(".infinia-scene-media video").evaluateAll(elements=>elements.map(element=>element.querySelector("source")!.getAttribute("src")));
+      expect(sources).toHaveLength(4);
+      expect(new Set(sources).size).toBe(4);
+      await expect(page.locator(".infinia-video-chapter")).toHaveCount(1);
+      await expect(page.locator("#flight-demo,#lantern-fest")).toHaveCount(0);
+      await expect(page.locator('link[rel="preload"][as="font"]')).toHaveAttribute("href","/fonts/infinia/bricolage-grotesque-latin-display.woff2");
+      await expect.poll(()=>page.evaluate(()=>document.fonts.check('800 96px "Infinia Display"'))).toBe(true);
+      expect(await hero.locator("h1").evaluate(e=>getComputedStyle(e).fontFamily)).toContain("Infinia Display");
+    }
+    const font=await request.get("/fonts/infinia/bricolage-grotesque-latin-display.woff2");
+    expect(font.status()).toBe(200);
+    expect((await font.body()).subarray(0,4).toString()).toBe("wOF2");
+    await page.goto("/infinia");
+    expect(await page.locator("h1").evaluate(e=>getComputedStyle(e).textTransform)).toBe("lowercase");
+    await page.goto("/");
+    await expect(page.locator('link[href="/fonts/infinia/bricolage-grotesque-latin-display.woff2"]')).toHaveCount(0);
+  });
+
   test("keeps film metadata readable even over a white video frame", async ({page}) => {
     await page.goto("/infinia");
     const contrast=await page.locator(".infinia-hero-meta a, .infinia-hero-meta>span, .infinia-scene-top>span").evaluateAll(elements=>elements.map(element=>{
@@ -251,7 +273,7 @@ test.describe("Infinia showcase and independent Altair archive", () => {
       const a=luminance(foreground.slice(0,3)),b=luminance(brightest);
       return (Math.max(a,b)+.05)/(Math.min(a,b)+.05);
     }));
-    expect(contrast).toHaveLength(8);
+    expect(contrast).toHaveLength(4);
     for(const ratio of contrast) expect(ratio).toBeGreaterThanOrEqual(4.5);
   });
 

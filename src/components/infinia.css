@@ -1,3 +1,4 @@
+@font-face{font-family:"Infinia Display";font-style:normal;font-weight:600 800;font-display:swap;src:url("/fonts/infinia/bricolage-grotesque-latin-display.woff2") format("woff2")}
 /* Infinia: real films fill the stage. Navigation and Footer stay in the shared site system. */
 .infinia-site{--ink:#1c211d;--blue:#a84120;--paper:#f5f3ec;--line:#d3d6ce;--muted:#646a61;--accent:#e86635;background:var(--paper);color:var(--ink);font-family:"Geist Variable",ui-sans-serif,system-ui,sans-serif}
 .infinia-site h1,.infinia-site h2,.infinia-site h3{font-family:inherit}.infinia-site *,.infinia-viewer *{box-sizing:border-box}.infinia-site main{overflow:clip}.infinia-site img{display:block;width:100%;height:auto}.infinia-site p{text-wrap:pretty}
@@ -97,8 +98,8 @@
 .infinia-hero-panel-flight img,.infinia-hero-panel-flight video{object-position:50% 39%;filter:brightness(.78)}
 .infinia-playful-hero .infinia-hero-meta a,.infinia-playful-hero .infinia-hero-meta>span{border-radius:999px;background:#100b21e6;padding:10px 15px}
 .infinia-playful-hero .infinia-hero-layout{display:flex;flex-direction:column;align-items:center;justify-content:end;gap:28px;padding:125px 0 32px;text-align:center}
-.infinia-playful-hero .infinia-wordmark{font-size:clamp(90px,14.8vw,215px);letter-spacing:-.065em;font-weight:750;line-height:1.02;margin:10px 0 6px}
-.infinia-playful-hero .infinia-edition-wordmark{font-size:clamp(70px,10vw,150px);font-weight:700;margin:14px 0}
+.infinia-playful-hero .infinia-wordmark{font-family:"Infinia Display","Geist Variable",ui-sans-serif,sans-serif;font-size:clamp(110px,19vw,280px);letter-spacing:-.055em;font-weight:800;line-height:1;margin:10px 0 6px;text-transform:lowercase}
+.infinia-playful-hero .infinia-edition-wordmark{font-family:"Infinia Display","Geist Variable",ui-sans-serif,sans-serif;font-size:clamp(70px,10vw,150px);font-weight:650;letter-spacing:-.045em;margin:14px 0}
 .infinia-rainbow-word{color:#e9c4ff;background:linear-gradient(110deg,#ff9fc6 5%,#ffd59b 22%,#f1eaa4 38%,#a0edd2 53%,#abd1ff 70%,#d9b3ff 85%,#ff9fc6 100%);background-size:220% 100%;background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 4px 18px #100b21);animation:infinia-spectrum-drift 12s ease-in-out infinite alternate}
 .infinia-playful-hero .infinia-hero-description{font-size:clamp(15px,1.55vw,22px);letter-spacing:.015em;margin:12px 0 8px;color:#fff}
 .infinia-playful-hero .infinia-hero-watch,.infinia-playful-hero .infinia-hero-history{font-size:12px}
@@ -129,7 +130,7 @@
  .infinia-hero-panel-night,.infinia-hero-panel-flight{width:30%}.infinia-hero-panel-car{width:44%}
  .infinia-playful-hero .infinia-hero-layout{padding:145px 0 22px;gap:20px;align-items:stretch}
  .infinia-playful-hero .infinia-hero-meta a,.infinia-playful-hero .infinia-hero-meta>span{padding:8px 10px}
- .infinia-playful-hero .infinia-wordmark{font-size:17.4vw;margin-top:12px}
+ .infinia-playful-hero .infinia-wordmark{font-size:22.5vw;margin-top:12px}
  .infinia-playful-hero .infinia-edition-wordmark{font-size:14vw}
  .infinia-playful-hero .infinia-hero-description{font-size:14px}
  .infinia-playful-hero .infinia-hero-invite{grid-template-columns:1fr;justify-items:center;text-align:center;gap:4px}
