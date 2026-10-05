@@ -20,6 +20,7 @@ export function InfiniaHero({ hub, latest, title, date, photo }: {
   const animate = scene.canReveal && !scene.paused;
   const rainbow = `infinia-ribbon-${id}`;
   return <header ref={scene.section} className="infinia-hero infinia-playful-hero" data-film={film} data-enhanced={scene.allowed} data-paused={scene.paused || (film && !scene.playing)}>
+    <link rel="preload" href="/fonts/infinia/bricolage-grotesque-latin-display.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
     <div ref={scene.stage} className="infinia-hero-stage">
       <svg className="infinia-shape-definitions" width="0" height="0" aria-hidden="true"><defs>
         <clipPath id={`infinia-seam-${id}`} clipPathUnits="objectBoundingBox"><path d="M0,0 H.94 C.86,.16 1.05,.32 .95,.5 C.84,.7 1.04,.83 .96,1 H0 Z" /></clipPath>
