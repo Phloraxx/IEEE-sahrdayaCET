@@ -7,7 +7,7 @@ test.describe("Home narrative", () => {
     await expect(page.getByText("IEEE", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("Now at Sahrdaya", { exact: true })).toBeVisible();
     await expect(page.getByText("The people", { exact: true })).toBeVisible();
-    await expect(page.getByText("From the branch", { exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Past events gallery" })).toBeVisible();
     await expect(page.getByText("Call for Papers: Int'l Conference on Robotics open now.")).toHaveCount(0);
   });
 

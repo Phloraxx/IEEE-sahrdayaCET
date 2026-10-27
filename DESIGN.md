@@ -46,7 +46,8 @@ The homepage is expressive/brand-first rather than dashboard-like:
 - restrained star/shooting-star motion;
 - bento-style `WHAT'S HAPPENING` section;
 - current event information remains dynamic, but its homepage hero visual is intentionally the stable `/AGM.webp` image instead of arbitrary event-poster ratios;
-- legacy event-photo marquees remain a separate decorative showcase.
+- the curated event-photo strip restores the June 2026 light gallery: a white canvas, -3 degree oversized moving photo strip, centered Explore Events action, and large black scrolling category names; retain a pause control and reduced-motion behavior.
+- the homepage Execom uses the original drag-and-inertia, automatically moving portrait carousel, with public PocketBase data rather than the historical hardcoded member list.
 
 Do not couple homepage card layout to uploaded event-poster aspect ratios.
 
@@ -150,7 +151,7 @@ When a design change introduces a reusable token, font, motion rule, or layout c
 
 ## Public audit interaction update (October 2026)
 
-Desktop navigation remains available during scroll. Homepage core-team cards use the directory's public projection and manual scroll controls; names and published contacts remain visible. The curated photo archive has a persistent pause control and a single accessible canonical set. Hero actions and real content are visible without a staged reveal, with a shorter desktop composition. Shared focus outlines and anchor offsets apply across page families; error and empty states must distinguish service failure from a genuinely empty programme.
+Desktop navigation remains available during scroll. Homepage core-team cards use the directory's public projection and manual scroll controls; names and published contacts remain visible. The curated photo archive has a persistent pause control and a single accessible canonical set. The Home hero intentionally contains only IEEE/Sahrdaya identity, the branch tagline, and the small live programme strip: no descriptive paragraph or CTA buttons. Events and communities remain reachable from shared navigation and programme content. The shorter desktop composition and real content are visible without a staged reveal. Shared focus outlines and anchor offsets apply across page families; error and empty states must distinguish service failure from a genuinely empty programme.
 
 ## Public discovery refinements (October 2026)
 

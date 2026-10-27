@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useReducedMotion } from 'framer-motion';
-import { ArrowRight, Pause, Play, Image as ImageIcon } from 'lucide-react';
+import { Pause, Play, Image as ImageIcon } from 'lucide-react';
 import { Link } from 'react-router';
-import { HomeSectionHeading } from '@/components/home/HomeSectionHeading';
 // Deliberately curated archive; never replace with arbitrary event posters.
 const eventImages = [
  '/Events/503658167_18144990655399954_4943514208253057479_n.webp?v=1',
@@ -40,9 +39,8 @@ function useMarquee(paused: boolean, speed: number) {
 function ArchiveImage({ src, index, duplicate }: { src: string; index: number; duplicate: boolean }) {
   const [failed, setFailed] = useState(false);
   return (
-    <div aria-hidden={duplicate || undefined} className="relative h-[340px] w-[260px] shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-white/5 sm:h-[370px]">
-      {failed ? <div className="grid h-full place-content-center gap-3 text-center text-sm text-white/65"><ImageIcon className="mx-auto h-6 w-6" aria-hidden="true" /><span>Archive photo unavailable</span></div> : <img src={src} alt={duplicate ? '' : `Selected IEEE Sahrdaya event moment ${index + 1}`} loading="lazy" onError={() => setFailed(true)} className="h-full w-full object-cover" />}
-      <span aria-hidden="true" className="absolute bottom-3 right-3 rounded-sm bg-black/65 px-2 py-1 font-pixel text-[7px] text-white/80">{String(index + 1).padStart(2, '0')}</span>
+    <div aria-hidden={duplicate || undefined} className="relative h-[360px] w-[260px] shrink-0 overflow-hidden rounded-2xl bg-gray-100 shadow-lg">
+      {failed ? <div className="grid h-full place-content-center gap-3 text-center text-sm text-gray-500"><ImageIcon className="mx-auto h-6 w-6" aria-hidden="true" /><span>Archive photo unavailable</span></div> : <img src={src} alt={duplicate ? '' : `Selected IEEE Sahrdaya event moment ${index + 1}`} loading="lazy" onError={() => setFailed(true)} className="h-full w-full object-cover" />}
     </div>
   );
 }
@@ -54,23 +52,48 @@ export function EventsShowcase() {
   const textRef = useMarquee(stopped, 54);
   const copies = stopped ? [0] : [0, 1, 2];
   return (
-    <section className="relative overflow-hidden bg-[#07121f] py-20 text-white sm:py-24 lg:py-28">
-      <div className="mx-auto max-w-[1320px] px-5 sm:px-6 lg:px-10">
-        <HomeSectionHeading index="03" label="From the branch" inverse title={<>Selected moments,<br /><span className="text-[#58c6ff]">kept in motion.</span></>} description="A handpicked visual archive from workshops, competitions and sessions across IEEE Sahrdaya." action={<Link to="/events" className="inline-flex min-h-11 items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-white/75 hover:text-white">Open programme <ArrowRight className="h-4 w-4" /></Link>} />
-        <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-y border-white/10 py-3">
-          <span className="text-xs text-white/65">07 handpicked moments</span>
-          {!reduceMotion && <button type="button" aria-pressed={paused} onClick={() => setPaused(value => !value)} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/25 px-4 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-white">{paused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}{paused ? 'Resume archive motion' : 'Pause archive motion'}</button>}
-          {reduceMotion && <span className="text-xs text-white/65">Scroll to explore</span>}
-        </div>
-      </div>
-      <div tabIndex={0} aria-label="Selected event photographs" onFocus={() => setPaused(true)} className={`mt-10 ${stopped ? 'overflow-x-auto pb-3' : 'overflow-hidden'} focus-visible:outline-2 focus-visible:outline-white`}>
+    <section aria-label="Past events gallery" className="relative overflow-hidden bg-white py-16 md:py-24">
+      {/* Restored June gallery: a bright canvas, tilted image rail and oversized type. */}
+      <div className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-b from-transparent via-transparent to-white/90" />
+      <div
+        tabIndex={0}
+        aria-label="Selected past event photographs"
+        onFocus={() => setPaused(true)}
+        className={`relative z-0 -rotate-3 scale-110 mb-12 md:mb-16 focus-visible:outline-2 focus-visible:outline-ieee-blue ${stopped ? 'overflow-x-auto pb-3' : 'overflow-hidden'}`}
+      >
         <div ref={imagesRef} data-testid="curated-event-strip" className="flex w-max gap-4">
-          {copies.flatMap(copy => eventImages.map((src, index) => <ArchiveImage key={`${copy}-${src}`} src={src} index={index} duplicate={copy > 0} />))}
+          {copies.flatMap(copy => eventImages.map((src, index) => (
+            <ArchiveImage key={`${copy}-${src}`} src={src} index={index} duplicate={copy > 0} />
+          )))}
         </div>
       </div>
-      <div className={`mt-12 border-y border-white/10 py-5 ${stopped ? 'overflow-x-auto' : 'overflow-hidden'}`}>
+      <div className="relative z-20 mb-12 flex flex-wrap items-center justify-center gap-4 md:mb-16">
+        <Link
+          to="/events"
+          className="inline-flex min-h-11 items-center rounded-lg bg-ieee-blue px-10 py-3 text-sm font-bold uppercase tracking-wider text-white shadow-lg transition-colors hover:bg-ieee-light-blue"
+        >
+          Explore Events
+        </Link>
+        {!reduceMotion && (
+          <button
+            type="button"
+            aria-pressed={paused}
+            onClick={() => setPaused(value => !value)}
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 text-xs font-semibold text-gray-700 focus-visible:outline-2 focus-visible:outline-ieee-blue"
+          >
+            {paused ? <Play className="h-4 w-4" aria-hidden="true" /> : <Pause className="h-4 w-4" aria-hidden="true" />}
+            {paused ? 'Resume archive motion' : 'Pause archive motion'}
+          </button>
+        )}
+      </div>
+      <div className={`relative z-20 ${stopped ? 'overflow-x-auto' : 'overflow-hidden'}`}>
         <div ref={textRef} data-testid="curated-format-marquee" className="flex w-max items-center whitespace-nowrap">
-          {copies.flatMap(copy => formats.map(text => <span key={`${copy}-${text}`} aria-hidden={copy > 0 || undefined} className="flex shrink-0 items-center"><span className="text-4xl font-black uppercase italic tracking-[-0.045em] text-white sm:text-5xl lg:text-6xl">{text}</span><span aria-hidden="true" className="mx-5 text-3xl text-[#58c6ff]">•</span></span>))}
+          {copies.flatMap(copy => formats.map(text => (
+            <span key={`${copy}-${text}`} aria-hidden={copy > 0 || undefined} className="flex shrink-0 items-center">
+              <span className="text-5xl font-black uppercase italic tracking-tight text-black md:text-7xl lg:text-8xl">{text}</span>
+              <span aria-hidden="true" className="mx-6 text-4xl font-bold text-ieee-light-blue md:mx-8 md:text-6xl lg:text-7xl">•</span>
+            </span>
+          )))}
         </div>
       </div>
     </section>
