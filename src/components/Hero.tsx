@@ -1,5 +1,4 @@
 import React from 'react';
-import { Link } from 'react-router';
 import { motion, useReducedMotion } from 'framer-motion';
 import { formatDateCompact } from '@/lib/dates';
 import type { HomeEventSummary } from '@/server/public/home.server';
@@ -82,11 +81,6 @@ export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societ
 
                         <div className="h-px bg-gray-400 w-12 md:w-32 hidden sm:block" />
                     </motion.div>
-                    <p className="mx-auto mt-6 max-w-md text-sm leading-6 text-gray-600 sm:text-base">Build, learn and connect with the IEEE student community at Sahrdaya.</p>
-                    <div className="mt-5 flex flex-wrap justify-center gap-3">
-                      <Link to="/events" className="inline-flex min-h-11 items-center rounded-full bg-ieee-blue px-5 text-sm font-semibold text-white hover:bg-gray-900">Explore events</Link>
-                      <Link to="/societies" className="inline-flex min-h-11 items-center rounded-full border border-gray-300 bg-white/70 px-5 text-sm font-semibold text-gray-800 hover:border-ieee-blue">Meet our communities</Link>
-                    </div>
                 </div>
 
                 {dataAvailable && <motion.div
