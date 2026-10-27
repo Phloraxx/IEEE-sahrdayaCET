@@ -26,7 +26,7 @@ export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societ
     };
 
     return (
-        <section className="relative z-20 flex min-h-[max(72svh,520px)] flex-col items-center justify-center overflow-hidden px-4 py-16 md:min-h-[clamp(600px,60svh,660px)] md:pb-12 md:pt-28">
+        <section className="relative z-20 flex min-h-dvh flex-col items-center justify-center overflow-hidden px-4 pb-24 pt-24 md:pb-16 md:pt-28">
             <motion.div
 
                 className="relative mx-auto flex w-full max-w-6xl flex-col items-center justify-center gap-10 sm:gap-12 md:gap-10"

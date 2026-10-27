@@ -78,10 +78,22 @@ test('hero identity and live summary share one centered column', async ({ page }
   const stage = page.locator('main > div').first();
   const stageBox = await stage.boundingBox();
   expect(stageBox).not.toBeNull();
-  // Keep the desktop hero compact without crowding the top navigation.
-  expect(stageBox!.height).toBeLessThanOrEqual(650);
+  // On initial load, the identity hero owns the entire visible viewport.
+  // The next section must not peek into the first screen at scroll position 0.
+  expect(stageBox!.height).toBeGreaterThanOrEqual(900);
   expect(a!.y - stageBox!.y).toBeGreaterThan(100);
-  expect((stageBox!.y + stageBox!.height) - (b!.y + b!.height)).toBeLessThan(120);
+  const nextSection = page.locator('#events');
+  const nextBox = await nextSection.boundingBox();
+  expect(nextBox).not.toBeNull();
+  expect(nextBox!.y).toBeGreaterThanOrEqual(899);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  // The decorative mascot belongs to the hero, not the browser viewport.
+  const mascot = page.getByTestId('home-mascot');
+  await expect(mascot).toBeVisible();
+  expect(await mascot.evaluate(el => getComputedStyle(el).position)).toBe('absolute');
+  const mascotBox = await mascot.boundingBox();
+  expect(mascotBox).not.toBeNull();
+  expect(mascotBox!.y + mascotBox!.height).toBeLessThanOrEqual(stageBox!.y + stageBox!.height + 2);
 });
 
 for (const width of [320, 390, 768, 1440]) {
