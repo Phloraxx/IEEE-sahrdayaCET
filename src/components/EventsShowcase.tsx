@@ -40,8 +40,8 @@ function useMarquee(paused: boolean, speed: number) {
 function ArchiveImage({ src, index, duplicate }: { src: string; index: number; duplicate: boolean }) {
   const [failed, setFailed] = useState(false);
   return (
-    <div aria-hidden={duplicate || undefined} className="relative h-[340px] w-[260px] shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-white/5 sm:h-[370px]">
-      {failed ? <div className="grid h-full place-content-center gap-3 text-center text-sm text-white/65"><ImageIcon className="mx-auto h-6 w-6" aria-hidden="true" /><span>Archive photo unavailable</span></div> : <img src={src} alt={duplicate ? '' : `Selected IEEE Sahrdaya event moment ${index + 1}`} loading="lazy" onError={() => setFailed(true)} className="h-full w-full object-cover" />}
+    <div aria-hidden={duplicate || undefined} className="relative h-[340px] w-[260px] shrink-0 overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 shadow-lg sm:h-[370px]">
+      {failed ? <div className="grid h-full place-content-center gap-3 text-center text-sm text-gray-500"><ImageIcon className="mx-auto h-6 w-6" aria-hidden="true" /><span>Archive photo unavailable</span></div> : <img src={src} alt={duplicate ? '' : `Selected IEEE Sahrdaya event moment ${index + 1}`} loading="lazy" onError={() => setFailed(true)} className="h-full w-full object-cover" />}
       <span aria-hidden="true" className="absolute bottom-3 right-3 rounded-sm bg-black/65 px-2 py-1 font-pixel text-[7px] text-white/80">{String(index + 1).padStart(2, '0')}</span>
     </div>
   );
@@ -54,23 +54,23 @@ export function EventsShowcase() {
   const textRef = useMarquee(stopped, 54);
   const copies = stopped ? [0] : [0, 1, 2];
   return (
-    <section className="relative overflow-hidden bg-[#07121f] py-20 text-white sm:py-24 lg:py-28">
+    <section className="relative overflow-hidden bg-white py-20 text-gray-900 sm:py-24 lg:py-28">
       <div className="mx-auto max-w-[1320px] px-5 sm:px-6 lg:px-10">
-        <HomeSectionHeading index="03" label="From the branch" inverse title={<>Selected moments,<br /><span className="text-[#58c6ff]">kept in motion.</span></>} description="A handpicked visual archive from workshops, competitions and sessions across IEEE Sahrdaya." action={<Link to="/events" className="inline-flex min-h-11 items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-white/75 hover:text-white">Open programme <ArrowRight className="h-4 w-4" /></Link>} />
-        <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-y border-white/10 py-3">
-          <span className="text-xs text-white/65">07 handpicked moments</span>
-          {!reduceMotion && <button type="button" aria-pressed={paused} onClick={() => setPaused(value => !value)} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/25 px-4 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-white">{paused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}{paused ? 'Resume archive motion' : 'Pause archive motion'}</button>}
+        <HomeSectionHeading index="03" label="From the branch" title={<>Selected moments,<br /><span className="text-ieee-blue">kept in motion.</span></>} description="A handpicked visual archive from workshops, competitions and sessions across IEEE Sahrdaya." action={<Link to="/events" className="inline-flex min-h-11 items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-gray-700 hover:text-ieee-blue">Open programme <ArrowRight className="h-4 w-4" /></Link>} />
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-y border-gray-200 py-3">
+          <span className="text-xs text-gray-500">07 handpicked moments</span>
+          {!reduceMotion && <button type="button" aria-pressed={paused} onClick={() => setPaused(value => !value)} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-gray-300 px-4 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-ieee-blue">{paused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}{paused ? 'Resume archive motion' : 'Pause archive motion'}</button>}
           {reduceMotion && <span className="text-xs text-white/65">Scroll to explore</span>}
         </div>
       </div>
-      <div tabIndex={0} aria-label="Selected event photographs" onFocus={() => setPaused(true)} className={`mt-10 ${stopped ? 'overflow-x-auto pb-3' : 'overflow-hidden'} focus-visible:outline-2 focus-visible:outline-white`}>
+      <div tabIndex={0} aria-label="Selected event photographs" onFocus={() => setPaused(true)} className={`relative mt-12 -rotate-2 scale-[1.04] sm:-rotate-3 ${stopped ? 'overflow-x-auto pb-3' : 'overflow-hidden'} focus-visible:outline-2 focus-visible:outline-white`}>
         <div ref={imagesRef} data-testid="curated-event-strip" className="flex w-max gap-4">
           {copies.flatMap(copy => eventImages.map((src, index) => <ArchiveImage key={`${copy}-${src}`} src={src} index={index} duplicate={copy > 0} />))}
         </div>
       </div>
-      <div className={`mt-12 border-y border-white/10 py-5 ${stopped ? 'overflow-x-auto' : 'overflow-hidden'}`}>
+      <div className={`mt-12 border-y border-gray-200 py-5 ${stopped ? 'overflow-x-auto' : 'overflow-hidden'}`}>
         <div ref={textRef} data-testid="curated-format-marquee" className="flex w-max items-center whitespace-nowrap">
-          {copies.flatMap(copy => formats.map(text => <span key={`${copy}-${text}`} aria-hidden={copy > 0 || undefined} className="flex shrink-0 items-center"><span className="text-4xl font-black uppercase italic tracking-[-0.045em] text-white sm:text-5xl lg:text-6xl">{text}</span><span aria-hidden="true" className="mx-5 text-3xl text-[#58c6ff]">•</span></span>))}
+          {copies.flatMap(copy => formats.map(text => <span key={`${copy}-${text}`} aria-hidden={copy > 0 || undefined} className="flex shrink-0 items-center"><span className="text-4xl font-black uppercase italic tracking-[-0.045em] text-gray-900 sm:text-5xl lg:text-6xl">{text}</span><span aria-hidden="true" className="mx-5 text-3xl text-[#58c6ff]">•</span></span>))}
         </div>
       </div>
     </section>
