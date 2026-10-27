@@ -300,7 +300,7 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
 
   if (reduceMotion) {
     return (
-      <div ref={sectionRef} data-home-execom-static role="list" aria-label="Core executive committee" className="w-full overflow-x-auto py-4 [scrollbar-width:thin]">
+      <div ref={sectionRef} role="list" aria-label="Core executive committee" className="w-full overflow-x-auto py-4 [scrollbar-width:thin]">
         <div className="flex min-w-max" style={{ gap: `${GAP}px` }}>
           {members.map((member, index) => (
             <div key={member.id} role="listitem" className="shrink-0" style={{ width: `${CARD_WIDTH}px` }}>
@@ -313,7 +313,7 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
   }
 
   return (
-    <div ref={sectionRef} data-home-execom-static role="list" aria-label="Core executive committee" className="relative w-full select-none">
+    <div ref={sectionRef} role="list" aria-label="Core executive committee" className="relative w-full select-none">
       <div
         className="overflow-hidden cursor-grab active:cursor-grabbing py-4 touch-pan-y"
         onPointerDown={onPointerDown}
@@ -397,7 +397,9 @@ export const Execom: React.FC<{ members: ExecomMemberDoc[]; societyCount: number
         </motion.div>
 
         {/* Carousel */}
-        {membersList.length ? <DragCarousel members={membersList} /> : <p className="mt-8 rounded-xl bg-gray-50 p-6 text-sm text-gray-600">The core team roster is not available here yet. Visit the full directory or contact the branch for current committee details.</p>}
+        <div data-home-execom-static>
+          {membersList.length ? <DragCarousel members={membersList} /> : <p className="mt-8 rounded-xl bg-gray-50 p-6 text-sm text-gray-600">The core team roster is not available here yet. Visit the full directory or contact the branch for current committee details.</p>}
+        </div>
 
         {/* CTA */}
         <motion.div
