@@ -54,7 +54,8 @@ export function EventsShowcase() {
   const stopped = reduceMotion || paused;
   const imagesRef = useMarquee(stopped, 33, reduceMotion);
   const textRef = useMarquee(stopped, 54, reduceMotion);
-  const copies = stopped ? [0] : [0, 1, 2];
+  // Keep all marquee copies mounted while paused so there is no jump or exposed scrollbar.
+  const copies = reduceMotion ? [0] : [0, 1, 2];
   return (
     <section
       aria-label="Past events gallery"
@@ -72,7 +73,7 @@ export function EventsShowcase() {
       <div
         tabIndex={0}
         aria-label="Selected past event photographs"
-        className={`relative z-0 -rotate-3 scale-110 mb-12 md:mb-16 focus-visible:outline-2 focus-visible:outline-ieee-blue ${stopped ? 'overflow-x-auto pb-3' : 'overflow-hidden'}`}
+        className={`relative z-0 -rotate-3 scale-110 mb-12 md:mb-16 focus-visible:outline-2 focus-visible:outline-ieee-blue ${reduceMotion ? 'overflow-x-auto pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden' : 'overflow-hidden'}`}
       >
         <div ref={imagesRef} data-testid="curated-event-strip" className="flex w-max gap-4">
           {copies.flatMap(copy => eventImages.map((src, index) => (
@@ -88,7 +89,7 @@ export function EventsShowcase() {
           Explore Events
         </Link>
       </div>
-      <div className={`relative z-20 ${stopped ? 'overflow-x-auto' : 'overflow-hidden'}`}>
+      <div className={`relative z-20 ${reduceMotion ? 'overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden' : 'overflow-hidden'}`}>
         <div ref={textRef} data-testid="curated-format-marquee" className="flex w-max items-center whitespace-nowrap">
           {copies.flatMap(copy => formats.map(text => (
             <span key={`${copy}-${text}`} aria-hidden={copy > 0 || undefined} className="flex shrink-0 items-center">

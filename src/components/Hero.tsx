@@ -26,10 +26,10 @@ export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societ
     };
 
     return (
-        <section className="relative z-20 flex min-h-[max(72svh,520px)] flex-col items-center justify-center overflow-hidden px-4 py-16 md:min-h-[max(75svh,580px)] md:py-20">
+        <section className="relative z-20 flex min-h-[max(72svh,520px)] flex-col items-center justify-center overflow-hidden px-4 py-16 md:min-h-[clamp(600px,60svh,660px)] md:pb-12 md:pt-28">
             <motion.div
 
-                className="relative mx-auto flex w-full max-w-6xl flex-col items-center justify-center gap-10 sm:gap-12 md:gap-14"
+                className="relative mx-auto flex w-full max-w-6xl flex-col items-center justify-center gap-10 sm:gap-12 md:gap-10"
             >
 
                 <div className="w-full text-center" data-testid="hero-identity">
@@ -62,7 +62,7 @@ export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societ
                         initial={reduceMotion ? false : { opacity: 0 }}
                         animate={{ opacity: 0.7 }}
                         transition={{ delay: reduceMotion ? 0 : 0.4, duration: reduceMotion ? 0 : 1 }}
-                        className="mt-8 flex items-center justify-center gap-4 md:mt-10 md:gap-6"
+                        className="mt-8 flex items-center justify-center gap-4 md:gap-6"
                     >
                         <div className="h-px bg-gray-400 w-12 md:w-32 hidden sm:block" />
 

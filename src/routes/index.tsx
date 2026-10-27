@@ -49,7 +49,7 @@ export default function Home() {
     <div className="relative w-full bg-white text-gray-900 font-sans selection:bg-ieee-blue/20">
       <Navbar />
       <main data-page-content tabIndex={-1}>
-      <div className="relative isolate min-h-[max(72svh,520px)] overflow-hidden md:min-h-[max(75svh,580px)]">
+      <div className="relative isolate min-h-[max(72svh,520px)] overflow-hidden md:min-h-[clamp(600px,60svh,660px)]">
         <StarsBackground starDensity={0.0004} allStarsTwinkle starColor="#1e293b" />
         <ShootingStars starColor="#00629b" trailColor="#0099D6" minDelay={1500} maxDelay={4000} minSpeed={8} maxSpeed={20} starWidth={12} starHeight={2} />
         <ShootingStars starColor="#00629b" trailColor="#0099D6" minDelay={2000} maxDelay={5000} minSpeed={12} maxSpeed={25} starWidth={10} starHeight={1} />
