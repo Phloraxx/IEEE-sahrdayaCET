@@ -43,6 +43,8 @@ Do not introduce remote Google Font requests or a new display family for one iso
 The homepage is expressive/brand-first rather than dashboard-like:
 
 - large IEEE/Sahrdaya pixel hero;
+- atmospheric Sahrdaya campus aerial from restored `/AGM.webp`, with non-destructive colour/haze overlays and a separate responsive CSS grid in `HeroBackdrop`;
+- preserve the authentic campus buildings; any future AI-edited photograph must replace only the raster asset, never bake the grid into it;
 - restrained star/shooting-star motion;
 - bento-style `WHAT'S HAPPENING` section;
 - current event information remains dynamic, but its homepage hero visual is intentionally the stable `/AGM.webp` image instead of arbitrary event-poster ratios;

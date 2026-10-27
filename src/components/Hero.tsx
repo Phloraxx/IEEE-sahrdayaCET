@@ -41,8 +41,8 @@ export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societ
                             variants={textVariants}
                             initial={false}
                             animate="visible"
-                            className="font-pixel text-5xl sm:text-7xl md:text-8xl lg:text-9xl text-ieee-blue tracking-tighter"
-                            style={{ textShadow: '4px 4px 0px rgba(0,0,0,0.1)' }}
+                            className="font-pixel text-5xl sm:text-7xl md:text-8xl lg:text-9xl text-white tracking-tighter"
+                            style={{ textShadow: '0 4px 26px rgba(7, 30, 48, .32)' }}
                         >
                             IEEE
                         </motion.h1>
@@ -51,8 +51,8 @@ export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societ
                             variants={textVariants}
                             initial={false}
                             animate="visible"
-                            className="font-pixel text-3xl sm:text-5xl md:text-6xl lg:text-7xl text-gray-900 tracking-tighter"
-                            style={{ textShadow: '4px 4px 0px rgba(0,0,0,0.1)' }}
+                            className="font-pixel text-3xl sm:text-5xl md:text-6xl lg:text-7xl text-[#eef8ff] tracking-tighter"
+                            style={{ textShadow: '0 4px 26px rgba(7, 30, 48, .32)' }}
                         >
                             SAHRDAYA
                         </motion.h2>
@@ -65,9 +65,9 @@ export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societ
                         transition={{ delay: reduceMotion ? 0 : 0.4, duration: reduceMotion ? 0 : 1 }}
                         className="flex items-center justify-center gap-4 md:gap-6 mt-8 md:mt-12"
                     >
-                        <div className="h-px bg-gray-400 w-12 md:w-32 hidden sm:block" />
+                        <div className="h-px bg-white/55 w-12 md:w-32 hidden sm:block" />
 
-                        <div className="flex gap-4 font-sans text-[10px] md:text-xs font-bold tracking-[0.2em] md:tracking-[0.4em] text-gray-600">
+                        <div className="flex gap-4 font-sans text-[10px] md:text-xs font-bold tracking-[0.2em] md:tracking-[0.4em] text-white/85">
                             {["INNOVATE", "CONNECT", "INSPIRE"].map((word, i) => (
                                 <motion.span
                                     key={word}
@@ -80,12 +80,12 @@ export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societ
                             ))}
                         </div>
 
-                        <div className="h-px bg-gray-400 w-12 md:w-32 hidden sm:block" />
+                        <div className="h-px bg-white/55 w-12 md:w-32 hidden sm:block" />
                     </motion.div>
-                    <p className="mx-auto mt-6 max-w-md text-sm leading-6 text-gray-600 sm:text-base">Build, learn and connect with the IEEE student community at Sahrdaya.</p>
+                    <p className="mx-auto mt-6 max-w-md text-sm leading-6 text-white/85 sm:text-base">Build, learn and connect with the IEEE student community at Sahrdaya.</p>
                     <div className="mt-5 flex flex-wrap justify-center gap-3">
-                      <Link to="/events" className="inline-flex min-h-11 items-center rounded-full bg-ieee-blue px-5 text-sm font-semibold text-white hover:bg-gray-900">Explore events</Link>
-                      <Link to="/societies" className="inline-flex min-h-11 items-center rounded-full border border-gray-300 bg-white/70 px-5 text-sm font-semibold text-gray-800 hover:border-ieee-blue">Meet our communities</Link>
+                      <Link to="/events" className="inline-flex min-h-11 items-center rounded-full bg-white px-5 text-sm font-semibold text-[#174d72] shadow-sm hover:bg-[#e8f5ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Explore events</Link>
+                      <Link to="/societies" className="inline-flex min-h-11 items-center rounded-full border border-white/50 bg-white/10 px-5 text-sm font-semibold text-white backdrop-blur-sm hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Meet our communities</Link>
                     </div>
                 </div>
 
@@ -93,19 +93,19 @@ export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societ
                     initial={false}
                     animate={{ opacity: 1 }}
                     transition={{ delay: reduceMotion ? 0 : 0.7, duration: reduceMotion ? 0 : 0.8 }}
-                    className="absolute bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] left-4 right-4 mx-auto grid max-w-5xl grid-cols-3 border-y border-gray-200/80 bg-white/55 backdrop-blur-[2px] md:bottom-14"
+                    className="absolute bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] left-4 right-4 mx-auto grid max-w-5xl grid-cols-3 border-y border-white/30 bg-[#12364d]/40 text-white backdrop-blur-md md:bottom-14"
                 >
                     <div className="px-3 py-3 sm:px-5">
-                        <p className="font-mono text-[7px] font-semibold uppercase tracking-[0.16em] text-gray-400 sm:text-[8px]">Next</p>
-                        <p className="mt-1 truncate text-[10px] font-semibold text-gray-700 sm:text-xs">{nextEvent ? <><span className="sm:hidden">{formatDateCompact(nextEvent.date)}</span><span className="hidden sm:inline">{formatDateCompact(nextEvent.date)} · {nextEvent.title}</span></> : "No upcoming events"}</p>
+                        <p className="font-mono text-[7px] font-semibold uppercase tracking-[0.16em] text-white/65 sm:text-[8px]">Next</p>
+                        <p className="mt-1 truncate text-[10px] font-semibold text-white/95 sm:text-xs">{nextEvent ? <><span className="sm:hidden">{formatDateCompact(nextEvent.date)}</span><span className="hidden sm:inline">{formatDateCompact(nextEvent.date)} · {nextEvent.title}</span></> : "No upcoming events"}</p>
                     </div>
-                    <div className="border-x border-gray-200/80 px-3 py-3 text-center sm:px-5">
-                        <p className="font-mono text-[7px] font-semibold uppercase tracking-[0.16em] text-gray-400 sm:text-[8px]">Upcoming</p>
-                        <p className="mt-1 font-pixel text-[11px] text-ieee-blue sm:text-sm">{String(upcomingCount).padStart(2, "0")}</p>
+                    <div className="border-x border-white/25 px-3 py-3 text-center sm:px-5">
+                        <p className="font-mono text-[7px] font-semibold uppercase tracking-[0.16em] text-white/65 sm:text-[8px]">Upcoming</p>
+                        <p className="mt-1 font-pixel text-[11px] text-[#c7eaff] sm:text-sm">{String(upcomingCount).padStart(2, "0")}</p>
                     </div>
                     <div className="px-3 py-3 text-right sm:px-5">
-                        <p className="font-mono text-[7px] font-semibold uppercase tracking-[0.16em] text-gray-400 sm:text-[8px]">Communities</p>
-                        <p className="mt-1 font-pixel text-[11px] text-gray-800 sm:text-sm">{String(societyCount).padStart(2, "0")}</p>
+                        <p className="font-mono text-[7px] font-semibold uppercase tracking-[0.16em] text-white/65 sm:text-[8px]">Communities</p>
+                        <p className="mt-1 font-pixel text-[11px] text-white sm:text-sm">{String(societyCount).padStart(2, "0")}</p>
                     </div>
                 </motion.div>}
             </motion.div>
