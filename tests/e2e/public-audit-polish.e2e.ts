@@ -48,10 +48,14 @@ test('archive pauses on hover/focus without a visible pause button and keeps uni
   await expect(gallery.getByRole('button', { name: /archive motion/i })).toHaveCount(0);
   const strip = page.getByTestId('curated-event-strip');
   await gallery.locator('[aria-label="Selected past event photographs"]').focus();
-  await expect(strip.locator('img')).toHaveCount(7);
+  await expect(strip.locator('img')).toHaveCount(21);
+  // Decorative clones stay mounted on focus; the container must never expose a scrollbar.
+  const tickerViewport = gallery.locator('[data-testid="curated-format-marquee"]').locator('..');
+  await expect.poll(() => tickerViewport.evaluate(el => getComputedStyle(el).overflowX)).toBe('hidden');
   const pausedTransform = await strip.evaluate(element => getComputedStyle(element).transform);
   await page.waitForTimeout(220);
   await expect.poll(() => strip.evaluate(element => getComputedStyle(element).transform)).toBe(pausedTransform);
+  await expect.poll(() => gallery.locator('[aria-label="Selected past event photographs"]').evaluate(el => getComputedStyle(el).overflowX)).toBe('hidden');
   await expect(page.locator('#execom a[href="#"]')).toHaveCount(0);
   const names = await page.locator('#execom h3').allTextContents();
   expect(new Set(names).size).toBe(names.length);
@@ -71,6 +75,13 @@ test('hero identity and live summary share one centered column', async ({ page }
   expect(Math.abs((a!.x + a!.width / 2) - (b!.x + b!.width / 2))).toBeLessThan(3);
   expect(b!.y - (a!.y + a!.height)).toBeGreaterThan(20);
   expect(b!.y - (a!.y + a!.height)).toBeLessThan(105);
+  const stage = page.locator('main > div').first();
+  const stageBox = await stage.boundingBox();
+  expect(stageBox).not.toBeNull();
+  // Keep the desktop hero compact without crowding the top navigation.
+  expect(stageBox!.height).toBeLessThanOrEqual(650);
+  expect(a!.y - stageBox!.y).toBeGreaterThan(100);
+  expect((stageBox!.y + stageBox!.height) - (b!.y + b!.height)).toBeLessThan(120);
 });
 
 for (const width of [320, 390, 768, 1440]) {
