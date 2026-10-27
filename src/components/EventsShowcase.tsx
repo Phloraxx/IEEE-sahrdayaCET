@@ -60,7 +60,7 @@ export function EventsShowcase() {
         <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-y border-gray-200 py-3">
           <span className="text-xs text-gray-500">07 handpicked moments</span>
           {!reduceMotion && <button type="button" aria-pressed={paused} onClick={() => setPaused(value => !value)} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-gray-300 px-4 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-ieee-blue">{paused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}{paused ? 'Resume archive motion' : 'Pause archive motion'}</button>}
-          {reduceMotion && <span className="text-xs text-white/65">Scroll to explore</span>}
+          {reduceMotion && <span className="text-xs text-gray-500">Scroll to explore</span>}
         </div>
       </div>
       <div tabIndex={0} aria-label="Selected event photographs" onFocus={() => setPaused(true)} className={`relative mt-12 -rotate-2 scale-[1.04] sm:-rotate-3 ${stopped ? 'overflow-x-auto pb-3' : 'overflow-hidden'} focus-visible:outline-2 focus-visible:outline-white`}>
@@ -70,7 +70,7 @@ export function EventsShowcase() {
       </div>
       <div className={`mt-12 border-y border-gray-200 py-5 ${stopped ? 'overflow-x-auto' : 'overflow-hidden'}`}>
         <div ref={textRef} data-testid="curated-format-marquee" className="flex w-max items-center whitespace-nowrap">
-          {copies.flatMap(copy => formats.map(text => <span key={`${copy}-${text}`} aria-hidden={copy > 0 || undefined} className="flex shrink-0 items-center"><span className="text-4xl font-black uppercase italic tracking-[-0.045em] text-gray-900 sm:text-5xl lg:text-6xl">{text}</span><span aria-hidden="true" className="mx-5 text-3xl text-[#58c6ff]">•</span></span>))}
+          {copies.flatMap(copy => formats.map(text => <span key={`${copy}-${text}`} aria-hidden={copy > 0 || undefined} className="flex shrink-0 items-center"><span className="text-4xl font-black uppercase italic tracking-[-0.045em] text-gray-900 sm:text-5xl lg:text-6xl">{text}</span><span aria-hidden="true" className="mx-5 text-3xl text-ieee-blue">•</span></span>))}
         </div>
       </div>
     </section>
