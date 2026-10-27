@@ -26,15 +26,15 @@ export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societ
     };
 
     return (
-        <section className="relative h-[max(78svh,560px)] flex flex-col items-center justify-center z-20 px-4 overflow-hidden md:h-[max(84svh,640px)]">
+        <section className="relative z-20 flex min-h-[max(72svh,520px)] flex-col items-center justify-center overflow-hidden px-4 py-16 md:min-h-[max(75svh,580px)] md:py-20">
             <motion.div
 
-                className="w-full h-full flex flex-col items-center justify-center relative"
+                className="relative mx-auto flex w-full max-w-6xl flex-col items-center justify-center gap-10 sm:gap-12 md:gap-14"
             >
 
-                <div className="text-center transform translate-y-[-10%]">
+                <div className="w-full text-center" data-testid="hero-identity">
                     {/* Main Title Group */}
-                    <div className="flex flex-col items-center justify-center gap-2 md:gap-4 mb-8">
+                    <div className="flex flex-col items-center justify-center gap-2 md:gap-4">
                         <motion.h1
                             custom={0}
                             variants={textVariants}
@@ -62,7 +62,7 @@ export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societ
                         initial={reduceMotion ? false : { opacity: 0 }}
                         animate={{ opacity: 0.7 }}
                         transition={{ delay: reduceMotion ? 0 : 0.4, duration: reduceMotion ? 0 : 1 }}
-                        className="flex items-center justify-center gap-4 md:gap-6 mt-8 md:mt-12"
+                        className="mt-8 flex items-center justify-center gap-4 md:mt-10 md:gap-6"
                     >
                         <div className="h-px bg-gray-400 w-12 md:w-32 hidden sm:block" />
 
@@ -87,7 +87,7 @@ export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societ
                     initial={false}
                     animate={{ opacity: 1 }}
                     transition={{ delay: reduceMotion ? 0 : 0.7, duration: reduceMotion ? 0 : 0.8 }}
-                    className="absolute bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] left-4 right-4 mx-auto grid max-w-5xl grid-cols-3 border-y border-gray-200/80 bg-white/55 backdrop-blur-[2px] md:bottom-14"
+                    className="mx-auto grid w-full max-w-5xl grid-cols-3 border-y border-gray-200/80 bg-white/55 backdrop-blur-[2px]" data-testid="hero-summary"
                 >
                     <div className="px-3 py-3 sm:px-5">
                         <p className="font-mono text-[7px] font-semibold uppercase tracking-[0.16em] text-gray-400 sm:text-[8px]">Next</p>

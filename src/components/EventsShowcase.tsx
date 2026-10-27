@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useReducedMotion } from 'framer-motion';
-import { Pause, Play, Image as ImageIcon } from 'lucide-react';
+import { Image as ImageIcon } from 'lucide-react';
 import { Link } from 'react-router';
 // Deliberately curated archive; never replace with arbitrary event posters.
 const eventImages = [
@@ -13,16 +13,20 @@ const eventImages = [
  '/Events/542326117_17847004371557574_12824648908429865_n.jpg?v=1',
 ];
 const formats = ['CONFERENCES', 'LECTURES', 'WORKSHOPS', 'HACKATHONS', 'SEMINARS', 'WEBINARS', 'TECH TALKS', 'BOOTCAMPS'];
-function useMarquee(paused: boolean, speed: number) {
+function useMarquee(paused: boolean, speed: number, reduceMotion: boolean) {
   const ref = useRef<HTMLDivElement>(null);
+  const offsetRef = useRef(0);
   useEffect(() => {
     const element = ref.current;
     if (!element) return;
-    if (paused) { element.style.transform = ''; return; }
-    let frame = 0, last = 0, offset = 0, visible = false;
+    if (paused) {
+      if (reduceMotion) { offsetRef.current = 0; element.style.transform = ''; }
+      return;
+    }
+    let frame = 0, last = 0, visible = false;
     const tick = (time: number) => {
       const width = (element.scrollWidth + (Number.parseFloat(getComputedStyle(element).columnGap) || 0)) / 3;
-      if (width) { offset = (offset + Math.min(time - last, 50) * speed / 1000) % width; element.style.transform = `translate3d(${-offset}px,0,0)`; }
+      if (width) { offsetRef.current = (offsetRef.current + Math.min(time - last, 50) * speed / 1000) % width; element.style.transform = `translate3d(${-offsetRef.current}px,0,0)`; }
       last = time; frame = requestAnimationFrame(tick);
     };
     const sync = () => {
@@ -32,8 +36,8 @@ function useMarquee(paused: boolean, speed: number) {
     const observer = new IntersectionObserver(([entry]) => { visible = Boolean(entry?.isIntersecting); sync(); });
     observer.observe(element);
     document.addEventListener('visibilitychange', sync);
-    return () => { cancelAnimationFrame(frame); observer.disconnect(); document.removeEventListener('visibilitychange', sync); element.style.transform = ''; };
-  }, [paused, speed]);
+    return () => { cancelAnimationFrame(frame); observer.disconnect(); document.removeEventListener('visibilitychange', sync); };
+  }, [paused, speed, reduceMotion]);
   return ref;
 }
 function ArchiveImage({ src, index, duplicate }: { src: string; index: number; duplicate: boolean }) {
@@ -48,17 +52,26 @@ export function EventsShowcase() {
   const reduceMotion = Boolean(useReducedMotion());
   const [paused, setPaused] = useState(false);
   const stopped = reduceMotion || paused;
-  const imagesRef = useMarquee(stopped, 33);
-  const textRef = useMarquee(stopped, 54);
+  const imagesRef = useMarquee(stopped, 33, reduceMotion);
+  const textRef = useMarquee(stopped, 54, reduceMotion);
   const copies = stopped ? [0] : [0, 1, 2];
   return (
-    <section aria-label="Past events gallery" className="relative overflow-hidden bg-white py-16 md:py-24">
+    <section
+      aria-label="Past events gallery"
+      className="relative overflow-hidden bg-white py-16 md:py-24"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocusCapture={() => setPaused(true)}
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPaused(false);
+      }}
+      onTouchStart={() => setPaused(true)}
+    >
       {/* Restored June gallery: a bright canvas, tilted image rail and oversized type. */}
       <div className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-b from-transparent via-transparent to-white/90" />
       <div
         tabIndex={0}
         aria-label="Selected past event photographs"
-        onFocus={() => setPaused(true)}
         className={`relative z-0 -rotate-3 scale-110 mb-12 md:mb-16 focus-visible:outline-2 focus-visible:outline-ieee-blue ${stopped ? 'overflow-x-auto pb-3' : 'overflow-hidden'}`}
       >
         <div ref={imagesRef} data-testid="curated-event-strip" className="flex w-max gap-4">
@@ -67,24 +80,13 @@ export function EventsShowcase() {
           )))}
         </div>
       </div>
-      <div className="relative z-20 mb-12 flex flex-wrap items-center justify-center gap-4 md:mb-16">
+      <div className="relative z-20 mb-12 flex items-center justify-center md:mb-16">
         <Link
           to="/events"
           className="inline-flex min-h-11 items-center rounded-lg bg-ieee-blue px-10 py-3 text-sm font-bold uppercase tracking-wider text-white shadow-lg transition-colors hover:bg-ieee-light-blue"
         >
           Explore Events
         </Link>
-        {!reduceMotion && (
-          <button
-            type="button"
-            aria-pressed={paused}
-            onClick={() => setPaused(value => !value)}
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 text-xs font-semibold text-gray-700 focus-visible:outline-2 focus-visible:outline-ieee-blue"
-          >
-            {paused ? <Play className="h-4 w-4" aria-hidden="true" /> : <Pause className="h-4 w-4" aria-hidden="true" />}
-            {paused ? 'Resume archive motion' : 'Pause archive motion'}
-          </button>
-        )}
       </div>
       <div className={`relative z-20 ${stopped ? 'overflow-x-auto' : 'overflow-hidden'}`}>
         <div ref={textRef} data-testid="curated-format-marquee" className="flex w-max items-center whitespace-nowrap">

@@ -41,18 +41,36 @@ test('archive search survives a reload and leaves show-more state in the URL', a
   await expect(search).toHaveValue('security');
 });
 
-test('archive pauses into one accessible set and team contacts have no placeholders', async ({ page }) => {
+test('archive pauses on hover/focus without a visible pause button and keeps unique team contacts', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto('/');
-  const pause = page.getByRole('button', { name: 'Pause archive motion' });
-  await pause.click();
-  await expect(page.getByRole('button', { name: 'Resume archive motion' })).toHaveAttribute('aria-pressed', 'true');
+  const gallery = page.getByRole('region', { name: 'Past events gallery' });
+  await expect(gallery.getByRole('button', { name: /archive motion/i })).toHaveCount(0);
   const strip = page.getByTestId('curated-event-strip');
+  await gallery.locator('[aria-label="Selected past event photographs"]').focus();
   await expect(strip.locator('img')).toHaveCount(7);
-  await expect.poll(() => strip.evaluate(e => getComputedStyle(e).transform)).toBe('none');
+  const pausedTransform = await strip.evaluate(element => getComputedStyle(element).transform);
+  await page.waitForTimeout(220);
+  await expect.poll(() => strip.evaluate(element => getComputedStyle(element).transform)).toBe(pausedTransform);
   await expect(page.locator('#execom a[href="#"]')).toHaveCount(0);
   const names = await page.locator('#execom h3').allTextContents();
   expect(new Set(names).size).toBe(names.length);
+});
+
+test('hero identity and live summary share one centered column', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  const identity = page.getByTestId('hero-identity');
+  const summary = page.getByTestId('hero-summary');
+  await expect(identity).toBeVisible();
+  await expect(summary).toBeVisible();
+  const a = await identity.boundingBox();
+  const b = await summary.boundingBox();
+  expect(a).not.toBeNull();
+  expect(b).not.toBeNull();
+  expect(Math.abs((a!.x + a!.width / 2) - (b!.x + b!.width / 2))).toBeLessThan(3);
+  expect(b!.y - (a!.y + a!.height)).toBeGreaterThan(20);
+  expect(b!.y - (a!.y + a!.height)).toBeLessThan(105);
 });
 
 for (const width of [320, 390, 768, 1440]) {
