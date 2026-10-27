@@ -149,10 +149,11 @@ export const FloatingAction: React.FC = () => {
 
   return (
     <motion.div
-      initial={reduceMotion ? false : { opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={reduceMotion ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
       transition={{ delay: reduceMotion ? 0 : 3, duration: reduceMotion ? 0 : 0.8 }}
-      className="fixed bottom-2 z-30 hidden pointer-events-none select-none md:block"
+      data-testid="home-mascot"
+      className="pointer-events-none absolute bottom-3 z-30 hidden select-none md:block"
       style={{
         left: `${posX}%`,
         transform: 'translateX(-50%)',
