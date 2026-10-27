@@ -3,6 +3,7 @@ import { APP_URL } from '@/lib/constants'
 import { fetchHomeData, type HomeData } from '@/server/public/home.server'
 import Navbar from '@/components/Navbar'
 import { Hero } from '@/components/Hero'
+import { HeroBackdrop } from '@/components/HeroBackdrop'
 import { StarsBackground } from '@/components/ui/stars-background'
 import { ShootingStars } from '@/components/ui/shooting-stars'
 import { TechnicalDetails } from '@/components/TechnicalDetails'
@@ -50,10 +51,9 @@ export default function Home() {
       <Navbar />
       <main data-page-content tabIndex={-1}>
       <div className="relative isolate h-[max(78svh,560px)] overflow-hidden md:h-[max(84svh,640px)]">
-        <StarsBackground starDensity={0.0004} allStarsTwinkle starColor="#1e293b" />
-        <ShootingStars starColor="#00629b" trailColor="#0099D6" minDelay={1500} maxDelay={4000} minSpeed={8} maxSpeed={20} starWidth={12} starHeight={2} />
-        <ShootingStars starColor="#00629b" trailColor="#0099D6" minDelay={2000} maxDelay={5000} minSpeed={12} maxSpeed={25} starWidth={10} starHeight={1} />
-        <ShootingStars starColor="#0099D6" trailColor="#00629b" minDelay={3000} maxDelay={6000} minSpeed={10} maxSpeed={22} starWidth={8} starHeight={1} />
+        <HeroBackdrop />
+        <StarsBackground starDensity={0.00008} allStarsTwinkle starColor="#e4f0ff" />
+        <ShootingStars starColor="#dceefe" trailColor="#80c7e9" minDelay={6000} maxDelay={12000} minSpeed={10} maxSpeed={18} starWidth={6} starHeight={1} />
         <div className="relative z-10 h-full">
           <TechnicalDetails />
           <Hero nextEvent={upcomingEvents[0]} upcomingCount={upcomingCount} societyCount={societies.length} dataAvailable={!loaderData.unavailable?.some(section => section === "programme" || section === "communities")} />
