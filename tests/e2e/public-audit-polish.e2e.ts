@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test('identity-first hero, directory navigation, and skip link are usable', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'IEEE', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'IEEE', exact: true, level: 1 })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'SAHRDAYA', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Explore events', exact: true })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Meet our communities', exact: true })).toHaveCount(0);
