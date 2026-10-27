@@ -202,6 +202,35 @@ If an environment appears stale, verify the running container labels before debu
 
 See `docs/release-checklist.md` for the detailed acceptance list.
 
+## Frontend PR previews (Dokploy)
+
+Pull requests targeting `dev` use the dedicated Dokploy **Application** named
+`ieee-pr-previews` (GitHub source: `Phloraxx/IEEE-sahrdayaCET`, target branch
+`dev`). This is separate from both canonical production and staging Compose
+projects. The application is not auto-deployed for ordinary branch pushes:
+Dokploy's native pull-request preview feature builds each authorized PR's
+frontend Dockerfile, serves it on a generated
+`preview-ieee-website-rcffnz-*.ieeesahrdaya.com` host, updates it on PR commits,
+and deletes it on PR closure. Preview concurrency is limited to three and PR
+authors must have write access to the repository.
+
+Every preview uses the existing **staging** PocketBase, never production.
+The preview web container's `POCKETBASE_INTERNAL_URL` points to
+`http://ieee-dev-staging-pocketbase-1:8090` on `dokploy-network`. The dedicated
+Traefik file `/etc/dokploy/traefik/dynamic/ieee-pr-previews-pocketbase.yml`
+routes `/api` for that preview hostname pattern to the same staging PocketBase,
+preserving the original path. The runtime sets `DEPLOY_ENV=staging` to enforce
+`noindex, nofollow` and non-production protections. `SITE_URL` follows
+Dokploy's `DOKPLOY_DEPLOY_URL` substitution. Previews must not inherit old
+legacy OAuth/payment/email secrets; use only distinct preview configuration.
+
+The host-side Traefik rule and Dokploy Application settings are infrastructure
+configuration, **not** part of normal repo CI/CD. If a PR has no preview, verify
+GitHub App webhook delivery, preview activation and collaborator permissions,
+and the application's build logs. The original `dev` →
+`staging.ieeesahrdaya.com` release gate remains unchanged. Do not merge a
+feature into `dev` merely to get a live review URL.
+
 ## Backup and rollback
 
 Back up the production PocketBase data volume before schema deployments. Migrations must be forward-safe on a recent copy of production data before rollout.
