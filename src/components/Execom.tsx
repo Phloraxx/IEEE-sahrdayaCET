@@ -45,12 +45,12 @@ function MemberCard({ member, index }: { member: ExecomMemberDoc; index: number 
           animate={reduceMotion ? undefined : { x: ['0%', '-50%'] }}
           transition={reduceMotion ? undefined : { duration: 14, ease: 'linear', repeat: Infinity }}
         >
-          {(member.position + '  •  ').repeat(8)}
+          {(`${member.position}  •  `).repeat(8)}
         </motion.span>
       </div>
       <div className="mt-2 flex flex-wrap gap-x-5">
-        {member.linkedin && <a href={member.linkedin} target="_blank" rel="noopener noreferrer" aria-label={member.name + ' on LinkedIn'} className={contactClass}><Linkedin className="h-4 w-4" aria-hidden="true" />LinkedIn</a>}
-        {member.portfolio && <a href={member.portfolio} target="_blank" rel="noopener noreferrer" aria-label={member.name + ' website'} className={contactClass}><Globe2 className="h-4 w-4" aria-hidden="true" />Website</a>}
+        {member.linkedin && <a href={member.linkedin} target="_blank" rel="noopener noreferrer" aria-label={`${member.name} on LinkedIn`} className={contactClass}><Linkedin className="h-4 w-4" aria-hidden="true" />LinkedIn</a>}
+        {member.portfolio && <a href={member.portfolio} target="_blank" rel="noopener noreferrer" aria-label={`${member.name} website`} className={contactClass}><Globe2 className="h-4 w-4" aria-hidden="true" />Website</a>}
       </div>
     </li>
   );
@@ -84,7 +84,7 @@ export function Execom({
 
         <div className="mb-10 mt-10 grid grid-cols-3 border-y border-gray-200 md:mb-14">
           {([['Roster', rosterCount], ['Societies', societyCount], ['Upcoming', upcomingCount]] as const).map(([label, value], index) => (
-            <div key={label} className={'py-5 text-center md:py-6 ' + (index > 0 ? 'border-l border-gray-200' : '')}>
+            <div key={label} className={`py-5 text-center md:py-6 ${index > 0 ? 'border-l border-gray-200' : ''}`}>
               <div className="font-mono text-[8px] font-semibold uppercase tracking-[0.2em] text-gray-500 sm:text-[9px]">{label}</div>
               <div className="mt-2 font-pixel text-xl text-gray-900 sm:text-2xl md:text-3xl">{String(value).padStart(2, '0')}</div>
             </div>
