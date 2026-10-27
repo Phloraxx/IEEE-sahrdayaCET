@@ -21,7 +21,8 @@ describe("public motion architecture", () => {
     const nav = read("src/components/Navbar.tsx");
 
     expect(execom).toContain("data-home-execom-static");
-    expect(execom).not.toContain("requestAnimationFrame");
+    expect(execom).toContain("if (reduceMotion) return;");
+    expect(execom).toContain("if (reduceMotion || !trackRef.current) return;");
     expect(character).toContain("useReducedMotion");
     expect(hero).not.toContain("useScroll");
     expect(read("src/components/EventsShowcase.tsx")).toContain("const stopped = reduceMotion || paused;");

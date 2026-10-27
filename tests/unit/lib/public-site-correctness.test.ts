@@ -78,10 +78,11 @@ describe("Home redesign invariants", () => {
     const signals = read("src/components/home/LatestSignals.tsx");
     expect(read("src/components/home/NowAtSahrdaya.tsx")).toContain('index="01"');
     expect(people).toContain('index="02"');
-    expect(showcase).toContain('index="03"');
+    expect(showcase).toContain('aria-label="Past events gallery"');
+    expect(showcase).toContain("-rotate-3 scale-110");
     expect(signals).toContain('index="04"');
     expect(showcase).toContain("Deliberately curated archive");
-    expect(showcase).toContain("07 handpicked moments");
+    expect(showcase).toContain("bg-white py-16");
   });
 
   it("uses the shared public core roster and keeps aggregate statistics in the programme", () => {

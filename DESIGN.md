@@ -46,7 +46,8 @@ The homepage is expressive/brand-first rather than dashboard-like:
 - restrained star/shooting-star motion;
 - bento-style `WHAT'S HAPPENING` section;
 - current event information remains dynamic, but its homepage hero visual is intentionally the stable `/AGM.webp` image instead of arbitrary event-poster ratios;
-- the curated event-photo strip is an angled, light-background editorial showcase with dark typography; preserve its pause and reduced-motion controls.
+- the curated event-photo strip restores the June 2026 light gallery: a white canvas, -3 degree oversized moving photo strip, centered Explore Events action, and large black scrolling category names; retain a pause control and reduced-motion behavior.
+- the homepage Execom uses the original drag-and-inertia, automatically moving portrait carousel, with public PocketBase data rather than the historical hardcoded member list.
 
 Do not couple homepage card layout to uploaded event-poster aspect ratios.
 
