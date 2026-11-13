@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Link } from "react-router";
-import { ArrowUpRight, Globe2 } from "lucide-react";
-import { HomeSectionHeading } from "@/components/home/HomeSectionHeading";
+import { ArrowUpRight, Globe2, Users } from "lucide-react";
 import { Linkedin } from "@/components/icons";
 import type { ExecomMemberDoc } from "@/features/execom/ExecomClient";
 
@@ -347,7 +346,7 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
 };
 
 /* ── Main Execom Section ── */
-export const Execom: React.FC<{ members: ExecomMemberDoc[]; societyCount: number; rosterCount: number; upcomingCount: number }> = ({ members, societyCount, rosterCount, upcomingCount }) => {
+export const Execom: React.FC<{ members: ExecomMemberDoc[] }> = ({ members }) => {
   const reduceMotion = Boolean(useReducedMotion());
   const membersList: Member[] = members.map(member => ({
     id: member.id,
@@ -361,39 +360,76 @@ export const Execom: React.FC<{ members: ExecomMemberDoc[]; societyCount: number
 
   return (
     <section
-      className="bg-white pt-14 pb-20 md:pt-16 md:pb-24 relative overflow-hidden"
+      className="bg-white py-20 md:py-32 relative overflow-hidden"
       id="execom"
     >
       <div className="absolute top-0 left-0 w-full h-px bg-gray-200" />
       <div className="absolute -top-20 -right-20 w-64 h-64 bg-ieee-blue/5 rounded-full blur-3xl" />
       <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-ieee-blue/5 rounded-full blur-3xl" />
 
-      <div className="mx-auto max-w-[1320px] px-5 sm:px-6 lg:px-10 relative z-10">
-        <HomeSectionHeading
-          index="02"
-          label="The people"
-          title={<>Meet the people<br /><span className="text-ieee-blue">behind the vision.</span></>}
-          description="The executive committee coordinating the branch, its communities and the work that happens between them."
-          action={<Link to="/full-execom" className="group inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-gray-700 transition hover:text-ieee-blue">View full Execom <ArrowUpRight className="h-4 w-4 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" /></Link>}
-        />
+      <div className="container mx-auto px-4 relative z-10">
+        {/* Header */}
+        <div className="mb-16 md:mb-20">
+          <div className="flex items-center space-x-2 mb-6">
+            <Users className="w-5 h-5 text-ieee-blue" aria-hidden="true" />
+            <h3 className="font-pixel text-lg md:text-xl text-gray-800">
+              THE EXECOM
+            </h3>
+            <div className="h-px grow bg-gray-300 ml-4" />
+          </div>
 
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+            <motion.div
+              initial={reduceMotion ? false : { opacity: 0, y: 30 }}
+              whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={reduceMotion ? { duration: 0 } : { duration: 0.8 }}
+            >
+              <h2 className="text-3xl md:text-5xl lg:text-6xl font-bold text-gray-900 tracking-tight leading-[1.1]">
+                Meet the people{" "}
+                <br />
+                <span className="text-ieee-blue">behind the vision.</span>
+              </h2>
+            </motion.div>
+            <motion.p
+              className="text-sm md:text-base text-gray-500 max-w-sm font-mono"
+              initial={reduceMotion ? false : { opacity: 0 }}
+              whileInView={reduceMotion ? undefined : { opacity: 1 }}
+              viewport={{ once: true }}
+              transition={reduceMotion ? { duration: 0 } : { delay: 0.3, duration: 0.8 }}
+            >
+              The executive committee driving innovation, collaboration, and
+              excellence at IEEE Sahrdaya SB.
+            </motion.p>
+          </div>
+        </div>
+
+        {/* Stats */}
         <motion.div
-          className="mt-10 mb-12 grid grid-cols-3 border-y border-gray-200 md:mb-14"
+          className="grid grid-cols-3 gap-4 mb-16 md:mb-20 border-y border-gray-200 py-8"
           initial={reduceMotion ? false : { opacity: 0 }}
           whileInView={reduceMotion ? undefined : { opacity: 1 }}
           viewport={{ once: true }}
-          transition={{ duration: reduceMotion ? 0 : 0.6 }}
+          transition={reduceMotion ? { duration: 0 } : { duration: 0.6 }}
         >
-          {[
-            ["Roster", rosterCount],
-            ["Societies", societyCount],
-            ["Upcoming", upcomingCount],
-          ].map(([label, value], index) => (
-            <div key={String(label)} className={`py-5 text-center md:py-6 ${index > 0 ? "border-l border-gray-200" : ""}`}>
-              <div className="font-mono text-[8px] font-semibold uppercase tracking-[0.2em] text-gray-400 sm:text-[9px]">{label}</div>
-              <div className="mt-2 font-pixel text-xl text-gray-900 sm:text-2xl md:text-3xl">{String(value).padStart(2, "0")}</div>
+          <div className="text-center md:text-left">
+            <div className="font-mono text-[10px] tracking-[0.3em] text-gray-400 uppercase mb-1">
+              Roster
             </div>
-          ))}
+            <div className="font-bold text-2xl md:text-4xl text-gray-900">80</div>
+          </div>
+          <div className="text-center">
+            <div className="font-mono text-[10px] tracking-[0.3em] text-gray-400 uppercase mb-1">
+              Events Led
+            </div>
+            <div className="font-bold text-2xl md:text-4xl text-gray-900">100+</div>
+          </div>
+          <div className="text-center md:text-right">
+            <div className="font-mono text-[10px] tracking-[0.3em] text-gray-400 uppercase mb-1">
+              Societies
+            </div>
+            <div className="font-bold text-2xl md:text-4xl text-gray-900">14</div>
+          </div>
         </motion.div>
 
         {/* Carousel */}
@@ -401,13 +437,24 @@ export const Execom: React.FC<{ members: ExecomMemberDoc[]; societyCount: number
           {membersList.length ? <DragCarousel members={membersList} /> : <p className="mt-8 rounded-xl bg-gray-50 p-6 text-sm text-gray-600">The core team roster is not available here yet. Visit the full directory or contact the branch for current committee details.</p>}
         </div>
 
+        {/* View Full Execom */}
+        <div className="mt-12 flex justify-center">
+          <Link
+            to="/full-execom"
+            className="group relative inline-flex items-center justify-center px-8 py-3 font-mono text-sm uppercase tracking-widest text-white transition-all duration-300 bg-ieee-blue/90 hover:bg-ieee-blue rounded-full"
+          >
+            <span>View Full Execom</span>
+            <ArrowUpRight className="ml-2 w-4 h-4 transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1" />
+          </Link>
+        </div>
+
         {/* CTA */}
         <motion.div
-          className="mt-12 md:mt-16 flex flex-col md:flex-row items-center justify-center gap-4 text-center"
+          className="mt-16 md:mt-24 flex flex-col md:flex-row items-center justify-center gap-4 text-center"
           initial={reduceMotion ? false : { opacity: 0, y: 20 }}
           whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: reduceMotion ? 0 : 0.6 }}
+          transition={reduceMotion ? { duration: 0 } : { duration: 0.6 }}
         >
           <div className="h-px w-16 bg-gray-300 hidden md:block" />
           <p className="font-mono text-xs text-gray-400 tracking-[0.2em] uppercase">

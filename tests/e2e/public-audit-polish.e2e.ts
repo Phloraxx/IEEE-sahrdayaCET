@@ -41,7 +41,7 @@ test('archive search survives a reload and leaves show-more state in the URL', a
   await expect(search).toHaveValue('security');
 });
 
-test('archive pauses on hover/focus without a visible pause button and keeps unique team contacts', async ({ page }) => {
+test('archive slides continuously without a pause button and keeps unique team contacts', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto('/');
   const gallery = page.getByRole('region', { name: 'Past events gallery' });
@@ -52,29 +52,23 @@ test('archive pauses on hover/focus without a visible pause button and keeps uni
   // Decorative clones stay mounted on focus; the container must never expose a scrollbar.
   const tickerViewport = gallery.locator('[data-testid="curated-format-marquee"]').locator('..');
   await expect.poll(() => tickerViewport.evaluate(el => getComputedStyle(el).overflowX)).toBe('hidden');
-  const pausedTransform = await strip.evaluate(element => getComputedStyle(element).transform);
-  await page.waitForTimeout(220);
-  await expect.poll(() => strip.evaluate(element => getComputedStyle(element).transform)).toBe(pausedTransform);
+  const transformBefore = await strip.evaluate(element => getComputedStyle(element).transform);
+  await page.waitForTimeout(320);
+  const transformAfter = await strip.evaluate(element => getComputedStyle(element).transform);
+  expect(transformAfter).not.toBe(transformBefore);
   await expect.poll(() => gallery.locator('[aria-label="Selected past event photographs"]').evaluate(el => getComputedStyle(el).overflowX)).toBe('hidden');
   await expect(page.locator('#execom a[href="#"]')).toHaveCount(0);
   const names = await page.locator('#execom h3').allTextContents();
   expect(new Set(names).size).toBe(names.length);
 });
 
-test('hero identity and live summary share one centered column', async ({ page }) => {
+test('hero identity owns the centered column', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
   const identity = page.getByTestId('hero-identity');
-  const summary = page.getByTestId('hero-summary');
   await expect(identity).toBeVisible();
-  await expect(summary).toBeVisible();
   const a = await identity.boundingBox();
-  const b = await summary.boundingBox();
   expect(a).not.toBeNull();
-  expect(b).not.toBeNull();
-  expect(Math.abs((a!.x + a!.width / 2) - (b!.x + b!.width / 2))).toBeLessThan(3);
-  expect(b!.y - (a!.y + a!.height)).toBeGreaterThan(20);
-  expect(b!.y - (a!.y + a!.height)).toBeLessThan(105);
   const stage = page.locator('main > div').first();
   const stageBox = await stage.boundingBox();
   expect(stageBox).not.toBeNull();
