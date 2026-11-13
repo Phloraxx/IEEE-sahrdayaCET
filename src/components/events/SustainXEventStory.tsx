@@ -159,21 +159,21 @@ const galleryPhotos = [
   },
 ] as const;
 
-const campaignPosters = [
+const livePhotos = [
   {
-    src: "/media/sustainx/sustainx-campaign-teaser.webp",
-    alt: "SustainX teaser poster",
-    label: "Teaser",
+    src: "/media/sustainx/sustainx-live-01.webp",
+    alt: "Speaker opening SustainX on stage in front of the SUSTAINX banner",
+    label: "The kickoff",
   },
   {
-    src: "/media/sustainx/sustainx-campaign-registration.webp",
-    alt: "SustainX registrations open poster with the registration window 27 June to 7 July",
-    label: "Registration · 27 Jun — 07 Jul",
+    src: "/media/sustainx/sustainx-live-02.webp",
+    alt: "Full seminar hall during the SustainX sessions at Sahrdaya",
+    label: "The room",
   },
   {
-    src: "/media/sustainx/sustainx-campaign-overview.webp",
-    alt: "SustainX challenge overview poster explaining the challenge area and three phases",
-    label: "The challenge",
+    src: "/media/sustainx/sustainx-live-03.webp",
+    alt: "Auditorium crowd gathered for the SustainX pitch day",
+    label: "Pitch day",
   },
 ] as const;
 
@@ -233,7 +233,7 @@ function HeroPanel({
   );
 }
 
-function CampaignPosters() {
+function LivePhotos() {
   const reduceMotion = Boolean(useReducedMotion());
   const [selected, setSelected] = useState<number | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -245,8 +245,8 @@ function CampaignPosters() {
     if (selected === null && dialog.open) dialog.close();
   }, [selected]);
 
-  const showPrevious = () => setSelected((current) => (current === null ? null : (current - 1 + campaignPosters.length) % campaignPosters.length));
-  const showNext = () => setSelected((current) => (current === null ? null : (current + 1) % campaignPosters.length));
+  const showPrevious = () => setSelected((current) => (current === null ? null : (current - 1 + livePhotos.length) % livePhotos.length));
+  const showNext = () => setSelected((current) => (current === null ? null : (current + 1) % livePhotos.length));
 
   const onDialogKeyDown = (event: React.KeyboardEvent<HTMLDialogElement>) => {
     if (event.key === "ArrowLeft") {
@@ -259,22 +259,22 @@ function CampaignPosters() {
   };
 
   return (
-    <section className="border-b border-black/10 bg-[#f3f2f8] py-16 sm:py-20 lg:py-28" aria-labelledby="sustainx-campaign-title">
+    <section className="border-b border-black/10 bg-[#f3f2f8] py-16 sm:py-20 lg:py-28" aria-labelledby="sustainx-photos-title">
       <div className="mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12">
         <div className="grid gap-8 lg:grid-cols-12 lg:items-end">
           <Reveal className="lg:col-span-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#6558c9]">Before 20.08.26</p>
-            <p className="mt-4 max-w-xs text-xs font-bold uppercase tracking-[0.14em] text-black/35">Teaser · Registration · Challenge brief</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#6558c9]">Event day</p>
+            <p className="mt-4 max-w-xs text-xs font-bold uppercase tracking-[0.14em] text-black/35">Kickoff · Hall · Pitch day</p>
           </Reveal>
           <div className="lg:col-span-8">
             <MaskedHeading>
-              <h2 id="sustainx-campaign-title" className="max-w-5xl text-[clamp(2.8rem,6.2vw,6.2rem)] font-semibold leading-[0.88] tracking-[-0.065em]">
-                How SustainX was introduced.
+              <h2 id="sustainx-photos-title" className="max-w-5xl text-[clamp(2.8rem,6.2vw,6.2rem)] font-semibold leading-[0.88] tracking-[-0.065em]">
+                SustainX, as it happened.
               </h2>
             </MaskedHeading>
             <Reveal>
               <p className="mt-6 max-w-2xl text-sm leading-6 text-black/52 sm:text-base sm:leading-7">
-                The teaser, registration call and challenge explainer that led into the event.
+                Real photographs from the SustainX event day at Sahrdaya.
               </p>
             </Reveal>
           </div>
@@ -282,19 +282,19 @@ function CampaignPosters() {
 
         <div className="mt-10 lg:hidden">
           <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.18em] text-black/40" aria-hidden="true">
-            <span>Swipe the posters →</span><span>01 / 03</span>
+            <span>Swipe the photos →</span><span>01 / 03</span>
           </div>
           <div className="event-filter-scroll -mx-5 mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-5 sm:-mx-8 sm:px-8">
-            {campaignPosters.map((poster, index) => (
+            {livePhotos.map((poster, index) => (
               <button
                 key={poster.src}
                 type="button"
                 onClick={() => setSelected(index)}
                 className="group w-[82vw] max-w-[390px] shrink-0 snap-center text-left"
-                aria-label={`Open campaign poster ${index + 1} of ${campaignPosters.length}`}
+                aria-label={`Open event photo ${index + 1} of ${livePhotos.length}`}
               >
-                <div className="aspect-[4/5] overflow-hidden bg-white/45 ring-1 ring-black/8">
-                  <img src={poster.src} alt={poster.alt} loading="lazy" className="h-full w-full object-contain" />
+                <div className="aspect-[4/3] overflow-hidden bg-white/45 ring-1 ring-black/8">
+                  <img src={poster.src} alt={poster.alt} loading="lazy" className="h-full w-full object-cover" />
                 </div>
                 <div className="mt-3 flex items-center justify-between gap-4 border-t border-black/12 pt-3">
                   <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-black/58"><span className="text-[#319b9a]">{String(index + 1).padStart(2, "0")} /</span> {poster.label}</p>
@@ -306,7 +306,7 @@ function CampaignPosters() {
         </div>
 
         <div className="mt-16 hidden grid-cols-[0.86fr_1.14fr_0.86fr] items-end gap-6 lg:grid xl:gap-10">
-          {campaignPosters.map((poster, index) => (
+          {livePhotos.map((poster, index) => (
             <motion.button
               key={poster.src}
               type="button"
@@ -317,10 +317,10 @@ function CampaignPosters() {
               transition={{ duration: reduceMotion ? 0 : 0.72, delay: reduceMotion ? 0 : index * 0.08, ease: [0.16, 1, 0.3, 1] }}
               whileHover={reduceMotion ? undefined : { y: -6 }}
               className={`group text-left ${index === 0 ? "pb-14" : index === 2 ? "pb-9" : ""}`}
-              aria-label={`Open campaign poster ${index + 1} of ${campaignPosters.length}`}
+              aria-label={`Open event photo ${index + 1} of ${livePhotos.length}`}
             >
-              <div className="relative aspect-[4/5] overflow-hidden bg-white/48 ring-1 ring-black/8">
-                <img src={poster.src} alt={poster.alt} loading="lazy" className="h-full w-full object-contain" />
+              <div className="relative aspect-[4/3] overflow-hidden bg-white/48 ring-1 ring-black/8">
+                <img src={poster.src} alt={poster.alt} loading="lazy" className="h-full w-full object-cover" />
                 <span className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-full bg-black/58 text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100">
                   <Maximize2 className="h-3.5 w-3.5" />
                 </span>
@@ -336,34 +336,34 @@ function CampaignPosters() {
       <dialog
         ref={dialogRef}
         className="m-auto h-[100dvh] max-h-none w-screen max-w-none bg-transparent p-0 text-white backdrop:bg-[#090a0d]/95"
-        aria-label="SustainX campaign poster viewer"
+        aria-label="SustainX event photo viewer"
         onCancel={(event) => { event.preventDefault(); setSelected(null); }}
         onClose={() => setSelected(null)}
         onKeyDown={onDialogKeyDown}
       >
         {selected !== null && (
           <div className="relative grid h-full w-full place-items-center p-4 sm:p-8" onClick={() => setSelected(null)}>
-            <button type="button" autoFocus onClick={(event) => { event.stopPropagation(); setSelected(null); }} className="absolute right-4 top-4 z-10 grid h-11 w-11 place-items-center rounded-full border border-white/25 bg-black/45 text-white sm:right-8 sm:top-8" aria-label="Close poster viewer">
+            <button type="button" autoFocus onClick={(event) => { event.stopPropagation(); setSelected(null); }} className="absolute right-4 top-4 z-10 grid h-11 w-11 place-items-center rounded-full border border-white/25 bg-black/45 text-white sm:right-8 sm:top-8" aria-label="Close photo viewer">
               <X className="h-5 w-5" />
             </button>
-            <button type="button" onClick={(event) => { event.stopPropagation(); showPrevious(); }} className="absolute left-3 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/25 bg-black/45 text-white sm:left-8" aria-label="Previous poster">
+            <button type="button" onClick={(event) => { event.stopPropagation(); showPrevious(); }} className="absolute left-3 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/25 bg-black/45 text-white sm:left-8" aria-label="Previous photo">
               <ChevronLeft className="h-5 w-5" />
             </button>
-            <button type="button" onClick={(event) => { event.stopPropagation(); showNext(); }} className="absolute right-3 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/25 bg-black/45 text-white sm:right-8" aria-label="Next poster">
+            <button type="button" onClick={(event) => { event.stopPropagation(); showNext(); }} className="absolute right-3 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/25 bg-black/45 text-white sm:right-8" aria-label="Next photo">
               <ChevronRight className="h-5 w-5" />
             </button>
             <motion.figure
-              key={campaignPosters[selected]!.src}
+              key={livePhotos[selected]!.src}
               initial={reduceMotion ? false : { opacity: 0, scale: 0.975 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: reduceMotion ? 0 : 0.3 }}
               className="flex max-h-[92svh] max-w-[860px] flex-col items-center"
               onClick={(event) => event.stopPropagation()}
             >
-              <img src={campaignPosters[selected]!.src} alt={campaignPosters[selected]!.alt} className="max-h-[82svh] max-w-full object-contain" />
+              <img src={livePhotos[selected]!.src} alt={livePhotos[selected]!.alt} className="max-h-[82svh] max-w-full object-contain" />
               <figcaption className="mt-4 flex w-full items-center justify-between gap-4 text-[10px] font-bold uppercase tracking-[0.18em] text-white/62">
-                <span><span className="text-[#8ce0d8]">{String(selected + 1).padStart(2, "0")} /</span> {campaignPosters[selected]!.label}</span>
-                <span>{String(selected + 1).padStart(2, "0")} / {String(campaignPosters.length).padStart(2, "0")}</span>
+                <span><span className="text-[#8ce0d8]">{String(selected + 1).padStart(2, "0")} /</span> {livePhotos[selected]!.label}</span>
+                <span>{String(selected + 1).padStart(2, "0")} / {String(livePhotos.length).padStart(2, "0")}</span>
               </figcaption>
             </motion.figure>
           </div>
@@ -783,7 +783,7 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
         </div>
       </section>
 
-      <CampaignPosters />
+      <LivePhotos />
 
       <EventGallery />
 

@@ -56,15 +56,15 @@ export default function Home() {
         <ShootingStars starColor="#0099D6" trailColor="#00629b" minDelay={3000} maxDelay={6000} minSpeed={10} maxSpeed={22} starWidth={8} starHeight={1} />
         <div className="relative z-10 h-full">
           <TechnicalDetails />
-          <Hero nextEvent={upcomingEvents[0]} upcomingCount={upcomingCount} societyCount={societies.length} dataAvailable={!loaderData.unavailable?.some(section => section === "programme" || section === "communities")} />
+          <Hero />
           <FloatingAction />
         </div>
       </div>
       <ErrorBoundary>
         <div className="relative z-10">
           {loaderData.unavailable?.length > 0 && <div role="status" className="mx-auto max-w-5xl px-5 py-6 text-sm text-gray-600">Some {loaderData.unavailable.join(", ")} information is temporarily unavailable. <button type="button" onClick={() => void revalidator.revalidate()} disabled={revalidator.state === "loading"} className="ml-2 inline-flex min-h-11 items-center font-semibold text-ieee-blue">{revalidator.state === "loading" ? "Retrying…" : "Try again"}</button></div>}
-          {!loaderData.unavailable?.some(section => section === "programme" || section === "communities" || section === "team") && <NowAtSahrdaya events={upcomingEvents} upcomingCount={upcomingCount} societyCount={societies.length} execomCount={execomCount} />}
-          <Execom members={loaderData.coreTeam ?? []} societyCount={societies.length} rosterCount={execomCount} upcomingCount={upcomingCount} />
+          {!loaderData.unavailable?.some(section => section === "programme" || section === "communities") && <NowAtSahrdaya events={upcomingEvents} upcomingCount={upcomingCount} societyCount={societies.length} execomCount={execomCount} />}
+          <Execom members={loaderData.coreTeam ?? []} />
           {/* Intentionally hardcoded visual showcase; live event data is used above. */}
           <EventsShowcase />
           <LatestSignals blogs={latestBlogs} />

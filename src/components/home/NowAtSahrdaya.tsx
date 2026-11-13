@@ -1,6 +1,5 @@
 import { ArrowRight, ArrowUpRight, CalendarDays, MapPin } from "lucide-react";
 import { Link } from "react-router";
-import { EventBannerFallback } from "@/components/events/EventBannerFallback";
 import { HomeSectionHeading } from "@/components/home/HomeSectionHeading";
 import { formatDateLong, formatEventTime, formatWeekdayShort } from "@/lib/dates";
 import type { HomeEventSummary } from "@/server/public/home.server";
@@ -12,11 +11,13 @@ interface Props {
   execomCount: number;
 }
 
+/* The pre-rewrite home always showed a real college photograph behind the
+   lead card; fall back to the branch AGM photo when an event has no banner. */
 function EventVisual({ event }: { event: HomeEventSummary }) {
   if (event.bannerUrl) {
     return <img src={event.bannerUrl} alt="" className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.025]" />;
   }
-  return <EventBannerFallback title={event.title} societyName={event.society?.name} societySlug={event.society?.slug} className="h-full" showTitle={false} />;
+  return <img src="/AGM.webp" alt="" aria-hidden="true" className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.025]" />;
 }
 
 export function NowAtSahrdaya({ events, upcomingCount, societyCount, execomCount }: Props) {
@@ -79,7 +80,25 @@ export function NowAtSahrdaya({ events, upcomingCount, societyCount, execomCount
             </aside>
           </div>
         ) : (
-          <div className="mt-10 rounded-2xl border border-gray-200 px-6 py-7 text-center"><p className="font-pixel text-[10px] text-gray-400">NO UPCOMING EVENTS</p><Link to="/events" className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-ieee-blue">Browse event archive <ArrowRight className="h-4 w-4" /></Link><Link to="/societies" className="ml-5 mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-gray-700">Explore communities</Link></div>
+          <div className="mt-10 overflow-hidden rounded-2xl bg-gray-950 text-white">
+            <div className="relative min-h-[430px] sm:min-h-[520px]">
+              <img src="/AGM.webp" alt="The IEEE Sahrdaya student branch community gathered at the college" className="absolute inset-0 h-full w-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-black/10" />
+              <div className="absolute inset-x-0 top-0 flex items-center justify-between gap-4 p-5 font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-white/65 sm:p-7">
+                <span>Sahrdaya · Student branch</span>
+                <span>Programme coming soon</span>
+              </div>
+              <div className="absolute inset-x-0 bottom-0 p-5 sm:p-7 lg:p-8">
+                <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-blue-200">IEEE Sahrdaya</p>
+                <h3 className="mt-3 max-w-4xl text-4xl font-bold leading-[0.96] tracking-[-0.045em] sm:text-5xl lg:text-6xl">More events are on the way.</h3>
+                <p className="mt-4 max-w-2xl text-sm leading-6 text-white/68 sm:text-base">Workshops, builds and sessions are being scheduled across the branch. Browse the archive for everything the branch has run so far.</p>
+                <div className="mt-6 flex flex-wrap items-center gap-3">
+                  <Link to="/events" className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2 text-xs font-semibold backdrop-blur-sm transition hover:bg-white hover:text-gray-950">Browse past events <ArrowRight className="h-4 w-4" /></Link>
+                  <Link to="/societies" className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2 text-xs font-semibold backdrop-blur-sm transition hover:bg-white hover:text-gray-950">Explore communities</Link>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         <div className="mt-6 grid border-y border-gray-200 sm:grid-cols-3">

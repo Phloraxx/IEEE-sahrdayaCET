@@ -50,23 +50,18 @@ function ArchiveImage({ src, index, duplicate }: { src: string; index: number; d
 }
 export function EventsShowcase() {
   const reduceMotion = Boolean(useReducedMotion());
-  const [paused, setPaused] = useState(false);
+  // Pre-rewrite behaviour: the archive rail slides continuously and never
+  // pauses on hover, focus or touch.
+  const paused = false;
   const stopped = reduceMotion || paused;
   const imagesRef = useMarquee(stopped, 33, reduceMotion);
   const textRef = useMarquee(stopped, 54, reduceMotion);
-  // Keep all marquee copies mounted while paused so there is no jump or exposed scrollbar.
+  // Keep all marquee copies mounted so there is no jump or exposed scrollbar.
   const copies = reduceMotion ? [0] : [0, 1, 2];
   return (
     <section
       aria-label="Past events gallery"
       className="relative overflow-hidden bg-white py-16 md:py-24"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onFocusCapture={() => setPaused(true)}
-      onBlurCapture={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPaused(false);
-      }}
-      onTouchStart={() => setPaused(true)}
     >
       {/* Restored June gallery: a bright canvas, tilted image rail and oversized type. */}
       <div className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-b from-transparent via-transparent to-white/90" />
