@@ -24,10 +24,10 @@ export const TechnicalDetails: React.FC = () => {
         <img
           src="/Ieee.svg"
           alt="IEEE SB Logo"
-          width={160}
-          height={78}
+          width={112}
+          height={55}
           loading="eager"
-          className="h-auto w-40 contrast-125 drop-shadow-[0_1px_0_rgba(255,255,255,0.85)] 2xl:w-44"
+          className="h-auto w-28 contrast-125 drop-shadow-[0_1px_0_rgba(255,255,255,0.85)] 2xl:w-32"
         />
       </motion.div>
 
@@ -41,10 +41,10 @@ export const TechnicalDetails: React.FC = () => {
         <img
           src="/emblem.png"
           alt="Sahrdaya Logo"
-          width={56}
-          height={56}
+          width={48}
+          height={48}
           loading="eager"
-          className="h-16 w-16 object-contain contrast-125 drop-shadow-[0_1px_0_rgba(255,255,255,0.9)] 2xl:h-[4.5rem] 2xl:w-[4.5rem]"
+          className="h-12 w-12 object-contain contrast-125 drop-shadow-[0_1px_0_rgba(255,255,255,0.9)] 2xl:h-14 2xl:w-14"
         />
       </motion.div>
 
