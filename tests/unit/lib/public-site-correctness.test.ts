@@ -77,7 +77,7 @@ describe("Home redesign invariants", () => {
     const showcase = read("src/components/EventsShowcase.tsx");
     const signals = read("src/components/home/LatestSignals.tsx");
     expect(read("src/components/home/NowAtSahrdaya.tsx")).toContain('index="01"');
-    expect(people).toContain('index="02"');
+    expect(people).toContain("THE EXECOM");
     expect(showcase).toContain('aria-label="Past events gallery"');
     expect(showcase).toContain("-rotate-3 scale-110");
     expect(signals).toContain('index="04"');
@@ -85,7 +85,7 @@ describe("Home redesign invariants", () => {
     expect(showcase).toContain("bg-white py-16");
   });
 
-  it("uses the shared public core roster and keeps aggregate statistics in the programme", () => {
+  it("uses the shared public core roster and restores the pre-rewrite execom stats row", () => {
     const route = read("src/routes/index.tsx");
     const people = read("src/components/Execom.tsx");
     const home = read("src/server/public/home.server.ts");
@@ -94,7 +94,7 @@ describe("Home redesign invariants", () => {
     expect(home).toContain('member.sectionId === "core"');
     expect(route).toContain("execomCount={execomCount}");
     expect(people).not.toContain("execomMembers");
-    expect(people).not.toContain("100+");
+    expect(people).toContain("100+");
   });
 });
 
