@@ -72,15 +72,15 @@ describe("Home redesign invariants", () => {
     expect(route).not.toContain("Call for Papers");
   });
 
-  it("keeps the four-part Home narrative and curated showcase semantics", () => {
+  it("keeps the Home narrative and curated showcase semantics", () => {
     const people = read("src/components/Execom.tsx");
     const showcase = read("src/components/EventsShowcase.tsx");
     const signals = read("src/components/home/LatestSignals.tsx");
-    expect(read("src/components/home/NowAtSahrdaya.tsx")).toContain('index="01"');
+    expect(read("src/components/home/NowAtSahrdaya.tsx")).not.toContain('index="01"');
     expect(people).toContain("THE EXECOM");
     expect(showcase).toContain('aria-label="Past events gallery"');
     expect(showcase).toContain("-rotate-3 scale-110");
-    expect(signals).toContain('index="04"');
+    expect(signals).not.toContain('index="04"');
     expect(showcase).toContain("Deliberately curated archive");
     expect(showcase).toContain("bg-white py-16");
   });

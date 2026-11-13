@@ -18,7 +18,7 @@ export function LatestSignals({ blogs }: { blogs: BlogPost[] }) {
     <section className="relative bg-white px-5 py-20 sm:px-6 sm:py-24 lg:px-10 lg:py-28">
       <div className="mx-auto max-w-[1320px]">
         <HomeSectionHeading
-          index="04"
+          
           label="Latest signals"
           title={<>Stories worth <span className="text-ieee-blue">keeping.</span></>}
           description="Event logs, technical notes and branch stories recorded as they happen."

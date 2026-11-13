@@ -28,7 +28,7 @@ export function NowAtSahrdaya({ events, upcomingCount, societyCount, execomCount
     <section id="events" className="relative bg-white px-5 pt-20 pb-12 sm:px-6 sm:pt-24 sm:pb-14 lg:px-10 lg:pt-28 lg:pb-16">
       <div className="mx-auto max-w-[1320px]">
         <HomeSectionHeading
-          index="01"
+          
           label="Now at Sahrdaya"
           title={<>What&apos;s happening <span className="text-ieee-blue">right now.</span></>}
           description="The next workshops, builds and sessions across the branch — pulled directly from the live programme."
