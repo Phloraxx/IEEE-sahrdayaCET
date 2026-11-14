@@ -25,6 +25,7 @@ describe("public motion architecture", () => {
     expect(execom).toContain("if (reduceMotion || !trackRef.current) return;");
     expect(character).toContain("useReducedMotion");
     expect(hero).not.toContain("useScroll");
+    expect(hero).toContain("useReducedMotion");
     expect(read("src/components/EventsShowcase.tsx")).toContain("const stopped = reduceMotion || paused;");
     expect(chrome).toContain("duration: reduceMotion ? 0 : 0.45");
     expect(nav).toContain("duration: reduceMotion ? 0 : 0.5");

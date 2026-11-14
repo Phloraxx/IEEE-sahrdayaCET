@@ -9,6 +9,8 @@ export default defineConfig(({ mode }) => {
   return {
     server: {
       host: "0.0.0.0",
+      // allow dev-server previews served behind the org domain (e.g. dev.ieeesahrdaya.com)
+      allowedHosts: ["localhost", ".ieeesahrdaya.com"],
       port: Number(env.PORT || process.env.PORT || 3000),
       proxy: {
         "/api": {

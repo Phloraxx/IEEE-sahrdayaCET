@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from "framer-motion";
 export const TechnicalDetails: React.FC = () => {
   const reduceMotion = Boolean(useReducedMotion());
   const [scrolled, setScrolled] = useState(false);
+  const year = new Date().getFullYear();
 
   useEffect(() => {
     const update = () => setScrolled(window.scrollY > 120);
@@ -56,7 +57,7 @@ export const TechnicalDetails: React.FC = () => {
         className="absolute bottom-6 left-6 z-10 hidden md:block"
       >
         <p className="font-mono text-[10px] text-gray-400">
-          &copy; 2026 IEEE SAHRDAYA SB
+          &copy; {year} IEEE SAHRDAYA SB
         </p>
       </motion.div>
     </>

@@ -1,10 +1,15 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 
-/* Pre-rewrite hero: frosted glass card around the pixel wordmark, with the
-   original staggered reveal. Scroll-linked parallax stays out so the section
-   honours reduced-motion architecture rules. */
+/* Identity hero: frosted glass card around the pixel wordmark with the
+   original staggered reveal. The reveal is decorative only - under reduced
+   motion everything renders in its final state, and the section grows
+   instead of clipping when the viewport is shorter than the card.
+   Scroll-linked parallax stays out so the section honours reduced-motion
+   architecture rules. */
 export const Hero: React.FC = () => {
+    const reduceMotion = Boolean(useReducedMotion());
+
     const textVariants = {
         hidden: { y: 50, opacity: 0 },
         visible: (i: number) => ({
@@ -19,15 +24,15 @@ export const Hero: React.FC = () => {
     };
 
     return (
-        <section className="relative h-dvh flex flex-col items-center justify-center z-20 px-4 overflow-hidden">
+        <section className="relative min-h-dvh flex flex-col items-center justify-center z-20 px-4 py-20 sm:py-24 overflow-hidden">
             <div className="w-full h-full flex flex-col items-center justify-center relative">
-                <div className="text-center transform translate-y-[-10%] bg-white/50 backdrop-blur-sm rounded-2xl px-8 py-6" data-testid="hero-identity">
+                <div className="text-center transform translate-y-[-10%] bg-white/60 backdrop-blur-md rounded-2xl border border-black/5 shadow-[0_8px_30px_rgba(6,17,29,0.06)] px-8 py-6" data-testid="hero-identity">
                     {/* Main Title Group */}
                     <div className="flex flex-col items-center justify-center gap-2 md:gap-4 mb-8">
                         <motion.h1
                             custom={0}
                             variants={textVariants}
-                            initial="hidden"
+                            initial={reduceMotion ? false : "hidden"}
                             animate="visible"
                             className="font-pixel text-5xl sm:text-7xl md:text-8xl lg:text-9xl text-ieee-blue tracking-tighter"
                             style={{ textShadow: '4px 4px 0px rgba(0,0,0,0.1)' }}
@@ -37,7 +42,7 @@ export const Hero: React.FC = () => {
                         <motion.h2
                             custom={1}
                             variants={textVariants}
-                            initial="hidden"
+                            initial={reduceMotion ? false : "hidden"}
                             animate="visible"
                             className="font-pixel text-3xl sm:text-5xl md:text-6xl lg:text-7xl text-gray-900 tracking-tighter"
                             style={{ textShadow: '4px 4px 0px rgba(0,0,0,0.1)' }}
@@ -48,9 +53,9 @@ export const Hero: React.FC = () => {
 
                     {/* Subtitle / Divider */}
                     <motion.div
-                        initial={{ opacity: 0 }}
+                        initial={reduceMotion ? false : { opacity: 0 }}
                         animate={{ opacity: 0.7 }}
-                        transition={{ delay: 2, duration: 1 }}
+                        transition={{ delay: reduceMotion ? 0 : 2, duration: reduceMotion ? 0 : 1 }}
                         className="flex items-center justify-center gap-4 md:gap-6 mt-8 md:mt-12"
                     >
                         <div className="h-px bg-gray-400 w-12 md:w-32 hidden sm:block" />
@@ -59,9 +64,9 @@ export const Hero: React.FC = () => {
                             {["INNOVATE", "CONNECT", "INSPIRE"].map((word, i) => (
                                 <motion.span
                                     key={word}
-                                    initial={{ opacity: 0, y: 10 }}
+                                    initial={reduceMotion ? false : { opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 2.2 + i * 0.3 }}
+                                    transition={{ delay: reduceMotion ? 0 : 2.2 + i * 0.3 }}
                                 >
                                     {word}.
                                 </motion.span>
