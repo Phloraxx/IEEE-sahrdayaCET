@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 
-/* Identity hero: frosted glass card around the pixel wordmark with the
+/* Identity hero: pixel wordmark straight on the starfield (no card), with the
    original staggered reveal. The reveal is decorative only - under reduced
    motion everything renders in its final state, and the section grows
    instead of clipping when the viewport is shorter than the card.
@@ -26,7 +26,7 @@ export const Hero: React.FC = () => {
     return (
         <section className="relative min-h-dvh flex flex-col items-center justify-center z-20 px-4 py-20 sm:py-24 overflow-hidden">
             <div className="w-full h-full flex flex-col items-center justify-center relative">
-                <div className="text-center transform translate-y-[-10%] bg-white/60 backdrop-blur-md rounded-2xl border border-black/5 shadow-[0_8px_30px_rgba(6,17,29,0.06)] px-8 py-6" data-testid="hero-identity">
+                <div className="text-center transform translate-y-[-10%]" data-testid="hero-identity">
                     {/* Main Title Group */}
                     <div className="flex flex-col items-center justify-center gap-2 md:gap-4 mb-8">
                         <motion.h1
