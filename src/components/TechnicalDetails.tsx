@@ -36,15 +36,15 @@ export const TechnicalDetails: React.FC = () => {
         initial={reduceMotion ? false : { opacity: 0, x: 16, y: -4 }}
         animate={{ opacity: scrolled ? 0 : 1, x: scrolled ? 8 : 0, y: scrolled ? -8 : 0 }}
         transition={{ delay: reduceMotion || scrolled ? 0 : 0.18, duration: reduceMotion ? 0 : 0.45, ease: [0.22, 1, 0.36, 1] }}
-        className={`absolute right-7 top-5 z-30 hidden xl:block text-right ${scrolled ? "pointer-events-none" : ""}`}
+        className={`absolute right-7 top-3.5 z-30 hidden xl:block text-right 2xl:top-3 ${scrolled ? "pointer-events-none" : ""}`}
       >
         <img
           src="/emblem.png"
           alt="Sahrdaya Logo"
-          width={36}
-          height={36}
+          width={48}
+          height={48}
           loading="eager"
-          className="h-9 w-9 object-contain contrast-125 drop-shadow-[0_1px_0_rgba(255,255,255,0.9)] 2xl:h-10 2xl:w-10"
+          className="h-12 w-12 object-contain contrast-125 drop-shadow-[0_1px_0_rgba(255,255,255,0.9)] 2xl:h-14 2xl:w-14"
         />
       </motion.div>
 
