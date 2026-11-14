@@ -25,7 +25,7 @@ export const TechnicalDetails: React.FC = () => {
           src="/Ieee.svg"
           alt="IEEE SB Logo"
           width={112}
-          height={55}
+          height={33}
           loading="eager"
           className="h-auto w-28 contrast-125 drop-shadow-[0_1px_0_rgba(255,255,255,0.85)] 2xl:w-32"
         />
@@ -41,10 +41,10 @@ export const TechnicalDetails: React.FC = () => {
         <img
           src="/emblem.png"
           alt="Sahrdaya Logo"
-          width={48}
-          height={48}
+          width={36}
+          height={36}
           loading="eager"
-          className="h-12 w-12 object-contain contrast-125 drop-shadow-[0_1px_0_rgba(255,255,255,0.9)] 2xl:h-14 2xl:w-14"
+          className="h-9 w-9 object-contain contrast-125 drop-shadow-[0_1px_0_rgba(255,255,255,0.9)] 2xl:h-10 2xl:w-10"
         />
       </motion.div>
 
