@@ -25,10 +25,15 @@ describe("public site correctness invariants", () => {
 
   it("renders programme calendar parts with shared India-time helpers", () => {
     const index = read("src/features/events/EventsPageClient.tsx");
+    const poster = read("src/components/events/PosterCard.tsx");
+    const note = read("src/components/events/FieldNote.tsx");
     const row = read("src/components/events/AnnotatedEventCard.tsx");
-    expect(index).toContain("formatDay(event.date)");
     expect(index).toContain("formatMonthYear(event.date)");
+    expect(poster).toContain("formatDay(event.date)");
+    expect(note).toContain("formatMonth(event.date)");
     expect(index).not.toContain("date.getDate()");
+    expect(poster).not.toContain("date.getDate()");
+    expect(note).not.toContain("date.getDate()");
     expect(row).toContain("formatWeekdayShort(event.date)");
     expect(row).not.toContain("date.getDate()");
   });
@@ -99,23 +104,23 @@ describe("Home redesign invariants", () => {
 });
 
 describe("Event detail redesign invariants", () => {
-  it("inherits the programme system and always has an artwork surface", () => {
+  it("presents the event as a ticket and always has an artwork surface", () => {
     const detail = read("src/routes/events.$slug.tsx");
     expect(detail).toContain('data-testid="event-programme-hero"');
     expect(detail).toContain("Programme / {formatYear(event.date)}");
     expect(detail).toContain("<EventArtworkPreview");
-    expect(detail).toContain("<EventBannerFallback");
-    expect(detail).toContain("Programme identity");
+    expect(detail).toContain("stampInitials");
+    expect(detail).toContain("Admit one");
   });
 
-  it("keeps registration logic intact and adds a programme handoff", () => {
+  it("keeps registration logic intact and hands back to the programme", () => {
     const detail = read("src/routes/events.$slug.tsx");
     expect(detail).toContain("getMyEventRegistration(event.id)");
     expect(detail).toContain("registrationAvailable");
     expect(detail).toContain("getEventLifecycleSnapshot(event)");
     expect(detail).toContain("lifecycle.registration.available");
-    expect(detail).toContain('data-testid="related-events"');
-    expect(detail).toContain("More from the programme.");
-    expect(detail).toContain("future.length > 0 ? future");
+    expect(detail).toContain("backHref");
+    expect(detail).toContain("backLabel");
+    expect(detail).not.toContain("More from the programme.");
   });
 });

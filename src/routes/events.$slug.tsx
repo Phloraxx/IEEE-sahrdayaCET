@@ -222,6 +222,14 @@ export default function EventDetailPage() {
   const eventImageUrl = resolveEventImage(event);
   const eventArtwork = resolveEventArtwork(event);
   const titleSize = eventTitleSize(event.title);
+  const stampInitials =
+    event.title
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((word) => word[0]?.toUpperCase() ?? "")
+      .join("") || "E";
   const lifecycle = getEventLifecycleSnapshot(event);
   const attendanceMode = event.attendanceMode;
   const registrationAvailable = lifecycle.registration.available;
@@ -360,13 +368,15 @@ export default function EventDetailPage() {
                   </h1>
                 </div>
 
-                {eventArtwork ? (
-                  <div className="hidden shrink-0 rounded-[10px] bg-white p-1 shadow-[0_8px_20px_-10px_rgba(6,17,29,0.45)] ring-1 ring-black/[0.06] sm:block">
-                    <div className="relative h-20 w-16 overflow-hidden rounded-[6px] bg-[#111315]">
+                <div className="hidden shrink-0 rounded-[10px] bg-white p-1 shadow-[0_8px_20px_-10px_rgba(6,17,29,0.45)] ring-1 ring-black/[0.06] sm:block">
+                  <div className="relative grid h-20 w-16 place-items-center overflow-hidden rounded-[6px] bg-[#0b2239]">
+                    {eventArtwork ? (
                       <EventArtworkPreview src={eventArtwork.src} alt="" />
-                    </div>
+                    ) : (
+                      <span aria-hidden="true" className="font-pixel text-[13px] leading-none text-white/85">{stampInitials}</span>
+                    )}
                   </div>
-                ) : null}
+                </div>
               </div>
 
               <div className="mt-8 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-[auto_12rem_minmax(0,1fr)] sm:items-end">
