@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { EventArtworkPreview } from "@/components/events/EventArtworkPreview";
-import { EventBannerFallback } from "@/components/events/EventBannerFallback";
 import SustainXEventStory from "@/components/events/SustainXEventStory";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -30,8 +29,8 @@ import type { MyEventRegistration } from "@/lib/registration-state";
 import Footer from "@/components/Footer";
 import { APP_URL } from "@/lib/constants";
 import { blogHtmlToPlainText, sanitizeBlogHtml } from "@/lib/blog-content";
-import { formatAppDateISO, formatDate, formatEventTime, formatYear } from "@/lib/dates";
-import { eventTitleSize, MOTION_DURATION, MOTION_EASE, revealUp } from "@/lib/motion";
+import { formatAppDateISO, formatDate, formatDay, formatEventTime, formatMonth, formatWeekdayShort, formatYear } from "@/lib/dates";
+import { eventTitleSize, MOTION_DURATION, MOTION_EASE } from "@/lib/motion";
 import type { EventAvailabilityKind } from "@/lib/event-availability";
 import { getEventLifecycleSnapshot } from "@/lib/event-lifecycle-snapshot";
 import { programmeLabel } from "@/lib/academic-options";
@@ -47,31 +46,18 @@ import {
 } from "@/lib/event-presentation";
 import {
   fetchEventBySlug,
-  fetchEvents,
   type SerializableEvent,
 } from "@/server/public/events.server";
 
-type EventDetailData = { event: SerializableEvent; related: SerializableEvent[] };
+type EventDetailData = { event: SerializableEvent };
 
 export async function loader({
   params,
 }: LoaderFunctionArgs): Promise<EventDetailData> {
   if (!params.slug) throw new Response("Event not found", { status: 404 });
-  const [event, programme] = await Promise.all([fetchEventBySlug(params.slug), fetchEvents()]);
+  const event = await fetchEventBySlug(params.slug);
   if (!event) throw new Response("Event not found", { status: 404 });
-
-  const candidates = programme.filter((item) => item.id !== event.id);
-  const eventTime = new Date(event.date).getTime();
-  const future = candidates.filter((item) => new Date(item.date).getTime() > eventTime);
-  const pool = future.length > 0 ? future : [...candidates].reverse();
-  const sameSociety = event.society?.id
-    ? pool.filter((item) => item.society?.id === event.society?.id)
-    : [];
-  const related = [...sameSociety, ...pool]
-    .filter((item, index, list) => list.findIndex((candidate) => candidate.id === item.id) === index)
-    .slice(0, 3);
-
-  return { event, related };
+  return { event };
 }
 
 function resolveEventImage(event: SerializableEvent): string {
@@ -146,47 +132,8 @@ function physicalLocation(event: SerializableEvent) {
   };
 }
 
-function RelatedEventCard({ event }: { event: SerializableEvent }) {
-  const artwork = resolveEventArtwork(event);
-  const availability = getEventLifecycleSnapshot(event).registration;
-  return (
-    <Link
-      to={`/events/${event.slug}`}
-      className="group grid gap-4 border-t border-black/12 py-5 transition hover:border-[#00629B] sm:grid-cols-[118px_1fr_auto] sm:items-center"
-    >
-      <div className="relative aspect-[4/3] overflow-hidden bg-[#07121f]">
-        {artwork ? (
-          <EventArtworkPreview src={artwork.src} alt={`${event.title} event artwork`} />
-        ) : (
-          <EventBannerFallback
-            title={event.title}
-            societyName={event.society?.name}
-            societySlug={event.society?.slug}
-            showTitle={false}
-          />
-        )}
-      </div>
-      <div className="min-w-0">
-        <p className="text-[8px] font-bold uppercase tracking-[0.18em] text-[#00629B]">
-          {event.society?.name || "IEEE Sahrdaya"}
-        </p>
-        <h3 className="mt-2 text-xl font-semibold leading-[1.02] tracking-[-0.035em] transition group-hover:text-[#00629B]">
-          {event.title}
-        </h3>
-        <p className="mt-2 text-xs leading-5 text-black/45">
-          {formatDate(event.date)} · {formatEventTime(event.date, event.timeTbc)}
-        </p>
-      </div>
-      <div className="flex items-center justify-between gap-3 sm:block sm:text-right">
-        <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/38">{availability.label}</span>
-        <ArrowRight className="h-4 w-4 text-black/25 transition group-hover:translate-x-1 group-hover:text-[#00629B] sm:ml-auto sm:mt-3" />
-      </div>
-    </Link>
-  );
-}
-
 export default function EventDetailPage() {
-  const { event, related } = useLoaderData<typeof loader>();
+  const { event } = useLoaderData<typeof loader>();
   const { user, status: authStatus } = useAuth();
   const [myRegistration, setMyRegistration] = useState<MyEventRegistration | null>(null);
   const [myRegistrationLoading, setMyRegistrationLoading] = useState(false);
@@ -388,74 +335,70 @@ export default function EventDetailPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJson(eventSchema) }} />
       <Navbar />
 
-      <section data-testid="event-programme-hero" className="relative overflow-hidden bg-[#07121f] text-[#f4f2ed]">
-        <div className="pointer-events-none absolute inset-0 opacity-[0.22] [background-image:linear-gradient(rgba(255,255,255,.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.05)_1px,transparent_1px)] [background-size:72px_72px]" />
-        <div className="relative mx-auto max-w-[1440px] px-5 pb-10 pt-16 sm:px-8 sm:pb-12 sm:pt-20 md:pt-24 lg:px-12 lg:pt-28">
-          <motion.div {...revealUp(reduceMotion, 8)} initial={false} className="flex flex-wrap items-center justify-between gap-3 border-b border-white/15 pb-5">
-            <Link to={backHref} className="group inline-flex min-h-11 items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-white/55 transition hover:text-[#58c6ff]">
+      <section data-testid="event-programme-hero" className="relative overflow-hidden bg-[#f4f2ed] text-[#111315]">
+        <div className="relative mx-auto max-w-[1180px] px-5 pb-6 pt-16 sm:px-8 sm:pb-8 sm:pt-20 md:pt-24 lg:pt-28">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Link to={backHref} className="group inline-flex min-h-11 items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-black/45 transition hover:text-[#00629B]">
               <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" /> {backLabel}
             </Link>
-            <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/65">Programme / {formatYear(event.date)}</span>
-          </motion.div>
+            <span className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-black/40">Programme / {formatYear(event.date)}</span>
+          </div>
 
-          <header className="grid gap-8 py-8 md:grid-cols-12 md:items-end md:gap-7 md:py-10 lg:py-12">
-            <div className="order-1 min-w-0 md:col-span-7 lg:col-span-8">
-              {event.society ? (
-                <motion.div {...revealUp(reduceMotion, 8)} initial={false} transition={{ duration: reduceMotion ? 0 : MOTION_DURATION.ui, ease: MOTION_EASE, delay: reduceMotion ? 0 : 0.06 }}>
-                  <Link to={`/societies/${event.society.slug}`} className="inline-flex min-h-11 items-center text-[11px] font-bold uppercase tracking-[0.16em] text-[#58c6ff] transition hover:text-white">
-                    {event.society.name}
-                  </Link>
-                </motion.div>
-              ) : <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-[#58c6ff]">IEEE Sahrdaya</p>}
-              <div className="mt-3 overflow-hidden pb-[0.09em]">
-                <motion.h1
-                  initial={false}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ duration: reduceMotion ? 0 : 0.62, ease: MOTION_EASE, delay: reduceMotion ? 0 : 0.08 }}
-                  className={`max-w-5xl ${titleSize} break-words font-semibold leading-[0.88] tracking-[-0.07em] text-[#f4f2ed]`}
-                >
-                  {event.title}
-                </motion.h1>
+          <div className="mt-7 overflow-hidden rounded-[28px] bg-[#fffaf0] shadow-[0_34px_70px_-38px_rgba(6,17,29,0.5)] ring-1 ring-black/[0.06]">
+            <div className="p-6 sm:p-9">
+              <div className="flex items-start justify-between gap-6">
+                <div className="min-w-0">
+                  {event.society ? (
+                    <Link to={`/societies/${event.society.slug}`} className="inline-flex min-h-6 items-center font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-[#00629B] transition hover:text-[#111315]">
+                      {event.society.name}
+                    </Link>
+                  ) : (
+                    <p className="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-[#00629B]">IEEE Sahrdaya</p>
+                  )}
+                  <h1 className={`mt-3 max-w-3xl ${titleSize} break-words font-semibold leading-[0.9] tracking-[-0.06em] text-[#111315]`}>
+                    {event.title}
+                  </h1>
+                </div>
+
+                {eventArtwork ? (
+                  <div className="hidden shrink-0 rounded-[10px] bg-white p-1 shadow-[0_8px_20px_-10px_rgba(6,17,29,0.45)] ring-1 ring-black/[0.06] sm:block">
+                    <div className="relative h-20 w-16 overflow-hidden rounded-[6px] bg-[#111315]">
+                      <EventArtworkPreview src={eventArtwork.src} alt="" />
+                    </div>
+                  </div>
+                ) : null}
               </div>
-              <p className="mt-6 max-w-2xl text-sm leading-6 text-white/70 sm:text-base">
-                {description.length > 220 ? `${description.slice(0, 220).replace(/\s+\S*$/, "")}…` : description || "Event details from the IEEE Sahrdaya programme."}
-              </p>
+
+              <div className="mt-8 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-[auto_12rem_minmax(0,1fr)] sm:items-end">
+                <div>
+                  <span className="block font-mono text-5xl font-semibold leading-none tracking-[-0.08em] tabular-nums text-[#111315]">{formatDay(event.date)}</span>
+                  <span className="mt-1.5 block font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-black/45">{formatMonth(event.date)} · {formatWeekdayShort(event.date)}</span>
+                </div>
+                <div className="sm:border-l sm:border-black/10 sm:pl-6">
+                  <p className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-black/40">Time</p>
+                  <p className="mt-1.5 text-sm font-semibold leading-6 text-[#111315]">{formatEventTime(event.date, event.timeTbc)}</p>
+                </div>
+                <div className="col-span-2 sm:col-span-1 sm:border-l sm:border-black/10 sm:pl-6">
+                  <p className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-black/40">Venue</p>
+                  <p className="mt-1.5 text-sm font-semibold leading-6 text-[#111315]">{event.attendanceMode === "online" ? "Online" : event.venue || "Sahrdaya College of Engineering & Technology"}</p>
+                </div>
+              </div>
             </div>
 
-            <dl data-testid="event-facts" className="order-2 grid grid-cols-2 border-y border-white/15 md:order-3 md:col-span-12 lg:grid-cols-4">
-              {[
-                ["Date", formatDate(event.date)],
-                ["Time", formatEventTime(event.date, event.timeTbc)],
-                ["Venue", event.attendanceMode === "online" ? "Online" : event.venue || "Sahrdaya College of Engineering & Technology"],
-                ["Entry / status", `${event.price > 0 ? `₹${event.price}` : "Free"} · ${eventEnded ? "Event completed" : availability.label}`],
-              ].map(([label, value], index) => (
-                <div key={String(label)} className={`min-w-0 px-4 py-4 ${index % 2 === 1 ? "border-l border-white/10" : ""} ${index > 1 ? "border-t border-white/10 lg:border-t-0" : ""} ${index === 2 ? "lg:border-l lg:border-white/10" : ""}`}>
-                  <dt className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/70">{label}</dt>
-                  <dd className="mt-2 break-words text-sm font-semibold leading-6 text-white/90">{value}</dd>
-                </div>
-              ))}
-            </dl>
-
-            <motion.div {...revealUp(reduceMotion, 12)} initial={false} data-testid="event-artwork" className="order-3 min-w-0 md:order-2 md:col-span-5 lg:col-span-4">
-              <div className="relative aspect-[4/3] overflow-hidden border border-white/12 bg-black/20 md:aspect-[5/4]">
-                {eventArtwork ? (
-                  <EventArtworkPreview src={eventArtwork.src} alt={`${event.title} event artwork`} />
-                ) : (
-                  <EventBannerFallback
-                    title={event.title}
-                    societyName={event.society?.name}
-                    societySlug={event.society?.slug}
-                    showTitle={false}
-                  />
-                )}
+            <div className="relative flex flex-wrap items-center justify-between gap-x-5 gap-y-2 border-t border-dashed border-black/20 px-6 py-4 sm:px-9">
+              <span aria-hidden="true" className="absolute -left-3 -top-3 h-6 w-6 rounded-full bg-[#f4f2ed] shadow-[inset_0_2px_6px_rgba(6,17,29,0.3)]" />
+              <span aria-hidden="true" className="absolute -right-3 -top-3 h-6 w-6 rounded-full bg-[#f4f2ed] shadow-[inset_0_2px_6px_rgba(6,17,29,0.3)]" />
+              <span className="font-mono text-[9px] font-bold uppercase tracking-[0.3em] text-black/40">Admit one</span>
+              <span className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-black/45">
+                {event.price > 0 ? `₹${event.price}` : "Free"} · {eventEnded ? "Event completed" : availability.label}
+              </span>
+              <div aria-hidden="true" className="flex h-7 items-end gap-[1.5px]">
+                {[2, 1, 3, 1, 2, 1, 1, 3, 2, 1, 3, 1, 2, 1].map((width, index) => (
+                  <span key={index} style={{ width }} className="h-full bg-[#1b1a17]/70" />
+                ))}
               </div>
-              <div className="mt-3 flex items-center justify-between text-[11px] font-bold uppercase tracking-[0.12em] text-white/65">
-                <span>Event record / {formatYear(event.date)}</span>
-                <span>{eventArtwork ? "Official artwork" : "Programme identity"}</span>
-              </div>
-            </motion.div>
-          </header>
-
+            </div>
+          </div>
         </div>
       </section>
 
@@ -470,7 +413,7 @@ export default function EventDetailPage() {
             )}
 
             {(audienceRestricted || requirements.length > 0 || attendeeNote || ieeeMemberPrice !== null) && (
-              <section data-testid="event-attendee-guidance" className="mt-10 border-y border-black/12 py-8">
+              <section data-testid="event-attendee-guidance" className="mt-10 rounded-[24px] bg-[#fbf9f4] px-5 py-7 ring-1 ring-black/[0.05] sm:px-7">
                 <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#00629B]">Plan your attendance</p>
                 <div className="mt-6 grid gap-8 md:grid-cols-2">
                   {audienceRestricted && <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-black/35">Who can attend</p><h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em]">Eligibility</h2><div className="mt-4 space-y-2 text-sm leading-6 text-black/58">{(event.eligibleSemesters?.length || 0) > 0 && <p><span className="font-semibold text-black/75">Semesters:</span> {event.eligibleSemesters?.join(", ")}</p>}{eligibleProgrammeLabels.length > 0 && <p><span className="font-semibold text-black/75">Programmes:</span> {eligibleProgrammeLabels.join(", ")}</p>}</div></div>}
@@ -492,7 +435,7 @@ export default function EventDetailPage() {
             </div>
           </div>
 
-          <aside className="h-fit border-t border-black/15 pt-6 lg:sticky lg:top-28">
+          <aside className="h-fit rounded-[24px] bg-[#fbf9f4] p-5 ring-1 ring-black/[0.05] sm:p-6 lg:sticky lg:top-28">
             {myRegistrationLoading ? (
               <div className="py-8 text-sm font-semibold text-black/45">Checking your registration…</div>
             ) : myRegistration?.found ? (
@@ -508,7 +451,7 @@ export default function EventDetailPage() {
                   <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#00629B]">Your registration</p>
                   <h2 className="mt-3 text-4xl font-semibold tracking-[-0.055em]">Almost there.</h2>
                   <p className="mt-3 text-sm leading-6 text-black/50">Your details are saved. Payment is the only step left.</p>
-                  <Link to={`/payment/${myRegistration.registrationId}`} className="group mt-7 hidden w-full items-center justify-between border-y border-[#00629B] py-4 font-bold text-[#00629B] lg:flex">
+                  <Link to={`/payment/${myRegistration.registrationId}`} className="mt-7 hidden w-full items-center justify-center gap-2 rounded-full bg-[#00629B] px-5 py-3.5 text-sm font-bold text-white transition-colors hover:bg-[#111315] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00629B] lg:flex">
                     Continue payment <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </Link>
                 </>
@@ -517,7 +460,7 @@ export default function EventDetailPage() {
                   <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-emerald-700">Your registration</p>
                   <div className="mt-5 flex items-center gap-2 text-sm font-bold text-emerald-700"><CheckCircle2 className="h-5 w-5" /> You&apos;re registered</div>
                   <h2 className="mt-4 text-4xl font-semibold tracking-[-0.055em]">Your place is confirmed.</h2>
-                  <Link to={`/ticket/${myRegistration.ticketId}`} className="group mt-7 hidden w-full items-center justify-between border-y border-[#00629B] py-4 font-bold text-[#00629B] lg:flex">
+                  <Link to={`/ticket/${myRegistration.ticketId}`} className="mt-7 hidden w-full items-center justify-center gap-2 rounded-full bg-[#00629B] px-5 py-3.5 text-sm font-bold text-white transition-colors hover:bg-[#111315] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00629B] lg:flex">
                     View ticket <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </Link>
                   {myRegistration.receiptAvailable && <button type="button" onClick={downloadReceipt} className="mt-4 inline-flex items-center gap-2 text-xs font-bold text-black/50 hover:text-[#00629B]"><ReceiptText className="h-4 w-4" /> Payment receipt</button>}
@@ -545,9 +488,9 @@ export default function EventDetailPage() {
                 </div>
                 {registrationAvailable ? (
                   event.externalFormUrl ? (
-                    <a href={registerUrl} target="_blank" rel="noopener noreferrer" className="group mt-7 hidden w-full items-center justify-between border-y border-[#00629B] py-4 font-bold text-[#00629B] lg:flex">Register externally <ExternalLink className="h-4 w-4" /></a>
+                    <a href={registerUrl} target="_blank" rel="noopener noreferrer" className="mt-7 hidden w-full items-center justify-center gap-2 rounded-full bg-[#00629B] px-5 py-3.5 text-sm font-bold text-white transition-colors hover:bg-[#111315] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00629B] lg:flex">Register externally <ExternalLink className="h-4 w-4" /></a>
                   ) : (
-                    <Link to={registerUrl} className="group mt-7 hidden w-full items-center justify-between border-y border-[#00629B] py-4 text-lg font-bold text-[#00629B] lg:flex">Reserve your place <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" /></Link>
+                    <Link to={registerUrl} className="mt-7 hidden w-full items-center justify-center gap-2 rounded-full bg-[#00629B] px-5 py-4 text-base font-bold text-white transition-colors hover:bg-[#111315] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00629B] lg:flex">Reserve your place <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" /></Link>
                   )
                 ) : waitlistEligible ? (
                   authStatus === "authenticated" && waitlistLoading ? (
@@ -580,22 +523,6 @@ export default function EventDetailPage() {
           </aside>
         </div>
 
-        {related.length > 0 && (
-          <section data-testid="related-events" className="border-t border-black/12 pb-6 pt-8 sm:pt-10">
-            <div className="grid gap-6 lg:grid-cols-12 lg:items-end">
-              <div className="lg:col-span-7">
-                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#00629B]">Continue through the programme</p>
-                <h2 className="mt-3 text-4xl font-semibold leading-[0.95] tracking-[-0.055em] sm:text-5xl">More from the programme.</h2>
-              </div>
-              <div className="lg:col-span-5 lg:text-right">
-                <Link to="/events" className="group inline-flex min-h-11 items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-black/55 transition hover:text-[#00629B]">
-                  Browse full programme <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
-                </Link>
-              </div>
-            </div>
-            <div className="mt-7">{related.map((item) => <RelatedEventCard key={item.id} event={item} />)}</div>
-          </section>
-        )}
       </article>
 
       {actionHref && actionLabel && !myRegistration?.manualReview && (
@@ -614,9 +541,9 @@ export default function EventDetailPage() {
               )}
             </AnimatePresence>
             {event.externalFormUrl && !myRegistration?.found ? (
-              <a href={actionHref} target="_blank" rel="noopener noreferrer" className="flex flex-1 items-center justify-center gap-2 bg-[#00629B] px-5 py-3.5 text-sm font-bold text-white">{actionLabel}<ExternalLink className="h-4 w-4" /></a>
+              <a href={actionHref} target="_blank" rel="noopener noreferrer" className="flex flex-1 items-center justify-center gap-2 rounded-full bg-[#00629B] px-5 py-3.5 text-sm font-bold text-white">{actionLabel}<ExternalLink className="h-4 w-4" /></a>
             ) : (
-              <Link to={actionHref} className="flex flex-1 items-center justify-center gap-2 bg-[#00629B] px-5 py-3.5 text-sm font-bold text-white">{actionLabel}<ArrowRight className="h-4 w-4" /></Link>
+              <Link to={actionHref} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-[#00629B] px-5 py-3.5 text-sm font-bold text-white">{actionLabel}<ArrowRight className="h-4 w-4" /></Link>
             )}
           </div>
         </motion.div>

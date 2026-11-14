@@ -25,6 +25,7 @@ export function EventArtworkPreview({
       <img
         src={src}
         alt={alt}
+        loading="lazy"
         className={fill
           ? "relative z-10 h-full w-full object-contain"
           : "relative z-10 mx-auto max-h-[680px] w-full object-contain"}

@@ -175,12 +175,16 @@ export function formatDateCompact(dateString: string): string {
 export function formatTime(dateString: string): string {
   const date = parseDate(dateString);
   if (!date) return '';
-  return date.toLocaleTimeString(DATE_LOCALE, {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-    timeZone: APP_TIME_ZONE,
-  });
+  /* Node and the browser disagree on the meridiem casing, which breaks
+     hydration. Normalise it so both render "11:33 PM". */
+  return date
+    .toLocaleTimeString(DATE_LOCALE, {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: APP_TIME_ZONE,
+    })
+    .replace(/(am|pm)$/i, (meridiem) => meridiem.toUpperCase());
 }
 
 export function formatDay(dateString: string): string {

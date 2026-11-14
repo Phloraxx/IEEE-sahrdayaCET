@@ -50,7 +50,8 @@ export const FloatingAction: React.FC = () => {
 
   const startWalking = useCallback((targetX: number) => {
     stopWalking();
-    walkTargetRef.current = Math.max(5, Math.min(95, targetX));
+    /* Stays inside the middle of the floor so it never walks over the corner labels. */
+    walkTargetRef.current = Math.max(14, Math.min(86, targetX));
     setFacingLeft(targetX < posXRef.current);
     walkIntervalRef.current = setInterval(() => {
       const prev = posXRef.current;
@@ -153,7 +154,7 @@ export const FloatingAction: React.FC = () => {
       animate={{ opacity: 1 }}
       transition={{ delay: reduceMotion ? 0 : 3, duration: reduceMotion ? 0 : 0.8 }}
       data-testid="home-mascot"
-      className="pointer-events-none absolute bottom-3 z-30 hidden select-none md:block"
+      className="pointer-events-none fixed bottom-3 z-40 hidden select-none md:block"
       style={{
         left: `${posX}%`,
         transform: 'translateX(-50%)',

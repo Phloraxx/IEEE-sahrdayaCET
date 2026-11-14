@@ -53,16 +53,21 @@ Do not couple homepage card layout to uploaded event-poster aspect ratios.
 
 ## Events page
 
-The Events page uses an OFFF Forum-inspired programme register while remaining recognisably IEEE Sahrdaya: a light `#F8F9FA` surface, precise rules, asymmetric calendar columns, pixel/mono labels, and real event artwork used as small supporting signals.
+The Events page is a **yearbook**: a warm, photographic programme that reads as a story rather than an archive. Light `#F8F9FA` ground, soft rounded shapes, real photographs, handwriting for captions, and the branch's own posters as the subject.
 
-- The opening experience starts directly below the shared Navbar with a compact programme header; there is no standalone dark hero or preamble.
-- The live programme header uses a three-column left rail for the index/count and a larger title/calendar area, then places the first useful event row immediately in the first viewport.
-- Upcoming events are direct, crawlable links in an editorial schedule. Every row keeps date, society, entry state, time/TBC, venue, availability and an inline artwork/fallback thumbnail visible without hover.
-- The first/next row may carry only a restrained IEEE-blue rule/dot; do not turn rows into dark selected cards.
-- The layout adapts for zero, one or many upcoming events and never allocates a fixed poster rail or duplicated preview area.
-- Upcoming and archived events read as one continuous programme canvas. Upcoming rows own the future schedule; the past programme is a searchable, society-filtered archive with chronological groups and direct leaf routes. Do not duplicate future events in a second status-filter system.
-- Keep substantive schedule content visible in the server-rendered baseline. Motion is limited to brief hover/focus colour, thumbnail and arrow feedback plus the restrained next-event signal; honour `prefers-reduced-motion`.
-- Real event banners remain appropriate on event detail surfaces; the index should not depend on their aspect ratio.
+- The page opens on a **ticket**: one ticket for the next event, lying on the page with a soft shadow and tilting with the pointer. The body carries the title, the date as a large numeral, the time and venue; the stub is separated by a perforation with two punched notches and holds `Admit one` set vertically plus a drawn barcode. `Grab a ticket` opens the external form in a new tab where the event uses one, otherwise the internal registration page.
+- When nothing is upcoming — the normal case — the ticket becomes a next-season stub: blank date, `TBA`, and the action reads `Tell me when`. Never a sad empty state, and never a statistic.
+- Do not put counts on this page. Upcoming is usually zero or one and the society count is fixed, so numbers are furniture, not information.
+- Each year opens with a real photograph from that year's flagship, captioned with the event it actually came from — never a photo relabelled as a different event. Wide bands for landscape photos, a split for portrait ones.
+- The archive is a masonry wall, not a uniform grid: two columns on mobile, three at `md`, four at `xl`. Poster frames are rounded and show the artwork in full on a dark mat; never crop a poster.
+- **Events without a poster become field notes**, not holes: a warm paper card with a handwritten date in `Caveat`, the title in normal type for legibility, the society and entry underneath, and a slight tilt that straightens on hover. A scrapbook has posters and notes.
+- Hovering one card recedes the rest of the wall to 42%, so the wall always has a single subject. A soft light follows the pointer across posters.
+- A floating filter rail carries search, society and year chips plus a wall/list toggle, all in rounded pills. The chip highlight slides between chips, and the URL stays the source of truth (`q`, `society`, `year`, `view`, `limit`).
+- The list view preserves the earlier editorial rows for scanning text. Wall is the default.
+- Every card is a direct, crawlable link with its date and title visible underneath — nothing is hover-only. Content stays in the server-rendered baseline; no scroll-triggered reveal may hide the wall without JavaScript. Honour `prefers-reduced-motion`.
+- The page closes on the campus photograph behind `the wall keeps growing`, with links into societies and contact. The one campus image the project has is used here, once.
+- An event detail page is a **single ticket**: society, title, date numeral, time and venue in the body, then a perforated stub carrying `Admit one`, entry and status, and a drawn barcode. Real artwork appears as a small stamp in the corner; poster-less events simply omit it. Keep the page short — no related-events block. Restyling must never change registration behaviour: open, closed, full, waitlist, external form, payment review, confirmed and completed all keep their logic.
+- `#event-archive` and `?society=` remain the anchors other pages link to.
 
 ### SustainX event story
 

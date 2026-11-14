@@ -81,13 +81,13 @@ test('hero identity owns the centered column', async ({ page }) => {
   expect(nextBox).not.toBeNull();
   expect(nextBox!.y).toBeGreaterThanOrEqual(899);
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
-  // The decorative mascot belongs to the hero, not the browser viewport.
+  // The decorative mascot is pinned to the viewport floor and persists across scroll.
   const mascot = page.getByTestId('home-mascot');
   await expect(mascot).toBeVisible();
-  expect(await mascot.evaluate(el => getComputedStyle(el).position)).toBe('absolute');
+  expect(await mascot.evaluate(el => getComputedStyle(el).position)).toBe('fixed');
   const mascotBox = await mascot.boundingBox();
   expect(mascotBox).not.toBeNull();
-  expect(mascotBox!.y + mascotBox!.height).toBeLessThanOrEqual(stageBox!.y + stageBox!.height + 2);
+  expect(mascotBox!.y + mascotBox!.height).toBeGreaterThanOrEqual(900 - 64);
 });
 
 for (const width of [320, 390, 768, 1440]) {

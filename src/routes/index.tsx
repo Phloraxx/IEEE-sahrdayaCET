@@ -57,7 +57,6 @@ export default function Home() {
         <div className="relative z-10 h-full">
           <TechnicalDetails />
           <Hero />
-          <FloatingAction />
         </div>
       </div>
       <ErrorBoundary>
@@ -73,6 +72,8 @@ export default function Home() {
       </ErrorBoundary>
       </main>
       <Footer />
+      {/* Page-level so it survives the hero's stacking context and stays on the floor. */}
+      <FloatingAction />
     </div>
     </>
   )
