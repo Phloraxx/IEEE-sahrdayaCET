@@ -1,53 +1,33 @@
-import { isMissingRecord, publicDataUnavailable } from "@/server/public/errors.server";
-import { createPublicPB } from "@/lib/pb.server";
-import { escapeFilterValue } from "@/lib/pb";
-import { mapBlogRecord } from "@/lib/blog-record";
+import { publicDataUnavailable } from "@/server/public/errors.server";
+import {
+  getPublishedBlogBySlug,
+  listPublishedBlogs,
+  listPublishedBlogsForSociety,
+} from "@/server/public/repo.server";
+import { mapBlogRow } from "@/lib/blog-record";
 
 export async function getPublishedBlogs() {
-  const pb = createPublicPB();
-  const records = await pb.collection("blogs").getFullList({
-    batch: 100,
-    filter: "published = true",
-    sort: "-published_at",
-    expand: "relation,society,event",
-  });
-  return records.map(mapBlogRecord);
+  const rows = await listPublishedBlogs();
+  return rows.map(mapBlogRow);
 }
 
 export async function getLatestPublishedBlogs(limit = 3) {
-  const pb = createPublicPB();
   const perPage = Math.min(6, Math.max(1, Math.floor(limit)));
-  const result = await pb.collection("blogs").getList(1, perPage, {
-    filter: "published = true",
-    sort: "-published_at",
-    expand: "relation,society,event",
-    skipTotal: true,
-  });
-  return result.items.map(mapBlogRecord);
+  const rows = await listPublishedBlogs(perPage);
+  return rows.map(mapBlogRow);
 }
 
 export async function getLatestPublishedBlogsForSociety(societyId: string, limit = 3) {
-  const pb = createPublicPB();
   const perPage = Math.min(6, Math.max(1, Math.floor(limit)));
-  const result = await pb.collection("blogs").getList(1, perPage, {
-    filter: `published = true && society = ${escapeFilterValue(societyId)}`,
-    sort: "-published_at",
-    expand: "relation,society,event",
-    skipTotal: true,
-  });
-  return result.items.map(mapBlogRecord);
+  const rows = await listPublishedBlogsForSociety(societyId, perPage);
+  return rows.map(mapBlogRow);
 }
 
 export async function getBlogBySlug(slug: string) {
-  const pb = createPublicPB();
   try {
-    const record = await pb.collection("blogs").getFirstListItem(
-      `slug = ${escapeFilterValue(slug)} && published = true`,
-      { expand: "relation,society,event" },
-    );
-    return mapBlogRecord(record);
+    const row = await getPublishedBlogBySlug(slug);
+    return row ? mapBlogRow(row) : null;
   } catch (error) {
-    if (isMissingRecord(error)) return null;
     publicDataUnavailable("getBlogBySlug", error);
   }
 }

@@ -1,14 +1,14 @@
-import { createPublicPB } from "@/lib/pb.server";
-import { buildFileUrl, escapeFilterValue } from "@/lib/pb";
-import { getExpand, getField } from "@/lib/safe-get";
+import { buildFileUrl } from "@/lib/pb";
 import { canRegisterForEvent, getRegistrationMode, type EventRegistrationMode } from "@/lib/event-lifecycle";
 import { getEventAttendanceMode, type EventAttendanceMode } from "@/lib/event-presentation";
 import { normalizeEligibleProgrammes, normalizeEligibleSemesters } from "@/lib/event-audience";
 import { normalizeEventRequirements } from "@/lib/event-requirements";
-import { publicDataUnavailable, isMissingRecord } from "./errors.server";
-
-const PUBLIC_EVENT_FIELDS =
-  "id,created,updated,title,slug,description,date,endDate,timeTbc,venue,timezone,attendanceMode,locationAddress,price,banner,status,registrationOpen,registrationMode,registrationStart,registrationDeadline,maxCapacity,registeredCount,waitlistEnabled,waitlistReservedCount,externalFormUrl,externalLink,collectIeeeMember,ieeeMemberDiscountPercent,eligibleSemesters,eligibleProgrammes,requirements,attendeeNote,society,expand.society.id,expand.society.name,expand.society.slug,expand.society.logo";
+import { publicDataUnavailable } from "./errors.server";
+import {
+  getPublicEventBySlug,
+  listPublicEvents,
+  type EventRow,
+} from "./repo.server";
 
 export interface SerializableEvent {
   id: string;
@@ -47,70 +47,78 @@ export interface SerializableEvent {
   society?: { id: string; name: string; slug: string; logoUrl: string };
 }
 
-function mapPublicEvent(raw: Record<string, unknown>): SerializableEvent {
-  const expand = getExpand(raw);
-  const societyRaw = expand?.society;
-  const id = getField(raw, "id", "");
-  const price = Number(getField(raw, "price", 0)) || 0;
-  const status = getField(raw, "status", "published");
-  const date = getField(raw, "date", "");
-  const endDate = getField(raw, "endDate", "");
-  const timezone = getField(raw, "timezone", "") || "Asia/Kolkata";
-  const attendanceMode = getEventAttendanceMode({
-    attendanceMode: getField(raw, "attendanceMode", ""),
-    venue: getField(raw, "venue", ""),
-  });
-  const locationAddress = getField(raw, "locationAddress", "");
-  const registrationStart = getField(raw, "registrationStart", "");
-  const registrationDeadline = getField(raw, "registrationDeadline", "");
-  const externalFormUrl = getField(raw, "externalFormUrl", "") || undefined;
+/**
+ * JSON text column -> string array.
+ *
+ * These columns hold arrays of strings (semesters, programmes, requirements).
+ * Non-strings are dropped rather than passed on, so a malformed row degrades to
+ * "no restriction" instead of crashing the page.
+ */
+function parseJsonArray(value: string | null): string[] {
+  if (!value) return [];
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item): item is string => typeof item === "string");
+  } catch {
+    return [];
+  }
+}
+
+function mapEventRow(row: EventRow): SerializableEvent {
+  const price = Number(row.price) || 0;
+  const status = row.status ?? "published";
+  const date = row.date ?? "";
+  const endDate = row.end_date ?? "";
+  const timeTbc = row.time_tbc === 1;
+  const registrationStart = row.registration_start ?? "";
+  const registrationDeadline = row.registration_deadline ?? "";
+  const externalFormUrl = row.external_form_url || undefined;
   const registrationMode = getRegistrationMode({
-    registrationMode: getField(raw, "registrationMode", ""),
-    registrationOpen: Boolean(getField(raw, "registrationOpen", false)),
+    registrationMode: row.registration_mode ?? "",
+    registrationOpen: row.registration_open === 1,
     externalFormUrl,
   });
 
-  const society = societyRaw
-    ? {
-        id: getField(societyRaw, "id", ""),
-        name: getField(societyRaw, "name", ""),
-        slug: getField(societyRaw, "slug", ""),
-        logoUrl: getField(societyRaw, "logo", "")
-          ? buildFileUrl(
-              "societies",
-              getField(societyRaw, "id", ""),
-              getField(societyRaw, "logo", ""),
-            )
-          : "",
-      }
-    : undefined;
+  const society =
+    row.society_row_id && row.society_name
+      ? {
+          id: row.society_row_id,
+          name: row.society_name,
+          slug: row.society_slug ?? "",
+          logoUrl: row.society_logo
+            ? buildFileUrl("societies", row.society_row_id, row.society_logo)
+            : "",
+        }
+      : undefined;
 
   return {
-    id,
-    createdAt: getField(raw, "created", ""),
-    updatedAt: getField(raw, "updated", ""),
-    title: getField(raw, "title", ""),
-    slug: getField(raw, "slug", ""),
-    description: getField(raw, "description", ""),
+    id: row.id,
+    createdAt: row.created_at ?? "",
+    updatedAt: row.updated_at ?? "",
+    title: row.title ?? "",
+    slug: row.slug ?? "",
+    description: row.description ?? "",
     date,
     endDate,
-    timeTbc: Boolean(getField(raw, "timeTbc", false)),
-    venue: getField(raw, "venue", ""),
-    timezone,
-    attendanceMode,
-    locationAddress,
+    timeTbc,
+    venue: row.venue ?? "",
+    timezone: row.timezone || "Asia/Kolkata",
+    attendanceMode: getEventAttendanceMode({
+      attendanceMode: row.attendance_mode ?? "",
+      venue: row.venue ?? "",
+    }),
+    locationAddress: row.location_address ?? "",
     price,
     isPaid: price > 0,
-    bannerUrl: getField(raw, "banner", "")
-      ? buildFileUrl("events", id, getField(raw, "banner", ""))
-      : "",
+    bannerUrl: row.banner ? buildFileUrl("events", row.id, row.banner) : "",
     status,
     registrationOpen: canRegisterForEvent({
       status,
       date,
       endDate,
-      timeTbc: Boolean(getField(raw, "timeTbc", false)),
-      registrationOpen: Boolean(getField(raw, "registrationOpen", false)),
+      timeTbc,
+      registrationOpen: row.registration_open === 1,
       registrationMode,
       externalFormUrl,
       registrationStart,
@@ -119,32 +127,26 @@ function mapPublicEvent(raw: Record<string, unknown>): SerializableEvent {
     registrationMode,
     registrationStart,
     registrationDeadline,
-    maxCapacity: getField(raw, "maxCapacity", 0),
-    registeredCount: getField(raw, "registeredCount", 0),
-    waitlistEnabled: Boolean(getField(raw, "waitlistEnabled", false)),
-    waitlistReservedCount: getField(raw, "waitlistReservedCount", 0),
+    maxCapacity: Number(row.max_capacity) || 0,
+    registeredCount: Number(row.registered_count) || 0,
+    waitlistEnabled: row.waitlist_enabled === 1,
+    waitlistReservedCount: Number(row.waitlist_reserved_count) || 0,
     externalFormUrl,
-    externalLink: getField(raw, "externalLink", "") || undefined,
-    collectIeeeMember: Boolean(getField(raw, "collectIeeeMember", false)),
-    ieeeMemberDiscountPercent: Number(getField(raw, "ieeeMemberDiscountPercent", 0)) || 0,
-    eligibleSemesters: normalizeEligibleSemesters(getField(raw, "eligibleSemesters", [])),
-    eligibleProgrammes: normalizeEligibleProgrammes(getField(raw, "eligibleProgrammes", [])),
-    requirements: normalizeEventRequirements(getField(raw, "requirements", [])),
-    attendeeNote: String(getField(raw, "attendeeNote", "") || "").trim(),
+    externalLink: row.external_link || undefined,
+    collectIeeeMember: row.collect_ieee_member === 1,
+    ieeeMemberDiscountPercent: Number(row.ieee_member_discount_percent) || 0,
+    eligibleSemesters: normalizeEligibleSemesters(parseJsonArray(row.eligible_semesters)),
+    eligibleProgrammes: normalizeEligibleProgrammes(parseJsonArray(row.eligible_programmes)),
+    requirements: normalizeEventRequirements(parseJsonArray(row.requirements)),
+    attendeeNote: String(row.attendee_note ?? "").trim(),
     society,
   };
 }
 
 export async function fetchEvents(): Promise<SerializableEvent[]> {
   try {
-    const records = await createPublicPB().collection("events").getFullList({
-      batch: 200,
-      filter: '(status="published" || status="completed") && isDeleted != true',
-      sort: "date",
-      expand: "society",
-      fields: PUBLIC_EVENT_FIELDS,
-    });
-    return records.map((record) => mapPublicEvent(record));
+    const rows = await listPublicEvents();
+    return rows.map(mapEventRow);
   } catch (error) {
     publicDataUnavailable("fetchEvents", error);
   }
@@ -154,15 +156,11 @@ export async function fetchEventBySlug(
   slug: string,
 ): Promise<SerializableEvent | null> {
   try {
-    const record = await createPublicPB()
-      .collection("events")
-      .getFirstListItem(
-        `slug = ${escapeFilterValue(slug)} && (status = "published" || status = "completed") && isDeleted != true`,
-        { expand: "society", fields: PUBLIC_EVENT_FIELDS },
-      );
-    return mapPublicEvent(record);
+    const row = await getPublicEventBySlug(slug);
+    return row ? mapEventRow(row) : null;
   } catch (error) {
-    if (isMissingRecord(error)) return null;
     publicDataUnavailable("fetchEventBySlug", error);
   }
 }
+
+export { mapEventRow, parseJsonArray };

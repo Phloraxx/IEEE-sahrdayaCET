@@ -49,3 +49,71 @@ export function mapBlogRecord(raw: Record<string, unknown>) {
       : undefined,
   };
 }
+
+/**
+ * Map a SQLite `BlogRow` (see `src/server/public/repo.server.ts`) to the public
+ * blog shape.
+ *
+ * Kept separate from `mapBlogRecord`, which reads PocketBase's `expand.*`
+ * structure and is still used by the admin client until phase 4.
+ */
+export function mapBlogRow(row: {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  content: string | null;
+  cover_url: string | null;
+  read_minutes: number | null;
+  topic_label: string | null;
+  published_at: string | null;
+  published: number;
+  category: string | null;
+  society_id: string | null;
+  event_id: string | null;
+  created_at: string;
+  updated_at: string;
+  society_row_id: string | null;
+  society_name: string | null;
+  society_slug: string | null;
+  society_logo: string | null;
+  event_row_id: string | null;
+  event_title: string | null;
+  event_slug: string | null;
+}) {
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    title: row.title,
+    slug: row.slug,
+    excerpt: row.excerpt ?? "",
+    content: sanitizeBlogHtml(row.content ?? ""),
+    coverUrl: sanitizeBlogCoverUrl(row.cover_url ?? ""),
+    readMinutes: Number(row.read_minutes) || 1,
+    topicLabel: row.topic_label ?? "",
+    category: row.category ?? "",
+    publishedAt: row.published_at ?? "",
+    published: row.published === 1,
+    // Always undefined on the public path: PocketBase's users rule hides the
+    // author from anonymous readers, and the page falls back to "IEEE Sahrdaya".
+    author: undefined,
+    societyId: row.society_id ?? "",
+    eventId: row.event_id ?? "",
+    society:
+      row.society_row_id && row.society_name
+        ? {
+            id: row.society_row_id,
+            name: row.society_name,
+            slug: row.society_slug ?? "",
+            logoUrl: row.society_logo
+              ? buildFileUrl("societies", row.society_row_id, row.society_logo)
+              : undefined,
+          }
+        : undefined,
+    event:
+      row.event_row_id && row.event_title
+        ? { id: row.event_row_id, title: row.event_title, slug: row.event_slug ?? "" }
+        : undefined,
+  };
+}

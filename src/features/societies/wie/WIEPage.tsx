@@ -498,7 +498,7 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
           whatsappLink={data.society.defaultWhatsappLink}
         />
 
-        <ContextualBlogLinks />
+        <ContextualBlogLinks blogs={data.relatedBlogs} />
       </main>
 
       <Footer />
