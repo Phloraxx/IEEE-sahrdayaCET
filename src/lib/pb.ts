@@ -1,5 +1,12 @@
 import { logError } from './logger'
 
+/**
+ * Build the public URL for a stored file.
+ *
+ * Files live in the uploads volume and are served by `src/routes/files.*`, which
+ * re-checks that the record is publicly visible and that the filename matches
+ * the one stored on the row. PocketBase's `/api/files/...` path is gone.
+ */
 export function buildFileUrl(collection: string, recordId: string, filename: string): string {
   if (!recordId || !filename) {
     logError('buildFileUrl', 'Missing recordId or filename', { collection, recordId, filename })
@@ -10,11 +17,12 @@ export function buildFileUrl(collection: string, recordId: string, filename: str
     try {
       const url = new URL(filename)
       if (url.protocol !== 'https:' && url.protocol !== 'http:') return ''
-      if (url.pathname.startsWith('/api/files/')) return url.pathname
+      if (url.pathname.startsWith('/files/')) return url.pathname
       return ''
     } catch { return '' }
   }
-  return `/api/files/${collection}/${recordId}/${filename}`
+  // Files are served by the app from the uploads volume, not by PocketBase.
+  return `/files/${collection}/${recordId}/${filename}`
 }
 
 /**

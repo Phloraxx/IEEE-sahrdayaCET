@@ -2,6 +2,8 @@ import { index, route, type RouteConfig } from "@react-router/dev/routes";
 
 export default [
   route("healthz", "routes/healthz.ts"),
+  // Public file serving from the uploads volume (replaces PocketBase's /api/files).
+  route("files/:collection/:recordId/:filename", "routes/files.$collection.$recordId.$filename.ts"),
   route("_", "routes/oauth-popup-result.tsx"),
   route("robots.txt", "routes/robots.ts"),
   route("sitemap.xml", "routes/sitemap.ts"),
