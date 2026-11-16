@@ -10,8 +10,10 @@ describe("public site correctness invariants", () => {
     const directory = read("src/server/public/societies.server.ts");
     const route = read("src/routes/index.tsx");
     const now = read("src/components/home/NowAtSahrdaya.tsx");
-    expect(home).toContain('filter: "isHidden=false"');
-    expect(directory).toContain('filter: "isHidden=false"');
+    // Phase 1: both pages read the same repo function, whose SQL filters hidden.
+    expect(home).toContain("listPublicSocieties");
+    expect(directory).toContain("listPublicSocieties");
+    expect(read("src/server/public/repo.server.ts")).toContain("is_hidden = 0");
     expect(route).toContain("societyCount={societies.length}");
     expect(now).toContain("societyCount");
   });

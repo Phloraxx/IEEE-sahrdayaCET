@@ -7,8 +7,10 @@ const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8"
 describe("blog architecture invariants", () => {
   it("keeps public SSR reads credential-free", () => {
     const source = read("src/lib/blog-public.server.ts");
-    expect(source).toContain("createPublicPB()");
-    expect(source).toContain('collection("blogs").getFullList');
+    // Phase 1: public reads come from the SQLite repo, not PocketBase.
+    expect(source).toContain("@/server/public/repo.server");
+    expect(source).toContain("listPublishedBlogs");
+    expect(source).not.toContain("createPublicPB");
     expect(source).not.toContain("authWithPassword");
     expect(source).not.toContain("superuser");
   });
@@ -38,9 +40,13 @@ describe("blog architecture invariants", () => {
 
   it("keeps the full public archive and stable unique slugs", () => {
     const publicSource = read("src/lib/blog-public.server.ts");
-    const baseline = read("pb_migrations/202607200000_baseline_schema.js");
-    expect(publicSource).toContain("getFullList");
-    expect(baseline).toContain("idx_blogs_slug_unique");
+    const repo = read("src/server/public/repo.server.ts");
+    const schema = read("sqlite/schema.sql");
+    // The archive is unpaged: listPublishedBlogs() with no limit.
+    expect(publicSource).toContain("listPublishedBlogs()");
+    expect(repo).toContain("ORDER BY b.published_at DESC");
+    // Slug uniqueness moved from a PocketBase index to a SQLite one.
+    expect(schema).toContain("blogs_slug_uq");
   });
 
   it("renders canonical Article metadata on blog detail pages", () => {

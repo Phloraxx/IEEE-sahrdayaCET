@@ -477,6 +477,77 @@ try {
 		]);
 		check(Array.isArray(write.rows) && write.rows.length === 0, "query on a write returns no rows");
 	}
+	section("public repos — visibility rules");
+	{
+		const raw = new Database(dbPath);
+		raw.pragma("foreign_keys = ON");
+		// Two societies: one visible, one hidden.
+		raw.prepare("INSERT INTO societies (id,name,slug,is_hidden) VALUES (?,?,?,?)")
+			.run("a0000000-0000-4000-8000-000000000001", "Visible Society", "visible-society", 0);
+		raw.prepare("INSERT INTO societies (id,name,slug,is_hidden) VALUES (?,?,?,?)")
+			.run("a0000000-0000-4000-8000-000000000002", "Hidden Society", "hidden-society", 1);
+
+		const insEvent = raw.prepare(
+			"INSERT INTO events (id,title,slug,date,status,is_deleted,society_id,banner,time_tbc,registration_open) VALUES (?,?,?,?,?,?,?,?,?,?)",
+		);
+		// published (visible), completed (visible), draft (hidden), deleted (hidden)
+		insEvent.run("b0000000-0000-4000-8000-000000000001", "Published", "published-ev", "2026-03-01T00:00:00.000Z", "published", 0, "a0000000-0000-4000-8000-000000000001", "banner-a.jpg", 0, 1);
+		insEvent.run("b0000000-0000-4000-8000-000000000002", "Completed", "completed-ev", "2026-02-01T00:00:00.000Z", "completed", 0, null, null, 0, 0);
+		insEvent.run("b0000000-0000-4000-8000-000000000003", "Draft", "draft-ev", "2026-04-01T00:00:00.000Z", "draft", 0, "a0000000-0000-4000-8000-000000000001", null, 0, 0);
+		insEvent.run("b0000000-0000-4000-8000-000000000004", "Deleted", "deleted-ev", "2026-05-01T00:00:00.000Z", "published", 1, "a0000000-0000-4000-8000-000000000001", null, 0, 0);
+
+		// Blogs: one published, one draft.
+		raw.prepare("INSERT INTO blogs (id,title,slug,published,published_at) VALUES (?,?,?,?,?)")
+			.run("c0000000-0000-4000-8000-000000000001", "Live Post", "live-post", 1, "2026-01-01T00:00:00.000Z");
+		raw.prepare("INSERT INTO blogs (id,title,slug,published,published_at) VALUES (?,?,?,?,?)")
+			.run("c0000000-0000-4000-8000-000000000002", "Draft Post", "draft-post", 0, null);
+
+		// Execom with contact details that must not leak.
+		raw.prepare("INSERT INTO execom (id,name,position,email,phone,sort_order,society_id) VALUES (?,?,?,?,?,?,?)")
+			.run("d0000000-0000-4000-8000-000000000001", "Dir Person", "Chair", "private@example.com", "+910000000000", 1, "a0000000-0000-4000-8000-000000000001");
+		raw.close();
+
+		const repo = await import("../src/server/public/repo.server.ts");
+
+		const events = await repo.listPublicEvents();
+		const slugs = events.map((e) => e.slug).sort();
+		check(slugs.includes("published-ev"), "listPublicEvents includes published", slugs);
+		check(slugs.includes("completed-ev"), "listPublicEvents includes completed", slugs);
+		check(!slugs.includes("draft-ev"), "listPublicEvents excludes draft", slugs);
+		check(!slugs.includes("deleted-ev"), "listPublicEvents excludes deleted", slugs);
+
+		const one = await repo.getPublicEventBySlug("published-ev");
+		check(one?.slug === "published-ev", "getPublicEventBySlug finds a published event", one?.slug);
+		check(one?.society_name === "Visible Society", "event joins its society", one?.society_name);
+		check((await repo.getPublicEventBySlug("draft-ev")) === undefined, "getPublicEventBySlug hides drafts");
+		check((await repo.getPublicEventBySlug("deleted-ev")) === undefined, "getPublicEventBySlug hides deleted");
+
+		const societies = await repo.listPublicSocieties();
+		const socSlugs = societies.map((s) => s.slug);
+		check(socSlugs.includes("visible-society"), "listPublicSocieties includes visible", socSlugs);
+		check(!socSlugs.includes("hidden-society"), "listPublicSocieties excludes hidden", socSlugs);
+
+		const blogs = await repo.listPublishedBlogs();
+		const blogSlugs = blogs.map((b) => b.slug);
+		check(blogSlugs.includes("live-post"), "listPublishedBlogs includes published", blogSlugs);
+		check(!blogSlugs.includes("draft-post"), "listPublishedBlogs excludes drafts", blogSlugs);
+		check((await repo.getPublishedBlogBySlug("draft-post")) === undefined, "getPublishedBlogBySlug hides drafts");
+
+		// The public execom projection must not carry contact details.
+		const directory = await repo.listExecom();
+		const row = directory.find((m) => m.id === "d0000000-0000-4000-8000-000000000001");
+		check(row !== undefined, "listExecom returns the row", row?.id);
+		check(!("email" in (row ?? {})) || row?.email === undefined, "listExecom omits email", row?.email);
+		check(!("phone" in (row ?? {})) || row?.phone === undefined, "listExecom omits phone", row?.phone);
+
+		// Society-scoped directory *does* include contact details.
+		const scoped = await repo.listExecomForSociety("a0000000-0000-4000-8000-000000000001");
+		check(scoped[0]?.email === "private@example.com", "listExecomForSociety includes email", scoped[0]?.email);
+
+		check((await repo.countExecom()) >= 1, "countExecom", await repo.countExecom());
+		check((await repo.lookupTicket("TKT-NOPE")) === undefined, "lookupTicket misses unknown ids");
+	}
+
 } catch (err) {
 	failures.push({ label: "unexpected exception", detail: err?.stack ?? String(err) });
 	console.error("\nUnexpected exception:", err);

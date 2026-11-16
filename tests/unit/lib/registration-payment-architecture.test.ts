@@ -60,7 +60,9 @@ describe("registration/payment experience architecture", () => {
     }
     expect(ticket).toContain("Show this at check-in.");
     expect(qrRoute).toContain("getTicketCheckInState");
-    expect(qrRoute).toContain('getTicketCheckInState(registrationStatus, event)');
+    // Phase 1: the ticket lookup is a SQL query, not a PocketBase route.
+    expect(qrRoute).toContain("getTicketCheckInState(row.registration_status, event)");
+    expect(qrRoute).toContain("lookupTicket(ticketId)");
     expect(ticket).toContain('disabled: "Paused"');
     expect(qrRoute).toContain('"Cache-Control": "no-store"');
     expect(qrRoute).not.toContain('"Cache-Control": "public, max-age=86400"');
@@ -248,7 +250,9 @@ describe("registration/payment experience architecture", () => {
     const registrationHooks = source("pb_hooks/registrations.pb.js");
     expect(routes).toContain('route("ticket/:ticketId/qr.png"');
     expect(qrRoute).toContain("QRCode.toBuffer");
-    expect(qrRoute).toContain("/api/tickets/lookup?ticketId=");
+    // Phase 1: the QR endpoint reads the ticket from SQLite directly.
+    expect(qrRoute).toContain("lookupTicket(ticketId)");
+    expect(qrRoute).not.toContain("/api/tickets/lookup");
     // A banner URL failure must not erase ticket event metadata such as date/venue.
     expect(registrationHooks).toContain('try { bannerUrl = $app.filesystem().fileUrl(evt, banner) } catch (_) {}');
     expect(qrRoute).toContain('"Content-Type": "image/png"');

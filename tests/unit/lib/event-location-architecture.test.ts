@@ -20,10 +20,14 @@ describe("event location and private access architecture", () => {
 
   it("never includes private join data in the public event projection", () => {
     const publicEvents = read("src/server/public/events.server.ts");
+    const repo = read("src/server/public/repo.server.ts");
     const detail = read("src/routes/events.$slug.tsx");
-    expect(publicEvents).toContain("timezone,attendanceMode,locationAddress");
+    // Phase 1: the projection is an explicit column list in the repo.
+    expect(repo).toContain("e.timezone, e.attendance_mode, e.location_address");
     expect(publicEvents).not.toContain("virtualJoinUrl");
     expect(publicEvents).not.toContain("joinInstructions");
+    // The private-details table is never joined into the public event query.
+    expect(repo).not.toContain("event_private_details");
     expect(detail).toContain("Private meeting URLs are intentionally excluded from public event data");
     expect(detail).toContain("url: canonicalUrl");
   });

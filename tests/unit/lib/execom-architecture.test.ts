@@ -14,7 +14,7 @@ describe("execom architecture invariants", () => {
     expect(homepage).not.toContain("execomMembers");
   });
 
-  it("drives the full directory portfolio from PocketBase", () => {
+  it("drives the full directory portfolio from the data layer", () => {
     const client = read("src/features/execom/ExecomClient.tsx");
     const reader = read("src/server/public/execom.server.ts");
     expect(client).not.toContain("PORTFOLIO_BY_MEMBER_NAME");
@@ -23,8 +23,10 @@ describe("execom architecture invariants", () => {
     expect(client).toContain("View details for ${member.name}");
     expect(client).toContain("href={preview.portfolio}");
     expect(client).toContain("Visit ${preview.name}'s portfolio");
-    expect(reader).toContain("linkedin,instagram,portfolio");
-    expect(reader).toContain("portfolio: record.portfolio");
+    // Phase 1: the projection is a SQL column list in the repo.
+    const repo = read("src/server/public/repo.server.ts");
+    expect(repo).toContain("photo, linkedin, instagram, portfolio, sort_order");
+    expect(reader).toContain("portfolio: row.portfolio");
     expect(client).toContain("...Array.from(remaining).sort()");
     expect(client).toContain('searchParams.get("group")');
     expect(client).toContain('type ViewMode = "grid" | "roster"');

@@ -14,14 +14,17 @@ describe("WIE society page architecture", () => {
     expect(route).toContain("<WIEPage data={data} />");
   });
 
-  it("keeps PocketBase as the public source of WIE events and people", () => {
+  it("keeps SQLite as the public source of WIE events and people", () => {
+    // Phase 1: the society page reads through the repo layer.
     const source = read("src/server/public/society-detail.server.ts");
-    expect(source).toMatch(/collection\("events"\)[\s\S]*?getFullList/);
-    expect(source).toMatch(/collection\("execom"\)[\s\S]*?getFullList/);
-    expect(source).toContain(
-      "filter: `society = ${escapeFilterValue(society.id)}`",
-    );
-    expect(source).toContain("id,slug,title,description");
+    expect(source).toContain("listPublicEventsForSociety");
+    expect(source).toContain("listExecomForSociety");
+    expect(source).not.toContain("createPublicPB");
+    // The society scoping is a bound parameter, not a filter string.
+    const repo = read("src/server/public/repo.server.ts");
+    expect(repo).toContain("WHERE e.society_id = ?");
+    expect(repo).toContain("WHERE society_id = ?");
+    expect(repo).toContain("e.id, e.title, e.slug, e.description");
   });
 
   it("links WIE records to stable event detail routes", () => {
