@@ -1,4 +1,4 @@
-import type { RecordModel } from "pocketbase";
+import type { RecordModel } from "@/lib/pb-client";
 import { getPbClient } from "@/lib/pb-client";
 import { buildFileUrl, escapeFilterValue } from "@/lib/pb";
 import { reconcileCoupons } from "@/lib/coupon-service";

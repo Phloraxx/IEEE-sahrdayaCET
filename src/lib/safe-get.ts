@@ -20,9 +20,17 @@ export function getNumberField(obj: unknown, key: string, fallback: number): num
 /**
  * Extracts expand data from a PocketBase record.
  */
-export function getExpand<T = unknown>(obj: unknown): Record<string, T> | undefined {
+/**
+ * The `expand` map of a PocketBase-shaped payload.
+ *
+ * Typed as a record of records so `expand.society.name` reads without a cast at
+ * every call site; each value is itself untyped.
+ */
+export function getExpand(
+  obj: unknown,
+): Record<string, Record<string, unknown>> | undefined {
   if (obj && typeof obj === 'object' && 'expand' in obj) {
-    return (obj as { expand?: Record<string, T> }).expand;
+    return (obj as { expand?: Record<string, Record<string, unknown>> }).expand;
   }
   return undefined;
 }
