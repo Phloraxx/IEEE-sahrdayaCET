@@ -548,6 +548,182 @@ try {
 		check((await repo.lookupTicket("TKT-NOPE")) === undefined, "lookupTicket misses unknown ids");
 	}
 
+	section("registration — create, replay, eligibility, capacity, cancel");
+	{
+		const raw = new Database(dbPath);
+		raw.pragma("foreign_keys = ON");
+		raw.prepare("INSERT INTO societies (id,name,slug,is_hidden) VALUES (?,?,?,0)")
+			.run("e0000000-0000-4000-8000-000000000001", "Reg Society", "reg-society");
+
+		// Capacity 3, published, internal, open, no deadline, self-cancel allowed.
+		const insEvent = raw.prepare(
+			`INSERT INTO events (id,title,slug,date,status,registration_mode,registration_open,max_capacity,society_id,base_fee_paise,eligible_semesters,allow_self_cancellation)
+			 VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+		);
+		insEvent.run("f0000000-0000-4000-8000-000000000001", "Capacity Event", "capacity-event",
+			"2027-01-01T00:00:00.000Z", "published", "internal", 1, 3,
+			"e0000000-0000-4000-8000-000000000001", 0, null, 1);
+		// A second, untouched capacity-3 event for the concurrency race.
+		insEvent.run("f0000000-0000-4000-8000-000000000004", "Race Event", "race-event",
+			"2027-04-01T00:00:00.000Z", "published", "internal", 1, 3,
+			"e0000000-0000-4000-8000-000000000001", 0, null, 1);
+		// Restricted to S5, for the eligibility test.
+		insEvent.run("f0000000-0000-4000-8000-000000000002", "S5 Only", "s5-only",
+			"2027-02-01T00:00:00.000Z", "published", "internal", 1, 50,
+			"e0000000-0000-4000-8000-000000000001", 0, JSON.stringify(["S5"]), 1);
+		// Paid event for pricing.
+		insEvent.run("f0000000-0000-4000-8000-000000000003", "Paid Event", "paid-event",
+			"2027-03-01T00:00:00.000Z", "published", "internal", 1, 50,
+			"e0000000-0000-4000-8000-000000000001", 50000, null, 1);
+
+		const users = [];
+		for (let i = 0; i < 10; i += 1) {
+			const id = `a1000000-0000-4000-8000-0000000000${String(i).padStart(2, "0")}`;
+			raw.prepare("INSERT INTO users (id,email) VALUES (?,?)").run(id, `reg${i}@example.com`);
+			users.push(id);
+		}
+		raw.close();
+
+		const { createRegistration } = await import("../src/server/registration/create.ts");
+		const { cancelRegistration } = await import("../src/server/registration/cancel.ts");
+		const { listMyEvents, getMyRegistration } = await import("../src/server/registration/status.ts");
+
+		// --- create ---
+		const first = await createRegistration({
+			eventId: "f0000000-0000-4000-8000-000000000001",
+			userId: users[0],
+			formResponses: { name: "User Zero", semester: "S5" },
+		});
+		check(first.ok === true && first.status === 201, "create returns 201", first);
+		check(first.ok && first.reused === false, "first create is not a replay", first.reused);
+		check(first.ok && first.ticketId.startsWith("TKT-"), "free registration issues a ticket", first.ticketId);
+		check(first.ok && first.registrationStatus === "confirmed", "free registration is confirmed", first.registrationStatus);
+
+		// --- idempotent replay ---
+		const replay = await createRegistration({
+			eventId: "f0000000-0000-4000-8000-000000000001",
+			userId: users[0],
+			formResponses: { name: "User Zero", semester: "S5" },
+		});
+		check(replay.ok === true && replay.reused === true, "identical retry is a replay", replay);
+		check(replay.ok && replay.registrationId === first.registrationId, "replay returns the same row", replay.registrationId);
+
+		const conflicting = await createRegistration({
+			eventId: "f0000000-0000-4000-8000-000000000001",
+			userId: users[0],
+			formResponses: { name: "Different Name" },
+		});
+		check(conflicting.ok === false && conflicting.status === 409, "changed answers are rejected", conflicting);
+
+		// --- eligibility ---
+		const ineligible = await createRegistration({
+			eventId: "f0000000-0000-4000-8000-000000000002",
+			userId: users[1],
+			formResponses: { semester: "S3" },
+		});
+		check(ineligible.ok === false && ineligible.status === 400, "wrong semester is rejected", ineligible);
+		check(ineligible.ok === false && ineligible.code === "SEMESTER_NOT_ELIGIBLE", "eligibility code", ineligible.code);
+
+		const eligible = await createRegistration({
+			eventId: "f0000000-0000-4000-8000-000000000002",
+			userId: users[1],
+			formResponses: { semester: "S5" },
+		});
+		check(eligible.ok === true, "matching semester is accepted", eligible);
+
+		const missingSemester = await createRegistration({
+			eventId: "f0000000-0000-4000-8000-000000000002",
+			userId: users[2],
+			formResponses: {},
+		});
+		check(missingSemester.ok === false && missingSemester.code === "SEMESTER_REQUIRED", "missing semester is rejected", missingSemester);
+
+		// --- capacity under concurrency ---
+		// 10 distinct users hammer an untouched 3-seat event in parallel.
+		const attempts = await Promise.all(
+			users.map((userId) =>
+				createRegistration({
+					eventId: "f0000000-0000-4000-8000-000000000004",
+					userId,
+					formResponses: { name: "Racer", semester: "S5" },
+				}).catch((err) => ({ ok: false, status: 500, code: "THREW", error: String(err) })),
+			),
+		);
+		const won = attempts.filter((r) => r.ok === true);
+		const full = attempts.filter((r) => r.ok === false && r.code === "EVENT_FULL");
+		check(won.length <= 3, "capacity is never oversold under concurrency", `${won.length} succeeded`);
+		check(won.length === 3, "exactly capacity registrations succeed", won.length);
+		check(full.length === 7, "the rest are refused with EVENT_FULL", full.length);
+
+		const seated = new Database(dbPath);
+		const activeCount = seated.prepare(
+			"SELECT count(*) AS n FROM registrations WHERE event_id = ? AND registration_status <> 'cancelled'",
+		).get("f0000000-0000-4000-8000-000000000004").n;
+		const counter = seated.prepare("SELECT registered_count AS n FROM events WHERE id = ?")
+			.get("f0000000-0000-4000-8000-000000000004").n;
+		seated.close();
+		check(activeCount === 3, "database holds exactly capacity active registrations", activeCount);
+		check(counter === activeCount, "registered_count matches the live rows", { counter, activeCount });
+
+		// --- cancel releases a seat ---
+		// Pair each successful attempt with the user who made it.
+		const winners = attempts
+			.map((result, index) => ({ result, userId: users[index] }))
+			.filter((entry) => entry.result.ok === true);
+		const winner = winners[0];
+
+		const cancelled = await cancelRegistration({
+			registrationId: winner.result.registrationId,
+			userId: winner.userId,
+		});
+		check(cancelled.ok === true && cancelled.action === "cancelled", "cancel succeeds", cancelled);
+
+		const afterCancel = new Database(dbPath);
+		const afterCount = afterCancel.prepare(
+			"SELECT count(*) AS n FROM registrations WHERE event_id = ? AND registration_status <> 'cancelled'",
+		).get("f0000000-0000-4000-8000-000000000004").n;
+		afterCancel.close();
+		check(afterCount === 2, "cancel releases the seat", afterCount);
+
+		// Cancelling again is idempotent, not a conflict.
+		const again = await cancelRegistration({
+			registrationId: winner.result.registrationId,
+			userId: winner.userId,
+		});
+		check(again.ok === true && again.action === "cancelled", "cancel is idempotent", again);
+
+		// --- IDOR: another user's registration is not found ---
+		const foreign = await cancelRegistration({
+			registrationId: winner.result.registrationId,
+			userId: users[9],
+		});
+		check(foreign.ok === false && foreign.status === 404, "cancelling someone else's registration is 404", foreign);
+
+		// --- my-events is scoped to the session user ---
+		const mine = await listMyEvents(users[0]);
+		check(mine.items.length >= 1, "my-events returns the user's registrations", mine.items.length);
+		check(
+			mine.items.every((item) => item.registration.id !== ""),
+			"my-events items carry registration ids",
+		);
+
+		const status = await getMyRegistration("f0000000-0000-4000-8000-000000000001", users[0]);
+		check(status?.found === true, "my-registration finds the row", status?.found);
+
+		const nobody = await getMyRegistration("f0000000-0000-4000-8000-000000000003", users[0]);
+		check(nobody?.found === false, "my-registration reports not-found for another event", nobody?.found);
+
+		// --- paid event: pricing snapshot ---
+		const paid = await createRegistration({
+			eventId: "f0000000-0000-4000-8000-000000000003",
+			userId: users[3],
+			formResponses: { name: "Payer" },
+		});
+		check(paid.ok === true && paid.paymentRequired === true, "paid event requires payment", paid);
+		check(paid.ok && paid.registrationStatus === "pending", "paid registration starts pending", paid.registrationStatus);
+		check(paid.ok && paid.amount === 500, "amount is the base fee in rupees", paid.amount);
+	}
+
 } catch (err) {
 	failures.push({ label: "unexpected exception", detail: err?.stack ?? String(err) });
 	console.error("\nUnexpected exception:", err);
