@@ -286,6 +286,9 @@ const COLUMN_ALIASES: Record<string, string> = {
 	// PocketBase's autodate fields are `created` / `updated`, not `created_at`.
 	created: "created_at",
 	updated: "updated_at",
+	// `execom.order` is a bare word, so the camelCase fallback (`sortOrder`)
+	// misses it and every row would migrate with a NULL sort_order.
+	order: "sort_order",
 	user: "user_id",
 	event: "event_id",
 	society: "society_id",
@@ -406,6 +409,7 @@ function mapRow(
 	row: Record<string, unknown>,
 	idMap: IdMap,
 	fallbackTimestamp: string,
+	fileRenames: Map<string, string>,
 ): unknown[] {
 	// PB columns are the field names; build a lookup from target column to the
 	// PB column that supplies it.
@@ -429,6 +433,25 @@ function mapRow(
 		if (column === "created_at" || column === "updated_at") {
 			return isoDate(raw) ?? fallbackTimestamp;
 		}
+		// File columns are rewritten to the generated filename during planning, so
+		// the row is inserted already pointing at the file on disk. Doing it with a
+		// later UPDATE would fire the updated_at trigger and lose the original.
+		const fileColumns = FILE_COLUMNS[spec.pb];
+		const fileColumn = fileColumns?.find((entry) => entry.column === column);
+		if (fileColumn) {
+			if (raw === null || raw === undefined || raw === "") return null;
+			if (fileColumn.multi) {
+				const names = idArray(raw);
+				const renamed = names
+					.map((name) => fileRenames.get(`${spec.pb}\u0000${String(row.id)}\u0000${column}\u0000${name}`))
+					.filter((name): name is string => !!name);
+				return JSON.stringify(renamed);
+			}
+			return (
+				fileRenames.get(`${spec.pb}\u0000${String(row.id)}\u0000${column}\u0000${String(raw)}`) ?? null
+			);
+		}
+
 		if (RELATIONS[column] && !spec.externalIdColumns?.includes(column)) {
 			return remap(idMap, RELATIONS[column], raw);
 		}
@@ -463,7 +486,34 @@ interface FileCopy {
 	sourcePath: string;
 	targetPath: string;
 	bytes: number;
+	/** Target table and column this file belongs to. */
+	table: string;
+	column: string;
+	/** New (uuid) record id. */
+	recordId: string;
+	/** Filename as stored on the PocketBase row. */
+	originalName: string;
+	/** Filename written to disk and to the column. */
+	newName: string;
+	/** Multi-file fields store a JSON array of filenames. */
+	multi: boolean;
 }
+
+/** File-bearing columns per collection. */
+const FILE_COLUMNS: Record<string, { column: string; multi: boolean }[]> = {
+	events: [{ column: "banner", multi: false }],
+	societies: [
+		{ column: "logo", multi: false },
+		{ column: "banner", multi: false },
+	],
+	execom: [{ column: "photo", multi: false }],
+	users: [{ column: "avatar", multi: false }],
+	certificate_templates: [
+		{ column: "source_background", multi: false },
+		{ column: "source_signatures", multi: true },
+		{ column: "render_base", multi: false },
+	],
+};
 
 /** Collection id -> collection name, read from the source `_collections`. */
 function collectionIdToName(source: Database.Database): Map<string, string> {
@@ -495,9 +545,42 @@ function planFiles(
 	idMap: IdMap,
 	uploadsDir: string,
 	collectionNames: Map<string, string>,
+	source: Database.Database,
 ): FileCopy[] {
 	const copies: FileCopy[] = [];
 	if (!existsSync(storageDir)) return copies;
+
+	// Index every stored filename to the column that holds it. A collection can
+	// have several file columns (societies.logo + .banner), and the storage tree
+	// does not say which is which — the row does.
+	const columnIndex = new Map<string, { column: string; multi: boolean }>();
+	for (const [collection, columns] of Object.entries(FILE_COLUMNS)) {
+		if (!KNOWN_COLLECTIONS.has(collection)) continue;
+		const rows = source
+			.prepare(`SELECT * FROM ${pbTable(collection)}`)
+			.all() as Record<string, unknown>[];
+		for (const row of rows) {
+			for (const { column, multi } of columns) {
+				// The PocketBase column is the camelCase form of the target name.
+				const pbColumn = column.replace(/_([a-z0-9])/g, (_m, c: string) => c.toUpperCase());
+				const raw = row[pbColumn] ?? row[column];
+				if (raw === null || raw === undefined || raw === "") continue;
+				const names = multi
+					? (() => {
+							try {
+								const parsed: unknown = JSON.parse(String(raw));
+								return Array.isArray(parsed) ? parsed.map(String) : [];
+							} catch {
+								return [];
+							}
+						})()
+					: [String(raw)];
+				for (const name of names) {
+					columnIndex.set(`${collection}\u0000${String(row.id)}\u0000${name}`, { column, multi });
+				}
+			}
+		}
+	}
 
 	for (const collectionId of readdirSync(storageDir)) {
 		const collectionName = collectionNames.get(collectionId) ?? collectionId;
@@ -517,11 +600,25 @@ function planFiles(
 				const sourcePath = join(recordDir, filename);
 				if (!statSync(sourcePath).isFile()) continue;
 
+				const owner = columnIndex.get(`${collectionName}\u0000${recordId}\u0000${filename}`);
+				if (!owner) continue; // not referenced by any row
+
 				// Never reuse the original name: several contain personal names,
 				// which is both a PII leak and a traversal risk.
 				const ext = extname(filename).toLowerCase();
-				const targetPath = join(uploadsDir, domain, newRecordId, `${randomUUID()}${ext}`);
-				copies.push({ sourcePath, targetPath, bytes: statSync(sourcePath).size });
+				const newName = `${randomUUID()}${ext}`;
+				const targetPath = join(uploadsDir, domain, newRecordId, newName);
+				copies.push({
+					sourcePath,
+					targetPath,
+					bytes: statSync(sourcePath).size,
+					table: collectionName,
+					column: owner.column,
+					recordId: newRecordId,
+					originalName: filename,
+					newName,
+					multi: owner.multi,
+				});
 			}
 		}
 	}
@@ -668,8 +765,18 @@ function main(): void {
 	const collectionNames = collectionIdToName(source);
 	const files =
 		args.storage && args.uploads
-			? planFiles(args.storage, idMap, args.uploads, collectionNames)
+			? planFiles(args.storage, idMap, args.uploads, collectionNames, source)
 			: [];
+
+	// (collection, pbRecordId, column, originalName) -> generated filename
+	const fileRenames = new Map<string, string>();
+	for (const file of files) {
+		const pbRecordId = [...(idMap.get(file.table)?.entries() ?? [])].find(
+			([, uuid]) => uuid === file.recordId,
+		)?.[0];
+		if (!pbRecordId) continue;
+		fileRenames.set(`${file.table}\u0000${pbRecordId}\u0000${file.column}\u0000${file.originalName}`, file.newName);
+	}
 
 	console.log(`records: ${[...counts.values()].reduce((a, b) => a + b, 0)}`);
 	console.log(`google links: ${googleSubs.size}`);
@@ -730,7 +837,7 @@ function main(): void {
 			const statement = target.prepare(sqlForTable(spec.table).insert);
 
 			for (const row of rows) {
-				statement.run(...mapRow(spec, row, idMap, fallbackTimestamp));
+				statement.run(...mapRow(spec, row, idMap, fallbackTimestamp, fileRenames));
 			}
 			console.log(`  ${spec.table}: ${rows.length}`);
 		}
