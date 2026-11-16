@@ -157,3 +157,18 @@ export async function pruneExpiredSessions(): Promise<number> {
 
 /** Exported for tests. */
 export const __testing = { sessionCookie, TOUCH_INTERVAL_MS, nowIso };
+
+/**
+ * Like `requireUser`, but for JSON endpoints.
+ *
+ * A redirect is right for a page navigation and wrong for a fetch: an XHR that
+ * follows a 302 to Google gets HTML, not JSON. API routes answer 401 instead.
+ */
+export async function requireApiUser(request: Request): Promise<SessionContext> {
+	const context = await getSessionUser(request);
+	if (context) return context;
+	throw new Response(JSON.stringify({ error: "Authentication required" }), {
+		status: 401,
+		headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+	});
+}

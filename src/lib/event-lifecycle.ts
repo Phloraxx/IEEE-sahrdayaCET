@@ -23,7 +23,14 @@ function toTimestamp(value?: string | null): number | null {
   return Number.isFinite(timestamp) ? timestamp : null;
 }
 
-function getEventEndTimestamp(event: EventLifecycleInput): number | null {
+/**
+ * When the event ends, in epoch ms.
+ *
+ * A time-TBC event is date-only: without an explicit `endDate` it stays active
+ * until the end of its Asia/Kolkata calendar day, not local midnight. Exported
+ * because the registration command needs the same boundary the public pages use.
+ */
+export function getEventEndTimestamp(event: EventLifecycleInput): number | null {
   const explicitEnd = toTimestamp(event.endDate);
   if (explicitEnd !== null) return explicitEnd;
   const start = toTimestamp(event.date);

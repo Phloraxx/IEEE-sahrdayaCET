@@ -4,6 +4,15 @@ export default [
   route("healthz", "routes/healthz.ts"),
   // Public file serving from the uploads volume (replaces PocketBase's /api/files).
   route("files/:collection/:recordId/:filename", "routes/files.$collection.$recordId.$filename.ts"),
+
+  // Registration command surface (phase 2). Replaces the PocketBase /api/app/*
+  // routes with app-server endpoints.
+  route("api/events/:id/register", "routes/api.events.$id.register.ts"),
+  route("api/events/:id/my-registration", "routes/api.events.$id.my-registration.ts"),
+  route("api/events/:id/pricing-preview", "routes/api.events.$id.pricing-preview.ts"),
+  route("api/registrations/:id/cancel", "routes/api.registrations.$id.cancel.ts"),
+  route("api/my-events", "routes/api.my-events.ts"),
+  route("api/registration-memory", "routes/api.registration-memory.ts"),
   route("_", "routes/oauth-popup-result.tsx"),
   route("robots.txt", "routes/robots.ts"),
   route("sitemap.xml", "routes/sitemap.ts"),
