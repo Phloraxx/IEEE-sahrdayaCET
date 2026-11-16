@@ -12,12 +12,19 @@ export default defineConfig(({ mode }) => {
       // allow dev-server previews served behind the org domain (e.g. dev.ieeesahrdaya.com)
       allowedHosts: ["localhost", ".ieeesahrdaya.com", ".phloraxx.us.to"],
       port: Number(env.PORT || process.env.PORT || 3000),
+      // Transitional: PocketBase used to own all of /api. The app now serves
+      // /api/events/*, /api/registrations/*, /api/my-events and
+      // /api/registration-memory itself, so only the paths PocketBase still
+      // answers are proxied. This list shrinks each phase and disappears at
+      // cutover, matching the production Traefik rule being removed then.
       proxy: {
-        "/api": {
-          target: pocketBaseUrl,
-          changeOrigin: true,
-          ws: true,
-        },
+        "/api/collections": { target: pocketBaseUrl, changeOrigin: true },
+        "/api/files": { target: pocketBaseUrl, changeOrigin: true },
+        "/api/app": { target: pocketBaseUrl, changeOrigin: true },
+        "/api/workspace": { target: pocketBaseUrl, changeOrigin: true },
+        "/api/admin": { target: pocketBaseUrl, changeOrigin: true },
+        "/api/tickets": { target: pocketBaseUrl, changeOrigin: true },
+        "/api/webhooks": { target: pocketBaseUrl, changeOrigin: true },
       },
     },
     plugins: [reactRouter(), tsconfigPaths()],
