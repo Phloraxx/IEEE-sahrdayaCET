@@ -724,6 +724,143 @@ try {
 		check(paid.ok && paid.amount === 500, "amount is the base fee in rupees", paid.amount);
 	}
 
+	section("registration — waitlist promotion and offer expiry");
+	{
+		const raw = new Database(dbPath);
+		raw.pragma("foreign_keys = ON");
+		raw.prepare("INSERT INTO societies (id,name,slug,is_hidden) VALUES (?,?,?,0)")
+			.run("e1000000-0000-4000-8000-000000000001", "Waitlist Society", "waitlist-society");
+
+		const insEvent = raw.prepare(
+			`INSERT INTO events (id,title,slug,date,status,registration_mode,registration_open,max_capacity,society_id,base_fee_paise,allow_self_cancellation,waitlist_enabled,waitlist_offer_minutes)
+			 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		);
+		// Capacity 1, waitlist on, 60-minute offers.
+		insEvent.run("e2000000-0000-4000-8000-000000000001", "Waitlist Event", "waitlist-event",
+			"2027-07-01T00:00:00.000Z", "published", "internal", 1, 1,
+			"e1000000-0000-4000-8000-000000000001", 0, 1, 1, 60);
+		// Capacity 1, waitlist off — used for the expiry path.
+		insEvent.run("e2000000-0000-4000-8000-000000000002", "Expiry Event", "expiry-event",
+			"2027-08-01T00:00:00.000Z", "published", "internal", 1, 1,
+			"e1000000-0000-4000-8000-000000000001", 0, 1, 1, 60);
+
+		const wlUsers = [];
+		for (let i = 0; i < 3; i += 1) {
+			const id = `e3000000-0000-4000-8000-0000000000${String(i).padStart(2, "0")}`;
+			raw.prepare("INSERT INTO users (id,email) VALUES (?,?)").run(id, `wl${i}@example.com`);
+			wlUsers.push(id);
+		}
+		raw.close();
+
+		const { createRegistration } = await import("../src/server/registration/create.ts");
+		const { cancelRegistration } = await import("../src/server/registration/cancel.ts");
+		const { reconcileEventWaitlist } = await import("../src/server/registration/waitlist.ts");
+
+		const EVENT = "e2000000-0000-4000-8000-000000000001";
+		const EXPIRY_EVENT = "e2000000-0000-4000-8000-000000000002";
+
+		// Fill the single seat.
+		const seat = await createRegistration({
+			eventId: EVENT, userId: wlUsers[0], formResponses: { name: "Seat Holder" },
+		});
+		check(seat.ok === true, "seat holder registers", seat);
+
+		// The second user is refused and would be offered the waitlist.
+		const refused = await createRegistration({
+			eventId: EVENT, userId: wlUsers[1], formResponses: { name: "Waitlisted" },
+		});
+		check(refused.ok === false && refused.code === "EVENT_FULL", "second user is refused when full", refused);
+
+		// Simulate the join (the waitlist command lands in phase 5).
+		const wl = new Database(dbPath);
+		wl.pragma("foreign_keys = ON");
+		wl.prepare(
+			`INSERT INTO event_waitlist (id,event_id,user_id,status,joined_at) VALUES (?,?,?,?,?)`,
+		).run("e4000000-0000-4000-8000-000000000001", EVENT, wlUsers[1], "waiting", new Date().toISOString());
+		wl.close();
+
+		// Cancel the seat holder: the seat must be offered to the waiting user.
+		const cancelled = await cancelRegistration({
+			registrationId: seat.registrationId, userId: wlUsers[0],
+		});
+		check(cancelled.ok === true, "seat holder cancels", cancelled);
+
+		const afterPromote = new Database(dbPath);
+		const entry = afterPromote.prepare(
+			"SELECT status, offer_expires_at FROM event_waitlist WHERE id = ?",
+		).get("e4000000-0000-4000-8000-000000000001");
+		const reserved = afterPromote.prepare(
+			"SELECT waitlist_reserved_count AS n FROM events WHERE id = ?",
+		).get(EVENT).n;
+		afterPromote.close();
+
+		check(entry?.status === "offered", "cancel promotes the waitlisted user to an offer", entry?.status);
+		check(typeof entry?.offer_expires_at === "string" && entry.offer_expires_at.length > 0,
+			"the offer carries an expiry", entry?.offer_expires_at);
+		check(reserved === 1, "the offer is counted as reserved", reserved);
+
+		// The offered user may take the seat; a third party may not steal it.
+		const thief = await createRegistration({
+			eventId: EVENT, userId: wlUsers[2], formResponses: { name: "Thief" },
+		});
+		check(thief.ok === false, "a third party cannot steal an offered seat", thief);
+
+		const accepted = await createRegistration({
+			eventId: EVENT, userId: wlUsers[1], formResponses: { name: "Waitlisted" },
+		});
+		check(accepted.ok === true, "the offered user can take the seat", accepted);
+
+		const afterAccept = new Database(dbPath);
+		const acceptedEntry = afterAccept.prepare(
+			"SELECT status, accepted_registration FROM event_waitlist WHERE id = ?",
+		).get("e4000000-0000-4000-8000-000000000001");
+		afterAccept.close();
+		check(acceptedEntry?.status === "accepted", "the offer is marked accepted", acceptedEntry?.status);
+		check(acceptedEntry?.accepted_registration === accepted.registrationId,
+			"the offer records which registration consumed it", acceptedEntry?.accepted_registration);
+
+		// --- offer expiry releases the seat ---
+		const expSeat = await createRegistration({
+			eventId: EXPIRY_EVENT, userId: wlUsers[0], formResponses: { name: "Expiry Holder" },
+		});
+		check(expSeat.ok === true, "expiry event seat taken", expSeat);
+
+		const expDb = new Database(dbPath);
+		expDb.pragma("foreign_keys = ON");
+		expDb.prepare(
+			`INSERT INTO event_waitlist (id,event_id,user_id,status,joined_at) VALUES (?,?,?,?,?)`,
+		).run("e4000000-0000-4000-8000-000000000002", EXPIRY_EVENT, wlUsers[1], "waiting", new Date().toISOString());
+		expDb.close();
+
+		await cancelRegistration({ registrationId: expSeat.registrationId, userId: wlUsers[0] });
+
+		// Force the offer into the past, then reconcile.
+		const expireDb = new Database(dbPath);
+		expireDb.prepare("UPDATE event_waitlist SET offer_expires_at = ? WHERE id = ?")
+			.run("2020-01-01T00:00:00.000Z", "e4000000-0000-4000-8000-000000000002");
+		expireDb.close();
+
+		const reconciled = await reconcileEventWaitlist(EXPIRY_EVENT, new Date().toISOString());
+		check(reconciled.expired >= 1, "reconcile expires a stale offer", reconciled.expired);
+
+		const afterExpiry = new Database(dbPath);
+		const expiredEntry = afterExpiry.prepare(
+			"SELECT status FROM event_waitlist WHERE id = ?",
+		).get("e4000000-0000-4000-8000-000000000002");
+		const expiredReserved = afterExpiry.prepare(
+			"SELECT waitlist_reserved_count AS n FROM events WHERE id = ?",
+		).get(EXPIRY_EVENT).n;
+		afterExpiry.close();
+		check(expiredEntry?.status === "expired", "the stale offer is marked expired", expiredEntry?.status);
+		check(expiredReserved === 0, "expiry releases the reserved seat", expiredReserved);
+
+		// With the offer gone, the seat is genuinely free again.
+		const late = await createRegistration({
+			eventId: EXPIRY_EVENT, userId: wlUsers[2], formResponses: { name: "Late Arrival" },
+		});
+		check(late.ok === true, "the released seat can be taken", late);
+	}
+
 } catch (err) {
 	failures.push({ label: "unexpected exception", detail: err?.stack ?? String(err) });
 	console.error("\nUnexpected exception:", err);
