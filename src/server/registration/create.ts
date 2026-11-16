@@ -301,8 +301,11 @@ export async function createRegistration(input: CreateInput): Promise<CreateResu
 
 			const needsPayment = pricing.finalFeePaise > 0;
 			const registrationId = crypto.randomUUID();
-			const ticketId = needsPayment ? "" : generateTicketId();
-			const paymentTicketId = needsPayment ? generatePaymentTicketId() : "";
+			// NULL, not "": the unique index on ticket_id is partial
+			// (`WHERE ticket_id IS NOT NULL`), and an empty string is NOT NULL, so
+			// two unpaid registrations would collide on ''.
+			const ticketId = needsPayment ? null : generateTicketId();
+			const paymentTicketId = needsPayment ? generatePaymentTicketId() : null;
 
 			await query(
 				`INSERT INTO registrations (
@@ -371,7 +374,7 @@ export async function createRegistration(input: CreateInput): Promise<CreateResu
 				ok: true,
 				status: 201,
 				registrationId,
-				ticketId: needsPayment ? paymentTicketId : ticketId,
+				ticketId: (needsPayment ? paymentTicketId : ticketId) ?? "",
 				paymentRequired: needsPayment,
 				amount: pricing.finalFeePaise / 100,
 				registrationStatus: needsPayment ? "pending" : "confirmed",

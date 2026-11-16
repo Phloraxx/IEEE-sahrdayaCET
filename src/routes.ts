@@ -13,6 +13,8 @@ export default [
   route("api/registrations/:id/cancel", "routes/api.registrations.$id.cancel.ts"),
   route("api/my-events", "routes/api.my-events.ts"),
   route("api/registration-memory", "routes/api.registration-memory.ts"),
+  route("api/registrations/:id/payment", "routes/api.registrations.$id.payment.ts"),
+  route("api/webhooks/paygate", "routes/api.webhooks.paygate.ts"),
   route("_", "routes/oauth-popup-result.tsx"),
   route("robots.txt", "routes/robots.ts"),
   route("sitemap.xml", "routes/sitemap.ts"),

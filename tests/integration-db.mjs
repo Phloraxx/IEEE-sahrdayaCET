@@ -79,6 +79,8 @@ process.env.APP_SECRET = "integration-test-secret-at-least-32-bytes-long";
 process.env.GOOGLE_CLIENT_ID = "test-client-id";
 process.env.GOOGLE_CLIENT_SECRET = "test-client-secret";
 process.env.APP_URL = "http://localhost:5173";
+process.env.PAYGATE_WEBHOOK_SECRET = "integration-webhook-secret-at-least-32-bytes";
+process.env.PAYGATE_CLIENT_NAMESPACE = "local";
 process.env.NODE_ENV = "test";
 
 const { default: Database } = await import("better-sqlite3");
@@ -859,6 +861,186 @@ try {
 			eventId: EXPIRY_EVENT, userId: wlUsers[2], formResponses: { name: "Late Arrival" },
 		});
 		check(late.ok === true, "the released seat can be taken", late);
+	}
+
+	section("payments — webhook signature, idempotency, guard");
+	{
+		const { createHmac } = await import("node:crypto");
+		const { action: webhookAction } = await import("../src/routes/api.webhooks.paygate.ts");
+		const { createRegistration } = await import("../src/server/registration/create.ts");
+		const { cancelRegistration } = await import("../src/server/registration/cancel.ts");
+
+		const raw = new Database(dbPath);
+		raw.pragma("foreign_keys = ON");
+		raw.prepare("INSERT INTO societies (id,name,slug,is_hidden) VALUES (?,?,?,0)")
+			.run("f1000000-0000-4000-8000-000000000001", "Pay Society", "pay-society");
+		raw.prepare(
+			`INSERT INTO events (id,title,slug,date,status,registration_mode,registration_open,max_capacity,society_id,base_fee_paise,allow_self_cancellation)
+			 VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+		).run("f2000000-0000-4000-8000-000000000001", "Paid Event", "paid-event-2",
+			"2027-09-01T00:00:00.000Z", "published", "internal", 1, 10,
+			"f1000000-0000-4000-8000-000000000001", 50000, 1);
+
+		const payUsers = [];
+		for (let i = 0; i < 3; i += 1) {
+			const id = `f3000000-0000-4000-8000-0000000000${String(i).padStart(2, "0")}`;
+			raw.prepare("INSERT INTO users (id,email) VALUES (?,?)").run(id, `pay${i}@example.com`);
+			payUsers.push(id);
+		}
+		raw.close();
+
+		const EVENT = "f2000000-0000-4000-8000-000000000001";
+
+		// A paid registration starts pending.
+		const pending = await createRegistration({
+			eventId: EVENT, userId: payUsers[0], formResponses: { name: "Payer" },
+		});
+		check(pending.ok === true && pending.paymentRequired === true, "paid registration is pending", pending);
+
+		const paymentId = "pay_test_0001";
+		function signedRequest(body, options = {}) {
+			const rawBody = JSON.stringify(body);
+			const timestamp = String(options.timestamp ?? Math.floor(Date.now() / 1000));
+			const secret = options.secret ?? "integration-webhook-secret-at-least-32-bytes";
+			const signature = createHmac("sha256", secret).update(`${timestamp}.${rawBody}`).digest("hex");
+			return new Request("http://localhost/api/webhooks/paygate", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"X-PayGate-Event-Id": body.id,
+					"X-PayGate-Timestamp": timestamp,
+					"X-PayGate-Signature": `v1=${signature}`,
+				},
+				body: rawBody,
+			});
+		}
+
+		function paidBody(eventId, overrides = {}) {
+			return {
+				id: eventId,
+				type: "payment.paid",
+				data: {
+					payment: {
+						id: paymentId,
+						status: "paid",
+						requestedAmount: { paise: 50000, rupees: 500 },
+						payableAmount: { paise: 50037, rupees: 500.37 },
+						externalId: EVENT,
+						metadata: { registration_id: pending.registrationId, environment: "local" },
+						transactionNote: `PayGate ${paymentId}`,
+						paidAt: new Date().toISOString(),
+						...overrides,
+					},
+				},
+			};
+		}
+
+		// --- bad signature ---
+		const badSig = await webhookAction({
+			request: signedRequest(paidBody("evt_bad"), { secret: "wrong-secret-wrong-secret-wrong-secret" }),
+			params: {}, context: {},
+		});
+		check(badSig.status === 400, "a bad signature is refused", badSig.status);
+
+		// --- stale timestamp ---
+		const stale = await webhookAction({
+			request: signedRequest(paidBody("evt_stale"), { timestamp: Math.floor(Date.now() / 1000) - 4000 }),
+			params: {}, context: {},
+		});
+		check(stale.status === 400, "a stale timestamp is refused", stale.status);
+
+		// --- amount mismatch ---
+		const wrongAmount = await webhookAction({
+			request: signedRequest(paidBody("evt_amount", {
+				requestedAmount: { paise: 40000, rupees: 400 },
+			})),
+			params: {}, context: {},
+		});
+		check(wrongAmount.status === 400, "an amount mismatch is refused", wrongAmount.status);
+
+		// --- valid payment ---
+		const ok = await webhookAction({
+			request: signedRequest(paidBody("evt_paid_1")), params: {}, context: {},
+		});
+		check(ok.status === 200, "a valid webhook is accepted", ok.status);
+
+		const afterPay = new Database(dbPath);
+		const reg = afterPay.prepare(
+			"SELECT registration_status, payment_status, ticket_id FROM registrations WHERE id = ?",
+		).get(pending.registrationId);
+		const ledgerRows = afterPay.prepare(
+			"SELECT status, collected_paise, final_fee_paise FROM payments WHERE registration_id = ?",
+		).all(pending.registrationId);
+		afterPay.close();
+
+		check(reg?.registration_status === "confirmed", "payment confirms the registration", reg?.registration_status);
+		check(reg?.payment_status === "paid", "payment status becomes paid", reg?.payment_status);
+		check(typeof reg?.ticket_id === "string" && reg.ticket_id.length > 0, "a ticket is issued", reg?.ticket_id);
+		check(ledgerRows.length === 1, "exactly one ledger row exists", ledgerRows.length);
+		check(ledgerRows[0]?.status === "captured", "the ledger row is captured", ledgerRows[0]?.status);
+		check(ledgerRows[0]?.collected_paise === 50037, "the collected amount includes the fingerprint", ledgerRows[0]?.collected_paise);
+
+		// --- replay the same webhook ---
+		const replay = await webhookAction({
+			request: signedRequest(paidBody("evt_paid_1")), params: {}, context: {},
+		});
+		check(replay.status === 200, "a replayed webhook is accepted", replay.status);
+
+		const afterReplay = new Database(dbPath);
+		const ledgerAfter = afterReplay.prepare(
+			"SELECT count(*) AS n FROM payments WHERE registration_id = ?",
+		).get(pending.registrationId).n;
+		const regAfter = afterReplay.prepare(
+			"SELECT registration_status, payment_status FROM registrations WHERE id = ?",
+		).get(pending.registrationId);
+		afterReplay.close();
+		check(ledgerAfter === 1, "replay does not create a second ledger row", ledgerAfter);
+		check(regAfter?.registration_status === "confirmed" && regAfter?.payment_status === "paid",
+			"replay does not change the state", regAfter);
+
+		// --- a payment for a cancelled registration is parked, not applied ---
+		const second = await createRegistration({
+			eventId: EVENT, userId: payUsers[1], formResponses: { name: "Second Payer" },
+		});
+		check(second.ok === true, "second paid registration created", second);
+		await cancelRegistration({ registrationId: second.registrationId, userId: payUsers[1] });
+
+		const lateBody = {
+			id: "evt_late_1",
+			type: "payment.paid",
+			data: {
+				payment: {
+					id: "pay_test_0002",
+					status: "paid",
+					requestedAmount: { paise: 50000, rupees: 500 },
+					payableAmount: { paise: 50061, rupees: 500.61 },
+					externalId: EVENT,
+					metadata: { registration_id: second.registrationId, environment: "local" },
+					transactionNote: "PayGate pay_test_0002",
+					paidAt: new Date().toISOString(),
+				},
+			},
+		};
+		const late = await webhookAction({
+			request: signedRequest(lateBody), params: {}, context: {},
+		});
+		check(late.status === 200, "a payment for a cancelled registration is accepted", late.status);
+
+		const afterLate = new Database(dbPath);
+		const lateReg = afterLate.prepare(
+			"SELECT registration_status, payment_status, payment_data FROM registrations WHERE id = ?",
+		).get(second.registrationId);
+		const lateLedger = afterLate.prepare(
+			"SELECT status, manual_review FROM payments WHERE registration_id = ?",
+		).all(second.registrationId);
+		afterLate.close();
+
+		check(lateReg?.registration_status === "cancelled",
+			"the cancelled registration stays cancelled", lateReg?.registration_status);
+		check(String(lateReg?.payment_data ?? "").includes("manualReview"),
+			"the payment is parked for manual review", lateReg?.payment_data?.slice(0, 40));
+		check(lateLedger.some((row) => row.status === "manual_review"),
+			"the ledger records a manual review", lateLedger);
 	}
 
 } catch (err) {
