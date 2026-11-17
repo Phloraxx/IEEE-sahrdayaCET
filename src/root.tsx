@@ -131,31 +131,10 @@ export const middleware = [
 ];
 
 export function headers() {
+  // The Content-Security-Policy is set in `entry.server.tsx`, not here: it needs
+  // the per-request script nonce, which only exists once the document is being
+  // rendered. See `src/lib/csp.ts` for the policy and why it needs a nonce.
   const headers: Record<string, string> = {
-    "Content-Security-Policy": [
-      "default-src 'self'",
-      "base-uri 'self'",
-      "object-src 'none'",
-      "frame-ancestors 'none'",
-      "form-action 'self'",
-      "img-src 'self' data: blob: https:",
-      "media-src 'self'",
-      "font-src 'self' data:",
-      "style-src 'self' 'unsafe-inline'",
-      // The only inline script is the pre-paint theme toggle below; it is pinned
-      // by hash so `unsafe-inline` is not needed. JSON-LD blocks are
-      // `application/ld+json` and are not executed, so CSP does not apply to them.
-      //
-      // Development keeps `unsafe-inline` because Vite's HMR client injects
-      // inline scripts; production is the environment that matters.
-      process.env.NODE_ENV === "production"
-        ? "script-src 'self' 'sha256-Pt/n2axd+5lXpyJMbvmmHpXr44zXheeYYRRdMIAHr+A=' https://static.cloudflareinsights.com"
-        : "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
-      "connect-src 'self' https://cloudflareinsights.com",
-      "frame-src 'none'",
-      "manifest-src 'self'",
-      "worker-src 'self' blob:",
-    ].join("; "),
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "strict-origin-when-cross-origin",
