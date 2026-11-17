@@ -1,34 +1,57 @@
 import { getPbClient } from "@/lib/pb-client";
-import { buildFileUrl, escapeFilterValue } from "@/lib/pb";
+import { buildFileUrl } from "@/lib/pb";
 
+interface AdminUserResponse {
+  users: Array<{
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    avatar: string;
+    createdAt: string;
+    registrationsCount: number;
+  }>;
+  total: number;
+  page: number;
+  perPage: number;
+  hasMore: boolean;
+}
+
+/**
+ * The branch user directory.
+ *
+ * Goes to `/api/admin/users`, not `collection("users")`. The `users` collection
+ * is a **self** policy — it always filters to the caller's own row and an admin
+ * capability deliberately does not widen it — so listing through it returned
+ * exactly one user and made the search box and role filter useless.
+ */
 export async function listAdminUsers(input: { search?: string; role?: string; id?: string; page?: number; perPage?: number } = {}) {
   const pb = getPbClient();
-  const filters: string[] = [];
-  if (input.search) {
-    const value = escapeFilterValue(input.search);
-    filters.push(`(name ~ ${value} || email ~ ${value})`);
-  }
-  if (input.role && input.role !== "all") filters.push(`role = ${escapeFilterValue(input.role)}`);
-  if (input.id) filters.push(`id = ${escapeFilterValue(input.id)}`);
-  const result = await pb.collection("users").getList(input.page ?? 1, Math.min(input.perPage ?? 100, 100), {
-    filter: filters.join(" && ") || undefined,
-    sort: "name",
-    fields: "id,name,email,role,avatar,created",
-  });
+  const params = new URLSearchParams();
+  if (input.search) params.set("q", input.search);
+  if (input.role && input.role !== "all") params.set("role", input.role);
+  if (input.page) params.set("page", String(input.page));
+  if (input.perPage) params.set("perPage", String(input.perPage));
+
+  const query = params.toString();
+  const path = query ? `/api/admin/users?${query}` : "/api/admin/users";
+  const result = await pb.send<AdminUserResponse>(path, { method: "GET" });
+
   return {
-    users: result.items.map((record) => ({
+    users: result.users.map((record) => ({
       id: record.id,
-      name: String(record.name || ""),
-      email: String(record.email || ""),
-      role: String(record.role || "user"),
-      avatar: record.avatar ? buildFileUrl("users", record.id, String(record.avatar)) : "",
-      created: String(record.created || ""),
-      registrationsCount: 0,
+      name: record.name,
+      email: record.email,
+      role: record.role,
+      avatar: record.avatar ? buildFileUrl("users", record.id, record.avatar) : "",
+      // The page formats `created`; the route names it `createdAt`.
+      created: record.createdAt,
+      registrationsCount: record.registrationsCount,
     })),
-    total: result.totalItems,
+    total: result.total,
     page: result.page,
     perPage: result.perPage,
-    hasMore: result.totalPages > result.page,
+    hasMore: result.hasMore,
   };
 }
 

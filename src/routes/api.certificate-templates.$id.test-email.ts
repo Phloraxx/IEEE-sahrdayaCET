@@ -28,3 +28,12 @@ export async function action({ request, params }: ActionFunctionArgs) {
 		});
 	} catch (error) { return toErrorResponse(error); }
 }
+
+/**
+ * A GET on an action-only route is a wrong method, not a server fault.
+ * Without this, React Router answers 400 "Unexpected Server Error", which
+ * reads like a bug in every log and monitor that sees it.
+ */
+export function loader() {
+	return methodNotAllowed();
+}

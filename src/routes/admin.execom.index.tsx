@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth-context";
 import { buildFileUrl } from "@/lib/pb";
 import { deleteAdminExecomMember, listAdminExecom } from "@/lib/data/admin-execom.client";
+import { adminMeta } from "@/lib/admin-meta";
 
 interface ExecomMember {
   id: string;
@@ -246,6 +247,7 @@ function ExecomList({
                 </Link>
                 <ConfirmButton
                   label=""
+                  ariaLabel={`Remove ${m.name || "this member"} from the execom`}
                   confirmMessage="Remove this member?"
                   variant="destructive"
                   icon={<Trash2 className="h-3.5 w-3.5" />}
@@ -266,3 +268,5 @@ function ExecomList({
     </div>
   );
 }
+
+export const meta = () => adminMeta("Execom");

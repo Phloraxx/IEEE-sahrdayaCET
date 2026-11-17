@@ -30,6 +30,7 @@ import { getPbClient } from "@/lib/pb-client";
 import { streamAdminEventsCSV } from "@/lib/csv-export";
 import { getWorkspaceMe } from "@/lib/data/workspace.client";
 import { hasScopedWorkspaceCapability } from "@/lib/workspace-permissions";
+import { adminMeta } from "@/lib/admin-meta";
 
 function EventsSkeleton() {
   return (
@@ -256,6 +257,7 @@ function EventsList({
             <Link to={`/admin/events/${event.id}`} className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground">Open<ChevronRight className="h-3 w-3" /></Link>
             {canArchiveEvent(event) && ["draft", "completed", "cancelled"].includes(event.status) && <ConfirmButton
               label=""
+              ariaLabel={`Archive ${event.title}`}
               confirmMessage="Archive this event? It will be hidden from public listings but its historical records remain available."
               variant="destructive"
               icon={<Archive className="h-3.5 w-3.5" />}
@@ -269,3 +271,5 @@ function EventsList({
     </div>
   );
 }
+
+export const meta = () => adminMeta("Events");

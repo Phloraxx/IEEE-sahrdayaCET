@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/auth-context";
 import { AdminPageHeader } from "@/features/admin/shared/admin-page-header";
 import { EventForm } from "@/features/admin/events/event-form";
 import { getAdminEventOperations } from "@/lib/data/admin-event-operations.client";
+import { adminMeta } from "@/lib/admin-meta";
 
 export default function EditEventPage() {
   const { user } = useAuth();
@@ -20,3 +21,5 @@ export default function EditEventPage() {
     </div>
   );
 }
+
+export const meta = () => adminMeta("Edit Event");

@@ -1,6 +1,7 @@
 
 import { AdminPageHeader } from "@/features/admin/shared/admin-page-header";
 import { SocietyForm } from "@/features/admin/societies/society-form";
+import { adminMeta } from "@/lib/admin-meta";
 
 export default function NewSocietyPage() {
   return (
@@ -16,3 +17,5 @@ export default function NewSocietyPage() {
     </div>
   );
 }
+
+export const meta = () => adminMeta("New Society");

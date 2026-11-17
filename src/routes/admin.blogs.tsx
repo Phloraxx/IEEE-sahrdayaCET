@@ -26,6 +26,7 @@ import {
 import { BlogForm, type BlogFormValues } from "@/components/admin/blog-form";
 import type { BlogPost } from "@/types";
 import { formatDateShort } from "@/lib/dates";
+import { adminMeta } from "@/lib/admin-meta";
 
 function BlogsSkeleton() {
   return (
@@ -225,7 +226,7 @@ export default function AdminBlogs() {
               <div className="text-xs text-muted-foreground">{blog.category || "—"}</div>
               <div>
                 {blog.published ? (
-                  <Badge variant="default" className="bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/25">
+                  <Badge variant="default" className="bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/25 dark:text-emerald-300">
                     Published
                   </Badge>
                 ) : (
@@ -251,6 +252,7 @@ export default function AdminBlogs() {
                 </Button>
                 <ConfirmButton
                   label=""
+                  ariaLabel={`Delete ${blog.title}`}
                   confirmMessage="Delete this post? This cannot be undone."
                   variant="destructive"
                   icon={<Trash2 className="h-3.5 w-3.5" />}
@@ -298,3 +300,5 @@ export default function AdminBlogs() {
     </div>
   );
 }
+
+export const meta = () => adminMeta("Blogs");

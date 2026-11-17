@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth-context";
 import { listAdminUsers, updateAdminUserRole } from "@/lib/data/admin-users.client";
 import { formatDateShort } from "@/lib/dates";
+import { adminMeta } from "@/lib/admin-meta";
 
 interface UserRow {
   id: string;
@@ -115,7 +116,7 @@ export default function AdminUsers() {
           />
         </div>
         <Select value={roleFilter} onValueChange={(value) => { setRoleFilter(value); setPage(1); }}>
-          <SelectTrigger className="w-[160px]">
+          <SelectTrigger className="w-[160px]" aria-label="Filter by role">
             <SelectValue placeholder="All roles" />
           </SelectTrigger>
           <SelectContent>
@@ -214,7 +215,10 @@ function UserList({
                   value={u.role}
                   onValueChange={(role) => { if (!window.confirm('Change this user\'s role?')) return; onRoleChange(u.id, role); }}
                 >
-                  <SelectTrigger className="h-7 w-[100px] text-xs">
+                  <SelectTrigger
+                    className="h-7 w-[100px] text-xs"
+                    aria-label={`Role for ${u.name || u.email}`}
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -245,3 +249,5 @@ function UserList({
     </div>
   );
 }
+
+export const meta = () => adminMeta("Users");

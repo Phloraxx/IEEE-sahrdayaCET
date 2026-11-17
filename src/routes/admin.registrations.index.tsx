@@ -37,6 +37,7 @@ import { streamAdminRegistrationsCSV } from "@/lib/csv-export";
 import { formatDateTime } from "@/lib/dates";
 import { getWorkspaceMe } from "@/lib/data/workspace.client";
 import { hasScopedWorkspaceCapability, type WorkspaceMe } from "@/lib/workspace-permissions";
+import { adminMeta } from "@/lib/admin-meta";
 
 type RegistrationRow = Awaited<ReturnType<typeof listAdminRegistrations>>["registrations"][number];
 const money = (value: number) => `₹${Math.max(0, value || 0).toLocaleString("en-IN")}`;
@@ -367,3 +368,5 @@ function QueueRow({
     </div>
   );
 }
+
+export const meta = () => adminMeta("Registrations");

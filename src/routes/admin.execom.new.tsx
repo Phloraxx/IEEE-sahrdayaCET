@@ -1,6 +1,7 @@
 
 import { AdminPageHeader } from "@/features/admin/shared/admin-page-header";
 import { ExecomForm } from "@/features/admin/execom/execom-form";
+import { adminMeta } from "@/lib/admin-meta";
 
 export default function NewExecomPage() {
   return (
@@ -16,3 +17,5 @@ export default function NewExecomPage() {
     </div>
   );
 }
+
+export const meta = () => adminMeta("New Execom Member");
