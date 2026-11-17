@@ -46,9 +46,12 @@ describe("security architecture invariants", () => {
   });
 
   it("does not allow a retired Razorpay checkout surface through CSP or runtime files", () => {
-    const root = read("src/root.tsx");
-    expect(root).not.toContain("razorpay.com");
-    expect(root).toContain("frame-src 'none'");
+    // The policy moved to src/lib/csp.ts so `entry.server.tsx` can mint a
+    // per-request script nonce; the invariant holds wherever it lives.
+    const csp = read("src/lib/csp.ts");
+    expect(csp).not.toContain("razorpay.com");
+    expect(csp).toContain("frame-src 'none'");
+    expect(read("src/root.tsx")).not.toContain("razorpay.com");
     expect(existsSync(resolve(process.cwd(), "pb_hooks/razorpay-direct.pb.js"))).toBe(false);
     expect(existsSync(resolve(process.cwd(), "src/lib/razorpay-upi.client.ts"))).toBe(false);
   });
