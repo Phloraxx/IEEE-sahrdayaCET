@@ -1645,6 +1645,466 @@ try {
 	}
 
 
+	// -----------------------------------------------------------------------
+	// phase 7 — the notification outbox write path
+	// -----------------------------------------------------------------------
+	{
+		const outbox = await import("../src/server/notifications/outbox.ts");
+		const { withTransaction } = await import("../src/lib/db.server.ts");
+
+		await db.query("INSERT INTO users (id, email, role) VALUES (?,?,?)", [
+			"u-outbox", "outbox@test.local", "user",
+		]);
+		await db.query(
+			"INSERT INTO events (id, title, slug, date, status) VALUES (?,?,?,?,?)",
+			["ev-outbox", "Outbox Test", "outbox-test", "2026-11-01", "published"],
+		);
+
+		async function seedRegistration(id, overrides = {}) {
+			// One event per registration: the active-registration unique index is
+			// partial on (user_id, event_id), so sharing an event collides.
+			await db.query(
+				"INSERT INTO events (id, title, slug, date, status) VALUES (?,?,?,?,?)",
+				[`ev-${id}`, `Event ${id}`, `event-${id}`, "2026-11-01", "published"],
+			);
+			const row = {
+				registration_status: "confirmed",
+				payment_status: "paid",
+				ticket_id: `TKT-${id}`,
+				user_email: "outbox@test.local",
+				final_fee_paise: 50000,
+				...overrides,
+			};
+			await db.query(
+				`INSERT INTO registrations
+				   (id, user_id, event_id, user_name, user_email, registration_status,
+				    payment_status, ticket_id, final_fee_paise, amount, registration_date,
+				    checked_in, created_at, updated_at)
+				 VALUES (?,?,?,?,?,?,?,?,?,?,?,0,?,?)`,
+				[
+					id, "u-outbox", `ev-${id}`, "Outbox User", row.user_email,
+					row.registration_status, row.payment_status, row.ticket_id,
+					row.final_fee_paise, row.final_fee_paise / 100,
+					"2026-11-01T00:00:00Z", "2026-11-01T00:00:00Z", "2026-11-01T00:00:00Z",
+				],
+			);
+		}
+
+		async function outboxRows(registrationId) {
+			const result = await db.query(
+				`SELECT kind, status, recipient, dedupe_key FROM notification_outbox
+				  WHERE registration_id = ? ORDER BY kind`,
+				[registrationId],
+			);
+			return result.rows;
+		}
+
+		// --- 1. a confirmed, paid registration queues exactly one ticket ------
+		await seedRegistration("reg-outbox-1");
+		await outbox.enqueueForRegistration("reg-outbox-1");
+		const first = await outboxRows("reg-outbox-1");
+		check(
+			first.length === 2 &&
+				first.filter((row) => row.kind === "ticket").length === 1 &&
+				first.filter((row) => row.kind === "receipt").length === 1,
+			"a confirmed paid registration queues exactly one ticket and one receipt",
+			first,
+		);
+		check(
+			first.every((row) => row.status === "pending" && row.recipient === "outbox@test.local"),
+			"queued rows are pending and addressed to the registration email",
+			first,
+		);
+
+		// --- 2. a replay dedupes ---------------------------------------------
+		await outbox.enqueueForRegistration("reg-outbox-1");
+		await outbox.enqueueForRegistration("reg-outbox-1");
+		const replayed = await outboxRows("reg-outbox-1");
+		check(replayed.length === 2, "replaying the enqueue does not create a second job", replayed);
+
+		// --- 3. an unpaid registration queues a ticket but no receipt ---------
+		await seedRegistration("reg-outbox-2", { payment_status: "pending", final_fee_paise: 50000 });
+		await outbox.enqueueForRegistration("reg-outbox-2");
+		const unpaid = await outboxRows("reg-outbox-2");
+		check(
+			unpaid.length === 1 && unpaid[0].kind === "ticket",
+			"an unpaid registration queues a ticket and no receipt",
+			unpaid,
+		);
+
+		// --- 4. a pending registration queues nothing -------------------------
+		await seedRegistration("reg-outbox-3", {
+			registration_status: "pending",
+			payment_status: "pending",
+			ticket_id: null,
+		});
+		await outbox.enqueueForRegistration("reg-outbox-3");
+		check((await outboxRows("reg-outbox-3")).length === 0, "a pending registration queues nothing");
+
+		// --- 5. a free registration queues a ticket but no receipt ------------
+		await seedRegistration("reg-outbox-4", { final_fee_paise: 0 });
+		await outbox.enqueueForRegistration("reg-outbox-4");
+		const free = await outboxRows("reg-outbox-4");
+		check(
+			free.length === 1 && free[0].kind === "ticket",
+			"a zero-fee registration queues a ticket and no receipt",
+			free,
+		);
+
+		// --- 6. a rolled-back transaction queues nothing ----------------------
+		// This is the invariant that matters: an email must never be queued for a
+		// state change that did not commit.
+		await seedRegistration("reg-outbox-5");
+		try {
+			await withTransaction(async () => {
+				await outbox.enqueueForRegistration("reg-outbox-5");
+				throw new Error("simulated rollback");
+			});
+		} catch {
+			// expected
+		}
+		check(
+			(await outboxRows("reg-outbox-5")).length === 0,
+			"a rolled-back transaction queues nothing",
+			await outboxRows("reg-outbox-5"),
+		);
+
+		// --- 7. the unique dedupe key is enforced by the schema ---------------
+		await seedRegistration("reg-outbox-6");
+		await outbox.enqueueForRegistration("reg-outbox-6");
+		let duplicateRejected = false;
+		try {
+			await db.query(
+				`INSERT INTO notification_outbox
+				   (id, registration_id, kind, status, recipient, dedupe_key, attempts,
+				    next_attempt_at, last_attempt_at, sent_at, last_error, created_at, updated_at)
+				 VALUES (?,?,?,?,?,?,0,'','','','',?,?)`,
+				[
+					"ob-dup", "reg-outbox-6", "ticket", "pending", "outbox@test.local",
+					"reg-outbox-6:ticket", "2026-11-01T00:00:00Z", "2026-11-01T00:00:00Z",
+				],
+			);
+		} catch {
+			duplicateRejected = true;
+		}
+		check(duplicateRejected, "the dedupe key is unique in the schema");
+	}
+
+
+	// -----------------------------------------------------------------------
+	// phase 7 — event operations: manual registration, commands, decisions
+	// -----------------------------------------------------------------------
+	{
+		const ops = await import("../src/server/admin/operations.ts");
+
+		// A branch admin (sees everything) and a scoped organizer (sees one event).
+		await db.query("INSERT INTO users (id, email, role) VALUES (?,?,?)", [
+			"u-ops-admin", "ops-admin@test.local", "admin",
+		]);
+		await db.query("INSERT INTO users (id, email, role) VALUES (?,?,?)", [
+			"u-ops-scoped", "ops-scoped@test.local", "user",
+		]);
+		await db.query("INSERT INTO users (id, email, role) VALUES (?,?,?)", [
+			"u-ops-outsider", "ops-outsider@test.local", "user",
+		]);
+		await db.query(
+			"INSERT INTO events (id, title, slug, date, status, max_capacity, check_in_enabled, registration_open, base_fee_paise, price) VALUES (?,?,?,?,?,?,?,?,?,?)",
+			["ev-ops-a", "Ops A", "ops-a", "2026-12-01", "published", 2, 1, 1, 50000, 500],
+		);
+		await db.query(
+			"INSERT INTO events (id, title, slug, date, status, max_capacity, check_in_enabled, registration_open, base_fee_paise, price) VALUES (?,?,?,?,?,?,?,?,?,?)",
+			["ev-ops-b", "Ops B", "ops-b", "2026-12-02", "published", 10, 1, 1, 50000, 500],
+		);
+		// The scoped organizer holds a full set of event-scoped capabilities.
+		for (const [i, role] of ["event_lead", "registration_staff"].entries()) {
+			await db.query(
+				`INSERT INTO organization_assignments
+				   (id, user_id, role_code, scope_type, event_id, active, source, created_at, updated_at)
+				 VALUES (?,?,?,'event',?,1,'manual',?,?)`,
+				[`asg-ops-${i}`, "u-ops-scoped", role, "ev-ops-a", "2026-11-01T00:00:00Z", "2026-11-01T00:00:00Z"],
+			);
+		}
+
+		const admin = { id: "u-ops-admin", role: "admin" };
+		const scoped = { id: "u-ops-scoped", role: "user" };
+		const outsider = { id: "u-ops-outsider", role: "user" };
+
+		async function statusOf(fn) {
+			try {
+				await fn();
+				return 200;
+			} catch (err) {
+				return err.status ?? 500;
+			}
+		}
+
+		// --- 1. the feed is IDOR-proof ---------------------------------------
+		check(
+			(await statusOf(() => ops.getEventOperations(outsider, "ev-ops-a"))) === 404,
+			"an outsider reading the operations feed gets 404, not 403",
+		);
+		check(
+			(await statusOf(() => ops.getEventOperations(scoped, "ev-ops-b"))) === 404,
+			"a scoped organizer reading a foreign event's feed gets 404",
+		);
+		await checkResolves(
+			() => ops.getEventOperations(scoped, "ev-ops-a"),
+			"a scoped organizer can read their own event's feed",
+			(feed) => feed.event.id === "ev-ops-a" && typeof feed.permissions === "object",
+		);
+
+		// --- 2. manual registration ------------------------------------------
+		const created = await ops.createManualRegistration(admin, "ev-ops-a", {
+			name: "Manual Attendee",
+			email: "manual@test.local",
+			phone: "9876543210",
+			paymentMode: "paid",
+			paymentMethod: "cash",
+			note: "paid at the desk",
+		});
+		check(
+			created.registration.registrationStatus === "confirmed" &&
+				created.registration.paymentStatus === "paid" &&
+				created.registration.registrationSource === "admin",
+			"a manual paid registration is confirmed and marked admin-sourced",
+			created.registration,
+		);
+
+		const auditRows = await db.query(
+			`SELECT action FROM admin_audit_log WHERE registration_id = ?`,
+			[created.registration.id],
+		);
+		check(
+			auditRows.rows.length === 1 && auditRows.rows[0].action === "registration.manual-create",
+			"manual registration writes exactly one audit row",
+			auditRows.rows,
+		);
+
+		const ledger = await db.query(
+			`SELECT provider, status, collected_paise FROM payments WHERE registration_id = ?`,
+			[created.registration.id],
+		);
+		check(
+			ledger.rows.length === 1 &&
+				ledger.rows[0].provider === "manual" &&
+				ledger.rows[0].status === "captured",
+			"a paid manual registration writes one captured ledger row",
+			ledger.rows,
+		);
+
+		// A ticket email is queued for the confirmed registration.
+		const manualOutbox = await db.query(
+			`SELECT kind FROM notification_outbox WHERE registration_id = ?`,
+			[created.registration.id],
+		);
+		check(
+			manualOutbox.rows.length === 2 &&
+				manualOutbox.rows.some((row) => row.kind === "ticket") &&
+				manualOutbox.rows.some((row) => row.kind === "receipt"),
+			"a paid manual registration queues a ticket and a receipt",
+			manualOutbox.rows,
+		);
+
+		// --- 3. duplicates are refused ---------------------------------------
+		check(
+			(await statusOf(() =>
+				ops.createManualRegistration(admin, "ev-ops-a", {
+					name: "Manual Attendee",
+					email: "manual@test.local",
+					paymentMode: "pending",
+				}),
+			)) === 409,
+			"a duplicate manual registration is refused",
+		);
+
+		// --- 4. finance-sensitive modes need finance.manage -------------------
+		// The scoped organizer has registrations.manual but not finance.manage.
+		check(
+			(await statusOf(() =>
+				ops.createManualRegistration(scoped, "ev-ops-a", {
+					name: "Waived Attendee",
+					email: "waived@test.local",
+					paymentMode: "waived",
+				}),
+			)) === 403,
+			"a waived registration without finance.manage is refused",
+		);
+
+		// --- 5. capacity is enforced, and an override needs a note -----------
+		await ops.createManualRegistration(admin, "ev-ops-a", {
+			name: "Second Attendee",
+			email: "second@test.local",
+			paymentMode: "pending",
+		});
+		check(
+			(await statusOf(() =>
+				ops.createManualRegistration(admin, "ev-ops-a", {
+					name: "Third Attendee",
+					email: "third@test.local",
+					paymentMode: "pending",
+				}),
+			)) === 409,
+			"a full event refuses another manual registration",
+		);
+		check(
+			(await statusOf(() =>
+				ops.createManualRegistration(admin, "ev-ops-a", {
+					name: "Third Attendee",
+					email: "third@test.local",
+					paymentMode: "pending",
+					capacityOverride: true,
+				}),
+			)) === 400,
+			"a capacity override without a note is refused",
+		);
+
+		// --- 6. registration commands ----------------------------------------
+		const pending = await ops.createManualRegistration(admin, "ev-ops-b", {
+			name: "Pending Attendee",
+			email: "pending@test.local",
+			paymentMode: "pending",
+		});
+		const pendingId = pending.registration.id;
+		check(
+			pending.registration.registrationStatus === "pending" &&
+				pending.registration.paymentStatus === "pending",
+			"a pending manual registration stays pending",
+			pending.registration,
+		);
+
+		check(
+			(await statusOf(() =>
+				ops.runRegistrationCommand(admin, pendingId, { action: "check-in" }),
+			)) === 409,
+			"a pending registration cannot be checked in",
+		);
+		check(
+			(await statusOf(() => ops.runRegistrationCommand(admin, pendingId, { action: "nonsense" }))) === 400,
+			"an unknown command is a 400, not a 403",
+		);
+
+		const confirmed = await ops.runRegistrationCommand(admin, pendingId, {
+			action: "confirm-payment",
+			note: "cash received",
+		});
+		check(
+			confirmed.registration.registrationStatus === "confirmed" &&
+				confirmed.registration.paymentStatus === "paid" &&
+				confirmed.registration.ticketId !== "",
+			"confirm-payment confirms the registration and issues a ticket",
+			confirmed.registration,
+		);
+
+		// Idempotent no-op.
+		const again = await ops.runRegistrationCommand(admin, pendingId, { action: "confirm-payment" });
+		check(
+			again.registration.registrationStatus === "confirmed",
+			"confirm-payment on an already-paid registration is a no-op",
+		);
+
+		const checkedIn = await ops.runRegistrationCommand(admin, pendingId, { action: "check-in" });
+		check(checkedIn.registration.checkedIn === true, "a confirmed attendee can be checked in");
+
+		check(
+			(await statusOf(() =>
+				ops.runRegistrationCommand(admin, pendingId, { action: "mark-refunded" }),
+			)) === 400,
+			"mark-refunded without a note is refused",
+		);
+
+		const refunded = await ops.runRegistrationCommand(admin, pendingId, {
+			action: "mark-refunded",
+			note: "refunded in cash",
+		});
+		check(
+			refunded.registration.registrationStatus === "cancelled" &&
+				refunded.registration.paymentStatus === "refunded",
+			"mark-refunded cancels the registration and records the refund",
+			refunded.registration,
+		);
+
+		// --- 7. every command wrote its audit row ----------------------------
+		const commandAudit = await db.query(
+			`SELECT action FROM admin_audit_log WHERE registration_id = ? ORDER BY created_at`,
+			[pendingId],
+		);
+		const actions = commandAudit.rows.map((row) => row.action);
+		check(
+			actions.includes("registration.confirm-payment") &&
+				actions.includes("registration.check-in") &&
+				actions.includes("registration.mark-refunded"),
+			"every command wrote its audit row",
+			actions,
+		);
+
+		// --- 8. a scoped organizer cannot command a foreign registration -----
+		check(
+			(await statusOf(() =>
+				ops.runRegistrationCommand(scoped, pendingId, { action: "check-in" }),
+			)) === 404,
+			"a scoped organizer commanding a foreign registration gets 404",
+		);
+
+		// --- 9. cancellation decisions ---------------------------------------
+		await db.query(
+			`INSERT INTO registration_cancellation_requests
+			   (id, registration_id, event_id, user_id, kind, active_key, status, reason,
+			    requested_at, created_at, updated_at)
+			 VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+			[
+				"cr-ops-1", created.registration.id, "ev-ops-a", "u-ops-admin", "refund",
+				"cr-ops-1", "open", "cannot attend", "2026-11-01T00:00:00Z",
+				"2026-11-01T00:00:00Z", "2026-11-01T00:00:00Z",
+			],
+		);
+
+		check(
+			(await statusOf(() =>
+				ops.decideCancellationRequest(admin, "cr-ops-1", { action: "accept" }),
+			)) === 400,
+			"a decision without a note is refused",
+		);
+		check(
+			(await statusOf(() =>
+				ops.decideCancellationRequest(outsider, "cr-ops-1", { action: "accept", note: "ok" }),
+			)) === 404,
+			"an outsider deciding a cancellation request gets 404",
+		);
+
+		const decided = await ops.decideCancellationRequest(admin, "cr-ops-1", {
+			action: "accept",
+			note: "approved by finance",
+		});
+		check(decided.request.status === "accepted", "accepting a request records the decision", decided.request);
+
+		// Idempotent: the same decision again is a no-op, not a 409.
+		const repeated = await ops.decideCancellationRequest(admin, "cr-ops-1", {
+			action: "accept",
+			note: "approved again",
+		});
+		check(repeated.request.status === "accepted", "repeating the same decision is a no-op");
+
+		// A different decision on a decided request is refused.
+		check(
+			(await statusOf(() =>
+				ops.decideCancellationRequest(admin, "cr-ops-1", { action: "decline", note: "changed my mind" }),
+			)) === 409,
+			"a conflicting decision on a decided request is refused",
+		);
+
+		const decisionAudit = await db.query(
+			`SELECT action FROM admin_audit_log WHERE entity_id = ?`,
+			["cr-ops-1"],
+		);
+		check(
+			decisionAudit.rows.length === 1 &&
+				decisionAudit.rows[0].action === "registration.refund-request.accepted",
+			"the decision wrote exactly one audit row",
+			decisionAudit.rows,
+		);
+	}
+
+
 } catch (err) {
 	failures.push({ label: "unexpected exception", detail: err?.stack ?? String(err) });
 	console.error("\nUnexpected exception:", err);

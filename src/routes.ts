@@ -42,6 +42,10 @@ export default [
   route("api/admin/events/:id/archive", "routes/api.admin.events.$id.archive.ts"),
   route("api/admin/events/:id/cancel", "routes/api.admin.events.$id.cancel.ts"),
   route("api/admin/events/:id/recompute", "routes/api.admin.events.$id.recompute.ts"),
+  route("api/admin/events/:id/operations", "routes/api.admin.events.$id.operations.ts"),
+  route("api/admin/events/:id/registrations/manual", "routes/api.admin.events.$id.registrations.manual.ts"),
+  route("api/admin/registrations/:id/command", "routes/api.admin.registrations.$id.command.ts"),
+  route("api/admin/cancellation-requests/:id/decision", "routes/api.admin.cancellation-requests.$id.decision.ts"),
   route("api/admin/users/:id/role", "routes/api.admin.users.$id.role.ts"),
 
   // Attendance V2 (phase 5). Append-only records; state is derived from history.
