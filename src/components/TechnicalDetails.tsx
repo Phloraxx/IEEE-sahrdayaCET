@@ -5,13 +5,10 @@ import pkg from "../../package.json";
 const { version } = pkg;
 
 /**
- * The build badge is a development aid, not public content. It used to render
- * on every page, so visitors could read the deployed version. It now appears
- * only in dev builds, or when a deployment explicitly opts in with
- * `VITE_SHOW_BUILD_VER=1` (useful for confirming what staging is running).
+ * The build badge renders on every deployment - dev, staging and production -
+ * so anyone can confirm which version the site is running.
  */
-const showBuildVersion =
-  import.meta.env.DEV || import.meta.env.VITE_SHOW_BUILD_VER === "1";
+const showBuildVersion = true;
 
 export const TechnicalDetails: React.FC = () => {
   const reduceMotion = Boolean(useReducedMotion());
