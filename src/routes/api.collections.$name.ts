@@ -31,6 +31,73 @@ function badRequest(message: string): Response {
 }
 
 /**
+ * Relationship names a client may expand, and where they point.
+ *
+ * Deliberately a fixed map rather than schema introspection: an expand is a join
+ * across collections, and letting a caller name an arbitrary table would turn
+ * this endpoint into a cross-collection reader.
+ */
+const EXPANDABLE: Record<string, { column: string; table: string }> = {
+	society: { column: "society_id", table: "societies" },
+	actor: { column: "actor_id", table: "users" },
+	event: { column: "event_id", table: "events" },
+	registration: { column: "registration_id", table: "registrations" },
+	certificate: { column: "certificate_id", table: "certificates" },
+};
+
+/**
+ * Attach `expand` objects to rows, PocketBase-style.
+ *
+ * Unknown names are ignored rather than rejected: the client sends a fixed set,
+ * and a stale name should degrade to a flat row, not a 400 that breaks a page.
+ */
+async function expandRows(
+	rows: Record<string, unknown>[],
+	expand: string,
+): Promise<Record<string, unknown>[]> {
+	const names = expand
+		.split(",")
+		.map((name) => name.trim())
+		.filter((name) => name && name in EXPANDABLE);
+	if (!names.length || !rows.length) return rows;
+
+	// Collect the ids per relationship, then fetch each table once.
+	const idsByTable = new Map<string, Set<string>>();
+	for (const name of names) {
+		const spec = EXPANDABLE[name] as { column: string; table: string };
+		const ids = idsByTable.get(spec.table) ?? new Set<string>();
+		for (const row of rows) {
+			const value = row[spec.column];
+			if (typeof value === "string" && value) ids.add(value);
+		}
+		idsByTable.set(spec.table, ids);
+	}
+
+	const fetched = new Map<string, Map<string, Record<string, unknown>>>();
+	for (const [table, ids] of idsByTable) {
+		if (!ids.size) continue;
+		const list = [...ids];
+		const result = await query<Record<string, unknown>>(
+			`SELECT * FROM "${table}" WHERE "id" IN (${list.map(() => "?").join(", ")})`,
+			list,
+		);
+		fetched.set(table, new Map(result.rows.map((row) => [String(row.id), row])));
+	}
+
+	return rows.map((row) => {
+		const expand: Record<string, unknown> = {};
+		for (const name of names) {
+			const spec = EXPANDABLE[name] as { column: string; table: string };
+			const value = row[spec.column];
+			if (typeof value !== "string" || !value) continue;
+			const related = fetched.get(spec.table)?.get(value);
+			if (related) expand[name] = related;
+		}
+		return Object.keys(expand).length ? { ...row, expand } : row;
+	});
+}
+
+/**
  * Quote a column identifier.
  *
  * Every identifier reaching this function has already been checked against the
@@ -112,12 +179,17 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 		[...bindings, perPage, (page - 1) * perPage],
 	);
 
+	// `expand` is applied after the page is read, so the join cost is bounded by
+	// perPage rather than the table size.
+	const expand = url.searchParams.get("expand") ?? "";
+	const items = expand ? await expandRows(rows.rows, expand) : rows.rows;
+
 	return json({
 		page,
 		perPage,
 		totalItems,
 		totalPages: totalItems < 0 ? -1 : Math.ceil(totalItems / perPage),
-		items: rows.rows,
+		items,
 	});
 }
 
