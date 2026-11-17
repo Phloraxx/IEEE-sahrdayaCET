@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import pkg from "../../package.json";
-
-const { version } = pkg;
 
 /**
  * The build badge renders on every deployment - dev, staging and production -
- * so anyone can confirm which version the site is running.
+ * so anyone can confirm which version the site is running. __BUILD_INFO__ is
+ * baked at build time: package version + git short SHA, or the build
+ * timestamp when git is unavailable in the build container.
  */
 const showBuildVersion = true;
 
@@ -67,7 +66,7 @@ export const TechnicalDetails: React.FC = () => {
           className="absolute bottom-6 right-6 z-10 hidden md:block text-right"
         >
           <p className="font-mono text-[10px] text-gray-600">
-            BUILD_VER: {version}
+            BUILD_VER: {__BUILD_INFO__.display}
           </p>
         </motion.div>
       ) : null}
