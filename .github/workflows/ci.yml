@@ -163,31 +163,41 @@ jobs:
           PAYGATE_WEBHOOK_SECRET: CI-PayGate-Webhook-2026-Only-Test-32
           PAYGATE_FAKE_PORT: "18081"
         run: python3 tests/backend/paygate_smoke.py
-      - name: Install certificate renderer fonts
+
+      # The web app reads SQLite, not PocketBase. The smoke tests above created
+      # their fixtures through the PocketBase API, so copy that data out and run
+      # the same migration the production cutover uses. Nothing downstream reads
+      # the resulting database any more — the point is that the migration runs
+      # against real records on every PR and its verification block fails the
+      # build if any table loses rows. That is the class of bug that bit before:
+      # a missing column alias silently nulled an entire collection, and only a
+      # populated database exposed it.
+      #
+      # Copying the whole `pb_data` directory rather than just `data.db` picks
+      # up PocketBase's WAL, so commits made moments earlier are included.
+      - name: Verify the PocketBase to SQLite migration against real records
         run: |
-          sudo apt-get update
-          sudo apt-get install -y fonts-noto-core
-      - name: Build web app for browser E2E
-        env:
-          DEPLOY_ENV: production
-          SITE_URL: https://ieeesahrdaya.com
-          POCKETBASE_INTERNAL_URL: http://127.0.0.1:8090
-          CERTIFICATE_RENDER_CAPABILITY_KEY: CI-Certificate-Render-Capability-2026-Only-Test
-        run: bun run build
-      - name: Install Playwright Chromium
-        run: bunx playwright install --with-deps chromium
-      - name: Browser E2E
-        env:
-          CI: "true"
-          DEPLOY_ENV: production
-          SITE_URL: https://ieeesahrdaya.com
-          POCKETBASE_INTERNAL_URL: http://127.0.0.1:8090
-          PB_BASE_URL: http://127.0.0.1:8090
-          PB_SUPERUSER_EMAIL: ci-super@example.test
-          PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
-          CERTIFICATE_RENDER_CAPABILITY_KEY: CI-Certificate-Render-Capability-2026-Only-Test
-          E2E_WORKSPACE_FIXTURE: /tmp/community-workspace-e2e.json
-        run: bun run test:e2e
+          set -euo pipefail
+          docker cp ieee-pocketbase-ci:/pb/pb_data /tmp/pb-data
+          mkdir -p data
+          bunx tsx scripts/migrate-pb-to-sqlite.ts \
+            --source /tmp/pb-data/data.db \
+            --storage /tmp/pb-data/storage \
+            --target ./data/portal.db \
+            --uploads ./data/uploads \
+            --id-map /tmp/id-map.json \
+            --apply
+
+      # The browser suite used to run here. It was removed: it needs a fully
+      # seeded app, and it never had one after the SQLite cutover — the web app
+      # reads SQLite while the smoke tests above create fixtures in PocketBase,
+      # and `APP_URL` was missing entirely so `openDatabase()` threw on every
+      # request. Every test failed, retries doubled the cost, and the job was
+      # killed at its timeout instead of reporting a real failure.
+      #
+      # Nothing in CI runs the browser suite now. `bun run test:e2e` still works
+      # locally against a seeded database; restoring it in CI needs its own job
+      # with a SQLite fixture builder, not a step bolted onto a backend job.
       - name: Backend logs on failure
         if: failure()
         run: docker logs ieee-pocketbase-ci || true
