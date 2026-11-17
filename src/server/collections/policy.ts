@@ -32,6 +32,14 @@ export interface CollectionPolicy {
 	readPredicate?: string;
 	/** Columns a client may never write. */
 	readonlyColumns?: readonly string[];
+	/**
+	 * Column that ties a row to its owner, for `read: "self"` / `write: "self"`.
+	 *
+	 * This is what keeps an admin capability from widening a user-scoped query:
+	 * a "self" policy is *always* filtered by this column, whatever the actor's
+	 * capabilities are.
+	 */
+	ownerColumn?: string;
 }
 
 /** The collections the browser may touch, and under what terms. */
@@ -66,6 +74,7 @@ export const COLLECTION_POLICIES: Record<string, CollectionPolicy> = {
 		table: "users",
 		read: "self",
 		write: "self",
+		ownerColumn: "id",
 		readonlyColumns: ["role", "google_sub", "email_verified"],
 	},
 	registrations: {
@@ -80,9 +89,20 @@ export const COLLECTION_POLICIES: Record<string, CollectionPolicy> = {
 		read: "self",
 		write: "capability",
 		writeCapability: "assignments.manage",
+		ownerColumn: "user_id",
 	},
-	event_waitlist: { table: "event_waitlist", read: "self", write: "self" },
-	community_profiles: { table: "community_profiles", read: "self", write: "self" },
+	event_waitlist: {
+		table: "event_waitlist",
+		read: "self",
+		write: "self",
+		ownerColumn: "user_id",
+	},
+	community_profiles: {
+		table: "community_profiles",
+		read: "self",
+		write: "self",
+		ownerColumn: "user_id",
+	},
 	coupons: {
 		table: "coupons",
 		read: "capability",

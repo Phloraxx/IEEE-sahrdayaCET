@@ -15,6 +15,34 @@ export default [
   route("api/registration-memory", "routes/api.registration-memory.ts"),
   route("api/registrations/:id/payment", "routes/api.registrations.$id.payment.ts"),
   route("api/webhooks/paygate", "routes/api.webhooks.paygate.ts"),
+
+  // Generic collection surface (phase 4). Replaces the browser's direct
+  // PocketBase collection access; policy-gated and filter-allow-listed.
+  route("api/collections/:name", "routes/api.collections.$name.ts"),
+  route("api/collections/:name/:id", "routes/api.collections.$name.$id.ts"),
+
+  // Workspace surface (phase 4). Same authorization calls the PocketBase hooks
+  // made, so the rules did not drift.
+  route("api/session", "routes/api.session.ts"),
+  route("api/workspace/me", "routes/api.workspace.me.ts"),
+  route("api/workspace/assignments", "routes/api.workspace.assignments.ts"),
+  route("api/workspace/assignments/:id", "routes/api.workspace.assignments.$id.ts"),
+  route("api/workspace/users/search", "routes/api.workspace.users.search.ts"),
+  route("api/workspace/profile", "routes/api.workspace.profile.ts"),
+  route("api/workspace/events/:id/workflow", "routes/api.workspace.events.$id.workflow.ts"),
+  route("api/workspace/check-in", "routes/api.workspace.check-in.ts"),
+
+  // Admin surface (phase 4). Branch capabilities see every event; a scoped actor
+  // sees only the events where they hold the capability.
+  route("api/admin/registrations", "routes/api.admin.registrations.ts"),
+  route("api/admin/registrations/:id", "routes/api.admin.registrations.$id.ts"),
+  route("api/admin/payments", "routes/api.admin.payments.ts"),
+  route("api/admin/payments/summary", "routes/api.admin.payments.summary.ts"),
+  route("api/admin/data-health", "routes/api.admin.data-health.ts"),
+  route("api/admin/events/:id/archive", "routes/api.admin.events.$id.archive.ts"),
+  route("api/admin/events/:id/cancel", "routes/api.admin.events.$id.cancel.ts"),
+  route("api/admin/events/:id/recompute", "routes/api.admin.events.$id.recompute.ts"),
+  route("api/admin/users/:id/role", "routes/api.admin.users.$id.role.ts"),
   route("_", "routes/oauth-popup-result.tsx"),
   route("robots.txt", "routes/robots.ts"),
   route("sitemap.xml", "routes/sitemap.ts"),

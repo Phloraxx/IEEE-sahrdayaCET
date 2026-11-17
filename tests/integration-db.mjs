@@ -1043,6 +1043,162 @@ try {
 			"the ledger records a manual review", lateLedger);
 	}
 
+	// -----------------------------------------------------------------------
+	// phase 4 — collection policy and admin/workspace authorization
+	// -----------------------------------------------------------------------
+	{
+		const policy = await import("../src/server/collections/policy.ts");
+		const admin = await import("../src/server/admin/service.ts");
+		const workspace = await import("../src/server/workspace/service.ts");
+
+		const columns = await policy.tableColumns("events");
+		check(columns.has("title") && columns.has("society_id"),
+			"tableColumns reads the live schema");
+
+		// --- filter translation: the grammar is small and fails closed ---------
+		const translated = policy.translateFilter("status = 'published' && is_deleted = 0", columns);
+		check(translated.sql.includes('"status" = ?') && translated.sql.includes('"is_deleted" = ?'),
+			"a valid filter compiles to bound parameters", translated.sql);
+		check(translated.params.length === 2 && translated.params[0] === "published",
+			"filter values are bound, never interpolated", translated.params);
+
+		// camelCase is normalised to snake_case, matching the schema.
+		const camel = policy.translateFilter("societyId = 'abc'", columns);
+		check(camel.sql.includes('"society_id" = ?'),
+			"filter fields are normalised to snake_case", camel.sql);
+
+		let rejected = null;
+		try {
+			policy.translateFilter("title = 'x'; DROP TABLE events; --", columns);
+		} catch (err) {
+			rejected = err.message;
+		}
+		check(rejected !== null, "a filter carrying SQL is rejected, not executed", rejected);
+
+		let unknownField = null;
+		try {
+			policy.translateFilter("secret_column = 'x'", columns);
+		} catch (err) {
+			unknownField = err.message;
+		}
+		check(unknownField !== null, "an unknown filter field is rejected", unknownField);
+
+		let badSort = null;
+		try {
+			policy.translateSort("-not_a_column", columns);
+		} catch (err) {
+			badSort = err.message;
+		}
+		check(badSort !== null, "an unknown sort field is rejected", badSort);
+
+		const sort = policy.translateSort("-created_at,title", columns);
+		check(sort.includes('"created_at" DESC') && sort.includes('"title" ASC'),
+			"a valid sort compiles with direction", sort);
+
+		// --- admin: capability gates ------------------------------------------
+		const plainUser = { id: "u-plain", role: "user" };
+		let forbidden = null;
+		try {
+			await admin.listPayments(plainUser, {});
+		} catch (err) {
+			forbidden = err;
+		}
+		check(forbidden?.status === 403 && forbidden?.code === "FORBIDDEN",
+			"a plain user cannot read the payment desk", forbidden?.code);
+
+		let healthForbidden = null;
+		try {
+			await admin.dataHealth(plainUser);
+		} catch (err) {
+			healthForbidden = err;
+		}
+		check(healthForbidden?.status === 403,
+			"a plain user cannot read data health", healthForbidden?.code);
+
+		// --- admin: role change guards ----------------------------------------
+		let roleForbidden = null;
+		try {
+			await admin.changeUserRole(plainUser, "u-plain", "admin");
+		} catch (err) {
+			roleForbidden = err;
+		}
+		check(roleForbidden?.status === 403,
+			"a non-admin cannot change a role", roleForbidden?.code);
+
+		// --- workspace: role/scope mismatch and duplicates ---------------------
+		const adminActor = { id: "u-admin", role: "admin" };
+		let mismatch = null;
+		try {
+			await workspace.createAssignment(adminActor, {
+				userId: "u-plain",
+				roleCode: "society_chair",
+				scopeType: "branch",
+			});
+		} catch (err) {
+			mismatch = err;
+		}
+		check(mismatch !== null,
+			"a society role cannot be granted at branch scope", mismatch?.code);
+
+		let missingScope = null;
+		try {
+			await workspace.createAssignment(adminActor, {
+				userId: "u-plain",
+				roleCode: "society_chair",
+				scopeType: "society",
+			});
+		} catch (err) {
+			missingScope = err;
+		}
+		check(missingScope?.code === "SOCIETY_REQUIRED",
+			"a society-scoped grant requires a society", missingScope?.code);
+
+		let unknownUser = null;
+		try {
+			await workspace.createAssignment(adminActor, {
+				userId: "does-not-exist",
+				roleCode: "branch_chair",
+				scopeType: "branch",
+			});
+		} catch (err) {
+			unknownUser = err;
+		}
+		check(unknownUser?.status === 404,
+			"granting a role to an unknown user is a 404", unknownUser?.code);
+
+		// --- IDOR: a scoped actor never sees another event's registrations -----
+		const scopedActor = { id: "u-scoped", role: "user" };
+		const scoped = await admin.listRegistrations(scopedActor, {});
+		check(Array.isArray(scoped.registrations) && scoped.registrations.length === 0,
+			"an actor with no assignments sees no registrations", scoped.total);
+		check(scoped.finance === false,
+			"an actor without finance access gets no finance columns");
+
+		// A specific event the actor cannot reach is refused, not silently ignored.
+		const anyEvent = await db.query("SELECT id FROM events LIMIT 1");
+		if (anyEvent.rows[0]) {
+			let eventForbidden = null;
+			try {
+				await admin.listRegistrations(scopedActor, { eventId: anyEvent.rows[0].id });
+			} catch (err) {
+				eventForbidden = err;
+			}
+			check(eventForbidden?.status === 403,
+				"a scoped actor cannot request another event's registrations", eventForbidden?.code);
+		}
+
+		// --- workspace: an actor cannot check in a ticket for an event they lack
+		let checkInForbidden = null;
+		try {
+			await workspace.checkIn(plainUser, "TKT-NONEXISTENT", "");
+		} catch (err) {
+			checkInForbidden = err;
+		}
+		check(checkInForbidden?.status === 404 || checkInForbidden?.status === 403,
+			"check-in refuses an unknown ticket before touching data", checkInForbidden?.code);
+	}
+
+
 } catch (err) {
 	failures.push({ label: "unexpected exception", detail: err?.stack ?? String(err) });
 	console.error("\nUnexpected exception:", err);
