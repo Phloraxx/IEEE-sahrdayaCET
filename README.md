@@ -12,24 +12,22 @@
 
 ## Architecture
 
-The application deliberately has only two runtime services:
+The application deliberately has only one runtime service:
 
 ```text
 Browser
   │
 Cloudflare / Dokploy / Traefik
-  ├── /*     → React Router v7 web container
-  └── /api/* → PocketBase container
-
-web ── private app-internal network ── PocketBase ── pb_data volume
+  └── /*  →  React Router v7 app server  ──  portal.db (SQLite, WAL)
+                                          └──  uploads/ (bind mount)
 ```
 
-- **React Router v7 Framework Mode** owns SSR, HTML routes, metadata/resource routes, and UI.
-- **PocketBase 0.39.9** owns auth, SQLite data, files, API authorization, migrations, hooks, and custom transactional commands.
-- The browser authenticates directly with PocketBase through same-origin `/api`.
-- Public SSR reads use the private `pocketbase-internal` network alias.
-- There is no React-side BFF and no runtime PocketBase superuser credential.
-- `pb_migrations/` is the only schema/rule/index source of truth.
+- **React Router v7 Framework Mode** owns SSR, HTML routes, metadata routes, the browser UI, and `/api/*`.
+- The **app server** owns authentication, authorization, registration, payments, attendance, certificates, notifications, and file serving. There is no second API process.
+- **better-sqlite3** is the single database, opened as one process-wide connection in WAL mode.
+- Sessions are opaque tokens in an HttpOnly `__Host-` cookie, stored as a sha256 hash so logout is a delete and a database leak does not hand out live sessions.
+- `sqlite/schema.sql` is the only schema source of truth. `pb_migrations/` is PocketBase's frozen history and is not applied to this database.
+- A PocketBase container is kept alongside as a **rollback target only**; the app does not read from it.
 
 See [docs/architecture.md](docs/architecture.md), [docs/security-architecture.md](docs/security-architecture.md), [docs/deployment.md](docs/deployment.md), and [docs/release-checklist.md](docs/release-checklist.md).
 
@@ -39,9 +37,9 @@ See [docs/architecture.md](docs/architecture.md), [docs/security-architecture.md
 | --- | --- |
 | Web | React 19, React Router 7.18, TypeScript, Vite 7 |
 | UI | Tailwind CSS 4, shadcn/ui/Radix, Framer Motion, Lucide |
-| Client data | PocketBase JS SDK, TanStack Query |
-| Backend | PocketBase 0.39.9, SQLite, JS hooks/migrations |
-| Auth | Google OAuth through PocketBase |
+| Client data | TanStack Query over same-origin `/api` |
+| Backend | React Router resource routes, better-sqlite3, TypeScript |
+| Auth | Google OAuth, app-issued session cookie |
 | Deployment | Docker Compose on Dokploy/Traefik |
 | Edge | Cloudflare |
 
@@ -50,47 +48,57 @@ See [docs/architecture.md](docs/architecture.md), [docs/security-architecture.md
 ```text
 src/
   routes.ts                 explicit React Router route config
-  root.tsx                  document shell, providers, global metadata
-  routes/                   HTML/resource route modules
-  server/public/            credential-free SSR PocketBase readers
-  lib/data/                 browser PocketBase data modules
+  root.tsx                  document shell, providers, global metadata, cache middleware
+  routes/                   HTML/resource route modules, including /api/*
+  server/                   application server: auth, authz, registration, payments,
+                            attendance, certificates, notifications, collections
+  server/public/            credential-free SSR readers (direct SQLite)
+  server/http/              shared HTTP helpers and the public cache policy
+  lib/db.server.ts          the single SQLite connection and statement cache
+  lib/data/                 browser data modules (same-origin /api)
   components/               shared UI
   features/                 feature UI
 
-pb_migrations/              complete baseline + incremental migrations
-pb_hooks/                   authoritative backend invariants and commands
-pocketbase/Dockerfile       pinned PocketBase runtime image
-Dockerfile                  web build + Node 22 SSR runtime
+sqlite/schema.sql           the only schema source of truth
+scripts/migrate-pb-to-sqlite.ts   PocketBase -> SQLite cutover
+scripts/ieee-backup-export.sh     database + uploads backup and restore
+pb_migrations/              PocketBase's frozen history (rollback reference only)
+pocketbase/Dockerfile       pinned PocketBase runtime image (rollback target)
+Dockerfile                  app server build + Node 22 SSR runtime
 docker-compose.yml          production/staging stack
-docker-compose.local.yml    local PocketBase stack
-tests/backend/              clean-room PocketBase integration suite
+tests/integration-db.mjs    repository + schema invariants against real SQLite
+tests/integration-migrate.mjs  cutover migration against a PocketBase fixture
 tests/e2e/                  browser/SSR/SEO tests
 ```
 
 ## Request ownership
 
-`/api` belongs exclusively to PocketBase.
+`/api` belongs exclusively to the app server.
 
-Normal record operations use PocketBase collections directly. Custom routes exist only for operations that need transactional or privileged semantics, including:
+Normal record operations go through the policy-gated collection surface
+(`/api/collections/:name`), which enforces an allow-list of collections and
+fields and compiles a small filter grammar to bound parameters. Dedicated
+command routes exist only for operations that need transactional or privileged
+semantics, including:
 
-- `POST /api/app/events/:id/register`
-- `PUT /api/app/events/:id/coupons`
+- `POST /api/events/:id/register`
+- `POST /api/events/:id/coupons`
 - `POST /api/workspace/events/:id/workflow` (publish, unpublish, complete)
-- `POST /api/app/admin/users/:id/role`
+- `POST /api/admin/users/:id/role`
 
 ## Local development
 
-Requirements: Bun 1.2.9+, Docker, and Docker Compose.
+Requirements: Bun 1.2.9+ and Node 22. No Docker is needed for the app itself —
+it creates its own SQLite database on first request.
 
 ```bash
 cp .env.example .env.local
-
-docker compose -f docker-compose.local.yml up --build
 bun install --frozen-lockfile
 bun run dev
 ```
 
-The web app runs on `http://127.0.0.1:3000` by default. Vite proxies `/api` to the local PocketBase instance on `127.0.0.1:8090`.
+The app runs on `http://127.0.0.1:3000` by default and serves `/api` itself.
+There is no proxy: a leftover proxy entry would shadow the app's own routes.
 
 For another local port:
 
@@ -98,7 +106,9 @@ For another local port:
 PORT=3100 bun run dev
 ```
 
-Create the first local PocketBase superuser with the PocketBase CLI inside the container when needed. End-user authentication is Google OAuth; password auth is not an application login path.
+The local database is created at `SQLITE_PATH` (default `./data/portal.db`) and
+seeded from `sqlite/schema.sql` on first use. End-user authentication is Google
+OAuth; password auth is not an application login path.
 
 ## Commands
 
@@ -109,35 +119,32 @@ bun run start        # serve the built app
 bun run lint         # ESLint
 bun run typecheck    # React Router typegen + TypeScript
 bun run test         # Vitest
+bun run test:integration  # repository + schema invariants, and the cutover migration
 bun run test:e2e     # Playwright Chromium suite
 ```
 
-Backend clean-room smoke test:
-
-```bash
-PB_BASE_URL=http://127.0.0.1:8090 \
-PB_SUPERUSER_EMAIL=... \
-PB_SUPERUSER_PASSWORD=... \
-python3 tests/backend/pocketbase_smoke.py
-```
-
-CI performs this against a newly created PocketBase database, not a long-lived development database.
+`test:integration` runs against real databases, not mocks: `tests/integration-db.mjs`
+applies `sqlite/schema.sql` to a fresh file and exercises every repository method,
+and `tests/integration-migrate.mjs` runs the PocketBase → SQLite migration against
+a fixture that includes the data shapes staging never had.
 
 ## Database changes
 
 Do not create one-off schema scripts or edit production first.
 
-1. Add an incremental file to `pb_migrations/`.
-2. Make it safe for both an existing database and a fresh database where applicable.
-3. Update `202607200000_baseline_schema.js` when the field belongs in every new installation.
-4. Run the migration against a disposable empty database.
-5. Run `tests/backend/pocketbase_smoke.py`.
+1. Change `sqlite/schema.sql`. It is idempotent and is re-applied at boot when
+   `PRAGMA user_version` is behind `SCHEMA_VERSION`.
+2. Bump `SCHEMA_VERSION` in `src/lib/db.server.ts` when the change is not purely
+   additive. The file only creates missing objects — altering an existing column
+   needs a real migration, and a version bump alone will not do it.
+3. Run `bun run test:integration` against a fresh database.
+4. Run the change against a recent copy of production data before rollout.
 
-PocketBase applies committed migrations when the container starts.
+`pb_migrations/` is PocketBase's frozen history. Do not add to it.
 
 ## Authorization model
 
-PocketBase account roles remain `user`, `chair`, `content`, and `admin` for
+Account roles are `user`, `chair`, `content`, and `admin`, stored on `users.role` for
 compatibility. Workspace assignments use the capability roles Organizer,
 Finance, Registration Staff, Check-in Staff, and Content Editor, with
 branch/society/event scope. Historical role codes are retained as aliases;
@@ -145,20 +152,20 @@ directory titles do not grant permissions.
 
 - Public users can read intentionally public records.
 - Signed-in users can access their own protected records.
-- Chairs are scoped by PocketBase rules to societies they chair.
+- Chairs are scoped to the societies they chair.
 - Content editors own their blog posts.
 - Admins have administrative access.
 - User role changes go through the dedicated admin command; ordinary user record updates cannot change `role`.
 
-Business invariants must remain correct when the React UI is bypassed. Put load-bearing checks in PocketBase rules/hooks/transactional routes.
+Business invariants must remain correct when the React UI is bypassed. Put load-bearing checks in the schema constraints and the service modules that own each transition.
 
 ## Event registration
 
-Registration is a transaction, not generic CRUD. One PocketBase command validates the event/form/capacity/coupon, creates the registration and ticket/payment state, and updates counters. If any step fails, no seat is reserved.
+Registration is a transaction, not generic CRUD. One command validates the event/form/capacity/coupon, creates the registration and ticket/payment state, and updates counters, all inside a single SQLite transaction. If any step fails, no seat is reserved.
 
 Admins can manually confirm an offline-verified pending payment through a dedicated command. The transition atomically marks it paid/confirmed, issues the ticket, records an audit marker, and queues the ticket and PDF receipt emails; generic record edits cannot forge the same state.
 
-`registeredCount` means active seat reservations (`pending + confirmed`). Cancelled registrations do not occupy capacity.
+`registered_count` means active seat reservations (`pending + confirmed`). Cancelled registrations do not occupy capacity.
 
 ## SEO
 
@@ -166,9 +173,9 @@ Public content is server-rendered. Published events have immutable crawlable URL
 
 ## CI/CD
 
-CI runs full validation, fresh-PocketBase backend tests + Playwright, and both
-container builds for pull requests into `dev`, final `main` pushes, and manual
-runs. Merged `dev` pushes and `dev` → `main` pull requests use a lighter
+CI runs full validation, integration suites against real databases + Playwright,
+and both container builds for pull requests into `dev`, final `main` pushes, and
+manual runs. Merged `dev` pushes and `dev` → `main` pull requests use a lighter
 validation gate instead of repeating the heavyweight integration jobs.
 
 Production CD runs only after a successful CI workflow on `main`. It verifies the tested SHA is still the current `main` head, then calls:
@@ -184,18 +191,22 @@ The canonical deployment remains the Dokploy-managed `docker-compose.yml`; do no
 
 ## Environment isolation
 
-Production and staging must use different Compose projects, volumes, OAuth configuration, encryption keys, payment secrets, and domains. Never point staging at production `pb_data`.
+Production and staging must use different Compose projects, volumes, OAuth configuration, encryption keys, payment secrets, and domains. Never point staging at production `pb_data` or the production `portal.db`.
 
-Dokploy should route:
+Dokploy routes everything to the app server:
 
-- `/api` → `pocketbase:8090` without stripping the path
-- `/` → `web:3000`
+- `/` and `/api` → `web:3000`
 
-The public `/_/` path is reserved for the IEEE-owned OAuth completion page. Never route `/_/` to PocketBase or expose PocketBase administration through the public host.
+The app serves `/api` itself. Do not reintroduce a proxy for `/api`: it would
+shadow the app's own routes, which is the dev-time mirror of the production
+Traefik bypass that broke the cutover once already.
+
+The PocketBase container stays on the private network as a rollback target and
+must not be exposed through the public host.
 
 ## Release process
 
-Normal promotion is `feature/release branch → dev → main`. Before future schema-sensitive releases, provision/use isolated staging, get full CI green on the exact release candidate, complete authenticated staging acceptance, verify enabled production integrations, take a fresh production PocketBase/files backup, review the `dev` → `main` diff, then deploy through the CI-gated `main` path.
+Normal promotion is `feature/release branch → dev → main`. Before future schema-sensitive releases, provision/use isolated staging, get full CI green on the exact release candidate, complete authenticated staging acceptance, verify enabled production integrations, take a fresh production backup with `scripts/ieee-backup-export.sh` and confirm it restores, review the `dev` → `main` diff, then deploy through the CI-gated `main` path.
 
 Use [docs/release-checklist.md](docs/release-checklist.md) as the release runbook.
 
