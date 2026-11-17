@@ -23,6 +23,8 @@ WORKDIR /app
 ENV NODE_ENV=production PORT=3000
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/build ./build
+# db.server.ts reads sqlite/schema.sql at boot (schema ensure/migrate path).
+COPY sqlite/ ./sqlite/
 COPY package.json ./package.json
 EXPOSE 3000
 USER node
