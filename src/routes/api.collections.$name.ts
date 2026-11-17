@@ -142,7 +142,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 	const filter = url.searchParams.get("filter");
 	if (filter) {
 		try {
-			const translated = translateFilter(filter, columns);
+			const translated = translateFilter(filter, columns, policy.aliases);
 			where.push(`(${translated.sql})`);
 			bindings.push(...translated.params);
 		} catch (error) {
@@ -154,7 +154,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 	const sort = url.searchParams.get("sort");
 	if (sort) {
 		try {
-			orderBy = translateSort(sort, columns);
+			orderBy = translateSort(sort, columns, policy.aliases);
 		} catch (error) {
 			return badRequest((error as Error).message);
 		}

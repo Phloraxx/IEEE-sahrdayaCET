@@ -33,6 +33,14 @@ export interface CollectionPolicy {
 	/** Columns a client may never write. */
 	readonlyColumns?: readonly string[];
 	/**
+	 * PocketBase field names this collection answers to, mapped to the real
+	 * column. The schema renamed `created`/`updated` to `created_at`/`updated_at`
+	 * and `execom.order` to `sort_order`; the client data modules still sort and
+	 * filter by the PocketBase names, so the translation happens here instead of
+	 * in every call site.
+	 */
+	aliases?: Readonly<Record<string, string>>;
+	/**
 	 * Column that ties a row to its owner, for `read: "self"` / `write: "self"`.
 	 *
 	 * This is what keeps an admin capability from widening a user-scoped query:
@@ -69,6 +77,8 @@ export const COLLECTION_POLICIES: Record<string, CollectionPolicy> = {
 		read: "public",
 		write: "capability",
 		writeCapability: "execom.manage",
+		// PocketBase's `order` field is `sort_order` in the schema.
+		aliases: { order: "sort_order" },
 	},
 	users: {
 		table: "users",
@@ -117,6 +127,52 @@ export const COLLECTION_POLICIES: Record<string, CollectionPolicy> = {
 		write: "capability",
 		writeCapability: "reports.view",
 	},
+	/**
+	 * The notification outbox, as read by the admin dashboard's "failed
+	 * notifications" counter.
+	 *
+	 * Every column is read-only: the outbox is written by the delivery service,
+	 * and a browser that could POST to it could forge a delivery record.
+	 * `reports.view` is the capability the dashboard already requires to render
+	 * that counter, and the one `admin_audit_log` uses — both are branch
+	 * reporting surfaces, and both expose recipient identity.
+	 */
+	notification_outbox: {
+		table: "notification_outbox",
+		read: "capability",
+		readCapability: "reports.view",
+		write: "capability",
+		writeCapability: "reports.view",
+		readonlyColumns: [
+			"id",
+			"registration_id",
+			"kind",
+			"status",
+			"recipient",
+			"dedupe_key",
+			"attempts",
+			"next_attempt_at",
+			"last_attempt_at",
+			"sent_at",
+			"last_error",
+			"certificate_id",
+			"certificate_batch_id",
+			"created_at",
+			"updated_at",
+		],
+	},
+};
+
+/**
+ * PocketBase field names that mean a column with a different name.
+ *
+ * Applied to every collection: the schema uses the `_at` suffix throughout, and
+ * the client modules still ask for `created` / `updated` because that is what
+ * PocketBase exposed. A collection can add its own aliases on top.
+ */
+const FIELD_ALIASES: Readonly<Record<string, string>> = {
+	created: "created_at",
+	updated: "updated_at",
 };
 
 // ---------------------------------------------------------------------------
@@ -211,6 +267,24 @@ export interface TranslatedFilter {
 }
 
 /**
+ * Resolve a PocketBase field name to the column it means, or null.
+ *
+ * Validation stays here: an alias only ever yields a column that the live table
+ * schema actually has, so a crafted alias cannot reach the query.
+ */
+function resolveColumn(
+	field: string,
+	allowedColumns: ReadonlySet<string>,
+	aliases: Readonly<Record<string, string>>,
+): string | null {
+	const column = field.replace(/([A-Z])/g, "_$1").toLowerCase();
+	if (allowedColumns.has(column)) return column;
+	const aliased = aliases[field] ?? aliases[column] ?? FIELD_ALIASES[field] ?? FIELD_ALIASES[column];
+	if (aliased && allowedColumns.has(aliased)) return aliased;
+	return null;
+}
+
+/**
  * Translate a PocketBase-style filter into SQL.
  *
  * Supports `field <op> value` joined by `&&` / `||` and parentheses. Field names
@@ -219,6 +293,7 @@ export interface TranslatedFilter {
 export function translateFilter(
 	filter: string,
 	allowedColumns: ReadonlySet<string>,
+	aliases: Readonly<Record<string, string>> = {},
 ): TranslatedFilter {
 	const tokens = tokenize(filter);
 	const params: unknown[] = [];
@@ -262,8 +337,8 @@ export function translateFilter(
 		}
 		position += 3;
 
-		const column = field.text.replace(/([A-Z])/g, "_$1").toLowerCase();
-		if (!allowedColumns.has(column)) {
+		const column = resolveColumn(field.text, allowedColumns, aliases);
+		if (!column) {
 			throw new Error(`Unknown filter field: ${field.text}`);
 		}
 
@@ -285,7 +360,11 @@ export function translateFilter(
 }
 
 /** Sort: `-field` is descending; validated against the column set. */
-export function translateSort(sort: string, allowedColumns: ReadonlySet<string>): string {
+export function translateSort(
+	sort: string,
+	allowedColumns: ReadonlySet<string>,
+	aliases: Readonly<Record<string, string>> = {},
+): string {
 	const parts = sort
 		.split(",")
 		.map((part) => part.trim())
@@ -293,8 +372,8 @@ export function translateSort(sort: string, allowedColumns: ReadonlySet<string>)
 		.map((part) => {
 			const descending = part.startsWith("-");
 			const raw = descending ? part.slice(1) : part;
-			const column = raw.replace(/([A-Z])/g, "_$1").toLowerCase();
-			if (!allowedColumns.has(column)) throw new Error(`Unknown sort field: ${raw}`);
+			const column = resolveColumn(raw, allowedColumns, aliases);
+			if (!column) throw new Error(`Unknown sort field: ${raw}`);
 			return `"${column}" ${descending ? "DESC" : "ASC"}`;
 		});
 	if (!parts.length) return "";
