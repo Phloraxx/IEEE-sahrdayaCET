@@ -1199,6 +1199,217 @@ try {
 	}
 
 
+	// -----------------------------------------------------------------------
+	// phase 5 — attendance V2 (staging has zero rows; fixtures are built here)
+	// -----------------------------------------------------------------------
+	{
+		const attendance = await import("../src/server/attendance/service.ts");
+
+		// --- the fold that defines "present" -----------------------------------
+		check(attendance.nextCreditState(false, "present") === true,
+			"a present scan credits attendance");
+		check(attendance.nextCreditState(false, "entry") === true,
+			"an entry scan credits attendance");
+		check(attendance.nextCreditState(false, "manual_add") === true,
+			"a manual add credits attendance");
+		check(attendance.nextCreditState(true, "manual_remove") === false,
+			"a manual remove clears attendance");
+		check(attendance.nextCreditState(true, "something_else") === true,
+			"an unknown row type leaves state unchanged");
+
+		// --- fixtures: an event, a confirmed registration, a session ----------
+		const ev = await db.query(
+			"INSERT INTO events (id, title, slug, date, society_id, status, check_in_enabled) VALUES (?,?,?,?,?,?,?) RETURNING id",
+			["ev-att-1", "Attendance Test", "attendance-test", "2026-11-01", null, "published", 1],
+		);
+		check(ev.rows[0]?.id === "ev-att-1", "attendance fixture event created");
+
+		await db.query(
+			"INSERT INTO registrations (id, event_id, registration_status, ticket_id, user_name) VALUES (?,?,?,?,?)",
+			["reg-att-1", "ev-att-1", "confirmed", "TKT-ATT-1", "Test Attendee"],
+		);
+		await db.query(
+			"INSERT INTO registrations (id, event_id, registration_status, ticket_id, user_name) VALUES (?,?,?,?,?)",
+			["reg-att-cancelled", "ev-att-1", "cancelled", "TKT-ATT-2", "Cancelled Attendee"],
+		);
+		await db.query(
+			"INSERT INTO registrations (id, event_id, registration_status, ticket_id, user_name) VALUES (?,?,?,?,?)",
+			["reg-att-2", "ev-att-1", "confirmed", "TKT-ATT-3", "Second Attendee"],
+		);
+
+		// The audit and session rows reference users, so the actor needs a real row.
+		await db.query("INSERT INTO users (id, email, role) VALUES (?,?,?)", [
+			"u-att-admin", "att-admin@test.local", "admin",
+		]);
+		const adminActor = { id: "u-att-admin", role: "admin" };
+
+		// --- session configuration validation ---------------------------------
+		let noTitle = null;
+		try {
+			await attendance.createSession(adminActor, "ev-att-1", { startsAt: "2026-11-01T09:00:00Z" });
+		} catch (err) { noTitle = err; }
+		check(noTitle?.code === "TITLE_REQUIRED", "a session needs a title", noTitle?.code);
+
+		let badEnd = null;
+		try {
+			await attendance.createSession(adminActor, "ev-att-1", {
+				title: "Morning", startsAt: "2026-11-01T09:00:00Z", endsAt: "2026-11-01T08:00:00Z",
+			});
+		} catch (err) { badEnd = err; }
+		check(badEnd?.code === "INVALID_END", "a session end must follow its start", badEnd?.code);
+
+		let badWeight = null;
+		try {
+			await attendance.createSession(adminActor, "ev-att-1", {
+				title: "Morning", startsAt: "2026-11-01T09:00:00Z", attendanceWeight: 500,
+			});
+		} catch (err) { badWeight = err; }
+		check(badWeight?.code === "INVALID_WEIGHT", "attendance weight is bounded 0..100", badWeight?.code);
+
+		const created = await attendance.createSession(adminActor, "ev-att-1", {
+			title: "Morning", startsAt: "2026-11-01T09:00:00Z", endsAt: "2026-11-01T11:00:00Z",
+		});
+		const sessionId = created.session.id;
+		check(created.session.attendanceEnabled === true && created.session.checkInEnabled === true,
+			"a new session is attendance- and check-in-enabled by default");
+		check(created.session.presentCount === 0, "a new session has no attendance");
+
+		check(await attendance.eventHasSessions("ev-att-1") === true,
+			"the event is now in sessions mode");
+
+		// --- check-in: idempotency and guards ---------------------------------
+		let noKey = null;
+		try {
+			await attendance.attendanceCheckIn(adminActor, {
+				ticketId: "TKT-ATT-1", eventId: "ev-att-1", sessionId,
+			});
+		} catch (err) { noKey = err; }
+		check(noKey?.code === "IDEMPOTENCY_REQUIRED",
+			"a scan without an idempotency key is refused", noKey?.code);
+
+		const first = await attendance.attendanceCheckIn(adminActor, {
+			ticketId: "TKT-ATT-1", eventId: "ev-att-1", sessionId, idempotencyKey: "scan-1",
+		});
+		check(first.success === true && first.replayed === false,
+			"a first scan records attendance");
+		check(first.presentCount === 1, "present count reflects the scan", first.presentCount);
+
+		// Replaying the same key must not write a second row.
+		const replay = await attendance.attendanceCheckIn(adminActor, {
+			ticketId: "TKT-ATT-1", eventId: "ev-att-1", sessionId, idempotencyKey: "scan-1",
+		});
+		check(replay.replayed === true, "replaying a scan is recognised as a replay");
+		const rowsAfterReplay = await attendance.attendanceRows(sessionId, "reg-att-1");
+		check(rowsAfterReplay.length === 1,
+			"a replayed scan writes exactly one row", rowsAfterReplay.length);
+
+		// The same key used for a different registration is a conflict.
+		let keyConflict = null;
+		try {
+			await attendance.attendanceCheckIn(adminActor, {
+				ticketId: "TKT-ATT-3", eventId: "ev-att-1", sessionId, idempotencyKey: "scan-1",
+			});
+		} catch (err) { keyConflict = err; }
+		check(keyConflict?.code === "IDEMPOTENCY_CONFLICT",
+			"reusing a scan key for another attendee is a conflict", keyConflict?.code);
+
+		// A second scan with a fresh key is refused: they are already present.
+		let alreadyPresent = null;
+		try {
+			await attendance.attendanceCheckIn(adminActor, {
+				ticketId: "TKT-ATT-1", eventId: "ev-att-1", sessionId, idempotencyKey: "scan-2",
+			});
+		} catch (err) { alreadyPresent = err; }
+		check(alreadyPresent?.code === "ALREADY_PRESENT",
+			"a duplicate scan is refused", alreadyPresent?.code);
+
+		// A cancelled registration can never receive attendance credit.
+		let notConfirmed = null;
+		try {
+			await attendance.attendanceCheckIn(adminActor, {
+				ticketId: "TKT-ATT-2", eventId: "ev-att-1", sessionId, idempotencyKey: "scan-3",
+			});
+		} catch (err) { notConfirmed = err; }
+		check(notConfirmed?.code === "NOT_CONFIRMED",
+			"a cancelled registration cannot be checked in", notConfirmed?.code);
+
+		// --- corrections: append-only, reason required ------------------------
+		let noNote = null;
+		try {
+			await attendance.correctAttendance(adminActor, {
+				registrationId: "reg-att-1", sessionId, action: "manual_remove",
+			});
+		} catch (err) { noNote = err; }
+		check(noNote?.code === "NOTE_REQUIRED",
+			"a correction without a reason is refused", noNote?.code);
+
+		const removed = await attendance.correctAttendance(adminActor, {
+			registrationId: "reg-att-1", sessionId, action: "manual_remove", note: "left early",
+		});
+		check(removed.present === false && removed.presentCount === 0,
+			"a manual remove clears attendance", removed.presentCount);
+
+		let removeAgain = null;
+		try {
+			await attendance.correctAttendance(adminActor, {
+				registrationId: "reg-att-1", sessionId, action: "manual_remove", note: "again",
+			});
+		} catch (err) { removeAgain = err; }
+		check(removeAgain?.code === "NOT_PRESENT",
+			"removing someone who is not present is refused", removeAgain?.code);
+
+		const readded = await attendance.correctAttendance(adminActor, {
+			registrationId: "reg-att-1", sessionId, action: "manual_add", note: "came back",
+		});
+		check(readded.present === true && readded.presentCount === 1,
+			"a manual add restores attendance", readded.presentCount);
+
+		// Append-only: three rows now describe one attendee's history.
+		const history = await attendance.attendanceRows(sessionId, "reg-att-1");
+		check(history.length === 3,
+			"history is append-only: scan, remove and add are three rows", history.length);
+
+		const state = await attendance.registrationSessionState(sessionId, "reg-att-1");
+		check(state.present === true,
+			"derived state folds the history to present", state);
+
+		// --- qualification lock blocks configuration and corrections ----------
+		await attendance.lockQualification(adminActor, "ev-att-1", "results frozen");
+		let lockedCreate = null;
+		try {
+			await attendance.createSession(adminActor, "ev-att-1", {
+				title: "Evening", startsAt: "2026-11-01T18:00:00Z",
+			});
+		} catch (err) { lockedCreate = err; }
+		check(lockedCreate?.code === "ATTENDANCE_QUALIFICATION_LOCKED",
+			"a locked event refuses new sessions", lockedCreate?.code);
+
+		let lockedCorrect = null;
+		try {
+			await attendance.correctAttendance(adminActor, {
+				registrationId: "reg-att-1", sessionId, action: "manual_remove", note: "after lock",
+			});
+		} catch (err) { lockedCorrect = err; }
+		check(lockedCorrect?.code === "ATTENDANCE_QUALIFICATION_LOCKED",
+			"a locked event refuses corrections", lockedCorrect?.code);
+
+		await attendance.reopenQualification(adminActor, "ev-att-1", "recount");
+		const afterReopen = await attendance.createSession(adminActor, "ev-att-1", {
+			title: "Evening", startsAt: "2026-11-01T18:00:00Z",
+		});
+		check(Boolean(afterReopen.session.id),
+			"reopening qualification allows configuration again");
+
+		// --- a session with attendance cannot be deleted ----------------------
+		let hasAttendance = null;
+		try {
+			await attendance.deleteSession(adminActor, sessionId);
+		} catch (err) { hasAttendance = err; }
+		check(hasAttendance?.code === "SESSION_HAS_ATTENDANCE",
+			"a session with attendance cannot be deleted", hasAttendance?.code);
+	}
+
+
 } catch (err) {
 	failures.push({ label: "unexpected exception", detail: err?.stack ?? String(err) });
 	console.error("\nUnexpected exception:", err);

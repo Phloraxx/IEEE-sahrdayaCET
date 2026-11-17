@@ -43,6 +43,16 @@ export default [
   route("api/admin/events/:id/cancel", "routes/api.admin.events.$id.cancel.ts"),
   route("api/admin/events/:id/recompute", "routes/api.admin.events.$id.recompute.ts"),
   route("api/admin/users/:id/role", "routes/api.admin.users.$id.role.ts"),
+
+  // Attendance V2 (phase 5). Append-only records; state is derived from history.
+  route("api/events/:id/attendance/sessions", "routes/api.events.$id.attendance.sessions.ts"),
+  route("api/events/:id/attendance/qualification/lock", "routes/api.events.$id.attendance.qualification.lock.ts"),
+  route("api/events/:id/attendance/qualification/reopen", "routes/api.events.$id.attendance.qualification.reopen.ts"),
+  route("api/event-sessions/:id", "routes/api.event-sessions.$id.ts"),
+  route("api/workspace/attendance/context", "routes/api.workspace.attendance.context.ts"),
+  route("api/workspace/attendance/sessions/:id/state", "routes/api.workspace.attendance.sessions.$id.state.ts"),
+  route("api/workspace/attendance/check-in", "routes/api.workspace.attendance.check-in.ts"),
+  route("api/workspace/attendance/correct", "routes/api.workspace.attendance.correct.ts"),
   route("_", "routes/oauth-popup-result.tsx"),
   route("robots.txt", "routes/robots.ts"),
   route("sitemap.xml", "routes/sitemap.ts"),
