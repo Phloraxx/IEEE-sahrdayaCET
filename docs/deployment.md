@@ -204,8 +204,99 @@ See `docs/release-checklist.md` for the detailed acceptance list.
 
 ## Backup and rollback
 
-Back up the production PocketBase data volume before schema deployments. Migrations must be forward-safe on a recent copy of production data before rollout.
+### What is backed up
 
-Staging data is disposable but its volume must still remain separate from production. Refreshing staging from production is an explicit scrubbed-copy operation, not continuous replication.
+The application server owns two pieces of state, and a backup is only complete
+with both:
 
-Application rollback is a Git/Dokploy deployment operation. Database rollback is not assumed to be safe automatically after destructive schema changes; prefer additive migrations and explicit data migrations.
+| State | Where |
+| --- | --- |
+| `portal.db` | `SQLITE_DATA_DIR` bind mount, `/app/data/portal.db` in the container |
+| Uploads | `UPLOADS_HOST_DIR` bind mount, nested at `/app/data/uploads` |
+
+They are separate mounts, so they can drift. A database restored without its
+uploads renders pages whose images 404; uploads restored without the database
+leaves orphans. Back them up together.
+
+### Taking a backup
+
+`scripts/ieee-backup-export.sh` is the tool. It writes one zip per run
+containing `portal.db`, the `uploads/` tree and a `manifest.json`, plus a
+`.sha256` sidecar:
+
+```bash
+IEEE_SQLITE_DB=/srv/ieee/data/portal.db \
+IEEE_UPLOADS_DIR=/srv/ieee/data/uploads \
+IEEE_BACKUP_DIR=/home/drvij/ieee-backups/daily \
+  scripts/ieee-backup-export.sh backup
+```
+
+| Variable | Purpose |
+| --- | --- |
+| `IEEE_SQLITE_DB` | Required. The live database. Opened **read-only**. |
+| `IEEE_UPLOADS_DIR` | Required. The uploads directory. |
+| `IEEE_BACKUP_DIR` | Default `/home/drvij/ieee-backups/daily`. |
+| `IEEE_BACKUP_MAX_KEEP` | Default 30 archives. |
+
+It uses `VACUUM INTO`, not `cp`. The database runs in WAL mode with a live
+writer, so the file on disk is not a consistent snapshot — recent commits may
+still be in `-wal`, and a copy can capture a torn page mid-checkpoint.
+`VACUUM INTO` opens a read transaction and writes a fully materialised database,
+holding no write lock, so the app keeps serving.
+
+Every archive is verified before it is published: `PRAGMA integrity_check`, a
+table-count floor, a zip CRC read-back, and a sha256 of both the database and
+the archive. A run that cannot verify its own output exits non-zero and leaves
+nothing behind.
+
+The database is snapshotted before the uploads tree. A file uploaded between
+the two is an orphan in the archive, which is harmless and already reported by
+the data-health page. The reverse order would be worse — a file deleted between
+the two would be referenced by the database but missing from the archive.
+
+`scripts/ieee-ops-watchdog.sh` alerts when the newest `*.zip` in the export
+directory is stale, so the archive extension and location are part of the
+contract.
+
+### Restoring
+
+```bash
+scripts/ieee-backup-export.sh restore <archive.zip> <target-dir>
+```
+
+The restore path verifies before it trusts: zip CRC, path containment, the
+`portal.db` sha256 against the manifest, `PRAGMA integrity_check`,
+`PRAGMA foreign_key_check`, the table-count floor, and the uploads file count
+against the manifest. It refuses to write over an existing `portal.db` without
+`--force`, so a rehearsal cannot clobber the thing it is rehearsing for.
+
+**Rehearse this before you need it.** A backup nobody has restored is a
+hypothesis. Restore the newest archive to a scratch directory and boot the app
+against it.
+
+### Staging
+
+Staging additionally has a host-level nightly snapshot, independent of this
+script: `/etc/cron.d/ieee-staging-sqlite-backup` runs
+`/home/drvij/ieee-ops/backup-staging-sqlite.sh` at 02:40 UTC, writing
+`portal-YYYY-MM-DD.db` via `VACUUM INTO` into
+`/home/drvij/backups/ieee-staging-sqlite` with 14-day retention, and restic
+copies that directory offsite. It covers the database only, not uploads.
+
+Staging data is disposable but its volume must still remain separate from
+production. Refreshing staging from production is an explicit scrubbed-copy
+operation, not continuous replication.
+
+### Rollback
+
+Application rollback is a Git/Dokploy deployment operation.
+
+**Database rollback is not.** Once the SQLite app server takes a write — a
+registration, a payment, a check-in — that write exists only in `portal.db`.
+Flipping the container back to PocketBase does not move it, and the PocketBase
+volume has been frozen since the cutover. Past that point, rollback means
+*restore from backup*, not *swap the service*.
+
+Migrations must be forward-safe on a recent copy of production data before
+rollout. Prefer additive migrations and explicit data migrations; do not assume
+a schema change can be reversed.
