@@ -1531,6 +1531,120 @@ try {
 	}
 
 
+	// -----------------------------------------------------------------------
+	// phase 6 — certificate protected assets (the data-exposure surface)
+	// -----------------------------------------------------------------------
+	{
+		const templates = await import("../src/server/certificates/templates.ts");
+		const { mkdirSync, writeFileSync } = await import("node:fs");
+		const { join } = await import("node:path");
+
+		// Fixtures: an event, an authorised actor and an outsider.
+		await db.query("INSERT INTO users (id, email, role) VALUES (?,?,?)", [
+			"u-cert-admin", "cert-admin@test.local", "admin",
+		]);
+		await db.query("INSERT INTO users (id, email, role) VALUES (?,?,?)", [
+			"u-cert-outsider", "cert-outsider@test.local", "user",
+		]);
+		await db.query(
+			"INSERT INTO events (id, title, slug, date, status) VALUES (?,?,?,?,?)",
+			["ev-cert-1", "Certificate Test", "certificate-test", "2026-11-01", "published"],
+		);
+
+		const TEMPLATE_ID = "tpl-cert-1";
+		const BACKGROUND = "background.png";
+		const SIGNATURE = "signature.png";
+		const RENDER_BASE = "render-base.png";
+
+		// Every protected field is populated, so each one can be probed.
+		await db.query(
+			`INSERT INTO certificate_templates
+			   (id, name, scope_type, event_id, certificate_type, version, status,
+			    source_background, source_signatures, render_base, canvas_width, canvas_height,
+			    layout, email_subject, email_text, email_html, created_at, updated_at)
+			 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			[
+				TEMPLATE_ID, "Certificate", "event", "ev-cert-1", "participation", 1, "published",
+				BACKGROUND, JSON.stringify([SIGNATURE]), RENDER_BASE, 2000, 1400,
+				JSON.stringify({ name: { x: 0.5, y: 0.5 } }), "Subject", "Body", "",
+				"2026-11-01T00:00:00Z", "2026-11-01T00:00:00Z",
+			],
+		);
+
+		// Put real bytes on disk so a successful read is distinguishable.
+		const templateDir = join(process.env.UPLOADS_DIR, "certificate_templates", TEMPLATE_ID);
+		mkdirSync(templateDir, { recursive: true });
+		for (const name of [BACKGROUND, SIGNATURE, RENDER_BASE]) {
+			writeFileSync(join(templateDir, name), Buffer.from("PNG-PLACEHOLDER"));
+		}
+
+		const authorised = { id: "u-cert-admin", role: "admin" };
+		const outsider = { id: "u-cert-outsider", role: "user" };
+		const FIELDS = ["sourceBackground", "sourceSignatures", "renderBase"];
+		const FILE_FOR = {
+			sourceBackground: BACKGROUND,
+			sourceSignatures: SIGNATURE,
+			renderBase: RENDER_BASE,
+		};
+
+		async function attempt(actor, field, filename) {
+			try {
+				const result = await templates.resolveAsset(actor, TEMPLATE_ID, field, filename);
+				return { ok: true, bytes: result.body.length };
+			} catch (err) {
+				return { ok: false, status: err.status, code: err.code };
+			}
+		}
+
+		// --- 1. unauthenticated is refused for every protected field ----------
+		for (const field of FIELDS) {
+			const result = await attempt(null, field, FILE_FOR[field]);
+			check(result.ok === false && result.status === 401,
+				`an unauthenticated request for ${field} is refused`, result);
+		}
+
+		// --- 2. an under-privileged actor is refused for every field ----------
+		// A 404 (not 403) so the outsider cannot confirm the template exists.
+		for (const field of FIELDS) {
+			const result = await attempt(outsider, field, FILE_FOR[field]);
+			check(result.ok === false && result.status === 404,
+				`an under-privileged request for ${field} is refused as not-found`, result);
+		}
+
+		// --- 3. a filename not stored on the row is refused -------------------
+		for (const field of FIELDS) {
+			const result = await attempt(authorised, field, "not-the-stored-name.png");
+			check(result.ok === false && result.status === 404,
+				`a guessed filename for ${field} is refused`, result);
+		}
+
+		// --- 4. an unknown field is refused -----------------------------------
+		const unknownField = await attempt(authorised, "emailHtml", RENDER_BASE);
+		check(unknownField.ok === false && unknownField.status === 404,
+			"an unknown asset field is refused", unknownField);
+
+		// --- 5. path traversal is refused -------------------------------------
+		const traversal = await attempt(authorised, "renderBase", "../../../etc/passwd");
+		check(traversal.ok === false && traversal.status === 404,
+			"a traversal filename is refused", traversal);
+
+		// --- 6. the authorised actor succeeds for every field -----------------
+		for (const field of FIELDS) {
+			const result = await attempt(authorised, field, FILE_FOR[field]);
+			check(result.ok === true && result.bytes > 0,
+				`the authorised actor can read ${field}`, result);
+		}
+
+		// --- 7. a template that does not exist is refused ---------------------
+		try {
+			await templates.resolveAsset(authorised, "tpl-does-not-exist", "renderBase", RENDER_BASE);
+			check(false, "a missing template is refused");
+		} catch (err) {
+			check(err.status === 404, "a missing template is refused", err.code);
+		}
+	}
+
+
 } catch (err) {
 	failures.push({ label: "unexpected exception", detail: err?.stack ?? String(err) });
 	console.error("\nUnexpected exception:", err);

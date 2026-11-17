@@ -712,7 +712,11 @@ CREATE TABLE IF NOT EXISTS notification_outbox (
 	id                 TEXT PRIMARY KEY,
 	registration_id    TEXT NOT NULL REFERENCES registrations (id) ON DELETE CASCADE,
 	kind               TEXT NOT NULL CHECK (kind IN ('ticket', 'receipt', 'certificate')),
-	status             TEXT NOT NULL CHECK (status IN ('pending', 'sending', 'sent', 'failed')),
+	-- `stubbed` records a delivery the safety policy would have made but did not
+	-- send. It is distinct from `sent` (really delivered) and `failed` (a real
+	-- error), so a non-production environment can exercise the whole pipeline
+	-- without ever emailing a student.
+	status             TEXT NOT NULL CHECK (status IN ('pending', 'sending', 'sent', 'stubbed', 'failed')),
 	recipient          TEXT NOT NULL,
 	dedupe_key         TEXT NOT NULL,
 	attempts           INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
