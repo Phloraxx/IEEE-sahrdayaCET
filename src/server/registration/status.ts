@@ -11,6 +11,8 @@
 
 import { query } from "@/lib/db.server";
 import { getEventEndTimestamp } from "@/lib/event-lifecycle";
+import { getEventAttendanceMode } from "@/lib/event-presentation";
+import { registrationSessionState, sessionsForEvent } from "@/server/attendance/service";
 import { amountRupees, finalFeePaise, jsonObject } from "./helpers";
 import {
 	activeWaitlistEntry,
@@ -173,6 +175,55 @@ interface SocietyRow {
 	logo: string | null;
 }
 
+export interface MyEventAttendanceSession {
+	id: string;
+	title: string;
+	startsAt: string;
+	endsAt: string;
+	present: boolean;
+}
+
+export interface MyEventAttendance {
+	mode: "legacy" | "sessions";
+	checkedIn: boolean;
+	checkedInAt: string;
+	attendedSessions: number;
+	totalSessions: number;
+	sessions: MyEventAttendanceSession[];
+}
+
+export interface MyEventCertificate {
+	credentialId: string;
+	verificationToken: string;
+	certificateType: string;
+	issuedAt: string;
+	status: string;
+}
+
+export interface MyEventPrivateAccess {
+	virtualJoinUrl: string;
+	joinInstructions: string;
+}
+
+export interface MyEventCancellationRequest {
+	id: string;
+	kind: string;
+	status: string;
+	reason: string;
+	requestedAt: string;
+	decisionAt: string;
+	resolutionNote: string;
+	resolvedAt: string;
+}
+
+export interface MyEventCancellation {
+	allowed: boolean;
+	mode: string;
+	deadline: string;
+	refundPolicy: string;
+	request: MyEventCancellationRequest | null;
+}
+
 export interface MyEventItem {
 	event: {
 		id: string;
@@ -203,7 +254,10 @@ export interface MyEventItem {
 		registeredAt: string;
 	};
 	ended: boolean;
-	cancellation: { allowed: boolean; mode: string; deadline: string };
+	cancellation: MyEventCancellation;
+	privateAccess: MyEventPrivateAccess | null;
+	attendance: MyEventAttendance;
+	certificates: MyEventCertificate[];
 }
 
 export interface MyEventsResponse {
@@ -236,6 +290,111 @@ function bannerUrl(eventId: string, banner: string | null): string {
 
 function societyLogoUrl(societyId: string, logo: string | null): string {
 	return logo ? `/files/societies/${societyId}/${logo}` : "";
+}
+
+/**
+ * Attendance as the attendee sees it. Session-based events report per-session
+ * presence from the attendance V2 derivation; everything else falls back to the
+ * legacy single `checked_in` flag. Ported from `attendanceSnapshot` in the
+ * PocketBase helpers — the SQLite port had dropped it, which crashed the page.
+ */
+async function attendanceSnapshot(
+	eventId: string,
+	registration: RegistrationRow,
+): Promise<MyEventAttendance> {
+	const allSessions = await sessionsForEvent(eventId);
+	const checkedIn = registration.checked_in === 1;
+	const checkedInAt = registration.checked_in_at ?? "";
+
+	if (!allSessions.length) {
+		return {
+			mode: "legacy",
+			checkedIn,
+			checkedInAt,
+			attendedSessions: checkedIn ? 1 : 0,
+			totalSessions: 0,
+			sessions: [],
+		};
+	}
+
+	const enabled = allSessions.filter((session) => session.attendance_enabled === 1);
+	const sessions: MyEventAttendanceSession[] = [];
+	let attended = 0;
+	for (const session of enabled) {
+		const state = await registrationSessionState(session.id, registration.id);
+		if (state.present) attended += 1;
+		sessions.push({
+			id: session.id,
+			title: session.title || "Session",
+			startsAt: session.starts_at ?? "",
+			endsAt: session.ends_at ?? "",
+			present: state.present === true,
+		});
+	}
+
+	return {
+		mode: "sessions",
+		checkedIn,
+		checkedInAt,
+		attendedSessions: attended,
+		totalSessions: sessions.length,
+		sessions,
+	};
+}
+
+/** Active certificates for one registration, newest first. */
+async function activeCertificates(registrationId: string): Promise<MyEventCertificate[]> {
+	const result = await query<{
+		credential_id: string | null;
+		verification_token: string | null;
+		certificate_type: string | null;
+		issued_at: string | null;
+		status: string | null;
+	}>(
+		`SELECT credential_id, verification_token, certificate_type, issued_at, status
+		   FROM certificates
+		  WHERE registration_id = ? AND status = 'active'
+		  ORDER BY issued_at DESC LIMIT 20`,
+		[registrationId],
+	);
+	return result.rows.map((row) => ({
+		credentialId: row.credential_id ?? "",
+		verificationToken: row.verification_token ?? "",
+		certificateType: row.certificate_type ?? "participation",
+		issuedAt: row.issued_at ?? "",
+		status: row.status ?? "active",
+	}));
+}
+
+/**
+ * Online access for a confirmed attendee of a published online/hybrid event.
+ * Returns null when there is nothing to hand out, so the client never renders an
+ * empty join card. Ported from `privateAccess` in the PocketBase helpers.
+ */
+async function privateAccess(
+	event: EventRow,
+	registration: RegistrationRow,
+	ended: boolean,
+): Promise<MyEventPrivateAccess | null> {
+	if (ended || event.status !== "published") return null;
+	if (registration.registration_status !== "confirmed") return null;
+
+	const mode = getEventAttendanceMode({ attendanceMode: event.attendance_mode ?? "", venue: event.venue ?? "" });
+	if (mode !== "online" && mode !== "hybrid") return null;
+
+	const result = await query<{
+		virtual_join_url: string | null;
+		join_instructions: string | null;
+	}>(
+		`SELECT virtual_join_url, join_instructions
+		   FROM event_private_details WHERE event_id = ? LIMIT 1`,
+		[event.id],
+	);
+	const row = result.rows[0];
+	const virtualJoinUrl = row?.virtual_join_url ?? "";
+	const joinInstructions = row?.join_instructions ?? "";
+	if (!virtualJoinUrl && !joinInstructions) return null;
+	return { virtualJoinUrl, joinInstructions };
 }
 
 /** Every registration the user holds, with its event, plus their waitlist. */
@@ -337,7 +496,12 @@ export async function listMyEvents(userId: string): Promise<MyEventsResponse> {
 				allowed: policy.allowed,
 				mode: policy.mode,
 				deadline: policy.deadline,
+				refundPolicy: policy.refundPolicy ?? "",
+				request: policy.request,
 			},
+			privateAccess: await privateAccess(event, registration, ended),
+			attendance: await attendanceSnapshot(event.id, registration),
+			certificates: await activeCertificates(registration.id),
 		});
 	}
 

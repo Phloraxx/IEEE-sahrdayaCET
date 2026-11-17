@@ -709,6 +709,53 @@ try {
 			"my-events items carry registration ids",
 		);
 
+		// Response-shape regression: the SQLite port dropped attendance,
+		// certificates and privateAccess, which crashed /my-events with
+		// "Cannot read properties of undefined (reading 'mode')" in
+		// attendanceLabel. Every item must carry the full shape.
+		check(
+			mine.items.every((item) => item.attendance && typeof item.attendance === "object"),
+			"my-events items carry an attendance object",
+			mine.items.map((item) => item.attendance),
+		);
+		check(
+			mine.items.every(
+				(item) => item.attendance.mode === "legacy" || item.attendance.mode === "sessions",
+			),
+			"attendance.mode is 'legacy' or 'sessions'",
+			mine.items.map((item) => item.attendance?.mode),
+		);
+		check(
+			mine.items.every((item) => Array.isArray(item.attendance.sessions)),
+			"attendance.sessions is always an array",
+		);
+		check(
+			mine.items.every((item) => typeof item.attendance.checkedIn === "boolean"),
+			"attendance.checkedIn is a boolean",
+		);
+		check(
+			mine.items.every((item) => typeof item.attendance.attendedSessions === "number"),
+			"attendance.attendedSessions is a number",
+		);
+		check(
+			mine.items.every((item) => Array.isArray(item.certificates)),
+			"my-events items carry a certificates array",
+			mine.items.map((item) => item.certificates),
+		);
+		check(
+			mine.items.every((item) => item.privateAccess === null || typeof item.privateAccess === "object"),
+			"privateAccess is null or an object",
+			mine.items.map((item) => item.privateAccess),
+		);
+		check(
+			mine.items.every((item) => item.cancellation && typeof item.cancellation === "object"),
+			"my-events items carry a cancellation object",
+		);
+		check(
+			mine.items.every((item) => "request" in item.cancellation),
+			"cancellation.request is present (null when none)",
+		);
+
 		const status = await getMyRegistration("f0000000-0000-4000-8000-000000000001", users[0]);
 		check(status?.found === true, "my-registration finds the row", status?.found);
 

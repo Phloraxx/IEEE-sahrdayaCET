@@ -127,6 +127,7 @@ export interface RegistrationRow {
 	ticket_id: string | null;
 	payment_ticket_id: string | null;
 	checked_in: number;
+	checked_in_at: string | null;
 	coupon_code: string | null;
 	discount_source: string | null;
 	form_responses: string | null;
