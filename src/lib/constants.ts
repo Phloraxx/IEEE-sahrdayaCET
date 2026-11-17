@@ -1,10 +1,5 @@
 export const APP_URL = 'https://ieeesahrdaya.com'
 
-/** PocketBase filter that matches no records. Used as a safe "no access" sentinel. */
-export const EMPTY_FILTER = 'id = ""'
-
-export const EVENT_STATUS = ['draft', 'published', 'completed', 'cancelled'] as const
-
 export const USER_ROLES = ['admin', 'chair', 'user', 'content'] as const
 export type UserRole = (typeof USER_ROLES)[number]
 

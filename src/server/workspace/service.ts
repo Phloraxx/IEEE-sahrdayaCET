@@ -172,12 +172,10 @@ export async function getWorkspaceMe(actor: Actor) {
 
 	// `branchCapabilities` answers "which capabilities do I hold anywhere in the
 	// branch", independent of any one scope.
-	const branchCapabilities: Capability[] = [];
-	for (const capability of ALL_CAPABILITIES) {
-		if (effectiveCapabilities(actor, assignments).includes(capability)) {
-			branchCapabilities.push(capability);
-		}
-	}
+	const effective = new Set(effectiveCapabilities(actor, assignments));
+	const branchCapabilities: Capability[] = ALL_CAPABILITIES.filter((capability) =>
+		effective.has(capability),
+	);
 
 	const rows = await query<AssignmentRow>(
 		`SELECT id, user_id, role_code, title, scope_type, society_id, event_id, term,

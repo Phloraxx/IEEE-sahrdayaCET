@@ -1,6 +1,8 @@
 import type { LoaderFunctionArgs } from "react-router";
 
+import { createHash } from "node:crypto";
 import { fetchCertificateRenderData } from "@/server/public/certificate.server";
+import { cacheKey, read, write } from "@/server/certificates/render-cache";
 import { renderCertificatePdf, renderCertificatePng } from "@/server/certificates/render.server";
 
 function safeFilename(value: string) {
@@ -12,8 +14,13 @@ export async function loader({ params }: LoaderFunctionArgs) {
   const data = await fetchCertificateRenderData(token);
   if (!data) throw new Response("Certificate not found", { status: 404 });
 
-  const png = await renderCertificatePng({ ...data, verificationToken: token });
-  const pdf = await renderCertificatePdf(png, data.canvasWidth, data.canvasHeight);
+  const base = createHash("sha256").update(data.renderBase).digest("hex").slice(0, 16);
+  const key = cacheKey(data.credentialId, base, "pdf");
+  const cached = read(key);
+  const pdf = cached ?? write(key, await (async () => {
+    const png = await renderCertificatePng({ ...data, verificationToken: token });
+    return renderCertificatePdf(png, data.canvasWidth, data.canvasHeight);
+  })());
   return new Response(new Uint8Array(pdf), {
     headers: {
       "Content-Type": "application/pdf",

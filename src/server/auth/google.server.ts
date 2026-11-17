@@ -210,29 +210,3 @@ export async function completeSignIn(
 	return fetchIdentity(accessToken, fetchImpl);
 }
 
-/**
- * The exact Google-console change list for Sourav.
- *
- * Returned as data rather than prose so the report can print it verbatim and it
- * cannot drift from `getGoogleRedirectUri()`.
- */
-export function googleConsoleChangeList(): {
-	clientId: string;
-	redirectUriToAdd: string;
-	redirectUriToKeep: string;
-	notes: string[];
-} {
-	const env = getEnv();
-	return {
-		clientId: env.GOOGLE_CLIENT_ID,
-		redirectUriToAdd: getGoogleRedirectUri(),
-		redirectUriToKeep: `${env.APP_URL}/api/oauth2-redirect`,
-		notes: [
-			"Google Cloud console > APIs & Services > Credentials > the existing OAuth 2.0 Client ID.",
-			"Under 'Authorized redirect URIs', ADD the redirectUriToAdd value. Do not remove the existing PocketBase callback.",
-			"Save. Changes take a few minutes to propagate.",
-			"No change to the client id or client secret is required.",
-			"After cutover is complete and PocketBase is retired, the PocketBase callback URI can be removed.",
-		],
-	};
-}

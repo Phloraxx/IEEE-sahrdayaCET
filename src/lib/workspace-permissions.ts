@@ -1,3 +1,5 @@
+import { ALL_CAPABILITIES } from "@/server/authz/capabilities";
+
 export const WORKSPACE_ROLE_DEFINITIONS = {
   organizer: { label: "Organizer", scopes: ["branch", "society", "event"] },
   finance: { label: "Finance", scopes: ["branch", "society", "event"] },
@@ -42,14 +44,13 @@ export function roleSupportsScope(roleCode: WorkspaceRoleCode, scope: WorkspaceS
   return (WORKSPACE_ROLE_DEFINITIONS[roleCode].scopes as readonly string[]).includes(scope);
 }
 
-export const WORKSPACE_CAPABILITIES = [
-  "workspace.view", "events.view", "events.create", "events.edit", "events.publish", "events.cancel", "events.archive", "events.complete", "registrations.view",
-  "registrations.manage", "registrations.manual", "checkin.manage", "finance.view",
-  "finance.manage", "societies.view", "societies.edit",
-  "assignments.manage", "content.manage", "execom.manage", "reports.view", "technical.manage",
-  "certificates.view", "certificates.manage_templates", "certificates.issue",
-  "certificates.send", "certificates.revoke",
-] as const;
+/**
+ * One list, re-exported.
+ *
+ * The capability vocabulary used to be defined twice — here and in
+ * `server/authz/capabilities.ts` — and the two had to be kept in sync by hand.
+ */
+export const WORKSPACE_CAPABILITIES = ALL_CAPABILITIES;
 
 export type WorkspaceCapability = (typeof WORKSPACE_CAPABILITIES)[number];
 

@@ -69,7 +69,9 @@ describe("blog content helpers", () => {
       existingPublished: false,
       now,
     });
-    expect(first).toBe("2026-07-21 12:00:00.000Z");
+    // ISO-8601 with a `T`, like every other timestamp in the schema. A space
+    // separator made lexical comparison against an ISO parameter misorder.
+    expect(first).toBe("2026-07-21T12:00:00.000Z");
 
     const stable = resolveBlogPublishedAt({
       nextPublished: true,

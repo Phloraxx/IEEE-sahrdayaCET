@@ -409,12 +409,19 @@ export const users = {
 		avatar?: string | null;
 	}): Promise<UserRow> {
 		const email = input.email.trim().toLowerCase();
-		const existing =
-			(await users.findByGoogleSub(input.googleSub)) ?? (await users.findByEmail(email));
+		// Linking a pre-existing directory record to a Google identity is only
+		// safe when Google says the address is verified. The flag was stored and
+		// never consulted.
+		const existing = await users.findByGoogleSub(input.googleSub);
+		const byEmail = existing ? undefined : await users.findByEmail(email);
+		if (byEmail && !input.emailVerified) {
+			throw new Error("Google did not verify this email address");
+		}
+		const matched = existing ?? byEmail;
 
 		const timestamp = nowIso();
 
-		if (existing) {
+		if (matched) {
 			execute(
 				`UPDATE users
 				    SET google_sub = ?, email = ?, email_verified = ?,
@@ -428,10 +435,10 @@ export const users = {
 					input.name ?? null,
 					input.avatar ?? null,
 					timestamp,
-					existing.id,
+					matched.id,
 				],
 			);
-			return (await users.findById(existing.id)) as UserRow;
+			return (await users.findById(matched.id)) as UserRow;
 		}
 
 		const id = crypto.randomUUID();

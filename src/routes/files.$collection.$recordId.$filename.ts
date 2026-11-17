@@ -35,6 +35,10 @@ const PUBLIC_COLLECTIONS: Record<
 	// A society has two file columns that share one directory, so both are checked.
 	societies: { dir: "societies", table: "societies", columns: ["logo", "banner"] },
 	execom: { dir: "execom", table: "execom", columns: ["photo"] },
+	// Avatars are public by design: they are the Google profile photos already
+	// shown on the public execom and society pages, and PocketBase served them
+	// from a public file route too. The filename is a generated UUID and the
+	// record id is not a secret, so this exposes nothing the directory does not.
 	users: { dir: "users", table: "users", columns: ["avatar"] },
 };
 

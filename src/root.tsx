@@ -142,7 +142,10 @@ export function headers() {
       "media-src 'self'",
       "font-src 'self' data:",
       "style-src 'self' 'unsafe-inline'",
-      "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
+      // The only inline script is the pre-paint theme toggle below; it is pinned
+      // by hash so `unsafe-inline` is not needed. JSON-LD blocks are
+      // `application/ld+json` and are not executed, so CSP does not apply to them.
+      "script-src 'self' 'sha256-Pt/n2axd+5lXpyJMbvmmHpXr44zXheeYYRRdMIAHr+A=' https://static.cloudflareinsights.com",
       "connect-src 'self' https://cloudflareinsights.com",
       "frame-src 'none'",
       "manifest-src 'self'",

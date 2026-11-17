@@ -180,9 +180,13 @@ export async function listRegistrations(actor: Actor, filters: RegistrationFilte
 		params.push(filters.paymentStatus);
 	}
 	if (filters.q) {
-		where.push("(r.user_name LIKE ? OR r.user_email LIKE ? OR r.ticket_id LIKE ?)");
-		const like = `%${filters.q}%`;
-		params.push(like, like, like);
+		// `instr`, not `LIKE`: a search term containing `%` or `_` must not become
+		// a wildcard. The payment ledger already works this way.
+		const term = filters.q.toLowerCase();
+		where.push(
+			"(instr(lower(COALESCE(r.user_name, '')), ?) > 0 OR instr(lower(COALESCE(r.user_email, '')), ?) > 0 OR instr(lower(COALESCE(r.ticket_id, '')), ?) > 0)",
+		);
+		params.push(term, term, term);
 	}
 
 	const whereSql = where.length ? ` WHERE ${where.join(" AND ")}` : "";

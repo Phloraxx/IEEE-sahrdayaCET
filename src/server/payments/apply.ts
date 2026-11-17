@@ -17,7 +17,6 @@ import { recomputeCouponUsedCount, recomputeEventCounters } from "@/server/regis
 import { syncPaymentLedger } from "./ledger";
 import {
 	PAYGATE_PROVIDER,
-	expectedRequestedPaise,
 	resolveProviderTransition,
 	type ProviderPayment,
 	type Transition,
@@ -154,7 +153,9 @@ export async function applyProviderState(
 	eventId: string,
 ): Promise<Transition> {
 	const data = parseData(registration.payment_data);
-	const expectedPaise = expectedRequestedPaise(Number(registration.amount) || 0);
+	// `finalFeePaise` is authoritative (paise, with the legacy rupee fallback);
+	// `amount` alone would reject a migrated row whose paise column is set.
+	const expectedPaise = finalFeePaise(registration);
 
 	if (eventType !== `payment.${payment.status}`) {
 		return { action: "error", error: "PayGate event type does not match payment status" };

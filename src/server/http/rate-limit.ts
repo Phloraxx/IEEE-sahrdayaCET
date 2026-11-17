@@ -37,6 +37,8 @@ export const RATE_LIMITS = {
 	auth: { limit: 20, windowMs: 60_000 },
 	webhook: { limit: 120, windowMs: 60_000 },
 	write: { limit: 120, windowMs: 60_000 },
+	/** Certificate rendering is CPU-heavy and public; keep it modest. */
+	render: { limit: 30, windowMs: 60_000 },
 } satisfies Record<string, RateLimitRule>;
 
 export function clientKey(request: Request): string {
@@ -64,6 +66,7 @@ export function ruleFor(request: Request): RateLimitRule | null {
 	const method = request.method.toUpperCase();
 	if (pathname.startsWith("/auth/")) return RATE_LIMITS.auth;
 	if (pathname === "/api/webhooks/paygate") return RATE_LIMITS.webhook;
+	if (pathname.startsWith("/c/") && /\.(png|pdf)$/.test(pathname)) return RATE_LIMITS.render;
 	if (pathname.startsWith("/api/") && method !== "GET" && method !== "HEAD") {
 		return RATE_LIMITS.write;
 	}

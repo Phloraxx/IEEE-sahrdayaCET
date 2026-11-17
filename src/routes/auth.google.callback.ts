@@ -14,12 +14,15 @@ import { users } from "@/lib/db.server";
 import { completeSignIn, verifyState } from "@/server/auth/google.server";
 import { oauthStateCookie, startSession } from "@/server/auth/session.server";
 
-function failure(reason: string): Response {
+async function failure(reason: string): Promise<Response> {
+	// An empty `Set-Cookie` is not a deletion; the state cookie has to be
+	// serialised with maxAge 0 to actually be cleared.
+	const cleared = await oauthStateCookie().serialize("", { maxAge: 0 });
 	return new Response(null, {
 		status: 302,
 		headers: {
 			Location: `/?auth_error=${encodeURIComponent(reason)}`,
-			"Set-Cookie": "",
+			"Set-Cookie": cleared,
 			"Cache-Control": "no-store",
 		},
 	});

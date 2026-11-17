@@ -16,7 +16,8 @@ import type { WorkspaceMe } from "@/lib/workspace-permissions";
 
 async function requireEditorRole() {
   const pb = getPbClient();
-  if (!pb.authStore.isValid) throw new Error("Blog editor access required");
+  // There is no client-side session to inspect — the cookie is HttpOnly — so the
+  // only meaningful gate is the capability the server reports.
   const workspace = await getWorkspaceMe();
   if (!workspace.capabilities.includes("content.manage")) throw new Error("Blog editor access required");
   return { pb, workspace };

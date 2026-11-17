@@ -14,7 +14,7 @@
 
 import { randomUUID } from "node:crypto";
 import { mkdir, unlink, writeFile } from "node:fs/promises";
-import { extname, join, resolve, sep } from "node:path";
+import { join, resolve, sep } from "node:path";
 import type { ActionFunctionArgs } from "react-router";
 import { query } from "@/lib/db.server";
 import { getEnv } from "@/lib/env.server";
@@ -154,4 +154,4 @@ export async function loader() {
 }
 
 /** Exported for the unit test that keeps the allow-list honest. */
-export const __testing = { UPLOADABLE, MAX_BYTES, ALLOWED_TYPES, extname };
+export const __testing = { UPLOADABLE, MAX_BYTES, ALLOWED_TYPES };

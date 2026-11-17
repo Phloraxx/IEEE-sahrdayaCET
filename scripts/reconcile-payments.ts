@@ -13,11 +13,14 @@
  * means the pass itself failed and the timer should alert.
  */
 
-import { closeDatabase } from "../src/lib/db.server";
+import { closeDatabase, sessions } from "../src/lib/db.server";
 import { reconcileExpiredRegistrations } from "../src/server/payments/reconcile";
 
 async function main() {
 	const result = await reconcileExpiredRegistrations();
+	// Housekeeping that has no other caller: expired session rows would otherwise
+	// accumulate forever.
+	const prunedSessions = await sessions.deleteExpired();
 	console.log(
 		JSON.stringify({
 			at: new Date().toISOString(),
@@ -26,6 +29,7 @@ async function main() {
 			keptForProvider: result.keptForProvider,
 			skipped: result.skipped,
 			releasedIds: result.releasedIds,
+			prunedSessions,
 		}),
 	);
 }

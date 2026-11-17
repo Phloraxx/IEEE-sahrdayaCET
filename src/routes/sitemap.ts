@@ -15,7 +15,12 @@ function xmlEscape(value: string): string {
 
 function urlEntry(path: string, lastmod?: string): string {
   const loc = xmlEscape(`${APP_URL}${path}`);
-  const modified = lastmod ? `<lastmod>${xmlEscape(new Date(lastmod).toISOString())}</lastmod>` : "";
+  let modified = "";
+  if (lastmod) {
+    const date = new Date(lastmod);
+    // An unparseable stored timestamp must not 500 the whole sitemap.
+    if (!Number.isNaN(date.getTime())) modified = `<lastmod>${xmlEscape(date.toISOString())}</lastmod>`;
+  }
   return `<url><loc>${loc}</loc>${modified}</url>`;
 }
 
