@@ -126,3 +126,38 @@ export async function enqueueForRegistration(registrationId: string): Promise<{ 
 	const receipt = await enqueue(input, "receipt");
 	return { ticket, receipt };
 }
+
+// ---------------------------------------------------------------------------
+// Admin read/resend surface — port of `registration-notifications.pb.js`
+// ---------------------------------------------------------------------------
+
+export interface NotificationSnapshot {
+	ticket: { status: string; attempts: number; sentAt: string; lastError: string } | null;
+	receipt: { status: string; attempts: number; sentAt: string; lastError: string } | null;
+}
+
+/** The last ticket/receipt row for a registration, as the admin panel shows it. */
+export async function notificationSnapshot(registrationId: string): Promise<NotificationSnapshot> {
+	const result = await query<{
+		kind: string;
+		status: string;
+		attempts: number;
+		sent_at: string | null;
+		last_error: string | null;
+	}>(
+		`SELECT kind, status, attempts, sent_at, last_error
+		   FROM notification_outbox WHERE registration_id = ?`,
+		[registrationId],
+	);
+	const snapshot: NotificationSnapshot = { ticket: null, receipt: null };
+	for (const row of result.rows) {
+		if (row.kind !== "ticket" && row.kind !== "receipt") continue;
+		snapshot[row.kind] = {
+			status: row.status || "pending",
+			attempts: Number(row.attempts) || 0,
+			sentAt: row.sent_at ?? "",
+			lastError: row.last_error ?? "",
+		};
+	}
+	return snapshot;
+}

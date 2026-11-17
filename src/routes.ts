@@ -14,6 +14,15 @@ export default [
   route("api/my-events", "routes/api.my-events.ts"),
   route("api/registration-memory", "routes/api.registration-memory.ts"),
   route("api/registrations/:id/payment", "routes/api.registrations.$id.payment.ts"),
+  route("api/registrations/:id/payment/reconcile", "routes/api.registrations.$id.payment.reconcile.ts"),
+  // Attendee surfaces the browser already called but the port had not grown.
+  route("api/tickets/lookup", "routes/api.tickets.lookup.ts"),
+  route("api/events/:id/join-details", "routes/api.events.$id.join-details.ts"),
+  route("api/events/:id/private-details", "routes/api.events.$id.private-details.ts"),
+  route("api/events/:id/coupons", "routes/api.events.$id.coupons.ts"),
+  route("api/events/:id/waitlist", "routes/api.events.$id.waitlist.ts"),
+  route("api/events/:id/waitlist/join", "routes/api.events.$id.waitlist.join.ts"),
+  route("api/events/:id/waitlist/leave", "routes/api.events.$id.waitlist.leave.ts"),
   route("api/webhooks/paygate", "routes/api.webhooks.paygate.ts"),
 
   // Generic collection surface (phase 4). Replaces the browser's direct
@@ -45,6 +54,11 @@ export default [
   route("api/admin/events/:id/operations", "routes/api.admin.events.$id.operations.ts"),
   route("api/admin/events/:id/registrations/manual", "routes/api.admin.events.$id.registrations.manual.ts"),
   route("api/admin/registrations/:id/command", "routes/api.admin.registrations.$id.command.ts"),
+  route("api/admin/registrations/:id/notifications", "routes/api.admin.registrations.$id.notifications.ts"),
+  route(
+    "api/admin/registrations/:id/notifications/:kind/resend",
+    "routes/api.admin.registrations.$id.notifications.$kind.resend.ts",
+  ),
   route("api/admin/cancellation-requests/:id/decision", "routes/api.admin.cancellation-requests.$id.decision.ts"),
   route("api/admin/users/:id/role", "routes/api.admin.users.$id.role.ts"),
 
