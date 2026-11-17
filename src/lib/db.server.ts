@@ -143,9 +143,15 @@ const statementCache = new Map<string, Database.Statement>();
  * true for the repositories and false for the generic collection endpoint, which
  * assembles SQL from the request: every distinct filter/sort shape is a distinct
  * string. Without a cap that is unbounded memory growth reachable by any
- * authenticated user. Past the cap the cache is cleared rather than evicted one
- * by one — the hot statements are re-prepared immediately, and a clear keeps the
- * bookkeeping trivial.
+ * authenticated user.
+ *
+ * Eviction is least-recently-used, not a full clear. A clear is simpler but
+ * evicts exactly the wrong entries: the repository statements are prepared on
+ * first use and then hit on every request, while the generated collection-endpoint
+ * statements are usually used once. Clearing would drop the hot set to make room
+ * for the cold set, and the next request would re-parse it. `Map` preserves
+ * insertion order, so re-inserting on a hit keeps the least-recently-used entry
+ * at the front of the iteration order.
  */
 const STATEMENT_CACHE_LIMIT = 512;
 
@@ -156,12 +162,22 @@ export const __dbTesting = {
 };
 
 function prepare(sql: string): Database.Statement {
-	let statement = statementCache.get(sql);
-	if (!statement) {
-		if (statementCache.size >= STATEMENT_CACHE_LIMIT) statementCache.clear();
-		statement = getDatabase().prepare(sql);
-		statementCache.set(sql, statement);
+	const cached = statementCache.get(sql);
+	if (cached) {
+		// Re-insert so this statement becomes the most recently used entry. Two Map
+		// operations per query is far cheaper than re-parsing and re-planning SQL.
+		statementCache.delete(sql);
+		statementCache.set(sql, cached);
+		return cached;
 	}
+
+	if (statementCache.size >= STATEMENT_CACHE_LIMIT) {
+		const oldest = statementCache.keys().next();
+		if (!oldest.done) statementCache.delete(oldest.value);
+	}
+
+	const statement = getDatabase().prepare(sql);
+	statementCache.set(sql, statement);
 	return statement;
 }
 

@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import React, { useEffect, useState, useRef } from "react";
-import { useReducedMotion } from "framer-motion";
+import { usePrefersReducedMotion } from "@/lib/use-reduced-motion";
 
 interface ShootingStar {
   id: number;
@@ -53,7 +53,7 @@ export const ShootingStars: React.FC<ShootingStarsProps> = ({
   className,
 }) => {
   const [star, setStar] = useState<ShootingStar | null>(null);
-  const reduceMotion = Boolean(useReducedMotion());
+  const reduceMotion = usePrefersReducedMotion();
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {

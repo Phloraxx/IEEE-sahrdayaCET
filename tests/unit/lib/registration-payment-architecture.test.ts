@@ -222,7 +222,15 @@ describe("registration/payment experience architecture", () => {
       'registration.getString("user") !== auth.id',
     );
     expect(notifications).toContain('$apis.requireAuth("users")');
-    expect(root).toContain('<MotionConfig reducedMotion="user">');
+    // Reduced motion is honoured by the CSS media query and by each animated
+    // component's own hook. It is deliberately *not* a root `MotionConfig`:
+    // that wrapper put framer-motion in the root chunk, so every route paid
+    // ~40 KB gzipped for it — including the pages that animate nothing.
+    expect(root).not.toContain("<MotionConfig");
+    expect(root).not.toContain('from "framer-motion"');
+    expect(source("src/features/globals.css")).toContain(
+      "@media (prefers-reduced-motion: reduce)",
+    );
   });
   it("keeps the registration email as a poster-independent issued credential", () => {
     const notifications = source("pb_hooks/notification-helpers.js");

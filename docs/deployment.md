@@ -300,3 +300,57 @@ volume has been frozen since the cutover. Past that point, rollback means
 Migrations must be forward-safe on a recent copy of production data before
 rollout. Prefer additive migrations and explicit data migrations; do not assume
 a schema change can be reversed.
+
+## Edge caching
+
+Public HTML is served with a shared-cache directive so a CDN can absorb repeat
+traffic without waking the Node process:
+
+```text
+Cache-Control: public, s-maxage=60, stale-while-revalidate=300
+```
+
+The policy lives in `src/server/http/cache.ts` and is applied by the
+`publicCacheMiddleware` in `src/root.tsx`. It is deliberately conservative:
+
+- **Path allow-list.** Only the routes listed in that module are cacheable. A new
+  route is not cached until it is added there, so a mistake costs a cache hit,
+  never correctness.
+- **Session cookie.** A request carrying `SESSION_COOKIE_NAME` is never given the
+  shared directive.
+- **200 only.** Redirects, error-boundary responses and 5xx are never pinned.
+- **Documents only.** `*.data` requests and `/api/*` are excluded.
+
+This is safe because the public document carries no user state: authentication
+lives in `AuthProvider`, which calls `/api/session` after hydration. The HTML a
+signed-out visitor receives is identical for every visitor.
+
+### Cloudflare
+
+Cloudflare's default cache level does not cache HTML, so `s-maxage` alone leaves
+`cf-cache-status: DYNAMIC`. To actually use the edge, add a Cache Rule for the
+public hostnames:
+
+| Field | Value |
+| --- | --- |
+| When incoming requests match | `URI Path` in `/`, `/about`, `/contact`, `/pricing`, `/events`, `/blog`, `/societies`, `/full-execom`, `/infinia`, `/flagships` — or a `starts_with` test per prefix |
+| Then | Eligible for cache, Edge TTL *Use cache-control header if present* |
+
+Do **not** add a catch-all rule. `/my-events`, `/register/*`, `/payment/*`,
+`/ticket/*`, `/c/*`, `/admin/*`, `/api/*` and `/auth/*` must stay uncached; the
+allow-list in `cache.ts` already refuses to mark them, and a broad Cache Rule
+would override that.
+
+`/files/*` is served with `public, max-age=31536000, immutable`. Filenames are
+generated UUIDs and a replaced file gets a new one, so the URL is
+content-addressed and a year is safe.
+
+### In-process cache
+
+`src/server/public/cache.server.ts` memoises the public readers for 30 seconds.
+This is the layer that matters when the edge is cold or not configured at all:
+better-sqlite3 is synchronous, so every query on a render blocks the event loop
+for its full duration. The TTL matches `s-maxage`, so an admin who publishes an
+event sees it on the public site within the same half-minute the CDN already
+imposes. The admin UI reads through `/api/*`, which is never cached, so an editor
+always sees their own write immediately.

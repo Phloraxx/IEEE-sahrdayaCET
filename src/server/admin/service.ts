@@ -50,24 +50,57 @@ export async function accessibleEventIds(
 	if (hasCapability(actor, capability, {}, assignments)) return null;
 
 	const scoped = assignments.filter((row) => row.active);
+
+	// Resolve every referenced event in two reads rather than one per assignment.
+	// better-sqlite3 is synchronous, so the loop this replaces stalled the event
+	// loop once per assignment with no concurrency to show for it.
+	type EventRef = { id: string; society_id: string | null };
+
+	const directEventIds = new Set<string>();
+	const societyIds = new Set<string>();
+	for (const assignment of scoped) {
+		if (assignment.eventId) directEventIds.add(assignment.eventId);
+		else if (assignment.societyId) societyIds.add(assignment.societyId);
+	}
+
+	const eventsById = new Map<string, EventRef>();
+	const eventsBySociety = new Map<string, EventRef[]>();
+
+	if (directEventIds.size > 0) {
+		const direct = [...directEventIds];
+		const rows = await query<EventRef>(
+			`SELECT id, society_id FROM events WHERE id IN (${direct.map(() => "?").join(",")})`,
+			direct,
+		);
+		for (const row of rows.rows) eventsById.set(row.id, row);
+	}
+
+	if (societyIds.size > 0) {
+		const societies = [...societyIds];
+		const rows = await query<EventRef>(
+			`SELECT id, society_id FROM events WHERE society_id IN (${societies.map(() => "?").join(",")})`,
+			societies,
+		);
+		for (const row of rows.rows) {
+			const key = String(row.society_id ?? "");
+			const bucket = eventsBySociety.get(key);
+			if (bucket) bucket.push(row);
+			else eventsBySociety.set(key, [row]);
+		}
+	}
+
+	// Walk the assignments in their original order so the resulting id order is
+	// unchanged from the per-assignment version.
 	const ids = new Set<string>();
 	for (const assignment of scoped) {
 		if (assignment.eventId) {
-			const event = await query<{ id: string; society_id: string | null }>(
-				`SELECT id, society_id FROM events WHERE id = ?`,
-				[assignment.eventId],
-			);
-			const row = event.rows[0];
+			const row = eventsById.get(assignment.eventId);
 			if (row && hasEventCapability(actor, capability, { id: row.id, societyId: row.society_id }, assignments)) {
 				ids.add(row.id);
 			}
 		}
 		if (assignment.societyId && !assignment.eventId) {
-			const events = await query<{ id: string; society_id: string | null }>(
-				`SELECT id, society_id FROM events WHERE society_id = ?`,
-				[assignment.societyId],
-			);
-			for (const row of events.rows) {
+			for (const row of eventsBySociety.get(assignment.societyId) ?? []) {
 				if (hasEventCapability(actor, capability, { id: row.id, societyId: row.society_id }, assignments)) {
 					ids.add(row.id);
 				}
