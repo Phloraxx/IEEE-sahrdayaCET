@@ -12,6 +12,7 @@ import { getBioText } from "@/lib/safe-get";
 import { cn } from "@/lib/utils";
 import { archiveAdminSociety, listAdminSocieties } from "@/lib/data/admin-societies.client";
 import { getWorkspaceMe } from "@/lib/data/workspace.client";
+import { adminMeta } from "@/lib/admin-meta";
 
 interface SocietyRow {
   id: string;
@@ -213,6 +214,7 @@ function SocietyList({ rows, canEdit, canArchive, onArchive, archivingPending }:
                 {canArchive && (
                   <ConfirmButton
                     label=""
+                    ariaLabel={`Archive ${s.name}`}
                     confirmMessage={`Archive "${s.name}"? It will be hidden from public views but historical references remain intact.`}
                     variant="destructive"
                     icon={<Archive className="h-3.5 w-3.5" />}
@@ -250,3 +252,5 @@ function EmptyState({ icon: Icon, title, hint }: EmptyStateProps) {
     </div>
   );
 }
+
+export const meta = () => adminMeta("Societies");

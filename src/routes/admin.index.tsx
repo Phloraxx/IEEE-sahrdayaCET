@@ -3,6 +3,7 @@ import { Navigate } from "react-router";
 import { useAuth } from "@/lib/auth-context";
 import { getWorkspaceMe } from "@/lib/data/workspace.client";
 import { preferredWorkspacePath } from "@/lib/workspace-permissions";
+import { adminMeta } from "@/lib/admin-meta";
 
 export default function AdminIndex() {
   const { user } = useAuth();
@@ -15,3 +16,5 @@ export default function AdminIndex() {
   if (!workspace.data) return null;
   return <Navigate to={preferredWorkspacePath(workspace.data)} replace />;
 }
+
+export const meta = () => adminMeta("Operations");

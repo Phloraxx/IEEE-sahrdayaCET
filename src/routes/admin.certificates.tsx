@@ -18,6 +18,7 @@ import {
 } from "@/lib/data/certificate-registry.client";
 import { getWorkspaceMe } from "@/lib/data/workspace.client";
 import { formatDateTime } from "@/lib/dates";
+import { adminMeta } from "@/lib/admin-meta";
 
 const PER_PAGE = 40;
 function statusClasses(status: string) {
@@ -201,3 +202,5 @@ export default function AdminCertificates() {
     </div>
   );
 }
+
+export const meta = () => adminMeta("Certificates");

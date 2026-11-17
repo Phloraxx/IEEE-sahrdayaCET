@@ -56,6 +56,9 @@ export default [
   route("api/admin/payments", "routes/api.admin.payments.ts"),
   route("api/admin/payments/summary", "routes/api.admin.payments.summary.ts"),
   route("api/admin/data-health", "routes/api.admin.data-health.ts"),
+  // The branch user directory. `/api/collections/users` is a self policy and
+  // cannot back the admin list, so this is its own admin-only route.
+  route("api/admin/users", "routes/api.admin.users.ts"),
   route("api/admin/events/:id/archive", "routes/api.admin.events.$id.archive.ts"),
   route("api/admin/events/:id/cancel", "routes/api.admin.events.$id.cancel.ts"),
   route("api/admin/events/:id/recompute", "routes/api.admin.events.$id.recompute.ts"),

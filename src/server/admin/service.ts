@@ -37,6 +37,27 @@ function num(value: unknown, fallback = 0): number {
 	return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+/** One row of `dataHealth`'s UNION ALL count query. */
+interface TableCountRow {
+	table_name: string;
+	count: number;
+}
+
+/** A single data-health finding, rendered as one row of the triage list. */
+export interface DataHealthIssue {
+	id: string;
+	severity: "critical" | "warning";
+	category: string;
+	title: string;
+	detail: string;
+	href?: string;
+}
+
+/** Read one table's count out of the UNION ALL result, defaulting to 0. */
+function tableCount(rows: readonly TableCountRow[], table: string): number {
+	return num(rows.find((row) => row.table_name === table)?.count);
+}
+
 /**
  * The events an actor may act on for a capability.
  *
@@ -543,11 +564,167 @@ export async function dataHealth(actor: Actor) {
 		  WHERE payment_status = 'paid' AND (ticket_id IS NULL OR ticket_id = '')`,
 	);
 
+	const integrityResult = integrity.rows[0]?.integrity_check ?? "unknown";
+	const foreignKeyViolations = fk.rows.length;
+	const paidWithoutTicket = num(orphanTickets.rows[0]?.count);
+
+	// The page renders a triage list, not a wall of counts: each check below is
+	// projected as an issue so the operator sees what is wrong and where to go.
+	// A clean database yields an empty list, which the page shows as "No
+	// inconsistencies found".
+	const issues: DataHealthIssue[] = [];
+
+	if (integrityResult !== "ok") {
+		issues.push({
+			id: "integrity",
+			severity: "critical",
+			category: "database",
+			title: "Database integrity check failed",
+			detail: `PRAGMA integrity_check returned ${JSON.stringify(integrityResult)}. Back up before writing anything further.`,
+		});
+	}
+
+	if (foreignKeyViolations > 0) {
+		issues.push({
+			id: "foreign-keys",
+			severity: "critical",
+			category: "database",
+			title: `${foreignKeyViolations} orphaned foreign-key ${foreignKeyViolations === 1 ? "row" : "rows"}`,
+			detail: "Rows reference a parent that no longer exists. They will not appear in joined views.",
+		});
+	}
+
+	if (paidWithoutTicket > 0) {
+		issues.push({
+			id: "paid-without-ticket",
+			severity: "warning",
+			category: "payments",
+			title: `${paidWithoutTicket} paid ${paidWithoutTicket === 1 ? "registration has" : "registrations have"} no ticket`,
+			detail: "The payment is recorded but no ticket id was issued, so the attendee cannot be checked in.",
+			href: "/admin/registrations?paymentStatus=paid",
+		});
+	}
+
 	return {
-		counts: Object.fromEntries(counts.rows.map((row) => [row.table_name, row.count])),
-		integrity: integrity.rows[0]?.integrity_check ?? "unknown",
-		foreignKeyViolations: fk.rows.length,
-		paidWithoutTicket: orphanTickets.rows[0]?.count ?? 0,
+		// camelCase keys for the client type; the raw table names are not a stable
+		// contract and the page labels them itself.
+		counts: {
+			users: tableCount(counts.rows, "users"),
+			events: tableCount(counts.rows, "events"),
+			registrations: tableCount(counts.rows, "registrations"),
+			societies: tableCount(counts.rows, "societies"),
+			organizationAssignments: tableCount(counts.rows, "organization_assignments"),
+			paymentAttempts: tableCount(counts.rows, "payment_attempts"),
+			auditLogEntries: tableCount(counts.rows, "admin_audit_log"),
+		},
+		integrity: integrityResult,
+		foreignKeyViolations,
+		paidWithoutTicket,
+		issues,
+		checkedAt: new Date().toISOString(),
+	};
+}
+
+// ---------------------------------------------------------------------------
+// User directory
+// ---------------------------------------------------------------------------
+
+export interface AdminUserFilters {
+	q?: string;
+	role?: string;
+	page?: number;
+	perPage?: number;
+}
+
+export interface AdminUserRow {
+	id: string;
+	name: string;
+	email: string;
+	role: string;
+	avatar: string;
+	createdAt: string;
+	registrationsCount: number;
+}
+
+/**
+ * `GET /api/admin/users` — the branch user directory.
+ *
+ * This exists because `/api/collections/users` is a **self** policy: it is
+ * always filtered to the caller's own row, and an admin capability deliberately
+ * does not widen it (see `collections/policy.ts` and the e2e test that pins
+ * that behaviour). The admin page therefore needs its own route, the same way
+ * registrations and payments have one.
+ *
+ * Admin-only by role, not capability — matching `changeUserRole` and the
+ * sidebar gate in `workspace-permissions.ts`, which already restricts
+ * `/admin/users` to `legacyRole === "admin"`.
+ */
+export async function listAdminUsers(actor: Actor, filters: AdminUserFilters = {}) {
+	if (actor.role !== "admin") {
+		fail(403, "FORBIDDEN", "Only a branch administrator can list users");
+	}
+
+	const page = Math.max(1, filters.page ?? 1);
+	const perPage = Math.min(100, Math.max(1, filters.perPage ?? 40));
+
+	const where: string[] = [];
+	const params: unknown[] = [];
+
+	if (filters.q) {
+		// `instr`, not `LIKE`: a search term containing `%` or `_` must not become
+		// a wildcard. Same reasoning as `listRegistrations`.
+		const term = filters.q.toLowerCase();
+		where.push(
+			"(instr(lower(COALESCE(u.name, '')), ?) > 0 OR instr(lower(COALESCE(u.email, '')), ?) > 0)",
+		);
+		params.push(term, term);
+	}
+	if (filters.role && filters.role !== "all") {
+		where.push("u.role = ?");
+		params.push(filters.role);
+	}
+
+	const whereSql = where.length ? ` WHERE ${where.join(" AND ")}` : "";
+
+	const total =
+		(
+			await query<{ count: number }>(
+				`SELECT COUNT(*) AS count FROM users u${whereSql}`,
+				params,
+			)
+		).rows[0]?.count ?? 0;
+
+	const rows = await query<{
+		id: string;
+		name: string | null;
+		email: string | null;
+		role: string | null;
+		avatar: string | null;
+		created_at: string | null;
+		registrations_count: number;
+	}>(
+		`SELECT u.id, u.name, u.email, u.role, u.avatar, u.created_at,
+		        (SELECT COUNT(*) FROM registrations r WHERE r.user_id = u.id) AS registrations_count
+		   FROM users u${whereSql}
+		  ORDER BY u.name, u.email
+		  LIMIT ? OFFSET ?`,
+		[...params, perPage, (page - 1) * perPage],
+	);
+
+	return {
+		users: rows.rows.map((row) => ({
+			id: row.id,
+			name: row.name ?? "",
+			email: row.email ?? "",
+			role: row.role ?? "user",
+			avatar: row.avatar ?? "",
+			createdAt: row.created_at ?? "",
+			registrationsCount: num(row.registrations_count),
+		})),
+		total: num(total),
+		page,
+		perPage,
+		hasMore: page * perPage < num(total),
 	};
 }
 

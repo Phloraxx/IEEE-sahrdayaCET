@@ -45,6 +45,7 @@ import {
   type AttendanceRecentRow,
 } from "@/lib/data/attendance.client";
 import { formatDateTime } from "@/lib/dates";
+import { adminMeta } from "@/lib/admin-meta";
 
 interface BarcodeValue { rawValue: string }
 interface Detector { detect(source: HTMLVideoElement): Promise<BarcodeValue[]> }
@@ -467,7 +468,7 @@ export default function AdminCheckIn() {
                 <video ref={videoRef} className={scanning ? "aspect-video w-full object-cover" : "hidden"} muted playsInline />
                 {!scanning && (
                   <div className="flex aspect-video items-center justify-center text-center text-sm text-white/55">
-                    <div><ScanLine className="mx-auto mb-3 h-9 w-9" />Camera preview<br /><span className="text-xs text-white/35">Continuous mode stays open after each scan</span></div>
+                    <div><ScanLine className="mx-auto mb-3 h-9 w-9" />Camera preview<br /><span className="text-xs text-white/60">Continuous mode stays open after each scan</span></div>
                   </div>
                 )}
                 {scanning && <div className="pointer-events-none absolute inset-[14%] rounded-2xl border-2 border-white/45" aria-hidden="true" />}
@@ -613,3 +614,5 @@ export default function AdminCheckIn() {
     </div>
   );
 }
+
+export const meta = () => adminMeta("Check-in");

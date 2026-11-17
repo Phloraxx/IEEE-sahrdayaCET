@@ -1,6 +1,7 @@
 import { useParams } from "react-router";
 import { AdminPageHeader } from "@/features/admin/shared/admin-page-header";
 import { RegistrationDetail } from "@/features/admin/registrations/registration-detail";
+import { adminMeta } from "@/lib/admin-meta";
 
 export default function RegistrationDetailPage() {
   const { id = "" } = useParams();
@@ -17,3 +18,5 @@ export default function RegistrationDetailPage() {
     </div>
   );
 }
+
+export const meta = () => adminMeta("Registration");

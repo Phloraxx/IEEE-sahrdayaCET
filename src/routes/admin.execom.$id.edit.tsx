@@ -1,6 +1,7 @@
 import { useParams } from "react-router";
 import { AdminPageHeader } from "@/features/admin/shared/admin-page-header";
 import { ExecomForm } from "@/features/admin/execom/execom-form";
+import { adminMeta } from "@/lib/admin-meta";
 
 export default function EditExecomPage() {
   const { id = "" } = useParams();
@@ -17,3 +18,5 @@ export default function EditExecomPage() {
     </div>
   );
 }
+
+export const meta = () => adminMeta("Edit Execom Member");
