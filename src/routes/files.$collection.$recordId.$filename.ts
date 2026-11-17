@@ -120,9 +120,12 @@ export async function loader({ params }: LoaderFunctionArgs) {
 		headers: {
 			"Content-Type": contentType,
 			"Content-Length": String(body.byteLength),
-			// Generated filenames never change for a given record, so this is safe
-			// to cache; a replaced banner gets a new UUID.
-			"Cache-Control": "public, max-age=86400, immutable",
+			// Filenames are generated UUIDs and a replaced file gets a new one, so the
+			// URL is content-addressed in practice: it can never point at different
+			// bytes. `immutable` promises the browser will not revalidate, which is
+			// only honest alongside a long max-age — at one day it meant a day of
+			// staleness followed by a full re-fetch, the worst of both.
+			"Cache-Control": "public, max-age=31536000, immutable",
 			"X-Content-Type-Options": "nosniff",
 		},
 	});

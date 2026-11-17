@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { motion, useReducedMotion } from "framer-motion";
 import { Link, useLocation } from "react-router";
 import { DropdownMenu, Dialog as DialogPrimitive } from "radix-ui";
 import {
@@ -74,7 +73,6 @@ function MobileMascot({
 }
 
 export default function Navbar() {
-  const reduceMotion = Boolean(useReducedMotion());
   const [activeSection, setActiveSection] = useState("/");
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -262,15 +260,12 @@ export default function Navbar() {
           </div>
         </nav>
 
-        <motion.div
-          initial={false}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{
-            duration: reduceMotion ? 0 : 0.5,
-            ease: [0.16, 1, 0.3, 1],
-          }}
-          className="pointer-events-none fixed left-0 right-0 top-6 z-[100] hidden justify-center px-4 md:flex"
-        >
+        {/*
+          Was a `motion.div` with `initial={false}`, which starts at the animate
+          target — it never animated anything. Keeping it meant every page that
+          renders the navbar carried framer-motion for a no-op wrapper.
+        */}
+        <div className="pointer-events-none fixed left-0 right-0 top-6 z-[100] hidden justify-center px-4 md:flex">
           <div className="pointer-events-auto flex max-w-[98vw] items-center gap-1 rounded-full border border-white/20 bg-white/70 px-2 py-1.5 shadow-lg shadow-black/5 backdrop-blur-md">
             <nav
               aria-label="Primary navigation"
@@ -293,7 +288,7 @@ export default function Navbar() {
             <div className="mx-1 h-4 w-px shrink-0 bg-gray-300" />
             {renderAuth()}
           </div>
-        </motion.div>
+        </div>
 
         <DialogPrimitive.Portal>
           <DialogPrimitive.Overlay className="mobile-nav-overlay fixed inset-0 z-[100] bg-[#06111d]/35 backdrop-blur-[2px] md:hidden" />

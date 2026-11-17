@@ -455,17 +455,28 @@ export async function getEventOperations(actor: Actor, eventId: string) {
 			  ORDER BY requested_at, id LIMIT 100`,
 			[eventId],
 		);
-		const cancellationRequests = [];
-		for (const request of requests.rows) {
-			const registration = await query<RegistrationRow>(
-				`SELECT * FROM registrations WHERE id = ?`,
-				[str(request.registration_id)],
+		// One `IN (...)` read instead of one read per request. better-sqlite3 is
+		// synchronous, so a 100-row loop was 100 sequential event-loop stalls with
+		// no concurrency to gain from them.
+		const registrationIds = requests.rows
+			.map((request) => str(request.registration_id))
+			.filter((id) => id.length > 0);
+
+		const registrationsById = new Map<string, RegistrationRow>();
+		if (registrationIds.length > 0) {
+			const registrations = await query<RegistrationRow>(
+				`SELECT * FROM registrations WHERE id IN (${registrationIds.map(() => "?").join(",")})`,
+				registrationIds,
 			);
-			cancellationRequests.push({
-				request: cancellationRequestSnapshot(request),
-				registration: registrationSnapshot(registration.rows[0]),
-			});
+			for (const row of registrations.rows) registrationsById.set(String(row.id), row);
 		}
+
+		const cancellationRequests = requests.rows.map((request) => ({
+			request: cancellationRequestSnapshot(request),
+			registration: registrationSnapshot(
+				registrationsById.get(str(request.registration_id)),
+			),
+		}));
 		response.cancellationRequests = cancellationRequests;
 		response.financeDisclaimer =
 			"Recorded collections are an application ledger, not a live bank balance.";

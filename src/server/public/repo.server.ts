@@ -18,6 +18,7 @@
  */
 
 import { query } from "@/lib/db.server";
+import { ttlMemo } from "./cache.server";
 
 // ---------------------------------------------------------------------------
 // Events
@@ -88,8 +89,13 @@ export interface EventRow {
 	society_logo: string | null;
 }
 
-/** Publicly visible events, oldest first (matches the PocketBase `sort: "date"`). */
-export async function listPublicEvents(): Promise<EventRow[]> {
+/**
+ * Publicly visible events, oldest first (matches the PocketBase `sort: "date"`).
+ *
+ * Memoised for `PUBLIC_DATA_TTL_MS`: this is the whole events list and it is
+ * re-read on every `/events` and home render.
+ */
+export const listPublicEvents = ttlMemo(async function listPublicEvents(): Promise<EventRow[]> {
 	const result = await query<EventRow>(
 		`SELECT ${EVENT_COLUMNS}, ${SOCIETY_COLUMNS}
 		   FROM events e
@@ -98,7 +104,7 @@ export async function listPublicEvents(): Promise<EventRow[]> {
 		  ORDER BY e.date ASC`,
 	);
 	return result.rows;
-}
+});
 
 /** One public event by slug, or undefined. */
 export async function getPublicEventBySlug(slug: string): Promise<EventRow | undefined> {
@@ -142,7 +148,10 @@ export async function listPublicEventsForSociety(societyId: string): Promise<Eve
 }
 
 /** Upcoming published events for the home page, soonest first. */
-export async function listUpcomingEvents(limit: number): Promise<EventRow[]> {
+/** Upcoming published events, memoised. Keyed on `limit`, which is bounded. */
+export const listUpcomingEvents = ttlMemo(async function listUpcomingEvents(
+	limit: number,
+): Promise<EventRow[]> {
 	const result = await query<EventRow>(
 		`SELECT ${EVENT_COLUMNS}, ${SOCIETY_COLUMNS}
 		   FROM events e
@@ -153,7 +162,7 @@ export async function listUpcomingEvents(limit: number): Promise<EventRow[]> {
 		[limit],
 	);
 	return result.rows;
-}
+});
 
 // ---------------------------------------------------------------------------
 // Societies
@@ -171,7 +180,10 @@ export interface SocietyRow {
 	updated_at: string;
 }
 
-export async function listPublicSocieties(): Promise<SocietyRow[]> {
+/** Visible societies, memoised. No arguments, so a single cache entry. */
+export const listPublicSocieties = ttlMemo(async function listPublicSocieties(): Promise<
+	SocietyRow[]
+> {
 	const result = await query<SocietyRow>(
 		`SELECT id, name, slug, bio, logo, banner, default_whatsapp_link, created_at, updated_at
 		   FROM societies
@@ -179,7 +191,7 @@ export async function listPublicSocieties(): Promise<SocietyRow[]> {
 		  ORDER BY name ASC`,
 	);
 	return result.rows;
-}
+});
 
 export async function getPublicSocietyBySlug(slug: string): Promise<SocietyRow | undefined> {
 	const result = await query<SocietyRow>(
@@ -229,7 +241,8 @@ export interface ExecomRow {
  * (`execom.pb.js`) strips them from public responses, and doing it in the SELECT
  * is stronger than doing it in a hook.
  */
-export async function listExecom(): Promise<ExecomRow[]> {
+/** The whole execom list, memoised. Read by the home page and `/full-execom`. */
+export const listExecom = ttlMemo(async function listExecom(): Promise<ExecomRow[]> {
 	const result = await query<ExecomRow>(
 		`SELECT id, name, position, department, batch, section, section_id,
 		        photo, linkedin, instagram, portfolio, sort_order
@@ -237,7 +250,7 @@ export async function listExecom(): Promise<ExecomRow[]> {
 		  ORDER BY sort_order ASC, name ASC`,
 	);
 	return result.rows;
-}
+});
 
 /** Directory members for one society, including contact details (society page). */
 export async function listExecomForSociety(societyId: string): Promise<ExecomRow[]> {
@@ -252,10 +265,11 @@ export async function listExecomForSociety(societyId: string): Promise<ExecomRow
 	return result.rows;
 }
 
-export async function countExecom(): Promise<number> {
+/** Execom headcount, memoised. A `count(*)` per home render is pure waste. */
+export const countExecom = ttlMemo(async function countExecom(): Promise<number> {
 	const result = await query<{ n: number }>("SELECT count(*) AS n FROM execom");
 	return result.rows[0]?.n ?? 0;
-}
+});
 
 // ---------------------------------------------------------------------------
 // Blogs
@@ -310,7 +324,10 @@ const BLOG_FROM = `
 	LEFT JOIN events e ON e.id = b.event_id
 `;
 
-export async function listPublishedBlogs(limit?: number): Promise<BlogRow[]> {
+/** Published blogs, memoised. Keyed on `limit`, which is clamped to 1..6. */
+export const listPublishedBlogs = ttlMemo(async function listPublishedBlogs(
+	limit?: number,
+): Promise<BlogRow[]> {
 	const limitClause = typeof limit === "number" ? " LIMIT ?" : "";
 	const result = await query<BlogRow>(
 		`SELECT ${BLOG_SELECT} ${BLOG_FROM}
@@ -319,7 +336,7 @@ export async function listPublishedBlogs(limit?: number): Promise<BlogRow[]> {
 		typeof limit === "number" ? [limit] : [],
 	);
 	return result.rows;
-}
+});
 
 export async function listPublishedBlogsForSociety(
 	societyId: string,
