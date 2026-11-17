@@ -38,10 +38,22 @@ export async function getAdminStats(): Promise<AdminStats> {
   const eventIds = branchWide ? [] : Array.from(new Set(workspace.assignments.filter((a) => a.active && a.scopeType === "event" && (a.capabilities.includes("reports.view") || a.capabilities.includes("registrations.view"))).map((a) => a.eventId).filter(Boolean)));
   const eventScope = branchWide ? "" : ([...societyIds.map((id) => `society = ${escapeFilterValue(id)}`), ...eventIds.map((id) => `id = ${escapeFilterValue(id)}`)].join(" || ") || 'id = ""');
   const auditScope = branchWide ? "" : ([...societyIds.map((id) => `event.society = ${escapeFilterValue(id)}`), ...eventIds.map((id) => `event = ${escapeFilterValue(id)}`)].join(" || ") || 'id = ""');
-  const notificationScope = branchWide ? "" : ([...societyIds.map((id) => `registration.event.society = ${escapeFilterValue(id)}`), ...eventIds.map((id) => `registration.event = ${escapeFilterValue(id)}`)].join(" || ") || 'id = ""');
   const withScope = (filter: string | undefined, scope: string) => [scope ? `(${scope})` : "", filter ? `(${filter})` : ""].filter(Boolean).join(" && ") || undefined;
   const count = async (collection: string, filter?: string, scope = "") =>
     (await pb.collection(collection).getList(1, 1, { filter: withScope(filter, scope), fields: "id", requestKey: null })).totalItems;
+
+  // The outbox is a branch reporting surface: the collection endpoint requires
+  // `reports.view` at branch scope, and a society- or event-scoped actor cannot
+  // read it (PocketBase's rules allowed a scoped read; the port does not yet).
+  // Degrade to zero the way the audit feed already does, so one unreadable
+  // counter does not take the whole dashboard down with it.
+  const notificationCount = async (filter: string): Promise<number> => {
+    try {
+      return await count("notification_outbox", filter);
+    } catch {
+      return 0;
+    }
+  };
 
   const registrationCount = async (
     filters: Omit<AdminRegistrationFilters, "page" | "perPage"> = {},
@@ -73,7 +85,7 @@ export async function getAdminStats(): Promise<AdminStats> {
     count("events", `isDeleted != true && date > ${escapeFilterValue(nowIso)} && date <= ${escapeFilterValue(futureIso)} && status = 'published'`, eventScope),
     count("events", `isDeleted != true && date <= ${escapeFilterValue(nowIso)} && endDate >= ${escapeFilterValue(nowIso)} && status = 'published'`, eventScope),
     count("events", `isDeleted != true && status = 'published' && endDate > ${escapeFilterValue(pastIso)} && endDate < ${escapeFilterValue(nowIso)}`, eventScope),
-    count("notification_outbox", `status = 'failed' && attempts >= 8`, notificationScope),
+    notificationCount(`status = 'failed' && attempts >= 8`),
     canReadRegistrations ? registrationCount() : Promise.resolve(0),
     canReadRegistrations ? registrationCount({ status: "confirmed" }) : Promise.resolve(0),
     canReadRegistrations ? registrationCount({ status: "pending" }) : Promise.resolve(0),
