@@ -18,6 +18,7 @@
 import type { ActionFunctionArgs } from "react-router";
 import { query, withTransaction } from "@/lib/db.server";
 import { applyProviderState, hasEventId } from "@/server/payments/apply";
+import { enqueueForRegistration } from "@/server/notifications/outbox";
 import { paymentConfirmationDisposition, recordPaidManualReview } from "@/server/payments/guard";
 import { syncPaymentLedger } from "@/server/payments/ledger";
 import {
@@ -119,7 +120,10 @@ export async function action({ request }: ActionFunctionArgs) {
 	if (!registrationId) return json({ success: true, ignored: true }, 200);
 
 	try {
-		return await withTransaction(async (): Promise<Response> => {
+		// Set inside the transaction, consumed after it commits: an email must not
+		// be queued for a state change that then rolls back.
+		let notify = false;
+		const response = await withTransaction(async (): Promise<Response> => {
 			const found = await query<{
 				id: string;
 				event_id: string;
@@ -207,8 +211,21 @@ export async function action({ request }: ActionFunctionArgs) {
 			if (result.action === "error") {
 				return json({ code: "PAYGATE_EVENT_MISMATCH", error: result.error }, 400);
 			}
+			notify = result.action === "confirm" || result.action === "noop";
 			return json({ success: true, action: result.action }, 200);
 		});
+
+		// Best-effort, like the PocketBase hook: a queueing failure must not fail
+		// the webhook, because the payment state is already committed.
+		if (notify) {
+			try {
+				await enqueueForRegistration(registrationId);
+			} catch (error) {
+				console.error("[paygate] notification enqueue failed:", error);
+			}
+		}
+
+		return response;
 	} catch (err) {
 		console.error(
 			"[paygate] webhook transaction failed:",

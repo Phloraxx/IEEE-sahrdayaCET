@@ -6,7 +6,7 @@
  * inside the first request.
  *
  * This module is additive: the PocketBase-era variables (`POCKETBASE_INTERNAL_URL`)
- * still exist in `src/lib/pb.server.ts` and keep working until cutover.
+ * no longer exist: every surface is served by this app.
  */
 
 /** Minimum length of `APP_SECRET`, in bytes. */
