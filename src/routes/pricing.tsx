@@ -18,6 +18,8 @@ export const meta = () => [
   { property: "og:title", content: `${title} | IEEE Sahrdaya Student Branch` },
   { property: "og:description", content: description },
   { property: "og:url", content: `${APP_URL}${path}` },
+  { property: "og:image", content: `${APP_URL}/web.png` },
+  { name: "twitter:card", content: "summary_large_image" },
 ];
 
 export async function loader() {
@@ -37,7 +39,7 @@ function EventPriceCard({ event }: { event: SerializableEvent }) {
           <p className="mt-2 flex items-center gap-2 text-xs text-gray-500"><CalendarDays className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />{formatDate(event.date) || "Date to be announced"}</p>
           {event.society?.name && <p className="mt-1 text-xs text-gray-500">{event.society.name}</p>}
         </div>
-        <ArrowUpRight className="h-4 w-4 shrink-0 text-gray-400 transition group-hover:text-ieee-blue" />
+        <ArrowUpRight className="h-4 w-4 shrink-0 text-gray-600 transition group-hover:text-ieee-blue" />
       </div>
       <div className="mt-5 flex items-center justify-between border-t border-gray-100 pt-4">
         <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-500">Registration fee</span>

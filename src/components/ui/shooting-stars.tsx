@@ -55,6 +55,9 @@ export const ShootingStars: React.FC<ShootingStarsProps> = ({
   const [star, setStar] = useState<ShootingStar | null>(null);
   const reduceMotion = usePrefersReducedMotion();
   const svgRef = useRef<SVGSVGElement>(null);
+  // Several instances can mount on one page; a hardcoded id would duplicate and
+  // every reference would resolve to the first gradient.
+  const gradientId = `shooting-star-gradient-${React.useId().replace(/:/g, "")}`;
 
   useEffect(() => {
     if (reduceMotion) {
@@ -136,14 +139,14 @@ export const ShootingStars: React.FC<ShootingStarsProps> = ({
           y={star.y}
           width={starWidth * star.scale}
           height={starHeight}
-          fill="url(#gradient)"
+          fill={`url(#${gradientId})`}
           transform={`rotate(${star.angle}, ${
             star.x + (starWidth * star.scale) / 2
           }, ${star.y + starHeight / 2})`}
         />
       )}
       <defs>
-        <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+        <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" style={{ stopColor: trailColor, stopOpacity: 0 }} />
           <stop
             offset="100%"

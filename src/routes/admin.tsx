@@ -1,4 +1,5 @@
-import { Navigate, Outlet, useLocation, useNavigation } from "react-router";
+import { Navigate, Outlet, redirect, useLocation, useNavigation } from "react-router";
+import { getSessionUser } from "@/server/auth/session.server";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AdminGuard } from "@/components/admin/admin-guard";
@@ -14,6 +15,21 @@ import { canAccessWorkspacePath, preferredWorkspacePath } from "@/lib/workspace-
 export const meta = () => [
   { name: "robots", content: "noindex, nofollow" },
 ];
+
+/**
+ * Server-side gate.
+ *
+ * The workspace gate is a client component, so an unauthenticated request for
+ * `/admin` used to answer `200` with an empty document and only redirect once
+ * JavaScript ran. A crawler, a no-JS client, or anything reading the status code
+ * saw a successful page. Answering the redirect on the server makes the status
+ * honest; the client guard still handles a session that lacks a workspace.
+ */
+export async function loader({ request }: { request: Request }) {
+  const context = await getSessionUser(request);
+  if (!context) throw redirect("/", 302);
+  return null;
+}
 
 function useTheme() {
   // Admin defaults to dark. The inline script in __root.tsx already

@@ -194,7 +194,18 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 	// `expand` is applied after the page is read, so the join cost is bounded by
 	// perPage rather than the table size.
 	const expand = url.searchParams.get("expand") ?? "";
-	const items = expand ? await expandRows(rows.rows, expand) : rows.rows;
+	const expanded = expand ? await expandRows(rows.rows, expand) : rows.rows;
+
+	// Anonymous callers get the public projection: a `SELECT *` used to hand back
+	// the approval trail, the finance sign-off and the attendance snapshot.
+	const items =
+		!actor && policy.publicOmit
+			? expanded.map((row) => {
+					const projected: Record<string, unknown> = { ...row };
+					for (const column of policy.publicOmit ?? []) delete projected[column];
+					return projected;
+				})
+			: expanded;
 
 	return json({
 		page,

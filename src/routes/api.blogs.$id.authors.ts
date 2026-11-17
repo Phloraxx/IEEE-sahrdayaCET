@@ -13,6 +13,16 @@ import { hasCapability } from "@/server/authz/capabilities";
 import { loadAssignments, WorkspaceError } from "@/server/workspace/service";
 import { json, methodNotAllowed, readJson, toErrorResponse } from "@/server/http/api";
 
+/**
+ * There is no read side here: the author list is part of the blog record the
+ * collection endpoint already returns. Without this loader a GET fell through to
+ * the router's error boundary and answered `400 {"message":"Unexpected Server
+ * Error"}`, which reads like a bug rather than "wrong method".
+ */
+export function loader() {
+	return methodNotAllowed();
+}
+
 export async function action({ request, params }: ActionFunctionArgs) {
 	if (request.method !== "PUT" && request.method !== "POST") return methodNotAllowed();
 	try {

@@ -16,6 +16,8 @@ export const meta = () => [
   { property: "og:title", content: `${title} | IEEE Sahrdaya Student Branch` },
   { property: "og:description", content: description },
   { property: "og:url", content: `${APP_URL}${path}` },
+  { property: "og:image", content: `${APP_URL}/web.png` },
+  { name: "twitter:card", content: "summary_large_image" },
 ];
 
 const supportLinks = [
