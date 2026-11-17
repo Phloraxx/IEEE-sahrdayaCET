@@ -31,17 +31,17 @@ export function YearChapter({ year, events, opener }: YearChapterProps) {
       ) : (
         <div className="flex flex-wrap items-end justify-between gap-3 border-b border-black/10 pb-4">
           <h2 className="text-5xl font-semibold leading-none tracking-[-0.06em] text-[#111315] sm:text-6xl">{year}</h2>
-          <p className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-black/45">
+          <p className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-black/58">
             {String(events.length).padStart(2, "0")} events
           </p>
         </div>
       )}
 
       <div className="mt-6 flex items-center justify-between gap-4">
-        <p className="font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-black/45">
+        <p className="font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-black/58">
           {String(events.length).padStart(2, "0")} {events.length === 1 ? "event" : "events"}
         </p>
-        <p className="font-[Caveat] text-lg text-black/40">posters and notes from the year</p>
+        <p className="font-[Caveat] text-lg text-black/58">posters and notes from the year</p>
       </div>
 
       <div className="poster-wall mt-4 columns-2 gap-4 md:columns-3 md:gap-5 xl:columns-4">

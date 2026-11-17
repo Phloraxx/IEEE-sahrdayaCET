@@ -82,7 +82,7 @@ export function EventRow({ event, isNext = false }: EventRowProps) {
           <div className="hidden min-w-0 space-y-1.5 text-[11px] leading-tight text-black/60 sm:block">
             <div className="font-semibold text-[#111315]">{time}</div>
             <div className="flex items-start gap-1.5">
-              <MapPin className="mt-0.5 h-3 w-3 shrink-0 text-black/50" />
+              <MapPin className="mt-0.5 h-3 w-3 shrink-0 text-black/58" />
               <span className="break-words">{event.venue || "Venue TBA"}</span>
             </div>
           </div>

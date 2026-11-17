@@ -49,7 +49,7 @@ export function PosterCard({ event, tall = false }: { event: ExtendedEvent; tall
         </span>
       </div>
 
-      <div className="mt-3 flex items-baseline gap-2 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-black/50">
+      <div className="mt-3 flex items-baseline gap-2 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-black/58">
         <span className="text-[#00629B]">{formatMonth(event.date)} {formatDay(event.date)}</span>
         <span aria-hidden="true" className="text-black/20">/</span>
         <span className="truncate">{societyName}</span>

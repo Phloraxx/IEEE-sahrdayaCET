@@ -80,7 +80,7 @@ export default function VerifyCertificateRoute() {
                     autoComplete="off"
                     spellCheck={false}
                     placeholder="IEEESB-2026-COMP-XXXXXXXXXX"
-                    className="min-h-14 min-w-0 flex-1 border border-black/15 bg-white px-4 font-mono text-sm uppercase outline-none transition placeholder:text-black/50 focus:border-ieee-blue focus:ring-2 focus:ring-ieee-blue/10"
+                    className="min-h-14 min-w-0 flex-1 border border-black/15 bg-white px-4 font-mono text-sm uppercase outline-none transition placeholder:text-black/58 focus:border-ieee-blue focus:ring-2 focus:ring-ieee-blue/10"
                   />
                   <button type="submit" disabled={checking} className="inline-flex min-h-14 items-center justify-center gap-2 bg-black px-6 text-sm font-semibold text-white transition hover:bg-ieee-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ieee-blue/30 disabled:cursor-wait disabled:opacity-65">
                     {checking ? <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <Search className="h-4 w-4" aria-hidden="true" />}

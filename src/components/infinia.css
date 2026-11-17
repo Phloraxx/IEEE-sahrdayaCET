@@ -142,3 +142,8 @@
 }
 @media(prefers-reduced-motion:reduce){.infinia-rainbow-word,.infinia-playful-hero .infinia-hero-story>.infinia-hero-watch svg{animation:none!important}.infinia-playful-hero .infinia-hero-enter,.infinia-playful-hero .infinia-hero-enter svg{transition:none}.infinia-playful-hero .infinia-hero-enter:hover{transform:none}}
 @media(forced-colors:active){.infinia-rainbow-word{background:none;filter:none;-webkit-text-fill-color:CanvasText;color:CanvasText}.infinia-playful-hero .infinia-hero-enter{border:2px solid LinkText}}
+
+/* The vitals band is the one orange surface on the page. The shared muted
+   greys are tuned for the paper background and drop to 1.7:1 here, so notes
+   inside the band inherit its own ink instead. */
+.infinia-vitals .infinia-source-note,.infinia-vitals .infinia-vitals-note{color:#211810}

@@ -11,16 +11,19 @@ import { FLAGSHIP_TIMELINE, type FlagshipImage } from "@/lib/flagships";
 import { INFINIA, INFINIA_2024_PHOTOS, INFINIA_EVENING, INFINIA_PANEL, INFINIA_PHOTOS, INFINIA_POSTERS, INFINIA_STATS, INFINIA_WORKSHOPS, infiniaPoster } from "@/lib/infinia";
 import "./infinia.css";
 
-function Photo({ photo, priority = false }: { photo: FlagshipImage; priority?: boolean }) {
-  return <img src={photo.src} alt={photo.alt} width={photo.width} height={photo.height} loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : undefined} />;
+function Photo({ photo, priority = false, decorative = false }: { photo: FlagshipImage; priority?: boolean; decorative?: boolean }) {
+  // `decorative` is for images inside a link that already carries its own
+  // accessible name. Keeping the alt there as well made the visible text differ
+  // from the label, which breaks WCAG 2.5.3 (Label in Name) for voice control.
+  return <img src={photo.src} alt={decorative ? "" : photo.alt} width={photo.width} height={photo.height} loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : undefined} />;
 }
 function MediaView({ photo, poster = false, compact = false }: { photo: FlagshipImage; poster?: boolean; compact?: boolean }) {
   const [open, setOpen] = useState(false);
   return <figure className={`${poster ? "infinia-poster" : "infinia-photo"}${compact ? " infinia-poster-compact" : ""}`}>
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Trigger asChild>
-        <a href={photo.src} onClick={event => { event.preventDefault(); setOpen(true); }} aria-label={`View ${photo.caption}`} className="infinia-media-trigger">
-          <Photo photo={photo} />{compact ? <span className="infinia-poster-label" aria-hidden="true">Original poster <ArrowUpRight size={16} /></span> : <span className="infinia-expand" aria-hidden="true"><Maximize2 size={16} /></span>}
+        <a href={photo.src} onClick={event => { event.preventDefault(); setOpen(true); }} aria-label={compact ? `View original poster — ${photo.caption}` : `View ${photo.caption}`} className="infinia-media-trigger">
+          <Photo photo={photo} decorative />{compact ? <span className="infinia-poster-label" aria-hidden="true">Original poster <ArrowUpRight size={16} /></span> : <span className="infinia-expand" aria-hidden="true"><Maximize2 size={16} /></span>}
         </a>
       </Dialog.Trigger>
       <Dialog.Portal>
@@ -59,7 +62,7 @@ function FlagshipTimeline() {
     </header>
     <ol className="infinia-timeline-list" role="list">
       {FLAGSHIP_TIMELINE.map(({ flagship, edition, href }) => <li key={`${flagship.slug}-${edition.year}`}>
-        <Link to={href} className="infinia-timeline-entry" aria-label={`Explore ${edition.title} ${edition.year}`}>
+        <Link to={href} className="infinia-timeline-entry">
           <span className="infinia-timeline-year">{edition.year}</span>
           <div className="infinia-timeline-copy">
             <p className="infinia-eyebrow">{flagship.name} / {edition.date}</p>
@@ -82,7 +85,7 @@ export function InfiniaShowcase({ year = "2025", hub = false }: { year?: string;
   return <><div className="infinia-site infinia-cinema infinia-playful">
     <CanonicalLink path={path} />
     <Navbar />
-    <main id="main-content">
+    <main>
       <InfiniaHero key={path} hub={hub} latest={latest} title={hub ? "INFINIA" : edition.title} date={edition.date} photo={hub ? INFINIA.editions[1]!.image! : edition.image!} />
       {(hub || !latest) && <InfiniaVideoChapters />}
       <Editions year={year} />

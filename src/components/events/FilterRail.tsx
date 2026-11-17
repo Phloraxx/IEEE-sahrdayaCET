@@ -60,20 +60,20 @@ export function FilterRail({
           <label className="grid min-w-0">
             <span className="sr-only">Search past events</span>
             <span className="relative block">
-              <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-black/40" />
+              <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-black/58" />
               <input
                 type="search"
                 value={search}
                 onChange={(event) => onSearch(event.target.value)}
                 placeholder="Search the programme — title, society or venue"
-                className="h-11 w-full rounded-full bg-[#f2f3f4] pl-10 pr-10 text-base text-[#111315] outline-none transition placeholder:text-black/40 focus-visible:ring-2 focus-visible:ring-[#00629B] focus-visible:ring-offset-2 focus-visible:ring-offset-white lg:text-sm"
+                className="h-11 w-full rounded-full bg-[#f2f3f4] pl-10 pr-10 text-base text-[#111315] outline-none transition placeholder:text-black/58 focus-visible:ring-2 focus-visible:ring-[#00629B] focus-visible:ring-offset-2 focus-visible:ring-offset-white lg:text-sm"
               />
               {search ? (
                 <button
                   type="button"
                   onClick={() => onSearch("")}
                   aria-label="Clear search"
-                  className="absolute right-1 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full text-black/50 transition-colors hover:bg-black/5 hover:text-black focus-visible:outline-2 focus-visible:outline-[#00629B]"
+                  className="absolute right-1 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full text-black/58 transition-colors hover:bg-black/5 hover:text-black focus-visible:outline-2 focus-visible:outline-[#00629B]"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -107,7 +107,7 @@ export function FilterRail({
                   aria-pressed={active}
                   onClick={() => onView(value)}
                   className={`inline-flex min-h-9 items-center gap-2 rounded-full px-3.5 text-[10px] font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00629B] ${
-                    active ? "bg-white text-[#111315] shadow-sm" : "text-black/50 hover:text-black"
+                    active ? "bg-white text-[#111315] shadow-sm" : "text-black/58 hover:text-black"
                   }`}
                 >
                   <Icon aria-hidden="true" className="h-3.5 w-3.5" />
@@ -137,11 +137,11 @@ export function FilterRail({
                   onFocus={() => moveTo(year.value)}
                   onClick={() => onYear(year.value)}
                   className={`relative z-10 inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 text-[10px] font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00629B] ${
-                    active ? "text-[#00629B]" : "text-black/50 hover:text-black"
+                    active ? "text-[#00629B]" : "text-black/58 hover:text-black"
                   }`}
                 >
                   {year.value}
-                  <span className={`font-mono text-[9px] tabular-nums ${active ? "text-[#00629B]/60" : "text-black/30"}`}>
+                  <span className={`font-mono text-[9px] tabular-nums ${active ? "text-[#00629B]" : "text-black/58"}`}>
                     {String(year.count).padStart(2, "0")}
                   </span>
                 </button>
@@ -150,7 +150,7 @@ export function FilterRail({
           </div>
 
           <div className="flex items-center gap-2">
-            <span role="status" aria-live="polite" className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-black/45">
+            <span role="status" aria-live="polite" className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-black/58">
               {resultCount} {resultCount === 1 ? "poster" : "posters"}
             </span>
             {hasFilters ? (

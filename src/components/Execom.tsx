@@ -50,7 +50,7 @@ const MarqueeText: React.FC<{ text: string }> = ({ text }) => {
           },
         }}
       >
-        <span className="text-[10px] md:text-xs font-mono tracking-[0.3em] text-ieee-blue/60 uppercase">
+        <span className="text-[10px] md:text-xs font-mono tracking-[0.3em] text-ieee-blue uppercase">
           {displayText}
         </span>
       </motion.div>
@@ -413,19 +413,19 @@ export const Execom: React.FC<{ members: ExecomMemberDoc[] }> = ({ members }) =>
           transition={reduceMotion ? { duration: 0 } : { duration: 0.6 }}
         >
           <div className="text-center md:text-left">
-            <div className="font-mono text-[10px] tracking-[0.3em] text-gray-400 uppercase mb-1">
+            <div className="font-mono text-[10px] tracking-[0.3em] text-gray-600 uppercase mb-1">
               Roster
             </div>
             <div className="font-bold text-2xl md:text-4xl text-gray-900">80</div>
           </div>
           <div className="text-center">
-            <div className="font-mono text-[10px] tracking-[0.3em] text-gray-400 uppercase mb-1">
+            <div className="font-mono text-[10px] tracking-[0.3em] text-gray-600 uppercase mb-1">
               Events Led
             </div>
             <div className="font-bold text-2xl md:text-4xl text-gray-900">100+</div>
           </div>
           <div className="text-center md:text-right">
-            <div className="font-mono text-[10px] tracking-[0.3em] text-gray-400 uppercase mb-1">
+            <div className="font-mono text-[10px] tracking-[0.3em] text-gray-600 uppercase mb-1">
               Societies
             </div>
             <div className="font-bold text-2xl md:text-4xl text-gray-900">14</div>
@@ -457,7 +457,7 @@ export const Execom: React.FC<{ members: ExecomMemberDoc[] }> = ({ members }) =>
           transition={reduceMotion ? { duration: 0 } : { duration: 0.6 }}
         >
           <div className="h-px w-16 bg-gray-300 hidden md:block" />
-          <p className="font-mono text-xs text-gray-400 tracking-[0.2em] uppercase">
+          <p className="font-mono text-xs text-gray-600 tracking-[0.2em] uppercase">
             Want to be part of the team?
           </p>
           <a

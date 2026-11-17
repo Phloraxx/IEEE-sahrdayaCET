@@ -583,7 +583,7 @@ export default function SocietiesClient({ societies, activityBySociety, upcoming
                       title={society.name}
                       data-society-node={society.slug.toLowerCase()}
                       disabled={!filtered.some((entry) => entry.id === society.id)}
-                      aria-label={`Jump to ${society.name}${eventCount ? `, ${eventCount} upcoming ${eventCount === 1 ? "event" : "events"}` : ""}`}
+                      aria-label={`${society.slug === "ieee-student-branch" ? "SB" : society.slug.toUpperCase()} — jump to ${society.name}${eventCount ? `, ${eventCount} upcoming ${eventCount === 1 ? "event" : "events"}` : ""}`}
                       className="group/node flex min-h-11 flex-col items-center justify-center gap-2 disabled:cursor-default disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ieee-blue focus-visible:ring-offset-2"
                     >
                       <span className={`relative block rounded-full border transition-all duration-300 ${eventCount > 1 ? "h-3 w-3" : "h-2.5 w-2.5"} ${active ? `scale-[1.45] border-white ring-1 ring-slate-300 ${accent.line}` : eventCount ? `border-white ring-1 ring-slate-300 ${accent.line}` : "border-slate-300 bg-white"}`}>

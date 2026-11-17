@@ -264,7 +264,7 @@ function LivePhotos() {
         <div className="grid gap-8 lg:grid-cols-12 lg:items-end">
           <Reveal className="lg:col-span-4">
             <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#6558c9]">Event day</p>
-            <p className="mt-4 max-w-xs text-xs font-bold uppercase tracking-[0.14em] text-black/35">Kickoff · Hall · Pitch day</p>
+            <p className="mt-4 max-w-xs text-xs font-bold uppercase tracking-[0.14em] text-black/58">Kickoff · Hall · Pitch day</p>
           </Reveal>
           <div className="lg:col-span-8">
             <MaskedHeading>
@@ -273,7 +273,7 @@ function LivePhotos() {
               </h2>
             </MaskedHeading>
             <Reveal>
-              <p className="mt-6 max-w-2xl text-sm leading-6 text-black/52 sm:text-base sm:leading-7">
+              <p className="mt-6 max-w-2xl text-sm leading-6 text-black/58 sm:text-base sm:leading-7">
                 Real photographs from the SustainX event day at Sahrdaya.
               </p>
             </Reveal>
@@ -281,7 +281,7 @@ function LivePhotos() {
         </div>
 
         <div className="mt-10 lg:hidden">
-          <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.18em] text-black/40" aria-hidden="true">
+          <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.18em] text-black/58" aria-hidden="true">
             <span>Swipe the photos →</span><span>01 / 03</span>
           </div>
           <div className="event-filter-scroll -mx-5 mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-5 sm:-mx-8 sm:px-8">
@@ -291,13 +291,12 @@ function LivePhotos() {
                 type="button"
                 onClick={() => setSelected(index)}
                 className="group w-[82vw] max-w-[390px] shrink-0 snap-center text-left"
-                aria-label={`Open event photo ${index + 1} of ${livePhotos.length}`}
               >
                 <div className="aspect-[4/3] overflow-hidden bg-white/45 ring-1 ring-black/8">
                   <img src={poster.src} alt={poster.alt} loading="lazy" className="h-full w-full object-cover" />
                 </div>
                 <div className="mt-3 flex items-center justify-between gap-4 border-t border-black/12 pt-3">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-black/58"><span className="text-[#319b9a]">{String(index + 1).padStart(2, "0")} /</span> {poster.label}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-black/58"><span className="text-[#1f6f6e]">{String(index + 1).padStart(2, "0")} /</span> {poster.label}</p>
                   <Maximize2 className="h-3.5 w-3.5 shrink-0 text-black/28" aria-hidden="true" />
                 </div>
               </button>
@@ -317,7 +316,6 @@ function LivePhotos() {
               transition={{ duration: reduceMotion ? 0 : 0.72, delay: reduceMotion ? 0 : index * 0.08, ease: [0.16, 1, 0.3, 1] }}
               whileHover={reduceMotion ? undefined : { y: -6 }}
               className={`group text-left ${index === 0 ? "pb-14" : index === 2 ? "pb-9" : ""}`}
-              aria-label={`Open event photo ${index + 1} of ${livePhotos.length}`}
             >
               <div className="relative aspect-[4/3] overflow-hidden bg-white/48 ring-1 ring-black/8">
                 <img src={poster.src} alt={poster.alt} loading="lazy" className="h-full w-full object-cover" />
@@ -326,7 +324,7 @@ function LivePhotos() {
                 </span>
               </div>
               <div className="mt-3 flex items-center justify-between gap-4 border-t border-black/12 pt-3">
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-black/58"><span className="text-[#319b9a]">{String(index + 1).padStart(2, "0")} /</span> {poster.label}</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-black/58"><span className="text-[#1f6f6e]">{String(index + 1).padStart(2, "0")} /</span> {poster.label}</p>
               </div>
             </motion.button>
           ))}
@@ -558,7 +556,7 @@ function EventGallery() {
       <div className="mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12">
         <div className="grid gap-8 border-b border-black/14 pb-8 lg:grid-cols-12 lg:items-end">
           <div className="lg:col-span-8">
-            <p className="text-[10px] font-bold uppercase tracking-[0.27em] text-[#319b9a]">Inside SustainX / 20.08.26</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.27em] text-[#1f6f6e]">Inside SustainX / 20.08.26</p>
             <MaskedHeading className="mt-4">
               <h2 id="sustainx-gallery-title" className="max-w-5xl text-[clamp(3rem,7.3vw,7.4rem)] font-semibold leading-[0.84] tracking-[-0.072em]">
                 The event,<br />not the poster.
@@ -570,7 +568,7 @@ function EventGallery() {
           </p>
         </div>
 
-        <div className="mt-7 flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.18em] text-black/42 lg:hidden" aria-hidden="true">
+        <div className="mt-7 flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.18em] text-black/58 lg:hidden" aria-hidden="true">
           <span>Swipe the archive →</span><span>01 / 07</span>
         </div>
         <div className="event-filter-scroll -mx-5 mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-4 sm:-mx-8 sm:px-8 lg:hidden">
@@ -580,7 +578,6 @@ function EventGallery() {
               type="button"
               onClick={(event) => openPhoto(index, event.currentTarget)}
               className="group relative w-[78vw] max-w-[360px] shrink-0 snap-center text-left"
-              aria-label={`Open gallery image ${index + 1} of ${galleryPhotos.length}`}
             >
               <div className="aspect-[4/5] overflow-hidden bg-black">
                 <img src={photo.src} alt={photo.alt} loading={index < 2 ? "eager" : "lazy"} className="h-full w-full object-cover transition-transform duration-700 group-active:scale-[1.02]" />
@@ -590,7 +587,7 @@ function EventGallery() {
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#6558c9]">{photo.eyebrow}</p>
                   <p className="mt-1 max-w-[16rem] text-xs leading-5 text-black/55">{photo.caption}</p>
                 </div>
-                <span className="text-[10px] font-bold tabular-nums text-black/35">{String(index + 1).padStart(2, "0")}</span>
+                <span className="text-[10px] font-bold tabular-nums text-black/58">{String(index + 1).padStart(2, "0")}</span>
               </div>
             </button>
           ))}
@@ -618,8 +615,7 @@ function EventGallery() {
                 viewport={{ once: true, amount: 0.18 }}
                 transition={{ duration: reduceMotion ? 0 : 0.9, ease: [0.16, 1, 0.3, 1] }}
                 className={`group text-left ${placements[index]}`}
-                aria-label={`Open gallery image ${index + 1} of ${galleryPhotos.length}`}
-              >
+                >
                 <div className={`relative overflow-hidden bg-[#101114] ${aspects[index]}`}>
                   <motion.img
                     src={photo.src}
@@ -638,7 +634,7 @@ function EventGallery() {
                     <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#6558c9]">{photo.eyebrow}</p>
                     <p className="mt-1 max-w-[22rem] text-xs leading-5 text-black/55">{photo.caption}</p>
                   </div>
-                  <span className="text-[10px] font-bold tabular-nums text-black/35">{String(index + 1).padStart(2, "0")}</span>
+                  <span className="text-[10px] font-bold tabular-nums text-black/58">{String(index + 1).padStart(2, "0")}</span>
                 </div>
               </motion.button>
             );
@@ -766,7 +762,7 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
         <div className="mx-auto grid max-w-[1440px] gap-12 px-5 sm:px-8 lg:grid-cols-12 lg:px-12">
           <Reveal className="lg:col-span-4">
             <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#6558c9]">What SustainX became</p>
-            <p className="mt-5 text-xs font-bold uppercase tracking-[0.14em] text-black/35">One campus. Fourteen teams. Local problems first.</p>
+            <p className="mt-5 text-xs font-bold uppercase tracking-[0.14em] text-black/58">One campus. Fourteen teams. Local problems first.</p>
           </Reveal>
           <div className="lg:col-span-8">
             <MaskedHeading>
@@ -796,23 +792,23 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
                 <h2 className="text-[clamp(3rem,7.2vw,7.3rem)] font-semibold leading-[0.85] tracking-[-0.07em]">Identify. Innovate. Present.</h2>
               </MaskedHeading>
             </div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/38 lg:col-span-3 lg:text-right">3 phases / 1 challenge</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/60 lg:col-span-3 lg:text-right">3 phases / 1 challenge</p>
           </div>
           <div className="mt-2">
+            {/* The phases used to dim to 62% until 55% of each block was in
+                view. That is below the AA floor for the body copy inside it
+                (2.96:1), so the dimming is gone — the numerals and rules still
+                carry the hierarchy. */}
             {phases.map((phase, index) => (
               <motion.article
                 key={phase.number}
-                initial={reduceMotion ? false : { opacity: 0.62 }}
-                whileInView={{ opacity: 1 }}
-                viewport={{ once: false, amount: 0.55 }}
-                transition={{ duration: reduceMotion ? 0 : 0.45 }}
                 className="grid min-h-[48svh] gap-7 border-b border-white/13 py-12 last:border-b-0 sm:grid-cols-[120px_1fr] sm:py-16 lg:grid-cols-12 lg:items-center"
               >
-                <p className="text-[clamp(4rem,8vw,8rem)] font-black leading-none tracking-[-0.08em] text-white/16 sm:col-span-1 lg:col-span-3">{phase.number}</p>
+                <p className="text-[clamp(4rem,8vw,8rem)] font-black leading-none tracking-[-0.08em] text-white/50 sm:col-span-1 lg:col-span-3">{phase.number}</p>
                 <div className={`max-w-4xl sm:col-start-2 lg:col-span-8 lg:col-start-5 ${index === 1 ? "lg:translate-x-[5%]" : ""}`}>
                   <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#8ce0d8]">{phase.verb}</p>
                   <h3 className="mt-4 text-[clamp(2.1rem,4.8vw,5rem)] font-semibold leading-[0.92] tracking-[-0.055em]">{phase.title}</h3>
-                  <p className="mt-6 max-w-2xl text-sm leading-7 text-white/55 sm:text-base">{phase.body}</p>
+                  <p className="mt-6 max-w-2xl text-sm leading-7 text-white/75 sm:text-base">{phase.body}</p>
                 </div>
               </motion.article>
             ))}
@@ -824,7 +820,7 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
         <div className="mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12">
           <div className="grid gap-8 lg:grid-cols-12">
             <div className="lg:col-span-7">
-              <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#319b9a]">Challenge area / SDG 11</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#1f6f6e]">Challenge area / SDG 11</p>
               <MaskedHeading className="mt-4">
                 <h2 className="text-[clamp(3rem,7vw,7rem)] font-semibold leading-[0.86] tracking-[-0.07em]">The city was the brief.</h2>
               </MaskedHeading>
@@ -839,7 +835,7 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
             {challengeThemes.map((theme, index) => (
               <Reveal key={theme} className="group flex min-h-24 items-end justify-between gap-3 border-b border-r border-black/15 p-4 transition-colors hover:bg-white/45 sm:min-h-28 sm:p-5">
                 <span className="max-w-[15rem] text-sm font-semibold leading-tight tracking-[-0.025em] sm:text-base">{theme}</span>
-                <span className="text-[10px] font-bold tabular-nums text-black/28">{String(index + 1).padStart(2, "0")}</span>
+                <span className="text-[10px] font-bold tabular-nums text-black/58">{String(index + 1).padStart(2, "0")}</span>
               </Reveal>
             ))}
           </div>
@@ -855,14 +851,14 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
                 <h2 className="text-[clamp(3rem,7vw,7rem)] font-semibold leading-[0.86] tracking-[-0.07em]">Three ideas rose to the top.</h2>
               </MaskedHeading>
             </div>
-            <p className="max-w-sm text-sm leading-6 text-black/52 lg:col-span-4 lg:ml-auto">Selected for the strength of the idea and the way it was developed and presented through SustainX.</p>
+            <p className="max-w-sm text-sm leading-6 text-black/58 lg:col-span-4 lg:ml-auto">Selected for the strength of the idea and the way it was developed and presented through SustainX.</p>
           </div>
           <div className="mt-4">
             {winners.map((winner) => (
               <Reveal key={winner.place} className="grid gap-5 border-b border-black/12 py-9 sm:grid-cols-[90px_1fr] sm:gap-8 sm:py-12 lg:grid-cols-[130px_1fr_1fr] lg:items-start">
                 <p className="text-5xl font-black tracking-[-0.07em] text-[#6558c9] sm:text-6xl">{winner.place}</p>
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#319b9a]">Team</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#1f6f6e]">Team</p>
                   <h3 className="mt-2 text-3xl font-black tracking-[-0.055em] sm:text-5xl">{winner.team}</h3>
                   <p className="mt-3 text-lg font-semibold tracking-[-0.025em] text-black/66">{winner.title}</p>
                 </div>
@@ -887,7 +883,7 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
           <div className="mt-12 grid grid-cols-2 border-l border-t border-black/16 lg:grid-cols-4">
             {teams.map((team, index) => (
               <Reveal key={team} className="flex min-h-24 flex-col justify-between gap-3 border-b border-r border-black/16 p-4 sm:min-h-32 sm:p-5">
-                <span className="text-[10px] font-bold tabular-nums tracking-[0.18em] text-black/34">{String(index + 1).padStart(2, "0")}</span>
+                <span className="text-[10px] font-bold tabular-nums tracking-[0.18em] text-black/58">{String(index + 1).padStart(2, "0")}</span>
                 <span className="break-words text-sm font-black leading-tight tracking-[-0.035em] sm:text-lg">{team}</span>
               </Reveal>
             ))}
@@ -898,7 +894,7 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
       <section className="border-b border-black/10 py-20 sm:py-28">
         <div className="mx-auto grid max-w-[1440px] gap-12 px-5 sm:px-8 lg:grid-cols-12 lg:px-12">
           <div className="lg:col-span-5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#319b9a]">How ideas were evaluated</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#1f6f6e]">How ideas were evaluated</p>
             <MaskedHeading className="mt-4">
               <h2 className="text-4xl font-semibold leading-[0.96] tracking-[-0.055em] sm:text-6xl">The pitch was only part of the score.</h2>
             </MaskedHeading>
@@ -913,7 +909,7 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
                 </div>
               ))}
             </div>
-            <p className="mt-3 text-right text-[10px] font-bold uppercase tracking-[0.2em] text-black/34">100 points total</p>
+            <p className="mt-3 text-right text-[10px] font-bold uppercase tracking-[0.2em] text-black/58">100 points total</p>
           </Reveal>
         </div>
       </section>

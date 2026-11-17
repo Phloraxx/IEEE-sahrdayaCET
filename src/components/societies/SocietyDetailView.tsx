@@ -145,7 +145,7 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
               <h1 className="mt-5 max-w-5xl break-words text-[clamp(2.5rem,7.4vw,7.4rem)] font-semibold leading-[1] tracking-[-0.072em] text-[#111315]">
                 {society.name}
               </h1>
-              <p className="mt-7 max-w-2xl text-base leading-7 text-black/52 sm:text-lg sm:leading-8">{heroSummary}</p>
+              <p className="mt-7 max-w-2xl text-base leading-7 text-black/58 sm:text-lg sm:leading-8">{heroSummary}</p>
               <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-[10px] font-bold uppercase tracking-[0.18em]">
                 <a href="#about" className="inline-flex min-h-11 items-center gap-2 text-black/60 transition hover:text-black">About {code} <ArrowRight className="h-3.5 w-3.5" /></a>
                 <a href="#people" className="group inline-flex min-h-11 items-center gap-2 text-black/60 transition hover:text-black">Meet the people <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-1" /></a>
@@ -217,19 +217,19 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
         <div className="relative mx-auto max-w-[1440px] px-5 py-16 sm:px-8 sm:py-20 lg:px-12 lg:py-24">
           <div className="grid gap-7 border-b border-white/12 pb-10 lg:grid-cols-12 lg:items-end">
             <div className="lg:col-span-8">
-              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: palette.accent }}>02 / People</p>
+              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: palette.onDark }}>02 / People</p>
               <h2 className="mt-4 text-5xl font-semibold leading-[0.9] tracking-[-0.065em] sm:text-6xl lg:text-7xl">The people behind {code}.</h2>
             </div>
-            <p className="max-w-sm text-sm leading-6 text-white/46 lg:col-span-4 lg:justify-self-end">Current public office-bearer records for {society.name}.</p>
+            <p className="max-w-sm text-sm leading-6 text-white/70 lg:col-span-4 lg:justify-self-end">Current public office-bearer records for {society.name}.</p>
           </div>
 
           {advisor && (
             <div className="grid gap-6 border-b border-white/12 py-10 md:grid-cols-[220px_minmax(0,1fr)] md:items-end lg:grid-cols-[260px_minmax(0,1fr)_220px]">
               <div className="group max-w-[260px]"><MemberPortrait member={advisor} accent={palette.accent} /></div>
               <div>
-                <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: palette.accent }}>Faculty advisor</p>
+                <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: palette.onDark }}>Faculty advisor</p>
                 <h3 className="mt-3 break-words text-4xl font-semibold tracking-[-0.055em] sm:text-5xl">{advisor.name}</h3>
-                <p className="mt-3 text-sm text-white/48">{advisor.position}{advisor.department ? ` · ${advisor.department}` : ""}</p>
+                <p className="mt-3 text-sm text-white/70">{advisor.position}{advisor.department ? ` · ${advisor.department}` : ""}</p>
               </div>
               <div className="flex gap-4 md:col-start-2 lg:col-start-auto lg:justify-self-end">
                 {advisor.linkedin && <a href={advisor.linkedin} target="_blank" rel="noopener noreferrer" aria-label={`${advisor.name} on LinkedIn`} className="inline-grid h-11 w-11 place-items-center text-white/70 transition hover:text-white"><Linkedin className="h-5 w-5" /></a>}
@@ -246,7 +246,7 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
                   <div className="pt-5">
                     <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:gap-4">
                       <div className="flex min-h-11 min-w-0 flex-col justify-center">
-                        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: palette.accent }}>{String(index + 1).padStart(2, "0")} / {member.position}</p>
+                        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: palette.onDark }}>{String(index + 1).padStart(2, "0")} / {member.position}</p>
                         <h3 className="mt-2 break-words text-2xl font-semibold leading-tight tracking-[-0.04em]">{member.name}</h3>
                       </div>
                       <div className="flex shrink-0 gap-3 pt-1">
@@ -285,7 +285,7 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
                 <div className="min-w-0 lg:col-span-6 lg:col-start-7">
                   <div className="flex flex-wrap items-center justify-between gap-4 font-mono text-[10px] font-semibold uppercase tracking-[0.18em]"><span style={{ color: palette.accent }}>{eventState(featuredEvent)} / Lead activity</span><span className="text-black/60">{formatDate(featuredEvent.date)}</span></div>
                   <h3 className="mt-5 break-words text-4xl font-semibold leading-[0.95] tracking-[-0.055em] transition group-hover:text-[#00629B] sm:text-5xl">{featuredEvent.title}</h3>
-                  <p className="mt-5 max-w-xl text-sm leading-6 text-black/52">{blogHtmlToPlainText(featuredEvent.description || "").replace(/\s+/g, " ").trim() || "Open the programme record for full details."}</p>
+                  <p className="mt-5 max-w-xl text-sm leading-6 text-black/58">{blogHtmlToPlainText(featuredEvent.description || "").replace(/\s+/g, " ").trim() || "Open the programme record for full details."}</p>
                   <div className="mt-7 flex flex-wrap gap-x-6 gap-y-3 text-[10px] font-bold uppercase tracking-[0.15em] text-black/60"><span>{formatEventTime(featuredEvent.date, featuredEvent.timeTbc)}</span><span>{featuredEvent.venue || "Venue TBC"}</span><span>{featuredEvent.price > 0 ? `₹${featuredEvent.price}` : "Free"}</span></div>
                   <div className="mt-8 inline-flex items-center gap-2 text-sm font-bold" style={{ color: palette.accent }}>Open event record <ArrowUpRight className="h-4 w-4 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" /></div>
                 </div>

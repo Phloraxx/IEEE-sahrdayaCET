@@ -104,7 +104,7 @@ function CancellationDialog({ item, pending, onClose, onSubmit }: {
               : "This releases your place immediately. An unpaid payment session, if any, will be closed."}
           </DialogDescription>
         </DialogHeader>
-        {item?.cancellation.deadline && <p className="text-xs text-black/50">Available until {formatDateTime(item.cancellation.deadline)}.</p>}
+        {item?.cancellation.deadline && <p className="text-xs text-black/58">Available until {formatDateTime(item.cancellation.deadline)}.</p>}
         {refund && item?.cancellation.refundPolicy && (
           <div className="border-l-2 border-[#00629B] pl-3 text-sm leading-6 text-black/60">
             <strong className="text-black/75">Refund policy:</strong> {item.cancellation.refundPolicy}
@@ -137,16 +137,16 @@ function WaitlistSection({ items, leavingId, onLeave }: {
           return (
             <article key={item.entry.id} className="grid gap-5 border-b border-black/12 py-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
               <div>
-                <p className={`text-[9px] font-bold uppercase tracking-[0.18em] ${offered ? "text-emerald-700" : "text-black/40"}`}>
+                <p className={`text-[9px] font-bold uppercase tracking-[0.18em] ${offered ? "text-emerald-700" : "text-black/58"}`}>
                   {offered ? "A seat is reserved for you" : item.entry.position > 0 ? `Position ${item.entry.position}` : "Waiting"}
                 </p>
                 <Link to={`/events/${item.event.slug}`} className="mt-2 block text-2xl font-semibold tracking-[-0.04em] transition hover:text-[#00629B]">{item.event.title}</Link>
-                <p className="mt-2 text-xs text-black/45">{formatDate(item.event.date)}{item.event.venue ? ` · ${item.event.venue}` : ""}</p>
+                <p className="mt-2 text-xs text-black/58">{formatDate(item.event.date)}{item.event.venue ? ` · ${item.event.venue}` : ""}</p>
                 {offered && item.entry.offerExpiresAt && <p className="mt-3 text-sm font-semibold text-emerald-800">Claim by {formatDateTime(item.entry.offerExpiresAt)}.</p>}
               </div>
               <div className="flex flex-wrap gap-3 sm:justify-end">
                 {offered && <Link to={`/register/${item.event.id}`} className="inline-flex min-h-11 items-center gap-2 bg-[#00629B] px-4 py-3 text-sm font-bold text-white">Claim seat <ArrowRight className="h-4 w-4" /></Link>}
-                <button type="button" disabled={leavingId === item.event.id} onClick={() => onLeave(item.event.id)} className="min-h-11 px-2 text-xs font-bold text-black/45 transition hover:text-rose-700 disabled:opacity-40">
+                <button type="button" disabled={leavingId === item.event.id} onClick={() => onLeave(item.event.id)} className="min-h-11 px-2 text-xs font-bold text-black/58 transition hover:text-rose-700 disabled:opacity-40">
                   {leavingId === item.event.id ? "Leaving…" : "Leave waitlist"}
                 </button>
               </div>
@@ -184,7 +184,7 @@ function EventCard({ item, onManageCancellation }: { item: MyEventItem; onManage
               <h3 className="mt-2 text-2xl font-semibold leading-[1] tracking-[-0.04em] sm:text-3xl">{item.event.title}</h3>
             )}
           </div>
-          <span className={`text-[9px] font-bold uppercase tracking-[0.16em] ${cancelled ? "text-rose-700" : needsAction(item) ? "text-amber-700" : "text-black/40"}`}>
+          <span className={`text-[9px] font-bold uppercase tracking-[0.16em] ${cancelled ? "text-rose-700" : needsAction(item) ? "text-amber-700" : "text-black/58"}`}>
             {cancelled ? "Cancelled" : paymentLabel(item)}
           </span>
         </div>
@@ -255,7 +255,7 @@ function EventCard({ item, onManageCancellation }: { item: MyEventItem; onManage
             </button>
           )}
           {item.cancellation.allowed && !item.cancellation.request && !cancelled && (
-            <button type="button" onClick={() => onManageCancellation(item)} className="inline-flex min-h-11 items-center gap-1.5 px-1 text-xs font-bold text-black/42 transition hover:text-rose-700">
+            <button type="button" onClick={() => onManageCancellation(item)} className="inline-flex min-h-11 items-center gap-1.5 px-1 text-xs font-bold text-black/58 transition hover:text-rose-700">
               {item.cancellation.mode === "refund_request" ? "Request cancellation" : "Cancel registration"}
             </button>
           )}
@@ -325,15 +325,15 @@ export default function MyEventsPage() {
       </section>
       <div className="mx-auto max-w-[1200px] px-5 py-10 sm:px-8 lg:px-12 lg:py-14">
         {status === "loading" ? (
-          <p className="py-16 text-sm font-semibold text-black/45">Loading your account…</p>
+          <p className="py-16 text-sm font-semibold text-black/58">Loading your account…</p>
         ) : status !== "authenticated" ? (
           <div className="border-y border-black/15 py-14">
             <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#00629B]">Sign in required</p>
             <h2 className="mt-3 max-w-2xl text-4xl font-semibold tracking-[-0.055em]">Use your Sahrdaya account to open your attendee record.</h2>
-            <p className="mt-4 max-w-xl text-sm leading-6 text-black/50">Sign in from the navigation above. Only registrations linked to your account are shown here.</p>
+            <p className="mt-4 max-w-xl text-sm leading-6 text-black/58">Sign in from the navigation above. Only registrations linked to your account are shown here.</p>
           </div>
         ) : query.isLoading ? (
-          <p className="py-16 text-sm font-semibold text-black/45">Loading your registrations…</p>
+          <p className="py-16 text-sm font-semibold text-black/58">Loading your registrations…</p>
         ) : query.isError ? (
           <div className="border-y border-rose-200 py-10 text-rose-800">
             <p className="font-semibold">Your event record could not be loaded.</p>
@@ -348,10 +348,10 @@ export default function MyEventsPage() {
         ) : (
           <>
             <div className="grid gap-4 border-b border-black/10 pb-8 sm:grid-cols-2 lg:grid-cols-4">
-              <div><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Action needed</p><p className="mt-2 text-3xl font-semibold tracking-[-0.05em]">{action.length + offeredWaitlist.length}</p></div>
-              <div><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Waitlist</p><p className="mt-2 text-3xl font-semibold tracking-[-0.05em]">{waitlist.length}</p></div>
-              <div><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Upcoming</p><p className="mt-2 text-3xl font-semibold tracking-[-0.05em]">{upcoming.length}</p></div>
-              <div><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Past</p><p className="mt-2 text-3xl font-semibold tracking-[-0.05em]">{past.length}</p></div>
+              <div><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/58">Action needed</p><p className="mt-2 text-3xl font-semibold tracking-[-0.05em]">{action.length + offeredWaitlist.length}</p></div>
+              <div><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/58">Waitlist</p><p className="mt-2 text-3xl font-semibold tracking-[-0.05em]">{waitlist.length}</p></div>
+              <div><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/58">Upcoming</p><p className="mt-2 text-3xl font-semibold tracking-[-0.05em]">{upcoming.length}</p></div>
+              <div><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/58">Past</p><p className="mt-2 text-3xl font-semibold tracking-[-0.05em]">{past.length}</p></div>
             </div>
             <WaitlistSection items={waitlist} leavingId={leaveMutation.isPending ? leaveMutation.variables || "" : ""} onLeave={(eventId) => leaveMutation.mutate(eventId)} />
             <EventSection eyebrow="Needs your attention" title="Action needed." items={action} onManageCancellation={setCancellationItem} />
