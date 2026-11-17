@@ -1,4 +1,5 @@
 import { getPbClient } from "@/lib/pb-client";
+import { splitFormData, uploadFile } from "@/lib/data/upload.client";
 
 export async function listAdminExecom() {
   const records = await getPbClient().collection("execom").getFullList({
@@ -52,9 +53,13 @@ export async function getAdminExecomMember(id: string) {
 
 export async function saveAdminExecomMember(id: string | undefined, body: FormData) {
   const pb = getPbClient();
+  const { payload, files } = splitFormData(body);
   const member = id
-    ? await pb.collection("execom").update(id, body)
-    : await pb.collection("execom").create(body);
+    ? await pb.collection("execom").update(id, payload)
+    : await pb.collection("execom").create(payload);
+  for (const item of files) {
+    await uploadFile("execom", String(member.id), item.field, item.file);
+  }
   return { member };
 }
 

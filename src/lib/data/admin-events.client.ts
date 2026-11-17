@@ -1,5 +1,6 @@
 import type { RecordModel } from "@/lib/pb-client";
 import { getPbClient } from "@/lib/pb-client";
+import { uploadFile } from "@/lib/data/upload.client";
 import { buildFileUrl, escapeFilterValue } from "@/lib/pb";
 import { reconcileCoupons } from "@/lib/coupon-service";
 import type { Coupon } from "@/types";
@@ -143,18 +144,9 @@ export async function listEventCoupons(eventId: string): Promise<{ coupons: Coup
   };
 }
 
-function eventPayloadToBody(
-  payload: Record<string, unknown>,
-  bannerFile?: File | null,
-): Record<string, unknown> | FormData {
-  if (!bannerFile) return payload;
-  const body = new FormData();
-  for (const [key, value] of Object.entries(payload)) {
-    if (value == null) continue;
-    body.append(key, typeof value === "object" ? JSON.stringify(value) : String(value));
-  }
-  body.append("banner", bannerFile);
-  return body;
+/** The row payload. Files are uploaded separately, after the row exists. */
+function eventPayloadToBody(payload: Record<string, unknown>): Record<string, unknown> {
+  return payload;
 }
 
 export async function saveAdminEvent(input: {
@@ -166,13 +158,19 @@ export async function saveAdminEvent(input: {
   const pb = getPbClient();
   const { coupons = [], ...eventFields } = input.payload;
   if (input.removeBanner && !input.bannerFile) eventFields.banner = "";
-  const body = eventPayloadToBody(eventFields, input.bannerFile);
+  // JSON for the row, then the banner through the upload route — the collections
+  // endpoint does not parse multipart, so a FormData body was a 400.
+  const body = eventPayloadToBody(eventFields);
 
   let event: RecordModel;
   if (input.id) {
     event = await pb.collection("events").update(input.id, body);
   } else {
     event = await pb.collection("events").create(body);
+  }
+
+  if (input.bannerFile) {
+    await uploadFile("events", String(event.id), "banner", input.bannerFile);
   }
 
   try {

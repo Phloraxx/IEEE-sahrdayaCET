@@ -4,6 +4,8 @@ export default [
   route("healthz", "routes/healthz.ts"),
   // Public file serving from the uploads volume (replaces PocketBase's /api/files).
   route("files/:collection/:recordId/:filename", "routes/files.$collection.$recordId.$filename.ts"),
+  // Admin form uploads: one image, one column, capability-checked.
+  route("api/uploads/:collection/:recordId/:field", "routes/api.uploads.$collection.$recordId.$field.ts"),
 
   // Registration command surface (phase 2). Replaces the PocketBase /api/app/*
   // routes with app-server endpoints.
