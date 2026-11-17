@@ -32,7 +32,24 @@ export function toErrorResponse(error: unknown): Response {
 	return json({ error: "Internal server error" }, 500);
 }
 
+/**
+ * Largest JSON body any endpoint accepts.
+ *
+ * There is no framework-level limit, and several routes parse a body before they
+ * can decide anything about it, so the cap lives here where every JSON endpoint
+ * already funnels through.
+ */
+export const MAX_JSON_BYTES = 256 * 1024;
+
+function tooLarge(request: Request): boolean {
+	const declared = Number(request.headers.get("Content-Length") ?? "0");
+	return Number.isFinite(declared) && declared > MAX_JSON_BYTES;
+}
+
 export async function readJson(request: Request): Promise<Record<string, unknown>> {
+	if (tooLarge(request)) {
+		throw new WorkspaceError(413, "BODY_TOO_LARGE", "Request body is too large");
+	}
 	try {
 		const body = (await request.json()) as unknown;
 		if (!body || typeof body !== "object" || Array.isArray(body)) {

@@ -136,9 +136,29 @@ export function closeDatabase(): void {
  */
 const statementCache = new Map<string, Database.Statement>();
 
+/**
+ * Upper bound on cached statements.
+ *
+ * The claim that "the set of distinct statements is fixed by the code paths" is
+ * true for the repositories and false for the generic collection endpoint, which
+ * assembles SQL from the request: every distinct filter/sort shape is a distinct
+ * string. Without a cap that is unbounded memory growth reachable by any
+ * authenticated user. Past the cap the cache is cleared rather than evicted one
+ * by one — the hot statements are re-prepared immediately, and a clear keeps the
+ * bookkeeping trivial.
+ */
+const STATEMENT_CACHE_LIMIT = 512;
+
+/** Exported for tests: the cache bound and its current size. */
+export const __dbTesting = {
+	cacheSize: () => statementCache.size,
+	cacheLimit: STATEMENT_CACHE_LIMIT,
+};
+
 function prepare(sql: string): Database.Statement {
 	let statement = statementCache.get(sql);
 	if (!statement) {
+		if (statementCache.size >= STATEMENT_CACHE_LIMIT) statementCache.clear();
 		statement = getDatabase().prepare(sql);
 		statementCache.set(sql, statement);
 	}

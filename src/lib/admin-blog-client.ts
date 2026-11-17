@@ -34,6 +34,26 @@ function contentScopeFilter(workspace: WorkspaceMe): string {
   return clauses.length ? `(${clauses.join(" || ")})` : 'id = ""';
 }
 
+/**
+ * Record the signed-in editor as the author.
+ *
+ * `blog_authors` is a join table the generic collection endpoint cannot write,
+ * so authorship goes through its own route. The public page still shows the
+ * branch byline — that is a separate, deliberate product decision.
+ */
+async function syncAuthors(blogId: string) {
+  const pb = getPbClient();
+  // `authStore.record` is always null in the port — the session is an HttpOnly
+  // cookie — so the editor's id comes from the server.
+  const session = await pb.send<{ user: { id: string } | null }>("/api/session", {});
+  const userId = session.user?.id;
+  if (!userId) return;
+  await pb.send(`/api/blogs/${encodeURIComponent(blogId)}/authors`, {
+    method: "PUT",
+    body: { userIds: [userId] },
+  });
+}
+
 async function assertUniqueSlug(slug: string, excludedId?: string) {
   const { pb } = await requireEditorRole();
   const clauses = [`slug = ${escapeFilterValue(slug)}`];
@@ -73,7 +93,7 @@ export async function listEventsForBlog() {
   return records.map((record) => ({ id: record.id, title: String(record.title || "") }));
 }
 
-function prepareCommon(data: Partial<BlogFormValues>) {
+export function prepareCommon(data: Partial<BlogFormValues>) {
   const dbData: Record<string, unknown> = {};
   if (data.title !== undefined) dbData.title = data.title.trim();
   if (data.excerpt !== undefined) dbData.excerpt = data.excerpt.trim();
@@ -87,8 +107,10 @@ function prepareCommon(data: Partial<BlogFormValues>) {
   if (data.coverUrl !== undefined) dbData.cover_url = sanitizeBlogCoverUrl(data.coverUrl);
   if (data.readMinutes !== undefined) dbData.read_minutes = data.readMinutes;
   if (data.published !== undefined) dbData.published = data.published;
-  if (data.societyId !== undefined) dbData.society = data.societyId || null;
-  if (data.eventId !== undefined) dbData.event = data.eventId || null;
+  // The columns are `society_id` / `event_id`; `society` / `event` were the
+  // PocketBase relation names and the endpoint dropped them silently.
+  if (data.societyId !== undefined) dbData.society_id = data.societyId || null;
+  if (data.eventId !== undefined) dbData.event_id = data.eventId || null;
   return dbData;
 }
 
@@ -104,11 +126,11 @@ export async function createAdminBlog(data: BlogFormValues) {
 
   const dbData = prepareCommon({ ...data, content });
   dbData.slug = slug;
-  dbData.relation = pb.authStore.record?.id;
   const publishedAt = resolveBlogPublishedAt({ nextPublished: data.published });
   if (publishedAt !== undefined) dbData.published_at = publishedAt;
 
   const record = await pb.collection("blogs").create(dbData, { expand: "relation,society,event" });
+  await syncAuthors(record.id);
   return mapBlogRecord(record);
 }
 
@@ -140,6 +162,7 @@ export async function updateAdminBlog(id: string, data: Partial<BlogFormValues>)
   if (publishedAt !== undefined) dbData.published_at = publishedAt;
 
   const record = await pb.collection("blogs").update(id, dbData, { expand: "relation,society,event" });
+  await syncAuthors(id);
   return mapBlogRecord(record);
 }
 

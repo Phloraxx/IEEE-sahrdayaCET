@@ -10,11 +10,14 @@ import { buildAuthorizationUrl, newCodeVerifier, newState, signState } from "@/s
 import { oauthStateCookie } from "@/server/auth/session.server";
 
 /** Only allow same-origin relative paths as a post-login destination. */
-function safeNext(raw: string | null): string {
+export function safeNext(raw: string | null): string {
 	if (!raw) return "/";
-	// Reject absolute URLs and protocol-relative paths — an open redirect here
-	// would let a phishing link bounce through our domain.
-	if (!raw.startsWith("/") || raw.startsWith("//")) return "/";
+	// A single leading slash, and nothing that a browser would re-read as a
+	// protocol-relative URL. `//host` is the obvious one; `/\host` is the one that
+	// slips through a naive check, because the WHATWG URL parser treats a
+	// backslash as a path separator for special schemes and resolves
+	// `Location: /\evil.com` to `https://evil.com/`.
+	if (!/^\/(?![/\\])/.test(raw)) return "/";
 	return raw;
 }
 

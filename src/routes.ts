@@ -6,6 +6,7 @@ export default [
   route("files/:collection/:recordId/:filename", "routes/files.$collection.$recordId.$filename.ts"),
   // Admin form uploads: one image, one column, capability-checked.
   route("api/uploads/:collection/:recordId/:field", "routes/api.uploads.$collection.$recordId.$field.ts"),
+  route("api/blogs/:id/authors", "routes/api.blogs.$id.authors.ts"),
 
   // Registration command surface (phase 2). Replaces the PocketBase /api/app/*
   // routes with app-server endpoints.

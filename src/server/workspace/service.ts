@@ -85,6 +85,22 @@ function toAssignment(row: AssignmentRow): Assignment {
 	};
 }
 
+/**
+ * The scope context for an event.
+ *
+ * `hasEventCapability` matches a society-scoped assignment by comparing the
+ * assignment's society with the *event's* society, so the event row has to be
+ * resolved. Passing `{ id }` alone silently denied every society-scoped manager.
+ */
+async function eventScope(eventId: string): Promise<{ id: string; societyId: string | null } | null> {
+	const found = await query<{ id: string; society_id: string | null }>(
+		"SELECT id, society_id FROM events WHERE id = ?",
+		[eventId],
+	);
+	const row = found.rows[0];
+	return row ? { id: row.id, societyId: row.society_id } : null;
+}
+
 export async function loadAssignments(userId: string): Promise<Assignment[]> {
 	const result = await query<AssignmentRow>(
 		`SELECT id, user_id, role_code, title, scope_type, society_id, event_id, term,
@@ -192,7 +208,8 @@ export async function listAssignments(
 	const societyId = scopeType === "society" ? scopeId : "";
 	const eventId = scopeType === "event" ? scopeId : "";
 
-	if (!mayManageAssignments(actor, assignments, scopeType, societyId, eventId ? { id: eventId } : null)) {
+	const eventContext = eventId ? await eventScope(eventId) : null;
+	if (!mayManageAssignments(actor, assignments, scopeType, societyId, eventContext)) {
 		fail(403, "FORBIDDEN", "You cannot manage assignments in this scope");
 	}
 
@@ -263,7 +280,8 @@ export async function createAssignment(actor: Actor, input: CreateAssignmentInpu
 	}
 
 	const assignments = await loadAssignments(actor.id);
-	if (!mayGrantRole(actor, assignments, roleCode, scopeType, societyId, eventId ? { id: eventId } : null)) {
+	const grantContext = eventId ? await eventScope(eventId) : null;
+	if (!mayGrantRole(actor, assignments, roleCode, scopeType, societyId, grantContext)) {
 		fail(403, "FORBIDDEN", "You cannot grant this role");
 	}
 
@@ -370,7 +388,7 @@ export async function deactivateAssignment(actor: Actor, id: string) {
 			row.role_code,
 			row.scope_type,
 			row.society_id ?? "",
-			row.event_id ? { id: row.event_id } : null,
+			row.event_id ? await eventScope(row.event_id) : null,
 		)
 	) {
 		fail(403, "FORBIDDEN", "You cannot remove this assignment");
@@ -416,7 +434,8 @@ export async function searchUsers(
 	const eventId = scopeType === "event" ? scopeId : "";
 	const assignments = await loadAssignments(actor.id);
 
-	if (!mayManageAssignments(actor, assignments, scopeType, societyId, eventId ? { id: eventId } : null)) {
+	const searchContext = eventId ? await eventScope(eventId) : null;
+	if (!mayManageAssignments(actor, assignments, scopeType, societyId, searchContext)) {
 		fail(403, "FORBIDDEN", "You cannot search users for this scope");
 	}
 	if (q.length < 2) return { users: [] };
