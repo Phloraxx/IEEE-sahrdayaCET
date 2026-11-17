@@ -11,6 +11,7 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MotionConfig } from "framer-motion";
 import { AuthProvider } from "@/lib/auth-context";
+import { allow, clientKey, ruleFor } from "@/server/http/rate-limit";
 import { Toaster } from "@/components/ui/sonner";
 import { APP_URL } from "@/lib/constants";
 import { ORGANIZATION_SAME_AS } from "@/lib/social-links";
@@ -105,6 +106,29 @@ export function Layout({ children }: { children: React.ReactNode }) {
     </html>
   );
 }
+
+/**
+ * Rate limiting at the single place every request passes through.
+ *
+ * `react-router.config.ts` enables `v8_middleware`, so this runs before any
+ * loader or action. The rule is chosen by path and method: `/auth/*` is tight,
+ * the payment webhook is generous, and any non-GET `/api/*` request is bounded.
+ */
+export const middleware = [
+	async (
+		{ request }: { request: Request },
+		next: () => Promise<Response>,
+	): Promise<Response> => {
+		const rule = ruleFor(request);
+		if (rule && !allow(`${rule.limit}:${clientKey(request)}`, rule)) {
+			return new Response(JSON.stringify({ error: "Too many requests" }), {
+				status: 429,
+				headers: { "Content-Type": "application/json", "Retry-After": "60", "Cache-Control": "no-store" },
+			});
+		}
+		return next();
+	},
+];
 
 export function headers() {
   const headers: Record<string, string> = {

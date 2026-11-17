@@ -14,6 +14,7 @@ import { query } from "@/lib/db.server";
 import {
 	COLLECTION_POLICIES,
 	actorAllows,
+	actorReadScope,
 	tableColumns,
 	translateFilter,
 	translateSort,
@@ -120,8 +121,15 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 	const context = await getSessionUser(request);
 	const actor = context ? { id: context.user.id, role: context.user.role } : null;
 
+	// Branch-wide access, or — for the reporting collections PocketBase allowed a
+	// scoped read on — a predicate built from the actor's own assignments.
+	let scoped: { sql: string; params: unknown[] } | null = null;
 	if (!(await actorAllows(policy.read, policy.readCapability, actor))) {
-		return json({ error: "Not authorized" }, actor ? 403 : 401);
+		if (policy.scopedRead && actor) {
+			const scope = await actorReadScope(actor, policy.scopedRead.capability);
+			if (scope) scoped = policy.scopedRead.predicate(scope);
+		}
+		if (!scoped) return json({ error: "Not authorized" }, actor ? 403 : 401);
 	}
 
 	const url = new URL(request.url);
@@ -132,6 +140,10 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
 	// Visibility predicate first: it is not client-controllable.
 	if (policy.readPredicate) where.push(`(${policy.readPredicate})`);
+	if (scoped) {
+		where.push(`(${scoped.sql})`);
+		bindings.push(...scoped.params);
+	}
 
 	// Self-scoping is unconditional for "self" policies.
 	if (policy.read === "self" && policy.ownerColumn) {

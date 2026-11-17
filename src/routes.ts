@@ -2,6 +2,11 @@ import { index, route, type RouteConfig } from "@react-router/dev/routes";
 
 export default [
   route("healthz", "routes/healthz.ts"),
+  // Sign-in. These three modules existed but were never mounted, so every
+  // `requireUser` redirect to /auth/google answered 404 — sign-in was broken.
+  route("auth/google", "routes/auth.google.ts"),
+  route("auth/google/callback", "routes/auth.google.callback.ts"),
+  route("auth/logout", "routes/auth.logout.ts"),
   // Public file serving from the uploads volume (replaces PocketBase's /api/files).
   route("files/:collection/:recordId/:filename", "routes/files.$collection.$recordId.$filename.ts"),
   // Admin form uploads: one image, one column, capability-checked.

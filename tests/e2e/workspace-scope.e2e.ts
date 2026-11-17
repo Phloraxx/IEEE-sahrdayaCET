@@ -82,3 +82,33 @@ test.describe("society-scoped assignment management", () => {
 		expect(otherEvent.status, "unknown event").toBe(403);
 	});
 });
+
+test.describe("scoped reporting reads", () => {
+	test.skip(!DB_PATH, "E2E_SQLITE_PATH is not configured");
+
+	test("a society manager reads their own outbox rows, a plain user reads none", async () => {
+		const scope = societyScopedChair();
+		test.skip(!scope, "no society-scoped assignment with an event in the fixture");
+
+		const chair = mintSession(scope!.userId);
+		const own = await fetch(`${BASE}/api/collections/notification_outbox?perPage=1`, {
+			headers: { Cookie: `${COOKIE}=${chair}` },
+		});
+		expect(own.status, "scoped read allowed").toBe(200);
+
+		const db = new Database(DB_PATH, { readonly: true });
+		let plainUserId = "";
+		try {
+			plainUserId = (db.prepare("SELECT id FROM users WHERE role = 'user' LIMIT 1").get() as {
+				id: string;
+			}).id;
+		} finally {
+			db.close();
+		}
+		const plain = mintSession(plainUserId);
+		const denied = await fetch(`${BASE}/api/collections/notification_outbox?perPage=1`, {
+			headers: { Cookie: `${COOKIE}=${plain}` },
+		});
+		expect(denied.status, "no capability at all").toBe(403);
+	});
+});

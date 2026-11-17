@@ -109,3 +109,17 @@ describe("client route coverage", () => {
 		expect(clientPaths().size).toBeGreaterThan(30);
 	});
 });
+
+describe("route module coverage", () => {
+	it("mounts every route module that exists", () => {
+		// A module that exists but is never mounted is dead code that looks like a
+		// feature. `auth.google.ts` / `auth.google.callback.ts` / `auth.logout.ts`
+		// were exactly that: sign-in redirected to /auth/google, which 404'd.
+		const declared = readFileSync(resolve("src/routes.ts"), "utf8");
+		const modules = readdirSync(resolve("src/routes"))
+			.filter((name) => /\.tsx?$/.test(name))
+			.map((name) => `routes/${name}`);
+		const unmounted = modules.filter((module) => !declared.includes(`"${module}"`)).sort();
+		expect(unmounted, "route modules not referenced by src/routes.ts").toEqual([]);
+	});
+});

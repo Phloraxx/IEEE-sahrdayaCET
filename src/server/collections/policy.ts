@@ -15,7 +15,14 @@
  */
 
 import { query } from "@/lib/db.server";
-import { hasCapability, type Actor, type Assignment, type Capability } from "@/server/authz/capabilities";
+import {
+	activeAssignments,
+	capabilitiesForRole,
+	hasCapability,
+	type Actor,
+	type Assignment,
+	type Capability,
+} from "@/server/authz/capabilities";
 
 export type Access = "public" | "self" | "capability";
 
@@ -48,6 +55,43 @@ export interface CollectionPolicy {
 	 * capabilities are.
 	 */
 	ownerColumn?: string;
+	/**
+	 * Read access for an actor who holds `capability` only through a scoped
+	 * assignment.
+	 *
+	 * PocketBase's rules for the reporting collections allowed a society- or
+	 * event-scoped read; the branch-only check denied it. The predicate is built
+	 * from the actor's *own* assignments, never from the request, so a client
+	 * filter can only narrow it further.
+	 */
+	scopedRead?: {
+		capability: Capability;
+		predicate: (scope: ScopedReadScope) => { sql: string; params: unknown[] };
+	};
+}
+
+export interface ScopedReadScope {
+	societyIds: string[];
+	eventIds: string[];
+}
+
+/** `IN (?, ?, …)`, or a predicate that matches nothing. */
+function inList(column: string, values: string[]): { sql: string; params: unknown[] } | null {
+	if (!values.length) return null;
+	return { sql: `${column} IN (${values.map(() => "?").join(", ")})`, params: [...values] };
+}
+
+/** Combine predicates with OR; an empty set matches nothing. */
+function anyOf(parts: Array<{ sql: string; params: unknown[] } | null>): {
+	sql: string;
+	params: unknown[];
+} {
+	const present = parts.filter((part): part is { sql: string; params: unknown[] } => part !== null);
+	if (!present.length) return { sql: "0 = 1", params: [] };
+	return {
+		sql: `(${present.map((part) => part.sql).join(" OR ")})`,
+		params: present.flatMap((part) => part.params),
+	};
 }
 
 /** The collections the browser may touch, and under what terms. */
@@ -123,6 +167,14 @@ export const COLLECTION_POLICIES: Record<string, CollectionPolicy> = {
 		readCapability: "events.edit",
 		write: "capability",
 		writeCapability: "events.edit",
+		scopedRead: {
+			capability: "events.edit",
+			predicate: (scope) =>
+				anyOf([
+					inList("event_id", scope.eventIds),
+					inList("society_id", scope.societyIds),
+				]),
+		},
 	},
 	admin_audit_log: {
 		table: "admin_audit_log",
@@ -130,6 +182,17 @@ export const COLLECTION_POLICIES: Record<string, CollectionPolicy> = {
 		readCapability: "reports.view",
 		write: "capability",
 		writeCapability: "reports.view",
+		scopedRead: {
+			capability: "reports.view",
+			predicate: (scope) =>
+				anyOf([
+					inList("event_id", scope.eventIds),
+					{
+						sql: "event_id IN (SELECT id FROM events WHERE society_id IN (SELECT value FROM json_each(?)))",
+						params: [JSON.stringify(scope.societyIds)],
+					},
+				]),
+		},
 	},
 	/**
 	 * The notification outbox, as read by the admin dashboard's "failed
@@ -145,6 +208,20 @@ export const COLLECTION_POLICIES: Record<string, CollectionPolicy> = {
 		table: "notification_outbox",
 		read: "capability",
 		readCapability: "reports.view",
+		scopedRead: {
+			capability: "reports.view",
+			predicate: (scope) =>
+				anyOf([
+					{
+						sql: "registration_id IN (SELECT r.id FROM registrations r WHERE r.event_id IN (SELECT value FROM json_each(?)))",
+						params: [JSON.stringify(scope.eventIds)],
+					},
+					{
+						sql: "registration_id IN (SELECT r.id FROM registrations r JOIN events e ON e.id = r.event_id WHERE e.society_id IN (SELECT value FROM json_each(?)))",
+						params: [JSON.stringify(scope.societyIds)],
+					},
+				]),
+		},
 		write: "capability",
 		writeCapability: "reports.view",
 		readonlyColumns: [
@@ -423,6 +500,35 @@ export async function actorAssignments(userId: string): Promise<Assignment[]> {
 		endsAt: row.ends_at,
 		source: row.source,
 	}));
+}
+
+/**
+ * The scopes an actor holds `capability` in, when they hold it only via
+ * assignments.
+ *
+ * Returns null when the actor holds it branch-wide (the caller has already
+ * allowed that case) or not at all.
+ */
+export async function actorReadScope(
+	actor: Actor | null,
+	capability: Capability,
+): Promise<ScopedReadScope | null> {
+	if (!actor?.id) return null;
+	const assignments = await actorAssignments(actor.id);
+	const societyIds = new Set<string>();
+	const eventIds = new Set<string>();
+	let matched = false;
+
+	for (const row of activeAssignments(assignments)) {
+		if (!capabilitiesForRole(row.roleCode).includes(capability)) continue;
+		if (row.scopeType === "branch") return null;
+		matched = true;
+		if (row.scopeType === "society" && row.societyId) societyIds.add(row.societyId);
+		if (row.scopeType === "event" && row.eventId) eventIds.add(row.eventId);
+	}
+
+	if (!matched) return null;
+	return { societyIds: [...societyIds], eventIds: [...eventIds] };
 }
 
 /** Does the actor satisfy this access level? */

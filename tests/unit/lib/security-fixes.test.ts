@@ -78,3 +78,36 @@ describe("blog write field names", () => {
 		expect(mapped).not.toHaveProperty("event");
 	});
 });
+
+describe("rate limiting", () => {
+	it("allows up to the limit inside the window, then refuses", async () => {
+		const { allow, __testing } = await import("@/server/http/rate-limit");
+		__testing.reset();
+		const rule = { limit: 3, windowMs: 60_000 };
+		expect(allow("k", rule, 1000)).toBe(true);
+		expect(allow("k", rule, 1001)).toBe(true);
+		expect(allow("k", rule, 1002)).toBe(true);
+		expect(allow("k", rule, 1003)).toBe(false);
+		// A new window resets the allowance.
+		expect(allow("k", rule, 62_000)).toBe(true);
+	});
+
+	it("keys buckets independently per client", async () => {
+		const { allow, __testing } = await import("@/server/http/rate-limit");
+		__testing.reset();
+		const rule = { limit: 1, windowMs: 60_000 };
+		expect(allow("a", rule, 1000)).toBe(true);
+		expect(allow("a", rule, 1001)).toBe(false);
+		expect(allow("b", rule, 1001)).toBe(true);
+	});
+
+	it("classifies auth, webhook and writes, but not reads", async () => {
+		const { ruleFor } = await import("@/server/http/rate-limit");
+		const req = (path: string, method = "GET") => new Request(`http://x${path}`, { method });
+		expect(ruleFor(req("/auth/google"))?.limit).toBe(20);
+		expect(ruleFor(req("/api/webhooks/paygate", "POST"))?.limit).toBe(120);
+		expect(ruleFor(req("/api/collections/events", "POST"))?.limit).toBe(120);
+		expect(ruleFor(req("/api/collections/events"))).toBeNull();
+		expect(ruleFor(req("/events"))).toBeNull();
+	});
+});
