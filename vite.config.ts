@@ -17,14 +17,14 @@ export default defineConfig(({ mode }) => {
       // /api/registration-memory itself, so only the paths PocketBase still
       // answers are proxied. This list shrinks each phase and disappears at
       // cutover, matching the production Traefik rule being removed then.
+      // Only the surfaces PocketBase still owns are proxied. Everything else is
+      // served by this app: /api/collections, /api/workspace, /api/admin,
+      // /api/tickets and /api/webhooks were ported in phases 2-4, and leaving
+      // them here shadowed the new routes (the dev mirror of the production
+      // Traefik bypass).
       proxy: {
-        "/api/collections": { target: pocketBaseUrl, changeOrigin: true },
         "/api/files": { target: pocketBaseUrl, changeOrigin: true },
         "/api/app": { target: pocketBaseUrl, changeOrigin: true },
-        "/api/workspace": { target: pocketBaseUrl, changeOrigin: true },
-        "/api/admin": { target: pocketBaseUrl, changeOrigin: true },
-        "/api/tickets": { target: pocketBaseUrl, changeOrigin: true },
-        "/api/webhooks": { target: pocketBaseUrl, changeOrigin: true },
       },
     },
     plugins: [reactRouter(), tsconfigPaths()],
