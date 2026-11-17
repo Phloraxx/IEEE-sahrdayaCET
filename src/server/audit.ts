@@ -13,7 +13,13 @@
 import { query } from "@/lib/db.server";
 
 export interface AuditInput {
-	actorId: string;
+	/**
+	 * The acting user, or `null` for a system action (a cron pass has no user).
+	 *
+	 * `admin_audit_log.actor_id` references `users`, so a system action stores
+	 * NULL rather than inventing a user id that would fail the foreign key.
+	 */
+	actorId: string | null;
 	action: string;
 	eventId?: string | null;
 	registrationId?: string | null;
@@ -59,7 +65,7 @@ export async function audit(input: AuditInput): Promise<void> {
 			crypto.randomUUID(),
 			input.eventId ?? null,
 			input.registrationId ?? null,
-			input.actorId,
+			input.actorId ?? null,
 			clip(input.action || "admin_action", 160),
 			clip(input.note, 4000),
 			serialise(input.before),

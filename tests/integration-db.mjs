@@ -1410,6 +1410,127 @@ try {
 	}
 
 
+	// -----------------------------------------------------------------------
+	// phase 7 — payment-expiry reconciliation
+	// -----------------------------------------------------------------------
+	{
+		const reconcile = await import("../src/server/payments/reconcile.ts");
+		const NOW = Date.parse("2026-11-16T12:00:00Z");
+		const grace = 600;
+
+		const base = {
+			registration_status: "pending",
+			payment_status: "pending",
+			registration_date: "2026-11-16T11:00:00Z",
+			created_at: "2026-11-16T11:00:00Z",
+			payment_data: JSON.stringify({ provider: "paygate", providerStatus: "not_initialized" }),
+		};
+
+		// --- the release decision ---------------------------------------------
+		check(reconcile.shouldReleasePendingRegistration(base, NOW, grace) === true,
+			"a never-initialised payment past the grace window is released");
+
+		check(reconcile.shouldReleasePendingRegistration(
+			{ ...base, registration_date: "2026-11-16T11:55:00Z" }, NOW, grace) === false,
+			"a never-initialised payment inside the grace window is kept");
+
+		check(reconcile.shouldReleasePendingRegistration(
+			{ ...base, payment_data: JSON.stringify({ provider: "paygate", providerStatus: "expired", expiresAt: "2026-11-16T11:00:00Z" }) },
+			NOW, grace) === true,
+			"an expired payment past the grace window is released");
+
+		check(reconcile.shouldReleasePendingRegistration(
+			{ ...base, payment_data: JSON.stringify({ provider: "paygate", providerStatus: "expired", expiresAt: "2026-11-16T11:59:00Z" }) },
+			NOW, grace) === false,
+			"an expired payment inside the grace window is kept");
+
+		check(reconcile.shouldReleasePendingRegistration(
+			{ ...base, payment_data: JSON.stringify({ provider: "paygate", providerStatus: "cancelled" }) },
+			NOW, grace) === true,
+			"a cancelled provider payment is released immediately");
+
+		check(reconcile.shouldReleasePendingRegistration(
+			{ ...base, payment_data: JSON.stringify({ provider: "paygate", providerStatus: "late" }) },
+			NOW, grace) === true,
+			"a late provider payment is released");
+
+		check(reconcile.shouldReleasePendingRegistration(
+			{ ...base, payment_data: JSON.stringify({ provider: "razorpay", providerStatus: "not_initialized" }) },
+			NOW, grace) === false,
+			"a registration on another provider is never released by this pass");
+
+		check(reconcile.shouldReleasePendingRegistration(
+			{ ...base, payment_status: "paid" }, NOW, grace) === false,
+			"a paid registration is never released");
+
+		check(reconcile.shouldReleasePendingRegistration(
+			{ ...base, payment_data: JSON.stringify({ provider: "paygate", providerStatus: "unknown_state" }) },
+			NOW, grace) === false,
+			"an unrecognised provider state keeps the seat");
+
+		// --- a full pass ------------------------------------------------------
+		await db.query("INSERT INTO users (id, email, role) VALUES (?,?,?)", [
+			"u-rec-admin", "rec@test.local", "admin",
+		]);
+		await db.query(
+			"INSERT INTO events (id, title, slug, date, status) VALUES (?,?,?,?,?)",
+			["ev-rec-1", "Reconcile Test", "reconcile-test", "2026-11-20", "published"],
+		);
+
+		const stale = JSON.stringify({ provider: "paygate", providerStatus: "not_initialized" });
+		await db.query(
+			`INSERT INTO registrations (id, event_id, registration_status, payment_status, registration_date, payment_data, created_at)
+			 VALUES (?,?,?,?,?,?,?)`,
+			["reg-rec-stale", "ev-rec-1", "pending", "pending", "2026-11-16T10:00:00Z", stale, "2026-11-16T10:00:00Z"],
+		);
+		// A provider session we cannot reach: must be kept, not released.
+		await db.query(
+			`INSERT INTO registrations (id, event_id, registration_status, payment_status, registration_date, payment_data, created_at)
+			 VALUES (?,?,?,?,?,?,?)`,
+			["reg-rec-unreachable", "ev-rec-1", "pending", "pending", "2026-11-16T10:00:00Z",
+				JSON.stringify({ provider: "paygate", providerStatus: "pending", paymentId: "pay_1" }),
+				"2026-11-16T10:00:00Z"],
+		);
+
+		const pass = await reconcile.reconcileExpiredRegistrations({
+			now: NOW,
+			graceSeconds: grace,
+			probeProvider: async (row) =>
+				row.id === "reg-rec-unreachable" ? { reachable: false } : null,
+		});
+
+		check(pass.releasedIds.includes("reg-rec-stale"),
+			"the pass releases a stale pending registration", pass.releasedIds);
+		check(!pass.releasedIds.includes("reg-rec-unreachable"),
+			"the pass keeps a seat when the provider is unreachable", pass.releasedIds);
+		check(pass.keptForProvider >= 1,
+			"the pass counts seats kept for the provider", pass.keptForProvider);
+
+		const releasedRow = await db.query(
+			"SELECT registration_status, payment_status, payment_data FROM registrations WHERE id = ?",
+			["reg-rec-stale"],
+		);
+		check(releasedRow.rows[0]?.registration_status === "cancelled",
+			"a released registration is cancelled", releasedRow.rows[0]?.registration_status);
+		check(releasedRow.rows[0]?.payment_status === "failed",
+			"a released registration's payment is failed", releasedRow.rows[0]?.payment_status);
+		check(String(releasedRow.rows[0]?.payment_data ?? "").includes("releaseReason"),
+			"the release reason is recorded for the audit trail");
+
+		const keptRow = await db.query(
+			"SELECT registration_status FROM registrations WHERE id = ?",
+			["reg-rec-unreachable"],
+		);
+		check(keptRow.rows[0]?.registration_status === "pending",
+			"an unreachable provider leaves the registration pending for the next pass");
+
+		// A second pass must not release the same row twice.
+		const second = await reconcile.reconcileExpiredRegistrations({ now: NOW, graceSeconds: grace });
+		check(!second.releasedIds.includes("reg-rec-stale"),
+			"a released registration is not released again");
+	}
+
+
 } catch (err) {
 	failures.push({ label: "unexpected exception", detail: err?.stack ?? String(err) });
 	console.error("\nUnexpected exception:", err);
