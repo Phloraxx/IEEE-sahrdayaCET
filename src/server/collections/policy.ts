@@ -87,13 +87,17 @@ export const COLLECTION_POLICIES: Record<string, CollectionPolicy> = {
 		ownerColumn: "id",
 		readonlyColumns: ["role", "google_sub", "email_verified"],
 	},
-	registrations: {
-		table: "registrations",
-		read: "self",
-		write: "capability",
-		writeCapability: "registrations.manage",
-		readonlyColumns: ["ticket_id", "payment_status", "final_fee_paise"],
-	},
+	// `registrations` is deliberately absent.
+	//
+	// It used to be listed as `read: "self"` with no `ownerColumn`, which made the
+	// self-scope a no-op: every signed-in user could list and read every
+	// registration, including name, email, phone, form answers and ticket ids.
+	// Nothing in the client ever called `collection("registrations")` — the
+	// attendee surfaces go through `/api/my-events` and
+	// `/api/events/:id/my-registration`, which scope by `user_id = ?` in SQL — so
+	// the entry was pure attack surface. Re-adding it needs a capability plus a
+	// server-side scope predicate, not an `ownerColumn` (walk-in registrations have
+	// `user_id IS NULL` and would become unreadable by their own creators).
 	organization_assignments: {
 		table: "organization_assignments",
 		read: "self",
