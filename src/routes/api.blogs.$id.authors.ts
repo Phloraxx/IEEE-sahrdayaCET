@@ -54,3 +54,5 @@ export async function action({ request, params }: ActionFunctionArgs) {
 		return json({ blogId, userIds });
 	} catch (error) {
 		return toErrorResponse(error);
+	}
+}
