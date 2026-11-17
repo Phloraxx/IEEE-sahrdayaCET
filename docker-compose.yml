@@ -9,13 +9,33 @@ services:
       PORT: "3000"
       DEPLOY_ENV: ${DEPLOY_ENV:?DEPLOY_ENV is required}
       SITE_URL: ${SITE_URL:?SITE_URL is required}
-      POCKETBASE_INTERNAL_URL: http://pocketbase-internal:8090
+      # SQLite app-server storage (bind-mounted from the host).
+      SQLITE_PATH: /app/data/portal.db
+      UPLOADS_DIR: /app/data/uploads
+      APP_SECRET: ${APP_SECRET:?APP_SECRET is required}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?GOOGLE_CLIENT_ID is required}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?GOOGLE_CLIENT_SECRET is required}
+      APP_URL: ${APP_URL:?APP_URL is required}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:?ALLOWED_ORIGINS is required}
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-__Host-ieee_session}
+      SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
+      # Payments (paygate) and mail are now handled by the app server,
+      # not PocketBase hooks.
+      PAYGATE_URL: ${PAYGATE_URL:-}
+      PAYGATE_API_KEY: ${PAYGATE_API_KEY:-}
+      PAYGATE_WEBHOOK_SECRET: ${PAYGATE_WEBHOOK_SECRET:-}
+      PAYGATE_REGISTRATION_GRACE_SECONDS: ${PAYGATE_REGISTRATION_GRACE_SECONDS:-600}
+      PAYGATE_WEBHOOK_TOLERANCE_SECONDS: ${PAYGATE_WEBHOOK_TOLERANCE_SECONDS:-300}
+      PAYGATE_CLIENT_NAMESPACE: ${PAYGATE_CLIENT_NAMESPACE:-}
+      MAIL_DELIVERY_MODE: ${MAIL_DELIVERY_MODE:-}
+      MAIL_ALLOWLIST: ${MAIL_ALLOWLIST:-}
+      MAIL_REDIRECT_TO: ${MAIL_REDIRECT_TO:-}
       CERTIFICATE_RENDER_CAPABILITY_KEY: ${CERTIFICATE_RENDER_CAPABILITY_KEY:?CERTIFICATE_RENDER_CAPABILITY_KEY is required}
+    volumes:
+      - ${SQLITE_DATA_DIR:?SQLITE_DATA_DIR is required}:/app/data
+      - ${UPLOADS_HOST_DIR:?UPLOADS_HOST_DIR is required}:/app/data/uploads
     expose:
       - "3000"
-    depends_on:
-      pocketbase:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/healthz"]
       interval: 30s
@@ -26,12 +46,15 @@ services:
       - app-internal
       - dokploy-network
 
+  # PocketBase is kept running as a rollback target. The web service no
+  # longer depends on it after the SQLite cutover. Do not remove it until
+  # the SQLite deployment is confirmed stable.
   pocketbase:
     build:
       context: .
       dockerfile: pocketbase/Dockerfile
-      args:
-        PB_VERSION: "0.39.9"
+    args:
+      PB_VERSION: "0.39.9"
     restart: unless-stopped
     environment:
       DEPLOY_ENV: ${DEPLOY_ENV:?DEPLOY_ENV is required}
