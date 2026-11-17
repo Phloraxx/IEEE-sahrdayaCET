@@ -53,8 +53,8 @@ services:
     build:
       context: .
       dockerfile: pocketbase/Dockerfile
-    args:
-      PB_VERSION: "0.39.9"
+      args:
+        PB_VERSION: "0.39.9"
     restart: unless-stopped
     environment:
       DEPLOY_ENV: ${DEPLOY_ENV:?DEPLOY_ENV is required}
