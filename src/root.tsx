@@ -145,7 +145,12 @@ export function headers() {
       // The only inline script is the pre-paint theme toggle below; it is pinned
       // by hash so `unsafe-inline` is not needed. JSON-LD blocks are
       // `application/ld+json` and are not executed, so CSP does not apply to them.
-      "script-src 'self' 'sha256-Pt/n2axd+5lXpyJMbvmmHpXr44zXheeYYRRdMIAHr+A=' https://static.cloudflareinsights.com",
+      //
+      // Development keeps `unsafe-inline` because Vite's HMR client injects
+      // inline scripts; production is the environment that matters.
+      process.env.NODE_ENV === "production"
+        ? "script-src 'self' 'sha256-Pt/n2axd+5lXpyJMbvmmHpXr44zXheeYYRRdMIAHr+A=' https://static.cloudflareinsights.com"
+        : "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
       "connect-src 'self' https://cloudflareinsights.com",
       "frame-src 'none'",
       "manifest-src 'self'",
