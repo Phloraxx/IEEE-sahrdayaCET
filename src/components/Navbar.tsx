@@ -227,7 +227,7 @@ export default function Navbar() {
                   key={label}
                   to={href}
                   aria-current={isActive ? "page" : undefined}
-                  className={`relative flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 px-1 pt-1 text-[9px] font-bold uppercase tracking-[0.08em] transition-colors focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-[#00629B] ${isActive ? "text-[#00629B]" : "text-black/50 hover:text-[#00629B]"}`}
+                  className={`relative flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 px-1 pt-1 text-[9px] font-bold uppercase tracking-[0.08em] transition-colors focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-[#00629B] ${isActive ? "text-[#00629B]" : "text-black/58 hover:text-[#00629B]"}`}
                 >
                   <span
                     aria-hidden="true"
@@ -247,7 +247,7 @@ export default function Navbar() {
                 aria-current={isMoreActive ? "page" : undefined}
                 aria-controls="mobile-site-navigation"
                 aria-expanded={mobileMenuOpen}
-                className={`relative flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 px-1 pt-1 text-[9px] font-bold uppercase tracking-[0.08em] transition-colors focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-[#00629B] ${isMoreActive ? "text-[#00629B]" : "text-black/50 hover:text-[#00629B]"}`}
+                className={`relative flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 px-1 pt-1 text-[9px] font-bold uppercase tracking-[0.08em] transition-colors focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-[#00629B] ${isMoreActive ? "text-[#00629B]" : "text-black/58 hover:text-[#00629B]"}`}
               >
                 <span
                   aria-hidden="true"
@@ -331,7 +331,7 @@ export default function Navbar() {
                   <p className="truncate text-[13px] font-bold tracking-[-0.01em] text-[#111315]">
                     IEEE Sahrdaya
                   </p>
-                  <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-black/40">
+                  <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-black/58">
                     Student Branch
                   </p>
                 </div>
@@ -351,7 +351,7 @@ export default function Navbar() {
             </div>
 
             <div className="px-3 pb-4 pt-3">
-              <p className="px-3 pb-2 text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">
+              <p className="px-3 pb-2 text-[9px] font-bold uppercase tracking-[0.18em] text-black/58">
                 Explore
               </p>
               <nav
@@ -369,7 +369,7 @@ export default function Navbar() {
                       className={`group flex min-h-[54px] items-center gap-3 rounded-2xl px-4 transition-colors ${isActive ? "bg-[#00629B] text-white" : "text-[#1e2732] hover:bg-black/[0.045]"}`}
                     >
                       <span
-                        className={`w-5 font-mono text-[9px] ${isActive ? "text-white/55" : "text-black/30"}`}
+                        className={`w-5 font-mono text-[9px] ${isActive ? "text-white/55" : "text-black/58"}`}
                       >
                         {String(index + 1).padStart(2, "0")}
                       </span>
@@ -389,7 +389,7 @@ export default function Navbar() {
               </nav>
 
               <div className="mt-3 border-t border-black/[0.08] pt-3">
-                <p className="px-3 pb-2 text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">
+                <p className="px-3 pb-2 text-[9px] font-bold uppercase tracking-[0.18em] text-black/58">
                   Account
                 </p>
                 {loading ? (
@@ -417,7 +417,7 @@ export default function Navbar() {
                       <p className="truncate text-sm font-bold text-[#111315]">
                         {authenticatedUser.name}
                       </p>
-                      <p className="mt-0.5 truncate text-[11px] text-black/45">
+                      <p className="mt-0.5 truncate text-[11px] text-black/58">
                         {authenticatedUser.email}
                       </p>
                     </div>

@@ -86,7 +86,57 @@ async function isPubliclyVisible(
 	return (result.rows[0]?.n ?? 0) > 0;
 }
 
-export async function loader({ params }: LoaderFunctionArgs) {
+/**
+ * Widths the client is allowed to ask for. A poster is rendered between ~160px
+ * (mobile grid) and ~720px (full-width artwork), so 2048 is already generous
+ * and keeps a crafted `?w=60000` from burning CPU.
+ */
+const MIN_RESIZE_WIDTH = 16;
+const MAX_RESIZE_WIDTH = 2048;
+
+/** Formats sharp can re-encode. PDFs and unknown types are served untouched. */
+const RESIZABLE = new Set([".jpg", ".jpeg", ".png", ".webp"]);
+
+function parseWidth(raw: string | null): number | null {
+	if (!raw) return null;
+	if (!/^\d{1,5}$/.test(raw)) return null;
+	const width = Number(raw);
+	if (width < MIN_RESIZE_WIDTH || width > MAX_RESIZE_WIDTH) return null;
+	return width;
+}
+
+/**
+ * Re-encode one stored image at a requested width.
+ *
+ * Uploads arrive at whatever resolution the organiser had — one staging poster
+ * is 5400x5400 and 3.9 MB while being displayed at 353px wide. Serving a
+ * width-appropriate variant is the difference between a 9 MB and a ~1 MB
+ * `/events` page. The original bytes stay the source of truth; this only ever
+ * produces a derived response.
+ */
+async function resizeImage(
+	filePath: string,
+	ext: string,
+	width: number,
+	acceptsWebp: boolean,
+): Promise<{ body: Buffer; contentType: string } | null> {
+	const sharp = (await import("sharp")).default;
+	const pipeline = sharp(filePath, { failOn: "none" }).rotate().resize({
+		width,
+		withoutEnlargement: true,
+		fit: "inside",
+	});
+
+	if (acceptsWebp || ext === ".webp") {
+		return { body: await pipeline.webp({ quality: 78, effort: 4 }).toBuffer(), contentType: "image/webp" };
+	}
+	if (ext === ".png") {
+		return { body: await pipeline.png({ compressionLevel: 9 }).toBuffer(), contentType: "image/png" };
+	}
+	return { body: await pipeline.jpeg({ quality: 80, mozjpeg: true }).toBuffer(), contentType: "image/jpeg" };
+}
+
+export async function loader({ params, request }: LoaderFunctionArgs) {
 	const collection = String(params.collection ?? "");
 	const recordId = String(params.recordId ?? "");
 	const filename = String(params.filename ?? "");
@@ -113,7 +163,34 @@ export async function loader({ params }: LoaderFunctionArgs) {
 	}
 	if (!existsSync(filePath) || !statSync(filePath).isFile()) throw notFound();
 
-	const contentType = CONTENT_TYPES[extname(filename).toLowerCase()] ?? "application/octet-stream";
+	const ext = extname(filename).toLowerCase();
+	const contentType = CONTENT_TYPES[ext] ?? "application/octet-stream";
+
+	const width = parseWidth(new URL(request.url).searchParams.get("w"));
+	if (width && RESIZABLE.has(ext)) {
+		const acceptsWebp = (request.headers.get("accept") ?? "").includes("image/webp");
+		try {
+			const resized = await resizeImage(filePath, ext, width, acceptsWebp);
+			if (resized) {
+				return new Response(new Uint8Array(resized.body), {
+					headers: {
+						"Content-Type": resized.contentType,
+						"Content-Length": String(resized.body.byteLength),
+						// The width is part of the URL, so the bytes for a given URL never
+						// change: the same long-lived immutable policy as the original.
+						"Cache-Control": "public, max-age=31536000, immutable",
+						// The encoding depends on Accept, so a shared cache must key on it.
+						Vary: "Accept",
+						"X-Content-Type-Options": "nosniff",
+					},
+				});
+			}
+		} catch {
+			// A corrupt or unreadable image must not 500 the page; fall through to
+			// the original bytes, which is what the browser would have got anyway.
+		}
+	}
+
 	const body = await import("node:fs/promises").then((fs) => fs.readFile(filePath));
 
 	return new Response(new Uint8Array(body), {

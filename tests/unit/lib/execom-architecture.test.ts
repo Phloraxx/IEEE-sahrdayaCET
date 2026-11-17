@@ -20,7 +20,10 @@ describe("execom architecture invariants", () => {
     expect(client).not.toContain("PORTFOLIO_BY_MEMBER_NAME");
     expect(client).not.toContain("midhunpm.in");
     expect(client).toContain("href={member.portfolio}");
-    expect(client).toContain("View details for ${member.name}");
+    // The card content is the accessible name: an aria-label here would not
+    // contain the visible text and would fail WCAG 2.5.3 (Label in Name).
+    expect(client).not.toContain("aria-label={`View details for");
+    expect(client).toContain("{member.name}");
     expect(client).toContain("href={preview.portfolio}");
     expect(client).toContain("Visit ${preview.name}'s portfolio");
     // Phase 1: the projection is a SQL column list in the repo.

@@ -84,7 +84,13 @@ export function EventsShowcase() {
           Explore Events
         </Link>
       </div>
-      <div className={`relative z-20 ${reduceMotion ? 'overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden' : 'overflow-hidden'}`}>
+      {/* Under reduced motion this rail stops scrolling itself and becomes a
+          horizontal scroller, so it has to be reachable by keyboard. */}
+      <div
+        tabIndex={reduceMotion ? 0 : undefined}
+        aria-label={reduceMotion ? "Event formats" : undefined}
+        className={`relative z-20 ${reduceMotion ? 'overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden' : 'overflow-hidden'}`}
+      >
         <div ref={textRef} data-testid="curated-format-marquee" className="flex w-max items-center whitespace-nowrap">
           {copies.flatMap(copy => formats.map(text => (
             <span key={`${copy}-${text}`} aria-hidden={copy > 0 || undefined} className="flex shrink-0 items-center">

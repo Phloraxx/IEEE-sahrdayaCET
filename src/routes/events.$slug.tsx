@@ -250,7 +250,7 @@ export default function EventDetailPage() {
     "few-left": "text-orange-700",
     "closing-soon": "text-amber-700",
     full: "text-rose-700",
-    closed: "text-black/40",
+    closed: "text-black/58",
   };
   const eventEnded = isPastEvent(event);
   const unavailableRegistrationLabel =
@@ -346,10 +346,10 @@ export default function EventDetailPage() {
       <section data-testid="event-programme-hero" className="relative overflow-hidden bg-[#f4f2ed] text-[#111315]">
         <div className="relative mx-auto max-w-[1180px] px-5 pb-6 pt-16 sm:px-8 sm:pb-8 sm:pt-20 md:pt-24 lg:pt-28">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Link to={backHref} className="group inline-flex min-h-11 items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-black/45 transition hover:text-[#00629B]">
+            <Link to={backHref} className="group inline-flex min-h-11 items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-black/58 transition hover:text-[#00629B]">
               <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" /> {backLabel}
             </Link>
-            <span className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-black/40">Programme / {formatYear(event.date)}</span>
+            <span className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-black/58">Programme / {formatYear(event.date)}</span>
           </div>
 
           <div className="mt-7 overflow-hidden rounded-[28px] bg-[#fffaf0] shadow-[0_34px_70px_-38px_rgba(6,17,29,0.5)] ring-1 ring-black/[0.06]">
@@ -382,14 +382,14 @@ export default function EventDetailPage() {
               <div className="mt-8 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-[auto_12rem_minmax(0,1fr)] sm:items-end">
                 <div>
                   <span className="block font-mono text-5xl font-semibold leading-none tracking-[-0.08em] tabular-nums text-[#111315]">{formatDay(event.date)}</span>
-                  <span className="mt-1.5 block font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-black/45">{formatMonth(event.date)} · {formatWeekdayShort(event.date)}</span>
+                  <span className="mt-1.5 block font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-black/58">{formatMonth(event.date)} · {formatWeekdayShort(event.date)}</span>
                 </div>
                 <div className="sm:border-l sm:border-black/10 sm:pl-6">
-                  <p className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-black/40">Time</p>
+                  <p className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-black/58">Time</p>
                   <p className="mt-1.5 text-sm font-semibold leading-6 text-[#111315]">{formatEventTime(event.date, event.timeTbc)}</p>
                 </div>
                 <div className="col-span-2 sm:col-span-1 sm:border-l sm:border-black/10 sm:pl-6">
-                  <p className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-black/40">Venue</p>
+                  <p className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-black/58">Venue</p>
                   <p className="mt-1.5 text-sm font-semibold leading-6 text-[#111315]">{event.attendanceMode === "online" ? "Online" : event.venue || "Sahrdaya College of Engineering & Technology"}</p>
                 </div>
               </div>
@@ -398,8 +398,8 @@ export default function EventDetailPage() {
             <div className="relative flex flex-wrap items-center justify-between gap-x-5 gap-y-2 border-t border-dashed border-black/20 px-6 py-4 sm:px-9">
               <span aria-hidden="true" className="absolute -left-3 -top-3 h-6 w-6 rounded-full bg-[#f4f2ed] shadow-[inset_0_2px_6px_rgba(6,17,29,0.3)]" />
               <span aria-hidden="true" className="absolute -right-3 -top-3 h-6 w-6 rounded-full bg-[#f4f2ed] shadow-[inset_0_2px_6px_rgba(6,17,29,0.3)]" />
-              <span className="font-mono text-[9px] font-bold uppercase tracking-[0.3em] text-black/40">Admit one</span>
-              <span className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-black/45">
+              <span className="font-mono text-[9px] font-bold uppercase tracking-[0.3em] text-black/58">Admit one</span>
+              <span className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-black/58">
                 {event.price > 0 ? `₹${event.price}` : "Free"} · {eventEnded ? "Event completed" : availability.label}
               </span>
               <div aria-hidden="true" className="flex h-7 items-end gap-[1.5px]">
@@ -426,9 +426,9 @@ export default function EventDetailPage() {
               <section data-testid="event-attendee-guidance" className="mt-10 rounded-[24px] bg-[#fbf9f4] px-5 py-7 ring-1 ring-black/[0.05] sm:px-7">
                 <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#00629B]">Plan your attendance</p>
                 <div className="mt-6 grid gap-8 md:grid-cols-2">
-                  {audienceRestricted && <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-black/35">Who can attend</p><h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em]">Eligibility</h2><div className="mt-4 space-y-2 text-sm leading-6 text-black/58">{(event.eligibleSemesters?.length || 0) > 0 && <p><span className="font-semibold text-black/75">Semesters:</span> {event.eligibleSemesters?.join(", ")}</p>}{eligibleProgrammeLabels.length > 0 && <p><span className="font-semibold text-black/75">Programmes:</span> {eligibleProgrammeLabels.join(", ")}</p>}</div></div>}
-                  {ieeeMemberPrice !== null && <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-black/35">IEEE member price</p><h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em]">₹{ieeeMemberPrice}</h2><p className="mt-3 text-sm leading-6 text-black/55">IEEE members receive {memberDiscountPercent}% off the regular ₹{event.price} fee after providing a Membership ID. Coupons and member pricing do not stack; the better price is used.</p></div>}
-                  {(requirements.length > 0 || attendeeNote) && <div className="md:col-span-2"><p className="text-xs font-bold uppercase tracking-[0.14em] text-black/35">Before you attend</p>{requirements.length > 0 && <ol className="mt-4 grid gap-3 sm:grid-cols-2">{requirements.map((item, index) => <li key={`${index}-${item}`} className="flex gap-3 text-sm leading-6 text-black/62"><span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border border-black/15 text-[9px] font-bold text-black/45">{index + 1}</span><span>{item}</span></li>)}</ol>}{attendeeNote && <p className="mt-5 border-l-2 border-[#00629B] pl-4 text-sm leading-6 text-black/58">{attendeeNote}</p>}</div>}
+                  {audienceRestricted && <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-black/58">Who can attend</p><h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em]">Eligibility</h2><div className="mt-4 space-y-2 text-sm leading-6 text-black/58">{(event.eligibleSemesters?.length || 0) > 0 && <p><span className="font-semibold text-black/75">Semesters:</span> {event.eligibleSemesters?.join(", ")}</p>}{eligibleProgrammeLabels.length > 0 && <p><span className="font-semibold text-black/75">Programmes:</span> {eligibleProgrammeLabels.join(", ")}</p>}</div></div>}
+                  {ieeeMemberPrice !== null && <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-black/58">IEEE member price</p><h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em]">₹{ieeeMemberPrice}</h2><p className="mt-3 text-sm leading-6 text-black/55">IEEE members receive {memberDiscountPercent}% off the regular ₹{event.price} fee after providing a Membership ID. Coupons and member pricing do not stack; the better price is used.</p></div>}
+                  {(requirements.length > 0 || attendeeNote) && <div className="md:col-span-2"><p className="text-xs font-bold uppercase tracking-[0.14em] text-black/58">Before you attend</p>{requirements.length > 0 && <ol className="mt-4 grid gap-3 sm:grid-cols-2">{requirements.map((item, index) => <li key={`${index}-${item}`} className="flex gap-3 text-sm leading-6 text-black/62"><span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border border-black/15 text-[9px] font-bold text-black/58">{index + 1}</span><span>{item}</span></li>)}</ol>}{attendeeNote && <p className="mt-5 border-l-2 border-[#00629B] pl-4 text-sm leading-6 text-black/58">{attendeeNote}</p>}</div>}
                 </div>
               </section>
             )}
@@ -447,20 +447,20 @@ export default function EventDetailPage() {
 
           <aside className="h-fit rounded-[24px] bg-[#fbf9f4] p-5 ring-1 ring-black/[0.05] sm:p-6 lg:sticky lg:top-28">
             {myRegistrationLoading ? (
-              <div className="py-8 text-sm font-semibold text-black/45">Checking your registration…</div>
+              <div className="py-8 text-sm font-semibold text-black/58">Checking your registration…</div>
             ) : myRegistration?.found ? (
               myRegistration.manualReview ? (
                 <>
                   <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-amber-700">Your registration</p>
                   <Clock3 className="mt-6 h-8 w-8 text-amber-600" />
                   <h2 className="mt-5 text-3xl font-semibold tracking-[-0.05em]">Payment under review</h2>
-                  <p className="mt-3 text-sm leading-6 text-black/50">An organiser is reviewing the payment. Don&apos;t register or pay again.</p>
+                  <p className="mt-3 text-sm leading-6 text-black/58">An organiser is reviewing the payment. Don&apos;t register or pay again.</p>
                 </>
               ) : myRegistration.paymentRequired ? (
                 <>
                   <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#00629B]">Your registration</p>
                   <h2 className="mt-3 text-4xl font-semibold tracking-[-0.055em]">Almost there.</h2>
-                  <p className="mt-3 text-sm leading-6 text-black/50">Your details are saved. Payment is the only step left.</p>
+                  <p className="mt-3 text-sm leading-6 text-black/58">Your details are saved. Payment is the only step left.</p>
                   <Link to={`/payment/${myRegistration.registrationId}`} className="mt-7 hidden w-full items-center justify-center gap-2 rounded-full bg-[#00629B] px-5 py-3.5 text-sm font-bold text-white transition-colors hover:bg-[#111315] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00629B] lg:flex">
                     Continue payment <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </Link>
@@ -473,14 +473,14 @@ export default function EventDetailPage() {
                   <Link to={`/ticket/${myRegistration.ticketId}`} className="mt-7 hidden w-full items-center justify-center gap-2 rounded-full bg-[#00629B] px-5 py-3.5 text-sm font-bold text-white transition-colors hover:bg-[#111315] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00629B] lg:flex">
                     View ticket <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </Link>
-                  {myRegistration.receiptAvailable && <button type="button" onClick={downloadReceipt} className="mt-4 inline-flex items-center gap-2 text-xs font-bold text-black/50 hover:text-[#00629B]"><ReceiptText className="h-4 w-4" /> Payment receipt</button>}
+                  {myRegistration.receiptAvailable && <button type="button" onClick={downloadReceipt} className="mt-4 inline-flex items-center gap-2 text-xs font-bold text-black/58 hover:text-[#00629B]"><ReceiptText className="h-4 w-4" /> Payment receipt</button>}
                 </>
               ) : null
             ) : eventEnded ? (
               <>
-                <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Event status</p>
+                <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/58">Event status</p>
                 <h2 className="mt-3 text-4xl font-semibold tracking-[-0.055em]">Completed.</h2>
-                <p className="mt-4 text-sm leading-6 text-black/50">Held on {formatDate(event.date)} and preserved in the programme archive.</p>
+                <p className="mt-4 text-sm leading-6 text-black/58">Held on {formatDate(event.date)} and preserved in the programme archive.</p>
               </>
             ) : lifecycle.phase === "cancelled" ? (
               <>
@@ -491,7 +491,7 @@ export default function EventDetailPage() {
               <>
                 <div className="flex items-end justify-between gap-4">
                   <div>
-                    <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Registration</p>
+                    <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/58">Registration</p>
                     <p className="mt-2 text-5xl font-semibold tracking-[-0.065em]">{event.price > 0 ? `₹${event.price}` : "Free"}</p>
                   </div>
                   <div className={`mb-1 flex items-center gap-2 text-xs font-semibold ${availabilityClass[availability.kind]}`}><span className="h-1.5 w-1.5 rounded-full bg-current" />{availability.label}</div>
@@ -504,7 +504,7 @@ export default function EventDetailPage() {
                   )
                 ) : waitlistEligible ? (
                   authStatus === "authenticated" && waitlistLoading ? (
-                    <div className="mt-7 border-y border-black/12 py-4 text-sm font-semibold text-black/40">Checking waitlist…</div>
+                    <div className="mt-7 border-y border-black/12 py-4 text-sm font-semibold text-black/58">Checking waitlist…</div>
                   ) : waitlistEntry?.status === "offered" ? (
                     <div className="mt-7 border-y border-emerald-600/30 py-4">
                       <p className="text-sm font-bold text-emerald-800">A seat is reserved for you.</p>
@@ -514,20 +514,20 @@ export default function EventDetailPage() {
                   ) : waitlistEntry?.status === "waiting" ? (
                     <div className="mt-7 border-y border-[#00629B]/25 py-4">
                       <p className="text-sm font-bold text-[#00629B]">You’re on the waitlist{waitlistEntry.position > 0 ? ` · position ${waitlistEntry.position}` : ""}.</p>
-                      <p className="mt-1 text-xs leading-5 text-black/45">When a place opens, it is temporarily reserved before the next person is considered.</p>
-                      <button type="button" disabled={waitlistBusy} onClick={() => void leaveWaitlist()} className="mt-3 min-h-10 text-xs font-bold text-black/40 transition hover:text-rose-700 disabled:opacity-40">{waitlistBusy ? "Updating…" : "Leave waitlist"}</button>
+                      <p className="mt-1 text-xs leading-5 text-black/58">When a place opens, it is temporarily reserved before the next person is considered.</p>
+                      <button type="button" disabled={waitlistBusy} onClick={() => void leaveWaitlist()} className="mt-3 min-h-10 text-xs font-bold text-black/58 transition hover:text-rose-700 disabled:opacity-40">{waitlistBusy ? "Updating…" : "Leave waitlist"}</button>
                     </div>
                   ) : authStatus === "authenticated" ? (
                     <div className="mt-7 border-y border-black/12 py-4">
                       <p className="text-sm font-bold text-black/55">All seats are reserved.</p>
-                      <p className="mt-1 text-xs leading-5 text-black/42">{audienceRestricted ? "Confirm your programme and semester before joining this restricted waitlist." : "Join the waitlist and a released seat will be held for you before anyone else can register into it."}</p>
+                      <p className="mt-1 text-xs leading-5 text-black/58">{audienceRestricted ? "Confirm your programme and semester before joining this restricted waitlist." : "Join the waitlist and a released seat will be held for you before anyone else can register into it."}</p>
                       {audienceRestricted ? <Link to={registerUrl} className="group mt-4 flex w-full items-center justify-between font-bold text-[#00629B]">Continue to waitlist <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></Link> : <button type="button" disabled={waitlistBusy} onClick={() => void joinWaitlist()} className="group mt-4 flex w-full items-center justify-between font-bold text-[#00629B] disabled:opacity-40">{waitlistBusy ? "Joining…" : "Join waitlist"}{!waitlistBusy && <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />}</button>}
                     </div>
                   ) : (
                     <Link to={registerUrl} className="group mt-7 flex w-full items-center justify-between border-y border-[#00629B] py-4 font-bold text-[#00629B]">Sign in to join waitlist <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></Link>
                   )
-                ) : <div className="mt-7 border-y border-black/12 py-4 text-sm font-bold text-black/40">{unavailableRegistrationLabel}</div>}
-                <p className="mt-5 text-xs leading-5 text-black/40">{waitlistEligible ? "Waitlist offers reserve capacity for one attendee at a time." : event.price > 0 ? "Your place is confirmed only after payment is captured." : "Free registration creates your ticket immediately."}</p>
+                ) : <div className="mt-7 border-y border-black/12 py-4 text-sm font-bold text-black/58">{unavailableRegistrationLabel}</div>}
+                <p className="mt-5 text-xs leading-5 text-black/58">{waitlistEligible ? "Waitlist offers reserve capacity for one attendee at a time." : event.price > 0 ? "Your place is confirmed only after payment is captured." : "Free registration creates your ticket immediately."}</p>
               </>
             )}
           </aside>
@@ -546,7 +546,7 @@ export default function EventDetailPage() {
             <AnimatePresence initial={false}>
               {!myRegistration?.found && !compactMobileAction && (
                 <motion.div key="entry" initial={reduceMotion ? false : { opacity: 0, width: 0 }} animate={{ opacity: 1, width: "auto" }} exit={{ opacity: 0, width: 0 }} className="min-w-0 flex-1 overflow-hidden">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/35">Entry</p><p className="text-lg font-semibold">{event.price > 0 ? `₹${event.price}` : "Free"}</p>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/58">Entry</p><p className="text-lg font-semibold">{event.price > 0 ? `₹${event.price}` : "Free"}</p>
                 </motion.div>
               )}
             </AnimatePresence>

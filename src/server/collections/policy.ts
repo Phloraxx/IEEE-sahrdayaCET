@@ -40,6 +40,17 @@ export interface CollectionPolicy {
 	/** Columns a client may never write. */
 	readonlyColumns?: readonly string[];
 	/**
+	 * Columns stripped from responses to anonymous callers.
+	 *
+	 * The public site reads `events` through this endpoint, and `SELECT *` handed
+	 * back the whole row: approval trail, finance sign-off, the attendance
+	 * qualification snapshot, and the legacy `coupons` column. They are null on a
+	 * clean dataset, but any of them would leak the moment an event carried one.
+	 * Staff surfaces use the dedicated `/api/admin/*` routes, so nothing that
+	 * needs these fields reads them from here.
+	 */
+	publicOmit?: readonly string[];
+	/**
 	 * PocketBase field names this collection answers to, mapped to the real
 	 * column. The schema renamed `created`/`updated` to `created_at`/`updated_at`
 	 * and `execom.order` to `sort_order`; the client data modules still sort and
@@ -103,6 +114,26 @@ export const COLLECTION_POLICIES: Record<string, CollectionPolicy> = {
 		writeCapability: "events.edit",
 		readPredicate: "is_deleted = 0",
 		readonlyColumns: ["registered_count", "checked_in_count", "is_deleted"],
+		publicOmit: [
+			"is_deleted",
+			"coupons",
+			"submitted_by",
+			"submitted_at",
+			"approved_by",
+			"approved_at",
+			"approval_status",
+			"approval_note",
+			"approval_revision",
+			"finance_approval_status",
+			"finance_approval_note",
+			"finance_approved_by",
+			"finance_approved_at",
+			"attendance_qualification_locked",
+			"attendance_qualification_version",
+			"attendance_qualification_locked_at",
+			"attendance_qualification_locked_by",
+			"attendance_qualification_snapshot",
+		],
 	},
 	societies: {
 		table: "societies",

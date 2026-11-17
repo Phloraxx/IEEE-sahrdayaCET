@@ -28,7 +28,7 @@ test.describe("Execom directory", () => {
     await page.getByRole("button", { name: "Reset directory" }).click();
     await expect(page.getByTestId("execom-grid")).toBeVisible();
 
-    const opener = page.locator("[data-execom-member] button[aria-label^=\"View details for\"]").first();
+    const opener = page.locator("[data-execom-member] button").first();
     await opener.focus();
     await opener.press("Enter");
     const dialog = page.getByRole("dialog");

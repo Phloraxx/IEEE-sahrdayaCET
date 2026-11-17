@@ -57,7 +57,7 @@ export function ProgrammeCover({ event, isUpcoming, year }: ProgrammeCoverProps)
                 ? "Every workshop, hackathon and talk the branch has run — and the next one you can walk into."
                 : "Nothing on the calendar right now. The next season is being finalised — the wall below holds everything the branch has run."}
             </p>
-            <p className="mt-6 font-[Caveat] text-xl text-black/40">Kodakara · Thrissur</p>
+            <p className="mt-6 font-[Caveat] text-xl text-black/58">Kodakara · Thrissur</p>
           </div>
 
           <div>
@@ -72,7 +72,7 @@ export function ProgrammeCover({ event, isUpcoming, year }: ProgrammeCoverProps)
                   <p className="font-mono text-[8px] font-bold uppercase tracking-[0.2em] text-[#00629B]">
                     IEEE Sahrdaya · Student Branch
                   </p>
-                  <p className="font-mono text-[8px] font-bold uppercase tracking-[0.16em] text-black/35">{year}</p>
+                  <p className="font-mono text-[8px] font-bold uppercase tracking-[0.16em] text-black/58">{year}</p>
                 </div>
                 <h2 className="mt-4 text-xl font-semibold leading-[1.08] tracking-[-0.03em] text-[#1b1a17] sm:text-2xl">
                   {isUpcoming ? event.title : "The next season"}
@@ -83,7 +83,7 @@ export function ProgrammeCover({ event, isUpcoming, year }: ProgrammeCoverProps)
                     <span className="block font-mono text-4xl font-semibold leading-none tracking-[-0.08em] tabular-nums text-[#1b1a17] sm:text-5xl">
                       {isUpcoming ? formatDay(event.date) : "—"}
                     </span>
-                    <span className="mt-1.5 block font-mono text-[8px] font-bold uppercase tracking-[0.16em] text-black/45">
+                    <span className="mt-1.5 block font-mono text-[8px] font-bold uppercase tracking-[0.16em] text-black/58">
                       {isUpcoming ? `${formatMonth(event.date)} · ${formatWeekdayShort(event.date)}` : "Date TBA"}
                     </span>
                   </div>
@@ -98,7 +98,7 @@ export function ProgrammeCover({ event, isUpcoming, year }: ProgrammeCoverProps)
               <div className="relative flex items-center justify-between gap-4 border-t border-dashed border-black/20 px-5 py-3.5 sm:px-7">
                 <span aria-hidden="true" className="absolute -left-3 -top-3 h-6 w-6 rounded-full bg-[#f8f9fa] shadow-[inset_0_2px_6px_rgba(6,17,29,0.3)]" />
                 <span aria-hidden="true" className="absolute -right-3 -top-3 h-6 w-6 rounded-full bg-[#f8f9fa] shadow-[inset_0_2px_6px_rgba(6,17,29,0.3)]" />
-                <span className="font-mono text-[8px] font-bold uppercase tracking-[0.3em] text-black/40">
+                <span className="font-mono text-[8px] font-bold uppercase tracking-[0.3em] text-black/58">
                   {isUpcoming ? "Admit one" : "Not printed yet"}
                 </span>
                 <div aria-hidden="true" className="flex h-7 items-end gap-[1.5px]">
@@ -143,7 +143,7 @@ export function ProgrammeCover({ event, isUpcoming, year }: ProgrammeCoverProps)
               </Link>
             </div>
 
-            <p className="mt-4 font-mono text-[8px] font-bold uppercase tracking-[0.16em] text-black/35">
+            <p className="mt-4 font-mono text-[8px] font-bold uppercase tracking-[0.16em] text-black/58">
               {year} · Kodakara, Thrissur
             </p>
           </div>

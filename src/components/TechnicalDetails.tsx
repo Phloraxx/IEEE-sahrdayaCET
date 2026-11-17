@@ -4,6 +4,15 @@ import pkg from "../../package.json";
 
 const { version } = pkg;
 
+/**
+ * The build badge is a development aid, not public content. It used to render
+ * on every page, so visitors could read the deployed version. It now appears
+ * only in dev builds, or when a deployment explicitly opts in with
+ * `VITE_SHOW_BUILD_VER=1` (useful for confirming what staging is running).
+ */
+const showBuildVersion =
+  import.meta.env.DEV || import.meta.env.VITE_SHOW_BUILD_VER === "1";
+
 export const TechnicalDetails: React.FC = () => {
   const reduceMotion = Boolean(useReducedMotion());
   const [scrolled, setScrolled] = useState(false);
@@ -52,17 +61,19 @@ export const TechnicalDetails: React.FC = () => {
         />
       </motion.div>
 
-      {/* Bottom Right - BUILD_VER */}
-      <motion.div
-        initial={reduceMotion ? false : { opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: reduceMotion ? 0 : 1.2, duration: reduceMotion ? 0 : 0.8 }}
-        className="absolute bottom-6 right-6 z-10 hidden md:block text-right"
-      >
-        <p className="font-mono text-[10px] text-gray-400">
-          BUILD_VER: {version}
-        </p>
-      </motion.div>
+      {/* Bottom Right - BUILD_VER (development aid, hidden in production) */}
+      {showBuildVersion ? (
+        <motion.div
+          initial={reduceMotion ? false : { opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: reduceMotion ? 0 : 1.2, duration: reduceMotion ? 0 : 0.8 }}
+          className="absolute bottom-6 right-6 z-10 hidden md:block text-right"
+        >
+          <p className="font-mono text-[10px] text-gray-600">
+            BUILD_VER: {version}
+          </p>
+        </motion.div>
+      ) : null}
 
       {/* Bottom Left - Copyright */}
       <motion.div
@@ -71,7 +82,7 @@ export const TechnicalDetails: React.FC = () => {
         transition={{ delay: reduceMotion ? 0 : 1.2, duration: reduceMotion ? 0 : 0.8 }}
         className="absolute bottom-6 left-6 z-10 hidden md:block"
       >
-        <p className="font-mono text-[10px] text-gray-400">
+        <p className="font-mono text-[10px] text-gray-600">
           &copy; {year} IEEE SAHRDAYA SB
         </p>
       </motion.div>

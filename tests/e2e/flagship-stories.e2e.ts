@@ -51,14 +51,16 @@ test.describe("Infinia showcase and independent Altair archive", () => {
       await expect(timeline.getByRole("heading", { level: 3 })).toHaveText(["Infinia 2.0", "TechX Infinia", "Altair 2.0", "Altair"]);
       await expect(timeline.locator(".infinia-timeline-year")).toHaveText(["2025", "2024", "2023", "2022"]);
       await expect(timeline.getByText("Programme archive", { exact: true })).toHaveCount(1);
+      // The timeline entry's accessible name is its own content (year, title,
+      // summary), not an aria-label override, so match on the visible title.
       for (const [name, href, title] of [
-        ["Explore Infinia 2.0 2025", "/infinia/2025", "Infinia 2.0"],
-        ["Explore TechX Infinia 2024", "/infinia/2024", "TechX Infinia"],
-        ["Explore Altair 2.0 2023", "/flagships/altair/2023", "Altair 2.0"],
-        ["Explore Altair 2022", "/flagships/altair/2022", "Altair"],
+        [/2025/, "/infinia/2025", "Infinia 2.0"],
+        [/2024/, "/infinia/2024", "TechX Infinia"],
+        [/2023/, "/flagships/altair/2023", "Altair 2.0"],
+        [/2022/, "/flagships/altair/2022", "Altair"],
       ]) {
         await page.goto("/infinia#timeline");
-        const link = timeline.getByRole("link", { name: name!, exact: true });
+        const link = timeline.getByRole("link", { name: name! }).first();
         await expect(link).toHaveAttribute("href", href!);
         await link.click();
         await expect(page).toHaveURL(new RegExp(href + "$"));
@@ -331,7 +333,7 @@ test.describe("Infinia showcase and independent Altair archive", () => {
   test("opens full posters and returns keyboard focus when dismissed", async ({ page }) => {
     await page.goto("/infinia/2025");
     await expect(page.getByRole("button", { name: "SIGN IN", exact: true })).toBeVisible();
-    const trigger = page.getByRole("link", { name: "View AEGIS · Agentic AI", exact: true });
+    const trigger = page.getByRole("link", { name: /^View original poster — AEGIS · Agentic AI$/ });
     await trigger.focus();
     await page.keyboard.press("Enter");
     const dialog = page.getByRole("dialog", { name: "AEGIS · Agentic AI", exact: true });

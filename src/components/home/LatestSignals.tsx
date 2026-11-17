@@ -37,18 +37,18 @@ export function LatestSignals({ blogs }: { blogs: BlogPost[] }) {
                 <h3 className="mt-4 text-3xl font-bold leading-[1] tracking-[-0.04em] text-gray-950 transition group-hover:text-ieee-blue sm:text-4xl">{lead.title}</h3>
                 {lead.excerpt ? <p className="mt-4 line-clamp-4 text-sm leading-6 text-gray-500">{lead.excerpt}</p> : null}
               </div>
-              <div className="mt-8 flex items-center justify-between border-t border-gray-100 pt-4"><span className="font-mono text-[8px] uppercase tracking-[0.15em] text-gray-400">{authorName(lead)} · {lead.readMinutes || 1} min</span><span className="grid h-10 w-10 place-items-center rounded-full border border-gray-200 text-gray-600 transition group-hover:border-ieee-blue group-hover:bg-ieee-blue group-hover:text-white"><ArrowUpRight className="h-4 w-4" /></span></div>
+              <div className="mt-8 flex items-center justify-between border-t border-gray-100 pt-4"><span className="font-mono text-[8px] uppercase tracking-[0.15em] text-gray-600">{authorName(lead)} · {lead.readMinutes || 1} min</span><span className="grid h-10 w-10 place-items-center rounded-full border border-gray-200 text-gray-600 transition group-hover:border-ieee-blue group-hover:bg-ieee-blue group-hover:text-white"><ArrowUpRight className="h-4 w-4" /></span></div>
             </div>
           </Link>
 
           <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-4"><p className="font-pixel text-[10px] text-gray-700">FROM THE ARCHIVE</p><span className="font-mono text-[8px] uppercase tracking-[0.16em] text-gray-400">Recent</span></div>
+            <div className="flex items-center justify-between border-b border-gray-100 pb-4"><p className="font-pixel text-[10px] text-gray-700">FROM THE ARCHIVE</p><span className="font-mono text-[8px] uppercase tracking-[0.16em] text-gray-600">Recent</span></div>
             <ol>
               {secondary.map((post, index) => (
                 <li key={post.id} className="border-b border-gray-100 last:border-b-0">
                   <Link to={`/blog/${post.slug}`} className="group grid grid-cols-[34px_1fr_auto] gap-3 py-5">
                     <span className="font-pixel text-[9px] text-ieee-blue">{String(index + 2).padStart(2, "0")}</span>
-                    <span><span className="block font-mono text-[7px] font-semibold uppercase tracking-[0.15em] text-gray-400">{getBlogContentType(post)} · {post.readMinutes || 1} min</span><span className="mt-1.5 block text-lg font-bold leading-snug tracking-[-0.02em] text-gray-900 transition group-hover:text-ieee-blue">{post.title}</span>{post.excerpt ? <span className="mt-2 line-clamp-2 block text-xs leading-5 text-gray-500">{post.excerpt}</span> : null}</span>
+                    <span><span className="block font-mono text-[7px] font-semibold uppercase tracking-[0.15em] text-gray-600">{getBlogContentType(post)} · {post.readMinutes || 1} min</span><span className="mt-1.5 block text-lg font-bold leading-snug tracking-[-0.02em] text-gray-900 transition group-hover:text-ieee-blue">{post.title}</span>{post.excerpt ? <span className="mt-2 line-clamp-2 block text-xs leading-5 text-gray-500">{post.excerpt}</span> : null}</span>
                     <ArrowUpRight className="mt-1 h-4 w-4 text-gray-300 transition group-hover:text-ieee-blue" />
                   </Link>
                 </li>

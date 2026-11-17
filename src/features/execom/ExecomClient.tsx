@@ -114,7 +114,7 @@ function MemberPortrait({
   if (!member.photoUrl || failed) {
     return (
       <div className={`grid place-items-center bg-[#edf1f3] ${className}`}>
-        <span className="font-pixel text-2xl text-slate-300">{initials(member.name)}</span>
+        <span className="font-pixel text-2xl text-slate-500">{initials(member.name)}</span>
       </div>
     );
   }
@@ -147,7 +147,7 @@ function MemberDrawer({
           className="fixed inset-y-0 right-0 z-[131] flex w-full max-w-[520px] flex-col overflow-y-auto bg-[#f7f8f8] pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] pt-[env(safe-area-inset-top,0px)] shadow-2xl focus:outline-none"
         >
         <div className="flex items-center justify-between border-b border-black/10 px-5 py-4 sm:px-7">
-          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-black/40">
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-black/58">
             Execom / {sectionLabel(member.sectionId)} / {String(member.slNo).padStart(2, "0")}
           </p>
           <button
@@ -227,7 +227,6 @@ function GridMemberCard({
         type="button"
         onClick={onOpen}
         className="block w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-ieee-blue focus-visible:ring-offset-4"
-        aria-label={`View details for ${member.name}`}
       >
         <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-[#edf1f3]">
           <MemberPortrait member={member} className="h-full w-full transition duration-700 group-hover:scale-[1.025]" eager={index < 8} />
@@ -288,11 +287,10 @@ function RosterView({
             onMouseEnter={() => setPreviewId(member.id)}
             onFocus={() => setPreviewId(member.id)}
             onClick={() => onOpen(member)}
-            aria-label={`View details for ${member.name}`}
-            className="group grid w-full grid-cols-[60px_minmax(0,1fr)_18px] items-center gap-3 border-b border-black/10 py-3 text-left outline-none transition hover:bg-ieee-blue/[0.035] focus-visible:bg-ieee-blue/[0.055] md:grid-cols-[54px_minmax(180px,1.1fr)_minmax(150px,0.9fr)_minmax(120px,0.7fr)_90px] md:gap-4 md:py-4"
+                className="group grid w-full grid-cols-[60px_minmax(0,1fr)_18px] items-center gap-3 border-b border-black/10 py-3 text-left outline-none transition hover:bg-ieee-blue/[0.035] focus-visible:bg-ieee-blue/[0.055] md:grid-cols-[54px_minmax(180px,1.1fr)_minmax(150px,0.9fr)_minmax(120px,0.7fr)_90px] md:gap-4 md:py-4"
           >
             <div className="md:hidden"><MemberPortrait member={member} className="h-[72px] w-[54px]" /></div>
-            <span className="hidden font-pixel text-[9px] text-black/30 md:block">{String(index + 1).padStart(2, "0")}</span>
+            <span className="hidden font-pixel text-[9px] text-black/58 md:block">{String(index + 1).padStart(2, "0")}</span>
             <span className="min-w-0">
               <span className="block break-words text-sm font-bold text-gray-950 transition group-hover:text-ieee-blue md:text-base">{member.name}</span>
               <span className="mt-1 block font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-ieee-blue md:hidden">{member.position || "Member"} · {sectionLabel(member.sectionId)}</span>
@@ -307,7 +305,7 @@ function RosterView({
 
       {preview && (
         <aside className="sticky top-28 hidden h-fit xl:block">
-          <button type="button" onClick={() => onOpen(preview)} aria-label={`View details for ${preview.name}`} className="group block w-full text-left">
+          <button type="button" onClick={() => onOpen(preview)} className="group block w-full text-left">
             <div className="relative aspect-[3/4] overflow-hidden bg-[#edf1f3]">
               <MemberPortrait member={preview} className="h-full w-full transition duration-500 group-hover:scale-[1.02]" eager />
               <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/60 to-transparent" />
@@ -467,7 +465,7 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Search the roster…"
-                  className="h-11 w-full rounded-full border border-black/10 bg-white/85 pl-9 pr-11 text-base shadow-sm outline-none transition placeholder:text-black/30 focus:border-ieee-blue lg:text-sm"
+                  className="h-11 w-full rounded-full border border-black/10 bg-white/85 pl-9 pr-11 text-base shadow-sm outline-none transition placeholder:text-black/58 focus:border-ieee-blue lg:text-sm"
                 />
                 {query && (
                   <button type="button" onClick={() => setQuery("")} aria-label="Clear Execom search" className="absolute right-0 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center text-black/30 hover:text-ieee-blue"><X className="h-4 w-4" /></button>
@@ -488,10 +486,10 @@ const FullExecom: React.FC<ExecomClientProps> = ({ initialDocs }) => {
             </select>
           </label>
           <div className="mt-6 hidden flex-wrap gap-2 border-y border-black/10 py-3 sm:flex" aria-label="Filter Execom by group">
-            <button type="button" onClick={() => setActiveFilter("all")} aria-pressed={activeFilter === "all"} className={`inline-flex min-h-11 shrink-0 items-center rounded-full border px-3 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] transition ${activeFilter === "all" ? "border-ieee-blue bg-ieee-blue text-white" : "border-black/10 bg-white/80 text-black/60 hover:border-black/30 hover:text-black"}`}>All <span className="ml-1 opacity-65">{docs.length}</span></button>
+            <button type="button" onClick={() => setActiveFilter("all")} aria-pressed={activeFilter === "all"} className={`inline-flex min-h-11 shrink-0 items-center rounded-full border px-3 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] transition ${activeFilter === "all" ? "border-ieee-blue bg-ieee-blue text-white" : "border-black/10 bg-white/80 text-black/60 hover:border-black/30 hover:text-black"}`}>All <span className="ml-1 opacity-90">{docs.length}</span></button>
             {presentSections.map((section) => (
               <button key={section} type="button" onClick={() => setActiveFilter(section)} aria-pressed={activeFilter === section} className={`inline-flex min-h-11 shrink-0 items-center rounded-full border px-3 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] transition ${activeFilter === section ? "border-ieee-blue bg-ieee-blue text-white" : "border-black/10 bg-white/80 text-black/60 hover:border-black/30 hover:text-black"}`}>
-                {sectionLabel(section)} <span className="ml-1 opacity-65">{counts.get(section) ?? 0}</span>
+                {sectionLabel(section)} <span className="ml-1 opacity-90">{counts.get(section) ?? 0}</span>
               </button>
             ))}
           </div>

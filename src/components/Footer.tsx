@@ -87,7 +87,7 @@ const Footer: React.FC<FooterProps> = ({ seamless = false, mobileActionClearance
                     href={link.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`group flex min-h-8 items-center justify-between py-1 text-sm text-white/60 transition-colors duration-300 hover:text-white ${
+                    className={`group flex min-h-11 items-center justify-between py-1 text-sm text-white/60 transition-colors duration-300 hover:text-white ${
                       link.label.startsWith("Sahrdaya") ? "col-span-2 md:col-span-1" : ""
                     }`}
                   >
@@ -106,14 +106,14 @@ const Footer: React.FC<FooterProps> = ({ seamless = false, mobileActionClearance
               <div className="space-y-2 md:space-y-4">
                 <a
                   href="mailto:ieee@sahrdaya.ac.in"
-                  className="group flex min-h-8 items-start gap-3 py-1 text-sm text-white/60 transition-colors duration-300 hover:text-white"
+                  className="group flex min-h-11 items-start gap-3 py-1 text-sm text-white/60 transition-colors duration-300 hover:text-white"
                 >
                   <Mail className="w-4 h-4 mt-0.5 text-ieee-blue shrink-0" />
                   <span className="font-sans">ieee@sahrdaya.ac.in</span>
                 </a>
                 <a
                   href="tel:+919746222670"
-                  className="group flex min-h-8 items-start gap-3 py-1 text-sm text-white/60 transition-colors duration-300 hover:text-white"
+                  className="group flex min-h-11 items-start gap-3 py-1 text-sm text-white/60 transition-colors duration-300 hover:text-white"
                 >
                   <Phone className="w-4 h-4 mt-0.5 text-ieee-blue shrink-0" />
                   <span className="font-sans">
@@ -124,7 +124,7 @@ const Footer: React.FC<FooterProps> = ({ seamless = false, mobileActionClearance
                   href="https://maps.app.goo.gl/zeFMTMfB3fPeBNHq9"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group flex min-h-8 items-start gap-3 py-1 text-sm text-white/60 transition-colors duration-300 hover:text-white"
+                  className="group flex min-h-11 items-start gap-3 py-1 text-sm text-white/60 transition-colors duration-300 hover:text-white"
                 >
                   <MapPin className="w-4 h-4 mt-0.5 text-ieee-blue shrink-0" />
                   <span className="font-sans leading-relaxed">
@@ -230,7 +230,7 @@ const Footer: React.FC<FooterProps> = ({ seamless = false, mobileActionClearance
                 href={social.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex min-h-8 items-center px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-white/60 transition-colors duration-300 hover:text-ieee-blue md:tracking-[0.2em]"
+                className="inline-flex min-h-11 items-center px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-white/60 transition-colors duration-300 hover:text-ieee-blue md:tracking-[0.2em]"
               >
                 {social.label}
               </a>

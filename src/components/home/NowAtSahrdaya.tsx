@@ -59,7 +59,7 @@ export function NowAtSahrdaya({ events, upcomingCount, societyCount, execomCount
             <aside className="flex flex-col rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
               <div className="flex items-center justify-between border-b border-gray-100 pb-4">
                 <p className="font-pixel text-[10px] text-gray-700">UPCOMING / {String(upcomingCount).padStart(2, "0")}</p>
-                <span className="font-mono text-[8px] font-semibold uppercase tracking-[0.16em] text-gray-400">Live programme</span>
+                <span className="font-mono text-[8px] font-semibold uppercase tracking-[0.16em] text-gray-600">Live programme</span>
               </div>
               <ol className="grow">
                 {rail.map((event, index) => (
@@ -67,7 +67,7 @@ export function NowAtSahrdaya({ events, upcomingCount, societyCount, execomCount
                     <Link to={`/events/${event.slug}`} className="group grid grid-cols-[38px_1fr_auto] gap-3 py-5">
                       <span className="font-pixel text-[9px] text-ieee-blue">{String(index + 2).padStart(2, "0")}</span>
                       <span>
-                        <span className="block font-mono text-[8px] font-semibold uppercase tracking-[0.14em] text-gray-400">{formatWeekdayShort(event.date)} · {formatDateLong(event.date)}</span>
+                        <span className="block font-mono text-[8px] font-semibold uppercase tracking-[0.14em] text-gray-600">{formatWeekdayShort(event.date)} · {formatDateLong(event.date)}</span>
                         <span className="mt-1.5 block text-base font-bold leading-snug text-gray-900 transition group-hover:text-ieee-blue">{event.title}</span>
                         <span className="mt-2 block text-xs text-gray-500">{event.society?.name || "IEEE Sahrdaya"}</span>
                       </span>
@@ -103,7 +103,7 @@ export function NowAtSahrdaya({ events, upcomingCount, societyCount, execomCount
 
         <div className="mt-6 grid border-y border-gray-200 sm:grid-cols-3">
           {[['Communities', societyCount], ['Upcoming', upcomingCount], ['Execom roster', execomCount]].map(([label, value], index) => (
-            <div key={String(label)} className={`flex items-baseline justify-between gap-4 py-4 sm:px-5 ${index > 0 ? "border-t border-gray-200 sm:border-l sm:border-t-0" : ""}`}><span className="font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-gray-400">{label}</span><strong className="font-pixel text-lg text-gray-900">{String(value).padStart(2, "0")}</strong></div>
+            <div key={String(label)} className={`flex items-baseline justify-between gap-4 py-4 sm:px-5 ${index > 0 ? "border-t border-gray-200 sm:border-l sm:border-t-0" : ""}`}><span className="font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-gray-600">{label}</span><strong className="font-pixel text-lg text-gray-900">{String(value).padStart(2, "0")}</strong></div>
           ))}
         </div>
       </div>

@@ -68,7 +68,7 @@ export function EventBannerFallback({
         IEEE Sahrdaya
       </div>
       <div className="absolute bottom-5 left-5 right-5 z-10 sm:bottom-6 sm:left-6 sm:right-6">
-        <div className="mb-3 flex items-center justify-between gap-4 text-[9px] font-semibold uppercase tracking-[0.18em] text-white/52">
+        <div className="mb-3 flex items-center justify-between gap-4 text-[9px] font-semibold uppercase tracking-[0.18em] text-white/75">
           <span className="truncate">{societyName || "Student Branch Event"}</span>
           <span aria-hidden="true">↗</span>
         </div>
