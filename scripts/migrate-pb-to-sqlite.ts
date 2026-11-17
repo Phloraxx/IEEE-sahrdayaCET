@@ -200,6 +200,78 @@ const SPECS: Spec[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// Rows the target schema cannot represent
+// ---------------------------------------------------------------------------
+
+/**
+ * A row the target schema cannot hold, and why.
+ *
+ * PocketBase is looser than the SQLite schema in a few places, and the schema is
+ * the stricter of the two on purpose. Where a row cannot satisfy a NOT NULL
+ * column, the migration drops it and says so — it never invents a value to make
+ * the insert succeed. This mirrors the PocketBase → Postgres migration's
+ * unmigratable-rows handling.
+ *
+ * Every rule here is a deliberate schema decision, not a convenience. Adding one
+ * means accepting that the row is not carried across, so it must be justified in
+ * the comment and surfaced in the report.
+ */
+const SKIP_RULES: Record<string, (row: Record<string, unknown>) => string | null> = {
+	/**
+	 * `attendance_records.session_id` is NOT NULL in the target schema.
+	 *
+	 * PocketBase permits an attendance row with no session. The new model does
+	 * not: a check-in that belongs to no session cannot be attributed to a
+	 * programme slot, so it cannot be counted towards a certificate, weighted, or
+	 * reconciled. The column is the entire point of the row.
+	 *
+	 * Dropping these rows is safe for referential integrity — nothing references
+	 * `attendance_records`, so no child row is orphaned — and the count is
+	 * reported so the loss is visible rather than silent.
+	 */
+	attendance_records: (row) => {
+		const session = row.session;
+		if (session === null || session === undefined || String(session).trim() === "") {
+			return "no session (session_id is NOT NULL in the target schema)";
+		}
+		return null;
+	},
+};
+
+/** A row dropped by `SKIP_RULES`, kept for the report. */
+interface SkippedRow {
+	table: string;
+	pbId: string;
+	reason: string;
+}
+
+/**
+ * Collect every row this migration will drop.
+ *
+ * Computed before the write so a dry run reports the same number an apply
+ * would — the operator should know the cost before anything is written.
+ */
+function collectSkipped(
+	source: Database.Database,
+	collections: readonly Spec[],
+): SkippedRow[] {
+	const skipped: SkippedRow[] = [];
+	for (const spec of collections) {
+		const rule = SKIP_RULES[spec.pb];
+		if (!rule) continue;
+		const rows = source.prepare(sqlForCollection(spec.pb).selectAll).all() as Record<
+			string,
+			unknown
+		>[];
+		for (const row of rows) {
+			const reason = rule(row);
+			if (reason) skipped.push({ table: spec.table, pbId: String(row.id), reason });
+		}
+	}
+	return skipped;
+}
+
+// ---------------------------------------------------------------------------
 // Identifier allowlist
 // ---------------------------------------------------------------------------
 //
@@ -289,6 +361,11 @@ const COLUMN_ALIASES: Record<string, string> = {
 	// `execom.order` is a bare word, so the camelCase fallback (`sortOrder`)
 	// misses it and every row would migrate with a NULL sort_order.
 	order: "sort_order",
+	// Same trap: the PocketBase field is `session`, a bare word, so the fallback
+	// looks for `sessionId` and finds nothing. Without this alias every
+	// attendance row migrates with `session_id = NULL` and the whole collection
+	// fails the NOT NULL constraint — which is exactly how the CI migration died.
+	session: "session_id",
 	user: "user_id",
 	event: "event_id",
 	society: "society_id",
@@ -665,6 +742,7 @@ function verify(
 	target: Database.Database,
 	source: Database.Database,
 	counts: Map<string, number>,
+	skippedByTable: Map<string, number>,
 	files: FileCopy[],
 	storageDir: string,
 ): Check[] {
@@ -684,13 +762,20 @@ function verify(
 	).n;
 	push("table count", tableCount === 26, `${tableCount} tables`);
 
-	// Per-collection counts against the source.
+	// Per-collection counts against the source, less the rows the schema could not
+	// hold. Without the subtraction the check would fail on exactly the data the
+	// skip rules exist to handle.
 	for (const spec of SPECS) {
-		const expected = counts.get(spec.pb) ?? 0;
+		const dropped = skippedByTable.get(spec.table) ?? 0;
+		const expected = (counts.get(spec.pb) ?? 0) - dropped;
 		const actual = (
 			target.prepare(sqlForTable(spec.table).count).get() as { n: number }
 		).n;
-		push(`count ${spec.table}`, actual === expected, `${actual}/${expected}`);
+		push(
+			`count ${spec.table}`,
+			actual === expected,
+			dropped > 0 ? `${actual}/${expected} (${dropped} skipped)` : `${actual}/${expected}`,
+		);
 	}
 
 	// google_sub coverage.
@@ -778,9 +863,21 @@ function main(): void {
 		fileRenames.set(`${file.table}\u0000${pbRecordId}\u0000${file.column}\u0000${file.originalName}`, file.newName);
 	}
 
+	// Rows the target schema cannot hold. Computed before the write so the dry run
+	// reports the same number an apply would.
+	const skipped = collectSkipped(source, SPECS);
+	const skippedByTable = new Map<string, number>();
+	for (const row of skipped) {
+		skippedByTable.set(row.table, (skippedByTable.get(row.table) ?? 0) + 1);
+	}
+
 	console.log(`records: ${[...counts.values()].reduce((a, b) => a + b, 0)}`);
 	console.log(`google links: ${googleSubs.size}`);
 	console.log(`files planned: ${files.length}`);
+	if (skipped.length > 0) {
+		console.log(`rows that cannot be migrated: ${skipped.length}`);
+		for (const [table, n] of skippedByTable) console.log(`  ${table}: ${n}`);
+	}
 	console.log("");
 
 	if (!args.apply) {
@@ -835,11 +932,21 @@ function main(): void {
 			}
 
 			const statement = target.prepare(sqlForTable(spec.table).insert);
+			const skipRule = SKIP_RULES[spec.pb];
 
+			let inserted = 0;
 			for (const row of rows) {
+				if (skipRule && skipRule(row)) continue;
 				statement.run(...mapRow(spec, row, idMap, fallbackTimestamp, fileRenames));
+				inserted += 1;
 			}
-			console.log(`  ${spec.table}: ${rows.length}`);
+
+			const dropped = rows.length - inserted;
+			console.log(
+				dropped > 0
+					? `  ${spec.table}: ${inserted} (${dropped} skipped)`
+					: `  ${spec.table}: ${inserted}`,
+			);
 		}
 
 		// Multi-relation join tables.
@@ -924,7 +1031,7 @@ function main(): void {
 
 	console.log("");
 	console.log("=== verification ===");
-	const checks = verify(target, source, counts, files, args.storage ?? "");
+	const checks = verify(target, source, counts, skippedByTable, files, args.storage ?? "");
 	let failed = 0;
 	for (const check of checks) {
 		if (!check.ok) failed += 1;
@@ -932,6 +1039,24 @@ function main(): void {
 	}
 	console.log("");
 	console.log(failed === 0 ? "ALL CHECKS PASSED" : `${failed} CHECK(S) FAILED`);
+
+	// Loud, because a skipped row is data that does not exist in the new system.
+	// It is an accepted loss, not a silent one.
+	if (skipped.length > 0) {
+		console.log("");
+		console.log("=".repeat(60));
+		console.log(`${skipped.length} ROW(S) COULD NOT BE MIGRATED AND WERE DROPPED`);
+		console.log("=".repeat(60));
+		for (const [table, n] of skippedByTable) console.log(`  ${table}: ${n} row(s)`);
+		console.log("  reasons:");
+		for (const row of skipped.slice(0, 20)) {
+			console.log(`    ${row.table} ${row.pbId}: ${row.reason}`);
+		}
+		if (skipped.length > 20) console.log(`    ... and ${skipped.length - 20} more`);
+		console.log("");
+		console.log("  These rows exist in PocketBase but not in the new database.");
+		console.log("  Record the count before cutover; it is the accepted data loss.");
+	}
 
 	target.close();
 	source.close();

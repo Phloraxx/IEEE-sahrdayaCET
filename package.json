@@ -16,7 +16,7 @@
     "test:e2e:headed": "playwright test --headed",
     "typecheck": "react-router typegen && tsc --noEmit",
     "test:unit": "vitest run",
-    "test:integration": "tsx tests/integration-db.mjs"
+    "test:integration": "tsx tests/integration-db.mjs && tsx tests/integration-migrate.mjs"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.9",
