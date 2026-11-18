@@ -162,11 +162,35 @@ const MemberCard: React.FC<{ member: Member; index: number; duplicate?: boolean 
 
 /* ── Drag Carousel ── */
 const CARD_WIDTH = 270;
+const CARD_WIDTH_COMPACT = 200;
 const GAP = 30;
-const ITEM_SIZE = CARD_WIDTH + GAP;
+const GAP_COMPACT = 20;
+
+/**
+ * Cards are sized in JS because the drag/marquee loop needs the exact item
+ * footprint to wrap seamlessly. Phones get a smaller card so a 390px viewport
+ * shows ~1.8 members instead of 1.4.
+ */
+function useCardMetrics() {
+  const [compact, setCompact] = useState(false);
+
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 639px)");
+    const sync = () => setCompact(query.matches);
+    sync();
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
+  }, []);
+
+  return compact
+    ? { card: CARD_WIDTH_COMPACT, gap: GAP_COMPACT }
+    : { card: CARD_WIDTH, gap: GAP };
+}
 
 const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
   const reduceMotion = Boolean(useReducedMotion());
+  const { card: cardWidth, gap } = useCardMetrics();
+  const itemSize = cardWidth + gap;
   const trackRef = useRef<HTMLDivElement>(null);
   const offsetRef = useRef(0);
   const rafRef = useRef<number>(0);
@@ -203,7 +227,7 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
 
       offsetRef.current += physics.current.velocity;
 
-      const contentWidth = ITEM_SIZE * members.length;
+      const contentWidth = itemSize * members.length;
       if (offsetRef.current <= -contentWidth) {
         offsetRef.current += contentWidth;
       }
@@ -215,7 +239,7 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
     }
 
     rafRef.current = requestAnimationFrame(animate);
-  }, [isInView, hasStartedScrolling, members.length, reduceMotion]);
+  }, [isInView, hasStartedScrolling, members.length, reduceMotion, itemSize]);
 
   useEffect(() => {
     if (reduceMotion) return;
@@ -300,9 +324,9 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
   if (reduceMotion) {
     return (
       <div ref={sectionRef} role="list" aria-label="Core executive committee" className="w-full overflow-x-auto py-4 [scrollbar-width:thin]">
-        <div className="flex min-w-max" style={{ gap: `${GAP}px` }}>
+        <div className="flex min-w-max" style={{ gap: `${gap}px` }}>
           {members.map((member, index) => (
-            <div key={member.id} role="listitem" className="shrink-0" style={{ width: `${CARD_WIDTH}px` }}>
+            <div key={member.id} role="listitem" className="shrink-0" style={{ width: `${cardWidth}px` }}>
               <MemberCard member={member} index={index} />
             </div>
           ))}
@@ -325,7 +349,7 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
           ref={trackRef}
           data-home-execom-track
           className="flex will-change-transform"
-          style={{ gap: `${GAP}px` }}
+          style={{ gap: `${gap}px` }}
         >
           {items.map((member, index) => (
             <div
@@ -334,7 +358,7 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
               aria-hidden={index >= members.length || undefined}
               inert={index >= members.length}
               className="shrink-0 transition-transform duration-300 ease-out hover:-translate-y-2"
-              style={{ width: `${CARD_WIDTH}px` }}
+              style={{ width: `${cardWidth}px` }}
             >
               <MemberCard member={member} index={index % members.length} duplicate={index >= members.length} />
             </div>
