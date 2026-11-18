@@ -43,7 +43,7 @@ function useMarquee(paused: boolean, speed: number, reduceMotion: boolean) {
 function ArchiveImage({ src, index, duplicate }: { src: string; index: number; duplicate: boolean }) {
   const [failed, setFailed] = useState(false);
   return (
-    <div aria-hidden={duplicate || undefined} className="relative h-[360px] w-[260px] shrink-0 overflow-hidden rounded-2xl bg-gray-100 shadow-lg">
+    <div aria-hidden={duplicate || undefined} className="relative h-[230px] w-[166px] shrink-0 overflow-hidden rounded-2xl bg-gray-100 shadow-lg sm:h-[360px] sm:w-[260px]">
       {failed ? <div className="grid h-full place-content-center gap-3 text-center text-sm text-gray-500"><ImageIcon className="mx-auto h-6 w-6" aria-hidden="true" /><span>Archive photo unavailable</span></div> : <img src={src} alt={duplicate ? '' : `Selected IEEE Sahrdaya event moment ${index + 1}`} loading="lazy" onError={() => setFailed(true)} className="h-full w-full object-cover" />}
     </div>
   );
