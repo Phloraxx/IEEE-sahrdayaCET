@@ -23,6 +23,12 @@ function EventVisual({ event }: { event: HomeEventSummary }) {
 export function NowAtSahrdaya({ events, upcomingCount, societyCount, execomCount }: Props) {
   const lead = events[0];
   const rail = events.slice(1, 4);
+  // [desktop label, mobile label, value] — the mobile chip row is tighter.
+  const stats = [
+    ["Communities", "Communities", societyCount],
+    ["Upcoming", "Upcoming", upcomingCount],
+    ["Execom roster", "Execom", execomCount],
+  ] as const;
 
   return (
     <section id="events" className="relative bg-white px-5 pt-20 pb-12 sm:px-6 sm:pt-24 sm:pb-14 lg:px-10 lg:pt-28 lg:pb-16">
@@ -101,8 +107,19 @@ export function NowAtSahrdaya({ events, upcomingCount, societyCount, execomCount
           </div>
         )}
 
-        <div className="mt-6 grid border-y border-gray-200 sm:grid-cols-3">
-          {[['Communities', societyCount], ['Upcoming', upcomingCount], ['Execom roster', execomCount]].map(([label, value], index) => (
+        {/* Mobile: quiet mono spec chips, the way mistral.ai lists model figures
+            (`1.05T` / `52 ACTIVE`) rather than three full-width ledger rows.
+            Desktop keeps the hairline ledger. */}
+        <div className="mt-6 flex flex-wrap gap-1.5 sm:hidden">
+          {stats.map(([, shortLabel, value]) => (
+            <span key={String(shortLabel)} className="inline-flex items-baseline gap-1.5 rounded-md bg-gray-100 px-2 py-1.5">
+              <strong className="font-pixel text-[11px] leading-none text-gray-900">{String(value).padStart(2, "0")}</strong>
+              <span className="font-mono text-[9px] font-semibold uppercase leading-none tracking-[0.08em] text-gray-600">{shortLabel}</span>
+            </span>
+          ))}
+        </div>
+        <div className="mt-6 hidden border-y border-gray-200 sm:grid sm:grid-cols-3">
+          {stats.map(([label, , value], index) => (
             <div key={String(label)} className={`flex items-baseline justify-between gap-4 py-4 sm:px-5 ${index > 0 ? "border-t border-gray-200 sm:border-l sm:border-t-0" : ""}`}><span className="font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-gray-600">{label}</span><strong className="font-pixel text-lg text-gray-900">{String(value).padStart(2, "0")}</strong></div>
           ))}
         </div>
