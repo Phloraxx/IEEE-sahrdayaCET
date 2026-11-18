@@ -110,7 +110,7 @@ export function NowAtSahrdaya({ events, upcomingCount, societyCount, execomCount
         {/* Mobile: quiet mono spec chips, the way mistral.ai lists model figures
             (`1.05T` / `52 ACTIVE`) rather than three full-width ledger rows.
             Desktop keeps the hairline ledger. */}
-        <div className="mt-6 flex flex-wrap gap-1.5 sm:hidden">
+        <div className="mt-6 flex flex-wrap justify-center gap-1.5 sm:hidden">
           {stats.map(([, shortLabel, value]) => (
             <span key={String(shortLabel)} className="inline-flex items-baseline gap-1.5 rounded-md bg-gray-100 px-2 py-1.5">
               <strong className="font-pixel text-[11px] leading-none text-gray-900">{String(value).padStart(2, "0")}</strong>
