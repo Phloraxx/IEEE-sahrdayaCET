@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { ArrowUpRight, Globe2, Users } from "lucide-react";
 import { Linkedin } from "@/components/icons";
 import type { ExecomMemberDoc } from "@/features/execom/ExecomClient";
+import { SpecChips } from "@/components/home/SpecChips";
 
 /* Restored original Execom carousel, with the current public directory as its source. */
 interface Member {
@@ -430,30 +431,19 @@ export const Execom: React.FC<{ members: ExecomMemberDoc[] }> = ({ members }) =>
 
         {/* Stats */}
         <motion.div
-          className="grid grid-cols-3 gap-4 mb-16 md:mb-20 border-y border-gray-200 py-8"
+          className="mb-16 md:mb-20"
           initial={reduceMotion ? false : { opacity: 0 }}
           whileInView={reduceMotion ? undefined : { opacity: 1 }}
           viewport={{ once: true }}
           transition={reduceMotion ? { duration: 0 } : { duration: 0.6 }}
         >
-          <div className="text-center md:text-left">
-            <div className="font-mono text-[10px] tracking-[0.3em] text-gray-600 uppercase mb-1">
-              Roster
-            </div>
-            <div className="font-bold text-2xl md:text-4xl text-gray-900">80</div>
-          </div>
-          <div className="text-center">
-            <div className="font-mono text-[10px] tracking-[0.3em] text-gray-600 uppercase mb-1">
-              Events Led
-            </div>
-            <div className="font-bold text-2xl md:text-4xl text-gray-900">100+</div>
-          </div>
-          <div className="text-center md:text-right">
-            <div className="font-mono text-[10px] tracking-[0.3em] text-gray-600 uppercase mb-1">
-              Societies
-            </div>
-            <div className="font-bold text-2xl md:text-4xl text-gray-900">14</div>
-          </div>
+          <SpecChips
+            items={[
+              { value: 80, label: "Roster" },
+              { value: "100+", label: "Events led" },
+              { value: 14, label: "Societies" },
+            ]}
+          />
         </motion.div>
 
         {/* Carousel */}

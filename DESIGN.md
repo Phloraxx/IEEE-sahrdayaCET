@@ -48,7 +48,7 @@ The homepage is expressive/brand-first rather than dashboard-like:
 - current event information remains dynamic, but its homepage hero visual is intentionally the stable `/AGM.webp` image instead of arbitrary event-poster ratios;
 - the curated event-photo strip restores the June 2026 light gallery: a white canvas, -3 degree oversized moving photo strip, centered Explore Events action, and large black scrolling category names; retain a pause control and reduced-motion behavior.
 - the homepage Execom uses the original drag-and-inertia, automatically moving portrait carousel, with public PocketBase data rather than the historical hardcoded member list.
-- the three branch figures (communities / upcoming / execom) read as a hairline ledger on desktop and collapse on phones into a single row of quiet spec chips — mono uppercase label plus pixel numeral, `bg-gray-100`, `rounded-md` — following the way mistral.ai lists model figures (`1.05T`, `52 ACTIVE`). Keep them metadata, never hero numbers.
+- every figure row (homepage communities / upcoming / execom, and the execom section's roster / events led / societies) is one centred row of quiet spec chips at every breakpoint — pixel numeral plus mono uppercase label on `bg-gray-100 rounded-md` — following the way mistral.ai lists model figures (`1.05T`, `52 ACTIVE`). Shared component: `src/components/home/SpecChips.tsx`. Keep them metadata, never hero numbers or a full-width ledger.
 
 Do not couple homepage card layout to uploaded event-poster aspect ratios.
 

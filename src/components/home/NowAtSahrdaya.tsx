@@ -1,6 +1,7 @@
 import { ArrowRight, ArrowUpRight, CalendarDays, MapPin } from "lucide-react";
 import { Link } from "react-router";
 import { HomeSectionHeading } from "@/components/home/HomeSectionHeading";
+import { SpecChips } from "@/components/home/SpecChips";
 import { formatDateLong, formatEventTime, formatWeekdayShort } from "@/lib/dates";
 import type { HomeEventSummary } from "@/server/public/home.server";
 
@@ -110,19 +111,10 @@ export function NowAtSahrdaya({ events, upcomingCount, societyCount, execomCount
         {/* Mobile: quiet mono spec chips, the way mistral.ai lists model figures
             (`1.05T` / `52 ACTIVE`) rather than three full-width ledger rows.
             Desktop keeps the hairline ledger. */}
-        <div className="mt-6 flex flex-wrap justify-center gap-1.5 sm:hidden">
-          {stats.map(([, shortLabel, value]) => (
-            <span key={String(shortLabel)} className="inline-flex items-baseline gap-1.5 rounded-md bg-gray-100 px-2 py-1.5">
-              <strong className="font-pixel text-[11px] leading-none text-gray-900">{String(value).padStart(2, "0")}</strong>
-              <span className="font-mono text-[9px] font-semibold uppercase leading-none tracking-[0.08em] text-gray-600">{shortLabel}</span>
-            </span>
-          ))}
-        </div>
-        <div className="mt-6 hidden border-y border-gray-200 sm:grid sm:grid-cols-3">
-          {stats.map(([label, , value], index) => (
-            <div key={String(label)} className={`flex items-baseline justify-between gap-4 py-4 sm:px-5 ${index > 0 ? "border-t border-gray-200 sm:border-l sm:border-t-0" : ""}`}><span className="font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-gray-600">{label}</span><strong className="font-pixel text-lg text-gray-900">{String(value).padStart(2, "0")}</strong></div>
-          ))}
-        </div>
+        <SpecChips
+          className="mt-6"
+          items={stats.map(([, shortLabel, value]) => ({ value, label: shortLabel }))}
+        />
       </div>
     </section>
   );
