@@ -636,6 +636,10 @@ function planFiles(
 	const columnIndex = new Map<string, { column: string; multi: boolean }>();
 	for (const [collection, columns] of Object.entries(FILE_COLUMNS)) {
 		if (!KNOWN_COLLECTIONS.has(collection)) continue;
+		const tableExists = source
+			.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?")
+			.get(collection);
+		if (!tableExists) continue;
 		const rows = source
 			.prepare(`SELECT * FROM ${pbTable(collection)}`)
 			.all() as Record<string, unknown>[];
@@ -781,12 +785,16 @@ function verify(
 		);
 	}
 
-	// google_sub coverage.
-	const linked = (
-		source
-			.prepare("SELECT count(*) AS n FROM _externalAuths WHERE provider = 'google'")
-			.get() as { n: number }
-	).n;
+	// google_sub coverage. `_externalAuths` is a PocketBase internal and is
+	// always present, but a fixture built from a different schema may not be.
+	const hasExternalAuths = Boolean(
+		source.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = '_externalAuths'").get(),
+	);
+	const linked = hasExternalAuths
+		? (source
+				.prepare("SELECT count(*) AS n FROM _externalAuths WHERE provider = 'google'")
+				.get() as { n: number }).n
+		: 0;
 	const withSub = (
 		target.prepare("SELECT count(*) AS n FROM users WHERE google_sub IS NOT NULL").get() as {
 			n: number;
@@ -825,11 +833,17 @@ function verify(
 	).n;
 	push("no certificate has two owners", doublyLinked === 0, `${doublyLinked} doubly linked`);
 
-	const sourceVolunteerCerts = (
-		source
-			.prepare("SELECT count(*) AS n FROM certificates WHERE trim(COALESCE(volunteer, '')) <> ''")
-			.get() as { n: number }
-	).n;
+	// The `volunteer` relation was added to production through the PocketBase
+	// admin UI and is not in the repository's migrations, so a clean-room source
+	// can legitimately lack it.
+	const hasVolunteerColumn = Boolean(
+		source.prepare("SELECT 1 FROM pragma_table_info('certificates') WHERE name = 'volunteer'").get(),
+	);
+	const sourceVolunteerCerts = hasVolunteerColumn
+		? (source
+				.prepare("SELECT count(*) AS n FROM certificates WHERE trim(COALESCE(volunteer, '')) <> ''")
+				.get() as { n: number }).n
+		: 0;
 	const targetVolunteerCerts = (
 		target
 			.prepare("SELECT count(*) AS n FROM certificates WHERE volunteer_id IS NOT NULL")
@@ -870,9 +884,25 @@ function main(): void {
 
 	const source = new Database(args.source, { readonly: true, fileMustExist: true });
 
+	// Collections the source actually has. A PocketBase database can legitimately
+	// lack a collection that production has (a collection created through the
+	// admin UI is not in `pb_migrations`), so an absent table means "nothing to
+	// migrate here", not a fatal error.
+	const sourceTables = new Set(
+		(source.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as { name: string }[]).map(
+			(row) => row.name,
+		),
+	);
+	const presentSpecs = SPECS.filter((spec) => sourceTables.has(spec.pb));
+	const absentSpecs = SPECS.filter((spec) => !sourceTables.has(spec.pb));
+	if (absentSpecs.length) {
+		console.log(`collections absent in the source (nothing to migrate): ${absentSpecs.map((spec) => spec.pb).join(", ")}`);
+		console.log("");
+	}
+
 	// Counts from the source, used by the verification step.
 	const counts = new Map<string, number>();
-	for (const spec of SPECS) {
+	for (const spec of presentSpecs) {
 		const n = (source.prepare(sqlForCollection(spec.pb).count).get() as { n: number }).n;
 		counts.set(spec.pb, n);
 	}
@@ -884,7 +914,7 @@ function main(): void {
 		.all() as { recordRef: string; providerId: string }[];
 	for (const row of authRows) googleSubs.set(row.recordRef, row.providerId);
 
-	const idMap = buildIdMap(source, SPECS);
+	const idMap = buildIdMap(source, presentSpecs);
 
 	// Files are planned before the write so a missing storage dir is loud.
 	const collectionNames = collectionIdToName(source);
@@ -905,7 +935,7 @@ function main(): void {
 
 	// Rows the target schema cannot hold. Computed before the write so the dry run
 	// reports the same number an apply would.
-	const skipped = collectSkipped(source, SPECS);
+	const skipped = collectSkipped(source, presentSpecs);
 	const skippedByTable = new Map<string, number>();
 	for (const row of skipped) {
 		skippedByTable.set(row.table, (skippedByTable.get(row.table) ?? 0) + 1);
@@ -958,7 +988,7 @@ function main(): void {
 	target.pragma("defer_foreign_keys = ON");
 
 	try {
-		for (const spec of SPECS) {
+		for (const spec of presentSpecs) {
 			const rows = source.prepare(sqlForCollection(spec.pb).selectAll).all() as Record<
 				string,
 				unknown
