@@ -58,7 +58,7 @@ export default function Home() {
         />
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,#101a4b70,transparent_78%)]" />
         <div className="relative z-10 h-full">
-          <TechnicalDetails />
+          <TechnicalDetails overImage />
           <Hero />
         </div>
       </div>
