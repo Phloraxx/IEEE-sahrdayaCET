@@ -2282,6 +2282,160 @@ try {
 		);
 	}
 
+	// -----------------------------------------------------------------------
+	// phase 9 — outbound mail worker (transport injected, Gmail policy real)
+	// -----------------------------------------------------------------------
+	{
+		const outbox = await import("../src/server/notifications/outbox.ts");
+		const { runOutboxPass } = await import("../src/server/mail/worker.ts");
+		const { setTransportForTesting } = await import("../src/server/mail/transport.server.ts");
+
+		const captured = [];
+		setTransportForTesting({
+			sendMail: async (message) => {
+				captured.push(message);
+				return { accepted: [message.to], rejected: [] };
+			},
+			verify: async () => true,
+		});
+
+		const savedEnv = {
+			DEPLOY_ENV: process.env.DEPLOY_ENV,
+			MAIL_DELIVERY_MODE: process.env.MAIL_DELIVERY_MODE,
+			MAIL_ALLOWLIST: process.env.MAIL_ALLOWLIST,
+			SITE_URL: process.env.SITE_URL,
+			SMTP_HOST: process.env.SMTP_HOST,
+			SMTP_PORT: process.env.SMTP_PORT,
+			SMTP_FROM: process.env.SMTP_FROM,
+		};
+		process.env.DEPLOY_ENV = "staging";
+		process.env.MAIL_DELIVERY_MODE = "allowlist";
+		process.env.MAIL_ALLOWLIST = "mail-worker@test.local";
+		process.env.SITE_URL = "https://ieeesahrdaya.com";
+		process.env.SMTP_HOST = "smtp.gmail.com";
+		process.env.SMTP_PORT = "587";
+		process.env.SMTP_FROM = "IEEE Sahrdaya <ieee@test.local>";
+
+		await db.query("INSERT INTO users (id, email, role) VALUES (?,?,?)", [
+			"u-mail-worker", "mail-worker@test.local", "user",
+		]);
+		await db.query(
+			"INSERT INTO events (id, title, slug, date, end_date, venue, status) VALUES (?,?,?,?,?,?,?)",
+			["ev-mail-worker", "Mail Worker Event", "mail-worker-event", "2027-01-01T04:00:00Z", "2027-01-02T12:00:00Z", "Sahrdaya", "published"],
+		);
+		const paymentData = JSON.stringify({ payableAmount: 500, paidAt: "2026-11-01T10:00:00Z" });
+		await db.query(
+			`INSERT INTO registrations
+			   (id, user_id, event_id, user_name, user_email, registration_status, payment_status,
+			    ticket_id, final_fee_paise, amount, payment_data, registration_date, checked_in,
+			    created_at, updated_at)
+			 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0,?,?)`,
+			[
+				"reg-mail-worker", "u-mail-worker", "ev-mail-worker", "Anagha Rose",
+				"mail-worker@test.local", "confirmed", "paid", "TKT-MAIL-1", 50000, 500,
+				paymentData, "2026-11-01T00:00:00Z", "2026-11-01T00:00:00Z", "2026-11-01T00:00:00Z",
+			],
+		);
+		// Retire the rows earlier phases left pending so this pass only sees the
+		// intents under test (attempts=8 keeps them out of the retry window).
+		await db.query(
+			`UPDATE notification_outbox SET status = 'failed', attempts = 8, next_attempt_at = '',
+			        last_error = 'test cleanup'
+			  WHERE status = 'pending'`,
+		);
+
+		await outbox.enqueueForRegistration("reg-mail-worker");
+
+		const first = await runOutboxPass({ limit: 10 });
+		const rows = await db.query(
+			"SELECT kind, status, attempts, last_error, sent_at FROM notification_outbox WHERE registration_id = ? ORDER BY kind",
+			["reg-mail-worker"],
+		);
+		check(
+			rows.rows.length === 2 && rows.rows.every((row) => row.status === "sent" && row.sent_at),
+			"the worker sends a queued ticket and receipt",
+			rows.rows,
+		);
+		check(captured.length >= 2, "both messages reached the transport", captured.length);
+
+		const receipt = captured.find((message) =>
+			(message.attachments ?? []).some((attachment) => /^Receipt_.*\.pdf$/.test(attachment.filename)),
+		);
+		check(
+			!!receipt && receipt.attachments[0].content.subarray(0, 5).toString() === "%PDF-",
+			"the receipt email carries a real PDF attachment",
+			receipt?.attachments?.map((attachment) => attachment.filename),
+		);
+		check(
+			captured.every((message) => String(message.subject).startsWith("[STAGING TEST]")),
+			"every non-live message is prefixed as a test",
+			captured.map((message) => message.subject),
+		);
+		check(
+			captured.every((message) => message.to === "mail-worker@test.local"),
+			"the allowlisted recipient is the only address used",
+			captured.map((message) => message.to),
+		);
+		check(first.sent >= 2, "the pass reports what it sent", first);
+
+		// --- a recipient outside the allowlist spends no attempt --------------
+		await db.query("INSERT INTO users (id, email, role) VALUES (?,?,?)", [
+			"u-mail-blocked", "blocked@test.local", "user",
+		]);
+		await db.query(
+			`INSERT INTO registrations
+			   (id, user_id, event_id, user_name, user_email, registration_status, payment_status,
+			    ticket_id, final_fee_paise, amount, registration_date, checked_in, created_at, updated_at)
+			 VALUES (?,?,?,?,?,?,?,?,?,?,?,0,?,?)`,
+			[
+				"reg-mail-blocked", "u-mail-blocked", "ev-mail-worker", "Blocked User",
+				"blocked@test.local", "confirmed", "pending", "TKT-MAIL-2", 0, 0,
+				"2026-11-01T00:00:00Z", "2026-11-01T00:00:00Z", "2026-11-01T00:00:00Z",
+			],
+		);
+		await outbox.enqueueForRegistration("reg-mail-blocked");
+		const second = await runOutboxPass({ limit: 10 });
+		const blocked = await db.query(
+			"SELECT status, attempts FROM notification_outbox WHERE registration_id = ?",
+			["reg-mail-blocked"],
+		);
+		check(
+			blocked.rows.length === 1 && blocked.rows[0].status === "pending" && blocked.rows[0].attempts === 0,
+			"a blocked recipient keeps its intent and spends no attempt",
+			blocked.rows,
+		);
+		check(second.blocked >= 1, "the pass reports blocked rows", second);
+
+		// --- a credential-intent that can never succeed fails once ------------
+		await db.query("UPDATE registrations SET registration_status = 'cancelled' WHERE id = ?", [
+			"reg-mail-worker",
+		]);
+		await db.query(
+			`UPDATE notification_outbox
+			    SET status = 'pending', attempts = 0, next_attempt_at = '', last_error = ''
+			  WHERE registration_id = ? AND kind = 'ticket'`,
+			["reg-mail-worker"],
+		);
+		await runOutboxPass({ limit: 10 });
+		const permanent = await db.query(
+			"SELECT status, attempts, last_error FROM notification_outbox WHERE registration_id = ? AND kind = 'ticket'",
+			["reg-mail-worker"],
+		);
+		check(
+			permanent.rows[0]?.status === "failed" &&
+				permanent.rows[0]?.attempts === 1 &&
+				String(permanent.rows[0]?.last_error).startsWith("NOTIFICATION_NO_LONGER_ELIGIBLE"),
+			"an intent that can never succeed fails once with a permanent code",
+			permanent.rows,
+		);
+
+		setTransportForTesting(null);
+		for (const [key, value] of Object.entries(savedEnv)) {
+			if (value === undefined) delete process.env[key];
+			else process.env[key] = value;
+		}
+	}
+
 
 } catch (err) {
 	failures.push({ label: "unexpected exception", detail: err?.stack ?? String(err) });

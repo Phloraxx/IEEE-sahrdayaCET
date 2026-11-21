@@ -71,29 +71,48 @@ or `host.docker.internal` fake-provider endpoints used by local/CI tests.
 
 Never reuse a production encryption key, OAuth application, payment secret, SMTP credential, or `pb_data` volume in staging.
 
-## Certificate mail production readiness
+## Outbound mail
 
-Certificate issuance and certificate mail delivery are separate operations. Before enabling bulk Send, confirm the admin **Send & delivery** panel reports the environment as mail-ready.
+Ticket, receipt and certificate email is sent by the app server through the
+shared mail worker (`src/server/mail`). PocketBase is no longer in the path.
 
-The certificate platform can be deployed while outbound mail is intentionally disabled. The safe production release configuration is:
+The relay is Google Workspace: `smtp.gmail.com:587`, STARTTLS, the full Gmail
+address as `SMTP_USERNAME`, and a Google App Password as `SMTP_PASSWORD`.
+Keeping the relay means Google still signs the messages, so SPF and DKIM do not
+change.
+
+The safety policy is the same one PocketBase enforced:
+
+| `MAIL_DELIVERY_MODE` | Behaviour |
+| --- | --- |
+| unset / `disabled` | nothing is transmitted; queued rows stay pending |
+| `allowlist` | only addresses in `MAIL_ALLOWLIST`, with a TEST banner |
+| `redirect` | everything goes to `MAIL_REDIRECT_TO`, banner names the intended recipient |
+| `live` | real delivery, only when `DEPLOY_ENV=production` |
+
+`live` outside production is refused, not treated as permission. Staging should
+use `allowlist` with one or two operator inboxes.
+
+Delivery runs as its own process, never inside a web request:
 
 ```text
-MAIL_DELIVERY_MODE=disabled
+* * * * *  npx tsx scripts/send-notifications.ts    (one pass, 25 rows, exits)
 ```
 
-With delivery disabled, certificate Issue/verification/rendering can operate, while Send/Retry remain blocked before creating certificate outbox jobs and the background notification worker leaves existing outbox intents untouched. SMTP transport readiness is not a release prerequisite while mail remains disabled.
+The worker claims a row with a conditional `UPDATE`, sends it, and records
+`sent` or `failed` with the exact error. Transient failures retry with backoff
+(1m, 5m, 15m, 1h, 3h, 6h) up to 8 attempts; a revoked credential, a finished
+event or a missing transport fails once and stops. Gmail accepts roughly 2,000
+messages a day on Workspace (500 on consumer Gmail); one pass sends 25, so a
+131-recipient batch drains over a few minutes without hammering the relay.
 
-Certificate mail has one transport: Gmail SMTP through PocketBase. When live certificate email is explicitly authorized, configure `smtp.gmail.com` on port `587`, keep PocketBase `SMTP_TLS=false` so it negotiates STARTTLS, use the full Gmail or Google Workspace address as the username, and use a Google App Password as the SMTP password. Then set:
+The admin **Send & delivery** panel reports the mode, the resolved recipient and
+the SMTP host. A successful handoff means the relay accepted the message — not
+that the inbox delivered it.
 
-```text
-MAIL_DELIVERY_MODE=live
-```
-
-The readiness API/UI checks the delivery safety mode and actual PocketBase SMTP/sender configuration. A successful SMTP handoff is shown as **accepted only** because Gmail SMTP acceptance is not proof that the recipient inbox ultimately delivered the message.
-
-Before production mail is enabled, verify the sending domain in the provider and confirm DKIM, return-path SPF/MX, and DMARC are published. Start DMARC monitoring with a non-enforcing policy such as `v=DMARC1; p=none;`, then tighten the policy only after observing legitimate traffic and alignment.
-
-Staging must never use `MAIL_DELIVERY_MODE=live`; use `disabled`, `redirect`, or a tightly controlled `allowlist` for test delivery.
+Before enabling live mail, confirm DKIM, return-path SPF/MX and DMARC are
+published for the sending domain. Start DMARC monitoring with
+`v=DMARC1; p=none;`, then tighten once legitimate traffic aligns.
 
 ## Routing and networks
 

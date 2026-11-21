@@ -1,30 +1,29 @@
 /**
  * `POST /api/certificate-templates/:id/test-email`
  *
- * Records a would-have-sent test email. Nothing is transmitted: the port has no
- * mail transport, by design, so staging can exercise the path without emailing
- * a real student.
+ * Sends the bannered sample certificate email to the acting admin, through the
+ * same relay and safety policy as a real delivery. A redirect or allowlist mode
+ * rewrites the recipient, and the response reports which address was used.
  */
 
 import type { ActionFunctionArgs } from "react-router";
 import { requireApiUser } from "@/server/auth/session.server";
-import { getTemplate } from "@/server/certificates/templates";
-import { mailReadiness } from "@/server/certificates/delivery";
+import { sendTemplateTestEmail } from "@/server/mail/test-email";
 import { json, methodNotAllowed, toErrorResponse } from "@/server/http/api";
 
 export async function action({ request, params }: ActionFunctionArgs) {
 	if (request.method !== "POST") return methodNotAllowed();
 	try {
 		const { user } = await requireApiUser(request);
-		// Reuses the template read, which enforces the capability check.
-		await getTemplate({ id: user.id, role: user.role }, params.id ?? "");
+		const result = await sendTemplateTestEmail(
+			{ id: user.id, role: user.role },
+			params.id ?? "",
+			user.email ?? "",
+		);
 		return json({
 			success: true,
-			recipient: user.email ?? "",
-			deliveryMode: mailReadiness().mode,
-			provider: "stub",
-			stubbed: true,
-			message: "Test email recorded as would-have-sent; nothing was transmitted.",
+			...result,
+			message: `Test email sent to ${result.recipient} (${result.deliveryMode} mode).`,
 		});
 	} catch (error) { return toErrorResponse(error); }
 }

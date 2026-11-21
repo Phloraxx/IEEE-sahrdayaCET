@@ -4,21 +4,17 @@
  * Ported from `certificate-delivery.pb.js` (109 LOC),
  * `certificate-delivery-helpers.js` (449 LOC) and `mail-delivery.js` (125 LOC).
  *
- * **No mail is ever sent by this module.** The PocketBase original called
- * `app.newMailClient().send(...)`; this port records what it *would* have sent
- * and stops. That is deliberate: the staging database holds real student
- * addresses, and a port that can email them is a port that eventually will.
- *
- * The safety policy is still evaluated, because it decides what the record says:
+ * Delivery is performed by the shared mail worker (`src/server/mail`), which
+ * applies the same safety policy to tickets, receipts and certificates:
  *
  *   - `disabled`  — nothing may be delivered (the default when unset)
  *   - `allowlist` — only addresses in `MAIL_ALLOWLIST`
  *   - `redirect`  — everything goes to `MAIL_REDIRECT_TO` with a TEST banner
  *   - `live`      — real delivery, only permitted when `DEPLOY_ENV=production`
  *
- * Every attempt lands as a `stubbed` outbox row whose `last_error` records the
- * intended recipient and the policy decision, so the pipeline is exercised
- * end-to-end and an operator can see exactly what would have gone out.
+ * This module owns the certificate pipeline — queueing, batch counters and the
+ * admin surface — and hands each row to the worker. A queued row that cannot be
+ * delivered keeps its intent and its error; nothing is silently discarded.
  */
 
 import { query, withTransaction } from "@/lib/db.server";
@@ -28,116 +24,52 @@ import { hasEventCapability, type Actor, type Capability } from "@/server/authz/
 import { loadAssignments, WorkspaceError } from "@/server/workspace/service";
 import { validEmail } from "@/server/certificates/rules";
 import { batchPayload, type BatchRow } from "@/server/certificates/issuance";
+import { clean, normalizedMode } from "@/server/mail/policy";
+import { smtpStatus } from "@/server/mail/transport.server";
+import { runOutboxPass } from "@/server/mail/worker";
+import type { OutboxRow } from "@/server/mail/types";
 
 function fail(status: number, code: string, message: string): never {
 	throw new WorkspaceError(status, code, message);
 }
 
 // ---------------------------------------------------------------------------
-// Mail safety policy
+// Mail readiness
 // ---------------------------------------------------------------------------
+//
+// The policy itself is shared with tickets and receipts: `src/server/mail/policy.ts`.
 
-export type MailMode = "disabled" | "allowlist" | "redirect" | "live";
-
-export interface DeliveryResolution {
-	allowed: boolean;
-	mode: MailMode;
-	reason: string;
-	recipient?: string;
-	originalRecipient?: string;
-	deployEnv: string;
-}
-
-function clean(value: unknown): string {
-	return String(value ?? "").trim();
-}
-
-function normalizeEmail(value: unknown): string {
-	return clean(value).toLowerCase();
-}
-
-export function parseEmailList(raw: string): string[] {
-	const seen = new Set<string>();
-	const out: string[] = [];
-	for (const part of clean(raw).split(/[;,\s]+/)) {
-		const email = normalizeEmail(part);
-		if (!email || seen.has(email)) continue;
-		seen.add(email);
-		out.push(email);
-	}
-	return out;
-}
-
-export function normalizedMode(raw: unknown): MailMode {
-	const mode = clean(raw).toLowerCase();
-	if (!mode) return "disabled";
-	if (mode === "disabled" || mode === "allowlist" || mode === "redirect" || mode === "live") return mode;
-	return "disabled";
-}
-
-/** Ported from `mail-delivery.js#resolveDelivery`. */
-export function resolveDelivery(options: {
-	deployEnv?: string;
-	mode?: string;
-	allowlist?: string;
-	redirectTo?: string;
-	recipient?: string;
-}): DeliveryResolution {
-	const deployEnv = clean(options.deployEnv).toLowerCase() || "unknown";
-	const recipient = clean(options.recipient);
-	const requestedMode = clean(options.mode).toLowerCase();
-	const mode = normalizedMode(requestedMode);
-
-	if (!recipient) return { allowed: false, mode, reason: "recipient_missing", deployEnv };
-	if (requestedMode && requestedMode !== mode) {
-		return { allowed: false, mode, reason: "invalid_mode", deployEnv };
-	}
-	if (mode === "disabled") return { allowed: false, mode, reason: "delivery_disabled", deployEnv };
-
-	if (mode === "live") {
-		// A live send outside production is a configuration error, not a green light.
-		if (deployEnv !== "production") {
-			return { allowed: false, mode, reason: "live_not_allowed_outside_production", deployEnv };
-		}
-		return { allowed: true, mode, reason: "", recipient, originalRecipient: recipient, deployEnv };
-	}
-
-	if (mode === "allowlist") {
-		const allowed = parseEmailList(options.allowlist ?? "");
-		if (!allowed.includes(normalizeEmail(recipient))) {
-			return { allowed: false, mode, reason: "recipient_not_allowlisted", deployEnv };
-		}
-		return { allowed: true, mode, reason: "", recipient, originalRecipient: recipient, deployEnv };
-	}
-
-	const redirectTo = clean(options.redirectTo);
-	if (!redirectTo) return { allowed: false, mode, reason: "redirect_target_missing", deployEnv };
-	return { allowed: true, mode, reason: "", recipient: redirectTo, originalRecipient: recipient, deployEnv };
-}
-
-function currentResolution(recipient: string): DeliveryResolution {
-	return resolveDelivery({
-		deployEnv: process.env.DEPLOY_ENV,
-		mode: process.env.MAIL_DELIVERY_MODE,
-		allowlist: process.env.MAIL_ALLOWLIST,
-		redirectTo: process.env.MAIL_REDIRECT_TO,
-		recipient,
-	});
-}
+export type { MailMode } from "@/server/mail/policy";
 
 /** What the readiness endpoint reports. */
 export function mailReadiness() {
-	const mode = normalizedMode(process.env.MAIL_DELIVERY_MODE);
-	const deployEnv = clean(process.env.DEPLOY_ENV).toLowerCase() || "unknown";
-	// Queueing is always "ready": the pipeline records rather than sends, so a
-	// missing SMTP configuration is not a blocker for exercising it.
+	const mode = normalizedMode(process.env.MAIL_DELIVERY_MODE, process.env.DEPLOY_ENV ?? "");
+	const smtp = smtpStatus();
+	const safetyReady = mode !== "disabled";
+	const transportReady = smtp.configured;
+	const readyToSend = safetyReady && transportReady;
 	return {
-		mode,
-		deployEnv,
-		deliveryStubbed: true,
+		provider: "smtp" as const,
+		deliveryMode: mode,
+		safetyReady,
+		transportReady,
+		trackingReady: true,
+		trackingMode: "accepted_only" as const,
 		readyToQueue: true,
-		message:
-			"Delivery is stubbed: every certificate email is recorded as a would-have-sent row and nothing is transmitted.",
+		readyToSend,
+		transport: {
+			configured: smtp.configured,
+			host: smtp.host,
+			port: smtp.port,
+			secure: smtp.secure,
+			from: smtp.from,
+		},
+		reason: readyToSend ? "" : safetyReady ? "smtp_not_configured" : "delivery_disabled",
+		message: readyToSend
+			? `Mail is enabled in ${mode} mode through ${smtp.host}.`
+			: smtp.configured
+				? "SMTP is configured, but MAIL_DELIVERY_MODE blocks delivery; queued rows stay pending."
+				: "SMTP is not configured (SMTP_HOST and SMTP_FROM are required). Queued rows stay pending or fail permanently.",
 	};
 }
 
@@ -145,23 +77,7 @@ export function mailReadiness() {
 // Outbox
 // ---------------------------------------------------------------------------
 
-export interface OutboxRow {
-	id: string;
-	registration_id: string | null;
-	kind: string;
-	status: string;
-	recipient: string | null;
-	dedupe_key: string | null;
-	attempts: number;
-	next_attempt_at: string | null;
-	last_attempt_at: string | null;
-	sent_at: string | null;
-	last_error: string | null;
-	certificate_id: string | null;
-	certificate_batch_id: string | null;
-	created_at: string;
-	updated_at: string;
-}
+export type { OutboxRow } from "@/server/mail/types";
 
 async function outboxForCertificate(certificateId: string): Promise<OutboxRow | null> {
 	const result = await query<OutboxRow>(
@@ -245,32 +161,6 @@ export async function enqueueCertificate(
 
 	const created = await outboxForCertificate(certificate.id);
 	return { record: created, created: true };
-}
-
-/**
- * "Deliver" one queued row.
- *
- * This is the stub. It evaluates the policy, records the decision, and marks the
- * row `stubbed`. There is no transport call anywhere in this function.
- */
-export async function deliverOutboxRow(row: OutboxRow): Promise<OutboxRow> {
-	const resolution = currentResolution(row.recipient ?? "");
-	const now = new Date().toISOString();
-
-	const note = resolution.allowed
-		? `would-have-sent: ${resolution.originalRecipient ?? row.recipient} (policy=${resolution.mode}, deploy=${resolution.deployEnv}; delivery stubbed)`
-		: `would-have-sent: ${row.recipient} (policy=${resolution.mode}, blocked=${resolution.reason}; delivery stubbed)`;
-
-	await query(
-		`UPDATE notification_outbox
-		    SET status = 'stubbed', attempts = attempts + 1, last_attempt_at = ?,
-		        next_attempt_at = '', last_error = ?, updated_at = ?
-		  WHERE id = ?`,
-		[now, note, now, row.id],
-	);
-
-	const updated = await query<OutboxRow>(`SELECT * FROM notification_outbox WHERE id = ?`, [row.id]);
-	return updated.rows[0] as OutboxRow;
 }
 
 // ---------------------------------------------------------------------------
@@ -379,7 +269,7 @@ export async function deliveryPayload(batchId: string) {
 	return {
 		batch: batchPayload(batch),
 		delivery: {
-			stubbed: true,
+			stubbed: false,
 			byStatus,
 			readiness: mailReadiness(),
 		},
@@ -473,7 +363,6 @@ export async function sendBatch(actor: Actor, eventId: string, batchId: string) 
 
 	let created = 0;
 	let eligible = 0;
-	const toDeliver: OutboxRow[] = [];
 
 	await withTransaction(async () => {
 		for (const certificate of certificates.rows) {
@@ -492,16 +381,12 @@ export async function sendBatch(actor: Actor, eventId: string, batchId: string) 
 			]);
 		}
 
-		// Deliver (stub) every pending row for this batch.
-		const pending = await outboxRows(batchId);
-		for (const row of pending) {
-			if (row.status === "pending") toDeliver.push(row);
-		}
 	});
 
-	for (const row of toDeliver) {
-		await deliverOutboxRow(row);
-	}
+	// Deliver a bounded slice in the request so a small batch finishes now; the
+	// rest is drained by the one-minute worker. A 131-recipient batch must not
+	// hold an HTTP request open against Gmail's relay.
+	const pass = await runOutboxPass({ limit: 10 });
 
 	await reconcileBatch(batchId);
 
@@ -516,14 +401,14 @@ export async function sendBatch(actor: Actor, eventId: string, batchId: string) 
 			eventId,
 			entityType: "certificate_batch",
 			entityId: batchId,
-			note: `Queued ${created} certificate email(s); delivery stubbed, nothing transmitted`,
+			note: `Queued ${created} certificate email(s)`,
 		});
 	}
 
 	return {
 		idempotent: created === 0,
 		queuedNow: created,
-		deliveredNow: toDeliver.length,
+		deliveredNow: pass.sent,
 		delivery: await deliveryPayload(batchId),
 	};
 }
@@ -549,7 +434,6 @@ export async function retryFailed(actor: Actor, eventId: string, batchId: string
 	);
 
 	let retried = 0;
-	const toDeliver: OutboxRow[] = [];
 
 	await withTransaction(async () => {
 		for (const certificate of certificates.rows) {
@@ -560,21 +444,15 @@ export async function retryFailed(actor: Actor, eventId: string, batchId: string
 			await enqueueCertificate(certificate, true);
 			retried += 1;
 		}
-		const pending = await outboxRows(batchId);
-		for (const row of pending) {
-			if (row.status === "pending") toDeliver.push(row);
-		}
 	});
 
-	for (const row of toDeliver) {
-		await deliverOutboxRow(row);
-	}
+	const pass = await runOutboxPass({ limit: 10 });
 
 	await reconcileBatch(batchId);
 
 	if (!retried) fail(409, "NO_FAILED_DELIVERIES", "There are no failed certificate emails to retry");
 
-	return { retried, delivery: await deliveryPayload(batchId) };
+	return { retried, deliveredNow: pass.sent, delivery: await deliveryPayload(batchId) };
 }
 
 export { getEnv };

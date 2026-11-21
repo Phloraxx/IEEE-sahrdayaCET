@@ -19,8 +19,8 @@ services:
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:?ALLOWED_ORIGINS is required}
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-__Host-ieee_session}
       SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
-      # Payments (paygate) and mail are now handled by the app server,
-      # not PocketBase hooks.
+      # Payments (paygate) and mail are handled by the app server, not
+      # PocketBase hooks.
       PAYGATE_URL: ${PAYGATE_URL:-}
       PAYGATE_API_KEY: ${PAYGATE_API_KEY:-}
       PAYGATE_WEBHOOK_SECRET: ${PAYGATE_WEBHOOK_SECRET:-}
@@ -30,6 +30,14 @@ services:
       MAIL_DELIVERY_MODE: ${MAIL_DELIVERY_MODE:-}
       MAIL_ALLOWLIST: ${MAIL_ALLOWLIST:-}
       MAIL_REDIRECT_TO: ${MAIL_REDIRECT_TO:-}
+      # Gmail / Google Workspace submission. Port 587 negotiates STARTTLS, so
+      # SMTP_TLS stays false; 465 would mean implicit TLS.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_TLS: ${SMTP_TLS:-false}
       CERTIFICATE_RENDER_CAPABILITY_KEY: ${CERTIFICATE_RENDER_CAPABILITY_KEY:?CERTIFICATE_RENDER_CAPABILITY_KEY is required}
     volumes:
       - ${SQLITE_DATA_DIR:?SQLITE_DATA_DIR is required}:/app/data
