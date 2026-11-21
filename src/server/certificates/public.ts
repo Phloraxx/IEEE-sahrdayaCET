@@ -36,7 +36,9 @@ function fail(status: number, code: string, message: string): never {
 export interface CertificateRow {
 	id: string;
 	event_id: string;
-	registration_id: string;
+	/** Exactly one of registration_id / volunteer_id is set. */
+	registration_id: string | null;
+	volunteer_id: string | null;
 	batch_id: string;
 	template_id: string;
 	certificate_type: string | null;

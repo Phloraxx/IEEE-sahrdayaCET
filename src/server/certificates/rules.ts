@@ -288,7 +288,16 @@ export function uniqueSorted(values: unknown): string[] {
 
 export function normalizeAudienceConfig(type: string, input: unknown): Record<string, unknown> {
 	const raw = objectValue(input);
-	if (type === "selected") return { registrationIds: uniqueSorted(raw.registrationIds) };
+	if (type === "selected") {
+		// One audience, one source: registrations or event volunteers. The
+		// config keeps whichever list was supplied so the fingerprint covers it.
+		const registrationIds = uniqueSorted(raw.registrationIds);
+		const volunteerIds = uniqueSorted(raw.volunteerIds);
+		const config: Record<string, unknown> = {};
+		if (registrationIds.length) config.registrationIds = registrationIds;
+		if (volunteerIds.length) config.volunteerIds = volunteerIds;
+		return config;
+	}
 	return {};
 }
 
@@ -300,8 +309,14 @@ export function audienceInputErrors(type: string, config: Record<string, unknown
 	const errors: string[] = [];
 	if (!(AUDIENCE_TYPES as readonly string[]).includes(type)) errors.push("Invalid certificate audience type");
 	const ids = Array.isArray(config.registrationIds) ? config.registrationIds : [];
-	if (type === "selected" && !ids.length) errors.push("Select at least one registration");
-	if (type === "selected" && ids.length > 2000) {
+	const volunteerIds = Array.isArray(config.volunteerIds) ? config.volunteerIds : [];
+	if (type === "selected" && !ids.length && !volunteerIds.length) {
+		errors.push("Select at least one registration or volunteer");
+	}
+	if (type === "selected" && ids.length && volunteerIds.length) {
+		errors.push("Select registrations or volunteers, not both");
+	}
+	if (type === "selected" && ids.length + volunteerIds.length > 2000) {
 		errors.push("Selected audience exceeds the supported batch size");
 	}
 	return errors;
@@ -315,7 +330,7 @@ export interface FingerprintInput {
 	audienceType: string;
 	audienceConfig: unknown;
 	qualification: unknown;
-	recipients: Array<{ id: string; name: string; email: string }>;
+	recipients: Array<{ id: string; source?: string; name: string; email: string }>;
 }
 
 /**

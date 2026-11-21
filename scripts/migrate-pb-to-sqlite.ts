@@ -180,6 +180,7 @@ const SPECS: Spec[] = [
 	{ pb: "events", table: "events", columns: ["id", "title", "slug", "description", "date", "end_date", "time_tbc", "timezone", "venue", "location_address", "price", "base_fee_paise", "society_id", "banner", "status", "max_capacity", "registration_open", "registration_start", "registration_deadline", "registration_mode", "check_in_enabled", "contact_email", "contact_phone", "tags", "is_deleted", "form_template", "registered_count", "checked_in_count", "collect_ieee_member", "external_form_url", "external_link", "whatsapp_link", "coupons", "approval_status", "approval_note", "submitted_by", "submitted_at", "approved_by", "approved_at", "approval_revision", "finance_approval_status", "finance_approval_note", "finance_approved_by", "finance_approved_at", "attendance_mode", "allow_self_cancellation", "self_cancellation_until", "refund_request_until", "refund_policy", "waitlist_enabled", "waitlist_offer_minutes", "waitlist_reserved_count", "eligible_semesters", "eligible_programmes", "ieee_member_discount_percent", "requirements", "attendee_note", "attendance_qualification_locked", "attendance_qualification_version", "attendance_qualification_locked_at", "attendance_qualification_locked_by", "attendance_qualification_snapshot", "created_at", "updated_at"] },
 	{ pb: "event_private_details", table: "event_private_details", columns: ["id", "event_id", "virtual_join_url", "join_instructions", "whatsapp_group_url", "created_at", "updated_at"] },
 	{ pb: "event_sessions", table: "event_sessions", columns: ["id", "event_id", "title", "starts_at", "ends_at", "venue", "sort_order", "attendance_enabled", "check_in_enabled", "required_for_certificate", "attendance_weight", "created_by", "created_at", "updated_at"] },
+	{ pb: "event_volunteers", table: "event_volunteers", columns: ["id", "event_id", "name", "email", "role", "sr_no", "active", "created_at", "updated_at"] },
 	{ pb: "coupons", table: "coupons", columns: ["id", "event_id", "society_id", "code", "discount_percent", "max_uses", "used_count", "expires_at", "is_active", "description", "created_at", "updated_at"] },
 	{ pb: "registrations", table: "registrations", columns: ["id", "user_id", "event_id", "user_name", "user_email", "user_phone", "form_responses", "payment_status", "registration_status", "ticket_id", "checked_in", "checked_in_at", "payment_ticket_id", "amount", "payment_data", "registration_date", "coupon_code", "discount_amount", "registration_source", "internal_notes", "created_by", "base_fee_paise", "discount_paise", "final_fee_paise", "programme_code", "semester", "ieee_member", "ieee_member_id", "discount_source", "created_at", "updated_at"] },
 	{ pb: "payments", table: "payments", columns: ["id", "registration_id", "event_id", "provider", "provider_order_id", "receipt", "status", "base_fee_paise", "discount_paise", "final_fee_paise", "collected_paise", "refunded_paise", "currency", "captured_payment_id", "payment_method", "confirmation_source", "captured_at", "hold_expires_at", "last_synced_at", "manual_review", "review_reason", "created_at", "updated_at"] },
@@ -191,7 +192,7 @@ const SPECS: Spec[] = [
 	{ pb: "registration_cancellation_requests", table: "registration_cancellation_requests", columns: ["id", "registration_id", "event_id", "user_id", "kind", "active_key", "status", "reason", "requested_at", "decision_at", "decision_by", "resolution_note", "resolved_at", "created_at", "updated_at"] },
 	{ pb: "certificate_templates", table: "certificate_templates", columns: ["id", "name", "scope_type", "society_id", "event_id", "certificate_type", "version", "status", "source_background", "source_signatures", "render_base", "canvas_width", "canvas_height", "layout", "email_subject", "email_html", "email_text", "created_by", "published_by", "published_at", "content_hash", "created_at", "updated_at"] },
 	{ pb: "certificate_batches", table: "certificate_batches", columns: ["id", "event_id", "template_id", "audience_type", "audience_config", "audience_fingerprint", "status", "recipient_count", "issued_count", "email_eligible_count", "queued_count", "sent_count", "failed_count", "missing_email_count", "created_by", "issued_by", "issued_at", "send_started_at", "completed_at", "note", "idempotency_key", "audience_snapshot", "created_at", "updated_at"] },
-	{ pb: "certificates", table: "certificates", columns: ["id", "event_id", "registration_id", "batch_id", "template_id", "certificate_type", "credential_id", "verification_token", "recipient_name_snapshot", "recipient_email_snapshot", "event_title_snapshot", "issuer_name_snapshot", "issued_at", "status", "revoked_at", "revoked_by", "revocation_reason", "metadata_version", "supersedes", "superseded_by", "created_at", "updated_at"] },
+	{ pb: "certificates", table: "certificates", columns: ["id", "event_id", "registration_id", "volunteer_id", "batch_id", "template_id", "certificate_type", "credential_id", "verification_token", "recipient_name_snapshot", "recipient_email_snapshot", "event_title_snapshot", "issuer_name_snapshot", "issued_at", "status", "revoked_at", "revoked_by", "revocation_reason", "metadata_version", "supersedes", "superseded_by", "created_at", "updated_at"] },
 	{ pb: "organization_assignments", table: "organization_assignments", columns: ["id", "user_id", "role_code", "title", "scope_type", "society_id", "event_id", "term", "starts_at", "ends_at", "active", "source", "created_by", "notes", "source_execom", "created_at", "updated_at"] },
 	{ pb: "blogs", table: "blogs", columns: ["id", "title", "slug", "excerpt", "content", "cover_url", "read_minutes", "topic_label", "published_at", "published", "category", "society_id", "event_id", "created_at", "updated_at"] },
 	{ pb: "notification_outbox", table: "notification_outbox", columns: ["id", "registration_id", "kind", "status", "recipient", "dedupe_key", "attempts", "next_attempt_at", "last_attempt_at", "sent_at", "last_error", "certificate_id", "certificate_batch_id", "created_at", "updated_at"] },
@@ -373,6 +374,7 @@ const COLUMN_ALIASES: Record<string, string> = {
 	payment: "payment_id",
 	template: "template_id",
 	batch: "batch_id",
+	volunteer: "volunteer_id",
 	actor: "actor_id",
 	operator: "operator_id",
 	decisionBy: "decision_by",
@@ -409,6 +411,7 @@ const RELATIONS: Record<string, string> = {
 	attendance_qualification_locked_by: "users",
 	event_id: "events",
 	session_id: "event_sessions",
+	volunteer_id: "event_volunteers",
 	society_id: "societies",
 	registration_id: "registrations",
 	payment_id: "payments",
@@ -760,7 +763,7 @@ function verify(
 			.prepare("SELECT count(*) AS n FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
 			.get() as { n: number }
 	).n;
-	push("table count", tableCount === 26, `${tableCount} tables`);
+	push("table count", tableCount === 27, `${tableCount} tables`);
 
 	// Per-collection counts against the source, less the rows the schema could not
 	// hold. Without the subtraction the check would fail on exactly the data the
@@ -800,6 +803,43 @@ function verify(
 			.get() as { n: number }
 	).n;
 	push("unique emails", dupEmails === 0, `${dupEmails} duplicates`);
+
+	// Every credential belongs to exactly one person: a registration or a
+	// volunteer, never neither and never both. Volunteer certificates are the
+	// case PocketBase allowed and the first cut of this schema did not.
+	const unlinked = (
+		target
+			.prepare(
+				"SELECT count(*) AS n FROM certificates WHERE registration_id IS NULL AND volunteer_id IS NULL",
+			)
+			.get() as { n: number }
+	).n;
+	push("every certificate has an owner", unlinked === 0, `${unlinked} unlinked`);
+
+	const doublyLinked = (
+		target
+			.prepare(
+				"SELECT count(*) AS n FROM certificates WHERE registration_id IS NOT NULL AND volunteer_id IS NOT NULL",
+			)
+			.get() as { n: number }
+	).n;
+	push("no certificate has two owners", doublyLinked === 0, `${doublyLinked} doubly linked`);
+
+	const sourceVolunteerCerts = (
+		source
+			.prepare("SELECT count(*) AS n FROM certificates WHERE trim(COALESCE(volunteer, '')) <> ''")
+			.get() as { n: number }
+	).n;
+	const targetVolunteerCerts = (
+		target
+			.prepare("SELECT count(*) AS n FROM certificates WHERE volunteer_id IS NOT NULL")
+			.get() as { n: number }
+	).n;
+	push(
+		"volunteer certificates",
+		targetVolunteerCerts === sourceVolunteerCerts,
+		`${targetVolunteerCerts}/${sourceVolunteerCerts}`,
+	);
 
 	// Files. `planFiles` skips *.attrs sidecars and thumbs_* directories, so the
 	// planned count is the real media count — not the raw file count.

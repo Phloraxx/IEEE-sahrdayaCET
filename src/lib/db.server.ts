@@ -41,13 +41,19 @@ import Database from "better-sqlite3";
 import { getEnv } from "./env.server";
 
 /**
- * Schema version this build expects. 1 is the initial release.
+ * Schema version this build expects.
+ *
+ * 1 — initial release.
+ * 2 — volunteer certificates: `event_volunteers`, nullable
+ *     `certificates.registration_id` + `volunteer_id`, one-of CHECK, nullable
+ *     `notification_outbox.registration_id`.
  *
  * Bumping this re-applies `sqlite/schema.sql`, which is idempotent — but the
- * file only creates missing objects. Changing an existing column (a type, a
- * NOT NULL) still needs a real migration; a bump alone will not alter it.
+ * file only creates missing objects. Version 2 changes existing columns, which
+ * a re-apply cannot do: the database must be rebuilt by re-running the
+ * PocketBase migration into a fresh file (see sqlite/schema.sql).
  */
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 /** `:memory:` opens a private in-memory database — used by tests. */
 const IN_MEMORY = ":memory:";

@@ -115,7 +115,7 @@ try {
 		const tables = raw
 			.prepare("SELECT count(*) AS n FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
 			.get().n;
-		check(tables === 26, "schema creates 26 tables", tables);
+		check(tables === 27, "schema creates 27 tables", tables);
 
 		const integrity = raw.pragma("integrity_check", { simple: true });
 		check(integrity === "ok", "integrity_check", integrity);
@@ -2148,6 +2148,137 @@ try {
 				decisionAudit.rows[0].action === "registration.refund-request.accepted",
 			"the decision wrote exactly one audit row",
 			decisionAudit.rows,
+		);
+	}
+
+	// -----------------------------------------------------------------------
+	// phase 8 — volunteer certificates (a credential with no registration)
+	// -----------------------------------------------------------------------
+	{
+		const issuance = await import("../src/server/certificates/issuance.ts");
+
+		await db.query("INSERT INTO users (id, email, role) VALUES (?,?,?)", [
+			"u-vol-admin", "vol-admin@test.local", "admin",
+		]);
+		await db.query(
+			"INSERT INTO events (id, title, slug, date, status) VALUES (?,?,?,?,?)",
+			["ev-vol-1", "Volunteer Test", "volunteer-test", "2026-11-01", "published"],
+		);
+		await db.query(
+			`INSERT INTO certificate_templates
+			   (id, name, scope_type, event_id, certificate_type, version, status,
+			    render_base, canvas_width, canvas_height, layout, email_subject, email_text,
+			    created_at, updated_at)
+			 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			[
+				"tpl-vol-1", "Volunteer Certificate", "event", "ev-vol-1", "volunteer", 1,
+				"published", "render-base.png", 2000, 1400, JSON.stringify({}),
+				"Subject", "Body", "2026-11-01T00:00:00Z", "2026-11-01T00:00:00Z",
+			],
+		);
+		await db.query(
+			`INSERT INTO event_volunteers (id, event_id, name, email, role, active)
+			 VALUES (?,?,?,?,?,?)`,
+			["vol-1", "ev-vol-1", "Anagha Volunteer", "anagha@test.local", "Volunteer", 1],
+		);
+		await db.query(
+			`INSERT INTO event_volunteers (id, event_id, name, email, role, active)
+			 VALUES (?,?,?,?,?,?)`,
+			["vol-2", "ev-vol-1", "Inactive Volunteer", "inactive@test.local", "Volunteer", 0],
+		);
+
+		const actor = { id: "u-vol-admin", role: "admin" };
+
+		const listed = await issuance.listCandidates(actor, "ev-vol-1");
+		check(
+			listed.candidates.length === 0 && listed.volunteers.length === 2,
+			"volunteers are listed separately from registrations",
+			listed,
+		);
+
+		const preview = await issuance.previewAudience(actor, "ev-vol-1", {
+			templateId: "tpl-vol-1",
+			audienceType: "selected",
+			audienceConfig: { volunteerIds: ["vol-1"] },
+		});
+		check(
+			preview.recipientCount === 1 &&
+				preview.recipients[0].id === "vol-1" &&
+				preview.recipients[0].source === "volunteer",
+			"a volunteer audience previews without a registration",
+			preview.recipients,
+		);
+
+		const issued = await issuance.issueCertificates(actor, "ev-vol-1", {
+			templateId: "tpl-vol-1",
+			audienceType: "selected",
+			audienceConfig: { volunteerIds: ["vol-1"] },
+			audienceFingerprint: preview.audienceFingerprint,
+		});
+		const rows = await db.query(
+			"SELECT registration_id, volunteer_id, status FROM certificates WHERE batch_id = ?",
+			[issued.batch.id],
+		);
+		check(
+			rows.rows.length === 1 &&
+				rows.rows[0].registration_id === null &&
+				rows.rows[0].volunteer_id === "vol-1" &&
+				rows.rows[0].status === "active",
+			"a volunteer certificate carries volunteer_id and no registration_id",
+			rows.rows,
+		);
+
+		const again = await issuance.previewAudience(actor, "ev-vol-1", {
+			templateId: "tpl-vol-1",
+			audienceType: "selected",
+			audienceConfig: { volunteerIds: ["vol-1"] },
+		});
+		check(
+			again.recipientCount === 0 &&
+				again.excluded.some((row) => row.reason === "already_issued"),
+			"an already-credentialed volunteer is excluded from the next batch",
+			again.excluded,
+		);
+
+		const inactive = await issuance.previewAudience(actor, "ev-vol-1", {
+			templateId: "tpl-vol-1",
+			audienceType: "selected",
+			audienceConfig: { volunteerIds: ["vol-2"] },
+		});
+		check(
+			inactive.recipientCount === 0 &&
+				inactive.excluded.some((row) => row.reason === "inactive"),
+			"an inactive volunteer is excluded with a reason",
+			inactive.excluded,
+		);
+
+		await checkThrows(
+			() =>
+				issuance.previewAudience(actor, "ev-vol-1", {
+					templateId: "tpl-vol-1",
+					audienceType: "selected",
+					audienceConfig: { volunteerIds: ["vol-1"], registrationIds: ["reg-x"] },
+				}),
+			/INVALID_AUDIENCE/,
+			"mixing registrations and volunteers is refused",
+		);
+
+		await checkThrows(
+			() =>
+				db.query(
+					`INSERT INTO certificates
+					   (id, event_id, batch_id, template_id, certificate_type, credential_id,
+					    verification_token, recipient_name_snapshot, event_title_snapshot,
+					    issued_at, status)
+					 VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+					[
+						"cert-unowned", "ev-vol-1", issued.batch.id, "tpl-vol-1", "volunteer",
+						"IEEESB-2026-VOL-UNOWNED", "t".repeat(48), "Nobody", "Volunteer Test",
+						"2026-11-01T00:00:00Z", "active",
+					],
+				),
+			/SQLITE_CONSTRAINT/,
+			"a certificate with neither a registration nor a volunteer is refused",
 		);
 	}
 

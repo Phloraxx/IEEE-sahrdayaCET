@@ -113,7 +113,7 @@ export async function registry(actor: Actor, input: RegistryQuery) {
 	);
 
 	const rows = await query<Record<string, unknown>>(
-		`SELECT c.id, c.event_id, c.registration_id, c.batch_id, c.template_id,
+		`SELECT c.id, c.event_id, c.registration_id, c.volunteer_id, c.batch_id, c.template_id,
 		        c.certificate_type, c.credential_id, c.recipient_name_snapshot,
 		        c.recipient_email_snapshot, c.event_title_snapshot, c.issued_at,
 		        c.status, c.revoked_at, c.revocation_reason, c.supersedes, c.superseded_by,
@@ -151,6 +151,7 @@ export async function registry(actor: Actor, input: RegistryQuery) {
 			eventId: row.event_id,
 			eventTitle: row.event_title ?? row.event_title_snapshot ?? "",
 			registrationId: row.registration_id,
+			volunteerId: row.volunteer_id ?? null,
 			batchId: row.batch_id,
 			templateId: row.template_id,
 			certificateType: row.certificate_type ?? "",
