@@ -23,8 +23,29 @@ Required environment values:
 ```text
 DEPLOY_ENV=production|staging
 SITE_URL=https://...
+SITE_HOST=ieeesahrdaya.com|staging.ieeesahrdaya.com
+ROUTER_KEY=ieee-production-web|ieee-staging-web
+SQLITE_DATA_DIR=/srv/ieee/data
+UPLOADS_HOST_DIR=/srv/ieee/data/uploads
 PB_ENCRYPTION_KEY=<32-character high-entropy key>
 CERTIFICATE_RENDER_CAPABILITY_KEY=<32+ character high-entropy key, unique per environment>
+```
+
+`SITE_HOST` and `ROUTER_KEY` are consumed by `docker-compose.yml`, not by the
+app. Both are required (`${VAR:?…}`), so a deploy missing either fails before
+anything starts instead of routing the wrong host. `SQLITE_DATA_DIR` and
+`UPLOADS_HOST_DIR` are the host paths bind-mounted into the web container.
+
+The app server also requires:
+
+```text
+APP_SECRET=<openssl rand -base64 48>
+GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET
+APP_URL=https://<same host as SITE_HOST>
+ALLOWED_ORIGINS=https://<same host as SITE_HOST>
+SQLITE_PATH=/app/data/portal.db
+UPLOADS_DIR=/app/data/uploads
 ```
 
 Optional backend integrations are configured only where enabled:
@@ -76,16 +97,31 @@ Staging must never use `MAIL_DELIVERY_MODE=live`; use `disabled`, `redirect`, or
 
 ## Routing and networks
 
-Each public environment host has two routes:
+The app server owns the public host: React Router serves the pages **and**
+`/api/*` from the same process. One Traefik router per environment:
 
 ```text
-/api  → pocketbase:8090, path preserved
-/     → web:3000
+Host(`<SITE_HOST>`) → web:3000
 ```
 
-Do not publish application host ports from Compose. Public `/_/` is an IEEE-owned OAuth completion route; never map it to PocketBase or expose the PocketBase administration UI through a public hostname.
+The router is declared as labels in `docker-compose.yml` and keyed by
+`ROUTER_KEY`, so the same file deploys to both environments without carrying a
+hostname across branches. The PocketBase service keeps running as a rollback
+target but **carries no router**: a `/api` router there would compete with the
+web router for the same paths. During a rollback the router is moved back to
+PocketBase by hand, not by the compose file.
 
-Both services join Dokploy's proxy network. Web and PocketBase also share the private `app-internal` network. SSR uses `POCKETBASE_INTERNAL_URL=http://pocketbase-internal:8090`; the explicit alias avoids service-name collisions between multiple Dokploy projects attached to the same proxy network.
+Do not publish application host ports from Compose. Public `/_/` is an IEEE-owned
+OAuth completion route; never map it to PocketBase or expose the PocketBase
+administration UI through a public hostname.
+
+The web service joins Dokploy's proxy network, the private `app-internal`
+network (still shared with PocketBase for rollback) and the Compose `default`
+network.
+
+`ALLOWED_ORIGINS` must list the public origin, and `APP_URL` must be the same
+origin; the OAuth redirect URI is `${APP_URL}/auth/google/callback`.
+
 
 Cloudflare terminates public HTTPS for the current hosts and forwards to the matching Traefik HTTP router. Do not enable an origin redirect that sends Cloudflare back to the same HTTPS URL; that creates a redirect loop.
 

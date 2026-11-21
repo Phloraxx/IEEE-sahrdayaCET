@@ -45,10 +45,23 @@ services:
     networks:
       - app-internal
       - dokploy-network
+      - default
+    # Traefik routes this host to the app server. Both values are required per
+    # environment (see .env.example) so a deploy fails fast instead of silently
+    # routing production traffic to a staging host or not routing at all.
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=dokploy-network
+      - traefik.http.routers.${ROUTER_KEY:?ROUTER_KEY is required}.rule=Host(`${SITE_HOST:?SITE_HOST is required}`)
+      - traefik.http.routers.${ROUTER_KEY:?ROUTER_KEY is required}.entrypoints=web
+      - traefik.http.services.${ROUTER_KEY:?ROUTER_KEY is required}.loadbalancer.server.port=3000
+      - traefik.http.routers.${ROUTER_KEY:?ROUTER_KEY is required}.service=${ROUTER_KEY:?ROUTER_KEY is required}
 
   # PocketBase is kept running as a rollback target. The web service no
   # longer depends on it after the SQLite cutover. Do not remove it until
-  # the SQLite deployment is confirmed stable.
+  # the SQLite deployment is confirmed stable. It carries no Traefik labels:
+  # the app server owns the host, including /api, so a router here would
+  # compete with the web router for the same paths.
   pocketbase:
     build:
       context: .
