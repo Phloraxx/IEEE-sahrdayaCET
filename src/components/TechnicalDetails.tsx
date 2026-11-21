@@ -9,10 +9,13 @@ import { motion, useReducedMotion } from "framer-motion";
  */
 const showBuildVersion = true;
 
-export const TechnicalDetails: React.FC = () => {
+export const TechnicalDetails: React.FC<{ overImage?: boolean }> = ({ overImage = false }) => {
   const reduceMotion = Boolean(useReducedMotion());
   const [scrolled, setScrolled] = useState(false);
   const year = new Date().getFullYear();
+  const captionClass = `font-mono text-[9px] md:text-[10px] ${overImage
+    ? "w-fit rounded-sm bg-slate-950/75 px-1.5 py-0.5 text-white"
+    : "text-gray-600"}`;
 
   useEffect(() => {
     const update = () => setScrolled(window.scrollY > 120);
@@ -65,7 +68,7 @@ export const TechnicalDetails: React.FC = () => {
           transition={{ delay: reduceMotion ? 0 : 1.2, duration: reduceMotion ? 0 : 0.8 }}
           className="absolute bottom-24 right-4 z-10 text-right md:bottom-6 md:right-6"
         >
-          <p className="font-mono text-[9px] text-gray-600 md:text-[10px]">
+          <p className={captionClass}>
             BUILD_VER: {__BUILD_INFO__.display}
           </p>
         </motion.div>
@@ -78,7 +81,7 @@ export const TechnicalDetails: React.FC = () => {
         transition={{ delay: reduceMotion ? 0 : 1.2, duration: reduceMotion ? 0 : 0.8 }}
         className="absolute bottom-24 left-4 z-10 md:bottom-6 md:left-6"
       >
-        <p className="font-mono text-[9px] text-gray-600 md:text-[10px]">
+        <p className={captionClass}>
           &copy; {year} IEEE SAHRDAYA SB
         </p>
       </motion.div>

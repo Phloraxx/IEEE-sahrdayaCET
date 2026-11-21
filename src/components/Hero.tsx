@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 
-/* Identity hero: pixel wordmark straight on the starfield (no card), with the
+/* Identity hero: pixel wordmark over the cloudscape, with the
    original staggered reveal. The reveal is decorative only - under reduced
    motion everything renders in its final state, and the section grows
    instead of clipping when the viewport is shorter than the card.
@@ -34,8 +34,8 @@ export const Hero: React.FC = () => {
                             variants={textVariants}
                             initial={reduceMotion ? false : "hidden"}
                             animate="visible"
-                            className="font-pixel text-5xl sm:text-7xl md:text-8xl lg:text-9xl text-ieee-blue tracking-tighter"
-                            style={{ textShadow: '4px 4px 0px rgba(0,0,0,0.1)' }}
+                            className="font-pixel text-5xl sm:text-7xl md:text-8xl lg:text-9xl text-white tracking-tighter"
+                            style={{ textShadow: '0 2px 12px rgba(12, 25, 76, 0.6)' }}
                         >
                             IEEE
                         </motion.h1>
@@ -44,8 +44,8 @@ export const Hero: React.FC = () => {
                             variants={textVariants}
                             initial={reduceMotion ? false : "hidden"}
                             animate="visible"
-                            className="font-pixel text-3xl sm:text-5xl md:text-6xl lg:text-7xl text-gray-900 tracking-tighter"
-                            style={{ textShadow: '4px 4px 0px rgba(0,0,0,0.1)' }}
+                            className="font-pixel text-3xl sm:text-5xl md:text-6xl lg:text-7xl text-white tracking-tighter"
+                            style={{ textShadow: '0 2px 12px rgba(12, 25, 76, 0.6)' }}
                         >
                             SAHRDAYA
                         </motion.h2>
@@ -54,13 +54,13 @@ export const Hero: React.FC = () => {
                     {/* Subtitle / Divider */}
                     <motion.div
                         initial={reduceMotion ? false : { opacity: 0 }}
-                        animate={{ opacity: 0.7 }}
+                        animate={{ opacity: 1 }}
                         transition={{ delay: reduceMotion ? 0 : 2, duration: reduceMotion ? 0 : 1 }}
                         className="flex items-center justify-center gap-4 md:gap-6 mt-8 md:mt-12"
                     >
-                        <div className="h-px bg-gray-400 w-12 md:w-32 hidden sm:block" />
+                        <div className="h-px bg-white/60 w-12 md:w-32 hidden sm:block" />
 
-                        <div className="flex gap-4 font-sans text-[10px] md:text-xs font-bold tracking-[0.2em] md:tracking-[0.4em] text-gray-600">
+                        <div className="flex gap-4 font-sans text-[10px] md:text-xs font-bold tracking-[0.2em] md:tracking-[0.4em] text-white">
                             {["INNOVATE", "CONNECT", "INSPIRE"].map((word, i) => (
                                 <motion.span
                                     key={word}
@@ -73,7 +73,7 @@ export const Hero: React.FC = () => {
                             ))}
                         </div>
 
-                        <div className="h-px bg-gray-400 w-12 md:w-32 hidden sm:block" />
+                        <div className="h-px bg-white/60 w-12 md:w-32 hidden sm:block" />
                     </motion.div>
                 </div>
             </div>
