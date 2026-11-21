@@ -133,7 +133,18 @@ Cloudflare terminates public HTTPS for the current hosts and forwards to the mat
 branch: main
 host:   https://ieeesahrdaya.com
 app:    ieee-rewrite-i9ir8q
-volume: ieee-rewrite-i9ir8q_pb_data
+volume: ieee-rewrite-i9ir8q_pb_data (rollback target only)
+```
+
+Compose environment:
+
+```text
+ROUTER_KEY=ieee-rewrite-i9ir8q-99-web
+SITE_HOST=ieeesahrdaya.com
+SQLITE_DATA_DIR=/home/drvij/ieee-production-data
+UPLOADS_HOST_DIR=/home/drvij/ieee-production-data/uploads
+APP_URL=https://ieeesahrdaya.com
+ALLOWED_ORIGINS=https://ieeesahrdaya.com
 ```
 
 Production uses production-only OAuth/integration configuration and must never consume staging data or secrets.
@@ -144,7 +155,7 @@ Production uses production-only OAuth/integration configuration and must never c
 branch: dev
 host:   https://staging.ieeesahrdaya.com
 app:    ieee-dev-staging
-volume: ieee-dev-staging_pb_data
+volume: ieee-dev-staging_pb_data (rollback target only)
 ```
 
 Staging is a separate Dokploy environment and Compose project. It uses:
@@ -152,9 +163,19 @@ Staging is a separate Dokploy environment and Compose project. It uses:
 ```text
 DEPLOY_ENV=staging
 SITE_URL=https://staging.ieeesahrdaya.com
+ROUTER_KEY=ieee-dev-staging-106-web
+SITE_HOST=staging.ieeesahrdaya.com
+SQLITE_DATA_DIR=/home/drvij/ieee-staging-data
+UPLOADS_HOST_DIR=/home/drvij/ieee-staging-data/uploads
+APP_URL=https://staging.ieeesahrdaya.com
+ALLOWED_ORIGINS=https://staging.ieeesahrdaya.com
 ```
 
-The initial staging data was created from a verified, scrubbed production snapshot on 2026-08-01. The copy has its own volume and encryption key, production integrations are empty, and OAuth is disabled so production OAuth credentials are not reused. Configure a separate staging OAuth client or disposable test account before authenticated acceptance.
+`ROUTER_KEY` and `SITE_HOST` are required by `docker-compose.yml`. A deploy
+that is missing either fails before any container is created, rather than
+serving the host unregistered.
+
+The initial staging data was created from a verified, scrubbed production snapshot on 2026-08-01. The copy has its own volume and encryption key and production integrations are empty. The app server authenticates with Google OAuth through the same client as production, so the client must list both redirect URIs: `https://ieeesahrdaya.com/auth/google/callback` and `https://staging.ieeesahrdaya.com/auth/google/callback`.
 
 Staging intentionally returns `X-Robots-Tag: noindex, nofollow`. Its records may be changed or deleted during testing and do not synchronize back to production.
 
