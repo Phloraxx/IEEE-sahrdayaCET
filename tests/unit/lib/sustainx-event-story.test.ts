@@ -60,7 +60,7 @@ describe("SustainX event story", () => {
   it("keeps motion progressive and reduced-motion aware", () => {
     const page = read("src/components/events/SustainXEventStory.tsx");
     const styles = read("src/styles/events.css");
-    expect(page).toContain("useReducedMotion");
+    expect(page).toContain("useHydratedReducedMotion");
     expect(page).toContain('import "@/styles/events.css"');
     expect(page).toContain("sustainx-marquee-track");
     expect(page).toContain("heroVideoRef");

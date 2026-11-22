@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
+import { useHydratedReducedMotion } from "@/lib/use-hydrated-reduced-motion";
 import { Link } from "react-router";
 import { ArrowUpRight, Globe2, Users } from "lucide-react";
 import { Linkedin } from "@/components/icons";
@@ -35,7 +36,7 @@ const taglines: Record<string, string> = {
 
 /* ── Marquee Text ── */
 const MarqueeText: React.FC<{ text: string }> = ({ text }) => {
-  const reduceMotion = Boolean(useReducedMotion());
+  const reduceMotion = useHydratedReducedMotion();
   const repeated = `${text} ~ `.repeat(12);
   const displayText = reduceMotion ? text : repeated;
   return (
@@ -68,7 +69,7 @@ const MemberCard: React.FC<{ member: Member; index: number; duplicate?: boolean 
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [imgError, setImgError] = useState(false);
-  const reduceMotion = Boolean(useReducedMotion());
+  const reduceMotion = useHydratedReducedMotion();
 
   return (
     <motion.div
@@ -190,7 +191,7 @@ function useCardMetrics() {
 }
 
 const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
-  const reduceMotion = Boolean(useReducedMotion());
+  const reduceMotion = useHydratedReducedMotion();
   const { card: cardWidth, gap } = useCardMetrics();
   const itemSize = cardWidth + gap;
   const trackRef = useRef<HTMLDivElement>(null);
@@ -209,6 +210,18 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
     lastTime: 0,
     lastX: 0,
   });
+
+  // Paint the current offset, wrapping at the seam. Called from the animation
+  // loop *and* from the drag handler: a drag must move the rail even when the
+  // loop is paused because the section is off screen, which is how a visitor
+  // recovers it when it sits at the edge of the viewport.
+  const paint = useCallback(() => {
+    if (!trackRef.current) return;
+    const contentWidth = itemSize * members.length;
+    if (offsetRef.current <= -contentWidth) offsetRef.current += contentWidth;
+    if (offsetRef.current > 0) offsetRef.current -= contentWidth;
+    trackRef.current.style.transform = `translate3d(${offsetRef.current}px, 0, 0)`;
+  }, [itemSize, members.length]);
 
   const animate = useCallback((time: number) => {
     if (reduceMotion || !trackRef.current) return;
@@ -240,20 +253,11 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
       }
 
       offsetRef.current += physics.current.velocity * frames;
-
-      const contentWidth = itemSize * members.length;
-      if (offsetRef.current <= -contentWidth) {
-        offsetRef.current += contentWidth;
-      }
-      if (offsetRef.current > 0) {
-        offsetRef.current -= contentWidth;
-      }
-
-      trackRef.current.style.transform = `translate3d(${offsetRef.current}px, 0, 0)`;
     }
 
+    paint();
     rafRef.current = requestAnimationFrame(animate);
-  }, [isInView, hasStartedScrolling, members.length, reduceMotion, itemSize]);
+  }, [isInView, hasStartedScrolling, reduceMotion, paint]);
 
   useEffect(() => {
     if (reduceMotion) return;
@@ -266,11 +270,9 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
     const element = sectionRef.current;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry) {
-          setIsInView(entry.isIntersecting && entry.intersectionRatio >= 0.8);
-        }
+        if (entry) setIsInView(entry.isIntersecting);
       },
-      { threshold: 0.4 },
+      { threshold: 0 },
     );
 
     if (element) {
@@ -315,6 +317,7 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
     const deltaTime = now - physics.current.lastTime;
 
     offsetRef.current += deltaX;
+    paint();
 
     if (deltaTime > 0) {
       const newVelocity = (deltaX / deltaTime) * 16;
@@ -335,29 +338,36 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
 
   if (!members.length) return null;
 
-  if (reduceMotion) {
-    return (
-      <div ref={sectionRef} role="list" aria-label="Core executive committee" className="w-full overflow-x-auto py-4 [scrollbar-width:thin]">
-        <div className="flex min-w-max" style={{ gap: `${gap}px` }}>
-          {members.map((member, index) => (
-            <div key={member.id} role="listitem" className="shrink-0" style={{ width: `${cardWidth}px` }}>
-              <MemberCard member={member} index={index} />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
+  // There is deliberately one markup tree. Rendering a different one for
+  // "reduce motion" made the server output and the hydrated client disagree —
+  // `useReducedMotion()` is only known in the browser — and the static variant
+  // could not be dragged with a mouse at all. Reduced motion now only disables
+  // the automatic cruise; the rail is still draggable and arrow-key scrollable.
+  const nudge = (direction: 1 | -1) => {
+    offsetRef.current -= direction * itemSize;
+    paint();
+  };
 
   return (
     <div ref={sectionRef} role="list" aria-label="Core executive committee" className="relative w-full select-none">
       <div
-        className="overflow-hidden cursor-grab active:cursor-grabbing py-4 touch-pan-y"
+        tabIndex={0}
+        aria-label="Executive committee carousel. Drag, or use the arrow keys."
+        className="overflow-hidden cursor-grab active:cursor-grabbing py-4 touch-pan-y focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ieee-blue"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
         onPointerLeave={onPointerUp}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowLeft") {
+            nudge(-1);
+            event.preventDefault();
+          } else if (event.key === "ArrowRight") {
+            nudge(1);
+            event.preventDefault();
+          }
+        }}
       >
         <div
           ref={trackRef}
@@ -385,7 +395,7 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
 
 /* ── Main Execom Section ── */
 export const Execom: React.FC<{ members: ExecomMemberDoc[] }> = ({ members }) => {
-  const reduceMotion = Boolean(useReducedMotion());
+  const reduceMotion = useHydratedReducedMotion();
   const membersList: Member[] = members.map(member => ({
     id: member.id,
     name: member.name,
@@ -460,7 +470,7 @@ export const Execom: React.FC<{ members: ExecomMemberDoc[] }> = ({ members }) =>
         </motion.div>
 
         {/* Carousel */}
-        <div data-home-execom-static>
+        <div>
           {membersList.length ? <DragCarousel members={membersList} /> : <p className="mt-8 rounded-xl bg-gray-50 p-6 text-sm text-gray-600">The core team roster is not available here yet. Visit the full directory or contact the branch for current committee details.</p>}
         </div>
 

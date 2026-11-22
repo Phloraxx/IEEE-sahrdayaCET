@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
+import { useHydratedReducedMotion } from "@/lib/use-hydrated-reduced-motion";
 
 /**
  * The build badge renders on every deployment - dev, staging and production -
@@ -10,7 +11,7 @@ import { motion, useReducedMotion } from "framer-motion";
 const showBuildVersion = true;
 
 export const TechnicalDetails: React.FC = () => {
-  const reduceMotion = Boolean(useReducedMotion());
+  const reduceMotion = useHydratedReducedMotion();
   const [scrolled, setScrolled] = useState(false);
   const year = new Date().getFullYear();
 

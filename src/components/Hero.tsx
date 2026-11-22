@@ -1,5 +1,6 @@
 import React from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion } from 'framer-motion';
+import { useHydratedReducedMotion } from "@/lib/use-hydrated-reduced-motion";
 
 /* Identity hero: pixel wordmark straight on the starfield (no card), with the
    original staggered reveal. The reveal is decorative only - under reduced
@@ -8,7 +9,7 @@ import { motion, useReducedMotion } from 'framer-motion';
    Scroll-linked parallax stays out so the section honours reduced-motion
    architecture rules. */
 export const Hero: React.FC = () => {
-    const reduceMotion = Boolean(useReducedMotion());
+    const reduceMotion = useHydratedReducedMotion();
 
     const textVariants = {
         hidden: { y: 50, opacity: 0 },

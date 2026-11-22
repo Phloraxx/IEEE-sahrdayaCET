@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import {
   AnimatePresence,
   motion,
-  useReducedMotion,
   useScroll,
   useTransform,
 } from "framer-motion";
+import { useHydratedReducedMotion } from "@/lib/use-hydrated-reduced-motion";
 import {
   ArrowLeft,
   ArrowUpRight,
@@ -180,7 +180,7 @@ const livePhotos = [
 const marqueeWords = ["OBSERVE", "BUILD", "TEST", "PITCH", "RETHINK", "SUSTAIN"] as const;
 
 function Reveal({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  const reduceMotion = Boolean(useReducedMotion());
+  const reduceMotion = useHydratedReducedMotion();
   return (
     <motion.div
       initial={reduceMotion ? false : { opacity: 0.72, y: 18 }}
@@ -195,7 +195,7 @@ function Reveal({ children, className = "" }: { children: React.ReactNode; class
 }
 
 function MaskedHeading({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  const reduceMotion = Boolean(useReducedMotion());
+  const reduceMotion = useHydratedReducedMotion();
   return (
     <div className="overflow-hidden pb-[0.08em]">
       <motion.div
@@ -220,7 +220,7 @@ function HeroPanel({
   className: string;
   delay: number;
 }) {
-  const reduceMotion = Boolean(useReducedMotion());
+  const reduceMotion = useHydratedReducedMotion();
   return (
     <motion.div
       initial={reduceMotion ? false : { clipPath: "inset(100% 0 0 0)" }}
@@ -234,7 +234,7 @@ function HeroPanel({
 }
 
 function LivePhotos() {
-  const reduceMotion = Boolean(useReducedMotion());
+  const reduceMotion = useHydratedReducedMotion();
   const [selected, setSelected] = useState<number | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -372,7 +372,7 @@ function LivePhotos() {
 }
 
 function EventGallery() {
-  const reduceMotion = Boolean(useReducedMotion());
+  const reduceMotion = useHydratedReducedMotion();
   const [selected, setSelected] = useState<number | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -647,7 +647,7 @@ function EventGallery() {
 }
 
 export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: Props) {
-  const reduceMotion = Boolean(useReducedMotion());
+  const reduceMotion = useHydratedReducedMotion();
   const heroRef = useRef<HTMLElement>(null);
   const heroVideoRef = useRef<HTMLVideoElement>(null);
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
