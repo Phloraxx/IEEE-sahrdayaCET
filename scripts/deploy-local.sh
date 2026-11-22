@@ -1,17 +1,23 @@
 #!/usr/bin/env bash
 #
-# Break-glass deployment: build and switch one Dokploy compose service without
-# GitHub, the CD workflow or the Dokploy webhook.
+# Deploy one Dokploy compose service from your machine.
 #
-# Use this only when CI/CD is unavailable or a hotfix cannot wait for the normal
-# path. It runs the same checks CI runs, builds the image with the same compose
-# file Dokploy uses, and recreates only the web service. PocketBase is left
-# untouched.
+# Two lanes, on purpose:
 #
-# Normal production deploys pull a prebuilt image from GHCR instead of building;
-# this script is the reason the compose file keeps its build section. It tags the
-# image with WEB_IMAGE from the environment file, so the next normal deploy pulls
-# and replaces it.
+#   --staging    The default for iteration. Deploys the commit you have checked
+#                out (it must be pushed), runs typecheck and the unit suite
+#                first, and never waits for CI.
+#
+#   (default)    Production break-glass: the same checks, but only against the
+#                commit CD pinned to deploy/production, i.e. one that already
+#                passed CI. Normal production releases go through a pull
+#                request; this exists for outages and hotfixes.
+#
+# It builds the image with the same compose file Dokploy uses and recreates only
+# the web service; PocketBase is left untouched. Production normally pulls a
+# prebuilt image from GHCR instead of building, which is why the compose file
+# keeps its build section: this script tags the image WEB_IMAGE from the
+# environment file, and the next CD deploy pulls and replaces it.
 #
 #   ./scripts/deploy-local.sh                  # production, with tests
 #   ./scripts/deploy-local.sh --staging        # staging
@@ -56,7 +62,9 @@ case "$TARGET" in
 		CODE_DIR="/etc/dokploy/compose/ieee-dev-staging/code"
 		PROJECT="ieee-dev-staging"
 		HOST="staging.ieeesahrdaya.com"
-		BRANCH="deploy/staging"
+		# Staging follows your worktree, not a CI-pinned ref: empty BRANCH means
+		# "deploy the commit I have checked out".
+		BRANCH=""
 		;;
 esac
 
@@ -87,6 +95,18 @@ command -v bun >/dev/null 2>&1 || die "bun is not on PATH; install it or run thi
 [[ -f "$CODE_DIR/.env" ]] || die "compose environment file not found: $CODE_DIR/.env (refusing to guess secrets)"
 [[ -f "$CODE_DIR/docker-compose.yml" ]] || die "compose file not found: $CODE_DIR/docker-compose.yml"
 
+if [[ -z "$BRANCH" ]]; then
+	STAGING_DIRT="$(git -C "$CHECK_DIR" status --porcelain -- src tests sqlite package.json bun.lock public)"
+	[[ -z "$STAGING_DIRT" ]] || die "staging deploys the commit you have checked out, so it must be clean:
+$STAGING_DIRT"
+	WANTED_SHA="$(git -C "$CHECK_DIR" rev-parse HEAD)"
+	if [[ "$DRY_RUN" -eq 0 ]]; then
+		git -C "$CODE_DIR" fetch --quiet origin || die "could not fetch in $CODE_DIR"
+		git -C "$CODE_DIR" checkout --quiet --detach "$WANTED_SHA" 2>/dev/null \
+			|| die "commit ${WANTED_SHA:0:8} is not on origin yet; push it first (git push origin HEAD:dev)"
+	fi
+fi
+
 cd "$CODE_DIR"
 
 CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
@@ -109,7 +129,7 @@ fi
 if ! git diff --quiet -- docker-compose.yml; then
 	echo "note: docker-compose.yml differs from $SHORT_SHA because Dokploy rewrites it; deploying it as-is"
 fi
-if [[ "$CURRENT_BRANCH" != "$BRANCH" ]]; then
+if [[ -n "$BRANCH" && "$CURRENT_BRANCH" != "$BRANCH" ]]; then
 	die "expected branch $BRANCH, found $CURRENT_BRANCH (refusing to deploy the wrong commit)"
 fi
 
@@ -126,7 +146,7 @@ cat <<EOF
 
 Target:   $TARGET ($HOST)
 Checkout: $CODE_DIR
-Branch:   $CURRENT_BRANCH @ $SHORT_SHA
+Source:   $([[ -n "$BRANCH" ]] && echo "CI-pinned $CURRENT_BRANCH" || echo "your worktree") @ $SHORT_SHA
 Commit:   $SUBJECT
 Checks:   $([[ "$SKIP_TESTS" -eq 1 ]] && echo skipped || echo "typecheck + unit in $CHECK_DIR")
 EOF
