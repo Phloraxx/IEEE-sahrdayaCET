@@ -1,30 +1,23 @@
-import { createPublicPB } from "@/lib/pb.server";
 import { buildFileUrl } from "@/lib/pb";
+import { listExecom } from "./repo.server";
 import type { ExecomMemberDoc } from "@/features/execom/ExecomClient";
 
 export async function fetchExecomData(): Promise<ExecomMemberDoc[]> {
-  const records = await createPublicPB().collection("execom").getFullList({
-    batch: 200,
-    sort: "order",
-    fields:
-      "id,order,name,department,batch,position,section,sectionId,photo,linkedin,instagram,portfolio",
-  });
+  const rows = await listExecom();
 
-  return records.map((record, index) => ({
-    id: record.id,
-    order: Number(record.order) || 0,
-    slNo: Number(record.order) || index + 1,
-    name: String(record.name || ""),
-    department: String(record.department || ""),
-    semester: String(record.batch || ""),
-    position: String(record.position || ""),
-    section: String(record.section || ""),
-    sectionId: String(record.sectionId || ""),
-    photoUrl: record.photo
-      ? buildFileUrl("execom", record.id, String(record.photo))
-      : "",
-    linkedin: record.linkedin ? String(record.linkedin) : undefined,
-    instagram: record.instagram ? String(record.instagram) : undefined,
-    portfolio: record.portfolio ? String(record.portfolio) : undefined,
+  return rows.map((row, index) => ({
+    id: row.id,
+    order: Number(row.sort_order) || 0,
+    slNo: Number(row.sort_order) || index + 1,
+    name: String(row.name || ""),
+    department: String(row.department || ""),
+    semester: String(row.batch || ""),
+    position: String(row.position || ""),
+    section: String(row.section || ""),
+    sectionId: String(row.section_id || ""),
+    photoUrl: row.photo ? buildFileUrl("execom", row.id, String(row.photo)) : "",
+    linkedin: row.linkedin ? String(row.linkedin) : undefined,
+    instagram: row.instagram ? String(row.instagram) : undefined,
+    portfolio: row.portfolio ? String(row.portfolio) : undefined,
   }));
 }

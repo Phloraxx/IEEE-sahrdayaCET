@@ -1,6 +1,7 @@
 import { useParams } from "react-router";
 import { AdminPageHeader } from "@/features/admin/shared/admin-page-header";
 import { SocietyForm } from "@/features/admin/societies/society-form";
+import { adminMeta } from "@/lib/admin-meta";
 
 export default function EditSocietyPage() {
   const { id = "" } = useParams();
@@ -17,3 +18,5 @@ export default function EditSocietyPage() {
     </div>
   );
 }
+
+export const meta = () => adminMeta("Edit Society");

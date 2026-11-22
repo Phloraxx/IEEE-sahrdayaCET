@@ -60,7 +60,7 @@ function requestErrorMessage(error: unknown, fallback: string) {
 }
 
 const fieldClass =
-  "w-full border-0 border-b border-black/15 bg-transparent bg-[linear-gradient(#00629B,#00629B)] bg-[length:0_1px] bg-[position:0_100%] bg-no-repeat px-0 py-3 text-[15px] text-[#111315] outline-none transition-[border-color,background-size] duration-200 placeholder:text-black/30 focus:border-transparent focus:bg-[length:100%_1px] focus:ring-0 disabled:text-black/40";
+  "w-full border-0 border-b border-black/15 bg-transparent bg-[linear-gradient(#00629B,#00629B)] bg-[length:0_1px] bg-[position:0_100%] bg-no-repeat px-0 py-3 text-base text-[#111315] outline-none transition-[border-color,background-size] duration-200 placeholder:text-black/58 focus:border-transparent focus:bg-[length:100%_1px] focus:ring-0 disabled:text-black/58 lg:text-[15px]";
 
 function BookingProgress({ paid, stage = "details" }: { paid: boolean; stage?: "details" | "payment" | "ticket" }) {
   const reduceMotion = Boolean(useReducedMotion());
@@ -85,7 +85,7 @@ function BookingProgress({ paid, stage = "details" }: { paid: boolean; stage?: "
               )}
             </div>
           )}
-          <div className={`flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.16em] ${index <= stageIndex ? "text-[#00629B]" : "text-black/30"}`}>
+          <div className={`flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.16em] ${index <= stageIndex ? "text-[#00629B]" : "text-black/58"}`}>
             <span className={`grid h-5 w-5 place-items-center rounded-full border text-[9px] ${index < stageIndex ? "border-[#00629B] bg-[#00629B] text-white" : index === stageIndex ? "border-[#00629B]" : "border-black/15"}`}>
               {index < stageIndex ? <Check className="h-3 w-3" /> : index + 1}
             </span>
@@ -197,7 +197,7 @@ function StatusCard({ event, state, onReceipt }: {
         <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-amber-700">Registration status</p>
         <Clock3 className="mt-6 h-8 w-8 text-amber-600" />
         <h2 className="mt-5 text-4xl font-semibold tracking-[-0.055em]">Payment under review</h2>
-        <p className="mt-3 max-w-xl text-sm leading-6 text-black/52">An organiser needs to review this payment before a ticket can be issued. Please don&apos;t register or pay again.</p>
+        <p className="mt-3 max-w-xl text-sm leading-6 text-black/58">An organiser needs to review this payment before a ticket can be issued. Please don&apos;t register or pay again.</p>
       </motion.section>
     );
   }
@@ -206,7 +206,7 @@ function StatusCard({ event, state, onReceipt }: {
       <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="border-y border-[#00629B]/35 py-8">
         <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#00629B]">Registration status</p>
         <h2 className="mt-4 text-4xl font-semibold tracking-[-0.055em]">Your details are saved.</h2>
-        <p className="mt-3 max-w-xl text-sm leading-6 text-black/52">Payment is the only step left. Continue the existing registration instead of starting again.</p>
+        <p className="mt-3 max-w-xl text-sm leading-6 text-black/58">Payment is the only step left. Continue the existing registration instead of starting again.</p>
         <Link to={`/payment/${state.registrationId}`} className="group mt-7 flex max-w-md items-center justify-between border-y border-[#00629B] py-4 text-lg font-bold text-[#00629B]">Continue payment <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" /></Link>
       </motion.section>
     );
@@ -216,10 +216,10 @@ function StatusCard({ event, state, onReceipt }: {
       <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-emerald-700">Registration status</p>
       <div className="mt-5 flex items-center gap-2 text-sm font-bold text-emerald-700"><CheckCircle2 className="h-5 w-5" /> You&apos;re registered</div>
       <h2 className="mt-4 text-4xl font-semibold tracking-[-0.055em]">Your place is confirmed.</h2>
-      <p className="mt-3 max-w-xl text-sm leading-6 text-black/52">{isPast ? "This event has ended, but your ticket and receipt remain available." : "Keep your ticket ready for check-in."}</p>
+      <p className="mt-3 max-w-xl text-sm leading-6 text-black/58">{isPast ? "This event has ended, but your ticket and receipt remain available." : "Keep your ticket ready for check-in."}</p>
       <div className="mt-7 flex flex-wrap items-center gap-5">
         <Link to={`/ticket/${state.ticketId}`} className="group inline-flex items-center gap-3 font-bold text-[#00629B]">View ticket <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></Link>
-        {state.receiptAvailable && <button type="button" onClick={onReceipt} className="text-sm font-bold text-black/45 hover:text-[#00629B]">Download receipt</button>}
+        {state.receiptAvailable && <button type="button" onClick={onReceipt} className="text-sm font-bold text-black/58 hover:text-[#00629B]">Download receipt</button>}
       </div>
     </motion.section>
   );
@@ -463,6 +463,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
     if (event?.isPaid && couponCode.trim() && appliedCouponCode !== couponCode.trim().toUpperCase()) next.coupon = "Apply or clear the coupon code before continuing";
     if (!acceptedTerms) next.terms = "Please confirm the information before continuing";
     setErrors(next);
+    if (Object.keys(next).length) window.requestAnimationFrame(() => document.getElementById('registration-errors')?.focus());
     return Object.keys(next).length === 0;
   };
 
@@ -521,7 +522,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
         <div className="w-full max-w-lg border-y border-black/15 py-10 text-center">
           <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-rose-700">Registration unavailable</p>
           <h1 className="mt-4 text-4xl font-semibold tracking-[-0.055em]">{error || "Event not found"}</h1>
-          <p className="mt-3 text-sm text-black/50">This event is unavailable or has been removed.</p>
+          <p className="mt-3 text-sm text-black/58">This event is unavailable or has been removed.</p>
           <Link to="/events" className="mt-7 inline-flex items-center gap-2 font-bold text-[#00629B]">Browse events <ArrowRight className="h-4 w-4" /></Link>
         </div>
       </div>
@@ -543,7 +544,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
       </header>
 
       <main className="mx-auto max-w-[1440px] px-5 pb-28 pt-8 sm:px-8 lg:px-12 lg:pb-20 lg:pt-12">
-        <Link to={eventHref} className="group inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.17em] text-black/42 transition hover:text-[#00629B]">
+        <Link to={eventHref} className="group inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.17em] text-black/58 transition hover:text-[#00629B]">
           <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" /> Back to event
         </Link>
 
@@ -554,42 +555,42 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
 
             <div className="mt-8 grid grid-cols-2 gap-x-6 gap-y-7 border-y border-black/12 py-6 lg:grid-cols-1">
               <div>
-                <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/35">When</p>
+                <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/58">When</p>
                 <p className="mt-2 text-sm font-semibold">{formatDate(event.date)}</p>{event.timeTbc && <p className="mt-1 text-xs font-medium text-[#00629B]">Time to be confirmed</p>}
               </div>
               <div>
-                <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/35">Where</p>
+                <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/58">Where</p>
                 <p className="mt-2 text-sm font-semibold leading-snug">{event.venue}</p>
               </div>
               <div>
-                <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/35">Entry</p>
+                <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/58">Entry</p>
                 <div className="mt-2 flex items-baseline gap-2">
                   <p className="text-3xl font-semibold tracking-[-0.05em]">{effectivePaid ? `₹${effectiveAmount}` : "Free"}</p>
-                  {pricingPreview && pricingPreview.discountAmount > 0 && <span className="text-xs text-black/35 line-through">₹{event.price}</span>}
+                  {pricingPreview && pricingPreview.discountAmount > 0 && <span className="text-xs text-black/58 line-through">₹{event.price}</span>}
                 </div>
               </div>
               {seatsLeft !== null && (
                 <div>
-                  <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/35">Availability</p>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/58">Availability</p>
                   <p className="mt-2 text-sm font-semibold">{seatsLeft} seats left</p>
                 </div>
               )}
             </div>
 
             {memoryReady && user && action === "register" && (
-              <p className="mt-5 text-xs leading-5 text-black/42">Your reusable attendee details are remembered after you register. This event draft stays on this device while you type.</p>
+              <p className="mt-5 text-xs leading-5 text-black/58">Your reusable attendee details are remembered after you register. This event draft stays on this device while you type.</p>
             )}
           </aside>
 
           <section className="min-w-0">
             {authStatus === "loading" || registrationStateLoading || (Boolean(user) && capacityFull && event.waitlistEnabled && waitlistLoading) ? (
-              <div className="border-y border-black/12 py-12"><Loader2 className="h-7 w-7 animate-spin text-[#00629B]" /><p className="mt-4 text-sm text-black/45">Checking your registration…</p></div>
+              <div className="border-y border-black/12 py-12"><Loader2 className="h-7 w-7 animate-spin text-[#00629B]" /><p className="mt-4 text-sm text-black/58">Checking your registration…</p></div>
             ) : !user ? (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="border-y border-black/12 py-10">
                 <ShieldCheck className="h-8 w-8 text-[#00629B]" />
                 <p className="mt-7 text-[9px] font-bold uppercase tracking-[0.18em] text-[#00629B]">Before we continue</p>
                 <h2 className="mt-3 text-4xl font-semibold tracking-[-0.055em]">Sign in once.</h2>
-                <p className="mt-3 max-w-xl text-sm leading-6 text-black/52">Your account keeps the registration, payment and ticket tied to you and prevents duplicate bookings.</p>
+                <p className="mt-3 max-w-xl text-sm leading-6 text-black/58">Your account keeps the registration, payment and ticket tied to you and prevents duplicate bookings.</p>
                 <button type="button" onClick={signIn} className="group mt-7 inline-flex items-center gap-3 border-y border-[#00629B] py-4 text-lg font-bold text-[#00629B]">Sign in with Google <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" /></button>
               </motion.div>
             ) : registrationState?.found ? (
@@ -597,17 +598,17 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
             ) : action === "closed" ? (
               capacityFull && event.waitlistEnabled ? (
                 <div className="border-y border-black/12 py-10">
-                  <Clock3 className={`h-8 w-8 ${waitlistState?.state?.status === "waiting" ? "text-[#00629B]" : "text-black/35"}`} />
+                  <Clock3 className={`h-8 w-8 ${waitlistState?.state?.status === "waiting" ? "text-[#00629B]" : "text-black/58"}`} />
                   <p className="mt-7 text-[9px] font-bold uppercase tracking-[0.18em] text-[#00629B]">Waitlist</p>
                   <h2 className="mt-3 text-4xl font-semibold tracking-[-0.055em]">{waitlistState?.state?.status === "waiting" ? "You’re in line." : "Event full."}</h2>
-                  <p className="mt-3 max-w-xl text-sm leading-6 text-black/50">
+                  <p className="mt-3 max-w-xl text-sm leading-6 text-black/58">
                     {waitlistState?.state?.status === "waiting"
                       ? `Your current position is ${waitlistState.state.position || "being calculated"}. When a place opens, it is reserved for you for a limited time.`
                       : "All available seats are reserved. Join the waitlist and the system will hold a released place for you before offering it to anyone else."}
                   </p>
                   {waitlistState?.state?.status !== "waiting" && (event.eligibleProgrammes.length > 0 || event.eligibleSemesters.length > 0) && <div className="mt-6 grid max-w-xl gap-5 sm:grid-cols-2"><AcademicSelectors event={event} programmeCode={programmeCode} branch={branch} semester={semester} onProgrammeCode={setProgrammeCode} onBranch={setBranch} onSemester={setSemester} /></div>}
                   {waitlistState?.state?.status === "waiting" ? (
-                    <button type="button" disabled={waitlistBusy} onClick={() => void handleLeaveWaitlist()} className="mt-7 min-h-11 border-y border-black/20 py-3 text-sm font-bold text-black/45 transition hover:text-rose-700 disabled:opacity-40">{waitlistBusy ? "Updating…" : "Leave waitlist"}</button>
+                    <button type="button" disabled={waitlistBusy} onClick={() => void handleLeaveWaitlist()} className="mt-7 min-h-11 border-y border-black/20 py-3 text-sm font-bold text-black/58 transition hover:text-rose-700 disabled:opacity-40">{waitlistBusy ? "Updating…" : "Leave waitlist"}</button>
                   ) : (
                     <button type="button" disabled={waitlistBusy} onClick={() => void handleJoinWaitlist()} className="group mt-7 inline-flex min-h-11 items-center gap-3 border-y border-[#00629B] py-4 text-lg font-bold text-[#00629B] disabled:opacity-40">
                       {waitlistBusy ? "Joining…" : "Join waitlist"} {!waitlistBusy && <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />}
@@ -616,9 +617,9 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
                 </div>
               ) : (
                 <div className="border-y border-black/12 py-10">
-                  <Clock3 className="h-8 w-8 text-black/35" />
+                  <Clock3 className="h-8 w-8 text-black/58" />
                   <h2 className="mt-5 text-4xl font-semibold tracking-[-0.055em]">{capacityFull ? "Event full." : "Registration closed."}</h2>
-                  <p className="mt-3 text-sm leading-6 text-black/50">{capacityFull ? "All available seats are currently reserved." : "This event is no longer accepting new registrations."}</p>
+                  <p className="mt-3 text-sm leading-6 text-black/58">{capacityFull ? "All available seats are currently reserved." : "This event is no longer accepting new registrations."}</p>
                 </div>
               )
             ) : (
@@ -630,6 +631,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
                     <p className="mt-2 max-w-xl text-sm leading-6">Complete this registration before {waitlistState.state.offerExpiresAt ? new Date(waitlistState.state.offerExpiresAt).toLocaleString("en-IN") : "the offer expires"}. Other registrations cannot take this reserved place.</p>
                   </div>
                 )}
+                {Object.keys(errors).length > 0 && <div id="registration-errors" tabIndex={-1} role="alert" className="my-6 border-l-2 border-rose-600 bg-rose-50 p-5 text-sm text-rose-800"><h2 className="font-semibold">Please check your registration details</h2><ul className="mt-2 list-disc space-y-1 pl-5">{Object.entries(errors).map(([key, message]) => <li key={key}>{message}</li>)}</ul></div>}
                 <motion.section initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: MOTION_DURATION.reveal, ease: MOTION_EASE }} className="border-t border-black/12 py-8 sm:py-10">
                   <div className="grid gap-6 sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-10">
                     <div>
@@ -637,20 +639,20 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
                       <h2 className="mt-3 text-2xl font-semibold tracking-[-0.04em]">Your details</h2>
                     </div>
                     <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
-                      <label className="sm:col-span-2"><FieldLabel label="Full name *" complete={name.trim().length >= 2 && !errors.name} /><input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" className={`${fieldClass} ${errors.name ? "border-rose-500" : ""}`} placeholder="Your full name" />{errors.name && <span className="mt-1.5 block text-xs text-rose-600">{errors.name}</span>}</label>
-                      <label><FieldLabel label="Email" complete={Boolean(email)} /><input value={email} readOnly autoComplete="email" className={fieldClass} /><span className="mt-1 block text-[10px] text-black/35">From your signed-in account</span></label>
-                      <label><FieldLabel label="Phone *" complete={phone.replace(/\D/g, "").length >= 10 && !errors.phone} /><input value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" inputMode="tel" autoComplete="tel" className={`${fieldClass} ${errors.phone ? "border-rose-500" : ""}`} placeholder="+91 98765 43210" />{errors.phone && <span className="mt-1.5 block text-xs text-rose-600">{errors.phone}</span>}</label>
-                      <label className="sm:col-span-2"><FieldLabel label="College / Institution *" complete={college.trim().length >= 2 && !errors.college} /><input value={college} onChange={(e) => setCollege(e.target.value)} autoComplete="organization" className={`${fieldClass} ${errors.college ? "border-rose-500" : ""}`} placeholder="Your college or institution" />{errors.college && <span className="mt-1.5 block text-xs text-rose-600">{errors.college}</span>}</label>
+                      <label className="sm:col-span-2"><FieldLabel label="Full name *" complete={name.trim().length >= 2 && !errors.name} /><input id="registration-name" aria-invalid={Boolean(errors.name)} aria-describedby={errors.name ? "registration-name-error" : undefined} value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" className={`${fieldClass} ${errors.name ? "border-rose-500" : ""}`} placeholder="Your full name" />{errors.name && <span id="registration-name-error" className="mt-1.5 block text-xs text-rose-600">{errors.name}</span>}</label>
+                      <label><FieldLabel label="Email" complete={Boolean(email)} /><input value={email} readOnly autoComplete="email" className={fieldClass} /><span className="mt-1 block text-[10px] text-black/58">From your signed-in account</span></label>
+                      <label><FieldLabel label="Phone *" complete={phone.replace(/\D/g, "").length >= 10 && !errors.phone} /><input id="registration-phone" aria-invalid={Boolean(errors.phone)} aria-describedby={errors.phone ? "registration-phone-error" : undefined} value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" inputMode="tel" autoComplete="tel" className={`${fieldClass} ${errors.phone ? "border-rose-500" : ""}`} placeholder="+91 98765 43210" />{errors.phone && <span id="registration-phone-error" className="mt-1.5 block text-xs text-rose-600">{errors.phone}</span>}</label>
+                      <label className="sm:col-span-2"><FieldLabel label="College / Institution *" complete={college.trim().length >= 2 && !errors.college} /><input id="registration-college" aria-invalid={Boolean(errors.college)} aria-describedby={errors.college ? "registration-college-error" : undefined} value={college} onChange={(e) => setCollege(e.target.value)} autoComplete="organization" className={`${fieldClass} ${errors.college ? "border-rose-500" : ""}`} placeholder="Your college or institution" />{errors.college && <span id="registration-college-error" className="mt-1.5 block text-xs text-rose-600">{errors.college}</span>}</label>
                       <AcademicSelectors event={event} programmeCode={programmeCode} branch={branch} semester={semester} onProgrammeCode={setProgrammeCode} onBranch={setBranch} onSemester={setSemester} errors={errors} />
                     </div>
                   </div>
 
                   {event.collectIeeeMember && (
                     <div className="mt-8 grid gap-6 border-t border-black/10 pt-7 sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-10">
-                      <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">IEEE membership</p>
+                      <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/58">IEEE membership</p>
                       <div>
                         <label className="flex cursor-pointer items-center gap-3"><input type="checkbox" checked={isIeeeMember} onChange={(e) => { setIsIeeeMember(e.target.checked); setErrors((current) => { const next = { ...current }; delete next.ieeeMembershipId; return next; }); }} className="h-4 w-4 accent-[#00629B]" /><span className="text-sm font-semibold">I am an IEEE member</span></label>
-                        <AnimatePresence initial={false}>{isIeeeMember && <motion.label initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mt-5 block overflow-hidden"><span className="block text-xs font-bold">IEEE Membership ID{event.ieeeMemberDiscountPercent > 0 ? " *" : ""}</span><input value={ieeeMembershipId} onChange={(e) => { setIeeeMembershipId(e.target.value); setErrors((current) => { const next = { ...current }; delete next.ieeeMembershipId; return next; }); }} className={`${fieldClass} ${errors.ieeeMembershipId ? "border-rose-500" : ""}`} placeholder="Membership ID" />{errors.ieeeMembershipId && <span className="mt-1.5 block text-xs text-rose-600">{errors.ieeeMembershipId}</span>}{event.ieeeMemberDiscountPercent > 0 && <span className="mt-2 block text-xs text-black/42">IEEE members receive {event.ieeeMemberDiscountPercent}% off after providing a Membership ID.</span>}{pricingPreview?.discountSource === "ieee_member" && <span className="mt-2 block text-xs font-semibold text-emerald-700">{pricingPreview.label} · ₹{pricingPreview.amount}</span>}</motion.label>}</AnimatePresence>
+                        <AnimatePresence initial={false}>{isIeeeMember && <motion.label initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mt-5 block overflow-hidden"><span className="block text-xs font-bold">IEEE Membership ID{event.ieeeMemberDiscountPercent > 0 ? " *" : ""}</span><input id="registration-ieeeMembershipId" aria-invalid={Boolean(errors.ieeeMembershipId)} aria-describedby={errors.ieeeMembershipId ? "registration-ieeeMembershipId-error" : undefined} value={ieeeMembershipId} onChange={(e) => { setIeeeMembershipId(e.target.value); setErrors((current) => { const next = { ...current }; delete next.ieeeMembershipId; return next; }); }} className={`${fieldClass} ${errors.ieeeMembershipId ? "border-rose-500" : ""}`} placeholder="Membership ID" />{errors.ieeeMembershipId && <span id="registration-ieeeMembershipId-error" className="mt-1.5 block text-xs text-rose-600">{errors.ieeeMembershipId}</span>}{event.ieeeMemberDiscountPercent > 0 && <span className="mt-2 block text-xs text-black/58">IEEE members receive {event.ieeeMemberDiscountPercent}% off after providing a Membership ID.</span>}{pricingPreview?.discountSource === "ieee_member" && <span className="mt-2 block text-xs font-semibold text-emerald-700">{pricingPreview.label} · ₹{pricingPreview.amount}</span>}</motion.label>}</AnimatePresence>
                       </div>
                     </div>
                   )}
@@ -689,7 +691,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
                             <BadgePercent className="mt-0.5 h-5 w-5 text-[#00629B]" />
                             <div>
                               <p className="text-sm font-bold">Have a coupon?</p>
-                              <p className="mt-1 text-xs leading-5 text-black/42">Apply it before continuing to see the amount you will actually pay.</p>
+                              <p className="mt-1 text-xs leading-5 text-black/58">Apply it before continuing to see the amount you will actually pay.</p>
                             </div>
                           </div>
                           <div className="mt-4 flex max-w-lg gap-3">
@@ -742,7 +744,7 @@ export default function RegisterPage({ eventId, initialEvent }: PageProps) {
                           />
                         )}
                       </motion.button>
-                      <p className="mt-4 max-w-lg text-xs leading-5 text-black/38">{effectivePaid ? "Your ticket is issued only after payment is captured. Coupons are revalidated when you continue." : "Your ticket is created immediately after confirmation."}</p>
+                      <p className="mt-4 max-w-lg text-xs leading-5 text-black/58">{effectivePaid ? "Your ticket is issued only after payment is captured. Coupons are revalidated when you continue." : "Your ticket is created immediately after confirmation."}</p>
                     </div>
                   </div>
                 </motion.section>

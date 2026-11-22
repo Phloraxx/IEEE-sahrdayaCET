@@ -63,3 +63,5 @@ export default function EventsPage() {
     </>
   );
 }
+
+export { shouldRevalidatePublicListing as shouldRevalidate } from "@/lib/public-listing-navigation";

@@ -6,8 +6,8 @@ test.describe("Home narrative", () => {
     expect(response?.ok()).toBeTruthy();
     await expect(page.getByText("IEEE", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("Now at Sahrdaya", { exact: true })).toBeVisible();
-    await expect(page.getByText("The people", { exact: true })).toBeVisible();
-    await expect(page.getByText("From the branch", { exact: true })).toBeVisible();
+    await expect(page.getByText("THE EXECOM", { exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Past events gallery" })).toBeVisible();
     await expect(page.getByText("Call for Papers: Int'l Conference on Robotics open now.")).toHaveCount(0);
   });
 
@@ -16,6 +16,18 @@ test.describe("Home narrative", () => {
     const lead = page.locator('section#events a[href^="/events/"]').first();
     if (await lead.count()) {
       await expect(lead).toHaveAttribute("href", /\/events\/[a-z0-9-]+/i);
+    }
+  });
+
+  test("keeps a useful team section when the database has no core roster", async ({ page }) => {
+    await page.goto("/");
+    const section = page.locator("section#execom");
+    await expect(section.getByRole("link", { name: "View full Execom" })).toBeVisible();
+    if (await section.getByRole("list", { name: "Core executive committee" }).count()) {
+      await expect(section.getByRole("listitem").first()).toBeVisible();
+    } else {
+      await expect(section.getByText(/The core team roster is not available here yet/)).toBeVisible();
+      await expect(section.getByRole("button")).toHaveCount(0);
     }
   });
 

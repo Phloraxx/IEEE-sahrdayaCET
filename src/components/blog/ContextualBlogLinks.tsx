@@ -32,13 +32,23 @@ function getContext(pathname: string) {
   return null;
 }
 
-export function ContextualBlogLinks() {
+export function ContextualBlogLinks({ blogs: provided }: { blogs?: RelatedBlogSummary[] } = {}) {
   const location = useLocation();
   const context = useMemo(() => getContext(location.pathname), [location.pathname]);
-  const [blogs, setBlogs] = useState<RelatedBlogSummary[]>([]);
+  const [blogs, setBlogs] = useState<RelatedBlogSummary[]>(provided ?? []);
   const [loading, setLoading] = useState(false);
 
+  // Phase 1: public pages pass their related stories from the route loader, so
+  // the browser never queries PocketBase. The fetch below only runs when no
+  // server-side data was supplied (kept for routes ported in later phases).
+  const serverProvided = provided !== undefined;
+
   useEffect(() => {
+    if (serverProvided) {
+      setBlogs(provided ?? []);
+      setLoading(false);
+      return;
+    }
     if (!context) {
       setBlogs([]);
       setLoading(false);
@@ -58,7 +68,7 @@ export function ContextualBlogLinks() {
       .catch(() => { if (active) setBlogs([]); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [context]);
+  }, [context, serverProvided, provided]);
 
   if (!context || (!loading && blogs.length === 0)) return null;
 

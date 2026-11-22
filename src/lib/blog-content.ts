@@ -110,7 +110,9 @@ export function resolveBlogPublishedAt({
   if (submittedPublishedAt !== undefined) return submittedPublishedAt;
   if (existingPublishedAt) return existingPublishedAt;
   if (nextPublished === true && existingPublished === false) {
-    return now.toISOString().replace("T", " ");
+    // Every other timestamp in the schema is ISO-8601 with a `T`; a space
+		// separator made lexical comparison against an ISO parameter misorder.
+		return now.toISOString();
   }
   return undefined;
 }

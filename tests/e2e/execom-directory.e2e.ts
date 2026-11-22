@@ -5,7 +5,7 @@ test.describe("Execom directory", () => {
     const response = await page.goto("/full-execom");
     expect(response?.status()).toBe(200);
 
-    const empty = page.getByText("Execom directory unavailable.");
+    const empty = page.getByText("The team directory is being updated.");
     if (await empty.isVisible().catch(() => false)) return;
 
     await expect(page.getByTestId("execom-directory-header")).toBeVisible();
@@ -28,7 +28,7 @@ test.describe("Execom directory", () => {
     await page.getByRole("button", { name: "Reset directory" }).click();
     await expect(page.getByTestId("execom-grid")).toBeVisible();
 
-    const opener = page.locator("[data-execom-member] button[aria-label^=\"View details for\"]").first();
+    const opener = page.locator("[data-execom-member] button").first();
     await opener.focus();
     await opener.press("Enter");
     const dialog = page.getByRole("dialog");

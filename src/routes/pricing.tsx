@@ -4,6 +4,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { CanonicalLink } from "@/components/CanonicalLink";
 import { APP_URL } from "@/lib/constants";
+import { isPastEvent } from "@/lib/event-lifecycle";
 import { formatDate } from "@/lib/dates";
 import { fetchEvents, type SerializableEvent } from "@/server/public/events.server";
 
@@ -17,13 +18,15 @@ export const meta = () => [
   { property: "og:title", content: `${title} | IEEE Sahrdaya Student Branch` },
   { property: "og:description", content: description },
   { property: "og:url", content: `${APP_URL}${path}` },
+  { property: "og:image", content: `${APP_URL}/web.png` },
+  { name: "twitter:card", content: "summary_large_image" },
 ];
 
 export async function loader() {
   const events = await fetchEvents();
   return {
-    current: events.filter((event) => event.status === "published"),
-    past: events.filter((event) => event.status === "completed").slice(-12).reverse(),
+    current: events.filter((event) => !isPastEvent(event)).sort((a, b) => Date.parse(a.date) - Date.parse(b.date)),
+    past: events.filter((event) => isPastEvent(event)).sort((a, b) => Date.parse(b.date) - Date.parse(a.date)).slice(0, 12),
   };
 }
 function EventPriceCard({ event }: { event: SerializableEvent }) {
@@ -32,11 +35,11 @@ function EventPriceCard({ event }: { event: SerializableEvent }) {
     <Link to={`/events/${event.slug}`} className="group min-w-0 w-full rounded-2xl border border-gray-200 bg-white p-5 transition hover:border-ieee-blue/40 hover:shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="truncate text-base font-semibold text-gray-950 group-hover:text-ieee-blue">{event.title}</p>
-          <p className="mt-2 flex items-center gap-2 text-xs text-gray-500"><CalendarDays className="h-3.5 w-3.5" />{formatDate(event.date) || "Date to be announced"}</p>
+          <h3 className="break-words text-base font-semibold leading-6 text-gray-950 group-hover:text-ieee-blue">{event.title}</h3>
+          <p className="mt-2 flex items-center gap-2 text-xs text-gray-500"><CalendarDays className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />{formatDate(event.date) || "Date to be announced"}</p>
           {event.society?.name && <p className="mt-1 text-xs text-gray-500">{event.society.name}</p>}
         </div>
-        <ArrowUpRight className="h-4 w-4 shrink-0 text-gray-400 transition group-hover:text-ieee-blue" />
+        <ArrowUpRight className="h-4 w-4 shrink-0 text-gray-600 transition group-hover:text-ieee-blue" />
       </div>
       <div className="mt-5 flex items-center justify-between border-t border-gray-100 pt-4">
         <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-500">Registration fee</span>
@@ -52,8 +55,8 @@ export default function PricingPage() {
       <CanonicalLink path={path} />
       <div className="min-h-screen bg-gray-50 text-gray-900">
         <Navbar />
-        <main className="mx-auto w-full max-w-6xl px-4 pb-20 pt-32 sm:px-6 lg:px-8">
-          <Link to="/" className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-ieee-blue">
+        <main className="mx-auto w-full max-w-6xl px-4 pb-20 pt-14 sm:px-6 sm:pt-20 md:pt-32 lg:px-8">
+          <Link to="/" className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-gray-500 hover:text-ieee-blue">
             <ArrowLeft className="h-4 w-4" /> Back to IEEE Sahrdaya
           </Link>
           <header className="mt-8 max-w-4xl border-b border-gray-200 pb-8">
@@ -64,9 +67,9 @@ export default function PricingPage() {
             </p>
           </header>
           <section className="mt-10">
-            <div className="flex items-end justify-between gap-4">
-              <div><p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-ieee-blue">Current catalog</p><h2 className="mt-2 text-2xl font-semibold text-gray-950">Published events</h2></div>
-              <Link to="/events" className="text-sm font-semibold text-ieee-blue hover:underline">Browse all events</Link>
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div><p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-ieee-blue">Current catalog</p><h2 className="mt-2 text-2xl font-semibold text-gray-950">Upcoming events</h2></div>
+              <Link to="/events" className="inline-flex min-h-11 items-center text-sm font-semibold text-ieee-blue hover:underline">Browse all events</Link>
             </div>
             {current.length ? (
               <div className="mt-5 grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -74,7 +77,7 @@ export default function PricingPage() {
               </div>
             ) : (
               <div className="mt-5 rounded-2xl border border-dashed border-gray-300 bg-white px-5 py-10 text-center text-sm text-gray-600">
-                No event is currently published for registration. New listings and their prices will appear here when announced.
+                No upcoming event is currently announced. New listings and their prices will appear here when announced.
               </div>
             )}
           </section>
@@ -90,7 +93,11 @@ export default function PricingPage() {
           <section className="mt-12 rounded-2xl border border-gray-200 bg-white p-6 text-sm leading-7 text-gray-600">
             <h2 className="text-lg font-semibold text-gray-950">Pricing notes</h2>
             <p className="mt-2">Prices are shown in Indian Rupees (INR). A listing marked “Free” has no registration fee. Where a coupon or approved discount applies, the payable amount is calculated before payment confirmation.</p>
-            <p className="mt-2">For delivery and refund information, see the Shipping & Delivery Policy and Refund & Cancellation Policy linked in the footer.</p>
+            <p className="mt-2">Read more about ticket delivery and refund eligibility:</p>
+            <nav aria-label="Pricing policies" className="mt-2 flex flex-wrap gap-x-6 gap-y-1">
+              <Link to="/shipping-and-delivery-policy" className="inline-flex min-h-11 items-center font-semibold text-ieee-blue hover:underline">Shipping & Delivery Policy</Link>
+              <Link to="/refund-and-cancellation-policy" className="inline-flex min-h-11 items-center font-semibold text-ieee-blue hover:underline">Refund & Cancellation Policy</Link>
+            </nav>
           </section>
         </main>
         <Footer />

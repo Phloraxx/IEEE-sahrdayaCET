@@ -38,12 +38,7 @@ export const meta = ({ data }: { data?: SocietyDetailLoaderData }) => {
 
 export async function loader({ params }: LoaderFunctionArgs): Promise<SocietyDetailLoaderData> {
   if (!params.slug) throw new Response("Society not found", { status: 404 });
-  let page: SocietyPageData;
-  try {
-    page = await fetchSocietyData(params.slug);
-  } catch {
-    throw new Response("Society not found", { status: 404 });
-  }
+  const page = await fetchSocietyData(params.slug);
 
   const [directoryResult, storyResult] = await Promise.all([
     fetchSocieties(),

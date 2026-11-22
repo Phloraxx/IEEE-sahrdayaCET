@@ -5,10 +5,11 @@ import { resolve } from "node:path";
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
 
 describe("security architecture invariants", () => {
-  it("has no runtime PocketBase superuser client", () => {
-    const source = read("src/lib/pb.server.ts");
-    expect(source).not.toContain("createAdminPB");
-    expect(source).not.toContain("POCKETBASE_SUPERUSER");
+  it("has no runtime PocketBase client at all", () => {
+    // The module used to exist and was checked for a superuser client. It is now
+    // deleted, which is the stronger guarantee: there is no PocketBase client in
+    // the app for a superuser credential to be added to.
+    expect(existsSync(resolve("src/lib/pb.server.ts"))).toBe(false);
   });
 
   it("pins and verifies the PocketBase release", () => {
@@ -45,21 +46,24 @@ describe("security architecture invariants", () => {
   });
 
   it("does not allow a retired Razorpay checkout surface through CSP or runtime files", () => {
-    const root = read("src/root.tsx");
-    expect(root).not.toContain("razorpay.com");
-    expect(root).toContain("frame-src 'none'");
+    // The policy moved to src/lib/csp.ts so `entry.server.tsx` can mint a
+    // per-request script nonce; the invariant holds wherever it lives.
+    const csp = read("src/lib/csp.ts");
+    expect(csp).not.toContain("razorpay.com");
+    expect(csp).toContain("frame-src 'none'");
+    expect(read("src/root.tsx")).not.toContain("razorpay.com");
     expect(existsSync(resolve(process.cwd(), "pb_hooks/razorpay-direct.pb.js"))).toBe(false);
     expect(existsSync(resolve(process.cwd(), "src/lib/razorpay-upi.client.ts"))).toBe(false);
   });
 
   it("keeps deployment environments explicitly isolated", () => {
     const compose = read("docker-compose.yml");
-    const server = read("src/lib/pb.server.ts");
     expect(compose).toContain("DEPLOY_ENV: ${DEPLOY_ENV:?");
     expect(compose.match(/CERTIFICATE_RENDER_CAPABILITY_KEY: \${CERTIFICATE_RENDER_CAPABILITY_KEY:\?CERTIFICATE_RENDER_CAPABILITY_KEY is required}/g)).toHaveLength(2);
-    expect(compose).toContain("POCKETBASE_INTERNAL_URL: http://pocketbase-internal:8090");
+    // After the SQLite cutover the web service owns all app logic; it must
+    // not reach back into PocketBase. PB stays up only as a rollback target.
+    expect(compose).not.toContain("POCKETBASE_INTERNAL_URL:");
     expect(compose).toContain("- pocketbase-internal");
     expect(compose).not.toContain("POCKETBASE_INTERNAL_URL: http://pocketbase:8090");
-    expect(server).not.toContain("https://db.");
   });
 });

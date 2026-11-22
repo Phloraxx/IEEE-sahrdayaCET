@@ -8,7 +8,13 @@ describe("public motion architecture", () => {
   it("stops decorative frame loops for reduced motion", () => {
     const stars = read("src/components/ui/stars-background.tsx");
     const shooting = read("src/components/ui/shooting-stars.tsx");
-    expect(stars).toContain("useReducedMotion");
+    // The hook is local on purpose: importing `useReducedMotion` from
+    // framer-motion pulled the whole animation runtime into every page that
+    // renders a star field, for one media query.
+    expect(stars).toContain("usePrefersReducedMotion");
+    expect(shooting).toContain("usePrefersReducedMotion");
+    expect(stars).not.toContain("framer-motion");
+    expect(shooting).not.toContain("framer-motion");
     expect(stars).toContain("if (!reduceMotion) animationFrameId = requestAnimationFrame(render)");
     expect(shooting).toContain("if (reduceMotion)");
     expect(shooting).toContain("if (timer) clearTimeout(timer)");
@@ -22,9 +28,17 @@ describe("public motion architecture", () => {
 
     expect(execom).toContain("data-home-execom-static");
     expect(execom).toContain("if (reduceMotion) return;");
+    expect(execom).toContain("if (reduceMotion || !trackRef.current) return;");
     expect(character).toContain("useReducedMotion");
-    expect(hero).toContain("style={reduceMotion ? undefined : { scale, opacity, y }}");
+    expect(hero).not.toContain("useScroll");
+    expect(hero).toContain("useReducedMotion");
+    expect(read("src/components/EventsShowcase.tsx")).toContain("const stopped = reduceMotion || paused;");
     expect(chrome).toContain("duration: reduceMotion ? 0 : 0.45");
-    expect(nav).toContain("duration: reduceMotion ? 0 : 0.5");
+    // The navbar used to wrap its desktop pill in a `motion.div` with
+    // `initial={false}`, which starts at the animate target and therefore never
+    // animated anything. It is a plain div now, and that is what keeps
+    // framer-motion off every page that renders the navbar.
+    expect(nav).not.toContain('from "framer-motion"');
+    expect(nav).not.toContain("<motion.");
   });
 });

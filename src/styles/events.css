@@ -48,3 +48,12 @@
     transform: none;
   }
 }
+
+/* ── Programme wall ─────────────────────────────────────────
+   Hovering one poster recedes the rest, so the wall always has
+   a single subject instead of forty equal ones. */
+@media (hover: hover) {
+  .poster-wall:has(.wall-card:hover) .wall-card:not(:hover) {
+    opacity: 0.42;
+  }
+}

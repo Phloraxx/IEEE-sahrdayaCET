@@ -17,7 +17,7 @@ export const revealUp = (reduceMotion: boolean, distance = 14) => ({
 
 export function eventTitleSize(title: string): string {
   const length = title.trim().length;
-  if (length > 68) return "text-[clamp(2.65rem,6.2vw,6.4rem)]";
-  if (length > 38) return "text-[clamp(2.8rem,7vw,7.3rem)]";
-  return "text-[clamp(3rem,8vw,8.5rem)]";
+  if (length > 68) return "text-[clamp(2.55rem,5.4vw,5.6rem)]";
+  if (length > 38) return "text-[clamp(2.65rem,6.1vw,6.3rem)]";
+  return "text-[clamp(2.8rem,6.8vw,7.2rem)]";
 }

@@ -85,7 +85,7 @@ export function EventVisual({
     >
       <div className="flex items-center justify-between gap-4">
         <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#00629B]">Registration / Payment</p>
-        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-black/45">
+        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-black/58">
           <motion.span
             className="h-1.5 w-1.5 rounded-full bg-emerald-500"
             animate={reduceMotion ? undefined : { opacity: [0.45, 1, 0.45], scale: [1, 1.2, 1] }}
@@ -96,7 +96,7 @@ export function EventVisual({
       </div>
 
       <div className="py-10 lg:py-16">
-        <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/35">Complete your registration</p>
+        <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-black/58">Complete your registration</p>
         <div className="mt-4 overflow-hidden pb-1">
           <motion.h1
             initial={reduceMotion ? false : { y: "105%" }}
@@ -111,11 +111,11 @@ export function EventVisual({
 
       <div className="grid grid-cols-2 gap-6 border-t border-black/10 pt-6 text-sm">
         <div>
-          <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/30">Date</p>
+          <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/58">Date</p>
           <p className="mt-2 font-semibold">{event?.date ? formatDate(event.date) : "—"}</p>{event?.timeTbc && <p className="mt-1 text-xs font-medium text-[#00629B]">Time to be confirmed</p>}
         </div>
         <div>
-          <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/30">Venue</p>
+          <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-black/58">Venue</p>
           <p className="mt-2 font-semibold leading-snug">{event?.venue || "—"}</p>
         </div>
       </div>
@@ -137,7 +137,7 @@ export function PassiveState({
       <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mx-auto w-full max-w-xl border-y border-black/12 py-10 text-center sm:py-14">
         <div className="mx-auto flex h-14 w-14 items-center justify-center text-black/55">{icon}</div>
         <h1 className="mt-6 text-4xl font-semibold tracking-[-0.055em]">{title}</h1>
-        <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-black/52">{description}</p>
+        <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-black/58">{description}</p>
       </motion.section>
     </PaymentShell>
   );

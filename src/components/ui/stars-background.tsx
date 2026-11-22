@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { useReducedMotion } from "framer-motion";
+import { usePrefersReducedMotion } from "@/lib/use-reduced-motion";
 import React, {
   useState,
   useEffect,
@@ -38,7 +38,7 @@ export const StarsBackground: React.FC<StarBackgroundProps> = ({
   className,
 }) => {
   const [stars, setStars] = useState<StarProps[]>([]);
-  const reduceMotion = Boolean(useReducedMotion());
+  const reduceMotion = usePrefersReducedMotion();
   const canvasRef: RefObject<HTMLCanvasElement | null> =
     useRef<HTMLCanvasElement | null>(null);
 

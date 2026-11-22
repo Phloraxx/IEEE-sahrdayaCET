@@ -9,11 +9,13 @@ describe("public site correctness invariants", () => {
     const home = read("src/server/public/home.server.ts");
     const directory = read("src/server/public/societies.server.ts");
     const route = read("src/routes/index.tsx");
-    const execom = read("src/components/Execom.tsx");
-    expect(home).toContain('filter: "isHidden=false"');
-    expect(directory).toContain('filter: "isHidden=false"');
-    expect(route).toContain("<Execom societyCount={societies.length}");
-    expect(execom).toContain('["Societies", societyCount]');
+    const now = read("src/components/home/NowAtSahrdaya.tsx");
+    // Phase 1: both pages read the same repo function, whose SQL filters hidden.
+    expect(home).toContain("listPublicSocieties");
+    expect(directory).toContain("listPublicSocieties");
+    expect(read("src/server/public/repo.server.ts")).toContain("is_hidden = 0");
+    expect(route).toContain("societyCount={societies.length}");
+    expect(now).toContain("societyCount");
   });
 
   it("keeps the handpicked Event Showcase explicitly curated", () => {
@@ -25,10 +27,15 @@ describe("public site correctness invariants", () => {
 
   it("renders programme calendar parts with shared India-time helpers", () => {
     const index = read("src/features/events/EventsPageClient.tsx");
+    const poster = read("src/components/events/PosterCard.tsx");
+    const note = read("src/components/events/FieldNote.tsx");
     const row = read("src/components/events/AnnotatedEventCard.tsx");
-    expect(index).toContain("formatDay(event.date)");
     expect(index).toContain("formatMonthYear(event.date)");
+    expect(poster).toContain("formatDay(event.date)");
+    expect(note).toContain("formatMonth(event.date)");
     expect(index).not.toContain("date.getDate()");
+    expect(poster).not.toContain("date.getDate()");
+    expect(note).not.toContain("date.getDate()");
     expect(row).toContain("formatWeekdayShort(event.date)");
     expect(row).not.toContain("date.getDate()");
   });
@@ -72,48 +79,50 @@ describe("Home redesign invariants", () => {
     expect(route).not.toContain("Call for Papers");
   });
 
-  it("keeps the four-part Home narrative and curated showcase semantics", () => {
+  it("keeps the Home narrative and curated showcase semantics", () => {
     const people = read("src/components/Execom.tsx");
     const showcase = read("src/components/EventsShowcase.tsx");
     const signals = read("src/components/home/LatestSignals.tsx");
-    expect(read("src/components/home/NowAtSahrdaya.tsx")).toContain('index="01"');
-    expect(people).toContain('index="02"');
-    expect(showcase).toContain('index="03"');
-    expect(signals).toContain('index="04"');
-    expect(showcase).toContain("Deliberately curated visual archive");
-    expect(showcase).toContain("Curated selection");
+    expect(read("src/components/home/NowAtSahrdaya.tsx")).not.toContain('index="01"');
+    expect(people).toContain("THE EXECOM");
+    expect(showcase).toContain('aria-label="Past events gallery"');
+    expect(showcase).toContain("-rotate-3 scale-110");
+    expect(signals).not.toContain('index="04"');
+    expect(showcase).toContain("Deliberately curated archive");
+    expect(showcase).toContain("bg-white py-16");
   });
 
-  it("uses data-backed Home people statistics", () => {
+  it("uses the shared public core roster and restores the pre-rewrite execom stats row", () => {
     const route = read("src/routes/index.tsx");
     const people = read("src/components/Execom.tsx");
-    expect(route).toContain("rosterCount={execomCount}");
-    expect(route).toContain("upcomingCount={upcomingCount}");
-    expect(people).toContain('["Roster", rosterCount]');
-    expect(people).toContain('["Societies", societyCount]');
-    expect(people).toContain('["Upcoming", upcomingCount]');
-    expect(people).not.toContain("100+");
+    const home = read("src/server/public/home.server.ts");
+    expect(route).toContain("members={loaderData.coreTeam ?? []}");
+    expect(home).toContain("fetchExecomData()");
+    expect(home).toContain('member.sectionId === "core"');
+    expect(route).toContain("execomCount={execomCount}");
+    expect(people).not.toContain("execomMembers");
+    expect(people).toContain("100+");
   });
 });
 
 describe("Event detail redesign invariants", () => {
-  it("inherits the programme system and always has an artwork surface", () => {
+  it("presents the event as a ticket and always has an artwork surface", () => {
     const detail = read("src/routes/events.$slug.tsx");
     expect(detail).toContain('data-testid="event-programme-hero"');
     expect(detail).toContain("Programme / {formatYear(event.date)}");
     expect(detail).toContain("<EventArtworkPreview");
-    expect(detail).toContain("<EventBannerFallback");
-    expect(detail).toContain("Programme identity");
+    expect(detail).toContain("stampInitials");
+    expect(detail).toContain("Admit one");
   });
 
-  it("keeps registration logic intact and adds a programme handoff", () => {
+  it("keeps registration logic intact and hands back to the programme", () => {
     const detail = read("src/routes/events.$slug.tsx");
     expect(detail).toContain("getMyEventRegistration(event.id)");
     expect(detail).toContain("registrationAvailable");
     expect(detail).toContain("getEventLifecycleSnapshot(event)");
     expect(detail).toContain("lifecycle.registration.available");
-    expect(detail).toContain('data-testid="related-events"');
-    expect(detail).toContain("More from the programme.");
-    expect(detail).toContain("future.length > 0 ? future");
+    expect(detail).toContain("backHref");
+    expect(detail).toContain("backLabel");
+    expect(detail).not.toContain("More from the programme.");
   });
 });

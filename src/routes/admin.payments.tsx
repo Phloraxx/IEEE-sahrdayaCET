@@ -10,6 +10,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { getAdminPaymentDesk } from "@/lib/data/admin-event-operations.client";
 import { listAdminPayments, type AdminPaymentLedgerRow } from "@/lib/data/admin-payments.client";
 import { formatDateTime } from "@/lib/dates";
+import { adminMeta } from "@/lib/admin-meta";
 
 const money = (value: number) => new Intl.NumberFormat("en-IN", {
   style: "currency", currency: "INR", minimumFractionDigits: 2,
@@ -89,3 +90,5 @@ export default function AdminPayments() {
     <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/20 px-4 py-3 text-xs leading-5 text-muted-foreground"><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /><p>{desk.data.financeDisclaimer}</p></div>
   </div>;
 }
+
+export const meta = () => adminMeta("Payments");

@@ -12,6 +12,8 @@ coverage/
 playwright-report/
 test-results/
 .nyc_output/
+# Playwright evidence logs (tests/e2e/admin-pages.e2e.ts writes runs/playwright-admin/)
+runs/
 
 # PocketBase runtime state (schema source lives in pb_migrations/)
 pb_data/

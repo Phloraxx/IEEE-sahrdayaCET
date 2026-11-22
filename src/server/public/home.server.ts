@@ -1,9 +1,11 @@
 import { buildFileUrl } from "@/lib/pb";
-import { createPublicPB } from "@/lib/pb.server";
 import { blogHtmlToPlainText } from "@/lib/blog-content";
 import { getLatestPublishedBlogs } from "@/lib/blog-public.server";
 import { canRegisterForEvent, isPastEvent } from "@/lib/event-lifecycle";
-import { getExpand, getField } from "@/lib/safe-get";
+import { fetchExecomData } from "./execom.server";
+import { logError } from "@/lib/logger";
+import { listPublicSocieties, listUpcomingEvents, type EventRow } from "./repo.server";
+import type { ExecomMemberDoc } from "@/features/execom/ExecomClient";
 import type { BlogPost, Society } from "@/types";
 
 export interface HomeEventSummary {
@@ -27,34 +29,32 @@ export interface HomeData {
   societies: Society[];
   execomCount: number;
   latestBlogs: BlogPost[];
+  coreTeam: ExecomMemberDoc[];
+  unavailable: string[];
 }
 
-function mapHomeEvent(raw: Record<string, unknown>): HomeEventSummary {
-  const id = getField(raw, "id", "");
-  const status = getField(raw, "status", "published");
-  const date = getField(raw, "date", "");
-  const endDate = getField(raw, "endDate", "");
-  const timeTbc = Boolean(getField(raw, "timeTbc", false));
-  const registrationOpen = Boolean(getField(raw, "registrationOpen", false));
-  const registrationMode = getField(raw, "registrationMode", "");
-  const externalFormUrl = getField(raw, "externalFormUrl", "");
-  const registrationStart = getField(raw, "registrationStart", "");
-  const registrationDeadline = getField(raw, "registrationDeadline", "");
-  const expand = getExpand(raw);
-  const societyRaw = expand?.society;
-  const banner = getField(raw, "banner", "");
+function mapHomeEvent(row: EventRow): HomeEventSummary {
+  const status = row.status ?? "published";
+  const date = row.date ?? "";
+  const endDate = row.end_date ?? "";
+  const timeTbc = row.time_tbc === 1;
+  const registrationOpen = row.registration_open === 1;
+  const registrationMode = row.registration_mode ?? "";
+  const externalFormUrl = row.external_form_url ?? "";
+  const registrationStart = row.registration_start ?? "";
+  const registrationDeadline = row.registration_deadline ?? "";
 
   return {
-    id,
-    slug: getField(raw, "slug", ""),
-    title: getField(raw, "title", ""),
-    description: blogHtmlToPlainText(getField(raw, "description", "")),
+    id: row.id,
+    slug: row.slug ?? "",
+    title: row.title ?? "",
+    description: blogHtmlToPlainText(row.description ?? ""),
     date,
     endDate,
     timeTbc,
-    venue: getField(raw, "venue", ""),
-    price: Number(getField(raw, "price", 0)) || 0,
-    bannerUrl: banner ? buildFileUrl("events", id, banner) : "",
+    venue: row.venue ?? "",
+    price: Number(row.price) || 0,
+    bannerUrl: row.banner ? buildFileUrl("events", row.id, row.banner) : "",
     registrationAvailable: canRegisterForEvent({
       status,
       date,
@@ -66,16 +66,24 @@ function mapHomeEvent(raw: Record<string, unknown>): HomeEventSummary {
       registrationStart,
       registrationDeadline,
     }),
-    society: societyRaw
-      ? {
-          id: getField(societyRaw, "id", ""),
-          name: getField(societyRaw, "name", ""),
-          slug: getField(societyRaw, "slug", ""),
-        }
-      : undefined,
+    society:
+      row.society_row_id && row.society_name
+        ? {
+            id: row.society_row_id,
+            name: row.society_name,
+            slug: row.society_slug ?? "",
+          }
+        : undefined,
   };
 }
 
+/**
+ * Home page data.
+ *
+ * Each section is fetched independently and failures are reported per section
+ * (`unavailable`) rather than failing the whole page — the same behaviour the
+ * PocketBase version had, where one rejected promise degraded one section.
+ */
 export async function fetchHomeData(): Promise<HomeData> {
   const fallback: HomeData = {
     upcomingEvents: [],
@@ -83,60 +91,59 @@ export async function fetchHomeData(): Promise<HomeData> {
     societies: [],
     execomCount: 0,
     latestBlogs: [],
+    coreTeam: [],
+    unavailable: ["programme", "communities", "team", "stories"],
   };
 
   try {
-    const pb = createPublicPB();
+    // Fetch a generous window of upcoming events, then filter past ones and
+    // slice — `isPastEvent` needs the event's own date/endDate, not SQL's.
     const [eventsResult, societiesResult, execomResult, blogsResult] = await Promise.allSettled([
-      pb.collection("events").getFullList({
-        batch: 100,
-        filter: 'status="published" && isDeleted != true',
-        sort: "date",
-        expand: "society",
-        fields:
-          "id,title,slug,description,date,endDate,timeTbc,venue,price,banner,status,registrationOpen,registrationMode,registrationStart,registrationDeadline,maxCapacity,registeredCount,externalFormUrl,society,expand.society.id,expand.society.name,expand.society.slug",
-      }),
-      pb.collection("societies").getFullList({
-        batch: 200,
-        filter: "isHidden=false",
-        sort: "name",
-        fields: "id,name,slug,logo",
-      }),
-      pb.collection("execom").getList(1, 1, { fields: "id" }),
+      listUpcomingEvents(100),
+      listPublicSocieties(),
+      fetchExecomData(),
       getLatestPublishedBlogs(3),
     ]);
 
     const societies: Society[] =
       societiesResult.status === "fulfilled"
-        ? societiesResult.value.map((society: Record<string, unknown>) => ({
-            id: getField(society, "id", ""),
-            name: getField(society, "name", ""),
-            slug: getField(society, "slug", ""),
-            logoUrl: society.logo
-              ? buildFileUrl(
-                  "societies",
-                  getField(society, "id", ""),
-                  getField(society, "logo", ""),
-                )
-              : undefined,
+        ? societiesResult.value.map((row) => ({
+            id: row.id,
+            name: row.name,
+            slug: row.slug,
+            logoUrl: row.logo ? buildFileUrl("societies", row.id, row.logo) : undefined,
           }))
         : [];
 
     const allUpcoming =
       eventsResult.status === "fulfilled"
         ? eventsResult.value
-            .map((event) => mapHomeEvent(event as Record<string, unknown>))
+            .map(mapHomeEvent)
             .filter((event) => !isPastEvent(event))
         : [];
 
+    const sections = ["programme", "communities", "team", "stories"];
+    const results = [eventsResult, societiesResult, execomResult, blogsResult];
+    const unavailable = results.flatMap((result, index) => {
+      if (result.status === "fulfilled") return [];
+      logError(`home-${sections[index]}`, result.reason);
+      return [sections[index] ?? "content"];
+    });
+
     return {
+      coreTeam:
+        execomResult.status === "fulfilled"
+          ? execomResult.value.filter((member) => member.sectionId === "core")
+          : [],
+      unavailable,
       upcomingEvents: allUpcoming.slice(0, 4),
       upcomingCount: allUpcoming.length,
       societies,
-      execomCount: execomResult.status === "fulfilled" ? execomResult.value.totalItems : 0,
+      execomCount: execomResult.status === "fulfilled" ? execomResult.value.length : 0,
       latestBlogs: blogsResult.status === "fulfilled" ? (blogsResult.value as BlogPost[]) : [],
     };
-  } catch {
+  } catch (error) {
+    logError("fetchHomeData", error);
     return fallback;
   }
 }

@@ -23,7 +23,9 @@ The IEEE Sahrdaya platform is the Student Branch's public website and event-oper
 
 ## Public surfaces
 
-The main public product includes the home page, events, societies, society detail pages, blog, Execom, legal/compliance pages, public certificate verification, and attendee-facing event state.
+The main public product includes the home page, events, flagship stories, societies, society detail pages, blog, Execom, legal/compliance pages, public certificate verification, and attendee-facing event state.
+
+Infinia has a dedicated flagship showcase at /infinia, with separate 2025 and 2024 stories, source-backed figures, workshops, posters, photographs and a 2024 highlights film. Altair remains an independent archive. These showcase surfaces do not duplicate registrations or event operations.
 
 ## Authenticated surfaces
 
@@ -34,3 +36,13 @@ Authenticated attendees use My Events and related ticket/certificate flows. Auth
 The public site and operations product share one identity model, PocketBase data plane, deployment pipeline, and design system. High-risk multi-record changes use dedicated transactional commands rather than generic client-side CRUD.
 
 See `AGENTS.md`, `DESIGN.md`, `docs/architecture.md`, and `docs/security-architecture.md` for implementation contracts.
+
+## Distinct Infinia chapters (4 October 2026)
+
+Infinia 2.0 (2025) and TechX Infinia (2024) have stable SSR URLs at /infinia/2025 and /infinia/2024. The showcase hub opens with three vertical films (Lantern Fest, RC car and flight) and one separate, pausable robot-football scene using distinct 2024 footage and ends with a latest-first flagship timeline with all four archived Infinia/Altair editions; each links to its independent story. Legacy /flagships and Infinia paths redirect permanently; valid Altair parent/edition URLs are reachable directly from the timeline and compact archive link. Unknown editions return 404. The shared site footer closes every Infinia page. Six original workshop photographs and a full-frame evening photograph lead the 2025 story, with the programme organised into its three actual days.
+
+The completed 2025 report supports 400+ participants, 70 volunteers, 15 professional speakers and 10+ industry collaborations. Workshop attendance is per session. Vitals 24 registration figures belong to the separate 2025 pre-event. Conflicting 2024 attendance claims remain unpublished. Original posters and full-frame photographs have keyboard-accessible viewers; the 2024 film is silent, user-initiated and described in text.
+
+Altair 2.0 remains a brochure-derived programme archive. No inferred date, attendance, award or successor relationship is added. Existing event, registration, payment, notification and mail data/delivery flows are untouched. Source and visual decisions are documented in docs/infinia-showcase-20261004.md.
+
+The playful hero restores three portrait films with a flowing rainbow wordmark in self-hosted lowercase Bricolage Grotesque, curved seams and a rounded rainbow-border programme CTA. Native scrolling opens the side films and brings the RC car forward on tall desktops. On phones, three still panels retain the composition while only the centre film streams. The active hero group and separate chapters suspend when hidden, offscreen or manually paused; reduced-motion/data-saving visitors keep source-free stills and static typography. Source-backed programme content, native details and independent editions remain intact. See docs/infinia-playful-20261005.md.

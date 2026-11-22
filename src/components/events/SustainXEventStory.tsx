@@ -159,21 +159,21 @@ const galleryPhotos = [
   },
 ] as const;
 
-const campaignPosters = [
+const livePhotos = [
   {
-    src: "/media/sustainx/sustainx-campaign-teaser.webp",
-    alt: "SustainX teaser poster",
-    label: "Teaser",
+    src: "/media/sustainx/sustainx-live-01.webp",
+    alt: "Speaker opening SustainX on stage in front of the SUSTAINX banner",
+    label: "The kickoff",
   },
   {
-    src: "/media/sustainx/sustainx-campaign-registration.webp",
-    alt: "SustainX registrations open poster with the registration window 27 June to 7 July",
-    label: "Registration · 27 Jun — 07 Jul",
+    src: "/media/sustainx/sustainx-live-02.webp",
+    alt: "Full seminar hall during the SustainX sessions at Sahrdaya",
+    label: "The room",
   },
   {
-    src: "/media/sustainx/sustainx-campaign-overview.webp",
-    alt: "SustainX challenge overview poster explaining the challenge area and three phases",
-    label: "The challenge",
+    src: "/media/sustainx/sustainx-live-03.webp",
+    alt: "Auditorium crowd gathered for the SustainX pitch day",
+    label: "Pitch day",
   },
 ] as const;
 
@@ -233,7 +233,7 @@ function HeroPanel({
   );
 }
 
-function CampaignPosters() {
+function LivePhotos() {
   const reduceMotion = Boolean(useReducedMotion());
   const [selected, setSelected] = useState<number | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -245,8 +245,8 @@ function CampaignPosters() {
     if (selected === null && dialog.open) dialog.close();
   }, [selected]);
 
-  const showPrevious = () => setSelected((current) => (current === null ? null : (current - 1 + campaignPosters.length) % campaignPosters.length));
-  const showNext = () => setSelected((current) => (current === null ? null : (current + 1) % campaignPosters.length));
+  const showPrevious = () => setSelected((current) => (current === null ? null : (current - 1 + livePhotos.length) % livePhotos.length));
+  const showNext = () => setSelected((current) => (current === null ? null : (current + 1) % livePhotos.length));
 
   const onDialogKeyDown = (event: React.KeyboardEvent<HTMLDialogElement>) => {
     if (event.key === "ArrowLeft") {
@@ -259,45 +259,44 @@ function CampaignPosters() {
   };
 
   return (
-    <section className="border-b border-black/10 bg-[#f3f2f8] py-16 sm:py-20 lg:py-28" aria-labelledby="sustainx-campaign-title">
+    <section className="border-b border-black/10 bg-[#f3f2f8] py-16 sm:py-20 lg:py-28" aria-labelledby="sustainx-photos-title">
       <div className="mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12">
         <div className="grid gap-8 lg:grid-cols-12 lg:items-end">
           <Reveal className="lg:col-span-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#6558c9]">Before 20.08.26</p>
-            <p className="mt-4 max-w-xs text-xs font-bold uppercase tracking-[0.14em] text-black/35">Teaser · Registration · Challenge brief</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#6558c9]">Event day</p>
+            <p className="mt-4 max-w-xs text-xs font-bold uppercase tracking-[0.14em] text-black/58">Kickoff · Hall · Pitch day</p>
           </Reveal>
           <div className="lg:col-span-8">
             <MaskedHeading>
-              <h2 id="sustainx-campaign-title" className="max-w-5xl text-[clamp(2.8rem,6.2vw,6.2rem)] font-semibold leading-[0.88] tracking-[-0.065em]">
-                How SustainX was introduced.
+              <h2 id="sustainx-photos-title" className="max-w-5xl text-[clamp(2.8rem,6.2vw,6.2rem)] font-semibold leading-[0.88] tracking-[-0.065em]">
+                SustainX, as it happened.
               </h2>
             </MaskedHeading>
             <Reveal>
-              <p className="mt-6 max-w-2xl text-sm leading-6 text-black/52 sm:text-base sm:leading-7">
-                The teaser, registration call and challenge explainer that led into the event.
+              <p className="mt-6 max-w-2xl text-sm leading-6 text-black/58 sm:text-base sm:leading-7">
+                Real photographs from the SustainX event day at Sahrdaya.
               </p>
             </Reveal>
           </div>
         </div>
 
         <div className="mt-10 lg:hidden">
-          <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.18em] text-black/40" aria-hidden="true">
-            <span>Swipe the posters →</span><span>01 / 03</span>
+          <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.18em] text-black/58" aria-hidden="true">
+            <span>Swipe the photos →</span><span>01 / 03</span>
           </div>
           <div className="event-filter-scroll -mx-5 mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-5 sm:-mx-8 sm:px-8">
-            {campaignPosters.map((poster, index) => (
+            {livePhotos.map((poster, index) => (
               <button
                 key={poster.src}
                 type="button"
                 onClick={() => setSelected(index)}
                 className="group w-[82vw] max-w-[390px] shrink-0 snap-center text-left"
-                aria-label={`Open campaign poster ${index + 1} of ${campaignPosters.length}`}
               >
-                <div className="aspect-[4/5] overflow-hidden bg-white/45 ring-1 ring-black/8">
-                  <img src={poster.src} alt={poster.alt} loading="lazy" className="h-full w-full object-contain" />
+                <div className="aspect-[4/3] overflow-hidden bg-white/45 ring-1 ring-black/8">
+                  <img src={poster.src} alt={poster.alt} loading="lazy" className="h-full w-full object-cover" />
                 </div>
                 <div className="mt-3 flex items-center justify-between gap-4 border-t border-black/12 pt-3">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-black/58"><span className="text-[#319b9a]">{String(index + 1).padStart(2, "0")} /</span> {poster.label}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-black/58"><span className="text-[#1f6f6e]">{String(index + 1).padStart(2, "0")} /</span> {poster.label}</p>
                   <Maximize2 className="h-3.5 w-3.5 shrink-0 text-black/28" aria-hidden="true" />
                 </div>
               </button>
@@ -306,7 +305,7 @@ function CampaignPosters() {
         </div>
 
         <div className="mt-16 hidden grid-cols-[0.86fr_1.14fr_0.86fr] items-end gap-6 lg:grid xl:gap-10">
-          {campaignPosters.map((poster, index) => (
+          {livePhotos.map((poster, index) => (
             <motion.button
               key={poster.src}
               type="button"
@@ -317,16 +316,15 @@ function CampaignPosters() {
               transition={{ duration: reduceMotion ? 0 : 0.72, delay: reduceMotion ? 0 : index * 0.08, ease: [0.16, 1, 0.3, 1] }}
               whileHover={reduceMotion ? undefined : { y: -6 }}
               className={`group text-left ${index === 0 ? "pb-14" : index === 2 ? "pb-9" : ""}`}
-              aria-label={`Open campaign poster ${index + 1} of ${campaignPosters.length}`}
             >
-              <div className="relative aspect-[4/5] overflow-hidden bg-white/48 ring-1 ring-black/8">
-                <img src={poster.src} alt={poster.alt} loading="lazy" className="h-full w-full object-contain" />
+              <div className="relative aspect-[4/3] overflow-hidden bg-white/48 ring-1 ring-black/8">
+                <img src={poster.src} alt={poster.alt} loading="lazy" className="h-full w-full object-cover" />
                 <span className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-full bg-black/58 text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100">
                   <Maximize2 className="h-3.5 w-3.5" />
                 </span>
               </div>
               <div className="mt-3 flex items-center justify-between gap-4 border-t border-black/12 pt-3">
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-black/58"><span className="text-[#319b9a]">{String(index + 1).padStart(2, "0")} /</span> {poster.label}</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-black/58"><span className="text-[#1f6f6e]">{String(index + 1).padStart(2, "0")} /</span> {poster.label}</p>
               </div>
             </motion.button>
           ))}
@@ -336,34 +334,34 @@ function CampaignPosters() {
       <dialog
         ref={dialogRef}
         className="m-auto h-[100dvh] max-h-none w-screen max-w-none bg-transparent p-0 text-white backdrop:bg-[#090a0d]/95"
-        aria-label="SustainX campaign poster viewer"
+        aria-label="SustainX event photo viewer"
         onCancel={(event) => { event.preventDefault(); setSelected(null); }}
         onClose={() => setSelected(null)}
         onKeyDown={onDialogKeyDown}
       >
         {selected !== null && (
           <div className="relative grid h-full w-full place-items-center p-4 sm:p-8" onClick={() => setSelected(null)}>
-            <button type="button" autoFocus onClick={(event) => { event.stopPropagation(); setSelected(null); }} className="absolute right-4 top-4 z-10 grid h-11 w-11 place-items-center rounded-full border border-white/25 bg-black/45 text-white sm:right-8 sm:top-8" aria-label="Close poster viewer">
+            <button type="button" autoFocus onClick={(event) => { event.stopPropagation(); setSelected(null); }} className="absolute right-4 top-4 z-10 grid h-11 w-11 place-items-center rounded-full border border-white/25 bg-black/45 text-white sm:right-8 sm:top-8" aria-label="Close photo viewer">
               <X className="h-5 w-5" />
             </button>
-            <button type="button" onClick={(event) => { event.stopPropagation(); showPrevious(); }} className="absolute left-3 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/25 bg-black/45 text-white sm:left-8" aria-label="Previous poster">
+            <button type="button" onClick={(event) => { event.stopPropagation(); showPrevious(); }} className="absolute left-3 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/25 bg-black/45 text-white sm:left-8" aria-label="Previous photo">
               <ChevronLeft className="h-5 w-5" />
             </button>
-            <button type="button" onClick={(event) => { event.stopPropagation(); showNext(); }} className="absolute right-3 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/25 bg-black/45 text-white sm:right-8" aria-label="Next poster">
+            <button type="button" onClick={(event) => { event.stopPropagation(); showNext(); }} className="absolute right-3 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/25 bg-black/45 text-white sm:right-8" aria-label="Next photo">
               <ChevronRight className="h-5 w-5" />
             </button>
             <motion.figure
-              key={campaignPosters[selected]!.src}
+              key={livePhotos[selected]!.src}
               initial={reduceMotion ? false : { opacity: 0, scale: 0.975 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: reduceMotion ? 0 : 0.3 }}
               className="flex max-h-[92svh] max-w-[860px] flex-col items-center"
               onClick={(event) => event.stopPropagation()}
             >
-              <img src={campaignPosters[selected]!.src} alt={campaignPosters[selected]!.alt} className="max-h-[82svh] max-w-full object-contain" />
+              <img src={livePhotos[selected]!.src} alt={livePhotos[selected]!.alt} className="max-h-[82svh] max-w-full object-contain" />
               <figcaption className="mt-4 flex w-full items-center justify-between gap-4 text-[10px] font-bold uppercase tracking-[0.18em] text-white/62">
-                <span><span className="text-[#8ce0d8]">{String(selected + 1).padStart(2, "0")} /</span> {campaignPosters[selected]!.label}</span>
-                <span>{String(selected + 1).padStart(2, "0")} / {String(campaignPosters.length).padStart(2, "0")}</span>
+                <span><span className="text-[#8ce0d8]">{String(selected + 1).padStart(2, "0")} /</span> {livePhotos[selected]!.label}</span>
+                <span>{String(selected + 1).padStart(2, "0")} / {String(livePhotos.length).padStart(2, "0")}</span>
               </figcaption>
             </motion.figure>
           </div>
@@ -558,7 +556,7 @@ function EventGallery() {
       <div className="mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12">
         <div className="grid gap-8 border-b border-black/14 pb-8 lg:grid-cols-12 lg:items-end">
           <div className="lg:col-span-8">
-            <p className="text-[10px] font-bold uppercase tracking-[0.27em] text-[#319b9a]">Inside SustainX / 20.08.26</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.27em] text-[#1f6f6e]">Inside SustainX / 20.08.26</p>
             <MaskedHeading className="mt-4">
               <h2 id="sustainx-gallery-title" className="max-w-5xl text-[clamp(3rem,7.3vw,7.4rem)] font-semibold leading-[0.84] tracking-[-0.072em]">
                 The event,<br />not the poster.
@@ -570,7 +568,7 @@ function EventGallery() {
           </p>
         </div>
 
-        <div className="mt-7 flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.18em] text-black/42 lg:hidden" aria-hidden="true">
+        <div className="mt-7 flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.18em] text-black/58 lg:hidden" aria-hidden="true">
           <span>Swipe the archive →</span><span>01 / 07</span>
         </div>
         <div className="event-filter-scroll -mx-5 mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-4 sm:-mx-8 sm:px-8 lg:hidden">
@@ -580,7 +578,6 @@ function EventGallery() {
               type="button"
               onClick={(event) => openPhoto(index, event.currentTarget)}
               className="group relative w-[78vw] max-w-[360px] shrink-0 snap-center text-left"
-              aria-label={`Open gallery image ${index + 1} of ${galleryPhotos.length}`}
             >
               <div className="aspect-[4/5] overflow-hidden bg-black">
                 <img src={photo.src} alt={photo.alt} loading={index < 2 ? "eager" : "lazy"} className="h-full w-full object-cover transition-transform duration-700 group-active:scale-[1.02]" />
@@ -590,7 +587,7 @@ function EventGallery() {
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#6558c9]">{photo.eyebrow}</p>
                   <p className="mt-1 max-w-[16rem] text-xs leading-5 text-black/55">{photo.caption}</p>
                 </div>
-                <span className="text-[10px] font-bold tabular-nums text-black/35">{String(index + 1).padStart(2, "0")}</span>
+                <span className="text-[10px] font-bold tabular-nums text-black/58">{String(index + 1).padStart(2, "0")}</span>
               </div>
             </button>
           ))}
@@ -618,8 +615,7 @@ function EventGallery() {
                 viewport={{ once: true, amount: 0.18 }}
                 transition={{ duration: reduceMotion ? 0 : 0.9, ease: [0.16, 1, 0.3, 1] }}
                 className={`group text-left ${placements[index]}`}
-                aria-label={`Open gallery image ${index + 1} of ${galleryPhotos.length}`}
-              >
+                >
                 <div className={`relative overflow-hidden bg-[#101114] ${aspects[index]}`}>
                   <motion.img
                     src={photo.src}
@@ -638,7 +634,7 @@ function EventGallery() {
                     <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#6558c9]">{photo.eyebrow}</p>
                     <p className="mt-1 max-w-[22rem] text-xs leading-5 text-black/55">{photo.caption}</p>
                   </div>
-                  <span className="text-[10px] font-bold tabular-nums text-black/35">{String(index + 1).padStart(2, "0")}</span>
+                  <span className="text-[10px] font-bold tabular-nums text-black/58">{String(index + 1).padStart(2, "0")}</span>
                 </div>
               </motion.button>
             );
@@ -673,7 +669,7 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
     <main className="min-h-screen overflow-hidden bg-[#f3f2f8] text-[#101114] selection:bg-[#6558c9] selection:text-white">
       <link rel="canonical" href={canonicalUrl} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: schemaJson }} />
-      <Navbar mobileAlign="right" />
+      <Navbar />
 
       <section ref={heroRef} className="relative isolate min-h-[100svh] overflow-hidden bg-[#090a0d] text-white">
         <motion.div className="absolute inset-0" style={{ y: mediaY }} aria-hidden="true">
@@ -710,7 +706,7 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
         <div aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(180deg,rgba(8,9,12,.58)_0%,rgba(8,9,12,.08)_34%,rgba(8,9,12,.2)_62%,rgba(8,9,12,.88)_100%)]" />
         <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,transparent_20%,rgba(0,0,0,.34)_100%)]" />
 
-        <div className="relative mx-auto flex min-h-[100svh] max-w-[1600px] flex-col px-5 pb-7 pt-24 sm:px-8 sm:pt-28 lg:px-12">
+        <div className="relative mx-auto flex min-h-[100svh] max-w-[1600px] flex-col px-5 pb-7 pt-16 sm:px-8 sm:pt-20 md:pt-24 lg:px-12 lg:pt-28">
           <div className="flex items-center justify-between border-b border-white/22 py-4 text-white">
             <Link to="/events" className="group inline-flex min-h-11 items-center gap-2 text-[9px] font-bold uppercase tracking-[0.2em] text-white/72 transition hover:text-white">
               <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" /> All events
@@ -766,7 +762,7 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
         <div className="mx-auto grid max-w-[1440px] gap-12 px-5 sm:px-8 lg:grid-cols-12 lg:px-12">
           <Reveal className="lg:col-span-4">
             <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#6558c9]">What SustainX became</p>
-            <p className="mt-5 text-xs font-bold uppercase tracking-[0.14em] text-black/35">One campus. Fourteen teams. Local problems first.</p>
+            <p className="mt-5 text-xs font-bold uppercase tracking-[0.14em] text-black/58">One campus. Fourteen teams. Local problems first.</p>
           </Reveal>
           <div className="lg:col-span-8">
             <MaskedHeading>
@@ -783,7 +779,7 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
         </div>
       </section>
 
-      <CampaignPosters />
+      <LivePhotos />
 
       <EventGallery />
 
@@ -796,23 +792,23 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
                 <h2 className="text-[clamp(3rem,7.2vw,7.3rem)] font-semibold leading-[0.85] tracking-[-0.07em]">Identify. Innovate. Present.</h2>
               </MaskedHeading>
             </div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/38 lg:col-span-3 lg:text-right">3 phases / 1 challenge</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/60 lg:col-span-3 lg:text-right">3 phases / 1 challenge</p>
           </div>
           <div className="mt-2">
+            {/* The phases used to dim to 62% until 55% of each block was in
+                view. That is below the AA floor for the body copy inside it
+                (2.96:1), so the dimming is gone — the numerals and rules still
+                carry the hierarchy. */}
             {phases.map((phase, index) => (
               <motion.article
                 key={phase.number}
-                initial={reduceMotion ? false : { opacity: 0.62 }}
-                whileInView={{ opacity: 1 }}
-                viewport={{ once: false, amount: 0.55 }}
-                transition={{ duration: reduceMotion ? 0 : 0.45 }}
                 className="grid min-h-[48svh] gap-7 border-b border-white/13 py-12 last:border-b-0 sm:grid-cols-[120px_1fr] sm:py-16 lg:grid-cols-12 lg:items-center"
               >
-                <p className="text-[clamp(4rem,8vw,8rem)] font-black leading-none tracking-[-0.08em] text-white/16 sm:col-span-1 lg:col-span-3">{phase.number}</p>
+                <p className="text-[clamp(4rem,8vw,8rem)] font-black leading-none tracking-[-0.08em] text-white/50 sm:col-span-1 lg:col-span-3">{phase.number}</p>
                 <div className={`max-w-4xl sm:col-start-2 lg:col-span-8 lg:col-start-5 ${index === 1 ? "lg:translate-x-[5%]" : ""}`}>
                   <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#8ce0d8]">{phase.verb}</p>
                   <h3 className="mt-4 text-[clamp(2.1rem,4.8vw,5rem)] font-semibold leading-[0.92] tracking-[-0.055em]">{phase.title}</h3>
-                  <p className="mt-6 max-w-2xl text-sm leading-7 text-white/55 sm:text-base">{phase.body}</p>
+                  <p className="mt-6 max-w-2xl text-sm leading-7 text-white/75 sm:text-base">{phase.body}</p>
                 </div>
               </motion.article>
             ))}
@@ -824,7 +820,7 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
         <div className="mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12">
           <div className="grid gap-8 lg:grid-cols-12">
             <div className="lg:col-span-7">
-              <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#319b9a]">Challenge area / SDG 11</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#1f6f6e]">Challenge area / SDG 11</p>
               <MaskedHeading className="mt-4">
                 <h2 className="text-[clamp(3rem,7vw,7rem)] font-semibold leading-[0.86] tracking-[-0.07em]">The city was the brief.</h2>
               </MaskedHeading>
@@ -839,7 +835,7 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
             {challengeThemes.map((theme, index) => (
               <Reveal key={theme} className="group flex min-h-24 items-end justify-between gap-3 border-b border-r border-black/15 p-4 transition-colors hover:bg-white/45 sm:min-h-28 sm:p-5">
                 <span className="max-w-[15rem] text-sm font-semibold leading-tight tracking-[-0.025em] sm:text-base">{theme}</span>
-                <span className="text-[10px] font-bold tabular-nums text-black/28">{String(index + 1).padStart(2, "0")}</span>
+                <span className="text-[10px] font-bold tabular-nums text-black/58">{String(index + 1).padStart(2, "0")}</span>
               </Reveal>
             ))}
           </div>
@@ -855,14 +851,14 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
                 <h2 className="text-[clamp(3rem,7vw,7rem)] font-semibold leading-[0.86] tracking-[-0.07em]">Three ideas rose to the top.</h2>
               </MaskedHeading>
             </div>
-            <p className="max-w-sm text-sm leading-6 text-black/52 lg:col-span-4 lg:ml-auto">Selected for the strength of the idea and the way it was developed and presented through SustainX.</p>
+            <p className="max-w-sm text-sm leading-6 text-black/58 lg:col-span-4 lg:ml-auto">Selected for the strength of the idea and the way it was developed and presented through SustainX.</p>
           </div>
           <div className="mt-4">
             {winners.map((winner) => (
               <Reveal key={winner.place} className="grid gap-5 border-b border-black/12 py-9 sm:grid-cols-[90px_1fr] sm:gap-8 sm:py-12 lg:grid-cols-[130px_1fr_1fr] lg:items-start">
                 <p className="text-5xl font-black tracking-[-0.07em] text-[#6558c9] sm:text-6xl">{winner.place}</p>
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#319b9a]">Team</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#1f6f6e]">Team</p>
                   <h3 className="mt-2 text-3xl font-black tracking-[-0.055em] sm:text-5xl">{winner.team}</h3>
                   <p className="mt-3 text-lg font-semibold tracking-[-0.025em] text-black/66">{winner.title}</p>
                 </div>
@@ -887,7 +883,7 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
           <div className="mt-12 grid grid-cols-2 border-l border-t border-black/16 lg:grid-cols-4">
             {teams.map((team, index) => (
               <Reveal key={team} className="flex min-h-24 flex-col justify-between gap-3 border-b border-r border-black/16 p-4 sm:min-h-32 sm:p-5">
-                <span className="text-[10px] font-bold tabular-nums tracking-[0.18em] text-black/34">{String(index + 1).padStart(2, "0")}</span>
+                <span className="text-[10px] font-bold tabular-nums tracking-[0.18em] text-black/58">{String(index + 1).padStart(2, "0")}</span>
                 <span className="break-words text-sm font-black leading-tight tracking-[-0.035em] sm:text-lg">{team}</span>
               </Reveal>
             ))}
@@ -898,7 +894,7 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
       <section className="border-b border-black/10 py-20 sm:py-28">
         <div className="mx-auto grid max-w-[1440px] gap-12 px-5 sm:px-8 lg:grid-cols-12 lg:px-12">
           <div className="lg:col-span-5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#319b9a]">How ideas were evaluated</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#1f6f6e]">How ideas were evaluated</p>
             <MaskedHeading className="mt-4">
               <h2 className="text-4xl font-semibold leading-[0.96] tracking-[-0.055em] sm:text-6xl">The pitch was only part of the score.</h2>
             </MaskedHeading>
@@ -913,7 +909,7 @@ export default function SustainXEventStory({ event, canonicalUrl, schemaJson }: 
                 </div>
               ))}
             </div>
-            <p className="mt-3 text-right text-[10px] font-bold uppercase tracking-[0.2em] text-black/34">100 points total</p>
+            <p className="mt-3 text-right text-[10px] font-bold uppercase tracking-[0.2em] text-black/58">100 points total</p>
           </Reveal>
         </div>
       </section>

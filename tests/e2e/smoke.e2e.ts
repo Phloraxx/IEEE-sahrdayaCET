@@ -34,8 +34,10 @@ test.describe('Public pages smoke', () => {
     }).first()
     await expect(cardPortfolio).toBeVisible()
 
+    // The card content is the accessible name (no aria-label override), so the
+    // member name alone is enough to target it.
     const member = page.getByRole('button', {
-      name: 'View details for Portfolio Smoke Member',
+      name: /Portfolio Smoke Member/,
     }).first()
     await member.click()
 

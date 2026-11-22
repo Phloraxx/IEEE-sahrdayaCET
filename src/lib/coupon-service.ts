@@ -1,8 +1,8 @@
-import type PocketBase from "pocketbase";
+import type { AppClient } from "@/lib/pb-client";
 
 /** Atomically reconciles the coupon set for one event through PocketBase. */
 export async function reconcileCoupons(
-  pb: PocketBase,
+  pb: AppClient,
   eventId: string,
   incoming: Array<{
     id?: string;

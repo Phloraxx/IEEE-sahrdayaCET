@@ -15,20 +15,28 @@ export interface DataHealthReport {
   issues: DataHealthIssue[];
   checkedAt: string;
   counts: {
+    users: number;
     events: number;
     registrations: number;
-    coupons: number;
-    notifications: number;
-    payments: number;
-    refunds: number;
-    webhooks: number;
+    societies: number;
+    organizationAssignments: number;
+    paymentAttempts: number;
+    auditLogEntries: number;
   };
+  integrity: string;
+  foreignKeyViolations: number;
+  paidWithoutTicket: number;
 }
 
+/**
+ * `GET /api/admin/data-health`.
+ *
+ * There is deliberately no client-side role check. The session cookie is
+ * HttpOnly, so `pb.authStore.record` is always null and a `role !== "admin"`
+ * guard throws for everyone — including admins. The server already enforces
+ * `reports.view` and answers 403, so the pre-check cannot work and is not needed.
+ */
 export async function getAdminDataHealth(): Promise<DataHealthReport> {
   const pb = getPbClient();
-  const role = String(pb.authStore.record?.role || "");
-  if (role !== "admin") throw new Error("Administrator access required");
-
   return pb.send("/api/admin/data-health", { method: "GET" }) as Promise<DataHealthReport>;
 }

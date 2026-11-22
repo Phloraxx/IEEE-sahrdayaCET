@@ -79,7 +79,7 @@ export function AdminSidebar({ open, onClose, userRole, userEmail, workspace, th
       <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4 vh-safe-top">
         <Link to="/" onClick={onClose} className="inline-flex items-center gap-2.5" aria-label="IEEE Sahrdaya home">
           <img src="/emblem.png" alt="" aria-hidden="true" className="h-7 w-7 shrink-0 object-contain" />
-          <div className="leading-tight"><div className="text-[13px] font-semibold">IEEE Sahrdaya</div><div className="text-[10px] text-sidebar-foreground/45">Workspace</div></div>
+          <div className="leading-tight"><div className="text-[13px] font-semibold">IEEE Sahrdaya</div><div className="text-[10px] text-sidebar-foreground/55">Workspace</div></div>
         </Link>
         <button type="button" className="vh-touch flex h-9 w-9 items-center justify-center rounded-md text-sidebar-foreground/60 hover:bg-sidebar-accent lg:hidden" onClick={onClose} aria-label="Close sidebar"><X className="h-4 w-4" /></button>
       </div>
@@ -90,7 +90,7 @@ export function AdminSidebar({ open, onClose, userRole, userEmail, workspace, th
             const items = group.items.filter((item) => visible(item, workspace, userRole));
             if (!items.length) return null;
             return <section key={group.label}>
-              <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-sidebar-foreground/35">{group.label}</p>
+              <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-sidebar-foreground/55">{group.label}</p>
               <ul className="space-y-0.5">{items.map((item) => {
                 const Icon = item.icon;
                 const href = item.href.replace(/\/$/, "");
@@ -100,7 +100,7 @@ export function AdminSidebar({ open, onClose, userRole, userEmail, workspace, th
                   "group flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
                   active ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/65 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
                 )}>
-                  <Icon className={cn("h-4 w-4 shrink-0", active ? "text-primary" : "text-sidebar-foreground/40 group-hover:text-sidebar-foreground/70")} />
+                  <Icon className={cn("h-4 w-4 shrink-0", active ? "text-primary" : "text-sidebar-foreground/55 group-hover:text-sidebar-foreground/80")} />
                   <span className="flex-1 truncate">{item.label}</span>{active && <ChevronRight className="h-3 w-3 text-primary" />}
                 </Link></li>;
               })}</ul>
@@ -111,7 +111,7 @@ export function AdminSidebar({ open, onClose, userRole, userEmail, workspace, th
 
       <div className="border-t border-sidebar-border p-3">
         <div className="mb-2 flex items-center gap-3 px-3 py-2">
-          <div className="min-w-0 flex-1"><div className="truncate text-xs font-medium">{workspaceTitle(workspace, userRole)}</div>{userEmail && <div className="truncate text-[11px] text-sidebar-foreground/45">{userEmail}</div>}</div>
+          <div className="min-w-0 flex-1"><div className="truncate text-xs font-medium">{workspaceTitle(workspace, userRole)}</div>{userEmail && <div className="truncate text-[11px] text-sidebar-foreground/55">{userEmail}</div>}</div>
           <button type="button" onClick={onThemeToggle} className="vh-touch flex h-8 w-8 items-center justify-center rounded-md text-sidebar-foreground/50 hover:bg-sidebar-accent" aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}>{theme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}</button>
         </div>
         <button type="button" onClick={signOut} className="group flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground/55 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"><LogOut className="h-4 w-4" />Sign out</button>

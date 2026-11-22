@@ -4,6 +4,14 @@ import { cn } from "@/lib/utils";
 
 interface ConfirmButtonProps {
   label: string;
+  /**
+   * Accessible name for the icon-only form.
+   *
+   * An icon is not an accessible name: `label=""` with only an `icon` renders a
+   * button that axe reports as `button-name` (critical), and a screen reader
+   * announces nothing. Required whenever `label` is empty.
+   */
+  ariaLabel?: string;
   confirmMessage?: string;
   onConfirm?: () => boolean | undefined;
   variant?: "outline" | "destructive";
@@ -14,6 +22,7 @@ interface ConfirmButtonProps {
 
 export function ConfirmButton({
   label,
+  ariaLabel,
   confirmMessage = "Are you sure?",
   onConfirm,
   variant = "outline",
@@ -94,6 +103,10 @@ export function ConfirmButton({
     );
   }
 
+  // `label` wins when present: it is visible text and matches the accessible
+  // name, which keeps `label-content-name-mismatch` satisfied.
+  const accessibleName = label || ariaLabel;
+
   return (
     <button
       type="button"
@@ -105,6 +118,8 @@ export function ConfirmButton({
       )}
       disabled={disabled}
       onClick={handleInitialClick}
+      aria-label={label ? undefined : ariaLabel}
+      title={accessibleName || undefined}
     >
       {icon}
       {label}

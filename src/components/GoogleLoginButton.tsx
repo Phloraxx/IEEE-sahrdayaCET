@@ -13,20 +13,19 @@ export default function GoogleLoginButton({
     onLogin,
 }: GoogleLoginButtonProps) {
     const [isLoading, setIsLoading] = useState(false);
-    const { signIn } = useAuth();
+    const { signIn, signInError } = useAuth();
 
     const handleClick = () => {
         setIsLoading(true);
-        if (onLogin) onLogin();
-        else signIn();
-        // The popup flow owns completion; reset shortly so a blocked popup is recoverable.
-        window.setTimeout(() => setIsLoading(false), 1500);
+        if (onLogin) { onLogin(); setIsLoading(false); }
+        else void signIn().finally(() => setIsLoading(false));
     };
 
     const baseClasses = variant === 'full-width' ? 'w-full' : '';
     const buttonClasses = `${baseClasses} ${className}`.trim();
 
     return (
+        <>
         <button
             onClick={handleClick}
             disabled={isLoading}
@@ -61,5 +60,7 @@ export default function GoogleLoginButton({
                 </>
             )}
         </button>
+        {signInError && <p role="alert" className="mt-3 text-sm leading-6 text-rose-700">{signInError}</p>}
+        </>
     );
 }

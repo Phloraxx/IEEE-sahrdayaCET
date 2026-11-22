@@ -43,7 +43,8 @@ test.describe("validated authentication state", () => {
     await page.goto("/pricing");
     await expect(page.getByRole("button", { name: "SIGN IN" })).toBeVisible();
     await expect(page.getByText("Cached User", { exact: true })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "My Events" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Open account menu" })).toHaveCount(0);
+    await expect(page.getByRole("menuitem", { name: "My Events" })).toHaveCount(0);
     expect(workspaceRequests).toBe(0);
   });
 
@@ -71,11 +72,11 @@ test.describe("validated authentication state", () => {
     );
 
     await page.goto("/pricing");
-    await expect(page.getByRole("button", { name: "Cached" })).toBeVisible();
-    await page.getByRole("button", { name: "Cached" }).click();
+    await expect(page.getByRole("button", { name: "Open account menu" })).toBeVisible();
+    await page.getByRole("button", { name: "Open account menu" }).click();
     await expect(page.getByText("Cached User", { exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "My Events" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "IEEE Workspace" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "My Events" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "IEEE Workspace" })).toBeVisible();
     await expect(page.getByRole("button", { name: "SIGN IN" })).toHaveCount(0);
   });
 

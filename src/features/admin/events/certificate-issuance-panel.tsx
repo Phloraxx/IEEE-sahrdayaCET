@@ -40,7 +40,7 @@ const AUDIENCE_OPTIONS: Array<{
 }> = [
   { value: "checked_in", title: "Checked in", description: "Issue only to registrations with recorded event check-in." },
   { value: "confirmed", title: "Confirmed", description: "Issue to all currently confirmed registrations." },
-  { value: "selected", title: "Selected", description: "Choose the exact registrations yourself." },
+  { value: "selected", title: "Selected", description: "Choose exact registrations or event volunteers." },
   { value: "attendance_qualified", title: "Attendance qualified", description: "Confirmed attendees present at every required certificate session." },
 ];
 
@@ -56,7 +56,8 @@ function exclusionLabel(reason: string) {
   if (reason === "cancelled") return "Registration cancelled";
   if (reason === "missing_name") return "Missing participant name";
   if (reason === "already_issued") return "Already has an active credential";
-  if (reason === "not_found") return "Registration no longer exists";
+  if (reason === "not_found") return "No longer exists";
+  if (reason === "inactive") return "Volunteer is no longer active";
   return reason.replaceAll("_", " ");
 }
 function StageRail({ stage }: { stage: Stage }) {
@@ -103,6 +104,7 @@ export function CertificateIssuancePanel({
   const [stage, setStage] = useState<Stage>("recipients");
   const [templateId, setTemplateId] = useState("");
   const [audienceType, setAudienceType] = useState<CertificateAudienceType>("checked_in");
+  const [source, setSource] = useState<"registrations" | "volunteers">("registrations");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [preview, setPreview] = useState<CertificateAudiencePreview | null>(null);
@@ -122,14 +124,35 @@ export function CertificateIssuancePanel({
     queryFn: () => listCertificateCandidates(eventId),
     enabled: canIssue && audienceType === "selected",
   });
-  const candidates = useMemo(() => candidatesQuery.data?.candidates ?? [], [candidatesQuery.data?.candidates]);
+  const candidates = useMemo(() => {
+    if (source === "volunteers") {
+      return (candidatesQuery.data?.volunteers ?? []).map((volunteer) => ({
+        id: volunteer.id,
+        name: volunteer.name,
+        email: volunteer.email,
+        kind: "volunteer" as const,
+        role: volunteer.role,
+        active: volunteer.active,
+      }));
+    }
+    return (candidatesQuery.data?.candidates ?? []).map((candidate) => ({
+      id: candidate.id,
+      name: candidate.name,
+      email: candidate.email,
+      kind: "registration" as const,
+      registrationStatus: candidate.registrationStatus,
+      checkedIn: candidate.checkedIn,
+    }));
+  }, [candidatesQuery.data?.candidates, candidatesQuery.data?.volunteers, source]);
   const filteredCandidates = useMemo(() => {
     const needle = search.trim().toLowerCase();
     if (!needle) return candidates;
     return candidates.filter((item) => `${item.name} ${item.email}`.toLowerCase().includes(needle));
   }, [candidates, search]);
   const audienceConfig = audienceType === "selected"
-    ? { registrationIds: [...selectedIds].sort() }
+    ? source === "volunteers"
+      ? { volunteerIds: [...selectedIds].sort() }
+      : { registrationIds: [...selectedIds].sort() }
     : {};
 
   const renderWarningsByRegistration = useMemo(() => {
@@ -288,8 +311,30 @@ export function CertificateIssuancePanel({
               <div className="rounded-2xl border border-border">
                 <div className="flex flex-col gap-3 border-b border-border p-4 md:flex-row md:items-center md:justify-between">
                   <div>
-                    <p className="text-sm font-semibold">Select registrations</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">Only certificate-relevant identity and registration state are exposed here.</p>
+                    <p className="text-sm font-semibold">{source === "volunteers" ? "Select volunteers" : "Select registrations"}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {source === "volunteers"
+                        ? "Event volunteers have no registration; their credentials are attributed to the volunteer row."
+                        : "Only certificate-relevant identity and registration state are exposed here."}
+                    </p>
+                    <div className="mt-3 inline-flex rounded-lg border border-border p-0.5">
+                      <button
+                        type="button"
+                        aria-pressed={source === "registrations"}
+                        className={`rounded-md px-3 py-1 text-xs font-medium ${source === "registrations" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                        onClick={() => { setSource("registrations"); setSelectedIds([]); }}
+                      >
+                        Registrations
+                      </button>
+                      <button
+                        type="button"
+                        aria-pressed={source === "volunteers"}
+                        className={`rounded-md px-3 py-1 text-xs font-medium ${source === "volunteers" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                        onClick={() => { setSource("volunteers"); setSelectedIds([]); }}
+                      >
+                        Volunteers
+                      </button>
+                    </div>
                   </div>
                   <div className="relative w-full md:w-72">
                     <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -297,7 +342,7 @@ export function CertificateIssuancePanel({
                   </div>
                 </div>
                 <div className="flex items-center justify-between border-b border-border bg-muted/10 px-4 py-2 text-xs text-muted-foreground">
-                  <span>{selectedIds.length} selected · {candidates.length} registrations</span>
+                  <span>{selectedIds.length} selected · {candidates.length} {source === "volunteers" ? "volunteers" : "registrations"}</span>
                   <button
                     type="button"
                     className="font-medium text-primary hover:underline"
@@ -312,9 +357,9 @@ export function CertificateIssuancePanel({
                 </div>
                 <div className="max-h-80 overflow-y-auto">
                   {candidatesQuery.isLoading ? (
-                    <div className="flex items-center gap-2 p-5 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Loading registrations…</div>
+                    <div className="flex items-center gap-2 p-5 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />{source === "volunteers" ? "Loading volunteers…" : "Loading registrations…"}</div>
                   ) : filteredCandidates.length === 0 ? (
-                    <p className="p-5 text-sm text-muted-foreground">No matching registrations.</p>
+                    <p className="p-5 text-sm text-muted-foreground">No matching {source === "volunteers" ? "volunteers" : "registrations"}.</p>
                   ) : filteredCandidates.map((candidate) => {
                     const checked = selectedIds.includes(candidate.id);
                     return (
@@ -326,12 +371,21 @@ export function CertificateIssuancePanel({
                           className="mt-1 h-4 w-4 rounded border-border accent-primary"
                         />
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-medium">{candidate.name || "Unnamed registration"}</span>
+                          <span className="block truncate text-sm font-medium">{candidate.name || (candidate.kind === "volunteer" ? "Unnamed volunteer" : "Unnamed registration")}</span>
                           <span className="mt-0.5 block truncate text-xs text-muted-foreground">{candidate.email || "No email address"}</span>
                         </span>
                         <span className="flex shrink-0 flex-col items-end gap-1">
-                          <Badge variant={candidate.registrationStatus === "confirmed" ? "secondary" : "outline"}>{candidate.registrationStatus || "unknown"}</Badge>
-                          {candidate.checkedIn && <span className="text-[10px] font-medium text-emerald-600">Checked in</span>}
+                          {candidate.kind === "volunteer" ? (
+                            <>
+                              <Badge variant={candidate.active ? "secondary" : "outline"}>{candidate.active ? "Active" : "Inactive"}</Badge>
+                              {candidate.role && <span className="text-[10px] text-muted-foreground">{candidate.role}</span>}
+                            </>
+                          ) : (
+                            <>
+                              <Badge variant={candidate.registrationStatus === "confirmed" ? "secondary" : "outline"}>{candidate.registrationStatus || "unknown"}</Badge>
+                              {candidate.checkedIn && <span className="text-[10px] font-medium text-emerald-600">Checked in</span>}
+                            </>
+                          )}
                         </span>
                       </label>
                     );

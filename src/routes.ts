@@ -2,11 +2,121 @@ import { index, route, type RouteConfig } from "@react-router/dev/routes";
 
 export default [
   route("healthz", "routes/healthz.ts"),
+  // Sign-in. These three modules existed but were never mounted, so every
+  // `requireUser` redirect to /auth/google answered 404 — sign-in was broken.
+  route("auth/google", "routes/auth.google.ts"),
+  route("auth/google/callback", "routes/auth.google.callback.ts"),
+  route("auth/logout", "routes/auth.logout.ts"),
+  // Public file serving from the uploads volume (replaces PocketBase's /api/files).
+  route("files/:collection/:recordId/:filename", "routes/files.$collection.$recordId.$filename.ts"),
+  // Admin form uploads: one image, one column, capability-checked.
+  route("api/uploads/:collection/:recordId/:field", "routes/api.uploads.$collection.$recordId.$field.ts"),
+  route("api/blogs/:id/authors", "routes/api.blogs.$id.authors.ts"),
+
+  // Registration command surface (phase 2). Replaces the PocketBase /api/app/*
+  // routes with app-server endpoints.
+  route("api/events/:id/register", "routes/api.events.$id.register.ts"),
+  route("api/events/:id/my-registration", "routes/api.events.$id.my-registration.ts"),
+  route("api/events/:id/pricing-preview", "routes/api.events.$id.pricing-preview.ts"),
+  route("api/registrations/:id/cancel", "routes/api.registrations.$id.cancel.ts"),
+  route("api/my-events", "routes/api.my-events.ts"),
+  route("api/registration-memory", "routes/api.registration-memory.ts"),
+  route("api/registrations/:id/payment", "routes/api.registrations.$id.payment.ts"),
+  route("api/registrations/:id/payment/reconcile", "routes/api.registrations.$id.payment.reconcile.ts"),
+  // Attendee surfaces the browser already called but the port had not grown.
+  route("api/tickets/lookup", "routes/api.tickets.lookup.ts"),
+  route("api/events/:id/join-details", "routes/api.events.$id.join-details.ts"),
+  route("api/events/:id/private-details", "routes/api.events.$id.private-details.ts"),
+  route("api/events/:id/coupons", "routes/api.events.$id.coupons.ts"),
+  route("api/events/:id/waitlist", "routes/api.events.$id.waitlist.ts"),
+  route("api/events/:id/waitlist/join", "routes/api.events.$id.waitlist.join.ts"),
+  route("api/events/:id/waitlist/leave", "routes/api.events.$id.waitlist.leave.ts"),
+  route("api/webhooks/paygate", "routes/api.webhooks.paygate.ts"),
+
+  // Generic collection surface (phase 4). Replaces the browser's direct
+  // PocketBase collection access; policy-gated and filter-allow-listed.
+  route("api/collections/:name", "routes/api.collections.$name.ts"),
+  route("api/collections/:name/:id", "routes/api.collections.$name.$id.ts"),
+
+  // Workspace surface (phase 4). Same authorization calls the PocketBase hooks
+  // made, so the rules did not drift.
+  route("api/session", "routes/api.session.ts"),
+  route("api/workspace/me", "routes/api.workspace.me.ts"),
+  route("api/workspace/assignments", "routes/api.workspace.assignments.ts"),
+  route("api/workspace/assignments/:id", "routes/api.workspace.assignments.$id.ts"),
+  route("api/workspace/users/search", "routes/api.workspace.users.search.ts"),
+  route("api/workspace/profile", "routes/api.workspace.profile.ts"),
+  route("api/workspace/events/:id/workflow", "routes/api.workspace.events.$id.workflow.ts"),
+  route("api/workspace/check-in", "routes/api.workspace.check-in.ts"),
+
+  // Admin surface (phase 4). Branch capabilities see every event; a scoped actor
+  // sees only the events where they hold the capability.
+  route("api/admin/registrations", "routes/api.admin.registrations.ts"),
+  route("api/admin/registrations/:id", "routes/api.admin.registrations.$id.ts"),
+  route("api/admin/payments", "routes/api.admin.payments.ts"),
+  route("api/admin/payments/summary", "routes/api.admin.payments.summary.ts"),
+  route("api/admin/data-health", "routes/api.admin.data-health.ts"),
+  // The branch user directory. `/api/collections/users` is a self policy and
+  // cannot back the admin list, so this is its own admin-only route.
+  route("api/admin/users", "routes/api.admin.users.ts"),
+  route("api/admin/events/:id/archive", "routes/api.admin.events.$id.archive.ts"),
+  route("api/admin/events/:id/cancel", "routes/api.admin.events.$id.cancel.ts"),
+  route("api/admin/events/:id/recompute", "routes/api.admin.events.$id.recompute.ts"),
+  route("api/admin/events/:id/operations", "routes/api.admin.events.$id.operations.ts"),
+  route("api/admin/events/:id/registrations/manual", "routes/api.admin.events.$id.registrations.manual.ts"),
+  route("api/admin/registrations/:id/command", "routes/api.admin.registrations.$id.command.ts"),
+  route("api/admin/registrations/:id/notifications", "routes/api.admin.registrations.$id.notifications.ts"),
+  route(
+    "api/admin/registrations/:id/notifications/:kind/resend",
+    "routes/api.admin.registrations.$id.notifications.$kind.resend.ts",
+  ),
+  route("api/admin/cancellation-requests/:id/decision", "routes/api.admin.cancellation-requests.$id.decision.ts"),
+  route("api/admin/users/:id/role", "routes/api.admin.users.$id.role.ts"),
+
+  // Attendance V2 (phase 5). Append-only records; state is derived from history.
+  route("api/events/:id/attendance/sessions", "routes/api.events.$id.attendance.sessions.ts"),
+  route("api/events/:id/attendance/qualification/lock", "routes/api.events.$id.attendance.qualification.lock.ts"),
+  route("api/events/:id/attendance/qualification/reopen", "routes/api.events.$id.attendance.qualification.reopen.ts"),
+  route("api/event-sessions/:id", "routes/api.event-sessions.$id.ts"),
+  route("api/workspace/attendance/context", "routes/api.workspace.attendance.context.ts"),
+  route("api/workspace/attendance/sessions/:id/state", "routes/api.workspace.attendance.sessions.$id.state.ts"),
+  route("api/workspace/attendance/check-in", "routes/api.workspace.attendance.check-in.ts"),
+  route("api/workspace/attendance/correct", "routes/api.workspace.attendance.correct.ts"),
+
+  // Certificates (phase 6). The asset route is the only way to read template
+  // artwork, and it is capability-gated with the filename pinned to the row.
+  route("api/events/:eventId/certificate-templates", "routes/api.events.$eventId.certificate-templates.ts"),
+  route("api/certificate-templates/:id", "routes/api.certificate-templates.$id.ts"),
+  route("api/certificate-templates/:id/assets/:field/:filename", "routes/api.certificate-templates.$id.assets.$field.$filename.ts"),
+  route("api/certificate-templates/:id/publish", "routes/api.certificate-templates.$id.publish.ts"),
+  route("api/certificate-templates/:id/archive", "routes/api.certificate-templates.$id.archive.ts"),
+  route("api/certificate-templates/:id/new-version", "routes/api.certificate-templates.$id.new-version.ts"),
+  route("api/certificate-templates/:id/test-email", "routes/api.certificate-templates.$id.test-email.ts"),
+  route("api/events/:eventId/certificates/candidates", "routes/api.events.$eventId.certificates.candidates.ts"),
+  route("api/events/:eventId/certificates/audience/preview", "routes/api.events.$eventId.certificates.audience.preview.ts"),
+  route("api/events/:eventId/certificates/issue", "routes/api.events.$eventId.certificates.issue.ts"),
+  route("api/events/:eventId/certificates/:certificateId/revoke", "routes/api.events.$eventId.certificates.$certificateId.revoke.ts"),
+  route("api/events/:eventId/certificates/:certificateId/supersede", "routes/api.events.$eventId.certificates.$certificateId.supersede.ts"),
+  route("api/events/:eventId/certificate-batches", "routes/api.events.$eventId.certificate-batches.ts"),
+  route("api/events/:eventId/certificate-batches/:batchId/delivery", "routes/api.events.$eventId.certificate-batches.$batchId.delivery.ts"),
+  route("api/events/:eventId/certificate-batches/:batchId/send", "routes/api.events.$eventId.certificate-batches.$batchId.send.ts"),
+  route("api/events/:eventId/certificate-batches/:batchId/retry-failed", "routes/api.events.$eventId.certificate-batches.$batchId.retry-failed.ts"),
+  route("api/events/:eventId/certificate-mail/readiness", "routes/api.events.$eventId.certificate-mail.readiness.ts"),
+  route("api/certificates/registry", "routes/api.certificates.registry.ts"),
+  route("api/certificates/verify/:token", "routes/api.certificates.verify.$token.ts"),
+  route("api/certificates/verify-id/:credentialId", "routes/api.certificates.verify-id.$credentialId.ts"),
+  route("api/certificates/render/:token/manifest", "routes/api.certificates.render.$token.manifest.ts"),
+  route("api/certificates/render/:token/render-base", "routes/api.certificates.render.$token.render-base.ts"),
   route("_", "routes/oauth-popup-result.tsx"),
   route("robots.txt", "routes/robots.ts"),
   route("sitemap.xml", "routes/sitemap.ts"),
   index("routes/index.tsx"),
   route("events", "routes/events.tsx"),
+  route("infinia", "routes/infinia.tsx"),
+  route("infinia/:year", "routes/infinia.$year.tsx"),
+  route("flagships", "routes/flagships.tsx"),
+  route("flagships/:slug/:year", "routes/flagships.$slug.$year.tsx"),
+  route("flagships/:slug", "routes/flagships.$slug.tsx"),
   route("events/:slug/calendar.ics", "routes/events.$slug.calendar.ts"),
   route("events/:slug", "routes/events.$slug.tsx"),
   route("my-events", "routes/my-events.tsx"),

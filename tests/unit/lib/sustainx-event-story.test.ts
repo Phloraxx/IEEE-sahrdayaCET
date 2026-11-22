@@ -33,28 +33,28 @@ describe("SustainX event story", () => {
     expect(page).toContain("/media/sustainx/sustainx-hero-loop.mp4");
     expect(page).toContain("/media/sustainx/sustainx-01.webp");
     expect(page).toContain("/media/sustainx/sustainx-07.webp");
-    expect(page).toContain("/media/sustainx/sustainx-campaign-teaser.webp");
+    expect(page).toContain("/media/sustainx/sustainx-live-01.webp");
     expect(page).toContain(
-      "/media/sustainx/sustainx-campaign-registration.webp",
+      "/media/sustainx/sustainx-live-02.webp",
     );
-    expect(page).toContain("/media/sustainx/sustainx-campaign-overview.webp");
-    expect(page).toContain("Registration · 27 Jun — 07 Jul");
-    expect(page).toContain("How SustainX was introduced.");
+    expect(page).toContain("/media/sustainx/sustainx-live-03.webp");
+    expect(page).toContain("The kickoff");
+    expect(page).toContain("SustainX, as it happened.");
     expect(page).toContain("The event,<br />not the poster.");
     expect(page).not.toContain("drive.google.com");
   });
 
-  it("places the campaign sequence between the retrospective intro and event gallery", () => {
+  it("places the live photo sequence between the retrospective intro and event gallery", () => {
     const page = read("src/components/events/SustainXEventStory.tsx");
     const intro = page.indexOf("What SustainX became");
-    const campaign = page.indexOf("<CampaignPosters />");
+    const photos = page.indexOf("<LivePhotos />");
     const gallery = page.indexOf("<EventGallery />");
     expect(intro).toBeGreaterThan(-1);
-    expect(campaign).toBeGreaterThan(intro);
-    expect(gallery).toBeGreaterThan(campaign);
-    expect(page).toContain("Swipe the posters →");
-    expect(page).toContain('className="h-full w-full object-contain"');
-    expect(page).toContain('aria-label="SustainX campaign poster viewer"');
+    expect(photos).toBeGreaterThan(intro);
+    expect(gallery).toBeGreaterThan(photos);
+    expect(page).toContain("Swipe the photos →");
+    expect(page).toContain('className="h-full w-full object-cover"');
+    expect(page).toContain('aria-label="SustainX event photo viewer"');
   });
 
   it("keeps motion progressive and reduced-motion aware", () => {

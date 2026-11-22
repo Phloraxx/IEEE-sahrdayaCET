@@ -1,23 +1,14 @@
 import React from 'react';
-import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
-import { formatDateCompact } from '@/lib/dates';
-import type { HomeEventSummary } from '@/server/public/home.server';
+import { motion, useReducedMotion } from 'framer-motion';
 
-interface HeroProps {
-    nextEvent?: HomeEventSummary;
-    upcomingCount?: number;
-    societyCount?: number;
-}
-
-export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societyCount = 0 }) => {
+/* Identity hero: pixel wordmark straight on the starfield (no card), with the
+   original staggered reveal. The reveal is decorative only - under reduced
+   motion everything renders in its final state, and the section grows
+   instead of clipping when the viewport is shorter than the card.
+   Scroll-linked parallax stays out so the section honours reduced-motion
+   architecture rules. */
+export const Hero: React.FC = () => {
     const reduceMotion = Boolean(useReducedMotion());
-    const { scrollY } = useScroll();
-
-    // Scroll Transformations
-    // Animation starts after scrolling 300px, closer to when content overlaps
-    const scale = useTransform(scrollY, [300, 800], [1, 1.3]);
-    const opacity = useTransform(scrollY, [500, 800], [1, 0]);
-    const y = useTransform(scrollY, [300, 800], [0, -100]);
 
     const textVariants = {
         hidden: { y: 50, opacity: 0 },
@@ -33,13 +24,9 @@ export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societ
     };
 
     return (
-        <section className="relative h-dvh flex flex-col items-center justify-center z-20 px-4 overflow-hidden">
-            <motion.div
-                style={reduceMotion ? undefined : { scale, opacity, y }}
-                className="w-full h-full flex flex-col items-center justify-center relative"
-            >
-
-                <div className="text-center transform translate-y-[-10%]">
+        <section className="relative min-h-dvh flex flex-col items-center justify-center z-20 px-4 py-20 sm:py-24 overflow-hidden">
+            <div className="w-full h-full flex flex-col items-center justify-center relative">
+                <div className="text-center transform translate-y-[-10%]" data-testid="hero-identity">
                     {/* Main Title Group */}
                     <div className="flex flex-col items-center justify-center gap-2 md:gap-4 mb-8">
                         <motion.h1
@@ -79,7 +66,7 @@ export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societ
                                     key={word}
                                     initial={reduceMotion ? false : { opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: reduceMotion ? 0 : 2.2 + i * 0.3, duration: reduceMotion ? 0 : undefined }}
+                                    transition={{ delay: reduceMotion ? 0 : 2.2 + i * 0.3 }}
                                 >
                                     {word}.
                                 </motion.span>
@@ -89,27 +76,7 @@ export const Hero: React.FC<HeroProps> = ({ nextEvent, upcomingCount = 0, societ
                         <div className="h-px bg-gray-400 w-12 md:w-32 hidden sm:block" />
                     </motion.div>
                 </div>
-
-                <motion.div
-                    initial={reduceMotion ? false : { opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: reduceMotion ? 0 : 2.8, duration: reduceMotion ? 0 : 0.8 }}
-                    className="absolute bottom-14 left-4 right-4 mx-auto grid max-w-5xl grid-cols-3 border-y border-gray-200/80 bg-white/55 backdrop-blur-[2px]"
-                >
-                    <div className="px-3 py-3 sm:px-5">
-                        <p className="font-mono text-[7px] font-semibold uppercase tracking-[0.16em] text-gray-400 sm:text-[8px]">Next</p>
-                        <p className="mt-1 truncate text-[10px] font-semibold text-gray-700 sm:text-xs">{nextEvent ? <><span className="sm:hidden">{formatDateCompact(nextEvent.date)}</span><span className="hidden sm:inline">{formatDateCompact(nextEvent.date)} · {nextEvent.title}</span></> : "Programme updating"}</p>
-                    </div>
-                    <div className="border-x border-gray-200/80 px-3 py-3 text-center sm:px-5">
-                        <p className="font-mono text-[7px] font-semibold uppercase tracking-[0.16em] text-gray-400 sm:text-[8px]">Upcoming</p>
-                        <p className="mt-1 font-pixel text-[11px] text-ieee-blue sm:text-sm">{String(upcomingCount).padStart(2, "0")}</p>
-                    </div>
-                    <div className="px-3 py-3 text-right sm:px-5">
-                        <p className="font-mono text-[7px] font-semibold uppercase tracking-[0.16em] text-gray-400 sm:text-[8px]">Communities</p>
-                        <p className="mt-1 font-pixel text-[11px] text-gray-800 sm:text-sm">{String(societyCount).padStart(2, "0")}</p>
-                    </div>
-                </motion.div>
-            </motion.div>
+            </div>
         </section>
     );
 };

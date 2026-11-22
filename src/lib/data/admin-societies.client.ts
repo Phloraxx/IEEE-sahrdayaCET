@@ -1,5 +1,6 @@
 import { getPbClient } from "@/lib/pb-client";
 import { buildFileUrl, escapeFilterValue } from "@/lib/pb";
+import { uploadFile } from "@/lib/data/upload.client";
 
 export async function listAdminSocieties(input: { search?: string; page?: number; perPage?: number; allowedIds?: string[] } = {}) {
   const pb = getPbClient();
@@ -45,17 +46,16 @@ export async function getAdminSociety(id: string) {
   };
 }
 
-function toBody(payload: Record<string, unknown>, files?: { logo?: File | null; banner?: File | null }) {
-  if (!files?.logo && !files?.banner) return payload;
-  const body = new FormData();
-  for (const [key, value] of Object.entries(payload)) {
-    if (value == null) continue;
-    if (Array.isArray(value)) for (const item of value) body.append(key, String(item));
-    else body.append(key, typeof value === "object" ? JSON.stringify(value) : String(value));
-  }
-  if (files.logo) body.append("logo", files.logo);
-  if (files.banner) body.append("banner", files.banner);
-  return body;
+/**
+ * The collections endpoint is JSON-only, so files are uploaded after the row is
+ * written — the same split the certificate template assets use.
+ */
+async function uploadSocietyFiles(
+  societyId: string,
+  files: { logo?: File | null; banner?: File | null },
+) {
+  if (files.logo) await uploadFile("societies", societyId, "logo", files.logo);
+  if (files.banner) await uploadFile("societies", societyId, "banner", files.banner);
 }
 
 export async function saveAdminSociety(input: {
@@ -77,10 +77,10 @@ export async function saveAdminSociety(input: {
       defaultWhatsappLink: input.payload.defaultWhatsappLink,
     };
   }
-  const body = toBody(payload, { logo: input.logo, banner: input.banner });
   const society = input.id
-    ? await pb.collection("societies").update(input.id, body)
-    : await pb.collection("societies").create(body);
+    ? await pb.collection("societies").update(input.id, payload)
+    : await pb.collection("societies").create(payload);
+  await uploadSocietyFiles(String(society.id), { logo: input.logo, banner: input.banner });
   return { society };
 }
 

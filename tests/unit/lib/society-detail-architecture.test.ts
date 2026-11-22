@@ -6,10 +6,14 @@ const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8"
 
 describe("generic society detail system", () => {
   it("keeps hidden societies and draft/deleted activity out of the public payload", () => {
+    // Phase 1: the PocketBase rules became SQL predicates in the repo layer.
+    const repo = read("src/server/public/repo.server.ts");
+    expect(repo).toContain("is_hidden = 0");
+    expect(repo).toContain("status IN ('published', 'completed')");
+    expect(repo).toContain("is_deleted = 0");
+    // And the society page must not reach PocketBase at all.
     const server = read("src/server/public/society-detail.server.ts");
-    expect(server).toContain("isHidden = false");
-    expect(server).toContain('(status = "published" || status = "completed")');
-    expect(server).toContain("isDeleted != true");
+    expect(server).not.toContain("createPublicPB");
   });
 
   it("uses the shared profile system without the fabricated advisor quote", () => {

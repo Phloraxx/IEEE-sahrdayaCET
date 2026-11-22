@@ -1,4 +1,4 @@
-import type PocketBase from 'pocketbase'
+import type { AppClient } from "@/lib/pb-client";
 import { getField } from './safe-get'
 import { formatDateShort } from './dates'
 import { registrationReportingSnapshot } from './registration-reporting'
@@ -70,7 +70,7 @@ function registrationQuery(
 }
 
 async function getProjectedRegistrationPage(
-  pb: PocketBase,
+  pb: AppClient,
   page: number,
   perPage: number,
   options: AdminRegistrationExportOptions = {},
@@ -99,7 +99,7 @@ function paymentProviderForExport(value: unknown, paymentStatus: unknown): strin
  * scope.
  */
 export async function streamRegistrationsCSV(
-  pb: PocketBase,
+  pb: AppClient,
   eventId: string,
   options?: { adminFormat?: boolean; financeAuthorized?: boolean; event?: EventLite },
 ): Promise<ReadableStream<Uint8Array>> {
@@ -214,7 +214,7 @@ export function csvFilename(eventTitle: string | undefined, eventId: string): st
 
 /** Cross-event admin registration ledger export. */
 export async function streamAdminRegistrationsCSV(
-  pb: PocketBase,
+  pb: AppClient,
   options: AdminRegistrationExportOptions = {},
 ): Promise<ReadableStream<Uint8Array>> {
   const encoder = new TextEncoder()
@@ -311,7 +311,7 @@ export async function streamAdminRegistrationsCSV(
 }
 
 /** Cross-event admin event catalogue export. */
-export async function streamAdminEventsCSV(pb: PocketBase): Promise<ReadableStream<Uint8Array>> {
+export async function streamAdminEventsCSV(pb: AppClient): Promise<ReadableStream<Uint8Array>> {
   const encoder = new TextEncoder()
   const headers = ['id', 'title', 'slug', 'society', 'date', 'end_date', 'venue', 'status', 'price', 'registration_open', 'max_capacity', 'registered_count', 'checked_in_count']
   const queue: string[] = [`${headers.join(',')}\n`]

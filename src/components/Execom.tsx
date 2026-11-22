@@ -1,92 +1,36 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Link } from "react-router";
-import { ArrowUpRight, Globe2, Mail, Phone } from "lucide-react";
-import { HomeSectionHeading } from "@/components/home/HomeSectionHeading";
+import { ArrowUpRight, Globe2, Users } from "lucide-react";
 import { Linkedin } from "@/components/icons";
+import type { ExecomMemberDoc } from "@/features/execom/ExecomClient";
+import { SpecChips } from "@/components/home/SpecChips";
 
-/* ── Member type ── */
+/* Restored original Execom carousel, with the current public directory as its source. */
 interface Member {
+  id: string;
   name: string;
   role: string;
   tagline: string;
   image: string;
   linkedin?: string;
   portfolio?: string;
-  email?: string;
-  phone?: string;
 }
-
-/* ── Hardcoded member list (matches main branch for max SEO) ── */
-const execomMembers: Member[] = [
-  {
-    name: "Anil Antony",
-    role: "Branch Counselor",
-    tagline: "GUIDING LIGHT",
-    image: "/Execom/anilantony.jpg",
-  },
-  {
-    name: "Sneha Prasanth",
-    role: "Chairperson",
-    tagline: "LEADING THE CHARGE",
-    image: "/Execom/sneha-prasanth/sneha-prasanth.jpg",
-  },
-  {
-    name: "Irene Anto",
-    role: "Vice Chairperson",
-    tagline: "VISION & STRATEGY",
-    image: "/Execom/irene-anto/Irene_anto.jpg",
-  },
-  {
-    name: "Ameenul Irfan",
-    role: "Secretary",
-    tagline: "KEEPING IT TOGETHER",
-    image: "/Execom/ameenul-irfan/Ameenul_irfan.jpg",
-  },
-  {
-    name: "Binu Ashik",
-    role: "Joint Secretary",
-    tagline: "BRIDGING THE GAP",
-    image: "/Execom/binu-ashik/Binu_ashik.jpg",
-  },
-  {
-    name: "Aaron Stanphen",
-    role: "Treasurer",
-    tagline: "NUMBERS & BEYOND",
-    image: "/Execom/aaron-stanphen/Aaron_stanphen.jpg",
-  },
-  {
-    name: "Sourav P Bijoy",
-    role: "Webmaster",
-    tagline: "DIGITAL ARCHITECT",
-    image: "/Execom/sourav-bijoy/SouravPBijoy.jpg",
-  },
-  {
-    name: "Akhila Thomas",
-    role: "MDC",
-    tagline: "MEMBERSHIP DRIV",
-    image: "/Execom/akhila-thomas/akhila-thomas.jpg",
-  },
-  {
-    name: "Alfin Joshi P",
-    role: "ECC",
-    tagline: "ELECTRONIC & COMM",
-    image: "/Execom/alfin_joshi.jpeg",
-  },
-  {
-    name: "Midhun P M",
-    role: "Technical Coordinator",
-    tagline: "TECH WIZARD",
-    image: "/Execom/midhun-pm/midhun-pm.jpg",
-    portfolio: "https://midhunpm.in",
-  },
-  {
-    name: "Angelina Victor",
-    role: "Link Rep",
-    tagline: "LINKING MINDS",
-    image: "/Execom/angelina-victor/angelina-victor.jpg",
-  },
-];
+const taglines: Record<string, string> = {
+  "branch counselor": "GUIDING LIGHT",
+  "branch counsellor": "GUIDING LIGHT",
+  "chairperson": "LEADING THE CHARGE",
+  "vice chairperson": "VISION & STRATEGY",
+  "vice chair": "VISION & STRATEGY",
+  "secretary": "KEEPING IT TOGETHER",
+  "joint secretary": "BRIDGING THE GAP",
+  "treasurer": "NUMBERS & BEYOND",
+  "webmaster": "DIGITAL ARCHITECT",
+  "mdc": "MEMBERSHIP DRIVE",
+  "ecc": "ELECTRONICS & COMM",
+  "technical coordinator": "TECH WIZARD",
+  "link rep": "LINKING MINDS"
+};
 
 /* ── Marquee Text ── */
 const MarqueeText: React.FC<{ text: string }> = ({ text }) => {
@@ -107,7 +51,7 @@ const MarqueeText: React.FC<{ text: string }> = ({ text }) => {
           },
         }}
       >
-        <span className="text-[10px] md:text-xs font-mono tracking-[0.3em] text-ieee-blue/60 uppercase">
+        <span className="text-[10px] md:text-xs font-mono tracking-[0.3em] text-ieee-blue uppercase">
           {displayText}
         </span>
       </motion.div>
@@ -116,9 +60,10 @@ const MarqueeText: React.FC<{ text: string }> = ({ text }) => {
 };
 
 /* ── Member Card ── */
-const MemberCard: React.FC<{ member: Member; index: number }> = ({
+const MemberCard: React.FC<{ member: Member; index: number; duplicate?: boolean }> = ({
   member,
   index,
+  duplicate = false,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [imgError, setImgError] = useState(false);
@@ -142,7 +87,7 @@ const MemberCard: React.FC<{ member: Member; index: number }> = ({
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
         <div className="relative w-full h-full">
-          {!imgError ? (
+          {member.image && !imgError ? (
             <img
               src={member.image}
               alt={member.name}
@@ -179,16 +124,13 @@ const MemberCard: React.FC<{ member: Member; index: number }> = ({
           transition={{ duration: reduceMotion ? 0 : 0.3 }}
         >
           <div className="flex gap-2">
-            <a
-              href={member.linkedin || "#"}
-              target={member.linkedin ? "_blank" : "_self"}
-              rel="noopener noreferrer"
-              onClick={(e) => !member.linkedin && e.preventDefault()}
-              aria-label="View on LinkedIn"
-              className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/40 transition-colors"
-            >
-              <Linkedin className="w-3.5 h-3.5 text-white" />
-            </a>
+            {member.linkedin && (
+              <a href={member.linkedin} target="_blank" rel="noopener noreferrer"
+                aria-label="LinkedIn profile"
+                className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/40 transition-colors">
+                <Linkedin className="w-3.5 h-3.5 text-white" />
+              </a>
+            )}
             {member.portfolio && (
               <a
                 href={member.portfolio}
@@ -200,23 +142,7 @@ const MemberCard: React.FC<{ member: Member; index: number }> = ({
                 <Globe2 className="w-3.5 h-3.5 text-white" />
               </a>
             )}
-            <a
-              href={member.email ? `mailto:${member.email}` : "#"}
-              onClick={(e) => !member.email && e.preventDefault()}
-              aria-label="Send email"
-              className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/40 transition-colors"
-            >
-              <Mail className="w-3.5 h-3.5 text-white" />
-            </a>
-            <a
-              href={member.phone ? `tel:${member.phone}` : "#"}
-              onClick={(e) => !member.phone && e.preventDefault()}
-              aria-label="Call"
-              className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/40 transition-colors"
-            >
-              <Phone className="w-3.5 h-3.5 text-white" />
-            </a>
-          </div>
+</div>
         </motion.div>
 
         <div className="absolute bottom-3 right-3 z-20 opacity-20 group-hover:opacity-0 transition-opacity">
@@ -226,9 +152,7 @@ const MemberCard: React.FC<{ member: Member; index: number }> = ({
         </div>
       </div>
 
-      <h4 className="font-sans font-bold text-lg md:text-xl text-gray-900 tracking-tight mb-0.5 group-hover:text-ieee-blue transition-colors duration-300">
-        {member.name}
-      </h4>
+      {duplicate ? <p className="font-sans font-bold text-lg md:text-xl text-gray-900 tracking-tight mb-0.5 group-hover:text-ieee-blue transition-colors duration-300">{member.name}</p> : <h3 className="font-sans font-bold text-lg md:text-xl text-gray-900 tracking-tight mb-0.5 group-hover:text-ieee-blue transition-colors duration-300">{member.name}</h3>}
 
       <div className="mt-1 overflow-hidden rounded-xs">
         <MarqueeText text={member.tagline} />
@@ -239,11 +163,35 @@ const MemberCard: React.FC<{ member: Member; index: number }> = ({
 
 /* ── Drag Carousel ── */
 const CARD_WIDTH = 270;
+const CARD_WIDTH_COMPACT = 200;
 const GAP = 30;
-const ITEM_SIZE = CARD_WIDTH + GAP;
+const GAP_COMPACT = 20;
+
+/**
+ * Cards are sized in JS because the drag/marquee loop needs the exact item
+ * footprint to wrap seamlessly. Phones get a smaller card so a 390px viewport
+ * shows ~1.8 members instead of 1.4.
+ */
+function useCardMetrics() {
+  const [compact, setCompact] = useState(false);
+
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 639px)");
+    const sync = () => setCompact(query.matches);
+    sync();
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
+  }, []);
+
+  return compact
+    ? { card: CARD_WIDTH_COMPACT, gap: GAP_COMPACT }
+    : { card: CARD_WIDTH, gap: GAP };
+}
 
 const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
   const reduceMotion = Boolean(useReducedMotion());
+  const { card: cardWidth, gap } = useCardMetrics();
+  const itemSize = cardWidth + gap;
   const trackRef = useRef<HTMLDivElement>(null);
   const offsetRef = useRef(0);
   const rafRef = useRef<number>(0);
@@ -263,7 +211,7 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
   const animate = useCallback(() => {
     if (reduceMotion || !trackRef.current) return;
 
-    if (!document.hidden) {
+    if (!document.hidden && isInView) {
       if (!physics.current.isDragging) {
         physics.current.velocity *= 0.98;
 
@@ -280,7 +228,7 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
 
       offsetRef.current += physics.current.velocity;
 
-      const contentWidth = ITEM_SIZE * members.length;
+      const contentWidth = itemSize * members.length;
       if (offsetRef.current <= -contentWidth) {
         offsetRef.current += contentWidth;
       }
@@ -292,7 +240,7 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
     }
 
     rafRef.current = requestAnimationFrame(animate);
-  }, [isInView, hasStartedScrolling, members.length, reduceMotion]);
+  }, [isInView, hasStartedScrolling, members.length, reduceMotion, itemSize]);
 
   useEffect(() => {
     if (reduceMotion) return;
@@ -376,10 +324,10 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
 
   if (reduceMotion) {
     return (
-      <div ref={sectionRef} data-home-execom-static className="w-full overflow-x-auto py-4 [scrollbar-width:thin]">
-        <div className="flex min-w-max" style={{ gap: `${GAP}px` }}>
+      <div ref={sectionRef} role="list" aria-label="Core executive committee" className="w-full overflow-x-auto py-4 [scrollbar-width:thin]">
+        <div className="flex min-w-max" style={{ gap: `${gap}px` }}>
           {members.map((member, index) => (
-            <div key={member.name} className="shrink-0" style={{ width: `${CARD_WIDTH}px` }}>
+            <div key={member.id} role="listitem" className="shrink-0" style={{ width: `${cardWidth}px` }}>
               <MemberCard member={member} index={index} />
             </div>
           ))}
@@ -389,7 +337,7 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
   }
 
   return (
-    <div ref={sectionRef} className="relative w-full select-none">
+    <div ref={sectionRef} role="list" aria-label="Core executive committee" className="relative w-full select-none">
       <div
         className="overflow-hidden cursor-grab active:cursor-grabbing py-4 touch-pan-y"
         onPointerDown={onPointerDown}
@@ -402,15 +350,18 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
           ref={trackRef}
           data-home-execom-track
           className="flex will-change-transform"
-          style={{ gap: `${GAP}px` }}
+          style={{ gap: `${gap}px` }}
         >
           {items.map((member, index) => (
             <div
-              key={`${member.name}-${index}`}
+              key={`${member.id}-${index}`}
+              role={index < members.length ? "listitem" : "presentation"}
+              aria-hidden={index >= members.length || undefined}
+              inert={index >= members.length}
               className="shrink-0 transition-transform duration-300 ease-out hover:-translate-y-2"
-              style={{ width: `${CARD_WIDTH}px` }}
+              style={{ width: `${cardWidth}px` }}
             >
-              <MemberCard member={member} index={index % members.length} />
+              <MemberCard member={member} index={index % members.length} duplicate={index >= members.length} />
             </div>
           ))}
         </div>
@@ -420,60 +371,107 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
 };
 
 /* ── Main Execom Section ── */
-export const Execom: React.FC<{ societyCount: number; rosterCount: number; upcomingCount: number }> = ({ societyCount, rosterCount, upcomingCount }) => {
+export const Execom: React.FC<{ members: ExecomMemberDoc[] }> = ({ members }) => {
   const reduceMotion = Boolean(useReducedMotion());
-  const membersList = execomMembers;
+  const membersList: Member[] = members.map(member => ({
+    id: member.id,
+    name: member.name,
+    role: member.position,
+    tagline: taglines[member.position.trim().toLowerCase()] ?? member.position.toUpperCase(),
+    image: member.photoUrl ?? "",
+    linkedin: member.linkedin,
+    portfolio: member.portfolio,
+  }));
 
   return (
     <section
-      className="bg-white pt-14 pb-20 md:pt-16 md:pb-24 relative overflow-hidden"
+      className="bg-white py-20 md:py-32 relative overflow-hidden"
       id="execom"
     >
       <div className="absolute top-0 left-0 w-full h-px bg-gray-200" />
       <div className="absolute -top-20 -right-20 w-64 h-64 bg-ieee-blue/5 rounded-full blur-3xl" />
       <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-ieee-blue/5 rounded-full blur-3xl" />
 
-      <div className="mx-auto max-w-[1320px] px-5 sm:px-6 lg:px-10 relative z-10">
-        <HomeSectionHeading
-          index="02"
-          label="The people"
-          title={<>Meet the people<br /><span className="text-ieee-blue">behind the vision.</span></>}
-          description="The executive committee coordinating the branch, its communities and the work that happens between them."
-          action={<Link to="/full-execom" className="group inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-gray-700 transition hover:text-ieee-blue">View full Execom <ArrowUpRight className="h-4 w-4 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" /></Link>}
-        />
+      <div className="container mx-auto px-4 relative z-10">
+        {/* Header */}
+        <div className="mb-16 md:mb-20">
+          <div className="flex items-center space-x-2 mb-6">
+            <Users className="w-5 h-5 text-ieee-blue" aria-hidden="true" />
+            <h3 className="font-pixel text-lg md:text-xl text-gray-800">
+              THE EXECOM
+            </h3>
+            <div className="h-px grow bg-gray-300 ml-4" />
+          </div>
 
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+            <motion.div
+              initial={reduceMotion ? false : { opacity: 0, y: 30 }}
+              whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={reduceMotion ? { duration: 0 } : { duration: 0.8 }}
+            >
+              <h2 className="text-3xl md:text-5xl lg:text-6xl font-bold text-gray-900 tracking-tight leading-[1.1]">
+                Meet the people{" "}
+                <br />
+                <span className="text-ieee-blue">behind the vision.</span>
+              </h2>
+            </motion.div>
+            <motion.p
+              className="text-sm md:text-base text-gray-500 max-w-sm font-mono"
+              initial={reduceMotion ? false : { opacity: 0 }}
+              whileInView={reduceMotion ? undefined : { opacity: 1 }}
+              viewport={{ once: true }}
+              transition={reduceMotion ? { duration: 0 } : { delay: 0.3, duration: 0.8 }}
+            >
+              The executive committee driving innovation, collaboration, and
+              excellence at IEEE Sahrdaya SB.
+            </motion.p>
+          </div>
+        </div>
+
+        {/* Stats */}
         <motion.div
-          className="mt-10 mb-12 grid grid-cols-3 border-y border-gray-200 md:mb-14"
+          className="mb-16 md:mb-20"
           initial={reduceMotion ? false : { opacity: 0 }}
           whileInView={reduceMotion ? undefined : { opacity: 1 }}
           viewport={{ once: true }}
-          transition={{ duration: reduceMotion ? 0 : 0.6 }}
+          transition={reduceMotion ? { duration: 0 } : { duration: 0.6 }}
         >
-          {[
-            ["Roster", rosterCount],
-            ["Societies", societyCount],
-            ["Upcoming", upcomingCount],
-          ].map(([label, value], index) => (
-            <div key={String(label)} className={`py-5 text-center md:py-6 ${index > 0 ? "border-l border-gray-200" : ""}`}>
-              <div className="font-mono text-[8px] font-semibold uppercase tracking-[0.2em] text-gray-400 sm:text-[9px]">{label}</div>
-              <div className="mt-2 font-pixel text-xl text-gray-900 sm:text-2xl md:text-3xl">{String(value).padStart(2, "0")}</div>
-            </div>
-          ))}
+          <SpecChips
+            items={[
+              { value: 80, label: "Roster" },
+              { value: "100+", label: "Events led" },
+              { value: 14, label: "Societies" },
+            ]}
+          />
         </motion.div>
 
         {/* Carousel */}
-        <DragCarousel members={membersList} />
+        <div data-home-execom-static>
+          {membersList.length ? <DragCarousel members={membersList} /> : <p className="mt-8 rounded-xl bg-gray-50 p-6 text-sm text-gray-600">The core team roster is not available here yet. Visit the full directory or contact the branch for current committee details.</p>}
+        </div>
+
+        {/* View Full Execom */}
+        <div className="mt-12 flex justify-center">
+          <Link
+            to="/full-execom"
+            className="group relative inline-flex items-center justify-center px-8 py-3 font-mono text-sm uppercase tracking-widest text-white transition-all duration-300 bg-ieee-blue/90 hover:bg-ieee-blue rounded-full"
+          >
+            <span>View Full Execom</span>
+            <ArrowUpRight className="ml-2 w-4 h-4 transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1" />
+          </Link>
+        </div>
 
         {/* CTA */}
         <motion.div
-          className="mt-12 md:mt-16 flex flex-col md:flex-row items-center justify-center gap-4 text-center"
+          className="mt-16 md:mt-24 flex flex-col md:flex-row items-center justify-center gap-4 text-center"
           initial={reduceMotion ? false : { opacity: 0, y: 20 }}
           whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: reduceMotion ? 0 : 0.6 }}
+          transition={reduceMotion ? { duration: 0 } : { duration: 0.6 }}
         >
           <div className="h-px w-16 bg-gray-300 hidden md:block" />
-          <p className="font-mono text-xs text-gray-400 tracking-[0.2em] uppercase">
+          <p className="font-mono text-xs text-gray-600 tracking-[0.2em] uppercase">
             Want to be part of the team?
           </p>
           <a

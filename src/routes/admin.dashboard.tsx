@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAdminStats, type AdminStats } from "@/lib/data/admin-stats.client";
 import { formatDateTime } from "@/lib/dates";
+import { adminMeta } from "@/lib/admin-meta";
 
 function DashboardSkeleton() { return <div className="space-y-6"><Skeleton className="h-20 w-full" /><Skeleton className="h-52 w-full" /><div className="grid gap-4 lg:grid-cols-2"><Skeleton className="h-80" /><Skeleton className="h-80" /></div></div>; }
 function humanAction(value: string) { return value.replace(/[._-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()); }
@@ -49,3 +50,5 @@ export default function AdminDashboard() {
     <section><div className="mb-2 text-xs font-medium text-muted-foreground">At a glance</div><div className="grid overflow-hidden rounded-lg border border-border bg-card sm:grid-cols-2 lg:grid-cols-4"><div className="border-b border-border p-4 sm:border-r lg:border-b-0"><div className="text-xs text-muted-foreground">Events</div><div className="mt-1 font-mono text-xl font-semibold">{stats.events.total}</div><div className="mt-1 text-[11px] text-muted-foreground">{stats.events.live} live · {stats.events.upcoming} upcoming</div></div><div className="border-b border-border p-4 lg:border-b-0 lg:border-r"><div className="text-xs text-muted-foreground">Registrations</div><div className="mt-1 font-mono text-xl font-semibold">{stats.registrations.total}</div><div className="mt-1 text-[11px] text-muted-foreground">{stats.registrations.today} today</div></div><div className="border-b border-border p-4 sm:border-b-0 sm:border-r"><div className="text-xs text-muted-foreground">Confirmed</div><div className="mt-1 font-mono text-xl font-semibold">{stats.registrations.confirmed}</div><div className="mt-1 text-[11px] text-muted-foreground">{stats.registrations.pending} pending</div></div><div className="p-4"><div className="text-xs text-muted-foreground">Published events</div><div className="mt-1 font-mono text-xl font-semibold">{stats.events.published}</div><div className="mt-1 text-[11px] text-muted-foreground">Current catalogue</div></div></div></section>
   </div>;
 }
+
+export const meta = () => adminMeta("Dashboard");

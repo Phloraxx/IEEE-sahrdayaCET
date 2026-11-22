@@ -42,7 +42,7 @@ export default function OAuthPopupResult() {
           ) : failure ? (
             <CircleAlert className="h-6 w-6 text-rose-600" />
           ) : (
-            <X className="h-6 w-6 text-black/45" />
+            <X className="h-6 w-6 text-black/58" />
           )}
         </div>
         <p className="mt-6 text-[9px] font-bold uppercase tracking-[0.18em] text-[#00629B]">
@@ -55,7 +55,7 @@ export default function OAuthPopupResult() {
               ? "Sign-in did not complete."
               : "OAuth callback page."}
         </h1>
-        <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-black/50">
+        <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-black/58">
           {success
             ? "This window should close automatically. You can close it and return to IEEE Sahrdaya if it stays open."
             : failure

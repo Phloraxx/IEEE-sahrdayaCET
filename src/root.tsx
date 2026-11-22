@@ -9,15 +9,39 @@ import {
   ScrollRestoration,
 } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MotionConfig } from "framer-motion";
 import { AuthProvider } from "@/lib/auth-context";
+import { allow, clientKey, ruleFor } from "@/server/http/rate-limit";
+import {
+	isCacheablePublicDocument,
+	PUBLIC_DOCUMENT_CACHE_CONTROL,
+} from "@/server/http/cache";
 import { Toaster } from "@/components/ui/sonner";
 import { APP_URL } from "@/lib/constants";
+import { securityHeaders } from "@/lib/security-headers";
+import { isMutationOriginAllowed } from "@/server/http/origin";
 import { ORGANIZATION_SAME_AS } from "@/lib/social-links";
 import "@/features/globals.css";
+// Latin subsets only. The default entry points ship cyrillic, greek,
+// vietnamese and latin-ext faces plus a `.woff` fallback for every one of them —
+// 434 KB of font files for a site whose copy is English. The browser only ever
+// downloaded the latin `.woff2`, so this is a build-size fix rather than a
+// transfer fix, but it also stops four dead `@font-face` rules being parsed.
+//
+// Geist has no per-subset entry point; its `index.css` is already woff2-only and
+// `unicode-range` keeps the browser on the latin file.
 import "@fontsource-variable/geist";
-import "@fontsource/press-start-2p";
-import "@fontsource/caveat";
+import "@fontsource/press-start-2p/latin-400.css";
+import "@fontsource/caveat/latin-400.css";
+
+/**
+ * Mirrors the default in `@/lib/env.server`.
+ *
+ * `root.tsx` is a shared module, so it must not import `env.server` — that would
+ * pull server-only code into the client bundle. The middleware below never runs
+ * in the browser, so reading `process.env` here is safe; the same pattern is
+ * already used by `headers()` at the bottom of this file.
+ */
+const SESSION_COOKIE_NAME = process.env.SESSION_COOKIE_NAME || "__Host-ieee_session";
 
 const organizationSchema = {
   "@context": "https://schema.org",
@@ -65,7 +89,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <html lang="en" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="theme-color" content="#00629B" />
         <Meta />
         <Links />
@@ -90,7 +114,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <body className="font-sans antialiased">
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-white focus:text-ieee-blue focus:px-4 focus:py-2 focus:rounded focus:shadow-lg"
+          onClick={(event) => {
+            const target = document.querySelector<HTMLElement>('[data-page-content]') || document.querySelector<HTMLElement>('main h1') || document.querySelector<HTMLElement>('main');
+            if (target) { event.preventDefault(); target.tabIndex = -1; target.focus(); target.scrollIntoView({ block: 'start' }); }
+          }}
+          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[150] focus:bg-white focus:text-ieee-blue focus:px-4 focus:py-2 focus:rounded focus:shadow-lg"
         >
           Skip to content
         </a>
@@ -102,37 +130,115 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * `nosniff` on every response, including JSON and short-circuited errors.
+ *
+ * Document responses get it from `securityHeaders()`, but resource routes answer
+ * through their own helpers and a 403/429 is built before a route runs at all.
+ */
+async function nosniffMiddleware(
+	{ request: _request }: { request: Request },
+	next: () => Promise<Response>,
+): Promise<Response> {
+	const response = await next();
+	if (!response.headers.has("X-Content-Type-Options")) {
+		response.headers.set("X-Content-Type-Options", "nosniff");
+	}
+	return response;
+}
+
+/**
+ * Cross-site mutation guard.
+ *
+ * Runs before the rate limiter so a forged request is rejected without spending
+ * a bucket. The policy lives in `@/server/http/origin`; this is the wiring.
+ */
+async function originGuardMiddleware(
+	{ request }: { request: Request },
+	next: () => Promise<Response>,
+): Promise<Response> {
+	// Provider webhooks authenticate with an HMAC over the raw body, not with a
+	// cookie, and some providers send an Origin header. The signature is the
+	// control there; rejecting the request first would turn a valid delivery into
+	// a 403.
+	if (new URL(request.url).pathname.startsWith("/api/webhooks/")) return next();
+
+	const allowed = isMutationOriginAllowed(request, {
+		allowedOrigins: process.env.ALLOWED_ORIGINS,
+		siteUrl: process.env.SITE_URL,
+		appUrl: process.env.APP_URL,
+		requestOrigin: new URL(request.url).origin,
+	});
+
+	if (allowed) return next();
+
+	const { pathname } = new URL(request.url);
+	const json = pathname.startsWith("/api/");
+	return new Response(
+		json ? JSON.stringify({ error: "Cross-origin request rejected" }) : "Cross-origin request rejected",
+		{
+			status: 403,
+			headers: {
+				"Content-Type": json ? "application/json" : "text/plain; charset=utf-8",
+				"Cache-Control": "no-store",
+			},
+		},
+	);
+}
+
+/**
+ * Rate limiting at the single place every request passes through.
+ *
+ * `react-router.config.ts` enables `v8_middleware`, so this runs before any
+ * loader or action. The rule is chosen by path and method: `/auth/*` is tight,
+ * the payment webhook is generous, and any non-GET `/api/*` request is bounded.
+ */
+async function rateLimitMiddleware(
+	{ request }: { request: Request },
+	next: () => Promise<Response>,
+): Promise<Response> {
+	const rule = ruleFor(request);
+	if (rule && !allow(`${rule.limit}:${clientKey(request)}`, rule)) {
+		return new Response(JSON.stringify({ error: "Too many requests" }), {
+			status: 429,
+			headers: { "Content-Type": "application/json", "Retry-After": "60", "Cache-Control": "no-store" },
+		});
+	}
+	return next();
+}
+
+/**
+ * Shared-cache directives for anonymous public documents.
+ *
+ * Runs on the way back out, so it only ever annotates a response React Router
+ * already produced. The decision itself lives in `@/server/http/cache` — this
+ * function is the wiring, not the policy.
+ */
+async function publicCacheMiddleware(
+	{ request }: { request: Request },
+	next: () => Promise<Response>,
+): Promise<Response> {
+	const response = await next();
+
+	// Only a successful, complete document is worth caching. A 3xx, a 4xx from
+	// an error boundary, or a 5xx must never be pinned in a shared cache.
+	if (response.status !== 200) return response;
+
+	if (!isCacheablePublicDocument(request, SESSION_COOKIE_NAME)) {
+		return response;
+	}
+
+	response.headers.set("Cache-Control", PUBLIC_DOCUMENT_CACHE_CONTROL);
+	return response;
+}
+
+export const middleware = [nosniffMiddleware, originGuardMiddleware, rateLimitMiddleware, publicCacheMiddleware];
+
 export function headers() {
-  const headers: Record<string, string> = {
-    "Content-Security-Policy": [
-      "default-src 'self'",
-      "base-uri 'self'",
-      "object-src 'none'",
-      "frame-ancestors 'none'",
-      "form-action 'self'",
-      "img-src 'self' data: blob: https:",
-      "media-src 'self'",
-      "font-src 'self' data:",
-      "style-src 'self' 'unsafe-inline'",
-      "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
-      "connect-src 'self' https://cloudflareinsights.com",
-      "frame-src 'none'",
-      "manifest-src 'self'",
-      "worker-src 'self' blob:",
-    ].join("; "),
-    "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "DENY",
-    "Referrer-Policy": "strict-origin-when-cross-origin",
-    "Permissions-Policy": "camera=(self), microphone=(), geolocation=(), payment=(), usb=()",
-  };
-
-  if (process.env.DEPLOY_ENV === "production") {
-    headers["Strict-Transport-Security"] = "max-age=31536000";
-  } else {
-    headers["X-Robots-Tag"] = "noindex, nofollow";
-  }
-
-  return headers;
+  // The Content-Security-Policy is set in `entry.server.tsx`, not here: it needs
+  // the per-request script nonce, which only exists once the document is being
+  // rendered. See `src/lib/csp.ts` for the policy and why it needs a nonce.
+  return securityHeaders();
 }
 
 export default function App() {
@@ -145,38 +251,38 @@ export default function App() {
       }),
   );
 
+  // No `MotionConfig` here on purpose. It pulled framer-motion into the root
+  // chunk, so every route — including `/about` and the legal pages, which
+  // animate nothing — downloaded ~40 KB gzipped of animation runtime.
+  //
+  // Reduced motion is still honoured everywhere: `globals.css` zeroes CSS
+  // animations and transitions under `prefers-reduced-motion`, and the
+  // components that actually animate call `useReducedMotion()` themselves.
   return (
     <QueryClientProvider client={queryClient}>
-      <MotionConfig reducedMotion="user">
-        <AuthProvider>
-          <Outlet />
-          <Toaster />
-        </AuthProvider>
-      </MotionConfig>
+      <AuthProvider>
+        <Outlet />
+        <Toaster />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
 
 export function ErrorBoundary({ error }: { error: unknown }) {
-  const is404 = isRouteErrorResponse(error) && error.status === 404;
-  const message =
-    error instanceof Error
-      ? error.message
-      : isRouteErrorResponse(error)
-        ? error.statusText
-        : "An unexpected error occurred";
-
+  const status = isRouteErrorResponse(error) ? error.status : 500;
+  const is404 = status === 404;
+  const forbidden = status === 403;
   return (
-    <main className="min-h-screen bg-white px-4 flex items-center justify-center text-center">
+    <main data-page-content tabIndex={-1} className="flex min-h-screen items-center justify-center bg-white px-5 text-center">
       <div className="max-w-md">
-        <p className="font-pixel text-6xl text-[#00629B] mb-4">{is404 ? "404" : "!"}</p>
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          {is404 ? "Page Not Found" : "Something went wrong"}
-        </h1>
-        <p className="text-gray-500 mb-6">{message}</p>
-        <Link to="/" className="inline-flex rounded-full bg-[#00629B] px-6 py-3 text-sm font-bold text-white">
-          Go Home
-        </Link>
+        <p className="mb-4 font-pixel text-5xl text-ieee-blue">{is404 ? '404' : forbidden ? '403' : '!'}</p>
+        <h1 className="mb-3 text-2xl font-bold text-gray-900">{is404 ? 'Page not found' : forbidden ? 'Access unavailable' : 'Content temporarily unavailable'}</h1>
+        <p className="mb-6 text-sm leading-6 text-gray-600">{is404 ? 'This page may have moved or is no longer published.' : forbidden ? 'Sign in with an account that has access, or contact the branch for help.' : 'We could not load this page. Please try again in a moment.'}</p>
+        <div className="flex flex-wrap justify-center gap-3">
+          {!is404 && !forbidden && <button type="button" onClick={() => window.location.reload()} className="min-h-11 rounded-full bg-ieee-blue px-6 text-sm font-semibold text-white">Try again</button>}
+          <Link to="/" className="inline-flex min-h-11 items-center rounded-full border border-gray-300 px-6 text-sm font-semibold text-gray-700">Go home</Link>
+          <Link to="/contact" className="inline-flex min-h-11 items-center px-3 text-sm font-semibold text-ieee-blue">Contact the branch</Link>
+        </div>
       </div>
     </main>
   );

@@ -373,6 +373,24 @@ req("POST", "/api/collections/blogs/records", {
     "event": other_event["id"], "society": other_society["id"],
 }, tokens["event-content"], expected=(400, 403))
 
+# Published reading fixtures belong only to the disposable browser CI database.
+# Leave the scoped draft above intact for persona/editor assertions.
+if os.environ.get("E2E_WORKSPACE_FIXTURE"):
+    for label, content, published_at in [
+        ("sections", "<h2>Getting started</h2><p>Read the public branch story.</p>"
+         "<h3>Technical notes</h3><p><a href='https://example.test/reading'>"
+         + "long-reference-" * 30 + "</a></p><pre><code>" + "code_token_" * 60
+         + "</code></pre><h2>Next steps</h2><p>Return to the archive.</p>", "2026-10-01 10:00:00.000Z"),
+        ("short", "<p>A short public story without section headings.</p>", "2026-09-30 10:00:00.000Z"),
+    ]:
+        req("POST", "/api/collections/blogs/records", {
+            "title": f"Reading regression {label} {suffix}",
+            "slug": f"reading-regression-{label}-{suffix}",
+            "content": content, "published": True, "published_at": published_at,
+            "relation": users["event-content"]["id"],
+            "event": event["id"], "society": society["id"],
+        }, tokens["event-content"])
+
 # Registration memory reuses only common attendee details from the latest registration.
 registration_memory = req("GET", "/api/app/registration-memory", token=tokens["plain"])
 assert registration_memory["found"] is True

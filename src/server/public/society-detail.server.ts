@@ -1,6 +1,12 @@
-import { createPublicPB } from "@/lib/pb.server";
-import { buildFileUrl, escapeFilterValue } from "@/lib/pb";
-import { getField } from "@/lib/safe-get";
+import { buildFileUrl } from "@/lib/pb";
+import { publicDataUnavailable } from "./errors.server";
+import { getLatestPublishedBlogsForSociety } from "@/lib/blog-public.server";
+import {
+  getPublicSocietyBySlug,
+  listExecomForSociety,
+  listPublicEventsForSociety,
+  listSocietyChairIds,
+} from "./repo.server";
 
 export interface SocietyPageData {
   society: {
@@ -33,6 +39,8 @@ export interface SocietyPageData {
     contactEmail: string;
     contactPhone: string;
   }>;
+  /** Related stories, fetched server-side so the page makes no browser data calls. */
+  relatedBlogs: Awaited<ReturnType<typeof getLatestPublishedBlogsForSociety>>;
   members: Array<{
     id: string;
     name: string;
@@ -48,99 +56,69 @@ export interface SocietyPageData {
 }
 
 export async function fetchSocietyData(slug: string): Promise<SocietyPageData> {
-  const pb = createPublicPB();
-  const society = await pb
-    .collection("societies")
-    .getFirstListItem(`slug = ${escapeFilterValue(slug.toLowerCase())} && isHidden = false`, {
-      fields: "id,name,slug,bio,chairs,defaultWhatsappLink,logo,banner",
-    })
-    .catch(() => null);
+  let society;
+  try {
+    society = await getPublicSocietyBySlug(slug.toLowerCase());
+  } catch (error) {
+    publicDataUnavailable("fetchSociety", error);
+  }
 
-  if (!society) throw new Error("Society not found");
+  if (!society) throw new Response("Society not found", { status: 404 });
 
-  const [events, members] = await Promise.all([
-    pb
-      .collection("events")
-      .getFullList({
-        batch: 100,
-        filter: `society = ${escapeFilterValue(society.id)} && (status = "published" || status = "completed") && isDeleted != true`,
-        sort: "-date",
-        fields:
-          "id,slug,title,description,date,endDate,timeTbc,registrationStart,registrationDeadline,venue,price,status,tags,banner,externalFormUrl,externalLink,contactEmail,contactPhone",
-      })
-      .catch(() => []),
-    // `society` is the canonical relation. `sectionId` is a legacy display/grouping
-    // key and is not guaranteed to match the society slug (for example CAS).
-    pb
-      .collection("execom")
-      .getFullList({
-        batch: 100,
-        filter: `society = ${escapeFilterValue(society.id)}`,
-        sort: "order",
-        fields:
-          "id,name,position,department,batch,photo,linkedin,instagram,email,phone",
-      })
-      .catch(() => []),
+  const [events, members, chairs, relatedBlogs] = await Promise.all([
+    listPublicEventsForSociety(society.id).catch((error: unknown) =>
+      publicDataUnavailable("fetchSocietyContent", error),
+    ),
+    listExecomForSociety(society.id).catch((error: unknown) =>
+      publicDataUnavailable("fetchSocietyContent", error),
+    ),
+    listSocietyChairIds(society.id).catch(() => [] as string[]),
+    getLatestPublishedBlogsForSociety(society.id, 3).catch(() => []),
   ]);
-
-  const societyId = society.id;
-  const societyLogo = getField(society, "logo", "");
-  const societyBanner = getField(society, "banner", "");
 
   return {
     society: {
-      id: societyId,
-      name: getField(society, "name", ""),
-      slug: getField(society, "slug", ""),
-      bio: getField(society, "bio", ""),
-      chairs: Array.isArray(society.chairs) ? society.chairs.map(String) : [],
-      defaultWhatsappLink: getField(society, "defaultWhatsappLink", ""),
-      logoUrl: societyLogo
-        ? buildFileUrl("societies", societyId, societyLogo)
-        : "",
-      bannerUrl: societyBanner
-        ? buildFileUrl("societies", societyId, societyBanner)
-        : "",
+      id: society.id,
+      name: society.name,
+      slug: society.slug,
+      bio: society.bio ?? "",
+      chairs,
+      defaultWhatsappLink: society.default_whatsapp_link ?? "",
+      logoUrl: society.logo ? buildFileUrl("societies", society.id, society.logo) : "",
+      bannerUrl: society.banner ? buildFileUrl("societies", society.id, society.banner) : "",
     },
-    events: events.map((event) => {
-      const id = event.id;
-      const banner = getField(event, "banner", "");
-      return {
-        id,
-        slug: getField(event, "slug", ""),
-        title: getField(event, "title", ""),
-        description: getField(event, "description", ""),
-        date: getField(event, "date", ""),
-        endDate: getField(event, "endDate", ""),
-        timeTbc: Boolean(getField(event, "timeTbc", false)),
-        registrationStart: getField(event, "registrationStart", ""),
-        registrationDeadline: getField(event, "registrationDeadline", ""),
-        venue: getField(event, "venue", ""),
-        price: Number(getField(event, "price", 0)) || 0,
-        status: getField(event, "status", "published"),
-        tags: getField(event, "tags", ""),
-        bannerUrl: banner ? buildFileUrl("events", id, banner) : "",
-        externalFormUrl: getField(event, "externalFormUrl", ""),
-        externalLink: getField(event, "externalLink", ""),
-        contactEmail: getField(event, "contactEmail", ""),
-        contactPhone: getField(event, "contactPhone", ""),
-      };
-    }),
-    members: members.map((member) => {
-      const id = member.id;
-      const photo = getField(member, "photo", "");
-      return {
-        id,
-        name: getField(member, "name", ""),
-        position: getField(member, "position", ""),
-        department: getField(member, "department", ""),
-        batch: getField(member, "batch", ""),
-        photoUrl: photo ? buildFileUrl("execom", id, photo) : "",
-        linkedin: getField(member, "linkedin", ""),
-        instagram: getField(member, "instagram", ""),
-        email: getField(member, "email", ""),
-        phone: getField(member, "phone", ""),
-      };
-    }),
+    relatedBlogs,
+    events: events.map((row) => ({
+      id: row.id,
+      slug: row.slug ?? "",
+      title: row.title ?? "",
+      description: row.description ?? "",
+      date: row.date ?? "",
+      endDate: row.end_date ?? "",
+      timeTbc: row.time_tbc === 1,
+      registrationStart: row.registration_start ?? "",
+      registrationDeadline: row.registration_deadline ?? "",
+      venue: row.venue ?? "",
+      price: Number(row.price) || 0,
+      status: row.status ?? "published",
+      tags: row.tags ?? "",
+      bannerUrl: row.banner ? buildFileUrl("events", row.id, row.banner) : "",
+      externalFormUrl: row.external_form_url ?? "",
+      externalLink: row.external_link ?? "",
+      contactEmail: row.contact_email ?? "",
+      contactPhone: row.contact_phone ?? "",
+    })),
+    members: members.map((row) => ({
+      id: row.id,
+      name: row.name ?? "",
+      position: row.position ?? "",
+      department: row.department ?? "",
+      batch: row.batch ?? "",
+      photoUrl: row.photo ? buildFileUrl("execom", row.id, row.photo) : "",
+      linkedin: row.linkedin ?? "",
+      instagram: row.instagram ?? "",
+      email: row.email ?? "",
+      phone: row.phone ?? "",
+    })),
   };
 }

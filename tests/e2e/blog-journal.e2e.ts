@@ -6,13 +6,13 @@ test.describe('blog journal', () => {
     await page.goto('/blog', { waitUntil: 'networkidle' })
 
     await expect(page.getByTestId('blog-journal-masthead')).toBeVisible()
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('IEEE Sahrdaya / Blog')
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Stories from inside the branch.')
     const rows = page.locator('[data-blog-archive-row]')
     if ((await rows.count()) > 0) {
       await expect(page.getByTestId('blog-lead-story')).toBeVisible()
     } else {
       await expect(page.getByTestId('blog-lead-story')).toHaveCount(0)
-      await expect(page.getByText('NO MATCHING SIGNALS')).toBeVisible()
+      await expect(page.getByText('Stories coming soon.')).toBeVisible()
     }
     await expect(page.getByText('THE BLOG', { exact: true })).toHaveCount(0)
     await expect(page.getByText('FIELD NOTES', { exact: true })).toHaveCount(0)

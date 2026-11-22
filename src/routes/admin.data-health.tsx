@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, DatabaseZap, ExternalLink } from "lucide-r
 import { Link } from "react-router";
 import { getAdminDataHealth } from "@/lib/data/admin-data-health.client";
 import { formatDateTime } from "@/lib/dates";
+import { adminMeta } from "@/lib/admin-meta";
 
 export default function AdminDataHealth() {
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
@@ -31,3 +32,5 @@ export default function AdminDataHealth() {
     </div>
   </div>;
 }
+
+export const meta = () => adminMeta("Data Health");

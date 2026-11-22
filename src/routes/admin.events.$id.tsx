@@ -69,6 +69,7 @@ import {
 import { listAdminRegistrations } from "@/lib/data/admin-registrations.client";
 import { archiveAdminEvent, cancelAdminEvent } from "@/lib/data/admin-events.client";
 import { runEventWorkflow } from "@/lib/data/workspace.client";
+import { adminMeta } from "@/lib/admin-meta";
 
 type Tab = "overview" | "closeout" | "attendees" | "attendance" | "payments" | "coupons" | "certificates" | "team" | "activity";
 const VALID_TABS: Tab[] = ["overview", "closeout", "attendees", "attendance", "payments", "coupons", "certificates", "team", "activity"];
@@ -775,3 +776,5 @@ export default function AdminEventOperationsRoute() {
     </div>
   );
 }
+
+export const meta = () => adminMeta("Event");

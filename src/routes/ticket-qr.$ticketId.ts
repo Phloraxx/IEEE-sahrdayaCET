@@ -2,7 +2,7 @@ import type { LoaderFunctionArgs } from "react-router";
 import QRCode from "qrcode";
 
 import { getTicketCheckInState } from "@/lib/event-lifecycle";
-import { createPublicPB } from "@/lib/pb.server";
+import { lookupTicket } from "@/server/public/repo.server";
 import { publicRequestOrigin } from "@/server/public-origin.server";
 
 const NO_STORE_HEADERS = {
@@ -20,17 +20,18 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
     throw ticketNotFound();
   }
 
-  const pb = createPublicPB();
-  const result = await pb
-    .send(`/api/tickets/lookup?ticketId=${encodeURIComponent(ticketId)}`, {})
-    .catch(() => null);
-  if (!result?.found || String(result.ticket?.id || "") !== ticketId) {
-    throw ticketNotFound();
-  }
+  const row = await lookupTicket(ticketId).catch(() => undefined);
+  if (!row) throw ticketNotFound();
 
-  const registrationStatus = String(result.ticket.registrationStatus || "");
-  const event = result.event;
-  if (getTicketCheckInState(registrationStatus, event) !== "eligible") {
+  const event = {
+    status: row.event_status,
+    date: row.event_date,
+    endDate: row.event_end_date,
+    timeTbc: row.event_time_tbc === 1,
+    checkInEnabled: row.event_check_in_enabled === 1,
+    isDeleted: row.event_is_deleted === 1,
+  };
+  if (getTicketCheckInState(row.registration_status, event) !== "eligible") {
     throw ticketNotFound();
   }
 

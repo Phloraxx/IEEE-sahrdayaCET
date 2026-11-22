@@ -144,10 +144,10 @@ export function CertificateDeliveryPanel({
         {readinessQuery.isLoading ? (
           <div className="mt-6 flex items-center gap-2 rounded-xl border border-border bg-muted/10 p-4 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Checking certificate mail readiness…</div>
         ) : readiness ? (
-          <div className={`mt-6 rounded-2xl border p-5 ${readiness.readyToQueue ? "border-emerald-500/25 bg-emerald-500/5" : "border-amber-500/30 bg-amber-500/5"}`}>
+          <div className={`mt-6 rounded-2xl border p-5 ${readiness.transportReady && readiness.safetyReady ? "border-emerald-500/25 bg-emerald-500/5" : "border-amber-500/30 bg-amber-500/5"}`}>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <p className="text-sm font-semibold">{readiness.readyToQueue ? "Mail transport ready" : "Mail not ready"}</p>
+                <p className="text-sm font-semibold">{readiness.transportReady && readiness.safetyReady ? "Mail transport ready" : "Mail not ready"}</p>
                 <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{readiness.message}</p>
               </div>
               <div className="flex flex-wrap gap-2 text-[10px] font-semibold uppercase tracking-[0.12em]">

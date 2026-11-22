@@ -1,3 +1,4 @@
+import { isMissingRecord, publicDataUnavailable } from "@/server/public/errors.server";
 import { useLoaderData, useParams, type LoaderFunctionArgs } from "react-router";
 import RegisterPage from "@/features/register/RegisterPage";
 import { fetchEventForRegistration } from "@/server/public/registration.server";
@@ -11,7 +12,7 @@ export const meta = () => [
 export async function loader({ params }: LoaderFunctionArgs) {
   if (!params.eventId) throw new Response("Event not found", { status: 404 });
   try { return await fetchEventForRegistration(params.eventId); }
-  catch { throw new Response("Event not found", { status: 404 }); }
+  catch (error) { if (isMissingRecord(error)) throw new Response("Event not found", { status: 404 }); publicDataUnavailable("register-loader", error); }
 }
 
 export default function RouteRegister() {

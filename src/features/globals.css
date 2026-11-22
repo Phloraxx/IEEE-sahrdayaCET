@@ -140,6 +140,48 @@
   animation: cell-ripple var(--duration, 500ms) var(--delay, 0ms) ease-out forwards;
 }
 
+@keyframes mobile-nav-sheet-in {
+  from { opacity: 0; transform: translateY(1.5rem) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes mobile-nav-sheet-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(1rem) scale(0.985); }
+}
+
+@keyframes mobile-nav-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes mobile-nav-overlay-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.mobile-nav-sheet[data-state="open"] {
+  animation: mobile-nav-sheet-in 240ms var(--vh-ease-glide) both;
+}
+
+.mobile-nav-sheet[data-state="closed"] {
+  animation: mobile-nav-sheet-out 180ms var(--vh-ease-in) both;
+}
+
+.mobile-nav-overlay[data-state="open"] {
+  animation: mobile-nav-overlay-in 200ms ease-out both;
+}
+
+.mobile-nav-overlay[data-state="closed"] {
+  animation: mobile-nav-overlay-out 160ms ease-in both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-nav-sheet,
+  .mobile-nav-overlay {
+    animation: none !important;
+  }
+}
 /* ═══════════════════════════════════════════════════════════
    SHADCN/UI BASE CSS VARIABLES — :root defaults
    ═══════════════════════════════════════════════════════════ */
@@ -574,3 +616,24 @@
     transform: none;
   }
 }
+
+/* Public interaction defaults: preserve the IEEE and editorial registers. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible { outline: 2px solid #00629B; outline-offset: 3px; }
+:where(h1, h2, h3, [data-page-content], section[id]) { scroll-margin-top: 6rem; }
+@media (max-width: 767px) { :where(h1, h2, h3, [data-page-content], section[id]) { scroll-margin-top: 1rem; } }
+
+/* Keep native focus/anchor scrolling clear of the fixed mobile dock. */
+@media (max-width: 767px) {
+  html { scroll-padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)); }
+  :where(a, button, input, select, textarea, [tabindex]) { scroll-margin-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* Rainbow text remains readable against both navigation backgrounds. */
+@supports (background-clip:text) {
+ .infinia-nav-rainbow { background:linear-gradient(100deg,#9d174d,#854d0e,#166534,#075985,#5b21b6,#9d174d); background-size:300% 100%; background-clip:text; color:transparent; animation:infinia-rainbow 12s ease-in-out infinite; }
+ .infinia-nav-rainbow-light { background-image:linear-gradient(100deg,#fff1f5,#fff5c2,#caffdf,#d1f1ff,#eee2ff,#fff1f5); }
+ a:hover .infinia-nav-rainbow, a:focus-visible .infinia-nav-rainbow { animation-play-state:paused; }
+}
+@keyframes infinia-rainbow { 0%,100% { background-position:0% 50%; } 50% { background-position:100% 50%; } }
+@media (prefers-reduced-motion:reduce) { .infinia-nav-rainbow { animation:none; } }
+@media (forced-colors:active) { .infinia-nav-rainbow { background:none; color:LinkText; } }

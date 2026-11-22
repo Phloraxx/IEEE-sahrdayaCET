@@ -1,3 +1,4 @@
+import { FLAGSHIPS, FLAGSHIP_TIMELINE } from "@/lib/flagships";
 import { APP_URL } from "@/lib/constants";
 import { getPublishedBlogs } from "@/lib/blog-public.server";
 import { fetchEvents } from "@/server/public/events.server";
@@ -14,7 +15,12 @@ function xmlEscape(value: string): string {
 
 function urlEntry(path: string, lastmod?: string): string {
   const loc = xmlEscape(`${APP_URL}${path}`);
-  const modified = lastmod ? `<lastmod>${xmlEscape(new Date(lastmod).toISOString())}</lastmod>` : "";
+  let modified = "";
+  if (lastmod) {
+    const date = new Date(lastmod);
+    // An unparseable stored timestamp must not 500 the whole sitemap.
+    if (!Number.isNaN(date.getTime())) modified = `<lastmod>${xmlEscape(date.toISOString())}</lastmod>`;
+  }
   return `<url><loc>${loc}</loc>${modified}</url>`;
 }
 
@@ -35,6 +41,9 @@ export async function loader() {
   const entries = [
     urlEntry("/"),
     urlEntry("/events"),
+    urlEntry("/infinia"),
+    ...FLAGSHIPS.filter(flagship => flagship.slug === "altair").map(flagship => urlEntry(`/flagships/${flagship.slug}`)),
+    ...FLAGSHIP_TIMELINE.map(item => urlEntry(item.href)),
     urlEntry("/blog"),
     urlEntry("/societies"),
     urlEntry("/full-execom"),

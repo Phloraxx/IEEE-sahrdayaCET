@@ -111,8 +111,8 @@ test.describe("My Events attendee continuity", () => {
   test("authenticated navbar exposes My Events", async ({ page, request }) => {
     await signIn(page, request, fixture.token);
     await page.goto("/events");
-    await page.locator('button[aria-haspopup="true"]').click();
-    await expect(page.getByRole("link", { name: "My Events" })).toBeVisible();
+    await page.getByRole("button", { name: "Open account menu" }).click();
+    await expect(page.getByRole("menuitem", { name: "My Events" })).toBeVisible();
   });
   test("recipient sees issued certificate from their own attendee record", async ({ page, request }) => {
     test.skip(

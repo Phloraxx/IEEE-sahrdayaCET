@@ -8,23 +8,23 @@ const read = (relativePath: string) =>
 describe("event programme UI", () => {
   it("opens with a compact upcoming schedule and a searchable, bounded past programme", () => {
     const source = read("src/features/events/EventsPageClient.tsx");
+    const rail = read("src/components/events/FilterRail.tsx");
 
     expect(source).not.toContain("EventHeroSection");
     expect(source).not.toContain("function FeaturedEvent");
-    expect(source).toContain('title="Events"');
-    expect(source).toContain('const ARCHIVE_PAGE_SIZE = 10');
+    expect(source).toContain("const WALL_PAGE_SIZE = 24");
+    expect(source).toContain("const LIST_PAGE_SIZE = 10");
     expect(source).not.toContain("ArchiveFilter");
     expect(source).not.toContain("ARCHIVE_FILTERS");
     expect(source).toContain("const pastEvents = useMemo");
-    expect(source).toContain('placeholder="Title, society or venue"');
-    expect(source).toContain('aria-label="Filter past events by society"');
-    expect(source).toContain("focus-visible:ring-2");
-    expect(source).toContain('visibleArchiveEvents = filteredArchiveEvents.slice(0, visibleArchiveCount)');
-    expect(source).toContain("archiveGroups");
-    expect(source).toContain("Past programme");
+    expect(source).toContain("yearBuckets");
+    expect(source).toContain("hasMore");
+    expect(source).toContain("Show more");
+    expect(rail).toContain("Search the programme");
+    expect(rail).toContain("Filter by society");
+    expect(rail).toContain("focus-visible:ring-2");
     expect(source).not.toContain("Programme index");
     expect(source).not.toContain("Past, present, next.");
-    expect(source).toContain("Show 10 more events");
     expect(source).not.toContain("InfiniaTeaserSection");
 
     const route = read("src/routes/events.tsx");
@@ -51,7 +51,7 @@ describe("event programme UI", () => {
     expect(detailRoute).toContain("Reserve your place");
     expect(detailRoute).toContain("eventArtwork ? (");
     expect(detailRoute).toContain("EventArtworkPreview");
-    expect(detailRoute).toContain("EventBannerFallback");
+    expect(detailRoute).toContain("stampInitials");
     expect(detailRoute).toContain('data-testid="event-programme-hero"');
   });
 

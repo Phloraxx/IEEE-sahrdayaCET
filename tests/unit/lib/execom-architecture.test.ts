@@ -5,26 +5,33 @@ import { resolve } from "node:path";
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
 
 describe("execom architecture invariants", () => {
-  it("keeps the homepage execom intentionally hardcoded", () => {
+  it("uses the same public roster for the homepage core committee", () => {
     const homepage = read("src/components/Execom.tsx");
-    expect(homepage).toContain('image: "/Execom/midhun-pm/midhun-pm.jpg"');
-    expect(homepage).toContain('portfolio: "https://midhunpm.in"');
-    expect(homepage).not.toContain("fetchExecomData");
+    const homeReader = read("src/server/public/home.server.ts");
+    expect(homeReader).toContain("fetchExecomData()");
+    expect(homeReader).toContain('member.sectionId === "core"');
+    expect(homepage).toContain("member.portfolio");
+    expect(homepage).not.toContain("execomMembers");
   });
 
-  it("drives the full directory portfolio from PocketBase", () => {
+  it("drives the full directory portfolio from the data layer", () => {
     const client = read("src/features/execom/ExecomClient.tsx");
     const reader = read("src/server/public/execom.server.ts");
     expect(client).not.toContain("PORTFOLIO_BY_MEMBER_NAME");
     expect(client).not.toContain("midhunpm.in");
     expect(client).toContain("href={member.portfolio}");
-    expect(client).toContain("View details for ${member.name}");
+    // The card content is the accessible name: an aria-label here would not
+    // contain the visible text and would fail WCAG 2.5.3 (Label in Name).
+    expect(client).not.toContain("aria-label={`View details for");
+    expect(client).toContain("{member.name}");
     expect(client).toContain("href={preview.portfolio}");
     expect(client).toContain("Visit ${preview.name}'s portfolio");
-    expect(reader).toContain("linkedin,instagram,portfolio");
-    expect(reader).toContain("portfolio: record.portfolio");
+    // Phase 1: the projection is a SQL column list in the repo.
+    const repo = read("src/server/public/repo.server.ts");
+    expect(repo).toContain("photo, linkedin, instagram, portfolio, sort_order");
+    expect(reader).toContain("portfolio: row.portfolio");
     expect(client).toContain("...Array.from(remaining).sort()");
-    expect(client).toContain('useState("all")');
+    expect(client).toContain('searchParams.get("group")');
     expect(client).toContain('type ViewMode = "grid" | "roster"');
     expect(client).toContain('data-testid="execom-grid"');
     expect(client).toContain('data-testid="execom-roster"');
