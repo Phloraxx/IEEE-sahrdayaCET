@@ -193,7 +193,7 @@ export default function Navbar() {
     `relative inline-flex min-h-11 items-center whitespace-nowrap rounded-full px-3 py-2 text-[10px] font-bold tracking-wide transition-all md:px-5 md:text-xs ${
       active
         ? "bg-white text-gray-900 shadow-xs"
-        : "text-gray-500 hover:bg-white/50 hover:text-blue-600"
+        : "text-gray-600 hover:bg-white/50 hover:text-blue-600"
     }`;
   const isMoreActive =
     pathname === "/full-execom" ||
@@ -263,7 +263,7 @@ export default function Navbar() {
           renders the navbar carried framer-motion for a no-op wrapper.
         */}
         <div className="pointer-events-none fixed left-0 right-0 top-6 z-[100] hidden justify-center px-4 md:flex">
-          <div className="pointer-events-auto flex max-w-[98vw] items-center gap-1 rounded-full border border-white/20 bg-white/70 px-2 py-1.5 shadow-lg shadow-black/5 backdrop-blur-md">
+          <div className="pointer-events-auto flex max-w-[98vw] items-center gap-1 rounded-full border border-white/20 bg-white/95 px-2 py-1.5 shadow-lg shadow-black/5 backdrop-blur-md">
             <nav
               aria-label="Primary navigation"
               className="flex min-w-0 items-center gap-1 overflow-x-auto no-scrollbar"
