@@ -21,11 +21,22 @@ FROM oven/bun:1.4.5-alpine AS prod-deps
 WORKDIR /app
 RUN apk add --no-cache python3 make g++
 COPY package.json bun.lock ./
+# The server never imports TypeScript, and the runtime is Linux/arm64-musl:
+# the other prebuilt sqlite/sharp binaries are dead weight in the image.
 RUN --mount=type=cache,id=bun-cache,target=/root/.bun/install/cache,sharing=locked \
-    bun install --frozen-lockfile --production
+    bun install --frozen-lockfile --production \
+    && rm -rf /app/node_modules/typescript /app/node_modules/@types \
+    && if [ "$(uname -m)" = "aarch64" ]; then \
+         rm -rf /app/node_modules/@img/sharp-linux-arm64 /app/node_modules/@img/sharp-libvips-linux-arm64; \
+         find /app/node_modules/better-sqlite3/prebuilds -type f ! -name 'linuxmusl-arm64.node' -delete; \
+       fi
 
 FROM node:22-alpine AS runtime
-RUN apk add --no-cache font-noto
+# Certificates only reference Noto Sans/Serif Regular (see render.server.ts).
+# The font-noto metapackage ships every script; keeping the two files the
+# renderer opens removes ~15 MB from the runtime image.
+RUN apk add --no-cache font-noto \
+    && find /usr/share/fonts -type f ! -name 'NotoSans-Regular.ttf' ! -name 'NotoSerif-Regular.ttf' -delete
 WORKDIR /app
 ENV NODE_ENV=production PORT=3000
 COPY --from=prod-deps /app/node_modules ./node_modules
