@@ -16,15 +16,14 @@ import { Instagram, Linkedin } from "@/components/icons";
 import { EventArtworkPreview } from "@/components/events/EventArtworkPreview";
 import { EventBannerFallback } from "@/components/events/EventBannerFallback";
 import { useAuth } from "@/lib/auth-context";
-import { blogHtmlToPlainText } from "@/lib/blog-content";
-import { getBlogContentType } from "@/lib/blog-presentation";
+import { htmlToPlainText } from "@/lib/rich-text";
 import { getWorkspaceMe } from "@/lib/data/workspace.client";
 import { formatDate, formatEventTime } from "@/lib/dates";
 import { isPastEvent } from "@/lib/event-lifecycle";
 import { getSocietyPalette, personInitials, societyCode } from "@/lib/society-presentation";
 import { hasScopedWorkspaceCapability } from "@/lib/workspace-permissions";
 import type { SocietyPageData } from "@/server/public/society-detail.server";
-import type { BlogPost, Society } from "@/types";
+import type { Society } from "@/types";
 
 type SocietyEvent = SocietyPageData["events"][number];
 type SocietyMember = SocietyPageData["members"][number];
@@ -32,7 +31,6 @@ type SocietyMember = SocietyPageData["members"][number];
 export interface SocietyDetailViewProps {
   page: SocietyPageData;
   directory: Society[];
-  stories: BlogPost[];
 }
 
 function formatSignalDate(value: string) {
@@ -70,20 +68,7 @@ function EventVisual({ event, society }: { event: SocietyEvent; society: Society
   );
 }
 
-function StoryVisual({ story, accent }: { story: BlogPost; accent: string }) {
-  if (story.coverUrl) {
-    return <img src={story.coverUrl} alt="" loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]" />;
-  }
-  return (
-    <div className="relative h-full w-full overflow-hidden bg-[#07121f]">
-      <div className="absolute inset-0 opacity-40" style={{ background: `radial-gradient(circle at 70% 25%, ${accent}aa 0, transparent 38%)` }} />
-      <div className="absolute inset-0 opacity-20 [background-image:linear-gradient(rgba(255,255,255,.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.08)_1px,transparent_1px)] [background-size:32px_32px]" />
-      <span className="absolute bottom-4 left-4 font-pixel text-[10px] uppercase tracking-[0.18em] text-white/70">IEEE / STORY</span>
-    </div>
-  );
-}
-
-export function SocietyDetailView({ page, directory, stories }: SocietyDetailViewProps) {
+export function SocietyDetailView({ page, directory }: SocietyDetailViewProps) {
   const { society, members, events } = page;
   const palette = getSocietyPalette(society.slug);
   const code = societyCode(society.slug);
@@ -116,7 +101,7 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
   const directoryIndex = Math.max(0, directory.findIndex((item) => item.slug === society.slug));
   const previous = directoryIndex > 0 ? directory[directoryIndex - 1] : null;
   const next = directoryIndex >= 0 && directoryIndex < directory.length - 1 ? directory[directoryIndex + 1] : null;
-  const bio = blogHtmlToPlainText(society.bio || "").replace(/\s+/g, " ").trim();
+  const bio = htmlToPlainText(society.bio || "").replace(/\s+/g, " ").trim();
   const heroSummary = bio.length > 220
     ? `${bio.slice(0, 220).replace(/\s+\S*$/, "").trim()}…`
     : bio;
@@ -285,7 +270,7 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
                 <div className="min-w-0 lg:col-span-6 lg:col-start-7">
                   <div className="flex flex-wrap items-center justify-between gap-4 font-mono text-[10px] font-semibold uppercase tracking-[0.18em]"><span style={{ color: palette.accent }}>{eventState(featuredEvent)} / Lead activity</span><span className="text-black/60">{formatDate(featuredEvent.date)}</span></div>
                   <h3 className="mt-5 break-words text-4xl font-semibold leading-[0.95] tracking-[-0.055em] transition group-hover:text-[#00629B] sm:text-5xl">{featuredEvent.title}</h3>
-                  <p className="mt-5 max-w-xl text-sm leading-6 text-black/58">{blogHtmlToPlainText(featuredEvent.description || "").replace(/\s+/g, " ").trim() || "Open the programme record for full details."}</p>
+                  <p className="mt-5 max-w-xl text-sm leading-6 text-black/58">{htmlToPlainText(featuredEvent.description || "").replace(/\s+/g, " ").trim() || "Open the programme record for full details."}</p>
                   <div className="mt-7 flex flex-wrap gap-x-6 gap-y-3 text-[10px] font-bold uppercase tracking-[0.15em] text-black/60"><span>{formatEventTime(featuredEvent.date, featuredEvent.timeTbc)}</span><span>{featuredEvent.venue || "Venue TBC"}</span><span>{featuredEvent.price > 0 ? `₹${featuredEvent.price}` : "Free"}</span></div>
                   <div className="mt-8 inline-flex items-center gap-2 text-sm font-bold" style={{ color: palette.accent }}>Open event record <ArrowUpRight className="h-4 w-4 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" /></div>
                 </div>
@@ -327,32 +312,6 @@ export function SocietyDetailView({ page, directory, stories }: SocietyDetailVie
           )}
         </div>
       </section>
-
-      {stories.length > 0 && (
-        <section className="bg-white">
-          <div className="mx-auto max-w-[1440px] px-5 py-16 sm:px-8 sm:py-20 lg:px-12 lg:py-24">
-            <div className="grid gap-7 border-b border-black/12 pb-9 lg:grid-cols-12 lg:items-end">
-              <div className="lg:col-span-8">
-                <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: palette.accent }}>04 / Stories</p>
-                <h2 className="mt-4 text-5xl font-semibold leading-[0.9] tracking-[-0.065em] sm:text-6xl">From this society.</h2>
-              </div>
-              <Link to="/blog" className="group inline-flex min-h-11 items-center gap-2 text-[10px] font-bold uppercase tracking-[0.17em] text-black/60 transition hover:text-black lg:col-span-4 lg:justify-self-end">Open Blog <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" /></Link>
-            </div>
-            <div className="grid gap-px bg-black/10 md:grid-cols-3">
-              {stories.slice(0, 3).map((story, index) => (
-                <Link key={story.id} to={`/blog/${story.slug}`} className="group bg-white p-4 sm:p-5">
-                  <div className="relative aspect-[4/3] overflow-hidden bg-[#07121f]"><StoryVisual story={story} accent={palette.accent} /></div>
-                  <div className="pt-5">
-                    <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.17em]" style={{ color: palette.accent }}>{String(index + 1).padStart(2, "0")} / {getBlogContentType(story)}</p>
-                    <h3 className="mt-3 break-words text-2xl font-semibold leading-[1.02] tracking-[-0.045em] transition group-hover:text-[#00629B]">{story.title}</h3>
-                    <div className="mt-4 flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.14em] text-black/60"><span>{story.readMinutes || 1} min</span><ArrowUpRight className="h-4 w-4 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" /></div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
 
       <section className="border-t border-black/10 bg-[#f7f8f8]">
         <div className="mx-auto max-w-[1440px] px-5 py-12 sm:px-8 lg:px-12">

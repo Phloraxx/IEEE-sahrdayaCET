@@ -10,7 +10,6 @@ import { NowAtSahrdaya } from '@/components/home/NowAtSahrdaya'
 import { Execom } from '@/components/Execom'
 import { EventsShowcase } from '@/components/EventsShowcase'
 import Footer from '@/components/Footer'
-import { LatestSignals } from '@/components/home/LatestSignals'
 import { FloatingAction } from '@/components/FloatingAction'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { CanonicalLink } from "@/components/CanonicalLink";
@@ -41,7 +40,6 @@ export default function Home() {
   const upcomingCount = loaderData.upcomingCount ?? 0
   const societies = loaderData.societies ?? []
   const execomCount = loaderData.execomCount ?? 0
-  const latestBlogs = loaderData.latestBlogs ?? []
 
   return (
     <>
@@ -70,7 +68,6 @@ export default function Home() {
           <Execom members={loaderData.coreTeam ?? []} />
           {/* Intentionally hardcoded visual showcase; live event data is used above. */}
           <EventsShowcase />
-          <LatestSignals blogs={latestBlogs} />
 
         </div>
       </ErrorBoundary>

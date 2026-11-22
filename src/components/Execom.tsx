@@ -5,6 +5,7 @@ import { ArrowUpRight, Globe2, Users } from "lucide-react";
 import { Linkedin } from "@/components/icons";
 import type { ExecomMemberDoc } from "@/features/execom/ExecomClient";
 import { SpecChips } from "@/components/home/SpecChips";
+import { RAIL_PX_PER_SECOND } from "@/lib/marquee";
 
 /* Restored original Execom carousel, with the current public directory as its source. */
 interface Member {
@@ -194,6 +195,7 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
   const itemSize = cardWidth + gap;
   const trackRef = useRef<HTMLDivElement>(null);
   const offsetRef = useRef(0);
+  const lastFrameRef = useRef(0);
   const rafRef = useRef<number>(0);
   const sectionRef = useRef<HTMLDivElement>(null);
   const [isInView, setIsInView] = useState(false);
@@ -208,25 +210,36 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
     lastX: 0,
   });
 
-  const animate = useCallback(() => {
+  const animate = useCallback((time: number) => {
     if (reduceMotion || !trackRef.current) return;
+
+    // Velocity is expressed per 1/60 s (the drag handler measures it that way),
+    // so the loop converts the real elapsed time into 60 Hz frames. That keeps
+    // the cruise speed identical on 60 Hz and 120 Hz displays, and equal to the
+    // events archive rail that sits just above this one.
+    const elapsed = lastFrameRef.current ? Math.min(time - lastFrameRef.current, 50) : 16.67;
+    lastFrameRef.current = time;
+    const frames = elapsed / (1000 / 60);
 
     if (!document.hidden && isInView) {
       if (!physics.current.isDragging) {
-        physics.current.velocity *= 0.98;
-
-        if (
-          Math.abs(physics.current.velocity) < 0.05 &&
-          isInView &&
-          hasStartedScrolling
-        ) {
-          const targetVelocity = -0.5;
+        const cruiseVelocity = -(RAIL_PX_PER_SECOND / 60);
+        // A released drag keeps its momentum and decays; once it is slower than
+        // the cruise speed the loop eases into the cruise velocity and snaps to
+        // it, so the steady-state speed is exactly RAIL_PX_PER_SECOND.
+        if (Math.abs(physics.current.velocity) > Math.abs(cruiseVelocity) + 0.05) {
+          physics.current.velocity *= Math.pow(0.98, frames);
+        } else if (hasStartedScrolling) {
           physics.current.velocity +=
-            (targetVelocity - physics.current.velocity) * 0.1;
+            (cruiseVelocity - physics.current.velocity) *
+            (1 - Math.pow(0.85, frames));
+          if (Math.abs(physics.current.velocity - cruiseVelocity) < 0.005) {
+            physics.current.velocity = cruiseVelocity;
+          }
         }
       }
 
-      offsetRef.current += physics.current.velocity;
+      offsetRef.current += physics.current.velocity * frames;
 
       const contentWidth = itemSize * members.length;
       if (offsetRef.current <= -contentWidth) {
@@ -257,7 +270,7 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
           setIsInView(entry.isIntersecting && entry.intersectionRatio >= 0.8);
         }
       },
-      { threshold: 0.8 },
+      { threshold: 0.4 },
     );
 
     if (element) {

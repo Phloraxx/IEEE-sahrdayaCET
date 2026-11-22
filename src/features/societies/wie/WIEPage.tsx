@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { ContextualBlogLinks } from "@/components/blog/ContextualBlogLinks";
 import { useAuth } from "@/lib/auth-context";
 import { getWorkspaceMe } from "@/lib/data/workspace.client";
 import { hasScopedWorkspaceCapability } from "@/lib/workspace-permissions";
@@ -498,7 +497,6 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
           whatsappLink={data.society.defaultWhatsappLink}
         />
 
-        <ContextualBlogLinks blogs={data.relatedBlogs} />
       </main>
 
       <Footer />

@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "react-router";
 import { DropdownMenu, Dialog as DialogPrimitive } from "radix-ui";
 import {
-  BookOpen,
   CalendarDays,
   ChevronRight,
   Home,
@@ -25,7 +24,6 @@ const navItems: NavItem[] = [
   { label: "EVENTS", href: "/events" },
   { label: "INFINIA", href: "/infinia" },
   { label: "SOCIETIES", href: "/societies" },
-  { label: "BLOG", href: "/blog" },
   { label: "EXECOM", href: "/full-execom" },
 ];
 
@@ -33,7 +31,6 @@ const mobilePrimaryItems = [
   { label: "Home", href: "/", Icon: Home },
   { label: "Events", href: "/events", Icon: CalendarDays },
   { label: "Societies", href: "/societies", Icon: UsersRound },
-  { label: "Blog", href: "/blog", Icon: BookOpen },
 ] as const;
 
 const mobileHelpItems = [

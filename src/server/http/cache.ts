@@ -54,8 +54,6 @@ const PUBLIC_PAGE_PATTERNS: readonly RegExp[] = [
 	/^\/pricing$/,
 	/^\/events$/,
 	/^\/events\/[^/]+$/,
-	/^\/blog$/,
-	/^\/blog\/[^/]+$/,
 	/^\/societies$/,
 	/^\/societies\/[^/]+$/,
 	/^\/full-execom$/,

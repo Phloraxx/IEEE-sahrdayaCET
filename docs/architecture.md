@@ -113,8 +113,10 @@ historical role codes remain readable aliases.
 Searchable content has stable HTML routes, including:
 
 - `/events/:slug`
-- `/blog/:slug`
 - `/societies/:slug`
+
+The blog was removed on 2026-11-22; its rows remain in the database but no route,
+API collection, admin screen or sitemap entry exposes them.
 
 Event slugs are backfilled for old records, generated on create, uniquely indexed, and immutable afterwards. Production generates dynamic sitemap/robots resources. Non-production document responses are `noindex, nofollow`.
 

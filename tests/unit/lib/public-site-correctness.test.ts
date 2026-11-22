@@ -69,11 +69,10 @@ describe("public site correctness invariants", () => {
 });
 
 describe("Home redesign invariants", () => {
-  it("uses real Home programme and blog data instead of the old fake bento feed", () => {
+  it("uses real Home programme data instead of the old fake bento feed", () => {
     const route = read("src/routes/index.tsx");
     const now = read("src/components/home/NowAtSahrdaya.tsx");
     expect(route).toContain("<NowAtSahrdaya");
-    expect(route).toContain("<LatestSignals");
     expect(route).not.toContain("<WhatsHappening");
     expect(now).toContain('to={`/events/${lead.slug}`}');
     expect(route).not.toContain("Call for Papers");
@@ -82,12 +81,10 @@ describe("Home redesign invariants", () => {
   it("keeps the Home narrative and curated showcase semantics", () => {
     const people = read("src/components/Execom.tsx");
     const showcase = read("src/components/EventsShowcase.tsx");
-    const signals = read("src/components/home/LatestSignals.tsx");
     expect(read("src/components/home/NowAtSahrdaya.tsx")).not.toContain('index="01"');
     expect(people).toContain("THE EXECOM");
     expect(showcase).toContain('aria-label="Past events gallery"');
     expect(showcase).toContain("-rotate-3 scale-110");
-    expect(signals).not.toContain('index="04"');
     expect(showcase).toContain("Deliberately curated archive");
     expect(showcase).toContain("bg-white py-16");
   });

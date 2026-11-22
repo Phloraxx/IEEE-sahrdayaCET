@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import { motion } from "framer-motion";
 import { ArrowUpRight, CalendarDays, MapPin, Pencil, Plus, Sparkles } from "lucide-react";
-import { blogHtmlToPlainText } from "@/lib/blog-content";
+import { htmlToPlainText } from "@/lib/rich-text";
 import { formatDate, formatDateShort } from "@/lib/dates";
 import { getWieEventArtwork } from "@/lib/wie-media";
 import type { SocietyPageData } from "@/server/public/society-detail.server";
@@ -44,7 +44,7 @@ function eventTags(event: WIEEvent): string[] {
 }
 
 function eventDescription(event: WIEEvent, limit = 320): string {
-  const text = blogHtmlToPlainText(event.description)
+  const text = htmlToPlainText(event.description)
     .replace(/\s+/g, " ")
     .trim();
   if (text.length <= limit) return text;

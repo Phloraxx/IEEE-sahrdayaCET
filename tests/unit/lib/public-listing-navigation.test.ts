@@ -4,8 +4,8 @@ import type { ShouldRevalidateFunctionArgs } from "react-router";
 
 it("reuses listing data for filters while preserving mutation and refresh revalidation", () => {
   const args = {
-    currentUrl: new URL("https://example.test/blog"),
-    nextUrl: new URL("https://example.test/blog?q=hardware"),
+    currentUrl: new URL("https://example.test/events"),
+    nextUrl: new URL("https://example.test/events?q=hardware"),
     defaultShouldRevalidate: true,
   } as ShouldRevalidateFunctionArgs;
   expect(shouldRevalidatePublicListing(args)).toBe(false);

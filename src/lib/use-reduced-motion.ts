@@ -1,7 +1,7 @@
 /**
  * `prefers-reduced-motion` as a boolean, without framer-motion.
  *
- * The star fields on the home, blog and society pages imported
+ * The star fields on the home and society pages imported
  * `useReducedMotion` from `framer-motion` and used nothing else from the
  * library — which pulled ~40 KB gzipped of animation runtime into those pages
  * for one media query. This is the same hook in fifteen lines.

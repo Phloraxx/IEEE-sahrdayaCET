@@ -29,9 +29,7 @@ test.describe('SSR and SEO', () => {
     expect(societiesHtml).toMatch(/href="\/societies\/[a-z0-9][a-z0-9-]+"/)
   })
 
-  test('blog and society listings have canonical URLs', async ({ page }) => {
-    await page.goto('/blog')
-    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://ieeesahrdaya.com/blog')
+  test('society listings have canonical URLs', async ({ page }) => {
     await page.goto('/societies')
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://ieeesahrdaya.com/societies')
   })

@@ -1,6 +1,5 @@
 import { FLAGSHIPS, FLAGSHIP_TIMELINE } from "@/lib/flagships";
 import { APP_URL } from "@/lib/constants";
-import { getPublishedBlogs } from "@/lib/blog-public.server";
 import { fetchEvents } from "@/server/public/events.server";
 import { fetchSocieties } from "@/server/public/societies.server";
 
@@ -32,9 +31,8 @@ export async function loader() {
     });
   }
 
-  const [events, blogs, societies] = await Promise.all([
+  const [events, societies] = await Promise.all([
     fetchEvents(),
-    getPublishedBlogs().catch(() => []),
     fetchSocieties(),
   ]);
 
@@ -44,7 +42,6 @@ export async function loader() {
     urlEntry("/infinia"),
     ...FLAGSHIPS.filter(flagship => flagship.slug === "altair").map(flagship => urlEntry(`/flagships/${flagship.slug}`)),
     ...FLAGSHIP_TIMELINE.map(item => urlEntry(item.href)),
-    urlEntry("/blog"),
     urlEntry("/societies"),
     urlEntry("/full-execom"),
     urlEntry("/about"),
@@ -55,7 +52,6 @@ export async function loader() {
     urlEntry("/privacy-policy"),
     urlEntry("/refund-and-cancellation-policy"),
     ...events.filter((event) => event.slug).map((event) => urlEntry(`/events/${encodeURIComponent(event.slug)}`, event.updatedAt)),
-    ...blogs.filter((blog) => blog.slug).map((blog) => urlEntry(`/blog/${encodeURIComponent(blog.slug)}`, blog.updatedAt)),
     ...societies.filter((society) => society.slug).map((society) => urlEntry(`/societies/${encodeURIComponent(society.slug)}`, society.updatedAt)),
   ];
 

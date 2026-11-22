@@ -31,7 +31,6 @@ describe("generic society detail system", () => {
     const genericRoute = read("src/routes/societies_.$slug.tsx");
     const wieRoute = read("src/routes/societies_.wie.tsx");
     expect(genericRoute).toContain("SocietyDetailView");
-    expect(genericRoute).toContain("getLatestPublishedBlogsForSociety");
     expect(wieRoute).toContain("WIEPage");
     expect(wieRoute).not.toContain("SocietyDetailView");
   });

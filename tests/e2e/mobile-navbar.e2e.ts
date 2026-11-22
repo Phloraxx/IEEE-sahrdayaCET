@@ -9,7 +9,7 @@ test.describe("mobile public navigation", () => {
 
     const dock = page.getByRole("navigation", { name: "Mobile site navigation" });
     await expect(dock).toBeVisible();
-    for (const label of ["Home", "Events", "Societies", "Blog"]) {
+    for (const label of ["Home", "Events", "Societies"]) {
       await expect(dock.getByRole("link", { name: label, exact: true })).toBeVisible();
     }
     // The modal correctly hides the background dock from the accessibility tree.

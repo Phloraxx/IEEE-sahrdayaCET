@@ -1,7 +1,5 @@
 import { getPbClient } from "@/lib/pb-client";
-import { buildFileUrl, escapeFilterValue } from "@/lib/pb";
-import { sanitizeBlogCoverUrl } from "@/lib/blog-content";
-import { getField } from "@/lib/safe-get";
+import { buildFileUrl } from "@/lib/pb";
 import { canRegisterForEvent, isPublicEvent } from "@/lib/event-lifecycle";
 import { getEventAttendanceMode, type EventAttendanceMode } from "@/lib/event-presentation";
 import { normalizeEligibleProgrammes, normalizeEligibleSemesters } from "@/lib/event-audience";
@@ -9,46 +7,6 @@ import { normalizeEventRequirements } from "@/lib/event-requirements";
 import type { FormField } from "@/types";
 import type { MyEventRegistration } from "@/lib/registration-state";
 
-export async function listRelatedBlogs(input: {
-  societySlug?: string;
-  eventId?: string;
-  limit?: number;
-}) {
-  const pb = getPbClient();
-  const limit = Math.min(6, Math.max(1, input.limit ?? 3));
-  let relationFilter = "";
-  if (input.eventId) {
-    relationFilter = `event = ${escapeFilterValue(input.eventId)}`;
-  } else if (input.societySlug) {
-    const society = await pb.collection("societies").getFirstListItem(
-      `slug = ${escapeFilterValue(input.societySlug.toLowerCase())}`,
-      { fields: "id" },
-    ).catch(() => null);
-    if (!society) return { items: [] };
-    relationFilter = `society = ${escapeFilterValue(society.id)}`;
-  }
-
-  const result = await pb.collection("blogs").getList(1, limit, {
-    filter: relationFilter ? `published = true && ${relationFilter}` : "published = true",
-    sort: "-published_at",
-    fields: "id,title,slug,excerpt,cover_url,topic_label,category,published_at,read_minutes",
-    skipTotal: true,
-  });
-
-  return {
-    items: result.items.map((raw) => ({
-      id: raw.id,
-      title: getField(raw, "title", ""),
-      slug: getField(raw, "slug", ""),
-      excerpt: getField(raw, "excerpt", ""),
-      coverUrl: sanitizeBlogCoverUrl(getField(raw, "cover_url", "")),
-      topicLabel: getField(raw, "topic_label", ""),
-      category: getField(raw, "category", ""),
-      publishedAt: getField(raw, "published_at", ""),
-      readMinutes: Number(getField(raw, "read_minutes", 0)) || 1,
-    })),
-  };
-}
 
 export interface PublicRegistrationEvent {
   id: string;

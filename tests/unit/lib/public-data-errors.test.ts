@@ -49,7 +49,6 @@ import { fetchEvents, fetchEventBySlug } from '@/server/public/events.server';
 import { fetchSocieties } from '@/server/public/societies.server';
 import { loader as registerLoader } from '@/routes/register.$eventId';
 import { loader as directoryLoader } from '@/routes/full-execom';
-import { loader as blogLoader } from '@/routes/blog.index';
 import { loader as pricingLoader } from '@/routes/pricing';
 
 beforeEach(() => {
@@ -57,7 +56,6 @@ beforeEach(() => {
   listPublicEvents.mockResolvedValue([]);
   listPublicSocieties.mockResolvedValue([]);
   listExecom.mockResolvedValue([]);
-  listPublishedBlogs.mockResolvedValue([]);
 });
 
 /** A minimal EventRow as the repo returns it. */
@@ -133,12 +131,10 @@ describe('public data failure semantics', () => {
     await expect(fetchEventBySlug('existing')).rejects.toMatchObject({ status: 503 });
   });
 
-  it('keeps directory and blog failures out of normal empty states', async () => {
-    // The directory reads the execom table; the blog index reads published blogs.
+  it('keeps directory failures out of normal empty states', async () => {
+    // The directory reads the execom table.
     listExecom.mockRejectedValue(new Error('service unavailable'));
-    listPublishedBlogs.mockRejectedValue(new Error('service unavailable'));
     await expect(directoryLoader()).rejects.toMatchObject({ status: 503 });
-    await expect(blogLoader()).rejects.toMatchObject({ status: 503 });
   });
 
   it('distinguishes a missing registration event from an outage', async () => {

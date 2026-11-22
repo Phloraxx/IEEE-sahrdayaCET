@@ -6,7 +6,7 @@ import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 import { TechnicalDetails } from "@/components/TechnicalDetails";
 import { StarsBackground } from "@/components/ui/stars-background";
-import { blogHtmlToPlainText } from "@/lib/blog-content";
+import { htmlToPlainText } from "@/lib/rich-text";
 import type { Society } from "@/types";
 
 export interface SocietyActivitySignal {
@@ -68,7 +68,7 @@ function societyAccent(slug: string): Accent {
 }
 
 function societyDescription(society: Society) {
-  return blogHtmlToPlainText(society.bio || "").replace(/\s+/g, " ").trim();
+  return htmlToPlainText(society.bio || "").replace(/\s+/g, " ").trim();
 }
 
 function formatSignalDate(value: string) {
@@ -653,7 +653,6 @@ export default function SocietiesClient({ societies, activityBySociety, upcoming
           </div>
           <div className="flex flex-wrap gap-x-7 gap-y-4 font-mono text-[10px] font-semibold uppercase tracking-[0.17em] text-slate-500">
             <Link to="/events" className="inline-flex min-h-11 items-center transition hover:text-ieee-blue">Events ↗</Link>
-            <Link to="/blog" className="inline-flex min-h-11 items-center transition hover:text-ieee-blue">Blog ↗</Link>
             <Link to="/#execom" className="inline-flex min-h-11 items-center transition hover:text-ieee-blue">Execom ↗</Link>
             <a href="#societies-top" className="inline-flex min-h-11 items-center transition hover:text-ieee-blue">Back to top ↑</a>
           </div>

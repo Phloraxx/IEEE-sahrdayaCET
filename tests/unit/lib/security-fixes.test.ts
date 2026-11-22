@@ -67,18 +67,6 @@ describe("statement cache bound", () => {
 	});
 });
 
-describe("blog write field names", () => {
-	it("maps the PocketBase relation names to their columns", async () => {
-		const { prepareCommon } = await import("@/lib/admin-blog-client");
-		const mapped = prepareCommon({ societyId: "s-1", eventId: "e-1" });
-		expect(mapped.society_id).toBe("s-1");
-		expect(mapped.event_id).toBe("e-1");
-		// The old names must not appear: the endpoint drops unknown keys silently.
-		expect(mapped).not.toHaveProperty("society");
-		expect(mapped).not.toHaveProperty("event");
-	});
-});
-
 describe("rate limiting", () => {
 	it("allows up to the limit inside the window, then refuses", async () => {
 		const { allow, __testing } = await import("@/server/http/rate-limit");
