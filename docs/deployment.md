@@ -169,6 +169,30 @@ backup.
 for offsite copies; once the SQLite deployment is live, the in-app archive is the
 primary one.
 
+## Render cache
+
+The public pages on the allow-list in `src/server/http/cache.ts` are cached in
+process for `RENDER_CACHE_TTL_SECONDS` (default 45). This exists because the
+events listing costs ~82 ms of CPU per render, which caps one Node process at
+~13 req/s regardless of concurrency; a cache hit is a string copy and measured
+120–160 req/s on the same box.
+
+The cache stores the rendered HTML, the CSP nonce it was rendered with, and the
+response headers. On a hit the nonce is rewritten to a fresh one and the policy
+is recomputed, so every response still carries a unique nonce and its scripts
+stay authorised; an entry whose nonce cannot be found is ignored rather than
+served. A request with the session cookie, a query string, a non-allow-listed
+path, a non-200 status or a `Set-Cookie` header is never stored or served from it.
+
+`X-Render-Cache: hit|miss` on the response and `renderCache` in `/healthz`
+(stats: entries, bytes, hits, misses, evictions) make it measurable. Bounds:
+`RENDER_CACHE_MAX_ENTRIES` (50) and `RENDER_CACHE_MAX_BYTES` (32 MB); 0 disables.
+An admin change appears on the public site within the TTL.
+
+This is complementary to the edge cache, not a replacement: `s-maxage=60` still
+lets Cloudflare absorb the traffic spike, and the render cache keeps the origin
+fast on the misses.
+
 ## Routing and networks
 
 The app server owns the public host: React Router serves the pages **and**
