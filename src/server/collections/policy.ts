@@ -383,8 +383,10 @@ function tokenize(filter: string): Token[] {
 			tokens.push({ kind: "value", text: value });
 			continue;
 		}
-		// Operator or bare word/number.
-		const operatorMatch = /^(>=|<=|!=|=|>|<)/.exec(filter.slice(index));
+		// Operator or bare word/number. `~` / `!~` are PocketBase's contains and
+		// not-contains operators; the admin event and society searches still use
+		// them, so the grammar has to accept what the client modules emit.
+		const operatorMatch = /^(>=|<=|!=|!~|=|>|<|~)/.exec(filter.slice(index));
 		if (operatorMatch) {
 			tokens.push({ kind: "op", text: operatorMatch[1] as string });
 			index += operatorMatch[1]!.length;
@@ -395,7 +397,7 @@ function tokenize(filter: string): Token[] {
 			const text = wordMatch[0];
 			// A word followed by an operator is a field; otherwise it is a value.
 			const rest = filter.slice(index + text.length).trimStart();
-			const isField = /^(=|!=|>=|<=|>|<)/.test(rest);
+			const isField = /^(=|!=|!~|>=|<=|>|<|~)/.test(rest);
 			tokens.push({ kind: isField ? "field" : "value", text });
 			index += text.length;
 			continue;
@@ -431,8 +433,10 @@ function resolveColumn(
 /**
  * Translate a PocketBase-style filter into SQL.
  *
- * Supports `field <op> value` joined by `&&` / `||` and parentheses. Field names
- * are validated against `allowedColumns`; values are always bound.
+ * Supports `field <op> value` joined by `&&` / `||` and parentheses, with the
+ * comparison operators `= != > >= < <=` and PocketBase's `~` / `!~` contains
+ * operators. Field names are validated against `allowedColumns`; values are
+ * always bound.
  */
 export function translateFilter(
 	filter: string,
@@ -484,6 +488,13 @@ export function translateFilter(
 		const column = resolveColumn(field.text, allowedColumns, aliases);
 		if (!column) {
 			throw new Error(`Unknown filter field: ${field.text}`);
+		}
+
+		// Contains / not-contains. `instr` is deliberate: a search term with `%`
+		// or `_` stays a literal, which `LIKE` would turn into a wildcard.
+		if (op.text === "~" || op.text === "!~") {
+			params.push(value.text);
+			return `instr(lower(COALESCE("${column}", '')), lower(?)) ${op.text === "~" ? ">" : "="} 0`;
 		}
 
 		const sqlOp = OPERATORS[op.text];

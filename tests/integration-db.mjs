@@ -1102,6 +1102,17 @@ try {
 		check(camel.sql.includes('"society_id" = ?'),
 			"filter fields are normalised to snake_case", camel.sql);
 
+		// The admin event and society searches emit PocketBase's `~` operator.
+		const contains = policy.translateFilter("title ~ 'work'", columns);
+		check(contains.sql.includes("instr(lower(") && contains.params[0] === "work",
+			"~ compiles to a bound contains match", contains.sql);
+		const notContains = policy.translateFilter("title !~ 'draft'", columns);
+		check(notContains.sql.includes("= 0") && notContains.params[0] === "draft",
+			"!~ compiles to a bound not-contains match", notContains.sql);
+		const literalWildcard = policy.translateFilter("title ~ '50%_off'", columns);
+		check(literalWildcard.params[0] === "50%_off",
+			"contains keeps % and _ literal", literalWildcard.params[0]);
+
 		let rejected = null;
 		try {
 			policy.translateFilter("title = 'x'; DROP TABLE events; --", columns);
