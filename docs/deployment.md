@@ -360,9 +360,12 @@ A push to `main` therefore runs only the fast path before CD deploys; the deep
 backend gate has already run on the release PR. A direct push to `main` skips
 it, so releases should go through a pull request.
 
-The certificate renderer's fonts are installed only on the release gate (`main`
-pushes and PRs into `main`); on the dev fast path those unit tests skip rather
-than adding ~7 s to every push. The bulk certificate suite runs at 100
+The certificate renderer opens exactly two files, `NotoSans-Regular.ttf` and
+`NotoSerif-Regular.ttf`. They are committed under `tests/fixtures/fonts` (SIL
+Open Font License 1.1, licence alongside) and found through
+`CERTIFICATE_FONT_DIR`, so the renderer suite runs on every push instead of an
+`apt-get install fonts-noto-core` that took 7–26 s depending on the mirror. At
+runtime the image still reads the system copies. The bulk certificate suite runs at 100
 recipients, which still exercises pagination (three registry pages) without the
 22 s cost of 200.
 
