@@ -1,10 +1,15 @@
+# Production only. Staging is deployed from your own machine with
+# scripts/deploy-local.sh, which runs the same checks without waiting for CI and
+# without a registry round-trip; see docs/deployment.md. Keeping this workflow
+# on `main` alone is what makes the two lanes distinct: the gate protects
+# production, and nothing gates the staging playground.
 name: CD
 
 on:
   workflow_run:
     workflows: [CI]
     types: [completed]
-    branches: [main, dev]
+    branches: [main]
 
 permissions:
   contents: write
@@ -18,13 +23,13 @@ jobs:
   deploy:
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    environment: ${{ github.event.workflow_run.head_branch == 'main' && 'production' || 'staging' }}
+    environment: production
     env:
       BRANCH: ${{ github.event.workflow_run.head_branch }}
-      DEPLOY_BRANCH: ${{ github.event.workflow_run.head_branch == 'main' && 'deploy/production' || 'deploy/staging' }}
+      DEPLOY_BRANCH: deploy/production
       TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
-      TARGET: ${{ github.event.workflow_run.head_branch == 'main' && 'production' || 'staging' }}
-      DEPLOY_WEBHOOK: ${{ github.event.workflow_run.head_branch == 'main' && secrets.DOCKPLOY_WEBHOOK_PROD || secrets.DOCKPLOY_WEBHOOK_DEV }}
+      TARGET: production
+      DEPLOY_WEBHOOK: ${{ secrets.DOCKPLOY_WEBHOOK_PROD }}
       IMAGE: ghcr.io/phloraxx/ieee-sahrdaya-web
     steps:
       - name: Verify tested SHA is still branch head
@@ -79,7 +84,7 @@ jobs:
       # a squash merge preserves; the mutable :production tag is moved here, so
       # a rollback (repointing deploy/production) also rolls the image back.
       - name: Attach this commit's image to the production tag
-        if: steps.freshness.outputs.skip != 'true' && env.TARGET == 'production'
+        if: steps.freshness.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

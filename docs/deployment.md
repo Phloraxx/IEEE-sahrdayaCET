@@ -382,23 +382,19 @@ backend without depending on a long-lived database.
 
 ## CD
 
-`.github/workflows/cd.yml` reacts only to successful `CI` completion on:
-
-```text
-main
-dev
-```
-
-Before deployment, CD verifies that the SHA tested by CI is still the current head of that branch. If a newer commit exists, the older deployment is skipped.
-
-Branch mapping:
+`.github/workflows/cd.yml` reacts only to successful `CI` completion on `main`:
 
 ```text
 main → production environment → DOCKPLOY_WEBHOOK_PROD
-dev  → staging environment    → DOCKPLOY_WEBHOOK_DEV
 ```
 
-`workflow_run` workflows are evaluated from the repository default branch. Therefore the CD workflow definition needed to trigger both environments must exist on `main`.
+Before deployment, CD verifies that the SHA tested by CI is still the current
+head of `main`. If a newer commit exists, the older deployment is skipped.
+
+Staging is not in this workflow. It deploys from the machine you are working on
+(see *Deploying* below), which is faster and means a dev push never waits for a
+runner. `workflow_run` workflows are evaluated from the repository default
+branch, so this definition must exist on `main`.
 
 ### Prevent native pre-CI deployments
 
@@ -462,27 +458,55 @@ above still applies.
 `WEB_IMAGE` from the environment file, so a hotfix does not need the registry at
 all; the next normal deploy pulls `:production` again and replaces it.
 
-## Break-glass deployment (no GitHub)
+## Deploying
 
-`scripts/deploy-local.sh` exists for the case where GitHub Actions or the
-Dokploy webhook is unavailable and a fix cannot wait. It is the **only**
-sanctioned way to deploy outside the normal path.
+There are two lanes, and they are deliberately different.
+
+### Staging: from your machine
 
 ```bash
-sudo ./scripts/deploy-local.sh --dry-run     # print the plan
-sudo ./scripts/deploy-local.sh               # production: tests, build, switch
-sudo ./scripts/deploy-local.sh --staging     # staging
-sudo ./scripts/deploy-local.sh --skip-tests  # incident hotfix
+./scripts/deploy-local.sh --staging          # checks, build, switch, health gate
+./scripts/deploy-local.sh --staging --yes    # no prompt
 ```
 
-It refuses to run unless the checkout is clean, is on `deploy/production` (or
-`deploy/staging`), and the operator passes an explicit confirmation. It installs
-dependencies, runs typecheck and the unit suite (unless skipped), builds the
-**web** service with the environment few people should touch, using the same
-Compose project and service name Dokploy uses, and recreates only `web`.
-PocketBase is left untouched. The health check waits for `/healthz` to report a
-living `renderCache`, which proves the new process is serving rather than the
-old one still draining.
+It deploys **the commit you have checked out**. The commit must be pushed (the
+Dokploy checkout fetches it by SHA) and the source tree must be clean, so what
+the tests cover is what goes live. It runs typecheck, the unit suite, builds the
+web image with the staging Compose project, recreates `web` only, and waits for
+`/healthz`. Measured: **35 s** end to end, against ~70 s for the old
+push → CI → CD → build path.
+
+Staging is a playground: it does not require a green CI run, and nothing
+promotes it automatically. When the change is ready, it goes to `main` through a
+pull request.
+
+### Production: through CI
+
+```text
+dev ──PR──▶ main ──CI──▶ CD ──▶ Dokploy pulls ghcr.io/…:production
+```
+
+Nobody deploys production by hand in the normal course. CI must be green on the
+exact commit, CD pins it to `deploy/production`, and the server pulls the arm64
+image CI built for that commit's tree.
+
+### Production break-glass: also from your machine
+
+```bash
+./scripts/deploy-local.sh                   # production, with tests
+./scripts/deploy-local.sh --skip-tests      # incident hotfix, no test run
+```
+
+Only for a CI outage or a hotfix that cannot wait. It deploys the commit CD
+pinned to `deploy/production` — not your worktree — so it can only ship what CI
+already approved, and it refuses if that checkout is on another branch. It builds
+on the server instead of pulling, and the next normal deploy pulls and replaces
+it.
+
+It runs as your own user (Docker group), not root: the unit suite misbehaves
+under root and nothing here needs it. It refuses on uncommitted edits to the
+Dokploy checkout, ignoring `docker-compose.yml`, which Dokploy rewrites on every
+deploy.
 
 ## Do not manually replace Dokploy services
 

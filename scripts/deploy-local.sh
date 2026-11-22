@@ -1,22 +1,31 @@
 #!/usr/bin/env bash
 #
-# Break-glass deployment: build and switch one Dokploy compose service without
-# GitHub, the CD workflow or the Dokploy webhook.
+# Deploy one Dokploy compose service from your machine.
 #
-# Use this only when CI/CD is unavailable or a hotfix cannot wait for the normal
-# path. It runs the same checks CI runs, builds the image with the same compose
-# file Dokploy uses, and recreates only the web service. PocketBase is left
-# untouched.
+# Two lanes, on purpose:
 #
-# Normal production deploys pull a prebuilt image from GHCR instead of building;
-# this script is the reason the compose file keeps its build section. It tags the
-# image with WEB_IMAGE from the environment file, so the next normal deploy pulls
-# and replaces it.
+#   --staging    The default for iteration. Deploys the commit you have checked
+#                out (it must be pushed), runs typecheck and the unit suite
+#                first, and never waits for CI.
 #
-#   sudo ./scripts/deploy-local.sh                  # production, with tests
-#   sudo ./scripts/deploy-local.sh --staging        # staging
-#   sudo ./scripts/deploy-local.sh --skip-tests     # incident hotfix
-#   sudo ./scripts/deploy-local.sh --dry-run        # print the plan
+#   (default)    Production break-glass: the same checks, but only against the
+#                commit CD pinned to deploy/production, i.e. one that already
+#                passed CI. Normal production releases go through a pull
+#                request; this exists for outages and hotfixes.
+#
+# It builds the image with the same compose file Dokploy uses and recreates only
+# the web service; PocketBase is left untouched. Production normally pulls a
+# prebuilt image from GHCR instead of building, which is why the compose file
+# keeps its build section: this script tags the image WEB_IMAGE from the
+# environment file, and the next CD deploy pulls and replaces it.
+#
+#   ./scripts/deploy-local.sh                  # production, with tests
+#   ./scripts/deploy-local.sh --staging        # staging
+#   ./scripts/deploy-local.sh --skip-tests     # incident hotfix
+#   ./scripts/deploy-local.sh --dry-run        # print the plan
+#
+# Runs as your own user (Docker group), not as root: the unit suite misbehaves
+# under root, and there is nothing here that needs it.
 #
 set -euo pipefail
 
@@ -26,7 +35,7 @@ ASSUME_YES=0
 DRY_RUN=0
 
 usage() {
-	sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'
+	sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'
 }
 
 while [[ $# -gt 0 ]]; do
@@ -53,55 +62,106 @@ case "$TARGET" in
 		CODE_DIR="/etc/dokploy/compose/ieee-dev-staging/code"
 		PROJECT="ieee-dev-staging"
 		HOST="staging.ieeesahrdaya.com"
-		BRANCH="deploy/staging"
+		# Staging follows your worktree, not a CI-pinned ref: empty BRANCH means
+		# "deploy the commit I have checked out".
+		BRANCH=""
 		;;
 esac
 
 die() { echo "error: $*" >&2; exit 1; }
 step() { printf '\n==> %s\n' "$*"; }
 
-if [[ "$DRY_RUN" -eq 0 && "${EUID}" -ne 0 ]]; then
-	die "run with sudo: the compose environment file and Docker socket are root-owned"
+# The checks run in your working tree (its node_modules belong to you); the
+# Dokploy checkout is root-owned and only supplies the compose file and .env.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CHECK_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+if [[ "$DRY_RUN" -eq 0 ]] && ! docker info >/dev/null 2>&1; then
+	die "docker is not reachable; run as a user in the docker group"
 fi
 
-[[ -d "$CODE_DIR" ]] || die "compose checkout not found: $CODE_DIR"
-[[ -f "$CODE_DIR/.env" ]] || die "compose environment file not found: $CODE_DIR/.env (refusing to guess secrets)"
-[[ -f "$CODE_DIR/docker-compose.yml" ]] || die "compose file not found: $CODE_DIR/docker-compose.yml"
-
-cd "$CODE_DIR"
-
-CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-CURRENT_SHA="$(git rev-parse HEAD)"
-SHORT_SHA="$(git rev-parse --short HEAD)"
-SUBJECT="$(git log -1 --pretty=%s)"
-if [[ -n "$(git status --porcelain)" ]]; then
-	if [[ "$DRY_RUN" -eq 1 ]]; then
-		echo "warning: the compose checkout has uncommitted changes; a real run would refuse"
-	else
-		die "the compose checkout has uncommitted changes; commit or discard them first"
+# sudo resets PATH, and bun lives in the invoking user's home. Borrow it, then
+# fail with a useful message instead of "bun: command not found".
+if [[ -n "${SUDO_USER:-}" ]]; then
+	SUDO_HOME="$(getent passwd "$SUDO_USER" | cut -d: -f6)"
+	if [[ -n "$SUDO_HOME" ]]; then
+		PATH="$SUDO_HOME/.bun/bin:$PATH"
+		export PATH
 	fi
 fi
-if [[ "$CURRENT_BRANCH" != "$BRANCH" ]]; then
-	die "expected branch $BRANCH, found $CURRENT_BRANCH (refusing to deploy the wrong commit)"
+command -v bun >/dev/null 2>&1 || die "bun is not on PATH; install it or run this as the user that owns it"
+
+[[ -d "$CODE_DIR" ]] || die "compose checkout not found: $CODE_DIR"
+ENV_FILE="$CODE_DIR/.env"
+[[ -f "$ENV_FILE" ]] || die "compose environment file not found: $ENV_FILE (refusing to guess secrets)"
+
+# Which tree supplies the compose file:
+#
+#   staging     your worktree — it is the commit being deployed, it is clean,
+#               and it is readable by you. The Dokploy checkout is root-owned
+#               and git refuses to fetch into it, so it supplies the .env only.
+#   production  the Dokploy checkout at the CI-pinned ref.
+if [[ -z "$BRANCH" ]]; then
+	COMPOSE_DIR="$CHECK_DIR"
+	[[ -f "$COMPOSE_DIR/docker-compose.yml" ]] || die "compose file not found: $COMPOSE_DIR/docker-compose.yml"
+	STAGING_DIRT="$(git -C "$CHECK_DIR" status --porcelain -- src tests sqlite package.json bun.lock public)"
+	[[ -z "$STAGING_DIRT" ]] || die "staging deploys the commit you have checked out, so it must be clean:
+$STAGING_DIRT"
+	CURRENT_SHA="$(git -C "$CHECK_DIR" rev-parse HEAD)"
+	if [[ -z "$(git -C "$CHECK_DIR" branch -r --contains "$CURRENT_SHA" 2>/dev/null | head -1)" ]]; then
+		die "commit ${CURRENT_SHA:0:8} is not on any remote branch; push it first (git push origin HEAD:dev)"
+	fi
+else
+	COMPOSE_DIR="$CODE_DIR"
+	[[ -f "$COMPOSE_DIR/docker-compose.yml" ]] || die "compose file not found: $COMPOSE_DIR/docker-compose.yml"
+	CURRENT_SHA="$(git -C "$CODE_DIR" rev-parse HEAD)"
+fi
+
+cd "$COMPOSE_DIR"
+
+CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+SHORT_SHA="$(git rev-parse --short HEAD)"
+SUBJECT="$(git log -1 --pretty=%s)"
+
+if [[ -n "$BRANCH" ]]; then
+	# Dokploy rewrites docker-compose.yml on every deploy (it strips comments)
+	# and drops docker-compose.local.yml beside it, so the checkout is always
+	# "dirty" in that file. Accept that; refuse on real edits.
+	DIRT="$(git status --porcelain -- . ':(exclude)docker-compose.yml' ':(exclude)docker-compose.local.yml')"
+	if [[ -n "$DIRT" ]]; then
+		if [[ "$DRY_RUN" -eq 1 ]]; then
+			echo "warning: the compose checkout has uncommitted changes; a real run would refuse"
+			echo "$DIRT"
+		else
+			echo "$DIRT" >&2
+			die "the compose checkout has uncommitted changes; commit or discard them first"
+		fi
+	fi
+	if ! git diff --quiet -- docker-compose.yml; then
+		echo "note: docker-compose.yml differs from $SHORT_SHA because Dokploy rewrites it; deploying it as-is"
+	fi
+	if [[ "$CURRENT_BRANCH" != "$BRANCH" ]]; then
+		die "expected branch $BRANCH, found $CURRENT_BRANCH (refusing to deploy the wrong commit)"
+	fi
 fi
 
 cat <<EOF
 
 Target:   $TARGET ($HOST)
-Checkout: $CODE_DIR
-Branch:   $CURRENT_BRANCH @ $SHORT_SHA
+Compose:  $COMPOSE_DIR
+Source:   $([[ -n "$BRANCH" ]] && echo "CI-pinned $CURRENT_BRANCH" || echo "your worktree") @ $SHORT_SHA
 Commit:   $SUBJECT
-Tests:    $([[ "$SKIP_TESTS" -eq 1 ]] && echo skipped || echo "typecheck + unit")
+Checks:   $([[ "$SKIP_TESTS" -eq 1 ]] && echo skipped || echo "typecheck + unit in $CHECK_DIR")
 EOF
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
 	cat <<EOF
 
 Plan:
-  1. bun install --frozen-lockfile
+  1. bun install --frozen-lockfile --ignore-scripts (only if bun.lock moved)
   2. bun run typecheck$([[ "$SKIP_TESTS" -eq 1 ]] && echo ' (skipped)' || echo ' && bun run test')
-  3. docker compose -p $PROJECT --env-file .env -f docker-compose.yml build web
-  4. docker compose -p $PROJECT --env-file .env -f docker-compose.yml up -d --no-build web
+  3. docker compose -p $PROJECT --env-file "$ENV_FILE" -f docker-compose.yml build web
+  4. docker compose -p $PROJECT --env-file "$ENV_FILE" -f docker-compose.yml up -d --no-build web
   5. wait for https://$HOST/healthz
 EOF
 	exit 0
@@ -112,22 +172,30 @@ if [[ "$ASSUME_YES" -eq 0 ]]; then
 	[[ "$reply" =~ ^[Yy]$ ]] || { echo "aborted"; exit 1; }
 fi
 
-step "Installing dependencies"
-bun install --frozen-lockfile
-
 if [[ "$SKIP_TESTS" -eq 0 ]]; then
-	step "Typecheck and unit tests"
-	bun run typecheck
-	bun run test
+	step "Typecheck and unit tests in $CHECK_DIR"
+	(
+		cd "$CHECK_DIR"
+		# The host has no C toolchain on purpose (the image builds its own native
+		# modules), so a plain `bun install` fails on better-sqlite3's postinstall.
+		# Reuse the worktree's node_modules; refresh it only when the lockfile moved.
+		if [[ ! -d node_modules ]] || [[ bun.lock -nt node_modules ]]; then
+			bun install --frozen-lockfile --ignore-scripts
+		else
+			echo "node_modules is current; skipping install"
+		fi
+		bun run typecheck
+		bun run test
+	)
 else
 	echo "==> Tests skipped at operator request"
 fi
 
 step "Building the web image"
-docker compose -p "$PROJECT" --env-file .env -f docker-compose.yml build web
+docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f docker-compose.yml build web
 
 step "Switching the web container"
-docker compose -p "$PROJECT" --env-file .env -f docker-compose.yml up -d --no-build web
+docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f docker-compose.yml up -d --no-build web
 
 step "Waiting for $HOST"
 for _ in $(seq 1 60); do
