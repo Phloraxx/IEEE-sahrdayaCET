@@ -27,7 +27,6 @@ jobs:
       DEPLOY_WEBHOOK: ${{ github.event.workflow_run.head_branch == 'main' && secrets.DOCKPLOY_WEBHOOK_PROD || secrets.DOCKPLOY_WEBHOOK_DEV }}
       IMAGE: ghcr.io/phloraxx/ieee-sahrdaya-web
     steps:
-      - uses: docker/setup-buildx-action@v4
       - name: Verify tested SHA is still branch head
         id: freshness
         env:
@@ -91,12 +90,31 @@ jobs:
             "https://api.github.com/repos/${{ github.repository }}/commits/$TESTED_SHA" | jq -r .commit.tree.sha)
           echo "tree=$TREE"
           echo "$GH_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin >/dev/null
-          if ! docker buildx imagetools inspect "$IMAGE:tree-$TREE" >/dev/null 2>&1; then
+          # The runner ships buildx, but the retag must not depend on a builder:
+          # imagetools only talks to the registry, and docker manifest is the
+          # bundled fallback.
+          inspect() {
+            if docker buildx version >/dev/null 2>&1; then
+              docker buildx imagetools inspect "$1"
+            else
+              docker manifest inspect "$1"
+            fi
+          }
+          retag() {
+            if docker buildx version >/dev/null 2>&1; then
+              docker buildx imagetools create -t "$1" "$2"
+            else
+              docker manifest create "$1" "$2"
+              docker manifest push "$1"
+            fi
+          }
+          if ! inspect "$IMAGE:tree-$TREE" >/dev/null 2>&1; then
             echo "::error::No image is published for tree $TREE, so production cannot pull this commit. CI's web-image job publishes one on every push to main; re-run it, or deploy this commit with scripts/deploy-local.sh (it builds on the server)."
             exit 1
           fi
-          docker buildx imagetools create -t "$IMAGE:production" "$IMAGE:tree-$TREE"
-          docker buildx imagetools inspect "$IMAGE:production" --format '{{json .Manifest}}' | jq -r .digest
+          retag "$IMAGE:production" "$IMAGE:tree-$TREE"
+          echo "production now resolves to:"
+          inspect "$IMAGE:production" | grep -m1 -i digest || true
 
       - name: Deploy pinned SHA through Dokploy webhook
         if: steps.freshness.outputs.skip != 'true'
