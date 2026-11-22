@@ -64,7 +64,7 @@ export default function Home() {
         </div>
       </div>
       <ErrorBoundary>
-        <div className="hero-handoff relative z-10" data-hero-handoff>
+        <div className="hero-handoff relative z-10">
           {loaderData.unavailable?.length > 0 && <div role="status" className="mx-auto max-w-5xl px-5 py-6 text-sm text-gray-600">Some {loaderData.unavailable.join(", ")} information is temporarily unavailable. <button type="button" onClick={() => void revalidator.revalidate()} disabled={revalidator.state === "loading"} className="ml-2 inline-flex min-h-11 items-center font-semibold text-ieee-blue">{revalidator.state === "loading" ? "Retrying…" : "Try again"}</button></div>}
           {!loaderData.unavailable?.some(section => section === "programme" || section === "communities") && <NowAtSahrdaya events={upcomingEvents} upcomingCount={upcomingCount} societyCount={societies.length} execomCount={execomCount} />}
           <Execom members={loaderData.coreTeam ?? []} />
