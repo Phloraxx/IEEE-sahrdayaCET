@@ -43,6 +43,7 @@ Do not introduce remote Google Font requests or a new display family for one iso
 The homepage is expressive/brand-first rather than dashboard-like:
 
 - large IEEE/Sahrdaya pixel hero;
+- the wordmark is built from Press Start 2P's own cells (`src/components/PixelWordmark.tsx`): it assembles on first load, steps aside around the pointer, and comes apart as the section leaves. The headings stay in the DOM and in the accessibility tree; the cell layer is decorative;
 - restrained star/shooting-star motion;
 - bento-style `WHAT'S HAPPENING` section;
 - current event information remains dynamic, but its homepage hero visual is intentionally the stable `/AGM.webp` image instead of arbitrary event-poster ratios;
@@ -130,7 +131,10 @@ Motion should communicate hierarchy/state, not exist everywhere:
 - continuous marquee/live indicators must have reduced-motion behaviour;
 - no scroll hijacking;
 - no custom cursor requirement;
-- no heavy WebGL dependency for decorative sections.
+- no heavy WebGL dependency for decorative sections;
+- scroll-linked motion belongs to decorative exits only (the homepage wordmark scatter) and must reverse cleanly rather than gate content.
+
+GSAP is available for timelines and scroll-linked work alongside Framer Motion; register plugins and build triggers inside client effects, never at module scope, and kill them on unmount.
 
 Global `prefers-reduced-motion` handling sharply reduces animation/transition duration. Feature code should not deliberately defeat it.
 
