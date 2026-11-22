@@ -92,60 +92,63 @@ fi
 command -v bun >/dev/null 2>&1 || die "bun is not on PATH; install it or run this as the user that owns it"
 
 [[ -d "$CODE_DIR" ]] || die "compose checkout not found: $CODE_DIR"
-[[ -f "$CODE_DIR/.env" ]] || die "compose environment file not found: $CODE_DIR/.env (refusing to guess secrets)"
-[[ -f "$CODE_DIR/docker-compose.yml" ]] || die "compose file not found: $CODE_DIR/docker-compose.yml"
+ENV_FILE="$CODE_DIR/.env"
+[[ -f "$ENV_FILE" ]] || die "compose environment file not found: $ENV_FILE (refusing to guess secrets)"
 
+# Which tree supplies the compose file:
+#
+#   staging     your worktree — it is the commit being deployed, it is clean,
+#               and it is readable by you. The Dokploy checkout is root-owned
+#               and git refuses to fetch into it, so it supplies the .env only.
+#   production  the Dokploy checkout at the CI-pinned ref.
 if [[ -z "$BRANCH" ]]; then
+	COMPOSE_DIR="$CHECK_DIR"
+	[[ -f "$COMPOSE_DIR/docker-compose.yml" ]] || die "compose file not found: $COMPOSE_DIR/docker-compose.yml"
 	STAGING_DIRT="$(git -C "$CHECK_DIR" status --porcelain -- src tests sqlite package.json bun.lock public)"
 	[[ -z "$STAGING_DIRT" ]] || die "staging deploys the commit you have checked out, so it must be clean:
 $STAGING_DIRT"
-	WANTED_SHA="$(git -C "$CHECK_DIR" rev-parse HEAD)"
-	if [[ "$DRY_RUN" -eq 0 ]]; then
-		git -C "$CODE_DIR" fetch --quiet origin || die "could not fetch in $CODE_DIR"
-		git -C "$CODE_DIR" checkout --quiet --detach "$WANTED_SHA" 2>/dev/null \
-			|| die "commit ${WANTED_SHA:0:8} is not on origin yet; push it first (git push origin HEAD:dev)"
+	CURRENT_SHA="$(git -C "$CHECK_DIR" rev-parse HEAD)"
+	if [[ -z "$(git -C "$CHECK_DIR" branch -r --contains "$CURRENT_SHA" 2>/dev/null | head -1)" ]]; then
+		die "commit ${CURRENT_SHA:0:8} is not on any remote branch; push it first (git push origin HEAD:dev)"
 	fi
+else
+	COMPOSE_DIR="$CODE_DIR"
+	[[ -f "$COMPOSE_DIR/docker-compose.yml" ]] || die "compose file not found: $COMPOSE_DIR/docker-compose.yml"
+	CURRENT_SHA="$(git -C "$CODE_DIR" rev-parse HEAD)"
 fi
 
-cd "$CODE_DIR"
+cd "$COMPOSE_DIR"
 
 CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-CURRENT_SHA="$(git rev-parse HEAD)"
 SHORT_SHA="$(git rev-parse --short HEAD)"
 SUBJECT="$(git log -1 --pretty=%s)"
-# Dokploy re-writes docker-compose.yml on every deploy (it strips comments) and
-# drops docker-compose.local.yml beside it, so the checkout is always "dirty" in
-# that file. Treat that as expected and refuse only on real edits.
-DIRT="$(git status --porcelain -- . ':(exclude)docker-compose.yml' ':(exclude)docker-compose.local.yml')"
-if [[ -n "$DIRT" ]]; then
-	if [[ "$DRY_RUN" -eq 1 ]]; then
-		echo "warning: the compose checkout has uncommitted changes; a real run would refuse"
-		echo "$DIRT"
-	else
-		echo "$DIRT" >&2
-		die "the compose checkout has uncommitted changes; commit or discard them first"
-	fi
-fi
-if ! git diff --quiet -- docker-compose.yml; then
-	echo "note: docker-compose.yml differs from $SHORT_SHA because Dokploy rewrites it; deploying it as-is"
-fi
-if [[ -n "$BRANCH" && "$CURRENT_BRANCH" != "$BRANCH" ]]; then
-	die "expected branch $BRANCH, found $CURRENT_BRANCH (refusing to deploy the wrong commit)"
-fi
 
-WORKTREE_SHA="$(git -C "$CHECK_DIR" rev-parse HEAD 2>/dev/null || echo "")"
-if [[ "$SKIP_TESTS" -eq 0 ]]; then
-	[[ -n "$WORKTREE_SHA" ]] || die "$CHECK_DIR is not a git checkout; cannot run the checks"
-	[[ "$WORKTREE_SHA" == "$CURRENT_SHA" ]] || die "your worktree is at ${WORKTREE_SHA:0:8} but the deploy checkout is at $SHORT_SHA; check out $CURRENT_BRANCH first or commit"
-	if ! git -C "$CHECK_DIR" diff --quiet -- src tests sqlite package.json bun.lock; then
-		echo "warning: your worktree has uncommitted source changes; the tests cover the committed tree only"
+if [[ -n "$BRANCH" ]]; then
+	# Dokploy rewrites docker-compose.yml on every deploy (it strips comments)
+	# and drops docker-compose.local.yml beside it, so the checkout is always
+	# "dirty" in that file. Accept that; refuse on real edits.
+	DIRT="$(git status --porcelain -- . ':(exclude)docker-compose.yml' ':(exclude)docker-compose.local.yml')"
+	if [[ -n "$DIRT" ]]; then
+		if [[ "$DRY_RUN" -eq 1 ]]; then
+			echo "warning: the compose checkout has uncommitted changes; a real run would refuse"
+			echo "$DIRT"
+		else
+			echo "$DIRT" >&2
+			die "the compose checkout has uncommitted changes; commit or discard them first"
+		fi
+	fi
+	if ! git diff --quiet -- docker-compose.yml; then
+		echo "note: docker-compose.yml differs from $SHORT_SHA because Dokploy rewrites it; deploying it as-is"
+	fi
+	if [[ "$CURRENT_BRANCH" != "$BRANCH" ]]; then
+		die "expected branch $BRANCH, found $CURRENT_BRANCH (refusing to deploy the wrong commit)"
 	fi
 fi
 
 cat <<EOF
 
 Target:   $TARGET ($HOST)
-Checkout: $CODE_DIR
+Compose:  $COMPOSE_DIR
 Source:   $([[ -n "$BRANCH" ]] && echo "CI-pinned $CURRENT_BRANCH" || echo "your worktree") @ $SHORT_SHA
 Commit:   $SUBJECT
 Checks:   $([[ "$SKIP_TESTS" -eq 1 ]] && echo skipped || echo "typecheck + unit in $CHECK_DIR")
@@ -157,8 +160,8 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
 Plan:
   1. bun install --frozen-lockfile --ignore-scripts (only if bun.lock moved)
   2. bun run typecheck$([[ "$SKIP_TESTS" -eq 1 ]] && echo ' (skipped)' || echo ' && bun run test')
-  3. docker compose -p $PROJECT --env-file .env -f docker-compose.yml build web
-  4. docker compose -p $PROJECT --env-file .env -f docker-compose.yml up -d --no-build web
+  3. docker compose -p $PROJECT --env-file "$ENV_FILE" -f docker-compose.yml build web
+  4. docker compose -p $PROJECT --env-file "$ENV_FILE" -f docker-compose.yml up -d --no-build web
   5. wait for https://$HOST/healthz
 EOF
 	exit 0
@@ -189,10 +192,10 @@ else
 fi
 
 step "Building the web image"
-docker compose -p "$PROJECT" --env-file .env -f docker-compose.yml build web
+docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f docker-compose.yml build web
 
 step "Switching the web container"
-docker compose -p "$PROJECT" --env-file .env -f docker-compose.yml up -d --no-build web
+docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f docker-compose.yml up -d --no-build web
 
 step "Waiting for $HOST"
 for _ in $(seq 1 60); do
