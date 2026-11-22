@@ -127,8 +127,10 @@ export async function runBackup(): Promise<BackupResult> {
 		// backup because it looks like one.
 		const copy = new Database(snapshot, { readonly: true });
 		let integrity: string;
+		let schemaVersion: string;
 		try {
 			integrity = String(copy.pragma("integrity_check", { simple: true }));
+			schemaVersion = String(copy.pragma("user_version", { simple: true })).trim();
 		} finally {
 			copy.close();
 		}
@@ -136,6 +138,20 @@ export async function runBackup(): Promise<BackupResult> {
 
 		const dbBytes = statSync(snapshot).size;
 		const uploadFiles = countFiles(env.UPLOADS_DIR);
+		// The archive stores the uploads directory under its own name, and the
+		// manifest records that name so a restore does not have to guess.
+		const uploadsEntry = existsSync(env.UPLOADS_DIR) ? basename(env.UPLOADS_DIR) : "";
+		const layout = new Database(snapshot, { readonly: true });
+		let tables: number;
+		try {
+			tables = (
+				layout
+					.prepare("SELECT count(*) AS n FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
+					.get() as { n: number }
+			).n;
+		} finally {
+			layout.close();
+		}
 		writeFileSync(
 			join(temp, "manifest.json"),
 			JSON.stringify(
@@ -144,7 +160,9 @@ export async function runBackup(): Promise<BackupResult> {
 					deployEnv: process.env.DEPLOY_ENV ?? "",
 					database: "portal.db",
 					dbBytes,
-					uploads: env.UPLOADS_DIR,
+					schemaVersion,
+					tables,
+					uploadsEntry,
 					uploadFiles,
 				},
 				null,

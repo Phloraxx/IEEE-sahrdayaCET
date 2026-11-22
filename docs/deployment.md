@@ -145,10 +145,25 @@ Rules the runner follows:
 
 Backups are written to `BACKUP_DIR` (mounted from `BACKUP_HOST_DIR`) as
 `ieee-<env>-<timestamp>.tar.gz` containing `portal.db`, `manifest.json` and the
-uploads tree, keeping `BACKUP_KEEP` archives. Restore: stop the app, extract the
-archive into a scratch directory, check `manifest.json` and the file counts, then
-replace `portal.db` and `uploads/`; a snapshot already reports
-`PRAGMA integrity_check`, so a failed copy is never mistaken for a backup.
+uploads tree, keeping `BACKUP_KEEP` archives.
+
+Two operator commands use the same code as the runner:
+
+```text
+npx tsx scripts/backup-now.ts                                   take one now
+npx tsx scripts/restore-backup.ts --archive <file> --to <dir>    rehearse a restore
+```
+
+`restore-backup.ts` extracts into an empty directory and verifies the restored
+file: `integrity_check`, `foreign_key_check`, table count, schema version,
+database bytes and uploads count against the manifest. Exit 0 means the archive
+is materialisable and complete. It never touches live data.
+
+To restore for real: stop the app, restore into a scratch directory, compare the
+per-table row counts and the uploads checksums with the live data, then swap
+`portal.db` and the uploads directory and start the app. A snapshot already
+reports `PRAGMA integrity_check`, so a failed copy is never mistaken for a
+backup.
 
 `scripts/ieee-backup-export.sh` stays for the pre-cutover PocketBase volume and
 for offsite copies; once the SQLite deployment is live, the in-app archive is the
