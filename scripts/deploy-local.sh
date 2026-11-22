@@ -13,10 +13,13 @@
 # image with WEB_IMAGE from the environment file, so the next normal deploy pulls
 # and replaces it.
 #
-#   sudo ./scripts/deploy-local.sh                  # production, with tests
-#   sudo ./scripts/deploy-local.sh --staging        # staging
-#   sudo ./scripts/deploy-local.sh --skip-tests     # incident hotfix
-#   sudo ./scripts/deploy-local.sh --dry-run        # print the plan
+#   ./scripts/deploy-local.sh                  # production, with tests
+#   ./scripts/deploy-local.sh --staging        # staging
+#   ./scripts/deploy-local.sh --skip-tests     # incident hotfix
+#   ./scripts/deploy-local.sh --dry-run        # print the plan
+#
+# Runs as your own user (Docker group), not as root: the unit suite misbehaves
+# under root, and there is nothing here that needs it.
 #
 set -euo pipefail
 
@@ -26,7 +29,7 @@ ASSUME_YES=0
 DRY_RUN=0
 
 usage() {
-	sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'
+	sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'
 }
 
 while [[ $# -gt 0 ]]; do
@@ -60,9 +63,25 @@ esac
 die() { echo "error: $*" >&2; exit 1; }
 step() { printf '\n==> %s\n' "$*"; }
 
-if [[ "$DRY_RUN" -eq 0 && "${EUID}" -ne 0 ]]; then
-	die "run with sudo: the compose environment file and Docker socket are root-owned"
+# The checks run in your working tree (its node_modules belong to you); the
+# Dokploy checkout is root-owned and only supplies the compose file and .env.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CHECK_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+if [[ "$DRY_RUN" -eq 0 ]] && ! docker info >/dev/null 2>&1; then
+	die "docker is not reachable; run as a user in the docker group"
 fi
+
+# sudo resets PATH, and bun lives in the invoking user's home. Borrow it, then
+# fail with a useful message instead of "bun: command not found".
+if [[ -n "${SUDO_USER:-}" ]]; then
+	SUDO_HOME="$(getent passwd "$SUDO_USER" | cut -d: -f6)"
+	if [[ -n "$SUDO_HOME" ]]; then
+		PATH="$SUDO_HOME/.bun/bin:$PATH"
+		export PATH
+	fi
+fi
+command -v bun >/dev/null 2>&1 || die "bun is not on PATH; install it or run this as the user that owns it"
 
 [[ -d "$CODE_DIR" ]] || die "compose checkout not found: $CODE_DIR"
 [[ -f "$CODE_DIR/.env" ]] || die "compose environment file not found: $CODE_DIR/.env (refusing to guess secrets)"
@@ -74,15 +93,33 @@ CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 CURRENT_SHA="$(git rev-parse HEAD)"
 SHORT_SHA="$(git rev-parse --short HEAD)"
 SUBJECT="$(git log -1 --pretty=%s)"
-if [[ -n "$(git status --porcelain)" ]]; then
+# Dokploy re-writes docker-compose.yml on every deploy (it strips comments) and
+# drops docker-compose.local.yml beside it, so the checkout is always "dirty" in
+# that file. Treat that as expected and refuse only on real edits.
+DIRT="$(git status --porcelain -- . ':(exclude)docker-compose.yml' ':(exclude)docker-compose.local.yml')"
+if [[ -n "$DIRT" ]]; then
 	if [[ "$DRY_RUN" -eq 1 ]]; then
 		echo "warning: the compose checkout has uncommitted changes; a real run would refuse"
+		echo "$DIRT"
 	else
+		echo "$DIRT" >&2
 		die "the compose checkout has uncommitted changes; commit or discard them first"
 	fi
 fi
+if ! git diff --quiet -- docker-compose.yml; then
+	echo "note: docker-compose.yml differs from $SHORT_SHA because Dokploy rewrites it; deploying it as-is"
+fi
 if [[ "$CURRENT_BRANCH" != "$BRANCH" ]]; then
 	die "expected branch $BRANCH, found $CURRENT_BRANCH (refusing to deploy the wrong commit)"
+fi
+
+WORKTREE_SHA="$(git -C "$CHECK_DIR" rev-parse HEAD 2>/dev/null || echo "")"
+if [[ "$SKIP_TESTS" -eq 0 ]]; then
+	[[ -n "$WORKTREE_SHA" ]] || die "$CHECK_DIR is not a git checkout; cannot run the checks"
+	[[ "$WORKTREE_SHA" == "$CURRENT_SHA" ]] || die "your worktree is at ${WORKTREE_SHA:0:8} but the deploy checkout is at $SHORT_SHA; check out $CURRENT_BRANCH first or commit"
+	if ! git -C "$CHECK_DIR" diff --quiet -- src tests sqlite package.json bun.lock; then
+		echo "warning: your worktree has uncommitted source changes; the tests cover the committed tree only"
+	fi
 fi
 
 cat <<EOF
@@ -91,14 +128,14 @@ Target:   $TARGET ($HOST)
 Checkout: $CODE_DIR
 Branch:   $CURRENT_BRANCH @ $SHORT_SHA
 Commit:   $SUBJECT
-Tests:    $([[ "$SKIP_TESTS" -eq 1 ]] && echo skipped || echo "typecheck + unit")
+Checks:   $([[ "$SKIP_TESTS" -eq 1 ]] && echo skipped || echo "typecheck + unit in $CHECK_DIR")
 EOF
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
 	cat <<EOF
 
 Plan:
-  1. bun install --frozen-lockfile
+  1. bun install --frozen-lockfile --ignore-scripts (only if bun.lock moved)
   2. bun run typecheck$([[ "$SKIP_TESTS" -eq 1 ]] && echo ' (skipped)' || echo ' && bun run test')
   3. docker compose -p $PROJECT --env-file .env -f docker-compose.yml build web
   4. docker compose -p $PROJECT --env-file .env -f docker-compose.yml up -d --no-build web
@@ -112,13 +149,21 @@ if [[ "$ASSUME_YES" -eq 0 ]]; then
 	[[ "$reply" =~ ^[Yy]$ ]] || { echo "aborted"; exit 1; }
 fi
 
-step "Installing dependencies"
-bun install --frozen-lockfile
-
 if [[ "$SKIP_TESTS" -eq 0 ]]; then
-	step "Typecheck and unit tests"
-	bun run typecheck
-	bun run test
+	step "Typecheck and unit tests in $CHECK_DIR"
+	(
+		cd "$CHECK_DIR"
+		# The host has no C toolchain on purpose (the image builds its own native
+		# modules), so a plain `bun install` fails on better-sqlite3's postinstall.
+		# Reuse the worktree's node_modules; refresh it only when the lockfile moved.
+		if [[ ! -d node_modules ]] || [[ bun.lock -nt node_modules ]]; then
+			bun install --frozen-lockfile --ignore-scripts
+		else
+			echo "node_modules is current; skipping install"
+		fi
+		bun run typecheck
+		bun run test
+	)
 else
 	echo "==> Tests skipped at operator request"
 fi
