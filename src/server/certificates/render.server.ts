@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { join } from "node:path";
 import QRCode from "qrcode";
 import sharp, { type OverlayOptions } from "sharp";
 import { PDFDocument } from "pdf-lib";
@@ -49,13 +50,22 @@ export interface CertificateRenderInput {
   verificationToken: string;
 }
 
+/**
+ * Optional directory searched before the system font paths. CI points it at
+ * `tests/fixtures/fonts`, so the renderer suite runs without installing the
+ * Noto packages first; the runtime image keeps the fonts under /usr/share.
+ */
+const FONT_DIR = String(process.env.CERTIFICATE_FONT_DIR || "").trim();
+
 const FONT_FILES: Record<CertificateNameFont, string[]> = {
   "noto-sans": [
+    ...(FONT_DIR ? [join(FONT_DIR, "NotoSans-Regular.ttf")] : []),
     "/usr/share/fonts/noto/NotoSans-Regular.ttf",
     "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
     "/usr/local/share/fonts/NotoSans-Regular.ttf",
   ],
   "noto-serif": [
+    ...(FONT_DIR ? [join(FONT_DIR, "NotoSerif-Regular.ttf")] : []),
     "/usr/share/fonts/noto/NotoSerif-Regular.ttf",
     "/usr/share/fonts/truetype/noto/NotoSerif-Regular.ttf",
     "/usr/local/share/fonts/NotoSerif-Regular.ttf",
