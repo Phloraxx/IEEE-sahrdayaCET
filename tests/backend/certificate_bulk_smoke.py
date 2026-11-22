@@ -208,11 +208,11 @@ assert set(registry_credentials) == set(credential_ids)
 
 registry_search = request(
     "GET",
-    f"{registry_path}?event={event['id']}&search={urllib.parse.quote('Recipient 137')}",
+    f"{registry_path}?event={event['id']}&search={urllib.parse.quote('Recipient 037')}",
     token=admin_token,
 )
 assert registry_search["total"] == 1
-assert registry_search["certificates"][0]["recipientName"] == "Recipient 137"
+assert registry_search["certificates"][0]["recipientName"] == "Recipient 037"
 registry_delivery = request(
     "GET",
     f"{registry_path}?event={event['id']}&delivery=not_queued&perPage=200",
