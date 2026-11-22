@@ -110,10 +110,8 @@ test.describe("collection endpoint authorization", () => {
 		expect(await count("/api/collections/events?filter=status%3D'draft'", plainCookie)).toBe(0);
 		expect(await count("/api/collections/events?filter=status%3D'draft'", adminCookie)).toBeGreaterThan(0);
 
-		// Blogs: an unpublished post is a draft, not a public article.
-		expect(await count("/api/collections/blogs?filter=published%3Dfalse", "")).toBe(0);
-		expect(await count("/api/collections/blogs?filter=published%3Dfalse", plainCookie)).toBe(0);
-		expect(await count("/api/collections/blogs?filter=published%3Dfalse", adminCookie)).toBeGreaterThan(0);
+		// Blogs were removed with the feature: the collection is not served at all.
+		expect(await count("/api/collections/blogs?perPage=1", "")).toBe(0);
 
 		// Societies: hidden rows are hidden from the directory and the API.
 		expect(await count("/api/collections/societies?filter=is_hidden%3D1", "")).toBe(0);

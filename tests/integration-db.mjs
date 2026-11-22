@@ -498,12 +498,6 @@ try {
 		insEvent.run("b0000000-0000-4000-8000-000000000003", "Draft", "draft-ev", "2026-04-01T00:00:00.000Z", "draft", 0, "a0000000-0000-4000-8000-000000000001", null, 0, 0);
 		insEvent.run("b0000000-0000-4000-8000-000000000004", "Deleted", "deleted-ev", "2026-05-01T00:00:00.000Z", "published", 1, "a0000000-0000-4000-8000-000000000001", null, 0, 0);
 
-		// Blogs: one published, one draft.
-		raw.prepare("INSERT INTO blogs (id,title,slug,published,published_at) VALUES (?,?,?,?,?)")
-			.run("c0000000-0000-4000-8000-000000000001", "Live Post", "live-post", 1, "2026-01-01T00:00:00.000Z");
-		raw.prepare("INSERT INTO blogs (id,title,slug,published,published_at) VALUES (?,?,?,?,?)")
-			.run("c0000000-0000-4000-8000-000000000002", "Draft Post", "draft-post", 0, null);
-
 		// Execom with contact details that must not leak.
 		raw.prepare("INSERT INTO execom (id,name,position,email,phone,sort_order,society_id) VALUES (?,?,?,?,?,?,?)")
 			.run("d0000000-0000-4000-8000-000000000001", "Dir Person", "Chair", "private@example.com", "+910000000000", 1, "a0000000-0000-4000-8000-000000000001");
@@ -528,12 +522,6 @@ try {
 		const socSlugs = societies.map((s) => s.slug);
 		check(socSlugs.includes("visible-society"), "listPublicSocieties includes visible", socSlugs);
 		check(!socSlugs.includes("hidden-society"), "listPublicSocieties excludes hidden", socSlugs);
-
-		const blogs = await repo.listPublishedBlogs();
-		const blogSlugs = blogs.map((b) => b.slug);
-		check(blogSlugs.includes("live-post"), "listPublishedBlogs includes published", blogSlugs);
-		check(!blogSlugs.includes("draft-post"), "listPublishedBlogs excludes drafts", blogSlugs);
-		check((await repo.getPublishedBlogBySlug("draft-post")) === undefined, "getPublishedBlogBySlug hides drafts");
 
 		// The public execom projection must not carry contact details.
 		const directory = await repo.listExecom();

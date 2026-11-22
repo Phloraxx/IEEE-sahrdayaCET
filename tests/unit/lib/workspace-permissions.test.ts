@@ -71,7 +71,7 @@ describe("workspace scoped permissions", () => {
       roleCode: "event_content", eventId: "event-a",
       capabilities: ["workspace.view", "events.view", "content.manage"],
     })]);
-    expect(preferredWorkspacePath(content)).toBe("/admin/blogs");
+    expect(preferredWorkspacePath(content)).toBe("/admin/events");
 
     const branchFinance = workspace([], ["workspace.view", "events.view", "finance.view"]);
     expect(preferredWorkspacePath(branchFinance)).toBe("/admin/payments");

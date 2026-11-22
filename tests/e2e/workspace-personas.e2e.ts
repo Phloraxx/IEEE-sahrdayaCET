@@ -81,13 +81,12 @@ test.describe("IEEE Workspace role personas", () => {
     await expect(page.getByText("All payment states", { exact: true })).toHaveCount(0);
   });
 
-  test("event content lands in blogs and cannot open registration operations", async ({ page }) => {
+  test("event content lands on events and cannot open registration operations", async ({ page }) => {
     await signIn(page, fixtures!.PERSONAS.content);
     await page.goto("/admin");
-    await expect(page).toHaveURL(/\/admin\/blogs$/);
-    await expect(page.getByRole("heading", { name: "Manage Blogs" })).toBeVisible();
+    await expect(page).toHaveURL(/\/admin\/events$/);
     await page.goto("/admin/registrations");
-    await expect(page).toHaveURL(/\/admin\/blogs$/);
+    await expect(page).toHaveURL(/\/admin\/events$/);
   });
   test("standalone community profile route is not exposed", async ({ page }) => {
     await signIn(page, fixtures!.PERSONAS.checkin);

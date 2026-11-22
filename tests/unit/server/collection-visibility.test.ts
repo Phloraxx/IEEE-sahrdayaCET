@@ -3,12 +3,11 @@ import { describe, expect, it } from "vitest";
 import { COLLECTION_POLICIES, scopePredicate } from "../../../src/server/collections/policy";
 
 describe("collection publication visibility", () => {
-	it("declares publication state for the three content collections", () => {
+	it("declares publication state for the content collections", () => {
 		expect(COLLECTION_POLICIES.events!.publicRead?.sql).toContain("published");
-		expect(COLLECTION_POLICIES.blogs!.publicRead?.sql).toContain("published");
 		expect(COLLECTION_POLICIES.societies!.publicRead?.sql).toContain("is_hidden");
 		expect(COLLECTION_POLICIES.events!.publicRead?.capability).toBe("events.edit");
-		expect(COLLECTION_POLICIES.blogs!.publicRead?.capability).toBe("content.manage");
+		expect(COLLECTION_POLICIES.blogs).toBeUndefined();
 	});
 
 	it("strips execom contact details without the manage capability", () => {

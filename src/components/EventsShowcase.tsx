@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { useReducedMotion } from 'framer-motion';
+import { useHydratedReducedMotion } from "@/lib/use-hydrated-reduced-motion";
+import { RAIL_PX_PER_SECOND } from '@/lib/marquee';
 import { Image as ImageIcon } from 'lucide-react';
 import { Link } from 'react-router';
 // Deliberately curated archive; never replace with arbitrary event posters.
@@ -49,12 +50,12 @@ function ArchiveImage({ src, index, duplicate }: { src: string; index: number; d
   );
 }
 export function EventsShowcase() {
-  const reduceMotion = Boolean(useReducedMotion());
+  const reduceMotion = useHydratedReducedMotion();
   // Pre-rewrite behaviour: the archive rail slides continuously and never
   // pauses on hover, focus or touch.
   const paused = false;
   const stopped = reduceMotion || paused;
-  const imagesRef = useMarquee(stopped, 33, reduceMotion);
+  const imagesRef = useMarquee(stopped, RAIL_PX_PER_SECOND, reduceMotion);
   const textRef = useMarquee(stopped, 54, reduceMotion);
   // Keep all marquee copies mounted so there is no jump or exposed scrollbar.
   const copies = reduceMotion ? [0] : [0, 1, 2];

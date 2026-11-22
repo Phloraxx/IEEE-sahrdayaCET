@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion } from 'framer-motion';
+import { useHydratedReducedMotion } from '@/lib/use-hydrated-reduced-motion';
 import { MASCOT_BODY, MASCOT_HEAD, PixelGrid } from './mascot';
 
 const PIXEL = 3;
@@ -7,7 +8,7 @@ const PIXEL = 3;
 type IdleAction = 'idle' | 'walking' | 'jumping' | 'looking' | 'crouching' | 'headBob';
 
 export const FloatingAction: React.FC = () => {
-  const reduceMotion = Boolean(useReducedMotion());
+  const reduceMotion = useHydratedReducedMotion();
   const [posX, setPosX] = useState(80);
   const posXRef = useRef(80);
   const [action, setAction] = useState<IdleAction>('idle');

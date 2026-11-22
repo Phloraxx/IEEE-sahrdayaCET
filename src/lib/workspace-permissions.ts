@@ -128,7 +128,6 @@ export function canAccessWorkspacePath(
   if (path === "/admin/data-health" || path.startsWith("/admin/data-health/")) return branchHas("technical.manage");
   if (path === "/admin/societies" || path.startsWith("/admin/societies/")) return has("societies.view");
   if (path === "/admin/access" || path.startsWith("/admin/access/")) return has("assignments.manage");
-  if (path === "/admin/blogs" || path.startsWith("/admin/blogs/")) return has("content.manage");
   if (path === "/admin/users" || path.startsWith("/admin/users/")) return workspace.legacyRole === "admin";
   if (path === "/admin/execom" || path.startsWith("/admin/execom/")) return workspace.legacyRole === "admin";
   return false;
@@ -138,7 +137,6 @@ export function preferredWorkspacePath(workspace: WorkspaceMe | null | undefined
   if (!workspace?.hasWorkspace) return "/";
   const has = (capability: WorkspaceCapability) => hasWorkspaceCapability(workspace, capability);
   if (has("checkin.manage") && !has("registrations.manage") && !has("events.edit")) return "/admin/check-in";
-  if (has("content.manage") && !has("registrations.view") && !has("events.edit")) return "/admin/blogs";
   if (has("technical.manage") || has("registrations.view")) return "/admin/dashboard";
   if (workspace.branchCapabilities?.includes("finance.view")) return "/admin/payments";
   if (has("events.view")) return "/admin/events";

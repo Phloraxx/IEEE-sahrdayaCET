@@ -32,7 +32,6 @@ Verify from `https://staging.ieeesahrdaya.com`, not only localhost:
 - `/`;
 - `/events` and at least one `/events/:slug`;
 - `/societies` and at least one society page;
-- `/blog` and at least one blog post;
 - `/full-execom`;
 - `/healthz`;
 - `/api/health`.
@@ -54,7 +53,6 @@ With the appropriate staging role, verify:
 - society create/edit and chair scoping;
 - execom create/edit and public privacy behavior;
 - user role-change command;
-- blog create/edit/publish/unpublish and timestamp sorting;
 - coupon create/edit/expiry/max-use behavior;
 - file upload persistence across a web-container restart.
 
@@ -167,7 +165,7 @@ After Dokploy reports healthy services, verify:
 - `/` returns 200 and expected current UI;
 - `/healthz` returns 200;
 - `/api/health` returns 200;
-- event/society/blog public routes return expected content;
+- event/society public routes return expected content;
 - production `robots.txt`/sitemap behavior is correct;
 - staging remains noindexed;
 - production Google login initializes;

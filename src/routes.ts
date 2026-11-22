@@ -11,7 +11,6 @@ export default [
   route("files/:collection/:recordId/:filename", "routes/files.$collection.$recordId.$filename.ts"),
   // Admin form uploads: one image, one column, capability-checked.
   route("api/uploads/:collection/:recordId/:field", "routes/api.uploads.$collection.$recordId.$field.ts"),
-  route("api/blogs/:id/authors", "routes/api.blogs.$id.authors.ts"),
 
   // Registration command surface (phase 2). Replaces the PocketBase /api/app/*
   // routes with app-server endpoints.
@@ -120,8 +119,6 @@ export default [
   route("events/:slug/calendar.ics", "routes/events.$slug.calendar.ts"),
   route("events/:slug", "routes/events.$slug.tsx"),
   route("my-events", "routes/my-events.tsx"),
-  route("blog", "routes/blog.index.tsx"),
-  route("blog/:slug", "routes/blog.$slug.tsx"),
   route("societies", "routes/societies.tsx"),
   route("societies/wie", "routes/societies_.wie.tsx"),
   route("societies/:slug", "routes/societies_.$slug.tsx"),
@@ -159,7 +156,6 @@ export default [
     route("execom", "routes/admin.execom.index.tsx"),
     route("execom/new", "routes/admin.execom.new.tsx"),
     route("execom/:id/edit", "routes/admin.execom.$id.edit.tsx"),
-    route("blogs", "routes/admin.blogs.tsx"),
     route("users", "routes/admin.users.tsx"),
     route("access", "routes/admin.access.tsx"),
     route("check-in", "routes/admin.check-in.tsx"),

@@ -264,8 +264,8 @@ rejected even when declared as `image/png`, so librsvg never sees browser-upload
 markup.
 
 **Collection visibility.** `/api/collections/*` applies publication state, not
-only deletion: events and blogs are public only when published/completed,
-societies only when not hidden, and execom `email`/`phone` are omitted. Staff
+only deletion: events are public only when published/completed, societies only
+when not hidden, and execom `email`/`phone` are omitted. Staff
 with the matching capability (or an assignment scoped to the row) see the full
 set; a legacy `chair` keeps their own societies through `society_chairs`.
 
@@ -641,7 +641,7 @@ public hostnames:
 
 | Field | Value |
 | --- | --- |
-| When incoming requests match | `URI Path` in `/`, `/about`, `/contact`, `/pricing`, `/events`, `/blog`, `/societies`, `/full-execom`, `/infinia`, `/flagships` — or a `starts_with` test per prefix |
+| When incoming requests match | `URI Path` in `/`, `/about`, `/contact`, `/pricing`, `/events`, `/societies`, `/full-execom`, `/infinia`, `/flagships` — or a `starts_with` test per prefix |
 | Then | Eligible for cache, Edge TTL *Use cache-control header if present* |
 
 Do **not** add a catch-all rule. `/my-events`, `/register/*`, `/payment/*`,

@@ -33,7 +33,6 @@ test.describe("Admin V2 authenticated smoke", () => {
       ["/admin/societies", /societ/i],
       ["/admin/users", /users|access/i],
       ["/admin/execom", /execom/i],
-      ["/admin/blogs", /blog|content/i],
       ...(eventId ? [[`/admin/events/${eventId}`, /overview|attendees|payments/i] as const] : []),
     ] as const;
 

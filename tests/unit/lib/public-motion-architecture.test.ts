@@ -26,12 +26,15 @@ describe("public motion architecture", () => {
     const chrome = read("src/components/TechnicalDetails.tsx");
     const nav = read("src/components/Navbar.tsx");
 
-    expect(execom).toContain("data-home-execom-static");
+    // One markup tree: reduced motion stops the cruise, it does not swap the rail
+    // for a non-draggable static list (that also broke hydration).
+    expect(execom).not.toContain("data-home-execom-static");
     expect(execom).toContain("if (reduceMotion) return;");
+    expect(execom).toContain("Reduced motion now only disables");
     expect(execom).toContain("if (reduceMotion || !trackRef.current) return;");
-    expect(character).toContain("useReducedMotion");
+    expect(character).toContain("useHydratedReducedMotion");
     expect(hero).not.toContain("useScroll");
-    expect(hero).toContain("useReducedMotion");
+    expect(hero).toContain("useHydratedReducedMotion");
     expect(read("src/components/EventsShowcase.tsx")).toContain("const stopped = reduceMotion || paused;");
     expect(chrome).toContain("duration: reduceMotion ? 0 : 0.45");
     // The navbar used to wrap its desktop pill in a `motion.div` with

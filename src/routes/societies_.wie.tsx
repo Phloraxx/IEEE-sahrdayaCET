@@ -1,6 +1,6 @@
 import { useLoaderData } from "react-router";
 import { APP_URL } from "@/lib/constants";
-import { blogHtmlToPlainText } from "@/lib/blog-content";
+import { htmlToPlainText } from "@/lib/rich-text";
 import { CanonicalLink } from "@/components/CanonicalLink";
 import {
   fetchSocietyData,
@@ -16,7 +16,7 @@ export const meta = ({ data }: { data?: SocietyPageData }) => {
   const title =
     "IEEE Women in Engineering Sahrdaya | Activities, Team and Community";
   const description = data?.society.bio
-    ? blogHtmlToPlainText(data.society.bio).slice(0, 155)
+    ? htmlToPlainText(data.society.bio).slice(0, 155)
     : "Explore IEEE Women in Engineering at Sahrdaya—technical programmes, leadership initiatives, recent activities and the current WIE team.";
   const image = `${APP_URL}/images/wie/ieee-wie-official-background.webp`;
   const url = `${APP_URL}/societies/wie`;

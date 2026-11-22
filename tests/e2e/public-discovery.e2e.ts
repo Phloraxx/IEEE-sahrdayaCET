@@ -18,34 +18,6 @@ test("desktop navigation is visible before JavaScript loads", async ({ page, bro
   } finally { await context.close(); }
 });
 
-test("blog search and view persist through reload with a useful zero-result state", async ({ page }) => {
-  await page.goto("/blog?q=not-a-real-story&view=index");
-  const search = page.getByRole("searchbox", { name: "Search blog stories" });
-  await expect(search).toHaveValue("not-a-real-story");
-  await expect(page.getByRole("button", { name: "Index", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByTestId("blog-lead-story")).toHaveCount(0);
-  await page.reload();
-  await expect(search).toHaveValue("not-a-real-story");
-  await expect(page.getByRole("heading", { name: /No stories match your filters|Stories coming soon/ })).toBeVisible();
-  await page.getByRole("button", { name: "Reset filters", exact: true }).click();
-  await expect(search).toHaveValue("");
-  await expect(page).toHaveURL(/view=index/);
-});
-
-test("a featured blog story is searchable", async ({ page }) => {
-  await page.goto("/blog");
-  const lead = page.getByTestId("blog-lead-story");
-  test.skip(await lead.count() === 0, "No published blog stories in this database");
-  const title = await lead.locator("h2").innerText();
-  const href = await lead.locator('a[href^="/blog/"]').first().getAttribute("href");
-  const search = page.getByRole("searchbox", { name: "Search blog stories" });
-  await search.fill(title);
-  await expect(search).toBeInViewport();
-  await expect(search).toBeFocused();
-  await expect(page.getByTestId("blog-lead-story")).toHaveCount(0);
-  await expect(page.locator(`[data-blog-archive-row] a[href="${href}"]`)).toBeVisible();
-});
-
 test("directory filters survive reload and member profiles isolate the background", async ({ page }) => {
   await page.goto("/full-execom?view=roster");
   test.skip(await page.locator("[data-execom-roster-row]").count() === 0, "No published members in this database");
@@ -71,7 +43,7 @@ test("directory filters survive reload and member profiles isolate the backgroun
 for (const width of [320, 390, 768, 1024, 1440]) {
   test(`discovery views fit ${width}px and expose usable group filters`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
-    for (const path of ["/events", "/blog?view=index", "/full-execom?view=roster"]) {
+    for (const path of ["/events", "/societies", "/full-execom?view=roster"]) {
       await page.goto(path);
       expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth), path).toBeLessThanOrEqual(1);
     }

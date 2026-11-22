@@ -43,6 +43,7 @@ Do not introduce remote Google Font requests or a new display family for one iso
 The homepage is expressive/brand-first rather than dashboard-like:
 
 - large IEEE/Sahrdaya pixel hero;
+- the hero is pinned for one viewport of scroll while the programme rises over it as a rounded, shadowed sheet (`.hero-stage` / `.hero-handoff` in `globals.css`). The stage height and the sheet's negative margin are the same number and must stay in step. The wordmark itself keeps its original staggered reveal; nothing inside the hero animates against the scroll. Reduced motion returns to plain document order;
 - restrained star/shooting-star motion;
 - bento-style `WHAT'S HAPPENING` section;
 - current event information remains dynamic, but its homepage hero visual is intentionally the stable `/AGM.webp` image instead of arbitrary event-poster ratios;
@@ -130,7 +131,10 @@ Motion should communicate hierarchy/state, not exist everywhere:
 - continuous marquee/live indicators must have reduced-motion behaviour;
 - no scroll hijacking;
 - no custom cursor requirement;
-- no heavy WebGL dependency for decorative sections.
+- no heavy WebGL dependency for decorative sections;
+- scroll-linked motion belongs to decorative exits only (the programme sheet) and must reverse cleanly rather than gate content.
+
+Feature-level motion stays in Framer Motion; the homepage handoff is CSS-only (sticky stage plus a negative margin), so it needs no scroll library.
 
 Global `prefers-reduced-motion` handling sharply reduces animation/transition duration. Feature code should not deliberately defeat it.
 

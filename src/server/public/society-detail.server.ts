@@ -1,6 +1,5 @@
 import { buildFileUrl } from "@/lib/pb";
 import { publicDataUnavailable } from "./errors.server";
-import { getLatestPublishedBlogsForSociety } from "@/lib/blog-public.server";
 import {
   getPublicSocietyBySlug,
   listExecomForSociety,
@@ -39,8 +38,6 @@ export interface SocietyPageData {
     contactEmail: string;
     contactPhone: string;
   }>;
-  /** Related stories, fetched server-side so the page makes no browser data calls. */
-  relatedBlogs: Awaited<ReturnType<typeof getLatestPublishedBlogsForSociety>>;
   members: Array<{
     id: string;
     name: string;
@@ -65,7 +62,7 @@ export async function fetchSocietyData(slug: string): Promise<SocietyPageData> {
 
   if (!society) throw new Response("Society not found", { status: 404 });
 
-  const [events, members, chairs, relatedBlogs] = await Promise.all([
+  const [events, members, chairs] = await Promise.all([
     listPublicEventsForSociety(society.id).catch((error: unknown) =>
       publicDataUnavailable("fetchSocietyContent", error),
     ),
@@ -73,7 +70,6 @@ export async function fetchSocietyData(slug: string): Promise<SocietyPageData> {
       publicDataUnavailable("fetchSocietyContent", error),
     ),
     listSocietyChairIds(society.id).catch(() => [] as string[]),
-    getLatestPublishedBlogsForSociety(society.id, 3).catch(() => []),
   ]);
 
   return {
@@ -87,7 +83,6 @@ export async function fetchSocietyData(slug: string): Promise<SocietyPageData> {
       logoUrl: society.logo ? buildFileUrl("societies", society.id, society.logo) : "",
       bannerUrl: society.banner ? buildFileUrl("societies", society.id, society.banner) : "",
     },
-    relatedBlogs,
     events: events.map((row) => ({
       id: row.id,
       slug: row.slug ?? "",

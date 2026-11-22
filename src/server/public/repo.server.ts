@@ -9,7 +9,6 @@
  * Rules translated here:
  *   events      `(status="published" || status="completed") && isDeleted != true`
  *   societies   `isHidden = false`
- *   blogs       `published = true`
  *   execom      public by default; contact fields are projected out per query
  *   tickets     a ticket is public only if its registration and event agree
  *
@@ -270,99 +269,6 @@ export const countExecom = ttlMemo(async function countExecom(): Promise<number>
 	const result = await query<{ n: number }>("SELECT count(*) AS n FROM execom");
 	return result.rows[0]?.n ?? 0;
 });
-
-// ---------------------------------------------------------------------------
-// Blogs
-// ---------------------------------------------------------------------------
-
-export interface BlogRow {
-	id: string;
-	title: string;
-	slug: string;
-	excerpt: string | null;
-	content: string | null;
-	cover_url: string | null;
-	read_minutes: number | null;
-	topic_label: string | null;
-	published_at: string | null;
-	published: number;
-	category: string | null;
-	society_id: string | null;
-	event_id: string | null;
-	created_at: string;
-	updated_at: string;
-	society_row_id: string | null;
-	society_name: string | null;
-	society_slug: string | null;
-	society_logo: string | null;
-	event_row_id: string | null;
-	event_title: string | null;
-	event_slug: string | null;
-}
-
-const BLOG_SELECT = `
-	b.id, b.title, b.slug, b.excerpt, b.content, b.cover_url, b.read_minutes,
-	b.topic_label, b.published_at, b.published, b.category, b.society_id,
-	b.event_id, b.created_at, b.updated_at,
-	s.id AS society_row_id, s.name AS society_name, s.slug AS society_slug, s.logo AS society_logo,
-	e.id AS event_row_id, e.title AS event_title, e.slug AS event_slug
-`;
-
-/**
- * The author is deliberately NOT joined.
- *
- * PocketBase's `users` listRule is `id = @request.auth.id || role = "admin"`, so
- * an anonymous request cannot read a user record and `expand: "relation"`
- * returned nothing — which is why staging renders the "IEEE Sahrdaya" byline
- * fallback rather than a person's name. Joining `users` here would expose data
- * the public rules hide. If the byline should show the author, that is a product
- * decision (see open-questions), not something a port should change silently.
- */
-const BLOG_FROM = `
-	FROM blogs b
-	LEFT JOIN societies s ON s.id = b.society_id
-	LEFT JOIN events e ON e.id = b.event_id
-`;
-
-/** Published blogs, memoised. Keyed on `limit`, which is clamped to 1..6. */
-export const listPublishedBlogs = ttlMemo(async function listPublishedBlogs(
-	limit?: number,
-): Promise<BlogRow[]> {
-	const limitClause = typeof limit === "number" ? " LIMIT ?" : "";
-	const result = await query<BlogRow>(
-		`SELECT ${BLOG_SELECT} ${BLOG_FROM}
-		  WHERE b.published = 1
-		  ORDER BY b.published_at DESC, b.created_at DESC${limitClause}`,
-		typeof limit === "number" ? [limit] : [],
-	);
-	return result.rows;
-});
-
-export async function listPublishedBlogsForSociety(
-	societyId: string,
-	limit?: number,
-): Promise<BlogRow[]> {
-	const limitClause = typeof limit === "number" ? " LIMIT ?" : "";
-	const params: unknown[] = [societyId];
-	if (typeof limit === "number") params.push(limit);
-	const result = await query<BlogRow>(
-		`SELECT ${BLOG_SELECT} ${BLOG_FROM}
-		  WHERE b.published = 1 AND b.society_id = ?
-		  ORDER BY b.published_at DESC, b.created_at DESC${limitClause}`,
-		params,
-	);
-	return result.rows;
-}
-
-export async function getPublishedBlogBySlug(slug: string): Promise<BlogRow | undefined> {
-	const result = await query<BlogRow>(
-		`SELECT ${BLOG_SELECT} ${BLOG_FROM}
-		  WHERE b.slug = ? AND b.published = 1
-		  LIMIT 1`,
-		[slug],
-	);
-	return result.rows[0];
-}
 
 // ---------------------------------------------------------------------------
 // Tickets (public QR lookup)

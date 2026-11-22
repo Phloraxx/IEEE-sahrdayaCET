@@ -2,17 +2,15 @@ import type { LoaderFunctionArgs } from "react-router";
 import { useLoaderData } from "react-router";
 import { CanonicalLink } from "@/components/CanonicalLink";
 import { SocietyDetailView } from "@/components/societies/SocietyDetailView";
-import { blogHtmlToPlainText } from "@/lib/blog-content";
-import { getLatestPublishedBlogsForSociety } from "@/lib/blog-public.server";
+import { htmlToPlainText } from "@/lib/rich-text";
 import { APP_URL } from "@/lib/constants";
 import { fetchSocieties } from "@/server/public/societies.server";
 import { fetchSocietyData, type SocietyPageData } from "@/server/public/society-detail.server";
-import type { BlogPost, Society } from "@/types";
+import type { Society } from "@/types";
 
 type SocietyDetailLoaderData = {
   page: SocietyPageData;
   directory: Society[];
-  stories: BlogPost[];
 };
 
 function absoluteImage(value: string) {
@@ -23,7 +21,7 @@ function absoluteImage(value: string) {
 export const meta = ({ data }: { data?: SocietyDetailLoaderData }) => {
   const society = data?.page.society;
   const name = society?.name || "Society";
-  const description = blogHtmlToPlainText(society?.bio || "").slice(0, 160) || `Learn about ${name} at IEEE Sahrdaya Student Branch.`;
+  const description = htmlToPlainText(society?.bio || "").slice(0, 160) || `Learn about ${name} at IEEE Sahrdaya Student Branch.`;
   const url = society?.slug ? `${APP_URL}/societies/${society.slug}` : `${APP_URL}/societies`;
   return [
     { title: `${name} | IEEE Sahrdaya` },
@@ -40,15 +38,12 @@ export async function loader({ params }: LoaderFunctionArgs): Promise<SocietyDet
   if (!params.slug) throw new Response("Society not found", { status: 404 });
   const page = await fetchSocietyData(params.slug);
 
-  const [directoryResult, storyResult] = await Promise.all([
-    fetchSocieties(),
-    getLatestPublishedBlogsForSociety(page.society.id, 3).catch(() => []),
-  ]);
+  const directoryResult = await fetchSocieties();
   const directory = directoryResult.length > 0
     ? directoryResult
     : [{ id: page.society.id, name: page.society.name, slug: page.society.slug, bio: page.society.bio, logoUrl: page.society.logoUrl }];
 
-  return { page, directory, stories: storyResult };
+  return { page, directory };
 }
 
 export default function SocietyPage() {
@@ -67,7 +62,7 @@ export default function SocietyPage() {
     <>
       <CanonicalLink path={`/societies/${society.slug}`} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema).replace(/</g, "\\u003c") }} />
-      <SocietyDetailView page={data.page} directory={data.directory} stories={data.stories} />
+      <SocietyDetailView page={data.page} directory={data.directory} />
     </>
   );
 }
