@@ -49,6 +49,8 @@ jobs:
         run: bun run check:runtime-syntax
       - name: Typecheck
         run: bun run typecheck
+      - name: Documentation
+        run: bun run check:docs
       # Lint, the unit suite and the production build do not touch each other's
       # files, and each leaves cores idle, so they share the runner instead of
       # queueing behind one another. Typecheck runs first because it generates

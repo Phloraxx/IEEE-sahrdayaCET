@@ -26,7 +26,7 @@ Expected baseline at the time of writing:
 
 | Pass | Checks | Command |
 |---|---|---|
-| Deep HTTP/API | 128/128 | `node scripts/audit/deep.mjs` |
+| Deep HTTP/API | 136/136 | `node scripts/audit/deep.mjs` |
 | Admin routes | 19/19 | `node scripts/audit/admin-sweep.mjs` |
 | UI / rails / mobile | 22/22 | `node scripts/audit/ui.mjs` |
 | Accessibility + SEO | 15/15 | `node scripts/audit/a11y.mjs` |
@@ -59,8 +59,10 @@ event/society detail, ticket and certificate surfaces, security headers, cache
 headers and nonces, collection visibility, the admin/member/anon matrix, IDOR
 checks, origin guard, upload sniffing, registration body guards, a full free
 registration → ticket → QR → cancel cycle, admin create/patch/upload/delete for
-societies and execom, webhook signature rejection, methods, traversal, resizing,
-logout invalidation, and the auth rate limit (last, because it fills the bucket).
+societies, execom and events (including the audit rows each write must leave),
+webhook signature rejection, methods, traversal, resizing, logout invalidation,
+and the auth rate limit (run inside the container on a throwaway IP so it cannot
+fill the public bucket for the next run).
 
 The admin sweep opens every admin route on its own page, so a console error or
 non-2xx API call is attributed to the page that caused it.
@@ -116,8 +118,6 @@ Transient noise:
 
 ## Known gaps this audit records (do not mistake for failures)
 
-- Generic `/api/collections/*` writes (society, execom, event) are not written to
-  `admin_audit_log`; workflows, certificates, check-in and role changes are.
 - Deleting a society/execom row does not delete its upload directory; cleanup
   removes the test ones explicitly.
 - Home page transfers ~4.2 MB, ~3.9 MB of it images (`/files/execom/*` originals,
@@ -125,13 +125,21 @@ Transient noise:
   wiring `buildSrcSet()` into the execom rail and the static `/Events/*` photos is
   the open performance task.
 
+## Reading the staging database
+
+Never open it with host `sqlite3` or any other WAL client. SQLite creates
+`portal.db-wal`/`portal.db-shm` owned by your host user; the container's uid
+cannot write them afterwards and every mutation answers 500. The harness reads
+fixtures through `docker exec` (`scripts/audit/fixtures.cjs`) for exactly this
+reason. To recover: stop the web container, remove the stale `-wal` and `-shm`,
+start it.
+
 ## Environment overrides
 
 ```text
 BASE=https://staging.ieeesahrdaya.com
 STAGING_CONTAINER=ieee-dev-staging-web-1
 STAGING_DATA_DIR=/home/drvij/ieee-staging-data
-STAGING_DB=$STAGING_DATA_DIR/db/portal.db
 AUDIT_OUT=/tmp/opencode/staging-audit/shots
 AUDIT_WORK=/tmp/opencode/staging-audit
 ```

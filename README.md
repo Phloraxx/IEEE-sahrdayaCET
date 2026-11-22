@@ -26,6 +26,7 @@ Cloudflare / Dokploy / Traefik
 - The **app server** owns authentication, authorization, registration, payments, attendance, certificates, notifications, and file serving. There is no second API process.
 - **better-sqlite3** is the single database, opened as one process-wide connection in WAL mode.
 - Sessions are opaque tokens in an HttpOnly `__Host-` cookie, stored as a sha256 hash so logout is a delete and a database leak does not hand out live sessions.
+- Every privileged mutation — workflow commands and ordinary collection creates, edits and deletes — appends one `admin_audit_log` row in the same transaction, with the actor, the changed columns and before/after values.
 - `sqlite/schema.sql` is the only schema source of truth. `pb_migrations/` is PocketBase's frozen history and is not applied to this database.
 - A PocketBase container is kept alongside as a **rollback target only**; the app does not read from it.
 
@@ -35,7 +36,7 @@ See [docs/architecture.md](docs/architecture.md), [docs/security-architecture.md
 
 | Layer | Technology |
 | --- | --- |
-| Web | React 19, React Router 7.18, TypeScript, Vite 7 |
+| Web | React 19, React Router 7.18, TypeScript, Vite 8.3 |
 | UI | Tailwind CSS 4, shadcn/ui/Radix, Framer Motion, Lucide |
 | Client data | TanStack Query over same-origin `/api` |
 | Backend | React Router resource routes, better-sqlite3, TypeScript |
@@ -69,6 +70,8 @@ docker-compose.yml          production/staging stack
 tests/integration-db.mjs    repository + schema invariants against real SQLite
 tests/integration-migrate.mjs  cutover migration against a PocketBase fixture
 tests/e2e/                  browser/SSR/SEO tests
+scripts/audit/              staging audit harness: fixtures, HTTP/API, admin routes, UI, axe
+.opencode/skill/            project skills, including staging-audit and repo-docs
 ```
 
 ## Request ownership
@@ -118,10 +121,16 @@ bun run build        # production web build
 bun run start        # serve the built app
 bun run lint         # ESLint
 bun run typecheck    # React Router typegen + TypeScript
+bun run check:docs   # README/docs links, stale claims, referenced commands
 bun run test         # Vitest
 bun run test:integration  # repository + schema invariants, and the cutover migration
 bun run test:e2e     # Playwright Chromium suite
+scripts/audit/run-staging-audit.sh  # full audit of the deployed staging surface
 ```
+
+The staging audit creates temporary rows and sessions, asserts the HTTP/API,
+admin, UI and accessibility contracts, and removes them again. It never touches
+production; see `.opencode/skill/staging-audit/SKILL.md`.
 
 `test:integration` runs against real databases, not mocks: `tests/integration-db.mjs`
 applies `sqlite/schema.sql` to a fresh file and exercises every repository method,
@@ -153,8 +162,9 @@ directory titles do not grant permissions.
 - Public users can read intentionally public records.
 - Signed-in users can access their own protected records.
 - Chairs are scoped to the societies they chair.
-- Content editors own their blog posts.
+- Content editors have elevated editorial capabilities; the public blog product was removed on 2026-11-22.
 - Admins have administrative access.
+- Every write through the generic collection surface is audited, so an edit cannot hide behind the UI.
 - User role changes go through the dedicated admin command; ordinary user record updates cannot change `role`.
 
 Business invariants must remain correct when the React UI is bypassed. Put load-bearing checks in the schema constraints and the service modules that own each transition.
@@ -169,23 +179,35 @@ Admins can manually confirm an offline-verified pending payment through a dedica
 
 ## SEO
 
-Public content is server-rendered. Published events have immutable crawlable URLs under `/events/:slug`, canonical links, Open Graph/Twitter metadata, and Event JSON-LD. Blog posts use BlogPosting JSON-LD. Production exposes dynamic sitemap/robots resources; non-production HTML responses emit `X-Robots-Tag: noindex, nofollow`.
+Public content is server-rendered. Published events have immutable crawlable URLs under `/events/:slug`, canonical links, Open Graph/Twitter metadata, and Event JSON-LD. Production exposes dynamic sitemap/robots resources; non-production HTML responses emit `X-Robots-Tag: noindex, nofollow`.
 
 ## CI/CD
 
-CI runs full validation, integration suites against real databases + Playwright,
-and both container builds for pull requests into `dev`, final `main` pushes, and
-manual runs. Merged `dev` pushes and `dev` → `main` pull requests use a lighter
-validation gate instead of repeating the heavyweight integration jobs.
+CI runs on every push and pull request. One `checks` job lints, typechecks, runs
+the unit suite and builds; a short PocketBase smoke runs on PRs into `dev`; pull
+requests into `main` and `main` pushes add the clean-room migration suite and
+arm64 container builds. The web image is built once per commit tree and
+published to GHCR. The browser suite is not part of CI — run `bun run test:e2e`
+locally.
 
-Production CD runs only after a successful CI workflow on `main`. It verifies the tested SHA is still the current `main` head, then calls:
+Production CD reacts only to successful CI on `main`. It verifies the tested SHA
+is still `main`'s head, pins it to `deploy/production`, retags the image and
+calls Dokploy:
 
 ```text
-main → DOCKPLOY_WEBHOOK_PROD → production
+main → CI → CD → Dokploy pulls ghcr.io/phloraxx/ieee-sahrdaya-web:production
 ```
 
-Successful `dev` CI deploys the isolated staging project through the CI-gated
-CD workflow. Never point `dev` at the production Compose/volume.
+Staging is not deployed by CI. It deploys from the machine you are working on:
+
+```bash
+./scripts/deploy-local.sh --staging
+```
+
+That deploys the commit you have checked out (committed, clean and pushed), runs
+typecheck and the unit suite, builds with the worktree compose file, recreates
+only `web` and waits for `/healthz`. A `dev` push still runs CI, but deploys
+nothing.
 
 The canonical deployment remains the Dokploy-managed `docker-compose.yml`; do not shadow a service with a manually created fallback container or temporary Compose file.
 
@@ -206,13 +228,13 @@ must not be exposed through the public host.
 
 ## Release process
 
-Normal promotion is `feature/release branch → dev → main`. Before future schema-sensitive releases, provision/use isolated staging, get full CI green on the exact release candidate, complete authenticated staging acceptance, verify enabled production integrations, take a fresh production backup with `scripts/ieee-backup-export.sh` and confirm it restores, review the `dev` → `main` diff, then deploy through the CI-gated `main` path.
+Normal promotion is `feature/release branch → dev → main`. Before a schema-sensitive release: deploy staging with `./scripts/deploy-local.sh --staging`, run `scripts/audit/run-staging-audit.sh`, get full CI green on the exact release candidate, verify enabled production integrations, take a fresh production backup with `scripts/ieee-backup-export.sh` and confirm it restores, review the `dev` → `main` diff, then deploy through the CI-gated `main` path. The audit harness and its expected baselines are documented in `.opencode/skill/staging-audit/SKILL.md`.
 
 Use [docs/release-checklist.md](docs/release-checklist.md) as the release runbook.
 
 ## Contributor/agent contract
 
-Read [AGENTS.md](AGENTS.md) before architectural, backend, deployment, or security-sensitive changes.
+Read [AGENTS.md](AGENTS.md) before architectural, backend, deployment, or security-sensitive changes. Documentation changes follow `.opencode/skill/repo-docs/SKILL.md` and `node scripts/audit/check-docs.mjs`.
 
 ## License
 

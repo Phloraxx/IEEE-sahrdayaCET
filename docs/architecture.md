@@ -74,6 +74,23 @@ Use a dedicated command route when the operation is a command:
 | User role change | the collection surface intentionally forbids role mutation |
 | Manual payment confirmation | registration/payment state, ticket issuance, audit metadata, and notification outbox eligibility move together |
 
+## Audit trail
+
+Every privileged mutation appends one row to `admin_audit_log` inside the same
+transaction as the change:
+
+- command routes (publication, registration, payments, certificates, check-in,
+  role changes) call `audit()` from `src/server/audit.ts`;
+- generic collection creates, edits and deletes call `auditCollectionWrite()`
+  from `src/server/collections/audit.ts`, which records `<entity>.<kind>`, the
+  entity id, the event/registration links, and only the changed columns in
+  `before`/`after`. A delete is audited before the row disappears, because
+  `event_id` and `registration_id` are foreign keys with `ON DELETE SET NULL`.
+
+The admin dashboard's activity feed reads the same table. `google_sub` is
+redacted, and the table is readable only with `reports.view`, scoped by the
+caller's assignments.
+
 ## Schema ownership
 
 `sqlite/schema.sql` is the reproducible baseline and the only schema source of
@@ -136,7 +153,8 @@ configuration is an error, not a reason to couple staging to production.
 
 Staging is provisioned as the isolated Dokploy Compose project `ieee-dev-staging`
 with its own data directory, domain, secrets, and disabled production
-integrations. It tracks the CI-approved `deploy/staging` ref and must never share production state or credentials.
+integrations. It deploys from the working machine (see below) and must never
+share production state or credentials.
 
 ## Deployment ownership
 
@@ -149,15 +167,23 @@ Source changes belong in Git/GitHub and are deployed through CI-gated CD. See `d
 ## Branch deployment model
 
 ```text
-main → CI → deploy/production → production
-dev  → CI → deploy/staging    → staging
+main            → CI → CD → deploy/production → production (pulls the arm64 image)
+local worktree  → scripts/deploy-local.sh --staging → staging (builds on the host)
 ```
 
-CD reacts only to successful CI on `main` or `dev`, verifies the tested SHA is still the branch head, pins that exact SHA to the matching immutable deployment ref, and then triggers the corresponding Dokploy webhook. Dokploy must deploy the pinned ref rather than mutable `main`/`dev`.
+CD reacts only to successful CI on `main`, verifies the tested SHA is still the
+branch head, pins that exact SHA to `deploy/production`, and triggers the
+production Dokploy webhook. Dokploy must deploy the pinned ref rather than
+mutable `main`.
+
+Staging is not in CD. `./scripts/deploy-local.sh --staging` deploys the commit
+checked out in the worktree, builds with the worktree compose file, and
+health-gates the result. `dev` is the staging source branch, but a push there
+only runs CI.
 
 ## Infinia showcase and independent Altair archive
 
-Public SSR /infinia and /infinia/:year use curated src/lib/infinia.ts and src/lib/flagships.ts data and the scoped InfiniaShowcase component, independent of PocketBase. The hub ends with a newest-first, server-rendered Infinia/Altair timeline using FLAGSHIP_TIMELINE and canonical edition hrefs, also shared with the sitemap. Edition leaves retain their own year-specific content. Missing years return 404. Legacy /flagships, /flagships/infinia and valid Infinia edition paths issue 301 redirects to canonical showcase routes. /flagships/altair and its 2023/2022 leaves retain their existing archive.
+Public SSR /infinia and /infinia/:year use curated src/lib/infinia.ts and src/lib/flagships.ts data and the scoped InfiniaShowcase component, independent of the database. The hub ends with a newest-first, server-rendered Infinia/Altair timeline using FLAGSHIP_TIMELINE and canonical edition hrefs, also shared with the sitemap. Edition leaves retain their own year-specific content. Missing years return 404. Legacy /flagships, /flagships/infinia and valid Infinia edition paths issue 301 redirects to canonical showcase routes. /flagships/altair and its 2023/2022 leaves retain their existing archive.
 
 Production sitemap lists only canonical Infinia URLs plus Altair URLs. Staging remains noindex. Local optimised media under public/media/infinia includes full-frame WebP images and a user-initiated WebM/VP9 film with an H.264 fallback with VTT descriptions. InfiniaHero and InfiniaScene render a three-film portrait introduction (Lantern Fest, RC car and flight) and one independent 2024 robot-football scene using distinct footage on the hub/2024 leaf. Each scene has a server-rendered corresponding poster, heading, description and native skip link. The existing framer-motion dependency links frame transforms/progress to scroll; CSS adds short sticky spans only on desktop viewports at least 850px tall after motion enhancement is allowed. The hero renders three curved-seam panels with rainbow typography and a rounded CTA. On enhanced tall desktops its side panels open outward and the centre panel widens via object-fit reframing. Each separate chapter keeps full-stage footage and a modest inset reveal. Mobile hero panels retain all three stills but mount only the RC video; desktop mounts its two companion videos, controlled by the same active/visible/pause lifecycle. Reduced motion also disables spectrum and hover animation; forced colours restore system text and borders. Workshops use two-column photo-led layouts; programme days use three image-led columns. No media derivatives or new runtime dependencies were introduced. The route-scoped hero preloads a self-hosted Latin Bricolage Grotesque WOFF2 (display optical size 96, weight 600–800) with font-display:swap. Only hero titles use it; the hub renders lowercase through CSS while preserving its semantic heading. The included OFL licence and source README document provenance. The portrait sources are exclusive to the hero and are not repeated as follow-up chapters. A passive, requestAnimationFrame-throttled viewport-centre check grants at most one stage playback. Sources mount lazily after entering a stage. Visibility, connection and reduced-motion changes suspend playback; manual pause persists; failed media retains the still. Videos play normally; no scroll seeking or input interception is used. The hero flight panel's time-update handler loops only the clear opening three seconds of the existing native 1080p SDR source. Robot football adds a metadata-free 1920×1080 WebM/H.264 derivative of the genuine 4K HLG original, tone-mapped to BT.709. The three other source videos are native 1080×1920 SDR derivatives. The actual shared Footer remains outside the Infinia wrapper. The full narrative highlights player remains user-initiated; the 2025 leaf uses exclusively its own photographs and no 2024 scenes.
 

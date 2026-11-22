@@ -309,7 +309,10 @@ app:    ieee-dev-staging
 volume: ieee-dev-staging_pb_data (rollback target only)
 ```
 
-Staging is a separate Dokploy environment and Compose project. It uses:
+Staging is a separate Dokploy environment and Compose project. Its code is
+deployed from the operator's worktree with `./scripts/deploy-local.sh --staging`;
+the Dokploy checkout supplies the environment file and keeps the Compose project
+identity. A `dev` push only runs CI. It uses:
 
 ```text
 DEPLOY_ENV=staging
@@ -507,6 +510,37 @@ It runs as your own user (Docker group), not root: the unit suite misbehaves
 under root and nothing here needs it. It refuses on uncommitted edits to the
 Dokploy checkout, ignoring `docker-compose.yml`, which Dokploy rewrites on every
 deploy.
+
+## Verifying staging
+
+Run the full audit from the repository root after every staging deploy:
+
+```bash
+scripts/audit/run-staging-audit.sh
+```
+
+It creates a temporary event, user, registration, society and execom member;
+asserts the HTTP contract, every admin route, the public UI and both rails,
+mobile navigation, certificate/registration/ticket flows, audit rows, and
+accessibility; then removes every test row and session. Expected baseline:
+
+```text
+deep HTTP/API        136/136
+admin routes          19/19
+UI / rails / mobile   22/22
+axe + SEO             15/15
+```
+
+See `.opencode/skill/staging-audit/SKILL.md` for what each pass covers and which
+staging behaviours are expected rather than bugs.
+
+Do not open the staging database from the host with `sqlite3`, or with any other
+WAL client. SQLite creates `portal.db-wal`/`portal.db-shm` owned by your host
+user; the container's uid can no longer write them, and every mutation starts
+answering 500 (`attempt to write a readonly database`). Read fixture data
+through `docker exec` instead (`scripts/audit/fixtures.cjs` does exactly this).
+To recover from a mistake, stop the web container, remove the stale `-wal` and
+`-shm` files, and start it again.
 
 ## Do not manually replace Dokploy services
 

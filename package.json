@@ -9,6 +9,7 @@
     "start": "react-router-serve ./build/server/index.js",
     "lint": "eslint src --max-warnings=0",
     "check:runtime-syntax": "bash scripts/check-runtime-syntax.sh",
+    "check:docs": "node scripts/audit/check-docs.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",

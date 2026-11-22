@@ -13,15 +13,13 @@ Use this checklist for future schema-sensitive releases from `dev` staging to `m
 
 The required CI jobs must all succeed:
 
-- lint;
-- TypeScript/typegen;
-- Vitest unit tests;
-- production React Router build;
-- fresh PocketBase boot with all committed migrations/hooks;
-- backend invariant smoke suite;
-- Playwright Chromium E2E;
-- web Docker image build;
-- PocketBase Docker image build.
+- `checks`: lint, typecheck, unit tests and the production build;
+- `smoke-backend` on PRs into `dev`;
+- `clean-room-backend` on PRs into `main` and `main` pushes;
+- `container-builds` and the arm64 `web-image` on PRs into `main` and `main` pushes.
+
+The browser suite is not in CI; run `bun run test:e2e` locally when the change
+touches browser behaviour.
 
 Do not bypass CI by manually recreating production or staging containers.
 
@@ -34,9 +32,18 @@ Verify from `https://staging.ieeesahrdaya.com`, not only localhost:
 - `/societies` and at least one society page;
 - `/full-execom`;
 - `/healthz`;
-- `/api/health`.
+- `/robots.txt`.
 
-Check responsive layouts, navigation, browser console/page errors, hydration, canonical/metadata output, file images, and the required `noindex, nofollow` behavior on staging.
+Faster and wider than clicking through by hand: deploy staging, then run
+
+```bash
+scripts/audit/run-staging-audit.sh
+```
+
+It checks all of the above plus every admin route, the audit rows, registration/
+ticket/certificate flows, both home rails, mobile navigation and axe. Expected
+baseline: 136/136 deep, 19/19 admin routes, 22/22 UI, 15/15 accessibility. See
+`.opencode/skill/staging-audit/SKILL.md`.
 
 ## 4. Authentication and admin acceptance
 
@@ -54,6 +61,7 @@ With the appropriate staging role, verify:
 - execom create/edit and public privacy behavior;
 - user role-change command;
 - coupon create/edit/expiry/max-use behavior;
+- an admin edit appears in the dashboard activity feed (`admin_audit_log`);
 - file upload persistence across a web-container restart.
 
 Use disposable staging records and remove them after verification.
@@ -115,16 +123,16 @@ Certificate-platform releases must also follow `docs/certificate-production-runb
 Also verify:
 
 - production Google OAuth redirect/origin configuration;
-- production domain routes `/api → PocketBase` and `/ → web`;
-- public `/_/` renders the IEEE OAuth completion page, while PocketBase administration remains unrouted;
-- production and staging use different `pb_data` volumes and encryption keys;
+- `/` and `/api` are served by the app server, with no proxy to PocketBase;
+- PocketBase's administration paths are not routed on the public host;
+- production and staging use different databases, uploads and encryption keys;
 - the production web container has no PocketBase superuser credential.
 
 ## 7. Backup and migration rehearsal
 
 Immediately before production deployment:
 
-- take a fresh backup of the production PocketBase data volume/database and files;
+- take a fresh backup of the production database and uploads with `scripts/ieee-backup-export.sh`;
 - keep the backup outside the volume being upgraded;
 - confirm the migration set has already succeeded against a recent scrubbed copy of production data;
 - confirm file storage was included in the rehearsal/backup plan;
@@ -134,15 +142,15 @@ Do not rely on automatic reverse migrations after destructive schema changes.
 
 ## 8. Deployment
 
-Staging deployment path:
+Staging deployment path (from the operator's machine):
 
 ```text
-merge/push dev
-  → CI
-  → successful CI workflow_run
-  → CD freshness check
-  → DOCKPLOY_WEBHOOK_DEV
-  → isolated staging Dokploy Compose deployment
+./scripts/deploy-local.sh --staging
+  → checks the worktree is committed, clean and pushed
+  → typecheck + unit suite
+  → build with the worktree compose file
+  → recreate web in ieee-dev-staging
+  → wait for https://staging.ieeesahrdaya.com/healthz
 ```
 
 Production deployment path:
@@ -164,16 +172,16 @@ After Dokploy reports healthy services, verify:
 
 - `/` returns 200 and expected current UI;
 - `/healthz` returns 200;
-- `/api/health` returns 200;
 - event/society public routes return expected content;
 - production `robots.txt`/sitemap behavior is correct;
 - staging remains noindexed;
 - production Google login initializes;
 - one safe authenticated/admin read succeeds where configured;
+- an admin edit produces an `admin_audit_log` row visible in the activity feed;
 - uploaded files resolve;
 - `/verify` renders the public registry design;
 - `/admin/certificates` loads for a role with `certificates.view` and remains read-only;
 - registry email visibility still requires event-scoped `registrations.view`, and delivery-error detail still requires `certificates.send`;
-- web and PocketBase logs show no migration/startup/runtime error spike.
+- web logs show no startup/runtime error spike.
 
 If a rollback is required, restore application code through Git/Dokploy. Treat database rollback as a separate explicit operation based on the backup and the exact migrations that ran.
