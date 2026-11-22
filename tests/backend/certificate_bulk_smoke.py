@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Clean-room scale smoke for a 200-recipient certificate issue decision."""
+"""Clean-room scale smoke for a 100-recipient certificate issue decision."""
 import datetime as dt
 import json
 import os
@@ -14,7 +14,7 @@ import zlib
 BASE = os.environ.get("PB_BASE_URL", "http://127.0.0.1:8090").rstrip("/")
 SUPER_EMAIL = os.environ.get("PB_SUPERUSER_EMAIL", "ci-super@example.test")
 SUPER_PASS = os.environ.get("PB_SUPERUSER_PASSWORD", "CI-PocketBase-Smoke-2026!")
-COUNT = 200
+COUNT = 100
 
 
 def request(method, path, body=None, token=None, expected=(200, 201, 204), timeout=30):
@@ -90,7 +90,7 @@ society = request("POST", "/api/collections/societies/records", {
 now = dt.datetime.now(dt.timezone.utc)
 event = request("POST", "/api/collections/events/records", {
     "title": f"Certificate Bulk Smoke {suffix}",
-    "description": "Synthetic 200-recipient certificate issue smoke",
+    "description": "Synthetic 100-recipient certificate issue smoke",
     "date": (now + dt.timedelta(days=1)).isoformat().replace("+00:00", "Z"),
     "venue": "CI Lab",
     "price": 0,
@@ -151,7 +151,7 @@ issued = request("POST", issue_path, {
     "audienceType": "confirmed",
     "audienceConfig": {},
     "audienceFingerprint": preview["audienceFingerprint"],
-    "note": "CI 200-recipient scale issuance",
+    "note": "CI 100-recipient scale issuance",
 }, admin_token, timeout=120)
 issue_seconds = time.monotonic() - issue_started
 assert issued["idempotent"] is False
@@ -164,7 +164,7 @@ replayed = request("POST", issue_path, {
     "audienceType": "confirmed",
     "audienceConfig": {},
     "audienceFingerprint": preview["audienceFingerprint"],
-    "note": "CI 200-recipient scale issuance replay",
+    "note": "CI 100-recipient scale issuance replay",
 }, admin_token, timeout=60)
 assert replayed["idempotent"] is True
 assert replayed["batch"]["id"] == issued["batch"]["id"]
@@ -179,20 +179,22 @@ verification_tokens = [row["verificationToken"] for row in records["items"]]
 assert len(verification_tokens) == len(set(verification_tokens)) == COUNT
 assert all(len(token) == 48 for token in verification_tokens)
 
-# Registry totals, summary and pagination remain exact at the 200-row scale
+# Registry totals, summary and pagination remain exact at the 100-row scale
 # while the implementation is free to keep each request bounded.
 registry_path = "/api/app/certificates/registry"
 registry_credentials = []
-for page in range(1, 6):
+pages = (COUNT + 39) // 40
+for page in range(1, pages + 1):
     registry = request(
         "GET",
         f"{registry_path}?event={event['id']}&page={page}&perPage=40",
         token=admin_token,
         timeout=30,
     )
+    expected_rows = 40 if page < pages else COUNT - 40 * (pages - 1)
     assert registry["total"] == COUNT
-    assert registry["totalPages"] == 5
-    assert len(registry["certificates"]) == 40
+    assert registry["totalPages"] == pages
+    assert len(registry["certificates"]) == expected_rows
     if page == 1:
         assert registry["summary"]["total"] == COUNT
         assert registry["summary"]["active"] == COUNT

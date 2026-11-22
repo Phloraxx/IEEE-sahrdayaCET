@@ -333,17 +333,40 @@ Staging intentionally returns `X-Robots-Tag: noindex, nofollow`. Its records may
 ## CI
 
 `.github/workflows/ci.yml` runs on pushes to `main` and `dev`, on pull requests,
-and on manual dispatch.
+and on manual dispatch. It is split into a **fast path** and a **release gate**,
+run in parallel jobs so wall time is the slowest job, not the sum.
 
-- **Every run:** runtime-script syntax, lint, typecheck, unit tests.
-- **`main`/`dev` pushes and `dev` pull requests:** the production web build.
-- **`main` pushes and `dev` pull requests:** the clean-room PocketBase boot and
-  backend smoke suites. No browser suite runs in CI; `bun run test:e2e` is a
-  local, seeded-database check.
-- **`dev` pull requests only:** Docker builds of the web and PocketBase images,
-  on **arm64** (the architecture production runs). Production builds its own
-  image inside Dokploy, so repeating that build on every `main` push only added
-  deploy latency.
+**Fast path — every push and every pull request:**
+
+1. `checks` — runtime-script syntax, lint, typecheck, unit tests.
+2. `build` — the production Vite build, in its own job.
+3. `smoke-backend` — a fresh PocketBase boot, the two invariant suites, and the
+   populated PocketBase-to-SQLite migration (on pushes and PRs into `dev`).
+
+**Release gate — pull requests into `main` only:**
+
+4. `clean-room-backend` — every backend lifecycle: certificate templates,
+   issuance, 100-recipient scale, public verification, delivery, revoke and
+   replacement, PayGate v4, and the populated migration.
+5. `container-builds` — web and PocketBase images on **arm64**, the architecture
+   production runs.
+
+A push to `main` therefore runs only the fast path before CD deploys; the deep
+backend and image checks have already gated the release PR. A direct push to
+`main` skips them, so releases should go through a pull request.
+
+The certificate renderer's fonts are installed only on the release gate (`main`
+pushes and PRs into `main`); on the dev fast path those unit tests skip rather
+than adding ~7 s to every push. The bulk certificate suite runs at 100
+recipients, which still exercises pagination (three registry pages) without the
+22 s cost of 200.
+
+CI and the Dockerfile use Bun **1.4.5**. Bun 1.2.9's better-sqlite3 postinstall
+never returns under BuildKit on arm64; keeping the versions aligned means CI and
+the image build exercise the same installer. `actions/cache` restores
+`~/.bun/install/cache`, so a dependency install reuses downloaded packages.
+
+The clean-room backend starts with an empty PocketBase data directory. A successful run proves that committed migrations and hooks can construct a usable backend without depending on a long-lived database.
 
 CI and the Dockerfile use Bun **1.4.5**. Bun 1.2.9's better-sqlite3 postinstall
 never returns under BuildKit on arm64; keeping the versions aligned means CI and
