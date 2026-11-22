@@ -341,7 +341,9 @@ run in parallel jobs so wall time is the slowest job, not the sum.
 1. `checks` — runtime-script syntax, lint, typecheck, unit tests.
 2. `build` — the production Vite build, in its own job.
 3. `smoke-backend` — a fresh PocketBase boot, the two invariant suites, and the
-   populated PocketBase-to-SQLite migration (on pushes and PRs into `dev`).
+   populated PocketBase-to-SQLite migration. It gates `main` pushes and PRs into
+   `dev`, but not `dev` pushes: a normal release to dev has already run it on
+   the PR, and skipping it keeps the staging deploy fast.
 
 **Release gate — pull requests into `main` only:**
 
