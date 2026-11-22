@@ -65,12 +65,13 @@ jobs:
           wait "$BUILD" || status=1
           exit "$status"
 
-  # A PocketBase boot plus the invariant suites and a populated migration. This
-  # is the post-merge sanity check; it is deliberately not the full clean-room.
+  # A PocketBase boot plus the invariant suites and a populated migration. It
+  # gates pull requests into dev and manual runs; a dev push has already passed
+  # it on its PR, and a main push has passed the deeper clean-room on its
+  # release PR. It is deliberately not the full clean-room.
   smoke-backend:
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'pull_request' && github.base_ref == 'dev')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
