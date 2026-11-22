@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  BUN_VERSION: 1.2.9
+  BUN_VERSION: 1.4.5
 
 jobs:
   validate:
@@ -25,6 +25,13 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
+      - name: Cache Bun downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-${{ runner.arch }}-
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Install certificate renderer fonts
@@ -62,6 +69,13 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
+      - name: Cache Bun downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-${{ runner.arch }}-
       - run: bun install --frozen-lockfile
       - name: Build PocketBase image
         run: docker build -t ieee-pocketbase-ci -f pocketbase/Dockerfile .
@@ -203,19 +217,27 @@ jobs:
         run: docker logs ieee-pocketbase-ci || true
 
   container-builds:
+    # Production builds its own image inside Dokploy. This job exists to catch
+    # Dockerfile regressions on the pull request that changes them; running it
+    # again on every main push doubled deploy latency for an image nobody used.
+    #
+    # It runs on arm64, the architecture production actually runs. The x86
+    # runner used to hide arm-only Dockerfile failures (Bun 1.2.9's
+    # better-sqlite3 postinstall hang) until the deploy.
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'pull_request' && github.base_ref == 'dev')
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runs_on }}
     timeout-minutes: 25
     strategy:
       matrix:
         include:
           - name: web
             dockerfile: Dockerfile
+            runs_on: ubuntu-24.04-arm
           - name: pocketbase
             dockerfile: pocketbase/Dockerfile
+            runs_on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v4
