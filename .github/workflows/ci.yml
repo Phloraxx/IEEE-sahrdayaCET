@@ -15,33 +15,29 @@ concurrency:
 
 env:
   BUN_VERSION: 1.4.5
+  IMAGE: ghcr.io/phloraxx/ieee-sahrdaya-web
 
-# Fast path (every push and pull request): checks, production build and a short
-# PocketBase smoke, in parallel.
+# Fast path (every push and pull request): one checks job that lints, typechecks,
+# tests and builds, plus a short PocketBase smoke.
 #
 # Release gate (pull requests into main): the full clean-room backend suite and
-# arm64 image builds, so the exact tree that will deploy has been exercised
-# before the merge.
+# Dockerfile builds on arm64.
 #
-# A push to main therefore reaches deployment in roughly the time of the slowest
-# fast-path job, while the deep backend/image checks still gate every release.
+# The web image is built once per commit tree on arm64 and published to GHCR, so
+# production pulls it instead of building on the server.
 
 jobs:
   checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
-      - name: Cache Bun downloads
-        uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            bun-${{ runner.os }}-${{ runner.arch }}-
+      # setup-bun restores the Bun package cache itself (keyed on bun.lock), so
+      # a separate actions/cache step only added a second restore and a post
+      # upload that never saved anything after the first run.
       - name: Install dependencies
         run: bun install --frozen-lockfile
       # The certificate renderer's unit tests need real Noto files. Installing
@@ -55,32 +51,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y fonts-noto-core
+      - name: Runtime script syntax
+        run: bun run check:runtime-syntax
       - name: Lint
         run: bun run lint
       - name: Typecheck
         run: bun run typecheck
       - name: Unit tests
         run: bun run test
-
-  build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-      - name: Cache Bun downloads
-        uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            bun-${{ runner.os }}-${{ runner.arch }}-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - name: Runtime script syntax
-        run: bun run check:runtime-syntax
       - name: Production build
         run: bun run build
 
@@ -98,13 +76,6 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
-      - name: Cache Bun downloads
-        uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            bun-${{ runner.os }}-${{ runner.arch }}-
       - run: bun install --frozen-lockfile
       - uses: docker/setup-buildx-action@v4
       - name: Build PocketBase image
@@ -185,6 +156,9 @@ jobs:
             --uploads ./data/uploads \
             --id-map /tmp/id-map.json \
             --apply
+      - name: Backend logs on failure
+        if: failure()
+        run: docker logs ieee-pocketbase-ci || true
 
   # The deep gate, on pull requests into main only. It boots a fresh PocketBase,
   # exercises every backend lifecycle and runs the populated migration.
@@ -199,13 +173,6 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
-      - name: Cache Bun downloads
-        uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            bun-${{ runner.os }}-${{ runner.arch }}-
       - run: bun install --frozen-lockfile
       - uses: docker/setup-buildx-action@v4
       - name: Build PocketBase image
@@ -331,32 +298,82 @@ jobs:
         if: failure()
         run: docker logs ieee-pocketbase-ci || true
 
-  # Dockerfile validation on the release gate. Production builds its own image
-  # inside Dokploy, so this is not on the deploy path; it runs on arm64, the
-  # architecture production uses, and would have caught the Bun 1.2.9 hang.
+  # The web image, built on arm64 (the architecture production runs) and
+  # published to GHCR per commit tree. Production deploys pull it, so the server
+  # no longer compiles anything on the deploy path. The tree tag is what CD
+  # resolves: a squash merge keeps the tree of the pull request, so the image
+  # built here is the image the merged commit deploys.
+  web-image:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request' && github.base_ref == 'main')
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Record the commit tree
+        id: tree
+        run: echo "tree=$(git rev-parse HEAD^{tree})" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v4
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # A release PR publishes the image for its tree, and a squash merge keeps
+      # that tree, so a normal main push has nothing to build. The check runs
+      # only on pushes: PRs always build, so a Dockerfile change is validated
+      # before it can merge.
+      - name: Check whether this tree is already published
+        id: published
+        if: github.event_name != 'pull_request'
+        run: |
+          if docker buildx imagetools inspect "$IMAGE:tree-${{ steps.tree.outputs.tree }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Image for this tree is already published; skipping the build."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: docker/build-push-action@v7
+        if: github.event_name == 'pull_request' || steps.published.outputs.exists != 'true'
+        with:
+          context: .
+          file: Dockerfile
+          # Every run of this job publishes: a PR into main builds the image the
+          # merged commit will deploy, and a main push publishes the image for
+          # its own tree when the release PR did not cover it.
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:sha-${{ github.sha }}
+            ${{ env.IMAGE }}:tree-${{ steps.tree.outputs.tree }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            ieee.tree=${{ steps.tree.outputs.tree }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+  # PocketBase still builds on deploy (it is the rollback target and changes
+  # rarely), so its Dockerfile is validated here rather than published.
   container-builds:
     if: >-
       github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'pull_request' && github.base_ref == 'main')
-    runs-on: ${{ matrix.runs_on }}
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
-    strategy:
-      matrix:
-        include:
-          - name: web
-            dockerfile: Dockerfile
-            runs_on: ubuntu-24.04-arm
-          - name: pocketbase
-            dockerfile: pocketbase/Dockerfile
-            runs_on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v4
       - uses: docker/build-push-action@v7
         with:
           context: .
-          file: ${{ matrix.dockerfile }}
+          file: pocketbase/Dockerfile
           push: false
-          tags: ieee-sahrdaya/${{ matrix.name }}:ci-${{ github.sha }}
-          cache-from: type=gha,scope=${{ matrix.name }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+          tags: ieee-sahrdaya/pocketbase:ci-${{ github.sha }}
+          cache-from: type=gha,scope=pocketbase
+          cache-to: type=gha,mode=max,scope=pocketbase

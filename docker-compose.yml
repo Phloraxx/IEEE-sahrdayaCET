@@ -1,5 +1,11 @@
 services:
   web:
+    # Production pulls the arm64 image CI published for the commit
+    # (ghcr.io/phloraxx/ieee-sahrdaya-web:production through the Dokploy
+    # command, which drops --build and adds --pull always). Staging and
+    # scripts/deploy-local.sh leave WEB_IMAGE unset and build locally, which
+    # needs no registry account.
+    image: ${WEB_IMAGE:-ieee-sahrdaya-web:local}
     build:
       context: .
       dockerfile: Dockerfile

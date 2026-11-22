@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 concurrency:
   group: deploy-${{ github.event.workflow_run.head_branch }}
@@ -24,7 +25,9 @@ jobs:
       TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
       TARGET: ${{ github.event.workflow_run.head_branch == 'main' && 'production' || 'staging' }}
       DEPLOY_WEBHOOK: ${{ github.event.workflow_run.head_branch == 'main' && secrets.DOCKPLOY_WEBHOOK_PROD || secrets.DOCKPLOY_WEBHOOK_DEV }}
+      IMAGE: ghcr.io/phloraxx/ieee-sahrdaya-web
     steps:
+      - uses: docker/setup-buildx-action@v4
       - name: Verify tested SHA is still branch head
         id: freshness
         env:
@@ -71,6 +74,29 @@ jobs:
             "${AUTH[@]}" "$API/git/ref/heads/$DEPLOY_BRANCH" | jq -r .object.sha)
           test "$PINNED_SHA" = "$TESTED_SHA"
           echo "Pinned $DEPLOY_BRANCH to ${TESTED_SHA:0:12}"
+
+      # Production deploys pull the image CI built for this commit instead of
+      # building on the server. The image is tagged by the commit's tree, which
+      # a squash merge preserves; the mutable :production tag is moved here, so
+      # a rollback (repointing deploy/production) also rolls the image back.
+      - name: Attach this commit's image to the production tag
+        if: steps.freshness.outputs.skip != 'true' && env.TARGET == 'production'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TREE=$(curl --fail-with-body --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/commits/$TESTED_SHA" | jq -r .commit.tree.sha)
+          echo "tree=$TREE"
+          echo "$GH_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin >/dev/null
+          if ! docker buildx imagetools inspect "$IMAGE:tree-$TREE" >/dev/null 2>&1; then
+            echo "::error::No image is published for tree $TREE, so production cannot pull this commit. CI's web-image job publishes one on every push to main; re-run it, or deploy this commit with scripts/deploy-local.sh (it builds on the server)."
+            exit 1
+          fi
+          docker buildx imagetools create -t "$IMAGE:production" "$IMAGE:tree-$TREE"
+          docker buildx imagetools inspect "$IMAGE:production" --format '{{json .Manifest}}' | jq -r .digest
 
       - name: Deploy pinned SHA through Dokploy webhook
         if: steps.freshness.outputs.skip != 'true'
