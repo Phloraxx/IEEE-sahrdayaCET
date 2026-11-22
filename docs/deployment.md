@@ -604,6 +604,11 @@ Migrations must be forward-safe on a recent copy of production data before
 rollout. Prefer additive migrations and explicit data migrations; do not assume
 a schema change can be reversed.
 
+Rolling back to a commit that predates the image flow (before the GHCR pull was
+introduced) has no `:tree-` image, so CD stops with an explicit error instead of
+deploying. For those commits, deploy with `scripts/deploy-local.sh`, which builds
+on the server.
+
 ## Edge caching
 
 Public HTML is served with a shared-cache directive so a CDN can absorb repeat
