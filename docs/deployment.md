@@ -343,9 +343,9 @@ run in parallel jobs so wall time is the slowest job, not the sum.
    restore cover all of it.
 2. `smoke-backend` — a fresh PocketBase boot, the two invariant suites, a
    certificate template lifecycle and the populated PocketBase-to-SQLite
-   migration. It gates `main` pushes and PRs into `dev`, but not `dev` pushes: a
-   normal release to dev has already run it on the PR, and skipping it keeps the
-   staging deploy fast.
+   migration. It gates pull requests into `dev` and manual runs. A `dev` push has
+   already passed it on its pull request, and a `main` push has passed the
+   deeper clean-room on its release pull request, so neither pays for it again.
 
 **Release gate — pull requests into `main`:**
 
@@ -356,9 +356,10 @@ run in parallel jobs so wall time is the slowest job, not the sum.
 5. `web-image` — the web image on **arm64**, published to GHCR (see below). It
    runs on `main` pushes too, because that is the image the deploy pulls.
 
-A push to `main` therefore runs only the fast path before CD deploys; the deep
-backend gate has already run on the release PR. A direct push to `main` skips
-it, so releases should go through a pull request.
+A push to `main` therefore runs only `checks` and `web-image` before CD
+deploys, in parallel: about 40 s. The backend gates have already run on the pull
+request that produced the commit. A direct push to `main` skips them, so
+releases should go through a pull request.
 
 The certificate renderer opens exactly two files, `NotoSans-Regular.ttf` and
 `NotoSerif-Regular.ttf`. They are committed under `tests/fixtures/fonts` (SIL
