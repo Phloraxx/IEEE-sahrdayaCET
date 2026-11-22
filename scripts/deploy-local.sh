@@ -8,6 +8,11 @@
 # file Dokploy uses, and recreates only the web service. PocketBase is left
 # untouched.
 #
+# Normal production deploys pull a prebuilt image from GHCR instead of building;
+# this script is the reason the compose file keeps its build section. It tags the
+# image with WEB_IMAGE from the environment file, so the next normal deploy pulls
+# and replaces it.
+#
 #   sudo ./scripts/deploy-local.sh                  # production, with tests
 #   sudo ./scripts/deploy-local.sh --staging        # staging
 #   sudo ./scripts/deploy-local.sh --skip-tests     # incident hotfix
@@ -130,7 +135,7 @@ for _ in $(seq 1 60); do
 		echo "$HOST is healthy: $body"
 		echo
 		echo "Deployed $SHORT_SHA to $TARGET."
-		echo "Rollback: check out the previous deploy/production ref in $CODE_DIR, then re-run this script."
+		echo "Rollback: repoint deploy/production to the previous commit and let CD deploy it"
 		exit 0
 	fi
 	sleep 2
