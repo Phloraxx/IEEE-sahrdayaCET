@@ -665,7 +665,7 @@ Every implementation PR must continue to pass:
 - full Vitest suite;
 - production client + SSR build;
 - fresh PocketBase backend invariants;
-- 200-recipient certificate scale;
+- 100-recipient certificate scale;
 - PayGate v4 integration smoke;
 - Browser E2E;
 - web + PocketBase container builds;

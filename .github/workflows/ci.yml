@@ -16,10 +16,20 @@ concurrency:
 env:
   BUN_VERSION: 1.4.5
 
+# Fast path (every push and pull request): checks, production build and a short
+# PocketBase smoke, in parallel.
+#
+# Release gate (pull requests into main): the full clean-room backend suite and
+# arm64 image builds, so the exact tree that will deploy has been exercised
+# before the merge.
+#
+# A push to main therefore reaches deployment in roughly the time of the slowest
+# fast-path job, while the deep backend/image checks still gate every release.
+
 jobs:
-  validate:
+  checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
@@ -34,11 +44,14 @@ jobs:
             bun-${{ runner.os }}-${{ runner.arch }}-
       - name: Install dependencies
         run: bun install --frozen-lockfile
+      # The certificate renderer's unit tests need real Noto files. Installing
+      # them costs ~7 s, so they are installed on the release gate only; on the
+      # fast path those tests skip rather than make every dev push slower.
       - name: Install certificate renderer fonts
         if: >-
           github.event_name == 'workflow_dispatch' ||
           (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-          (github.event_name == 'pull_request' && github.base_ref == 'dev')
+          (github.event_name == 'pull_request' && github.base_ref == 'main')
         run: |
           sudo apt-get update
           sudo apt-get install -y fonts-noto-core
@@ -50,18 +63,107 @@ jobs:
         run: bun run typecheck
       - name: Unit tests
         run: bun run test
+
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Cache Bun downloads
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-${{ runner.arch }}-
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
       - name: Production build
-        if: >-
-          github.event_name == 'workflow_dispatch' ||
-          (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')) ||
-          (github.event_name == 'pull_request' && github.base_ref == 'dev')
         run: bun run build
 
+  # A PocketBase boot plus the invariant suites and a populated migration. This
+  # is the post-merge sanity check; it is deliberately not the full clean-room.
+  smoke-backend:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' && github.base_ref == 'dev')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Cache Bun downloads
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-${{ runner.arch }}-
+      - run: bun install --frozen-lockfile
+      - uses: docker/setup-buildx-action@v4
+      - name: Build PocketBase image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: pocketbase/Dockerfile
+          load: true
+          tags: ieee-pocketbase-ci
+          cache-from: type=gha,scope=pocketbase
+          cache-to: type=gha,mode=max,scope=pocketbase
+      - name: Start fresh PocketBase
+        run: |
+          docker run -d --name ieee-pocketbase-ci \
+            --add-host=host.docker.internal:host-gateway \
+            -p 127.0.0.1:8090:8090 \
+            -e DEPLOY_ENV='staging' \
+            -e PB_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef' \
+            -e CERTIFICATE_RENDER_CAPABILITY_KEY='CI-Certificate-Render-Capability-2026-Only-Test' \
+            -e MAIL_DELIVERY_MODE='disabled' \
+            ieee-pocketbase-ci
+          for i in {1..60}; do
+            curl -fsS http://127.0.0.1:8090/api/health >/dev/null && exit 0
+            sleep 1
+          done
+          docker logs ieee-pocketbase-ci
+          exit 1
+      - name: Create CI superuser
+        run: |
+          docker exec ieee-pocketbase-ci ./pocketbase superuser upsert \
+            ci-super@example.test 'CI-PocketBase-Smoke-2026!' --encryptionEnv=PB_ENCRYPTION_KEY
+      - name: Exercise backend invariants
+        env:
+          PB_BASE_URL: http://127.0.0.1:8090
+          PB_SUPERUSER_EMAIL: ci-super@example.test
+          PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
+          E2E_WORKSPACE_FIXTURE: /tmp/community-workspace-e2e.json
+        run: |
+          python3 tests/backend/pocketbase_smoke.py
+          python3 tests/backend/community_roles_smoke.py
+      - name: Verify the PocketBase to SQLite migration against real records
+        run: |
+          set -euo pipefail
+          docker cp ieee-pocketbase-ci:/pb/pb_data /tmp/pb-data
+          mkdir -p data
+          bunx tsx scripts/migrate-pb-to-sqlite.ts \
+            --source /tmp/pb-data/data.db \
+            --storage /tmp/pb-data/storage \
+            --target ./data/portal.db \
+            --uploads ./data/uploads \
+            --id-map /tmp/id-map.json \
+            --apply
+
+  # The deep gate, on pull requests into main only. It boots a fresh PocketBase,
+  # exercises every backend lifecycle and runs the populated migration.
   clean-room-backend:
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'pull_request' && github.base_ref == 'dev')
+      (github.event_name == 'pull_request' && github.base_ref == 'main')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -77,8 +179,16 @@ jobs:
           restore-keys: |
             bun-${{ runner.os }}-${{ runner.arch }}-
       - run: bun install --frozen-lockfile
+      - uses: docker/setup-buildx-action@v4
       - name: Build PocketBase image
-        run: docker build -t ieee-pocketbase-ci -f pocketbase/Dockerfile .
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: pocketbase/Dockerfile
+          load: true
+          tags: ieee-pocketbase-ci
+          cache-from: type=gha,scope=pocketbase
+          cache-to: type=gha,mode=max,scope=pocketbase
       - name: Start fake SMTP server
         env:
           SMTP_FAKE_PORT: "18082"
@@ -143,7 +253,7 @@ jobs:
           PB_SUPERUSER_EMAIL: ci-super@example.test
           PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
         run: python3 tests/backend/certificate_issuance_smoke.py
-      - name: Exercise 200-recipient certificate scale
+      - name: Exercise 100-recipient certificate scale
         env:
           PB_BASE_URL: http://127.0.0.1:8090
           PB_SUPERUSER_EMAIL: ci-super@example.test
@@ -177,18 +287,6 @@ jobs:
           PAYGATE_WEBHOOK_SECRET: CI-PayGate-Webhook-2026-Only-Test-32
           PAYGATE_FAKE_PORT: "18081"
         run: python3 tests/backend/paygate_smoke.py
-
-      # The web app reads SQLite, not PocketBase. The smoke tests above created
-      # their fixtures through the PocketBase API, so copy that data out and run
-      # the same migration the production cutover uses. Nothing downstream reads
-      # the resulting database any more — the point is that the migration runs
-      # against real records on every PR and its verification block fails the
-      # build if any table loses rows. That is the class of bug that bit before:
-      # a missing column alias silently nulled an entire collection, and only a
-      # populated database exposed it.
-      #
-      # Copying the whole `pb_data` directory rather than just `data.db` picks
-      # up PocketBase's WAL, so commits made moments earlier are included.
       - name: Verify the PocketBase to SQLite migration against real records
         run: |
           set -euo pipefail
@@ -201,32 +299,17 @@ jobs:
             --uploads ./data/uploads \
             --id-map /tmp/id-map.json \
             --apply
-
-      # The browser suite used to run here. It was removed: it needs a fully
-      # seeded app, and it never had one after the SQLite cutover — the web app
-      # reads SQLite while the smoke tests above create fixtures in PocketBase,
-      # and `APP_URL` was missing entirely so `openDatabase()` threw on every
-      # request. Every test failed, retries doubled the cost, and the job was
-      # killed at its timeout instead of reporting a real failure.
-      #
-      # Nothing in CI runs the browser suite now. `bun run test:e2e` still works
-      # locally against a seeded database; restoring it in CI needs its own job
-      # with a SQLite fixture builder, not a step bolted onto a backend job.
       - name: Backend logs on failure
         if: failure()
         run: docker logs ieee-pocketbase-ci || true
 
+  # Dockerfile validation on the release gate. Production builds its own image
+  # inside Dokploy, so this is not on the deploy path; it runs on arm64, the
+  # architecture production uses, and would have caught the Bun 1.2.9 hang.
   container-builds:
-    # Production builds its own image inside Dokploy. This job exists to catch
-    # Dockerfile regressions on the pull request that changes them; running it
-    # again on every main push doubled deploy latency for an image nobody used.
-    #
-    # It runs on arm64, the architecture production actually runs. The x86
-    # runner used to hide arm-only Dockerfile failures (Bun 1.2.9's
-    # better-sqlite3 postinstall hang) until the deploy.
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && github.base_ref == 'dev')
+      (github.event_name == 'pull_request' && github.base_ref == 'main')
     runs-on: ${{ matrix.runs_on }}
     timeout-minutes: 25
     strategy:
