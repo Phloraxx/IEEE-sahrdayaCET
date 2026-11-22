@@ -1,4 +1,5 @@
 import { reactRouter } from "@react-router/dev/vite";
+import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, loadEnv } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 import { execFileSync } from "node:child_process";
@@ -41,6 +42,6 @@ export default defineConfig(({ mode }) => {
       // shadow the new routes — the dev mirror of the production Traefik
       // bypass that broke phase 4.
     },
-    plugins: [reactRouter(), tsconfigPaths()],
+    plugins: [tailwindcss(), reactRouter(), tsconfigPaths()],
   };
 });

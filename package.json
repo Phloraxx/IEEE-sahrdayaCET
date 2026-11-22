@@ -53,6 +53,7 @@
     "@playwright/test": "^1.60.0",
     "@react-router/dev": "7.18.3",
     "@tailwindcss/postcss": "^4.3.3",
+    "@tailwindcss/vite": "^4.3.3",
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^22.19.21",
     "@types/nodemailer": "^8.0.2",
@@ -67,7 +68,7 @@
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
     "typescript": "~5.8.2",
-    "vite": "^7.3.7",
+    "vite": "^8.3.8",
     "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^4.1.11"
   },
