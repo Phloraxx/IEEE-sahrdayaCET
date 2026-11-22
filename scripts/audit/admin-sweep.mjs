@@ -5,23 +5,28 @@
  */
 import { readFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { execFileSync } from "node:child_process";
 import { chromium } from "playwright";
-import Database from "better-sqlite3";
 
 const BASE = process.env.BASE || "https://staging.ieeesahrdaya.com";
 const DATA = process.env.STAGING_DATA_DIR || "/home/drvij/ieee-staging-data";
-const DB = process.env.STAGING_DB || join(DATA, "db/portal.db");
+const CONTAINER = process.env.STAGING_CONTAINER || "ieee-dev-staging-web-1";
+const DIR = import.meta.dirname;
 const OUT = process.env.AUDIT_OUT || "/tmp/opencode/staging-audit/shots";
 const admin = JSON.parse(readFileSync(join(DATA, "db/.staging-test-session"), "utf8"));
 mkdirSync(OUT, { recursive: true });
 
-const db = new Database(DB, { readonly: true });
-const pick = (sql, fallbackEnv) => db.prepare(sql).get()?.id || process.env[fallbackEnv] || "";
-const EVENT_ID = pick("SELECT id FROM events ORDER BY date DESC LIMIT 1", "EVENT_ID");
-const REG_ID = pick("SELECT id FROM registrations LIMIT 1", "REG_ID");
-const SOCIETY_ID = pick("SELECT id FROM societies LIMIT 1", "SOCIETY_ID");
-const EXECOM_ID = pick("SELECT id FROM execom LIMIT 1", "EXECOM_ID");
-db.close();
+function readFixtures() {
+  const out = execFileSync("docker", ["exec", "-i", CONTAINER, "node", "--experimental-sqlite", "-"], {
+    input: readFileSync(join(DIR, "fixtures.cjs")), encoding: "utf8", stdio: ["pipe", "pipe", "ignore"],
+  });
+  return JSON.parse(out.trim().split("\n").pop());
+}
+const { ids } = readFixtures();
+const EVENT_ID = process.env.EVENT_ID || ids.event;
+const REG_ID = process.env.REG_ID || ids.registration;
+const SOCIETY_ID = process.env.SOCIETY_ID || ids.society;
+const EXECOM_ID = process.env.EXECOM_ID || ids.execom;
 
 const routes = [
   "/admin/dashboard",
@@ -61,7 +66,13 @@ for (const route of routes) {
   try {
     const res = await page.goto(BASE + route, { waitUntil: "load", timeout: 45000 });
     status = res?.status() ?? 0;
-    await page.waitForTimeout(1800);
+    // Wait for the route's own heading, not just the shell: a slow data-health
+    // query used to leave the document at the logo for longer than a fixed wait.
+    await page.waitForFunction(() => {
+      const text = document.querySelector("h1,h2")?.textContent?.trim() ?? "";
+      return text.length > 0 && text !== "IEEE";
+    }, { timeout: 8000 }).catch(() => undefined);
+    await page.waitForTimeout(700);
   } catch (e) {
     problems.push(`nav: ${e.message.split("\n")[0]}`);
   }

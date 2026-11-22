@@ -5,7 +5,6 @@
  * one society and one execom row so the write paths are actually exercised.
  * Session cookies are pre-minted by the caller and deleted at the end.
  */
-import Database from "better-sqlite3";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
@@ -14,7 +13,6 @@ const BASE = process.env.BASE || "https://staging.ieeesahrdaya.com";
 const DIR = import.meta.dirname;
 const CONTAINER = process.env.STAGING_CONTAINER || "ieee-dev-staging-web-1";
 const DATA = process.env.STAGING_DATA_DIR || "/home/drvij/ieee-staging-data";
-const DB_PATH = process.env.STAGING_DB || join(DATA, "db/portal.db");
 const WORK = process.env.AUDIT_WORK || "/tmp/opencode/staging-audit";
 mkdirSync(WORK, { recursive: true });
 const TEST_USER_EMAIL = "staging-audit-user@example.invalid";
@@ -35,7 +33,17 @@ mint();
 
 const admin = JSON.parse(readFileSync(join(DATA, "db/.staging-test-session"), "utf8"));
 const member = JSON.parse(readFileSync(join(DATA, "db/.staging-test-member"), "utf8"));
-const db = new Database(DB_PATH, { readonly: true });
+
+/** Read fixture ids inside the container so the WAL files stay container-owned. */
+function readFixtures() {
+  const out = execFileSync("docker", ["exec", "-i", CONTAINER, "node", "--experimental-sqlite", "-"], {
+    input: readFileSync(join(DIR, "fixtures.cjs")),
+    encoding: "utf8",
+    stdio: ["pipe", "pipe", "ignore"],
+  });
+  return JSON.parse(out.trim().split("\n").pop());
+}
+const FIXTURES = readFixtures();
 
 const results = [];
 let n = 0;
@@ -69,14 +77,7 @@ async function req(path, { method = "GET", cookie, headers = {}, body, redirect 
 const json = (r) => { try { return JSON.parse(r.body); } catch { return null; } };
 
 // Data the checks pivot on (read-only queries).
-const openEvent = db.prepare("SELECT id,slug,price FROM events WHERE slug='staging-audit-event' AND is_deleted=0").get()
-  ?? db.prepare("SELECT id,slug,price FROM events WHERE slug='sustainx' AND is_deleted=0").get();
-const closedEvent = db.prepare("SELECT id,slug FROM events WHERE status='published' AND registration_open=0 AND is_deleted=0 LIMIT 1").get();
-const banner = db.prepare("SELECT id,banner FROM events WHERE banner IS NOT NULL AND status IN ('published','completed') AND is_deleted=0 LIMIT 1").get();
-const cert = db.prepare("SELECT verification_token FROM certificates WHERE status='active' LIMIT 1").get();
-const foreignReg = db.prepare("SELECT id,user_id,event_id,ticket_id FROM registrations WHERE user_id <> ? LIMIT 1").get(member.userId);
-const myPast = db.prepare("SELECT id,ticket_id FROM registrations WHERE user_id=? AND registration_status='confirmed' AND ticket_id IS NOT NULL LIMIT 1").get(member.userId);
-db.close();
+const { openEvent, closedEvent, banner, cert, foreignReg, myPast } = FIXTURES;
 
 let createdRegId = "";
 
@@ -345,8 +346,24 @@ check("logged-out session rejected", json(await req("/api/session", { cookie: me
 check("admin session still valid", json(await req("/api/session", { cookie: admin.cookie }))?.user?.role === "admin", "");
 
 // ------------------------------------------------------ 15. rate limit last
-const limited = [];
-for (let i = 0; i < 24; i += 1) limited.push((await req("/auth/google?next=%2F")).status);
+// Run this inside the container on a throwaway forwarded IP: using the public
+// egress address would fill the /auth bucket for the next run (and for logout).
+const rateScript = `(async () => {
+  const statuses = [];
+  for (let i = 0; i < 24; i += 1) {
+    const response = await fetch("http://127.0.0.1:3000/auth/google?next=%2F", {
+      headers: { "X-Forwarded-For": "198.51.100.77" },
+      redirect: "manual",
+    });
+    statuses.push(response.status);
+  }
+  console.log(JSON.stringify(statuses));
+})();`;
+const limited = JSON.parse(execFileSync("docker", ["exec", "-i", CONTAINER, "node", "-"], {
+  input: rateScript,
+  encoding: "utf8",
+  stdio: ["pipe", "pipe", "ignore"],
+}).trim().split("\n").pop());
 check("auth rate limited", limited.includes(429), `${limited.filter((s) => s === 429).length} of ${limited.length} were 429`);
 
 // ------------------------------------------------------------- cleanup

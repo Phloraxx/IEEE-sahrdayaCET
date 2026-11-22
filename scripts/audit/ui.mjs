@@ -4,21 +4,27 @@
  */
 import { readFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { execFileSync } from "node:child_process";
 import { chromium } from "playwright";
-import Database from "better-sqlite3";
 
 const BASE = process.env.BASE || "https://staging.ieeesahrdaya.com";
 const DATA = process.env.STAGING_DATA_DIR || "/home/drvij/ieee-staging-data";
-const DB = process.env.STAGING_DB || join(DATA, "db/portal.db");
+const CONTAINER = process.env.STAGING_CONTAINER || "ieee-dev-staging-web-1";
+const DIR = import.meta.dirname;
 const OUT = process.env.AUDIT_OUT || "/tmp/opencode/staging-audit/shots";
 const admin = JSON.parse(readFileSync(join(DATA, "db/.staging-test-session"), "utf8"));
 const member = JSON.parse(readFileSync(join(DATA, "db/.staging-test-member"), "utf8"));
 mkdirSync(OUT, { recursive: true });
 
-const db = new Database(DB, { readonly: true });
-const cert = db.prepare("SELECT verification_token, credential_id FROM certificates WHERE status='active' LIMIT 1").get();
-const testEvent = db.prepare("SELECT id FROM events WHERE slug='staging-audit-event' AND is_deleted=0 LIMIT 1").get();
-db.close();
+function readFixtures() {
+  const out = execFileSync("docker", ["exec", "-i", CONTAINER, "node", "--experimental-sqlite", "-"], {
+    input: readFileSync(join(DIR, "fixtures.cjs")), encoding: "utf8", stdio: ["pipe", "pipe", "ignore"],
+  });
+  return JSON.parse(out.trim().split("\n").pop());
+}
+const FIXTURES = readFixtures();
+const cert = FIXTURES.cert ?? {};
+const testEvent = FIXTURES.openEvent;
 
 const results = [];
 const check = (id, pass, detail = "") => {
