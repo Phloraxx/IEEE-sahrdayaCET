@@ -46,6 +46,8 @@ export interface CertificateMailReadiness {
   trackingReady: boolean;
   trackingMode: "accepted_only";
   readyToQueue: boolean;
+  readyToSend?: boolean;
+  transport?: { configured: boolean; host: string; port: number; secure: boolean; from: string };
   reason: string;
   message: string;
 }

@@ -115,7 +115,7 @@ try {
 		const tables = raw
 			.prepare("SELECT count(*) AS n FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
 			.get().n;
-		check(tables === 26, "schema creates 26 tables", tables);
+		check(tables === 27, "schema creates 27 tables", tables);
 
 		const integrity = raw.pragma("integrity_check", { simple: true });
 		check(integrity === "ok", "integrity_check", integrity);
@@ -2149,6 +2149,342 @@ try {
 			"the decision wrote exactly one audit row",
 			decisionAudit.rows,
 		);
+	}
+
+	// -----------------------------------------------------------------------
+	// phase 8 — volunteer certificates (a credential with no registration)
+	// -----------------------------------------------------------------------
+	{
+		const issuance = await import("../src/server/certificates/issuance.ts");
+
+		await db.query("INSERT INTO users (id, email, role) VALUES (?,?,?)", [
+			"u-vol-admin", "vol-admin@test.local", "admin",
+		]);
+		await db.query(
+			"INSERT INTO events (id, title, slug, date, status) VALUES (?,?,?,?,?)",
+			["ev-vol-1", "Volunteer Test", "volunteer-test", "2026-11-01", "published"],
+		);
+		await db.query(
+			`INSERT INTO certificate_templates
+			   (id, name, scope_type, event_id, certificate_type, version, status,
+			    render_base, canvas_width, canvas_height, layout, email_subject, email_text,
+			    created_at, updated_at)
+			 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			[
+				"tpl-vol-1", "Volunteer Certificate", "event", "ev-vol-1", "volunteer", 1,
+				"published", "render-base.png", 2000, 1400, JSON.stringify({}),
+				"Subject", "Body", "2026-11-01T00:00:00Z", "2026-11-01T00:00:00Z",
+			],
+		);
+		await db.query(
+			`INSERT INTO event_volunteers (id, event_id, name, email, role, active)
+			 VALUES (?,?,?,?,?,?)`,
+			["vol-1", "ev-vol-1", "Anagha Volunteer", "anagha@test.local", "Volunteer", 1],
+		);
+		await db.query(
+			`INSERT INTO event_volunteers (id, event_id, name, email, role, active)
+			 VALUES (?,?,?,?,?,?)`,
+			["vol-2", "ev-vol-1", "Inactive Volunteer", "inactive@test.local", "Volunteer", 0],
+		);
+
+		const actor = { id: "u-vol-admin", role: "admin" };
+
+		const listed = await issuance.listCandidates(actor, "ev-vol-1");
+		check(
+			listed.candidates.length === 0 && listed.volunteers.length === 2,
+			"volunteers are listed separately from registrations",
+			listed,
+		);
+
+		const preview = await issuance.previewAudience(actor, "ev-vol-1", {
+			templateId: "tpl-vol-1",
+			audienceType: "selected",
+			audienceConfig: { volunteerIds: ["vol-1"] },
+		});
+		check(
+			preview.recipientCount === 1 &&
+				preview.recipients[0].id === "vol-1" &&
+				preview.recipients[0].source === "volunteer",
+			"a volunteer audience previews without a registration",
+			preview.recipients,
+		);
+
+		const issued = await issuance.issueCertificates(actor, "ev-vol-1", {
+			templateId: "tpl-vol-1",
+			audienceType: "selected",
+			audienceConfig: { volunteerIds: ["vol-1"] },
+			audienceFingerprint: preview.audienceFingerprint,
+		});
+		const rows = await db.query(
+			"SELECT registration_id, volunteer_id, status FROM certificates WHERE batch_id = ?",
+			[issued.batch.id],
+		);
+		check(
+			rows.rows.length === 1 &&
+				rows.rows[0].registration_id === null &&
+				rows.rows[0].volunteer_id === "vol-1" &&
+				rows.rows[0].status === "active",
+			"a volunteer certificate carries volunteer_id and no registration_id",
+			rows.rows,
+		);
+
+		const again = await issuance.previewAudience(actor, "ev-vol-1", {
+			templateId: "tpl-vol-1",
+			audienceType: "selected",
+			audienceConfig: { volunteerIds: ["vol-1"] },
+		});
+		check(
+			again.recipientCount === 0 &&
+				again.excluded.some((row) => row.reason === "already_issued"),
+			"an already-credentialed volunteer is excluded from the next batch",
+			again.excluded,
+		);
+
+		const inactive = await issuance.previewAudience(actor, "ev-vol-1", {
+			templateId: "tpl-vol-1",
+			audienceType: "selected",
+			audienceConfig: { volunteerIds: ["vol-2"] },
+		});
+		check(
+			inactive.recipientCount === 0 &&
+				inactive.excluded.some((row) => row.reason === "inactive"),
+			"an inactive volunteer is excluded with a reason",
+			inactive.excluded,
+		);
+
+		await checkThrows(
+			() =>
+				issuance.previewAudience(actor, "ev-vol-1", {
+					templateId: "tpl-vol-1",
+					audienceType: "selected",
+					audienceConfig: { volunteerIds: ["vol-1"], registrationIds: ["reg-x"] },
+				}),
+			/INVALID_AUDIENCE/,
+			"mixing registrations and volunteers is refused",
+		);
+
+		await checkThrows(
+			() =>
+				db.query(
+					`INSERT INTO certificates
+					   (id, event_id, batch_id, template_id, certificate_type, credential_id,
+					    verification_token, recipient_name_snapshot, event_title_snapshot,
+					    issued_at, status)
+					 VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+					[
+						"cert-unowned", "ev-vol-1", issued.batch.id, "tpl-vol-1", "volunteer",
+						"IEEESB-2026-VOL-UNOWNED", "t".repeat(48), "Nobody", "Volunteer Test",
+						"2026-11-01T00:00:00Z", "active",
+					],
+				),
+			/SQLITE_CONSTRAINT/,
+			"a certificate with neither a registration nor a volunteer is refused",
+		);
+	}
+
+	// -----------------------------------------------------------------------
+	// phase 9 — outbound mail worker (transport injected, Gmail policy real)
+	// -----------------------------------------------------------------------
+	{
+		const outbox = await import("../src/server/notifications/outbox.ts");
+		const { runOutboxPass } = await import("../src/server/mail/worker.ts");
+		const { setTransportForTesting } = await import("../src/server/mail/transport.server.ts");
+
+		const captured = [];
+		setTransportForTesting({
+			sendMail: async (message) => {
+				captured.push(message);
+				return { accepted: [message.to], rejected: [] };
+			},
+			verify: async () => true,
+		});
+
+		const savedEnv = {
+			DEPLOY_ENV: process.env.DEPLOY_ENV,
+			MAIL_DELIVERY_MODE: process.env.MAIL_DELIVERY_MODE,
+			MAIL_ALLOWLIST: process.env.MAIL_ALLOWLIST,
+			SITE_URL: process.env.SITE_URL,
+			SMTP_HOST: process.env.SMTP_HOST,
+			SMTP_PORT: process.env.SMTP_PORT,
+			SMTP_FROM: process.env.SMTP_FROM,
+		};
+		process.env.DEPLOY_ENV = "staging";
+		process.env.MAIL_DELIVERY_MODE = "allowlist";
+		process.env.MAIL_ALLOWLIST = "mail-worker@test.local";
+		process.env.SITE_URL = "https://ieeesahrdaya.com";
+		process.env.SMTP_HOST = "smtp.gmail.com";
+		process.env.SMTP_PORT = "587";
+		process.env.SMTP_FROM = "IEEE Sahrdaya <ieee@test.local>";
+
+		await db.query("INSERT INTO users (id, email, role) VALUES (?,?,?)", [
+			"u-mail-worker", "mail-worker@test.local", "user",
+		]);
+		await db.query(
+			"INSERT INTO events (id, title, slug, date, end_date, venue, status) VALUES (?,?,?,?,?,?,?)",
+			["ev-mail-worker", "Mail Worker Event", "mail-worker-event", "2027-01-01T04:00:00Z", "2027-01-02T12:00:00Z", "Sahrdaya", "published"],
+		);
+		const paymentData = JSON.stringify({ payableAmount: 500, paidAt: "2026-11-01T10:00:00Z" });
+		await db.query(
+			`INSERT INTO registrations
+			   (id, user_id, event_id, user_name, user_email, registration_status, payment_status,
+			    ticket_id, final_fee_paise, amount, payment_data, registration_date, checked_in,
+			    created_at, updated_at)
+			 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0,?,?)`,
+			[
+				"reg-mail-worker", "u-mail-worker", "ev-mail-worker", "Anagha Rose",
+				"mail-worker@test.local", "confirmed", "paid", "TKT-MAIL-1", 50000, 500,
+				paymentData, "2026-11-01T00:00:00Z", "2026-11-01T00:00:00Z", "2026-11-01T00:00:00Z",
+			],
+		);
+		// Retire the rows earlier phases left pending so this pass only sees the
+		// intents under test (attempts=8 keeps them out of the retry window).
+		await db.query(
+			`UPDATE notification_outbox SET status = 'failed', attempts = 8, next_attempt_at = '',
+			        last_error = 'test cleanup'
+			  WHERE status = 'pending'`,
+		);
+
+		await outbox.enqueueForRegistration("reg-mail-worker");
+
+		const first = await runOutboxPass({ limit: 10 });
+		const rows = await db.query(
+			"SELECT kind, status, attempts, last_error, sent_at FROM notification_outbox WHERE registration_id = ? ORDER BY kind",
+			["reg-mail-worker"],
+		);
+		check(
+			rows.rows.length === 2 && rows.rows.every((row) => row.status === "sent" && row.sent_at),
+			"the worker sends a queued ticket and receipt",
+			rows.rows,
+		);
+		check(captured.length >= 2, "both messages reached the transport", captured.length);
+
+		const receipt = captured.find((message) =>
+			(message.attachments ?? []).some((attachment) => /^Receipt_.*\.pdf$/.test(attachment.filename)),
+		);
+		check(
+			!!receipt && receipt.attachments[0].content.subarray(0, 5).toString() === "%PDF-",
+			"the receipt email carries a real PDF attachment",
+			receipt?.attachments?.map((attachment) => attachment.filename),
+		);
+		check(
+			captured.every((message) => String(message.subject).startsWith("[STAGING TEST]")),
+			"every non-live message is prefixed as a test",
+			captured.map((message) => message.subject),
+		);
+		check(
+			captured.every((message) => message.to === "mail-worker@test.local"),
+			"the allowlisted recipient is the only address used",
+			captured.map((message) => message.to),
+		);
+		check(first.sent >= 2, "the pass reports what it sent", first);
+
+		// --- a recipient outside the allowlist spends no attempt --------------
+		await db.query("INSERT INTO users (id, email, role) VALUES (?,?,?)", [
+			"u-mail-blocked", "blocked@test.local", "user",
+		]);
+		await db.query(
+			`INSERT INTO registrations
+			   (id, user_id, event_id, user_name, user_email, registration_status, payment_status,
+			    ticket_id, final_fee_paise, amount, registration_date, checked_in, created_at, updated_at)
+			 VALUES (?,?,?,?,?,?,?,?,?,?,?,0,?,?)`,
+			[
+				"reg-mail-blocked", "u-mail-blocked", "ev-mail-worker", "Blocked User",
+				"blocked@test.local", "confirmed", "pending", "TKT-MAIL-2", 0, 0,
+				"2026-11-01T00:00:00Z", "2026-11-01T00:00:00Z", "2026-11-01T00:00:00Z",
+			],
+		);
+		await outbox.enqueueForRegistration("reg-mail-blocked");
+		const second = await runOutboxPass({ limit: 10 });
+		const blocked = await db.query(
+			"SELECT status, attempts FROM notification_outbox WHERE registration_id = ?",
+			["reg-mail-blocked"],
+		);
+		check(
+			blocked.rows.length === 1 && blocked.rows[0].status === "pending" && blocked.rows[0].attempts === 0,
+			"a blocked recipient keeps its intent and spends no attempt",
+			blocked.rows,
+		);
+		check(second.blocked >= 1, "the pass reports blocked rows", second);
+
+		// --- a credential-intent that can never succeed fails once ------------
+		await db.query("UPDATE registrations SET registration_status = 'cancelled' WHERE id = ?", [
+			"reg-mail-worker",
+		]);
+		await db.query(
+			`UPDATE notification_outbox
+			    SET status = 'pending', attempts = 0, next_attempt_at = '', last_error = ''
+			  WHERE registration_id = ? AND kind = 'ticket'`,
+			["reg-mail-worker"],
+		);
+		await runOutboxPass({ limit: 10 });
+		const permanent = await db.query(
+			"SELECT status, attempts, last_error FROM notification_outbox WHERE registration_id = ? AND kind = 'ticket'",
+			["reg-mail-worker"],
+		);
+		check(
+			permanent.rows[0]?.status === "failed" &&
+				permanent.rows[0]?.attempts === 1 &&
+				String(permanent.rows[0]?.last_error).startsWith("NOTIFICATION_NO_LONGER_ELIGIBLE"),
+			"an intent that can never succeed fails once with a permanent code",
+			permanent.rows,
+		);
+
+		// --- the rolling daily cap stops a pass regardless of the batch size ---
+		process.env.MAIL_DAILY_LIMIT = "1";
+		const capped = await runOutboxPass({ limit: 10 });
+		check(
+			capped.capped === true && capped.sent === 0 && capped.sentToday >= 1,
+			"the daily send cap stops the pass",
+			capped,
+		);
+		delete process.env.MAIL_DAILY_LIMIT;
+
+		setTransportForTesting(null);
+		for (const [key, value] of Object.entries(savedEnv)) {
+			if (value === undefined) delete process.env[key];
+			else process.env[key] = value;
+		}
+	}
+
+	// -----------------------------------------------------------------------
+	// phase 10 — in-app backup: snapshot, archive, checksum, rotation
+	// -----------------------------------------------------------------------
+	{
+		const { runBackup } = await import("../src/server/jobs/backup.ts");
+		const { execFileSync } = await import("node:child_process");
+		const { createHash } = await import("node:crypto");
+		const { existsSync, readdirSync, readFileSync } = await import("node:fs");
+		const { join } = await import("node:path");
+
+		const backupDir = join(workDir, "backups");
+		process.env.BACKUP_DIR = backupDir;
+		process.env.BACKUP_KEEP = "1";
+		process.env.DEPLOY_ENV = "test";
+
+		const first = await runBackup();
+		check(existsSync(first.archive) && first.bytes > 0, "the backup writes an archive", first);
+		check(first.dbBytes > 0, "the database snapshot has bytes", first.dbBytes);
+
+		const listing = execFileSync("tar", ["-tzf", first.archive], { encoding: "utf8" });
+		check(
+			listing.includes("portal.db") && listing.includes("manifest.json"),
+			"the archive holds the database snapshot and manifest",
+			listing.split("\n").slice(0, 6),
+		);
+		check(
+			listing.split("\n").some((line) => line.startsWith("uploads/")),
+			"the archive holds the uploads tree",
+		);
+
+		const digest = createHash("sha256").update(readFileSync(first.archive)).digest("hex");
+		check(digest === first.sha256, "the reported sha256 matches the archive", first.sha256);
+
+		// Distinct millisecond, so the second archive has its own name.
+		await new Promise((resolve) => setTimeout(resolve, 15));
+		const second = await runBackup();
+		const archives = readdirSync(backupDir).filter((name) => name.endsWith(".tar.gz"));
+		check(archives.length === 1 && second.pruned === 1, "rotation keeps BACKUP_KEEP archives", archives);
+		check(second.archive !== first.archive, "each run writes a new archive", [first.archive, second.archive]);
 	}
 
 

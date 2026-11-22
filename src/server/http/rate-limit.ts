@@ -39,6 +39,12 @@ export const RATE_LIMITS = {
 	write: { limit: 120, windowMs: 60_000 },
 	/** Certificate rendering is CPU-heavy and public; keep it modest. */
 	render: { limit: 30, windowMs: 60_000 },
+	/**
+	 * Image resizing is CPU-heavy too, and `?w=` creates a new URL per width.
+	 * A page with ~10 poster images costs ~10 of these; the allowance leaves room
+	 * for several page views a minute while stopping a sustained grind.
+	 */
+	resize: { limit: 90, windowMs: 60_000 },
 } satisfies Record<string, RateLimitRule>;
 
 export function clientKey(request: Request): string {
@@ -62,11 +68,13 @@ export function allow(key: string, rule: RateLimitRule, nowMs = Date.now()): boo
 
 /** Which rule (if any) applies to this request. */
 export function ruleFor(request: Request): RateLimitRule | null {
-	const { pathname } = new URL(request.url);
+	const url = new URL(request.url);
+	const { pathname } = url;
 	const method = request.method.toUpperCase();
 	if (pathname.startsWith("/auth/")) return RATE_LIMITS.auth;
 	if (pathname === "/api/webhooks/paygate") return RATE_LIMITS.webhook;
 	if (pathname.startsWith("/c/") && /\.(png|pdf)$/.test(pathname)) return RATE_LIMITS.render;
+	if (pathname.startsWith("/files/") && url.searchParams.has("w")) return RATE_LIMITS.resize;
 	if (pathname.startsWith("/api/") && method !== "GET" && method !== "HEAD") {
 		return RATE_LIMITS.write;
 	}

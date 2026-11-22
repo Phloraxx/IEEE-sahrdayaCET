@@ -19,8 +19,8 @@ services:
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:?ALLOWED_ORIGINS is required}
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-__Host-ieee_session}
       SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
-      # Payments (paygate) and mail are now handled by the app server,
-      # not PocketBase hooks.
+      # Payments (paygate) and mail are handled by the app server, not
+      # PocketBase hooks.
       PAYGATE_URL: ${PAYGATE_URL:-}
       PAYGATE_API_KEY: ${PAYGATE_API_KEY:-}
       PAYGATE_WEBHOOK_SECRET: ${PAYGATE_WEBHOOK_SECRET:-}
@@ -30,10 +30,29 @@ services:
       MAIL_DELIVERY_MODE: ${MAIL_DELIVERY_MODE:-}
       MAIL_ALLOWLIST: ${MAIL_ALLOWLIST:-}
       MAIL_REDIRECT_TO: ${MAIL_REDIRECT_TO:-}
+      # Gmail / Google Workspace submission. Port 587 negotiates STARTTLS, so
+      # SMTP_TLS stays false; 465 would mean implicit TLS.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_TLS: ${SMTP_TLS:-false}
+      # In-process job runner: mail, payment expiry, sessions, backups.
+      # Blank means on in production; JOBS_ENABLED=0 turns it off.
+      JOBS_ENABLED: ${JOBS_ENABLED:-}
+      BACKUP_DIR: /app/backups
+      BACKUP_KEEP: ${BACKUP_KEEP:-14}
+      MAIL_DAILY_LIMIT: ${MAIL_DAILY_LIMIT:-1500}
+      # Anonymous public HTML cache (in process). 0 disables.
+      RENDER_CACHE_TTL_SECONDS: ${RENDER_CACHE_TTL_SECONDS:-45}
+      RENDER_CACHE_MAX_ENTRIES: ${RENDER_CACHE_MAX_ENTRIES:-50}
+      RENDER_CACHE_MAX_BYTES: ${RENDER_CACHE_MAX_BYTES:-33554432}
       CERTIFICATE_RENDER_CAPABILITY_KEY: ${CERTIFICATE_RENDER_CAPABILITY_KEY:?CERTIFICATE_RENDER_CAPABILITY_KEY is required}
     volumes:
       - ${SQLITE_DATA_DIR:?SQLITE_DATA_DIR is required}:/app/data
       - ${UPLOADS_HOST_DIR:?UPLOADS_HOST_DIR is required}:/app/data/uploads
+      - ${BACKUP_HOST_DIR:-/home/drvij/ieee-backups/app}:/app/backups
     expose:
       - "3000"
     healthcheck:
@@ -45,10 +64,23 @@ services:
     networks:
       - app-internal
       - dokploy-network
+      - default
+    # Traefik routes this host to the app server. Both values are required per
+    # environment (see .env.example) so a deploy fails fast instead of silently
+    # routing production traffic to a staging host or not routing at all.
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=dokploy-network
+      - traefik.http.routers.${ROUTER_KEY:?ROUTER_KEY is required}.rule=Host(`${SITE_HOST:?SITE_HOST is required}`)
+      - traefik.http.routers.${ROUTER_KEY:?ROUTER_KEY is required}.entrypoints=web
+      - traefik.http.services.${ROUTER_KEY:?ROUTER_KEY is required}.loadbalancer.server.port=3000
+      - traefik.http.routers.${ROUTER_KEY:?ROUTER_KEY is required}.service=${ROUTER_KEY:?ROUTER_KEY is required}
 
   # PocketBase is kept running as a rollback target. The web service no
   # longer depends on it after the SQLite cutover. Do not remove it until
-  # the SQLite deployment is confirmed stable.
+  # the SQLite deployment is confirmed stable. It carries no Traefik labels:
+  # the app server owns the host, including /api, so a router here would
+  # compete with the web router for the same paths.
   pocketbase:
     build:
       context: .

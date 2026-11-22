@@ -57,6 +57,7 @@ export function credentialPayload(row: CertificateRow) {
 		certificateId: row.id,
 		eventId: row.event_id,
 		registrationId: row.registration_id,
+		volunteerId: row.volunteer_id ?? null,
 		batchId: row.batch_id,
 		templateId: row.template_id,
 		certificateType: row.certificate_type ?? "",
@@ -203,6 +204,10 @@ export async function supersedeCertificate(
 	const recipientName = certificate.recipient_name_snapshot ?? "";
 	const recipientEmail = certificate.recipient_email_snapshot ?? "";
 	const certificateType = certificate.certificate_type ?? "participation";
+	// The replacement belongs to the same owner as the credential it replaces:
+	// a registration, or an event volunteer for a volunteer credential.
+	const ownerKey = certificate.volunteer_id ? "volunteerIds" : "registrationIds";
+	const ownerId = certificate.volunteer_id ?? certificate.registration_id;
 
 	const audienceFingerprint = sha256(
 		stableStringify({
@@ -227,9 +232,9 @@ export async function supersedeCertificate(
 				newBatchId,
 				eventId,
 				template.id,
-				JSON.stringify({ registrationIds: [certificate.registration_id] }),
+				JSON.stringify({ [ownerKey]: [ownerId] }),
 				audienceFingerprint,
-				JSON.stringify({ recipients: [{ id: certificate.registration_id, name: recipientName, email: recipientEmail }], excluded: [] }),
+				JSON.stringify({ recipients: [{ id: ownerId, name: recipientName, email: recipientEmail }], excluded: [] }),
 				idempotencyKey,
 				recipientEmail ? 1 : 0,
 				recipientEmail ? 0 : 1,
@@ -244,15 +249,16 @@ export async function supersedeCertificate(
 
 		await query(
 			`INSERT INTO certificates
-			   (id, event_id, registration_id, batch_id, template_id, certificate_type,
+			   (id, event_id, registration_id, volunteer_id, batch_id, template_id, certificate_type,
 			    credential_id, verification_token, recipient_name_snapshot,
 			    recipient_email_snapshot, event_title_snapshot, issuer_name_snapshot,
 			    issued_at, status, metadata_version, supersedes, created_at, updated_at)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, ?, ?, ?)`,
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, ?, ?, ?)`,
 			[
 				newCertificateId,
 				eventId,
 				certificate.registration_id,
+				certificate.volunteer_id ?? null,
 				newBatchId,
 				template.id,
 				certificateType,

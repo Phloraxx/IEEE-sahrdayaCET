@@ -15,6 +15,8 @@ import {
 	COLLECTION_POLICIES,
 	actorAllows,
 	actorReadScope,
+	omitsPublicColumns,
+	resolvePublicRead,
 	tableColumns,
 	translateFilter,
 	translateSort,
@@ -140,6 +142,11 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
 	// Visibility predicate first: it is not client-controllable.
 	if (policy.readPredicate) where.push(`(${policy.readPredicate})`);
+	const publicRead = await resolvePublicRead(policy, actor);
+	if (publicRead) {
+		where.push(publicRead.sql);
+		bindings.push(...publicRead.params);
+	}
 	if (scoped) {
 		where.push(`(${scoped.sql})`);
 		bindings.push(...scoped.params);
@@ -196,16 +203,16 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 	const expand = url.searchParams.get("expand") ?? "";
 	const expanded = expand ? await expandRows(rows.rows, expand) : rows.rows;
 
-	// Anonymous callers get the public projection: a `SELECT *` used to hand back
-	// the approval trail, the finance sign-off and the attendance snapshot.
-	const items =
-		!actor && policy.publicOmit
-			? expanded.map((row) => {
-					const projected: Record<string, unknown> = { ...row };
-					for (const column of policy.publicOmit ?? []) delete projected[column];
-					return projected;
-				})
-			: expanded;
+	// Readers without the staff capability get the public projection: a
+	// `SELECT *` used to hand back the approval trail, the finance sign-off, the
+	// attendance snapshot, and every execom member's phone number.
+	const items = (await omitsPublicColumns(policy, actor))
+		? expanded.map((row) => {
+				const projected: Record<string, unknown> = { ...row };
+				for (const column of policy.publicOmit ?? []) delete projected[column];
+				return projected;
+			})
+		: expanded;
 
 	return json({
 		page,

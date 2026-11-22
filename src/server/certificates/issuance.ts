@@ -173,10 +173,24 @@ interface RegistrationRow {
 	checked_in_at: string | null;
 }
 
+interface VolunteerRow {
+	id: string;
+	name: string | null;
+	email: string | null;
+	role: string | null;
+	active: number;
+}
+
 export interface AudienceRecipient {
 	id: string;
 	name: string;
 	email: string;
+	/**
+	 * Which table `id` points at. A certificate is attributable to exactly one
+	 * of a registration or a volunteer; the audience carries the choice through
+	 * to issuance so the right column is written.
+	 */
+	source: "registration" | "volunteer";
 	emailEligible: boolean;
 	checkedIn: boolean;
 	checkedInAt: string;
@@ -235,83 +249,132 @@ export async function buildAudience(input: BuildInput): Promise<BuiltAudience> {
 		};
 	}
 
-	const registrations = await query<RegistrationRow>(
-		`SELECT id, user_name, user_email, registration_status, checked_in, checked_in_at
-		   FROM registrations WHERE event_id = ?`,
-		[input.eventId],
-	);
-
-	const active = await query<{ registration_id: string }>(
-		`SELECT registration_id FROM certificates
-		  WHERE event_id = ? AND certificate_type = ? AND status = 'active'`,
-		[input.eventId, input.certificateType],
-	);
-	const activeSet = new Set(active.rows.map((row) => row.registration_id));
-
 	const selected = new Set<string>(
 		Array.isArray(config.registrationIds) ? (config.registrationIds as string[]) : [],
 	);
+	const selectedVolunteers = new Set<string>(
+		Array.isArray(config.volunteerIds) ? (config.volunteerIds as string[]) : [],
+	);
+	const volunteerMode = input.audienceType === "selected" && selectedVolunteers.size > 0;
 
 	const recipients: AudienceRecipient[] = [];
 	const excluded: AudienceExcluded[] = [];
 	const seen = new Set<string>();
 
-	for (const registration of registrations.rows) {
-		const row = {
-			id: registration.id,
-			name: String(registration.user_name ?? "").trim(),
-			email: String(registration.user_email ?? "").trim(),
-			registrationStatus: registration.registration_status,
-			checkedIn: registration.checked_in === 1,
-			checkedInAt: registration.checked_in_at ?? "",
-		};
-		seen.add(row.id);
+	if (volunteerMode) {
+		const volunteers = await query<VolunteerRow>(
+			`SELECT id, name, email, role, active FROM event_volunteers WHERE event_id = ?`,
+			[input.eventId],
+		);
+		const issued = await query<{ volunteer_id: string }>(
+			`SELECT volunteer_id FROM certificates
+			  WHERE event_id = ? AND certificate_type = ? AND status = 'active'
+			    AND volunteer_id IS NOT NULL`,
+			[input.eventId, input.certificateType],
+		);
+		const issuedTo = new Set(issued.rows.map((row) => row.volunteer_id));
 
-		let qualification: QualificationResult | null = null;
-
-		if (input.audienceType === "attendance_qualified") {
-			if (row.registrationStatus !== "confirmed") continue;
-			qualification = await registrationQualification(input.eventId, row.id);
-			if (!qualification.qualified) {
-				excluded.push({ ...row, reason: "attendance_not_qualified", qualification });
+		for (const volunteer of volunteers.rows) {
+			if (!selectedVolunteers.has(volunteer.id)) continue;
+			seen.add(volunteer.id);
+			const name = String(volunteer.name ?? "").trim();
+			const email = String(volunteer.email ?? "").trim();
+			const reason =
+				volunteer.active !== 1
+					? "inactive"
+					: !name
+						? "missing_name"
+						: issuedTo.has(volunteer.id)
+							? "already_issued"
+							: "";
+			if (reason) {
+				excluded.push({ id: volunteer.id, name, email, reason });
 				continue;
 			}
-		} else {
-			const candidate =
-				input.audienceType === "selected"
-					? selected.has(row.id)
-					: input.audienceType === "checked_in"
-						? row.checkedIn
-						: input.audienceType === "confirmed"
-							? row.registrationStatus === "confirmed"
-							: false;
-			if (!candidate) continue;
+			recipients.push({
+				id: volunteer.id,
+				name,
+				email,
+				source: "volunteer",
+				emailEligible: validEmail(email),
+				checkedIn: false,
+				checkedInAt: "",
+				qualification: null,
+			});
 		}
+	} else {
+		const registrations = await query<RegistrationRow>(
+			`SELECT id, user_name, user_email, registration_status, checked_in, checked_in_at
+			   FROM registrations WHERE event_id = ?`,
+			[input.eventId],
+		);
 
-		// Exclusion order matters: a cancelled registration is reported as
-		// cancelled even if it also lacks a name.
-		const reason =
-			row.registrationStatus === "cancelled"
-				? "cancelled"
-				: !row.name
-					? "missing_name"
-					: activeSet.has(row.id)
-						? "already_issued"
-						: "";
-		if (reason) {
-			excluded.push({ id: row.id, name: row.name, email: row.email, reason });
-			continue;
+		const active = await query<{ registration_id: string }>(
+			`SELECT registration_id FROM certificates
+			  WHERE event_id = ? AND certificate_type = ? AND status = 'active'`,
+			[input.eventId, input.certificateType],
+		);
+		const activeSet = new Set(active.rows.map((row) => row.registration_id));
+
+		for (const registration of registrations.rows) {
+			const row = {
+				id: registration.id,
+				name: String(registration.user_name ?? "").trim(),
+				email: String(registration.user_email ?? "").trim(),
+				registrationStatus: registration.registration_status,
+				checkedIn: registration.checked_in === 1,
+				checkedInAt: registration.checked_in_at ?? "",
+			};
+			seen.add(row.id);
+
+			let qualification: QualificationResult | null = null;
+
+			if (input.audienceType === "attendance_qualified") {
+				if (row.registrationStatus !== "confirmed") continue;
+				qualification = await registrationQualification(input.eventId, row.id);
+				if (!qualification.qualified) {
+					excluded.push({ ...row, reason: "attendance_not_qualified", qualification });
+					continue;
+				}
+			} else {
+				const candidate =
+					input.audienceType === "selected"
+						? selected.has(row.id)
+						: input.audienceType === "checked_in"
+							? row.checkedIn
+							: input.audienceType === "confirmed"
+								? row.registrationStatus === "confirmed"
+								: false;
+				if (!candidate) continue;
+			}
+
+			// Exclusion order matters: a cancelled registration is reported as
+			// cancelled even if it also lacks a name.
+			const reason =
+				row.registrationStatus === "cancelled"
+					? "cancelled"
+					: !row.name
+						? "missing_name"
+						: activeSet.has(row.id)
+							? "already_issued"
+							: "";
+			if (reason) {
+				excluded.push({ id: row.id, name: row.name, email: row.email, reason });
+				continue;
+			}
+
+			recipients.push({
+				...row,
+				source: "registration",
+				emailEligible: validEmail(row.email),
+				qualification,
+			});
 		}
-
-		recipients.push({
-			...row,
-			emailEligible: validEmail(row.email),
-			qualification,
-		});
 	}
 
 	if (input.audienceType === "selected") {
-		for (const id of selected) {
+		const selectedIds = volunteerMode ? selectedVolunteers : selected;
+		for (const id of selectedIds) {
 			if (!seen.has(id)) excluded.push({ id, name: "", email: "", reason: "not_found" });
 		}
 	}
@@ -327,7 +390,12 @@ export async function buildAudience(input: BuildInput): Promise<BuiltAudience> {
 		audienceType: input.audienceType,
 		audienceConfig: config,
 		qualification: qualificationMeta,
-		recipients: recipients.map((row) => ({ id: row.id, name: row.name, email: row.email })),
+		recipients: recipients.map((row) => ({
+			id: row.id,
+			source: row.source,
+			name: row.name,
+			email: row.email,
+		})),
 	});
 
 	const emailEligibleCount = recipients.filter((row) => row.emailEligible).length;
@@ -414,7 +482,30 @@ export async function listCandidates(actor: Actor, eventId: string) {
 			return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 		});
 
-	return { candidates };
+	// Volunteers are a separate audience: they worked the event without a
+	// registration, so they cannot appear in `candidates` or be keyed by a
+	// registration id.
+	const volunteerRows = await query<VolunteerRow>(
+		`SELECT id, name, email, role, active FROM event_volunteers WHERE event_id = ?`,
+		[eventId],
+	);
+	const volunteers = volunteerRows.rows
+		.map((row) => ({
+			id: row.id,
+			name: String(row.name ?? "").trim(),
+			email: String(row.email ?? "").trim(),
+			role: String(row.role ?? "").trim(),
+			active: row.active === 1,
+		}))
+		.sort((a, b) => {
+			const an = a.name.toLowerCase();
+			const bn = b.name.toLowerCase();
+			if (an < bn) return -1;
+			if (an > bn) return 1;
+			return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+		});
+
+	return { candidates, volunteers };
 }
 
 export async function previewAudience(actor: Actor, eventId: string, input: Record<string, unknown>) {
@@ -489,19 +580,21 @@ async function existingBatch(idempotencyKey: string): Promise<BatchRow | null> {
 async function certificateSummaries(batchId: string) {
 	const rows = await query<{
 		id: string;
-		registration_id: string;
+		registration_id: string | null;
+		volunteer_id: string | null;
 		recipient_name_snapshot: string | null;
 		recipient_email_snapshot: string | null;
 		credential_id: string | null;
 		status: string | null;
 	}>(
-		`SELECT id, registration_id, recipient_name_snapshot, recipient_email_snapshot, credential_id, status
+		`SELECT id, registration_id, volunteer_id, recipient_name_snapshot, recipient_email_snapshot, credential_id, status
 		   FROM certificates WHERE batch_id = ? ORDER BY credential_id`,
 		[batchId],
 	);
 	return rows.rows.map((row) => ({
 		id: row.id,
 		registrationId: row.registration_id,
+		volunteerId: row.volunteer_id,
 		recipientName: row.recipient_name_snapshot ?? "",
 		recipientEmail: row.recipient_email_snapshot ?? "",
 		credentialId: row.credential_id ?? "",
@@ -616,17 +709,19 @@ export async function issueCertificates(
 			const eventTitle = event.title ?? "IEEE Sahrdaya event";
 
 			for (const recipient of audience.recipients) {
+				const isVolunteer = recipient.source === "volunteer";
 				await query(
 					`INSERT INTO certificates
-					   (id, event_id, registration_id, batch_id, template_id, certificate_type,
+					   (id, event_id, registration_id, volunteer_id, batch_id, template_id, certificate_type,
 					    credential_id, verification_token, recipient_name_snapshot,
 					    recipient_email_snapshot, event_title_snapshot, issuer_name_snapshot,
 					    issued_at, status, metadata_version, created_at, updated_at)
-					 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, ?, ?)`,
+					 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, ?, ?)`,
 					[
 						crypto.randomUUID(),
 						eventId,
-						recipient.id,
+						isVolunteer ? null : recipient.id,
+						isVolunteer ? recipient.id : null,
 						batchId,
 						liveTemplate.id,
 						certificateType,

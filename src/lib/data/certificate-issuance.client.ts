@@ -10,6 +10,15 @@ export interface CertificateCandidate {
   checkedIn: boolean;
 }
 
+/** An event volunteer: no registration, keyed by the volunteer row instead. */
+export interface CertificateVolunteer {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  active: boolean;
+}
+
 export interface CertificateAttendanceQualification {
   available: boolean;
   qualified: boolean;
@@ -29,6 +38,7 @@ export interface CertificateAudienceRecipient {
   id: string;
   name: string;
   email: string;
+  source?: "registration" | "volunteer";
   emailEligible: boolean;
   checkedIn: boolean;
   checkedInAt: string;
@@ -47,14 +57,14 @@ export interface CertificateAudienceExclusion {
   id: string;
   name: string;
   email: string;
-  reason: "cancelled" | "missing_name" | "already_issued" | "not_found" | "attendance_not_qualified" | string;
+  reason: "cancelled" | "missing_name" | "already_issued" | "not_found" | "inactive" | "attendance_not_qualified" | string;
   qualification?: CertificateAttendanceQualification;
 }
 
 export interface CertificateAudiencePreview {
   template: { id: string; name: string; version: number; certificateType: string; contentHash: string };
   audienceType: CertificateAudienceType;
-  audienceConfig: { registrationIds?: string[] };
+  audienceConfig: { registrationIds?: string[]; volunteerIds?: string[] };
   audienceFingerprint: string;
   qualification?: { version: number; rule: string; requiredSessionCount: number; lockedAt: string } | null;
   recipientCount: number;
@@ -82,7 +92,8 @@ export interface CertificateBatchResult {
 
 export interface CertificateSummary {
   id: string;
-  registrationId: string;
+  registrationId: string | null;
+  volunteerId?: string | null;
   recipientName: string;
   recipientEmail: string;
   credentialId: string;
@@ -99,7 +110,7 @@ export async function listCertificateCandidates(eventId: string) {
   return getPbClient().send(
     `/api/app/events/${encodeURIComponent(eventId)}/certificates/candidates`,
     {},
-  ) as Promise<{ candidates: CertificateCandidate[] }>;
+  ) as Promise<{ candidates: CertificateCandidate[]; volunteers: CertificateVolunteer[] }>;
 }
 
 export async function previewCertificateAudience(
@@ -117,7 +128,7 @@ export async function issueCertificates(
   input: {
     templateId: string;
     audienceType: CertificateAudienceType;
-    audienceConfig?: { registrationIds?: string[] };
+    audienceConfig?: { registrationIds?: string[]; volunteerIds?: string[] };
     audienceFingerprint: string;
     note?: string;
   },

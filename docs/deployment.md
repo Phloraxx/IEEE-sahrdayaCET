@@ -23,8 +23,29 @@ Required environment values:
 ```text
 DEPLOY_ENV=production|staging
 SITE_URL=https://...
+SITE_HOST=ieeesahrdaya.com|staging.ieeesahrdaya.com
+ROUTER_KEY=ieee-production-web|ieee-staging-web
+SQLITE_DATA_DIR=/srv/ieee/data
+UPLOADS_HOST_DIR=/srv/ieee/data/uploads
 PB_ENCRYPTION_KEY=<32-character high-entropy key>
 CERTIFICATE_RENDER_CAPABILITY_KEY=<32+ character high-entropy key, unique per environment>
+```
+
+`SITE_HOST` and `ROUTER_KEY` are consumed by `docker-compose.yml`, not by the
+app. Both are required (`${VAR:?…}`), so a deploy missing either fails before
+anything starts instead of routing the wrong host. `SQLITE_DATA_DIR` and
+`UPLOADS_HOST_DIR` are the host paths bind-mounted into the web container.
+
+The app server also requires:
+
+```text
+APP_SECRET=<openssl rand -base64 48>
+GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET
+APP_URL=https://<same host as SITE_HOST>
+ALLOWED_ORIGINS=https://<same host as SITE_HOST>
+SQLITE_PATH=/app/data/portal.db
+UPLOADS_DIR=/app/data/uploads
 ```
 
 Optional backend integrations are configured only where enabled:
@@ -50,44 +71,210 @@ or `host.docker.internal` fake-provider endpoints used by local/CI tests.
 
 Never reuse a production encryption key, OAuth application, payment secret, SMTP credential, or `pb_data` volume in staging.
 
-## Certificate mail production readiness
+## Outbound mail
 
-Certificate issuance and certificate mail delivery are separate operations. Before enabling bulk Send, confirm the admin **Send & delivery** panel reports the environment as mail-ready.
+Ticket, receipt and certificate email is sent by the app server through the
+shared mail worker (`src/server/mail`). PocketBase is no longer in the path.
 
-The certificate platform can be deployed while outbound mail is intentionally disabled. The safe production release configuration is:
+The relay is Google Workspace: `smtp.gmail.com:587`, STARTTLS, the full Gmail
+address as `SMTP_USERNAME`, and a Google App Password as `SMTP_PASSWORD`.
+Keeping the relay means Google still signs the messages, so SPF and DKIM do not
+change.
+
+The safety policy is the same one PocketBase enforced:
+
+| `MAIL_DELIVERY_MODE` | Behaviour |
+| --- | --- |
+| unset / `disabled` | nothing is transmitted; queued rows stay pending |
+| `allowlist` | only addresses in `MAIL_ALLOWLIST`, with a TEST banner |
+| `redirect` | everything goes to `MAIL_REDIRECT_TO`, banner names the intended recipient |
+| `live` | real delivery, only when `DEPLOY_ENV=production` |
+
+`live` outside production is refused, not treated as permission. Staging should
+use `allowlist` with one or two operator inboxes.
+
+Delivery is driven by the app's own job runner (see **Scheduled work** below),
+never inside the request that queued the row. `scripts/send-notifications.ts`
+remains for a manual pass or a one-off probe.
+
+The worker claims a row with a conditional `UPDATE`, sends it, and records
+`sent` or `failed` with the exact error. Transient failures retry with backoff
+(1m, 5m, 15m, 1h, 3h, 6h) up to 8 attempts; a revoked credential, a finished
+event or a missing transport fails once and stops. Gmail accepts roughly 2,000
+messages a day on Workspace (500 on consumer Gmail); one pass sends 25, so a
+131-recipient batch drains over a few minutes without hammering the relay.
+
+The admin **Send & delivery** panel reports the mode, the resolved recipient and
+the SMTP host. A successful handoff means the relay accepted the message — not
+that the inbox delivered it.
+
+Before enabling live mail, confirm DKIM, return-path SPF/MX and DMARC are
+published for the sending domain. Start DMARC monitoring with
+`v=DMARC1; p=none;`, then tighten once legitimate traffic aligns.
+
+## Scheduled work
+
+The web process owns its clock (`src/server/jobs/scheduler.server.ts`); there is
+no host cron entry. Every wall-clock minute it runs whatever is due:
+
+| Job | Cadence | What it does |
+| --- | --- | --- |
+| Notification outbox | every minute, 25 rows | sends due ticket / receipt / certificate mail |
+| Payment expiry | every minute | releases seats whose payment window closed |
+| Session pruning | hourly | deletes expired session rows |
+| Backup | daily (24h since the newest archive) | `VACUUM INTO` + uploads archive, rotated |
+| Maintenance | weekly | `PRAGMA optimize` + a WAL checkpoint |
+
+Why in-process: the timer ships with the app, reads the same environment and
+cannot drift from the schema. The cost is a **single-instance assumption** — the
+compose stack runs one web container. If it is ever scaled, the outbox claim and
+lease still prevent duplicate sends; backups would run in each replica, so scale
+only after moving the runner out.
+
+Rules the runner follows:
+
+- no overlapping ticks; the next wake is scheduled after the previous one ends,
+  aligned to the minute boundary;
+- a restart delays a job rather than skipping it (`isDue` compares against the
+  last run or the newest archive on disk);
+- a failed backup retries after an hour, not every minute;
+- queued mail is capped at `MAIL_DAILY_LIMIT` over a rolling 24 hours, because
+  Gmail's quota is per account and shared with every other client;
+- `GET /healthz` returns the scheduler state (`lastTickAt`, `lastError`) so the
+  watchdog can tell "running" from "alive".
+
+Backups are written to `BACKUP_DIR` (mounted from `BACKUP_HOST_DIR`) as
+`ieee-<env>-<timestamp>.tar.gz` containing `portal.db`, `manifest.json` and the
+uploads tree, keeping `BACKUP_KEEP` archives.
+
+Two operator commands use the same code as the runner:
 
 ```text
-MAIL_DELIVERY_MODE=disabled
+npx tsx scripts/backup-now.ts                                   take one now
+npx tsx scripts/restore-backup.ts --archive <file> --to <dir>    rehearse a restore
 ```
 
-With delivery disabled, certificate Issue/verification/rendering can operate, while Send/Retry remain blocked before creating certificate outbox jobs and the background notification worker leaves existing outbox intents untouched. SMTP transport readiness is not a release prerequisite while mail remains disabled.
+`restore-backup.ts` extracts into an empty directory and verifies the restored
+file: `integrity_check`, `foreign_key_check`, table count, schema version,
+database bytes and uploads count against the manifest. Exit 0 means the archive
+is materialisable and complete. It never touches live data.
 
-Certificate mail has one transport: Gmail SMTP through PocketBase. When live certificate email is explicitly authorized, configure `smtp.gmail.com` on port `587`, keep PocketBase `SMTP_TLS=false` so it negotiates STARTTLS, use the full Gmail or Google Workspace address as the username, and use a Google App Password as the SMTP password. Then set:
+To restore for real: stop the app, restore into a scratch directory, compare the
+per-table row counts and the uploads checksums with the live data, then swap
+`portal.db` and the uploads directory and start the app. A snapshot already
+reports `PRAGMA integrity_check`, so a failed copy is never mistaken for a
+backup.
 
-```text
-MAIL_DELIVERY_MODE=live
-```
+`scripts/ieee-backup-export.sh` stays for the pre-cutover PocketBase volume and
+for offsite copies; once the SQLite deployment is live, the in-app archive is the
+primary one.
 
-The readiness API/UI checks the delivery safety mode and actual PocketBase SMTP/sender configuration. A successful SMTP handoff is shown as **accepted only** because Gmail SMTP acceptance is not proof that the recipient inbox ultimately delivered the message.
+## Render cache
 
-Before production mail is enabled, verify the sending domain in the provider and confirm DKIM, return-path SPF/MX, and DMARC are published. Start DMARC monitoring with a non-enforcing policy such as `v=DMARC1; p=none;`, then tighten the policy only after observing legitimate traffic and alignment.
+The public pages on the allow-list in `src/server/http/cache.ts` are cached in
+process for `RENDER_CACHE_TTL_SECONDS` (default 45). This exists because the
+events listing costs ~82 ms of CPU per render, which caps one Node process at
+~13 req/s regardless of concurrency; a cache hit is a string copy and measured
+120–160 req/s on the same box.
 
-Staging must never use `MAIL_DELIVERY_MODE=live`; use `disabled`, `redirect`, or a tightly controlled `allowlist` for test delivery.
+The cache stores the rendered HTML, the CSP nonce it was rendered with, and the
+response headers. On a hit the nonce is rewritten to a fresh one and the policy
+is recomputed, so every response still carries a unique nonce and its scripts
+stay authorised; an entry whose nonce cannot be found is ignored rather than
+served. A request with the session cookie, a query string, a non-allow-listed
+path, a non-200 status or a `Set-Cookie` header is never stored or served from it.
+
+`X-Render-Cache: hit|miss` on the response and `renderCache` in `/healthz`
+(stats: entries, bytes, hits, misses, evictions) make it measurable. Bounds:
+`RENDER_CACHE_MAX_ENTRIES` (50) and `RENDER_CACHE_MAX_BYTES` (32 MB); 0 disables.
+An admin change appears on the public site within the TTL.
+
+This is complementary to the edge cache, not a replacement: `s-maxage=60` still
+lets Cloudflare absorb the traffic spike, and the render cache keeps the origin
+fast on the misses.
+
+### Edge cache (Cloudflare)
+
+The zone has one Cache Rule, scoped by host, that marks the public documents
+eligible for the edge:
+
+- **Edge TTL:** respect origin (`s-maxage=60`).
+- **Browser TTL:** bypass. This is not optional: the zone default is four hours,
+  and Cloudflare otherwise rewrites the header to `max-age=14400`, so a browser
+  would keep a page for hours. The origin deliberately sends no `max-age`:
+  Cloudflare's edge TTL reads `s-maxage`, and `max-age=0` would make every edge
+  entry expire immediately.
+- **Excluded paths:** `/api/`, `/admin`, `/auth/`, `/files/`, `/ticket/`, `/c/`,
+  `/my-events`, `/register`, `/payment`, `/verify`, `/healthz`, `.data`
+  requests, any query string, and any request carrying `__Host-ieee_session`.
+
+It is currently scoped to `next.ieeesahrdaya.com` for the rehearsal; add the
+production host when the SQLite deployment is live. With the rule in place a
+sustained 500-request run reached 232 req/s through the edge while the origin
+rendered three documents.
 
 ## Routing and networks
 
-Each public environment host has two routes:
+The app server owns the public host: React Router serves the pages **and**
+`/api/*` from the same process. One Traefik router per environment:
 
 ```text
-/api  → pocketbase:8090, path preserved
-/     → web:3000
+Host(`<SITE_HOST>`) → web:3000
 ```
 
-Do not publish application host ports from Compose. Public `/_/` is an IEEE-owned OAuth completion route; never map it to PocketBase or expose the PocketBase administration UI through a public hostname.
+The router is declared as labels in `docker-compose.yml` and keyed by
+`ROUTER_KEY`, so the same file deploys to both environments without carrying a
+hostname across branches. The PocketBase service keeps running as a rollback
+target but **carries no router**: a `/api` router there would compete with the
+web router for the same paths. During a rollback the router is moved back to
+PocketBase by hand, not by the compose file.
 
-Both services join Dokploy's proxy network. Web and PocketBase also share the private `app-internal` network. SSR uses `POCKETBASE_INTERNAL_URL=http://pocketbase-internal:8090`; the explicit alias avoids service-name collisions between multiple Dokploy projects attached to the same proxy network.
+Do not publish application host ports from Compose. Public `/_/` is an IEEE-owned
+OAuth completion route; never map it to PocketBase or expose the PocketBase
+administration UI through a public hostname.
+
+The web service joins Dokploy's proxy network, the private `app-internal`
+network (still shared with PocketBase for rollback) and the Compose `default`
+network.
+
+`ALLOWED_ORIGINS` must list the public origin, and `APP_URL` must be the same
+origin; the OAuth redirect URI is `${APP_URL}/auth/google/callback`.
+
 
 Cloudflare terminates public HTTPS for the current hosts and forwards to the matching Traefik HTTP router. Do not enable an origin redirect that sends Cloudflare back to the same HTTPS URL; that creates a redirect loop.
+
+## Security controls
+
+**Headers.** Every document response carries `Strict-Transport-Security:
+max-age=31536000`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+`Referrer-Policy: strict-origin-when-cross-origin` and a restrictive
+`Permissions-Policy`. The CSP is nonce-based and built per response in
+`entry.server.tsx`. HSTS is sent regardless of `DEPLOY_ENV` (browsers ignore it
+over plain HTTP), so a missing or misspelt deploy environment cannot drop the pin.
+
+**Cross-site mutations.** `ALLOWED_ORIGINS` is enforced on every non-GET request
+that carries an `Origin`: same-origin and listed origins pass, anything else
+(including `Origin: null`) is a 403 before the rate limiter runs. A request with
+no `Origin` is allowed because no browser can attach the `SameSite=Lax` session
+cookie to it; the PayGate webhook relies on its signature instead.
+
+**Uploads.** The stored type is sniffed from the file's magic bytes and must match
+the declared MIME type. PNG, JPEG, WebP and GIF are accepted; SVG and HTML are
+rejected even when declared as `image/png`, so librsvg never sees browser-uploaded
+markup.
+
+**Collection visibility.** `/api/collections/*` applies publication state, not
+only deletion: events and blogs are public only when published/completed,
+societies only when not hidden, and execom `email`/`phone` are omitted. Staff
+with the matching capability (or an assignment scoped to the row) see the full
+set; a legacy `chair` keeps their own societies through `society_chairs`.
+
+**Workspace.** `/admin` requires `workspace.view`, not merely a session: an
+ordinary member gets a 403, not the admin shell.
+
+**CPU-heavy routes.** `/files/*?w=` resizing runs behind a two-slot gate with a
+bounded queue and a 90/minute per-IP allowance; a full queue answers 429 rather
+than joining an unbounded wait. Certificate rendering keeps its 30/minute rule.
 
 ## Environments
 
@@ -97,7 +284,18 @@ Cloudflare terminates public HTTPS for the current hosts and forwards to the mat
 branch: main
 host:   https://ieeesahrdaya.com
 app:    ieee-rewrite-i9ir8q
-volume: ieee-rewrite-i9ir8q_pb_data
+volume: ieee-rewrite-i9ir8q_pb_data (rollback target only)
+```
+
+Compose environment:
+
+```text
+ROUTER_KEY=ieee-rewrite-i9ir8q-99-web
+SITE_HOST=ieeesahrdaya.com
+SQLITE_DATA_DIR=/home/drvij/ieee-production-data
+UPLOADS_HOST_DIR=/home/drvij/ieee-production-data/uploads
+APP_URL=https://ieeesahrdaya.com
+ALLOWED_ORIGINS=https://ieeesahrdaya.com
 ```
 
 Production uses production-only OAuth/integration configuration and must never consume staging data or secrets.
@@ -108,7 +306,7 @@ Production uses production-only OAuth/integration configuration and must never c
 branch: dev
 host:   https://staging.ieeesahrdaya.com
 app:    ieee-dev-staging
-volume: ieee-dev-staging_pb_data
+volume: ieee-dev-staging_pb_data (rollback target only)
 ```
 
 Staging is a separate Dokploy environment and Compose project. It uses:
@@ -116,9 +314,19 @@ Staging is a separate Dokploy environment and Compose project. It uses:
 ```text
 DEPLOY_ENV=staging
 SITE_URL=https://staging.ieeesahrdaya.com
+ROUTER_KEY=ieee-dev-staging-106-web
+SITE_HOST=staging.ieeesahrdaya.com
+SQLITE_DATA_DIR=/home/drvij/ieee-staging-data
+UPLOADS_HOST_DIR=/home/drvij/ieee-staging-data/uploads
+APP_URL=https://staging.ieeesahrdaya.com
+ALLOWED_ORIGINS=https://staging.ieeesahrdaya.com
 ```
 
-The initial staging data was created from a verified, scrubbed production snapshot on 2026-08-01. The copy has its own volume and encryption key, production integrations are empty, and OAuth is disabled so production OAuth credentials are not reused. Configure a separate staging OAuth client or disposable test account before authenticated acceptance.
+`ROUTER_KEY` and `SITE_HOST` are required by `docker-compose.yml`. A deploy
+that is missing either fails before any container is created, rather than
+serving the host unregistered.
+
+The initial staging data was created from a verified, scrubbed production snapshot on 2026-08-01. The copy has its own volume and encryption key and production integrations are empty. The app server authenticates with Google OAuth through the same client as production, so the client must list both redirect URIs: `https://ieeesahrdaya.com/auth/google/callback` and `https://staging.ieeesahrdaya.com/auth/google/callback`.
 
 Staging intentionally returns `X-Robots-Tag: noindex, nofollow`. Its records may be changed or deleted during testing and do not synchronize back to production.
 

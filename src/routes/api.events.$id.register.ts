@@ -9,6 +9,7 @@
 import type { ActionFunctionArgs } from "react-router";
 import { requireApiUser } from "@/server/auth/session.server";
 import { createRegistration } from "@/server/registration/create";
+import { MAX_JSON_BYTES } from "@/server/http/api";
 
 function json(body: unknown, status: number): Response {
 	return new Response(JSON.stringify(body), {
@@ -26,7 +27,21 @@ export async function action({ request, params }: ActionFunctionArgs) {
 	const eventId = String(params.id ?? "");
 	if (!eventId) return json({ code: "EVENT_NOT_FOUND", error: "Event not found" }, 404);
 
-	const body = (await request.json().catch(() => ({}))) as {
+	// The route parses the body itself, so it needs its own cap: without this a
+	// client could make the process parse an arbitrarily large document before
+	// any field was validated.
+	const declared = Number(request.headers.get("Content-Length") ?? "0");
+	if (Number.isFinite(declared) && declared > MAX_JSON_BYTES) {
+		return json({ code: "BODY_TOO_LARGE", error: "Request body is too large" }, 413);
+	}
+
+	const parsed = (await request.json().catch(() => null)) as unknown;
+	// An array (or a scalar) is not a registration body. Silently treating it as
+	// `{}` used to create a real registration out of `[]`.
+	if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+		return json({ code: "INVALID_BODY", error: "Expected a JSON object" }, 400);
+	}
+	const body = parsed as {
 		formResponses?: Record<string, unknown>;
 		couponCode?: string;
 	};

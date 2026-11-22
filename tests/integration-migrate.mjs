@@ -66,6 +66,7 @@ const PB_COLLECTIONS = [
 	"coupons",
 	"event_private_details",
 	"event_sessions",
+	"event_volunteers",
 	"event_waitlist",
 	"events",
 	"execom",
@@ -89,6 +90,10 @@ const SESSION_ID = "sess000000000001";
 const EVENT_ID = "evnt000000000001";
 const USER_ID = "user000000000001";
 const REG_ID = "regi000000000001";
+const VOL_ID = "volu000000000001";
+const TEMPLATE_ID = "tpl00000000000001";
+const BATCH_ID = "batc000000000001";
+const CERT_ID = "cert000000000001";
 const ATT_WITH_SESSION = "attn000000000001";
 const ATT_NO_SESSION = "attn000000000002";
 const COLLECTION_ID = "coll000000000001";
@@ -138,6 +143,26 @@ function buildFixture(path) {
 	addColumns("registrations", [
 		"event", "user", "checkedIn", "baseFeePaise", "discountPaise",
 		"finalFeePaise", "ieeeMember", "created", "updated",
+	]);
+	// Volunteer certificates: the collection PocketBase allowed and the first
+	// cut of the schema could not hold.
+	addColumns("event_volunteers", [
+		"event", "name", "email", "role", "srNo", "active", "created", "updated",
+	]);
+	addColumns("certificate_templates", [
+		"event", "name", "scopeType", "certificateType", "version", "status",
+		"renderBase", "created", "updated",
+	]);
+	addColumns("certificate_batches", [
+		"event", "template", "audienceType", "audienceConfig", "audienceFingerprint",
+		"status", "recipientCount", "issuedCount", "emailEligibleCount", "queuedCount",
+		"sentCount", "failedCount", "missingEmailCount", "created", "updated",
+	]);
+	addColumns("certificates", [
+		"event", "registration", "volunteer", "batch", "template", "certificateType",
+		"credentialId", "verificationToken", "recipientNameSnapshot",
+		"recipientEmailSnapshot", "eventTitleSnapshot", "issuedAt", "status",
+		"created", "updated",
 	]);
 
 	// Multi-relation join sources: `societies.chairs` -> society_chairs and
@@ -246,6 +271,68 @@ function buildFixture(path) {
 		source: "scanner",
 		created: ts,
 	};
+
+	insert("event_volunteers", {
+		id: VOL_ID,
+		event: EVENT_ID,
+		name: "Fixture Volunteer",
+		email: "volunteer@example.test",
+		role: "Volunteer",
+		srNo: "123456",
+		active: 1,
+		created: ts,
+		updated: ts,
+	});
+	insert("certificate_templates", {
+		id: TEMPLATE_ID,
+		name: "Volunteer Certificate",
+		event: EVENT_ID,
+		scopeType: "event",
+		certificateType: "volunteer",
+		version: 1,
+		status: "published",
+		renderBase: "render-base.png",
+		created: ts,
+		updated: ts,
+	});
+	insert("certificate_batches", {
+		id: BATCH_ID,
+		event: EVENT_ID,
+		template: TEMPLATE_ID,
+		audienceType: "selected",
+		audienceConfig: JSON.stringify({ volunteerIds: [VOL_ID] }),
+		audienceFingerprint: "fixture-fingerprint",
+		status: "sent",
+		recipientCount: 1,
+		issuedCount: 1,
+		emailEligibleCount: 1,
+		queuedCount: 1,
+		sentCount: 1,
+		failedCount: 0,
+		missingEmailCount: 0,
+		created: ts,
+		updated: ts,
+	});
+	// No registration: this is the row that used to abort the migration with
+	// "NOT NULL constraint failed: certificates.registration_id".
+	insert("certificates", {
+		id: CERT_ID,
+		event: EVENT_ID,
+		registration: "",
+		volunteer: VOL_ID,
+		batch: BATCH_ID,
+		template: TEMPLATE_ID,
+		certificateType: "volunteer",
+		credentialId: "IEEESB-2026-VOL-FIXTURE001",
+		verificationToken: "fixture-token-0123456789abcdefghijklmnopqrstuv",
+		recipientNameSnapshot: "Fixture Volunteer",
+		recipientEmailSnapshot: "volunteer@example.test",
+		eventTitleSnapshot: "Fixture Event",
+		issuedAt: ts,
+		status: "active",
+		created: ts,
+		updated: ts,
+	});
 
 	// The row that must survive: it has a session.
 	insert("attendance_records", { id: ATT_WITH_SESSION, ...attendance, session: SESSION_ID });
@@ -375,6 +462,21 @@ function main() {
 			check(
 				!rows.some((row) => row.id === ATT_NO_SESSION),
 				"the session-less row is absent",
+			);
+
+			const volunteer = db.prepare("SELECT id FROM event_volunteers").get();
+			check(!!volunteer, "the event volunteer migrated");
+
+			const certificate = db
+				.prepare("SELECT registration_id, volunteer_id FROM certificates")
+				.get();
+			check(
+				!!certificate &&
+					certificate.registration_id === null &&
+					!!volunteer &&
+					certificate.volunteer_id === volunteer.id,
+				"a volunteer certificate keeps its volunteer and no registration",
+				certificate,
 			);
 		} finally {
 			db.close();

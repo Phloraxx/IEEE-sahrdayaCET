@@ -23,6 +23,7 @@ import { extname, join, resolve, sep } from "node:path";
 import type { LoaderFunctionArgs } from "react-router";
 import { query } from "@/lib/db.server";
 import { getEnv } from "@/lib/env.server";
+import { ResizeBusyError, resizeGate } from "@/server/http/resize-gate";
 
 const NOT_FOUND = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" };
 
@@ -169,6 +170,23 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
 	const width = parseWidth(new URL(request.url).searchParams.get("w"));
 	if (width && RESIZABLE.has(ext)) {
 		const acceptsWebp = (request.headers.get("accept") ?? "").includes("image/webp");
+		let release: (() => void) | null = null;
+		try {
+			release = await resizeGate.acquire();
+		} catch (error) {
+			if (!(error instanceof ResizeBusyError)) throw error;
+			// The queue is full or the wait timed out. Failing fast protects the CPU
+			// every other request shares; the browser can retry or use the original.
+			return new Response("Image resizing is busy", {
+				status: 429,
+				headers: {
+					"Content-Type": "text/plain; charset=utf-8",
+					"Retry-After": "2",
+					"Cache-Control": "no-store",
+					"X-Content-Type-Options": "nosniff",
+				},
+			});
+		}
 		try {
 			const resized = await resizeImage(filePath, ext, width, acceptsWebp);
 			if (resized) {
@@ -188,6 +206,8 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
 		} catch {
 			// A corrupt or unreadable image must not 500 the page; fall through to
 			// the original bytes, which is what the browser would have got anyway.
+		} finally {
+			release?.();
 		}
 	}
 

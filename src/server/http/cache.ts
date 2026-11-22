@@ -30,7 +30,14 @@
  * visitor from ever waiting on the revalidation.
  */
 
-/** Shared-cache directives for an anonymous public document. */
+/**
+ * Shared-cache directives for an anonymous public document.
+ *
+ * No `max-age`: the document is for a shared cache, and a browser must not hold
+ * it. Cloudflare's edge TTL reads `s-maxage`, so adding `max-age=0` here would
+ * make every edge entry expire immediately; the browser TTL is controlled by the
+ * Cache Rule instead (see docs/deployment.md).
+ */
 export const PUBLIC_DOCUMENT_CACHE_CONTROL =
 	"public, s-maxage=60, stale-while-revalidate=300";
 

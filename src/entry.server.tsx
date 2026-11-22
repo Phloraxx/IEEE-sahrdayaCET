@@ -8,8 +8,27 @@ import { isbot } from "isbot";
 import type { RenderToPipeableStreamOptions } from "react-dom/server";
 import { renderToPipeableStream } from "react-dom/server";
 import { buildContentSecurityPolicy } from "@/lib/csp";
+import { PUBLIC_DOCUMENT_CACHE_CONTROL, isCacheablePublicDocument } from "@/server/http/cache";
+import {
+	renderCacheKey,
+	renderCacheLookup,
+	renderCacheMiss,
+	renderCacheStore,
+} from "@/server/http/render-cache.server";
+import { startScheduler } from "@/server/jobs/scheduler.server";
+
+/**
+ * The app owns its clock. This module is imported once per server process in
+ * production, so starting the runner here gives every deploy a scheduler without
+ * a host cron entry. See `src/server/jobs/scheduler.server.ts` for the why and
+ * the single-instance assumptions.
+ */
+startScheduler();
 
 export const streamTimeout = 5_000;
+
+/** Same cookie the security policy and the shared-cache predicate use. */
+const SESSION_COOKIE_NAME = process.env.SESSION_COOKIE_NAME || "__Host-ieee_session";
 
 /**
  * A fresh CSP nonce per document response.
@@ -37,6 +56,28 @@ export default function handleRequest(
   // keeps `unsafe-inline` for Vite's HMR client. `buildContentSecurityPolicy`
   // drops the nonce from the policy when it is not given one.
   const nonce = process.env.NODE_ENV === "production" ? createNonce() : undefined;
+
+  // Anonymous public documents may be answered from the render cache. The body
+  // was rendered with a different nonce, so every occurrence is rewritten to the
+  // fresh one and the header is recomputed; if the old nonce is not in the body,
+  // the entry is unusable and the request renders normally.
+  const cacheable = nonce ? isCacheablePublicDocument(request, SESSION_COOKIE_NAME) : false;
+  const cacheKey = cacheable ? renderCacheKey(request) : null;
+  if (cacheKey && nonce) {
+    const hit = renderCacheLookup(cacheKey);
+    if (hit && hit.body.includes(hit.nonce)) {
+      const headers = new Headers();
+      for (const [name, value] of hit.headers) headers.set(name, value);
+      headers.set("Content-Security-Policy", buildContentSecurityPolicy(nonce));
+      headers.set("X-Render-Cache", "hit");
+      return new Response(hit.body.split(hit.nonce).join(nonce), {
+        status: hit.status,
+        headers,
+      });
+    }
+    renderCacheMiss();
+  }
+
   responseHeaders.set("Content-Security-Policy", buildContentSecurityPolicy(nonce));
 
   // https://httpwg.org/specs/rfc9110.html#HEAD
@@ -47,7 +88,7 @@ export default function handleRequest(
     });
   }
 
-  return new Promise((resolve, reject) => {
+  const rendered = new Promise<Response>((resolve, reject) => {
     let shellRendered = false;
     const userAgent = request.headers.get("user-agent");
 
@@ -113,5 +154,40 @@ export default function handleRequest(
         },
       },
     );
+  });
+  if (!cacheKey || !nonce) return rendered;
+
+  return rendered.then((response) => {
+    // The middleware annotates the final response, not this one, so the checks
+    // are on what the entry actually knows: a complete document, no cookie, no
+    // redirect. Anything else must not be pinned.
+    const contentType = response.headers.get("content-type") ?? "";
+    if (
+      response.status !== 200 ||
+      !contentType.includes("text/html") ||
+      response.headers.has("set-cookie")
+    ) {
+      return response;
+    }
+
+    // The hit path never reaches the middleware, so the shared-cache directive is
+    // set here for both outcomes rather than being inherited.
+    response.headers.set("Cache-Control", PUBLIC_DOCUMENT_CACHE_CONTROL);
+    response.headers.set("X-Render-Cache", "miss");
+    const clone = response.clone();
+    void clone
+      .text()
+      .then((body) => {
+        renderCacheStore(cacheKey, {
+          status: response.status,
+          headers: [...response.headers.entries()],
+          body,
+          nonce,
+        });
+      })
+      .catch(() => {
+        // A failed clone must never affect the response the visitor receives.
+      });
+    return response;
   });
 }

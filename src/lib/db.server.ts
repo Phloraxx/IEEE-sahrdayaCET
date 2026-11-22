@@ -41,13 +41,19 @@ import Database from "better-sqlite3";
 import { getEnv } from "./env.server";
 
 /**
- * Schema version this build expects. 1 is the initial release.
+ * Schema version this build expects.
+ *
+ * 1 — initial release.
+ * 2 — volunteer certificates: `event_volunteers`, nullable
+ *     `certificates.registration_id` + `volunteer_id`, one-of CHECK, nullable
+ *     `notification_outbox.registration_id`.
  *
  * Bumping this re-applies `sqlite/schema.sql`, which is idempotent — but the
- * file only creates missing objects. Changing an existing column (a type, a
- * NOT NULL) still needs a real migration; a bump alone will not alter it.
+ * file only creates missing objects. Version 2 changes existing columns, which
+ * a re-apply cannot do: the database must be rebuilt by re-running the
+ * PocketBase migration into a fresh file (see sqlite/schema.sql).
  */
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 /** `:memory:` opens a private in-memory database — used by tests. */
 const IN_MEMORY = ":memory:";
@@ -71,19 +77,40 @@ const globalForDb = globalThis as typeof globalThis & DbGlobal;
  */
 function ensureSchema(database: Database.Database): void {
 	const version = database.pragma("user_version", { simple: true }) as number;
-	if (version >= SCHEMA_VERSION) return;
+	if (version < SCHEMA_VERSION) {
+		const schemaFile = resolve(process.cwd(), "sqlite", "schema.sql");
+		const schema = readFileSync(schemaFile, "utf8");
 
-	const schemaFile = resolve(process.cwd(), "sqlite", "schema.sql");
-	const schema = readFileSync(schemaFile, "utf8");
+		database.exec("BEGIN IMMEDIATE");
+		try {
+			database.exec(schema);
+			database.pragma(`user_version = ${SCHEMA_VERSION}`);
+			database.exec("COMMIT");
+		} catch (err) {
+			database.exec("ROLLBACK");
+			throw err;
+		}
+	}
 
-	database.exec("BEGIN IMMEDIATE");
-	try {
-		database.exec(schema);
-		database.pragma(`user_version = ${SCHEMA_VERSION}`);
-		database.exec("COMMIT");
-	} catch (err) {
-		database.exec("ROLLBACK");
-		throw err;
+	assertSchemaShape(database);
+}
+
+/**
+ * Columns the current build cannot run without.
+ *
+ * `schema.sql` only creates missing objects, so a database created by an older
+ * build keeps its old shape even after a version bump. Refusing the connection
+ * turns that into one clear startup error instead of a runtime failure the
+ * first time a certificate is previewed or issued.
+ */
+function assertSchemaShape(database: Database.Database): void {
+	const columns = database.pragma("table_info(certificates)") as Array<{ name: string }>;
+	if (!columns.some((column) => column.name === "volunteer_id")) {
+		throw new Error(
+			"This database predates schema version 2 (certificates.volunteer_id is missing). " +
+				"Rebuild it with scripts/migrate-pb-to-sqlite.ts into a fresh file; " +
+				"ensureSchema cannot alter an existing table.",
+		);
 	}
 }
 
@@ -323,6 +350,25 @@ export async function withTransaction<T>(fn: () => Promise<T>): Promise<T> {
 			}
 			throw err;
 		}
+	} finally {
+		release();
+	}
+}
+
+/**
+ * Weekly housekeeping: refresh query-planner statistics and fold the WAL back
+ * into the database.
+ *
+ * Runs inside the connection lock, so it cannot interleave with a request. Both
+ * statements are short on a database this size; a long one would stall the event
+ * loop, which is why this is the only maintenance the app does in-process.
+ */
+export async function runMaintenance(): Promise<void> {
+	const release = await acquireConnection();
+	try {
+		const database = getDatabase();
+		database.pragma("optimize");
+		database.pragma("wal_checkpoint(TRUNCATE)");
 	} finally {
 		release();
 	}

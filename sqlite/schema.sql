@@ -2,8 +2,8 @@
 -- IEEE Sahrdaya — SQLite 3.35+ schema
 -- =============================================================================
 --
--- Translation of the staging PocketBase collections (25 app collections, 416
--- fields) into 26 tables. Derived from the live `data.db` `_collections` table,
+-- Translation of the staging PocketBase collections (26 app collections, 419
+-- fields) into 27 tables. Derived from the live `data.db` `_collections` table,
 -- not from `pb_migrations/` — the database is the state, the migrations are the
 -- history.
 --
@@ -47,6 +47,14 @@
 --   * `_externalAuths` / `_authOrigins` / `_mfas` / `_otps` — PocketBase
 --     internals; the only value they carry (`providerId`) is migrated into
 --     `users.google_sub`.
+--
+-- Changing a column
+-- -----------------
+-- This file creates tables; it cannot ALTER one that already exists. A change
+-- to a column's type, nullability or CHECK (for example making
+-- `certificates.registration_id` nullable, schema version 2) needs a rebuilt
+-- database: re-run `scripts/migrate-pb-to-sqlite.ts` into a fresh file, or
+-- delete a development database. `ensureSchema` cannot do it in place.
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------
@@ -263,6 +271,30 @@ CREATE TABLE IF NOT EXISTS event_sessions (
 );
 
 CREATE INDEX IF NOT EXISTS event_sessions_event_idx ON event_sessions (event_id, sort_order);
+
+-- ---------------------------------------------------------------------------
+-- Event volunteers
+-- ---------------------------------------------------------------------------
+-- Volunteers work an event without a registration. Their certificates carry
+-- `volunteer_id` instead of `registration_id`; the one-of CHECK on
+-- `certificates` keeps every credential attributable to exactly one person.
+-- PocketBase modelled this as a relation on the collection, and the rows are
+-- carried across so the volunteer credentials already delivered keep verifying.
+
+CREATE TABLE IF NOT EXISTS event_volunteers (
+	id         TEXT PRIMARY KEY,
+	event_id   TEXT NOT NULL REFERENCES events (id) ON DELETE CASCADE,
+	name       TEXT NOT NULL,
+	email      TEXT,
+	role       TEXT,
+	sr_no      TEXT,
+	active     INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+	created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ')),
+	updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ'))
+);
+
+CREATE INDEX IF NOT EXISTS event_volunteers_event_idx
+	ON event_volunteers (event_id, active);
 
 CREATE TABLE IF NOT EXISTS coupons (
 	id               TEXT PRIMARY KEY,
@@ -611,7 +643,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS certificate_batches_idem_uq
 CREATE TABLE IF NOT EXISTS certificates (
 	id                      TEXT PRIMARY KEY,
 	event_id                TEXT NOT NULL REFERENCES events (id) ON DELETE RESTRICT,
-	registration_id         TEXT NOT NULL REFERENCES registrations (id) ON DELETE RESTRICT,
+	-- Exactly one of registration_id / volunteer_id is set. Volunteers receive
+	-- credentials without registering (certificate_type = 'volunteer'), and the
+	-- legacy PocketBase rows already carry that shape.
+	registration_id         TEXT REFERENCES registrations (id) ON DELETE RESTRICT,
+	volunteer_id            TEXT REFERENCES event_volunteers (id) ON DELETE RESTRICT,
 	batch_id                TEXT NOT NULL REFERENCES certificate_batches (id) ON DELETE RESTRICT,
 	template_id             TEXT NOT NULL REFERENCES certificate_templates (id) ON DELETE RESTRICT,
 	certificate_type        TEXT NOT NULL
@@ -632,13 +668,16 @@ CREATE TABLE IF NOT EXISTS certificates (
 	supersedes              TEXT REFERENCES certificates (id) ON DELETE SET NULL,
 	superseded_by           TEXT REFERENCES certificates (id) ON DELETE SET NULL,
 	created_at              TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ')),
-	updated_at              TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ'))
+	updated_at              TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ')),
+	CHECK (registration_id IS NOT NULL OR volunteer_id IS NOT NULL)
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS certificates_credential_uq ON certificates (credential_id);
 CREATE UNIQUE INDEX IF NOT EXISTS certificates_token_uq ON certificates (verification_token);
 CREATE UNIQUE INDEX IF NOT EXISTS certificates_reg_batch_uq
 	ON certificates (registration_id, batch_id);
+CREATE UNIQUE INDEX IF NOT EXISTS certificates_volunteer_batch_uq
+	ON certificates (volunteer_id, batch_id) WHERE volunteer_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS certificates_event_idx ON certificates (event_id, status);
 
 -- ---------------------------------------------------------------------------
@@ -710,7 +749,8 @@ CREATE INDEX IF NOT EXISTS blog_authors_user_idx ON blog_authors (user_id);
 
 CREATE TABLE IF NOT EXISTS notification_outbox (
 	id                 TEXT PRIMARY KEY,
-	registration_id    TEXT NOT NULL REFERENCES registrations (id) ON DELETE CASCADE,
+	-- Null for certificate emails: a volunteer certificate has no registration.
+	registration_id    TEXT REFERENCES registrations (id) ON DELETE CASCADE,
 	kind               TEXT NOT NULL CHECK (kind IN ('ticket', 'receipt', 'certificate')),
 	-- `stubbed` records a delivery the safety policy would have made but did not
 	-- send. It is distinct from `sent` (really delivered) and `failed` (a real
@@ -802,6 +842,10 @@ BEGIN UPDATE event_private_details SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ
 DROP TRIGGER IF EXISTS event_sessions_touch;
 CREATE TRIGGER event_sessions_touch AFTER UPDATE ON event_sessions
 BEGIN UPDATE event_sessions SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ') WHERE id = NEW.id; END;
+
+DROP TRIGGER IF EXISTS event_volunteers_touch;
+CREATE TRIGGER event_volunteers_touch AFTER UPDATE ON event_volunteers
+BEGIN UPDATE event_volunteers SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ') WHERE id = NEW.id; END;
 
 DROP TRIGGER IF EXISTS coupons_touch;
 CREATE TRIGGER coupons_touch AFTER UPDATE ON coupons
