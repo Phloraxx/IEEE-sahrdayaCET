@@ -26,7 +26,7 @@ Cloudflare / Dokploy / Traefik
 - The **app server** owns authentication, authorization, registration, payments, attendance, certificates, notifications, and file serving. There is no second API process.
 - **better-sqlite3** is the single database, opened as one process-wide connection in WAL mode.
 - Sessions are opaque tokens in an HttpOnly `__Host-` cookie, stored as a sha256 hash so logout is a delete and a database leak does not hand out live sessions.
-- Every privileged mutation — workflow commands and ordinary collection creates, edits and deletes — appends one `admin_audit_log` row in the same transaction, with the actor, the changed columns and before/after values.
+- Every privileged mutation — workflow commands, ordinary collection creates/edits/deletes, and image uploads — appends one `admin_audit_log` row in the same transaction, with the actor, the changed columns and before/after values.
 - `sqlite/schema.sql` is the only schema source of truth. `pb_migrations/` is PocketBase's frozen history and is not applied to this database.
 - A PocketBase container is kept alongside as a **rollback target only**; the app does not read from it.
 

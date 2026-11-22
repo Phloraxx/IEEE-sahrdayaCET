@@ -81,8 +81,8 @@ transaction as the change:
 
 - command routes (publication, registration, payments, certificates, check-in,
   role changes) call `audit()` from `src/server/audit.ts`;
-- generic collection creates, edits and deletes call `auditCollectionWrite()`
-  from `src/server/collections/audit.ts`, which records `<entity>.<kind>`, the
+- generic collection creates, edits and deletes, and image uploads, call
+  `auditCollectionWrite()` from `src/server/collections/audit.ts`, which records `<entity>.<kind>`, the
   entity id, the event/registration links, and only the changed columns in
   `before`/`after`. A delete is audited before the row disappears, because
   `event_id` and `registration_id` are foreign keys with `ON DELETE SET NULL`.

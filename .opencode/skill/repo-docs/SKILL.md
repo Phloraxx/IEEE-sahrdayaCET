@@ -67,8 +67,8 @@ Check these with `rg` before declaring docs done:
   rollback target and must not be described as serving API or auth.
 - **Blog** — removed 2026-11-22. Do not document routes, admin screens, RSS,
   sitemap entries or JSON-LD for it. Historical rows still exist in the database.
-- **Audit trail** — command routes and generic collection create/update/delete
-  all write `admin_audit_log` in the same transaction.
+- **Audit trail** — command routes, generic collection create/update/delete and
+  image uploads all write `admin_audit_log` in the same transaction.
 - **CI jobs** — `checks`, `smoke-backend` (dev PRs), `clean-room-backend`
   (main PRs/main), `container-builds`, `web-image`. The browser suite is local.
 - **Versions** — read `package.json`; do not trust prose. Vite is 8.3,

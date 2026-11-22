@@ -59,8 +59,8 @@ Every privileged mutation appends one `admin_audit_log` row in the same
 transaction as the change:
 
 - command routes call `audit()` (`src/server/audit.ts`);
-- generic collection creates, edits and deletes call `auditCollectionWrite()`
-  (`src/server/collections/audit.ts`), recording `<entity>.<kind>`, the entity
+- generic collection creates, edits and deletes, and image uploads, call
+  `auditCollectionWrite()` (`src/server/collections/audit.ts`), recording `<entity>.<kind>`, the entity
   id, event/registration links, and only the changed columns.
 
 The table is readable only with `reports.view`, scoped by the caller's
