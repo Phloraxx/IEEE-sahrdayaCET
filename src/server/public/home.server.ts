@@ -1,12 +1,11 @@
 import { buildFileUrl } from "@/lib/pb";
-import { blogHtmlToPlainText } from "@/lib/blog-content";
-import { getLatestPublishedBlogs } from "@/lib/blog-public.server";
+import { htmlToPlainText } from "@/lib/rich-text";
 import { canRegisterForEvent, isPastEvent } from "@/lib/event-lifecycle";
 import { fetchExecomData } from "./execom.server";
 import { logError } from "@/lib/logger";
 import { listPublicSocieties, listUpcomingEvents, type EventRow } from "./repo.server";
 import type { ExecomMemberDoc } from "@/features/execom/ExecomClient";
-import type { BlogPost, Society } from "@/types";
+import type { Society } from "@/types";
 
 export interface HomeEventSummary {
   id: string;
@@ -28,7 +27,6 @@ export interface HomeData {
   upcomingCount: number;
   societies: Society[];
   execomCount: number;
-  latestBlogs: BlogPost[];
   coreTeam: ExecomMemberDoc[];
   unavailable: string[];
 }
@@ -48,7 +46,7 @@ function mapHomeEvent(row: EventRow): HomeEventSummary {
     id: row.id,
     slug: row.slug ?? "",
     title: row.title ?? "",
-    description: blogHtmlToPlainText(row.description ?? ""),
+    description: htmlToPlainText(row.description ?? ""),
     date,
     endDate,
     timeTbc,
@@ -90,19 +88,17 @@ export async function fetchHomeData(): Promise<HomeData> {
     upcomingCount: 0,
     societies: [],
     execomCount: 0,
-    latestBlogs: [],
     coreTeam: [],
-    unavailable: ["programme", "communities", "team", "stories"],
+    unavailable: ["programme", "communities", "team"],
   };
 
   try {
     // Fetch a generous window of upcoming events, then filter past ones and
     // slice — `isPastEvent` needs the event's own date/endDate, not SQL's.
-    const [eventsResult, societiesResult, execomResult, blogsResult] = await Promise.allSettled([
+    const [eventsResult, societiesResult, execomResult] = await Promise.allSettled([
       listUpcomingEvents(100),
       listPublicSocieties(),
       fetchExecomData(),
-      getLatestPublishedBlogs(3),
     ]);
 
     const societies: Society[] =
@@ -122,8 +118,8 @@ export async function fetchHomeData(): Promise<HomeData> {
             .filter((event) => !isPastEvent(event))
         : [];
 
-    const sections = ["programme", "communities", "team", "stories"];
-    const results = [eventsResult, societiesResult, execomResult, blogsResult];
+    const sections = ["programme", "communities", "team"];
+    const results = [eventsResult, societiesResult, execomResult];
     const unavailable = results.flatMap((result, index) => {
       if (result.status === "fulfilled") return [];
       logError(`home-${sections[index]}`, result.reason);
@@ -140,7 +136,6 @@ export async function fetchHomeData(): Promise<HomeData> {
       upcomingCount: allUpcoming.length,
       societies,
       execomCount: execomResult.status === "fulfilled" ? execomResult.value.length : 0,
-      latestBlogs: blogsResult.status === "fulfilled" ? (blogsResult.value as BlogPost[]) : [],
     };
   } catch (error) {
     logError("fetchHomeData", error);

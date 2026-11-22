@@ -28,7 +28,7 @@ import { downloadRegistrationReceipt } from "@/lib/data/receipt.client";
 import type { MyEventRegistration } from "@/lib/registration-state";
 import Footer from "@/components/Footer";
 import { APP_URL } from "@/lib/constants";
-import { blogHtmlToPlainText, sanitizeBlogHtml } from "@/lib/blog-content";
+import { htmlToPlainText, sanitizeRichHtml } from "@/lib/rich-text";
 import { formatAppDateISO, formatDate, formatDay, formatEventTime, formatMonth, formatWeekdayShort, formatYear } from "@/lib/dates";
 import { eventTitleSize, MOTION_DURATION, MOTION_EASE } from "@/lib/motion";
 import type { EventAvailabilityKind } from "@/lib/event-availability";
@@ -76,7 +76,7 @@ export const meta = ({ data }: { data?: EventDetailData }) => {
   const description =
     event.slug === "sustainx"
       ? "SustainX: From Street to Smart City — 14 teams, three phases and practical SDG 11 ideas at IEEE Sahrdaya on 20 August 2026."
-      : blogHtmlToPlainText(event.description).slice(0, 160) ||
+      : htmlToPlainText(event.description).slice(0, 160) ||
         `${event.title} at IEEE Sahrdaya Student Branch.`;
   const url = `${APP_URL}/events/${event.slug}`;
   const image = resolveEventImage(event);
@@ -218,7 +218,7 @@ export default function EventDetailPage() {
   const description =
     event.slug === "sustainx"
       ? "SustainX brought 14 teams together to identify local sustainability challenges, develop practical solutions and present ideas aligned with UN SDG 11."
-      : blogHtmlToPlainText(event.description);
+      : htmlToPlainText(event.description);
   const eventImageUrl = resolveEventImage(event);
   const eventArtwork = resolveEventArtwork(event);
   const titleSize = eventTitleSize(event.title);
@@ -417,7 +417,7 @@ export default function EventDetailPage() {
           <div className="min-w-0">
             <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#00629B]">About the event</h2>
             {event.description ? (
-              <section className="prose prose-slate mt-6 max-w-3xl prose-headings:font-semibold prose-headings:tracking-[-0.035em] prose-p:text-[1.05rem] prose-p:leading-8 prose-p:text-black/68 prose-a:text-[#00629B]" dangerouslySetInnerHTML={{ __html: sanitizeBlogHtml(event.description) }} />
+              <section className="prose prose-slate mt-6 max-w-3xl prose-headings:font-semibold prose-headings:tracking-[-0.035em] prose-p:text-[1.05rem] prose-p:leading-8 prose-p:text-black/68 prose-a:text-[#00629B]" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(event.description) }} />
             ) : (
               <p className="mt-6 max-w-2xl text-lg leading-8 text-black/55">Full event details will be added here by the organising society.</p>
             )}

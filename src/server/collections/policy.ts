@@ -43,7 +43,7 @@ export interface CollectionPolicy {
 	 *
 	 * Publication state is not an authorization decision the browser can make:
 	 * without this, `filter=status='draft'` listed every unpublished event, and
-	 * the same query on `blogs` returned unpublished posts with their content.
+	 * a query without it returned unpublished drafts with their content.
 	 *
 	 * `capability` is the staff bypass. An actor who holds it only at a narrower
 	 * scope sees the public rows plus the rows in that scope, so a society chair
@@ -173,17 +173,6 @@ export const COLLECTION_POLICIES: Record<string, CollectionPolicy> = {
 			sql: "is_hidden = 0",
 			capability: "societies.edit",
 			scope: { societyColumn: "id" },
-		},
-	},
-	blogs: {
-		table: "blogs",
-		read: "public",
-		write: "capability",
-		writeCapability: "content.manage",
-		publicRead: {
-			sql: "published = 1",
-			capability: "content.manage",
-			scope: { societyColumn: "society_id", eventColumn: "event_id" },
 		},
 	},
 	execom: {

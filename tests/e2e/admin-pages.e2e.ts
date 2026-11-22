@@ -33,7 +33,6 @@ const PAGES: Array<[string, RegExp]> = [
 	["/admin/certificates", /certificate/i],
 	["/admin/societies", /society|societies/i],
 	["/admin/execom", /execom|committee|member/i],
-	["/admin/blogs", /blog|article|post/i],
 	["/admin/users", /user|member/i],
 	["/admin/access", /access|role|assignment/i],
 	["/admin/check-in", /check.?in|attendee/i],

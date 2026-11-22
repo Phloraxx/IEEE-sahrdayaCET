@@ -6,7 +6,7 @@
  * better-sqlite3 is synchronous, so every query on a public page render blocks
  * the event loop for its full duration. The public pages are the only ones with
  * real traffic, and their payloads change on the order of minutes — an event is
- * published, a blog is posted, a society bio is edited. Re-reading them on every
+ * published, a society bio is edited. Re-reading them on every
  * request buys nothing and costs the whole process.
  *
  * Why it is safe

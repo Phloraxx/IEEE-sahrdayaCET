@@ -1,5 +1,5 @@
 import {
-  Award, Building2, Calendar, ChevronRight, ClipboardList, FileText, KeyRound, LayoutDashboard,
+  Award, Building2, Calendar, ChevronRight, ClipboardList, KeyRound, LayoutDashboard,
   LogOut, Moon, ScanLine, Sun, UserCheck, Users,
   WalletCards, ShieldCheck, X,
 } from "lucide-react";
@@ -37,7 +37,6 @@ const GROUPS: NavGroup[] = [
     { label: "Execom", href: "/admin/execom", icon: UserCheck, platformAdminOnly: true },
   ]},
   { label: "Content", items: [
-    { label: "Blogs", href: "/admin/blogs", icon: FileText, capability: "content.manage" },
   ]},
 ];
 

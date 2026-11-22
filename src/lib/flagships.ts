@@ -102,7 +102,6 @@ export const FLAGSHIPS: Flagship[] = [
           { title: "28 September · Workshops and Lantern Fest", text: "The workshop day ranged from machine learning, generative AI and cloud computing to automation, robotics and drones. Web3, Flutter and cybersecurity completed the nine-track programme. Hands-on sessions with practitioners were followed by networking, RJ Paulsy’s “Essentials of Life” talk and a Lantern Fest." },
           { title: "29 September · Hackathon, expos and STEM outreach", text: "Vishal Nair of the Wadhwani Foundation discussed product design from MVP to MLP. Teams tackled a hackathon and an IEEE Puzzlers treasure hunt. Drone, RC-car, robotics and origami expos ran alongside Bridge-the-Gap STEM outreach for pre-university students." },
         ],
-        recap: { href: "/blog/event-recap-techx-infinia-2024-where-imagination-meets-technology", label: "Read the 2024 event recap" },
       },
     ],
   },

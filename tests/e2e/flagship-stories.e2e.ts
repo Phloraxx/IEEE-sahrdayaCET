@@ -26,7 +26,7 @@ test.describe("Infinia showcase and independent Altair archive", () => {
       await expect(page.getByRole("heading", { level: 1 })).toHaveText("TechX Infinia");
       await expect(page.locator(".infinia-track-list h3")).toHaveCount(9);
       await expect(page.locator(".infinia-stat-grid")).toHaveCount(0);
-      await expect(page.getByRole("link", { name: "Read the 2024 event recap", exact: true })).toHaveAttribute("href", "/blog/event-recap-techx-infinia-2024-where-imagination-meets-technology");
+      await expect(page.getByRole("link", { name: "Read the 2024 event recap", exact: true })).toHaveCount(0);
       await page.getByRole("link", { name: "Altair archive", exact: true }).click();
       await expect(page.getByRole("heading", { level: 1 })).toHaveText("Altair");
       await expect(page.getByText("2023 programme", { exact: true })).toBeVisible();
