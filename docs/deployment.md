@@ -193,6 +193,26 @@ This is complementary to the edge cache, not a replacement: `s-maxage=60` still
 lets Cloudflare absorb the traffic spike, and the render cache keeps the origin
 fast on the misses.
 
+### Edge cache (Cloudflare)
+
+The zone has one Cache Rule, scoped by host, that marks the public documents
+eligible for the edge:
+
+- **Edge TTL:** respect origin (`s-maxage=60`).
+- **Browser TTL:** bypass. This is not optional: the zone default is four hours,
+  and Cloudflare otherwise rewrites the header to `max-age=14400`, so a browser
+  would keep a page for hours. The origin deliberately sends no `max-age`:
+  Cloudflare's edge TTL reads `s-maxage`, and `max-age=0` would make every edge
+  entry expire immediately.
+- **Excluded paths:** `/api/`, `/admin`, `/auth/`, `/files/`, `/ticket/`, `/c/`,
+  `/my-events`, `/register`, `/payment`, `/verify`, `/healthz`, `.data`
+  requests, any query string, and any request carrying `__Host-ieee_session`.
+
+It is currently scoped to `next.ieeesahrdaya.com` for the rehearsal; add the
+production host when the SQLite deployment is live. With the rule in place a
+sustained 500-request run reached 232 req/s through the edge while the origin
+rendered three documents.
+
 ## Routing and networks
 
 The app server owns the public host: React Router serves the pages **and**
