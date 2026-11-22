@@ -610,7 +610,10 @@ const UPLOAD_DOMAIN: Record<string, string> = {
 	societies: "societies",
 	execom: "execom",
 	users: "users",
-	certificate_templates: "certificates",
+	// The app reads template artwork from `uploads/certificate_templates/...`
+	// (the protected asset route and the public renderer). A different domain
+	// here moves the files and leaves every certificate download 404ing.
+	certificate_templates: "certificate_templates",
 };
 
 /**
@@ -752,6 +755,7 @@ function verify(
 	skippedByTable: Map<string, number>,
 	files: FileCopy[],
 	storageDir: string,
+	uploadsDir: string,
 ): Check[] {
 	const checks: Check[] = [];
 	const push = (name: string, ok: boolean, detail: string) => checks.push({ name, ok, detail });
@@ -863,6 +867,53 @@ function verify(
 	push("media files planned", planned > 0, `${planned}`);
 	push("media files on disk", planned === onDisk, `${planned}/${onDisk}`);
 	push("media bytes", totalBytes > 0, `${totalBytes}`);
+
+	// Every file column the app will read must resolve at the path the app uses:
+	// `uploads/<collection>/<record>/<filename>`. Counting planned copies does not
+	// prove this — a wrong uploads domain copies the bytes somewhere the app never
+	// looks, and every rendered certificate then 404s.
+	if (uploadsDir) {
+		const unresolved: string[] = [];
+		for (const [collection, columns] of Object.entries(FILE_COLUMNS)) {
+			const spec = SPECS.find((entry) => entry.pb === collection);
+			if (!spec) continue;
+			const present = new Set(
+				(target.prepare(`PRAGMA table_info("${spec.table}")`).all() as { name: string }[]).map(
+					(column) => column.name,
+				),
+			);
+			for (const { column, multi } of columns) {
+				if (!present.has(column)) continue;
+				const rows = target
+					.prepare(`SELECT id, "${column}" AS value FROM "${spec.table}"`)
+					.all() as { id: string; value: string | null }[];
+				for (const row of rows) {
+					if (!row.value) continue;
+					let references: string[];
+					if (multi) {
+						try {
+							const parsed = JSON.parse(row.value);
+							references = Array.isArray(parsed) ? parsed.map(String) : [];
+						} catch {
+							references = [];
+						}
+					} else {
+						references = [row.value];
+					}
+					for (const name of references) {
+						if (!existsSync(join(uploadsDir, collection, row.id, name))) {
+							unresolved.push(`${collection}/${row.id}/${name}`);
+						}
+					}
+				}
+			}
+		}
+		push(
+			"every file reference resolves",
+			unresolved.length === 0,
+			unresolved.length ? unresolved.slice(0, 3).join(", ") : "all references present",
+		);
+	}
 
 	return checks;
 }
@@ -1101,7 +1152,15 @@ function main(): void {
 
 	console.log("");
 	console.log("=== verification ===");
-	const checks = verify(target, source, counts, skippedByTable, files, args.storage ?? "");
+	const checks = verify(
+		target,
+		source,
+		counts,
+		skippedByTable,
+		files,
+		args.storage ?? "",
+		args.uploads ?? "",
+	);
 	let failed = 0;
 	for (const check of checks) {
 		if (!check.ok) failed += 1;

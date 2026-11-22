@@ -22,10 +22,11 @@ import {
 	readdirSync,
 	rmSync,
 	statSync,
+	symlinkSync,
 	writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, dirname, join } from "node:path";
+import { basename, join } from "node:path";
 import { promisify } from "node:util";
 
 import { getEnv } from "@/lib/env.server";
@@ -171,9 +172,16 @@ export async function runBackup(): Promise<BackupResult> {
 		);
 
 		const archive = join(directory, `${backupPrefix()}-${timestampForFilename(Date.now())}.tar.gz`);
-		const args = ["-czf", archive, "-C", temp, "portal.db", "manifest.json"];
+
+		// One `-C` only: BusyBox tar (the Alpine runtime) applies a second `-C`
+		// after the file operands as a literal name and fails. The uploads tree is
+		// staged as a symlink inside the temp directory and `-h` dereferences it,
+		// so the archive still has a top-level `uploads/` entry. GNU tar behaves
+		// the same way, which is what the host rehearsal runs.
+		const args = ["-czhf", archive, "-C", temp, "portal.db", "manifest.json"];
 		if (existsSync(env.UPLOADS_DIR)) {
-			args.push("-C", dirname(env.UPLOADS_DIR), basename(env.UPLOADS_DIR));
+			symlinkSync(env.UPLOADS_DIR, join(temp, "uploads"), "dir");
+			args.push("uploads");
 		}
 		try {
 			await execFileAsync("tar", args, { maxBuffer: 4 * 1024 * 1024 });

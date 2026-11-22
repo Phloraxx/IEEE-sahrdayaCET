@@ -22,6 +22,7 @@ import { join } from "node:path";
 
 const DB_PATH = process.env.E2E_SQLITE_PATH || "";
 const COOKIE = process.env.E2E_SESSION_COOKIE || "__Host-ieee_session";
+const COOKIE_DOMAIN = process.env.E2E_COOKIE_DOMAIN || "127.0.0.1";
 const OUT_DIR = process.env.E2E_NETWORK_LOG_DIR || "runs/playwright-admin";
 
 const PAGES: Array<[string, RegExp]> = [
@@ -91,7 +92,7 @@ test.describe("Admin pages on the ported app", () => {
 			{
 				name: COOKIE,
 				value: Buffer.from(JSON.stringify(token)).toString("base64"),
-				domain: "127.0.0.1",
+				domain: COOKIE_DOMAIN,
 				path: "/",
 				httpOnly: true,
 				secure: true,
