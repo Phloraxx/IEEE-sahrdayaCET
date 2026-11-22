@@ -349,7 +349,7 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
   };
 
   return (
-    <div ref={sectionRef} role="list" aria-label="Core executive committee" className="relative w-full select-none">
+    <div ref={sectionRef} role="group" aria-label="Core executive committee" className="relative w-full select-none">
       <div
         tabIndex={0}
         aria-label="Executive committee carousel. Drag, or use the arrow keys."
@@ -372,6 +372,8 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
         <div
           ref={trackRef}
           data-home-execom-track
+          role="list"
+          aria-label="Executive committee members"
           className="flex will-change-transform"
           style={{ gap: `${gap}px` }}
         >
