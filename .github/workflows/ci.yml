@@ -53,14 +53,23 @@ jobs:
           sudo apt-get install -y fonts-noto-core
       - name: Runtime script syntax
         run: bun run check:runtime-syntax
-      - name: Lint
-        run: bun run lint
       - name: Typecheck
         run: bun run typecheck
-      - name: Unit tests
-        run: bun run test
-      - name: Production build
-        run: bun run build
+      # Lint, the unit suite and the production build do not touch each other's
+      # files, and each leaves cores idle, so they share the runner instead of
+      # queueing behind one another. Typecheck runs first because it generates
+      # the route types the build uses.
+      - name: Lint, unit tests and production build
+        run: |
+          set -uo pipefail
+          bun run lint  & LINT=$!
+          bun run test  & TEST=$!
+          bun run build & BUILD=$!
+          status=0
+          wait "$LINT"  || status=1
+          wait "$TEST"  || status=1
+          wait "$BUILD" || status=1
+          exit "$status"
 
   # A PocketBase boot plus the invariant suites and a populated migration. This
   # is the post-merge sanity check; it is deliberately not the full clean-room.
