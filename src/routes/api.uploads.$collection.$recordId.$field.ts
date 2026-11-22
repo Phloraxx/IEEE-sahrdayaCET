@@ -16,8 +16,9 @@ import { randomUUID } from "node:crypto";
 import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import type { ActionFunctionArgs } from "react-router";
-import { query } from "@/lib/db.server";
+import { query, withTransaction } from "@/lib/db.server";
 import { getEnv } from "@/lib/env.server";
+import { auditCollectionWrite } from "@/server/collections/audit";
 import { requireApiUser } from "@/server/auth/session.server";
 import { hasCapability, hasEventCapability, type Actor } from "@/server/authz/capabilities";
 import { loadAssignments } from "@/server/workspace/service";
@@ -149,8 +150,22 @@ export async function action({ request, params }: ActionFunctionArgs) {
 		await writeFile(join(recordDir, filename), buffer);
 
 		const previous = String(row.rows[0][field] ?? "");
+		const before = row.rows[0];
 		// pi-lens-ignore: sql-injection — same allow-listed identifiers as above.
-		await query(`UPDATE ${spec.table} SET ${field} = ? WHERE id = ?`, [filename, recordId]);
+		await withTransaction(async () => {
+			const result = await query<Record<string, unknown>>(
+				`UPDATE ${spec.table} SET ${field} = ? WHERE id = ? RETURNING *`,
+				[filename, recordId],
+			);
+			await auditCollectionWrite({
+				actorId: user.id,
+				collection,
+				kind: "update",
+				row: result.rows[0] ?? { ...before, [field]: filename },
+				before,
+				changed: [field],
+			});
+		});
 
 		// Best effort: a leftover file is harmless, a failed save is not.
 		if (previous && previous !== filename) {

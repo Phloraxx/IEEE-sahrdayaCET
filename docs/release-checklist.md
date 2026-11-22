@@ -42,7 +42,7 @@ scripts/audit/run-staging-audit.sh
 
 It checks all of the above plus every admin route, the audit rows, registration/
 ticket/certificate flows, both home rails, mobile navigation and axe. Expected
-baseline: 136/136 deep, 19/19 admin routes, 22/22 UI, 15/15 accessibility. See
+baseline: 137/137 deep, 19/19 admin routes, 22/22 UI, 15/15 accessibility. See
 `.opencode/skill/staging-audit/SKILL.md`.
 
 ## 4. Authentication and admin acceptance

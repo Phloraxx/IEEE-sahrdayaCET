@@ -268,6 +268,7 @@ if (societyId) {
   check("society writes are audited", ["society.create", "society.update", "society.delete"].every((action) => societyActions.includes(action)), societyActions.join(","));
   const updateRow = (societyAudit?.items ?? []).find((row) => row.action === "society.update");
   check("society update audit keeps before/after", Boolean(updateRow?.before) && Boolean(updateRow?.after), `${updateRow?.before ?? ""} → ${updateRow?.after ?? ""}`);
+  check("logo upload is audited", (societyAudit?.items ?? []).some((row) => row.action === "society.update" && String(row.after).includes('"logo"')), societyActions.join(","));
 }
 const execomPayload = { name: TEST_EXECOM, position: "Audit", department: "Quality", batch: "2026", section: "A", order: 999 };
 const createdExecom = await req("/api/collections/execom", { method: "POST", cookie: admin.cookie, headers: { "Content-Type": "application/json" }, body: JSON.stringify(execomPayload) });

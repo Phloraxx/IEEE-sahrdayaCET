@@ -525,7 +525,7 @@ mobile navigation, certificate/registration/ticket flows, audit rows, and
 accessibility; then removes every test row and session. Expected baseline:
 
 ```text
-deep HTTP/API        136/136
+deep HTTP/API        137/137
 admin routes          19/19
 UI / rails / mobile   22/22
 axe + SEO             15/15

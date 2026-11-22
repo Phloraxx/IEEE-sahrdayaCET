@@ -45,5 +45,13 @@ for (const member of db.prepare("SELECT id FROM execom WHERE name='Staging Audit
   db.prepare("DELETE FROM admin_audit_log WHERE entity_id=?").run(member.id);
 }
 db.prepare("DELETE FROM execom WHERE name='Staging Audit Member'").run();
+
+// Rows from runs that died before their cleanup, or from the pre-audit-log
+// cleanup: identify them by the fixture names in their before/after images.
+db.prepare(`DELETE FROM admin_audit_log
+  WHERE (entity_type='society' AND (after LIKE '%Staging Audit Society%' OR before LIKE '%Staging Audit Society%'))
+     OR (entity_type='execom_member' AND (after LIKE '%Staging Audit Member%' OR before LIKE '%Staging Audit Member%'))
+     OR (entity_type='event' AND (after LIKE '%Staging Audit API Event%' OR before LIKE '%Staging Audit API Event%' OR after LIKE '%Staging Audit Event%' OR before LIKE '%Staging Audit Event%'))
+     OR (entity_type='society' AND (after LIKE '%staging audit%' OR before LIKE '%staging audit%'))`).run();
 db.close();
 console.log("staging audit cleanup done");

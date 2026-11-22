@@ -26,7 +26,7 @@ Expected baseline at the time of writing:
 
 | Pass | Checks | Command |
 |---|---|---|
-| Deep HTTP/API | 136/136 | `node scripts/audit/deep.mjs` |
+| Deep HTTP/API | 137/137 | `node scripts/audit/deep.mjs` |
 | Admin routes | 19/19 | `node scripts/audit/admin-sweep.mjs` |
 | UI / rails / mobile | 22/22 | `node scripts/audit/ui.mjs` |
 | Accessibility + SEO | 15/15 | `node scripts/audit/a11y.mjs` |
