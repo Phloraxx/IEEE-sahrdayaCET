@@ -8,7 +8,10 @@ WORKDIR /app
 # install stages need the native toolchain (node-gyp requires python3, make, g++).
 RUN apk add --no-cache python3 make g++
 COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile
+# Keep the registry cache across builds: a lockfile change then costs an
+# install, not a re-download. Requires BuildKit; Dokploy builds with it.
+RUN --mount=type=cache,id=bun-cache,target=/root/.bun/install/cache,sharing=locked \
+    bun install --frozen-lockfile
 
 FROM deps AS build
 COPY . .
@@ -18,7 +21,8 @@ FROM oven/bun:1.4.5-alpine AS prod-deps
 WORKDIR /app
 RUN apk add --no-cache python3 make g++
 COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile --production
+RUN --mount=type=cache,id=bun-cache,target=/root/.bun/install/cache,sharing=locked \
+    bun install --frozen-lockfile --production
 
 FROM node:22-alpine AS runtime
 RUN apk add --no-cache font-noto
