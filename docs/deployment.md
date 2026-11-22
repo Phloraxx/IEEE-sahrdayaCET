@@ -338,24 +338,27 @@ run in parallel jobs so wall time is the slowest job, not the sum.
 
 **Fast path — every push and every pull request:**
 
-1. `checks` — runtime-script syntax, lint, typecheck, unit tests.
-2. `build` — the production Vite build, in its own job.
-3. `smoke-backend` — a fresh PocketBase boot, the two invariant suites, and the
-   populated PocketBase-to-SQLite migration. It gates `main` pushes and PRs into
-   `dev`, but not `dev` pushes: a normal release to dev has already run it on
-   the PR, and skipping it keeps the staging deploy fast.
+1. `checks` — runtime-script syntax, lint, typecheck, unit tests and the
+   production Vite build in one job, so one checkout, one install and one cache
+   restore cover all of it.
+2. `smoke-backend` — a fresh PocketBase boot, the two invariant suites, a
+   certificate template lifecycle and the populated PocketBase-to-SQLite
+   migration. It gates `main` pushes and PRs into `dev`, but not `dev` pushes: a
+   normal release to dev has already run it on the PR, and skipping it keeps the
+   staging deploy fast.
 
-**Release gate — pull requests into `main` only:**
+**Release gate — pull requests into `main`:**
 
-4. `clean-room-backend` — every backend lifecycle: certificate templates,
+3. `clean-room-backend` — every backend lifecycle: certificate templates,
    issuance, 100-recipient scale, public verification, delivery, revoke and
    replacement, PayGate v4, and the populated migration.
-5. `container-builds` — web and PocketBase images on **arm64**, the architecture
-   production runs.
+4. `container-builds` — the PocketBase image on **arm64**.
+5. `web-image` — the web image on **arm64**, published to GHCR (see below). It
+   runs on `main` pushes too, because that is the image the deploy pulls.
 
 A push to `main` therefore runs only the fast path before CD deploys; the deep
-backend and image checks have already gated the release PR. A direct push to
-`main` skips them, so releases should go through a pull request.
+backend gate has already run on the release PR. A direct push to `main` skips
+it, so releases should go through a pull request.
 
 The certificate renderer's fonts are installed only on the release gate (`main`
 pushes and PRs into `main`); on the dev fast path those unit tests skip rather
@@ -365,17 +368,13 @@ recipients, which still exercises pagination (three registry pages) without the
 
 CI and the Dockerfile use Bun **1.4.5**. Bun 1.2.9's better-sqlite3 postinstall
 never returns under BuildKit on arm64; keeping the versions aligned means CI and
-the image build exercise the same installer. `actions/cache` restores
-`~/.bun/install/cache`, so a dependency install reuses downloaded packages.
+the image build exercise the same installer. `setup-bun` restores
+`~/.bun/install/cache` on its own, so no separate `actions/cache` step is
+needed. `scripts/check-runtime-syntax.sh` checks its 124 files in parallel.
 
-The clean-room backend starts with an empty PocketBase data directory. A successful run proves that committed migrations and hooks can construct a usable backend without depending on a long-lived database.
-
-CI and the Dockerfile use Bun **1.4.5**. Bun 1.2.9's better-sqlite3 postinstall
-never returns under BuildKit on arm64; keeping the versions aligned means CI and
-the image build exercise the same installer. `actions/cache` restores
-`~/.bun/install/cache`, so a dependency install reuses downloaded packages.
-
-The clean-room backend starts with an empty PocketBase data directory. A successful run proves that committed migrations and hooks can construct a usable backend without depending on a long-lived database.
+The clean-room backend starts with an empty PocketBase data directory. A
+successful run proves that committed migrations and hooks can construct a usable
+backend without depending on a long-lived database.
 
 ## CD
 
@@ -415,6 +414,49 @@ The Dokploy deployment toggle remains enabled because `/api/deploy/compose/<refr
 Each Dokploy Compose record tracks its matching custom-Git branch. The webhook is a deployment trigger, not an immutable image reference. There remains a narrow branch-head-check-to-build race if another push lands immediately after the freshness check; eliminating that completely would require immutable SHA-tagged registry images.
 
 The deployment endpoint is exposed through a narrow Traefik route on `hooks.ieeesahrdaya.com`. Only `/api/deploy/compose/*` is routed to Dokploy; the dashboard, Swagger UI, and general API are not exposed on that host. The refresh token remains stored only in GitHub Secrets and Dokploy.
+
+## The production image flow
+
+Production does not build on the deploy path. It pulls.
+
+1. CI's `web-image` job builds `Dockerfile` on `ubuntu-24.04-arm` and pushes it
+   to GHCR as `ghcr.io/phloraxx/ieee-sahrdaya-web`, tagged twice: `:sha-<commit>`
+   and `:tree-<commit tree>`.
+2. CD resolves the tree of the tested commit and, for production, moves the
+   mutable `:production` tag to that image with `docker buildx imagetools
+   create` — a registry-side manifest copy, not an upload.
+3. The Dokploy production compose command is
+   `docker compose -p ieee-rewrite-i9ir8q --env-file .env -f ./docker-compose.yml up -d --pull always --remove-orphans`
+   (no `--build`), with `WEB_IMAGE=ghcr.io/phloraxx/ieee-sahrdaya-web:production`
+   in the environment. Compose pulls the image and recreates the container.
+
+Why the tree tag: a squash merge keeps the tree of the pull request, so the
+image built on the PR is exactly the image the merged commit runs. A merge that
+lands on a different tree (for example two PRs merging in sequence) is still
+covered, because CI publishes an image for every `main` push as well.
+
+**Failure modes**
+
+- The image is missing for the tested tree: CD stops before the webhook with an
+  explicit error and the old container keeps serving. Re-run the `web-image`
+  job, or use the break-glass script.
+- A pull fails at deploy time: Compose falls back to building that tag locally
+  from the checked-out commit, so the deploy still lands — slower, but correct.
+  (Verified: `up --pull always` builds when the pull fails and pulls when it
+  succeeds.)
+- Staging is unchanged: it keeps the default Dokploy command and builds locally.
+
+**Rollback**
+
+Every release keeps its immutable `:tree-<tree>` tag, and CD re-points
+`:production` at the tree of whatever commit it deploys. Repointing
+`deploy/production` to an earlier commit and re-running CD therefore rolls back
+both the code and the image, with no registry work by hand. The database caveat
+above still applies.
+
+`scripts/deploy-local.sh` builds the web image on the server and tags it with
+`WEB_IMAGE` from the environment file, so a hotfix does not need the registry at
+all; the next normal deploy pulls `:production` again and replaces it.
 
 ## Break-glass deployment (no GitHub)
 
