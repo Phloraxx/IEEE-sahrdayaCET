@@ -196,30 +196,45 @@ export function PixelWordmark({
         gsap.set([ieee, branch], { opacity: 0 });
       }
 
-      /* the mark comes apart as the section below takes the screen. The hero
-         section is the trigger: #events only exists when the programme has
-         data, and a missing trigger fires immediately at load. */
+      /* the mark comes apart while the programme sheet rises over the hero.
+         The sheet itself is the trigger, so the scrub stays locked to the
+         covering motion instead of to a scroll offset that can drift. */
+      const handoff = document.querySelector("[data-hero-handoff]");
       const heroSection = wrap.closest("section");
-      if (heroSection) {
+
+      if (handoff) {
+        /* The sheet's edge runs from the tagline (63% of the viewport) up past
+           the top of the wordmark (30%) across this one scrub. The mark falls
+           slightly ahead of the edge, bottom line first, so it reads as the
+           hero giving way to the section rather than being sliced by it. */
         scatter = gsap.timeline({
-          paused: true,
           scrollTrigger: {
-            trigger: heroSection,
-            start: "bottom 62%",
-            toggleActions: "play none none reverse",
+            trigger: handoff,
+            start: "top 63%",
+            end: "top 30%",
+            scrub: 0.3,
           },
         });
       } else {
-        scatter = gsap.timeline({ paused: true });
+        scatter = gsap.timeline({
+          paused: true,
+          scrollTrigger: heroSection
+            ? {
+                trigger: heroSection,
+                start: "bottom 62%",
+                toggleActions: "play none none reverse",
+              }
+            : undefined,
+        });
       }
       scatter.to(nodes, {
-        x: () => gsap.utils.random(-90, 90),
-        y: () => gsap.utils.random(60, 260),
-        rotate: () => gsap.utils.random(-80, 80),
+        x: () => gsap.utils.random(-30, 30),
+        y: () => gsap.utils.random(70, 200),
+        rotate: () => gsap.utils.random(-16, 16),
         opacity: 0,
-        ease: "none",
-        duration: 0.7,
-        stagger: { each: 0.0011, from: "random" },
+        ease: "power1.in",
+        duration: 0.5,
+        stagger: { amount: 0.4, from: "end" },
       });
     };
 

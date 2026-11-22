@@ -637,3 +637,28 @@
 @keyframes infinia-rainbow { 0%,100% { background-position:0% 50%; } 50% { background-position:100% 50%; } }
 @media (prefers-reduced-motion:reduce) { .infinia-nav-rainbow { animation:none; } }
 @media (forced-colors:active) { .infinia-nav-rainbow { background:none; color:LinkText; } }
+
+/* ── Homepage hero → programme handoff ────────────────────────────────
+   The hero stays pinned while the next section rises over it as a sheet.
+   The stage is taller than the hero by exactly the distance the handoff is
+   pulled up, so the rest of the page does not move. Keep the two numbers in
+   step; the wordmark's break-apart (PixelWordmark) is scrubbed against the
+   handoff element, not against the scrollbar. */
+.hero-stage { height: 200dvh; }
+.hero-handoff {
+  margin-top: -100dvh;
+  border-radius: 28px 28px 0 0;
+  background: #fff;
+  box-shadow: 0 -28px 60px -32px rgba(15, 23, 42, 0.28);
+}
+@media (max-width: 767px) {
+  .hero-stage { height: 200dvh; }
+  .hero-handoff { margin-top: -100dvh; border-radius: 20px 20px 0 0; }
+}
+/* A pinned hero plus a covering sheet is motion; reduce it to the plain
+   document order under the OS-level preference. */
+@media (prefers-reduced-motion: reduce) {
+  .hero-stage { height: auto; }
+  .hero-stage > div { position: static; height: auto; }
+  .hero-handoff { margin-top: 0; border-radius: 0; box-shadow: none; }
+}
