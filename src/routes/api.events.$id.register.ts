@@ -9,7 +9,7 @@
 import type { ActionFunctionArgs } from "react-router";
 import { requireApiUser } from "@/server/auth/session.server";
 import { createRegistration } from "@/server/registration/create";
-import { MAX_JSON_BYTES } from "@/server/http/api";
+import { discardOversizedBody, MAX_JSON_BYTES } from "@/server/http/api";
 
 function json(body: unknown, status: number): Response {
 	return new Response(JSON.stringify(body), {
@@ -32,6 +32,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
 	// any field was validated.
 	const declared = Number(request.headers.get("Content-Length") ?? "0");
 	if (Number.isFinite(declared) && declared > MAX_JSON_BYTES) {
+		await discardOversizedBody(request);
 		return json({ code: "BODY_TOO_LARGE", error: "Request body is too large" }, 413);
 	}
 
