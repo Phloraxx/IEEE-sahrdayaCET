@@ -135,6 +135,8 @@ export const COLLECTION_POLICIES: Record<string, CollectionPolicy> = {
 		read: "public",
 		write: "capability",
 		writeCapability: "events.edit",
+		// PocketBase exposed the relation as `society`; the column is `society_id`.
+		aliases: { society: "society_id" },
 		readPredicate: "is_deleted = 0",
 		publicRead: {
 			sql: "status IN ('published', 'completed')",
@@ -230,6 +232,8 @@ export const COLLECTION_POLICIES: Record<string, CollectionPolicy> = {
 		readCapability: "events.edit",
 		write: "capability",
 		writeCapability: "events.edit",
+		// The event setup screen asks for `event = …` / `society = …`.
+		aliases: { event: "event_id", society: "society_id" },
 		scopedRead: {
 			capability: "events.edit",
 			predicate: (scope) =>
@@ -245,6 +249,7 @@ export const COLLECTION_POLICIES: Record<string, CollectionPolicy> = {
 		readCapability: "reports.view",
 		write: "capability",
 		writeCapability: "reports.view",
+		aliases: { event: "event_id", registration: "registration_id", actor: "actor_id" },
 		scopedRead: {
 			capability: "reports.view",
 			predicate: (scope) =>
