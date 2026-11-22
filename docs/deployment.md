@@ -333,20 +333,22 @@ Staging intentionally returns `X-Robots-Tag: noindex, nofollow`. Its records may
 ## CI
 
 `.github/workflows/ci.yml` runs on pushes to `main` and `dev`, on pull requests,
-and on manual dispatch. The expensive gates run for pull requests into `dev`,
-final `main` pushes, and manual runs. A merged `dev` push or a `dev` → `main`
-pull request runs the lighter validation job without repeating clean-room,
-browser, and container work.
+and on manual dispatch.
 
-The workflow has three full gates:
+- **Every run:** runtime-script syntax, lint, typecheck, unit tests.
+- **`main`/`dev` pushes and `dev` pull requests:** the production web build.
+- **`main` pushes and `dev` pull requests:** the clean-room PocketBase boot and
+  backend smoke suites. No browser suite runs in CI; `bun run test:e2e` is a
+  local, seeded-database check.
+- **`dev` pull requests only:** Docker builds of the web and PocketBase images,
+  on **arm64** (the architecture production runs). Production builds its own
+  image inside Dokploy, so repeating that build on every `main` push only added
+  deploy latency.
 
-1. lint, typecheck, unit tests, and production web build;
-2. a clean-room PocketBase boot, backend invariant smoke suite, and Playwright Chromium tests;
-3. production Docker builds for the web and PocketBase images.
-
-The lighter merged-`dev` path still runs runtime syntax, lint, typecheck, unit tests,
-and the production web build for the exact SHA that staging CD may deploy. The final
-`main` push retains all three full gates, so CD's exact-SHA freshness check is not weakened.
+CI and the Dockerfile use Bun **1.4.5**. Bun 1.2.9's better-sqlite3 postinstall
+never returns under BuildKit on arm64; keeping the versions aligned means CI and
+the image build exercise the same installer. `actions/cache` restores
+`~/.bun/install/cache`, so a dependency install reuses downloaded packages.
 
 The clean-room backend starts with an empty PocketBase data directory. A successful run proves that committed migrations and hooks can construct a usable backend without depending on a long-lived database.
 
@@ -389,9 +391,31 @@ Each Dokploy Compose record tracks its matching custom-Git branch. The webhook i
 
 The deployment endpoint is exposed through a narrow Traefik route on `hooks.ieeesahrdaya.com`. Only `/api/deploy/compose/*` is routed to Dokploy; the dashboard, Swagger UI, and general API are not exposed on that host. The refresh token remains stored only in GitHub Secrets and Dokploy.
 
+## Break-glass deployment (no GitHub)
+
+`scripts/deploy-local.sh` exists for the case where GitHub Actions or the
+Dokploy webhook is unavailable and a fix cannot wait. It is the **only**
+sanctioned way to deploy outside the normal path.
+
+```bash
+sudo ./scripts/deploy-local.sh --dry-run     # print the plan
+sudo ./scripts/deploy-local.sh               # production: tests, build, switch
+sudo ./scripts/deploy-local.sh --staging     # staging
+sudo ./scripts/deploy-local.sh --skip-tests  # incident hotfix
+```
+
+It refuses to run unless the checkout is clean, is on `deploy/production` (or
+`deploy/staging`), and the operator passes an explicit confirmation. It installs
+dependencies, runs typecheck and the unit suite (unless skipped), builds the
+**web** service with the environment few people should touch, using the same
+Compose project and service name Dokploy uses, and recreates only `web`.
+PocketBase is left untouched. The health check waits for `/healthz` to report a
+living `renderCache`, which proves the new process is serving rather than the
+old one still draining.
+
 ## Do not manually replace Dokploy services
 
-Do not launch a second Compose file, fallback image, or manually created container under the same Dokploy Compose project/service name.
+Do not launch a second Compose file, fallback image, or manually created container under the same Dokploy Compose project/service name. The one exception is `scripts/deploy-local.sh`, which deliberately uses the existing Compose project and service so Dokploy still owns the record.
 
 A manual container can appear healthy while serving stale code and can shadow the service that Dokploy believes it manages. Source deployments must be performed through the repository CI/CD path or the canonical Dokploy project Compose configuration.
 
