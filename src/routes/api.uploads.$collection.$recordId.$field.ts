@@ -23,6 +23,7 @@ import { hasCapability, hasEventCapability, type Actor } from "@/server/authz/ca
 import { loadAssignments } from "@/server/workspace/service";
 import { json, methodNotAllowed, toErrorResponse } from "@/server/http/api";
 import { WorkspaceError } from "@/server/workspace/service";
+import { normalizeDeclaredImageType, sniffImageMime } from "@/server/uploads/sniff";
 
 /** Collection -> uploads subdirectory + the file columns it exposes. */
 const UPLOADABLE: Record<string, { dir: string; table: string; fields: readonly string[] }> = {
@@ -33,7 +34,9 @@ const UPLOADABLE: Record<string, { dir: string; table: string; fields: readonly 
 };
 
 const MAX_BYTES = 5 * 1024 * 1024;
-const ALLOWED_TYPES: Record<string, string> = {
+
+/** Extension for the type the *bytes* are, never the type the client claimed. */
+const EXTENSIONS: Record<string, string> = {
 	"image/png": ".png",
 	"image/jpeg": ".jpg",
 	"image/webp": ".webp",
@@ -120,10 +123,21 @@ export async function action({ request, params }: ActionFunctionArgs) {
 		if (file.size === 0) return json({ error: "The file is empty" }, 400);
 		if (file.size > MAX_BYTES) return json({ error: "The file is larger than 5 MB" }, 413);
 
-		const extension = ALLOWED_TYPES[file.type];
-		if (!extension) return json({ error: "Only PNG, JPEG, WebP or GIF images are accepted" }, 415);
+		const buffer = Buffer.from(await file.arrayBuffer());
+		// The declared type is only a hint; the bytes decide. This is what stops an
+		// SVG or an HTML polyglot declared as `image/png` from reaching `sharp`
+		// (and librsvg) at all.
+		const sniffed = sniffImageMime(buffer);
+		const declared = normalizeDeclaredImageType(file.type);
+		if (!sniffed) {
+			return json({ error: "The file is not a PNG, JPEG, WebP or GIF image" }, 415);
+		}
+		if (declared && declared !== sniffed) {
+			return json({ error: "The file content does not match its declared type" }, 415);
+		}
 
-		// The extension comes from the MIME type, never from the client filename.
+		// The extension comes from the sniffed bytes, never the client filename.
+		const extension = EXTENSIONS[sniffed];
 		const filename = `${randomUUID()}${extension}`;
 		const uploadsDir = resolve(getEnv().UPLOADS_DIR);
 		const recordDir = resolve(join(uploadsDir, spec.dir, recordId));
@@ -132,7 +146,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
 		}
 
 		await mkdir(recordDir, { recursive: true });
-		await writeFile(join(recordDir, filename), Buffer.from(await file.arrayBuffer()));
+		await writeFile(join(recordDir, filename), buffer);
 
 		const previous = String(row.rows[0][field] ?? "");
 		// pi-lens-ignore: sql-injection — same allow-listed identifiers as above.
@@ -154,4 +168,4 @@ export async function loader() {
 }
 
 /** Exported for the unit test that keeps the allow-list honest. */
-export const __testing = { UPLOADABLE, MAX_BYTES, ALLOWED_TYPES };
+export const __testing = { UPLOADABLE, MAX_BYTES, EXTENSIONS };

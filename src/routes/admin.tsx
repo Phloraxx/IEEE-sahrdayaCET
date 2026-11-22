@@ -1,5 +1,7 @@
 import { Navigate, Outlet, redirect, useLocation, useNavigation } from "react-router";
 import { getSessionUser } from "@/server/auth/session.server";
+import { hasWorkspaceAccess } from "@/server/authz/capabilities";
+import { loadAssignments } from "@/server/workspace/service";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AdminGuard } from "@/components/admin/admin-guard";
@@ -28,6 +30,17 @@ export const meta = () => [
 export async function loader({ request }: { request: Request }) {
   const context = await getSessionUser(request);
   if (!context) throw redirect("/", 302);
+
+  // A session alone is not workspace access. Without this, an ordinary member
+  // received the admin shell (200) and only the client guard moved them on.
+  const actor = { id: context.user.id, role: context.user.role };
+  const assignments = await loadAssignments(actor.id);
+  if (!hasWorkspaceAccess(actor, assignments)) {
+    throw new Response("Forbidden", {
+      status: 403,
+      headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+    });
+  }
   return null;
 }
 

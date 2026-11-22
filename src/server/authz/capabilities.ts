@@ -448,6 +448,24 @@ export function hasEventCapability(
 	);
 }
 
+/**
+ * May the actor enter the admin workspace at all?
+ *
+ * Deliberately `workspace.view` only: the individual screens and their APIs do
+ * their own capability checks, this is the gate that stops a signed-in ordinary
+ * member from receiving the admin shell.
+ */
+export function hasWorkspaceAccess(
+	actor: Actor | null | undefined,
+	assignments: readonly Assignment[] = [],
+	nowMs?: number,
+): boolean {
+	// `effectiveCapabilities` rather than `hasCapability(..., {})`: a society- or
+	// event-scoped assignment grants workspace access *inside that scope*, and the
+	// question here is only whether the actor may enter at all.
+	return effectiveCapabilities(actor, assignments, nowMs).includes("workspace.view");
+}
+
 /** Every capability the actor holds, sorted. */
 export function effectiveCapabilities(
 	actor: Actor | null | undefined,

@@ -103,4 +103,53 @@ test.describe("collection endpoint authorization", () => {
 		expect(body.totalItems).toBe(1);
 		expect(body.items).toHaveLength(1);
 	});
+
+	test("unpublished rows are visible only to staff", async () => {
+		// Events: drafts and cancelled events are not public state.
+		expect(await count("/api/collections/events?filter=status%3D'draft'", "")).toBe(0);
+		expect(await count("/api/collections/events?filter=status%3D'draft'", plainCookie)).toBe(0);
+		expect(await count("/api/collections/events?filter=status%3D'draft'", adminCookie)).toBeGreaterThan(0);
+
+		// Blogs: an unpublished post is a draft, not a public article.
+		expect(await count("/api/collections/blogs?filter=published%3Dfalse", "")).toBe(0);
+		expect(await count("/api/collections/blogs?filter=published%3Dfalse", plainCookie)).toBe(0);
+		expect(await count("/api/collections/blogs?filter=published%3Dfalse", adminCookie)).toBeGreaterThan(0);
+
+		// Societies: hidden rows are hidden from the directory and the API.
+		expect(await count("/api/collections/societies?filter=is_hidden%3D1", "")).toBe(0);
+		expect(await count("/api/collections/societies?filter=is_hidden%3D1", plainCookie)).toBe(0);
+		expect(await count("/api/collections/societies?filter=is_hidden%3D1", adminCookie)).toBeGreaterThan(0);
+	});
+
+	test("execom contact details are staff-only", async () => {
+		async function first(cookie: string) {
+			const response = await fetch(
+				`${BASE}/api/collections/execom?perPage=1&filter=${encodeURIComponent("email != ''")}`,
+				{ headers: cookie ? { Cookie: `${COOKIE}=${cookie}` } : {} },
+			);
+			expect(response.status).toBe(200);
+			const body = (await response.json()) as { items: Array<Record<string, unknown>> };
+			return body.items[0] ?? {};
+		}
+
+		const anonymous = await first("");
+		const plain = await first(plainCookie);
+		const staff = await first(adminCookie);
+
+		expect(anonymous.email).toBeUndefined();
+		expect(anonymous.phone).toBeUndefined();
+		expect(plain.email).toBeUndefined();
+		expect(staff.email).toBeTruthy();
+	});
 });
+
+async function count(path: string, cookie: string): Promise<number> {
+	const response = await fetch(`${BASE}${path}`, {
+		headers: cookie ? { Cookie: `${COOKIE}=${cookie}` } : {},
+	});
+	expect(response.status).toBe(200);
+	const body = (await response.json()) as { totalItems: number };
+	return body.totalItems;
+}
+
+const BASE = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3100";

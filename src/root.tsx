@@ -17,6 +17,8 @@ import {
 } from "@/server/http/cache";
 import { Toaster } from "@/components/ui/sonner";
 import { APP_URL } from "@/lib/constants";
+import { securityHeaders } from "@/lib/security-headers";
+import { isMutationOriginAllowed } from "@/server/http/origin";
 import { ORGANIZATION_SAME_AS } from "@/lib/social-links";
 import "@/features/globals.css";
 // Latin subsets only. The default entry points ship cyrillic, greek,
@@ -129,6 +131,62 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 /**
+ * `nosniff` on every response, including JSON and short-circuited errors.
+ *
+ * Document responses get it from `securityHeaders()`, but resource routes answer
+ * through their own helpers and a 403/429 is built before a route runs at all.
+ */
+async function nosniffMiddleware(
+	{ request: _request }: { request: Request },
+	next: () => Promise<Response>,
+): Promise<Response> {
+	const response = await next();
+	if (!response.headers.has("X-Content-Type-Options")) {
+		response.headers.set("X-Content-Type-Options", "nosniff");
+	}
+	return response;
+}
+
+/**
+ * Cross-site mutation guard.
+ *
+ * Runs before the rate limiter so a forged request is rejected without spending
+ * a bucket. The policy lives in `@/server/http/origin`; this is the wiring.
+ */
+async function originGuardMiddleware(
+	{ request }: { request: Request },
+	next: () => Promise<Response>,
+): Promise<Response> {
+	// Provider webhooks authenticate with an HMAC over the raw body, not with a
+	// cookie, and some providers send an Origin header. The signature is the
+	// control there; rejecting the request first would turn a valid delivery into
+	// a 403.
+	if (new URL(request.url).pathname.startsWith("/api/webhooks/")) return next();
+
+	const allowed = isMutationOriginAllowed(request, {
+		allowedOrigins: process.env.ALLOWED_ORIGINS,
+		siteUrl: process.env.SITE_URL,
+		appUrl: process.env.APP_URL,
+		requestOrigin: new URL(request.url).origin,
+	});
+
+	if (allowed) return next();
+
+	const { pathname } = new URL(request.url);
+	const json = pathname.startsWith("/api/");
+	return new Response(
+		json ? JSON.stringify({ error: "Cross-origin request rejected" }) : "Cross-origin request rejected",
+		{
+			status: 403,
+			headers: {
+				"Content-Type": json ? "application/json" : "text/plain; charset=utf-8",
+				"Cache-Control": "no-store",
+			},
+		},
+	);
+}
+
+/**
  * Rate limiting at the single place every request passes through.
  *
  * `react-router.config.ts` enables `v8_middleware`, so this runs before any
@@ -174,26 +232,13 @@ async function publicCacheMiddleware(
 	return response;
 }
 
-export const middleware = [rateLimitMiddleware, publicCacheMiddleware];
+export const middleware = [nosniffMiddleware, originGuardMiddleware, rateLimitMiddleware, publicCacheMiddleware];
 
 export function headers() {
   // The Content-Security-Policy is set in `entry.server.tsx`, not here: it needs
   // the per-request script nonce, which only exists once the document is being
   // rendered. See `src/lib/csp.ts` for the policy and why it needs a nonce.
-  const headers: Record<string, string> = {
-    "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "DENY",
-    "Referrer-Policy": "strict-origin-when-cross-origin",
-    "Permissions-Policy": "camera=(self), microphone=(), geolocation=(), payment=(), usb=()",
-  };
-
-  if (process.env.DEPLOY_ENV === "production") {
-    headers["Strict-Transport-Security"] = "max-age=31536000";
-  } else {
-    headers["X-Robots-Tag"] = "noindex, nofollow";
-  }
-
-  return headers;
+  return securityHeaders();
 }
 
 export default function App() {

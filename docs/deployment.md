@@ -243,6 +243,39 @@ origin; the OAuth redirect URI is `${APP_URL}/auth/google/callback`.
 
 Cloudflare terminates public HTTPS for the current hosts and forwards to the matching Traefik HTTP router. Do not enable an origin redirect that sends Cloudflare back to the same HTTPS URL; that creates a redirect loop.
 
+## Security controls
+
+**Headers.** Every document response carries `Strict-Transport-Security:
+max-age=31536000`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+`Referrer-Policy: strict-origin-when-cross-origin` and a restrictive
+`Permissions-Policy`. The CSP is nonce-based and built per response in
+`entry.server.tsx`. HSTS is sent regardless of `DEPLOY_ENV` (browsers ignore it
+over plain HTTP), so a missing or misspelt deploy environment cannot drop the pin.
+
+**Cross-site mutations.** `ALLOWED_ORIGINS` is enforced on every non-GET request
+that carries an `Origin`: same-origin and listed origins pass, anything else
+(including `Origin: null`) is a 403 before the rate limiter runs. A request with
+no `Origin` is allowed because no browser can attach the `SameSite=Lax` session
+cookie to it; the PayGate webhook relies on its signature instead.
+
+**Uploads.** The stored type is sniffed from the file's magic bytes and must match
+the declared MIME type. PNG, JPEG, WebP and GIF are accepted; SVG and HTML are
+rejected even when declared as `image/png`, so librsvg never sees browser-uploaded
+markup.
+
+**Collection visibility.** `/api/collections/*` applies publication state, not
+only deletion: events and blogs are public only when published/completed,
+societies only when not hidden, and execom `email`/`phone` are omitted. Staff
+with the matching capability (or an assignment scoped to the row) see the full
+set; a legacy `chair` keeps their own societies through `society_chairs`.
+
+**Workspace.** `/admin` requires `workspace.view`, not merely a session: an
+ordinary member gets a 403, not the admin shell.
+
+**CPU-heavy routes.** `/files/*?w=` resizing runs behind a two-slot gate with a
+bounded queue and a 90/minute per-IP allowance; a full queue answers 429 rather
+than joining an unbounded wait. Certificate rendering keeps its 30/minute rule.
+
 ## Environments
 
 ### Production

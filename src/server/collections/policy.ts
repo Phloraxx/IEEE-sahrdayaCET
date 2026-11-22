@@ -17,6 +17,7 @@
 import { query } from "@/lib/db.server";
 import {
 	activeAssignments,
+	authRole,
 	capabilitiesForRole,
 	hasCapability,
 	type Actor,
@@ -37,6 +38,28 @@ export interface CollectionPolicy {
 	writeCapability?: Capability;
 	/** Extra SQL predicate applied to every read (visibility rules). */
 	readPredicate?: string;
+	/**
+	 * Rows a non-staff caller may see, on top of `readPredicate`.
+	 *
+	 * Publication state is not an authorization decision the browser can make:
+	 * without this, `filter=status='draft'` listed every unpublished event, and
+	 * the same query on `blogs` returned unpublished posts with their content.
+	 *
+	 * `capability` is the staff bypass. An actor who holds it only at a narrower
+	 * scope sees the public rows plus the rows in that scope, so a society chair
+	 * keeps their drafts without seeing another society's.
+	 */
+	publicRead?: {
+		sql: string;
+		capability: Capability;
+		scope?: { societyColumn?: string; eventColumn?: string };
+	};
+	/**
+	 * Capability that may see everything in `publicOmit`. Without it, those
+	 * columns are stripped from the response (for anonymous *and* signed-in
+	 * callers, not just anonymous ones).
+	 */
+	publicOmitBypass?: Capability;
 	/** Columns a client may never write. */
 	readonlyColumns?: readonly string[];
 	/**
@@ -113,6 +136,12 @@ export const COLLECTION_POLICIES: Record<string, CollectionPolicy> = {
 		write: "capability",
 		writeCapability: "events.edit",
 		readPredicate: "is_deleted = 0",
+		publicRead: {
+			sql: "status IN ('published', 'completed')",
+			capability: "events.edit",
+			scope: { societyColumn: "society_id", eventColumn: "id" },
+		},
+		publicOmitBypass: "events.edit",
 		readonlyColumns: ["registered_count", "checked_in_count", "is_deleted"],
 		publicOmit: [
 			"is_deleted",
@@ -140,18 +169,32 @@ export const COLLECTION_POLICIES: Record<string, CollectionPolicy> = {
 		read: "public",
 		write: "capability",
 		writeCapability: "societies.edit",
+		publicRead: {
+			sql: "is_hidden = 0",
+			capability: "societies.edit",
+			scope: { societyColumn: "id" },
+		},
 	},
 	blogs: {
 		table: "blogs",
 		read: "public",
 		write: "capability",
 		writeCapability: "content.manage",
+		publicRead: {
+			sql: "published = 1",
+			capability: "content.manage",
+			scope: { societyColumn: "society_id", eventColumn: "event_id" },
+		},
 	},
 	execom: {
 		table: "execom",
 		read: "public",
 		write: "capability",
 		writeCapability: "execom.manage",
+		// Contact details are for the branch, not for an anonymous scrape of the
+		// directory. The public page renders names and roles only.
+		publicOmit: ["email", "phone"],
+		publicOmitBypass: "execom.manage",
 		// PocketBase's `order` field is `sort_order` in the schema.
 		aliases: { order: "sort_order" },
 	},
@@ -560,6 +603,83 @@ export async function actorReadScope(
 
 	if (!matched) return null;
 	return { societyIds: [...societyIds], eventIds: [...eventIds] };
+}
+
+/** Society ids a legacy `chair` owns, which have no assignment rows. */
+async function legacyChairSocietyIds(actor: Actor): Promise<string[]> {
+	if (authRole(actor) !== "chair") return [];
+	const found = await query<{ society_id: string }>(
+		"SELECT society_id FROM society_chairs WHERE user_id = ?",
+		[actor.id],
+	);
+	return found.rows.map((row) => row.society_id);
+}
+
+/** Build the "rows in my scope" half of a public visibility predicate. */
+export function scopePredicate(
+	scope: ScopedReadScope,
+	spec: { societyColumn?: string; eventColumn?: string },
+): { sql: string; params: unknown[] } | null {
+	const parts: Array<{ sql: string; params: unknown[] } | null> = [];
+	if (spec.societyColumn) parts.push(inList(spec.societyColumn, scope.societyIds));
+	if (spec.eventColumn) parts.push(inList(spec.eventColumn, scope.eventIds));
+	const present = parts.filter((part): part is { sql: string; params: unknown[] } => part !== null);
+	if (!present.length) return null;
+	return {
+		sql: `(${present.map((part) => part.sql).join(" OR ")})`,
+		params: present.flatMap((part) => part.params),
+	};
+}
+
+/**
+ * The predicate that keeps unpublished rows out of a non-staff read.
+ *
+ * `null` means "no extra restriction": either the collection has no publication
+ * state or the actor holds the bypass capability branch-wide.
+ */
+export async function resolvePublicRead(
+	policy: CollectionPolicy,
+	actor: Actor | null,
+): Promise<{ sql: string; params: unknown[] } | null> {
+	const config = policy.publicRead;
+	if (!config) return null;
+
+	if (actor && (await actorAllows("capability", config.capability, actor))) return null;
+
+	let scope: ScopedReadScope | null = null;
+	if (actor) {
+		scope = await actorReadScope(actor, config.capability);
+		if (actor.role === "chair") {
+			const chairs = await legacyChairSocietyIds(actor);
+			if (chairs.length) {
+				scope = {
+					societyIds: [...new Set([...(scope?.societyIds ?? []), ...chairs])],
+					eventIds: scope?.eventIds ?? [],
+				};
+			}
+		}
+	}
+
+	const scoped = scope && config.scope ? scopePredicate(scope, config.scope) : null;
+	if (scoped) return { sql: `(${config.sql} OR ${scoped.sql})`, params: scoped.params };
+	return { sql: `(${config.sql})`, params: [] };
+}
+
+/**
+ * Whether `publicOmit` applies to this reader.
+ *
+ * Applied to signed-in callers without the bypass capability too: a normal user
+ * is not staff just because they have a session.
+ */
+export async function omitsPublicColumns(
+	policy: CollectionPolicy,
+	actor: Actor | null,
+): Promise<boolean> {
+	if (!policy.publicOmit?.length) return false;
+	const capability = policy.publicOmitBypass ?? policy.publicRead?.capability;
+	if (!capability) return !actor;
+	if (!actor) return true;
+	return !(await actorAllows("capability", capability, actor));
 }
 
 /** Does the actor satisfy this access level? */
