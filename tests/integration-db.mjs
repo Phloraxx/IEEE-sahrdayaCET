@@ -2429,11 +2429,62 @@ try {
 			permanent.rows,
 		);
 
+		// --- the rolling daily cap stops a pass regardless of the batch size ---
+		process.env.MAIL_DAILY_LIMIT = "1";
+		const capped = await runOutboxPass({ limit: 10 });
+		check(
+			capped.capped === true && capped.sent === 0 && capped.sentToday >= 1,
+			"the daily send cap stops the pass",
+			capped,
+		);
+		delete process.env.MAIL_DAILY_LIMIT;
+
 		setTransportForTesting(null);
 		for (const [key, value] of Object.entries(savedEnv)) {
 			if (value === undefined) delete process.env[key];
 			else process.env[key] = value;
 		}
+	}
+
+	// -----------------------------------------------------------------------
+	// phase 10 — in-app backup: snapshot, archive, checksum, rotation
+	// -----------------------------------------------------------------------
+	{
+		const { runBackup } = await import("../src/server/jobs/backup.ts");
+		const { execFileSync } = await import("node:child_process");
+		const { createHash } = await import("node:crypto");
+		const { existsSync, readdirSync, readFileSync } = await import("node:fs");
+		const { join } = await import("node:path");
+
+		const backupDir = join(workDir, "backups");
+		process.env.BACKUP_DIR = backupDir;
+		process.env.BACKUP_KEEP = "1";
+		process.env.DEPLOY_ENV = "test";
+
+		const first = await runBackup();
+		check(existsSync(first.archive) && first.bytes > 0, "the backup writes an archive", first);
+		check(first.dbBytes > 0, "the database snapshot has bytes", first.dbBytes);
+
+		const listing = execFileSync("tar", ["-tzf", first.archive], { encoding: "utf8" });
+		check(
+			listing.includes("portal.db") && listing.includes("manifest.json"),
+			"the archive holds the database snapshot and manifest",
+			listing.split("\n").slice(0, 6),
+		);
+		check(
+			listing.split("\n").some((line) => line.startsWith("uploads/")),
+			"the archive holds the uploads tree",
+		);
+
+		const digest = createHash("sha256").update(readFileSync(first.archive)).digest("hex");
+		check(digest === first.sha256, "the reported sha256 matches the archive", first.sha256);
+
+		// Distinct millisecond, so the second archive has its own name.
+		await new Promise((resolve) => setTimeout(resolve, 15));
+		const second = await runBackup();
+		const archives = readdirSync(backupDir).filter((name) => name.endsWith(".tar.gz"));
+		check(archives.length === 1 && second.pruned === 1, "rotation keeps BACKUP_KEEP archives", archives);
+		check(second.archive !== first.archive, "each run writes a new archive", [first.archive, second.archive]);
 	}
 
 

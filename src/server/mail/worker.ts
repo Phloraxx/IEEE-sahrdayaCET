@@ -24,17 +24,67 @@ export interface OutboxPassResult {
 	failed: number;
 	blocked: number;
 	skipped: number;
+	/** Rows already sent in the trailing 24 hours, and the cap that applies. */
+	sentToday: number;
+	dailyLimit: number;
+	/** True when the daily cap, not the batch size, decided this pass. */
+	capped: boolean;
 	errors: string[];
 }
 
 const MAX_ATTEMPTS = 8;
 const LEASE_MINUTES = 10;
 
+/** Google Workspace allows 2,000 messages/day per account; keep headroom. */
+const DEFAULT_DAILY_LIMIT = 1500;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function dailyLimit(): number {
+	const parsed = Number.parseInt(process.env.MAIL_DAILY_LIMIT ?? "", 10);
+	return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_DAILY_LIMIT;
+}
+
+/**
+ * Messages actually sent in the trailing 24 hours.
+ *
+ * Gmail's quotas are rolling, per account, and shared with every other client —
+ * so the guard is counted from the outbox rather than from a per-process
+ * counter that a restart would reset.
+ */
+async function sentInLastDay(nowMs: number): Promise<number> {
+	const since = new Date(nowMs - DAY_MS).toISOString();
+	const result = await query<{ n: number }>(
+		`SELECT COUNT(*) AS n FROM notification_outbox WHERE status = 'sent' AND sent_at >= ?`,
+		[since],
+	);
+	return result.rows[0]?.n ?? 0;
+}
+
 export async function runOutboxPass(options: { limit?: number } = {}): Promise<OutboxPassResult> {
-	const limit = Math.max(1, Math.min(100, Math.floor(options.limit ?? 25)));
 	const now = Date.now();
 	const nowIso = new Date(now).toISOString();
 	const leaseCutoff = new Date(now - LEASE_MINUTES * 60 * 1000).toISOString();
+
+	const cap = dailyLimit();
+	const sentToday = await sentInLastDay(now);
+	const allowance = Math.max(0, cap - sentToday);
+	const requested = Math.max(1, Math.min(100, Math.floor(options.limit ?? 25)));
+	const limit = Math.min(requested, allowance);
+
+	if (limit <= 0) {
+		return {
+			at: new Date(now).toISOString(),
+			scanned: 0,
+			sent: 0,
+			failed: 0,
+			blocked: 0,
+			skipped: 0,
+			sentToday,
+			dailyLimit: cap,
+			capped: true,
+			errors: [],
+		};
+	}
 
 	const due = await query<OutboxRow>(
 		`SELECT * FROM notification_outbox
@@ -53,6 +103,9 @@ export async function runOutboxPass(options: { limit?: number } = {}): Promise<O
 		failed: 0,
 		blocked: 0,
 		skipped: 0,
+		sentToday,
+		dailyLimit: cap,
+		capped: allowance < requested,
 		errors: [],
 	};
 

@@ -355,6 +355,25 @@ export async function withTransaction<T>(fn: () => Promise<T>): Promise<T> {
 	}
 }
 
+/**
+ * Weekly housekeeping: refresh query-planner statistics and fold the WAL back
+ * into the database.
+ *
+ * Runs inside the connection lock, so it cannot interleave with a request. Both
+ * statements are short on a database this size; a long one would stall the event
+ * loop, which is why this is the only maintenance the app does in-process.
+ */
+export async function runMaintenance(): Promise<void> {
+	const release = await acquireConnection();
+	try {
+		const database = getDatabase();
+		database.pragma("optimize");
+		database.pragma("wal_checkpoint(TRUNCATE)");
+	} finally {
+		release();
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Error helpers
 // ---------------------------------------------------------------------------

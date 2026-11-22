@@ -8,6 +8,15 @@ import { isbot } from "isbot";
 import type { RenderToPipeableStreamOptions } from "react-dom/server";
 import { renderToPipeableStream } from "react-dom/server";
 import { buildContentSecurityPolicy } from "@/lib/csp";
+import { startScheduler } from "@/server/jobs/scheduler.server";
+
+/**
+ * The app owns its clock. This module is imported once per server process in
+ * production, so starting the runner here gives every deploy a scheduler without
+ * a host cron entry. See `src/server/jobs/scheduler.server.ts` for the why and
+ * the single-instance assumptions.
+ */
+startScheduler();
 
 export const streamTimeout = 5_000;
 

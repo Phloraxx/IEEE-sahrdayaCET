@@ -38,10 +38,17 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
       SMTP_TLS: ${SMTP_TLS:-false}
+      # In-process job runner: mail, payment expiry, sessions, backups.
+      # Blank means on in production; JOBS_ENABLED=0 turns it off.
+      JOBS_ENABLED: ${JOBS_ENABLED:-}
+      BACKUP_DIR: /app/backups
+      BACKUP_KEEP: ${BACKUP_KEEP:-14}
+      MAIL_DAILY_LIMIT: ${MAIL_DAILY_LIMIT:-1500}
       CERTIFICATE_RENDER_CAPABILITY_KEY: ${CERTIFICATE_RENDER_CAPABILITY_KEY:?CERTIFICATE_RENDER_CAPABILITY_KEY is required}
     volumes:
       - ${SQLITE_DATA_DIR:?SQLITE_DATA_DIR is required}:/app/data
       - ${UPLOADS_HOST_DIR:?UPLOADS_HOST_DIR is required}:/app/data/uploads
+      - ${BACKUP_HOST_DIR:-/home/drvij/ieee-backups/app}:/app/backups
     expose:
       - "3000"
     healthcheck:

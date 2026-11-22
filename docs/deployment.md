@@ -93,11 +93,9 @@ The safety policy is the same one PocketBase enforced:
 `live` outside production is refused, not treated as permission. Staging should
 use `allowlist` with one or two operator inboxes.
 
-Delivery runs as its own process, never inside a web request:
-
-```text
-* * * * *  npx tsx scripts/send-notifications.ts    (one pass, 25 rows, exits)
-```
+Delivery is driven by the app's own job runner (see **Scheduled work** below),
+never inside the request that queued the row. `scripts/send-notifications.ts`
+remains for a manual pass or a one-off probe.
 
 The worker claims a row with a conditional `UPDATE`, sends it, and records
 `sent` or `failed` with the exact error. Transient failures retry with backoff
@@ -113,6 +111,48 @@ that the inbox delivered it.
 Before enabling live mail, confirm DKIM, return-path SPF/MX and DMARC are
 published for the sending domain. Start DMARC monitoring with
 `v=DMARC1; p=none;`, then tighten once legitimate traffic aligns.
+
+## Scheduled work
+
+The web process owns its clock (`src/server/jobs/scheduler.server.ts`); there is
+no host cron entry. Every wall-clock minute it runs whatever is due:
+
+| Job | Cadence | What it does |
+| --- | --- | --- |
+| Notification outbox | every minute, 25 rows | sends due ticket / receipt / certificate mail |
+| Payment expiry | every minute | releases seats whose payment window closed |
+| Session pruning | hourly | deletes expired session rows |
+| Backup | daily (24h since the newest archive) | `VACUUM INTO` + uploads archive, rotated |
+| Maintenance | weekly | `PRAGMA optimize` + a WAL checkpoint |
+
+Why in-process: the timer ships with the app, reads the same environment and
+cannot drift from the schema. The cost is a **single-instance assumption** — the
+compose stack runs one web container. If it is ever scaled, the outbox claim and
+lease still prevent duplicate sends; backups would run in each replica, so scale
+only after moving the runner out.
+
+Rules the runner follows:
+
+- no overlapping ticks; the next wake is scheduled after the previous one ends,
+  aligned to the minute boundary;
+- a restart delays a job rather than skipping it (`isDue` compares against the
+  last run or the newest archive on disk);
+- a failed backup retries after an hour, not every minute;
+- queued mail is capped at `MAIL_DAILY_LIMIT` over a rolling 24 hours, because
+  Gmail's quota is per account and shared with every other client;
+- `GET /healthz` returns the scheduler state (`lastTickAt`, `lastError`) so the
+  watchdog can tell "running" from "alive".
+
+Backups are written to `BACKUP_DIR` (mounted from `BACKUP_HOST_DIR`) as
+`ieee-<env>-<timestamp>.tar.gz` containing `portal.db`, `manifest.json` and the
+uploads tree, keeping `BACKUP_KEEP` archives. Restore: stop the app, extract the
+archive into a scratch directory, check `manifest.json` and the file counts, then
+replace `portal.db` and `uploads/`; a snapshot already reports
+`PRAGMA integrity_check`, so a failed copy is never mistaken for a backup.
+
+`scripts/ieee-backup-export.sh` stays for the pre-cutover PocketBase volume and
+for offsite copies; once the SQLite deployment is live, the in-app archive is the
+primary one.
 
 ## Routing and networks
 

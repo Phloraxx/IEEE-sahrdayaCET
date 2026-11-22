@@ -26,6 +26,9 @@ async function main() {
 			failed: result.failed,
 			blocked: result.blocked,
 			skipped: result.skipped,
+			sentToday: result.sentToday,
+			dailyLimit: result.dailyLimit,
+			capped: result.capped,
 			errors: result.errors.slice(0, 5),
 		}),
 	);
