@@ -262,6 +262,11 @@ if (societyId) {
   check("hidden society not public", (await req(`/societies/${TEST_SLUG}`)).status === 404, "");
   const del = await req(`/api/collections/societies/${societyId}`, { method: "DELETE", cookie: admin.cookie });
   check("admin deletes society", del.status === 200 || del.status === 204, del.status);
+  const societyAudit = json(await req(`/api/collections/admin_audit_log?filter=${encodeURIComponent(`entity_id = '${societyId}'`)}&sort=-created&perPage=20`, { cookie: admin.cookie }));
+  const societyActions = (societyAudit?.items ?? []).map((row) => row.action);
+  check("society writes are audited", ["society.create", "society.update", "society.delete"].every((action) => societyActions.includes(action)), societyActions.join(","));
+  const updateRow = (societyAudit?.items ?? []).find((row) => row.action === "society.update");
+  check("society update audit keeps before/after", Boolean(updateRow?.before) && Boolean(updateRow?.after), `${updateRow?.before ?? ""} → ${updateRow?.after ?? ""}`);
 }
 const execomPayload = { name: TEST_EXECOM, position: "Audit", department: "Quality", batch: "2026", section: "A", order: 999 };
 const createdExecom = await req("/api/collections/execom", { method: "POST", cookie: admin.cookie, headers: { "Content-Type": "application/json" }, body: JSON.stringify(execomPayload) });
@@ -272,6 +277,26 @@ if (execomBody.id) {
   check("admin patches execom member", patch.status === 200 && json(patch)?.position === "Audit Lead", patch.status);
   const del = await req(`/api/collections/execom/${execomBody.id}`, { method: "DELETE", cookie: admin.cookie });
   check("admin deletes execom member", del.status === 200 || del.status === 204, del.status);
+  const execomAudit = json(await req(`/api/collections/admin_audit_log?filter=${encodeURIComponent(`entity_id = '${execomBody.id}'`)}&sort=-created&perPage=20`, { cookie: admin.cookie }));
+  const execomActions = (execomAudit?.items ?? []).map((row) => row.action);
+  check("execom writes are audited", ["execom_member.create", "execom_member.update", "execom_member.delete"].every((action) => execomActions.includes(action)), execomActions.join(","));
+}
+
+// ------------------------------------------- 9b. event write and FK behaviour
+const eventPayload = { title: "Staging Audit API Event", slug: "staging-audit-api-event", date: new Date(Date.now() + 86400e3).toISOString(), status: "draft" };
+const createdEvent = await req("/api/collections/events", { method: "POST", cookie: admin.cookie, headers: { "Content-Type": "application/json" }, body: JSON.stringify(eventPayload) });
+const eventRow = json(createdEvent) || {};
+check("admin creates event", [200, 201].includes(createdEvent.status) && Boolean(eventRow.id), `${createdEvent.status} ${createdEvent.body.slice(0, 120)}`);
+if (eventRow.id) {
+  const patch = await req(`/api/collections/events/${eventRow.id}`, { method: "PATCH", cookie: admin.cookie, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: "Staging Audit API Event (edited)" }) });
+  check("admin patches event", patch.status === 200 && json(patch)?.title === "Staging Audit API Event (edited)", patch.status);
+  const del = await req(`/api/collections/events/${eventRow.id}`, { method: "DELETE", cookie: admin.cookie });
+  check("admin deletes event", del.status === 204, del.status);
+  const eventAudit = json(await req(`/api/collections/admin_audit_log?filter=${encodeURIComponent(`entity_id = '${eventRow.id}'`)}&sort=-created&perPage=20`, { cookie: admin.cookie }));
+  const rows = eventAudit?.items ?? [];
+  const actions = rows.map((row) => row.action);
+  check("event writes are audited", ["event.create", "event.update", "event.delete"].every((action) => actions.includes(action)), actions.join(","));
+  check("event delete survives the FK", rows.some((row) => row.action === "event.delete" && row.entity_id === eventRow.id) && rows.some((row) => row.action === "event.delete" && row.event_id === null), JSON.stringify(rows.find((row) => row.action === "event.delete") ?? {}).slice(0, 160));
 }
 
 // ------------------------------------------------------------ 10. webhook

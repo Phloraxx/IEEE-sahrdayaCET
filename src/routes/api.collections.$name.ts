@@ -10,7 +10,8 @@
 
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { getSessionUser } from "@/server/auth/session.server";
-import { query } from "@/lib/db.server";
+import { query, withTransaction } from "@/lib/db.server";
+import { auditCollectionWrite } from "@/server/collections/audit";
 import {
 	COLLECTION_POLICIES,
 	actorAllows,
@@ -268,9 +269,14 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
 	// pi-lens-ignore: sql-injection — identifiers passed safeIdentifier()
 	// (regex + live-schema allow-list); every value is bound.
-	const created = await query<Record<string, unknown>>(
-		`INSERT INTO ${table} (${columnList}) VALUES (${placeholders}) RETURNING *`,
-		values,
-	);
-	return json(created.rows[0] ?? { id }, 201);
+	const created = await withTransaction(async () => {
+		const inserted = await query<Record<string, unknown>>(
+			`INSERT INTO ${table} (${columnList}) VALUES (${placeholders}) RETURNING *`,
+			values,
+		);
+		const row = inserted.rows[0] ?? { id };
+		await auditCollectionWrite({ actorId: actor?.id ?? null, collection: name, kind: "create", row });
+		return row;
+	});
+	return json(created, 201);
 }

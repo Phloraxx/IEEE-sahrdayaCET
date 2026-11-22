@@ -9,7 +9,8 @@
 
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { getSessionUser } from "@/server/auth/session.server";
-import { query } from "@/lib/db.server";
+import { query, withTransaction } from "@/lib/db.server";
+import { auditCollectionWrite } from "@/server/collections/audit";
 import {
 	COLLECTION_POLICIES,
 	actorAllows,
@@ -88,14 +89,22 @@ export async function action({ request, params }: ActionFunctionArgs) {
 	const scope = scopedWhere(policy, actor?.id ?? null);
 
 	// Existence is checked through the scoped clause, so a foreign id is a 404.
-	const existing = await query<{ id: string }>(
-		`SELECT "id" FROM ${table} WHERE ${scope.sql}`,
+	// The full row is also what the audit trail records as "before".
+	const existing = await query<Record<string, unknown>>(
+		`SELECT * FROM ${table} WHERE ${scope.sql}`,
 		[id, ...scope.params],
 	);
-	if (!existing.rows[0]) return json({ error: "The requested resource wasn't found." }, 404);
+	const existingRow = existing.rows[0];
+	if (!existingRow) return json({ error: "The requested resource wasn't found." }, 404);
 
 	if (request.method === "DELETE") {
-		await query(`DELETE FROM ${table} WHERE "id" = ?`, [id]);
+		await withTransaction(async () => {
+			// Audit before the delete: event_id/registration_id are foreign keys
+			// with ON DELETE SET NULL, and a row inserted afterwards would name a
+			// parent that no longer exists.
+			await auditCollectionWrite({ actorId: actor?.id ?? null, collection: name, kind: "delete", row: existingRow });
+			await query(`DELETE FROM ${table} WHERE "id" = ?`, [id]);
+		});
 		return new Response(null, { status: 204 });
 	}
 
@@ -121,9 +130,21 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
 	// pi-lens-ignore: sql-injection — every identifier here passed
 	// safeIdentifier() (regex + live-schema allow-list); every value is bound.
-	const updated = await query<Record<string, unknown>>(
-		`UPDATE ${table} SET ${assignments} WHERE "id" = ? RETURNING *`,
-		[...values, id],
-	);
-	return json(updated.rows[0] ?? { id });
+	const updated = await withTransaction(async () => {
+		const result = await query<Record<string, unknown>>(
+			`UPDATE ${table} SET ${assignments} WHERE "id" = ? RETURNING *`,
+			[...values, id],
+		);
+		const row = result.rows[0] ?? { id };
+		await auditCollectionWrite({
+			actorId: actor?.id ?? null,
+			collection: name,
+			kind: "update",
+			row,
+			before: existingRow,
+			changed: entries.map(([key]) => key),
+		});
+		return row;
+	});
+	return json(updated);
 }
