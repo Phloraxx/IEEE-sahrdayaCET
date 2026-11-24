@@ -5,6 +5,16 @@
  * a "self" policy cannot be bypassed by guessing an id. A record the actor does
  * not own is reported as 404, not 403: telling a stranger that an id exists is
  * itself a disclosure.
+ *
+ * The detail read applies the same row visibility and the same column
+ * projection as the list — a raw `SELECT *` here answered with columns the list
+ * had just stripped.
+ *
+ * A mutation re-reads the row inside its own transaction through the same scoped
+ * clause, and writes the audit pre-image from *that* read. Checking existence
+ * before the transaction and trusting it afterwards left a window in which the
+ * row could change (or be deleted and recreated) between the check and the
+ * write, and the audit row described a row that was no longer there.
  */
 
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
@@ -14,14 +24,23 @@ import { auditCollectionWrite } from "@/server/collections/audit";
 import {
 	COLLECTION_POLICIES,
 	actorAllows,
+	auditPreimage,
+	canonicalWriteBody,
+	hasFullVisibility,
+	normaliseWriteBody,
+	projectRow,
+	resolveProjection,
+	resolvePublicRead,
+	sameFieldValue,
 	tableColumns,
+	updateEntries,
+	validateWriteBody,
+	type CollectionPolicy,
 } from "@/server/collections/policy";
+import { json, readJsonBody } from "@/server/http/api";
 
-function json(body: unknown, status = 200): Response {
-	return new Response(JSON.stringify(body), {
-		status,
-		headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-	});
+function notFound(): Response {
+	return json({ error: "The requested resource wasn't found." }, 404);
 }
 
 function safeIdentifier(name: string, allowed: ReadonlySet<string>): string {
@@ -33,14 +52,25 @@ function safeIdentifier(name: string, allowed: ReadonlySet<string>): string {
 
 const TABLES = new Set(Object.values(COLLECTION_POLICIES).map((entry) => entry.table));
 
-/** Build the WHERE clause that scopes a single row to the actor. */
+/**
+ * Build the WHERE clause that scopes a single row to the actor.
+ *
+ * Identical to the list read: the static predicate, the publication policy, and
+ * the unconditional owner scope. A detail read used to skip `publicRead`, so
+ * `GET /api/collections/events/<draft-id>` returned an unpublished draft.
+ */
 function scopedWhere(
-	policy: (typeof COLLECTION_POLICIES)[string],
+	policy: CollectionPolicy,
 	actorId: string | null,
+	publicRead: { sql: string; params: unknown[] } | null,
 ): { sql: string; params: unknown[] } {
 	const parts = [`"id" = ?`];
 	const params: unknown[] = [];
 	if (policy.readPredicate) parts.push(`(${policy.readPredicate})`);
+	if (publicRead) {
+		parts.push(publicRead.sql);
+		params.push(...publicRead.params);
+	}
 	if (policy.read === "self" && policy.ownerColumn) {
 		parts.push(`"${policy.ownerColumn}" = ?`);
 		params.push(actorId ?? "");
@@ -61,15 +91,17 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 	}
 
 	const table = safeIdentifier(policy.table, TABLES);
-	const scope = scopedWhere(policy, actor?.id ?? null);
+	const publicRead = await resolvePublicRead(policy, actor);
+	const scope = scopedWhere(policy, actor?.id ?? null, publicRead);
 	const result = await query<Record<string, unknown>>(
 		`SELECT * FROM ${table} WHERE ${scope.sql}`,
 		[id, ...scope.params],
 	);
 
 	const row = result.rows[0];
-	if (!row) return json({ error: "The requested resource wasn't found." }, 404);
-	return json(row);
+	if (!row) return notFound();
+	const projection = resolveProjection(policy, await hasFullVisibility(policy, actor));
+	return json(projectRow(row, projection));
 }
 
 export async function action({ request, params }: ActionFunctionArgs) {
@@ -84,44 +116,82 @@ export async function action({ request, params }: ActionFunctionArgs) {
 		return json({ error: "Not authorized" }, actor ? 403 : 401);
 	}
 
+	// See the list route: the audit log, outbox and waitlist are append-only
+	// here because their owning command enforces the transitions.
+	if (policy.genericWrite === false) {
+		return json(
+			{ error: "This collection is written by its own command", code: "GENERIC_WRITE_DISABLED" },
+			405,
+		);
+	}
+
 	const table = safeIdentifier(policy.table, TABLES);
 	const columns = await tableColumns(policy.table);
-	const scope = scopedWhere(policy, actor?.id ?? null);
+	const publicRead = await resolvePublicRead(policy, actor);
+	const scope = scopedWhere(policy, actor?.id ?? null, publicRead);
+	const staff = await hasFullVisibility(policy, actor);
+	const projection = resolveProjection(policy, staff);
+	const actorId = actor?.id ?? null;
 
-	// Existence is checked through the scoped clause, so a foreign id is a 404.
-	// The full row is also what the audit trail records as "before".
-	const existing = await query<Record<string, unknown>>(
-		`SELECT * FROM ${table} WHERE ${scope.sql}`,
-		[id, ...scope.params],
-	);
-	const existingRow = existing.rows[0];
-	if (!existingRow) return json({ error: "The requested resource wasn't found." }, 404);
+	const readScoped = () =>
+		query<Record<string, unknown>>(`SELECT * FROM ${table} WHERE ${scope.sql}`, [id, ...scope.params]);
 
 	if (request.method === "DELETE") {
-		await withTransaction(async () => {
+		const deleted = await withTransaction(async () => {
+			// The row is read inside the transaction: a foreign id (or a row this
+			// actor may not touch) is a 404 here, and the audit image describes
+			// the row that is actually removed.
+			const existing = (await readScoped()).rows[0];
+			if (!existing) return null;
 			// Audit before the delete: event_id/registration_id are foreign keys
 			// with ON DELETE SET NULL, and a row inserted afterwards would name a
 			// parent that no longer exists.
-			await auditCollectionWrite({ actorId: actor?.id ?? null, collection: name, kind: "delete", row: existingRow });
+			await auditCollectionWrite({
+				actorId,
+				collection: name,
+				kind: "delete",
+				row: auditPreimage(existing, policy, staff, []),
+			});
 			await query(`DELETE FROM ${table} WHERE "id" = ?`, [id]);
+			return existing;
 		});
+		if (!deleted) return notFound();
 		return new Response(null, { status: 204 });
 	}
 
 	if (request.method !== "PATCH") return json({ error: "Method not allowed" }, 405);
 
-	let body: Record<string, unknown>;
-	try {
-		body = (await request.json()) as Record<string, unknown>;
-	} catch {
-		return json({ error: "Expected a JSON object" }, 400);
+	const body = await readJsonBody(request);
+	if (!body.ok) return json({ error: body.error, code: body.code }, body.status);
+
+	// The client keeps PocketBase's field names; the write half of that
+	// translation is validated here (an alias and its column that disagree are
+	// a 400, not an arbitrary winner).
+	const canonical = canonicalWriteBody(policy, body.body, columns);
+	if (canonical.refused) {
+		return json({ error: canonical.refused.error, code: canonical.refused.code }, canonical.refused.status);
+	}
+	if (!Object.keys(canonical.body).length) {
+		return json({ error: "No writable fields supplied", code: "NO_WRITABLE_FIELDS" }, 400);
 	}
 
-	const readonly = new Set(policy.readonlyColumns ?? []);
-	const entries = Object.entries(body).filter(
-		([key, value]) => columns.has(key) && !readonly.has(key) && key !== "id" && value !== undefined,
-	);
-	if (!entries.length) return json({ error: "No writable fields supplied" }, 400);
+	normaliseWriteBody(policy, canonical.body);
+	const invalid = validateWriteBody(policy, canonical.body, columns);
+	if (invalid) return json({ error: invalid.error, code: invalid.code }, invalid.status);
+
+	const entries = updateEntries(policy, canonical.body, columns, staff);
+	if (!entries?.length) {
+		// Only a collection with no update allow-list is closed here. A write that
+		// names only columns the policy keeps readonly is a bad request, not a
+		// success: it says the client thinks it can change something it cannot.
+		if (!policy.writableFields?.update?.length) {
+			return json({ error: "This collection cannot be edited here", code: "GENERIC_WRITE_DISABLED" }, 405);
+		}
+		return json(
+			{ error: "None of the supplied fields can be changed here", code: "NO_WRITABLE_FIELDS" },
+			400,
+		);
+	}
 
 	const assignments = entries
 		.map(([key]) => `${safeIdentifier(key, columns)} = ?`)
@@ -130,21 +200,32 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
 	// pi-lens-ignore: sql-injection — every identifier here passed
 	// safeIdentifier() (regex + live-schema allow-list); every value is bound.
-	const updated = await withTransaction(async () => {
-		const result = await query<Record<string, unknown>>(
-			`UPDATE ${table} SET ${assignments} WHERE "id" = ? RETURNING *`,
-			[...values, id],
-		);
-		const row = result.rows[0] ?? { id };
-		await auditCollectionWrite({
-			actorId: actor?.id ?? null,
-			collection: name,
-			kind: "update",
-			row,
-			before: existingRow,
-			changed: entries.map(([key]) => key),
-		});
+	const result = await withTransaction(async () => {
+		const existing = (await readScoped()).rows[0];
+		if (!existing) return null;
+
+		// A save that restates only the unchanged fields is what the admin forms
+		// produce when nothing was edited. Answer with the row, but do not append
+		// an audit row for a write that changes nothing.
+		const changed = entries.filter(([key, value]) => !sameFieldValue(existing[key], value));
+
+		await query(`UPDATE ${table} SET ${assignments} WHERE "id" = ?`, [...values, id]);
+
+		const row = (await readScoped()).rows[0];
+		if (!row) return null;
+		if (changed.length) {
+			const names = changed.map(([key]) => key);
+			await auditCollectionWrite({
+				actorId,
+				collection: name,
+				kind: "update",
+				row,
+				before: auditPreimage(existing, policy, staff, names),
+				changed: names,
+			});
+		}
 		return row;
 	});
-	return json(updated);
+	if (!result) return notFound();
+	return json(projectRow(result, projection));
 }

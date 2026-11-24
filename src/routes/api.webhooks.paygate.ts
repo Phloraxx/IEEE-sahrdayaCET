@@ -16,10 +16,8 @@
  */
 
 import type { ActionFunctionArgs } from "react-router";
-import { query, withTransaction } from "@/lib/db.server";
-import { applyProviderState, hasEventId } from "@/server/payments/apply";
-import { enqueueForRegistration } from "@/server/notifications/outbox";
-import { paymentConfirmationDisposition, recordPaidManualReview } from "@/server/payments/guard";
+import { query } from "@/lib/db.server";
+import { applyProviderPaymentToRegistration, hasEventId } from "@/server/payments/apply";
 import { syncPaymentLedger } from "@/server/payments/ledger";
 import {
 	PAYGATE_PROVIDER,
@@ -31,7 +29,19 @@ import {
 } from "@/server/payments/paygate";
 import { finalFeePaise } from "@/server/registration/helpers";
 
-const HANDLED = new Set(["payment.paid", "payment.expired", "payment.cancelled", "payment.late"]);
+/**
+ * The event types we can act on: the four v4 product statuses (the provider
+ * only publishes pending|paid|expired|cancelled), plus `late`, which older
+ * signed deliveries and the local lifecycle still produce. `payment.pending`
+ * from v4 is accepted as a no-op transition.
+ */
+const HANDLED = new Set([
+	"payment.paid",
+	"payment.expired",
+	"payment.cancelled",
+	"payment.pending",
+	"payment.late",
+]);
 
 function json(body: unknown, status: number): Response {
 	return new Response(JSON.stringify(body), {
@@ -112,125 +122,121 @@ export async function action({ request }: ActionFunctionArgs) {
 
 	// Narrow once: TypeScript does not carry the check into the transaction closure.
 	const eventType: string = body.type;
-	if (!HANDLED.has(eventType)) return json({ success: true, ignored: true, type: eventType }, 200);
+	// `late` stays accepted on purpose: it is not a PayGate v4 status (the
+	// provider only publishes pending|paid|expired|cancelled) but older signed
+	// deliveries and the local lifecycle still produce it, and it must keep
+	// landing in manual review rather than be acknowledged and dropped.
+	if (!HANDLED.has(eventType)) {
+		// A 4xx is not retried by the provider (only 408/425/429/5xx are), so an
+		// event we cannot interpret stops retrying and stays visible in its
+		// Activity log for an operator — where an unreachable 200/501 would
+		// either be retried eight times over two days or recorded as delivered.
+		return json({ code: "PAYGATE_EVENT_UNHANDLED", error: "Unsupported PayGate event type", type: eventType }, 422);
+	}
 
 	const rawPayment = body.data?.payment;
 	const normalized = normalizeProviderPayment(rawPayment);
 	const registrationId = String(normalized?.metadata.registration_id ?? "").trim();
-	if (!registrationId) return json({ success: true, ignored: true }, 200);
+	// Not ours to act on (no registration metadata). Acknowledged so the
+	// provider does not retry it for days.
+	if (!registrationId) return json({ success: true, ignored: true, reason: "no_registration" }, 200);
 
 	try {
-		// Set inside the transaction, consumed after it commits: an email must not
-		// be queued for a state change that then rolls back.
-		let notify = false;
-		const response = await withTransaction(async (): Promise<Response> => {
-			const found = await query<{
-				id: string;
-				event_id: string;
-				registration_status: string | null;
-				payment_status: string | null;
-				ticket_id: string | null;
-				coupon_code: string | null;
-				payment_data: string | null;
-				final_fee_paise: number;
-				discount_paise: number;
-				base_fee_paise: number;
-				amount: number | null;
-			}>("SELECT * FROM registrations WHERE id = ?", [registrationId]);
+		// Replay check first so a duplicate never re-applies a transition. The
+		// transition itself enqueues the ticket/receipt inside its transaction,
+		// so a confirmation can never commit without its delivery intent.
+		const found = await query<{
+			id: string;
+			event_id: string;
+			registration_status: string | null;
+			payment_status: string | null;
+			ticket_id: string | null;
+			coupon_code: string | null;
+			payment_data: string | null;
+			final_fee_paise: number;
+			discount_paise: number;
+			base_fee_paise: number;
+			amount: number | null;
+		}>("SELECT * FROM registrations WHERE id = ?", [registrationId]);
 
-			const registration = found.rows[0];
-			if (!registration) {
-				return json({ code: "REGISTRATION_NOT_FOUND", error: "Registration not found" }, 404);
-			}
-
-			const current = parseData(registration.payment_data);
-			if (current.provider !== PAYGATE_PROVIDER) {
-				return json(
-					{ code: "PAYMENT_PROVIDER_CONFLICT", error: "Registration is not assigned to PayGate" },
-					409,
-				);
-			}
-
-			// Replay: this exact event was already applied.
-			if (hasEventId(current, eventId)) {
-				const replayPayment = normalizeProviderPayment(rawPayment);
-				if (replayPayment) {
-					await syncPaymentLedger(registration, replayPayment, {
-						manualReview: current.manualReview === true,
-						reviewReason: String(current.reviewReason ?? ""),
-					});
-				}
-				return json({ success: true, message: "Already processed" }, 200);
-			}
-
-			const finalPaise = finalFeePaise(registration);
-			if (finalPaise <= 0 || finalPaise % 100 !== 0) {
-				return json(
-					{ code: "PAYGATE_EVENT_MISMATCH", error: "Registration amount is not compatible with PayGate" },
-					400,
-				);
-			}
-
-			const validated = validateProviderPayment(rawPayment, finalPaise / 100, {
-				paymentId: current.paymentId ? String(current.paymentId) : undefined,
-				externalId: registration.event_id,
-				registrationId: registration.id,
-			});
-			if (!validated.ok) {
-				return json({ code: "PAYGATE_EVENT_MISMATCH", error: validated.error }, 400);
-			}
-
-			// Money that arrives after the seat was released is parked, not applied.
-			if (validated.payment.status === "paid") {
-				const disposition = await paymentConfirmationDisposition(registration);
-				if (disposition.blocked) {
-					await recordPaidManualReview(
-						registration.id,
-						{
-							id: validated.payment.id,
-							payableAmountPaise: validated.payment.payableAmountPaise,
-							paidAt: validated.payment.paidAt,
-						},
-						registration.event_id,
-						disposition.reason,
-					);
-					await syncPaymentLedger(registration, validated.payment, {
-						manualReview: true,
-						reviewReason: disposition.reason,
-					});
-					return json({ success: true, action: "paid_manual_review" }, 200);
-				}
-			}
-
-			const result = await applyProviderState(
-				registration,
-				validated.payment,
-				eventType,
-				eventId,
-			);
-			if (result.action === "error") {
-				return json({ code: "PAYGATE_EVENT_MISMATCH", error: result.error }, 400);
-			}
-			notify = result.action === "confirm" || result.action === "noop";
-			return json({ success: true, action: result.action }, 200);
-		});
-
-		// Best-effort, like the PocketBase hook: a queueing failure must not fail
-		// the webhook, because the payment state is already committed.
-		if (notify) {
-			try {
-				await enqueueForRegistration(registrationId);
-			} catch (error) {
-				console.error("[paygate] notification enqueue failed:", error);
-			}
+		const registration = found.rows[0];
+		if (!registration) {
+			return json({ code: "REGISTRATION_NOT_FOUND", error: "Registration not found" }, 404);
 		}
 
-		return response;
+		const current = parseData(registration.payment_data);
+		if (current.provider !== PAYGATE_PROVIDER) {
+			return json(
+				{ code: "PAYMENT_PROVIDER_CONFLICT", error: "Registration is not assigned to PayGate" },
+				409,
+			);
+		}
+
+		// Replay: this exact event was already applied.
+		if (hasEventId(current, eventId)) {
+			const replayPayment = normalizeProviderPayment(rawPayment);
+			if (replayPayment) {
+				await syncPaymentLedger(registration, replayPayment, {
+					manualReview: current.manualReview === true,
+					reviewReason: String(current.reviewReason ?? ""),
+				});
+			}
+			return json({ success: true, message: "Already processed" }, 200);
+		}
+
+		// Everything below this line is authenticated: the provider signs its
+		// own events, so a refusal here means *we* could not apply it yet. It is
+		// answered non-2xx on purpose — the provider retries, and a transient
+		// rejection must not be recorded as "processed". PayGate retries 408,
+		// 425, 429 and 5xx, so the transient cases use 503 and a permanent
+		// mismatch uses 409 (acked, and surfaced in the provider's Activity log).
+		const finalPaise = finalFeePaise(registration);
+		if (finalPaise <= 0 || finalPaise % 100 !== 0) {
+			return json(
+				{ code: "PAYGATE_EVENT_MISMATCH", error: "Registration amount is not compatible with PayGate" },
+				409,
+			);
+		}
+
+		const validated = validateProviderPayment(rawPayment, finalPaise / 100, {
+			paymentId: current.paymentId ? String(current.paymentId) : undefined,
+			externalId: registration.event_id,
+			registrationId: registration.id,
+		});
+		if (!validated.ok) {
+			return json({ code: "PAYGATE_EVENT_MISMATCH", error: validated.error }, 409);
+		}
+
+		// One transition for webhook, poll and refresh: it re-reads the row under
+		// the write lock, parks money that arrived after the seat was released,
+		// and queues the ticket/receipt in the same transaction.
+		const result = await applyProviderPaymentToRegistration({
+			registrationId: registration.id,
+			payment: validated.payment,
+			eventType,
+			eventId,
+			revalidate: false,
+		});
+
+		if (result.action === "error") {
+			return json({ code: "PAYGATE_EVENT_MISMATCH", error: result.error }, 409);
+		}
+		if (!result.action) {
+			// A racing webhook, poll or refresh applied this first. Retrying with
+			// 5xx cannot help and would re-enter the same race, so it is acked.
+			return json(
+				{ code: "PAYGATE_EVENT_MISMATCH", error: "Registration changed while the event was applied" },
+				409,
+			);
+		}
+		return json({ success: true, action: result.action }, 200);
 	} catch (err) {
 		console.error(
 			"[paygate] webhook transaction failed:",
 			err instanceof Error ? err.message : "unknown",
 		);
+		// A 500 is retried by the provider, which is what a transient write
+		// failure needs.
 		return json(
 			{ code: "PAYGATE_WEBHOOK_FAILED", error: "Could not persist PayGate webhook state" },
 			500,

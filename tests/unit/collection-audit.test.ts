@@ -69,7 +69,38 @@ describe("collection audit rows", () => {
 		});
 
 		expect(input.action).toBe("user.delete");
-		expect(input.before).toMatchObject({ email: "person@example.com", google_sub: "[redacted]" });
+		// Both identifying values are redacted: the audit feed is readable by
+		// every scoped `reports.view` holder, and a deletion is explained by who
+		// and which row, not by the address.
+		expect(input.before).toMatchObject({ email: "[redacted]", google_sub: "[redacted]" });
+	});
+
+	it("does not copy a recipient address into the log", () => {
+		const input = collectionAuditInput({
+			actorId: "admin-1",
+			collection: "notification_outbox",
+			kind: "update",
+			row: { id: "out-1", recipient: "person@example.com", status: "sent" },
+			before: { id: "out-1", recipient: "person@example.com", status: "pending" },
+			changed: ["status"],
+		});
+
+		expect(input.after).toEqual({ status: "sent" });
+		expect(input.note).toBe("Updated status");
+	});
+
+	it("marks an opaque answer set rather than storing the answers", () => {
+		const input = collectionAuditInput({
+			actorId: "admin-1",
+			collection: "community_profiles",
+			kind: "update",
+			row: { id: "p1", department: "CSE", form_responses: '{"name":"A Person"}' },
+			before: { id: "p1", department: "CSE", form_responses: '{"name":"A Person"}' },
+			changed: ["department", "form_responses"],
+		});
+
+		expect(input.before).toEqual({ department: "CSE", form_responses: "[opaque]" });
+		expect(input.after).toEqual({ department: "CSE", form_responses: "[opaque]" });
 	});
 
 	it("keeps the event id on an event create", () => {

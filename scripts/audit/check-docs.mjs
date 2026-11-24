@@ -19,6 +19,8 @@ const LIVE_DOCS = [
 	"docs/security-architecture.md",
 	"docs/deployment.md",
 	"docs/release-checklist.md",
+	".opencode/skill/repo-docs/SKILL.md",
+	".opencode/skill/ops-watchdog/SKILL.md",
 ];
 
 const STALE = [
@@ -28,6 +30,14 @@ const STALE = [
 	[/DOCKPLOY_WEBHOOK_DEV/, "only DOCKPLOY_WEBHOOK_PROD remains"],
 	[/dev\s*(?:→|->)\s*(?:CI\s*(?:→|->)\s*)?deploy\/staging|dev\s*(?:→|->)\s*staging/, "dev no longer deploys staging through CD"],
 	[/\/api\s*(?:→|->)\s*PocketBase/, "the app server serves /api"],
+	[
+		/\/healthz[^\n]{0,80}(?:unconditionally|always returns 200|(?:returns|answers) \{? ?ok: ?true ?\}?)/i,
+		"/healthz is a readiness signal that answers 503; it is not unconditional",
+	],
+	[
+		/newest\s+`?\*?\.?zip\*?`?[^\n]{0,60}(?:verified|offsite)/i,
+		"a recent local archive is not an offsite copy; the watchdog requires an offsite verification marker",
+	],
 	[/PocketBase API is an application security boundary/, "the app server is the boundary"],
 	[/direct PocketBase OAuth/, "authentication is server-side Google OAuth with an opaque session cookie"],
 	[/BlogPosting/, "the blog product was removed"],
@@ -66,12 +76,28 @@ for (const file of allDocs) {
 }
 
 // 2. Current docs do not repeat retired facts.
+//
+// A line that has to name a retired fact in order to say it is retired can opt
+// out by ending with the marker `docs:retired-ok`. This is a per-line, visible
+// escape hatch: it is reserved for sentences that exist to correct the mistake
+// (a changelog of what stopped being true), never for ordinary prose that
+// happens to mention one of the words.
+const RETIRED_OK = /docs:retired-ok\s*$/;
 for (const file of LIVE_DOCS) {
 	if (!existsSync(join(ROOT, file))) continue;
 	const lines = readFileSync(join(ROOT, file), "utf8").split("\n");
+	let inFence = false;
 	for (const [index, line] of lines.entries()) {
+		if (/^\s*```/.test(line)) {
+			inFence = !inFence;
+			continue;
+		}
+		// A fenced block is a command or an example, not a claim: the repo-docs
+		// skill contains a `rg` line that lists the retired words on purpose.
+		if (inFence) continue;
 		// AGENTS.md is allowed to name a retired secret while documenting its retirement.
 		if (file === "AGENTS.md" && /DOCKPLOY_WEBHOOK_DEV/.test(line) && /unused/i.test(line)) continue;
+		if (RETIRED_OK.test(line)) continue;
 		for (const [pattern, why] of STALE) {
 			if (pattern.test(line)) problems.push(`${file}:${index + 1}: ${why}\n    ${line.trim().slice(0, 160)}`);
 		}

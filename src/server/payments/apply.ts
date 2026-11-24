@@ -1,9 +1,15 @@
 /**
  * Apply a provider state to a registration — port of `applyProviderState` from
- * `pb_hooks/paygate-helpers.js`.
+ * `pb_hooks/paygate-helpers.js`, plus the one transaction all three payment
+ * paths use.
  *
- * Called by the webhook and by reconciliation, so both paths converge on the
- * same state machine. Every branch is inside the caller's transaction.
+ * The signed webhook, the reconciliation pass's provider read and the attendee's
+ * "check this payment" refresh all end in `applyProviderPaymentToRegistration`,
+ * which re-reads the row under the write lock and then calls
+ * `applyProviderState`. So the three paths converge on one state machine and on
+ * one transaction: whichever arrives first wins, the others become no-ops, and
+ * the reservation state, ledger row and notification outbox rows commit or roll
+ * back together.
  *
  * The `noop` branch is deliberately non-mutating for provider state: a stale or
  * out-of-order terminal event must not regress a confirmed payment. It still
@@ -11,15 +17,24 @@
  * ledger (so an interrupted ledger write repairs itself).
  */
 
-import { query } from "@/lib/db.server";
+import { query, withTransaction } from "@/lib/db.server";
+import { enqueueForRegistration } from "@/server/notifications/outbox";
 import { finalFeePaise, generateTicketId } from "@/server/registration/helpers";
 import { recomputeCouponUsedCount, recomputeEventCounters } from "@/server/registration/waitlist";
+import { paymentConfirmationDisposition, recordPaidManualReview } from "./guard";
 import { syncPaymentLedger } from "./ledger";
 import {
 	PAYGATE_PROVIDER,
+	deploymentNamespace,
+	eventMatchesStatus,
+	eventTypeForStatus,
+	getConfig,
+	readProviderPayment,
 	resolveProviderTransition,
+	validateProviderPayment,
 	type ProviderPayment,
 	type Transition,
+	type TransitionAction,
 } from "./paygate";
 
 export interface ApplyRegistration {
@@ -157,7 +172,7 @@ export async function applyProviderState(
 	// `amount` alone would reject a migrated row whose paise column is set.
 	const expectedPaise = finalFeePaise(registration);
 
-	if (eventType !== `payment.${payment.status}`) {
+	if (!eventMatchesStatus(eventType, payment.status)) {
 		return { action: "error", error: "PayGate event type does not match payment status" };
 	}
 
@@ -244,6 +259,218 @@ export async function applyProviderState(
 		registration.id,
 	]);
 	return transition;
+}
+
+// ---------------------------------------------------------------------------
+// One scoped, idempotent transaction shared by poll, webhook and user refresh
+// ---------------------------------------------------------------------------
+
+/**
+ * Queue the ticket/receipt for a registration.
+ *
+ * `enqueueForRegistration` only writes outbox rows — it never transmits mail —
+ * so it is safe inside the transition's transaction. Returning its promise (not
+ * awaiting it) keeps the SQLite work on the transaction's connection.
+ */
+function enqueueWithinTransaction(registrationId: string): Promise<unknown> {
+	return enqueueForRegistration(registrationId);
+}
+
+export interface ProviderConfirmationResult {
+	/** The transition the state machine chose. `""` when the read could not be applied. */
+	action: TransitionAction | "";
+	error?: string;
+	/** Why nothing was applied: a stale read, a changed identity. */
+	reason?: string;
+	/** True when the caller's provider read must not be used (kept, retried later). */
+	retry?: boolean;
+	/** True when the registration row no longer exists. */
+	missing?: boolean;
+	registrationStatus?: string;
+	paymentStatus?: string;
+}
+
+/**
+ * Apply one confirmed provider payment to one registration, atomically.
+ *
+ * This is the single transition used by all three paths:
+ *   - the signed webhook (after its signature check and identity validation),
+ *   - the reconciliation pass's provider read,
+ *   - the attendee's "check this payment" refresh.
+ *
+ * It takes the write lock, re-reads the row, and re-validates against the live
+ * state — so a webhook, a poll and a user refresh that race produce one
+ * transition, and a stale read (the identity or amount changed since it was
+ * fetched) is refused rather than misapplied. The reservation state, the
+ * payment row and the outbox rows commit together; no SMTP runs here.
+ *
+ * Notifications are queued on `confirm` and on `noop`, matching the hook: a
+ * `noop` still repairs an outbox write that an earlier pass lost.
+ */
+export async function applyProviderPaymentToRegistration(input: {
+	registrationId: string;
+	payment: ProviderPayment;
+	eventType: string;
+	/** "" when the provider was polled rather than signed. */
+	eventId: string;
+	/**
+	 * Skip the provider identity/amount checks. Only for callers that already
+	 * validated this exact payload (the webhook) — and even then amount and
+	 * identity are re-checked against the live row below.
+	 */
+	revalidate?: boolean;
+}): Promise<ProviderConfirmationResult> {
+	return withTransaction(async (): Promise<ProviderConfirmationResult> => {
+		const found = await query<Record<string, unknown> & ApplyRegistration>(
+			`SELECT * FROM registrations WHERE id = ?`,
+			[input.registrationId],
+		);
+		const registration = found.rows[0];
+		if (!registration) return { action: "", missing: true };
+
+		const live = parseData(registration.payment_data);
+		if (live.provider !== PAYGATE_PROVIDER) {
+			return { action: "", reason: "provider_changed", retry: true };
+		}
+		// The read that produced this payment must still describe the live row.
+		if (live.paymentId && String(live.paymentId) !== input.payment.id) {
+			return { action: "", reason: "payment_id_changed", retry: true };
+		}
+
+		const finalPaise = finalFeePaise(registration);
+		if (finalPaise <= 0 || finalPaise % 100 !== 0) {
+			return { action: "", reason: "amount_not_payable" };
+		}
+
+		if (input.revalidate !== false) {
+			const validated = validateProviderPayment(input.payment, finalPaise / 100, {
+				paymentId: input.payment.id,
+				externalId: registration.event_id,
+				registrationId: registration.id,
+				environment: deploymentNamespace(),
+			});
+			if (!validated.ok) return { action: "", reason: validated.error };
+		} else if (input.payment.requestedAmountPaise !== finalPaise) {
+			return { action: "error", error: "Amount mismatch" };
+		}
+
+		// Money that arrives after the seat was released is parked, not applied.
+		if (input.payment.status === "paid") {
+			const disposition = await paymentConfirmationDisposition(registration);
+			if (disposition.blocked) {
+				await recordPaidManualReview(
+					registration.id,
+					{
+						id: input.payment.id,
+						payableAmountPaise: input.payment.payableAmountPaise,
+						paidAt: input.payment.paidAt,
+					},
+					registration.event_id,
+					disposition.reason,
+				);
+				await syncPaymentLedger(registration, input.payment, {
+					manualReview: true,
+					reviewReason: disposition.reason,
+				});
+				return { action: "manual_review", reason: disposition.reason };
+			}
+		}
+
+		const result = await applyProviderState(
+			registration,
+			input.payment,
+			input.eventType,
+			input.eventId,
+		);
+		if (result.action === "error") return { action: "error", error: result.error };
+
+		if (result.action === "confirm" || result.action === "noop") {
+			await enqueueWithinTransaction(registration.id);
+		}
+
+		const after = await query<{ registration_status: string; payment_status: string }>(
+			`SELECT registration_status, payment_status FROM registrations WHERE id = ?`,
+			[registration.id],
+		);
+		return {
+			action: result.action,
+			registrationStatus: after.rows[0]?.registration_status,
+			paymentStatus: after.rows[0]?.payment_status,
+		};
+	});
+}
+
+/**
+ * The attendee/admin "refresh this payment" operation.
+ *
+ * Reads the provider (bounded, validated) and applies the result through the
+ * shared transition. Unlike the old local-only refresh it can confirm a payment
+ * whose webhook was lost.
+ *
+ * The rule it must never break: **it may end a reservation only on an
+ * affirmative provider answer.** A 404 is not one — it can mean a wrong or
+ * versioned path, a key scoped to another merchant, or a retention window — so
+ * an initialised reservation is held for the reconciliation pass and for an
+ * operator instead of being released. A read that is switched off is reported
+ * as unverified, not as a provider outage.
+ */
+export async function syncRegistrationWithProvider(
+	registrationId: string,
+	options: { fetchImpl?: typeof fetch; timeoutMs?: number; now?: number } = {},
+): Promise<{
+	state: ProviderConfirmationResult;
+	providerReachable: boolean;
+	/** False when the provider read is switched off, so nothing could be checked. */
+	providerVerified: boolean;
+	probablyExpired: boolean;
+}> {
+	const read = await readProviderPayment(
+		await paymentIdFor(registrationId),
+		{ registrationId },
+		options.fetchImpl ?? fetch,
+		getConfig(),
+		options.timeoutMs,
+	);
+
+	if (read.kind === "ok") {
+		const state = await applyProviderPaymentToRegistration({
+			registrationId,
+			payment: read.payment,
+			eventType: eventTypeForStatus(read.payment.status),
+			eventId: "",
+		});
+		return { state, providerReachable: true, providerVerified: true, probablyExpired: false };
+	}
+
+	if (read.kind === "disabled") {
+		return {
+			state: { action: "", reason: "provider_read_disabled", retry: false },
+			providerReachable: true,
+			providerVerified: false,
+			probablyExpired: false,
+		};
+	}
+
+	// A 404, 401/403 scope, 429, timeout or contradictory body: hold and retry.
+	// In particular a 404 never releases an initialised reservation.
+	return {
+		state: {
+			action: "",
+			reason: read.kind === "invalid" ? "invalid_provider_response" : "provider_unavailable",
+			retry: true,
+		},
+		providerReachable: false,
+		providerVerified: false,
+		probablyExpired: false,
+	};
+}
+
+async function paymentIdFor(registrationId: string): Promise<string> {
+	const found = await query<{ payment_data: string | null }>(
+		"SELECT payment_data FROM registrations WHERE id = ?",
+		[registrationId],
+	);
+	return String(parseData(found.rows[0]?.payment_data ?? null).paymentId ?? "");
 }
 
 export { finalFeePaise };

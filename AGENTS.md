@@ -13,9 +13,14 @@ The application has **one** runtime service per environment: the `web` app serve
 It owns HTML, SSR, `/api/*`, authentication, file serving, and the SQLite
 database. There is no separate backend process.
 
-A PocketBase container still runs alongside it as a **rollback target only**. The
-app server does not read from it and must not be made to. Remove it once the
-cutover is confirmed stable.
+PocketBase is **retired from the default stack**. It stays defined in
+`docker-compose.yml` behind the `legacy-pocketbase` Compose profile so the
+`pb_data` volume keeps a definition, and it does not start on a normal deploy. The
+app server does not read from it and must not be made to; nothing routes to it,
+and it deliberately has no healthcheck (PocketBase 0.39 has no `/api/health` route). A docs:retired-ok
+deliberate start uses `docker-compose.legacy-pocketbase.yml`, which requires the
+original `PB_ENCRYPTION_KEY`. Removing the service or the volume is a separate
+decision, never a side effect of a tidy-up. docs:retired-ok
 
 ## Non-negotiable boundaries
 
@@ -42,16 +47,24 @@ src/server/public/            public credential-free SSR readers (direct SQLite)
 src/server/http/              shared HTTP helpers and the public cache policy
 src/lib/db.server.ts          the single SQLite connection and statement cache
 sqlite/schema.sql             the only schema source of truth
+src/lib/db-migrate.server.ts  schema version, forward migrations, boot refusals
 scripts/migrate-pb-to-sqlite.ts   PocketBase -> SQLite cutover
 scripts/ieee-backup-export.sh     database + uploads backup and restore
+scripts/backup-offsite-verify.sh  verified-offsite-copy marker (watchdog reads it)
+scripts/ieee-ops-watchdog.sh      host watchdog: disk, containers, backups, offsite
 scripts/audit/                    staging audit harness (fixtures, HTTP/API, UI, axe)
-.opencode/skill/                  project skills (staging-audit, repo-docs)
+.opencode/skill/                  project skills (staging-audit, ops-watchdog, repo-docs)
 src/features/                 feature UI
 src/components/               shared UI
+src/server/readiness.server.ts  what /healthz reports; fail = 503
+src/server/build-identity.server.ts  commit/tree baked into the image and reported by /healthz
+src/server/integrations.server.ts    which outbound integrations may act here
+src/server/jobs/backup-verify.ts     safe archive inspection + db/media coherence
+src/server/jobs/offsite-marker.ts    verified-offsite-copy marker interface
 Dockerfile                    app server build + Node 22 SSR runtime
 docker-compose.yml            production/staging service topology
 .github/workflows/ci.yml      automated quality gates
-.github/workflows/cd.yml      CI-gated Dokploy deployment trigger
+.github/workflows/cd.yml      CI-gated Dokploy deployment + post-deploy verification
 ```
 
 ## Routing and SSR
@@ -76,7 +89,7 @@ Choose the enforcement layer by intent:
 - API access control → the capability checks in `src/server/authz/` plus the route's own `requireApiUser`.
 - Record/state-transition invariant → a CHECK constraint or trigger in `sqlite/schema.sql`, or the service module that owns the transition.
 - Multi-record all-or-nothing operation → `withTransaction` in `src/lib/db.server.ts`.
-- New field/table/index/constraint → `sqlite/schema.sql`, plus a bump of `SCHEMA_VERSION` when the change is not purely additive.
+- New field/table/index/constraint → `sqlite/schema.sql`. A change to an existing table is a forward step in `src/lib/db-migrate.server.ts` plus a `SCHEMA_VERSION` bump there; a version bump alone does not alter a table. See `docs/sqlite-migrations.md`.
 
 Current transactional/privileged command areas include event registration, coupon sync, user role changes, payment confirmation, ticket/check-in operations, attendance, certificates, and payment reconciliation.
 
@@ -127,6 +140,7 @@ Preserve the existing page-specific visual language instead of flattening the si
 - Respect `prefers-reduced-motion`.
 - Do not make critical information hover-only or color-only.
 - Keep touch targets usable on mobile.
+- Keep the homepage identity and every homepage section visible without JavaScript (see "Homepage cold-load behaviour" in `DESIGN.md`).
 
 See `DESIGN.md` for the current design contract.
 
@@ -138,6 +152,8 @@ bun run lint
 bun run typecheck
 bun run test
 bun run build
+node scripts/generate-gallery-derivatives.mjs --check
+scripts/check-no-runtime-data.sh
 bun run test:e2e
 scripts/audit/run-staging-audit.sh
 ```
@@ -155,9 +171,17 @@ A change is not complete until it can survive a fresh SQLite database.
 
 `bun run test:integration` runs two suites against real databases: `tests/integration-db.mjs` exercises every repository method and schema invariant, and `tests/integration-migrate.mjs` proves the PocketBase → SQLite migration handles the data shapes staging never had.
 
-CI runs one `checks` job (lint, typecheck, unit, build), a short PocketBase smoke on PRs into `dev`, the clean-room migration suite and arm64 container builds on PRs into `main`/`main` pushes, and publishes the web image per commit tree. It does not run the Playwright suite; run `bun run test:e2e` locally when the change touches browser behaviour.
+CI runs `checks` (lint, typecheck, docs, unit, build) and `integration` (`test:integration` against real databases) on every push and PR, plus `release-gate`: the compiled app, seeded with a synthetic database, exercised over HTTP and in Chromium on loopback with providers faked or disabled. PRs into `main` and `main` pushes add arm64 container builds and publish the web image per commit tree. It does not run the full Playwright suite; run `bun run test:e2e` locally when the change touches browser behaviour. PocketBase suites are run by hand — see `docs/legacy-tooling.md`.
 
 Put backend authorization and transaction assertions in the integration suites. Browser E2E should cover SSR/navigation/SEO/guards and user-visible integration behavior.
+
+Runtime application data is never source. `sqlite/schema.sql` is; `portal.db`,
+its `-wal`/`-shm`/`-journal` sidecars, dumps and backups are not. `.gitignore`
+and `.dockerignore` keep new ones out of Git and out of the image, and
+`scripts/check-no-runtime-data.sh` fails if one is already in the index (for
+example after `git add -f`). It reads tracked names only — never file contents —
+and needs no history, so it works on a shallow checkout. If it fires, remove the
+path from the index with `git rm --cached`, not from the working tree.
 
 For regressions found on staging, add a test when practical before declaring the fix complete.
 
@@ -172,7 +196,8 @@ local worktree → scripts/deploy-local.sh --staging → staging
 
 Production CD reacts to successful CI on `main` only. It verifies that the SHA
 tested by CI is still the current `main` head, pins it to `deploy/production`,
-retags the image and calls the production Dokploy webhook. A `dev` push runs CI
+retags the image, calls the production Dokploy webhook and then verifies that
+`/healthz` reports the tested release's build fingerprint. A `dev` push runs CI
 but deploys nothing.
 
 Staging deploys from the machine you are working on with
@@ -185,8 +210,8 @@ only.
 The projects and persistent volumes are distinct:
 
 ```text
-production app/volume: ieee-rewrite-i9ir8q / ieee-rewrite-i9ir8q_pb_data  (rollback only)
-staging app/volume:    ieee-dev-staging     / ieee-dev-staging_pb_data     (rollback only)
+production app/volume: ieee-rewrite-i9ir8q / ieee-rewrite-i9ir8q_pb_data  (frozen, legacy profile)
+staging app/volume:    ieee-dev-staging     / ieee-dev-staging_pb_data     (frozen, legacy profile)
 
 Application data lives on host bind mounts, not in those volumes:
 production  SQLITE_DATA_DIR + UPLOADS_HOST_DIR
@@ -217,14 +242,29 @@ The web service reads its database from a bind mount, not from another container
 `/app/data/uploads`. They are separate mounts and can drift, so back them up
 together — see `docs/deployment.md` § Backup and rollback.
 
-The PocketBase service still runs on the private network as a rollback target.
-Do not add a dependency edge from `web` to it.
+`GET /healthz` is readiness, not liveness: it returns 503 when the database, the
+job runner or the backup cadence is unhealthy, and it publishes a build
+fingerprint that both deploy lanes compare against the release they shipped.
+Keep its body free of paths, hosts, error strings and commit SHAs; reasons belong
+on the admin data-health page.
+
+PocketBase does not run in the default stack: it is behind the
+`legacy-pocketbase` profile, nothing routes to it, and the app server does not read
+from it. Do not add a dependency edge from `web` to it, and do not treat starting
+it as a rollback. docs:retired-ok
+
+Staging must not act on production integration credentials. Paid registration
+initiation requires `PAYGATE_SANDBOX=true`, and `live` mail is refused outside
+production. Separating the remaining OAuth and relay credentials is operator work
+listed in `docs/release-checklist.md` § 10.
 
 Staging is configured with `DEPLOY_ENV=staging`, `SITE_URL=https://staging.ieeesahrdaya.com`, `noindex`, a staging-only encryption key, and disabled production integrations. Its initial data is a scrubbed snapshot of production; it diverges independently after creation.
 
 If staging or production serves stale code, inspect running container provenance before changing application code. A container created from a temporary Compose file can shadow the canonical service even when it is healthy.
 
 Never point staging at the production `pb_data` volume or the production `portal.db`, and never copy production OAuth, payment, SMTP, or other integration secrets into staging.
+
+If a container's provenance is unclear, `docker exec <container> cat /app/build/git-commit` names the commit it was built from, and `/healthz` reports a fingerprint of it.
 
 ## Production release gate
 
@@ -238,9 +278,9 @@ Before future production releases:
 4. get full CI green on the exact release candidate;
 5. deploy staging and run `scripts/audit/run-staging-audit.sh` (HTTP/API, every admin route, UI/rails/mobile, axe) plus any authenticated acceptance the change specifically needs;
 6. verify enabled production integrations and OAuth configuration;
-7. take a fresh production backup with `scripts/ieee-backup-export.sh` and confirm it restores;
+7. take a fresh production backup with `scripts/ieee-backup-export.sh` and confirm it restores, and confirm the newest offsite verification marker is fresh (`.opencode/skill/ops-watchdog/SKILL.md`);
 8. merge to `main` and let CI-gated CD deploy;
-9. perform post-deploy health, public-route, login, and safe authenticated checks.
+9. perform post-deploy health, public-route, login, and safe authenticated checks — CD has already verified the build identity, so a green CD run means the new image is serving.
 
 See `docs/release-checklist.md` for the detailed procedure.
 

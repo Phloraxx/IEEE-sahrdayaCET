@@ -35,8 +35,8 @@
 -- --------------------
 -- Every statement is safe to re-run: `CREATE TABLE IF NOT EXISTS`,
 -- `CREATE INDEX IF NOT EXISTS`, `DROP TRIGGER IF EXISTS` + `CREATE TRIGGER`.
--- The db layer applies the whole file inside one transaction and bumps
--- `PRAGMA user_version`, so a failure leaves no partial schema.
+-- `src/lib/db-migrate.server.ts` applies the whole file inside one transaction
+-- and bumps `PRAGMA user_version`, so a failure leaves no partial schema.
 --
 -- What is deliberately absent
 -- ---------------------------
@@ -51,10 +51,11 @@
 -- Changing a column
 -- -----------------
 -- This file creates tables; it cannot ALTER one that already exists. A change
--- to a column's type, nullability or CHECK (for example making
--- `certificates.registration_id` nullable, schema version 2) needs a rebuilt
--- database: re-run `scripts/migrate-pb-to-sqlite.ts` into a fresh file, or
--- delete a development database. `ensureSchema` cannot do it in place.
+-- to a column's type, nullability or CHECK (schema version 2 made
+-- `certificates.registration_id` nullable and added `volunteer_id`) is carried
+-- by a forward step in `src/lib/db-migrate.server.ts`, which rebuilds the table
+-- inside one transaction. The existing database is upgraded in place — it is not
+-- rebuilt and no data is lost. See `docs/sqlite-migrations.md`.
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------

@@ -644,6 +644,23 @@
    pulled up, so the rest of the page does not move. Keep the two numbers in
    step; the wordmark's break-apart (PixelWordmark) is scrubbed against the
    handoff element, not against the scrollbar. */
+
+/* ── Homepage subordinate reveal ──────────────────────────────────────
+   The wordmark itself never animates: it used to start transparent and wait
+   for hydration, which made it the LCP on slow phones. Only the subordinate
+   rows — the tagline and the three words — rise into place, and they do it
+   opaque to opaque: `--hero-reveal-shift` is the distance each element
+   travels, and there is no zero-opacity frame anywhere. `both` holds the
+   start transform for the delay and the final frame after it. The global
+   reduced-motion rule collapses the duration, leaving the final state. */
+@keyframes hero-reveal {
+  from { transform: translate3d(0, var(--hero-reveal-shift, 12px), 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+/* The hero's paper, painted from the stylesheet. The star canvas is a
+   client-only layer, so without this the wordmark's first paint would land on
+   an unpainted region until hydration. */
+.hero-stage { background: #f3f4ef; }
 .hero-stage { height: 200dvh; }
 .hero-handoff {
   margin-top: -100dvh;
@@ -661,4 +678,5 @@
   .hero-stage { height: auto; }
   .hero-stage > div { position: static; height: auto; }
   .hero-handoff { margin-top: 0; border-radius: 0; box-shadow: none; }
+  [data-hero-reveal] { animation: none !important; transform: none; }
 }

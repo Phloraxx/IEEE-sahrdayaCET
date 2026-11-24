@@ -29,7 +29,23 @@ const ENTITY_TYPES: Readonly<Record<string, string>> = {
 };
 
 /** Values that identify a person but are not needed to explain a change. */
-const REDACTED = new Set(["google_sub"]);
+const REDACTED = new Set([
+	"google_sub",
+	"email",
+	"phone",
+	"recipient",
+	"ip_hash",
+	"token_hash",
+	"session_token",
+]);
+
+/**
+ * Answer sets a registration carries: names, phone numbers and the answers to
+ * the event's own questions. An edit to one is worth an audit row; the answers
+ * themselves are not the audit trail's business, and `admin_audit_log` is read
+ * by every branch-scoped `reports.view` holder.
+ */
+const OPAQUE_FIELDS = new Set(["form_responses", "payment_data"]);
 
 export type CollectionWriteKind = "create" | "update" | "delete";
 
@@ -54,7 +70,15 @@ function snapshot(row: Record<string, unknown> | undefined, keys: Iterable<strin
 	const picked: Record<string, unknown> = {};
 	for (const key of keys) {
 		if (!(key in row)) continue;
-		picked[key] = REDACTED.has(key) ? "[redacted]" : row[key];
+		// A key that arrives as `[redacted]` was already sanitised by the route
+		// (it was the projected pre-image); leave it as it is.
+		if (row[key] === "[redacted]") {
+			picked[key] = "[redacted]";
+			continue;
+		}
+		if (REDACTED.has(key)) picked[key] = "[redacted]";
+		else if (OPAQUE_FIELDS.has(key)) picked[key] = "[opaque]";
+		else picked[key] = row[key];
 	}
 	return Object.keys(picked).length ? picked : undefined;
 }

@@ -17,6 +17,7 @@ import { EventArtworkPreview } from "@/components/events/EventArtworkPreview";
 import { EventBannerFallback } from "@/components/events/EventBannerFallback";
 import { useAuth } from "@/lib/auth-context";
 import { htmlToPlainText } from "@/lib/rich-text";
+import { buildSrcSet } from "@/lib/image-srcset";
 import { getWorkspaceMe } from "@/lib/data/workspace.client";
 import { formatDate, formatEventTime } from "@/lib/dates";
 import { isPastEvent } from "@/lib/event-lifecycle";
@@ -27,6 +28,9 @@ import type { Society } from "@/types";
 
 type SocietyEvent = SocietyPageData["events"][number];
 type SocietyMember = SocietyPageData["members"][number];
+
+/** Two columns on phones, three on tablet, four from `lg`. */
+const SOCIETY_MEMBER_SIZES = "(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw";
 
 export interface SocietyDetailViewProps {
   page: SocietyPageData;
@@ -47,10 +51,13 @@ function eventState(event: SocietyEvent) {
 }
 
 function MemberPortrait({ member, accent }: { member: SocietyMember; accent: string }) {
+  // Society member portraits are uploads; the card is 4/5 in a two-or-three
+  // column grid, so `sizes` keeps the browser off the full-resolution original.
+  const srcSet = buildSrcSet(member.photoUrl);
   return (
     <div className="relative aspect-[4/5] overflow-hidden bg-white/[0.055]">
       {member.photoUrl ? (
-        <img src={member.photoUrl} alt={member.name} loading="lazy" className="h-full w-full object-cover object-top transition duration-500 group-hover:scale-[1.025]" />
+        <img src={member.photoUrl} srcSet={srcSet} sizes={srcSet ? SOCIETY_MEMBER_SIZES : undefined} alt={member.name} loading="lazy" decoding="async" className="h-full w-full object-cover object-top transition duration-500 group-hover:scale-[1.025]" />
       ) : (
         <div className="grid h-full place-items-center" style={{ backgroundColor: `${accent}16` }}>
           <span className="text-4xl font-semibold text-white/70">{personInitials(member.name)}</span>
@@ -176,7 +183,7 @@ export function SocietyDetailView({ page, directory }: SocietyDetailViewProps) {
       {society.bannerUrl && (
         <figure className="mx-auto max-w-[1440px] border-x border-b border-black/10 bg-[#111315]">
           <div className="relative aspect-[16/8] overflow-hidden sm:aspect-[16/6] lg:aspect-[16/5]">
-            <img src={society.bannerUrl} alt={`${society.name} chapter`} className="h-full w-full object-cover" />
+            <img src={society.bannerUrl} alt={`${society.name} chapter`} loading="lazy" decoding="async" className="h-full w-full object-cover" />
             <div className="absolute inset-0 bg-linear-to-t from-black/45 via-transparent to-transparent" />
             <figcaption className="absolute bottom-4 left-5 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-white/65 sm:left-8">Chapter frame / {code}</figcaption>
           </div>

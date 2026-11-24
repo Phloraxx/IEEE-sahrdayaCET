@@ -59,8 +59,8 @@ Check these with `rg` before declaring docs done:
 
 - **Deployment lanes** — production: `dev → main` PR → CI → CD → Dokploy pulls
   `:production`. Staging: `./scripts/deploy-local.sh --staging` from the
-  worktree. `dev` pushes run CI but deploy nothing. `deploy/staging`,
-  `DOCKPLOY_WEBHOOK_DEV` and the staging GitHub environment are retired.
+  worktree. `dev` pushes run CI but deploy nothing; the old `deploy/staging` ref, docs:retired-ok
+  `DOCKPLOY_WEBHOOK_DEV` and the staging GitHub environment are retired. docs:retired-ok
 - **Image flow** — arm64 image per commit tree, `:production` moved by
   `docker buildx imagetools create`, rollback by repointing `deploy/production`.
 - **Runtime** — one app server; SQLite is the only database; PocketBase is a
@@ -69,12 +69,31 @@ Check these with `rg` before declaring docs done:
   sitemap entries or JSON-LD for it. Historical rows still exist in the database.
 - **Audit trail** — command routes, generic collection create/update/delete and
   image uploads all write `admin_audit_log` in the same transaction.
-- **CI jobs** — `checks`, `smoke-backend` (dev PRs), `clean-room-backend`
-  (main PRs/main), `container-builds`, `web-image`. The browser suite is local.
+- **CI jobs** — `checks`, `integration`, `release-gate`, `web-image`.
+  PocketBase smoke, clean-room and Dockerfile validation are retired; run the
+  suites by hand with `scripts/legacy-pocketbase-ci.sh` (see
+  `docs/legacy-tooling.md`). The full browser suite is local.
 - **Versions** — read `package.json`; do not trust prose. Vite is 8.3,
   React Router 7.18, React 19, Bun 1.4.5 in CI.
-- **Health and discovery** — `/healthz` exists; `/api/health` does not.
-  Production serves `/sitemap.xml`; staging answers 404 and sends `noindex`.
+- **Health and discovery** — `/healthz` exists and is a readiness signal (503
+  when the database, job runner or backup cadence is unhealthy) that carries a
+  build fingerprint; `/api/health` does not exist. Production serves docs:retired-ok
+  `/sitemap.xml`; staging answers 404 and sends `noindex`.
+- **Deploy verification** — CD and `scripts/deploy-local.sh` compare the
+  tree-only build fingerprint `/healthz` reports against the tree of the image CI
+  published. A merge commit keeps the tree but changes the SHA, so the gate never
+  hashes the commit. A Dokploy webhook `200` is not a verified deploy.
+- **Readiness** — `/healthz` is 503 only for minimum viable service (the database
+  cannot answer). A stale backup or a paused runner is a diagnostic: reported,
+  alerted by the watchdog, never a 503.
+- **Backups** — a recent local archive is not an offsite copy. The watchdog needs
+  an upload marker (`--mode upload`, metadata is enough, 31 h) and, when enabled, a
+  separate restore drill marker (90 days). A daily full read-back is not required
+  and would blow B2's free egress.
+- **Integration safety** — PayGate is permitted in production and requires
+  `PAYGATE_SANDBOX=true` everywhere else;
+  staging must not act on production payment or mail credentials. Remaining
+  credential separation is operator work in `docs/release-checklist.md` § 10.
 - **Staging DB** — never open it from the host with `sqlite3`; it leaves WAL
   files owned by your user and breaks container writes.
 

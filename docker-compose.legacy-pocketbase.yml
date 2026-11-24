@@ -1,0 +1,37 @@
+# Legacy PocketBase rollback target — deliberate, temporary start.
+#
+# PocketBase is retired from the default stack (docker-compose.yml) and sits
+# behind the `legacy-pocketbase` profile. This override exists for the one
+# situation where an operator really does want it running: recovering data from
+# `pb_data` during a rollback investigation. It is NOT a rollback procedure — the
+# app server owns the data now, and returning traffic to PocketBase would strand
+# every write made since the cutover (docs/deployment.md § Rollback).
+#
+# Use it together with the profile, so both must be chosen on purpose:
+#
+#   docker compose \
+#     -f docker-compose.yml \
+#     -f docker-compose.legacy-pocketbase.yml \
+#     --profile legacy-pocketbase \
+#     --env-file .env \
+#     up -d pocketbase
+#
+# Why the override: PocketBase 0.39.9 starts with an EMPTY PB_ENCRYPTION_KEY
+# (verified against the pinned binary) and then has no at-rest encryption, while
+# settings it wrote under a real key become unreadable. A service behind a
+# profile cannot be made to require the variable in the default file without
+# breaking `docker compose config` for every normal deploy, because Compose
+# interpolates services it will not start. This file is only read when an operator
+# asks for it, so here the variable can be genuinely required.
+#
+# Removing the container afterwards leaves `pb_data` and its volume name alone:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.legacy-pocketbase.yml \
+#     --profile legacy-pocketbase stop pocketbase
+#
+# Do not delete the volume, and do not point staging at this volume.
+services:
+  pocketbase:
+    restart: "no"
+    environment:
+      PB_ENCRYPTION_KEY: ${PB_ENCRYPTION_KEY:?set PB_ENCRYPTION_KEY to the ORIGINAL value from the secret store before starting the legacy rollback target}

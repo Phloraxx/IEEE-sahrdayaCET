@@ -5,16 +5,37 @@ services:
     # command, which drops --build and adds --pull always). Staging and
     # scripts/deploy-local.sh leave WEB_IMAGE unset and build locally, which
     # needs no registry account.
+    #
+    # Build identity. GIT_COMMIT/GIT_TREE/GIT_BUILT_AT are passed as build args
+    # so the image can say what it is (`/healthz` reports a fingerprint of them,
+    # /admin/data-health the full identity). Empty is allowed and means "source
+    # build" — a bare `docker compose build web` still works and the deployment
+    # reports `source` rather than claiming a commit it does not know.
+    # scripts/deploy-local.sh passes them; production gets them from the image CI
+    # built, so the pull path ignores these args entirely.
+    # A non-empty digest is set by the deploy script after the build when it can
+    # resolve one, and left empty otherwise; it is informational.
     image: ${WEB_IMAGE:-ieee-sahrdaya-web:local}
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-}
+        GIT_TREE: ${GIT_TREE:-}
+        GIT_BUILT_AT: ${GIT_BUILT_AT:-}
     restart: unless-stopped
     environment:
       NODE_ENV: production
       PORT: "3000"
       DEPLOY_ENV: ${DEPLOY_ENV:?DEPLOY_ENV is required}
       SITE_URL: ${SITE_URL:?SITE_URL is required}
+      # Build identity as this process sees it. The image carries the same three
+      # values; these override a pulled image whose args were baked elsewhere, so
+      # a container recreated from an old local build cannot claim a new commit.
+      GIT_COMMIT: ${GIT_COMMIT:-}
+      GIT_TREE: ${GIT_TREE:-}
+      GIT_BUILT_AT: ${GIT_BUILT_AT:-}
+      GIT_IMAGE_DIGEST: ${GIT_IMAGE_DIGEST:-}
       # SQLite app-server storage (bind-mounted from the host).
       SQLITE_PATH: /app/data/portal.db
       UPLOADS_DIR: /app/data/uploads
@@ -47,6 +68,11 @@ services:
       # In-process job runner: mail, payment expiry, sessions, backups.
       # Blank means on in production; JOBS_ENABLED=0 turns it off.
       JOBS_ENABLED: ${JOBS_ENABLED:-}
+      # Integration safety (src/server/integrations.server.ts). PayGate
+      # initiation refuses unless this deployment declares its endpoint a
+      # sandbox; staging must never inherit production payment credentials and
+      # act on them.
+      PAYGATE_SANDBOX: ${PAYGATE_SANDBOX:-false}
       BACKUP_DIR: /app/backups
       BACKUP_KEEP: ${BACKUP_KEEP:-14}
       MAIL_DAILY_LIMIT: ${MAIL_DAILY_LIMIT:-1500}
@@ -82,28 +108,61 @@ services:
       - traefik.http.services.${ROUTER_KEY:?ROUTER_KEY is required}.loadbalancer.server.port=3000
       - traefik.http.routers.${ROUTER_KEY:?ROUTER_KEY is required}.service=${ROUTER_KEY:?ROUTER_KEY is required}
 
-  # PocketBase is kept running as a rollback target. The web service no
-  # longer depends on it after the SQLite cutover. Do not remove it until
-  # the SQLite deployment is confirmed stable. It carries no Traefik labels:
-  # the app server owns the host, including /api, so a router here would
-  # compete with the web router for the same paths.
+  # PocketBase is RETIRED from the default stack (2026-11-23). The live site
+  # runs entirely on the app server and its SQLite database; nothing routes to
+  # this service, the app server does not read from it, and it must not start
+  # with a normal deploy. It is kept, behind an explicit Compose profile, so the
+  # `pb_data` volume stays attached to a definition and the old API can be
+  # brought back deliberately:
+  #
+  #   docker compose --profile legacy-pocketbase up -d pocketbase
+  #
+  # The volume key and service name are unchanged, so the existing
+  # `<project>_pb_data` volume and its archive names are preserved. Do not remove
+  # the volume, and do not "roll back" to this container: its data has been
+  # frozen since the cutover, so a database rollback is a restore from backup
+  # (docs/deployment.md § Rollback), not a swap back to PocketBase.
+  #
+  # Because a profile is not started by default, nothing in the default path may
+  # require PocketBase-only values.
+  #
+  # Compose interpolates *every* service during `config`, including one behind a
+  # profile that will not start, so `${PB_ENCRYPTION_KEY:?...}` here would break a
+  # normal `docker compose config` / `up` on a host that has no such variable.
+  # The legacy-only values are therefore optional here.
+  #
+  # PB_ENCRYPTION_KEY being absent does not stop PocketBase 0.39.9 — verified
+  # against the pinned binary: it starts and serves with an empty
+  # --encryptionEnv value. What it does mean is that there is no at-rest
+  # encryption, so settings written earlier under a real key are not readable.
+  # That is why the legacy profile is a diagnosed inspection tool, not a normal
+  # start: an operator bringing it back must set the original key from their
+  # secret store first. `docker-compose.legacy-pocketbase.yml` is the guard rail:
+  # it is only read when an operator asks for it, so there the variable can be
+  # genuinely required. docs:retired-ok
+  #
+  # Validate the default path with:
+  #
+  #   docker compose --env-file .env config -q      # web only; legacy not required
+  #   docker compose --profile legacy-pocketbase --env-file .env config  # adds PB
   pocketbase:
+    profiles:
+      - legacy-pocketbase
     build:
       context: .
       dockerfile: pocketbase/Dockerfile
       args:
         PB_VERSION: "0.39.9"
-    restart: unless-stopped
+    restart: "no"
     environment:
       DEPLOY_ENV: ${DEPLOY_ENV:?DEPLOY_ENV is required}
-      PB_ENCRYPTION_KEY: ${PB_ENCRYPTION_KEY:?PB_ENCRYPTION_KEY is required}
+      SITE_URL: ${SITE_URL:?SITE_URL is required}
+      PB_ENCRYPTION_KEY: ${PB_ENCRYPTION_KEY:-}
+      CERTIFICATE_RENDER_CAPABILITY_KEY: ${CERTIFICATE_RENDER_CAPABILITY_KEY:-}
       PAYGATE_URL: ${PAYGATE_URL:-}
       PAYGATE_API_KEY: ${PAYGATE_API_KEY:-}
       PAYGATE_WEBHOOK_SECRET: ${PAYGATE_WEBHOOK_SECRET:-}
-      PAYGATE_REGISTRATION_GRACE_SECONDS: ${PAYGATE_REGISTRATION_GRACE_SECONDS:-600}
-      PAYGATE_WEBHOOK_TOLERANCE_SECONDS: ${PAYGATE_WEBHOOK_TOLERANCE_SECONDS:-300}
       PAYGATE_CLIENT_NAMESPACE: ${PAYGATE_CLIENT_NAMESPACE:-}
-      SITE_URL: ${SITE_URL:?SITE_URL is required}
       FOOTBALL_DATA_API_TOKEN: ${FOOTBALL_DATA_API_TOKEN:-}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
@@ -116,17 +175,13 @@ services:
       MAIL_DELIVERY_MODE: ${MAIL_DELIVERY_MODE:-}
       MAIL_ALLOWLIST: ${MAIL_ALLOWLIST:-}
       MAIL_REDIRECT_TO: ${MAIL_REDIRECT_TO:-}
-      CERTIFICATE_RENDER_CAPABILITY_KEY: ${CERTIFICATE_RENDER_CAPABILITY_KEY:?CERTIFICATE_RENDER_CAPABILITY_KEY is required}
     volumes:
       - pb_data:/pb/pb_data
     expose:
       - "8090"
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8090/api/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+    # No healthcheck: PocketBase 0.39 has no `/api/health` route, so the old
+    # probe reported this container unhealthy from the first tick. Nothing routes
+    # to it, so "running" is the only meaningful signal. docs:retired-ok
     networks:
       app-internal:
         aliases:

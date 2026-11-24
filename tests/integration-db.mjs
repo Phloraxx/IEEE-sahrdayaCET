@@ -80,29 +80,64 @@ process.env.GOOGLE_CLIENT_ID = "test-client-id";
 process.env.GOOGLE_CLIENT_SECRET = "test-client-secret";
 process.env.APP_URL = "http://localhost:5173";
 process.env.PAYGATE_WEBHOOK_SECRET = "integration-webhook-secret-at-least-32-bytes";
+// An endpoint and key are required to reach the webhook path at all: the merged
+// guard treats "no configured endpoint" as inactive, so a callback for a session
+// this deployment could not have created is refused. Nothing here is contacted —
+// the suite signs its own callbacks — so these are synthetic values.
+process.env.PAYGATE_URL = "https://paygate.integration.test";
+process.env.PAYGATE_API_KEY = "integration-api-key-at-least-32-bytes-long";
 process.env.PAYGATE_CLIENT_NAMESPACE = "local";
+// The merged integration guard refuses paid initiation, webhooks and status
+// reads outside production unless the endpoint is declared a sandbox. These
+// suites exercise those paths, so they declare it.
+process.env.PAYGATE_SANDBOX = "true";
 process.env.NODE_ENV = "test";
 
 const { default: Database } = await import("better-sqlite3");
-const { readFileSync } = await import("node:fs");
-const { resolve } = await import("node:path");
+// The shipped v1 shape. The rows are the ones a v1 database would hold — enough
+// to prove the upgrade copies rather than recreates — and the suites below seed
+// on top of them.
+const { V1_SCHEMA, V1_SEED } = await import("./fixtures/schema-shapes.mjs");
 
-// Apply the schema up front, exactly as `ensureSchema` would, so the db layer
-// sees an initialised database (user_version = 1).
+// Seed an *older* database, then let the real boot path find it. This suite used
+// to pre-apply the current `sqlite/schema.sql` and stamp it version 1, which is
+// not a database any release ever booted: the file creates the current shape, so
+// the "existing database" was already v2 and the upgrade never ran. Building the
+// shipped v1 shape here means the boot below exercises the production path —
+// open, classify, v1 -> v2 in one transaction, verify.
 {
 	const db = new Database(dbPath);
 	db.pragma("journal_mode = WAL");
 	db.pragma("foreign_keys = ON");
 	db.exec("BEGIN IMMEDIATE");
-	db.exec(readFileSync(resolve("sqlite/schema.sql"), "utf8"));
+	db.exec(V1_SCHEMA);
+	db.exec(V1_SEED);
 	db.pragma("user_version = 1");
 	db.exec("COMMIT");
+	const fixtureTables = new Set(V1_SCHEMA.match(/CREATE TABLE IF NOT EXISTS (\w+)/g)).size;
+	check(
+		db.prepare("SELECT count(*) AS n FROM sqlite_master WHERE type='table'").get().n === fixtureTables,
+		"the fixture is exactly the v1 shape it declares",
+		fixtureTables,
+	);
 	db.close();
 }
 
 const db = await import("../src/lib/db.server.ts");
-const { users, sessions, withTransaction, query, isForeignKeyViolation, isUniqueViolation, closeDatabase } =
-	db;
+// `checkDatabase()` is the startup contract the server entry calls: it opens the
+// file once. Doing it up front keeps this suite's timing out of the boot path.
+const booted = await db.checkDatabase();
+check(booted.to === 2, "the boot path brought the v1 fixture to version 2", booted.to);
+const {
+	users,
+	sessions,
+	withTransaction,
+	query,
+	isForeignKeyViolation,
+	isUniqueViolation,
+	closeDatabase,
+	SCHEMA_VERSION,
+} = db;
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -111,11 +146,14 @@ const { users, sessions, withTransaction, query, isForeignKeyViolation, isUnique
 try {
 	section("schema");
 	{
+		// `checkDatabase()` above opened the file through the real boot path, so this
+		// is what the app itself left behind.
 		const raw = new Database(dbPath);
 		const tables = raw
 			.prepare("SELECT count(*) AS n FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
 			.get().n;
-		check(tables === 27, "schema creates 27 tables", tables);
+		// The fixture starts short of this: the upgrade has to add the rest.
+		check(tables === 27, "the upgraded database has 27 tables", tables);
 
 		const integrity = raw.pragma("integrity_check", { simple: true });
 		check(integrity === "ok", "integrity_check", integrity);
@@ -124,7 +162,19 @@ try {
 		check(fk.length === 0, "foreign_key_check clean", fk.length);
 
 		const version = raw.pragma("user_version", { simple: true });
-		check(version === 1, "user_version is 1", version);
+		check(
+			version === SCHEMA_VERSION,
+			`the boot path upgraded the v1 fixture to ${SCHEMA_VERSION}`,
+			version,
+		);
+		// The rows the fixture had must still be there: the upgrade copies, it
+		// does not rebuild from nothing.
+		const cert = raw.prepare("SELECT registration_id, verification_token FROM certificates WHERE id = 'c-1'").get();
+		check(cert !== undefined, "the v1 certificate survived the upgrade", cert?.registration_id);
+		check(
+			raw.prepare("SELECT count(*) AS n FROM notification_outbox").get().n === 2,
+			"the v1 outbox rows survived the upgrade",
+		);
 		raw.close();
 	}
 
@@ -164,7 +214,8 @@ try {
 		check(again.id === created.id, "upsert is idempotent by google_sub", again.id);
 		check(again.name === "Alice Updated", "upsert refreshes the name", again.name);
 		check(again.last_login_at !== null, "upsert records last_login_at", again.last_login_at);
-		check((await users.count()) === 1, "no duplicate user created", await users.count());
+		// The two fixture users plus the one this section just created.
+		check((await users.count()) === 3, "no duplicate user created", await users.count());
 
 		// A directory-only record (no google_sub) can be linked by email.
 		const raw = new Database(dbPath);
@@ -985,13 +1036,18 @@ try {
 		check(stale.status === 400, "a stale timestamp is refused", stale.status);
 
 		// --- amount mismatch ---
+		// 409, not 400: the signature is valid, so this is an authenticated event
+		// we refuse to apply. PayGate retries only 408/425/429/5xx, so 409 acks the
+		// delivery as a permanent mismatch and surfaces it in the provider's
+		// Activity log instead of retrying it. See
+		// src/routes/api.webhooks.paygate.ts ("a permanent mismatch uses 409").
 		const wrongAmount = await webhookAction({
 			request: signedRequest(paidBody("evt_amount", {
 				requestedAmount: { paise: 40000, rupees: 400 },
 			})),
 			params: {}, context: {},
 		});
-		check(wrongAmount.status === 400, "an amount mismatch is refused", wrongAmount.status);
+		check(wrongAmount.status === 409, "an amount mismatch is refused", wrongAmount.status);
 
 		// --- valid payment ---
 		const ok = await webhookAction({

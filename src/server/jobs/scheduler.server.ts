@@ -172,12 +172,19 @@ export async function runJobsTickOnce(): Promise<void> {
 	});
 
 	await safe("payments", async () => {
+		// The pass reads each due reservation's provider state, bounded in time
+		// and count, so a lost webhook is recovered without ever releasing a
+		// transaction the provider still holds. An unavailable provider keeps
+		// the seats and is retried on the next minute.
 		const result = await reconcileExpiredRegistrations();
-		if (result.scanned || result.released) {
+		if (result.scanned || result.released || result.confirmed || result.keptForProvider) {
 			log("payment reconciliation", {
 				scanned: result.scanned,
+				polled: result.polled,
+				confirmed: result.confirmed,
 				released: result.released,
 				keptForProvider: result.keptForProvider,
+				readsDisabled: result.readsDisabled,
 			});
 		}
 	});
