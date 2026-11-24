@@ -153,6 +153,7 @@ bun run typecheck
 bun run test
 bun run build
 node scripts/generate-gallery-derivatives.mjs --check
+scripts/check-no-runtime-data.sh
 bun run test:e2e
 scripts/audit/run-staging-audit.sh
 ```
@@ -173,6 +174,14 @@ A change is not complete until it can survive a fresh SQLite database.
 CI runs `checks` (lint, typecheck, docs, unit, build) and `integration` (`test:integration` against real databases) on every push and PR, plus `release-gate`: the compiled app, seeded with a synthetic database, exercised over HTTP and in Chromium on loopback with providers faked or disabled. PRs into `main` and `main` pushes add arm64 container builds and publish the web image per commit tree. It does not run the full Playwright suite; run `bun run test:e2e` locally when the change touches browser behaviour. PocketBase suites are run by hand — see `docs/legacy-tooling.md`.
 
 Put backend authorization and transaction assertions in the integration suites. Browser E2E should cover SSR/navigation/SEO/guards and user-visible integration behavior.
+
+Runtime application data is never source. `sqlite/schema.sql` is; `portal.db`,
+its `-wal`/`-shm`/`-journal` sidecars, dumps and backups are not. `.gitignore`
+and `.dockerignore` keep new ones out of Git and out of the image, and
+`scripts/check-no-runtime-data.sh` fails if one is already in the index (for
+example after `git add -f`). It reads tracked names only — never file contents —
+and needs no history, so it works on a shallow checkout. If it fires, remove the
+path from the index with `git rm --cached`, not from the working tree.
 
 For regressions found on staging, add a test when practical before declaring the fix complete.
 

@@ -13,10 +13,13 @@ Use this checklist for future schema-sensitive releases from `dev` staging to `m
 
 The required CI jobs must all succeed:
 
-- `checks`: lint, typecheck, docs, unit tests and the production build;
+- `checks`: lint, typecheck, docs, unit tests and the production build, plus the
+  no-committed-runtime-data check;
 - `integration`: `test:integration` against real databases;
 - `release-gate`: the compiled app on a synthetic database, over HTTP and in a
-  browser, on every push and PR;
+  browser, on every push and PR. It runs on the literally pinned `ubuntu-24.04`
+  image because Playwright does not support Ubuntu 26.04; do not "fix" a
+  failure there by removing the browser step;
 - the arm64 `web-image` on PRs into `main` and `main` pushes. The image carries
   `GIT_COMMIT` and `GIT_TREE`; CD compares the baked tree with the tree CI tested.
 

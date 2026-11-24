@@ -560,6 +560,23 @@ run in parallel jobs so wall time is the slowest job, not the sum.
    OAuth and payment providers faked or unreachable. Playwright drives the HTTP
    contract and a browser through it.
 
+The `release-gate` job is pinned to **`ubuntu-24.04`** with a literal
+`runs-on`, and `checks` and `integration` are on the same image. The pin is
+literal because `env` is not an available context in
+`jobs.<job_id>.runs-on` — only `github`, `needs`, `strategy`, `matrix`, `vars`
+and `inputs` are — so a shared runner variable cannot be used there; keep the
+three values in step by hand. This is a Playwright constraint, not a preference:
+Playwright up to 1.60.0 recognizes Ubuntu up to 24.04 and fails
+`playwright install --with-deps` on anything newer. `ubuntu-latest` moved to
+Ubuntu 26.04 in November 2026, which stopped the job before its first real step.
+When Playwright supports 26.04, change the literal, `PLAYWRIGHT_RUNNER` (which
+the steps compare against) and `PLAYWRIGHT_CACHE_VERSION` together. The browser
+cache key includes the pinned image name, `runner.arch` and that version,
+because `runner.os` is `Linux` on every Ubuntu release and cannot separate them.
+
+`checks` also runs `scripts/check-no-runtime-data.sh` after checkout, so a
+committed database or uploads tree fails the gate instead of reaching a build.
+
 **Release gate — pull requests into `main`:**
 
 4. `web-image` — the web image on **arm64**, published to GHCR (see below). It

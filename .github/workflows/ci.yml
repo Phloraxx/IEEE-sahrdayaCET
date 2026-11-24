@@ -16,6 +16,20 @@ concurrency:
 env:
   BUN_VERSION: 1.4.5
   IMAGE: ghcr.io/phloraxx/ieee-sahrdaya-web
+  # Playwright resolves an unknown distro to `ubuntu<version>-<arch>` and has no
+  # dependency set for it. Ubuntu 26.04 therefore fails at
+  # `playwright install --with-deps` ("Cannot install dependencies for
+  # ubuntu26.04-x64"), and `ubuntu-latest` moved to 26.04 in November 2026, which
+  # is why run 45421796779's release gate died before it started. The newest
+  # Ubuntu Playwright 1.60.0 recognizes is 24.04, so the browser jobs pin
+  # `ubuntu-24.04` literally in `runs-on` — `env` is not an available context
+  # there, so these variables are for steps only and the literal is what counts.
+  # Revisit when Playwright lists 26.04: change the literal, this value, and
+  # PLAYWRIGHT_CACHE_VERSION together so no cache from the old image survives.
+  PLAYWRIGHT_RUNNER: ubuntu-24.04
+  # In the browser cache key because the cache holds the installed browser build.
+  # Bump it for any change that must not reuse a previous browser download.
+  PLAYWRIGHT_CACHE_VERSION: v1
 
 # Jobs and what they are for
 # --------------------------
@@ -37,7 +51,11 @@ env:
 
 jobs:
   checks:
-    runs-on: ubuntu-latest
+    # Literal, not an expression: `env` is not an available context in
+    # `jobs.<job_id>.runs-on` (only github, needs, strategy, matrix, vars,
+    # inputs), so a shared runner variable cannot be used here. Keep the three
+    # x64 jobs on this same image by hand (see PLAYWRIGHT_RUNNER note above).
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       # The two Noto files the certificate renderer opens are committed, so the
@@ -60,6 +78,14 @@ jobs:
         run: bun run typecheck
       - name: Documentation
         run: bun run check:docs
+      # Committed runtime data — a database file, an uploads tree, a stray
+      # artifact — must not reach a build or an image. The check lives in its
+      # own script so it reads the same way locally; it runs here, right after
+      # checkout and the install, before lint, tests and the build, so the
+      # failure names the file rather than surfacing as a test that happens to
+      # notice it.
+      - name: No committed runtime data
+        run: bash scripts/check-no-runtime-data.sh
       # Lint, the unit suite and the production build do not touch each other's
       # files, and each leaves cores idle, so they share the runner instead of
       # queueing behind one another. Typecheck runs first because it generates
@@ -82,7 +108,8 @@ jobs:
   # PocketBase crate is a rollback target, and `/api` is served by this app, so
   # exercising PocketBase proved nothing about the code being merged.
   integration:
-    runs-on: ubuntu-latest
+    # Same image as `checks`, written literally for the reason given there.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
@@ -125,10 +152,22 @@ jobs:
   # Not the whole Playwright suite: the rest needs staging fixtures and real
   # OAuth, and stays a documented local run (`bun run test:e2e`).
   release-gate:
-    runs-on: ubuntu-latest
+    # A dedicated, browser-capable image, deliberately not `ubuntu-latest`: that
+    # label now resolves to Ubuntu 26.04, which Playwright cannot install for
+    # (the failure this pin fixes). It is written literally because `env` is not
+    # an available context in `runs-on`; PLAYWRIGHT_RUNNER below exists only for
+    # the steps that compare against it.
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
+      # Which image this job actually got. If the pin is ever wrong or removed,
+      # the log names the operating system before Playwright fails on it.
+      - name: Runner image
+        run: |
+          set -euo pipefail
+          echo "runner.os=${{ runner.os }} runner.arch=${{ runner.arch }}"
+          echo "Playwright runner pin=${{ env.PLAYWRIGHT_RUNNER }}"
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
@@ -138,13 +177,30 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Cache Playwright browsers
-        # Keyed on the resolved Playwright version, so a bump re-downloads once.
+        # Keyed on the runner image as well as the Playwright version. `runner.os`
+        # is just "Linux" — identical on Ubuntu 24.04 and 26.04 — so an OS-blind
+        # key can hand this job a browser tree and dependency set downloaded for
+        # a different distribution. PLAYWRIGHT_RUNNER is the pinned image name,
+        # so the key moves when the pin does.
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          key: playwright-${{ env.PLAYWRIGHT_CACHE_VERSION }}-${{ env.PLAYWRIGHT_RUNNER }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
       - name: Install Playwright Chromium
-        run: bunx playwright install --with-deps chromium
+        # The pin above is what makes this work: Playwright refuses `--with-deps`
+        # on Ubuntu 26.04. Keep `--with-deps` — it installs the system libraries
+        # Chromium needs rather than leaving the gate to fail later on a missing
+        # .so — and keep Chromium: the gate spec launches a real browser, so
+        # dropping it would silently reduce the gate. The message reads the
+        # version from the installed package so it does not go stale on a bump.
+        run: |
+          set -euo pipefail
+          if ! grep -q '^ID=ubuntu' /etc/os-release || ! grep -q '^VERSION_ID="24.04"' /etc/os-release; then
+            pw_version="$(node -p "require('playwright-core/package.json').version" 2>/dev/null || echo 'unknown')"
+            echo "::error::Playwright ${pw_version} cannot install browsers on $(. /etc/os-release && echo "$PRETTY_NAME"); it supports Ubuntu 24.04. Fix the runs-on pin, do not skip the browser." >&2
+            exit 1
+          fi
+          bunx playwright install --with-deps chromium
       - name: Build the app
         # No GIT_COMMIT/GIT_TREE here on purpose: the release gate exercises a
         # local-provenance build. The `web-image` job is the one that bakes the

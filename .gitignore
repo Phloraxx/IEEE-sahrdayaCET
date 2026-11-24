@@ -22,6 +22,55 @@ pb_migrations/data.db
 pb_migrations/auxiliary.db
 pb_migrations/types.d.ts
 
+# Runtime application data: the SQLite database, its WAL/SHM/rollback-journal
+# sidecars, dumps and copies. Never source — sqlite/schema.sql is. The local
+# server's defaults (src/lib/env.server.ts) are ./data/portal.db and
+# ./data/uploads; backups and restores land beside them.
+/data/
+/backup/
+/backups/
+/restore/
+/restores/
+/dump/
+/dumps/
+*.db
+*.db3
+*.sl3
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+*.db-journal
+*.db3-wal
+*.db3-shm
+*.db3-journal
+*.sl3-wal
+*.sl3-shm
+*.sl3-journal
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite-journal
+*.sqlite3-wal
+*.sqlite3-shm
+*.sqlite3-journal
+*.dump
+*.dump.sql
+*.bak
+*.backup
+# scripts/check-no-runtime-data.sh is the check that none of this is tracked:
+# these patterns stop new files, the guard catches a `git add -f`.
+
+# Generated artifacts written next to the code, not shipped
+.next/
+.turbo/
+.temp/
+.audit-output/
+# Playwright/e2e databases and release-gate database (a temporary directory by
+# default; kept here for a RELEASE_GATE_DATA_DIR set inside the checkout)
+release-gate-*/
+tests/**/tmp/
+tests/**/out/
+
 # Environment and local secrets
 .env
 .env.*
