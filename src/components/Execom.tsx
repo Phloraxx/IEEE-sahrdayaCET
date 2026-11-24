@@ -7,6 +7,7 @@ import { Linkedin } from "@/components/icons";
 import type { ExecomMemberDoc } from "@/features/execom/ExecomClient";
 import { SpecChips } from "@/components/home/SpecChips";
 import { RAIL_PX_PER_SECOND } from "@/lib/marquee";
+import { buildSrcSet } from "@/lib/image-srcset";
 
 /* Restored original Execom carousel, with the current public directory as its source. */
 interface Member {
@@ -33,6 +34,14 @@ const taglines: Record<string, string> = {
   "technical coordinator": "TECH WIZARD",
   "link rep": "LINKING MINDS"
 };
+
+/**
+ * Portraits are 200px wide on phones and 270px above `sm`, in a 3:4 frame
+ * (`object-cover`), so a 320-480px upload variant is the largest that can be
+ * painted. Without this the browser downloaded the organiser's original —
+ * 1.1 MB and 505 KB for two ~200px cards (see `buildSrcSet`).
+ */
+const PORTRAIT_SIZES = "(min-width: 640px) 270px, 200px";
 
 /* ── Marquee Text ── */
 const MarqueeText: React.FC<{ text: string }> = ({ text }) => {
@@ -70,6 +79,9 @@ const MemberCard: React.FC<{ member: Member; index: number; duplicate?: boolean 
   const [isHovered, setIsHovered] = useState(false);
   const [imgError, setImgError] = useState(false);
   const reduceMotion = useHydratedReducedMotion();
+  // Portraits are uploads whose original is often several megabytes; the
+  // carousel only ever paints them at card size.
+  const portraitSrcSet = buildSrcSet(member.image);
 
   return (
     <motion.div
@@ -90,12 +102,17 @@ const MemberCard: React.FC<{ member: Member; index: number; duplicate?: boolean 
 
         <div className="relative w-full h-full">
           {member.image && !imgError ? (
+            // Every card is inside an eagerly-observed strip, so the two
+            // decorative copies would otherwise fetch each portrait again.
             <img
               src={member.image}
+              srcSet={portraitSrcSet}
+              sizes={portraitSrcSet ? PORTRAIT_SIZES : undefined}
               alt={member.name}
               loading="lazy"
+              decoding="async"
               onError={() => setImgError(true)}
-              className={`absolute inset-0 w-full h-full object-cover transition-transform duration-[600ms] ease-[cubic-bezier(0.2,0.65,0.3,0.9)] ${isHovered ? "scale-105" : "scale-100"}`}
+              className={`absolute inset-0 w-full h-full object-cover transition-transform duration-[600ms] ease-out ${isHovered ? "scale-105" : "scale-100"}`}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">

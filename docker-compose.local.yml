@@ -1,14 +1,89 @@
-# Local development intentionally runs only the stateful backend in Docker.
-# Run `bun run dev` on the host; Vite serves :3000 and proxies /api to :8090.
+# Local development stack for the SQLite app.
+#
+#   scripts/local-dev-data.sh                          # once: owns data/local
+#   docker compose -f docker-compose.local.yml up -d --build
+#
+# The app server owns `/api`, authentication and the database, so most local
+# work needs only this one service: it runs the image the deployment runs
+# (Dockerfile, Node 22 SSR runtime) against a bind-mounted SQLite file.
+#
+# PocketBase is deliberately not part of the default stack. It is the rollback
+# target, not a backend this app talks to: nothing on the host or in the app
+# calls it, and the Vite dev server has no proxy to it (see vite.config.ts).
+# When the migration tooling has to be exercised against a live PocketBase, use
+# the labelled profile, or `scripts/legacy-pocketbase-ci.sh` for the full
+# populated-migration rehearsal:
+#
+#   docker compose -f docker-compose.local.yml --profile legacy-pocketbase up -d --build
+#
+# Both services bind to loopback only. Neither reads a deployment environment
+# file: the values below are local development defaults.
+
 services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ieee-sahrdaya-web:local
+    restart: unless-stopped
+    # The image runs as uid 1000 (`node`). A bind mount keeps the host's
+    # ownership, so a directory created by the Compose daemon as root — or one
+    # owned by a host user with another id — makes SQLite fail with "unable to
+    # open database file" while pages still answer 200. `scripts/local-dev-data.sh`
+    # creates the directory with the ownership below; nothing in the image needs
+    # its own uid, so the container simply runs as the directory's owner.
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    ports:
+      - "127.0.0.1:${LOCAL_WEB_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      # Local, not staging: noindex and non-production behaviour.
+      DEPLOY_ENV: development
+      SITE_URL: http://127.0.0.1:3000
+      APP_URL: http://127.0.0.1:3000
+      ALLOWED_ORIGINS: http://127.0.0.1:3000
+      SQLITE_PATH: /app/data/portal.db
+      UPLOADS_DIR: /app/data/uploads
+      # Generated once; it signs the OAuth state cookie and is not a secret here.
+      APP_SECRET: ${LOCAL_APP_SECRET:-local-development-app-secret-0123456789abcdef}
+      # Placeholder OAuth values: sign-in redirects to Google and comes back with
+      # an auth_error, which is the expected local behaviour without a client.
+      GOOGLE_CLIENT_ID: ${LOCAL_GOOGLE_CLIENT_ID:-local.apps.example.test}
+      GOOGLE_CLIENT_SECRET: ${LOCAL_GOOGLE_CLIENT_SECRET:-local-development-client-secret}
+      SESSION_COOKIE_NAME: __Host-ieee_session
+      # Mail never leaves the machine, nothing is queued for delivery, and the
+      # in-process job runner stays off so local work does not write backups.
+      # PayGate is unset: its settings only preview when the app reads them, and
+      # `paymentConfigured` is false without a URL and a 32+ character key.
+      MAIL_DELIVERY_MODE: disabled
+      JOBS_ENABLED: "0"
+      # Required by certificate resources, not by PocketBase: signed render URLs
+      # are refused without it (src/server/public/certificate.server.ts). A
+      # local-only value; a real environment sets its own.
+      CERTIFICATE_RENDER_CAPABILITY_KEY: ${LOCAL_CERTIFICATE_RENDER_CAPABILITY_KEY:-local-certificate-render-capability-key}
+    volumes:
+      # Holds portal.db and uploads/. Created on first start by the app, which is
+      # why it runs as the host user: the first writer owns the directory.
+      - ${LOCAL_DATA_DIR:-./data/local}:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 20s
+
+  # Historical, opt-in. See the header above and docs/legacy-tooling.md.
   pocketbase:
+    profiles: ["legacy-pocketbase"]
     build:
       context: .
       dockerfile: pocketbase/Dockerfile
       args:
         PB_VERSION: "0.39.9"
     environment:
-      PB_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef
+      DEPLOY_ENV: development
+      PB_ENCRYPTION_KEY: ${LOCAL_PB_ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef}
       PAYGATE_URL: ${PAYGATE_URL:-}
       PAYGATE_API_KEY: ${PAYGATE_API_KEY:-}
       PAYGATE_WEBHOOK_SECRET: ${PAYGATE_WEBHOOK_SECRET:-}

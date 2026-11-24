@@ -28,6 +28,16 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { getEnv, getGoogleRedirectUri } from "@/lib/env.server";
 
+/**
+ * Where the token exchange and userinfo requests go.
+ *
+ * Hard-coded on purpose: production must never point at a different provider,
+ * and the release gate does not need to — `tests/ci/release-gate.mjs` serves the
+ * fake provider on loopback and `tests/ci/release-gate-preload.mjs` re-points
+ * the server process's `fetch` for exactly these two hosts, only when the gate
+ * sets `RELEASE_GATE_PROVIDER_ORIGIN`. The hostnames stay the real ones, so no
+ * configuration can make production talk to a mock.
+ */
 const GOOGLE_AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const GOOGLE_USERINFO_ENDPOINT = "https://openidconnect.googleapis.com/v1/userinfo";

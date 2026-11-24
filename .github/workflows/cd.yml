@@ -83,17 +83,27 @@ jobs:
       # building on the server. The image is tagged by the commit's tree, which
       # a squash merge preserves; the mutable :production tag is moved here, so
       # a rollback (repointing deploy/production) also rolls the image back.
+      # Resolve the tree of the image CI actually published, and attach it to the
+      # mutable :production tag.
+      #
+      # The tree of *main's commit* is not necessarily the tree of the image that
+      # gets deployed. A release PR merges to a **merge commit** whose SHA is new;
+      # CI built the image for the PR head's tree, and that tree is preserved by
+      # the merge, but the commit SHA the webhook deploys can differ. So the
+      # authoritative value is the artifact's own `ieee.tree` label, read from the
+      # registry after resolving the `tree-<tree>` tag. Job-level env carries it
+      # to the verification step, which compares it with what the origin reports.
       - name: Attach this commit's image to the production tag
         if: steps.freshness.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TREE=$(curl --fail-with-body --silent --show-error \
+          GIT_TREE=$(curl --fail-with-body --silent --show-error \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/${{ github.repository }}/commits/$TESTED_SHA" | jq -r .commit.tree.sha)
-          echo "tree=$TREE"
+          echo "commit tree (git) = $GIT_TREE"
           echo "$GH_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin >/dev/null
           # The runner ships buildx, but the retag must not depend on a builder:
           # imagetools only talks to the registry, and docker manifest is the
@@ -113,11 +123,31 @@ jobs:
               docker manifest push "$1"
             fi
           }
-          if ! inspect "$IMAGE:tree-$TREE" >/dev/null 2>&1; then
-            echo "::error::No image is published for tree $TREE, so production cannot pull this commit. CI's web-image job publishes one on every push to main; re-run it, or deploy this commit with scripts/deploy-local.sh (it builds on the server)."
+          if ! inspect "$IMAGE:tree-$GIT_TREE" >/dev/null 2>&1; then
+            echo "::error::No image is published for tree $GIT_TREE, so production cannot pull this commit. CI's web-image job publishes one on every push to main; re-run it, or deploy this commit with scripts/deploy-local.sh (it builds on the server)."
             exit 1
           fi
-          retag "$IMAGE:production" "$IMAGE:tree-$TREE"
+
+          # The artifact's own tree label is the value to verify against: read it
+          # from the structured registry config, never from parsed human output
+          # (`imagetools inspect --raw` on an index has no labels at all). If the
+          # image predates the tree label, fall back to the git tree resolved
+          # above and say so; the verification then checks the origin against the
+          # source tree, which is still the right question.
+          ARTIFACT_TREE=$(docker buildx imagetools inspect "$IMAGE:tree-$GIT_TREE" \
+            --format '{{json .Image}}' 2>/dev/null \
+            | jq -r '.config.Labels["ieee.tree"] // empty' 2>/dev/null || true)
+          if [ -z "$ARTIFACT_TREE" ]; then
+            echo "::warning::The published image carries no ieee.tree label; verifying against the commit tree $GIT_TREE instead."
+            ARTIFACT_TREE="$GIT_TREE"
+          elif [ "$ARTIFACT_TREE" != "$GIT_TREE" ]; then
+            echo "::error::The published image is labelled ieee.tree=$ARTIFACT_TREE but the tested commit's tree is $GIT_TREE; refusing to deploy an image that does not match its tag."
+            exit 1
+          fi
+          echo "DEPLOY_TREE=$ARTIFACT_TREE" >> "$GITHUB_ENV"
+          echo "artifact tree = $ARTIFACT_TREE"
+
+          retag "$IMAGE:production" "$IMAGE:tree-$GIT_TREE"
           echo "production now resolves to:"
           inspect "$IMAGE:production" | grep -m1 -i digest || true
 
@@ -142,3 +172,43 @@ jobs:
             exit 1
           fi
           jq -e '.message == "Compose deployed successfully"' /tmp/dokploy-response.json >/dev/null
+
+      # The webhook's 200 means Dokploy ran `docker compose up`. It does not mean
+      # the origin is serving the image CI published: it could be stale, the
+      # container could have been recreated but not replaced, or Traefik could
+      # point at another container. This asks the deployment itself.
+      #
+      # The comparison is on the **tree-only** fingerprint, against the tree of
+      # the image CI actually published (`DEPLOY_TREE`, exported by the retag
+      # step from the artifact's `ieee.tree` label). Commit is deliberately not
+      # part of it: a release PR merging to main produces a merge commit whose
+      # SHA differs from the PR head, while the tree — and therefore the image —
+      # is the same. Keying on commit+tree would fail correct deploys.
+      - name: Verify the deployed build is the tested release
+        if: steps.freshness.outputs.skip != 'true'
+        env:
+          ORIGIN: https://ieeesahrdaya.com
+        run: |
+          set -euo pipefail
+          : "${DEPLOY_TREE:?the retag step must export DEPLOY_TREE}"
+          # Must match src/server/build-identity.server.ts:buildFingerprint().
+          # bash's printf expands \0, so the separator is a real NUL.
+          want=$(printf 'ieee-tree\0%s' "$DEPLOY_TREE" | sha256sum | cut -c1-16)
+          echo "expected build fingerprint $want for tree ${DEPLOY_TREE:0:12}"
+
+          body=""
+          got=""
+          deadline=$((SECONDS + 300))
+          while (( SECONDS < deadline )); do
+            body=$(curl --max-time 15 -sS "$ORIGIN/healthz" || true)
+            got=$(jq -r '.build // ""' <<<"$body" 2>/dev/null || true)
+            if [ "$got" = "$want" ] && jq -e '.ok == true' <<<"$body" >/dev/null 2>&1; then
+              echo "origin reports $got and is ready"
+              exit 0
+            fi
+            echo "origin: $(jq -c '{ok,status,build,degraded,checks}' <<<"$body" 2>/dev/null || echo "${body:-<no response>}")"
+            sleep 10
+          done
+
+          echo "::error::The deployment did not report the tested release within 300 s (expected build $want for tree ${DEPLOY_TREE:0:12}, got '${got:-<none>}'). Dokploy returned success, so this is a stale, replaced or misrouted container, or an image built without the tree build arg. See docs/deployment.md § Health and readiness."
+          exit 1

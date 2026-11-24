@@ -73,6 +73,8 @@ Use a dedicated command route when the operation is a command:
 | Coupon set sync | multiple coupon records must reconcile atomically |
 | User role change | the collection surface intentionally forbids role mutation |
 | Manual payment confirmation | registration/payment state, ticket issuance, audit metadata, and notification outbox eligibility move together |
+| Provider payment transition | webhook, reconciliation poll and attendee refresh share one transaction: provider state, ticket, ledger and outbox rows commit together and never regress a confirmed payment |
+| Payment expiry release | re-reads the row under the write lock and appends its audit row in the same transaction as the release; the provider status read it may rest on is opt-in (`PAYGATE_STATUS_READ`) and only an affirmative provider answer can release an initialised reservation |
 
 ## Audit trail
 
@@ -94,16 +96,24 @@ caller's assignments.
 ## Schema ownership
 
 `sqlite/schema.sql` is the reproducible baseline and the only schema source of
-truth. It is idempotent: it creates missing objects and is re-applied at boot
-when `PRAGMA user_version` is behind `SCHEMA_VERSION` in `src/lib/db.server.ts`.
+truth. It is idempotent: it creates missing objects. `src/lib/db-migrate.server.ts`
+applies it at boot and owns the version marker (`PRAGMA user_version`), the
+forward migrations between versions, and the refusals for a database it cannot
+place — see `docs/sqlite-migrations.md`.
 
-It only creates. Altering an existing column — a type, a `NOT NULL` — needs a
-real migration and a version bump will not do it. Plan for that before the first
-such change, not during it.
+The file only creates. Altering an existing column — a type, a `NOT NULL`, a
+CHECK — needs a forward step in the migration module, which rebuilds the table in
+one transaction; a version bump alone does not do it.
+
+Production storage is not created by the app. With `DEPLOY_ENV=production` a
+missing, empty or non-database `SQLITE_PATH` is refused before anything opens it,
+so a lost bind mount fails the boot instead of serving an empty portal; a new
+database is created only by `scripts/init-database.ts`.
 
 A fresh database file must become a usable backend from `schema.sql` alone.
-`tests/integration-db.mjs` proves it by applying the schema to a temp file and
-exercising every repository method.
+`tests/integration-db.mjs` proves it by building the previous schema version,
+booting it through the real path, and exercising every repository method on the
+upgraded file.
 
 `pb_migrations/` is PocketBase's frozen history. Do not add to it.
 
@@ -190,3 +200,13 @@ Production sitemap lists only canonical Infinia URLs plus Altair URLs. Staging r
 No API, PocketBase schema/data mutation, registration, financial, notification or email pathway is introduced. Shared navigation alone gains INFINIA rainbow text; experience styling is scoped. Source provenance, privacy exclusions and Awwwards component mapping are recorded in docs/infinia-showcase-20261004.md.
 
 Current component sequencing, reference review and performance/accessibility acceptance are recorded in docs/infinia-playful-20261005.md; the prior cinema, immersive and blue-canvas plans are historical.
+## Public frontend performance (November 2026)
+
+The staging audit measured the homepage at ~4.1 MB on a phone, 3.4 MB of it images, with two Execom portraits alone at ~1.68 MB, and a cold 1.6 Mbps / 4x-CPU LCP of 4.26 s on the H1 while TTFB was 0.26 s: the wordmark shipped as `opacity: 0` and waited for hydration.
+
+- The homepage identity is server-rendered and opaque. `Hero` ships the `<h1>`/`<h2>` with no reveal hook; only the tagline and its three words rise into place through the CSS `hero-reveal` transform (opaque to opaque; `prefers-reduced-motion` shows the final state). `.hero-stage` paints its own background so the wordmark does not wait on the client-only star canvas.
+- All homepage sections stay in the server document in document order. Images defer through native `loading="lazy"` / `decoding="async"` — no section, card or marquee copy is withheld from SSR or from no-JS visitors.
+- Uploaded portraits and banners use the existing `?w=` variants through `buildSrcSet` with explicit `sizes` (home Execom carousel, `/full-execom`, society member cards, society banner, home lead artwork).
+- The seven curated gallery photographs carry two checked-in derivatives each (`public/Events/<name>-320w.webp`, `-480w.webp`; 4:3 for their 166px/260px cards, 14 files, ~200 KB), generated and verified by `scripts/generate-gallery-derivatives.mjs` (`--check` validates presence, WebP signature and dimensions without requiring byte-identical encoders). Originals remain the `src`. No other static media has checked-in derivatives.
+
+No server route, loader contract, collection policy, schema or deployment path changed.

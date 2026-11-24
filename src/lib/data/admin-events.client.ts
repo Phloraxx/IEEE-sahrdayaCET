@@ -144,9 +144,20 @@ export async function listEventCoupons(eventId: string): Promise<{ coupons: Coup
   };
 }
 
-/** The row payload. Files are uploaded separately, after the row exists. */
+/**
+ * The row payload. Files are uploaded separately, after the row exists.
+ *
+ * `society` is the form's field name for `society_id`. Sending it by itself used
+ * to be dropped by the endpoint, which left a new event with no host; the
+ * endpoint now accepts the alias, and this keeps the canonical column too so
+ * the intent survives either way. `status` is not sent: publishing is the
+ * event workspace's `publish` action, and the collection endpoint keeps a new
+ * event in `draft` whatever the body asks for.
+ */
 function eventPayloadToBody(payload: Record<string, unknown>): Record<string, unknown> {
-  return payload;
+  const { society, status: _status, ...fields } = payload;
+  const societyId = typeof society === "string" ? society : "";
+  return societyId ? { ...fields, society, society_id: societyId } : fields;
 }
 
 export async function saveAdminEvent(input: {

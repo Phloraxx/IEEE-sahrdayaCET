@@ -28,7 +28,7 @@ Cloudflare / Dokploy / Traefik
 - Sessions are opaque tokens in an HttpOnly `__Host-` cookie, stored as a sha256 hash so logout is a delete and a database leak does not hand out live sessions.
 - Every privileged mutation — workflow commands, ordinary collection creates/edits/deletes, and image uploads — appends one `admin_audit_log` row in the same transaction, with the actor, the changed columns and before/after values.
 - `sqlite/schema.sql` is the only schema source of truth. `pb_migrations/` is PocketBase's frozen history and is not applied to this database.
-- A PocketBase container is kept alongside as a **rollback target only**; the app does not read from it.
+- PocketBase is retired from the default stack (behind the `legacy-pocketbase` Compose profile); the app does not read from it.
 
 See [docs/architecture.md](docs/architecture.md), [docs/security-architecture.md](docs/security-architecture.md), [docs/deployment.md](docs/deployment.md), and [docs/release-checklist.md](docs/release-checklist.md).
 
@@ -124,7 +124,8 @@ bun run typecheck    # React Router typegen + TypeScript
 bun run check:docs   # README/docs links, stale claims, referenced commands
 bun run test         # Vitest
 bun run test:integration  # repository + schema invariants, and the cutover migration
-bun run test:e2e     # Playwright Chromium suite
+bun run test:release-gate # compiled app + synthetic database, HTTP and browser gate
+bun run test:e2e     # full Playwright Chromium suite (local; needs staging-shaped data)
 scripts/audit/run-staging-audit.sh  # full audit of the deployed staging surface
 ```
 
@@ -141,11 +142,12 @@ a fixture that includes the data shapes staging never had.
 
 Do not create one-off schema scripts or edit production first.
 
-1. Change `sqlite/schema.sql`. It is idempotent and is re-applied at boot when
-   `PRAGMA user_version` is behind `SCHEMA_VERSION`.
-2. Bump `SCHEMA_VERSION` in `src/lib/db.server.ts` when the change is not purely
-   additive. The file only creates missing objects — altering an existing column
-   needs a real migration, and a version bump alone will not do it.
+1. Change `sqlite/schema.sql`. It is idempotent, so a new table or index needs
+   nothing else.
+2. A change to an existing table (a type, a nullability, a CHECK) needs a forward
+   step in `src/lib/db-migrate.server.ts` and a bump of `SCHEMA_VERSION` there.
+   The existing database is upgraded in place; it is never rebuilt. See
+   `docs/sqlite-migrations.md`.
 3. Run `bun run test:integration` against a fresh database.
 4. Run the change against a recent copy of production data before rollout.
 
@@ -183,19 +185,26 @@ Public content is server-rendered. Published events have immutable crawlable URL
 
 ## CI/CD
 
-CI runs on every push and pull request. One `checks` job lints, typechecks, runs
-the unit suite and builds; a short PocketBase smoke runs on PRs into `dev`; pull
-requests into `main` and `main` pushes add the clean-room migration suite and
-arm64 container builds. The web image is built once per commit tree and
-published to GHCR. The browser suite is not part of CI — run `bun run test:e2e`
-locally.
+CI runs on every push and pull request:
+
+- `checks` lints, typechecks, checks the docs, runs the unit suite and builds;
+- `integration` runs `test:integration` against real databases;
+- `release-gate` builds the app, seeds a synthetic database, refuses to start
+  without it, and drives the compiled server over HTTP and in Chromium on
+  loopback, with mail, payments and OAuth faked or disabled.
+
+Pull requests into `main` and `main` pushes also build the arm64 container and
+publish the web image once per commit tree (`GIT_COMMIT`/`GIT_TREE` build args).
+The full browser suite is local (`bun run test:e2e`); PocketBase suites are run
+by hand — see [docs/legacy-tooling.md](docs/legacy-tooling.md).
 
 Production CD reacts only to successful CI on `main`. It verifies the tested SHA
 is still `main`'s head, pins it to `deploy/production`, retags the image and
-calls Dokploy:
+calls Dokploy, then verifies that `/healthz` reports the released build:
 
 ```text
 main → CI → CD → Dokploy pulls ghcr.io/phloraxx/ieee-sahrdaya-web:production
+                    → CD verifies /healthz fingerprint
 ```
 
 Staging is not deployed by CI. It deploys from the machine you are working on:
@@ -206,8 +215,13 @@ Staging is not deployed by CI. It deploys from the machine you are working on:
 
 That deploys the commit you have checked out (committed, clean and pushed), runs
 typecheck and the unit suite, builds with the worktree compose file, recreates
-only `web` and waits for `/healthz`. A `dev` push still runs CI, but deploys
-nothing.
+only `web`, and waits for `/healthz` to be ready and to report the commit it just
+built. A `dev` push still runs CI, but deploys nothing.
+
+`/healthz` is a readiness endpoint: it answers 503 when the database, the job
+runner or the backup cadence is unhealthy, and it publishes a build fingerprint
+so a deploy can prove which release is serving. See
+[docs/deployment.md](docs/deployment.md#health-and-readiness).
 
 The canonical deployment remains the Dokploy-managed `docker-compose.yml`; do not shadow a service with a manually created fallback container or temporary Compose file.
 

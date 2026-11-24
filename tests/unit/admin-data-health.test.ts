@@ -31,7 +31,6 @@ vi.mock("@/server/authz/capabilities", () => ({
 	activeAssignments: () => [],
 	capabilitiesForRole: () => [],
 }));
-
 const { dataHealth } = await import("@/server/admin/service");
 
 const actor = { id: "admin-1", role: "admin" };

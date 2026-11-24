@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { Instagram, Linkedin } from "@/components/icons";
+import { buildSrcSet } from "@/lib/image-srcset";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 import { TechnicalDetails } from "@/components/TechnicalDetails";
@@ -35,6 +36,15 @@ export interface ExecomMemberDoc {
 }
 
 type ViewMode = "grid" | "roster";
+
+/**
+ * The directory grid is at most three columns inside the page shell and the
+ * open-profile portrait is capped around 420px, so a 640px upload variant is
+ * already generous. Without `sizes` the browser assumes 100vw and fetches the
+ * original (often multi-megabyte) portrait.
+ */
+const EXECOM_PORTRAIT_SIZES =
+  "(min-width: 1280px) 380px, (min-width: 768px) 30vw, (min-width: 640px) 45vw, 92vw";
 
 interface ExecomClientProps {
   initialDocs: ExecomMemberDoc[];
@@ -111,6 +121,9 @@ function MemberPortrait({
   eager?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
+  // `/full-execom` is the same public directory, in a larger grid: give it the
+  // same upload variants instead of the organiser's original.
+  const srcSet = buildSrcSet(member.photoUrl ?? "");
   if (!member.photoUrl || failed) {
     return (
       <div className={`grid place-items-center bg-[#edf1f3] ${className}`}>
@@ -121,8 +134,11 @@ function MemberPortrait({
   return (
     <img
       src={member.photoUrl}
+      srcSet={srcSet}
+      sizes={srcSet ? EXECOM_PORTRAIT_SIZES : undefined}
       alt={member.name}
       loading={eager ? "eager" : "lazy"}
+      decoding="async"
       onError={() => setFailed(true)}
       className={`object-cover object-top ${className}`}
     />

@@ -1,5 +1,5 @@
 /**
- * Responsive-image helpers for uploaded artwork.
+ * Responsive-image helper for uploaded artwork.
  *
  * Uploads are stored at whatever resolution the organiser had. One staging
  * poster is 5400x5400 and 3.9 MB while being displayed at 353px wide, and the
@@ -9,8 +9,12 @@
  * (see `routes/files.$collection.$recordId.$filename.ts`), so the browser can
  * pick a width that matches the layout instead of downloading the original.
  *
- * Only `/files/*` URLs are resizable. Static assets under `/media/*` are
- * already exported at their display size and are left alone.
+ * Only `/files/*` URLs are resizable. Static assets are served as exported:
+ * curated media stays a single file on disk rather than a set of checked-in
+ * derivatives (see `docs/architecture.md`, "Public frontend performance").
+ *
+ * This module is imported by server modules too, so it must stay free of
+ * browser and Node APIs: path strings in, path strings out.
  */
 
 /** Widths offered to the browser. Covers a 160px mobile poster up to 1280px. */
@@ -21,8 +25,9 @@ export function isResizableUpload(src: string): boolean {
 }
 
 /**
- * `srcset` for an uploaded image, or `undefined` for anything already sized.
- * Returning `undefined` keeps React from emitting an empty attribute.
+ * `srcset` for an uploaded image, or `undefined` for anything already sized
+ * (static media has no variants). Returning `undefined` keeps React from
+ * emitting an empty attribute.
  */
 export function buildSrcSet(src: string): string | undefined {
   if (!isResizableUpload(src)) return undefined;

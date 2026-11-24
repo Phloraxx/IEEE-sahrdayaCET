@@ -35,9 +35,22 @@
  */
 
 import { AsyncLocalStorage } from "node:async_hooks";
-import { mkdirSync, readFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import Database from "better-sqlite3";
+import { type Database as BetterSqliteDatabase, default as Database } from "better-sqlite3";
+import {
+	checkStorageLocation,
+	IN_MEMORY_PATH,
+	inspectDatabaseFile,
+	migrateSchema,
+	type MigrationResult,
+	planSchema,
+	readSchemaSql,
+	refuseInvalidStorage,
+	SCHEMA_VERSION,
+	SchemaMigrationError,
+	verifyBaseline,
+} from "./db-migrate.server";
 import { getEnv } from "./env.server";
 
 /**
@@ -48,97 +61,156 @@ import { getEnv } from "./env.server";
  *     `certificates.registration_id` + `volunteer_id`, one-of CHECK, nullable
  *     `notification_outbox.registration_id`.
  *
- * Bumping this re-applies `sqlite/schema.sql`, which is idempotent — but the
- * file only creates missing objects. Version 2 changes existing columns, which
- * a re-apply cannot do: the database must be rebuilt by re-running the
- * PocketBase migration into a fresh file (see sqlite/schema.sql).
+ * The number and its forward migrations live in `./db-migrate.server.ts`. This
+ * re-export keeps `SCHEMA_VERSION` (and therefore existing tests and docs that
+ * name it) working. A change that is not purely additive needs a migration step
+ * there; bumping the number alone will not alter an existing table.
  */
-const SCHEMA_VERSION = 2;
+export { SCHEMA_VERSION };
 
-/** `:memory:` opens a private in-memory database — used by tests. */
-const IN_MEMORY = ":memory:";
 
 // ---------------------------------------------------------------------------
 // Connection singleton (HMR-safe)
 // ---------------------------------------------------------------------------
 
 interface DbGlobal {
-	__ieeeSqlite?: Database.Database;
+	__ieeeSqlite?: BetterSqliteDatabase;
+	/** The first failure to open or migrate, kept so every caller sees the same one. */
+	__ieeeSqliteError?: unknown;
+	/**
+	 * What the *lazy* open did, so `checkDatabase()` reports the boot, not a
+	 * second "none" from a file that was already current by the time it looks.
+	 */
+	__ieeeSqliteOutcome?: MigrationResult;
 }
 
 const globalForDb = globalThis as typeof globalThis & DbGlobal;
 
 /**
- * Apply `sqlite/schema.sql` when the database is older than this build.
+ * Bring the connection to this build's schema, and prove it.
  *
- * The file is idempotent, so re-applying it to a database created by an older
- * build is safe. `PRAGMA user_version` is the marker: 0 means "never
- * initialised" (a fresh file, or one from before the port).
+ * Delegates to `./db-migrate.server.ts`, which classifies the database before
+ * writing (fresh / reviewable v1 / v1 / v2 / newer / unknown), runs each upgrade
+ * as one transaction, and rolls back on any failure. The old code bumped
+ * `user_version` before validating and replayed `schema.sql` at a newer database;
+ * both of those are now refusals with a named error code.
+ *
+ * A throw here is fatal by design: the process must not serve requests against a
+ * database it cannot prove it understands.
  */
-function ensureSchema(database: Database.Database): void {
-	const version = database.pragma("user_version", { simple: true }) as number;
-	if (version < SCHEMA_VERSION) {
-		const schemaFile = resolve(process.cwd(), "sqlite", "schema.sql");
-		const schema = readFileSync(schemaFile, "utf8");
-
-		database.exec("BEGIN IMMEDIATE");
-		try {
-			database.exec(schema);
-			database.pragma(`user_version = ${SCHEMA_VERSION}`);
-			database.exec("COMMIT");
-		} catch (err) {
-			database.exec("ROLLBACK");
-			throw err;
-		}
-	}
-
-	assertSchemaShape(database);
+function migrateToCurrent(database: BetterSqliteDatabase): MigrationResult {
+	return migrateSchema(database, {
+		log: (message) => console.log(`[db] ${message}`),
+	});
 }
 
 /**
- * Columns the current build cannot run without.
- *
- * `schema.sql` only creates missing objects, so a database created by an older
- * build keeps its old shape even after a version bump. Refusing the connection
- * turns that into one clear startup error instead of a runtime failure the
- * first time a certificate is previewed or issued.
+ * Deployment environments in which the database is *existing storage*, not a
+ * scratch file: production only. Staging deliberately creates its own database
+ * (`scripts/deploy-local.sh` resets it), and tests and local dev use throwaway
+ * paths.
  */
-function assertSchemaShape(database: Database.Database): void {
-	const columns = database.pragma("table_info(certificates)") as Array<{ name: string }>;
-	if (!columns.some((column) => column.name === "volunteer_id")) {
-		throw new Error(
-			"This database predates schema version 2 (certificates.volunteer_id is missing). " +
-				"Rebuild it with scripts/migrate-pb-to-sqlite.ts into a fresh file; " +
-				"ensureSchema cannot alter an existing table.",
-		);
+function strictStorage(): boolean {
+	return (process.env.DEPLOY_ENV ?? "").trim().toLowerCase() === "production";
+}
+
+/**
+ * Refuse to invent production storage.
+ *
+ * A missing `SQLITE_DATA_DIR` mount is the failure this exists for: `new
+ * Database(path)` creates both the file and its parent directory, so a container
+ * that lost its mount would boot cleanly onto an empty portal. The guard runs
+ * before the connection is opened, with no pragma and no mkdir, and it closes
+ * the probe connection on failure.
+ */
+function openGuarded(path: string): BetterSqliteDatabase {
+	if (!strictStorage()) {
+		// Staging and local: create the directory and the file, as before.
+		if (path !== IN_MEMORY_PATH) mkdirSync(dirname(resolve(path)), { recursive: true });
+		const database = new Database(path);
+		configure(database);
+		globalForDb.__ieeeSqliteOutcome = migrateToCurrent(database);
+		return database;
+	}
+
+	// Production. `:memory:` can never be the production database.
+	if (path === IN_MEMORY_PATH) refuseInvalidStorage(path, "in_memory");
+
+	const located = checkStorageLocation(path, { enforce: true });
+	if (!located.ok) {
+		refuseInvalidStorage(path, located.reason ?? "unrecognised");
+	}
+
+	// `fileMustExist`: the guard proved the file is there, and this makes a
+	// path-switch between the check and the open a hard error rather than a
+	// silently created empty database.
+	let probe: BetterSqliteDatabase;
+	try {
+		probe = new Database(path, { fileMustExist: true });
+	} catch {
+		// A wrong file can fail here rather than in the migration: a half-copied or
+		// encrypted file has the SQLite header but cannot be opened. Report it as
+		// storage, not as a crash.
+		refuseInvalidStorage(path, "unrecognised");
+	}
+
+	// Configuration is applied only after the file is proven to hold a version
+	// this build recognises, so a stray file's journal or synchronisation mode is
+	// never changed. `planSchema` is read-only.
+	try {
+		const plan = planSchema(probe, readSchemaSql());
+		if (plan.action === "create") {
+			// A file exists but has no tables: a mis-pointed mount, not a database.
+			refuseInvalidStorage(path, "unrecognised");
+		}
+		configure(probe);
+		globalForDb.__ieeeSqliteOutcome = migrateToCurrent(probe);
+		return probe;
+	} catch (err) {
+		probe.close();
+		throw err;
 	}
 }
 
-function openDatabase(): Database.Database {
-	const path = getEnv().SQLITE_PATH;
-	if (path !== IN_MEMORY) mkdirSync(dirname(resolve(path)), { recursive: true });
-
-	const database = new Database(path);
-	// WAL keeps readers off the writer's back and survives a crash; NORMAL syncs
-	// at checkpoint rather than per commit (the documented trade: the last few
-	// transactions can be lost on power loss, the database cannot corrupt).
+/**
+ * The connection pragmas every open applies.
+ *
+ * WAL keeps readers off the writer's back and survives a crash; NORMAL syncs at
+ * checkpoint rather than per commit (the documented trade: the last few
+ * transactions can be lost on power loss, the database cannot corrupt). Foreign
+ * keys are off by default in SQLite — without them every FK is decorative.
+ */
+function configure(database: BetterSqliteDatabase): void {
 	database.pragma("journal_mode = WAL");
 	database.pragma("synchronous = NORMAL");
-	// Off by default in SQLite — without it every FK in the schema is decorative.
 	database.pragma("foreign_keys = ON");
 	database.pragma("busy_timeout = 5000");
 	database.pragma("wal_autocheckpoint = 1000");
-
-	ensureSchema(database);
-	return database;
 }
 
-/** The shared connection. Opened on first use, never closed by the app. */
-function getDatabase(): Database.Database {
-	if (!globalForDb.__ieeeSqlite) {
+function openDatabase(): BetterSqliteDatabase {
+	return openGuarded(getEnv().SQLITE_PATH);
+}
+
+/**
+ * The shared connection. Opened on first use, never closed by the app.
+ *
+ * A throw is remembered, not retried. `migrateToCurrent` always leaves the file
+ * as it found it, so a second attempt reaches the same conclusion; retrying on
+ * every statement would turn one startup refusal into a stream of them under
+ * load, each re-reading `schema.sql`. Staying refused is the fail-safe: the
+ * process must be restarted against a database it can prove it understands.
+ */
+function getDatabase(): BetterSqliteDatabase {
+	if (globalForDb.__ieeeSqlite) return globalForDb.__ieeeSqlite;
+	if (globalForDb.__ieeeSqliteError) throw globalForDb.__ieeeSqliteError;
+	try {
 		globalForDb.__ieeeSqlite = openDatabase();
+		return globalForDb.__ieeeSqlite;
+	} catch (err) {
+		globalForDb.__ieeeSqliteError = err;
+		throw err;
 	}
-	return globalForDb.__ieeeSqlite;
 }
 
 /** Close and forget the connection. Tests only — the app never calls this. */
@@ -147,6 +219,10 @@ export function closeDatabase(): void {
 		globalForDb.__ieeeSqlite.close();
 		globalForDb.__ieeeSqlite = undefined;
 	}
+	// Tests switch `SQLITE_PATH` between files; a remembered failure or outcome
+	// from the previous file must not follow them.
+	globalForDb.__ieeeSqliteError = undefined;
+	globalForDb.__ieeeSqliteOutcome = undefined;
 	statementCache.clear();
 }
 
@@ -186,7 +262,18 @@ const STATEMENT_CACHE_LIMIT = 512;
 export const __dbTesting = {
 	cacheSize: () => statementCache.size,
 	cacheLimit: STATEMENT_CACHE_LIMIT,
+	/**
+	 * The `AsyncLocalStorage` that marks a `withTransaction` chain. A getter,
+	 * because it is declared below. Tests read it to prove a repository call ran
+	 * on the transaction rather than beside it; nothing in the app reaches for it.
+	 */
+	get transactionStorage(): AsyncLocalStorage<true> {
+		return transactionStorage;
+	},
 };
+
+/** The connection the cached statements were prepared on. */
+let preparedOn: BetterSqliteDatabase | undefined;
 
 function prepare(sql: string): Database.Statement {
 	const cached = statementCache.get(sql);
@@ -197,6 +284,15 @@ function prepare(sql: string): Database.Statement {
 		statementCache.set(sql, cached);
 		return cached;
 	}
+
+	// A statement belongs to the connection it was prepared on. `closeDatabase`
+	// clears the cache, but a statement prepared between that close and a re-open
+	// would otherwise survive into the new connection and fail with
+	// SQLITE_MISUSE. The app never closes; tests do, between files.
+	if (statementCache.size > 0 && preparedOn !== getDatabase()) {
+		statementCache.clear();
+	}
+	preparedOn = getDatabase();
 
 	if (statementCache.size >= STATEMENT_CACHE_LIMIT) {
 		const oldest = statementCache.keys().next();
@@ -238,25 +334,47 @@ function bindAll(params: unknown[]): BindValue[] {
  *
  * A statement that returns no rows (a plain INSERT/UPDATE/DELETE) is executed
  * with `run()` and reported as an empty result.
+ *
+ * Why the queue
+ * -------------
+ * This used to run straight on the shared connection, so a repository call made
+ * while another request held the connection inside `withTransaction` — including
+ * any `await` in its body — would execute inside *that* transaction and be
+ * committed or rolled back with it. `users` and `sessions` below are such calls,
+ * and they are on the sign-in path. Everything now goes through the same
+ * transaction-aware path as `query()`:
+ *
+ * - inside `withTransaction`, join the open transaction (one atomic unit);
+ * - outside it, take the connection lock, so the statement cannot land inside
+ *   another request's transaction.
  */
-function selectAll<T>(sql: string, params: unknown[] = []): T[] {
+async function selectAll<T>(sql: string, params: unknown[] = []): Promise<T[]> {
 	const statement = prepare(sql);
 	const values = bindAll(params);
-	if (!statement.reader) {
-		statement.run(...values);
-		return [];
-	}
-	return statement.all(...values) as T[];
+	const read = (): T[] => {
+		if (!statement.reader) {
+			statement.run(...values);
+			return [];
+		}
+		return statement.all(...values) as T[];
+	};
+	return runOnConnection(read);
 }
 
-/** Run a statement and return its first row, if any. */
-function selectOne<T>(sql: string, params: unknown[] = []): T | undefined {
-	return prepare(sql).get(...bindAll(params)) as T | undefined;
+/** Run a statement and return its first row, if any. Same queueing as `selectAll`. */
+async function selectOne<T>(sql: string, params: unknown[] = []): Promise<T | undefined> {
+	const statement = prepare(sql);
+	const values = bindAll(params);
+	const read = (): T | undefined => statement.get(...values) as T | undefined;
+	return runOnConnection(read);
 }
 
-/** Run a write and return the number of affected rows. */
-function execute(sql: string, params: unknown[] = []): number {
-	return prepare(sql).run(...bindAll(params)).changes;
+/** Run a write and return the number of affected rows. Same queueing as `selectAll`. */
+async function execute(sql: string, params: unknown[] = []): Promise<number> {
+	const statement = prepare(sql);
+	const values = bindAll(params);
+	const write = (): number => statement.run(...values).changes;
+	return runOnConnection(write);
 }
 
 // ---------------------------------------------------------------------------
@@ -287,6 +405,16 @@ const transactionStorage = new AsyncLocalStorage<true>();
  */
 let lockTail: Promise<void> = Promise.resolve();
 
+/**
+ * The connection lock, hand to hand.
+ *
+ * The lock is strictly first-in-first-out. A caller that already holds it and
+ * asks again would queue behind itself, so nothing may reach for it a second
+ * time: every path here checks `transactionStorage` first (`query`,
+ * `withTransaction`, `runOnConnection`), and the transaction's own body runs on
+ * the transaction. `AsyncLocalStorage` marks the chain a callback runs on rather
+ * than who holds the lock, which is why the check has to come first.
+ */
 async function acquireConnection(): Promise<() => void> {
 	let release!: () => void;
 	const held = new Promise<void>((resolveHeld) => {
@@ -296,6 +424,25 @@ async function acquireConnection(): Promise<() => void> {
 	lockTail = previous.then(() => held);
 	await previous;
 	return release;
+}
+
+/**
+ * Run `statement` on the connection without corrupting an open transaction.
+ *
+ * - Inside `withTransaction`, it joins the transaction — the caller asked for one
+ *   atomic unit, so a second connection is not merely unnecessary, it is wrong.
+ * - Outside one, it takes the lock, so it cannot land inside another request's
+ *   open transaction.
+ */
+async function runOnConnection<T>(statement: () => T): Promise<T> {
+	if (transactionStorage.getStore()) return statement();
+
+	const release = await acquireConnection();
+	try {
+		return statement();
+	} finally {
+		release();
+	}
 }
 
 /**
@@ -309,14 +456,7 @@ export async function query<T = Record<string, unknown>>(
 	sql: string,
 	params: unknown[] = [],
 ): Promise<QueryResult<T>> {
-	if (transactionStorage.getStore()) return { rows: selectAll<T>(sql, params) };
-
-	const release = await acquireConnection();
-	try {
-		return { rows: selectAll<T>(sql, params) };
-	} finally {
-		release();
-	}
+	return { rows: await selectAll<T>(sql, params) };
 }
 
 /**
@@ -373,6 +513,97 @@ export async function runMaintenance(): Promise<void> {
 		release();
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Startup contract
+// ---------------------------------------------------------------------------
+
+/** What a startup check found and did. Safe to log or return from a route. */
+export interface DatabaseReadiness {
+	path: string;
+	/** `none` means the file was already current; see `MigrationResult`. */
+	action: MigrationResult["action"];
+	from: number;
+	to: number;
+	/** True when `user_version` was missing and the shape was inferred. */
+	reviewed: boolean;
+	tables: number;
+}
+
+/**
+ * Open (or adopt) the application database and prove it is this build's schema.
+ *
+ * This is the startup contract: call it once before serving. On success it
+ * resolves with what it did; on a database this build cannot safely use it
+ * rejects with a `SchemaMigrationError` whose `code` is one of
+ * `DB_STORAGE_INVALID` (production storage was not found populated),
+ * `DB_NEWER_THAN_BUILD`, `DB_UNRECOGNISED`, `DB_SHAPE_INVALID`, `DB_TOO_OLD`,
+ * `MIGRATION_FAILED`, `MIGRATION_VERIFY_FAILED` or `SCHEMA_FILE_MISSING`.
+ *
+ * It never deletes, truncates or recreates a file. A refused database is named
+ * in the error, and the operator decides — usually by restoring a backup or
+ * rolling the image back.
+ */
+export async function checkDatabase(): Promise<DatabaseReadiness> {
+	const release = await acquireConnection();
+	try {
+		const database = getDatabase();
+		verifyBaseline(database, { expectVersion: SCHEMA_VERSION });
+		const tables = (
+			database
+				.prepare("SELECT count(*) AS n FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
+				.get() as { n: number }
+		).n;
+		const outcome = globalForDb.__ieeeSqliteOutcome;
+		return {
+			path: getEnv().SQLITE_PATH,
+			action: outcome?.action ?? "none",
+			from: outcome?.from ?? SCHEMA_VERSION,
+			to: SCHEMA_VERSION,
+			reviewed: outcome?.reviewed ?? false,
+			tables,
+		};
+	} finally {
+		release();
+	}
+}
+
+/**
+ * Boot-time check for the single-process server entry point.
+ *
+ * `src/lib/db.server.ts` opens and migrates lazily on first use, which keeps
+ * tests and scripts that never touch the database from creating one. The server
+ * entry should call this once so a refusal is a startup failure with a clear log
+ * line, not a 500 on the first request. It is intentionally not wired into the
+ * entry point in this change: that file is outside this lane, and the lazy path
+ * already fails safe with the same codes.
+ */
+export async function prepareDatabaseForStartup(
+	options: { logger?: (line: string) => void } = {},
+): Promise<DatabaseReadiness> {
+	const log = options.logger ?? ((line: string) => console.log(line));
+	try {
+		// Force the lazy open, which runs the migration.
+		const database = getDatabase();
+		const readiness = await checkDatabase();
+		log(
+			`[db] ready: ${readiness.path} schema v${readiness.to}` +
+				` (${readiness.action === "none" ? "already current" : `${readiness.action} from v${readiness.from}`}), ` +
+				`${readiness.tables} tables`,
+		);
+		database.pragma("optimize");
+		return readiness;
+	} catch (err) {
+		if (err instanceof SchemaMigrationError) {
+			log(`[db] refusing to start: ${err.code} — ${err.message}`);
+			if (err.detail !== undefined) log(`[db] detail: ${JSON.stringify(err.detail)}`);
+		}
+		throw err;
+	}
+}
+
+/** Pre-flight a database file without opening or changing it. See `inspectDatabaseFile`. */
+export { inspectDatabaseFile };
 
 // ---------------------------------------------------------------------------
 // Error helpers
@@ -443,17 +674,18 @@ export interface UserRow {
 export const users = {
 	/** Find by primary key. */
 	async findById(id: string): Promise<UserRow | undefined> {
-		return selectOne<UserRow>("SELECT * FROM users WHERE id = ?", [id]);
+		const row = await selectOne<UserRow>("SELECT * FROM users WHERE id = ?", [id]);
+		return row;
 	},
 
 	/** Find by Google subject — the primary lookup for sign-in. */
 	async findByGoogleSub(googleSub: string): Promise<UserRow | undefined> {
-		return selectOne<UserRow>("SELECT * FROM users WHERE google_sub = ?", [googleSub]);
+		return await selectOne<UserRow>("SELECT * FROM users WHERE google_sub = ?", [googleSub]);
 	},
 
 	/** Find by email, case-insensitively. */
 	async findByEmail(email: string): Promise<UserRow | undefined> {
-		return selectOne<UserRow>("SELECT * FROM users WHERE lower(email) = lower(?)", [email]);
+		return await selectOne<UserRow>("SELECT * FROM users WHERE lower(email) = lower(?)", [email]);
 	},
 
 	/**
@@ -484,7 +716,7 @@ export const users = {
 		const timestamp = nowIso();
 
 		if (matched) {
-			execute(
+			await execute(
 				`UPDATE users
 				    SET google_sub = ?, email = ?, email_verified = ?,
 				        name = coalesce(?, name), avatar = coalesce(?, avatar),
@@ -504,7 +736,7 @@ export const users = {
 		}
 
 		const id = crypto.randomUUID();
-		execute(
+		await execute(
 			`INSERT INTO users (id, email, email_verified, name, avatar, role, google_sub, last_login_at)
 			 VALUES (?, ?, ?, ?, ?, 'user', ?, ?)`,
 			[
@@ -522,13 +754,13 @@ export const users = {
 
 	/** Users with no Google identity — they exist but cannot sign in. */
 	async listUnlinked(): Promise<UserRow[]> {
-		return selectAll<UserRow>(
+		return await selectAll<UserRow>(
 			"SELECT * FROM users WHERE google_sub IS NULL ORDER BY lower(email)",
 		);
 	},
 
 	async count(): Promise<number> {
-		const row = selectOne<{ n: number }>("SELECT count(*) AS n FROM users");
+		const row = await selectOne<{ n: number }>("SELECT count(*) AS n FROM users");
 		return row?.n ?? 0;
 	},
 };
@@ -561,7 +793,7 @@ export const sessions = {
 	}): Promise<SessionRow> {
 		const id = crypto.randomUUID();
 		const timestamp = nowIso();
-		execute(
+		await execute(
 			`INSERT INTO sessions (id, token_hash, user_id, created_at, expires_at, last_seen_at, user_agent, ip_hash)
 			 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 			[
@@ -579,14 +811,14 @@ export const sessions = {
 	},
 
 	async findById(id: string): Promise<SessionRow | undefined> {
-		return selectOne<SessionRow>("SELECT * FROM sessions WHERE id = ?", [id]);
+		return await selectOne<SessionRow>("SELECT * FROM sessions WHERE id = ?", [id]);
 	},
 
 	/** Look up a live session by the token's hash, with its user. */
 	async findLiveByTokenHash(
 		tokenHash: string,
 	): Promise<{ session: SessionRow; user: UserRow } | undefined> {
-		const session = selectOne<SessionRow>(
+		const session = await selectOne<SessionRow>(
 			"SELECT * FROM sessions WHERE token_hash = ? AND expires_at > ?",
 			[tokenHash, nowIso()],
 		);
@@ -600,7 +832,7 @@ export const sessions = {
 	async touch(id: string, ttlDays: number): Promise<string> {
 		const timestamp = nowIso();
 		const expiresAt = isoInDays(ttlDays);
-		execute("UPDATE sessions SET last_seen_at = ?, expires_at = ? WHERE id = ?", [
+		await execute("UPDATE sessions SET last_seen_at = ?, expires_at = ? WHERE id = ?", [
 			timestamp,
 			expiresAt,
 			id,
@@ -610,21 +842,21 @@ export const sessions = {
 
 	/** Revoke one session (logout). */
 	async delete(id: string): Promise<boolean> {
-		return execute("DELETE FROM sessions WHERE id = ?", [id]) > 0;
+		return (await execute("DELETE FROM sessions WHERE id = ?", [id])) > 0;
 	},
 
 	/** Revoke every session for a user (e.g. role change, compromise). */
 	async deleteForUser(userId: string): Promise<number> {
-		return execute("DELETE FROM sessions WHERE user_id = ?", [userId]);
+		return await execute("DELETE FROM sessions WHERE user_id = ?", [userId]);
 	},
 
 	/** Housekeeping: drop expired rows. */
 	async deleteExpired(): Promise<number> {
-		return execute("DELETE FROM sessions WHERE expires_at <= ?", [nowIso()]);
+		return await execute("DELETE FROM sessions WHERE expires_at <= ?", [nowIso()]);
 	},
 
 	async count(): Promise<number> {
-		const row = selectOne<{ n: number }>("SELECT count(*) AS n FROM sessions");
+		const row = await selectOne<{ n: number }>("SELECT count(*) AS n FROM sessions");
 		return row?.n ?? 0;
 	},
 };

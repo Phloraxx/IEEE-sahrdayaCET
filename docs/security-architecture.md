@@ -113,6 +113,17 @@ Security-sensitive invariants include:
   of silently becoming a free seat;
 - payment confirmation rejects missing or invalid webhook signatures when the
   integration is enabled;
+- a payment whose webhook was lost can be confirmed by a bounded, validated
+  provider status read on the reconciliation pass or the attendee refresh, so a
+  confirmed payment never depends on webhook delivery alone;
+- the provider status read is opt-in (`PAYGATE_STATUS_READ`) and off by default
+  until its path and key scope are confirmed against a PayGate sandbox; while it
+  is off, no provider read happens at all;
+- a reservation that holds a provider payment session is never released on
+  local clock alone: only an affirmative provider answer may end it. An outage,
+  a timeout, a rate limit, a 401/403 and **a 404** all keep the reservation,
+  because each can mean the path, the key scope or the provider's retention is
+  wrong rather than that the payment is gone;
 - manual confirmation is admin-only, rejects cancelled/non-pending
   registrations, and records the confirming admin and timestamp;
 - generic registration PATCH requests cannot rewrite payment, amount, provider

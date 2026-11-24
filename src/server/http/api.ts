@@ -86,3 +86,34 @@ export async function readJson(request: Request): Promise<Record<string, unknown
 		throw new WorkspaceError(400, "INVALID_BODY", "Expected a JSON object");
 	}
 }
+
+/** The result of reading a JSON object under the shared cap. */
+export type JsonBodyResult =
+	| { ok: true; body: Record<string, unknown> }
+	| { ok: false; status: 400 | 413; code: "INVALID_BODY" | "BODY_TOO_LARGE"; error: string };
+
+/**
+ * Read a JSON object under `MAX_JSON_BYTES`, without throwing.
+ *
+ * Routes that answer their own status codes (the collection handlers, the
+ * registration command) used to re-declare the cap and the parse rules; three
+ * copies drifted. This is the one implementation: a declared body over the cap
+ * is drained and refused with 413, and anything that is not a JSON object is a
+ * 400 — never silently coerced to `{}`.
+ */
+export async function readJsonBody(request: Request): Promise<JsonBodyResult> {
+	if (tooLarge(request)) {
+		await discardOversizedBody(request);
+		return { ok: false, status: 413, code: "BODY_TOO_LARGE", error: "Request body is too large" };
+	}
+	let parsed: unknown;
+	try {
+		parsed = await request.json();
+	} catch {
+		return { ok: false, status: 400, code: "INVALID_BODY", error: "Expected a JSON object" };
+	}
+	if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+		return { ok: false, status: 400, code: "INVALID_BODY", error: "Expected a JSON object" };
+	}
+	return { ok: true, body: parsed as Record<string, unknown> };
+}
