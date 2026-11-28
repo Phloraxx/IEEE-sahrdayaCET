@@ -44,19 +44,26 @@ export const Hero: React.FC = () => {
 
   return (
     <section className="relative min-h-dvh flex flex-col items-center justify-center z-20 px-4 py-20 sm:py-24 overflow-hidden">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_44%,rgba(255,255,255,0.88)_0%,rgba(255,255,255,0.35)_40%,rgba(243,244,239,0)_72%)]"
+      />
       <div className="w-full h-full flex flex-col items-center justify-center relative">
         <div className="text-center transform translate-y-[-10%]" data-testid="hero-identity">
-          {/* Main title. No `data-hero-reveal` and no opacity animation: this is
+          {/* Main Title. No `data-hero-reveal` and no opacity animation: this is
               the LCP element and it is painted at full opacity with the first
-              frame of the document. */}
+              frame of the document. Static CSS textShadow restores stepped depth
+              without delaying first paint. */}
           <div className="flex flex-col items-center justify-center gap-2 md:gap-4 mb-8">
             <h1
               className="font-pixel text-5xl sm:text-7xl md:text-8xl lg:text-9xl text-ieee-blue tracking-tighter"
+              style={{ textShadow: "3px 3px 0px rgba(0, 98, 155, 0.22), 6px 6px 0px rgba(15, 23, 42, 0.08)" }}
             >
               IEEE
             </h1>
             <h2
               className="font-pixel text-3xl sm:text-5xl md:text-6xl lg:text-7xl text-gray-900 tracking-tighter"
+              style={{ textShadow: "3px 3px 0px rgba(15, 23, 42, 0.16), 6px 6px 0px rgba(15, 23, 42, 0.06)" }}
             >
               SAHRDAYA
             </h2>

@@ -63,12 +63,12 @@ export function EventBannerFallback({
         {initials(title)}
       </div>
 
-      <div className="absolute left-5 top-5 z-10 flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.2em] text-white/72 sm:left-6 sm:top-6">
+      <div className="absolute left-5 top-5 z-10 flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-[0.12em] text-white/80 sm:left-6 sm:top-6">
         <span className="h-2 w-2 rounded-full" style={{ backgroundColor: palette.accent }} />
         IEEE Sahrdaya
       </div>
       <div className="absolute bottom-5 left-5 right-5 z-10 sm:bottom-6 sm:left-6 sm:right-6">
-        <div className="mb-3 flex items-center justify-between gap-4 text-[9px] font-semibold uppercase tracking-[0.18em] text-white/75">
+        <div className="mb-3 flex items-center justify-between gap-4 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-white/80">
           <span className="truncate">{societyName || "Student Branch Event"}</span>
           <span aria-hidden="true">↗</span>
         </div>

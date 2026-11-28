@@ -11,6 +11,7 @@ export function PosterCard({ event, tall = false }: { event: ExtendedEvent; tall
   const spotRef = useRef<HTMLDivElement>(null);
   const artwork = resolveEventArtwork(event);
   const societyName = typeof event.society === "object" ? event.society.name : "IEEE Sahrdaya";
+  const societySlug = typeof event.society === "object" ? event.society.slug : undefined;
 
   const handlePointerMove = (pointerEvent: ReactPointerEvent<HTMLDivElement>) => {
     if (pointerEvent.pointerType === "touch") return;
@@ -31,7 +32,13 @@ export function PosterCard({ event, tall = false }: { event: ExtendedEvent; tall
           tall ? "aspect-[3/4]" : "aspect-[4/5]"
         }`}
       >
-        <EventArtworkPreview src={artwork.src} alt={`${event.title} event artwork`} />
+        <EventArtworkPreview
+          src={artwork.src}
+          alt={`${event.title} event artwork`}
+          title={event.title}
+          societyName={societyName}
+          societySlug={societySlug}
+        />
         <div
           ref={spotRef}
           aria-hidden="true"
@@ -49,9 +56,9 @@ export function PosterCard({ event, tall = false }: { event: ExtendedEvent; tall
         </span>
       </div>
 
-      <div className="mt-3 flex items-baseline gap-2 font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-black/58">
-        <span className="text-[#00629B]">{formatMonth(event.date)} {formatDay(event.date)}</span>
-        <span aria-hidden="true" className="text-black/20">/</span>
+      <div className="mt-3 flex items-baseline gap-2 font-mono text-xs font-semibold uppercase tracking-[0.06em] text-black/65">
+        <span className="shrink-0 text-[#00629B]">{formatMonth(event.date)} {formatDay(event.date)}</span>
+        <span aria-hidden="true" className="text-black/25">/</span>
         <span className="truncate">{societyName}</span>
       </div>
       <h3 className="mt-1.5 line-clamp-2 text-[15px] font-semibold leading-[1.2] tracking-[-0.02em] text-[#111315] transition-colors duration-200 group-hover:text-[#00629B] group-focus-visible:text-[#00629B]">

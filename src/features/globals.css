@@ -660,7 +660,10 @@
 /* The hero's paper, painted from the stylesheet. The star canvas is a
    client-only layer, so without this the wordmark's first paint would land on
    an unpainted region until hydration. */
-.hero-stage { background: #f3f4ef; }
+.hero-stage {
+  background: #f3f4ef;
+  background-image: radial-gradient(circle at 50% 44%, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.4) 38%, rgba(243, 244, 239, 0) 72%);
+}
 .hero-stage { height: 200dvh; }
 .hero-handoff {
   margin-top: -100dvh;

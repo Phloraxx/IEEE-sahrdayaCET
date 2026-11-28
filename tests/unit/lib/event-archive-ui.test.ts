@@ -91,5 +91,29 @@ describe("event programme UI", () => {
     expect(fallback).not.toContain("bg-linear-to-br");
     expect(artworkPreview).toContain("object-contain");
     expect(artworkPreview).toContain("blur-2xl");
+    expect(artworkPreview).toContain("onError");
+  });
+
+  it("enforces accessible controls, 12px+ metadata, horizontal mobile year rail, and unified Geist typography", () => {
+    const rail = read("src/components/events/FilterRail.tsx");
+    const note = read("src/components/events/FieldNote.tsx");
+    const cover = read("src/components/events/ProgrammeCover.tsx");
+    const chapter = read("src/components/events/YearChapter.tsx");
+    const client = read("src/features/events/EventsPageClient.tsx");
+
+    expect(rail).toContain('aria-label="Search past events"');
+    expect(rail).toContain('aria-label="Filter by society"');
+    expect(rail).toContain("overflow-x-auto no-scrollbar");
+    expect(rail).toContain("bg-[#f8f9fa]/90");
+    expect(rail).toContain("min-h-11");
+
+    expect(note).not.toContain("Noted by hand");
+    expect(note).not.toContain("text-[8px]");
+    expect(note).not.toContain("Caveat");
+    expect(cover).toContain("Contact the branch");
+    expect(cover).not.toContain("Caveat");
+    expect(chapter).not.toContain("Caveat");
+    expect(client).not.toContain("Caveat");
+    expect(client).not.toContain("font-pixel");
   });
 });

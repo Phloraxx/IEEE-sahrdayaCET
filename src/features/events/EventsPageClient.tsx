@@ -203,15 +203,15 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
         <div className="mx-auto max-w-[1440px]">
           <div id="programme-wall" className="scroll-mt-28 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-8">
             <div>
-              <p className="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-[#00629B]">
-                <span className="font-pixel text-[8px] text-black/55">02</span> / Archive
+              <p className="font-mono text-xs font-semibold uppercase tracking-[0.14em] text-[#00629B]">
+                <span className="text-black/60">02</span> / Archive
               </p>
               <h2 className="mt-2 text-4xl font-semibold leading-none tracking-[-0.055em] text-[#111315] sm:text-5xl">
                 The wall
               </h2>
             </div>
-            <p className="max-w-sm text-sm leading-relaxed text-black/55 sm:text-right">
-              Every poster the branch has made — and a note where there was no poster to hang.
+            <p className="max-w-sm text-sm leading-relaxed text-black/60 sm:text-right">
+              Every poster the branch has made, and a programme note where there was no poster to hang.
             </p>
           </div>
 
@@ -248,9 +248,9 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
                 {listGroups.map((group) => (
                   <section key={group.label} className="grid gap-4 md:grid-cols-[190px_minmax(0,1fr)] md:gap-8">
                     <div className="lg:sticky lg:top-48 lg:self-start">
-                      <div className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-black/55">Archive / month</div>
+                      <div className="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-black/60">Archive / month</div>
                       <h3 className="mt-2 text-2xl font-semibold leading-none tracking-[-0.05em] text-[#111315] sm:text-3xl">{group.label}</h3>
-                      <div className="mt-3 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[#00629B]">
+                      <div className="mt-3 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-[#00629B]">
                         {String(group.events.length).padStart(2, "0")} listed
                       </div>
                     </div>
@@ -273,7 +273,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
                     <button
                       type="button"
                       onClick={resetFilters}
-                      className="mt-3 inline-flex min-h-11 items-center px-3 text-xs font-bold uppercase tracking-[0.14em] text-[#00629B] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00629B]"
+                      className="mt-3 inline-flex min-h-11 items-center px-3 text-xs font-bold uppercase tracking-[0.1em] text-[#00629B] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00629B]"
                     >
                       Reset filters
                     </button>
@@ -288,7 +288,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
               <button
                 type="button"
                 onClick={() => setParam("limit", String(nextLimit))}
-                className="inline-flex min-h-11 items-center rounded-full bg-white px-6 text-[10px] font-bold uppercase tracking-[0.14em] text-[#111315] shadow-[0_2px_12px_rgba(6,17,29,0.08)] ring-1 ring-black/[0.06] transition-colors hover:text-[#00629B] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00629B]"
+                className="inline-flex min-h-11 items-center rounded-full bg-white px-6 text-xs font-bold uppercase tracking-[0.1em] text-[#111315] shadow-[0_2px_12px_rgba(6,17,29,0.08)] ring-1 ring-black/[0.06] transition-colors hover:text-[#00629B] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00629B]"
               >
                 {isAllYears ? "Show more from every year" : `Show more ${view === "wall" ? "posters" : "events"}`}
               </button>
@@ -304,7 +304,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
             />
             <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-[#07131c]/95 via-[#07131c]/72 to-[#07131c]/38" />
             <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center text-white">
-              <p className="font-[Caveat] text-2xl text-white/55">the wall keeps growing</p>
+              <p className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-white/75">The wall keeps growing</p>
               <h2 className="mx-auto mt-2 max-w-2xl text-3xl font-semibold leading-[1.05] tracking-[-0.045em] sm:text-4xl">
                 Every season hangs another row of posters.
               </h2>

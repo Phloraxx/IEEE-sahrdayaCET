@@ -75,10 +75,14 @@ describe("home hero first paint", () => {
     expect(css).toContain("[data-hero-reveal] { animation: none !important; transform: none; }");
   });
 
-  it("keeps the wordmark in Press Start 2P", () => {
+  it("keeps the wordmark in Press Start 2P with static stepped depth and radial lift", () => {
     const hero = read("src/components/Hero.tsx");
+    const css = read("src/features/globals.css");
     expect(hero).toContain("font-pixel text-5xl sm:text-7xl md:text-8xl lg:text-9xl text-ieee-blue");
     expect(hero).toContain("font-pixel text-3xl sm:text-5xl md:text-6xl lg:text-7xl text-gray-900");
+    expect(hero).toContain("textShadow:");
+    expect(hero).toContain("radial-gradient");
+    expect(css).toContain("background-image: radial-gradient");
     expect(hero).toContain("useHydratedReducedMotion");
   });
 });

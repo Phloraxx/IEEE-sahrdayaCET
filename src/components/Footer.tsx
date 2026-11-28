@@ -1,6 +1,51 @@
+import { useState } from "react";
 import { ArrowUpRight, Mail, MapPin, Phone } from "lucide-react";
 import { Link } from "react-router";
 import { BRANCH_SOCIAL_LINKS } from "@/lib/social-links";
+
+function PartnerLogo({
+  src,
+  alt,
+  label,
+  width,
+  height,
+  invert = false,
+}: {
+  src: string;
+  alt: string;
+  label: string;
+  width: number;
+  height: number;
+  invert?: boolean;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  if (failed) {
+    return (
+      <span className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 font-mono text-xs font-semibold tracking-wide text-white/85">
+        <svg viewBox="0 0 20 20" className="h-4 w-4 shrink-0 text-ieee-light-blue" fill="none" aria-hidden="true">
+          <rect x="2" y="2" width="16" height="16" rx="4" stroke="currentColor" strokeWidth="1.5" />
+          <path d="M6 10h8M10 6v8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+        <span>{label}</span>
+      </span>
+    );
+  }
+
+  return (
+    <img
+      loading="lazy"
+      src={src}
+      alt={alt}
+      width={width}
+      height={height}
+      onError={() => setFailed(true)}
+      className={`h-auto max-h-9 w-full max-w-[7rem] object-contain sm:h-11 sm:max-h-none sm:w-auto sm:max-w-none lg:h-16 ${
+        invert ? "brightness-0 invert" : "brightness-100"
+      }`}
+    />
+  );
+}
 
 const policyLinks = [
   { label: "About Us", href: "/about" },
@@ -148,14 +193,13 @@ const Footer: React.FC<FooterProps> = ({ seamless = false, mobileActionClearance
               rel="noopener noreferrer"
               className="inline-flex min-h-11 min-w-0 items-center justify-center px-2 opacity-70 transition-opacity duration-300 hover:opacity-100 sm:px-0"
             >
-              <img
-                loading="lazy"
+              <PartnerLogo
                 src="/IEEELink_footer.png"
                 alt="IEEE LINK"
+                label="IEEE LINK"
                 width={314}
                 height={76}
-                className="h-auto max-h-9 w-full max-w-[7rem] object-contain brightness-0 invert sm:h-11 sm:max-h-none sm:w-auto sm:max-w-none lg:h-16"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.textContent = 'IEEE LINK'; }}
+                invert
               />
             </a>
             <a
@@ -164,14 +208,13 @@ const Footer: React.FC<FooterProps> = ({ seamless = false, mobileActionClearance
               rel="noopener noreferrer"
               className="inline-flex min-h-11 min-w-0 items-center justify-center px-2 opacity-70 transition-opacity duration-300 hover:opacity-100 sm:px-0"
             >
-              <img
-                loading="lazy"
+              <PartnerLogo
                 src="/sahrdaya_footer.png"
                 alt="Sahrdaya"
+                label="Sahrdaya College"
                 width={1623}
                 height={531}
-                className="h-auto max-h-9 w-full max-w-[7rem] object-contain brightness-0 invert sm:h-11 sm:max-h-none sm:w-auto sm:max-w-none lg:h-16"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.textContent = 'Sahrdaya College'; }}
+                invert
               />
             </a>
             <a
@@ -180,14 +223,12 @@ const Footer: React.FC<FooterProps> = ({ seamless = false, mobileActionClearance
               rel="noopener noreferrer"
               className="inline-flex min-h-11 min-w-0 items-center justify-center px-2 opacity-80 transition-opacity duration-300 hover:opacity-100 sm:px-0"
             >
-              <img
-                loading="lazy"
+              <PartnerLogo
                 src="/keralaSection_footer.png"
                 alt="IEEE Kerala Section"
+                label="IEEE Kerala Section"
                 width={557}
                 height={135}
-                className="h-auto max-h-9 w-full max-w-[7rem] object-contain brightness-100 sm:h-11 sm:max-h-none sm:w-auto sm:max-w-none lg:h-16"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.textContent = 'IEEE Kerala Section'; }}
               />
             </a>
           </div>
