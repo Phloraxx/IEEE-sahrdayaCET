@@ -4,7 +4,7 @@ export async function loader() {
   const production = process.env.DEPLOY_ENV === "production";
   const body = production
     ? `User-agent: *\nAllow: /\nAllow: /files/events/\nAllow: /files/execom/\nAllow: /files/societies/\nDisallow: /admin/\nDisallow: /ticket/\nDisallow: /register/\nDisallow: /api/\nSitemap: ${APP_URL}/sitemap.xml\n`
-    : "User-agent: *\nDisallow:\n";
+    : "User-agent: *\nDisallow: /\n";
 
   return new Response(body, {
     headers: {

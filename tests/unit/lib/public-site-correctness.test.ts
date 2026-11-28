@@ -89,7 +89,7 @@ describe("Home redesign invariants", () => {
     expect(showcase).toContain("bg-white py-16");
   });
 
-  it("uses the shared public core roster and restores the pre-rewrite execom stats row", () => {
+  it("uses the shared public core roster with live counts in the execom stats row", () => {
     const route = read("src/routes/index.tsx");
     const people = read("src/components/Execom.tsx");
     const home = read("src/server/public/home.server.ts");
@@ -97,8 +97,25 @@ describe("Home redesign invariants", () => {
     expect(home).toContain("fetchExecomData()");
     expect(home).toContain('member.sectionId === "core"');
     expect(route).toContain("execomCount={execomCount}");
+    expect(route).toContain("societyCount={societies.length}");
     expect(people).not.toContain("execomMembers");
-    expect(people).toContain("100+");
+    expect(people).toContain("execomCount = members.length");
+    expect(people).not.toContain("100+");
+    expect(people).not.toContain("value: 80");
+    expect(people).not.toContain("value: 14");
+  });
+
+  it("resolves the Web Master tagline and keeps social links reachable without hover", () => {
+    const people = read("src/components/Execom.tsx");
+    expect(people).toContain('"web master": "DIGITAL ARCHITECT"');
+    expect(people).toContain("sm:opacity-0 sm:group-hover:opacity-100");
+    expect(people).not.toContain("opacity: isHovered ? 1 : 0");
+  });
+
+  it("disallows crawling on non-production robots.txt", () => {
+    const robots = read("src/routes/robots.ts");
+    expect(robots).toContain('Disallow: /');
+    expect(robots).not.toContain('"User-agent: *\\nDisallow:\\n"');
   });
 });
 

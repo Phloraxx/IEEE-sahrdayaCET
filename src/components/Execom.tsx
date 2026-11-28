@@ -28,6 +28,7 @@ const taglines: Record<string, string> = {
   "secretary": "KEEPING IT TOGETHER",
   "joint secretary": "BRIDGING THE GAP",
   "treasurer": "NUMBERS & BEYOND",
+  "web master": "DIGITAL ARCHITECT",
   "webmaster": "DIGITAL ARCHITECT",
   "mdc": "MEMBERSHIP DRIVE",
   "ecc": "ELECTRONICS & COMM",
@@ -98,7 +99,7 @@ const MemberCard: React.FC<{ member: Member; index: number; duplicate?: boolean 
       onMouseLeave={() => setIsHovered(false)}
     >
       <div className="relative overflow-hidden rounded-xl aspect-[3/4] mb-4 bg-gray-100">
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent z-10 opacity-60 group-hover:opacity-100 transition-opacity duration-500" />
 
         <div className="relative w-full h-full">
           {member.image && !imgError ? (
@@ -135,12 +136,7 @@ const MemberCard: React.FC<{ member: Member; index: number; duplicate?: boolean 
         </div>
 
         <motion.div
-          className="absolute bottom-4 left-4 right-4 z-20 flex items-center justify-between"
-          initial={{ opacity: 0, y: 20 }}
-          animate={reduceMotion
-            ? { opacity: isHovered ? 1 : 0, y: 0 }
-            : { opacity: isHovered ? 1 : 0, y: isHovered ? 0 : 20 }}
-          transition={{ duration: reduceMotion ? 0 : 0.3 }}
+          className="absolute bottom-4 left-4 right-4 z-20 flex items-center justify-between opacity-100 transition-opacity duration-300 sm:opacity-0 sm:group-hover:opacity-100"
         >
           <div className="flex gap-2">
             {member.linkedin && (
@@ -413,7 +409,11 @@ const DragCarousel: React.FC<{ members: Member[] }> = ({ members }) => {
 };
 
 /* ── Main Execom Section ── */
-export const Execom: React.FC<{ members: ExecomMemberDoc[] }> = ({ members }) => {
+export const Execom: React.FC<{ members: ExecomMemberDoc[]; execomCount?: number; societyCount?: number }> = ({
+  members,
+  execomCount = members.length,
+  societyCount = 0,
+}) => {
   const reduceMotion = useHydratedReducedMotion();
   const membersList: Member[] = members.map(member => ({
     id: member.id,
@@ -481,9 +481,8 @@ export const Execom: React.FC<{ members: ExecomMemberDoc[] }> = ({ members }) =>
         >
           <SpecChips
             items={[
-              { value: 80, label: "Roster" },
-              { value: "100+", label: "Events led" },
-              { value: 14, label: "Societies" },
+              ...(execomCount ? [{ value: execomCount, label: "Roster" }] : []),
+              ...(societyCount ? [{ value: societyCount, label: "Societies" }] : []),
             ]}
           />
         </motion.div>
