@@ -52,7 +52,7 @@ describe("home page cold-load images", () => {
     // Every section is server-rendered in document order; nothing mounts on
     // approach, so crawlers and no-JS visitors get the whole page.
     expect(route).toContain("<NowAtSahrdaya events={upcomingEvents}");
-    expect(route).toContain("<Execom members={loaderData.coreTeam ?? []} />");
+    expect(route).toContain("<Execom members={loaderData.coreTeam ?? []}");
     expect(route).toContain("<EventsShowcase />");
     expect(route).not.toContain("useProximityMount");
     expect(route).not.toContain("HomeSectionPlaceholder");
