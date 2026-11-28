@@ -9,14 +9,17 @@
     "start": "react-router-serve ./build/server/index.js",
     "lint": "eslint src --max-warnings=0",
     "check:runtime-syntax": "bash scripts/check-runtime-syntax.sh",
+    "check:docs": "node scripts/audit/check-docs.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
+    "test:e2e:release-gate": "playwright test --config playwright.release-gate.config.ts",
     "typecheck": "react-router typegen && tsc --noEmit",
     "test:unit": "vitest run",
-    "test:integration": "tsx tests/integration-db.mjs && tsx tests/integration-migrate.mjs"
+    "test:integration": "tsx tests/integration-db.mjs && tsx tests/integration-migrate.mjs && tsx tests/integration-migrate-schema.mjs && tsx tests/integration-storage-guard.mjs",
+    "test:release-gate": "node tests/ci/release-gate.mjs"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.9",
@@ -26,9 +29,6 @@
     "@react-router/node": "7.18.3",
     "@react-router/serve": "7.18.3",
     "@tanstack/react-query": "^5.101.4",
-    "@tiptap/pm": "^3.27.1",
-    "@tiptap/react": "^3.27.1",
-    "@tiptap/starter-kit": "^3.27.1",
     "better-sqlite3": "^13.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -60,9 +60,9 @@
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
-    "@typescript-eslint/eslint-plugin": "^8.62.1",
-    "@typescript-eslint/parser": "^8.62.1",
-    "@vitest/ui": "^4.1.11",
+    "@typescript-eslint/eslint-plugin": "^8.74.0",
+    "@typescript-eslint/parser": "^8.74.0",
+    "@vitest/ui": "^5.1.1",
     "eslint": "^9.0.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "tailwindcss": "^4.3.3",
@@ -70,9 +70,11 @@
     "typescript": "~5.8.2",
     "vite": "^8.3.8",
     "vite-tsconfig-paths": "^6.1.1",
-    "vitest": "^4.1.11"
+    "vitest": "^5.1.1"
   },
   "overrides": {
-    "qs": "6.16.0"
+    "qs": "6.17.1",
+    "nanoid": "6.0.2",
+    "postcss": "8.5.33"
   }
 }

@@ -59,11 +59,33 @@ describe("security architecture invariants", () => {
   it("keeps deployment environments explicitly isolated", () => {
     const compose = read("docker-compose.yml");
     expect(compose).toContain("DEPLOY_ENV: ${DEPLOY_ENV:?");
-    expect(compose.match(/CERTIFICATE_RENDER_CAPABILITY_KEY: \${CERTIFICATE_RENDER_CAPABILITY_KEY:\?CERTIFICATE_RENDER_CAPABILITY_KEY is required}/g)).toHaveLength(2);
+    // The web service requires the shared capability key. PocketBase is retired
+    // behind a profile, and Compose interpolates services it will not start, so
+    // the legacy service must NOT require a legacy-only value on the default
+    // path; a deliberate legacy start goes through the override, which does.
+    expect(
+      compose.match(
+        /CERTIFICATE_RENDER_CAPABILITY_KEY: \${CERTIFICATE_RENDER_CAPABILITY_KEY:\?CERTIFICATE_RENDER_CAPABILITY_KEY is required}/g,
+      ),
+    ).toHaveLength(1);
+    expect(compose).not.toContain("PB_ENCRYPTION_KEY: ${PB_ENCRYPTION_KEY:?");
     // After the SQLite cutover the web service owns all app logic; it must
-    // not reach back into PocketBase. PB stays up only as a rollback target.
+    // not reach back into PocketBase. PocketBase does not start by default.
     expect(compose).not.toContain("POCKETBASE_INTERNAL_URL:");
     expect(compose).toContain("- pocketbase-internal");
     expect(compose).not.toContain("POCKETBASE_INTERNAL_URL: http://pocketbase:8090");
+  });
+
+  it("retires PocketBase behind an explicit profile", () => {
+    const compose = read("docker-compose.yml");
+    const pocketbase = compose.slice(compose.indexOf("  pocketbase:"));
+    expect(pocketbase).toContain("profiles:");
+    expect(pocketbase).toContain("- legacy-pocketbase");
+    // The volume key is unchanged, which is what preserves
+    // <project>_pb_data and its archive names.
+    expect(compose).toContain("pb_data:/pb/pb_data");
+    // A deliberate legacy start requires the original encryption key.
+    const override = read("docker-compose.legacy-pocketbase.yml");
+    expect(override).toContain("PB_ENCRYPTION_KEY: ${PB_ENCRYPTION_KEY:?");
   });
 });

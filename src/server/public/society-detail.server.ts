@@ -1,4 +1,5 @@
 import { buildFileUrl } from "@/lib/pb";
+import { isPublicDisplayEvent } from "@/lib/public-event-filter";
 import { publicDataUnavailable } from "./errors.server";
 import {
   getPublicSocietyBySlug,
@@ -83,7 +84,20 @@ export async function fetchSocietyData(slug: string): Promise<SocietyPageData> {
       logoUrl: society.logo ? buildFileUrl("societies", society.id, society.logo) : "",
       bannerUrl: society.banner ? buildFileUrl("societies", society.id, society.banner) : "",
     },
-    events: events.map((row) => ({
+    events: events
+      .filter((row) =>
+        isPublicDisplayEvent({
+          title: row.title,
+          slug: row.slug,
+          description: row.description,
+          venue: row.venue,
+          date: row.date,
+          timeTbc: row.time_tbc,
+          price: row.price,
+          banner: row.banner,
+        }),
+      )
+      .map((row) => ({
       id: row.id,
       slug: row.slug ?? "",
       title: row.title ?? "",

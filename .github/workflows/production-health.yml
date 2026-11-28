@@ -1,23 +1,64 @@
 name: Production Health
 
+# Every 15 minutes, from outside the host and outside Cloudflare's origin
+# path, ask the public origin the questions an operator would ask after a
+# deploy: is the deployment ready, is it the release that was shipped, and does
+# the public surface still answer.
+#
+# Two things this workflow deliberately does not do:
+#
+#   - It does not probe `/api/health`. That route has not existed since the
+#     SQLite cutover; the probe was asserting a 200 it could never get from a
+#     healthy deployment, which made the run red for the wrong reason and
+#     trained everyone to ignore it. It probes `/healthz`, which now reflects
+#     database and scheduler readiness instead of answering `ok` unconditionally.
+#   - It does not treat a 200 as health. `/healthz` must report `ok: true` and,
+#     when an expected commit is known (a run triggered by CD, or a manual run),
+#     a build fingerprint that matches that commit. A deployment that silently
+#     kept the previous image fails here.
+#
+# The expected commit comes from the `CD` run for a post-deploy probe, from the
+# manual input or the current `main` head for a dispatched run, and is absent for
+# the scheduled run, which has no commit to compare against.
+
 on:
   schedule:
     - cron: "7,22,37,52 * * * *"
+  # Run once a production deployment finishes, so "post-deploy verify" is the
+  # default rather than something an operator remembers to do. It compares the
+  # build the origin reports against the SHA CD just deployed.
+  workflow_run:
+    workflows: [CD]
+    types: [completed]
   workflow_dispatch:
+    inputs:
+      expected_commit:
+        description: "Commit SHA the deployment should report (blank: current main head)"
+        required: false
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
   group: production-health
+  # An in-flight probe is cheap to abandon; a stale one would report on a
+  # deployment that has since been replaced.
   cancel-in-progress: true
 
 jobs:
   probe:
+    # A failed CD run has nothing to verify; its own log is the record.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
       BASE_URL: https://ieeesahrdaya.com
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      INPUT_COMMIT: ${{ inputs.expected_commit }}
+      # CD reports the SHA it deployed; that is the release this run verifies.
+      DEPLOYED_COMMIT: ${{ github.event.workflow_run.head_sha }}
     steps:
       - name: Probe production
         shell: bash
@@ -43,14 +84,79 @@ jobs:
             done
             return 1
           }
+
+          # --- readiness -----------------------------------------------------
+          # 503 is a real answer here (the deployment is up but not ready), so
+          # read the body either way and judge it, rather than only looking at
+          # the status code: the body says which deployment and what is wrong.
+          # `--fail-with-body` is deliberately absent: a 503 body is the
+          # evidence, and curl should still write it.
+          health=""
+          code="000"
+          for attempt in 1 2 3 4; do
+            code=$(curl --max-time 15 -sS -o /tmp/healthz.json -w '%{http_code}' "${BASE_URL}/healthz" || true)
+            health=$(cat /tmp/healthz.json 2>/dev/null || true)
+            if [[ "$code" == "200" ]] && jq -e '.ok == true' <<<"$health" >/dev/null 2>&1; then
+              break
+            fi
+            echo "/healthz: HTTP ${code} (attempt ${attempt}/4): ${health:-<empty>}"
+            sleep 10
+          done
+          if [[ "$code" != "200" ]]; then
+            echo "::error::Production /healthz did not report ready (HTTP ${code}): ${health:-<empty>}"
+            exit 1
+          fi
+          jq -e '.ok == true and .status == "ok" and .service == "web"' <<<"$health" >/dev/null \
+            || { echo "::error::/healthz body is not a ready web deployment: $health"; exit 1; }
+
+          reported_build=$(jq -r '.build // ""' <<<"$health")
+          echo "readiness: $(jq -c . <<<"$health")"
+
+          # --- identity ------------------------------------------------------
+          # Scheduled runs have no expected commit; a run triggered by CD or a
+          # manual run compares against that SHA, or the current main head.
+          expected="${DEPLOYED_COMMIT:-${INPUT_COMMIT:-}}"
+          if [[ -z "$expected" && -n "${REPO:-}" && -n "${GH_TOKEN:-}" ]]; then
+            if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+              expected=$(curl --fail-with-body --silent --show-error \
+                -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+                "https://api.github.com/repos/$REPO/commits/main" | jq -r .sha)
+            fi
+          fi
+          if [[ -n "$expected" ]]; then
+            if [[ ! "$expected" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "::error::expected_commit must be a full 40-character SHA, got '$expected'"
+              exit 1
+            fi
+            commit=$(curl --fail-with-body --silent --show-error \
+              -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$REPO/commits/$expected")
+            sha=$(jq -r .sha <<<"$commit")
+            tree=$(jq -r .commit.tree.sha <<<"$commit")
+            # Tree only. Must match src/server/build-identity.server.ts:
+            # buildFingerprint(). `printf` in bash expands \0 in the format
+            # string, so the separator is a real NUL and the digest is
+            # reproducible from Node. Commit is excluded because a release PR
+            # merges to a merge commit whose SHA differs from the tested head
+            # while the tree, and the image, are the same.
+            want=$(printf 'ieee-tree\0%s' "$tree" | sha256sum | cut -c1-16)
+            if [[ "$reported_build" != "$want" ]]; then
+              echo "::error::Production is serving build '${reported_build:-<none>}', expected $want for tree ${tree:0:12} (commit ${sha:0:12})."
+              echo "The deployment is ready but is not the release that was shipped. Check the Dokploy deployment record for ${sha:0:12}."
+              exit 1
+            fi
+            echo "identity: tree ${tree:0:12} (from ${sha:0:12}) -> $want"
+          else
+            echo "identity: build ${reported_build:-<none>} (no expected commit on a scheduled run)"
+          fi
+
+          # --- public surface ------------------------------------------------
           check_code / 200
-          check_code /healthz 200
-          check_code /api/health 200
           check_code /verify 200
           check_code /_/ 200
           check_code /api/webhooks/resend 404
           check_unavailable https://db.ieeesahrdaya.com/_/
-          check_unavailable https://db.ieeesahrdaya.com/api/health
+          check_unavailable https://db.ieeesahrdaya.com/healthz
 
           headers=$(curl --max-time 15 -fsSI "${BASE_URL}/verify" | tr -d '\r')
           grep -Eqi '^content-security-policy:' <<<"$headers"

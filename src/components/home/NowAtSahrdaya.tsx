@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { HomeSectionHeading } from "@/components/home/HomeSectionHeading";
 import { SpecChips } from "@/components/home/SpecChips";
 import { formatDateLong, formatEventTime, formatWeekdayShort } from "@/lib/dates";
+import { buildSrcSet } from "@/lib/image-srcset";
 import type { HomeEventSummary } from "@/server/public/home.server";
 
 interface Props {
@@ -12,13 +13,29 @@ interface Props {
   execomCount: number;
 }
 
+/* The lead card spans the content column on phones and two of three columns
+   from `lg`; the share image is never rendered here. */
+const LEAD_VISUAL_SIZES = "(min-width: 1320px) 900px, (min-width: 1024px) 68vw, 100vw";
+
 /* The pre-rewrite home always showed a real college photograph behind the
    lead card; fall back to the branch AGM photo when an event has no banner. */
 function EventVisual({ event }: { event: HomeEventSummary }) {
-  if (event.bannerUrl) {
-    return <img src={event.bannerUrl} alt="" className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.025]" />;
-  }
-  return <img src="/AGM.webp" alt="" aria-hidden="true" className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.025]" />;
+  const src = event.bannerUrl || "/AGM.webp";
+  // Event banners are uploads, so they get the existing `?w=` variants; the
+  // static AGM fallback is served as exported (it is a single share image).
+  const srcSet = buildSrcSet(src);
+  return (
+    <img
+      src={src}
+      srcSet={srcSet}
+      sizes={srcSet ? LEAD_VISUAL_SIZES : undefined}
+      alt=""
+      aria-hidden="true"
+      loading="lazy"
+      decoding="async"
+      className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.025]"
+    />
+  );
 }
 
 export function NowAtSahrdaya({ events, upcomingCount, societyCount, execomCount }: Props) {
@@ -89,7 +106,7 @@ export function NowAtSahrdaya({ events, upcomingCount, societyCount, execomCount
         ) : (
           <div className="mt-10 overflow-hidden rounded-2xl bg-gray-950 text-white">
             <div className="relative min-h-[430px] sm:min-h-[520px]">
-              <img src="/AGM.webp" alt="The IEEE Sahrdaya student branch community gathered at the college" className="absolute inset-0 h-full w-full object-cover" />
+              <img src="/AGM.webp" alt="The IEEE Sahrdaya student branch community gathered at the college" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-black/10" />
               <div className="absolute inset-x-0 top-0 flex items-center justify-between gap-4 p-5 font-mono text-[8px] font-semibold uppercase tracking-[0.18em] text-white/65 sm:p-7">
                 <span>Sahrdaya · Student branch</span>

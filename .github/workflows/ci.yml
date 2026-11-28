@@ -16,19 +16,46 @@ concurrency:
 env:
   BUN_VERSION: 1.4.5
   IMAGE: ghcr.io/phloraxx/ieee-sahrdaya-web
+  # Playwright resolves an unknown distro to `ubuntu<version>-<arch>` and has no
+  # dependency set for it. Ubuntu 26.04 therefore fails at
+  # `playwright install --with-deps` ("Cannot install dependencies for
+  # ubuntu26.04-x64"), and `ubuntu-latest` moved to 26.04 in November 2026, which
+  # is why run 45421796779's release gate died before it started. The newest
+  # Ubuntu Playwright 1.60.0 recognizes is 24.04, so the browser jobs pin
+  # `ubuntu-24.04` literally in `runs-on` — `env` is not an available context
+  # there, so these variables are for steps only and the literal is what counts.
+  # Revisit when Playwright lists 26.04: change the literal, this value, and
+  # PLAYWRIGHT_CACHE_VERSION together so no cache from the old image survives.
+  PLAYWRIGHT_RUNNER: ubuntu-24.04
+  # In the browser cache key because the cache holds the installed browser build.
+  # Bump it for any change that must not reuse a previous browser download.
+  PLAYWRIGHT_CACHE_VERSION: v1
 
-# Fast path (every push and pull request): one checks job that lints, typechecks,
-# tests and builds, plus a short PocketBase smoke.
+# Jobs and what they are for
+# --------------------------
+# checks       every push and PR: lint, typecheck, docs, unit, build.
+# integration  every push and PR: the SQLite suites against real databases
+#              (`test:integration`), then the release gate — the compiled app
+#              seeded with a synthetic database and exercised over HTTP and in a
+#              browser. Both are deterministic and need no staging fixtures.
+# web-image    main pushes and PRs into main: the arm64 image production pulls,
+#              published per commit tree. CD resolves `tree-<tree>`.
 #
-# Release gate (pull requests into main): the full clean-room backend suite and
-# Dockerfile builds on arm64.
-#
-# The web image is built once per commit tree on arm64 and published to GHCR, so
-# production pulls it instead of building on the server.
+# PocketBase is not built or booted in CI (removed 2026-11-24). Its smoke,
+# clean-room and Dockerfile-validation jobs exercised a backend that serves
+# nothing: the app server owns /api, and the PocketBase image is a rollback
+# target that Dokploy builds only if a rollback actually happens.
+# `scripts/legacy-pocketbase-ci.sh` builds it and runs its suites, including the
+# populated migration, by hand when that history has to be exercised — see
+# docs/legacy-tooling.md. Nothing was deleted.
 
 jobs:
   checks:
-    runs-on: ubuntu-latest
+    # Literal, not an expression: `env` is not an available context in
+    # `jobs.<job_id>.runs-on` (only github, needs, strategy, matrix, vars,
+    # inputs), so a shared runner variable cannot be used here. Keep the three
+    # x64 jobs on this same image by hand (see PLAYWRIGHT_RUNNER note above).
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       # The two Noto files the certificate renderer opens are committed, so the
@@ -49,6 +76,16 @@ jobs:
         run: bun run check:runtime-syntax
       - name: Typecheck
         run: bun run typecheck
+      - name: Documentation
+        run: bun run check:docs
+      # Committed runtime data — a database file, an uploads tree, a stray
+      # artifact — must not reach a build or an image. The check lives in its
+      # own script so it reads the same way locally; it runs here, right after
+      # checkout and the install, before lint, tests and the build, so the
+      # failure names the file rather than surfacing as a test that happens to
+      # notice it.
+      - name: No committed runtime data
+        run: bash scripts/check-no-runtime-data.sh
       # Lint, the unit suite and the production build do not touch each other's
       # files, and each leaves cores idle, so they share the runner instead of
       # queueing behind one another. Typecheck runs first because it generates
@@ -65,111 +102,13 @@ jobs:
           wait "$BUILD" || status=1
           exit "$status"
 
-  # A PocketBase boot plus the invariant suites and a populated migration. It
-  # gates pull requests into dev and manual runs; a dev push has already passed
-  # it on its PR, and a main push has passed the deeper clean-room on its
-  # release PR. It is deliberately not the full clean-room.
-  smoke-backend:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && github.base_ref == 'dev')
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v7
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-      - run: bun install --frozen-lockfile
-      - uses: docker/setup-buildx-action@v4
-      - name: Build PocketBase image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: pocketbase/Dockerfile
-          load: true
-          tags: ieee-pocketbase-ci
-          cache-from: type=gha,scope=pocketbase
-          cache-to: type=gha,mode=max,scope=pocketbase
-      - name: Start fake SMTP server
-        env:
-          SMTP_FAKE_PORT: "18082"
-          SMTP_CAPTURE_PATH: /tmp/fake-smtp-messages.jsonl
-        run: |
-          python3 tests/backend/fake_smtp.py > /tmp/fake-smtp.log 2>&1 &
-          echo $! > /tmp/fake-smtp.pid
-          for i in {1..20}; do
-            python3 -c 'import socket; s=socket.create_connection(("127.0.0.1", 18082), timeout=1); s.close()' && exit 0 || true
-            sleep 1
-          done
-          cat /tmp/fake-smtp.log
-          exit 1
-      - name: Start fresh PocketBase
-        run: |
-          docker run -d --name ieee-pocketbase-ci \
-            --add-host=host.docker.internal:host-gateway \
-            -p 127.0.0.1:8090:8090 \
-            -e DEPLOY_ENV='staging' \
-            -e PB_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef' \
-            -e PAYGATE_URL='http://host.docker.internal:18081' \
-            -e PAYGATE_API_KEY='CI-PayGate-Api-Key-2026-Only-Test-32' \
-            -e PAYGATE_WEBHOOK_SECRET='CI-PayGate-Webhook-2026-Only-Test-32' \
-            -e CERTIFICATE_RENDER_CAPABILITY_KEY='CI-Certificate-Render-Capability-2026-Only-Test' \
-            -e MAIL_DELIVERY_MODE='redirect' \
-            -e MAIL_REDIRECT_TO='ci-certificate-sink@example.test' \
-            -e SMTP_HOST='host.docker.internal' \
-            -e SMTP_PORT='18082' \
-            -e SMTP_TLS='false' \
-            -e SMTP_FROM='IEEE Sahrdaya <ci-sender@example.test>' \
-            ieee-pocketbase-ci
-          for i in {1..60}; do
-            curl -fsS http://127.0.0.1:8090/api/health >/dev/null && exit 0
-            sleep 1
-          done
-          docker logs ieee-pocketbase-ci
-          exit 1
-      - name: Create CI superuser
-        run: |
-          docker exec ieee-pocketbase-ci ./pocketbase superuser upsert \
-            ci-super@example.test 'CI-PocketBase-Smoke-2026!' --encryptionEnv=PB_ENCRYPTION_KEY
-      - name: Exercise backend invariants
-        env:
-          PB_BASE_URL: http://127.0.0.1:8090
-          PB_SUPERUSER_EMAIL: ci-super@example.test
-          PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
-          E2E_WORKSPACE_FIXTURE: /tmp/community-workspace-e2e.json
-        run: |
-          python3 tests/backend/pocketbase_smoke.py
-          python3 tests/backend/community_roles_smoke.py
-      - name: Exercise certificate template lifecycle
-        env:
-          PB_BASE_URL: http://127.0.0.1:8090
-          PB_SUPERUSER_EMAIL: ci-super@example.test
-          PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
-          SMTP_CAPTURE_PATH: /tmp/fake-smtp-messages.jsonl
-        run: python3 tests/backend/certificate_template_smoke.py
-      - name: Verify the PocketBase to SQLite migration against real records
-        run: |
-          set -euo pipefail
-          docker cp ieee-pocketbase-ci:/pb/pb_data /tmp/pb-data
-          mkdir -p data
-          bunx tsx scripts/migrate-pb-to-sqlite.ts \
-            --source /tmp/pb-data/data.db \
-            --storage /tmp/pb-data/storage \
-            --target ./data/portal.db \
-            --uploads ./data/uploads \
-            --id-map /tmp/id-map.json \
-            --apply
-      - name: Backend logs on failure
-        if: failure()
-        run: docker logs ieee-pocketbase-ci || true
-
-  # The deep gate, on pull requests into main only. It boots a fresh PocketBase,
-  # exercises every backend lifecycle and runs the populated migration.
-  clean-room-backend:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && github.base_ref == 'main')
+  # The active data layer, tested against real databases, on every push and PR.
+  #
+  # This replaces the PocketBase smoke that used to gate PRs into dev: the
+  # PocketBase crate is a rollback target, and `/api` is served by this app, so
+  # exercising PocketBase proved nothing about the code being merged.
+  integration:
+    # Same image as `checks`, written literally for the reason given there.
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -177,130 +116,130 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
-      - run: bun install --frozen-lockfile
-      - uses: docker/setup-buildx-action@v4
-      - name: Build PocketBase image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: pocketbase/Dockerfile
-          load: true
-          tags: ieee-pocketbase-ci
-          cache-from: type=gha,scope=pocketbase
-          cache-to: type=gha,mode=max,scope=pocketbase
-      - name: Start fake SMTP server
-        env:
-          SMTP_FAKE_PORT: "18082"
-          SMTP_CAPTURE_PATH: /tmp/fake-smtp-messages.jsonl
-        run: |
-          python3 tests/backend/fake_smtp.py > /tmp/fake-smtp.log 2>&1 &
-          echo $! > /tmp/fake-smtp.pid
-          for i in {1..20}; do
-            python3 -c 'import socket; s=socket.create_connection(("127.0.0.1", 18082), timeout=1); s.close()' && exit 0 || true
-            sleep 1
-          done
-          cat /tmp/fake-smtp.log
-          exit 1
-      - name: Start fresh PocketBase
-        run: |
-          docker run -d --name ieee-pocketbase-ci \
-            --add-host=host.docker.internal:host-gateway \
-            -p 127.0.0.1:8090:8090 \
-            -e DEPLOY_ENV='staging' \
-            -e PB_ENCRYPTION_KEY='0123456789abcdef0123456789abcdef' \
-            -e PAYGATE_URL='http://host.docker.internal:18081' \
-            -e PAYGATE_API_KEY='CI-PayGate-Api-Key-2026-Only-Test-32' \
-            -e PAYGATE_WEBHOOK_SECRET='CI-PayGate-Webhook-2026-Only-Test-32' \
-            -e PAYGATE_REGISTRATION_GRACE_SECONDS='600' \
-            -e CERTIFICATE_RENDER_CAPABILITY_KEY='CI-Certificate-Render-Capability-2026-Only-Test' \
-            -e MAIL_DELIVERY_MODE='redirect' \
-            -e MAIL_REDIRECT_TO='ci-certificate-sink@example.test' \
-            -e SMTP_HOST='host.docker.internal' \
-            -e SMTP_PORT='18082' \
-            -e SMTP_TLS='false' \
-            -e SMTP_FROM='IEEE Sahrdaya <ci-sender@example.test>' \
-            ieee-pocketbase-ci
-          for i in {1..60}; do
-            curl -fsS http://127.0.0.1:8090/api/health >/dev/null && exit 0
-            sleep 1
-          done
-          docker logs ieee-pocketbase-ci
-          exit 1
-      - name: Create CI superuser
-        run: |
-          docker exec ieee-pocketbase-ci ./pocketbase superuser upsert \
-            ci-super@example.test 'CI-PocketBase-Smoke-2026!' --encryptionEnv=PB_ENCRYPTION_KEY
-      - name: Exercise backend invariants
-        env:
-          PB_BASE_URL: http://127.0.0.1:8090
-          PB_SUPERUSER_EMAIL: ci-super@example.test
-          PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
-          E2E_WORKSPACE_FIXTURE: /tmp/community-workspace-e2e.json
-        run: |
-          python3 tests/backend/pocketbase_smoke.py
-          python3 tests/backend/community_roles_smoke.py
-      - name: Exercise certificate template lifecycle
-        env:
-          PB_BASE_URL: http://127.0.0.1:8090
-          PB_SUPERUSER_EMAIL: ci-super@example.test
-          PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
-          SMTP_CAPTURE_PATH: /tmp/fake-smtp-messages.jsonl
-        run: python3 tests/backend/certificate_template_smoke.py
-      - name: Exercise certificate issuance lifecycle
-        env:
-          PB_BASE_URL: http://127.0.0.1:8090
-          PB_SUPERUSER_EMAIL: ci-super@example.test
-          PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
-        run: python3 tests/backend/certificate_issuance_smoke.py
-      - name: Exercise 100-recipient certificate scale
-        env:
-          PB_BASE_URL: http://127.0.0.1:8090
-          PB_SUPERUSER_EMAIL: ci-super@example.test
-          PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
-        run: python3 tests/backend/certificate_bulk_smoke.py
-      - name: Exercise public certificate verification
-        env:
-          PB_BASE_URL: http://127.0.0.1:8090
-          PB_SUPERUSER_EMAIL: ci-super@example.test
-          PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
-          CERTIFICATE_RENDER_CAPABILITY_KEY: CI-Certificate-Render-Capability-2026-Only-Test
-        run: python3 tests/backend/certificate_public_smoke.py
-      - name: Exercise certificate delivery lifecycle
-        env:
-          PB_BASE_URL: http://127.0.0.1:8090
-          PB_SUPERUSER_EMAIL: ci-super@example.test
-          PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
-        run: python3 tests/backend/certificate_delivery_smoke.py
-      - name: Exercise certificate revoke and replacement lifecycle
-        env:
-          PB_BASE_URL: http://127.0.0.1:8090
-          PB_SUPERUSER_EMAIL: ci-super@example.test
-          PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
-        run: python3 tests/backend/certificate_lifecycle_smoke.py
-      - name: Exercise PayGate v4 integration
-        env:
-          PB_BASE_URL: http://127.0.0.1:8090
-          PB_SUPERUSER_EMAIL: ci-super@example.test
-          PB_SUPERUSER_PASSWORD: CI-PocketBase-Smoke-2026!
-          PAYGATE_API_KEY: CI-PayGate-Api-Key-2026-Only-Test-32
-          PAYGATE_WEBHOOK_SECRET: CI-PayGate-Webhook-2026-Only-Test-32
-          PAYGATE_FAKE_PORT: "18081"
-        run: python3 tests/backend/paygate_smoke.py
-      - name: Verify the PocketBase to SQLite migration against real records
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      # `test:integration` runs two suites in sequence: integration-db (every
+      # repository method and schema invariant) and integration-migrate (the
+      # PocketBase -> SQLite cutover against a populated fixture).
+      - name: SQLite integration suites
+        run: bun run test:integration
+      # The production dependency surface, decided by Bun's own audit: it reads
+      # bun.lock, the lockfile the image installs from, and `--prod` walks the
+      # graph the image actually gets. Reported, not gated — a registry outage
+      # must not fail a release. It fails only when a production advisory has no
+      # disposition recorded in tests/ci/audit-runtime.mjs, so nothing is
+      # accepted by silence.
+      - name: Production advisory surface
         run: |
           set -euo pipefail
-          docker cp ieee-pocketbase-ci:/pb/pb_data /tmp/pb-data
-          mkdir -p data
-          bunx tsx scripts/migrate-pb-to-sqlite.ts \
-            --source /tmp/pb-data/data.db \
-            --storage /tmp/pb-data/storage \
-            --target ./data/portal.db \
-            --uploads ./data/uploads \
-            --id-map /tmp/id-map.json \
-            --apply
-      - name: Backend logs on failure
+          audit_json="$RUNNER_TEMP/bun-audit-prod.json"
+          # `bun audit` exits non-zero when it finds anything; that is the
+          # normal case here, and the report below is what decides.
+          npx --yes bun@1.4.5 audit --prod --json > "$audit_json" || true
+          test -s "$audit_json"
+          node tests/ci/audit-runtime.mjs < "$audit_json"
+
+  # The release gate: the app as it will be deployed, not the dev server.
+  #
+  # build/ is produced by `bun run build`; tests/ci/seed.mjs writes a synthetic
+  # database (its own temporary directory, refused for any other filename);
+  # tests/ci/assert-seeded.mjs refuses to start the app without it, because the
+  # app would otherwise create an empty database and report healthy; then the
+  # compiled server runs on loopback with the job runner off, mail disabled and
+  # both payment and OAuth providers faked or unreachable, and Playwright drives
+  # the HTTP contract and the browser.
+  #
+  # Not the whole Playwright suite: the rest needs staging fixtures and real
+  # OAuth, and stays a documented local run (`bun run test:e2e`).
+  release-gate:
+    # A dedicated, browser-capable image, deliberately not `ubuntu-latest`: that
+    # label now resolves to Ubuntu 26.04, which Playwright cannot install for
+    # (the failure this pin fixes). It is written literally because `env` is not
+    # an available context in `runs-on`; PLAYWRIGHT_RUNNER below exists only for
+    # the steps that compare against it.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      # Which image this job actually got. If the pin is ever wrong or removed,
+      # the log names the operating system before Playwright fails on it.
+      - name: Runner image
+        run: |
+          set -euo pipefail
+          echo "runner.os=${{ runner.os }} runner.arch=${{ runner.arch }}"
+          echo "Playwright runner pin=${{ env.PLAYWRIGHT_RUNNER }}"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Cache Playwright browsers
+        # Keyed on the runner image as well as the Playwright version. `runner.os`
+        # is just "Linux" — identical on Ubuntu 24.04 and 26.04 — so an OS-blind
+        # key can hand this job a browser tree and dependency set downloaded for
+        # a different distribution. PLAYWRIGHT_RUNNER is the pinned image name,
+        # so the key moves when the pin does.
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ env.PLAYWRIGHT_CACHE_VERSION }}-${{ env.PLAYWRIGHT_RUNNER }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
+      - name: Install Playwright Chromium
+        # The pin above is what makes this work: Playwright refuses `--with-deps`
+        # on Ubuntu 26.04. Keep `--with-deps` — it installs the system libraries
+        # Chromium needs rather than leaving the gate to fail later on a missing
+        # .so — and keep Chromium: the gate spec launches a real browser, so
+        # dropping it would silently reduce the gate. The message reads the
+        # version from the installed package so it does not go stale on a bump.
+        run: |
+          set -euo pipefail
+          if ! grep -q '^ID=ubuntu' /etc/os-release || ! grep -q '^VERSION_ID="24.04"' /etc/os-release; then
+            pw_version="$(node -p "require('playwright-core/package.json').version" 2>/dev/null || echo 'unknown')"
+            echo "::error::Playwright ${pw_version} cannot install browsers on $(. /etc/os-release && echo "$PRETTY_NAME"); it supports Ubuntu 24.04. Fix the runs-on pin, do not skip the browser." >&2
+            exit 1
+          fi
+          bunx playwright install --with-deps chromium
+      - name: Build the app
+        # No GIT_COMMIT/GIT_TREE here on purpose: the release gate exercises a
+        # local-provenance build. The `web-image` job is the one that bakes the
+        # args, and CD verifies them on the deployed image.
+        run: bun run build
+      # Seed first, then assert, then start. The app creates a missing database
+      # on boot, so an unseeded start would come up healthy and empty; the
+      # assertion is what turns that into a clear failure.
+      - name: Seed the synthetic release-gate database
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/release-gate"
+          RELEASE_GATE_DATA_DIR="$RUNNER_TEMP/release-gate" bun tests/ci/seed.mjs \
+            | tee "$RUNNER_TEMP/release-gate/seed.log"
+          DB_PATH="$(sed -n 's/^RELEASE_GATE_SQLITE_PATH=//p' "$RUNNER_TEMP/release-gate/seed.log" | tail -1)"
+          test -n "$DB_PATH"
+          bun tests/ci/assert-seeded.mjs "$DB_PATH"
+          echo "RELEASE_GATE_DATA_DIR=$RUNNER_TEMP/release-gate" >> "$GITHUB_ENV"
+      - name: Release gate (HTTP contract and browser)
+        run: |
+          set -euo pipefail
+          # The runner seeds and asserts into RELEASE_GATE_DATA_DIR, starts the
+          # fake Google provider and the compiled app (RELEASE_GATE_SKIP_BUILD=1
+          # reuses build/), then runs Playwright. The same command runs locally:
+          # `bun run test:release-gate`.
+          RELEASE_GATE_SKIP_BUILD=1 bun tests/ci/release-gate.mjs
+      - name: Gate logs on failure
         if: failure()
-        run: docker logs ieee-pocketbase-ci || true
+        run: |
+          ls -la "$RUNNER_TEMP/release-gate" 2>/dev/null || true
+          cat test-results/*/error-context.md 2>/dev/null | head -200 || true
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: release-gate-artifacts
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
 
   # The web image, built on arm64 (the architecture production runs) and
   # published to GHCR per commit tree. Production deploys pull it, so the server
@@ -329,20 +268,29 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      # A release PR publishes the image for its tree, and a squash merge keeps
-      # that tree, so a normal main push has nothing to build. The check runs
-      # only on pushes: PRs always build, so a Dockerfile change is validated
-      # before it can merge.
+      # Reuse an image for this tree only when the registry manifest proves it
+      # carries the provenance contract. The decision lives in
+      # `scripts/image-tree-check.sh` so it is one reviewable piece of shell that
+      # can be exercised against a real registry (it was, against a local
+      # registry: a full-contract image is reused; a pre-contract image and a
+      # contract-version mismatch are both rebuilt). `--raw` on an OCI index has
+      # no labels, so the check reads the structured `.Image` config instead of
+      # parsing human output. A tree tag published before GIT_COMMIT/GIT_TREE
+      # existed is rebuilt and overwritten, never reused, and the build itself
+      # always runs from the tree this job checked out with this run's args.
       - name: Check whether this tree is already published
         id: published
         if: github.event_name != 'pull_request'
-        run: |
-          if docker buildx imagetools inspect "$IMAGE:tree-${{ steps.tree.outputs.tree }}" >/dev/null 2>&1; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-            echo "Image for this tree is already published; skipping the build."
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
+        env:
+          # Part of the skip decision: bump it whenever the image contract
+          # changes (build args, labels, or how the Dockerfile cooks them).
+          IMAGE_CONTRACT: "2"
+        run: echo "exists=$(scripts/image-tree-check.sh "$IMAGE" "${{ steps.tree.outputs.tree }}")" >> "$GITHUB_OUTPUT"
+      # GIT_COMMIT and GIT_TREE are the baked provenance CD verifies: the
+      # Dockerfile writes them into build/build-info.json, so a running
+      # container can prove which commit and tree it was built from without
+      # trusting its tag. The same values go into the OCI labels so a registry
+      # inspection answers the same question.
       - uses: docker/build-push-action@v7
         if: github.event_name == 'pull_request' || steps.published.outputs.exists != 'true'
         with:
@@ -352,32 +300,15 @@ jobs:
           # merged commit will deploy, and a main push publishes the image for
           # its own tree when the release PR did not cover it.
           push: true
+          build-args: |
+            GIT_COMMIT=${{ github.sha }}
+            GIT_TREE=${{ steps.tree.outputs.tree }}
           tags: |
             ${{ env.IMAGE }}:sha-${{ github.sha }}
             ${{ env.IMAGE }}:tree-${{ steps.tree.outputs.tree }}
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
             ieee.tree=${{ steps.tree.outputs.tree }}
+            ieee.image-contract=2
           cache-from: type=gha,scope=web
           cache-to: type=gha,mode=max,scope=web
-
-  # PocketBase still builds on deploy (it is the rollback target and changes
-  # rarely), so its Dockerfile is validated here rather than published.
-  container-builds:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'pull_request' && github.base_ref == 'main')
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v7
-      - uses: docker/setup-buildx-action@v4
-      - uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: pocketbase/Dockerfile
-          push: false
-          tags: ieee-sahrdaya/pocketbase:ci-${{ github.sha }}
-          cache-from: type=gha,scope=pocketbase
-          cache-to: type=gha,mode=max,scope=pocketbase

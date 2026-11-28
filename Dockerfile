@@ -1,4 +1,10 @@
 # syntax=docker/dockerfile:1.7
+#
+# Provenance args. CI's `web-image` job passes GIT_COMMIT and GIT_TREE; CD reads
+# `GIT_TREE` back from build/build-info.json to prove the image it deploys was
+# built from the tree CI tested. Declared in every stage where they are consumed
+# so `docker build` with the args never fails for an undeclared ARG, and defaulted
+# so a plain `docker compose build` on a laptop still works (no provenance baked).
 # Bun 1.2.9's better-sqlite3 postinstall never returns under BuildKit on
 # linux/arm64 (it completes with the legacy builder, and 1.4.x completes under
 # BuildKit in ~25 s). Keep this pinned at a version that builds.
@@ -15,7 +21,29 @@ RUN --mount=type=cache,id=bun-cache,target=/root/.bun/install/cache,sharing=lock
 
 FROM deps AS build
 COPY . .
-RUN bun run build
+# Build identity, baked in rather than read at runtime. The runtime image below
+# has no `.git`, and a deploy host's checkout is not the build's checkout, so
+# the only trustworthy source is what the caller hands this stage.
+#   GIT_COMMIT  the commit being built (CI passes $GITHUB_SHA; see deploy-local.sh)
+#   GIT_TREE    its git tree (CI resolves it; a merge commit keeps the tested tree)
+#   GIT_BUILT_AT  ISO timestamp, for an operator reading /admin/data-health
+#
+# Two readers exist and both must be satisfied. The Vite build writes
+# `build/build-info.json` from these environment variables, and
+# `resolveBuildIdentity()` falls back to the baked `build/git-*` files when the
+# runtime environment does not carry them. A plain `docker build .` with no args
+# produces an image that reports `source` instead of a commit, and every consumer
+# says so rather than guessing.
+ARG GIT_COMMIT=""
+ARG GIT_TREE=""
+ARG GIT_BUILT_AT=""
+ENV GIT_COMMIT=$GIT_COMMIT \
+    GIT_TREE=$GIT_TREE \
+    GIT_BUILT_AT=$GIT_BUILT_AT
+RUN bun run build \
+    && printf '%s\n' "$GIT_COMMIT" > build/git-commit \
+    && printf '%s\n' "$GIT_TREE" > build/git-tree \
+    && printf '%s\n' "$GIT_BUILT_AT" > build/git-built-at
 
 FROM oven/bun:1.4.5-alpine AS prod-deps
 WORKDIR /app
@@ -46,4 +74,6 @@ COPY sqlite/ ./sqlite/
 COPY package.json ./package.json
 EXPOSE 3000
 USER node
+# Inspect a running deployment without opening its data:
+#   docker exec <container> cat /app/build/git-commit
 CMD ["node", "./node_modules/@react-router/serve/bin.js", "./build/server/index.js"]

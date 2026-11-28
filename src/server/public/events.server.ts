@@ -3,6 +3,7 @@ import { canRegisterForEvent, getRegistrationMode, type EventRegistrationMode } 
 import { getEventAttendanceMode, type EventAttendanceMode } from "@/lib/event-presentation";
 import { normalizeEligibleProgrammes, normalizeEligibleSemesters } from "@/lib/event-audience";
 import { normalizeEventRequirements } from "@/lib/event-requirements";
+import { isPublicDisplayEvent } from "@/lib/public-event-filter";
 import { publicDataUnavailable } from "./errors.server";
 import {
   getPublicEventBySlug,
@@ -146,7 +147,7 @@ function mapEventRow(row: EventRow): SerializableEvent {
 export async function fetchEvents(): Promise<SerializableEvent[]> {
   try {
     const rows = await listPublicEvents();
-    return rows.map(mapEventRow);
+    return rows.map(mapEventRow).filter(isPublicDisplayEvent);
   } catch (error) {
     publicDataUnavailable("fetchEvents", error);
   }
@@ -157,7 +158,9 @@ export async function fetchEventBySlug(
 ): Promise<SerializableEvent | null> {
   try {
     const row = await getPublicEventBySlug(slug);
-    return row ? mapEventRow(row) : null;
+    if (!row) return null;
+    const mapped = mapEventRow(row);
+    return isPublicDisplayEvent(mapped) ? mapped : null;
   } catch (error) {
     publicDataUnavailable("fetchEventBySlug", error);
   }

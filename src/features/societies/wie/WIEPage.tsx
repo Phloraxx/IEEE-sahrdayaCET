@@ -240,6 +240,7 @@ export function WIEPage({ data }: { data: SocietyPageData }) {
 
               <motion.h1
                 variants={heroItemVariants}
+                aria-label="Women in Engineering at Sahrdaya"
                 className="font-display text-[clamp(3.05rem,7vw,7.2rem)] uppercase leading-[0.82] tracking-[-0.035em] text-[#1c111f]"
               >
                 Women in

@@ -7,6 +7,7 @@ import { ServerRouter } from "react-router";
 import { isbot } from "isbot";
 import type { RenderToPipeableStreamOptions } from "react-dom/server";
 import { renderToPipeableStream } from "react-dom/server";
+import { prepareDatabaseForStartup } from "@/lib/db.server";
 import { buildContentSecurityPolicy } from "@/lib/csp";
 import { PUBLIC_DOCUMENT_CACHE_CONTROL, isCacheablePublicDocument } from "@/server/http/cache";
 import {
@@ -16,6 +17,8 @@ import {
 	renderCacheStore,
 } from "@/server/http/render-cache.server";
 import { startScheduler } from "@/server/jobs/scheduler.server";
+import { resolveBuildIdentity } from "@/server/build-identity.server";
+import { applyIntegrationGuard, describeIntegrations } from "@/server/integrations.server";
 
 /**
  * The app owns its clock. This module is imported once per server process in
@@ -24,6 +27,93 @@ import { startScheduler } from "@/server/jobs/scheduler.server";
  * the single-instance assumptions.
  */
 startScheduler();
+
+/**
+ * Prove the database before the first request.
+ *
+ * `src/lib/db.server.ts` opens and migrates lazily, which keeps scripts and
+ * tests that never touch the database from creating one. The cost is that the
+ * first *request* discovers a refusal: a missing production bind mount, an
+ * unknown schema version, or a failed forward migration becomes a 500 for
+ * whoever arrived first, and in production an empty database would have been
+ * served long enough to look healthy.
+ *
+ * So this entry opens it once, at boot, and refuses to finish starting if that
+ * fails. The gate matters, because this module is also evaluated by the Vite
+ * build and by anything that imports the entry rather than running the server:
+ *
+ * - `NODE_ENV=production` (the container and `react-router-serve`) always runs
+ *   it. A production storage or schema refusal throws out of module evaluation,
+ *   the process exits non-zero, and no request is ever accepted. That is the
+ *   intended behaviour: fail before real traffic, not during it.
+ * - Outside production it runs only when asked (`DB_PREPARE_ON_BOOT=1`), so a
+ *   dev server, a build, a unit test or a Playwright run does not create or
+ *   mutate a database as a side effect of importing this file. Those
+ *   environments keep the lazy path, which fails safe with the same codes.
+ *
+ * `getDatabase()` is a process singleton that remembers a throw, so the lazy
+ * path and this call cannot disagree about the outcome or migrate twice.
+ */
+async function prepareDatabaseOnBoot(): Promise<void> {
+	const always = process.env.NODE_ENV === "production";
+	const requested = /^(1|true|on)$/i.test(process.env.DB_PREPARE_ON_BOOT ?? "");
+	if (!always && !requested) return;
+	try {
+		await prepareDatabaseForStartup();
+	} catch (error) {
+		// The refusal message is already logged by the helper with its code; the
+		// stack is what makes an operator able to find the call site.
+		console.error("[db] startup refused; not accepting requests", error);
+		throw error;
+	}
+}
+
+/**
+ * Start the boot check without blocking the module's export evaluation.
+ *
+ * React Router reads `streamTimeout` and the default export from this module at
+ * server start; holding that behind an await would make the export a promise.
+ * The check is captured so an unhandled rejection cannot be swallowed, and
+ * production exits on it rather than continuing to serve.
+ */
+const databaseReady = prepareDatabaseOnBoot();
+
+if (process.env.NODE_ENV === "production") {
+	databaseReady.catch(() => {
+		// `prepareDatabaseOnBoot` has already logged the reason. Exit non-zero so
+		// the supervisor restarts only when the operator has fixed storage.
+		process.exitCode = 1;
+		setTimeout(() => process.exit(1), 0).unref?.();
+	});
+} else {
+	databaseReady.catch(() => {
+		// Best effort off production: the lazy path will raise the same error on
+		// first use, with the same code, so this is not swallowed silently.
+	});
+}
+
+/** Resolves once the boot-time database check has finished. Used by the health check. */
+export const databaseBootCheck = databaseReady;
+
+/**
+ * Resolve the build identity before the first request. The Dockerfile bakes
+ * `build/git-commit` and `build/git-tree`; this fills them in when the
+ * deployment's environment does not carry them (a bare `docker compose up`, or
+ * a pulled production image). See `src/server/build-identity.server.ts`.
+ */
+const knownCommit = resolveBuildIdentity();
+console.log(`[boot] build identity: ${knownCommit ? "commit known" : "source build (no commit)"}`);
+
+/**
+ * Resolve which outbound integrations may act in this deployment before the
+ * first request. The guard only reads the process environment; it never contacts
+ * a provider. A PayGate endpoint without `PAYGATE_SANDBOX=true` refuses paid
+ * registration initiation (fail closed on money), and the outcome is logged so
+ * an inherited credential is visible in `docker logs` rather than discovered by
+ * a test registration. See `src/server/integrations.server.ts`.
+ */
+const integrations = applyIntegrationGuard();
+console.log(`[boot] integrations: ${describeIntegrations(integrations)}`);
 
 export const streamTimeout = 5_000;
 

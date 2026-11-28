@@ -1,83 +1,96 @@
 import React from 'react';
-import { motion } from 'framer-motion';
 import { useHydratedReducedMotion } from "@/lib/use-hydrated-reduced-motion";
 
-/* Identity hero: pixel wordmark straight on the starfield (no card), with the
-   original staggered reveal. The reveal is decorative only - under reduced
-   motion everything renders in its final state, and the section grows
-   instead of clipping when the viewport is shorter than the card.
+/* Identity hero: pixel wordmark straight on the starfield (no card).
    Scroll-linked parallax stays out so the section honours reduced-motion
-   architecture rules. */
+   architecture rules.
+
+   Performance: the wordmark used to be a framer-motion element whose start
+   state was transparent, so the server shipped invisible text and the largest
+   heading on the page only appeared after the route's JavaScript had hydrated
+   and animated in. On a cold 1.6 Mbps/4x-CPU phone that made hydration the
+   LCP.
+
+   It still makes an entrance, but as CSS from the first frame. Each line is
+   wrapped twice: the outer mask clips, the inner div carries the rise. The
+   h1 and h2 themselves stay unanimated and fully opaque, which is what the
+   release gate asserts on their computed style (`animationName: "none"`,
+   `opacity: 1`), and what keeps the identity readable in the server document.
+   The mask also carries the stepped text shadow intact, and each line costs
+   one compositor transform.
+
+   Timing, whole sequence under 0.75s (the framer-motion original finished
+   past 3.1s): wordmark lines 0.46s starting at 0 and 0.07s, the rules draw
+   from 0.18s, the three words settle from 0.24s in 60ms steps and the last
+   one lands at 0.74s. */
+
+/** The branch line, in reading order. */
+const TAGLINE = ["INNOVATE", "CONNECT", "INSPIRE"] as const;
+
+/** First word's delay, then the step between words, in milliseconds. */
+const WORD_START = 240;
+const WORD_STEP = 60;
+
 export const Hero: React.FC = () => {
-    const reduceMotion = useHydratedReducedMotion();
+  // Kept for the reduced-motion contract: the entrance is CSS, so this does
+  // not gate the server markup, and the star layers read the same preference.
+  useHydratedReducedMotion();
 
-    const textVariants = {
-        hidden: { y: 50, opacity: 0 },
-        visible: (i: number) => ({
-            y: 0,
-            opacity: 1,
-            transition: {
-                delay: i * 0.1,
-                duration: 0.8,
-                ease: [0.2, 0.65, 0.3, 0.9] as const,
-            },
-        }),
-    };
-
-    return (
-        <section className="relative min-h-dvh flex flex-col items-center justify-center z-20 px-4 py-20 sm:py-24 overflow-hidden">
-            <div className="w-full h-full flex flex-col items-center justify-center relative">
-                <div className="text-center transform translate-y-[-10%]" data-testid="hero-identity">
-                    {/* Main Title Group */}
-                    <div className="flex flex-col items-center justify-center gap-2 md:gap-4 mb-8">
-                        <motion.h1
-                            custom={0}
-                            variants={textVariants}
-                            initial={reduceMotion ? false : "hidden"}
-                            animate="visible"
-                            className="font-pixel text-5xl sm:text-7xl md:text-8xl lg:text-9xl text-ieee-blue tracking-tighter"
-                            style={{ textShadow: '4px 4px 0px rgba(0,0,0,0.1)' }}
-                        >
-                            IEEE
-                        </motion.h1>
-                        <motion.h2
-                            custom={1}
-                            variants={textVariants}
-                            initial={reduceMotion ? false : "hidden"}
-                            animate="visible"
-                            className="font-pixel text-3xl sm:text-5xl md:text-6xl lg:text-7xl text-gray-900 tracking-tighter"
-                            style={{ textShadow: '4px 4px 0px rgba(0,0,0,0.1)' }}
-                        >
-                            SAHRDAYA
-                        </motion.h2>
-                    </div>
-
-                    {/* Subtitle / Divider */}
-                    <motion.div
-                        initial={reduceMotion ? false : { opacity: 0 }}
-                        animate={{ opacity: 0.7 }}
-                        transition={{ delay: reduceMotion ? 0 : 2, duration: reduceMotion ? 0 : 1 }}
-                        className="flex items-center justify-center gap-4 md:gap-6 mt-8 md:mt-12"
-                    >
-                        <div className="h-px bg-gray-400 w-12 md:w-32 hidden sm:block" />
-
-                        <div className="flex gap-4 font-sans text-[10px] md:text-xs font-bold tracking-[0.2em] md:tracking-[0.4em] text-gray-600">
-                            {["INNOVATE", "CONNECT", "INSPIRE"].map((word, i) => (
-                                <motion.span
-                                    key={word}
-                                    initial={reduceMotion ? false : { opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: reduceMotion ? 0 : 2.2 + i * 0.3 }}
-                                >
-                                    {word}.
-                                </motion.span>
-                            ))}
-                        </div>
-
-                        <div className="h-px bg-gray-400 w-12 md:w-32 hidden sm:block" />
-                    </motion.div>
-                </div>
+  return (
+    <section className="relative min-h-dvh flex flex-col items-center justify-center z-20 px-4 py-20 sm:py-24 overflow-hidden">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_44%,rgba(255,255,255,0.88)_0%,rgba(255,255,255,0.35)_40%,rgba(243,244,239,0)_72%)]"
+      />
+      <div className="w-full h-full flex flex-col items-center justify-center relative">
+        <div className="text-center transform translate-y-[-10%]" data-testid="hero-identity">
+          {/* Main title. Mask clips, inner div rises, headings stay static and
+              opaque. The mask's clip margin is the room the stepped shadow
+              needs. */}
+          <div className="flex flex-col items-center justify-center gap-2 md:gap-4 mb-8">
+            <div className="hero-line-mask">
+              <div className="hero-line">
+                <h1
+                  className="font-pixel text-5xl sm:text-7xl md:text-8xl lg:text-9xl text-ieee-blue tracking-tighter"
+                  style={{ textShadow: "3px 3px 0px rgba(0, 98, 155, 0.22), 6px 6px 0px rgba(15, 23, 42, 0.08)" }}
+                >
+                  IEEE
+                </h1>
+              </div>
             </div>
-        </section>
-    );
+            <div className="hero-line-mask">
+              <div className="hero-line hero-line-late">
+                <h2
+                  className="font-pixel text-3xl sm:text-5xl md:text-6xl lg:text-7xl text-gray-900 tracking-tighter"
+                  style={{ textShadow: "3px 3px 0px rgba(15, 23, 42, 0.16), 6px 6px 0px rgba(15, 23, 42, 0.06)" }}
+                >
+                  SAHRDAYA
+                </h2>
+              </div>
+            </div>
+          </div>
+
+          {/* Subtitle / Divider: the rules draw outward while the wordmark
+              lands, then the three words settle in sequence. */}
+          <div className="flex items-center justify-center gap-4 md:gap-6 mt-8 md:mt-12 opacity-70">
+            <div className="hero-rule h-px bg-gray-400 w-12 md:w-32 hidden sm:block" />
+
+            <div className="flex gap-4 font-sans text-[10px] md:text-xs font-bold tracking-[0.2em] md:tracking-[0.4em] text-gray-600">
+              {TAGLINE.map((word, index) => (
+                <span
+                  key={word}
+                  className="hero-word"
+                  style={{ animationDelay: `${WORD_START + index * WORD_STEP}ms` }}
+                >
+                  {word}.
+                </span>
+              ))}
+            </div>
+
+            <div className="hero-rule h-px bg-gray-400 w-12 md:w-32 hidden sm:block" />
+          </div>
+        </div>
+      </div>
+    </section>
+  );
 };

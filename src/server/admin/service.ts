@@ -19,6 +19,9 @@
 
 import { query, withTransaction } from "@/lib/db.server";
 import { audit } from "@/server/audit";
+import { integrationReport } from "@/server/integrations.server";
+import { latestBackupMs } from "@/server/jobs/backup";
+import { readinessReport } from "@/server/readiness.server";
 import {
 	hasCapability,
 	hasEventCapability,
@@ -602,6 +605,69 @@ export async function dataHealth(actor: Actor) {
 			title: `${paidWithoutTicket} paid ${paidWithoutTicket === 1 ? "registration has" : "registrations have"} no ticket`,
 			detail: "The payment is recorded but no ticket id was issued, so the attendee cannot be checked in.",
 			href: "/admin/registrations?paymentStatus=paid",
+		});
+	}
+
+	// Deployment health belongs on this page because it is the triage surface an
+	// operator already opens: a database that stopped answering, a backup that is
+	// past its cadence, or a PayGate endpoint that refuses initiation for want of
+	// `PAYGATE_SANDBOX=true` are all "something is wrong with this environment".
+	//
+	// A stale backup or a paused runner is reported here as a warning, not as a
+	// readiness failure: it must not take the site out of rotation, and this page
+	// is where an operator fixes it. `/healthz` carries the same check names
+	// without the reasons.
+	//
+	// The readiness view here evaluates what it can without the job runner. The
+	// scheduler's liveness is the web process's own healthcheck, and judging it
+	// from inside the same process would be circular; the watchdog reads it from
+	// outside.
+	const readiness = await readinessReport({
+		probeDatabase: async () => {
+			await query("SELECT 1 AS ok");
+		},
+		lastTickMs: () => 0,
+		lastError: () => "",
+		expectJobs: false,
+		latestBackupMs,
+	});
+	for (const check of readiness.checks) {
+		if (check.status === "ok") continue;
+		// "This build has no tree" is a deploy-gate fact (CD refuses to certify
+		// it), not an operational problem for whoever is reading this page. It is
+		// shown in the identity section, not as a triage row.
+		if (check.name === "identity") continue;
+		const deploymentCritical = check.role === "readiness";
+		issues.push({
+			id: `readiness-${check.name}`,
+			severity: deploymentCritical ? "critical" : "warning",
+			category: "deployment",
+			title:
+				check.name === "database"
+					? "The database is not answering"
+					: check.name === "schema"
+						? "The database schema is behind this build"
+						: check.name === "jobs"
+							? "The job runner has stopped"
+							: check.name === "backups"
+								? "Backups are past their cadence"
+								: "This build cannot be matched to a release",
+			detail: deploymentCritical
+				? `${check.detail}. /healthz is reporting 503 for this deployment.`
+				: `${check.detail}. The site is still serving; this needs attention but does not take it offline.`,
+		});
+	}
+	for (const integration of integrationReport()) {
+		if (integration.status !== "blocked") continue;
+		issues.push({
+			id: `integration-${integration.name}`,
+			severity: "warning",
+			category: "integrations",
+			title:
+				integration.name === "paygate"
+					? "PayGate is configured but refused"
+					: "Mail is configured but refused",
+			detail: integration.reason,
 		});
 	}
 

@@ -13,15 +13,26 @@ Use this checklist for future schema-sensitive releases from `dev` staging to `m
 
 The required CI jobs must all succeed:
 
-- lint;
-- TypeScript/typegen;
-- Vitest unit tests;
-- production React Router build;
-- fresh PocketBase boot with all committed migrations/hooks;
-- backend invariant smoke suite;
-- Playwright Chromium E2E;
-- web Docker image build;
-- PocketBase Docker image build.
+- `checks`: lint, typecheck, docs, unit tests and the production build, plus the
+  no-committed-runtime-data check;
+- `integration`: `test:integration` against real databases;
+- `release-gate`: the compiled app on a synthetic database, over HTTP and in a
+  browser, on every push and PR. It runs on the literally pinned `ubuntu-24.04`
+  image because Playwright does not support Ubuntu 26.04; do not "fix" a
+  failure there by removing the browser step;
+- the arm64 `web-image` on PRs into `main` and `main` pushes. The image carries
+  `GIT_COMMIT` and `GIT_TREE`; CD compares the baked tree with the tree CI tested.
+
+Read the production advisory surface in the `integration` job log. Every
+production advisory must have a recorded disposition in
+`tests/ci/audit-runtime.mjs`.
+
+PocketBase smoke and clean-room no longer run in CI. When a change touches the
+migration tooling, run `scripts/legacy-pocketbase-ci.sh` yourself
+([legacy-tooling.md](legacy-tooling.md)).
+
+The full browser suite is not in CI; run `bun run test:e2e` locally when the
+change touches browser behaviour.
 
 Do not bypass CI by manually recreating production or staging containers.
 
@@ -34,9 +45,18 @@ Verify from `https://staging.ieeesahrdaya.com`, not only localhost:
 - `/societies` and at least one society page;
 - `/full-execom`;
 - `/healthz`;
-- `/api/health`.
+- `/robots.txt`.
 
-Check responsive layouts, navigation, browser console/page errors, hydration, canonical/metadata output, file images, and the required `noindex, nofollow` behavior on staging.
+Faster and wider than clicking through by hand: deploy staging, then run
+
+```bash
+scripts/audit/run-staging-audit.sh
+```
+
+It checks all of the above plus every admin route, the audit rows, registration/
+ticket/certificate flows, both home rails, mobile navigation and axe. Expected
+baseline: 137/137 deep, 19/19 admin routes, 22/22 UI, 15/15 accessibility. See
+`.opencode/skill/staging-audit/SKILL.md`.
 
 ## 4. Authentication and admin acceptance
 
@@ -54,6 +74,7 @@ With the appropriate staging role, verify:
 - execom create/edit and public privacy behavior;
 - user role-change command;
 - coupon create/edit/expiry/max-use behavior;
+- an admin edit appears in the dashboard activity feed (`admin_audit_log`);
 - file upload persistence across a web-container restart.
 
 Use disposable staging records and remove them after verification.
@@ -115,16 +136,16 @@ Certificate-platform releases must also follow `docs/certificate-production-runb
 Also verify:
 
 - production Google OAuth redirect/origin configuration;
-- production domain routes `/api → PocketBase` and `/ → web`;
-- public `/_/` renders the IEEE OAuth completion page, while PocketBase administration remains unrouted;
-- production and staging use different `pb_data` volumes and encryption keys;
+- `/` and `/api` are served by the app server, with no proxy to PocketBase;
+- PocketBase's administration paths are not routed on the public host;
+- production and staging use different databases, uploads and encryption keys;
 - the production web container has no PocketBase superuser credential.
 
 ## 7. Backup and migration rehearsal
 
 Immediately before production deployment:
 
-- take a fresh backup of the production PocketBase data volume/database and files;
+- take a fresh backup of the production database and uploads with `scripts/ieee-backup-export.sh`;
 - keep the backup outside the volume being upgraded;
 - confirm the migration set has already succeeded against a recent scrubbed copy of production data;
 - confirm file storage was included in the rehearsal/backup plan;
@@ -134,16 +155,27 @@ Do not rely on automatic reverse migrations after destructive schema changes.
 
 ## 8. Deployment
 
-Staging deployment path:
+Staging deployment path (from the operator's machine):
 
 ```text
-merge/push dev
-  → CI
-  → successful CI workflow_run
-  → CD freshness check
-  → DOCKPLOY_WEBHOOK_DEV
-  → isolated staging Dokploy Compose deployment
+./scripts/deploy-local.sh --staging
+  → checks the worktree is committed, clean and pushed
+  → typecheck + unit suite
+  → build with the worktree compose file, labelled with the commit and tree
+  → recreate web in ieee-dev-staging
+  → print the running container's image, creation time and baked commit
+  → wait for https://staging.ieeesahrdaya.com/healthz to be ready AND to report
+    the build fingerprint of the commit just built
 ```
+
+A printed `Deployed <sha>` therefore means the new container is serving. A stale
+image, an unreplaced container or a router still on the old one fails the run.
+
+Before the first production release that includes the integration guard, confirm
+on staging that `/admin/data-health` shows `PayGate is configured but refused`
+(or nothing about PayGate) rather than a working paid flow. A staging stack with
+no PayGate sandbox declaration refuses paid registration initiation by design;
+that is not a regression.
 
 Production deployment path:
 
@@ -154,7 +186,12 @@ merge/push main
   → CD freshness check
   → DOCKPLOY_WEBHOOK_PROD
   → production Dokploy Compose deployment
+  → CD verifies /healthz reports the tested release's build fingerprint (≤ 300 s)
 ```
+
+`Production Health` also runs automatically when that CD run finishes and
+re-checks readiness and identity. A webhook `200` alone is not a successful
+release.
 
 Do not start replacement containers manually under either Compose project name.
 
@@ -163,17 +200,68 @@ Do not start replacement containers manually under either Compose project name.
 After Dokploy reports healthy services, verify:
 
 - `/` returns 200 and expected current UI;
-- `/healthz` returns 200;
-- `/api/health` returns 200;
+- `/healthz` returns 200 **and** `"ok": true`, with `build` equal to the
+  fingerprint of the released commit — the CD run and the `Production Health`
+  run should already have asserted this;
+- the running container's baked commit matches the release:
+  `docker exec ieee-rewrite-i9ir8q-web-1 cat /app/build/git-commit`;
 - event/society public routes return expected content;
 - production `robots.txt`/sitemap behavior is correct;
 - staging remains noindexed;
 - production Google login initializes;
 - one safe authenticated/admin read succeeds where configured;
+- an admin edit produces an `admin_audit_log` row visible in the activity feed;
 - uploaded files resolve;
 - `/verify` renders the public registry design;
 - `/admin/certificates` loads for a role with `certificates.view` and remains read-only;
 - registry email visibility still requires event-scoped `registrations.view`, and delivery-error detail still requires `certificates.send`;
-- web and PocketBase logs show no migration/startup/runtime error spike.
+- web logs show no startup/runtime error spike;
+- the boot log line `[boot] integrations: …` names the integrations you expect
+  for this environment.
 
 If a rollback is required, restore application code through Git/Dokploy. Treat database rollback as a separate explicit operation based on the backup and the exact migrations that ran.
+
+## 10. Operator steps this repository cannot perform
+
+These remain open after merging operations/hardening work. None was performed
+while writing the code or these documents. No credential was read, changed,
+rotated or probed, and nothing on the host was restarted.
+
+1. **CI passes the identity build args — done.** `web-image` supplies
+   `GIT_COMMIT` and `GIT_TREE` (`.github/workflows/ci.yml`), the Dockerfile bakes
+   them both into `build/build-info.json` and the `build/git-*` files, and CD
+   verifies the running tree against the published `ieee.tree` label. Nothing
+   remains for an operator here; the instruction is kept so the next reader knows
+   the contract exists and must not be dropped.
+2. **Staging integration isolation.** Give staging its own PayGate sandbox
+   merchant/keys with `PAYGATE_SANDBOX=true`, a disposable SMTP relay with
+   `MAIL_DELIVERY_MODE=disabled` or `allowlist`, and a separate Google OAuth
+   client. Anything ever shared between the two environments should be rotated;
+   that rotation has **not** been done and is not claimed to be done. See
+   `docs/deployment.md` § Staging integration isolation. Until staging declares a
+   sandbox, paid registration refuses initiation, webhooks and status together,
+   and mail is rewritten or disabled — by design, not a regression.
+3. **Wire the upload marker into the existing offsite job.** Offsite copies are
+   made by the host job `important-backup.py`; the 2026-11-24 audit verified the
+   B2 archive it produces, so the copy itself is live. Do **not** re-enable
+   Restic, which is not the current mechanism. The remaining step is for that job
+   to end each successful run by calling
+   `scripts/backup-offsite-verify.sh --mode upload` with the store's checksum
+   (drop `--restic-snapshot` unless the job is a Restic one). Until then the
+   watchdog reports a missing offsite upload marker once
+   `IEEE_BACKUP_GRACE_UNTIL_EPOCH` passes, which is correct.
+4. **Schedule a restore drill.** Not daily: the archive is about 98 MB, and B2's
+   free egress allowance is roughly three times stored data per day. Run a drill on
+   a slow cadence (monthly is reasonable) with `--mode drill … --read-back …
+   --restore-checked`, then set `IEEE_OFFSITE_REQUIRE_DRILL=1` in the watchdog's
+   cron entry so an overdue drill alerts. Keep the drill under the same egress
+   budget as the upload job.
+5. **PocketBase retirement, if it is going away.** It is already out of the
+   default stack on the host (`profiles: [legacy-pocketbase]`, 2026-11-23) and the
+   tracked Compose now matches. Removing the service and the `pb_data` volume
+   entirely is a separate deliberate operation; the volume key is unchanged, so the
+   existing `<project>_pb_data` volume and its archive names are preserved until
+   then. Do not treat the legacy profile as a rollback path.
+6. **Archive format consolidation.** The in-app `.tar.gz` and the offsite `.zip`
+   both remain. Consolidating them needs a rollout story that covers the copies
+   already on disk at both sites; there is no such story today.

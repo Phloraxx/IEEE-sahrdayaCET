@@ -58,7 +58,7 @@ export const TechnicalDetails: React.FC = () => {
         />
       </motion.div>
 
-      {/* Bottom Right - BUILD_VER (development aid, hidden in production) */}
+      {/* Bottom Right - BUILD_VER (shown in every environment by design) */}
       {showBuildVersion ? (
         <motion.div
           initial={reduceMotion ? false : { opacity: 0, y: 20 }}

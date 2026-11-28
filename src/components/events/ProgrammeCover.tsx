@@ -46,18 +46,18 @@ export function ProgrammeCover({ event, isUpcoming, year }: ProgrammeCoverProps)
       <div className="mx-auto max-w-[1440px]">
         <div className="grid gap-12 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:items-center lg:gap-16">
           <div>
-            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#00629B]">
+            <p className="font-mono text-xs font-semibold uppercase tracking-[0.14em] text-[#00629B]">
               IEEE Sahrdaya · Student Branch
             </p>
             <h1 className="mt-4 text-[clamp(3rem,8.5vw,6.5rem)] font-semibold leading-[0.84] tracking-[-0.06em] text-[#111315]">
               Programme
             </h1>
-            <p className="mt-5 max-w-md text-base leading-relaxed text-black/55">
+            <p className="mt-5 max-w-md text-base leading-relaxed text-black/65">
               {isUpcoming
-                ? "Every workshop, hackathon and talk the branch has run — and the next one you can walk into."
-                : "Nothing on the calendar right now. The next season is being finalised — the wall below holds everything the branch has run."}
+                ? "Every workshop, hackathon and talk the branch has run, and the next one you can walk into."
+                : "Nothing on the calendar right now. The next season is being finalised; the wall below holds everything the branch has run."}
             </p>
-            <p className="mt-6 font-[Caveat] text-xl text-black/58">Kodakara · Thrissur</p>
+            <p className="mt-6 font-mono text-xs font-medium uppercase tracking-[0.12em] text-black/60">Kodakara · Thrissur</p>
           </div>
 
           <div>
@@ -69,10 +69,10 @@ export function ProgrammeCover({ event, isUpcoming, year }: ProgrammeCoverProps)
             >
               <div className="p-5 sm:p-7">
                 <div className="flex items-baseline justify-between gap-4">
-                  <p className="font-mono text-[8px] font-bold uppercase tracking-[0.2em] text-[#00629B]">
+                  <p className="font-mono text-xs font-semibold uppercase tracking-[0.1em] text-[#00629B]">
                     IEEE Sahrdaya · Student Branch
                   </p>
-                  <p className="font-mono text-[8px] font-bold uppercase tracking-[0.16em] text-black/58">{year}</p>
+                  <p className="font-mono text-xs font-semibold uppercase tracking-[0.1em] text-black/60">{year}</p>
                 </div>
                 <h2 className="mt-4 text-xl font-semibold leading-[1.08] tracking-[-0.03em] text-[#1b1a17] sm:text-2xl">
                   {isUpcoming ? event.title : "The next season"}
@@ -83,11 +83,11 @@ export function ProgrammeCover({ event, isUpcoming, year }: ProgrammeCoverProps)
                     <span className="block font-mono text-4xl font-semibold leading-none tracking-[-0.08em] tabular-nums text-[#1b1a17] sm:text-5xl">
                       {isUpcoming ? formatDay(event.date) : "—"}
                     </span>
-                    <span className="mt-1.5 block font-mono text-[8px] font-bold uppercase tracking-[0.16em] text-black/58">
+                    <span className="mt-1.5 block font-mono text-xs font-medium uppercase tracking-[0.08em] text-black/60">
                       {isUpcoming ? `${formatMonth(event.date)} · ${formatWeekdayShort(event.date)}` : "Date TBA"}
                     </span>
                   </div>
-                  <div className="min-w-0 border-l border-black/10 pl-4 text-[11px] leading-relaxed text-black/55 sm:pl-5">
+                  <div className="min-w-0 border-l border-black/10 pl-4 text-xs leading-relaxed text-black/65 sm:pl-5">
                     <div className="font-semibold text-[#1b1a17]">{isUpcoming ? time : "Timing TBA"}</div>
                     <div className="line-clamp-2">{isUpcoming ? event.venue || "Venue TBA" : "Being finalised"}</div>
                   </div>
@@ -98,8 +98,8 @@ export function ProgrammeCover({ event, isUpcoming, year }: ProgrammeCoverProps)
               <div className="relative flex items-center justify-between gap-4 border-t border-dashed border-black/20 px-5 py-3.5 sm:px-7">
                 <span aria-hidden="true" className="absolute -left-3 -top-3 h-6 w-6 rounded-full bg-[#f8f9fa] shadow-[inset_0_2px_6px_rgba(6,17,29,0.3)]" />
                 <span aria-hidden="true" className="absolute -right-3 -top-3 h-6 w-6 rounded-full bg-[#f8f9fa] shadow-[inset_0_2px_6px_rgba(6,17,29,0.3)]" />
-                <span className="font-mono text-[8px] font-bold uppercase tracking-[0.3em] text-black/58">
-                  {isUpcoming ? "Admit one" : "Not printed yet"}
+                <span className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-black/60">
+                  {isUpcoming ? "Admit one" : "Schedule TBA"}
                 </span>
                 <div aria-hidden="true" className="flex h-7 items-end gap-[1.5px]">
                   {BARS.map((width, index) => (
@@ -115,35 +115,35 @@ export function ProgrammeCover({ event, isUpcoming, year }: ProgrammeCoverProps)
                   href={registerUrl}
                   target={externalForm ? "_blank" : undefined}
                   rel={externalForm ? "noopener noreferrer" : undefined}
-                  className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#00629B] px-5 text-xs font-bold uppercase tracking-[0.14em] text-white transition-colors hover:bg-[#111315] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00629B]"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#00629B] px-5 text-xs font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-[#111315] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00629B]"
                 >
                   Grab a ticket <ArrowUpRight aria-hidden="true" className="h-4 w-4" />
                 </a>
               ) : isUpcoming ? (
                 <Link
                   to={`/events/${event.slug}`}
-                  className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#00629B] px-5 text-xs font-bold uppercase tracking-[0.14em] text-white transition-colors hover:bg-[#111315] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00629B]"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#00629B] px-5 text-xs font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-[#111315] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00629B]"
                 >
                   See the event <ArrowUpRight aria-hidden="true" className="h-4 w-4" />
                 </Link>
               ) : (
                 <Link
                   to="/contact"
-                  className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#00629B] px-5 text-xs font-bold uppercase tracking-[0.14em] text-white transition-colors hover:bg-[#111315] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00629B]"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#00629B] px-5 text-xs font-bold uppercase tracking-[0.12em] text-white transition-colors hover:bg-[#111315] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00629B]"
                 >
-                  Tell me when <ArrowUpRight aria-hidden="true" className="h-4 w-4" />
+                  Contact the branch <ArrowUpRight aria-hidden="true" className="h-4 w-4" />
                 </Link>
               )}
 
               <Link
                 to={isUpcoming ? `/events/${event.slug}` : "#programme-wall"}
-                className="inline-flex min-h-11 items-center gap-2 rounded-full px-4 text-xs font-bold uppercase tracking-[0.14em] text-black/55 transition-colors hover:text-[#00629B] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00629B]"
+                className="inline-flex min-h-11 items-center gap-2 rounded-full px-4 text-xs font-bold uppercase tracking-[0.12em] text-black/65 transition-colors hover:text-[#00629B] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00629B]"
               >
                 {isUpcoming ? "Event details" : "Open the wall"} <ArrowDown aria-hidden="true" className="h-4 w-4" />
               </Link>
             </div>
 
-            <p className="mt-4 font-mono text-[8px] font-bold uppercase tracking-[0.16em] text-black/58">
+            <p className="mt-4 font-mono text-xs font-medium uppercase tracking-[0.1em] text-black/60">
               {year} · Kodakara, Thrissur
             </p>
           </div>

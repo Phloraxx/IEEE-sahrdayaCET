@@ -291,6 +291,9 @@
   --vh-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --vh-ease-in: cubic-bezier(0.7, 0, 0.84, 0);
   --vh-ease-glide: cubic-bezier(0.32, 0.72, 0, 1);
+  /* The homepage hero's curve: the original framer-motion ease, gentle enough
+     that a 0.46s rise still reads as movement rather than a jump. */
+  --hero-ease: cubic-bezier(0.2, 0.65, 0.3, 0.9);
 }
 
 @keyframes vh-beat-in {
@@ -439,6 +442,7 @@
   --accent: oklch(0.28 0.012 60);
   --accent-foreground: oklch(0.97 0.005 75);
   --destructive: oklch(0.62 0.2 27);
+  --destructive-foreground: oklch(0.99 0.005 27);
   --border: oklch(0.3 0.01 60);
   --input: oklch(0.28 0.01 60);
   --ring: oklch(0.74 0.175 55);
@@ -644,6 +648,62 @@
    pulled up, so the rest of the page does not move. Keep the two numbers in
    step; the wordmark's break-apart (PixelWordmark) is scrubbed against the
    handoff element, not against the scrollbar. */
+
+/* ── Homepage hero entrance ───────────────────────────────────────────
+   One staged pass, finished in under 0.8s and driven by CSS alone, so it
+   runs from the first frame instead of waiting for hydration. The two
+   wordmark lines rise out of a mask (transform only, so no frame of them is
+   transparent) while the hairlines draw outward, then the three words settle
+   in sequence. The h1 and h2 carry no animation themselves: the release gate
+   asserts the identity is opaque and unanimated in the server document.
+
+   The mask is `overflow: clip` with `overflow-clip-margin` instead of padding
+   and negative margins: clip takes no space, so the wordmark's spacing and
+   centring are byte-identical to the static version, and the 10px margin is
+   what keeps the stepped shadow from being cut off at its edge. Browsers
+   without clip-margin lose 6px of shadow tail at worst, never layout.
+
+   `both` holds the start frame through the delay and the final frame after
+   it; the reduced-motion block at the end of this file drops the transforms
+   entirely. */
+@keyframes hero-line-rise {
+  from { transform: translate3d(0, 110%, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+@keyframes hero-word-in {
+  from { opacity: 0; transform: translate3d(0, 6px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes hero-rule-draw {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.hero-line-mask {
+  overflow: clip;
+  overflow-clip-margin: 10px;
+}
+.hero-line {
+  display: block;
+  animation: hero-line-rise 460ms var(--hero-ease) both;
+}
+.hero-line-late {
+  animation-delay: 70ms;
+}
+.hero-word {
+  display: inline-block;
+  animation: hero-word-in 380ms var(--hero-ease) both;
+}
+.hero-rule {
+  transform-origin: center;
+  animation: hero-rule-draw 520ms var(--hero-ease) 180ms both;
+}
+/* The hero's paper, painted from the stylesheet. The star canvas is a
+   client-only layer, so without this the wordmark's first paint would land on
+   an unpainted region until hydration. */
+.hero-stage {
+  background: #f3f4ef;
+  background-image: radial-gradient(circle at 50% 44%, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.4) 38%, rgba(243, 244, 239, 0) 72%);
+}
 .hero-stage { height: 200dvh; }
 .hero-handoff {
   margin-top: -100dvh;
@@ -661,4 +721,5 @@
   .hero-stage { height: auto; }
   .hero-stage > div { position: static; height: auto; }
   .hero-handoff { margin-top: 0; border-radius: 0; box-shadow: none; }
+  .hero-line, .hero-word, .hero-rule { animation: none !important; transform: none; }
 }

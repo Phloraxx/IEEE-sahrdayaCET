@@ -14,6 +14,80 @@ pb_data
 *.log
 .DS_Store
 
+# Runtime application data must never enter the image either. The container
+# gets its database from the SQLITE_DATA_DIR bind mount at /app/data, never from
+# the build context: a copied portal.db would bake real member records into a
+# published image. sqlite/schema.sql and public/ are source and stay.
+#
+# Docker's bare `*.sqlite` matches the context root only, so every extension is
+# written both ways: `**/` covers a nested `nested/path/sample.sqlite`. Keep this
+# list in step with .gitignore and scripts/check-no-runtime-data.sh.
+#
+# Store directories are named by suffix, not `**/data`, because Docker's `**/`
+# also matches zero directories and would drop `src/lib/data/` and `public/data/`.
+data/portal.db
+**/data/portal.db
+**/data/uploads
+**/backups
+**/restores
+**/dumps
+**/dump
+**/pb_data
+*.db
+**/*.db
+*.db3
+**/*.db3
+*.sl3
+**/*.sl3
+*.sqlite
+**/*.sqlite
+*.sqlite3
+**/*.sqlite3
+*.db-wal
+**/*.db-wal
+*.db-shm
+**/*.db-shm
+*.db-journal
+**/*.db-journal
+*.db3-wal
+**/*.db3-wal
+*.db3-shm
+**/*.db3-shm
+*.db3-journal
+**/*.db3-journal
+*.sl3-wal
+**/*.sl3-wal
+*.sl3-shm
+**/*.sl3-shm
+*.sl3-journal
+**/*.sl3-journal
+*.sqlite-wal
+**/*.sqlite-wal
+*.sqlite-shm
+**/*.sqlite-shm
+*.sqlite-journal
+**/*.sqlite-journal
+*.sqlite3-wal
+**/*.sqlite3-wal
+*.sqlite3-shm
+**/*.sqlite3-shm
+*.sqlite3-journal
+**/*.sqlite3-journal
+*.dump
+**/*.dump
+*.dump.sql
+**/*.dump.sql
+*.bak
+**/*.bak
+*.backup
+**/*.backup
+release-gate-*
+**/release-gate-*
+.audit-output
+.next
+.turbo
+.temp
+
 # Local coding-agent metadata
 .od-skills/
 **/.od-skills/

@@ -124,6 +124,12 @@ export function SocietyForm({ mode, societyId }: SocietyFormProps) {
         defaultWhatsappLink: form.defaultWhatsappLink.trim(),
         chairs,
       };
+      if (!isPlatformAdmin) {
+        // The editor has no control for these, and the endpoint refuses them
+        // for a scoped actor. Chairs remain visible as read-only context.
+        delete payload.isHidden;
+        delete payload.chairs;
+      }
 
       await saveAdminSociety({
         id: isEdit ? societyId : undefined,
@@ -149,6 +155,12 @@ export function SocietyForm({ mode, societyId }: SocietyFormProps) {
 
   if (workspace.data && !isPlatformAdmin && !canEditSociety) {
     return <div className="rounded-xl border border-border bg-card p-8"><h2 className="text-lg font-semibold">Society editing is not assigned to you</h2><p className="mt-2 text-sm text-muted-foreground">Your current workspace appointment does not include society profile editing.</p></div>;
+  }
+  // A new society is created hidden, and only a full-visibility actor can make
+  // it visible again. A scoped editor would create a row nothing can unhide, so
+  // creation stays with the platform admin and the page says so.
+  if (!isEdit && workspace.data && !isPlatformAdmin) {
+    return <div className="rounded-xl border border-border bg-card p-8"><h2 className="text-lg font-semibold">Only a platform admin can create a society</h2><p className="mt-2 text-sm text-muted-foreground">New societies are created hidden and published by a platform admin. Your appointment lets you edit the societies assigned to you.</p></div>;
   }
 
   // Loading skeleton

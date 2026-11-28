@@ -37,7 +37,11 @@ export async function getAdminStats(): Promise<AdminStats> {
   const societyIds = branchWide ? [] : Array.from(new Set(workspace.assignments.filter((a) => a.active && a.scopeType === "society" && (a.capabilities.includes("reports.view") || a.capabilities.includes("registrations.view"))).map((a) => a.societyId).filter(Boolean)));
   const eventIds = branchWide ? [] : Array.from(new Set(workspace.assignments.filter((a) => a.active && a.scopeType === "event" && (a.capabilities.includes("reports.view") || a.capabilities.includes("registrations.view"))).map((a) => a.eventId).filter(Boolean)));
   const eventScope = branchWide ? "" : ([...societyIds.map((id) => `society = ${escapeFilterValue(id)}`), ...eventIds.map((id) => `id = ${escapeFilterValue(id)}`)].join(" || ") || 'id = ""');
-  const auditScope = branchWide ? "" : ([...societyIds.map((id) => `event.society = ${escapeFilterValue(id)}`), ...eventIds.map((id) => `event = ${escapeFilterValue(id)}`)].join(" || ") || 'id = ""');
+  // The audit collection scopes reads server-side from the caller's
+  // assignments (see admin_audit_log's scopedRead), so a client-side
+  // `event.society` filter would be redundant — and the filter grammar has no
+  // relation traversal. Rely on the server scope.
+  const auditScope = "";
   const withScope = (filter: string | undefined, scope: string) => [scope ? `(${scope})` : "", filter ? `(${filter})` : ""].filter(Boolean).join(" && ") || undefined;
   const count = async (collection: string, filter?: string, scope = "") =>
     (await pb.collection(collection).getList(1, 1, { filter: withScope(filter, scope), fields: "id", requestKey: null })).totalItems;

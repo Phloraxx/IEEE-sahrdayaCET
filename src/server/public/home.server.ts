@@ -1,6 +1,7 @@
 import { buildFileUrl } from "@/lib/pb";
 import { htmlToPlainText } from "@/lib/rich-text";
 import { canRegisterForEvent, isPastEvent } from "@/lib/event-lifecycle";
+import { isPublicDisplayEvent } from "@/lib/public-event-filter";
 import { fetchExecomData } from "./execom.server";
 import { logError } from "@/lib/logger";
 import { listPublicSocieties, listUpcomingEvents, type EventRow } from "./repo.server";
@@ -115,7 +116,7 @@ export async function fetchHomeData(): Promise<HomeData> {
       eventsResult.status === "fulfilled"
         ? eventsResult.value
             .map(mapHomeEvent)
-            .filter((event) => !isPastEvent(event))
+            .filter((event) => isPublicDisplayEvent(event) && !isPastEvent(event))
         : [];
 
     const sections = ["programme", "communities", "team"];

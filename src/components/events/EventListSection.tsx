@@ -44,24 +44,24 @@ export function EventListSection({
       {showHeader && (
         <header className="grid gap-5 border-y border-black/10 py-5 md:grid-cols-12 md:items-end md:gap-8 md:py-6">
           <div className="md:col-span-3">
-            <div className="flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#00629B]">
-              <span className="font-pixel text-[8px] text-black/55">01</span>
+            <div className="flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-[#00629B]">
+              <span className="font-mono text-xs text-black/60">01</span>
               <span>Programme / {year}</span>
             </div>
             <div className="mt-3 flex items-baseline gap-3" aria-live="polite">
               <span className="font-mono text-3xl font-semibold leading-none tracking-[-0.08em] text-[#111315] tabular-nums sm:text-4xl">
                 {String(events.length).padStart(2, "0")}
               </span>
-              <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-black/55">
+              <span className="text-xs font-semibold uppercase tracking-[0.08em] text-black/60">
                 upcoming
               </span>
             </div>
-            <p className="mt-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-black/55">Kodakara / Thrissur</p>
+            <p className="mt-2 font-mono text-xs font-medium uppercase tracking-[0.08em] text-black/60">Kodakara / Thrissur</p>
           </div>
 
           <div className="md:col-span-9 md:flex md:items-end md:justify-between md:gap-10">
             <div>
-              <p className="font-pixel text-[8px] uppercase tracking-[0.14em] text-[#00629B]">IEEE / Sahrdaya</p>
+              <p className="font-mono text-xs font-semibold uppercase tracking-[0.1em] text-[#00629B]">IEEE / Sahrdaya</p>
               <h1 className="mt-2 max-w-4xl text-[clamp(2.65rem,4.8vw,4.75rem)] font-semibold leading-[0.9] tracking-[-0.07em] text-[#111315]">
                 {title}
               </h1>
@@ -84,13 +84,13 @@ export function EventListSection({
 
       {!loading && !error && events.length > 0 && (
         <div className="mt-4 md:mt-5">
-          <div className="flex min-h-11 items-center border-b border-black/10 px-3 font-mono text-[9px] font-bold uppercase tracking-[0.16em] sm:px-5 lg:px-6">
+          <div className="flex min-h-11 items-center border-b border-black/10 px-3 font-mono text-xs font-semibold uppercase tracking-[0.08em] sm:px-5 lg:px-6">
             <span className="flex items-center gap-2 text-[#00629B]">
               <span aria-hidden="true" className="event-signal-dot h-1.5 w-1.5 rounded-full bg-[#00629B]" />
               Next transmission
             </span>
           </div>
-          <div className="hidden grid-cols-[92px_minmax(0,1fr)_112px_76px] gap-4 border-b border-black/10 px-4 py-3 font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-black/55 sm:grid sm:px-5 lg:grid-cols-[92px_minmax(0,1fr)_148px_86px] lg:gap-6 lg:px-6">
+          <div className="hidden grid-cols-[92px_minmax(0,1fr)_112px_76px] gap-4 border-b border-black/10 px-4 py-3 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-black/60 sm:grid sm:px-5 lg:grid-cols-[92px_minmax(0,1fr)_148px_86px] lg:gap-6 lg:px-6">
             <span>Date</span>
             <span>Event / society</span>
             <span>When / where</span>

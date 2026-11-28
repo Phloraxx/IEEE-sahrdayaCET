@@ -58,6 +58,16 @@ async function uploadSocietyFiles(
   if (files.banner) await uploadFile("societies", societyId, "banner", files.banner);
 }
 
+/**
+ * Save a society profile.
+ *
+ * `structuralAccess` is the hidden-society switch. Only a full-visibility actor
+ * may send `isHidden`; a society editor's payload never carries it, because the
+ * collection endpoint keeps `is_hidden` for a reader who can see hidden rows.
+ * A new society is created hidden and the editor turns it visible in the same
+ * save once it has its name, slug and banner — that is the only publish step
+ * the directory has, so sending `isHidden: false` is what makes it reachable.
+ */
 export async function saveAdminSociety(input: {
   id?: string;
   payload: Record<string, unknown>;
@@ -68,14 +78,14 @@ export async function saveAdminSociety(input: {
   structuralAccess?: boolean;
 }) {
   const pb = getPbClient();
-  let payload = { ...input.payload };
+  const payload = { ...input.payload };
   if (input.removeLogo && !input.logo) payload.logo = "";
   if (input.removeBanner && !input.banner) payload.banner = "";
   if (!input.structuralAccess) {
-    payload = {
-      bio: input.payload.bio,
-      defaultWhatsappLink: input.payload.defaultWhatsappLink,
-    };
+    // The endpoint ignores these for a scoped editor anyway; not sending them
+    // keeps the request honest about what the user is allowed to change.
+    delete payload.isHidden;
+    delete payload.chairs;
   }
   const society = input.id
     ? await pb.collection("societies").update(input.id, payload)

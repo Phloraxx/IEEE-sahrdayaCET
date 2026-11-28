@@ -16,12 +16,13 @@ import { randomUUID } from "node:crypto";
 import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import type { ActionFunctionArgs } from "react-router";
-import { query } from "@/lib/db.server";
+import { query, withTransaction } from "@/lib/db.server";
 import { getEnv } from "@/lib/env.server";
+import { auditCollectionWrite } from "@/server/collections/audit";
 import { requireApiUser } from "@/server/auth/session.server";
 import { hasCapability, hasEventCapability, type Actor } from "@/server/authz/capabilities";
 import { loadAssignments } from "@/server/workspace/service";
-import { json, methodNotAllowed, toErrorResponse } from "@/server/http/api";
+import { json, methodNotAllowed, toErrorResponse, discardOversizedBody } from "@/server/http/api";
 import { WorkspaceError } from "@/server/workspace/service";
 import { normalizeDeclaredImageType, sniffImageMime } from "@/server/uploads/sniff";
 
@@ -34,6 +35,16 @@ const UPLOADABLE: Record<string, { dir: string; table: string; fields: readonly 
 };
 
 const MAX_BYTES = 5 * 1024 * 1024;
+
+/**
+ * Bound for the whole multipart envelope.
+ *
+ * `file.size` is checked only after `request.formData()` has parsed and buffered
+ * every part, so a request could carry an unbounded number of parts (or a
+ * multi-gigabyte body) before the 5 MB image check ever ran. The envelope cap is
+ * the image cap plus a megabyte for part headers and field text.
+ */
+const MAX_REQUEST_BYTES = MAX_BYTES + 1024 * 1024;
 
 /** Extension for the type the *bytes* are, never the type the client claimed. */
 const EXTENSIONS: Record<string, string> = {
@@ -117,6 +128,13 @@ export async function action({ request, params }: ActionFunctionArgs) {
 		);
 		if (!row.rows[0]) return json({ error: "The requested resource wasn't found." }, 404);
 
+		// Refuse an oversized envelope before the multipart parser buffers it.
+		const envelopeBytes = Number(request.headers.get("Content-Length") ?? "0");
+		if (Number.isFinite(envelopeBytes) && envelopeBytes > MAX_REQUEST_BYTES) {
+			await discardOversizedBody(request, MAX_REQUEST_BYTES);
+			return json({ error: "The upload is larger than 5 MB", code: "BODY_TOO_LARGE" }, 413);
+		}
+
 		const form = await request.formData().catch(() => null);
 		const file = form?.get("file");
 		if (!(file instanceof File)) return json({ error: "Expected a file field" }, 400);
@@ -149,8 +167,22 @@ export async function action({ request, params }: ActionFunctionArgs) {
 		await writeFile(join(recordDir, filename), buffer);
 
 		const previous = String(row.rows[0][field] ?? "");
+		const before = row.rows[0];
 		// pi-lens-ignore: sql-injection — same allow-listed identifiers as above.
-		await query(`UPDATE ${spec.table} SET ${field} = ? WHERE id = ?`, [filename, recordId]);
+		await withTransaction(async () => {
+			const result = await query<Record<string, unknown>>(
+				`UPDATE ${spec.table} SET ${field} = ? WHERE id = ? RETURNING *`,
+				[filename, recordId],
+			);
+			await auditCollectionWrite({
+				actorId: user.id,
+				collection,
+				kind: "update",
+				row: result.rows[0] ?? { ...before, [field]: filename },
+				before,
+				changed: [field],
+			});
+		});
 
 		// Best effort: a leftover file is harmless, a failed save is not.
 		if (previous && previous !== filename) {
@@ -168,4 +200,4 @@ export async function loader() {
 }
 
 /** Exported for the unit test that keeps the allow-list honest. */
-export const __testing = { UPLOADABLE, MAX_BYTES, EXTENSIONS };
+export const __testing = { UPLOADABLE, MAX_BYTES, MAX_REQUEST_BYTES, EXTENSIONS };

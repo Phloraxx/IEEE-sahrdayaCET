@@ -73,20 +73,47 @@ Use a dedicated command route when the operation is a command:
 | Coupon set sync | multiple coupon records must reconcile atomically |
 | User role change | the collection surface intentionally forbids role mutation |
 | Manual payment confirmation | registration/payment state, ticket issuance, audit metadata, and notification outbox eligibility move together |
+| Provider payment transition | webhook, reconciliation poll and attendee refresh share one transaction: provider state, ticket, ledger and outbox rows commit together and never regress a confirmed payment |
+| Payment expiry release | re-reads the row under the write lock and appends its audit row in the same transaction as the release; the provider status read it may rest on is opt-in (`PAYGATE_STATUS_READ`) and only an affirmative provider answer can release an initialised reservation |
+
+## Audit trail
+
+Every privileged mutation appends one row to `admin_audit_log` inside the same
+transaction as the change:
+
+- command routes (publication, registration, payments, certificates, check-in,
+  role changes) call `audit()` from `src/server/audit.ts`;
+- generic collection creates, edits and deletes, and image uploads, call
+  `auditCollectionWrite()` from `src/server/collections/audit.ts`, which records `<entity>.<kind>`, the
+  entity id, the event/registration links, and only the changed columns in
+  `before`/`after`. A delete is audited before the row disappears, because
+  `event_id` and `registration_id` are foreign keys with `ON DELETE SET NULL`.
+
+The admin dashboard's activity feed reads the same table. `google_sub` is
+redacted, and the table is readable only with `reports.view`, scoped by the
+caller's assignments.
 
 ## Schema ownership
 
 `sqlite/schema.sql` is the reproducible baseline and the only schema source of
-truth. It is idempotent: it creates missing objects and is re-applied at boot
-when `PRAGMA user_version` is behind `SCHEMA_VERSION` in `src/lib/db.server.ts`.
+truth. It is idempotent: it creates missing objects. `src/lib/db-migrate.server.ts`
+applies it at boot and owns the version marker (`PRAGMA user_version`), the
+forward migrations between versions, and the refusals for a database it cannot
+place — see `docs/sqlite-migrations.md`.
 
-It only creates. Altering an existing column — a type, a `NOT NULL` — needs a
-real migration and a version bump will not do it. Plan for that before the first
-such change, not during it.
+The file only creates. Altering an existing column — a type, a `NOT NULL`, a
+CHECK — needs a forward step in the migration module, which rebuilds the table in
+one transaction; a version bump alone does not do it.
+
+Production storage is not created by the app. With `DEPLOY_ENV=production` a
+missing, empty or non-database `SQLITE_PATH` is refused before anything opens it,
+so a lost bind mount fails the boot instead of serving an empty portal; a new
+database is created only by `scripts/init-database.ts`.
 
 A fresh database file must become a usable backend from `schema.sql` alone.
-`tests/integration-db.mjs` proves it by applying the schema to a temp file and
-exercising every repository method.
+`tests/integration-db.mjs` proves it by building the previous schema version,
+booting it through the real path, and exercising every repository method on the
+upgraded file.
 
 `pb_migrations/` is PocketBase's frozen history. Do not add to it.
 
@@ -136,7 +163,8 @@ configuration is an error, not a reason to couple staging to production.
 
 Staging is provisioned as the isolated Dokploy Compose project `ieee-dev-staging`
 with its own data directory, domain, secrets, and disabled production
-integrations. It tracks the CI-approved `deploy/staging` ref and must never share production state or credentials.
+integrations. It deploys from the working machine (see below) and must never
+share production state or credentials.
 
 ## Deployment ownership
 
@@ -149,18 +177,36 @@ Source changes belong in Git/GitHub and are deployed through CI-gated CD. See `d
 ## Branch deployment model
 
 ```text
-main → CI → deploy/production → production
-dev  → CI → deploy/staging    → staging
+main            → CI → CD → deploy/production → production (pulls the arm64 image)
+local worktree  → scripts/deploy-local.sh --staging → staging (builds on the host)
 ```
 
-CD reacts only to successful CI on `main` or `dev`, verifies the tested SHA is still the branch head, pins that exact SHA to the matching immutable deployment ref, and then triggers the corresponding Dokploy webhook. Dokploy must deploy the pinned ref rather than mutable `main`/`dev`.
+CD reacts only to successful CI on `main`, verifies the tested SHA is still the
+branch head, pins that exact SHA to `deploy/production`, and triggers the
+production Dokploy webhook. Dokploy must deploy the pinned ref rather than
+mutable `main`.
+
+Staging is not in CD. `./scripts/deploy-local.sh --staging` deploys the commit
+checked out in the worktree, builds with the worktree compose file, and
+health-gates the result. `dev` is the staging source branch, but a push there
+only runs CI.
 
 ## Infinia showcase and independent Altair archive
 
-Public SSR /infinia and /infinia/:year use curated src/lib/infinia.ts and src/lib/flagships.ts data and the scoped InfiniaShowcase component, independent of PocketBase. The hub ends with a newest-first, server-rendered Infinia/Altair timeline using FLAGSHIP_TIMELINE and canonical edition hrefs, also shared with the sitemap. Edition leaves retain their own year-specific content. Missing years return 404. Legacy /flagships, /flagships/infinia and valid Infinia edition paths issue 301 redirects to canonical showcase routes. /flagships/altair and its 2023/2022 leaves retain their existing archive.
+Public SSR /infinia and /infinia/:year use curated src/lib/infinia.ts and src/lib/flagships.ts data and the scoped InfiniaShowcase component, independent of the database. The hub ends with a newest-first, server-rendered Infinia/Altair timeline using FLAGSHIP_TIMELINE and canonical edition hrefs, also shared with the sitemap. Edition leaves retain their own year-specific content. Missing years return 404. Legacy /flagships, /flagships/infinia and valid Infinia edition paths issue 301 redirects to canonical showcase routes. /flagships/altair and its 2023/2022 leaves retain their existing archive.
 
 Production sitemap lists only canonical Infinia URLs plus Altair URLs. Staging remains noindex. Local optimised media under public/media/infinia includes full-frame WebP images and a user-initiated WebM/VP9 film with an H.264 fallback with VTT descriptions. InfiniaHero and InfiniaScene render a three-film portrait introduction (Lantern Fest, RC car and flight) and one independent 2024 robot-football scene using distinct footage on the hub/2024 leaf. Each scene has a server-rendered corresponding poster, heading, description and native skip link. The existing framer-motion dependency links frame transforms/progress to scroll; CSS adds short sticky spans only on desktop viewports at least 850px tall after motion enhancement is allowed. The hero renders three curved-seam panels with rainbow typography and a rounded CTA. On enhanced tall desktops its side panels open outward and the centre panel widens via object-fit reframing. Each separate chapter keeps full-stage footage and a modest inset reveal. Mobile hero panels retain all three stills but mount only the RC video; desktop mounts its two companion videos, controlled by the same active/visible/pause lifecycle. Reduced motion also disables spectrum and hover animation; forced colours restore system text and borders. Workshops use two-column photo-led layouts; programme days use three image-led columns. No media derivatives or new runtime dependencies were introduced. The route-scoped hero preloads a self-hosted Latin Bricolage Grotesque WOFF2 (display optical size 96, weight 600–800) with font-display:swap. Only hero titles use it; the hub renders lowercase through CSS while preserving its semantic heading. The included OFL licence and source README document provenance. The portrait sources are exclusive to the hero and are not repeated as follow-up chapters. A passive, requestAnimationFrame-throttled viewport-centre check grants at most one stage playback. Sources mount lazily after entering a stage. Visibility, connection and reduced-motion changes suspend playback; manual pause persists; failed media retains the still. Videos play normally; no scroll seeking or input interception is used. The hero flight panel's time-update handler loops only the clear opening three seconds of the existing native 1080p SDR source. Robot football adds a metadata-free 1920×1080 WebM/H.264 derivative of the genuine 4K HLG original, tone-mapped to BT.709. The three other source videos are native 1080×1920 SDR derivatives. The actual shared Footer remains outside the Infinia wrapper. The full narrative highlights player remains user-initiated; the 2025 leaf uses exclusively its own photographs and no 2024 scenes.
 
 No API, PocketBase schema/data mutation, registration, financial, notification or email pathway is introduced. Shared navigation alone gains INFINIA rainbow text; experience styling is scoped. Source provenance, privacy exclusions and Awwwards component mapping are recorded in docs/infinia-showcase-20261004.md.
 
 Current component sequencing, reference review and performance/accessibility acceptance are recorded in docs/infinia-playful-20261005.md; the prior cinema, immersive and blue-canvas plans are historical.
+## Public frontend performance (November 2026)
+
+The staging audit measured the homepage at ~4.1 MB on a phone, 3.4 MB of it images, with two Execom portraits alone at ~1.68 MB, and a cold 1.6 Mbps / 4x-CPU LCP of 4.26 s on the H1 while TTFB was 0.26 s: the wordmark shipped as `opacity: 0` and waited for hydration.
+
+- The homepage identity is server-rendered and opaque. `Hero` ships the `<h1>`/`<h2>` with no reveal hook; only the tagline and its three words rise into place through the CSS `hero-reveal` transform (opaque to opaque; `prefers-reduced-motion` shows the final state). `.hero-stage` paints its own background so the wordmark does not wait on the client-only star canvas.
+- All homepage sections stay in the server document in document order. Images defer through native `loading="lazy"` / `decoding="async"` — no section, card or marquee copy is withheld from SSR or from no-JS visitors.
+- Uploaded portraits and banners use the existing `?w=` variants through `buildSrcSet` with explicit `sizes` (home Execom carousel, `/full-execom`, society member cards, society banner, home lead artwork).
+- The seven curated gallery photographs carry two checked-in derivatives each (`public/Events/<name>-320w.webp`, `-480w.webp`; 4:3 for their 166px/260px cards, 14 files, ~200 KB), generated and verified by `scripts/generate-gallery-derivatives.mjs` (`--check` validates presence, WebP signature and dimensions without requiring byte-identical encoders). Originals remain the `src`. No other static media has checked-in derivatives.
+
+No server route, loader contract, collection policy, schema or deployment path changed.
