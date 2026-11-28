@@ -60,19 +60,30 @@ describe("home hero first paint", () => {
     expect(hero).not.toContain("initial=");
   });
 
-  it("keeps the reveal for subordinate rows only, and it never starts transparent", () => {
+  it("stages the entrance on the masks, never on the wordmark itself", () => {
     const hero = read("src/components/Hero.tsx");
     const css = read("src/features/globals.css");
-    // The tagline and the three words animate; the wordmark does not.
-    expect(hero.match(/data-hero-reveal/g)?.length).toBeGreaterThanOrEqual(2);
-    expect(hero).toContain("hero-reveal 0.6s");
-    // Motion is a transform only: the keyframes carry no opacity frame at all,
-    // so neither the wordmark nor the tagline is ever invisible.
-    const keyframes = /@keyframes hero-reveal \{[\s\S]*?\n\}/.exec(css)?.[0] ?? "";
-    expect(keyframes).toContain("transform: translate3d(0, var(--hero-reveal-shift, 12px), 0)");
+    const h1 = heroHeading(hero);
+    // The heading is still opaque, unanimated text; the wrapper does the work.
+    expect(h1).not.toMatch(/opacity/);
+    expect(h1).not.toMatch(/animation/);
+    expect(hero.match(/hero-line-mask/g)?.length).toBe(2);
+    expect(hero).toContain('className="hero-word"');
+    expect(hero).toContain("TAGLINE.map");
+    // The line reveal is a transform only: no frame of the wordmark is
+    // transparent, so the identity never disappears from the page.
+    const keyframes = /@keyframes hero-line-rise \{[\s\S]*?\n\}/.exec(css)?.[0] ?? "";
+    expect(keyframes).toContain("transform: translate3d(0, 110%, 0)");
     expect(keyframes).not.toContain("opacity");
+    // One staged pass, faster than the 3.1s framer-motion original: the
+    // wordmark lands at 0.42s, the words start at 0.24s and finish by ~0.75s.
+    expect(css).toContain("hero-line-rise 420ms");
+    expect(css).toContain("hero-word-in 340ms");
+    expect(css).toContain("hero-rule-draw 440ms");
+    expect(hero).toContain("WORD_START = 240");
+    expect(hero).toContain("WORD_STEP = 60");
     // Reduced motion shows the final geometry.
-    expect(css).toContain("[data-hero-reveal] { animation: none !important; transform: none; }");
+    expect(css).toContain(".hero-line, .hero-word, .hero-rule { animation: none !important; transform: none; }");
   });
 
   it("keeps the wordmark in Press Start 2P with static stepped depth and radial lift", () => {
