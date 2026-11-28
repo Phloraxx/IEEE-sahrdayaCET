@@ -11,12 +11,13 @@ import { useHydratedReducedMotion } from "@/lib/use-hydrated-reduced-motion";
    and animated in. On a cold 1.6 Mbps/4x-CPU phone that made hydration the
    LCP.
 
-   It still makes an entrance, but as CSS from the first frame: each line
-   rises out of a mask and the h1/h2 keep full opacity with no animation of
-   their own, so the identity is readable in the server document and the
-   release gate's "opaque, unanimated h1" assertions stay true. The mask
-   carries the stepped text shadow intact and each line costs one compositor
-   transform.
+   It still makes an entrance, but as CSS from the first frame. Each line is
+   wrapped twice: the outer mask clips, the inner div carries the rise. The
+   h1 and h2 themselves stay unanimated and fully opaque, which is what the
+   release gate asserts on their computed style (`animationName: "none"`,
+   `opacity: 1`), and what keeps the identity readable in the server document.
+   The mask also carries the stepped text shadow intact, and each line costs
+   one compositor transform.
 
    Timing, whole sequence under 0.75s (the framer-motion original finished
    past 3.1s): wordmark lines 0.46s starting at 0 and 0.07s, the rules draw
@@ -43,25 +44,29 @@ export const Hero: React.FC = () => {
       />
       <div className="w-full h-full flex flex-col items-center justify-center relative">
         <div className="text-center transform translate-y-[-10%]" data-testid="hero-identity">
-          {/* Main title. The headings themselves are static and opaque; the
-              mask is what hides them for the first 0.46s of the stylesheet's
-              life, and its clip margin is the room the stepped shadow needs. */}
+          {/* Main title. Mask clips, inner div rises, headings stay static and
+              opaque. The mask's clip margin is the room the stepped shadow
+              needs. */}
           <div className="flex flex-col items-center justify-center gap-2 md:gap-4 mb-8">
             <div className="hero-line-mask">
-              <h1
-                className="hero-line font-pixel text-5xl sm:text-7xl md:text-8xl lg:text-9xl text-ieee-blue tracking-tighter"
-                style={{ textShadow: "3px 3px 0px rgba(0, 98, 155, 0.22), 6px 6px 0px rgba(15, 23, 42, 0.08)" }}
-              >
-                IEEE
-              </h1>
+              <div className="hero-line">
+                <h1
+                  className="font-pixel text-5xl sm:text-7xl md:text-8xl lg:text-9xl text-ieee-blue tracking-tighter"
+                  style={{ textShadow: "3px 3px 0px rgba(0, 98, 155, 0.22), 6px 6px 0px rgba(15, 23, 42, 0.08)" }}
+                >
+                  IEEE
+                </h1>
+              </div>
             </div>
             <div className="hero-line-mask">
-              <h2
-                className="hero-line hero-line-late font-pixel text-3xl sm:text-5xl md:text-6xl lg:text-7xl text-gray-900 tracking-tighter"
-                style={{ textShadow: "3px 3px 0px rgba(15, 23, 42, 0.16), 6px 6px 0px rgba(15, 23, 42, 0.06)" }}
-              >
-                SAHRDAYA
-              </h2>
+              <div className="hero-line hero-line-late">
+                <h2
+                  className="font-pixel text-3xl sm:text-5xl md:text-6xl lg:text-7xl text-gray-900 tracking-tighter"
+                  style={{ textShadow: "3px 3px 0px rgba(15, 23, 42, 0.16), 6px 6px 0px rgba(15, 23, 42, 0.06)" }}
+                >
+                  SAHRDAYA
+                </h2>
+              </div>
             </div>
           </div>
 
