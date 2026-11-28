@@ -18,9 +18,10 @@ import { useHydratedReducedMotion } from "@/lib/use-hydrated-reduced-motion";
    carries the stepped text shadow intact and each line costs one compositor
    transform.
 
-   Timing, whole sequence under 0.8s (the framer-motion original finished
-   past 3.1s): wordmark lines 0.42s starting at 0 and 0.07s, the rules draw
-   from 0.2s, the three words settle from 0.24s in 60ms steps. */
+   Timing, whole sequence under 0.75s (the framer-motion original finished
+   past 3.1s): wordmark lines 0.46s starting at 0 and 0.07s, the rules draw
+   from 0.18s, the three words settle from 0.24s in 60ms steps and the last
+   one lands at 0.74s. */
 
 /** The branch line, in reading order. */
 const TAGLINE = ["INNOVATE", "CONNECT", "INSPIRE"] as const;
@@ -43,8 +44,8 @@ export const Hero: React.FC = () => {
       <div className="w-full h-full flex flex-col items-center justify-center relative">
         <div className="text-center transform translate-y-[-10%]" data-testid="hero-identity">
           {/* Main title. The headings themselves are static and opaque; the
-              mask is what hides them for the first 0.4s of the stylesheet's
-              life, and its padding is the room the stepped shadow needs. */}
+              mask is what hides them for the first 0.46s of the stylesheet's
+              life, and its clip margin is the room the stepped shadow needs. */}
           <div className="flex flex-col items-center justify-center gap-2 md:gap-4 mb-8">
             <div className="hero-line-mask">
               <h1

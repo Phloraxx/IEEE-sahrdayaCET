@@ -75,11 +75,17 @@ describe("home hero first paint", () => {
     const keyframes = /@keyframes hero-line-rise \{[\s\S]*?\n\}/.exec(css)?.[0] ?? "";
     expect(keyframes).toContain("transform: translate3d(0, 110%, 0)");
     expect(keyframes).not.toContain("opacity");
+    // The mask clips the rise without taking any layout space, and its margin
+    // is what keeps the stepped shadow from being cut at the edge.
+    expect(css).toContain("overflow: clip;");
+    expect(css).toContain("overflow-clip-margin: 10px;");
     // One staged pass, faster than the 3.1s framer-motion original: the
-    // wordmark lands at 0.42s, the words start at 0.24s and finish by ~0.75s.
-    expect(css).toContain("hero-line-rise 420ms");
-    expect(css).toContain("hero-word-in 340ms");
-    expect(css).toContain("hero-rule-draw 440ms");
+    // wordmark lands at 0.46s, the words start at 0.24s and the last one
+    // settles by 0.74s.
+    expect(css).toContain("hero-line-rise 460ms");
+    expect(css).toContain("hero-word-in 380ms");
+    expect(css).toContain("hero-rule-draw 520ms");
+    expect(css).toContain("--hero-ease: cubic-bezier(0.2, 0.65, 0.3, 0.9)");
     expect(hero).toContain("WORD_START = 240");
     expect(hero).toContain("WORD_STEP = 60");
     // Reduced motion shows the final geometry.
